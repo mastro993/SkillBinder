@@ -1,0 +1,6 @@
+.scratch/
+apps/tauri/gen/
+apps/frontend/src/generated/
+apps/frontend/src/routeTree.gen.ts
+node_modules/
+target/

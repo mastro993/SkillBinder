@@ -1,0 +1,110 @@
+mod app;
+mod features;
+mod transport;
+
+use app::state::AppState;
+use tauri::{Manager, WebviewWindow};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SecondInstanceDecision {
+    FocusedExistingWindow,
+    ExitedWithoutFocus,
+}
+
+trait ExistingWindow {
+    fn show_and_focus(&self) -> bool;
+}
+
+impl ExistingWindow for WebviewWindow {
+    fn show_and_focus(&self) -> bool {
+        let _ = self.show();
+        let _ = self.unminimize();
+        self.set_focus().is_ok()
+    }
+}
+
+fn handle_second_instance(window: Option<&dyn ExistingWindow>) -> SecondInstanceDecision {
+    match window {
+        Some(window) if window.show_and_focus() => SecondInstanceDecision::FocusedExistingWindow,
+        _ => SecondInstanceDecision::ExitedWithoutFocus,
+    }
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let application = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(
+            |app, _arguments, _working_directory| {
+                let window = app.get_webview_window("main");
+                if handle_second_instance(
+                    window.as_ref().map(|window| window as &dyn ExistingWindow),
+                ) == SecondInstanceDecision::ExitedWithoutFocus
+                {
+                    eprintln!(
+                        "Second SkillBinder instance exited; main window could not be focused"
+                    );
+                }
+            },
+        ))
+        .setup(|app| {
+            app.manage(AppState::from_app(app.handle())?);
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            features::bootstrap::system_bootstrap,
+            features::bootstrap::git_environment_verify,
+            features::onboarding::onboarding_progress_update,
+            features::onboarding::onboarding_complete_local,
+        ])
+        .build(tauri::generate_context!())
+        .expect("failed to build SkillBinder");
+
+    application.run(|_, _| {});
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_icon_contains_complete_rgba_pixels() {
+        let bytes = include_bytes!("../icons/icon.png");
+        let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+        let mut reader = decoder
+            .read_info()
+            .expect("bundled icon must be a valid PNG");
+        let mut pixels = Vec::<u8>::new();
+        while let Some(row) = reader.next_row().expect("bundled icon must decode") {
+            pixels.extend_from_slice(row.data());
+        }
+
+        assert_eq!(reader.info().width, 32);
+        assert_eq!(reader.info().height, 32);
+        assert_eq!(reader.output_color_type().0, png::ColorType::Rgba);
+        assert_eq!(pixels.len(), 32 * 32 * 4);
+    }
+
+    struct FakeWindow(bool);
+
+    impl ExistingWindow for FakeWindow {
+        fn show_and_focus(&self) -> bool {
+            self.0
+        }
+    }
+
+    #[test]
+    fn second_instance_focuses_or_exits_clearly() {
+        assert_eq!(
+            handle_second_instance(Some(&FakeWindow(true))),
+            SecondInstanceDecision::FocusedExistingWindow
+        );
+        assert_eq!(
+            handle_second_instance(Some(&FakeWindow(false))),
+            SecondInstanceDecision::ExitedWithoutFocus
+        );
+        assert_eq!(
+            handle_second_instance(None),
+            SecondInstanceDecision::ExitedWithoutFocus
+        );
+    }
+}

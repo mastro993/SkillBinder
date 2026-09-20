@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-system-bootstrap"
+description = "Read the bounded application bootstrap state"
+commands.allow = ["system_bootstrap"]
+
+[[permission]]
+identifier = "allow-git-environment-verify"
+description = "Re-run the bounded system Git prerequisite check"
+commands.allow = ["git_environment_verify"]
+
+[[permission]]
+identifier = "allow-onboarding-progress-update"
+description = "Persist the current non-secret onboarding step"
+commands.allow = ["onboarding_progress_update"]
+
+[[permission]]
+identifier = "allow-onboarding-complete-local"
+description = "Create the local SkillBinder library and finish onboarding"
+commands.allow = ["onboarding_complete_local"]
