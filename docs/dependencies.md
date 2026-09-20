@@ -16,6 +16,9 @@ Pinned foundation baseline, verified 2026-09-20:
 | Tailwind CSS            | 4.3.3                               |
 | SQLite crate            | rusqlite 0.40.2 with bundled SQLite |
 | Generated IPC           | ts-rs 12.0.1                        |
+| SHA-256                 | sha2 0.10.9                         |
+| YAML parser             | yaml-rust2 0.10.4                   |
+| Unicode normalization   | unicode-normalization 0.1.24        |
 | Supported Git           | 2.39.0 or newer                     |
 
 Dependencies are locked by `pnpm-lock.yaml` and `Cargo.lock`. Runtime diagnostics must report the compiled SQLite version before WAL is enabled; this scaffold intentionally uses rollback journaling with `synchronous=FULL`.
