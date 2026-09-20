@@ -1,6 +1,13 @@
 import type { ImportPlanResponse } from "@/generated";
 import { Button } from "@/components/ui/button";
 
+const validationLabels = {
+  valid: "Valid",
+  warning: "Warning",
+  invalid: "Invalid",
+  blocked: "Blocked",
+};
+
 export function ImportPreviewDialog({
   plan,
   applying,
@@ -47,13 +54,20 @@ export function ImportPreviewDialog({
               <div>
                 <strong>{item.slug}</strong>
                 <span>{item.displayPath}</span>
+                <span>
+                  Destination skill: <code>{item.skillId}</code>
+                </span>
               </div>
               <span>
-                {item.outcome.kind === "attachObservation"
-                  ? "Attach source"
-                  : "Create skill"}{" "}
-                · {item.fileCount} files · {item.totalBytes} bytes
+                {duplicateLabel(item)} · {item.fileCount} files ·{" "}
+                {item.totalBytes} bytes
               </span>
+              <span>
+                Validation: {validationLabels[item.validation.status]}
+              </span>
+              {item.validation.messages.map((message) => (
+                <small key={message.code}>{message.message}</small>
+              ))}
               {item.exclusions.length ? (
                 <small>Warnings: {item.exclusions.join("; ")}</small>
               ) : null}
@@ -71,4 +85,11 @@ export function ImportPreviewDialog({
       </section>
     </div>
   );
+}
+
+function duplicateLabel(item: ImportPlanResponse["items"][number]) {
+  if (item.duplicate.kind === "identical")
+    return "Attach source to the existing skill";
+  if (item.duplicate.kind === "slugInUse") return "Slug already in use";
+  return "New skill";
 }

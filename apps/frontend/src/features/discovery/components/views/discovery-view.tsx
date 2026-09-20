@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import type { ImportPlanResponse } from "@/generated";
@@ -19,6 +19,12 @@ export function DiscoveryView() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allowInvalidSkills, setAllowInvalidSkills] = useState(false);
   const [plan, setPlan] = useState<ImportPlanResponse | null>(null);
+
+  useEffect(() => {
+    setSelected(new Set());
+    setAllowInvalidSkills(false);
+    setPlan(null);
+  }, [scan.dataUpdatedAt]);
   const prepare = useMutation({
     mutationFn: ({
       candidateIds,
@@ -64,6 +70,12 @@ export function DiscoveryView() {
   }
 
   const data = scan.data;
+  const visibleCandidateIds = new Set(
+    data.candidates.map(({ candidateId }) => candidateId),
+  );
+  const visibleSelected = new Set(
+    [...selected].filter((candidateId) => visibleCandidateIds.has(candidateId)),
+  );
   const agentLabels = Object.fromEntries(
     data.locations.flatMap((location) =>
       location.agentIds.map((id, index) => [
@@ -72,10 +84,10 @@ export function DiscoveryView() {
       ]),
     ),
   );
-  const counts = selectionCounts(data.candidates, selected);
+  const counts = selectionCounts(data.candidates, visibleSelected);
   const needsConfirmation = requiresInvalidConfirmation(
     data.candidates,
-    selected,
+    visibleSelected,
   );
   const importError = prepare.error ?? apply.error;
   const success = apply.isSuccess;
@@ -178,8 +190,10 @@ export function DiscoveryView() {
             </div>
             <DiscoveryCandidateTable
               candidates={data.candidates}
-              selected={selected}
-              onToggle={(id) => setSelected(toggleSelection(selected, id))}
+              selected={visibleSelected}
+              onToggle={(id) =>
+                setSelected(toggleSelection(visibleSelected, id))
+              }
               agentLabels={agentLabels}
             />
             <div className="selection-actions">
@@ -198,7 +212,7 @@ export function DiscoveryView() {
               <Button
                 onClick={() =>
                   prepare.mutate({
-                    candidateIds: [...selected],
+                    candidateIds: [...visibleSelected],
                     allowInvalid: allowInvalidSkills,
                   })
                 }

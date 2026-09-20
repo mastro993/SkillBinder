@@ -92,6 +92,51 @@ describe("discovery view", () => {
       expect(prepare).toHaveBeenCalledWith(["invalid"], true),
     );
   });
+  it("clears selection and invalid confirmation after rescan", async () => {
+    const discoveryScan = vi
+      .fn()
+      .mockResolvedValueOnce(scan)
+      .mockResolvedValueOnce({
+        ...scan,
+        candidates: [
+          {
+            ...scan.candidates[0],
+            candidateId: "fresh",
+            slug: "fresh",
+            name: "Fresh",
+          },
+        ],
+      });
+    const prepare = vi.fn().mockResolvedValue({
+      planId: "plan",
+      expiresAt: new Date().toISOString(),
+      libraryRevision: null,
+      items: [],
+    });
+    renderView({ discoveryScan, importsPrepare: prepare });
+    await screen.findByRole("checkbox", { name: "Select Invalid" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Invalid" }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /I understand invalid/i }),
+    );
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Rescan" }));
+    await screen.findByRole("checkbox", { name: "Select Fresh" });
+    await waitFor(() =>
+      expect(screen.getByText("0 selected")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Fresh" }));
+    expect(
+      screen.getByRole("checkbox", { name: /I understand invalid/i }),
+    ).not.toBeChecked();
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /I understand invalid/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Review import" }));
+    await waitFor(() => expect(prepare).toHaveBeenCalledWith(["fresh"], true));
+    expect(prepare).not.toHaveBeenCalledWith(["invalid"], true);
+  });
   it("shows plan failure messaging", async () => {
     renderView({
       discoveryScan: vi.fn().mockResolvedValue({
