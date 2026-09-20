@@ -4,7 +4,8 @@ import type { OnboardingStep } from "@/generated";
 import { bootstrapQuery } from "@/app/bootstrap-query";
 import { queryClient } from "@/app/query";
 import { Button } from "@/components/ui/button";
-import { getDesktopClient, NativeCommandError } from "@/native/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { getDesktopClient } from "@/native/client";
 import {
   OnboardingStepContent,
   onboardingSteps,
@@ -29,7 +30,7 @@ export function OnboardingView() {
       await queryClient.invalidateQueries({
         queryKey: bootstrapQuery.queryKey,
       });
-      await navigate({ to: "/library" });
+      await navigate({ to: "/discovery" });
     },
   });
 
@@ -39,7 +40,7 @@ export function OnboardingView() {
     return (
       <CenteredMessage
         title="SkillBinder could not start setup"
-        detail={errorMessage(bootstrap.error)}
+        detail={bootstrap.error.message}
         action={<Button onClick={() => bootstrap.refetch()}>Retry</Button>}
       />
     );
@@ -47,7 +48,7 @@ export function OnboardingView() {
 
   const data = bootstrap.data;
   if (data.onboarding.completed) {
-    return <Navigate to="/library" replace />;
+    return <Navigate to="/discovery" replace />;
   }
 
   const current = data.onboarding.step;
@@ -57,81 +58,83 @@ export function OnboardingView() {
   const error = update.error ?? complete.error;
 
   return (
-    <main className="onboarding-shell">
-      <section className="onboarding-card">
-        <header className="onboarding-header">
-          <div>
-            <p className="eyebrow">SkillBinder setup</p>
-            <h1>{stepTitle(visibleStep)}</h1>
-            <p className="lead">{stepSubtitle(visibleStep)}</p>
-          </div>
-          <div className="step-count">
-            {onboardingSteps.indexOf(visibleStep) + 1} /{" "}
-            {onboardingSteps.length}
-          </div>
-        </header>
-        <div
-          className="progress-track"
-          aria-label={`Setup step ${onboardingSteps.indexOf(visibleStep) + 1} of ${onboardingSteps.length}`}
-        >
+    <ScrollArea className="onboarding-shell">
+      <main className="onboarding-frame">
+        <section className="onboarding-card">
+          <header className="onboarding-header">
+            <div>
+              <p className="eyebrow">SkillBinder setup</p>
+              <h1>{stepTitle(visibleStep)}</h1>
+              <p className="lead">{stepSubtitle(visibleStep)}</p>
+            </div>
+            <div className="step-count">
+              {onboardingSteps.indexOf(visibleStep) + 1} /{" "}
+              {onboardingSteps.length}
+            </div>
+          </header>
           <div
-            style={{
-              width: `${((onboardingSteps.indexOf(visibleStep) + 1) / onboardingSteps.length) * 100}%`,
-            }}
-          />
-        </div>
+            className="progress-track"
+            aria-label={`Setup step ${onboardingSteps.indexOf(visibleStep) + 1} of ${onboardingSteps.length}`}
+          >
+            <div
+              style={{
+                "--progress": `${((onboardingSteps.indexOf(visibleStep) + 1) / onboardingSteps.length) * 100}%`,
+              }}
+            />
+          </div>
 
-        <div className="onboarding-content">
-          <OnboardingStepContent
-            step={visibleStep}
-            data={data}
-            onRetry={() => bootstrap.refetch()}
-            pending={bootstrap.isFetching}
-          />
-        </div>
+          <div className="onboarding-content">
+            <OnboardingStepContent
+              step={visibleStep}
+              data={data}
+              onRetry={() => bootstrap.refetch()}
+              pending={bootstrap.isFetching}
+            />
+          </div>
 
-        {error ? (
-          <p className="inline-error" role="alert">
-            {errorMessage(error)}
-          </p>
-        ) : null}
-        <footer className="onboarding-actions">
-          {visibleStep !== "prerequisites" ? (
-            <Button
-              variant="ghost"
-              onClick={() => update.mutate(previous(current))}
-              disabled={update.isPending || complete.isPending}
-            >
-              Back
-            </Button>
-          ) : (
-            <span />
-          )}
-          {visibleStep === "ready" ? (
-            <Button
-              onClick={() => complete.mutate()}
-              disabled={complete.isPending}
-            >
-              {complete.isPending
-                ? "Creating library…"
-                : "Create local library"}
-            </Button>
-          ) : (
-            <Button
-              onClick={() => update.mutate(next(current))}
-              disabled={
-                (visibleStep === "prerequisites" && !canContinue) ||
-                update.isPending
-              }
-            >
-              {visibleStep === "syncChoice"
-                ? "Continue local-only"
-                : "Continue"}
-            </Button>
-          )}
-        </footer>
-      </section>
-    </main>
+          {error ? (
+            <p className="inline-error" role="alert">
+              {error.message}
+            </p>
+          ) : null}
+          <footer className="onboarding-actions">
+            {visibleStep !== "prerequisites" ? (
+              <Button
+                variant="ghost"
+                onClick={() => update.mutate(previous(current))}
+                disabled={update.isPending || complete.isPending}
+              >
+                Back
+              </Button>
+            ) : (
+              <span />
+            )}
+            {visibleStep === "ready" ? (
+              <Button
+                onClick={() => complete.mutate()}
+                disabled={complete.isPending}
+              >
+                {complete.isPending
+                  ? "Creating library…"
+                  : "Create local library"}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => update.mutate(next(current))}
+                disabled={
+                  (visibleStep === "prerequisites" && !canContinue) ||
+                  update.isPending
+                }
+              >
+                {visibleStep === "syncChoice"
+                  ? "Continue local-only"
+                  : "Continue"}
+              </Button>
+            )}
+          </footer>
+        </section>
+      </main>
+    </ScrollArea>
   );
 }
 
@@ -161,10 +164,4 @@ function next(step: OnboardingStep): OnboardingStep {
 
 function previous(step: OnboardingStep): OnboardingStep {
   return onboardingSteps[Math.max(onboardingSteps.indexOf(step) - 1, 0)];
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof NativeCommandError || error instanceof Error
-    ? error.message
-    : "Unexpected setup error.";
 }

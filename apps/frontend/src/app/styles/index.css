@@ -48,12 +48,15 @@ a:focus-visible {
   font-weight: 700;
 }
 .onboarding-shell {
-  min-height: 100vh;
+  height: 100vh;
+  background:
+    radial-gradient(circle at 15% 0%, #e0e9d8 0, transparent 36%), #f2f3ed;
+}
+.onboarding-frame {
+  min-height: 100%;
   display: grid;
   place-items: center;
   padding: 44px;
-  background:
-    radial-gradient(circle at 15% 0%, #e0e9d8 0, transparent 36%), #f2f3ed;
 }
 .onboarding-card {
   width: min(820px, 100%);
@@ -114,6 +117,7 @@ p {
   background: #eceee9;
 }
 .progress-track div {
+  width: var(--progress);
   height: 100%;
   border-radius: 999px;
   background: #709653;
@@ -324,13 +328,14 @@ p {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 232px 1fr;
 }
 .sidebar {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   padding: 28px 18px 20px;
   border-right: 1px solid #daddd5;
   background: #eceee8;
@@ -381,6 +386,52 @@ p {
 .main-content {
   min-width: 0;
   background: #f8f8f5;
+}
+.main-scroll-content {
+  display: block;
+  min-width: 0;
+}
+.scroll-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.scroll-area-viewport {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+/* Base UI sizes the content box to fit its content, which lets wide content inside one area
+   stretch every ancestor. Pinning it to the viewport keeps each area's overflow local. */
+.scroll-area-content {
+  min-width: 0 !important;
+}
+.scroll-area-scrollbar {
+  display: flex;
+  touch-action: none;
+  user-select: none;
+  padding: 2px;
+}
+.scroll-area-vertical {
+  width: 12px;
+  height: 100%;
+  flex-direction: column;
+}
+.scroll-area-horizontal {
+  height: 12px;
+  width: 100%;
+  flex-direction: row;
+}
+.scroll-area-thumb {
+  position: relative;
+  border-radius: 999px;
+  background: #c2c9bd;
+}
+.scroll-area-corner {
+  background: transparent;
 }
 .page {
   padding: 46px 52px;
@@ -445,6 +496,7 @@ p {
   font-weight: 700;
 }
 .page-status {
+  display: block;
   padding: 48px;
   color: #687169;
 }
@@ -452,8 +504,304 @@ p {
   color: #9d3f35;
 }
 
+.discovery-disclosure,
+.warning-panel,
+.library-dirty-line {
+  margin-bottom: 20px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  background: #f0f4eb;
+  color: #4d6248;
+  font-size: 13px;
+}
+.warning-panel {
+  background: #fff5df;
+  color: #76541e;
+}
+.warning-panel p {
+  margin: 0;
+}
+.warning-panel p + p {
+  margin-top: 5px;
+}
+.locations-panel,
+.candidate-panel {
+  margin-bottom: 24px;
+  border: 1px solid #dde0d8;
+  border-radius: 15px;
+  background: white;
+}
+.section-heading,
+.selection-toolbar,
+.selection-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.section-heading {
+  padding: 19px 20px;
+  border-bottom: 1px solid #eceee9;
+}
+.section-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.section-heading p,
+.section-heading > span,
+.selection-toolbar > span {
+  margin: 4px 0 0;
+  color: #737c75;
+  font-size: 12px;
+}
+.location-list,
+.plan-list,
+.source-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.location-list li,
+.plan-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 15px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #eceee9;
+}
+.location-list li:last-child,
+.plan-list li:last-child {
+  border-bottom: 0;
+}
+.location-list li > div,
+.plan-list li > div {
+  display: grid;
+  gap: 3px;
+}
+.location-list span,
+.location-list small,
+.plan-list span,
+.plan-list small {
+  color: #737c75;
+  font-size: 12px;
+}
+.location-state,
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: start;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+.location-state.scanned,
+.status-pill.valid {
+  background: #e5f0df;
+  color: #4e743c;
+}
+.location-state.missing,
+.status-pill.warning {
+  background: #fff0cf;
+  color: #76541e;
+}
+.location-state.unreadable,
+.status-pill.blocked,
+.status-pill.invalid {
+  background: #ffe6e2;
+  color: #943e32;
+}
+.selection-toolbar,
+.selection-actions {
+  padding: 12px 20px;
+  border-bottom: 1px solid #eceee9;
+}
+.selection-actions {
+  justify-content: flex-end;
+  border-bottom: 0;
+}
+.confirm-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  color: #76541e;
+  font-size: 13px;
+}
+.discovery-table-wrap {
+  max-width: 100%;
+}
+.discovery-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.discovery-table th,
+.discovery-table td {
+  padding: 13px 15px;
+  border-bottom: 1px solid #eceee9;
+  text-align: left;
+  vertical-align: top;
+}
+.discovery-table th {
+  color: #667069;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.discovery-table tr:last-child td {
+  border-bottom: 0;
+}
+.discovery-table .row-blocked {
+  background: #fffaf8;
+}
+.discovery-table td:first-child,
+.discovery-table th:first-child {
+  width: 62px;
+  text-align: center;
+}
+.table-secondary,
+.table-path {
+  display: block;
+  margin-top: 4px;
+  color: #737c75;
+  font-size: 12px;
+}
+.table-path {
+  max-width: 250px;
+  overflow-wrap: anywhere;
+}
+.warning-text {
+  color: #76541e;
+}
+.status-announcer {
+  display: block;
+  min-height: 20px;
+  color: #4e743c;
+  font-size: 13px;
+}
+.success-line {
+  color: #4e743c;
+  font-weight: 700;
+}
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 29, 22, 0.45);
+}
+.dialog {
+  position: static;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  width: min(680px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border: 1px solid #d9ddd4;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 22px 70px rgba(20, 30, 22, 0.25);
+}
+.dialog-header,
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 20px 23px;
+}
+.dialog-header {
+  border-bottom: 1px solid #eceee9;
+}
+.dialog-header h2 {
+  margin: 0;
+}
+.dialog-close {
+  border: 0;
+  background: transparent;
+  color: #647067;
+  font-size: 26px;
+  cursor: pointer;
+}
+.dialog-copy {
+  margin: 0;
+  padding: 18px 23px 0;
+  color: #687169;
+  line-height: 1.5;
+}
+.plan-list {
+  margin: 14px 23px;
+  border: 1px solid #e0e3dc;
+  border-radius: 10px;
+}
+.plan-list li > span,
+.plan-list li > small {
+  grid-column: 1 / -1;
+}
+.dialog-actions {
+  justify-content: flex-end;
+  border-top: 1px solid #eceee9;
+}
+.library-dirty-line {
+  color: #76541e;
+}
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.library-card {
+  padding: 20px;
+  border: 1px solid #dde0d8;
+  border-radius: 15px;
+  background: white;
+}
+.library-card-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.library-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.library-description {
+  min-height: 42px;
+  margin: 16px 0 8px;
+  color: #626d65;
+  line-height: 1.5;
+}
+.library-meta {
+  color: #737c75;
+  font-size: 12px;
+}
+.source-list {
+  margin-top: 16px;
+  border-top: 1px solid #eceee9;
+}
+.source-list li {
+  display: grid;
+  gap: 3px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eceee9;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.source-list small {
+  color: #737c75;
+}
+.error-panel {
+  color: #943e32;
+}
+
 @media (max-width: 760px) {
-  .onboarding-shell {
+  .onboarding-frame {
     padding: 16px;
   }
   .onboarding-header,
@@ -523,6 +871,9 @@ p {
   .sidebar {
     background: #1b211c;
     border-color: #323a33;
+  }
+  .scroll-area-thumb {
+    background: #4a544c;
   }
   .nav-link {
     color: #aab3ac;

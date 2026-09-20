@@ -55,6 +55,10 @@ pub fn run() {
             features::bootstrap::git_environment_verify,
             features::onboarding::onboarding_progress_update,
             features::onboarding::onboarding_complete_local,
+            features::discovery::discovery_scan,
+            features::imports::imports_prepare,
+            features::imports::imports_apply,
+            features::library::library_list,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build SkillBinder");

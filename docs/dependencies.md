@@ -12,10 +12,15 @@ Pinned foundation baseline, verified 2026-09-20:
 | Vite                    | 8.3.0                               |
 | React                   | 19.3.0                              |
 | TypeScript              | 6.0.3                               |
+| Lint / format           | oxlint 1.83.0 / oxfmt 0.68.0        |
 | TanStack Router / Query | 1.170.38 / 5.103.1                  |
 | Tailwind CSS            | 4.3.3                               |
+| Scroll area primitive   | @base-ui/react 1.8.0                |
 | SQLite crate            | rusqlite 0.40.2 with bundled SQLite |
 | Generated IPC           | ts-rs 12.0.1                        |
+| SHA-256                 | sha2 0.10.9                         |
+| YAML parser             | yaml-rust2 0.10.4                   |
+| Unicode normalization   | unicode-normalization 0.1.24        |
 | Supported Git           | 2.39.0 or newer                     |
 
 Dependencies are locked by `pnpm-lock.yaml` and `Cargo.lock`. Runtime diagnostics must report the compiled SQLite version before WAL is enabled; this scaffold intentionally uses rollback journaling with `synchronous=FULL`.

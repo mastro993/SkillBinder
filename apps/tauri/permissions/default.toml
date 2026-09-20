@@ -17,3 +17,23 @@ commands.allow = ["onboarding_progress_update"]
 identifier = "allow-onboarding-complete-local"
 description = "Create the local SkillBinder library and finish onboarding"
 commands.allow = ["onboarding_complete_local"]
+
+[[permission]]
+identifier = "allow-discovery-scan"
+description = "Inspect registered global skill locations"
+commands.allow = ["discovery_scan"]
+
+[[permission]]
+identifier = "allow-imports-prepare"
+description = "Prepare selected discovered skill imports"
+commands.allow = ["imports_prepare"]
+
+[[permission]]
+identifier = "allow-imports-apply"
+description = "Apply a prepared skill import"
+commands.allow = ["imports_apply"]
+
+[[permission]]
+identifier = "allow-library-list"
+description = "List managed library skills"
+commands.allow = ["library_list"]

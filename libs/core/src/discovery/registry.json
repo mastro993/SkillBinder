@@ -1,0 +1,571 @@
+{
+  "registryVersion": 1,
+  "upstream": {
+    "repository": "vercel-labs/skills",
+    "commit": "7407f3893ad4dceab546ac002c3ef806e4000c73",
+    "files": {
+      "src/agents.ts": "8902f56a121ce4b1a800b3aa04d3f83b7baeaf32e1abf441c0b8eabb3f8f89a5",
+      "src/types.ts": "0f444746b0ef0da541e23184f401eb0da81b3abad217c934e89cc54970c84d9c"
+    },
+    "retrievedAt": "2026-09-20"
+  },
+  "agents": [
+    {
+      "id": "aider-desk",
+      "displayName": "AiderDesk",
+      "projectSkillsDir": ".aider-desk/skills",
+      "globalRoots": ["~/.aider-desk/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "amp",
+      "displayName": "Amp",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["${XDG_CONFIG_HOME:-~/.config}/agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "antigravity",
+      "displayName": "Antigravity",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.gemini/antigravity/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "antigravity-cli",
+      "displayName": "Antigravity CLI",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.gemini/antigravity-cli/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "astrbot",
+      "displayName": "AstrBot",
+      "projectSkillsDir": "data/skills",
+      "globalRoots": ["~/.astrbot/data/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "autohand-code",
+      "displayName": "Autohand Code CLI",
+      "projectSkillsDir": ".autohand/skills",
+      "globalRoots": ["${AUTOHAND_HOME:-~/.autohand}/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "augment",
+      "displayName": "Augment",
+      "projectSkillsDir": ".augment/skills",
+      "globalRoots": ["~/.augment/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "bob",
+      "displayName": "IBM Bob",
+      "projectSkillsDir": ".bob/skills",
+      "globalRoots": ["~/.bob/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "claude-code",
+      "displayName": "Claude Code",
+      "projectSkillsDir": ".claude/skills",
+      "globalRoots": ["${CLAUDE_CONFIG_DIR:-~/.claude}/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "openclaw",
+      "displayName": "OpenClaw",
+      "projectSkillsDir": "skills",
+      "globalRoots": [
+        "~/.openclaw/skills",
+        "~/.clawdbot/skills",
+        "~/.moltbot/skills"
+      ],
+      "status": "documented"
+    },
+    {
+      "id": "cline",
+      "displayName": "Cline",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "codearts-agent",
+      "displayName": "CodeArts Agent",
+      "projectSkillsDir": ".codeartsdoer/skills",
+      "globalRoots": ["~/.codeartsdoer/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "codebuddy",
+      "displayName": "CodeBuddy",
+      "projectSkillsDir": ".codebuddy/skills",
+      "globalRoots": ["~/.codebuddy/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "codemaker",
+      "displayName": "Codemaker",
+      "projectSkillsDir": ".codemaker/skills",
+      "globalRoots": ["~/.codemaker/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "codestudio",
+      "displayName": "Code Studio",
+      "projectSkillsDir": ".codestudio/skills",
+      "globalRoots": ["~/.codestudio/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "codex",
+      "displayName": "Codex",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["${CODEX_HOME:-~/.codex}/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "command-code",
+      "displayName": "Command Code",
+      "projectSkillsDir": ".commandcode/skills",
+      "globalRoots": ["~/.commandcode/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "continue",
+      "displayName": "Continue",
+      "projectSkillsDir": ".continue/skills",
+      "globalRoots": ["~/.continue/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "cortex",
+      "displayName": "Cortex Code",
+      "projectSkillsDir": ".cortex/skills",
+      "globalRoots": ["~/.snowflake/cortex/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "crush",
+      "displayName": "Crush",
+      "projectSkillsDir": ".crush/skills",
+      "globalRoots": ["~/.config/crush/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "cursor",
+      "displayName": "Cursor",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.cursor/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "deepagents",
+      "displayName": "Deep Agents",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.deepagents/agent/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "devin",
+      "displayName": "Devin for Terminal",
+      "projectSkillsDir": ".devin/skills",
+      "globalRoots": ["${XDG_CONFIG_HOME:-~/.config}/devin/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "dexto",
+      "displayName": "Dexto",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "droid",
+      "displayName": "Droid",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.factory/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "eve",
+      "displayName": "Eve",
+      "projectSkillsDir": "agent/skills",
+      "globalRoots": [],
+      "status": "documented"
+    },
+    {
+      "id": "firebender",
+      "displayName": "Firebender",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.firebender/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "forgecode",
+      "displayName": "ForgeCode",
+      "projectSkillsDir": ".forge/skills",
+      "globalRoots": ["~/.forge/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "fx",
+      "displayName": "fx",
+      "projectSkillsDir": ".fx/skills",
+      "globalRoots": ["~/.fx/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "gemini-cli",
+      "displayName": "Gemini CLI",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.gemini/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "github-copilot",
+      "displayName": "GitHub Copilot",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.copilot/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "goose",
+      "displayName": "Goose",
+      "projectSkillsDir": ".goose/skills",
+      "globalRoots": ["${XDG_CONFIG_HOME:-~/.config}/goose/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "grok",
+      "displayName": "Grok Build",
+      "projectSkillsDir": ".grok/skills",
+      "globalRoots": ["${GROK_HOME:-~/.grok}/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "hermes-agent",
+      "displayName": "Hermes Agent",
+      "projectSkillsDir": ".hermes/skills",
+      "globalRoots": ["${HERMES_HOME:-~/.hermes}/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "inference-sh",
+      "displayName": "inference.sh",
+      "projectSkillsDir": ".inferencesh/skills",
+      "globalRoots": ["~/.inferencesh/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "iflow-cli",
+      "displayName": "iFlow CLI",
+      "projectSkillsDir": ".iflow/skills",
+      "globalRoots": ["~/.iflow/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "jazz",
+      "displayName": "Jazz",
+      "projectSkillsDir": ".jazz/skills",
+      "globalRoots": ["~/.jazz/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "junie",
+      "displayName": "Junie",
+      "projectSkillsDir": ".junie/skills",
+      "globalRoots": ["~/.junie/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "kilo",
+      "displayName": "Kilo Code",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.kilo/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "kimchi",
+      "displayName": "Kimchi",
+      "projectSkillsDir": ".kimchi/skills",
+      "globalRoots": ["~/.config/kimchi/harness/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "kimi-code-cli",
+      "displayName": "Kimi Code CLI",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "kiro-cli",
+      "displayName": "Kiro CLI",
+      "projectSkillsDir": ".kiro/skills",
+      "globalRoots": ["~/.kiro/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "kode",
+      "displayName": "Kode",
+      "projectSkillsDir": ".kode/skills",
+      "globalRoots": ["~/.kode/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "lingma",
+      "displayName": "Lingma",
+      "projectSkillsDir": ".lingma/skills",
+      "globalRoots": ["~/.lingma/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "loaf",
+      "displayName": "Loaf",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "mcpjam",
+      "displayName": "MCPJam",
+      "projectSkillsDir": ".mcpjam/skills",
+      "globalRoots": ["~/.mcpjam/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "minimax-code",
+      "displayName": "MiniMax Code",
+      "projectSkillsDir": ".minimax/skills",
+      "globalRoots": ["~/.minimax/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "mistral-vibe",
+      "displayName": "Mistral Vibe",
+      "projectSkillsDir": ".vibe/skills",
+      "globalRoots": ["${VIBE_HOME:-~/.vibe}/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "moxby",
+      "displayName": "Moxby",
+      "projectSkillsDir": ".moxby/skills",
+      "globalRoots": ["~/.moxby/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "mux",
+      "displayName": "Mux",
+      "projectSkillsDir": ".mux/skills",
+      "globalRoots": ["~/.mux/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "neovate",
+      "displayName": "Neovate",
+      "projectSkillsDir": ".neovate/skills",
+      "globalRoots": ["~/.neovate/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "opencode",
+      "displayName": "OpenCode",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["${XDG_CONFIG_HOME:-~/.config}/opencode/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "openhands",
+      "displayName": "OpenHands",
+      "projectSkillsDir": ".openhands/skills",
+      "globalRoots": ["~/.openhands/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "ona",
+      "displayName": "Ona",
+      "projectSkillsDir": ".ona/skills",
+      "globalRoots": ["~/.ona/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "pi",
+      "displayName": "Pi",
+      "projectSkillsDir": ".pi/skills",
+      "globalRoots": ["~/.pi/agent/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "posit-assistant",
+      "displayName": "Posit Assistant",
+      "projectSkillsDir": ".posit/assistant/skills",
+      "globalRoots": ["~/.posit/assistant/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "qoder",
+      "displayName": "Qoder",
+      "projectSkillsDir": ".qoder/skills",
+      "globalRoots": ["~/.qoder/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "qoder-cn",
+      "displayName": "Qoder CN",
+      "projectSkillsDir": ".qoder/skills",
+      "globalRoots": ["~/.qoder-cn/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "qwen-code",
+      "displayName": "Qwen Code",
+      "projectSkillsDir": ".qwen/skills",
+      "globalRoots": ["~/.qwen/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "replit",
+      "displayName": "Replit",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["${XDG_CONFIG_HOME:-~/.config}/agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "reasonix",
+      "displayName": "Reasonix",
+      "projectSkillsDir": ".reasonix/skills",
+      "globalRoots": ["~/.reasonix/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "roo",
+      "displayName": "Roo Code",
+      "projectSkillsDir": ".roo/skills",
+      "globalRoots": ["~/.roo/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "rovodev",
+      "displayName": "Rovo Dev",
+      "projectSkillsDir": ".rovodev/skills",
+      "globalRoots": ["~/.rovodev/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "sarvam-code",
+      "displayName": "Sarvam Code",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "tabnine-cli",
+      "displayName": "Tabnine CLI",
+      "projectSkillsDir": ".tabnine/agent/skills",
+      "globalRoots": ["~/.tabnine/agent/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "terramind",
+      "displayName": "Terramind",
+      "projectSkillsDir": ".terramind/skills",
+      "globalRoots": ["~/.terramind/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "tinycloud",
+      "displayName": "Tinycloud",
+      "projectSkillsDir": ".tinycloud/skills",
+      "globalRoots": ["~/.tinycloud/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "trae",
+      "displayName": "Trae",
+      "projectSkillsDir": ".trae/skills",
+      "globalRoots": ["~/.trae/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "trae-cn",
+      "displayName": "Trae CN",
+      "projectSkillsDir": ".trae/skills",
+      "globalRoots": ["~/.trae-cn/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "warp",
+      "displayName": "Warp",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "windsurf",
+      "displayName": "Windsurf",
+      "projectSkillsDir": ".windsurf/skills",
+      "globalRoots": ["~/.codeium/windsurf/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "zed",
+      "displayName": "Zed",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "zcode",
+      "displayName": "ZCode",
+      "projectSkillsDir": ".zcode/skills",
+      "globalRoots": ["~/.zcode/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "zencoder",
+      "displayName": "Zencoder",
+      "projectSkillsDir": ".zencoder/skills",
+      "globalRoots": ["~/.zencoder/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "zenflow",
+      "displayName": "Zenflow",
+      "projectSkillsDir": ".zencoder/skills",
+      "globalRoots": ["~/.zencoder/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "pochi",
+      "displayName": "Pochi",
+      "projectSkillsDir": ".pochi/skills",
+      "globalRoots": ["~/.pochi/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "promptscript",
+      "displayName": "PromptScript",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": [],
+      "status": "documented"
+    },
+    {
+      "id": "adal",
+      "displayName": "AdaL",
+      "projectSkillsDir": ".adal/skills",
+      "globalRoots": ["~/.adal/skills"],
+      "status": "documented"
+    },
+    {
+      "id": "universal",
+      "displayName": "Universal",
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["${XDG_CONFIG_HOME:-~/.config}/agents/skills"],
+      "status": "documented"
+    }
+  ]
+}

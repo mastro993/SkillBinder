@@ -21,6 +21,7 @@ skillbinder-platform = { path = "../../libs/platform" }
 tauri.workspace = true
 tauri-plugin-single-instance = "2.4.5"
 ts-rs.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 png = "0.18.1"

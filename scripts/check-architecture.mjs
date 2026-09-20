@@ -42,7 +42,11 @@ const customPermissions = capability.permissions
   .filter((permission) => !permission.startsWith("core:"))
   .sort();
 const expectedPermissions = [
+  "allow-discovery-scan",
   "allow-git-environment-verify",
+  "allow-imports-apply",
+  "allow-imports-prepare",
+  "allow-library-list",
   "allow-onboarding-complete-local",
   "allow-onboarding-progress-update",
   "allow-system-bootstrap",
@@ -51,6 +55,11 @@ if (customPermissions.join("\n") !== expectedPermissions.join("\n")) {
   throw new Error(
     `Unexpected native command permissions: ${customPermissions.join(", ")}`,
   );
+}
+if (
+  capability.permissions.some((permission) => permission.startsWith("core:"))
+) {
+  throw new Error("Main capability must not grant core permissions");
 }
 if (capability.windows.join("\n") !== "main" || capability.remote) {
   throw new Error(

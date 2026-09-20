@@ -44,7 +44,7 @@ async function dev() {
 }
 
 async function build() {
-  await run("node", ["tooling/contracts.mjs", "generate"]);
+  await run("node", ["scripts/contracts.mjs", "generate"]);
   await run("pnpm", ["--filter", "@skillbinder/frontend", "build"]);
   await run("pnpm", ["tauri", "build", "--no-bundle"], { cwd: "apps/tauri" });
 }

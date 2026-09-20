@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import { onboardingProgressSchema, parseCommandResult } from "./contracts";
 
 describe("native response validation", () => {
@@ -11,6 +12,6 @@ describe("native response validation", () => {
         },
         onboardingProgressSchema,
       ),
-    ).toThrow();
+    ).toThrow(ZodError);
   });
 });

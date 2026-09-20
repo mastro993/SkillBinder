@@ -5,7 +5,7 @@ export const Route = createFileRoute("/")({
   beforeLoad: async ({ context }) => {
     const bootstrap = await context.queryClient.ensureQueryData(bootstrapQuery);
     throw redirect({
-      to: bootstrap.onboarding.completed ? "/library" : "/onboarding",
+      to: bootstrap.onboarding.completed ? "/discovery" : "/onboarding",
     });
   },
 });
