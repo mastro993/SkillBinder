@@ -8,6 +8,10 @@
     "allow-system-bootstrap",
     "allow-git-environment-verify",
     "allow-onboarding-progress-update",
-    "allow-onboarding-complete-local"
+    "allow-onboarding-complete-local",
+    "allow-discovery-scan",
+    "allow-imports-prepare",
+    "allow-imports-apply",
+    "allow-library-list"
   ]
 }

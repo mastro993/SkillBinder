@@ -42,7 +42,11 @@ const customPermissions = capability.permissions
   .filter((permission) => !permission.startsWith("core:"))
   .sort();
 const expectedPermissions = [
+  "allow-discovery-scan",
   "allow-git-environment-verify",
+  "allow-imports-apply",
+  "allow-imports-prepare",
+  "allow-library-list",
   "allow-onboarding-complete-local",
   "allow-onboarding-progress-update",
   "allow-system-bootstrap",
