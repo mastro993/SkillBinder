@@ -223,7 +223,7 @@ These choices implement the accepted stack. Pin exact compatible versions during
 | UI                 | React and TypeScript in strict mode, Vite                                                                                                                                    |
 | Routing            | TanStack Router; file-based route entries with hash history for local bundled-frontend navigation                                                                            |
 | Query state        | TanStack Query; local IPC queries use offline-capable settings                                                                                                               |
-| Styling            | Tailwind CSS and shadcn/ui, with one consistent primitive base; use the Radix-based setup for the initial scaffold                                                           |
+| Styling            | Tailwind CSS and shadcn/ui, with one consistent primitive base; use the Base UI-based setup                                                                                  |
 | UI primitives      | App-owned shadcn components in `apps/frontend/src/components/ui`; no feature logic or IPC access                                                                             |
 | Custom UI          | Feature-specific components in `apps/frontend/src/features/{feature}/components`; shared custom components in `apps/frontend/src/components`; no shared UI workspace package |
 | Editor             | CodeMirror 6, plain text and Markdown first; lazy-load additional language support                                                                                           |

@@ -15,7 +15,7 @@ Pinned foundation baseline, verified 2026-09-20:
 | Lint / format           | oxlint 1.83.0 / oxfmt 0.68.0        |
 | TanStack Router / Query | 1.170.38 / 5.103.1                  |
 | Tailwind CSS            | 4.3.3                               |
-| Scroll area primitive   | @radix-ui/react-scroll-area 1.2.18  |
+| Scroll area primitive   | @base-ui/react 1.8.0                |
 | SQLite crate            | rusqlite 0.40.2 with bundled SQLite |
 | Generated IPC           | ts-rs 12.0.1                        |
 | SHA-256                 | sha2 0.10.9                         |

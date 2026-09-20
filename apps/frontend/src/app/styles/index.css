@@ -404,10 +404,9 @@ p {
   height: 100%;
   border-radius: inherit;
 }
-/* Radix sizes the viewport content as a table, which lets wide content inside one area stretch
-   every ancestor. Ordinary block layout keeps each area's overflow local. */
-.scroll-area > [data-radix-scroll-area-viewport] > div {
-  display: block !important;
+/* Base UI sizes the content box to fit its content, which lets wide content inside one area
+   stretch every ancestor. Pinning it to the viewport keeps each area's overflow local. */
+.scroll-area-content {
   min-width: 0 !important;
 }
 .scroll-area-scrollbar {

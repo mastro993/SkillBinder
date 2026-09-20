@@ -3,7 +3,7 @@ import {
   type ComponentPropsWithoutRef,
   type ElementRef,
 } from "react";
-import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
+import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 import { cn } from "./utils";
 
 type ScrollAreaProps = ComponentPropsWithoutRef<
@@ -13,15 +13,16 @@ type ScrollAreaProps = ComponentPropsWithoutRef<
 export const ScrollArea = forwardRef<
   ElementRef<typeof ScrollAreaPrimitive.Root>,
   ScrollAreaProps
->(({ className, children, type = "auto", ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
-    type={type}
     className={cn("scroll-area", className)}
     {...props}
   >
     <ScrollAreaPrimitive.Viewport className="scroll-area-viewport">
-      {children}
+      <ScrollAreaPrimitive.Content className="scroll-area-content">
+        {children}
+      </ScrollAreaPrimitive.Content>
     </ScrollAreaPrimitive.Viewport>
     <ScrollBar />
     <ScrollBar orientation="horizontal" />
@@ -31,14 +32,14 @@ export const ScrollArea = forwardRef<
 ScrollArea.displayName = "ScrollArea";
 
 type ScrollBarProps = ComponentPropsWithoutRef<
-  typeof ScrollAreaPrimitive.ScrollAreaScrollbar
+  typeof ScrollAreaPrimitive.Scrollbar
 >;
 
 export const ScrollBar = forwardRef<
-  ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
+  ElementRef<typeof ScrollAreaPrimitive.Scrollbar>,
   ScrollBarProps
 >(({ className, orientation = "vertical", ...props }, ref) => (
-  <ScrollAreaPrimitive.ScrollAreaScrollbar
+  <ScrollAreaPrimitive.Scrollbar
     ref={ref}
     orientation={orientation}
     className={cn(
@@ -50,7 +51,7 @@ export const ScrollBar = forwardRef<
     )}
     {...props}
   >
-    <ScrollAreaPrimitive.ScrollAreaThumb className="scroll-area-thumb" />
-  </ScrollAreaPrimitive.ScrollAreaScrollbar>
+    <ScrollAreaPrimitive.Thumb className="scroll-area-thumb" />
+  </ScrollAreaPrimitive.Scrollbar>
 ));
 ScrollBar.displayName = "ScrollBar";
