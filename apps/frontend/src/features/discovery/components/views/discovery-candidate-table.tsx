@@ -1,4 +1,5 @@
 import type { DiscoveryCandidate } from "@/generated";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const statusLabels = {
   valid: "Valid",
@@ -19,7 +20,7 @@ export function DiscoveryCandidateTable({
   agentLabels: Record<string, string>;
 }) {
   return (
-    <div className="discovery-table-wrap">
+    <ScrollArea className="discovery-table-wrap">
       <table className="discovery-table">
         <caption className="sr-only">
           Discovered skills available for import
@@ -99,7 +100,7 @@ export function DiscoveryCandidateTable({
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollArea>
   );
 }
 
