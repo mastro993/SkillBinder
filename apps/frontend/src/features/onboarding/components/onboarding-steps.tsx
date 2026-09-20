@@ -100,7 +100,7 @@ export function Boundaries() {
 
 function SyncChoice() {
   return (
-    <div className="choice-card selected">
+    <div className="choice-card">
       <div className="choice-radio" aria-hidden="true">
         <span />
       </div>

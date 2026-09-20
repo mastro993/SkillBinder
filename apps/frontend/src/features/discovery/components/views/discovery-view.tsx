@@ -97,7 +97,7 @@ export function DiscoveryView() {
   const success = apply.isSuccess;
 
   return (
-    <section className="page discovery-page">
+    <section className="page">
       <header className="page-header">
         <div>
           <p className="eyebrow">Read-only inspection</p>

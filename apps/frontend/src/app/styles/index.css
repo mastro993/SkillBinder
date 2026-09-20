@@ -117,6 +117,7 @@ p {
   background: #eceee9;
 }
 .progress-track div {
+  width: var(--progress);
   height: 100%;
   border-radius: 999px;
   background: #709653;

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "@tanstack/react-router";
+import type { CSSProperties } from "react";
 import type { OnboardingStep } from "@/generated";
 import { bootstrapQuery } from "@/app/bootstrap-query";
 import { queryClient } from "@/app/query";
@@ -77,9 +78,11 @@ export function OnboardingView() {
             aria-label={`Setup step ${onboardingSteps.indexOf(visibleStep) + 1} of ${onboardingSteps.length}`}
           >
             <div
-              style={{
-                width: `${((onboardingSteps.indexOf(visibleStep) + 1) / onboardingSteps.length) * 100}%`,
-              }}
+              style={
+                {
+                  "--progress": `${((onboardingSteps.indexOf(visibleStep) + 1) / onboardingSteps.length) * 100}%`,
+                } as CSSProperties
+              }
             />
           </div>
 
