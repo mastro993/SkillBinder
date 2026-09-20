@@ -68,7 +68,7 @@ export function DiscoveryView() {
         </div>
         <div className="empty-panel error-panel">
           <h2>Discovery could not finish</h2>
-          <p>{errorMessage(scan.error)}</p>
+          <p>{scan.error.message}</p>
           <Button onClick={() => scan.refetch()}>
             <RefreshCw size={16} /> Retry scan
           </Button>
@@ -252,7 +252,7 @@ export function DiscoveryView() {
       </output>
       {importError ? (
         <p className="inline-error" role="alert">
-          {errorMessage(importError)}
+          {importError.message}
         </p>
       ) : null}
       {success ? (
@@ -279,8 +279,4 @@ async function prepareImport(candidateIds: string[], allowInvalid: boolean) {
 
 async function applyImport(planId: string) {
   return (await getDesktopClient()).importsApply(planId);
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unexpected discovery error.";
 }

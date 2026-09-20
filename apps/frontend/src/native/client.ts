@@ -3,11 +3,14 @@ import type {
   BootstrapResponse,
   CompleteOnboardingResponse,
   DiscoveryScanResponse,
+  ImportApplyRequest,
   ImportApplyResponse,
   ImportPlanResponse,
+  ImportPrepareRequest,
   LibraryListResponse,
   OnboardingProgress,
   OnboardingStep,
+  UpdateOnboardingProgressRequest,
 } from "@/generated";
 import {
   bootstrapResponseSchema,
@@ -22,7 +25,18 @@ import {
   parseCommandResult,
 } from "./contracts";
 
+import type { JsonValue } from "./contracts";
+
 import type { ZodType } from "zod";
+
+/** The request payloads the native commands accept. */
+type IpcRequest =
+  | UpdateOnboardingProgressRequest
+  | ImportPrepareRequest
+  | ImportApplyRequest;
+
+type IpcArguments = { request: IpcRequest };
+
 export class NativeCommandError extends Error {
   constructor(
     message: string,
@@ -95,9 +109,9 @@ class TauriDesktopClient implements DesktopClient {
 async function invokeCommand<T>(
   command: string,
   valueSchema: ZodType<T>,
-  args?: Record<string, unknown>,
+  args?: IpcArguments,
 ): Promise<T> {
-  const raw = await invoke<unknown>(command, args);
+  const raw = await invoke<JsonValue>(command, args);
   let result: ReturnType<typeof parseCommandResult<T>>;
   try {
     result = parseCommandResult(raw, valueSchema);

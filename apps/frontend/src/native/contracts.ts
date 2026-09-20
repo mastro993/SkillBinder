@@ -282,8 +282,17 @@ export const importApplyRequestSchema = z
 
 export { onboardingProgressSchema };
 
+/** A value that can cross the JSON IPC boundary. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export function parseCommandResult<T>(
-  value: unknown,
+  value: JsonValue,
   valueSchema: z.ZodType<T>,
 ): { ok: true; value: T } | { ok: false; error: AppError } {
   return z

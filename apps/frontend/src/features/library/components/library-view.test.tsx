@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BootstrapResponse } from "@/generated";
 import type { DesktopClient } from "@/native/client";
 import * as native from "@/native/client";
+import { stubDesktopClient } from "@/test/stub-client";
 import { LibraryView } from "./library-view";
 
 afterEach(() => {
@@ -16,7 +17,7 @@ function renderLibrary(client: Partial<DesktopClient>) {
     defaultOptions: { queries: { retry: false } },
   });
   vi.spyOn(native, "getDesktopClient").mockResolvedValue(
-    client as DesktopClient,
+    stubDesktopClient(client),
   );
   return render(
     <QueryClientProvider client={queryClient}>

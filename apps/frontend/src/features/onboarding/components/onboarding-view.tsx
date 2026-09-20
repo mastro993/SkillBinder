@@ -1,12 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "@tanstack/react-router";
-import type { CSSProperties } from "react";
 import type { OnboardingStep } from "@/generated";
 import { bootstrapQuery } from "@/app/bootstrap-query";
 import { queryClient } from "@/app/query";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getDesktopClient, NativeCommandError } from "@/native/client";
+import { getDesktopClient } from "@/native/client";
 import {
   OnboardingStepContent,
   onboardingSteps,
@@ -41,7 +40,7 @@ export function OnboardingView() {
     return (
       <CenteredMessage
         title="SkillBinder could not start setup"
-        detail={errorMessage(bootstrap.error)}
+        detail={bootstrap.error.message}
         action={<Button onClick={() => bootstrap.refetch()}>Retry</Button>}
       />
     );
@@ -78,11 +77,9 @@ export function OnboardingView() {
             aria-label={`Setup step ${onboardingSteps.indexOf(visibleStep) + 1} of ${onboardingSteps.length}`}
           >
             <div
-              style={
-                {
-                  "--progress": `${((onboardingSteps.indexOf(visibleStep) + 1) / onboardingSteps.length) * 100}%`,
-                } as CSSProperties
-              }
+              style={{
+                "--progress": `${((onboardingSteps.indexOf(visibleStep) + 1) / onboardingSteps.length) * 100}%`,
+              }}
             />
           </div>
 
@@ -97,7 +94,7 @@ export function OnboardingView() {
 
           {error ? (
             <p className="inline-error" role="alert">
-              {errorMessage(error)}
+              {error.message}
             </p>
           ) : null}
           <footer className="onboarding-actions">
@@ -167,10 +164,4 @@ function next(step: OnboardingStep): OnboardingStep {
 
 function previous(step: OnboardingStep): OnboardingStep {
   return onboardingSteps[Math.max(onboardingSteps.indexOf(step) - 1, 0)];
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof NativeCommandError || error instanceof Error
-    ? error.message
-    : "Unexpected setup error.";
 }

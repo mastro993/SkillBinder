@@ -9,6 +9,7 @@ import type {
   ValidationSummary,
 } from "@/generated";
 import type { DesktopClient } from "./client";
+import { onboardingProgressSchema } from "./contracts";
 
 const storageKey = "skillbinder.fixture.onboarding";
 const preexistingSkillId = "fixture-existing";
@@ -198,8 +199,10 @@ let plan: ImportPlanResponse | null = null;
 
 function progress(): OnboardingProgress {
   const saved = window.localStorage.getItem(storageKey);
-  return saved
-    ? (JSON.parse(saved) as OnboardingProgress)
+  if (!saved) return { step: "prerequisites", completed: false };
+  const parsed = onboardingProgressSchema.safeParse(JSON.parse(saved));
+  return parsed.success
+    ? parsed.data
     : { step: "prerequisites", completed: false };
 }
 

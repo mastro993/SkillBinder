@@ -25,7 +25,7 @@ export function OnboardingStepContent({
 }: {
   step: OnboardingStep;
   data: BootstrapResponse;
-  onRetry: () => unknown;
+  onRetry: () => void;
   pending: boolean;
 }) {
   if (step === "prerequisites") {
