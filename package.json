@@ -1,0 +1,37 @@
+{
+  "name": "skillbinder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "24.14.1",
+    "pnpm": "10.33.0"
+  },
+  "scripts": {
+    "dev": "node tooling/run.mjs dev",
+    "dev:frontend": "pnpm --filter @skillbinder/frontend dev:fixture",
+    "build": "node tooling/run.mjs build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm --filter @skillbinder/frontend typecheck",
+    "contracts:generate": "node tooling/contracts.mjs generate",
+    "contracts:check": "node tooling/contracts.mjs check",
+    "test": "pnpm --filter @skillbinder/frontend test && node tooling/check-architecture.mjs",
+    "test:rust": "cargo test --workspace",
+    "test:integration": "cargo test --workspace --tests",
+    "test:e2e": "node tooling/pending-check.mjs desktop-e2e",
+    "test:runtime": "node tooling/pending-check.mjs runtime-smoke",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm contracts:check && pnpm test && pnpm test:rust"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "globals": "17.12.0",
+    "prettier": "3.9.8",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0"
+  }
+}
