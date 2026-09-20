@@ -2,17 +2,27 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BootstrapResponse,
   CompleteOnboardingResponse,
+  DiscoveryScanResponse,
+  ImportApplyResponse,
+  ImportPlanResponse,
+  LibraryListResponse,
   OnboardingProgress,
   OnboardingStep,
 } from "@/generated";
 import {
   bootstrapResponseSchema,
   completeOnboardingResponseSchema,
+  discoveryScanResponseSchema,
+  importApplyResponseSchema,
+  importApplyRequestSchema,
+  importPlanResponseSchema,
+  importPrepareRequestSchema,
+  libraryListResponseSchema,
   onboardingProgressSchema,
   parseCommandResult,
 } from "./contracts";
-import type { ZodType } from "zod";
 
+import type { ZodType } from "zod";
 export class NativeCommandError extends Error {
   constructor(
     message: string,
@@ -27,6 +37,13 @@ export interface DesktopClient {
   bootstrap(): Promise<BootstrapResponse>;
   updateOnboardingProgress(step: OnboardingStep): Promise<OnboardingProgress>;
   completeLocalOnboarding(): Promise<CompleteOnboardingResponse>;
+  discoveryScan(): Promise<DiscoveryScanResponse>;
+  importsPrepare(
+    candidateIds: string[],
+    allowInvalidSkills: boolean,
+  ): Promise<ImportPlanResponse>;
+  importsApply(planId: string): Promise<ImportApplyResponse>;
+  libraryList(): Promise<LibraryListResponse>;
 }
 
 class TauriDesktopClient implements DesktopClient {
@@ -47,6 +64,31 @@ class TauriDesktopClient implements DesktopClient {
       "onboarding_complete_local",
       completeOnboardingResponseSchema,
     );
+  }
+
+  discoveryScan() {
+    return invokeCommand("discovery_scan", discoveryScanResponseSchema);
+  }
+
+  importsPrepare(candidateIds: string[], allowInvalidSkills: boolean) {
+    const request = importPrepareRequestSchema.parse({
+      candidateIds,
+      allowInvalidSkills,
+    });
+    return invokeCommand("imports_prepare", importPlanResponseSchema, {
+      request,
+    });
+  }
+
+  importsApply(planId: string) {
+    const request = importApplyRequestSchema.parse({ planId });
+    return invokeCommand("imports_apply", importApplyResponseSchema, {
+      request,
+    });
+  }
+
+  libraryList() {
+    return invokeCommand("library_list", libraryListResponseSchema);
   }
 }
 
@@ -79,7 +121,8 @@ let clientPromise: Promise<DesktopClient> | undefined;
 export function getDesktopClient(): Promise<DesktopClient> {
   clientPromise ??=
     import.meta.env.DEV &&
-    import.meta.env.VITE_SKILLBINDER_FIXTURE_MODE === "true"
+    (import.meta.env.VITE_SKILLBINDER_FIXTURE_MODE === "true" ||
+      import.meta.env.MODE === "fixture")
       ? import("./fixture-client").then(
           ({ fixtureDesktopClient }) => fixtureDesktopClient,
         )
@@ -89,4 +132,5 @@ export function getDesktopClient(): Promise<DesktopClient> {
 
 export const isFixtureMode =
   import.meta.env.DEV &&
-  import.meta.env.VITE_SKILLBINDER_FIXTURE_MODE === "true";
+  (import.meta.env.VITE_SKILLBINDER_FIXTURE_MODE === "true" ||
+    import.meta.env.MODE === "fixture");

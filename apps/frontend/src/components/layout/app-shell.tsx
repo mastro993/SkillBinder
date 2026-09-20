@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Settings, Sparkles } from "lucide-react";
+import { Compass, BookOpen, Settings, Sparkles } from "lucide-react";
 
 export function AppShell({ children }: PropsWithChildren) {
   const path = useRouterState({ select: (state) => state.location.pathname });
@@ -14,6 +14,12 @@ export function AppShell({ children }: PropsWithChildren) {
           SkillBinder
         </div>
         <nav aria-label="Main navigation">
+          <Link
+            className={path === "/discovery" ? "nav-link active" : "nav-link"}
+            to="/discovery"
+          >
+            <Compass size={18} /> Discovery
+          </Link>
           <Link
             className={path === "/library" ? "nav-link active" : "nav-link"}
             to="/library"

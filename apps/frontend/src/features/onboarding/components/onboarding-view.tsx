@@ -29,7 +29,7 @@ export function OnboardingView() {
       await queryClient.invalidateQueries({
         queryKey: bootstrapQuery.queryKey,
       });
-      await navigate({ to: "/library" });
+      await navigate({ to: "/discovery" });
     },
   });
 
@@ -47,7 +47,7 @@ export function OnboardingView() {
 
   const data = bootstrap.data;
   if (data.onboarding.completed) {
-    return <Navigate to="/library" replace />;
+    return <Navigate to="/discovery" replace />;
   }
 
   const current = data.onboarding.step;
