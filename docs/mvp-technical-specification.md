@@ -11,16 +11,16 @@ This revision supersedes conflicting requirements in earlier versions. In partic
 
 ## Contents
 
-| Area | Sections |
-| --- | --- |
-| Scope and decisions | [1. Status and decisions](#1-document-status-and-decision-rules) · [2. Product scope](#2-product-objective-and-boundaries) · [3. Invariants](#3-terms-and-important-invariants) |
-| Architecture and workspace | [4. Architecture](#4-system-architecture) · [5. Technology](#5-technology-decisions) · [6. Monorepo](#6-monorepo-and-feature-structure) |
-| Data and safety | [7. Storage](#7-persistent-storage-and-ownership) · [8. Data model](#8-data-model-and-content-identity) · [9. File safety](#9-filesystem-and-content-safety-policy) |
-| Discovery and sources | [10. Registry](#10-discovery-and-agent-registry) · [11. Import](#11-validation-and-import) · [12. Installation](#12-github-and-skillssh-installation) |
-| Library and delivery | [13. Editing](#13-organization-editing-and-library-ux) · [14. Transactions](#14-library-transactions-and-crash-recovery) · [15. Deployment](#15-targets-and-deployment) · [16. Backups](#16-drift-removal-and-backups) |
-| History and interfaces | [17. History](#17-local-history-and-restore) · [18. Sync](#18-manual-library-sync) · [19. IPC](#19-ipc-contract) · [20. Jobs](#20-job-lifecycle) |
-| UX and quality | [21. Frontend](#21-frontend-behavior-and-information-design) · [22. Security](#22-security-and-privacy-controls) · [23. Limits](#23-engineering-limits-and-performance-targets) · [24. Tests](#24-test-plan-and-acceptance-criteria) |
-| Build and handoff | [25. Platforms and scope](#25-platforms-local-builds-and-deferred-distribution) · [26. Operations](#26-migrations-diagnostics-and-operations) · [27. Development](#27-local-development-and-ci-contract) · [28. Milestones](#28-implementation-sequence) · [29. Documentation](#29-required-engineering-documentation) · [30. Done](#30-definition-of-done) · [31. Sources](#31-primary-references) |
+| Area                       | Sections                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope and decisions        | [1. Status and decisions](#1-document-status-and-decision-rules) · [2. Product scope](#2-product-objective-and-boundaries) · [3. Invariants](#3-terms-and-important-invariants)                                                                                                                                                                                                                     |
+| Architecture and workspace | [4. Architecture](#4-system-architecture) · [5. Technology](#5-technology-decisions) · [6. Monorepo](#6-monorepo-and-feature-structure)                                                                                                                                                                                                                                                             |
+| Data and safety            | [7. Storage](#7-persistent-storage-and-ownership) · [8. Data model](#8-data-model-and-content-identity) · [9. File safety](#9-filesystem-and-content-safety-policy)                                                                                                                                                                                                                                 |
+| Discovery and sources      | [10. Registry](#10-discovery-and-agent-registry) · [11. Import](#11-validation-and-import) · [12. Installation](#12-github-and-skillssh-installation)                                                                                                                                                                                                                                               |
+| Library and delivery       | [13. Editing](#13-organization-editing-and-library-ux) · [14. Transactions](#14-library-transactions-and-crash-recovery) · [15. Deployment](#15-targets-and-deployment) · [16. Backups](#16-drift-removal-and-backups)                                                                                                                                                                              |
+| History and interfaces     | [17. History](#17-local-history-and-restore) · [18. Sync](#18-manual-library-sync) · [19. IPC](#19-ipc-contract) · [20. Jobs](#20-job-lifecycle)                                                                                                                                                                                                                                                    |
+| UX and quality             | [21. Frontend](#21-frontend-behavior-and-information-design) · [22. Security](#22-security-and-privacy-controls) · [23. Limits](#23-engineering-limits-and-performance-targets) · [24. Tests](#24-test-plan-and-acceptance-criteria)                                                                                                                                                                |
+| Build and handoff          | [25. Platforms and scope](#25-platforms-local-builds-and-deferred-distribution) · [26. Operations](#26-migrations-diagnostics-and-operations) · [27. Development](#27-local-development-and-ci-contract) · [28. Milestones](#28-implementation-sequence) · [29. Documentation](#29-required-engineering-documentation) · [30. Done](#30-definition-of-done) · [31. Sources](#31-primary-references) |
 
 ## 1. Document status and decision rules
 
@@ -34,38 +34,38 @@ The product owner accepted the recommendations from the preceding requirements d
 
 ### 1.1 Approved product baseline
 
-| Area | Decision |
-| --- | --- |
-| Agent coverage | Support all agents in the complete pinned skills CLI registry, with documented additional read paths and custom roots. Do not reduce acceptance to a selected subset. See section 10. |
-| Content | Manage Agent Skills folders with `SKILL.md` and their supporting files. Do not manage standalone rules, prompts, or agent configuration as separate products. |
-| Discovery | Check known global directories. Search for projects only inside roots selected by the user. Provide custom directories. Show results before import. |
-| Import | Copy selected skills into app-managed storage. Leave original files unchanged. Combine identical imports while retaining all source locations. Keep different versions separate. |
-| History | Use one Git repository for the library, including organization metadata. Commit successful library changes automatically. |
-| Sync | Provide manual remote sync. Do not put machine paths or credentials in the synced repository. |
-| Organization | Nested logical folders, one folder per skill, multiple tags. Bulk selection by folder, tag, or manual selection. |
-| Deployment | Copy files. The user explicitly deploys changes. Show a plan and a diff before writing. |
-| Conflicts | Detect external changes. Never silently replace changed or unrelated files. Back up before replacement. No automatic text conflict resolution. |
-| Authoring | Basic text editor, Markdown preview, and validation. Edit text files throughout a skill. Never run skill scripts from this app. |
-| Sources | Install from public and private GitHub repositories or supported skills.sh links/install references. Private GitHub access uses existing local Git authentication. Let the user select individual skills. Record exact source commits. |
-| Source updates | Check and apply only on user request. Show differences and preserve local edits. |
-| Runtime | Core management is offline. No app account or app-owned backend. Node.js is not an end-user runtime requirement. The engineering design requires a supported local Git executable. |
-| Git authentication | Reuse the user's local Git authentication. Do not collect tokens, create an app sign-in flow, or maintain an app credential store. |
-| Distribution | Installers, signing, notarization, app stores, release hosting, and public compatibility certification are out of scope. Local builds and cross-OS testing remain required. |
-| App updates | In-app update checks, update downloads, updater integration, feeds, and update signing are out of scope. Manual skill-source updates remain in scope. |
-| Source license policy | Public source under the approved `AGPL-3.0-only` license. Include the license text, consistent package metadata, and required notices. See section 25.4. |
-| Boundaries | Frontend owns presentation. Rust owns files, Git, downloads, jobs, and trusted state. Use typed IPC. |
-| Code layout | `apps/frontend`, `apps/Tauri`, and `libs`. Group by feature in each package, then by purpose inside each feature. Feature-specific frontend components remain inside their feature. The shared frontend component root below is an explicit owner-approved exception. |
+| Area                   | Decision                                                                                                                                                                                                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent coverage         | Support all agents in the complete pinned skills CLI registry, with documented additional read paths and custom roots. Do not reduce acceptance to a selected subset. See section 10.                                                                                                                             |
+| Content                | Manage Agent Skills folders with `SKILL.md` and their supporting files. Do not manage standalone rules, prompts, or agent configuration as separate products.                                                                                                                                                     |
+| Discovery              | Check known global directories. Search for projects only inside roots selected by the user. Provide custom directories. Show results before import.                                                                                                                                                               |
+| Import                 | Copy selected skills into app-managed storage. Leave original files unchanged. Combine identical imports while retaining all source locations. Keep different versions separate.                                                                                                                                  |
+| History                | Use one Git repository for the library, including organization metadata. Commit successful library changes automatically.                                                                                                                                                                                         |
+| Sync                   | Provide manual remote sync. Do not put machine paths or credentials in the synced repository.                                                                                                                                                                                                                     |
+| Organization           | Nested logical folders, one folder per skill, multiple tags. Bulk selection by folder, tag, or manual selection.                                                                                                                                                                                                  |
+| Deployment             | Copy files. The user explicitly deploys changes. Show a plan and a diff before writing.                                                                                                                                                                                                                           |
+| Conflicts              | Detect external changes. Never silently replace changed or unrelated files. Back up before replacement. No automatic text conflict resolution.                                                                                                                                                                    |
+| Authoring              | Basic text editor, Markdown preview, and validation. Edit text files throughout a skill. Never run skill scripts from this app.                                                                                                                                                                                   |
+| Sources                | Install from public and private GitHub repositories or supported skills.sh links/install references. Private GitHub access uses existing local Git authentication. Let the user select individual skills. Record exact source commits.                                                                            |
+| Source updates         | Check and apply only on user request. Show differences and preserve local edits.                                                                                                                                                                                                                                  |
+| Runtime                | Core management is offline. No app account or app-owned backend. Node.js is not an end-user runtime requirement. The engineering design requires a supported local Git executable.                                                                                                                                |
+| Git authentication     | Reuse the user's local Git authentication. Do not collect tokens, create an app sign-in flow, or maintain an app credential store.                                                                                                                                                                                |
+| Distribution           | Installers, signing, notarization, app stores, release hosting, and public compatibility certification are out of scope. Local builds and cross-OS testing remain required.                                                                                                                                       |
+| App updates            | In-app update checks, update downloads, updater integration, feeds, and update signing are out of scope. Manual skill-source updates remain in scope.                                                                                                                                                             |
+| Source license policy  | Public source under the approved `AGPL-3.0-only` license. Include the license text, consistent package metadata, and required notices. See section 25.4.                                                                                                                                                          |
+| Boundaries             | Frontend owns presentation. Rust owns files, Git, downloads, jobs, and trusted state. Use typed IPC.                                                                                                                                                                                                              |
+| Code layout            | `apps/frontend`, `apps/Tauri`, and `libs`. Group by feature in each package, then by purpose inside each feature. Feature-specific frontend components remain inside their feature. The shared frontend component root below is an explicit owner-approved exception.                                             |
 | UI component locations | All UI components belong to `apps/frontend`. Put shadcn/ui components in `apps/frontend/src/components/ui`. Put shared custom components in `apps/frontend/src/components`. Put feature-specific components in `apps/frontend/src/features/{feature}/components`. Do not create a shared UI package under `libs`. |
 
 ### 1.2 Decisions G1–G5
 
-| Decision | Owner instruction | Implementation effect |
-| --- | --- | --- |
-| G1 | ALL agents | Implement every agent in the pinned upstream registry. Provide a complete coverage manifest and per-agent path tests. No six-agent acceptance shortcut. Additional documented paths are reviewed data, not executable plugins. |
-| G2 | Use local Git authentication; private GitHub skill installation approved | Use system Git through a narrow Rust process adapter for public/private source installation, manual source updates, and library sync. Reuse trusted local credential helpers and SSH configuration. No app token UI, credential database, custom OAuth flow, or embedded Git authentication implementation. |
-| G3 | Distribution is out of scope at present | Remove installer formats, signing, notarization, release channels, and public OS/CPU promises from the current work. Keep source builds, native tests, and data integrity work on Windows, Linux, and macOS. |
-| G4 | Remove in-app updates from scope | Do not add an updater plugin, feed, signing keys, update screens, or hidden update capability. This decision does not remove manual updates of installed skills. |
-| G5 | Public source; `AGPL-3.0-only` approved; product name **Kanai** approved | Apply the approved license to Kanai-owned code. Include its unmodified text, consistent metadata, contribution terms, and third-party notices. See section 25.4. Publisher and production distribution identity remain deferred. |
+| Decision | Owner instruction                                                        | Implementation effect                                                                                                                                                                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1       | ALL agents                                                               | Implement every agent in the pinned upstream registry. Provide a complete coverage manifest and per-agent path tests. No six-agent acceptance shortcut. Additional documented paths are reviewed data, not executable plugins.                                                                              |
+| G2       | Use local Git authentication; private GitHub skill installation approved | Use system Git through a narrow Rust process adapter for public/private source installation, manual source updates, and library sync. Reuse trusted local credential helpers and SSH configuration. No app token UI, credential database, custom OAuth flow, or embedded Git authentication implementation. |
+| G3       | Distribution is out of scope at present                                  | Remove installer formats, signing, notarization, release channels, and public OS/CPU promises from the current work. Keep source builds, native tests, and data integrity work on Windows, Linux, and macOS.                                                                                                |
+| G4       | Remove in-app updates from scope                                         | Do not add an updater plugin, feed, signing keys, update screens, or hidden update capability. This decision does not remove manual updates of installed skills.                                                                                                                                            |
+| G5       | Public source; `AGPL-3.0-only` approved; product name **Kanai** approved | Apply the approved license to Kanai-owned code. Include its unmodified text, consistent metadata, contribution terms, and third-party notices. See section 25.4. Publisher and production distribution identity remain deferred.                                                                            |
 
 The system-Git adapter is an engineering recommendation for G2. It replaces `git2`/libgit2 throughout this design. Normal use requires a working local Git installation. It does not require Node.js, pnpm, the skills CLI, or a general-purpose shell command interface. Git can itself invoke the user's configured authentication programs. Those programs are part of the trusted local environment, not imported skill content. [S08][S28]
 
@@ -110,19 +110,19 @@ The app is a skill file manager. It is not an agent runtime, malware scanner, ge
 
 ### 2.1 Required user journeys
 
-| ID | Journey | Success condition |
-| --- | --- | --- |
-| J01 | First launch → inspect globals → select skills → import | The library contains complete managed copies. The originals are unchanged. |
-| J02 | Add a project-search root → scan | The user sees discovered locations, invalid candidates, exclusions, and access errors. |
-| J03 | Create folders and tags → organize skills | Organization persists after restart and is included in library history. |
-| J04 | Edit a text file → save → inspect history | One successful save creates one library commit. An unchanged save creates none. |
-| J05 | Select skills → select targets → review → deploy | Each destination has the approved content. Per-item results and backups are recorded. |
-| J06 | Edit a deployed copy outside the app → deploy again | The app detects the edit and requires an explicit resolution. |
+| ID  | Journey                                                                                         | Success condition                                                                                                                                             |
+| --- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| J01 | First launch → inspect globals → select skills → import                                         | The library contains complete managed copies. The originals are unchanged.                                                                                    |
+| J02 | Add a project-search root → scan                                                                | The user sees discovered locations, invalid candidates, exclusions, and access errors.                                                                        |
+| J03 | Create folders and tags → organize skills                                                       | Organization persists after restart and is included in library history.                                                                                       |
+| J04 | Edit a text file → save → inspect history                                                       | One successful save creates one library commit. An unchanged save creates none.                                                                               |
+| J05 | Select skills → select targets → review → deploy                                                | Each destination has the approved content. Per-item results and backups are recorded.                                                                         |
+| J06 | Edit a deployed copy outside the app → deploy again                                             | The app detects the edit and requires an explicit resolution.                                                                                                 |
 | J07 | Paste a public/private GitHub source or supported skills.sh reference → select skills → install | Selected skill folders enter the library with source and commit information. Private access uses local Git authentication. Nothing is deployed automatically. |
-| J08 | Check source updates → review → apply | The user can see upstream changes and any local conflict before a library commit is made. |
-| J09 | Inspect history → restore an old skill version | Restore creates a new commit. Existing deployments are not changed. |
-| J10 | Configure a Git remote → preview sync → apply | Library files and organization transfer. Device paths, credentials, and deployments do not. |
-| J11 | Restart after an interrupted write | The app recovers or presents a specific recovery action. It does not silently discard data. |
+| J08 | Check source updates → review → apply                                                           | The user can see upstream changes and any local conflict before a library commit is made.                                                                     |
+| J09 | Inspect history → restore an old skill version                                                  | Restore creates a new commit. Existing deployments are not changed.                                                                                           |
+| J10 | Configure a Git remote → preview sync → apply                                                   | Library files and organization transfer. Device paths, credentials, and deployments do not.                                                                   |
+| J11 | Restart after an interrupted write                                                              | The app recovers or presents a specific recovery action. It does not silently discard data.                                                                   |
 
 ### 2.2 Excluded from the approved MVP
 
@@ -217,30 +217,30 @@ Use a single-instance application guard and an OS-level process lock on the app 
 
 These choices implement the accepted stack. Pin exact compatible versions during the foundation milestone. Commit the JavaScript and Rust lockfiles. A reference to a documentation version is not permission to use an unpinned `latest` dependency.
 
-| Concern | Engineering design |
-| --- | --- |
-| Desktop | Tauri 2 with a Rust application core |
-| UI | React and TypeScript in strict mode, Vite |
-| Routing | TanStack Router; file-based route entries with hash history for local bundled-frontend navigation |
-| Query state | TanStack Query; local IPC queries use offline-capable settings |
-| Styling | Tailwind CSS and shadcn/ui, with one consistent primitive base; use the Radix-based setup for the initial scaffold |
-| UI primitives | App-owned shadcn components in `apps/frontend/src/components/ui`; no feature logic or IPC access |
-| Custom UI | Feature-specific components in `apps/frontend/src/features/{feature}/components`; shared custom components in `apps/frontend/src/components`; no shared UI workspace package |
-| Editor | CodeMirror 6, plain text and Markdown first; lazy-load additional language support |
-| Preview | A Markdown renderer with raw HTML disabled; local resource access goes through validated resource IDs |
-| Runtime schemas | Rust validation at the trust boundary; Zod for frontend form validation only |
-| IPC types | Rust `serde` DTOs plus `ts-rs` generated TypeScript types; serialization contract tests |
-| Local Git | Supported system Git, invoked by Rust with typed operations, explicit arguments, controlled repository paths, and supervised processes |
-| Local database | `rusqlite` with a bundled, patched SQLite build |
-| HTTP | `reqwest` with certificate verification enabled and a reviewed TLS configuration |
-| YAML | A maintained parser such as `yaml-rust2`, with explicit input limits and restricted parsing |
-| Git authentication | Existing local Git credential helpers and SSH setup; no app-managed credential storage |
-| File observation | `notify` behind a watcher port; explicit scan remains authoritative |
-| Diagnostics | Rust `tracing` and local rotating logs, with content and secret redaction |
-| Unit tests | Vitest/React Testing Library and Rust test tooling |
-| Desktop E2E | WebdriverIO with the Tauri service, in a test-only build |
-| CI | GitHub Actions, with jobs on each supported OS |
-| Workspace | pnpm for JavaScript packages; a root Cargo workspace for Rust crates |
+| Concern            | Engineering design                                                                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Desktop            | Tauri 2 with a Rust application core                                                                                                                                         |
+| UI                 | React and TypeScript in strict mode, Vite                                                                                                                                    |
+| Routing            | TanStack Router; file-based route entries with hash history for local bundled-frontend navigation                                                                            |
+| Query state        | TanStack Query; local IPC queries use offline-capable settings                                                                                                               |
+| Styling            | Tailwind CSS and shadcn/ui, with one consistent primitive base; use the Radix-based setup for the initial scaffold                                                           |
+| UI primitives      | App-owned shadcn components in `apps/frontend/src/components/ui`; no feature logic or IPC access                                                                             |
+| Custom UI          | Feature-specific components in `apps/frontend/src/features/{feature}/components`; shared custom components in `apps/frontend/src/components`; no shared UI workspace package |
+| Editor             | CodeMirror 6, plain text and Markdown first; lazy-load additional language support                                                                                           |
+| Preview            | A Markdown renderer with raw HTML disabled; local resource access goes through validated resource IDs                                                                        |
+| Runtime schemas    | Rust validation at the trust boundary; Zod for frontend form validation only                                                                                                 |
+| IPC types          | Rust `serde` DTOs plus `ts-rs` generated TypeScript types; serialization contract tests                                                                                      |
+| Local Git          | Supported system Git, invoked by Rust with typed operations, explicit arguments, controlled repository paths, and supervised processes                                       |
+| Local database     | `rusqlite` with a bundled, patched SQLite build                                                                                                                              |
+| HTTP               | `reqwest` with certificate verification enabled and a reviewed TLS configuration                                                                                             |
+| YAML               | A maintained parser such as `yaml-rust2`, with explicit input limits and restricted parsing                                                                                  |
+| Git authentication | Existing local Git credential helpers and SSH setup; no app-managed credential storage                                                                                       |
+| File observation   | `notify` behind a watcher port; explicit scan remains authoritative                                                                                                          |
+| Diagnostics        | Rust `tracing` and local rotating logs, with content and secret redaction                                                                                                    |
+| Unit tests         | Vitest/React Testing Library and Rust test tooling                                                                                                                           |
+| Desktop E2E        | WebdriverIO with the Tauri service, in a test-only build                                                                                                                     |
+| CI                 | GitHub Actions, with jobs on each supported OS                                                                                                                               |
+| Workspace          | pnpm for JavaScript packages; a root Cargo workspace for Rust crates                                                                                                         |
 
 TanStack Router documents a Vite integration. shadcn/ui documents a Vite setup. pnpm and Cargo each have their own workspace model; one does not replace the other. [S09][S11][S12][S13]
 
@@ -495,23 +495,23 @@ The tracked payload can itself contain private text or embedded paths. Explain t
 
 Use one local database with `foreign_keys=ON`, a bounded busy timeout, WAL after compatibility verification, and `synchronous=FULL` for durable state. Use parameterized statements. Do not expose SQL over IPC.
 
-| Table or table group | Required fields and role |
-| --- | --- |
-| `schema_migrations` | Applied local schema versions |
-| `device_settings` | Onboarding state, theme, local limits, retention preferences, optional approved Git executable path |
-| `scan_roots` | ID, native path encoding, display path, grant, limits, excludes |
-| `projects` | ID, root path, display label, availability, last scan |
-| `source_observations` | Physical identity, discovered path, resolved path, skill ID when linked, observed digest, time, warnings |
-| `targets` | ID, scope, root path, canonical identity, agent-reader IDs, grant, enabled state |
-| `deployments` | ID, skill ID, target ID, slug, deployed digest, library commit, receipt generation, status |
-| `deployment_files` | Deployment ID, relative path, kind, hash, logical executable bit; complete baseline |
-| `jobs` / `job_items` | Kind, state, progress, per-item result, retry relation, journal ID |
-| `operation_plans` | Plan ID, kind, payload hash, preconditions, expiry, consumed result |
-| `idempotency_records` | Operation ID, request hash, durable result |
-| `backups` | ID, owning operation, path, digest, reason, retention state |
-| `sync_remotes` | Sanitized Git locator, branch, last observed head, non-secret connection status; no credential reference |
-| `drafts` | File ID, base version/hash, draft path, last durable write |
-| `library_index` and related indexes | Rebuildable skill metadata, search fields, current Git revision |
+| Table or table group                | Required fields and role                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `schema_migrations`                 | Applied local schema versions                                                                            |
+| `device_settings`                   | Onboarding state, theme, local limits, retention preferences, optional approved Git executable path      |
+| `scan_roots`                        | ID, native path encoding, display path, grant, limits, excludes                                          |
+| `projects`                          | ID, root path, display label, availability, last scan                                                    |
+| `source_observations`               | Physical identity, discovered path, resolved path, skill ID when linked, observed digest, time, warnings |
+| `targets`                           | ID, scope, root path, canonical identity, agent-reader IDs, grant, enabled state                         |
+| `deployments`                       | ID, skill ID, target ID, slug, deployed digest, library commit, receipt generation, status               |
+| `deployment_files`                  | Deployment ID, relative path, kind, hash, logical executable bit; complete baseline                      |
+| `jobs` / `job_items`                | Kind, state, progress, per-item result, retry relation, journal ID                                       |
+| `operation_plans`                   | Plan ID, kind, payload hash, preconditions, expiry, consumed result                                      |
+| `idempotency_records`               | Operation ID, request hash, durable result                                                               |
+| `backups`                           | ID, owning operation, path, digest, reason, retention state                                              |
+| `sync_remotes`                      | Sanitized Git locator, branch, last observed head, non-secret connection status; no credential reference |
+| `drafts`                            | File ID, base version/hash, draft path, last durable write                                               |
+| `library_index` and related indexes | Rebuildable skill metadata, search fields, current Git revision                                          |
 
 The catalog index is disposable. Device state and deployment baselines are not. A database repair must not discard deployment records and then claim existing targets are owned.
 
@@ -739,14 +739,14 @@ Preserve license and notice files within the skill. If a repository-level licens
 
 For each upstream binding, compare three payloads: the last accepted upstream payload **B**, the current library payload **L**, and the new upstream payload **U**.
 
-| State | Required result |
-| --- | --- |
-| `U = B` | No upstream content update. Keep any local edits. |
-| `L = B`, `U != B` | Show the upstream diff. Apply only after approval. |
-| `L = U` | No content write is needed. The user may accept the new provenance baseline. |
-| `L != B`, `U != B`, `L != U` | Require a choice: keep local, replace with upstream, or import upstream as a separate variant. |
-| Source path removed or renamed | Show the missing source. Do not delete the local skill or guess another path. |
-| Ref was rewritten | Show the old and new commit. Require a fresh approval. |
+| State                          | Required result                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `U = B`                        | No upstream content update. Keep any local edits.                                              |
+| `L = B`, `U != B`              | Show the upstream diff. Apply only after approval.                                             |
+| `L = U`                        | No content write is needed. The user may accept the new provenance baseline.                   |
+| `L != B`, `U != B`, `L != U`   | Require a choice: keep local, replace with upstream, or import upstream as a separate variant. |
+| Source path removed or renamed | Show the missing source. Do not delete the local skill or guess another path.                  |
+| Ref was rewritten              | Show the old and new commit. Require a fresh approval.                                         |
 
 Do not perform an automatic text merge. A replacement commits the approved upstream bytes and records a new accepted baseline. A keep-local decision does not silently advance the accepted baseline. A duplicated variant gets a new skill ID.
 
@@ -855,18 +855,18 @@ Preview exposes whole-file diffs and file lists. Large or binary differences rec
 
 For a managed deployment, compare the last deployed baseline **B**, current library payload **L**, and current target payload **T**.
 
-| Condition | Default behavior |
-| --- | --- |
-| Destination absent, no prior receipt | Plan a new copy. |
-| Destination absent, prior receipt exists | Show **Missing** and allow explicit redeploy. |
-| `T = B` and `L != B` | Show the library update and permit deployment after review. |
-| `T = L` | No content write. Verify and update the receipt as an explicit deployment result. |
-| `T != B` and `T != L` | Require a conflict decision. No silent overwrite. |
-| Destination exists without a receipt | Mark as unmanaged, even if its name matches. |
-| Unmanaged destination equals `L` | Offer **Adopt this copy**. Adoption is explicit and creates a verified receipt. |
-| Unmanaged destination differs from `L` | Offer skip, import as variant, or back up and replace after an explicit warning. |
+| Condition                                   | Default behavior                                                                   |
+| ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Destination absent, no prior receipt        | Plan a new copy.                                                                   |
+| Destination absent, prior receipt exists    | Show **Missing** and allow explicit redeploy.                                      |
+| `T = B` and `L != B`                        | Show the library update and permit deployment after review.                        |
+| `T = L`                                     | No content write. Verify and update the receipt as an explicit deployment result.  |
+| `T != B` and `T != L`                       | Require a conflict decision. No silent overwrite.                                  |
+| Destination exists without a receipt        | Mark as unmanaged, even if its name matches.                                       |
+| Unmanaged destination equals `L`            | Offer **Adopt this copy**. Adoption is explicit and creates a verified receipt.    |
+| Unmanaged destination differs from `L`      | Offer skip, import as variant, or back up and replace after an explicit warning.   |
 | Extra unknown files exist under destination | Treat as drift. Include them in the preview and backup; never silently prune them. |
-| Destination is a symlink/reparse point | Block the standard write path and explain the link. |
+| Destination is a symlink/reparse point      | Block the standard write path and explain the link.                                |
 
 For a drifted managed target, the user can skip, import target changes as a new variant, or back up and replace it. Updating the current library entry from a target is a separate reviewed library import operation.
 
@@ -993,14 +993,14 @@ Before first push, warn that history includes deleted and older content. Pushing
 
 ### 18.4 History relationships
 
-| Relationship | Result |
-| --- | --- |
-| Same commit | No-op |
-| Local is ahead | Offer push after preview |
-| Remote is ahead | Offer fast-forward apply after tree validation |
-| Both changed from a common base | Build a three-way entity plan; require conflict decisions |
+| Relationship                           | Result                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------- |
+| Same commit                            | No-op                                                                   |
+| Local is ahead                         | Offer push after preview                                                |
+| Remote is ahead                        | Offer fast-forward apply after tree validation                          |
+| Both changed from a common base        | Build a three-way entity plan; require conflict decisions               |
 | No common base or different library ID | Stop and offer explicit library adoption/import, not an automatic merge |
-| Remote changed after preview | Reject the stale plan and fetch again |
+| Remote changed after preview           | Reject the stale plan and fetch again                                   |
 
 A fast-forward apply uses the same journal and materialization guarantees as a local library mutation. It does not create an unnecessary content commit.
 
@@ -1043,9 +1043,7 @@ type AppError = {
   diagnosticId: string;
 };
 
-type CommandResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: AppError };
+type CommandResult<T> = { ok: true; value: T } | { ok: false; error: AppError };
 
 type MutationContext = {
   operationId: string;
@@ -1070,26 +1068,26 @@ These examples describe the contract. They do not imply that handwritten TypeScr
 
 Each listed command needs request/response types, validation, permissions, integration tests, and an example in the feature documentation.
 
-| Feature | Commands | Key contract requirements |
-| --- | --- | --- |
-| Bootstrap | `system_bootstrap` | App/schema/protocol versions, in-scope capabilities, Git availability, library state, current revision, recovery summary |
-| Roots | `roots_pick`, `roots_register`, `roots_list`, `roots_remove` | Native picker creates a grant. Registration accepts the grant, never an arbitrary write path. |
-| Discovery | `discovery_start`, `discovery_results` | Bounded roots and options; returns job ID; paged results by scan ID |
-| Import | `imports_prepare`, `imports_apply` | Candidate snapshot IDs, dedup choices, expected revision, plan ID |
-| Library | `library_list`, `library_get`, `library_files`, `library_create`, `library_duplicate`, `library_delete_prepare` | Stable IDs, query pagination, explicit mutation context |
-| Organization | `organization_get`, `organization_change` | A typed action union for folder/tag operations; validates complete graph |
-| Editor | `editor_read`, `editor_save`, `editor_change_files`, `editor_draft_write`, `editor_draft_discard` | File IDs, expected content hash, byte limits, explicit save semantics |
-| Sources | `sources_resolve`, `sources_candidates`, `sources_install_prepare`, `sources_check_updates`, `sources_update_prepare` | Normalized approved GitHub source request, exact commit, selected paths, no shell flags or secrets |
-| Targets | `targets_register`, `targets_list`, `targets_remove`, `targets_verify` | Grants, physical identity, reader agents, last verification state |
-| Deployment | `deployment_prepare`, `deployment_apply`, `deployment_list`, `deployment_remove_prepare` | Complete stored plan; per-item conflict decisions; durable job result |
-| History | `history_list`, `history_diff`, `history_restore_prepare` | Revision IDs, scoped entities, paged diffs, no raw Git options |
-| Sync | `sync_configure`, `sync_test_connection`, `sync_fetch`, `sync_prepare`, `sync_apply`, `sync_push`, `sync_disconnect` | Sanitized locator and branch, local authentication, pinned local/remote heads, explicit decisions; no secret fields |
-| Plans | `plans_apply`, `plans_discard` | Applies typed library/restore/remove plans only; rejects wrong-kind plans |
-| Jobs | `jobs_list`, `jobs_get`, `jobs_cancel` | Durable state and item results; cancellation acknowledgment is not completion |
-| Recovery | `recovery_list`, `recovery_prepare` | Known journal or backup IDs; no unrestricted path restoration |
-| Export | `export_prepare`, `export_apply` | Native destination grant, consistent snapshot, optional device-state choice |
-| Settings | `settings_get`, `settings_update`, `diagnostics_export` | Typed settings; redacted support package preview |
-| Git environment | `git_environment_status`, `git_executable_pick`, `git_environment_verify` | Native executable selection grant, version/capability result, redacted setup diagnostics; no free-form executable path, command arguments, or credentials |
+| Feature         | Commands                                                                                                              | Key contract requirements                                                                                                                                 |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bootstrap       | `system_bootstrap`                                                                                                    | App/schema/protocol versions, in-scope capabilities, Git availability, library state, current revision, recovery summary                                  |
+| Roots           | `roots_pick`, `roots_register`, `roots_list`, `roots_remove`                                                          | Native picker creates a grant. Registration accepts the grant, never an arbitrary write path.                                                             |
+| Discovery       | `discovery_start`, `discovery_results`                                                                                | Bounded roots and options; returns job ID; paged results by scan ID                                                                                       |
+| Import          | `imports_prepare`, `imports_apply`                                                                                    | Candidate snapshot IDs, dedup choices, expected revision, plan ID                                                                                         |
+| Library         | `library_list`, `library_get`, `library_files`, `library_create`, `library_duplicate`, `library_delete_prepare`       | Stable IDs, query pagination, explicit mutation context                                                                                                   |
+| Organization    | `organization_get`, `organization_change`                                                                             | A typed action union for folder/tag operations; validates complete graph                                                                                  |
+| Editor          | `editor_read`, `editor_save`, `editor_change_files`, `editor_draft_write`, `editor_draft_discard`                     | File IDs, expected content hash, byte limits, explicit save semantics                                                                                     |
+| Sources         | `sources_resolve`, `sources_candidates`, `sources_install_prepare`, `sources_check_updates`, `sources_update_prepare` | Normalized approved GitHub source request, exact commit, selected paths, no shell flags or secrets                                                        |
+| Targets         | `targets_register`, `targets_list`, `targets_remove`, `targets_verify`                                                | Grants, physical identity, reader agents, last verification state                                                                                         |
+| Deployment      | `deployment_prepare`, `deployment_apply`, `deployment_list`, `deployment_remove_prepare`                              | Complete stored plan; per-item conflict decisions; durable job result                                                                                     |
+| History         | `history_list`, `history_diff`, `history_restore_prepare`                                                             | Revision IDs, scoped entities, paged diffs, no raw Git options                                                                                            |
+| Sync            | `sync_configure`, `sync_test_connection`, `sync_fetch`, `sync_prepare`, `sync_apply`, `sync_push`, `sync_disconnect`  | Sanitized locator and branch, local authentication, pinned local/remote heads, explicit decisions; no secret fields                                       |
+| Plans           | `plans_apply`, `plans_discard`                                                                                        | Applies typed library/restore/remove plans only; rejects wrong-kind plans                                                                                 |
+| Jobs            | `jobs_list`, `jobs_get`, `jobs_cancel`                                                                                | Durable state and item results; cancellation acknowledgment is not completion                                                                             |
+| Recovery        | `recovery_list`, `recovery_prepare`                                                                                   | Known journal or backup IDs; no unrestricted path restoration                                                                                             |
+| Export          | `export_prepare`, `export_apply`                                                                                      | Native destination grant, consistent snapshot, optional device-state choice                                                                               |
+| Settings        | `settings_get`, `settings_update`, `diagnostics_export`                                                               | Typed settings; redacted support package preview                                                                                                          |
+| Git environment | `git_environment_status`, `git_executable_pick`, `git_environment_verify`                                             | Native executable selection grant, version/capability result, redacted setup diagnostics; no free-form executable path, command arguments, or credentials |
 
 `plans_apply` is not a generic action executor. Its accepted kinds are a closed enum with feature-specific handlers. Deployment and sync keep separate apply commands because their job and conflict semantics differ.
 
@@ -1185,20 +1183,20 @@ Use hash history so the local WebView can reload a route without server-side fal
 
 ### 21.2 Screen requirements
 
-| Screen | Required behavior |
-| --- | --- |
-| Onboarding | Verify local Git first. Explain managed copies, local storage, global scan scope, optional project roots, and optional remote connection. Permit an empty start after Git setup passes. |
-| Library | Search, folder tree, tag filters, sorting, multi-select, source labels, validation state, and deployment counts. |
-| Skill detail | Content preview, file list, source/commit, tags/folder, deployment locations, history, and clear edit/deploy actions. |
-| New skill | Required name and description, optional folder/tags, minimal standard template, immediate validation, and one creation commit. |
-| Discovery | Roots, scan progress, partial errors, duplicate groups, selected import preview, and original-location guarantees. |
-| Install | Reference input, repository/commit context, skill selection, file preview, limits, and separate install/deploy actions. |
-| Deploy review | Target paths, reader agents, additions/changes/deletions, conflicts, backups, and explicit confirm/cancel. |
-| Deployments | Current versus last-deployed version, last verification, drift, missing/unavailable targets, remove/redeploy actions. |
-| History | Paged commits, file changes, diff, restore preview, and warnings that restore does not deploy. |
-| Sync | Remote state, incoming/outgoing changes, conflict decisions, fetch/apply/push separation, and redacted local Git authentication status. |
-| Settings | Resolved paths, adapter versions, scan limits, backups, diagnostics, theme, supported in-scope capabilities, local Git setup status, and app version. |
-| Recovery | Affected operation, preserved versions, safe next actions, and export. No generic destructive “reset all” button. |
+| Screen        | Required behavior                                                                                                                                                                       |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Onboarding    | Verify local Git first. Explain managed copies, local storage, global scan scope, optional project roots, and optional remote connection. Permit an empty start after Git setup passes. |
+| Library       | Search, folder tree, tag filters, sorting, multi-select, source labels, validation state, and deployment counts.                                                                        |
+| Skill detail  | Content preview, file list, source/commit, tags/folder, deployment locations, history, and clear edit/deploy actions.                                                                   |
+| New skill     | Required name and description, optional folder/tags, minimal standard template, immediate validation, and one creation commit.                                                          |
+| Discovery     | Roots, scan progress, partial errors, duplicate groups, selected import preview, and original-location guarantees.                                                                      |
+| Install       | Reference input, repository/commit context, skill selection, file preview, limits, and separate install/deploy actions.                                                                 |
+| Deploy review | Target paths, reader agents, additions/changes/deletions, conflicts, backups, and explicit confirm/cancel.                                                                              |
+| Deployments   | Current versus last-deployed version, last verification, drift, missing/unavailable targets, remove/redeploy actions.                                                                   |
+| History       | Paged commits, file changes, diff, restore preview, and warnings that restore does not deploy.                                                                                          |
+| Sync          | Remote state, incoming/outgoing changes, conflict decisions, fetch/apply/push separation, and redacted local Git authentication status.                                                 |
+| Settings      | Resolved paths, adapter versions, scan limits, backups, diagnostics, theme, supported in-scope capabilities, local Git setup status, and app version.                                   |
+| Recovery      | Affected operation, preserved versions, safe next actions, and export. No generic destructive “reset all” button.                                                                       |
 
 ### 21.3 State management
 
@@ -1264,23 +1262,23 @@ All figures below are initial engineering budgets. Measure and revise them throu
 
 ### 23.1 Initial limits
 
-| Resource | Initial limit or behavior |
-| --- | --- |
-| `SKILL.md` | 1 MiB file; frontmatter capped at 64 KiB |
-| YAML structure | Depth 32; 10,000 nodes; aliases disabled or strictly bounded |
-| Individual payload file | 10 MiB |
-| Skill payload | 25 MiB and 5,000 entries |
-| Repository retrieval | 250 MiB source-cache growth budget with supervised abort; documented sampling overshoot; at most 100,000 inspected tree entries; hard payload limits before materialization |
-| Project scan | Depth 12 and 200,000 directory entries per selected root; show limit reached |
-| Category traversal inside skill roots | Depth 8 before a skill root is found |
-| Link resolution | At most 16 hops; reject cycles |
-| Text editor | 1 MiB editable text; larger text is read-only/exportable |
-| Inline diff | Bounded lines and bytes; default 2 MiB input per side, then a summary/export path |
-| Query page | Default 100 items; maximum 500 |
-| Plan validity | Five minutes, with mandatory apply-time precondition checks |
-| Network time | Five-minute total Git retrieval budget with process supervision; configure 15-second connect and 30-second transfer-idle limits where the selected transport provides them; do not infer network activity from missing stderr |
-| Network retries | At most two retries for safe reads, with backoff and server rate-limit handling |
-| UI job events | At most 10 updates per second per active job; coalesce additional progress |
+| Resource                              | Initial limit or behavior                                                                                                                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SKILL.md`                            | 1 MiB file; frontmatter capped at 64 KiB                                                                                                                                                                                      |
+| YAML structure                        | Depth 32; 10,000 nodes; aliases disabled or strictly bounded                                                                                                                                                                  |
+| Individual payload file               | 10 MiB                                                                                                                                                                                                                        |
+| Skill payload                         | 25 MiB and 5,000 entries                                                                                                                                                                                                      |
+| Repository retrieval                  | 250 MiB source-cache growth budget with supervised abort; documented sampling overshoot; at most 100,000 inspected tree entries; hard payload limits before materialization                                                   |
+| Project scan                          | Depth 12 and 200,000 directory entries per selected root; show limit reached                                                                                                                                                  |
+| Category traversal inside skill roots | Depth 8 before a skill root is found                                                                                                                                                                                          |
+| Link resolution                       | At most 16 hops; reject cycles                                                                                                                                                                                                |
+| Text editor                           | 1 MiB editable text; larger text is read-only/exportable                                                                                                                                                                      |
+| Inline diff                           | Bounded lines and bytes; default 2 MiB input per side, then a summary/export path                                                                                                                                             |
+| Query page                            | Default 100 items; maximum 500                                                                                                                                                                                                |
+| Plan validity                         | Five minutes, with mandatory apply-time precondition checks                                                                                                                                                                   |
+| Network time                          | Five-minute total Git retrieval budget with process supervision; configure 15-second connect and 30-second transfer-idle limits where the selected transport provides them; do not infer network activity from missing stderr |
+| Network retries                       | At most two retries for safe reads, with backoff and server rate-limit handling                                                                                                                                               |
+| UI job events                         | At most 10 updates per second per active job; coalesce additional progress                                                                                                                                                    |
 
 Hard content limits apply to actual bytes read, not only reported metadata. System-Git download supervision uses cache growth and elapsed time; it is not a strict wire-byte quota. Record and test its maximum observed overshoot and disk reserve. Limit changes may raise resource budgets after a warning, but cannot disable path or entry-type safety rules.
 
@@ -1290,16 +1288,16 @@ Use a synthetic test library with 2,000 skills, 40,000 payload files, 300 MiB of
 
 Measure optimized non-test builds without a debugger. Record p50/p95 where repeated measurement is useful. Separate cold startup, warm startup, first index build, and steady-state queries.
 
-| Metric | Acceptance target |
-| --- | --- |
-| Warm startup to usable indexed library | p95 at or below 3 seconds |
-| Indexed search/filter result | p95 at or below 200 ms |
-| Local short IPC operation | p95 at or below 100 ms, excluding disk/network jobs |
-| First progress feedback for a long job | Within 300 ms of accepted dispatch |
-| Search-root scan of reference fixture | Under 60 seconds on documented hardware; UI remains usable |
-| Cancel acknowledgment | Within 300 ms; completion waits for the next safe write boundary |
-| Idle resource behavior | No repeated full-library scans, no continuous network polling, bounded cache/log growth |
-| Data integrity | No silently lost original or overwritten external data in the failure-injection suite |
+| Metric                                 | Acceptance target                                                                       |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
+| Warm startup to usable indexed library | p95 at or below 3 seconds                                                               |
+| Indexed search/filter result           | p95 at or below 200 ms                                                                  |
+| Local short IPC operation              | p95 at or below 100 ms, excluding disk/network jobs                                     |
+| First progress feedback for a long job | Within 300 ms of accepted dispatch                                                      |
+| Search-root scan of reference fixture  | Under 60 seconds on documented hardware; UI remains usable                              |
+| Cancel acknowledgment                  | Within 300 ms; completion waits for the next safe write boundary                        |
+| Idle resource behavior                 | No repeated full-library scans, no continuous network polling, bounded cache/log growth |
+| Data integrity                         | No silently lost original or overwritten external data in the failure-injection suite   |
 
 A progress indicator does not excuse an unbounded operation. Tests must cover libraries above the reference workload and show explicit limits or slower operation without a crash.
 
@@ -1325,57 +1323,57 @@ Use controlled HTTPS/SSH Git servers and isolated test credential helpers for au
 
 ### 24.3 MVP-blocking cases
 
-| ID | Case | Required outcome |
-| --- | --- | --- |
-| A01 | Import a skill with scripts, assets, and empty directories | The managed manifest matches the approved payload. Original bytes are unchanged. |
-| A02 | Import identical skills from three locations | One library entry, three observations, no lost provenance. |
-| A03 | Import same-name skills with different assets | Separate variants. No overwrite. |
-| A04 | Scan a shared `.agents/skills` path for several agents | One physical location with several reader labels. |
-| A05 | Source changes during copy | Staging fails cleanly; no mixed-version import. |
-| A06 | Invalid frontmatter | Clear validation result; repair import is explicit; deployment is blocked. |
-| A07 | Link escapes an approved read root | No payload read until an additional grant is approved. |
-| A08 | Path traversal, reserved name, or case collision | Rejected before live writes. |
-| A09 | Deploy a new skill | Exact approved bytes, verified receipt, no manager file in the payload. |
-| A10 | Deploy where an unrelated skill exists | Conflict review. No silent adoption or overwrite. |
-| A11 | Modify a deployed file or add an extra file | Drift is detected before replacement/removal. |
-| A12 | Swap a target link after preview | Apply rejects the changed identity. |
-| A13 | Destination becomes a junction/reparse point | No write through the new destination. |
-| A14 | Kill the app before/after each deployment rename | Original or approved new content is recoverable; no false success. |
-| A15 | Kill the app around Git ref/index publication | Restart reconciles the committed revision and local materialization. |
-| A16 | Disk full or permission loss during replace | Original/backup remains available; failure is visible. |
-| A17 | Two overlapping deployment plans | One serializes or becomes stale. No mixed payload. |
-| A18 | Repeat an IPC request after lost response | One durable result; no duplicate commit or replacement. |
-| A19 | Edit file, reload WebView, restart app | Draft recovery works without claiming the draft was saved. |
-| A20 | Restore an old skill | A new commit restores the approved state; targets remain unchanged. |
-| A21 | Fetch a source update with local edits | Conflict choices preserve both versions; no auto text merge. |
-| A22 | Sync between two devices with different home paths | Only portable library state transfers. Targets remain machine-specific. |
-| A23 | Sync divergent changes to the same skill | Explicit entity resolution and a valid two-parent commit. |
-| A24 | Remote changes during push | No force-push; state is reconciled before retry. |
-| A25 | Remote contains unsupported paths or schema | Incoming state is rejected before materialization. |
-| A26 | Disconnect network | Local search, edit, history, and deployment still work. |
-| A27 | SQLite index is damaged | Index can be rebuilt without discarding deployment records. |
-| A28 | Render hostile Markdown/HTML/link content | No script execution, remote image fetch, arbitrary opener, or IPC access. |
-| A29 | Open two app instances | Only one persistent-state owner; second instance focuses or exits. |
-| A30 | Deploy same-slug variants to one target | Plan cannot proceed until collision is resolved. |
-| A31 | Delete a library skill | Deployed copies remain and become detached. |
-| A32 | Backup quota reached | Destructive action blocks rather than deleting protected backups. |
-| A33 | Launch without Git, then configure Git | Show a setup error; do not create an unversioned library. After Git passes validation, runtime workflows work without Node.js or the skills CLI. |
-| A34 | Open older supported app data in a newer local build | Library, local settings, deployments, and connection settings survive tested schema migrations. No installer or updater is required. |
-| A35 | Inspect a non-test compiled app | No embedded test driver, fixture IPC, debug data-path override, or updater integration. |
-| A36 | Verify frontend component architecture | shadcn/ui components are in `apps/frontend/src/components/ui`; shared custom components are in `apps/frontend/src/components`; feature-specific components are in `apps/frontend/src/features/{feature}/components`. No shared UI package or parallel `src/components/{feature}` tree exists. Import-boundary tests allow feature components to use shared UI and reject reverse dependencies. The documented bootstrap and route exceptions remain narrow. |
-| A37 | Compare complete upstream and app agent sets | Every ID in the pinned registry has an implemented adapter and applicable path/scope tests. No six-agent subset passes acceptance. |
-| A38 | Agent has no global scope or shares another agent's path | No invented scope; shared physical targets are scanned and written once. |
-| A39 | HTTPS Git with an isolated credential helper | Explicit connection/sync reuses the helper. The app receives no credential fields and stores no token. |
-| A40 | SSH Git with an agent; unknown host; unavailable identity | Configured access works. Untrusted host or missing auth produces a safe setup error without disabling verification. |
-| A41 | Local helper needs interaction or GUI environment differs | No indefinite terminal wait. Show bounded waiting/setup state and a redacted recovery action. |
-| A42 | Git configuration includes hooks, filters, auto-signing, or hostile input | Content operations preserve approved bytes without executing repository code or arbitrary user input. Trusted auth remains usable. |
-| A43 | Disconnect a remote | Remove app settings only. The user's Git credentials and other repositories are unchanged. |
-| A44 | Cancel or kill a Git job, including uncertain push | Child processes end; locks reconcile; no false failure/success or unsafe automatic retry. |
-| A45 | Verify excluded distribution/update work | Build and verify require no signing account, release host, updater feed, or publishing credentials. |
-| A46 | Review source-publication readiness | The root license text is the unmodified approved AGPL version 3 text. Owned package/crate metadata uses `AGPL-3.0-only`. README, contribution terms, and third-party notices are consistent. No permissive fallback, “or later” substitution, or relicensing of imported skills. |
-| A47 | Install selected skills from a private GitHub source over HTTPS and SSH | Both supported transports reuse local Git authentication. Complete selected payloads and exact source commits enter the library. No app-managed credential storage, secret-bearing logs, or automatic deployment. |
-| A48 | Private-source access is denied, revoked, or cancelled during retrieval | No partial library mutation or lost installed content. The app shows a bounded, redacted access/setup error. Local operations remain available; a retry uses the configured local Git authentication. |
-| A49 | Manually update a skill from a private GitHub source with local edits | The same local Git authentication is used. The app shows upstream changes and local conflicts before apply. An accepted update records the exact source commit without automatic deployment or library sync. |
+| ID  | Case                                                                      | Required outcome                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A01 | Import a skill with scripts, assets, and empty directories                | The managed manifest matches the approved payload. Original bytes are unchanged.                                                                                                                                                                                                                                                                                                                                                                            |
+| A02 | Import identical skills from three locations                              | One library entry, three observations, no lost provenance.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| A03 | Import same-name skills with different assets                             | Separate variants. No overwrite.                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| A04 | Scan a shared `.agents/skills` path for several agents                    | One physical location with several reader labels.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| A05 | Source changes during copy                                                | Staging fails cleanly; no mixed-version import.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| A06 | Invalid frontmatter                                                       | Clear validation result; repair import is explicit; deployment is blocked.                                                                                                                                                                                                                                                                                                                                                                                  |
+| A07 | Link escapes an approved read root                                        | No payload read until an additional grant is approved.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| A08 | Path traversal, reserved name, or case collision                          | Rejected before live writes.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| A09 | Deploy a new skill                                                        | Exact approved bytes, verified receipt, no manager file in the payload.                                                                                                                                                                                                                                                                                                                                                                                     |
+| A10 | Deploy where an unrelated skill exists                                    | Conflict review. No silent adoption or overwrite.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| A11 | Modify a deployed file or add an extra file                               | Drift is detected before replacement/removal.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| A12 | Swap a target link after preview                                          | Apply rejects the changed identity.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| A13 | Destination becomes a junction/reparse point                              | No write through the new destination.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| A14 | Kill the app before/after each deployment rename                          | Original or approved new content is recoverable; no false success.                                                                                                                                                                                                                                                                                                                                                                                          |
+| A15 | Kill the app around Git ref/index publication                             | Restart reconciles the committed revision and local materialization.                                                                                                                                                                                                                                                                                                                                                                                        |
+| A16 | Disk full or permission loss during replace                               | Original/backup remains available; failure is visible.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| A17 | Two overlapping deployment plans                                          | One serializes or becomes stale. No mixed payload.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| A18 | Repeat an IPC request after lost response                                 | One durable result; no duplicate commit or replacement.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| A19 | Edit file, reload WebView, restart app                                    | Draft recovery works without claiming the draft was saved.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| A20 | Restore an old skill                                                      | A new commit restores the approved state; targets remain unchanged.                                                                                                                                                                                                                                                                                                                                                                                         |
+| A21 | Fetch a source update with local edits                                    | Conflict choices preserve both versions; no auto text merge.                                                                                                                                                                                                                                                                                                                                                                                                |
+| A22 | Sync between two devices with different home paths                        | Only portable library state transfers. Targets remain machine-specific.                                                                                                                                                                                                                                                                                                                                                                                     |
+| A23 | Sync divergent changes to the same skill                                  | Explicit entity resolution and a valid two-parent commit.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| A24 | Remote changes during push                                                | No force-push; state is reconciled before retry.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| A25 | Remote contains unsupported paths or schema                               | Incoming state is rejected before materialization.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| A26 | Disconnect network                                                        | Local search, edit, history, and deployment still work.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| A27 | SQLite index is damaged                                                   | Index can be rebuilt without discarding deployment records.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| A28 | Render hostile Markdown/HTML/link content                                 | No script execution, remote image fetch, arbitrary opener, or IPC access.                                                                                                                                                                                                                                                                                                                                                                                   |
+| A29 | Open two app instances                                                    | Only one persistent-state owner; second instance focuses or exits.                                                                                                                                                                                                                                                                                                                                                                                          |
+| A30 | Deploy same-slug variants to one target                                   | Plan cannot proceed until collision is resolved.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| A31 | Delete a library skill                                                    | Deployed copies remain and become detached.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| A32 | Backup quota reached                                                      | Destructive action blocks rather than deleting protected backups.                                                                                                                                                                                                                                                                                                                                                                                           |
+| A33 | Launch without Git, then configure Git                                    | Show a setup error; do not create an unversioned library. After Git passes validation, runtime workflows work without Node.js or the skills CLI.                                                                                                                                                                                                                                                                                                            |
+| A34 | Open older supported app data in a newer local build                      | Library, local settings, deployments, and connection settings survive tested schema migrations. No installer or updater is required.                                                                                                                                                                                                                                                                                                                        |
+| A35 | Inspect a non-test compiled app                                           | No embedded test driver, fixture IPC, debug data-path override, or updater integration.                                                                                                                                                                                                                                                                                                                                                                     |
+| A36 | Verify frontend component architecture                                    | shadcn/ui components are in `apps/frontend/src/components/ui`; shared custom components are in `apps/frontend/src/components`; feature-specific components are in `apps/frontend/src/features/{feature}/components`. No shared UI package or parallel `src/components/{feature}` tree exists. Import-boundary tests allow feature components to use shared UI and reject reverse dependencies. The documented bootstrap and route exceptions remain narrow. |
+| A37 | Compare complete upstream and app agent sets                              | Every ID in the pinned registry has an implemented adapter and applicable path/scope tests. No six-agent subset passes acceptance.                                                                                                                                                                                                                                                                                                                          |
+| A38 | Agent has no global scope or shares another agent's path                  | No invented scope; shared physical targets are scanned and written once.                                                                                                                                                                                                                                                                                                                                                                                    |
+| A39 | HTTPS Git with an isolated credential helper                              | Explicit connection/sync reuses the helper. The app receives no credential fields and stores no token.                                                                                                                                                                                                                                                                                                                                                      |
+| A40 | SSH Git with an agent; unknown host; unavailable identity                 | Configured access works. Untrusted host or missing auth produces a safe setup error without disabling verification.                                                                                                                                                                                                                                                                                                                                         |
+| A41 | Local helper needs interaction or GUI environment differs                 | No indefinite terminal wait. Show bounded waiting/setup state and a redacted recovery action.                                                                                                                                                                                                                                                                                                                                                               |
+| A42 | Git configuration includes hooks, filters, auto-signing, or hostile input | Content operations preserve approved bytes without executing repository code or arbitrary user input. Trusted auth remains usable.                                                                                                                                                                                                                                                                                                                          |
+| A43 | Disconnect a remote                                                       | Remove app settings only. The user's Git credentials and other repositories are unchanged.                                                                                                                                                                                                                                                                                                                                                                  |
+| A44 | Cancel or kill a Git job, including uncertain push                        | Child processes end; locks reconcile; no false failure/success or unsafe automatic retry.                                                                                                                                                                                                                                                                                                                                                                   |
+| A45 | Verify excluded distribution/update work                                  | Build and verify require no signing account, release host, updater feed, or publishing credentials.                                                                                                                                                                                                                                                                                                                                                         |
+| A46 | Review source-publication readiness                                       | The root license text is the unmodified approved AGPL version 3 text. Owned package/crate metadata uses `AGPL-3.0-only`. README, contribution terms, and third-party notices are consistent. No permissive fallback, “or later” substitution, or relicensing of imported skills.                                                                                                                                                                            |
+| A47 | Install selected skills from a private GitHub source over HTTPS and SSH   | Both supported transports reuse local Git authentication. Complete selected payloads and exact source commits enter the library. No app-managed credential storage, secret-bearing logs, or automatic deployment.                                                                                                                                                                                                                                           |
+| A48 | Private-source access is denied, revoked, or cancelled during retrieval   | No partial library mutation or lost installed content. The app shows a bounded, redacted access/setup error. Local operations remain available; a retry uses the configured local Git authentication.                                                                                                                                                                                                                                                       |
+| A49 | Manually update a skill from a private GitHub source with local edits     | The same local Git authentication is used. The app shows upstream changes and local conflicts before apply. An accepted update records the exact source commit without automatic deployment or library sync.                                                                                                                                                                                                                                                |
 
 ### 24.4 Fault-injection requirement
 
@@ -1497,16 +1495,16 @@ Commit generated DTOs, the complete adapter registry snapshot, its upstream comm
 
 Build and test vertical slices. Do not build all screens before file safety and persistence are proven.
 
-| Milestone | Deliverable | Exit condition |
-| --- | --- | --- |
-| M0 — Foundations | Workspace, approved component structure, desktop shell, typed IPC, test harness, paths/locks, dependency inventory, Git environment check, full registry snapshot, license text and metadata | Clean dev/build on all three OS families; import-boundary checks pass; no production test APIs; approved G1–G5 decisions and final confirmations recorded; `AGPL-3.0-only` metadata in place |
-| M1 — Safe local library | Payload validator, manifests, local Git, SQLite index, transaction journals, basic list/detail | Import, restart, deduplication, and failure-injection cases pass |
-| M2 — Discovery and organization | Complete agent registry, per-adapter fixtures, selected-root scan, folder/tag features | Every upstream agent ID covered; shared paths and missing scopes correct; original files untouched |
-| M3 — Editing and history | New skill, text editor, drafts, diffs, restore | Concurrency checks, recovery drafts, binary handling, and new-commit restore pass |
-| M4 — Deployment | Targets, prepare/apply, receipts, backups, drift, removal | Race, permission, disk-full, crash, and unmanaged-content cases pass on each OS |
-| M5 — Source installation | Public/private GitHub and supported skills.sh resolution through system Git; selection and manual skill updates | No Node/skills CLI runtime dependency; complete assets; pinned refs; private-source HTTPS/SSH installation, access failures, manual updates, and conflict cases pass |
-| M6 — Manual sync | HTTPS/SSH Git with existing local authentication; fetch/preview/apply/push and divergence decisions | Two-device, private library, helper, SSH, stale/uncertain push, and credential-preserving disconnect tests pass |
-| M7 — MVP stability | Migrations, diagnostics, accessibility, performance, non-test local builds, source-publication checklist | In-scope acceptance evidence recorded on all three OS families; no distribution/updater work required; approved license text, metadata, contribution terms, and required notices checked before source publication |
+| Milestone                       | Deliverable                                                                                                                                                                                  | Exit condition                                                                                                                                                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M0 — Foundations                | Workspace, approved component structure, desktop shell, typed IPC, test harness, paths/locks, dependency inventory, Git environment check, full registry snapshot, license text and metadata | Clean dev/build on all three OS families; import-boundary checks pass; no production test APIs; approved G1–G5 decisions and final confirmations recorded; `AGPL-3.0-only` metadata in place                       |
+| M1 — Safe local library         | Payload validator, manifests, local Git, SQLite index, transaction journals, basic list/detail                                                                                               | Import, restart, deduplication, and failure-injection cases pass                                                                                                                                                   |
+| M2 — Discovery and organization | Complete agent registry, per-adapter fixtures, selected-root scan, folder/tag features                                                                                                       | Every upstream agent ID covered; shared paths and missing scopes correct; original files untouched                                                                                                                 |
+| M3 — Editing and history        | New skill, text editor, drafts, diffs, restore                                                                                                                                               | Concurrency checks, recovery drafts, binary handling, and new-commit restore pass                                                                                                                                  |
+| M4 — Deployment                 | Targets, prepare/apply, receipts, backups, drift, removal                                                                                                                                    | Race, permission, disk-full, crash, and unmanaged-content cases pass on each OS                                                                                                                                    |
+| M5 — Source installation        | Public/private GitHub and supported skills.sh resolution through system Git; selection and manual skill updates                                                                              | No Node/skills CLI runtime dependency; complete assets; pinned refs; private-source HTTPS/SSH installation, access failures, manual updates, and conflict cases pass                                               |
+| M6 — Manual sync                | HTTPS/SSH Git with existing local authentication; fetch/preview/apply/push and divergence decisions                                                                                          | Two-device, private library, helper, SSH, stale/uncertain push, and credential-preserving disconnect tests pass                                                                                                    |
+| M7 — MVP stability              | Migrations, diagnostics, accessibility, performance, non-test local builds, source-publication checklist                                                                                     | In-scope acceptance evidence recorded on all three OS families; no distribution/updater work required; approved license text, metadata, contribution terms, and required notices checked before source publication |
 
 A milestone is not complete because its UI exists. Its persistence and failure behavior must pass the exit tests.
 
@@ -1565,41 +1563,40 @@ This document is a design and acceptance specification. It does not report an im
 
 References are retained from revision 1.3. Revision 1.4 records the owner's final approvals and updates the related requirements; it does not add new external verification. Provider paths and tool behavior can change. Pin implementation dependencies and the complete registry snapshot, then repeat relevant checks during implementation.
 
-| ID | Primary source | Address |
-| --- | --- | --- |
-| S01 | Tauri — Project Structure | `https://v2.tauri.app/start/project-structure/` |
-| S02 | Tauri — Capabilities and application command permissions | `https://v2.tauri.app/security/capabilities/` |
-| S03 | Tauri — Calling Rust from the Frontend | `https://v2.tauri.app/develop/calling-rust/` |
-| S04 | Agent Skills — Specification | `https://agentskills.io/specification` |
-| S05 | Vercel Labs — skills CLI source and agent-path table | `https://github.com/vercel-labs/skills` |
-| S06 | skills.sh — API Reference and authentication | `https://skills.sh/docs/api` |
-| S07 | Tauri — App path resolution API | `https://v2.tauri.app/reference/javascript/api/namespacepath/` |
-| S08 | Git — command interface, SSH environment, and terminal prompt control | `https://git-scm.com/docs/git` |
-| S09 | TanStack Router — Installation with Vite | `https://tanstack.com/router/latest/docs/framework/react/installation/with-vite` |
-| S10 | TanStack Query — Important Defaults | `https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults` |
-| S11 | shadcn/ui — Vite installation | `https://ui.shadcn.com/docs/installation/vite` |
-| S12 | pnpm — Workspaces | `https://pnpm.io/workspaces` |
-| S13 | Cargo — Workspaces | `https://doc.rust-lang.org/cargo/reference/workspaces.html` |
-| S14 | ts-rs — Rust-to-TypeScript type export | `https://docs.rs/ts-rs/latest/ts_rs/` |
-| S15 | yaml-rust2 — Parser documentation | `https://docs.rs/yaml-rust2/latest/yaml_rust2/` |
-| S16 | Tauri — WebDriver and WebdriverIO testing | `https://v2.tauri.app/develop/tests/webdriver/` |
-| S17 | Reserved reference ID; former updater reference removed because the feature is out of scope | — |
-| S18 | SQLite — Write-Ahead Logging, durability, and published fixes | `https://sqlite.org/wal.html` |
-| S19 | Tauri — Content Security Policy | `https://v2.tauri.app/security/csp/` |
-| S20 | Claude Code — Skills, directories, aliases, and plugin behavior | `https://code.claude.com/docs/en/skills` |
-| S21 | OpenAI — Build skills and Codex local discovery | `https://developers.openai.com/codex/build-skills` |
-| S22 | OpenAI — Reusable Codex skills, including older user-directory guidance | `https://developers.openai.com/codex/use-cases/reusable-codex-skills` |
-| S23 | Cursor — Agent Skills | `https://cursor.com/docs/skills` |
-| S24 | GitHub — About agent skills | `https://docs.github.com/en/copilot/concepts/agents/about-agent-skills` |
-| S25 | Gemini CLI — Agent Skills | `https://geminicli.com/docs/cli/skills/` |
-| S26 | OpenCode — Agent Skills | `https://opencode.ai/docs/skills/` |
-| S27 | Tauri — Configuration reference | `https://v2.tauri.app/reference/config/` |
-| S28 | Git — credential helpers and authentication flow | `https://git-scm.com/docs/gitcredentials` |
-| S29 | Git — configuration controls, including hook paths | `https://git-scm.com/docs/git-config` |
-| S30 | Git — raw object hashing and filter bypass | `https://git-scm.com/docs/git-hash-object` |
-| S31 | Vercel Labs — agent registry source; pin a commit during M0 | `https://github.com/vercel-labs/skills/blob/main/src/agents.ts` |
-| S32 | SPDX — GNU AGPL v3 only identifier and full license text | `https://spdx.org/licenses/AGPL-3.0-only.html` |
-
+| ID  | Primary source                                                                              | Address                                                                            |
+| --- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| S01 | Tauri — Project Structure                                                                   | `https://v2.tauri.app/start/project-structure/`                                    |
+| S02 | Tauri — Capabilities and application command permissions                                    | `https://v2.tauri.app/security/capabilities/`                                      |
+| S03 | Tauri — Calling Rust from the Frontend                                                      | `https://v2.tauri.app/develop/calling-rust/`                                       |
+| S04 | Agent Skills — Specification                                                                | `https://agentskills.io/specification`                                             |
+| S05 | Vercel Labs — skills CLI source and agent-path table                                        | `https://github.com/vercel-labs/skills`                                            |
+| S06 | skills.sh — API Reference and authentication                                                | `https://skills.sh/docs/api`                                                       |
+| S07 | Tauri — App path resolution API                                                             | `https://v2.tauri.app/reference/javascript/api/namespacepath/`                     |
+| S08 | Git — command interface, SSH environment, and terminal prompt control                       | `https://git-scm.com/docs/git`                                                     |
+| S09 | TanStack Router — Installation with Vite                                                    | `https://tanstack.com/router/latest/docs/framework/react/installation/with-vite`   |
+| S10 | TanStack Query — Important Defaults                                                         | `https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults` |
+| S11 | shadcn/ui — Vite installation                                                               | `https://ui.shadcn.com/docs/installation/vite`                                     |
+| S12 | pnpm — Workspaces                                                                           | `https://pnpm.io/workspaces`                                                       |
+| S13 | Cargo — Workspaces                                                                          | `https://doc.rust-lang.org/cargo/reference/workspaces.html`                        |
+| S14 | ts-rs — Rust-to-TypeScript type export                                                      | `https://docs.rs/ts-rs/latest/ts_rs/`                                              |
+| S15 | yaml-rust2 — Parser documentation                                                           | `https://docs.rs/yaml-rust2/latest/yaml_rust2/`                                    |
+| S16 | Tauri — WebDriver and WebdriverIO testing                                                   | `https://v2.tauri.app/develop/tests/webdriver/`                                    |
+| S17 | Reserved reference ID; former updater reference removed because the feature is out of scope | —                                                                                  |
+| S18 | SQLite — Write-Ahead Logging, durability, and published fixes                               | `https://sqlite.org/wal.html`                                                      |
+| S19 | Tauri — Content Security Policy                                                             | `https://v2.tauri.app/security/csp/`                                               |
+| S20 | Claude Code — Skills, directories, aliases, and plugin behavior                             | `https://code.claude.com/docs/en/skills`                                           |
+| S21 | OpenAI — Build skills and Codex local discovery                                             | `https://developers.openai.com/codex/build-skills`                                 |
+| S22 | OpenAI — Reusable Codex skills, including older user-directory guidance                     | `https://developers.openai.com/codex/use-cases/reusable-codex-skills`              |
+| S23 | Cursor — Agent Skills                                                                       | `https://cursor.com/docs/skills`                                                   |
+| S24 | GitHub — About agent skills                                                                 | `https://docs.github.com/en/copilot/concepts/agents/about-agent-skills`            |
+| S25 | Gemini CLI — Agent Skills                                                                   | `https://geminicli.com/docs/cli/skills/`                                           |
+| S26 | OpenCode — Agent Skills                                                                     | `https://opencode.ai/docs/skills/`                                                 |
+| S27 | Tauri — Configuration reference                                                             | `https://v2.tauri.app/reference/config/`                                           |
+| S28 | Git — credential helpers and authentication flow                                            | `https://git-scm.com/docs/gitcredentials`                                          |
+| S29 | Git — configuration controls, including hook paths                                          | `https://git-scm.com/docs/git-config`                                              |
+| S30 | Git — raw object hashing and filter bypass                                                  | `https://git-scm.com/docs/git-hash-object`                                         |
+| S31 | Vercel Labs — agent registry source; pin a commit during M0                                 | `https://github.com/vercel-labs/skills/blob/main/src/agents.ts`                    |
+| S32 | SPDX — GNU AGPL v3 only identifier and full license text                                    | `https://spdx.org/licenses/AGPL-3.0-only.html`                                     |
 
 ---
 
