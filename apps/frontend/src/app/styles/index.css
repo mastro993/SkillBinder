@@ -324,13 +324,14 @@ p {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 232px 1fr;
 }
 .sidebar {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   padding: 28px 18px 20px;
   border-right: 1px solid #daddd5;
   background: #eceee8;
@@ -380,6 +381,7 @@ p {
 }
 .main-content {
   min-width: 0;
+  overflow-y: auto;
   background: #f8f8f5;
 }
 .page {
