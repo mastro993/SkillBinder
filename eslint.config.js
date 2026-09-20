@@ -9,6 +9,7 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/target/**",
       "libs/contracts/src/**",
+      "tests/fixtures/upstream-skills-cli/**",
     ],
   },
   eslint.configs.recommended,
