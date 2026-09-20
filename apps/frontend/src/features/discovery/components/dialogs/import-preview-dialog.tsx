@@ -21,9 +21,9 @@ export function ImportPreviewDialog({
 }) {
   return (
     <div className="dialog-backdrop" role="presentation">
-      <section
+      <dialog
         className="dialog"
-        role="dialog"
+        open
         aria-modal="true"
         aria-labelledby="import-preview-title"
         onKeyDown={(event) => {
@@ -82,7 +82,7 @@ export function ImportPreviewDialog({
             {applying ? "Importing…" : "Apply import"}
           </Button>
         </footer>
-      </section>
+      </dialog>
     </div>
   );
 }

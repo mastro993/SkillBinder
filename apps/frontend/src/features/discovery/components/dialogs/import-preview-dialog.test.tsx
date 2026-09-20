@@ -39,8 +39,8 @@ describe("import preview dialog", () => {
       <ImportPreviewDialog
         plan={plan}
         applying={false}
-        onApply={vi.fn()}
-        onClose={vi.fn()}
+        onApply={vi.fn<() => void>()}
+        onClose={vi.fn<() => void>()}
       />,
     );
 
@@ -55,12 +55,12 @@ describe("import preview dialog", () => {
   });
 
   it("closes on Escape", () => {
-    const onClose = vi.fn();
+    const onClose = vi.fn<() => void>();
     render(
       <ImportPreviewDialog
         plan={plan}
         applying={false}
-        onApply={vi.fn()}
+        onApply={vi.fn<() => void>()}
         onClose={onClose}
       />,
     );

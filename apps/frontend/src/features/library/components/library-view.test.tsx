@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { BootstrapResponse } from "@/generated";
 import type { DesktopClient } from "@/native/client";
 import * as native from "@/native/client";
 import { LibraryView } from "./library-view";
@@ -24,7 +25,7 @@ function renderLibrary(client: Partial<DesktopClient>) {
   );
 }
 
-const bootstrap = {
+const bootstrap: BootstrapResponse = {
   appVersion: "fixture",
   protocolVersion: "1",
   capabilities: [],
@@ -44,8 +45,8 @@ const bootstrap = {
     detail: "",
     repairInstruction: null,
   },
-  onboarding: { step: "ready" as const, completed: true },
-  libraryState: "ready" as const,
+  onboarding: { step: "ready", completed: true },
+  libraryState: "ready",
   currentRevision: "revision",
   recoverySummary: null,
 };
@@ -53,8 +54,10 @@ const bootstrap = {
 describe("library view", () => {
   it("keeps empty library state", async () => {
     renderLibrary({
-      bootstrap: vi.fn().mockResolvedValue(bootstrap),
-      libraryList: vi.fn().mockResolvedValue({
+      bootstrap: vi
+        .fn<DesktopClient["bootstrap"]>()
+        .mockResolvedValue(bootstrap),
+      libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
         libraryRevision: null,
         hasUncommittedChanges: false,
         skills: [],
@@ -67,8 +70,10 @@ describe("library view", () => {
 
   it("shows imported skill sources and uncommitted state", async () => {
     renderLibrary({
-      bootstrap: vi.fn().mockResolvedValue(bootstrap),
-      libraryList: vi.fn().mockResolvedValue({
+      bootstrap: vi
+        .fn<DesktopClient["bootstrap"]>()
+        .mockResolvedValue(bootstrap),
+      libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
         libraryRevision: "r",
         hasUncommittedChanges: true,
         skills: [

@@ -70,9 +70,11 @@ afterEach(() => {
 
 describe("discovery view", () => {
   it("requires invalid confirmation before review", async () => {
-    const prepare = vi.fn();
+    const prepare = vi.fn<DesktopClient["importsPrepare"]>();
     renderView({
-      discoveryScan: vi.fn().mockResolvedValue(scan),
+      discoveryScan: vi
+        .fn<DesktopClient["discoveryScan"]>()
+        .mockResolvedValue(scan),
       importsPrepare: prepare,
     });
     await screen.findByRole("checkbox", { name: "Select Invalid" });
@@ -94,7 +96,7 @@ describe("discovery view", () => {
   });
   it("clears selection and invalid confirmation after rescan", async () => {
     const discoveryScan = vi
-      .fn()
+      .fn<DesktopClient["discoveryScan"]>()
       .mockResolvedValueOnce(scan)
       .mockResolvedValueOnce({
         ...scan,
@@ -107,7 +109,7 @@ describe("discovery view", () => {
           },
         ],
       });
-    const prepare = vi.fn().mockResolvedValue({
+    const prepare = vi.fn<DesktopClient["importsPrepare"]>().mockResolvedValue({
       planId: "plan",
       expiresAt: new Date().toISOString(),
       libraryRevision: null,
@@ -139,7 +141,7 @@ describe("discovery view", () => {
   });
   it("shows plan failure messaging", async () => {
     renderView({
-      discoveryScan: vi.fn().mockResolvedValue({
+      discoveryScan: vi.fn<DesktopClient["discoveryScan"]>().mockResolvedValue({
         ...scan,
         candidates: [
           {
@@ -153,7 +155,7 @@ describe("discovery view", () => {
         ],
       }),
       importsPrepare: vi
-        .fn()
+        .fn<DesktopClient["importsPrepare"]>()
         .mockRejectedValue(new Error("Plan failed for clean.")),
     });
     await screen.findByRole("checkbox", { name: "Select Clean" });
@@ -174,28 +176,30 @@ describe("discovery view", () => {
     };
     renderView({
       discoveryScan: vi
-        .fn()
+        .fn<DesktopClient["discoveryScan"]>()
         .mockResolvedValue({ ...scan, candidates: [clean] }),
-      importsPrepare: vi.fn().mockResolvedValue({
-        planId: "plan",
-        expiresAt: new Date().toISOString(),
-        libraryRevision: null,
-        items: [
-          {
-            candidateId: "clean",
-            displayPath: clean.displayPath,
-            slug: "clean",
-            skillId: "skill-clean",
-            outcome: { kind: "newSkill" },
-            validation: clean.validation,
-            duplicate: clean.duplicate,
-            fileCount: clean.fileCount,
-            totalBytes: clean.totalBytes,
-            exclusions: [],
-          },
-        ],
-      }),
-      importsApply: vi.fn().mockResolvedValue({
+      importsPrepare: vi
+        .fn<DesktopClient["importsPrepare"]>()
+        .mockResolvedValue({
+          planId: "plan",
+          expiresAt: new Date().toISOString(),
+          libraryRevision: null,
+          items: [
+            {
+              candidateId: "clean",
+              displayPath: clean.displayPath,
+              slug: "clean",
+              skillId: "skill-clean",
+              outcome: { kind: "newSkill" },
+              validation: clean.validation,
+              duplicate: clean.duplicate,
+              fileCount: clean.fileCount,
+              totalBytes: clean.totalBytes,
+              exclusions: [],
+            },
+          ],
+        }),
+      importsApply: vi.fn<DesktopClient["importsApply"]>().mockResolvedValue({
         planId: "plan",
         imported: [
           {
@@ -223,7 +227,7 @@ describe("discovery view", () => {
 });
 it("shows inspected paths for empty partial scans and limit warnings", async () => {
   renderView({
-    discoveryScan: vi.fn().mockResolvedValue({
+    discoveryScan: vi.fn<DesktopClient["discoveryScan"]>().mockResolvedValue({
       ...scan,
       candidates: [],
       warnings: ["Some paths were unreadable."],

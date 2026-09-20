@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "ignorePatterns": [
+    ".scratch/",
+    "apps/frontend/src/generated/",
+    "apps/frontend/src/routeTree.gen.ts",
+    "docs/agent-support.md",
+    "tests/fixtures/upstream-skills-cli/"
+  ]
+}

@@ -12,6 +12,7 @@ Pinned foundation baseline, verified 2026-09-20:
 | Vite                    | 8.3.0                               |
 | React                   | 19.3.0                              |
 | TypeScript              | 6.0.3                               |
+| Lint / format           | oxlint 1.83.0 / oxfmt 0.68.0        |
 | TanStack Router / Query | 1.170.38 / 5.103.1                  |
 | Tailwind CSS            | 4.3.3                               |
 | Scroll area primitive   | @radix-ui/react-scroll-area 1.2.18  |

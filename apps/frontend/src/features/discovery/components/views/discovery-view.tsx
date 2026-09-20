@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import type { ImportPlanResponse } from "@/generated";
@@ -20,11 +20,15 @@ export function DiscoveryView() {
   const [allowInvalidSkills, setAllowInvalidSkills] = useState(false);
   const [plan, setPlan] = useState<ImportPlanResponse | null>(null);
 
-  useEffect(() => {
+  const [scanGeneration, setScanGeneration] = useState(scan.dataUpdatedAt);
+
+  if (scanGeneration !== scan.dataUpdatedAt) {
+    setScanGeneration(scan.dataUpdatedAt);
     setSelected(new Set());
     setAllowInvalidSkills(false);
     setPlan(null);
-  }, [scan.dataUpdatedAt]);
+  }
+
   const prepare = useMutation({
     mutationFn: ({
       candidateIds,
@@ -49,9 +53,9 @@ export function DiscoveryView() {
 
   if (scan.isPending)
     return (
-      <p className="page-status" role="status" aria-live="polite">
+      <output className="page-status" aria-live="polite">
         Inspecting known global skill locations…
-      </p>
+      </output>
     );
   if (scan.isError) {
     return (
@@ -152,7 +156,7 @@ export function DiscoveryView() {
       </section>
 
       {data.warnings.length || data.limitsReached ? (
-        <div className="warning-panel" role="status">
+        <div className="warning-panel" aria-live="polite">
           {data.warnings.map((warning) => (
             <p key={warning}>{warning}</p>
           ))}
@@ -237,7 +241,7 @@ export function DiscoveryView() {
         )}
       </section>
 
-      <p className="status-announcer" role="status" aria-live="polite">
+      <output className="status-announcer" aria-live="polite">
         {scan.isFetching
           ? "Discovery scan in progress."
           : apply.isPending
@@ -245,7 +249,7 @@ export function DiscoveryView() {
             : success
               ? "Import complete. Library refreshed."
               : ""}
-      </p>
+      </output>
       {importError ? (
         <p className="inline-error" role="alert">
           {errorMessage(importError)}

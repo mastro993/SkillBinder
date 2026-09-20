@@ -36,7 +36,7 @@ describe("discovery candidate table", () => {
           candidate("blocked", "blocked"),
         ]}
         selected={new Set()}
-        onToggle={vi.fn()}
+        onToggle={vi.fn<(candidateId: string) => void>()}
         agentLabels={{ "claude-code": "Claude Code" }}
       />,
     );
@@ -50,7 +50,7 @@ describe("discovery candidate table", () => {
   });
 
   it("exposes real accessible checkboxes for selectable rows", () => {
-    const onToggle = vi.fn();
+    const onToggle = vi.fn<(candidateId: string) => void>();
     render(
       <DiscoveryCandidateTable
         candidates={[candidate("valid", "clean")]}
