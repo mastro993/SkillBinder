@@ -440,14 +440,6 @@ pub fn inspect_payload(
                                 );
                             } else {
                                 warnings.push(format!("materialized symlink: {path}"));
-                                if !budget.entry() {
-                                    summary.push(
-                                        ValidationCode::PayloadLimitExceeded,
-                                        ValidationLevel::Blocked,
-                                        "payload has too many entries",
-                                    );
-                                    return Ok(blocked_model(summary, warnings, name, description));
-                                }
                                 entries.push(PayloadEntry {
                                     path: path.clone(),
                                     kind: ManifestKind::Directory,

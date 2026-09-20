@@ -68,8 +68,8 @@ variable without a default leaves that root unresolved.
 
 Scanning walks each existing root with a category depth of 8 and one aggregate entry budget of 5000
 per root, skips `.git` and `node_modules`, and stops descending once a directory is accepted as a
-skill root. A directory that contains `SKILL.md` directly is a skill root, including a directory
-reached through a link that stays inside the scanned root. A root that canonicalises outside the
+skill root. A directory that contains `SKILL.md` directly is a skill root, including a category or
+skill directory reached through a link that resolves inside the home directory. A root that canonicalises outside the
 home directory is reported as unreadable and its payload is not read. Agent labels come from the
 location, and one physical directory is scanned once with every reader agent attached.
 

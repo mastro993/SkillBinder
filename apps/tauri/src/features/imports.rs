@@ -141,14 +141,14 @@ fn resolve_candidates(
         let identity = source
             .physical_identity(&canonical)
             .map_err(|_| candidate_changed())?;
-        let contained = if candidate.resolved_link {
-            canonical.starts_with(home)
-        } else {
-            session
+        let canonical_home = source
+            .canonicalize_root(home)
+            .unwrap_or_else(|_| home.to_path_buf());
+        let contained = canonical.starts_with(&canonical_home)
+            || session
                 .roots
                 .iter()
-                .any(|root| canonical.starts_with(&root.canonical_path))
-        };
+                .any(|root| canonical.starts_with(&root.canonical_path));
         if !contained || canonical != candidate.canonical_path || identity != candidate.identity {
             return Err(candidate_changed());
         }
@@ -357,11 +357,10 @@ mod tests {
         )])
     }
 
-    fn linked_candidate(target: &str) -> ScanCandidate {
+    fn candidate_at_path(target: &str) -> ScanCandidate {
         let mut candidate = cached_candidate();
         candidate.canonical_path = target.into();
         candidate.identity = target.into();
-        candidate.resolved_link = true;
         candidate
     }
 
@@ -371,7 +370,6 @@ mod tests {
             path: CACHED.into(),
             canonical_path: CACHED.into(),
             identity: CACHED.into(),
-            resolved_link: false,
             display_path: CACHED.into(),
             slug: "skill".into(),
             reader_agent_ids: vec!["agent".into()],
@@ -487,11 +485,11 @@ mod tests {
     }
 
     #[test]
-    fn linked_candidate_resolves_against_its_target_inside_home() {
+    fn materialized_link_resolves_against_its_target_inside_home() {
         let source = FakeSource {
             link_target: Some("/home/payload".into()),
         };
-        let cache = session_with(linked_candidate("/home/payload"));
+        let cache = session_with(candidate_at_path("/home/payload"));
 
         let result = resolve_candidates(&source, home(), &cache, &["cached".into()]).unwrap();
 
@@ -503,7 +501,7 @@ mod tests {
         let source = FakeSource {
             link_target: Some("/elsewhere/payload".into()),
         };
-        let cache = session_with(linked_candidate("/elsewhere/payload"));
+        let cache = session_with(candidate_at_path("/elsewhere/payload"));
 
         let result = resolve_candidates(&source, home(), &cache, &["cached".into()]);
 

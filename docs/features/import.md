@@ -63,8 +63,8 @@ returns the stored result instead of running again.
 
 Each candidate carries the canonical path and native identity recorded when discovery read it.
 Prepare and apply both recompute them and refuse a candidate whose directory was replaced, whose
-link now points somewhere else, or that no longer sits under a scanned root. The frontend receives
-an invalid-path error with a rescan recovery action.
+link now points somewhere else, or whose canonical path leaves both the scanned root and the home
+directory. The frontend receives an invalid-path error with a rescan recovery action.
 
 An import writes a journal at `<AppLocalData>/journals/import-<planId>.json` before the first move
 into `skills/` and removes it after the result is durable. While a journal exists, both prepare and
