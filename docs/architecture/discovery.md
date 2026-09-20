@@ -54,6 +54,9 @@ so a stale or forged session entry cannot reach a file that the scan did not alr
   reason and lets the other roots finish.
 - A root whose canonical path leaves the home directory is `unreadable` and its payload is never
   read. This covers both a final-component link and a link in an intermediate component.
+- Each candidate records the canonical path and native identity of the directory discovery read.
+  Prepare and apply recompute both, so a directory replaced after the scan is refused rather than
+  read.
 - A payload link that leaves the skill root, a dangling link, and a link cycle block the candidate.
 - A blocked candidate is refused at prepare. An invalid candidate needs explicit confirmation.
 - Staging happens for the whole batch before any move, so a batch either lands or leaves the

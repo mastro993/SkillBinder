@@ -122,6 +122,7 @@ pub struct ScanCandidate {
     pub path: PathBuf,
     pub canonical_path: PathBuf,
     pub identity: String,
+    pub resolved_link: bool,
     pub display_path: String,
     pub slug: String,
     pub reader_agent_ids: Vec<String>,
@@ -279,11 +280,16 @@ pub fn scan_global_roots(
                         let identity = source
                             .physical_identity(&canonical_path)
                             .unwrap_or_default();
+                        let resolved_link = matches!(
+                            source.entry_metadata(&skill_root),
+                            Ok(metadata) if metadata.kind == EntryKind::Symlink
+                        );
                         let mut candidate = ScanCandidate {
                             candidate_id,
                             path: skill_root.clone(),
                             canonical_path,
                             identity,
+                            resolved_link,
                             display_path: skill_root.display().to_string(),
                             slug,
                             reader_agent_ids: vec![root.agent_id.clone()],

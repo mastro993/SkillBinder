@@ -47,7 +47,7 @@ pub fn prepare(
             "prepare-cache",
         )
     })?;
-    let selected = resolve_candidates(state.source.as_ref(), &cache, &candidate_ids)?;
+    let selected = resolve_candidates(state.source.as_ref(), &state.home, &cache, &candidate_ids)?;
     drop(cache);
     let revision = state.library.current_revision().map_err(map_import_error)?;
     let plan = state
@@ -117,6 +117,7 @@ pub fn prepare(
 }
 fn resolve_candidates(
     source: &dyn PayloadSource,
+    home: &std::path::Path,
     cache: &HashMap<String, ScanSession>,
     candidate_ids: &[String],
 ) -> Result<Vec<ImportSelection>, AppError> {
@@ -140,14 +141,15 @@ fn resolve_candidates(
         let identity = source
             .physical_identity(&canonical)
             .map_err(|_| candidate_changed())?;
-        let inside_scanned_root = session
-            .roots
-            .iter()
-            .any(|root| canonical.starts_with(&root.canonical_path));
-        if !inside_scanned_root
-            || canonical != candidate.canonical_path
-            || identity != candidate.identity
-        {
+        let contained = if candidate.resolved_link {
+            canonical.starts_with(home)
+        } else {
+            session
+                .roots
+                .iter()
+                .any(|root| canonical.starts_with(&root.canonical_path))
+        };
+        if !contained || canonical != candidate.canonical_path || identity != candidate.identity {
             return Err(candidate_changed());
         }
         selections.push(ImportSelection::from(candidate));
@@ -170,15 +172,6 @@ pub fn imports_apply(
     state: State<'_, AppState>,
     request: ImportApplyRequest,
 ) -> CommandResult<ImportApplyResponse> {
-    if let Ok(Some(_detail)) = state.library.unresolved_import_journal() {
-        return CommandResult::failure(err(
-            ErrorCode::RecoveryRequired,
-            "unresolved import journal",
-            false,
-            Some(RecoveryAction::OpenRecovery),
-            "apply-recovery",
-        ));
-    }
     match state.import_service.apply(&request.plan_id) {
         Ok(result) => CommandResult::success(ImportApplyResponse {
             plan_id: result.plan_id,
@@ -300,15 +293,32 @@ mod tests {
 
     const CACHED: &str = "/home/skills/skill";
 
-    struct FakeSource;
+    fn home() -> &'static std::path::Path {
+        std::path::Path::new("/home")
+    }
+
+    #[derive(Default)]
+    struct FakeSource {
+        link_target: Option<PathBuf>,
+    }
+
+    impl FakeSource {
+        fn is_link_path(&self, path: &std::path::Path) -> bool {
+            self.link_target.is_some() && path == std::path::Path::new(CACHED)
+        }
+    }
 
     impl PayloadSource for FakeSource {
         fn list_entries(&self, _path: &std::path::Path) -> Result<Vec<PathBuf>, SourceError> {
             Ok(Vec::new())
         }
-        fn entry_metadata(&self, _path: &std::path::Path) -> Result<EntryMetadata, SourceError> {
+        fn entry_metadata(&self, path: &std::path::Path) -> Result<EntryMetadata, SourceError> {
             Ok(EntryMetadata {
-                kind: EntryKind::Directory,
+                kind: if self.is_link_path(path) {
+                    EntryKind::Symlink
+                } else {
+                    EntryKind::Directory
+                },
                 executable: false,
                 size: 0,
             })
@@ -324,6 +334,9 @@ mod tests {
             Ok(path.to_path_buf())
         }
         fn canonicalize_root(&self, path: &std::path::Path) -> Result<PathBuf, SourceError> {
+            if self.is_link_path(path) {
+                return Ok(self.link_target.clone().unwrap_or_default());
+            }
             Ok(path.to_path_buf())
         }
         fn physical_identity(&self, path: &std::path::Path) -> Result<String, SourceError> {
@@ -344,12 +357,21 @@ mod tests {
         )])
     }
 
+    fn linked_candidate(target: &str) -> ScanCandidate {
+        let mut candidate = cached_candidate();
+        candidate.canonical_path = target.into();
+        candidate.identity = target.into();
+        candidate.resolved_link = true;
+        candidate
+    }
+
     fn cached_candidate() -> ScanCandidate {
         ScanCandidate {
             candidate_id: "cached".into(),
             path: CACHED.into(),
             canonical_path: CACHED.into(),
             identity: CACHED.into(),
+            resolved_link: false,
             display_path: CACHED.into(),
             slug: "skill".into(),
             reader_agent_ids: vec!["agent".into()],
@@ -396,7 +418,12 @@ mod tests {
 
     #[test]
     fn unknown_candidate_id_is_rejected_with_rescan() {
-        let result = resolve_candidates(&FakeSource, &HashMap::new(), &["missing".into()]);
+        let result = resolve_candidates(
+            &FakeSource::default(),
+            home(),
+            &HashMap::new(),
+            &["missing".into()],
+        );
         assert!(matches!(
             result,
             Err(AppError {
@@ -411,7 +438,8 @@ mod tests {
     fn cached_candidate_id_resolves_to_import_selection() {
         let cache = session_with(cached_candidate());
 
-        let result = resolve_candidates(&FakeSource, &cache, &["cached".into()]).unwrap();
+        let result =
+            resolve_candidates(&FakeSource::default(), home(), &cache, &["cached".into()]).unwrap();
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].candidate_id, "cached");
@@ -425,7 +453,7 @@ mod tests {
             .checked_sub(std::time::Duration::from_secs(SCAN_SESSION_SECONDS + 1))
             .unwrap();
 
-        let result = resolve_candidates(&FakeSource, &cache, &["cached".into()]);
+        let result = resolve_candidates(&FakeSource::default(), home(), &cache, &["cached".into()]);
 
         assert!(matches!(
             result,
@@ -447,7 +475,55 @@ mod tests {
             .unwrap()
             .identity = "other-identity".into();
 
-        let result = resolve_candidates(&FakeSource, &cache, &["cached".into()]);
+        let result = resolve_candidates(&FakeSource::default(), home(), &cache, &["cached".into()]);
+
+        assert!(matches!(
+            result,
+            Err(AppError {
+                code: ErrorCode::InvalidPath,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn linked_candidate_resolves_against_its_target_inside_home() {
+        let source = FakeSource {
+            link_target: Some("/home/payload".into()),
+        };
+        let cache = session_with(linked_candidate("/home/payload"));
+
+        let result = resolve_candidates(&source, home(), &cache, &["cached".into()]).unwrap();
+
+        assert_eq!(result[0].canonical_source, PathBuf::from("/home/payload"));
+    }
+
+    #[test]
+    fn link_pointing_outside_home_is_rejected() {
+        let source = FakeSource {
+            link_target: Some("/elsewhere/payload".into()),
+        };
+        let cache = session_with(linked_candidate("/elsewhere/payload"));
+
+        let result = resolve_candidates(&source, home(), &cache, &["cached".into()]);
+
+        assert!(matches!(
+            result,
+            Err(AppError {
+                code: ErrorCode::InvalidPath,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn direct_candidate_must_stay_under_a_scanned_root() {
+        let mut candidate = cached_candidate();
+        candidate.canonical_path = "/home/elsewhere/skill".into();
+        candidate.identity = "/home/elsewhere/skill".into();
+        let cache = session_with(candidate);
+
+        let result = resolve_candidates(&FakeSource::default(), home(), &cache, &["cached".into()]);
 
         assert!(matches!(
             result,

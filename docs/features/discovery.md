@@ -66,12 +66,16 @@ names, project directories, and translated global roots, and regenerates `docs/a
 Path templates accept `~`, `${VAR}`, `${VAR:-default}`, and slash-separated segments. An unset
 variable without a default leaves that root unresolved.
 
-Scanning walks each existing root with a category depth of 8 and an entry budget of 5000 per root,
-skips `.git` and `node_modules`, and stops descending once a directory is accepted as a skill root.
-A directory that contains `SKILL.md` directly is a skill root. A root that is a symlink may resolve
-only to a path inside the home directory; anything else is reported as unreadable and its payload
-is not read. Agent labels come from the location, and one physical directory is scanned once with
-every reader agent attached.
+Scanning walks each existing root with a category depth of 8 and one aggregate entry budget of 5000
+per root, skips `.git` and `node_modules`, and stops descending once a directory is accepted as a
+skill root. A directory that contains `SKILL.md` directly is a skill root, including a directory
+reached through a link that stays inside the scanned root. A root that canonicalises outside the
+home directory is reported as unreadable and its payload is not read. Agent labels come from the
+location, and one physical directory is scanned once with every reader agent attached.
+
+Each candidate records the canonical path and native identity read at scan time, and the candidate
+directory name goes through the same portability rules as payload children. A scan session lives
+for ten minutes; after that, prepare refuses its candidate ids and the user rescans.
 
 Payload validation lives in the import feature and covers the entry types, portable names, link
 rules, plugin manifests, size limits, and frontmatter checks described in

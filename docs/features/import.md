@@ -53,16 +53,24 @@ Every command returns `CommandResult<T>`. Core exposes `ImportService::prepare`,
 
 ## State transitions
 
-A plan moves from created to consumed once. Apply stages the whole batch before any library
-mutation, so a candidate that cannot be staged aborts the batch with no library change. An apply
-that finds a source different from the plan fails with the source-changed error and deletes its
-staging directory. A repeated apply for the same plan id returns the stored result instead of
-running again.
+A plan moves from created to consumed once. Apply compares the plan's library revision and catalog
+fingerprint with the library before it stages anything, so a plan prepared before another import
+is refused as stale. It then stages the whole batch, re-inspects every source, and only then moves
+payloads. A candidate that cannot be staged, a source that changed, or a destination that already
+exists aborts the batch: the payloads, records, observations, and index rows the batch already
+wrote are rolled back, and the staging tree is removed. A repeated apply for the same plan id
+returns the stored result instead of running again.
+
+Each candidate carries the canonical path and native identity recorded when discovery read it.
+Prepare and apply both recompute them and refuse a candidate whose directory was replaced, whose
+link now points somewhere else, or that no longer sits under a scanned root. The frontend receives
+an invalid-path error with a rescan recovery action.
 
 An import writes a journal at `<AppLocalData>/journals/import-<planId>.json` before the first move
-into `skills/` and removes it after the result is durable. While a journal exists, `imports_prepare`
-refuses with `RECOVERY_REQUIRED` and names the file, so a new mutation cannot stack on an
-unresolved one.
+into `skills/` and removes it after the result is durable. While a journal exists, both prepare and
+apply refuse with `RECOVERY_REQUIRED` before any mutation, so a new batch cannot stack on an
+unresolved one. A repeat of a completed plan still returns its stored result, because the
+idempotency lookup runs first.
 
 Import does not create a Git commit. Revision 1.8 section D keeps commits an explicit user action,
 so `library_list` reports `hasUncommittedChanges` instead of committing on the user's behalf.
@@ -74,10 +82,16 @@ a validation summary, and warnings. Levels: `valid`, `warning`, `invalid`, and `
 never imports. Invalid imports only when the plan was prepared with `allowInvalidSkills`.
 
 Checks cover the required `SKILL.md`, YAML frontmatter with bounded depth and node count, name and
-description rules, portable entry names, Windows reserved names, trailing dots and spaces, case and
-Unicode-normalization collisions, unsupported entry types, links that leave the skill root, link
-cycles, dangling links, plugin manifests, and the file, entry, and payload size limits. VCS
-administrative content such as `.git` is excluded from the payload and reported as an exclusion.
+description rules, portable entry names including the skill directory name itself, Windows
+reserved names, trailing dots and spaces, colons, case and Unicode-normalization collisions,
+unsupported entry types including Unix hardlinks, links that leave the skill root, link cycles,
+dangling links, plugin manifests, and the file, entry, and payload size limits. An oversized
+`SKILL.md` blocks the candidate and is not importable with invalid confirmation. VCS administrative
+content such as `.git` is excluded from the payload and reported as an exclusion.
+
+Validation charges its entry and byte budgets before it reads or retains anything, so a folder that
+exceeds a limit is refused instead of being read first. Materialised link bytes count toward the
+payload total.
 
 Internal links that resolve inside the skill root are materialized at the link's own path and
 reported in the candidate warnings. The library contains no symbolic links.
@@ -90,8 +104,9 @@ identity, so it changes only with a content-policy version bump.
 
 `ValidationFailed` covers a refused selection, an invalid candidate without confirmation, and a
 stale idempotency key. `UnsupportedSkill` covers blocked payloads and names the offending codes.
-`SourceChanged` covers a source that moved between prepare and apply. `StalePlan` covers an expired
-or consumed plan and an unknown candidate id, and its recovery action is `RescanDiscovery`.
+`SourceChanged` covers a source whose bytes or identity changed between prepare and apply, or a
+destination that already exists. `StalePlan` covers an expired or consumed plan, a library that
+changed since prepare, and an unknown candidate id, and its recovery action is `RescanDiscovery`.
 `LimitExceeded` covers a reached scanning or payload bound. `RECOVERY_REQUIRED` covers an unresolved
 import journal. The transport mapping never returns Rust debug output to the frontend.
 

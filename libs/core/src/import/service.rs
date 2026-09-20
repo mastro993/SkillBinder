@@ -290,17 +290,14 @@ impl ImportService {
         }
         let mut staged = Vec::new();
         for item in &plan.items {
-            let current_canonical = self
+            let identity_matches = self
                 .source
                 .canonicalize_root(&item.selection.source)
-                .map_err(|_| ImportError::SourceChanged)?;
-            let current_identity = self
-                .source
-                .physical_identity(&current_canonical)
-                .map_err(|_| ImportError::SourceChanged)?;
-            if current_canonical != item.selection.canonical_source
-                || current_identity != item.selection.source_identity
-            {
+                .ok()
+                .filter(|canonical| canonical == &item.selection.canonical_source)
+                .and_then(|canonical| self.source.physical_identity(&canonical).ok())
+                .is_some_and(|identity| identity == item.selection.source_identity);
+            if !identity_matches {
                 let _ = self.library.delete_staged(plan_id);
                 return Err(ImportError::SourceChanged);
             }
