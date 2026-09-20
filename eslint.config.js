@@ -1,4 +1,5 @@
 import eslint from "@eslint/js";
+import { plugin as shadcn } from "@shadcn/lint";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
@@ -19,5 +20,9 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
     },
+  },
+  {
+    files: ["**/*.{js,mjs,ts,tsx}"],
+    plugins: { shadcn },
   },
 );
