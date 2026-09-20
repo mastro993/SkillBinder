@@ -18,9 +18,15 @@ use std::{
 };
 use tauri::{AppHandle, Manager};
 
+#[derive(Clone)]
+pub struct ScanRootIdentity {
+    pub canonical_path: PathBuf,
+    pub identity: String,
+}
 pub struct ScanSession {
     pub candidates: HashMap<String, ScanCandidate>,
     pub created: Instant,
+    pub roots: Vec<ScanRootIdentity>,
 }
 pub struct AppState {
     pub bootstrap: BootstrapService,

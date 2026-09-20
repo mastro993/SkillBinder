@@ -1,8 +1,12 @@
 use crate::{
-    app::state::{AppState, ScanSession},
+    app::state::{AppState, ScanRootIdentity, ScanSession},
     transport::*,
 };
-use skillbinder_core::discovery::{ResolvedRoot, ScanLimits, scan_global_roots};
+use skillbinder_core::discovery::{
+    ScanLimits,
+    scan::{PayloadSource, ResolvedRoot},
+    scan_global_roots,
+};
 use std::time::Instant;
 use tauri::State;
 
@@ -61,6 +65,17 @@ pub fn run_scan(state: &AppState) -> Result<DiscoveryScanResponse, AppError> {
             "scan-cache",
         )
     })?;
+    let root_identities = roots
+        .iter()
+        .filter_map(|root| {
+            let canonical_path = state.source.canonicalize_root(&root.path).ok()?;
+            let identity = state.source.physical_identity(&root.path).ok()?;
+            Some(ScanRootIdentity {
+                canonical_path,
+                identity,
+            })
+        })
+        .collect();
     cache.insert(
         scan_id.clone(),
         ScanSession {
@@ -70,6 +85,7 @@ pub fn run_scan(state: &AppState) -> Result<DiscoveryScanResponse, AppError> {
                 .map(|candidate| (candidate.candidate_id.clone(), candidate))
                 .collect(),
             created: Instant::now(),
+            roots: root_identities,
         },
     );
     cache.retain(|_, session| session.created.elapsed().as_secs() < 600);
@@ -109,7 +125,19 @@ fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> Disc
         name: candidate.name.clone(),
         description: candidate.description.clone(),
         reader_agent_ids: candidate.reader_agent_ids.clone(),
-        link: CandidateLink::Direct,
+        link: match &candidate.link {
+            skillbinder_core::discovery::scan::ScanLink::Direct => CandidateLink::Direct,
+            skillbinder_core::discovery::scan::ScanLink::RootLink { resolved_path } => {
+                CandidateLink::RootLink {
+                    resolved_path: resolved_path.display().to_string(),
+                }
+            }
+            skillbinder_core::discovery::scan::ScanLink::Unresolved { detail } => {
+                CandidateLink::Unresolved {
+                    detail: detail.clone(),
+                }
+            }
+        },
         validation: map_validation(candidate.validation.clone()),
         duplicate: match &candidate.duplicate {
             skillbinder_core::discovery::scan::DuplicateStatus::Unique => {

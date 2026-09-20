@@ -1,6 +1,6 @@
 use skillbinder_core::{
     bootstrap::BootstrapEnvironment,
-    discovery::{Registry, ResolvedRoot, ScanLimits, scan_global_roots},
+    discovery::{Registry, ResolvedRoot, ScanLimits, ScanOutcome, scan_global_roots},
     import::{
         ImportSelection, ImportService, ImportSnapshot, LibraryRepository, ObservationStore,
         SystemClock, UuidSource,
@@ -16,6 +16,7 @@ use std::{
     collections::hash_map::DefaultHasher,
     fs,
     hash::{Hash, Hasher},
+    io::Write,
     os::unix::fs::symlink,
     path::{Path, PathBuf},
     sync::Arc,
@@ -76,6 +77,14 @@ fn main() {
         "review",
         "---\nname: review\ndescription: Review code for correctness.\n---\nBody\n",
     );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let executable = home.join(".claude/skills/review/assets/notes.md");
+        let mut permissions = fs::metadata(&executable).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(executable, permissions).unwrap();
+    }
     write_skill(
         &home.join(".agents/skills/shared"),
         "shared",
@@ -106,6 +115,58 @@ fn main() {
     .unwrap();
 
     fs::create_dir_all(outside.join("data/skills/legacy")).unwrap();
+    write_skill(
+        &home.join(".claude/skills/linked-target"),
+        "linked-target",
+        "---\nname: linked-target\ndescription: Linked directory.\n---\n",
+    );
+    symlink(
+        home.join(".claude/skills/linked-target"),
+        home.join(".claude/skills/linked"),
+    )
+    .unwrap();
+    write_skill(
+        &home.join(".claude/skills/oversized"),
+        "oversized",
+        "---\nname: oversized\ndescription: Too large.\n---\n",
+    );
+    let oversized = home.join(".claude/skills/oversized/SKILL.md");
+    fs::OpenOptions::new()
+        .append(true)
+        .open(&oversized)
+        .unwrap()
+        .write_all(&vec![b'x'; 1_048_577])
+        .unwrap();
+    write_skill(
+        &home.join(".claude/skills/hardlink"),
+        "hardlink",
+        "---\nname: hardlink\ndescription: Hardlink.\n---\n",
+    );
+    fs::hard_link(
+        outside.join("secret.txt"),
+        home.join(".claude/skills/hardlink/outside.txt"),
+    )
+    .unwrap();
+    write_skill(
+        &home.join(".gemini/antigravity-cli/skills/review"),
+        "review",
+        "---\nname: review\ndescription: Review code for correctness.\n---\nBody\n",
+    );
+    let duplicate_assets = home.join(".gemini/antigravity-cli/skills/review/assets/notes.md");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&duplicate_assets).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&duplicate_assets, permissions).unwrap();
+    }
+    for name in ["alpha", "beta", "gamma"] {
+        write_skill(
+            &home.join(".gemini/antigravity/skills").join(name),
+            name,
+            &format!("---\nname: {name}\ndescription: Probe fixture {name}.\n---\n"),
+        );
+    }
     fs::write(
         outside.join("data/skills/legacy/SKILL.md"),
         "---\nname: legacy\ndescription: Outside home.\n---\n",
@@ -210,6 +271,33 @@ fn main() {
     assert_eq!(escape.validation.status, ValidationStatus::Blocked);
     assert!(shared.reader_agent_ids.len() > 1, "shared root readers");
     let mut problems: Vec<String> = Vec::new();
+    let linked = find("linked");
+    let oversized = find("oversized");
+    let hardlink = find("hardlink");
+    let linked_ok = matches!(
+        linked.link,
+        skillbinder_core::discovery::scan::ScanLink::RootLink { .. }
+    );
+    let oversized_ok = oversized.validation.status == ValidationStatus::Blocked
+        && oversized.validation.messages.iter().any(|message| {
+            message.code == skillbinder_core::library::ValidationCode::FileLimitExceeded
+        });
+    let hardlink_ok = hardlink.validation.status == ValidationStatus::Blocked
+        && hardlink.validation.messages.iter().any(|message| {
+            message.code == skillbinder_core::library::ValidationCode::UnsupportedEntryType
+        });
+    println!("linked skill discovered and materialized: {linked_ok}");
+    println!("oversized SKILL.md blocked: {oversized_ok}");
+    println!("hardlink blocked: {hardlink_ok}");
+    if !linked_ok {
+        problems.push("linked skill was not materialized".into());
+    }
+    if !oversized_ok {
+        problems.push("oversized SKILL.md was not blocked".into());
+    }
+    if !hardlink_ok {
+        problems.push("hardlink was not blocked".into());
+    }
     let legacy = outcome
         .candidates
         .iter()
@@ -237,19 +325,64 @@ fn main() {
         limits: ValidationLimits::default(),
     };
 
+    let claude_review = candidate_at(&outcome, ".claude/skills/review");
+    let duplicate_review = candidate_at(&outcome, ".gemini/antigravity-cli/skills/review");
+    let dedup_selection: Vec<ImportSelection> = [claude_review, duplicate_review]
+        .into_iter()
+        .map(ImportSelection::from)
+        .collect();
+    let dedup_snapshot = snapshot_for(library.as_ref(), &dedup_selection);
+    let dedup_plan = imports
+        .prepare(dedup_selection, false, dedup_snapshot)
+        .unwrap();
+    let dedup_new = matches!(
+        dedup_plan.items[0].decision,
+        skillbinder_core::import::ImportDecision::NewSkill { .. }
+    );
+    let dedup_attach = matches!(
+        &dedup_plan.items[1].decision,
+        skillbinder_core::import::ImportDecision::AttachObservation { skill_id }
+            if *skill_id == dedup_plan.items[0].skill_id
+    );
+    imports.apply(&dedup_plan.id).unwrap();
+    let dedup_observations = store.list(&dedup_plan.items[0].skill_id).unwrap().len();
+    let dedup_records = library.catalog().unwrap().len();
+    println!(
+        "identical candidates in one batch make one skill with two observations: {}",
+        dedup_new && dedup_attach && dedup_observations == 2 && dedup_records == 1
+    );
+    if !(dedup_new && dedup_attach && dedup_observations == 2 && dedup_records == 1) {
+        problems.push("batch dedup did not collapse identical candidates".into());
+    }
+
+    let copied_review = paths
+        .library()
+        .join("skills")
+        .join(&dedup_plan.items[0].skill_id)
+        .join(&dedup_plan.items[0].selection.slug)
+        .join("assets/notes.md");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let source_mode =
+            fs::metadata(review_hashed_source(&home, "review").join("assets/notes.md"))
+                .unwrap()
+                .permissions()
+                .mode();
+        let copied_mode = fs::metadata(&copied_review).unwrap().permissions().mode();
+        let executable_preserved = source_mode & 0o111 != 0 && copied_mode & 0o111 != 0;
+        println!("executable bit preserved into the library: {executable_preserved}");
+        if !executable_preserved {
+            problems.push("executable bit was lost while staging".into());
+        }
+    }
+
     let revision = library.current_revision().unwrap();
     let selection: Vec<ImportSelection> = [review, shared, outline]
         .into_iter()
         .map(ImportSelection::from)
         .collect();
-    let snapshot = ImportSnapshot {
-        candidate_ids: selection
-            .iter()
-            .map(|item| item.candidate_id.clone())
-            .collect(),
-        library_revision: revision.clone(),
-        allow_invalid_skills: false,
-    };
+    let snapshot = snapshot_for(library.as_ref(), &selection);
 
     let invalid_attempt = imports.prepare(
         vec![broken.into()],
@@ -362,6 +495,88 @@ fn main() {
     );
     println!("records after replay: {}", library.catalog().unwrap().len());
 
+    let alpha = candidate_at(&outcome, "/alpha");
+    let beta = candidate_at(&outcome, "/beta");
+    let failure_selection: Vec<ImportSelection> = [alpha, beta]
+        .into_iter()
+        .map(ImportSelection::from)
+        .collect();
+    let failure_snapshot = snapshot_for(library.as_ref(), &failure_selection);
+    let failure_plan = imports
+        .prepare(failure_selection, false, failure_snapshot)
+        .unwrap();
+    let occupied = paths
+        .library()
+        .join("skills")
+        .join(&failure_plan.items[1].skill_id)
+        .join(&failure_plan.items[1].selection.slug);
+    fs::create_dir_all(&occupied).unwrap();
+    fs::write(occupied.join("unrelated.txt"), "keep me\n").unwrap();
+    let failure_result = imports.apply(&failure_plan.id);
+    let unrelated_kept = occupied.join("unrelated.txt").is_file();
+    let first_rolled_back = !paths
+        .library()
+        .join("skills")
+        .join(&failure_plan.items[0].skill_id)
+        .exists();
+    let failure_records = library.catalog().unwrap();
+    let no_partial_records = failure_records.iter().all(|record| {
+        record.skill_id != failure_plan.items[0].skill_id
+            && record.skill_id != failure_plan.items[1].skill_id
+    });
+    let journal_clean = library.unresolved_import_journal().unwrap().is_none();
+    println!(
+        "occupied destination refused, batch rolled back, unrelated content kept: {}",
+        failure_result.is_err()
+            && unrelated_kept
+            && first_rolled_back
+            && no_partial_records
+            && journal_clean
+    );
+    println!(
+        "  refused={} unrelated_kept={} first_rolled_back={} no_partial_records={} journal_clean={}",
+        failure_result.is_err(),
+        unrelated_kept,
+        first_rolled_back,
+        no_partial_records,
+        journal_clean
+    );
+    if !(failure_result.is_err()
+        && unrelated_kept
+        && first_rolled_back
+        && no_partial_records
+        && journal_clean)
+    {
+        problems
+            .push("batch failure left partial library state or destroyed unrelated content".into());
+    }
+    if let Err(error) = &failure_result {
+        println!("  batch failure error: {error}");
+    }
+    fs::remove_dir_all(&occupied).unwrap();
+
+    let gamma = candidate_at(&outcome, "/gamma");
+    let change_selection: Vec<ImportSelection> = vec![gamma.into()];
+    let change_snapshot = snapshot_for(library.as_ref(), &change_selection);
+    let change_plan = imports
+        .prepare(change_selection, false, change_snapshot)
+        .unwrap();
+    fs::write(
+        home.join(".gemini/antigravity/skills/gamma/assets/notes.md"),
+        "changed after prepare\n",
+    )
+    .unwrap();
+    let change_result = imports.apply(&change_plan.id);
+    let change_records = library.catalog().unwrap();
+    let source_change_rejected = change_result.is_err()
+        && change_records
+            .iter()
+            .all(|record| record.skill_id != change_plan.items[0].skill_id);
+    println!("source change between prepare and apply is rejected: {source_change_rejected}");
+    if !source_change_rejected {
+        problems.push("a changed source still reached the library".into());
+    }
+
     println!(
         "\nPROBE RESULT: {}",
         if problems.is_empty() {
@@ -372,6 +587,28 @@ fn main() {
     );
     if !problems.is_empty() {
         std::process::exit(1);
+    }
+}
+
+fn candidate_at<'a>(
+    outcome: &'a ScanOutcome,
+    suffix: &str,
+) -> &'a skillbinder_core::discovery::ScanCandidate {
+    outcome
+        .candidates
+        .iter()
+        .find(|candidate| candidate.display_path.ends_with(suffix))
+        .unwrap_or_else(|| panic!("candidate ending in {suffix} missing"))
+}
+
+fn snapshot_for(library: &dyn LibraryRepository, selections: &[ImportSelection]) -> ImportSnapshot {
+    ImportSnapshot {
+        candidate_ids: selections
+            .iter()
+            .map(|item| item.candidate_id.clone())
+            .collect(),
+        library_revision: library.current_revision().unwrap(),
+        allow_invalid_skills: false,
     }
 }
 

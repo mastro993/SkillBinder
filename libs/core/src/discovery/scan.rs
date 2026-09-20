@@ -24,6 +24,17 @@ pub struct EntryMetadata {
 
 pub trait PayloadSource: Send + Sync {
     fn list_entries(&self, path: &Path) -> Result<Vec<PathBuf>, SourceError>;
+    fn list_entries_limited(&self, path: &Path, cap: usize) -> Result<Vec<PathBuf>, SourceError> {
+        let mut entries = self.list_entries(path)?;
+        if entries.len() > cap {
+            entries.truncate(cap);
+        }
+        Ok(entries)
+    }
+    fn physical_identity(&self, path: &Path) -> Result<String, SourceError> {
+        self.canonicalize_root(path)
+            .map(|value| value.display().to_string())
+    }
     fn entry_metadata(&self, path: &Path) -> Result<EntryMetadata, SourceError>;
     fn read_file(&self, path: &Path, cap: usize) -> Result<Vec<u8>, SourceError>;
     fn resolve_symlink(&self, path: &Path, max_hops: u8) -> Result<PathBuf, SourceError>;
@@ -100,6 +111,12 @@ pub enum DuplicateStatus {
     SlugInUse { skill_id: String, slug: String },
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ScanLink {
+    Direct,
+    RootLink { resolved_path: PathBuf },
+    Unresolved { detail: String },
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanCandidate {
     pub candidate_id: String,
     pub path: PathBuf,
@@ -115,6 +132,7 @@ pub struct ScanCandidate {
     pub warnings: Vec<String>,
     pub blocked: bool,
     pub duplicate: DuplicateStatus,
+    pub link: ScanLink,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanOutcome {
@@ -139,7 +157,7 @@ pub fn scan_global_roots(
     let canonical_home = source
         .canonicalize_root(home)
         .unwrap_or_else(|_| home.to_path_buf());
-    let mut limit_reached = false;
+    let mut limits_reached = false;
     for root in roots {
         let resolved = match source.entry_metadata(&root.path) {
             Err(error) => {
@@ -153,11 +171,7 @@ pub fn scan_global_roots(
                     } else {
                         LocationState::Unreadable
                     },
-                    detail: if matches!(error, SourceError::Missing) {
-                        None
-                    } else {
-                        Some(error.to_string())
-                    },
+                    detail: (!matches!(error, SourceError::Missing)).then(|| error.to_string()),
                 });
                 continue;
             }
@@ -190,25 +204,34 @@ pub fn scan_global_roots(
         if let Some(index) = physical.get(&resolved).copied() {
             locations[index].agent_ids.push(root.agent_id.clone());
             locations[index].agent_labels.push(root.agent_label.clone());
-        } else {
-            let index = locations.len();
-            physical.insert(resolved.clone(), index);
-            locations.push(ScanLocation {
-                path: resolved.clone(),
-                display_path: resolved.display().to_string(),
-                agent_ids: vec![root.agent_id.clone()],
-                agent_labels: vec![root.agent_label.clone()],
-                state: LocationState::Scanned,
-                detail: None,
-            });
+            for candidate in &mut candidates {
+                if candidate.path.starts_with(&resolved)
+                    && !candidate.reader_agent_ids.contains(&root.agent_id)
+                {
+                    candidate.reader_agent_ids.push(root.agent_id.clone());
+                    candidate.reader_agent_labels.push(root.agent_label.clone());
+                }
+            }
+            continue;
         }
-        let mut stack = vec![(resolved, 0usize)];
-        while let Some((directory, depth)) = stack.pop() {
+        let index = locations.len();
+        physical.insert(resolved.clone(), index);
+        locations.push(ScanLocation {
+            path: resolved.clone(),
+            display_path: resolved.display().to_string(),
+            agent_ids: vec![root.agent_id.clone()],
+            agent_labels: vec![root.agent_label.clone()],
+            state: LocationState::Scanned,
+            detail: None,
+        });
+        let mut remaining = limits.max_entries;
+        let mut stack = vec![(resolved, 0usize, Vec::<PathBuf>::new(), ScanLink::Direct)];
+        while let Some((directory, depth, chain, directory_link)) = stack.pop() {
             if depth > limits.category_depth {
-                limit_reached = true;
+                limits_reached = true;
                 continue;
             }
-            let entries = match source.list_entries(&directory) {
+            let entries = match source.list_entries_limited(&directory, remaining) {
                 Ok(entries) => entries,
                 Err(error) => {
                     warnings.push(ScanWarning {
@@ -218,10 +241,12 @@ pub fn scan_global_roots(
                     continue;
                 }
             };
-            if entries.len() > limits.max_entries {
-                limit_reached = true;
-            }
-            for entry in entries.into_iter().take(limits.max_entries) {
+            for entry in entries {
+                if remaining == 0 {
+                    limits_reached = true;
+                    break;
+                }
+                remaining -= 1;
                 let name = entry
                     .file_name()
                     .and_then(|v| v.to_str())
@@ -241,15 +266,16 @@ pub fn scan_global_roots(
                         }
                     } else {
                         let candidate_id = format!("{scan_id}:{}", candidates.len());
+                        let slug = skill_root
+                            .file_name()
+                            .and_then(|x| x.to_str())
+                            .unwrap_or_default()
+                            .to_owned();
                         let mut candidate = ScanCandidate {
                             candidate_id,
                             path: skill_root.clone(),
                             display_path: skill_root.display().to_string(),
-                            slug: skill_root
-                                .file_name()
-                                .and_then(|x| x.to_str())
-                                .unwrap_or_default()
-                                .to_owned(),
+                            slug,
                             reader_agent_ids: vec![root.agent_id.clone()],
                             reader_agent_labels: vec![root.agent_label.clone()],
                             file_count: 0,
@@ -260,6 +286,7 @@ pub fn scan_global_roots(
                             warnings: Vec::new(),
                             blocked: false,
                             duplicate: DuplicateStatus::Unique,
+                            link: directory_link.clone(),
                         };
                         match crate::library::payload::inspect_payload(
                             &skill_root,
@@ -281,9 +308,7 @@ pub fn scan_global_roots(
                                 candidate.file_count = model
                                     .entries
                                     .iter()
-                                    .filter(|e| {
-                                        e.kind == crate::library::manifest::ManifestKind::File
-                                    })
+                                    .filter(|e| e.kind == crate::library::ManifestKind::File)
                                     .count()
                                     as u32;
                                 candidate.total_bytes = model.entries.iter().map(|e| e.bytes).sum();
@@ -291,7 +316,7 @@ pub fn scan_global_roots(
                                 candidate.description = model.description;
                                 candidate.validation = model.validation;
                                 candidate.blocked = candidate.validation.status
-                                    == crate::library::payload::ValidationStatus::Blocked;
+                                    == crate::library::ValidationStatus::Blocked;
                                 candidate.warnings = model.warnings;
                             }
                             Err(error) => {
@@ -306,16 +331,50 @@ pub fn scan_global_roots(
                 if name == ".git" || name == "node_modules" {
                     continue;
                 }
-                if let Ok(meta) = source.entry_metadata(&entry) {
-                    if meta.kind == EntryKind::Directory {
-                        stack.push((entry, depth + 1));
-                    }
-                } else {
+                let Ok(meta) = source.entry_metadata(&entry) else {
                     warnings.push(ScanWarning {
                         path: Some(entry),
                         message: "unreadable directory".into(),
                     });
+                    continue;
+                };
+                if meta.kind == EntryKind::Directory {
+                    stack.push((entry, depth + 1, chain.clone(), ScanLink::Direct));
+                } else if meta.kind == EntryKind::Symlink {
+                    match source.resolve_symlink(&entry, limits.max_link_hops) {
+                        Ok(target) if target.starts_with(&canonical_home) => {
+                            let mut next_chain = chain.clone();
+                            if next_chain.contains(&target) {
+                                warnings.push(ScanWarning {
+                                    path: Some(entry),
+                                    message: "link cycle".into(),
+                                });
+                            } else {
+                                next_chain.push(target.clone());
+                                stack.push((
+                                    entry,
+                                    depth + 1,
+                                    next_chain,
+                                    ScanLink::RootLink {
+                                        resolved_path: target,
+                                    },
+                                ));
+                            }
+                        }
+                        Err(error) => warnings.push(ScanWarning {
+                            path: Some(entry),
+                            message: error.to_string(),
+                        }),
+                        Ok(_) => warnings.push(ScanWarning {
+                            path: Some(entry),
+                            message: "link resolves outside root".into(),
+                        }),
+                    }
                 }
+            }
+            if remaining == 0 {
+                limits_reached = true;
+                break;
             }
         }
     }
@@ -324,7 +383,7 @@ pub fn scan_global_roots(
         locations,
         candidates,
         warnings,
-        limits_reached: limit_reached,
+        limits_reached,
     }
 }
 

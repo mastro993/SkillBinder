@@ -84,14 +84,22 @@ impl LibraryRepository for FilesystemLibraryRepository {
             let path = dir.join(entry.path.replace('/', std::path::MAIN_SEPARATOR_STR));
             match entry.kind {
                 skillbinder_core::library::ManifestKind::Directory => {
-                    fs::create_dir_all(path).map_err(Self::map)?
+                    fs::create_dir_all(path).map_err(Self::map)?;
                 }
                 skillbinder_core::library::ManifestKind::File => {
                     if let Some(bytes) = &entry.content {
                         if let Some(parent) = path.parent() {
                             fs::create_dir_all(parent).map_err(Self::map)?;
                         }
-                        fs::write(path, bytes).map_err(Self::map)?;
+                        fs::write(&path, bytes).map_err(Self::map)?;
+                        #[cfg(unix)]
+                        if entry.executable {
+                            use std::os::unix::fs::PermissionsExt;
+                            let mut permissions =
+                                fs::metadata(&path).map_err(Self::map)?.permissions();
+                            permissions.set_mode(permissions.mode() | 0o111);
+                            fs::set_permissions(&path, permissions).map_err(Self::map)?;
+                        }
                     }
                 }
             }
@@ -118,11 +126,11 @@ impl LibraryRepository for FilesystemLibraryRepository {
     }
     fn move_staged_payload(&self, plan: &str, skill: &str, slug: &str) -> Result<(), ImportError> {
         let target = self.root().join("skills").join(skill).join(slug);
+        if fs::symlink_metadata(&target).is_ok() {
+            return Err(ImportError::Validation("destination already exists".into()));
+        }
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).map_err(Self::map)?;
-        }
-        if target.exists() {
-            fs::remove_dir_all(&target).map_err(Self::map)?;
         }
         fs::rename(self.staging(plan, skill), target).map_err(Self::map)?;
         Ok(())
@@ -144,6 +152,31 @@ impl LibraryRepository for FilesystemLibraryRepository {
         .map_err(Self::map)?;
         Ok(())
     }
+    fn remove_record_and_manifest(&self, skill: &str) -> Result<(), ImportError> {
+        let root = self.root();
+        for relative in [
+            format!(".skillbinder/skills/{skill}.json"),
+            format!(".skillbinder/manifests/{skill}.json"),
+        ] {
+            let path = root.join(relative);
+            if path.exists() {
+                fs::remove_file(path).map_err(Self::map)?;
+            }
+        }
+        Ok(())
+    }
+    fn rollback_import(&self, plan: &str, moved: &[(String, String)]) -> Result<(), ImportError> {
+        for (skill, slug) in moved {
+            let target = self.root().join("skills").join(skill).join(slug);
+            if fs::symlink_metadata(&target).is_ok() {
+                fs::remove_dir_all(&target).map_err(Self::map)?;
+            }
+            if let Some(parent) = target.parent() {
+                let _ = fs::remove_dir(parent);
+            }
+        }
+        self.delete_staged(plan)
+    }
     fn delete_staged(&self, plan: &str) -> Result<(), ImportError> {
         let path = self.paths.data.join("staging/import").join(plan);
         if path.exists() {
@@ -152,41 +185,52 @@ impl LibraryRepository for FilesystemLibraryRepository {
         Ok(())
     }
     fn current_revision(&self) -> Result<Option<String>, ImportError> {
-        let Ok(git) = self.git.verify() else {
-            return Ok(None);
-        };
-        let output = self.git.run(
-            &git,
-            [
-                OsString::from("-C"),
-                self.root().into_os_string(),
-                OsString::from("rev-parse"),
-                OsString::from("HEAD"),
-            ],
-        );
-        Ok(output
-            .ok()
-            .and_then(|out| String::from_utf8(out.stdout).ok())
-            .map(|value| value.trim().to_owned())
-            .filter(|value| !value.is_empty()))
+        let git = self
+            .git
+            .verify()
+            .map_err(|error| ImportError::Library(format!("git revision unavailable: {error}")))?;
+        let output = self
+            .git
+            .run(
+                &git,
+                [
+                    OsString::from("-C"),
+                    self.root().into_os_string(),
+                    OsString::from("rev-parse"),
+                    OsString::from("HEAD"),
+                ],
+            )
+            .map_err(|error| ImportError::Library(format!("git revision unavailable: {error}")))?;
+        let revision = String::from_utf8(output.stdout)
+            .map_err(|_| ImportError::Library("git revision output was not UTF-8".into()))?
+            .trim()
+            .to_owned();
+        if revision.is_empty() {
+            return Err(ImportError::Library("git revision output was empty".into()));
+        }
+        Ok(Some(revision))
     }
     fn has_uncommitted_changes(&self) -> Result<bool, ImportError> {
-        let Ok(git) = self.git.verify() else {
-            return Ok(false);
-        };
-        let output = self.git.run(
-            &git,
-            [
-                OsString::from("-C"),
-                self.root().into_os_string(),
-                OsString::from("status"),
-                OsString::from("--porcelain"),
-                OsString::from("--"),
-                OsString::from("skills"),
-                OsString::from(".skillbinder"),
-            ],
-        );
-        Ok(output.map(|out| !out.stdout.is_empty()).unwrap_or(false))
+        let git = self
+            .git
+            .verify()
+            .map_err(|error| ImportError::Library(format!("git status unavailable: {error}")))?;
+        let output = self
+            .git
+            .run(
+                &git,
+                [
+                    OsString::from("-C"),
+                    self.root().into_os_string(),
+                    OsString::from("status"),
+                    OsString::from("--porcelain"),
+                    OsString::from("--"),
+                    OsString::from("skills"),
+                    OsString::from(".skillbinder"),
+                ],
+            )
+            .map_err(|error| ImportError::Library(format!("git status unavailable: {error}")))?;
+        Ok(!output.stdout.is_empty())
     }
     fn write_import_journal(&self, plan: &ImportPlan) -> Result<(), ImportError> {
         let path = self
@@ -234,16 +278,15 @@ impl LibraryRepository for FilesystemLibraryRepository {
         if !dir.exists() {
             return Ok(None);
         }
-        fs::read_dir(dir)
+        let found = fs::read_dir(dir)
             .map_err(Self::map)?
             .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-            .find(|path| {
+            .any(|path| {
                 path.file_name()
                     .and_then(|name| name.to_str())
                     .is_some_and(|name| name.starts_with("import-") && name.ends_with(".json"))
-            })
-            .map(|path| Ok(path.display().to_string()))
-            .transpose()
+            });
+        Ok(found.then(|| "unresolved import journal".to_owned()))
     }
 }
 impl LibraryCatalog for FilesystemLibraryRepository {

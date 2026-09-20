@@ -56,6 +56,11 @@ if (customPermissions.join("\n") !== expectedPermissions.join("\n")) {
     `Unexpected native command permissions: ${customPermissions.join(", ")}`,
   );
 }
+if (
+  capability.permissions.some((permission) => permission.startsWith("core:"))
+) {
+  throw new Error("Main capability must not grant core permissions");
+}
 if (capability.windows.join("\n") !== "main" || capability.remote) {
   throw new Error(
     "Native command capability must target only the local main window",

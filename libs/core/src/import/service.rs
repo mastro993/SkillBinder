@@ -34,11 +34,17 @@ pub trait PlanStore: Send + Sync {
 pub trait ObservationStore: Send + Sync {
     fn append(&self, observation: &SourceObservation) -> Result<(), ImportError>;
     fn list(&self, skill_id: &str) -> Result<Vec<SourceObservation>, ImportError>;
+    fn rollback_observation(&self, _observation: &SourceObservation) -> Result<(), ImportError> {
+        Ok(())
+    }
     fn index_metadata(
         &self,
         _skill_id: &str,
         _metadata: &IndexedSkillMetadata,
     ) -> Result<(), ImportError> {
+        Ok(())
+    }
+    fn remove_index_metadata(&self, _skill_id: &str) -> Result<(), ImportError> {
         Ok(())
     }
     fn indexed_metadata(
@@ -74,6 +80,16 @@ pub trait LibraryRepository: Send + Sync {
         slug: &str,
         model: &PayloadModel,
     ) -> Result<(), ImportError>;
+    fn remove_record_and_manifest(&self, _skill_id: &str) -> Result<(), ImportError> {
+        Ok(())
+    }
+    fn rollback_import(
+        &self,
+        _plan_id: &str,
+        _moved: &[(String, String)],
+    ) -> Result<(), ImportError> {
+        self.delete_staged(_plan_id)
+    }
     fn delete_staged(&self, plan_id: &str) -> Result<(), ImportError>;
     fn current_revision(&self) -> Result<Option<String>, ImportError>;
     fn has_uncommitted_changes(&self) -> Result<bool, ImportError>;
@@ -127,6 +143,8 @@ pub enum ImportError {
     StalePlan,
     #[error("idempotency conflict")]
     IdempotencyConflict,
+    #[error("recovery required")]
+    RecoveryRequired,
     #[error("database unavailable: {0}")]
     Database(String),
     #[error("library unavailable: {0}")]
@@ -158,12 +176,24 @@ impl ImportService {
             return Err(ImportError::StalePlan);
         }
         let catalog = self.library.catalog()?;
+        let catalog_fingerprint = fingerprint_catalog(&catalog);
         let id = self.ids.next_id();
         let request_hash = request_hash(&snapshot, &selections);
         let mut items = Vec::new();
-        for selection in selections {
+        let mut planned = Vec::<(String, crate::library::Manifest, String)>::new();
+        for mut selection in selections {
             let model = inspect_payload(&selection.source, self.source.as_ref(), &self.limits)
                 .map_err(|e| ImportError::UnsupportedSkill(e.to_string()))?;
+            selection.validation = model.validation.clone();
+            let exclusions = model
+                .validation
+                .messages
+                .iter()
+                .filter(|message| {
+                    message.code == crate::library::ValidationCode::VcsMetadataExcluded
+                })
+                .map(|message| message.message.clone())
+                .collect();
             if model.validation.status == ValidationStatus::Blocked {
                 return Err(ImportError::UnsupportedSkill(format!(
                     "{}: {}",
@@ -189,14 +219,22 @@ impl ImportService {
                     r.digest == model.manifest.digest && r.manifest.equivalent(&model.manifest)
                 })
                 .collect();
-            let decision = if same.len() == 1 {
+            let planned_match = planned
+                .iter()
+                .find(|(digest, manifest, _)| {
+                    digest == &model.manifest.digest && manifest.equivalent(&model.manifest)
+                })
+                .map(|(_, _, skill_id)| skill_id.clone());
+            let decision = if let Some(skill_id) = planned_match {
+                ImportDecision::AttachObservation { skill_id }
+            } else if same.len() == 1 {
                 ImportDecision::AttachObservation {
                     skill_id: same[0].skill_id.clone(),
                 }
             } else if same.len() > 1 {
-                ImportDecision::Conflict {
-                    skill_ids: same.into_iter().map(|r| r.skill_id.clone()).collect(),
-                }
+                return Err(ImportError::Validation(
+                    "multiple identical library entries require a choice".into(),
+                ));
             } else {
                 ImportDecision::NewSkill {
                     skill_id: self.ids.next_id(),
@@ -205,17 +243,21 @@ impl ImportService {
             let skill_id = match &decision {
                 ImportDecision::NewSkill { skill_id }
                 | ImportDecision::AttachObservation { skill_id } => skill_id.clone(),
-                ImportDecision::Conflict { .. } => {
-                    return Err(ImportError::Validation(
-                        "multiple identical library entries require a choice".into(),
-                    ));
-                }
+                ImportDecision::Conflict { .. } => unreachable!("conflicts rejected above"),
             };
+            if matches!(decision, ImportDecision::NewSkill { .. }) {
+                planned.push((
+                    model.manifest.digest.clone(),
+                    model.manifest.clone(),
+                    skill_id.clone(),
+                ));
+            }
             items.push(ImportPlanItem {
                 selection,
                 skill_id,
                 decision,
                 manifest: model.manifest,
+                exclusions,
             });
         }
         let plan = ImportPlan {
@@ -223,6 +265,7 @@ impl ImportService {
             expires_at: now + 300,
             request_hash,
             library_revision: revision,
+            catalog_fingerprint,
             allow_invalid_skills,
             items,
         };
@@ -237,59 +280,133 @@ impl ImportService {
         if self.clock.now_seconds() > plan.expires_at {
             return Err(ImportError::StalePlan);
         }
+        let catalog = self.library.catalog()?;
+        let current_revision = self.library.current_revision()?;
+        if current_revision != plan.library_revision
+            || fingerprint_catalog(&catalog) != plan.catalog_fingerprint
+        {
+            return Err(ImportError::StalePlan);
+        }
         let mut staged = Vec::new();
+        for item in &plan.items {
+            if self
+                .source
+                .entry_metadata(&item.selection.source)
+                .is_ok_and(|metadata| metadata.kind != crate::discovery::scan::EntryKind::Directory)
+            {
+                let _ = self.library.delete_staged(plan_id);
+                return Err(ImportError::SourceChanged);
+            }
+            let model = inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits)
+                .map_err(|_| ImportError::SourceChanged)?;
+            if !model.manifest.equivalent(&item.manifest) {
+                let _ = self.library.delete_staged(plan_id);
+                return Err(ImportError::SourceChanged);
+            }
+            if let Err(error) = self.library.stage_payload(plan_id, &item.skill_id, &model) {
+                let _ = self.library.delete_staged(plan_id);
+                return Err(error);
+            }
+            if let Err(error) =
+                self.library
+                    .verify_staged_manifest(plan_id, &item.skill_id, &item.manifest)
+            {
+                let _ = self.library.delete_staged(plan_id);
+                return Err(error);
+            }
+            staged.push((item.clone(), model));
+        }
         for item in &plan.items {
             let model = inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits)
                 .map_err(|_| ImportError::SourceChanged)?;
             if !model.manifest.equivalent(&item.manifest) {
-                self.library.delete_staged(plan_id)?;
+                let _ = self.library.delete_staged(plan_id);
                 return Err(ImportError::SourceChanged);
             }
-            self.library
-                .stage_payload(plan_id, &item.skill_id, &model)?;
-            self.library
-                .verify_staged_manifest(plan_id, &item.skill_id, &item.manifest)?;
-            staged.push((item, model));
         }
-        self.library.write_import_journal(&plan)?;
+        if let Err(error) = self.library.write_import_journal(&plan) {
+            let _ = self.library.delete_staged(plan_id);
+            return Err(error);
+        }
+        let mut moved = Vec::new();
+        let mut written = Vec::new();
+        let mut observations = Vec::new();
+        let mut indexed_new = Vec::new();
         let mut imported = Vec::new();
         for (item, model) in staged {
-            if let ImportDecision::NewSkill { .. } = &item.decision {
-                self.library
-                    .move_staged_payload(plan_id, &item.skill_id, &item.selection.slug)?;
-                self.library.write_record_and_manifest(
-                    &item.skill_id,
-                    &item.selection.slug,
-                    &model,
-                )?;
-            }
-            self.observations.append(&SourceObservation {
+            let observation = SourceObservation {
                 source: item.selection.source.clone(),
                 skill_id: item.skill_id.clone(),
                 digest: item.manifest.digest.clone(),
                 warnings: model.warnings.clone(),
                 reader_agent_ids: item.selection.reader_agent_ids.clone(),
-            })?;
-            self.observations.index_metadata(
-                &item.skill_id,
-                &IndexedSkillMetadata {
-                    description: model.description.clone(),
-                    validation: model.validation.clone(),
-                    updated_at: self.clock.now_seconds(),
-                },
-            )?;
-            imported.push(ImportedSkill {
-                skill_id: item.skill_id.clone(),
-                slug: item.selection.slug.clone(),
-                source: item.selection.source.clone(),
-                decision: item.decision.clone(),
-                file_count: model
-                    .entries
-                    .iter()
-                    .filter(|entry| entry.kind == crate::library::ManifestKind::File)
-                    .count() as u32,
-                total_bytes: model.entries.iter().map(|e| e.bytes).sum(),
-            });
+            };
+            let result = (|| {
+                if matches!(item.decision, ImportDecision::NewSkill { .. }) {
+                    self.library.move_staged_payload(
+                        plan_id,
+                        &item.skill_id,
+                        &item.selection.slug,
+                    )?;
+                    moved.push((item.skill_id.clone(), item.selection.slug.clone()));
+                    self.library.write_record_and_manifest(
+                        &item.skill_id,
+                        &item.selection.slug,
+                        &model,
+                    )?;
+                    written.push(item.skill_id.clone());
+                    self.observations.index_metadata(
+                        &item.skill_id,
+                        &IndexedSkillMetadata {
+                            description: model.description.clone(),
+                            validation: model.validation.clone(),
+                            updated_at: self.clock.now_seconds(),
+                        },
+                    )?;
+                    indexed_new.push(item.skill_id.clone());
+                }
+                self.observations.append(&observation)?;
+                observations.push(observation.clone());
+                imported.push(ImportedSkill {
+                    skill_id: item.skill_id.clone(),
+                    slug: item.selection.slug.clone(),
+                    source: item.selection.source.clone(),
+                    decision: item.decision.clone(),
+                    file_count: model
+                        .entries
+                        .iter()
+                        .filter(|entry| entry.kind == crate::library::ManifestKind::File)
+                        .count() as u32,
+                    total_bytes: model.entries.iter().map(|e| e.bytes).sum(),
+                });
+                Ok::<(), ImportError>(())
+            })();
+            if let Err(error) = result {
+                let rollback = self
+                    .library
+                    .rollback_import(plan_id, &moved)
+                    .and_then(|_| {
+                        written
+                            .iter()
+                            .try_for_each(|skill| self.library.remove_record_and_manifest(skill))
+                    })
+                    .and_then(|_| {
+                        indexed_new
+                            .iter()
+                            .try_for_each(|skill| self.observations.remove_index_metadata(skill))
+                    })
+                    .and_then(|_| {
+                        observations.iter().try_for_each(|observation| {
+                            self.observations.rollback_observation(observation)
+                        })
+                    });
+                if rollback.is_err() {
+                    return Err(ImportError::RecoveryRequired);
+                }
+                let _ = self.library.remove_import_journal(plan_id);
+                let _ = self.library.delete_staged(plan_id);
+                return Err(error);
+            }
         }
         let result = ImportResult {
             plan_id: plan.id.clone(),
@@ -299,8 +416,17 @@ impl ImportService {
         self.plans
             .consume_and_store(&plan.id, &plan.request_hash, &result)?;
         self.library.remove_import_journal(plan_id)?;
+        self.library.delete_staged(plan_id)?;
         Ok(result)
     }
+}
+fn fingerprint_catalog(catalog: &[LibraryRecord]) -> String {
+    let mut rows = catalog
+        .iter()
+        .map(|record| format!("{}|{}|{}", record.skill_id, record.slug, record.digest))
+        .collect::<Vec<_>>();
+    rows.sort();
+    format!("{:x}", md5ish(rows.join("\n").as_bytes()))
 }
 fn request_hash(snapshot: &ImportSnapshot, selections: &[ImportSelection]) -> String {
     let mut value = format!(

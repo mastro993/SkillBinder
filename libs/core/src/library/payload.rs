@@ -139,27 +139,118 @@ pub fn inspect_payload(
     source: &dyn PayloadSource,
     limits: &ValidationLimits,
 ) -> Result<PayloadModel, PayloadError> {
+    struct Budget {
+        entries: usize,
+        bytes: u64,
+        max_entries: usize,
+        max_bytes: u64,
+    }
+    impl Budget {
+        fn entry(&mut self) -> bool {
+            if self.entries >= self.max_entries {
+                return false;
+            }
+            self.entries += 1;
+            true
+        }
+        fn bytes(&mut self, amount: u64) -> bool {
+            if amount > self.max_bytes.saturating_sub(self.bytes) {
+                return false;
+            }
+            self.bytes += amount;
+            true
+        }
+    }
     let mut summary = ValidationSummary::valid();
     let mut warnings = Vec::new();
     let mut entries = Vec::new();
     let mut names = HashSet::new();
-    let mut visited_link_targets = HashSet::new();
-    let mut total = 0u64;
-    let mut stack = vec![root.to_path_buf()];
+    let mut budget = Budget {
+        entries: 0,
+        bytes: 0,
+        max_entries: limits.entries,
+        max_bytes: limits.payload_bytes,
+    };
+    let slug = root
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default();
+    if slug.is_empty() || slug.contains('/') || slug.contains('\\') {
+        summary.push(
+            ValidationCode::UnsafeEntryPath,
+            ValidationLevel::Blocked,
+            "skill directory name is not portable",
+        );
+    } else if slug.ends_with(' ') || slug.ends_with('.') || is_reserved(slug) {
+        summary.push(
+            ValidationCode::ReservedEntryName,
+            ValidationLevel::Blocked,
+            format!("reserved skill directory name: {slug}"),
+        );
+    }
     let skill_file = root.join("SKILL.md");
-    let (name, description) = match source.read_file(&skill_file, limits.skill_file_bytes) {
-        Ok(bytes) => match parse_frontmatter(&bytes) {
-            Ok(front) => (front.name, front.description),
-            Err(_) => {
+    let mut skill_content = None;
+    let (name, description) = match source.entry_metadata(&skill_file) {
+        Ok(meta) if meta.kind == EntryKind::File => {
+            if meta.size > limits.skill_file_bytes as u64 {
                 summary.push(
-                    ValidationCode::InvalidFrontmatter,
-                    ValidationLevel::Invalid,
-                    "SKILL.md frontmatter is invalid",
+                    ValidationCode::FileLimitExceeded,
+                    ValidationLevel::Blocked,
+                    "SKILL.md exceeds 1 MiB limit",
                 );
                 (None, None)
+            } else if !budget.bytes(meta.size) {
+                summary.push(
+                    ValidationCode::PayloadLimitExceeded,
+                    ValidationLevel::Blocked,
+                    "payload exceeds limit",
+                );
+                (None, None)
+            } else {
+                match source.read_file(&skill_file, limits.skill_file_bytes) {
+                    Ok(bytes) => {
+                        let parsed = match parse_frontmatter(&bytes) {
+                            Ok(front) => (front.name, front.description),
+                            Err(crate::library::frontmatter::FrontmatterError::Unsupported) => {
+                                summary.push(
+                                    ValidationCode::UnsupportedYaml,
+                                    ValidationLevel::Invalid,
+                                    "SKILL.md uses unsupported YAML",
+                                );
+                                (None, None)
+                            }
+                            Err(_) => {
+                                summary.push(
+                                    ValidationCode::InvalidFrontmatter,
+                                    ValidationLevel::Invalid,
+                                    "SKILL.md frontmatter is invalid",
+                                );
+                                (None, None)
+                            }
+                        };
+                        skill_content = Some(bytes);
+                        parsed
+                    }
+                    Err(SourceError::Limit) => {
+                        summary.push(
+                            ValidationCode::FileLimitExceeded,
+                            ValidationLevel::Blocked,
+                            "SKILL.md exceeds 1 MiB limit",
+                        );
+                        (None, None)
+                    }
+                    Err(_) => {
+                        summary.push(
+                            ValidationCode::MissingSkillFile,
+                            ValidationLevel::Invalid,
+                            "SKILL.md is missing",
+                        );
+                        (None, None)
+                    }
+                }
             }
-        },
-        Err(_) => {
+        }
+        _ => {
             summary.push(
                 ValidationCode::MissingSkillFile,
                 ValidationLevel::Invalid,
@@ -168,10 +259,6 @@ pub fn inspect_payload(
             (None, None)
         }
     };
-    let slug = root
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or_default();
     if name.as_deref().unwrap_or_default().is_empty() {
         summary.push(
             ValidationCode::NameMissing,
@@ -220,7 +307,8 @@ pub fn inspect_payload(
             "description exceeds 1024 characters",
         );
     }
-    while let Some(directory) = stack.pop() {
+    let mut stack = vec![(root.to_path_buf(), Vec::<std::path::PathBuf>::new())];
+    while let Some((directory, chain)) = stack.pop() {
         let children = source
             .list_entries(&directory)
             .map_err(|e| PayloadError::Source(e.to_string()))?;
@@ -233,14 +321,6 @@ pub fn inspect_payload(
                 );
                 continue;
             };
-            if file_name == ".git" {
-                summary.push(
-                    ValidationCode::VcsMetadataExcluded,
-                    ValidationLevel::Warning,
-                    ".git metadata excluded",
-                );
-                continue;
-            }
             let relative = child.strip_prefix(root).unwrap_or(&child);
             let path = relative.to_string_lossy().replace('\\', "/");
             if path.split('/').any(|part| part == ".." || part.is_empty())
@@ -255,6 +335,14 @@ pub fn inspect_payload(
                 );
                 continue;
             }
+            if file_name == ".git" {
+                summary.push(
+                    ValidationCode::VcsMetadataExcluded,
+                    ValidationLevel::Warning,
+                    ".git metadata excluded",
+                );
+                continue;
+            }
             if file_name.ends_with(' ') || file_name.ends_with('.') || is_reserved(file_name) {
                 summary.push(
                     ValidationCode::ReservedEntryName,
@@ -262,8 +350,7 @@ pub fn inspect_payload(
                     format!("reserved entry name: {file_name}"),
                 );
             }
-            let key = path.nfc().collect::<String>().to_lowercase();
-            if !names.insert(key) {
+            if !names.insert(path.nfc().collect::<String>().to_lowercase()) {
                 summary.push(
                     ValidationCode::CaseCollision,
                     ValidationLevel::Blocked,
@@ -280,6 +367,14 @@ pub fn inspect_payload(
             let metadata = source
                 .entry_metadata(&child)
                 .map_err(|e| PayloadError::Source(e.to_string()))?;
+            if !budget.entry() {
+                summary.push(
+                    ValidationCode::PayloadLimitExceeded,
+                    ValidationLevel::Blocked,
+                    "payload has too many entries",
+                );
+                return Ok(blocked_model(summary, warnings, name, description));
+            }
             match metadata.kind {
                 EntryKind::Directory => {
                     entries.push(PayloadEntry {
@@ -289,28 +384,40 @@ pub fn inspect_payload(
                         executable: false,
                         content: None,
                     });
-                    stack.push(child);
+                    stack.push((child, chain.clone()));
                 }
                 EntryKind::File => {
-                    if metadata.size as usize > limits.file_bytes {
+                    if path == "SKILL.md" {
+                        if let Some(bytes) = skill_content.take() {
+                            entries.push(PayloadEntry {
+                                path,
+                                kind: ManifestKind::File,
+                                bytes: bytes.len() as u64,
+                                executable: metadata.executable,
+                                content: Some(bytes),
+                            });
+                        }
+                        continue;
+                    }
+                    if metadata.size > limits.file_bytes as u64 {
                         summary.push(
                             ValidationCode::FileLimitExceeded,
                             ValidationLevel::Blocked,
                             format!("file exceeds limit: {path}"),
                         );
-                        continue;
+                        return Ok(blocked_model(summary, warnings, name, description));
                     }
-                    let bytes = source
-                        .read_file(&child, limits.file_bytes)
-                        .map_err(|e| PayloadError::Source(e.to_string()))?;
-                    total += bytes.len() as u64;
-                    if total > limits.payload_bytes {
+                    if !budget.bytes(metadata.size) {
                         summary.push(
                             ValidationCode::PayloadLimitExceeded,
                             ValidationLevel::Blocked,
                             "payload exceeds limit",
                         );
+                        return Ok(blocked_model(summary, warnings, name, description));
                     }
+                    let bytes = source
+                        .read_file(&child, limits.file_bytes)
+                        .map_err(|e| PayloadError::Source(e.to_string()))?;
                     entries.push(PayloadEntry {
                         path,
                         kind: ManifestKind::File,
@@ -325,7 +432,7 @@ pub fn inspect_payload(
                             .entry_metadata(&target)
                             .map_err(|e| PayloadError::Source(e.to_string()))?;
                         if target_meta.kind == EntryKind::Directory {
-                            if !visited_link_targets.insert(target) {
+                            if chain.contains(&target) {
                                 summary.push(
                                     ValidationCode::LinkCycle,
                                     ValidationLevel::Blocked,
@@ -333,9 +440,27 @@ pub fn inspect_payload(
                                 );
                             } else {
                                 warnings.push(format!("materialized symlink: {path}"));
-                                stack.push(child);
+                                let mut next = chain.clone();
+                                next.push(target);
+                                stack.push((child, next));
                             }
                         } else if target_meta.kind == EntryKind::File {
+                            if target_meta.size > limits.file_bytes as u64 {
+                                summary.push(
+                                    ValidationCode::FileLimitExceeded,
+                                    ValidationLevel::Blocked,
+                                    format!("file exceeds limit: {path}"),
+                                );
+                                return Ok(blocked_model(summary, warnings, name, description));
+                            }
+                            if !budget.bytes(target_meta.size) {
+                                summary.push(
+                                    ValidationCode::PayloadLimitExceeded,
+                                    ValidationLevel::Blocked,
+                                    "payload exceeds limit",
+                                );
+                                return Ok(blocked_model(summary, warnings, name, description));
+                            }
                             let bytes = source
                                 .read_file(&target, limits.file_bytes)
                                 .map_err(|e| PayloadError::Source(e.to_string()))?;
@@ -376,19 +501,14 @@ pub fn inspect_payload(
                     format!("unsupported entry type: {path}"),
                 ),
             }
-            if entries.len() > limits.entries {
-                summary.push(
-                    ValidationCode::PayloadLimitExceeded,
-                    ValidationLevel::Blocked,
-                    "payload has too many entries",
-                );
-            }
         }
     }
     let manifest_entries = entries
         .iter()
-        .map(|entry| {
-            let sha = entry
+        .map(|entry| ManifestEntry {
+            kind: entry.kind,
+            path: entry.path.clone(),
+            sha256: entry
                 .content
                 .as_ref()
                 .map(|bytes| {
@@ -396,14 +516,9 @@ pub fn inspect_payload(
                     h.update(bytes);
                     format!("{:x}", h.finalize())
                 })
-                .unwrap_or_else(|| "0".repeat(64));
-            ManifestEntry {
-                kind: entry.kind,
-                path: entry.path.clone(),
-                sha256: sha,
-                bytes: entry.bytes,
-                executable: entry.executable,
-            }
+                .unwrap_or_else(|| "0".repeat(64)),
+            bytes: entry.bytes,
+            executable: entry.executable,
         })
         .collect();
     Ok(PayloadModel {
@@ -414,6 +529,23 @@ pub fn inspect_payload(
         name,
         description,
     })
+}
+
+fn blocked_model(
+    mut validation: ValidationSummary,
+    warnings: Vec<String>,
+    name: Option<String>,
+    description: Option<String>,
+) -> PayloadModel {
+    validation.status = ValidationStatus::Blocked;
+    PayloadModel {
+        manifest: Manifest::new(Vec::new()),
+        entries: Vec::new(),
+        validation,
+        warnings,
+        name,
+        description,
+    }
 }
 fn is_reserved(name: &str) -> bool {
     let stem = name.split('.').next().unwrap_or(name).to_ascii_uppercase();
@@ -614,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_internal_symlink_target_is_blocked_as_cycle() {
+    fn two_aliases_to_the_same_directory_materialize_at_each_path() {
         let mut source = FakeSource::valid_skill();
         source.directory("/home/skill/shared");
         source.file("/home/skill/shared/data.txt", b"data");
@@ -626,13 +758,24 @@ mod tests {
             &ValidationLimits::default(),
         )
         .unwrap();
-        assert_eq!(model.warnings.len(), 1, "{:?}", model.entries);
-        assert_eq!(
-            model.validation.status,
-            ValidationStatus::Blocked,
-            "{:?}",
-            model.validation
-        );
+        assert_eq!(model.validation.status, ValidationStatus::Valid);
+        for path in ["assets/data.txt", "other/data.txt"] {
+            assert!(model.entries.iter().any(|entry| entry.path == path));
+        }
+    }
+
+    #[test]
+    fn link_chain_that_repeats_an_ancestor_is_blocked_as_cycle() {
+        let mut source = FakeSource::valid_skill();
+        source.symlink("/home/skill/loop", "/home/skill");
+        source.cycle_paths.insert(PathBuf::from("/home/skill/loop"));
+        let model = inspect_payload(
+            Path::new("/home/skill"),
+            &source,
+            &ValidationLimits::default(),
+        )
+        .unwrap();
+        assert_eq!(model.validation.status, ValidationStatus::Blocked);
         assert!(
             model
                 .validation

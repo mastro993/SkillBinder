@@ -30,6 +30,7 @@ pub struct ImportPlanItem {
     pub skill_id: String,
     pub decision: ImportDecision,
     pub manifest: Manifest,
+    pub exclusions: Vec<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportPlan {
@@ -37,6 +38,7 @@ pub struct ImportPlan {
     pub expires_at: u64,
     pub request_hash: String,
     pub library_revision: Option<String>,
+    pub catalog_fingerprint: String,
     pub allow_invalid_skills: bool,
     pub items: Vec<ImportPlanItem>,
 }

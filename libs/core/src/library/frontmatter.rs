@@ -45,15 +45,21 @@ pub fn parse_frontmatter(bytes: &[u8]) -> Result<Frontmatter, FrontmatterError> 
         return Err(FrontmatterError::MissingOrTooLarge);
     }
     let mut keys = HashSet::new();
-    for line in raw.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with('!')
-            || trimmed.contains(" &")
-            || trimmed.starts_with('&')
-            || trimmed.starts_with('*')
-        {
+    let mut scanner = yaml_rust2::scanner::Scanner::new(raw.chars());
+    while let Some(token) = scanner
+        .next_token()
+        .map_err(|error| FrontmatterError::Invalid(error.to_string()))?
+    {
+        use yaml_rust2::scanner::TokenType;
+        if matches!(
+            token.1,
+            TokenType::Tag(..) | TokenType::Alias(..) | TokenType::Anchor(..)
+        ) {
             return Err(FrontmatterError::Unsupported);
         }
+    }
+    for line in raw.lines() {
+        let trimmed = line.trim();
         if !line.starts_with([' ', '\t'])
             && let Some((key, _)) = trimmed.split_once(':')
             && !keys.insert(key.trim().to_owned())

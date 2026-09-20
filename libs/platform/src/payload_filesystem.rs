@@ -14,12 +14,34 @@ impl PayloadSource for FilesystemPayloadSource {
             .map(|entry| entry.map(|e| e.path()).map_err(map_error))
             .collect()
     }
+    fn list_entries_limited(&self, path: &Path, cap: usize) -> Result<Vec<PathBuf>, SourceError> {
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(path).map_err(map_error)? {
+            if entries.len() >= cap {
+                break;
+            }
+            entries.push(entry.map_err(map_error)?.path());
+        }
+        Ok(entries)
+    }
     fn entry_metadata(&self, path: &Path) -> Result<EntryMetadata, SourceError> {
         let metadata = fs::symlink_metadata(path).map_err(map_error)?;
         let kind = if metadata.file_type().is_symlink() {
             EntryKind::Symlink
         } else if metadata.is_file() {
-            EntryKind::File
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                if metadata.nlink() > 1 {
+                    EntryKind::Hardlink
+                } else {
+                    EntryKind::File
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                EntryKind::File
+            }
         } else if metadata.is_dir() {
             EntryKind::Directory
         } else {
@@ -71,6 +93,26 @@ impl PayloadSource for FilesystemPayloadSource {
         Err(SourceError::Unavailable(
             "symlink hop limit or cycle".into(),
         ))
+    }
+    fn physical_identity(&self, path: &Path) -> Result<String, SourceError> {
+        let metadata = fs::symlink_metadata(path).map_err(map_error)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            Ok(format!("{}:{}", metadata.dev(), metadata.ino()))
+        }
+        #[cfg(not(unix))]
+        {
+            let modified = metadata
+                .modified()
+                .map_err(|error| SourceError::Unavailable(error.to_string()))?;
+            Ok(format!(
+                "{}:{}:{:?}",
+                self.canonicalize_root(path)?.display(),
+                metadata.len(),
+                modified
+            ))
+        }
     }
     fn canonicalize_root(&self, path: &Path) -> Result<PathBuf, SourceError> {
         path.canonicalize()

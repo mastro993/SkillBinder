@@ -215,6 +215,16 @@ impl ObservationStore for StateStore {
         self.connect().map_err(|e|ImportError::Database(e.to_string()))?.execute("INSERT INTO source_observations(source,skill_id,digest,warnings,reader_agents,observed_at) VALUES(?1,?2,?3,?4,?5,?6)",params![o.source.to_string_lossy(),o.skill_id,o.digest,serde_json::to_string(&o.warnings).unwrap_or_default(),serde_json::to_string(&o.reader_agent_ids).unwrap_or_default(),chrono::Utc::now().timestamp()]).map_err(|e|ImportError::Database(e.to_string()))?;
         Ok(())
     }
+    fn rollback_observation(&self, o: &SourceObservation) -> Result<(), ImportError> {
+        self.connect()
+            .map_err(|e| ImportError::Database(e.to_string()))?
+            .execute(
+                "DELETE FROM source_observations WHERE source=?1 AND skill_id=?2 AND digest=?3",
+                params![o.source.to_string_lossy(), o.skill_id, o.digest],
+            )
+            .map_err(|e| ImportError::Database(e.to_string()))?;
+        Ok(())
+    }
     fn list(&self, skill_id: &str) -> Result<Vec<SourceObservation>, ImportError> {
         let c = self
             .connect()
@@ -280,5 +290,15 @@ impl ObservationStore for StateStore {
             )
             .optional()
             .map_err(|error| ImportError::Database(error.to_string()))
+    }
+    fn remove_index_metadata(&self, skill_id: &str) -> Result<(), ImportError> {
+        self.connect()
+            .map_err(|error| ImportError::Database(error.to_string()))?
+            .execute(
+                "DELETE FROM skill_metadata WHERE skill_id=?1",
+                params![skill_id],
+            )
+            .map_err(|error| ImportError::Database(error.to_string()))?;
+        Ok(())
     }
 }

@@ -4,7 +4,6 @@
   "description": "Minimum permissions for the bundled SkillBinder window",
   "windows": ["main"],
   "permissions": [
-    "core:default",
     "allow-system-bootstrap",
     "allow-git-environment-verify",
     "allow-onboarding-progress-update",
