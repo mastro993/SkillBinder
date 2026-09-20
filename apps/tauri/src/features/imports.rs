@@ -1,6 +1,12 @@
-use crate::{app::state::AppState, features::discovery::map_validation, transport::*};
-use skillbinder_core::discovery::scan::PayloadSource;
-use skillbinder_core::import::{ImportSelection, ImportSnapshot, LibraryRepository};
+use crate::{
+    app::state::{AppState, SCAN_SESSION_SECONDS, ScanSession},
+    features::discovery::map_validation,
+    transport::*,
+};
+use skillbinder_core::{
+    discovery::scan::PayloadSource,
+    import::{ImportSelection, ImportSnapshot, LibraryRepository},
+};
 use std::collections::HashMap;
 use tauri::State;
 
@@ -41,73 +47,8 @@ pub fn prepare(
             "prepare-cache",
         )
     })?;
-    let selected = resolve_candidates(&cache, &candidate_ids)?;
-    for candidate_id in &candidate_ids {
-        let (candidate, session) = cache
-            .values()
-            .find_map(|session| {
-                session
-                    .candidates
-                    .get(candidate_id)
-                    .map(|candidate| (candidate, session))
-            })
-            .ok_or_else(|| {
-                err(
-                    ErrorCode::InvalidPath,
-                    "candidate expired; rescan discovery",
-                    false,
-                    Some(RecoveryAction::RescanDiscovery),
-                    "candidate-missing",
-                )
-            })?;
-        let canonical_candidate =
-            state
-                .source
-                .canonicalize_root(&candidate.path)
-                .map_err(|_| {
-                    err(
-                        ErrorCode::InvalidPath,
-                        "candidate path changed; rescan discovery",
-                        false,
-                        Some(RecoveryAction::RescanDiscovery),
-                        "candidate-identity",
-                    )
-                })?;
-        let Some(root) = session
-            .roots
-            .iter()
-            .find(|root| canonical_candidate.starts_with(&root.canonical_path))
-        else {
-            return Err(err(
-                ErrorCode::InvalidPath,
-                "candidate path changed; rescan discovery",
-                false,
-                Some(RecoveryAction::RescanDiscovery),
-                "candidate-identity",
-            ));
-        };
-        if !matches!(
-            state.source.entry_metadata(&candidate.path),
-            Ok(skillbinder_core::discovery::scan::EntryMetadata {
-                kind: skillbinder_core::discovery::scan::EntryKind::Directory,
-                ..
-            })
-        ) || state
-            .source
-            .physical_identity(&root.canonical_path)
-            .ok()
-            .as_deref()
-            != Some(root.identity.as_str())
-        {
-            return Err(err(
-                ErrorCode::InvalidPath,
-                "candidate path changed; rescan discovery",
-                false,
-                Some(RecoveryAction::RescanDiscovery),
-                "candidate-identity",
-            ));
-        }
-    }
+    let selected = resolve_candidates(state.source.as_ref(), &cache, &candidate_ids)?;
+    drop(cache);
     let revision = state.library.current_revision().map_err(map_import_error)?;
     let plan = state
         .import_service
@@ -156,7 +97,7 @@ pub fn prepare(
                     _ => CandidateDuplicate::Unique,
                 },
                 exclusions: item.exclusions,
-                validation: map_validation(item.selection.validation),
+                validation: map_validation(item.validation),
                 file_count: item
                     .manifest
                     .entries
@@ -175,28 +116,55 @@ pub fn prepare(
     })
 }
 fn resolve_candidates(
-    cache: &HashMap<String, crate::app::state::ScanSession>,
+    source: &dyn PayloadSource,
+    cache: &HashMap<String, ScanSession>,
     candidate_ids: &[String],
 ) -> Result<Vec<ImportSelection>, AppError> {
-    candidate_ids
-        .iter()
-        .map(|id| {
-            cache
-                .values()
-                .find_map(|session| session.candidates.get(id))
-                .map(ImportSelection::from)
-                .ok_or_else(|| {
-                    err(
-                        ErrorCode::InvalidPath,
-                        "candidate expired; rescan discovery",
-                        false,
-                        Some(RecoveryAction::RescanDiscovery),
-                        "candidate-missing",
-                    )
-                })
-        })
-        .collect()
+    let mut selections = Vec::new();
+    for candidate_id in candidate_ids {
+        let (candidate, session) = cache
+            .values()
+            .find_map(|session| {
+                session
+                    .candidates
+                    .get(candidate_id)
+                    .map(|candidate| (candidate, session))
+            })
+            .ok_or_else(candidate_changed)?;
+        if session.created.elapsed().as_secs() >= SCAN_SESSION_SECONDS {
+            return Err(candidate_changed());
+        }
+        let canonical = source
+            .canonicalize_root(&candidate.path)
+            .map_err(|_| candidate_changed())?;
+        let identity = source
+            .physical_identity(&canonical)
+            .map_err(|_| candidate_changed())?;
+        let inside_scanned_root = session
+            .roots
+            .iter()
+            .any(|root| canonical.starts_with(&root.canonical_path));
+        if !inside_scanned_root
+            || canonical != candidate.canonical_path
+            || identity != candidate.identity
+        {
+            return Err(candidate_changed());
+        }
+        selections.push(ImportSelection::from(candidate));
+    }
+    Ok(selections)
 }
+
+fn candidate_changed() -> AppError {
+    err(
+        ErrorCode::InvalidPath,
+        "candidate is no longer the one discovery read; rescan discovery",
+        false,
+        Some(RecoveryAction::RescanDiscovery),
+        "candidate-identity",
+    )
+}
+
 #[tauri::command]
 pub fn imports_apply(
     state: State<'_, AppState>,
@@ -321,7 +289,82 @@ fn err(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_core::{discovery::scan::ScanCandidate, import::ImportError};
+    use skillbinder_core::{
+        discovery::scan::{
+            DuplicateStatus, EntryKind, EntryMetadata, PayloadSource, ScanCandidate, SourceError,
+        },
+        import::ImportError,
+        library::ValidationSummary,
+    };
+    use std::path::PathBuf;
+
+    const CACHED: &str = "/home/skills/skill";
+
+    struct FakeSource;
+
+    impl PayloadSource for FakeSource {
+        fn list_entries(&self, _path: &std::path::Path) -> Result<Vec<PathBuf>, SourceError> {
+            Ok(Vec::new())
+        }
+        fn entry_metadata(&self, _path: &std::path::Path) -> Result<EntryMetadata, SourceError> {
+            Ok(EntryMetadata {
+                kind: EntryKind::Directory,
+                executable: false,
+                size: 0,
+            })
+        }
+        fn read_file(&self, _path: &std::path::Path, _cap: usize) -> Result<Vec<u8>, SourceError> {
+            Err(SourceError::Unavailable("unused".into()))
+        }
+        fn resolve_symlink(
+            &self,
+            path: &std::path::Path,
+            _hops: u8,
+        ) -> Result<PathBuf, SourceError> {
+            Ok(path.to_path_buf())
+        }
+        fn canonicalize_root(&self, path: &std::path::Path) -> Result<PathBuf, SourceError> {
+            Ok(path.to_path_buf())
+        }
+        fn physical_identity(&self, path: &std::path::Path) -> Result<String, SourceError> {
+            Ok(path.display().to_string())
+        }
+    }
+
+    fn session_with(candidate: ScanCandidate) -> HashMap<String, ScanSession> {
+        HashMap::from([(
+            "scan".to_owned(),
+            ScanSession {
+                candidates: HashMap::from([(candidate.candidate_id.clone(), candidate)]),
+                created: std::time::Instant::now(),
+                roots: vec![crate::app::state::ScanRootIdentity {
+                    canonical_path: PathBuf::from("/home/skills"),
+                }],
+            },
+        )])
+    }
+
+    fn cached_candidate() -> ScanCandidate {
+        ScanCandidate {
+            candidate_id: "cached".into(),
+            path: CACHED.into(),
+            canonical_path: CACHED.into(),
+            identity: CACHED.into(),
+            display_path: CACHED.into(),
+            slug: "skill".into(),
+            reader_agent_ids: vec!["agent".into()],
+            reader_agent_labels: vec!["Agent".into()],
+            file_count: 1,
+            total_bytes: 1,
+            name: Some("skill".into()),
+            description: Some("description".into()),
+            validation: ValidationSummary::valid(),
+            warnings: Vec::new(),
+            blocked: false,
+            duplicate: DuplicateStatus::Unique,
+            link: skillbinder_core::discovery::scan::ScanLink::Direct,
+        }
+    }
 
     #[test]
     fn import_error_mapping_covers_new_codes_and_recovery() {
@@ -350,9 +393,10 @@ mod tests {
             Some(RecoveryAction::RescanDiscovery)
         );
     }
+
     #[test]
     fn unknown_candidate_id_is_rejected_with_rescan() {
-        let result = resolve_candidates(&HashMap::new(), &["missing".into()]);
+        let result = resolve_candidates(&FakeSource, &HashMap::new(), &["missing".into()]);
         assert!(matches!(
             result,
             Err(AppError {
@@ -365,35 +409,52 @@ mod tests {
 
     #[test]
     fn cached_candidate_id_resolves_to_import_selection() {
-        let candidate = ScanCandidate {
-            candidate_id: "cached".into(),
-            path: "/home/skill".into(),
-            display_path: "/home/skill".into(),
-            slug: "skill".into(),
-            reader_agent_ids: vec!["agent".into()],
-            reader_agent_labels: vec!["Agent".into()],
-            file_count: 1,
-            total_bytes: 1,
-            name: Some("skill".into()),
-            description: Some("description".into()),
-            validation: skillbinder_core::library::ValidationSummary::valid(),
-            warnings: Vec::new(),
-            blocked: false,
-            duplicate: skillbinder_core::discovery::scan::DuplicateStatus::Unique,
-            link: skillbinder_core::discovery::scan::ScanLink::Direct,
-        };
-        let mut candidates = HashMap::new();
-        candidates.insert("cached".into(), candidate);
-        let mut cache = HashMap::new();
-        cache.insert(
-            "scan".into(),
-            crate::app::state::ScanSession {
-                candidates,
-                created: std::time::Instant::now(),
-                roots: Vec::new(),
-            },
-        );
-        let result = resolve_candidates(&cache, &["cached".into()]).unwrap();
+        let cache = session_with(cached_candidate());
+
+        let result = resolve_candidates(&FakeSource, &cache, &["cached".into()]).unwrap();
+
+        assert_eq!(result.len(), 1);
         assert_eq!(result[0].candidate_id, "cached");
+        assert_eq!(result[0].canonical_source, PathBuf::from(CACHED));
+    }
+
+    #[test]
+    fn expired_scan_session_is_rejected() {
+        let mut cache = session_with(cached_candidate());
+        cache.get_mut("scan").unwrap().created = std::time::Instant::now()
+            .checked_sub(std::time::Duration::from_secs(SCAN_SESSION_SECONDS + 1))
+            .unwrap();
+
+        let result = resolve_candidates(&FakeSource, &cache, &["cached".into()]);
+
+        assert!(matches!(
+            result,
+            Err(AppError {
+                code: ErrorCode::InvalidPath,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn candidate_replaced_since_scan_is_rejected() {
+        let mut cache = session_with(cached_candidate());
+        cache
+            .get_mut("scan")
+            .unwrap()
+            .candidates
+            .get_mut("cached")
+            .unwrap()
+            .identity = "other-identity".into();
+
+        let result = resolve_candidates(&FakeSource, &cache, &["cached".into()]);
+
+        assert!(matches!(
+            result,
+            Err(AppError {
+                code: ErrorCode::InvalidPath,
+                ..
+            })
+        ));
     }
 }

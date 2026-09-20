@@ -8,6 +8,8 @@ use std::path::PathBuf;
 pub struct ImportSelection {
     pub candidate_id: String,
     pub source: PathBuf,
+    pub canonical_source: PathBuf,
+    pub source_identity: String,
     pub slug: String,
     pub validation: ValidationSummary,
     pub reader_agent_ids: Vec<String>,
@@ -30,6 +32,7 @@ pub struct ImportPlanItem {
     pub skill_id: String,
     pub decision: ImportDecision,
     pub manifest: Manifest,
+    pub validation: ValidationSummary,
     pub exclusions: Vec<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,6 +80,8 @@ impl From<&ScanCandidate> for ImportSelection {
         Self {
             candidate_id: candidate.candidate_id.clone(),
             source: candidate.path.clone(),
+            canonical_source: candidate.canonical_path.clone(),
+            source_identity: candidate.identity.clone(),
             slug: candidate.slug.clone(),
             validation: candidate.validation.clone(),
             reader_agent_ids: candidate.reader_agent_ids.clone(),

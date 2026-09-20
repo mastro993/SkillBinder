@@ -257,6 +257,7 @@ impl ImportService {
                 skill_id,
                 decision,
                 manifest: model.manifest,
+                validation: model.validation,
                 exclusions,
             });
         }
@@ -289,16 +290,28 @@ impl ImportService {
         }
         let mut staged = Vec::new();
         for item in &plan.items {
-            if self
+            let current_canonical = self
                 .source
-                .entry_metadata(&item.selection.source)
-                .is_ok_and(|metadata| metadata.kind != crate::discovery::scan::EntryKind::Directory)
+                .canonicalize_root(&item.selection.source)
+                .map_err(|_| ImportError::SourceChanged)?;
+            let current_identity = self
+                .source
+                .physical_identity(&current_canonical)
+                .map_err(|_| ImportError::SourceChanged)?;
+            if current_canonical != item.selection.canonical_source
+                || current_identity != item.selection.source_identity
             {
                 let _ = self.library.delete_staged(plan_id);
                 return Err(ImportError::SourceChanged);
             }
-            let model = inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits)
-                .map_err(|_| ImportError::SourceChanged)?;
+            let model =
+                match inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits) {
+                    Ok(model) => model,
+                    Err(_) => {
+                        let _ = self.library.delete_staged(plan_id);
+                        return Err(ImportError::SourceChanged);
+                    }
+                };
             if !model.manifest.equivalent(&item.manifest) {
                 let _ = self.library.delete_staged(plan_id);
                 return Err(ImportError::SourceChanged);
@@ -317,12 +330,22 @@ impl ImportService {
             staged.push((item.clone(), model));
         }
         for item in &plan.items {
-            let model = inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits)
-                .map_err(|_| ImportError::SourceChanged)?;
+            let model =
+                match inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits) {
+                    Ok(model) => model,
+                    Err(_) => {
+                        let _ = self.library.delete_staged(plan_id);
+                        return Err(ImportError::SourceChanged);
+                    }
+                };
             if !model.manifest.equivalent(&item.manifest) {
                 let _ = self.library.delete_staged(plan_id);
                 return Err(ImportError::SourceChanged);
             }
+        }
+        if self.library.unresolved_import_journal()?.is_some() {
+            let _ = self.library.delete_staged(plan_id);
+            return Err(ImportError::RecoveryRequired);
         }
         if let Err(error) = self.library.write_import_journal(&plan) {
             let _ = self.library.delete_staged(plan_id);
@@ -423,7 +446,14 @@ impl ImportService {
 fn fingerprint_catalog(catalog: &[LibraryRecord]) -> String {
     let mut rows = catalog
         .iter()
-        .map(|record| format!("{}|{}|{}", record.skill_id, record.slug, record.digest))
+        .map(|record| {
+            format!(
+                "{}|{}|{}",
+                record.skill_id,
+                record.slug,
+                crate::library::manifest::digest_entries(&record.manifest.entries)
+            )
+        })
         .collect::<Vec<_>>();
     rows.sort();
     format!("{:x}", md5ish(rows.join("\n").as_bytes()))
@@ -690,6 +720,8 @@ mod tests {
         ImportSelection {
             candidate_id: slug.into(),
             source: source.into(),
+            canonical_source: source.into(),
+            source_identity: source.into(),
             slug: slug.into(),
             validation: ValidationSummary::valid(),
             reader_agent_ids: vec!["agent".into()],

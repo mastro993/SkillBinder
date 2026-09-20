@@ -175,7 +175,7 @@ pub fn inspect_payload(
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or_default();
-    if slug.is_empty() || slug.contains('/') || slug.contains('\\') {
+    if slug.is_empty() || slug.contains('/') || slug.contains('\\') || slug.contains(':') {
         summary.push(
             ValidationCode::UnsafeEntryPath,
             ValidationLevel::Blocked,
@@ -440,6 +440,21 @@ pub fn inspect_payload(
                                 );
                             } else {
                                 warnings.push(format!("materialized symlink: {path}"));
+                                if !budget.entry() {
+                                    summary.push(
+                                        ValidationCode::PayloadLimitExceeded,
+                                        ValidationLevel::Blocked,
+                                        "payload has too many entries",
+                                    );
+                                    return Ok(blocked_model(summary, warnings, name, description));
+                                }
+                                entries.push(PayloadEntry {
+                                    path: path.clone(),
+                                    kind: ManifestKind::Directory,
+                                    bytes: 0,
+                                    executable: false,
+                                    content: None,
+                                });
                                 let mut next = chain.clone();
                                 next.push(target);
                                 stack.push((child, next));

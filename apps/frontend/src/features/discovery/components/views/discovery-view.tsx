@@ -33,7 +33,11 @@ export function DiscoveryView() {
       candidateIds: string[];
       allowInvalid: boolean;
     }) => prepareImport(candidateIds, allowInvalid),
-    onSuccess: setPlan,
+    onSuccess: (prepared, _variables, context) => {
+      if (context?.scanGeneration !== scan.dataUpdatedAt) return;
+      setPlan(prepared);
+    },
+    onMutate: () => ({ scanGeneration: scan.dataUpdatedAt }),
   });
   const apply = useMutation({
     mutationFn: (planId: string) => applyImport(planId),
@@ -106,7 +110,7 @@ export function DiscoveryView() {
         <Button
           variant="secondary"
           onClick={() => scan.refetch()}
-          disabled={scan.isFetching}
+          disabled={scan.isFetching || prepare.isPending || apply.isPending}
         >
           <RefreshCw
             size={16}

@@ -120,6 +120,8 @@ pub enum ScanLink {
 pub struct ScanCandidate {
     pub candidate_id: String,
     pub path: PathBuf,
+    pub canonical_path: PathBuf,
+    pub identity: String,
     pub display_path: String,
     pub slug: String,
     pub reader_agent_ids: Vec<String>,
@@ -253,7 +255,7 @@ pub fn scan_global_roots(
                     .unwrap_or_default();
                 if name == "SKILL.md"
                     && let Ok(meta) = source.entry_metadata(&entry)
-                    && meta.kind == EntryKind::File
+                    && matches!(meta.kind, EntryKind::File | EntryKind::Hardlink)
                 {
                     let skill_root = directory.clone();
                     if let Some(existing) = candidates
@@ -271,9 +273,17 @@ pub fn scan_global_roots(
                             .and_then(|x| x.to_str())
                             .unwrap_or_default()
                             .to_owned();
+                        let canonical_path = source
+                            .canonicalize_root(&skill_root)
+                            .unwrap_or_else(|_| skill_root.clone());
+                        let identity = source
+                            .physical_identity(&canonical_path)
+                            .unwrap_or_default();
                         let mut candidate = ScanCandidate {
                             candidate_id,
                             path: skill_root.clone(),
+                            canonical_path,
+                            identity,
                             display_path: skill_root.display().to_string(),
                             slug,
                             reader_agent_ids: vec![root.agent_id.clone()],

@@ -1,5 +1,5 @@
 use crate::{
-    app::state::{AppState, ScanRootIdentity, ScanSession},
+    app::state::{AppState, SCAN_SESSION_SECONDS, ScanRootIdentity, ScanSession},
     transport::*,
 };
 use skillbinder_core::discovery::{
@@ -69,11 +69,7 @@ pub fn run_scan(state: &AppState) -> Result<DiscoveryScanResponse, AppError> {
         .iter()
         .filter_map(|root| {
             let canonical_path = state.source.canonicalize_root(&root.path).ok()?;
-            let identity = state.source.physical_identity(&root.path).ok()?;
-            Some(ScanRootIdentity {
-                canonical_path,
-                identity,
-            })
+            Some(ScanRootIdentity { canonical_path })
         })
         .collect();
     cache.insert(
@@ -88,7 +84,7 @@ pub fn run_scan(state: &AppState) -> Result<DiscoveryScanResponse, AppError> {
             roots: root_identities,
         },
     );
-    cache.retain(|_, session| session.created.elapsed().as_secs() < 600);
+    cache.retain(|_, session| session.created.elapsed().as_secs() < SCAN_SESSION_SECONDS);
     Ok(DiscoveryScanResponse {
         registry_agent_count: state.registry.agent_count,
         registry_version: state.registry.version,

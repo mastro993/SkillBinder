@@ -116,12 +116,12 @@ fn main() {
 
     fs::create_dir_all(outside.join("data/skills/legacy")).unwrap();
     write_skill(
-        &home.join(".claude/skills/linked-target"),
-        "linked-target",
-        "---\nname: linked-target\ndescription: Linked directory.\n---\n",
+        &home.join(".claude/linked-payload"),
+        "linked",
+        "---\nname: linked\ndescription: Linked directory.\n---\n",
     );
     symlink(
-        home.join(".claude/skills/linked-target"),
+        home.join(".claude/linked-payload"),
         home.join(".claude/skills/linked"),
     )
     .unwrap();
@@ -378,7 +378,8 @@ fn main() {
     }
 
     let revision = library.current_revision().unwrap();
-    let selection: Vec<ImportSelection> = [review, shared, outline]
+    let linked = candidate_at(&outcome, ".claude/skills/linked");
+    let selection: Vec<ImportSelection> = [review, shared, outline, linked]
         .into_iter()
         .map(ImportSelection::from)
         .collect();
@@ -429,6 +430,18 @@ fn main() {
     println!("journal after apply: {journal_after:?}");
     if journal_after.is_some() {
         problems.push("journal still present after a successful apply".into());
+    }
+
+    let linked_library_copy = paths
+        .library()
+        .join("skills")
+        .join(&plan.items[3].skill_id)
+        .join(&plan.items[3].selection.slug)
+        .join("SKILL.md");
+    let linked_imported = linked_library_copy.is_file();
+    println!("linked skill imported through its link path: {linked_imported}");
+    if !linked_imported {
+        problems.push("linked skill did not import".into());
     }
 
     let review_after = tree_hash(&review_hashed_source(&home, "review"));

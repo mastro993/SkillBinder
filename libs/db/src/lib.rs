@@ -219,7 +219,11 @@ impl ObservationStore for StateStore {
         self.connect()
             .map_err(|e| ImportError::Database(e.to_string()))?
             .execute(
-                "DELETE FROM source_observations WHERE source=?1 AND skill_id=?2 AND digest=?3",
+                "DELETE FROM source_observations WHERE id = (
+                     SELECT id FROM source_observations
+                     WHERE source=?1 AND skill_id=?2 AND digest=?3
+                     ORDER BY id DESC LIMIT 1
+                 )",
                 params![o.source.to_string_lossy(), o.skill_id, o.digest],
             )
             .map_err(|e| ImportError::Database(e.to_string()))?;

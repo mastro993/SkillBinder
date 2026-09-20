@@ -18,10 +18,11 @@ use std::{
 };
 use tauri::{AppHandle, Manager};
 
+pub const SCAN_SESSION_SECONDS: u64 = 600;
+
 #[derive(Clone)]
 pub struct ScanRootIdentity {
     pub canonical_path: PathBuf,
-    pub identity: String,
 }
 pub struct ScanSession {
     pub candidates: HashMap<String, ScanCandidate>,
