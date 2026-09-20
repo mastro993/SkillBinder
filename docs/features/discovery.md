@@ -98,7 +98,7 @@ entry, duplicate-id rejection, shared physical paths collapsed to one location w
 ids, nested discovery, stopping at a skill root, traversal exclusions, missing and unreadable
 roots, root symlinks outside the home directory, payload symlink escapes and cycles, entry and size
 limits, and candidate duplicate decisions. Registry coverage is enforced twice: by the Rust tests
-and by `node tooling/registry.mjs check`.
+and by `node scripts/registry.mjs check`.
 
 ## Extension instructions
 
@@ -111,15 +111,15 @@ and by `node tooling/registry.mjs check`.
    `libs/core/src/discovery/registry.json`.
 4. Transcribe every union ID and its declarative fields. Keep project-only `globalRoots` empty and
    list multiple candidate directories in upstream precedence order.
-5. Run `node tooling/registry.mjs docs`, inspect the table, then run
-   `node tooling/registry.mjs check`.
+5. Run `node scripts/registry.mjs docs`, inspect the table, then run
+   `node scripts/registry.mjs check`.
 6. Update the pinned snapshot entry in `THIRD_PARTY_NOTICES.md`.
 
 ### Add an agent
 
 Add the agent to the upstream fixture first, including its `AgentType` union ID and its declarative
 `name`, `displayName`, `skillsDir`, and `globalSkillsDir`. If the path expression is a new shape,
-extend the explicit translator in `tooling/registry.mjs` before adding the registry entry. Add one
+extend the explicit translator in `scripts/registry.mjs` before adding the registry entry. Add one
 registry object with exactly `id`, `displayName`, `projectSkillsDir`, `globalRoots`, and `status`,
 then regenerate the docs and run the check. Never guess aliases, operating systems, or paths that
 reviewed source does not state.

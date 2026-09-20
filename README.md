@@ -77,9 +77,9 @@ fixture skills, runs the real registry, scan, payload validation, staging, and i
 real filesystem, database, and Git repository, and prints `PROBE RESULT: PASS` when the sources are
 byte-identical after the import. The unit suite never touches a real skill directory.
 
-`pnpm test` also runs `node tooling/registry.mjs check`, which re-derives every agent in the pinned
+`pnpm test` also runs `node scripts/registry.mjs check`, which re-derives every agent in the pinned
 upstream skills registry from the checked-in snapshot and fails when an ID, display name, project
-directory, or global skill path differs. `node tooling/registry.mjs docs` regenerates
+directory, or global skill path differs. `node scripts/registry.mjs docs` regenerates
 [docs/agent-support.md](docs/agent-support.md) from the same data.
 
 ## Local data

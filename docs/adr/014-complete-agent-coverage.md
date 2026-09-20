@@ -5,7 +5,7 @@ Status: accepted, 2026-09-20.
 ## Decision
 
 The MVP supports every agent in the pinned upstream registry, currently 79 IDs, with no curated
-subset. `node tooling/registry.mjs check` compares the exact upstream ID set with the implemented
+subset. `node scripts/registry.mjs check` compares the exact upstream ID set with the implemented
 set and fails when an ID is missing. `docs/agent-support.md` is generated from the same data, so
 the documentation cannot drift from the registry.
 

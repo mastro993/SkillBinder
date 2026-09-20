@@ -342,7 +342,8 @@ Preserve the requested capitalization of `apps/Tauri`. Package names remain lowe
 │   ├── core/                         # Rust domain rules and use cases
 │   ├── platform/                     # concrete Rust adapters
 │   └── test-support/                 # fixtures and test helpers, never production
-├── tooling/                          # cross-platform orchestration and checks
+├── scripts/                          # cross-platform orchestration and checks
+├── tools/                            # repository-owned lint plugins
 ├── tests/
 │   ├── desktop/                      # WDIO feature suites
 │   ├── fixtures/                     # synthetic skills and remote repositories
@@ -1449,7 +1450,7 @@ Record available-space checks and keep a reserve for journals and SQLite commits
 
 ### 27.1 Root commands
 
-Implement cross-platform orchestration in `tooling/` using Node scripts, not Bash-only commands. These are required root commands, not a claim that a repository already exists:
+Implement cross-platform orchestration in `scripts/` using Node scripts, not Bash-only commands. These are required root commands, not a claim that a repository already exists:
 
 ```text
 pnpm install --frozen-lockfile

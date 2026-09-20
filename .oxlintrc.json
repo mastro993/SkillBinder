@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "jsPlugins": [
     "@shadcn/lint",
-    { "name": "anti-slop", "specifier": "./tooling/anti-slop/index.ts" }
+    { "name": "anti-slop", "specifier": "./tools/anti-slop/index.ts" }
   ],
   "plugins": [
     "unicorn",
@@ -18,7 +18,7 @@
   "ignorePatterns": [
     ".omp/",
     "tests/fixtures/upstream-skills-cli/",
-    "tooling/anti-slop/"
+    "tools/anti-slop/"
   ],
   "rules": {
     "shadcn/no-restyle": [

@@ -29,7 +29,7 @@ function equal(left, right) {
 }
 
 if (task !== "generate" && task !== "check") {
-  throw new Error("Usage: node tooling/contracts.mjs <generate|check>");
+  throw new Error("Usage: node scripts/contracts.mjs <generate|check>");
 }
 
 const before = task === "check" ? snapshot() : undefined;

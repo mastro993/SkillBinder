@@ -8,6 +8,6 @@
     "apps/frontend/src/routeTree.gen.ts",
     "docs/agent-support.md",
     "tests/fixtures/upstream-skills-cli/",
-    "tooling/anti-slop/"
+    "tools/anti-slop/"
   ]
 }

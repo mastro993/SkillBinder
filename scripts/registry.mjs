@@ -135,7 +135,7 @@ OpenClaw upstream chooses one existing directory from \`.openclaw/skills\`, \`.c
 
 Regenerate this document with:
 
-\`node tooling/registry.mjs docs\`
+\`node scripts/registry.mjs docs\`
 `;
 }
 
@@ -193,7 +193,7 @@ function check() {
   const expectedDocs = generatedDocs(data);
   const actualDocs = read(docsPath);
   if (actualDocs !== expectedDocs)
-    fail(`docs/agent-support.md differs; run node tooling/registry.mjs docs`);
+    fail(`docs/agent-support.md differs; run node scripts/registry.mjs docs`);
   console.log(`registry check passed: ${ids.length} upstream agents verified`);
 }
 
@@ -208,7 +208,7 @@ const command = process.argv[2];
 try {
   if (command === "check") check();
   else if (command === "docs") docs();
-  else fail("Usage: node tooling/registry.mjs <check|docs>");
+  else fail("Usage: node scripts/registry.mjs <check|docs>");
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;

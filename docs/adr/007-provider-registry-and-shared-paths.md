@@ -18,7 +18,7 @@ Locations are deduplicated by resolved physical path, not by agent. One physical
 once and lists every agent that reads it. `.agents/skills` is the common case; several agents share
 it.
 
-`node tooling/registry.mjs check` re-derives the fact table from the pinned upstream snapshot in
+`node scripts/registry.mjs check` re-derives the fact table from the pinned upstream snapshot in
 `tests/fixtures/upstream-skills-cli/<commit>/` and fails when an ID, display name, project
 directory, or global root differs from the registry. CI runs it. The same script regenerates
 `docs/agent-support.md`.
@@ -42,7 +42,7 @@ must not execute upstream detection functions.
 
 ## Consequences
 
-Registry updates are reviewed source changes followed by `node tooling/registry.mjs docs` and a
+Registry updates are reviewed source changes followed by `node scripts/registry.mjs docs` and a
 green `check`. A registry change invalidates pending plans, which revalidate at apply time.
 
 The registry records three separate statuses per agent: documented, path-tested, and
@@ -52,5 +52,5 @@ the agent loads them.
 ## Reversal cost
 
 Replacing the registry with a different source means re-deriving the JSON and the comparison half
-of `tooling/registry.mjs`. Consumers only depend on the resolved root list, so the scan, import,
+of `scripts/registry.mjs`. Consumers only depend on the resolved root list, so the scan, import,
 and frontend layers do not change.

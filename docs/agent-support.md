@@ -101,4 +101,4 @@ OpenClaw upstream chooses one existing directory from `.openclaw/skills`, `.claw
 
 Regenerate this document with:
 
-`node tooling/registry.mjs docs`
+`node scripts/registry.mjs docs`
