@@ -14,7 +14,7 @@
     "typecheck": "pnpm --filter @skillbinder/frontend typecheck",
     "contracts:generate": "node scripts/contracts.mjs generate",
     "contracts:check": "node scripts/contracts.mjs check",
-    "test": "pnpm --filter @skillbinder/frontend test && node scripts/check-architecture.mjs && node scripts/registry.mjs check",
+    "test": "pnpm --filter @skillbinder/frontend test && node scripts/check-architecture.mjs && node scripts/check-theme.mjs && node scripts/registry.mjs check",
     "registry:check": "node scripts/registry.mjs check",
     "registry:docs": "node scripts/registry.mjs docs",
     "test:rust": "cargo test --workspace",
