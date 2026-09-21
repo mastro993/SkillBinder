@@ -44,7 +44,6 @@ const customPermissions = capability.permissions
 const expectedPermissions = [
   "allow-discovery-cancel",
   "allow-discovery-results",
-  "allow-discovery-scan",
   "allow-discovery-start",
   "allow-git-environment-verify",
   "allow-imports-apply",

@@ -364,24 +364,6 @@ contract! {
 }
 
 contract! {
-    pub struct GlobalLocation {
-        pub display_path: String,
-        pub agent_ids: Vec<String>,
-        pub agent_labels: Vec<String>,
-        pub state: LocationState,
-        pub detail: Option<String>,
-    }
-}
-
-contract! {
-    pub struct DiscoveryScanResponse {
-        pub registry_version: u32,
-        pub locations: Vec<GlobalLocation>,
-        pub candidates: Vec<DiscoveryCandidate>,
-    }
-}
-
-contract! {
     pub struct DiscoveryResultsResponse {
         pub scan_id: String,
         pub phase: ScanPhase,
@@ -693,7 +675,6 @@ mod tests {
         DiscoveryResultsResponse::export_all(&config).unwrap();
         DiscoveryCancelRequest::export_all(&config).unwrap();
         DiscoveryCancelResponse::export_all(&config).unwrap();
-        DiscoveryScanResponse::export_all(&config).unwrap();
         ImportPrepareRequest::export_all(&config).unwrap();
         ImportApplyRequest::export_all(&config).unwrap();
         ImportPlanResponse::export_all(&config).unwrap();

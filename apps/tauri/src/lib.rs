@@ -56,7 +56,6 @@ pub fn run() {
             features::bootstrap::git_environment_verify,
             features::onboarding::onboarding_progress_update,
             features::onboarding::onboarding_complete_local,
-            features::discovery::discovery_scan,
             features::discovery::discovery_start,
             features::discovery::discovery_results,
             features::discovery::discovery_cancel,

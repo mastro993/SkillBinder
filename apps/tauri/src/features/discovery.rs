@@ -4,10 +4,10 @@ use crate::{
     transport::*,
 };
 use skillbinder_core::discovery::{
-    Containment, ResolvedRoot, ScanExclusion, ScanInput, ScanLimits, ScanLocation, ScanOutcome,
-    ScanPolicy, ScanProgress as CoreScanProgress, ScanWarning,
+    Containment, ScanExclusion, ScanInput, ScanLimits, ScanLocation, ScanOutcome, ScanPolicy,
+    ScanProgress as CoreScanProgress, ScanWarning,
     scan::{ExclusionReason as CoreExclusionReason, PayloadSource},
-    scan_global_roots, scan_roots,
+    scan_roots,
 };
 use std::{
     collections::HashMap,
@@ -18,102 +18,6 @@ use std::{
     time::Instant,
 };
 use tauri::{AppHandle, Manager, State};
-
-#[tauri::command]
-pub fn discovery_scan(state: State<'_, AppState>) -> CommandResult<DiscoveryScanResponse> {
-    match run_scan(&state) {
-        Ok(value) => CommandResult::success(value),
-        Err(error) => CommandResult::failure(error),
-    }
-}
-pub fn run_scan(state: &AppState) -> Result<DiscoveryScanResponse, AppError> {
-    let home = state.home.clone();
-    let mut roots = Vec::new();
-    for agent in &state.registry.agents {
-        for template in &agent.global_roots {
-            if let Some(path) = template
-                .resolve(&home, |name| std::env::var(name).ok())
-                .map_err(|e| {
-                    app_error(
-                        ErrorCode::InternalError,
-                        e.to_string(),
-                        false,
-                        None,
-                        "registry",
-                    )
-                })?
-            {
-                roots.push(ResolvedRoot {
-                    path,
-                    agent_id: agent.id.clone(),
-                    agent_label: agent.display_name.clone(),
-                });
-            }
-        }
-    }
-    let outcome = scan_global_roots(
-        &uuid::Uuid::new_v4().to_string(),
-        &roots,
-        state.source.as_ref(),
-        state.library.as_ref(),
-        &home,
-        ScanLimits::default(),
-    );
-    let scan_id = outcome.scan_id.clone();
-    let candidates = outcome
-        .candidates
-        .iter()
-        .map(map_candidate)
-        .collect::<Vec<_>>();
-    let mut cache = state.scan_sessions.lock().map_err(|_| {
-        app_error(
-            ErrorCode::InternalError,
-            "scan cache unavailable",
-            true,
-            None,
-            "scan-cache",
-        )
-    })?;
-    let root_identities = roots
-        .iter()
-        .filter_map(|root| {
-            let canonical_path = state.source.canonicalize_root(&root.path).ok()?;
-            Some(ScanRootIdentity { canonical_path })
-        })
-        .collect();
-    cache.insert(
-        scan_id.clone(),
-        ScanSession {
-            candidates: outcome
-                .candidates
-                .into_iter()
-                .map(|candidate| (candidate.candidate_id.clone(), candidate))
-                .collect(),
-            created: Instant::now(),
-            roots: root_identities,
-        },
-    );
-    cache.retain(|_, session| session.created.elapsed().as_secs() < SCAN_SESSION_SECONDS);
-    for warning in &outcome.warnings {
-        eprintln!(
-            "discovery scan warning: {}: {}",
-            warning
-                .path
-                .as_deref()
-                .map(|path| path.display().to_string())
-                .unwrap_or_else(|| "<unknown>".into()),
-            warning.message
-        );
-    }
-    if outcome.limits_reached {
-        eprintln!("discovery scan reached its traversal limit");
-    }
-    Ok(DiscoveryScanResponse {
-        registry_version: state.registry.version,
-        locations: outcome.locations.into_iter().map(map_location).collect(),
-        candidates,
-    })
-}
 
 #[tauri::command]
 pub fn discovery_start(
@@ -472,21 +376,6 @@ fn map_warning(warning: &ScanWarning) -> DiscoveryWarning {
     }
 }
 
-fn map_location(location: skillbinder_core::discovery::ScanLocation) -> GlobalLocation {
-    GlobalLocation {
-        display_path: location.display_path,
-        agent_ids: location.agent_ids,
-        agent_labels: location.agent_labels,
-        state: match location.state {
-            skillbinder_core::discovery::scan::LocationState::Scanned => LocationState::Scanned,
-            skillbinder_core::discovery::scan::LocationState::Missing => LocationState::Missing,
-            skillbinder_core::discovery::scan::LocationState::Unreadable => {
-                LocationState::Unreadable
-            }
-        },
-        detail: location.detail,
-    }
-}
 fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> DiscoveryCandidate {
     DiscoveryCandidate {
         candidate_id: candidate.candidate_id.clone(),

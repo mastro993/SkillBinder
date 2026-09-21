@@ -5,7 +5,6 @@ fn main() {
         "git_environment_verify",
         "onboarding_progress_update",
         "onboarding_complete_local",
-        "discovery_scan",
         "discovery_start",
         "discovery_results",
         "discovery_cancel",

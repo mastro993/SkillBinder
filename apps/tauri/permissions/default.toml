@@ -19,11 +19,6 @@ description = "Create the local SkillBinder library and finish onboarding"
 commands.allow = ["onboarding_complete_local"]
 
 [[permission]]
-identifier = "allow-discovery-scan"
-description = "Inspect registered global skill locations"
-commands.allow = ["discovery_scan"]
-
-[[permission]]
 identifier = "allow-discovery-start"
 description = "Start a bounded scan over the registered search roots"
 commands.allow = ["discovery_start"]
