@@ -324,7 +324,7 @@ impl ImportService {
                 let _ = self.library.delete_staged(plan_id);
                 return Err(error);
             }
-            staged.push((item.clone(), model));
+            staged.push((item, model));
         }
         for item in &plan.items {
             let model =
@@ -453,7 +453,7 @@ fn fingerprint_catalog(catalog: &[LibraryRecord]) -> String {
         })
         .collect::<Vec<_>>();
     rows.sort();
-    format!("{:x}", md5ish(rows.join("\n").as_bytes()))
+    format!("{:x}", fnv1a_64(rows.join("\n").as_bytes()))
 }
 fn request_hash(snapshot: &ImportSnapshot, selections: &[ImportSelection]) -> String {
     let mut value = format!(
@@ -463,9 +463,9 @@ fn request_hash(snapshot: &ImportSnapshot, selections: &[ImportSelection]) -> St
     for item in selections {
         value.push_str(&format!("|{}:{}", item.candidate_id, item.source.display()));
     }
-    format!("{:x}", md5ish(value.as_bytes()))
+    format!("{:x}", fnv1a_64(value.as_bytes()))
 }
-fn md5ish(value: &[u8]) -> u64 {
+fn fnv1a_64(value: &[u8]) -> u64 {
     value.iter().fold(1469598103934665603, |hash, byte| {
         (hash ^ *byte as u64).wrapping_mul(1099511628211)
     })

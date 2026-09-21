@@ -9,8 +9,8 @@ use skillbinder_core::{
 };
 use skillbinder_db::StateStore;
 use skillbinder_platform::{
-    bootstrap::LocalEnvironment, library_repository::FilesystemLibraryRepository, paths::AppPaths,
-    payload_filesystem::FilesystemPayloadSource,
+    library_repository::FilesystemLibraryRepository, local_environment::LocalEnvironment,
+    paths::AppPaths, payload_filesystem::FilesystemPayloadSource,
 };
 use std::{
     collections::hash_map::DefaultHasher,

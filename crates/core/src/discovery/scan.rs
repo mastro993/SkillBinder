@@ -11,9 +11,7 @@ pub enum EntryKind {
     File,
     Directory,
     Symlink,
-    Socket,
     Device,
-    Fifo,
     Hardlink,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -553,21 +551,11 @@ impl Engine<'_> {
     }
     fn scan_root(&mut self, input: &ScanInput) {
         if let Err(error) = self.source.entry_metadata(&input.path) {
-            let missing = matches!(error, SourceError::Missing);
-            let detail = if missing {
-                None
-            } else {
-                Some(error.to_string())
+            let (state, detail) = match error {
+                SourceError::Missing => (LocationState::Missing, None),
+                other => (LocationState::Unreadable, Some(other.to_string())),
             };
-            self.reject_root(
-                input,
-                if missing {
-                    LocationState::Missing
-                } else {
-                    LocationState::Unreadable
-                },
-                detail,
-            );
+            self.reject_root(input, state, detail);
             return;
         }
         let resolved = match self.source.canonicalize_root(&input.path) {

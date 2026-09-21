@@ -98,44 +98,16 @@ impl StateStore {
                 |r| r.get(0),
             )
             .optional()?;
-        v.map(|x| serde_json::from_str(&x).map_err(|e| StateError::InvalidState(e.to_string())))
-            .transpose()
-            .map(|x| x.unwrap_or_default())
+        v.map_or(Ok(OnboardingProgress::default()), |value| {
+            serde_json::from_str(&value)
+                .map_err(|error| StateError::InvalidState(error.to_string()))
+        })
     }
     fn save_progress(&self, p: &OnboardingProgress) -> Result<(), StateError> {
         let value =
             serde_json::to_string(p).map_err(|e| StateError::InvalidState(e.to_string()))?;
         self.connect()?.execute("INSERT INTO device_settings(key,value) VALUES('onboarding_progress',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![value])?;
         Ok(())
-    }
-    pub fn indexed_metadata(
-        &self,
-        skill_id: &str,
-    ) -> Result<Option<IndexedSkillMetadata>, ImportError> {
-        let c = self
-            .connect()
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        c.query_row(
-            "SELECT description,validation,updated_at FROM skill_metadata WHERE skill_id=?1",
-            params![skill_id],
-            |row| {
-                Ok(IndexedSkillMetadata {
-                    description: row.get(0)?,
-                    validation: serde_json::from_str(&row.get::<_, String>(1)?).map_err(
-                        |error| {
-                            rusqlite::Error::FromSqlConversionFailure(
-                                0,
-                                rusqlite::types::Type::Text,
-                                Box::new(error),
-                            )
-                        },
-                    )?,
-                    updated_at: row.get::<_, i64>(2)? as u64,
-                })
-            },
-        )
-        .optional()
-        .map_err(|error| ImportError::Database(error.to_string()))
     }
 }
 fn scan_root_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ScanRoot> {
