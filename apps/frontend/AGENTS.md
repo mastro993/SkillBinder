@@ -72,9 +72,7 @@ src/features/<feature>/
 
 Before editing files for a substantial routing or frontend-framework task:
 
-- Consult the reviewed local skill first:
-  `.agents/skills/tanstack-router/SKILL.md` (also linked from
-  `.claude/skills/tanstack-router`).
+- Consult the reviewed local skill first: `.agents/skills/tanstack-router/SKILL.md`
 - Prefer other checked-in skills under `.agents/skills/` when they match the
   task. See `docs/agents/skill-provenance.md` for layout and trust rules.
 - Do not run unpinned remote skill loaders (for example
