@@ -298,30 +298,50 @@ impl ImportService {
                 .and_then(|canonical| self.source.physical_identity(&canonical).ok())
                 .is_some_and(|identity| identity == item.selection.source_identity);
             if !identity_matches {
-                let _ = self.library.delete_staged(plan_id);
+                Self::discard_rollback(
+                    plan_id,
+                    "library_delete_staged",
+                    self.library.delete_staged(plan_id),
+                );
                 return Err(ImportError::SourceChanged);
             }
             let model =
                 match inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits) {
                     Ok(model) => model,
                     Err(_) => {
-                        let _ = self.library.delete_staged(plan_id);
+                        Self::discard_rollback(
+                            plan_id,
+                            "library_delete_staged",
+                            self.library.delete_staged(plan_id),
+                        );
                         return Err(ImportError::SourceChanged);
                     }
                 };
             if !model.manifest.equivalent(&item.manifest) {
-                let _ = self.library.delete_staged(plan_id);
+                Self::discard_rollback(
+                    plan_id,
+                    "library_delete_staged",
+                    self.library.delete_staged(plan_id),
+                );
                 return Err(ImportError::SourceChanged);
             }
             if let Err(error) = self.library.stage_payload(plan_id, &item.skill_id, &model) {
-                let _ = self.library.delete_staged(plan_id);
+                Self::discard_rollback(
+                    plan_id,
+                    "library_delete_staged",
+                    self.library.delete_staged(plan_id),
+                );
                 return Err(error);
             }
             if let Err(error) =
                 self.library
                     .verify_staged_manifest(plan_id, &item.skill_id, &item.manifest)
             {
-                let _ = self.library.delete_staged(plan_id);
+                Self::discard_rollback(
+                    plan_id,
+                    "library_delete_staged",
+                    self.library.delete_staged(plan_id),
+                );
                 return Err(error);
             }
             staged.push((item, model));
@@ -331,21 +351,37 @@ impl ImportService {
                 match inspect_payload(&item.selection.source, self.source.as_ref(), &self.limits) {
                     Ok(model) => model,
                     Err(_) => {
-                        let _ = self.library.delete_staged(plan_id);
+                        Self::discard_rollback(
+                            plan_id,
+                            "library_delete_staged",
+                            self.library.delete_staged(plan_id),
+                        );
                         return Err(ImportError::SourceChanged);
                     }
                 };
             if !model.manifest.equivalent(&item.manifest) {
-                let _ = self.library.delete_staged(plan_id);
+                Self::discard_rollback(
+                    plan_id,
+                    "library_delete_staged",
+                    self.library.delete_staged(plan_id),
+                );
                 return Err(ImportError::SourceChanged);
             }
         }
         if self.library.unresolved_import_journal()?.is_some() {
-            let _ = self.library.delete_staged(plan_id);
+            Self::discard_rollback(
+                plan_id,
+                "library_delete_staged",
+                self.library.delete_staged(plan_id),
+            );
             return Err(ImportError::RecoveryRequired);
         }
         if let Err(error) = self.library.write_import_journal(&plan) {
-            let _ = self.library.delete_staged(plan_id);
+            Self::discard_rollback(
+                plan_id,
+                "library_delete_staged",
+                self.library.delete_staged(plan_id),
+            );
             return Err(error);
         }
         let mut moved = Vec::new();
@@ -423,8 +459,16 @@ impl ImportService {
                 if rollback.is_err() {
                     return Err(ImportError::RecoveryRequired);
                 }
-                let _ = self.library.remove_import_journal(plan_id);
-                let _ = self.library.delete_staged(plan_id);
+                Self::discard_rollback(
+                    plan_id,
+                    "library_remove_import_journal",
+                    self.library.remove_import_journal(plan_id),
+                );
+                Self::discard_rollback(
+                    plan_id,
+                    "library_delete_staged",
+                    self.library.delete_staged(plan_id),
+                );
                 return Err(error);
             }
         }
@@ -438,6 +482,18 @@ impl ImportService {
         self.library.remove_import_journal(plan_id)?;
         self.library.delete_staged(plan_id)?;
         Ok(result)
+    }
+    /// A rollback whose failure is deliberately swallowed still leaves a record behind, because
+    /// the caller keeps returning the error that triggered the rollback.
+    fn discard_rollback(plan_id: &str, step: &'static str, outcome: Result<(), ImportError>) {
+        if outcome.is_err() {
+            tracing::warn!(
+                event = "rollback_swallowed",
+                plan_id,
+                step,
+                "import rollback failed and was ignored"
+            );
+        }
     }
 }
 fn fingerprint_catalog(catalog: &[LibraryRecord]) -> String {
