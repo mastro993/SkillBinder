@@ -45,9 +45,10 @@ local data layout. `docs/architecture/` explains the bootstrap and discovery sub
    SQLite.
 3. Add the DTOs to `apps/tauri/src/transport.rs`, then run `pnpm contracts:generate`.
 4. Add the command to `apps/tauri/src/features/<feature>.rs` and register it in
-   `apps/tauri/src/lib.rs`. Then declare `allow-<command>` in `apps/tauri/permissions/default.toml`,
-   list that identifier in `apps/tauri/capabilities/main.json`, and add it to the expected list in
-   `scripts/check-architecture.mjs`.
+   `apps/tauri/src/lib.rs`. Then declare `allow-<command-name>` in
+   `apps/tauri/permissions/default.toml` with `commands.allow = ["<command>"]` and list that
+   identifier in `apps/tauri/capabilities/main.json`. `node scripts/check-architecture.mjs` derives
+   the expected set from the registered handlers, so it fails until the three agree.
 5. Add the query or the mutation in `apps/frontend/src/features/<feature>/queries.ts`.
 6. Build the view in `apps/frontend/src/features/<feature>/components/`.
 7. Document the behaviour in `docs/features/` in the commit that ships it.
