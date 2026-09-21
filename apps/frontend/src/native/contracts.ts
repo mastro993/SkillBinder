@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import type {
   AppError,
   BootstrapResponse,
@@ -402,14 +402,43 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+const envelopeSchema = z
+  .object({
+    ok: z.boolean(),
+    value: z.unknown().optional(),
+    error: z.unknown().optional(),
+  })
+  .strict();
+
+export type CommandResultParse<T> =
+  | { kind: "value"; value: T }
+  | { kind: "failure"; error: AppError }
+  | { kind: "malformed"; issues: string[] };
+
+/** One line per zod issue, so a broken payload names the field that broke it. */
+export function describeIssues(error: ZodError): string[] {
+  return error.issues.map((issue) => {
+    const path = issue.path.join(".");
+    return path === "" ? issue.message : `${path}: ${issue.message}`;
+  });
+}
+
 export function parseCommandResult<T>(
   value: JsonValue,
   valueSchema: z.ZodType<T>,
-): { ok: true; value: T } | { ok: false; error: AppError } {
-  return z
-    .discriminatedUnion("ok", [
-      z.object({ ok: z.literal(true), value: valueSchema }).strict(),
-      z.object({ ok: z.literal(false), error: appErrorSchema }).strict(),
-    ])
-    .parse(value);
+): CommandResultParse<T> {
+  const envelope = envelopeSchema.safeParse(value);
+  if (!envelope.success) {
+    return { kind: "malformed", issues: describeIssues(envelope.error) };
+  }
+  if (envelope.data.ok) {
+    const parsed = valueSchema.safeParse(envelope.data.value);
+    return parsed.success
+      ? { kind: "value", value: parsed.data }
+      : { kind: "malformed", issues: describeIssues(parsed.error) };
+  }
+  const parsed = appErrorSchema.safeParse(envelope.data.error);
+  return parsed.success
+    ? { kind: "failure", error: parsed.data }
+    : { kind: "malformed", issues: describeIssues(parsed.error) };
 }

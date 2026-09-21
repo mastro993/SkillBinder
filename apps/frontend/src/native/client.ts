@@ -51,7 +51,7 @@ import {
 
 import type { JsonValue } from "./contracts";
 
-import type { ZodType } from "zod";
+import { z, type ZodType } from "zod";
 
 /** The request payloads the native commands accept. */
 type IpcRequest =
@@ -205,23 +205,39 @@ async function invokeCommand<T>(
   valueSchema: ZodType<T>,
   args?: IpcArguments,
 ): Promise<T> {
-  const raw = await invoke<JsonValue>(command, args);
-  let result: ReturnType<typeof parseCommandResult<T>>;
+  let raw: JsonValue;
   try {
-    result = parseCommandResult(raw, valueSchema);
-  } catch {
+    raw = await invoke<JsonValue>(command, args);
+  } catch (cause: unknown) {
     throw new NativeCommandError(
-      "Native command returned an invalid result.",
-      "transport.invalid-result",
+      describeRejection(cause),
+      "transport.rejected",
     );
   }
-  if (result.ok) return result.value;
-  else {
+  const parsed = parseCommandResult(raw, valueSchema);
+  if (parsed.kind === "value") return parsed.value;
+  if (parsed.kind === "failure") {
     throw new NativeCommandError(
-      result.error.message,
-      result.error.diagnosticId,
+      parsed.error.message,
+      parsed.error.diagnosticId,
     );
   }
+  throw new NativeCommandError(
+    `The ${command} command answered with an invalid result. ${parsed.issues.join("; ")}`,
+    "transport.invalid-result",
+  );
+}
+
+const textRejection = z.string();
+const messageRejection = z.object({ message: z.string() });
+
+/** A rejected call carries a message from the shell, or nothing this side can read. */
+function describeRejection(cause: unknown): string {
+  const text = textRejection.safeParse(cause);
+  if (text.success) return text.data;
+  const object = messageRejection.safeParse(cause);
+  if (object.success) return object.data.message;
+  return "The native command failed before it could answer.";
 }
 
 let clientPromise: Promise<DesktopClient> | undefined;
