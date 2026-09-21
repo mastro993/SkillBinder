@@ -1,4 +1,5 @@
-use crate::{app::state::AppState, features::discovery::map_validation, transport::*};
+use crate::{commands::discovery::map_validation, transport::*};
+use skillbinder_app::AppState;
 use skillbinder_core::import::{LibraryRepository, ObservationStore};
 use tauri::State;
 

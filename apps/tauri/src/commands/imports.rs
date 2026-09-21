@@ -1,8 +1,5 @@
-use crate::{
-    app::state::{AppState, SCAN_SESSION_SECONDS, ScanSession},
-    features::discovery::map_validation,
-    transport::*,
-};
+use crate::{commands::discovery::map_validation, transport::*};
+use skillbinder_app::{AppState, SCAN_SESSION_SECONDS, ScanSession};
 use skillbinder_core::{
     import::{ImportSelection, ImportSnapshot, LibraryRepository},
     source::PayloadSource,
@@ -282,6 +279,7 @@ fn err(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use skillbinder_app::ScanRootIdentity;
     use skillbinder_core::{
         discovery::{DuplicateStatus, ScanCandidate},
         import::ImportError,
@@ -349,7 +347,7 @@ mod tests {
             ScanSession {
                 candidates: HashMap::from([(candidate.candidate_id.clone(), candidate)]),
                 created: std::time::Instant::now(),
-                roots: vec![crate::app::state::ScanRootIdentity {
+                roots: vec![ScanRootIdentity {
                     canonical_path: PathBuf::from("/home/skills"),
                 }],
             },

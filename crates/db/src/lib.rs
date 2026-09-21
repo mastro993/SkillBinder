@@ -2,10 +2,19 @@
 //! their idempotency records, source observations, indexed skill metadata, and the registered
 //! project-search roots.
 //!
-//! This state never enters the portable library repository. The schema is created on connect, so a
-//! store opened against a new path is ready to use.
+//! This state never enters the portable library repository. The schema lives in `migrations`, which
+//! run on connect, so a store opened against a new path is ready to use.
 
-use rusqlite::{Connection, OptionalExtension, params};
+mod repositories;
+mod schema;
+
+use diesel::SqliteConnection;
+use diesel::connection::SimpleConnection;
+use diesel::prelude::*;
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
+use repositories::{
+    DUPLICATE_PATH_MESSAGE, ObservationRow, observations, onboarding, plans, roots,
+};
 use skillbinder_core::{
     bootstrap::{BootstrapError, OnboardingState},
     discovery::roots::ScanRoot,
@@ -19,10 +28,12 @@ use skillbinder_core::{
 use std::path::PathBuf;
 use thiserror::Error;
 
+const MIGRATIONS: EmbeddedMigrations = diesel_migrations::embed_migrations!();
+
 #[derive(Debug, Error)]
 pub enum StateError {
     #[error("local state database is unavailable: {0}")]
-    Database(#[from] rusqlite::Error),
+    Database(#[from] diesel::result::Error),
     #[error("saved onboarding state is invalid: {0}")]
     InvalidState(String),
 }
@@ -34,38 +45,27 @@ impl StateStore {
     pub fn new(database: PathBuf) -> Self {
         Self { database }
     }
-    fn connect(&self) -> Result<Connection, StateError> {
-        let connection = Connection::open(&self.database)?;
-        connection.pragma_update(None, "foreign_keys", true)?;
-        connection.pragma_update(None, "busy_timeout", 5_000)?;
-        connection.pragma_update(None, "synchronous", "FULL")?;
-        connection.execute_batch("CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS device_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS operation_plans(id TEXT PRIMARY KEY, payload TEXT NOT NULL, expires_at INTEGER NOT NULL, consumed INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS idempotency_records(operation_id TEXT PRIMARY KEY, request_hash TEXT NOT NULL, result TEXT NOT NULL); CREATE TABLE IF NOT EXISTS source_observations(id INTEGER PRIMARY KEY, source TEXT NOT NULL, skill_id TEXT NOT NULL, digest TEXT NOT NULL, warnings TEXT NOT NULL, reader_agents TEXT NOT NULL, observed_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS skill_metadata(skill_id TEXT PRIMARY KEY, description TEXT, validation TEXT NOT NULL, updated_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS scan_roots(id TEXT PRIMARY KEY, canonical_path TEXT NOT NULL UNIQUE, display_path TEXT NOT NULL, label TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL); INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES (1,datetime('now')); INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES (2,datetime('now')); INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES (3,datetime('now')); ")?;
+    /// Opens a connection with the crate's pragmas applied and its migrations up to date.
+    fn connect(&self) -> Result<SqliteConnection, StateError> {
+        let mut connection = SqliteConnection::establish(&self.database.to_string_lossy())
+            .map_err(database_error)?;
+        connection.batch_execute(
+            "PRAGMA foreign_keys = ON; \
+             PRAGMA busy_timeout = 5000; \
+             PRAGMA synchronous = FULL;",
+        )?;
+        connection
+            .run_pending_migrations(MIGRATIONS)
+            .map_err(database_error)?;
         Ok(connection)
     }
     pub fn insert_scan_root(&self, root: &ScanRoot) -> Result<(), StateError> {
-        self.connect()?
-            .execute(
-                "INSERT INTO scan_roots(id,canonical_path,display_path,label,enabled,created_at) VALUES(?1,?2,?3,?4,?5,?6)",
-                params![
-                    root.id,
-                    root.canonical_path.to_string_lossy(),
-                    root.display_path,
-                    root.label,
-                    root.enabled as i64,
-                    root.created_at as i64,
-                ],
-            )
-            .map_err(map_scan_root_error)?;
-        Ok(())
+        let mut connection = self.connect()?;
+        roots::insert(&mut connection, root).map_err(map_scan_root_error)
     }
     pub fn list_scan_roots(&self) -> Result<Vec<ScanRoot>, StateError> {
-        let connection = self.connect()?;
-        let mut statement = connection.prepare(
-            "SELECT id,canonical_path,display_path,label,enabled,created_at FROM scan_roots ORDER BY enabled DESC, created_at, id",
-        )?;
-        let rows = statement.query_map([], scan_root_from_row)?;
-        rows.collect::<Result<Vec<_>, _>>()
-            .map_err(StateError::from)
+        let mut connection = self.connect()?;
+        roots::list(&mut connection).map_err(StateError::from)
     }
     pub fn update_scan_root(
         &self,
@@ -73,147 +73,86 @@ impl StateStore {
         label: Option<&str>,
         enabled: bool,
     ) -> Result<Option<ScanRoot>, StateError> {
-        let connection = self.connect()?;
-        let changed = connection.execute(
-            "UPDATE scan_roots SET label=COALESCE(?2, label), enabled=?3 WHERE id=?1",
-            params![id, label, enabled as i64],
-        )?;
-        if changed == 0 {
-            return Ok(None);
-        }
-        connection
-            .query_row(
-                "SELECT id,canonical_path,display_path,label,enabled,created_at FROM scan_roots WHERE id=?1",
-                params![id],
-                scan_root_from_row,
-            )
-            .optional()
-            .map_err(StateError::from)
+        let mut connection = self.connect()?;
+        roots::update(&mut connection, id, label, enabled).map_err(StateError::from)
     }
     pub fn remove_scan_root(&self, id: &str) -> Result<bool, StateError> {
-        let removed = self
-            .connect()?
-            .execute("DELETE FROM scan_roots WHERE id=?1", params![id])?;
-        Ok(removed > 0)
+        let mut connection = self.connect()?;
+        roots::remove(&mut connection, id).map_err(StateError::from)
     }
     pub fn onboarding_progress(&self) -> Result<OnboardingProgress, StateError> {
-        let c = self.connect()?;
-        let v: Option<String> = c
-            .query_row(
-                "SELECT value FROM device_settings WHERE key='onboarding_progress'",
-                [],
-                |r| r.get(0),
-            )
-            .optional()?;
-        v.map_or(Ok(OnboardingProgress::default()), |value| {
+        let stored = onboarding::read(&mut self.connect()?)?;
+        stored.map_or(Ok(OnboardingProgress::default()), |value| {
             serde_json::from_str(&value)
                 .map_err(|error| StateError::InvalidState(error.to_string()))
         })
     }
-    fn save_progress(&self, p: &OnboardingProgress) -> Result<(), StateError> {
+    fn save_progress(&self, progress: &OnboardingProgress) -> Result<(), StateError> {
         let value =
-            serde_json::to_string(p).map_err(|e| StateError::InvalidState(e.to_string()))?;
-        self.connect()?.execute("INSERT INTO device_settings(key,value) VALUES('onboarding_progress',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![value])?;
+            serde_json::to_string(progress).map_err(|e| StateError::InvalidState(e.to_string()))?;
+        onboarding::write(&mut self.connect()?, &value)?;
         Ok(())
     }
 }
-fn scan_root_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ScanRoot> {
-    Ok(ScanRoot {
-        id: row.get(0)?,
-        canonical_path: PathBuf::from(row.get::<_, String>(1)?),
-        display_path: row.get(2)?,
-        label: row.get(3)?,
-        enabled: row.get::<_, i64>(4)? != 0,
-        created_at: row.get::<_, i64>(5)? as u64,
-    })
-}
-fn map_scan_root_error(error: rusqlite::Error) -> StateError {
-    if let rusqlite::Error::SqliteFailure(failure, _) = &error
-        && failure.code == rusqlite::ErrorCode::ConstraintViolation
-    {
-        return StateError::InvalidState("a project-search root already covers that path".into());
+fn map_scan_root_error(error: diesel::result::Error) -> StateError {
+    match error {
+        diesel::result::Error::DatabaseError(
+            diesel::result::DatabaseErrorKind::UniqueViolation,
+            _,
+        ) => StateError::InvalidState(DUPLICATE_PATH_MESSAGE.to_owned()),
+        error => StateError::Database(error),
     }
-    StateError::Database(error)
+}
+/// Folds a failure Diesel has no dedicated `Error` variant for (opening a connection, running
+/// migrations) into `StateError::Database`, so the variant stays the single database failure.
+fn database_error(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> StateError {
+    StateError::Database(diesel::result::Error::QueryBuilderError(error.into()))
+}
+/// Folds a connect or query failure into a port error, keeping the message the ports already had.
+fn import_error(error: impl std::fmt::Display) -> ImportError {
+    ImportError::Database(error.to_string())
 }
 impl OnboardingState for StateStore {
     fn load(&self) -> Result<OnboardingProgress, BootstrapError> {
         self.onboarding_progress()
             .map_err(|e| BootstrapError::State(e.to_string()))
     }
-    fn save(&self, p: &OnboardingProgress) -> Result<(), BootstrapError> {
-        self.save_progress(p)
+    fn save(&self, progress: &OnboardingProgress) -> Result<(), BootstrapError> {
+        self.save_progress(progress)
             .map_err(|e| BootstrapError::State(e.to_string()))
     }
 }
 impl PlanStore for StateStore {
     fn create(&self, plan: &ImportPlan) -> Result<(), ImportError> {
-        self.connect()
-            .map_err(|e| ImportError::Database(e.to_string()))?
-            .execute(
-                "INSERT INTO operation_plans(id,payload,expires_at) VALUES(?1,?2,?3)",
-                params![
-                    plan.id,
-                    serde_json::to_string(plan)
-                        .map_err(|e| ImportError::Database(e.to_string()))?,
-                    plan.expires_at as i64
-                ],
-            )
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        Ok(())
+        let payload = serde_json::to_string(plan).map_err(import_error)?;
+        let mut connection = self.connect().map_err(import_error)?;
+        plans::create(&mut connection, &plan.id, &payload, plan.expires_at as i64)
+            .map_err(import_error)
     }
     fn load(&self, id: &str) -> Result<Option<ImportPlan>, ImportError> {
-        let c = self
-            .connect()
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        c.query_row(
-            "SELECT payload FROM operation_plans WHERE id=?1 AND consumed=0",
-            params![id],
-            |r| r.get::<_, String>(0),
-        )
-        .optional()
-        .map_err(|e| ImportError::Database(e.to_string()))?
-        .map(|v| serde_json::from_str(&v).map_err(|e| ImportError::Database(e.to_string())))
-        .transpose()
+        let mut connection = self.connect().map_err(import_error)?;
+        plans::load(&mut connection, id)
+            .map_err(import_error)?
+            .map(|payload| serde_json::from_str(&payload).map_err(import_error))
+            .transpose()
     }
     fn consume(&self, id: &str, _result: &ImportResult) -> Result<(), ImportError> {
-        self.connect()
-            .map_err(|e| ImportError::Database(e.to_string()))?
-            .execute(
-                "UPDATE operation_plans SET consumed=1 WHERE id=?1 AND consumed=0",
-                params![id],
-            )
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        Ok(())
+        let mut connection = self.connect().map_err(import_error)?;
+        plans::consume(&mut connection, id).map_err(import_error)
     }
     fn expire(&self, now: u64) -> Result<(), ImportError> {
-        self.connect()
-            .map_err(|e| ImportError::Database(e.to_string()))?
-            .execute(
-                "DELETE FROM operation_plans WHERE expires_at < ?1 AND consumed=0",
-                params![now as i64],
-            )
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        Ok(())
+        let mut connection = self.connect().map_err(import_error)?;
+        plans::expire(&mut connection, now as i64).map_err(import_error)
     }
     fn idempotency_lookup(
         &self,
         operation_id: &str,
     ) -> Result<Option<(String, ImportResult)>, ImportError> {
-        let c = self
-            .connect()
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        let row: Option<(String, String)> = c
-            .query_row(
-                "SELECT request_hash,result FROM idempotency_records WHERE operation_id=?1",
-                params![operation_id],
-                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
-            )
-            .optional()
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        match row {
-            Some((hash, value)) => Ok(Some((
+        let mut connection = self.connect().map_err(import_error)?;
+        match plans::idempotency_lookup(&mut connection, operation_id).map_err(import_error)? {
+            Some((hash, result)) => Ok(Some((
                 hash,
-                serde_json::from_str(&value).map_err(|e| ImportError::Database(e.to_string()))?,
+                serde_json::from_str(&result).map_err(import_error)?,
             ))),
             None => Ok(None),
         }
@@ -224,8 +163,9 @@ impl PlanStore for StateStore {
         hash: &str,
         result: &ImportResult,
     ) -> Result<(), ImportError> {
-        self.connect().map_err(|e|ImportError::Database(e.to_string()))?.execute("INSERT INTO idempotency_records(operation_id,request_hash,result) VALUES(?1,?2,?3) ON CONFLICT(operation_id) DO NOTHING",params![id,hash,serde_json::to_string(result).map_err(|e|ImportError::Database(e.to_string()))?]).map_err(|e|ImportError::Database(e.to_string()))?;
-        Ok(())
+        let value = serde_json::to_string(result).map_err(import_error)?;
+        let mut connection = self.connect().map_err(import_error)?;
+        plans::idempotency_store(&mut connection, id, hash, &value).map_err(import_error)
     }
     fn consume_and_store(
         &self,
@@ -233,144 +173,112 @@ impl PlanStore for StateStore {
         hash: &str,
         result: &ImportResult,
     ) -> Result<(), ImportError> {
-        let mut connection = self
-            .connect()
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        let transaction = connection
-            .transaction()
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        transaction
-            .execute(
-                "UPDATE operation_plans SET consumed=1 WHERE id=?1 AND consumed=0",
-                params![id],
-            )
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        transaction
-            .execute(
-                "INSERT INTO idempotency_records(operation_id,request_hash,result) VALUES(?1,?2,?3) ON CONFLICT(operation_id) DO NOTHING",
-                params![
-                    id,
-                    hash,
-                    serde_json::to_string(result)
-                        .map_err(|error| ImportError::Database(error.to_string()))?
-                ],
-            )
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        transaction
-            .commit()
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        Ok(())
+        let value = serde_json::to_string(result).map_err(import_error)?;
+        let mut connection = self.connect().map_err(import_error)?;
+        plans::consume_and_store(&mut connection, id, hash, &value).map_err(import_error)
     }
 }
 impl ObservationStore for StateStore {
-    fn append(&self, o: &SourceObservation) -> Result<(), ImportError> {
-        self.connect().map_err(|e|ImportError::Database(e.to_string()))?.execute("INSERT INTO source_observations(source,skill_id,digest,warnings,reader_agents,observed_at) VALUES(?1,?2,?3,?4,?5,?6)",params![o.source.to_string_lossy(),o.skill_id,o.digest,serde_json::to_string(&o.warnings).unwrap_or_default(),serde_json::to_string(&o.reader_agent_ids).unwrap_or_default(),chrono::Utc::now().timestamp()]).map_err(|e|ImportError::Database(e.to_string()))?;
-        Ok(())
+    fn append(&self, observation: &SourceObservation) -> Result<(), ImportError> {
+        let mut connection = self.connect().map_err(import_error)?;
+        observations::append(
+            &mut connection,
+            &observation.source.to_string_lossy(),
+            &observation.skill_id,
+            &observation.digest,
+            &serde_json::to_string(&observation.warnings).unwrap_or_default(),
+            &serde_json::to_string(&observation.reader_agent_ids).unwrap_or_default(),
+            chrono::Utc::now().timestamp(),
+        )
+        .map_err(import_error)
     }
-    fn rollback_observation(&self, o: &SourceObservation) -> Result<(), ImportError> {
-        self.connect()
-            .map_err(|e| ImportError::Database(e.to_string()))?
-            .execute(
-                "DELETE FROM source_observations WHERE id = (
-                     SELECT id FROM source_observations
-                     WHERE source=?1 AND skill_id=?2 AND digest=?3
-                     ORDER BY id DESC LIMIT 1
-                 )",
-                params![o.source.to_string_lossy(), o.skill_id, o.digest],
-            )
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        Ok(())
+    fn rollback_observation(&self, observation: &SourceObservation) -> Result<(), ImportError> {
+        let mut connection = self.connect().map_err(import_error)?;
+        observations::rollback(
+            &mut connection,
+            &observation.source.to_string_lossy(),
+            &observation.skill_id,
+            &observation.digest,
+        )
+        .map_err(import_error)
     }
     fn list(&self, skill_id: &str) -> Result<Vec<SourceObservation>, ImportError> {
-        let c = self
-            .connect()
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        let mut statement = c
-            .prepare(
-                "SELECT source,skill_id,digest,warnings,reader_agents FROM source_observations WHERE skill_id=?1",
-            )
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        let rows = statement
-            .query_map(params![skill_id], |r| {
-                Ok(SourceObservation {
-                    source: PathBuf::from(r.get::<_, String>(0)?),
-                    skill_id: r.get(1)?,
-                    digest: r.get(2)?,
-                    warnings: serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default(),
-                    reader_agent_ids: serde_json::from_str(&r.get::<_, String>(4)?)
-                        .unwrap_or_default(),
-                })
-            })
-            .map_err(|e| ImportError::Database(e.to_string()))?;
-        rows.map(|r| r.map_err(|e| ImportError::Database(e.to_string())))
-            .collect()
+        let mut connection = self.connect().map_err(import_error)?;
+        Ok(observations::list(&mut connection, skill_id)
+            .map_err(import_error)?
+            .into_iter()
+            .map(observation_from_row)
+            .collect())
     }
     fn index_metadata(
         &self,
         skill_id: &str,
         metadata: &IndexedSkillMetadata,
     ) -> Result<(), ImportError> {
-        self.connect()
-            .map_err(|error| ImportError::Database(error.to_string()))?
-            .execute(
-                "INSERT INTO skill_metadata(skill_id,description,validation,updated_at) VALUES(?1,?2,?3,?4) ON CONFLICT(skill_id) DO UPDATE SET description=excluded.description,validation=excluded.validation,updated_at=excluded.updated_at",
-                params![
-                    skill_id,
-                    metadata.description,
-                    serde_json::to_string(&metadata.validation)
-                        .map_err(|error| ImportError::Database(error.to_string()))?,
-                    metadata.updated_at as i64,
-                ],
-            )
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        Ok(())
+        let validation = serde_json::to_string(&metadata.validation).map_err(import_error)?;
+        let mut connection = self.connect().map_err(import_error)?;
+        observations::index_metadata(
+            &mut connection,
+            skill_id,
+            metadata.description.as_deref(),
+            &validation,
+            metadata.updated_at as i64,
+        )
+        .map_err(import_error)
     }
-
     fn indexed_metadata(
         &self,
         skill_id: &str,
     ) -> Result<Option<IndexedSkillMetadata>, ImportError> {
-        self.connect()
-            .map_err(|error| ImportError::Database(error.to_string()))?
-            .query_row(
-                "SELECT description,validation,updated_at FROM skill_metadata WHERE skill_id=?1",
-                params![skill_id],
-                |row| {
-                    Ok(IndexedSkillMetadata {
-                        description: row.get(0)?,
-                        validation: serde_json::from_str(&row.get::<_, String>(1)?)
-                            .unwrap_or_else(|_| ValidationSummary::valid()),
-                        updated_at: row.get::<_, i64>(2)? as u64,
-                    })
-                },
-            )
-            .optional()
-            .map_err(|error| ImportError::Database(error.to_string()))
+        let mut connection = self.connect().map_err(import_error)?;
+        let stored =
+            observations::indexed_metadata(&mut connection, skill_id).map_err(import_error)?;
+        Ok(stored.map(
+            |(description, validation, updated_at)| IndexedSkillMetadata {
+                description,
+                validation: serde_json::from_str(&validation)
+                    .unwrap_or_else(|_| ValidationSummary::valid()),
+                updated_at: updated_at as u64,
+            },
+        ))
     }
     fn remove_index_metadata(&self, skill_id: &str) -> Result<(), ImportError> {
-        self.connect()
-            .map_err(|error| ImportError::Database(error.to_string()))?
-            .execute(
-                "DELETE FROM skill_metadata WHERE skill_id=?1",
-                params![skill_id],
-            )
-            .map_err(|error| ImportError::Database(error.to_string()))?;
-        Ok(())
+        let mut connection = self.connect().map_err(import_error)?;
+        observations::remove_index_metadata(&mut connection, skill_id).map_err(import_error)
+    }
+}
+fn observation_from_row(row: ObservationRow) -> SourceObservation {
+    SourceObservation {
+        source: PathBuf::from(row.source),
+        skill_id: row.skill_id,
+        digest: row.digest,
+        warnings: serde_json::from_str(&row.warnings).unwrap_or_default(),
+        reader_agent_ids: serde_json::from_str(&row.reader_agents).unwrap_or_default(),
     }
 }
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use diesel::connection::SimpleConnection;
+    use skillbinder_core::onboarding::OnboardingStep;
     use std::fs;
 
+    /// The DDL the pre-Diesel build ran on every connect, verbatim. It is history: it stays here
+    /// because it is the only way to build the kind of database an existing install already has.
+    const OLD_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS device_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS operation_plans(id TEXT PRIMARY KEY, payload TEXT NOT NULL, expires_at INTEGER NOT NULL, consumed INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS idempotency_records(operation_id TEXT PRIMARY KEY, request_hash TEXT NOT NULL, result TEXT NOT NULL); CREATE TABLE IF NOT EXISTS source_observations(id INTEGER PRIMARY KEY, source TEXT NOT NULL, skill_id TEXT NOT NULL, digest TEXT NOT NULL, warnings TEXT NOT NULL, reader_agents TEXT NOT NULL, observed_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS skill_metadata(skill_id TEXT PRIMARY KEY, description TEXT, validation TEXT NOT NULL, updated_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS scan_roots(id TEXT PRIMARY KEY, canonical_path TEXT NOT NULL UNIQUE, display_path TEXT NOT NULL, label TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL); INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES (1,datetime('now')); INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES (2,datetime('now')); INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES (3,datetime('now')); ";
+
     fn temporary_store() -> (PathBuf, StateStore) {
+        // The counter keeps two tests running in the same process off each other's file: the clock
+        // alone is not fine-grained enough for that.
+        static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock after epoch")
             .as_nanos();
+        let counter = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let path = std::env::temp_dir().join(format!(
-            "skillbinder-scan-roots-{}-{unique}.sqlite",
+            "skillbinder-scan-roots-{}-{unique}-{counter}.sqlite",
             std::process::id()
         ));
         let _ = fs::remove_file(&path);
@@ -440,6 +348,56 @@ mod tests {
         let persisted = reopened.list_scan_roots().expect("reopen store");
         assert_eq!(persisted.len(), 1);
         assert_eq!(persisted[0].label, "Renamed");
+
+        let _ = fs::remove_file(&database);
+    }
+
+    #[test]
+    fn a_database_written_before_the_migrations_still_opens_and_keeps_its_rows() {
+        let (database, _store) = temporary_store();
+        let mut legacy = SqliteConnection::establish(&database.to_string_lossy())
+            .expect("open a database the old way");
+        legacy.batch_execute(OLD_SCHEMA).expect("apply old DDL");
+        legacy
+            .batch_execute(
+                "INSERT INTO scan_roots(id,canonical_path,display_path,label,enabled,created_at) \
+                 VALUES('legacy','/work/legacy','/work/legacy','Legacy',1,7)",
+            )
+            .expect("seed old rows");
+        drop(legacy);
+
+        let store = StateStore::new(database.clone());
+        let listed = store.list_scan_roots().expect("read an old database");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "legacy");
+        assert_eq!(listed[0].created_at, 7);
+        assert_eq!(
+            store
+                .onboarding_progress()
+                .expect("read unwritten progress"),
+            OnboardingProgress::default()
+        );
+
+        store
+            .insert_scan_root(&scan_root("root-a", "/work/a", true, 2))
+            .expect("write to an old database");
+        store
+            .save(&OnboardingProgress {
+                step: OnboardingStep::Ready,
+                completed: true,
+            })
+            .expect("save progress");
+
+        drop(store);
+        let reopened = StateStore::new(database.clone());
+        assert_eq!(reopened.list_scan_roots().expect("reopen").len(), 2);
+        assert_eq!(
+            OnboardingState::load(&reopened).expect("load progress"),
+            OnboardingProgress {
+                step: OnboardingStep::Ready,
+                completed: true,
+            }
+        );
 
         let _ = fs::remove_file(&database);
     }

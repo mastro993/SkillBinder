@@ -1,8 +1,8 @@
 use crate::{
-    app::state::{AppState, SCAN_SESSION_SECONDS, ScanRootIdentity, ScanRun, ScanSession},
-    features::{app_error, map_state_error},
+    commands::{app_error, map_state_error},
     transport::*,
 };
+use skillbinder_app::{AppState, SCAN_SESSION_SECONDS, ScanRootIdentity, ScanRun, ScanSession};
 use skillbinder_core::{
     discovery::{
         Containment, ExclusionReason as CoreExclusionReason, ScanCandidate, ScanExclusion,

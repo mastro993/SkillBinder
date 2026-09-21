@@ -1,10 +1,8 @@
-use crate::{
-    app::state::AppState,
-    transport::{
-        AppError, BootstrapResponse, CheckState, CommandResult, ErrorCode, GitEnvironmentStatus,
-        LibraryState, OnboardingProgress, OnboardingStep, PrerequisiteStatus, RecoveryAction,
-    },
+use crate::transport::{
+    AppError, BootstrapResponse, CheckState, CommandResult, ErrorCode, GitEnvironmentStatus,
+    LibraryState, OnboardingProgress, OnboardingStep, PrerequisiteStatus, RecoveryAction,
 };
+use skillbinder_app::AppState;
 use skillbinder_core::{
     bootstrap::{BootstrapError, BootstrapSnapshot, GitCheckError, LibraryStatus, VerifiedGit},
     onboarding as core,

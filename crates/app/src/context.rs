@@ -1,6 +1,7 @@
+use crate::session::{PendingGrant, ScanRun, ScanSession};
 use skillbinder_core::{
     bootstrap::{BootstrapError, BootstrapService},
-    discovery::{ScanCandidate, ScanOutcome, ScanProgress},
+    discovery::{Registry, RegistryError},
     import::ImportService,
 };
 use skillbinder_db::StateStore;
@@ -11,44 +12,25 @@ use skillbinder_platform::{
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{Arc, Mutex, atomic::AtomicBool},
-    time::Instant,
+    sync::{Arc, Mutex},
 };
-use tauri::{AppHandle, Manager};
+use thiserror::Error;
 
-pub const SCAN_SESSION_SECONDS: u64 = 600;
-pub const PENDING_GRANT_SECONDS: u64 = 300;
+#[derive(Debug, Error)]
+pub enum AppOpenError {
+    #[error(transparent)]
+    Bootstrap(#[from] BootstrapError),
+    #[error(transparent)]
+    Registry(#[from] RegistryError),
+}
 
-#[derive(Clone)]
-pub struct ScanRootIdentity {
-    pub canonical_path: PathBuf,
-}
-pub struct ScanSession {
-    pub candidates: HashMap<String, ScanCandidate>,
-    pub created: Instant,
-    pub roots: Vec<ScanRootIdentity>,
-}
-pub struct PendingGrant {
-    pub grant_id: String,
-    pub canonical_path: PathBuf,
-    pub display_path: String,
-    pub created: Instant,
-}
-pub struct ScanRun {
-    pub scan_id: String,
-    pub cancel: Arc<AtomicBool>,
-    pub progress: Arc<Mutex<ScanProgress>>,
-    pub result: Arc<Mutex<Option<ScanOutcome>>>,
-    pub failure: Arc<Mutex<Option<String>>>,
-    pub created: Instant,
-}
 pub struct AppState {
     pub bootstrap: BootstrapService,
     pub onboarding_write: Mutex<()>,
     pub paths: AppPaths,
     pub home: PathBuf,
     pub process_lock: Mutex<Option<ProcessLock>>,
-    pub registry: skillbinder_core::discovery::Registry,
+    pub registry: Registry,
     pub source: Arc<FilesystemPayloadSource>,
     pub library: Arc<FilesystemLibraryRepository>,
     pub store: Arc<StateStore>,
@@ -57,15 +39,10 @@ pub struct AppState {
     pub scan_runs: Mutex<HashMap<String, ScanRun>>,
     pub pending_grants: Mutex<HashMap<String, PendingGrant>>,
 }
+
 impl AppState {
-    pub fn from_app(app: &AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
-        let paths = AppPaths::new(
-            app.path().app_local_data_dir()?,
-            app.path().app_config_dir()?,
-            app.path().app_cache_dir()?,
-        );
+    pub fn open(paths: AppPaths, home: PathBuf) -> Result<Self, AppOpenError> {
         let store = Arc::new(StateStore::new(paths.database()));
-        let home = app.path().home_dir()?;
         let state_store = store.clone();
         let source = Arc::new(FilesystemPayloadSource);
         let library = Arc::new(FilesystemLibraryRepository::new(paths.clone()));
@@ -89,7 +66,7 @@ impl AppState {
             paths,
             home,
             process_lock: Mutex::new(process_lock),
-            registry: skillbinder_core::discovery::Registry::load()?,
+            registry: Registry::load()?,
             source,
             library,
             store: state_store,
@@ -99,6 +76,7 @@ impl AppState {
             pending_grants: Mutex::new(HashMap::new()),
         })
     }
+
     pub fn try_ensure_process_lock(&self) -> Result<bool, BootstrapError> {
         let mut lock = self
             .process_lock
@@ -116,6 +94,7 @@ impl AppState {
             Err(error) => Err(error),
         }
     }
+
     pub fn ensure_process_lock(&self) -> Result<(), BootstrapError> {
         if self.try_ensure_process_lock()? {
             Ok(())

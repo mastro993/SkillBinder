@@ -1,8 +1,8 @@
 use crate::{
-    app::state::{AppState, PENDING_GRANT_SECONDS, PendingGrant},
-    features::{app_error, map_state_error},
+    commands::{app_error, map_state_error},
     transport::*,
 };
+use skillbinder_app::{AppState, PENDING_GRANT_SECONDS, PendingGrant};
 use skillbinder_core::{discovery::ScanRoot, source::PayloadSource};
 use std::{
     path::Path,

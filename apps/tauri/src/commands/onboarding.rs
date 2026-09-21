@@ -1,11 +1,11 @@
 use crate::{
-    app::state::AppState,
-    features::bootstrap::{map_error, map_progress, map_step},
+    commands::bootstrap::{map_error, map_progress, map_step},
     transport::{
         AppError, CommandResult, CompleteOnboardingResponse, ErrorCode, LibraryState,
         OnboardingProgress, UpdateOnboardingProgressRequest,
     },
 };
+use skillbinder_app::AppState;
 use tauri::State;
 
 #[tauri::command(async)]
