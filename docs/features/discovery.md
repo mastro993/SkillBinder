@@ -13,8 +13,8 @@ same data.
 ## User flow
 
 1. Onboarding finishes and routes to `/discovery`.
-2. The screen inspects every resolved global location and lists the locations with their reader
-   agents and state.
+2. The shell scans every resolved global location and logs scan warnings; the screen lists the
+   discovered skill candidates.
 3. The user reviews the candidates: name, slug, display path, readers, link state, validation,
    duplicate state, file count, size, and warnings.
 4. Blocked candidates cannot be selected. Selecting an invalid candidate reveals a confirmation
@@ -44,8 +44,8 @@ Portable library state contains no machine paths and no scan state.
 ## Public API
 
 `discovery_scan` takes no request and returns `CommandResult<DiscoveryScanResponse>`: the resolved
-locations with reader agents and state, the candidates, scan warnings, whether a traversal limit
-was reached, and the registry version and agent count.
+locations, the candidates, and the registry version. Scan warnings and a reached traversal limit
+are logged by the shell instead of being returned.
 
 Core exposes `load_registry`, the root resolver over the registry data, `scan_global_roots`, and
 `inspect_payload`. `LibraryCatalog` is the scan's read-only view of the library, used to label a
@@ -87,8 +87,8 @@ user can decide before importing.
 `InvalidPath` covers a malformed or unauthorized root, `LimitExceeded` covers a reached traversal
 bound, and `RescanDiscovery` is the recovery action for a stale or expired scan session.
 Validation failures on a selected candidate map to `ValidationFailed` or `UnsupportedSkill` and
-name the offending paths. An unreadable directory becomes a location or candidate warning instead
-of failing the whole scan.
+name the offending paths. An unreadable directory becomes a shell-side scan warning, or a
+candidate warning, instead of failing the whole scan.
 
 ## Tests
 

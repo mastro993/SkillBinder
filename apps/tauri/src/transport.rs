@@ -262,12 +262,9 @@ contract! {
 
 contract! {
     pub struct DiscoveryScanResponse {
-        pub registry_agent_count: u32,
         pub registry_version: u32,
         pub locations: Vec<GlobalLocation>,
         pub candidates: Vec<DiscoveryCandidate>,
-        pub warnings: Vec<String>,
-        pub limits_reached: bool,
     }
 }
 

@@ -85,17 +85,24 @@ pub fn run_scan(state: &AppState) -> Result<DiscoveryScanResponse, AppError> {
         },
     );
     cache.retain(|_, session| session.created.elapsed().as_secs() < SCAN_SESSION_SECONDS);
+    for warning in &outcome.warnings {
+        eprintln!(
+            "discovery scan warning: {}: {}",
+            warning
+                .path
+                .as_deref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "<unknown>".into()),
+            warning.message
+        );
+    }
+    if outcome.limits_reached {
+        eprintln!("discovery scan reached its traversal limit");
+    }
     Ok(DiscoveryScanResponse {
-        registry_agent_count: state.registry.agent_count,
         registry_version: state.registry.version,
         locations: outcome.locations.into_iter().map(map_location).collect(),
         candidates,
-        warnings: outcome
-            .warnings
-            .into_iter()
-            .map(|warning| warning.message)
-            .collect(),
-        limits_reached: outcome.limits_reached,
     })
 }
 fn map_location(location: skillbinder_core::discovery::ScanLocation) -> GlobalLocation {

@@ -188,12 +188,9 @@ const discoveryCandidateSchema: z.ZodType<DiscoveryCandidate> = z
   .strict();
 export const discoveryScanResponseSchema: z.ZodType<DiscoveryScanResponse> = z
   .object({
-    registryAgentCount: z.number(),
     registryVersion: z.number(),
     locations: z.array(globalLocationSchema),
     candidates: z.array(discoveryCandidateSchema),
-    warnings: z.array(z.string()),
-    limitsReached: z.boolean(),
   })
   .strict();
 const importOutcomeSchema: z.ZodType<ImportOutcome> = z.discriminatedUnion(

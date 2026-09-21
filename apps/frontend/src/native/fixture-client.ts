@@ -143,7 +143,6 @@ const locationState = (
 ) => ({ displayPath, agentIds, agentLabels, state, detail });
 
 const scan: DiscoveryScanResponse = {
-  registryAgentCount: 79,
   registryVersion: 1,
   locations: [
     locationState(
@@ -169,8 +168,6 @@ const scan: DiscoveryScanResponse = {
     ),
   ],
   candidates,
-  warnings: ["One location could not be read; results may be incomplete."],
-  limitsReached: false,
 };
 
 const existingValidation: ValidationSummary = { status: "valid", messages: [] };
