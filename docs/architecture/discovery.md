@@ -57,6 +57,10 @@ registry.json (pinned upstream snapshot)          state.sqlite scan_roots
         |
         +--> app run state (ten minutes: phase, progress, cancel flag, outcome)
         |            |
+        |            +--> discovery_current (the run the shell holds, or none)
+        |            |            |
+        |            |            v
+        |            |     a mounted view adopts that run, then polls
         |            v
         |      discovery_results (phase, progress, diagnostics, one candidate page)
         |
@@ -78,7 +82,10 @@ The scan outlives the request that started it and the view that watches it. `dis
 spawns one blocking worker, stores a `ScanRun` holding the phase, the shared progress, the cancel
 flag, and the outcome, and returns a scan id immediately. `discovery_results` reads that run;
 `discovery_cancel` only flips the flag. One run is live per process, so starting again while one is
-running returns the live id instead of stacking a second walk.
+running returns the live id instead of stacking a second walk. The shell exposes that run through
+`discovery_current`, which prefers the running run and otherwise takes the newest run inside the
+ten-minute window whatever its phase, so a view that mounts later adopts the run the shell is still
+holding. The frontend therefore keeps no scan id of its own.
 
 The frontend may not pass a source path. A picked folder becomes a single-use, five-minute grant in
 the shell, and `roots_register` consumes the grant id, so no command carries a raw path.
