@@ -87,7 +87,7 @@ export function Boundaries() {
     [
       FolderSearch,
       "Bounded discovery",
-      "Global known locations and only project roots you select are scanned.",
+      "Known agent locations and known skill folders in your project roots.",
     ],
     [
       GitBranch,

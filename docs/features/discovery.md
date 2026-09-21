@@ -20,7 +20,8 @@ same data.
 3. Root management lives in Settings. There, `Add folder` opens the native folder picker.
    Cancelling changes nothing. Picking a folder registers it as a project-search root with a label
    derived from its directory name; the label can be renamed later, the root disabled without
-   deleting it, or removed. These are the folders walked in addition to the known agent locations.
+   deleting it, or removed. These are the folders searched in addition to the known agent
+   locations, and only the project skill directories the registry knows are walked inside them.
 4. `Start scan` runs one bounded scan over the registry's resolved global locations and every
    enabled root. One scan runs at a time: starting again while a scan is running returns that
    scan instead of starting a second.
@@ -96,9 +97,10 @@ Discovery reads `roots_list` only to state the scan scope.
 
 Core exposes `load_registry`, the root resolver over the registry data, `scan_roots`, the
 `scan_global_roots` wrapper (the registry-only path used by `j01_probe` and the unit suite),
-`ScanPolicy::global` and `ScanPolicy::project`, and `inspect_payload`. `LibraryCatalog` is the
-scan's read-only view of the library, used to label a candidate identical to a library entry or a
-slug already in use.
+`project_scan_inputs`, the expansion of a registered root into the project skill directories the
+registry knows, `ScanPolicy::global` and `ScanPolicy::project`, and `inspect_payload`.
+`LibraryCatalog` is the scan's read-only view of the library, used to label a candidate identical
+to a library entry or a slug already in use.
 
 `discovery_current` takes no request and returns the run the shell is holding, or a `null` scan id
 when there is none. A client that opens the screen reads it once and then polls
@@ -139,6 +141,16 @@ One traversal engine serves both root sources. A root carries its containment an
 registry root is contained by the home directory; a project root is contained by the folder the
 user granted, re-checked against its stored canonical path. A root that resolves outside its
 containment is `unreadable` and its payload is never read.
+
+A registered project root is not walked as a tree. It expands into one scan input per project skill
+directory the registry knows, which is the same knowledge the global locations come from. The
+expansion deduplicates the directories that several agents share, and keeps only the ones that
+exist under the root, so a project is searched exactly where its agents read skills from and
+nowhere else. A known directory that is absent is not a location. A registered folder that is gone
+keeps one input, so the scan still reports it as a missing location instead of dropping it
+silently. A nested package or a monorepo member is searched when it is registered as its own root.
+Every expanded root carries the project policy, so the exclusion table, the depth limit, the entry
+budget, and the mount stop still bound each directory that does exist.
 
 The global policy keeps a category depth of 8, an entry budget of 5000 per root, and excludes
 `.git` and `node_modules`. The project policy allows a category depth of 12 and 200 000 entries per
@@ -197,10 +209,12 @@ roots, root symlinks outside the home directory, payload symlink escapes and cyc
 limits, and candidate duplicate decisions.
 
 The project-scan tests cover a root outside the home directory under a grant, a root named like an
-excluded directory, nested monorepo projects, `.git` in directory and worktree-file form, an
-unreadable child that warns and lets the walk continue, the per-root entry budget, the depth limit,
-cancellation that returns partial candidates, exclusion aggregation by name and reason, the mount
-boundary, a symlinked skill directory inside its grant, and a root that resolves outside its grant.
+excluded directory, `.git` in directory and worktree-file form, an unreadable child that warns and
+lets the walk continue, the per-root entry budget, the depth limit, cancellation that returns
+partial candidates, exclusion aggregation by name and reason, the mount boundary, a symlinked skill
+directory inside its grant, and a root that resolves outside its grant. The expansion tests cover a
+directory several agents share scanned once, the known directories that exist under a root, a root
+with none of them, and a vanished root that keeps one input.
 
 The store round-trips `scan_roots` against a real database: enabled-first ordering, label and
 enabled updates, a duplicate canonical path rejected, removal, and persistence across reopen. The
@@ -211,9 +225,10 @@ discovery view, and the fixture client. Registry coverage is enforced twice: by 
 by `node scripts/registry.mjs check`.
 
 `cargo run -p skillbinder --example j02_probe` is the manual harness for the project scan. It
-builds a real temporary tree (nested projects, a worktree `.git` file, excluded vendors, an
-unreadable directory, a symlinked payload), writes real roots into a real state database, and runs
-the real engine: a full scan, a scan with a tiny entry budget, and a cancelled scan. It prints
+builds a real temporary tree (skills inside a known project skill directory, a skill outside it, a
+worktree `.git` file, excluded vendors, an unreadable directory, a symlinked payload), registers
+real roots in a real state database, expands them the way the shell does, and runs the real engine:
+a full scan, a scan with a tiny entry budget, and a cancelled scan. It prints
 `PROBE RESULT: PASS` when every rule holds and is skipped on non-Unix hosts.
 
 ## Extension instructions
@@ -255,7 +270,9 @@ TypeScript, and add its label to `exclusionReasonLabels` in
 ### Add a root
 
 At runtime a root is registered through `roots_pick` and `roots_register`, and there is nothing to
-extend: the picker mints the grant and the store persists the row. To add a new _source_ of roots,
+extend: the picker mints the grant and the store persists the row. A registered project root reaches
+the engine through `project_scan_inputs`, so a new _source_ of project roots registers a `ScanRoot`
+and lets that expansion decide which directories are walked. To add a new _source_ of global roots,
 follow the same shape: build a `ScanInput` in `apps/tauri/src/commands/discovery.rs::scan_inputs`
 with its own `Containment` and `ScanPolicy`, persist any machine-local state through `StateStore`,
 and keep the path out of IPC. Never add a command that accepts a raw path, and never grow a branch

@@ -7,7 +7,7 @@ use skillbinder_core::{
     discovery::{
         Containment, ExclusionReason as CoreExclusionReason, ScanCandidate, ScanExclusion,
         ScanInput, ScanLimits, ScanLocation, ScanOutcome, ScanPolicy,
-        ScanProgress as CoreScanProgress, ScanWarning, scan_roots,
+        ScanProgress as CoreScanProgress, ScanWarning, project_scan_inputs, scan_roots,
     },
     source::PayloadSource,
 };
@@ -141,16 +141,11 @@ pub fn scan_inputs(state: &AppState) -> Result<Vec<ScanInput>, AppError> {
         if !root.enabled {
             continue;
         }
-        inputs.push(ScanInput {
-            root_id: Some(root.id.clone()),
-            path: root.canonical_path.clone(),
-            agent_ids: Vec::new(),
-            agent_labels: Vec::new(),
-            containment: Containment::Grant {
-                canonical: root.canonical_path,
-            },
-            policy: ScanPolicy::project(),
-        });
+        inputs.extend(project_scan_inputs(
+            &root,
+            &state.registry,
+            state.source.as_ref(),
+        ));
     }
     Ok(inputs)
 }
