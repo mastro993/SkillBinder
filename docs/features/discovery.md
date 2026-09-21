@@ -14,11 +14,13 @@ same data.
 ## User flow
 
 1. Onboarding finishes and routes to `/discovery`.
-2. The screen lists the registered project-search roots. None are required; the registry locations
+2. The screen states the scan scope: the known global locations of the supported agents, plus the
+   registered project-search roots when there are any. None are required; the registry locations
    are searched regardless.
-3. `Add folder` opens the native folder picker. Cancelling changes nothing. Picking a folder
-   registers it as a root with a label derived from its directory name; the label can be renamed
-   later, the root disabled without deleting it, or removed.
+3. Root management lives in Settings. There, `Add folder` opens the native folder picker.
+   Cancelling changes nothing. Picking a folder registers it as a project-search root with a label
+   derived from its directory name; the label can be renamed later, the root disabled without
+   deleting it, or removed. These are the folders walked in addition to the known agent locations.
 4. `Start scan` runs one bounded scan over the registry's resolved global locations and every
    enabled root. One scan runs at a time: starting again while a scan is running returns that
    scan instead of starting a second.
@@ -78,6 +80,9 @@ The shell exposes eight commands:
 `roots_pick` calls the native folder picker from Rust and mints an in-memory, single-use grant
 holding the canonical path and the display path. `roots_register` consumes the grant id, so IPC
 never accepts a raw path. A grant lives for five minutes and is deleted on first use.
+
+The roots panel is rendered by the Settings screen, through the discovery feature's public API;
+Discovery reads `roots_list` only to state the scan scope.
 
 Core exposes `load_registry`, the root resolver over the registry data, `scan_roots`, the
 `scan_global_roots` wrapper (the registry-only path used by `j01_probe` and the unit suite),

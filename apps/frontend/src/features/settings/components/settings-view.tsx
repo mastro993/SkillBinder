@@ -1,8 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { bootstrapQuery } from "@/app/bootstrap-query";
+import {
+  DiscoveryRootsPanel,
+  rootsQuery,
+  useAddRoot,
+  useRemoveRoot,
+  useUpdateRoot,
+} from "@/features/discovery";
 
 export function SettingsView() {
   const bootstrap = useQuery(bootstrapQuery);
+  const roots = useQuery(rootsQuery);
+  const addRoot = useAddRoot();
+  const updateRoot = useUpdateRoot();
+  const removeRoot = useRemoveRoot();
+
+  const rootError =
+    addRoot.error?.message ??
+    updateRoot.error?.message ??
+    removeRoot.error?.message ??
+    null;
+
   return (
     <section className="page">
       <header className="page-header">
@@ -38,6 +56,24 @@ export function SettingsView() {
         />
         <Setting label="Remote sync" value="Not connected · optional" />
       </div>
+
+      {roots.isError ? (
+        <p className="inline-error" role="alert">
+          The configured project-search roots could not be read.{" "}
+          {roots.error.message}
+        </p>
+      ) : roots.data ? (
+        <DiscoveryRootsPanel
+          roots={roots.data.roots}
+          adding={addRoot.isPending}
+          error={rootError}
+          onAdd={() => addRoot.mutate()}
+          onUpdate={(rootId, label, enabled) =>
+            updateRoot.mutate({ rootId, label, enabled })
+          }
+          onRemove={(rootId) => removeRoot.mutate(rootId)}
+        />
+      ) : null}
     </section>
   );
 }

@@ -8,11 +8,8 @@ import {
   invalidateLibraryAfterImport,
   rootsQuery,
   scanResultsQuery,
-  useAddRoot,
   useCancelScan,
-  useRemoveRoot,
   useStartScan,
-  useUpdateRoot,
 } from "../../queries";
 import {
   pagingState,
@@ -23,7 +20,6 @@ import {
 } from "../../model";
 import { DiscoveryCandidateTable } from "./discovery-candidate-table";
 import { DiscoveryDiagnostics } from "./discovery-diagnostics";
-import { DiscoveryRootsPanel } from "./discovery-roots-panel";
 import { DiscoveryScanStatus } from "./discovery-scan-status";
 import { ImportPreviewDialog } from "../dialogs/import-preview-dialog";
 
@@ -47,9 +43,6 @@ export function DiscoveryView() {
     setPlan(null);
   }
 
-  const addRoot = useAddRoot();
-  const updateRoot = useUpdateRoot();
-  const removeRoot = useRemoveRoot();
   const start = useStartScan();
   const cancel = useCancelScan();
 
@@ -101,37 +94,20 @@ export function DiscoveryView() {
     );
   };
 
-  const rootError =
-    addRoot.error?.message ??
-    updateRoot.error?.message ??
-    removeRoot.error?.message ??
-    null;
-
   if (roots.isPending)
     return (
       <output className="page-status" aria-live="polite">
         Looking for registered project-search roots…
       </output>
     );
-  if (roots.isError) {
-    return (
-      <section className="page">
-        <div className="page-header">
-          <div>
-            <p className="eyebrow">Read-only inspection</p>
-            <h1>Discovery</h1>
-          </div>
-        </div>
-        <div className="empty-panel">
-          <h2>Registered roots could not be read</h2>
-          <p>{roots.error.message}</p>
-          <Button onClick={() => roots.refetch()}>Try again</Button>
-        </div>
-      </section>
-    );
-  }
 
   const data = results.data;
+  const rootCount = roots.data?.roots.length ?? 0;
+  const scopeLine = roots.isError
+    ? "The configured project-search roots could not be read. The scan still covers the known agent locations."
+    : rootCount === 0
+      ? "Scanning the known agent locations. Add project-search roots in Settings to include folders of your own."
+      : `Scanning the known agent locations plus ${rootCount} project-search ${rootCount === 1 ? "root" : "roots"}.`;
   const summary = data ? summarizeScanPhase(data.phase, data.failure) : null;
   const canImport = summary?.importable === true;
   const agentLabels = Object.fromEntries(
@@ -162,22 +138,20 @@ export function DiscoveryView() {
           <p className="eyebrow">Read-only inspection</p>
           <h1>Discovery</h1>
           <p className="lead">
-            Register the folders to search, run a bounded scan, and choose which
-            discovered skill copies enter your library.
+            Run a bounded scan, and choose which discovered skill copies enter
+            your library. Project-search roots are configured in Settings.
           </p>
         </div>
       </header>
 
-      <DiscoveryRootsPanel
-        roots={roots.data.roots}
-        adding={addRoot.isPending}
-        error={rootError}
-        onAdd={() => addRoot.mutate()}
-        onUpdate={(rootId, label, enabled) =>
-          updateRoot.mutate({ rootId, label, enabled })
-        }
-        onRemove={(rootId) => removeRoot.mutate(rootId)}
-      />
+      <p className="discovery-disclosure">
+        {scopeLine}{" "}
+        {roots.isError ? (
+          <Button variant="ghost" onClick={() => roots.refetch()}>
+            Try again
+          </Button>
+        ) : null}
+      </p>
 
       <DiscoveryScanStatus
         phase={data?.phase ?? null}
@@ -320,9 +294,9 @@ export function DiscoveryView() {
               </>
             ) : (
               <p className="discovery-disclosure">
-                No skill candidate was found in the scanned roots. Add another
-                project-search root or scan again. Import copies nothing when
-                there is nothing to review.
+                No skill candidate was found in the scanned roots. Add a
+                project-search root in Settings or scan again. Import copies
+                nothing when there is nothing to review.
               </p>
             )}
           </section>

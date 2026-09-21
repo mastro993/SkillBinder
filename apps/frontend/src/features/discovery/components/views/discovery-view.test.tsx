@@ -165,37 +165,20 @@ afterEach(() => {
 });
 
 describe("discovery view", () => {
-  it("registers the folder picked through the picker", async () => {
-    const rootsRegister = vi
-      .fn<DesktopClient["rootsRegister"]>()
-      .mockResolvedValue({ root });
+  it("states the scan scope and leaves root management to Settings", async () => {
     const discoveryResults = vi.fn<DesktopClient["discoveryResults"]>();
-    renderView({
-      rootsList: vi
-        .fn<DesktopClient["rootsList"]>()
-        .mockResolvedValueOnce({ roots: [] })
-        .mockResolvedValue({ roots: [root] }),
-      rootsPick: vi.fn<DesktopClient["rootsPick"]>().mockResolvedValue({
-        grant: {
-          grantId: "grant-1",
-          displayPath: "/Users/demo/Projects/atlas",
-          resolvedPath: "/Users/demo/Projects/atlas",
-        },
-      }),
-      rootsRegister,
-      discoveryResults,
-    });
+    renderView({ discoveryResults });
 
     expect(
-      await screen.findByText(/No project-search root yet/),
+      await screen.findByText(
+        "Scanning the known agent locations plus 1 project-search root.",
+      ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Add folder/ }));
-    await waitFor(() =>
-      expect(rootsRegister).toHaveBeenCalledWith("grant-1", null),
-    );
-    expect(await screen.findByText("Atlas")).toBeInTheDocument();
     expect(screen.getByText(/No scan has run yet/)).toBeInTheDocument();
     expect(discoveryResults).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Add folder/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Rename/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
   });
 
   it("follows a running scan into its results", async () => {
