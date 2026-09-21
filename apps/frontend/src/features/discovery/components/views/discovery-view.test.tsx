@@ -27,6 +27,8 @@ const scan: DiscoveryScanResponse = {
   candidates: [
     {
       candidateId: "invalid",
+      locationId: "invalid",
+      linked: false,
       displayPath: "/skills/invalid",
       slug: "invalid",
       name: "Invalid",

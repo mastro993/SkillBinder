@@ -162,6 +162,7 @@ const globalLocationSchema: z.ZodType<GlobalLocation> = z
 const discoveryCandidateSchema: z.ZodType<DiscoveryCandidate> = z
   .object({
     candidateId: z.string(),
+    locationId: z.string(),
     displayPath: z.string(),
     slug: z.string(),
     name: z.string().nullable(),
@@ -171,6 +172,7 @@ const discoveryCandidateSchema: z.ZodType<DiscoveryCandidate> = z
     duplicate: candidateDuplicateSchema,
     fileCount: z.number(),
     totalBytes: z.string(),
+    linked: z.boolean(),
     warnings: z.array(z.string()),
   })
   .strict();

@@ -123,6 +123,7 @@ fn map_location(location: skillbinder_core::discovery::ScanLocation) -> GlobalLo
 fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> DiscoveryCandidate {
     DiscoveryCandidate {
         candidate_id: candidate.candidate_id.clone(),
+        location_id: candidate.candidate_id.clone(),
         display_path: candidate.display_path.clone(),
         slug: candidate.slug.clone(),
         name: candidate.name.clone(),
@@ -148,6 +149,7 @@ fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> Disc
         },
         file_count: candidate.file_count,
         total_bytes: candidate.total_bytes.to_string(),
+        linked: false,
         warnings: candidate.warnings.clone(),
     }
 }

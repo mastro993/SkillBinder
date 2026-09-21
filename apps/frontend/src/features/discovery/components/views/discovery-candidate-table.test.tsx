@@ -8,6 +8,8 @@ const candidate = (
   id: string,
 ): DiscoveryCandidate => ({
   candidateId: id,
+  locationId: `location-${id}`,
+  linked: false,
   displayPath: `/skills/${id}`,
   slug: id,
   name: id,
