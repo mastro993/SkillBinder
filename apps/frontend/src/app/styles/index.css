@@ -656,18 +656,18 @@ p {
   position: fixed;
   inset: 0;
   z-index: 10;
-  display: grid;
-  place-items: center;
-  padding: 24px;
   background: rgba(20, 29, 22, 0.45);
 }
 .dialog {
-  position: static;
-  margin: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  margin: auto;
   padding: 0;
   color: inherit;
-  width: min(680px, 100%);
-  max-height: 90vh;
+  width: min(680px, calc(100% - 48px));
+  height: fit-content;
+  max-height: calc(100% - 48px);
   overflow: auto;
   border: 1px solid #d9ddd4;
   border-radius: 17px;

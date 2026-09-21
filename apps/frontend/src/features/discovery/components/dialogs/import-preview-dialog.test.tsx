@@ -68,4 +68,40 @@ describe("import preview dialog", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("takes the page behind it out of the accessibility tree", () => {
+    render(
+      <>
+        <button type="button">Behind the dialog</button>
+        <ImportPreviewDialog
+          plan={plan}
+          applying={false}
+          onApply={vi.fn<() => void>()}
+          onClose={vi.fn<() => void>()}
+        />
+      </>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Behind the dialog" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Behind the dialog", hidden: true }),
+    ).toBeInTheDocument();
+  });
+
+  it("refuses to dismiss while an import is in flight", () => {
+    const onClose = vi.fn<() => void>();
+    render(
+      <ImportPreviewDialog
+        plan={plan}
+        applying
+        onApply={vi.fn<() => void>()}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
