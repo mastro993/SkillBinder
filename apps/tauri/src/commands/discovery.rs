@@ -1,5 +1,5 @@
 use crate::{
-    commands::{app_error, map_state_error},
+    commands::{app_error, map_state_error, recorded},
     transport::*,
 };
 use skillbinder_app::{AppState, SCAN_SESSION_SECONDS, ScanRootIdentity, ScanRun, ScanSession};
@@ -26,10 +26,10 @@ pub fn discovery_start(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> CommandResult<DiscoveryStartResponse> {
-    match start(&app, &state) {
+    recorded("discovery_start", || match start(&app, &state) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 
 pub fn start(app: &AppHandle, state: &AppState) -> Result<DiscoveryStartResponse, AppError> {
@@ -160,10 +160,10 @@ pub fn discovery_results(
     state: State<'_, AppState>,
     request: DiscoveryResultsRequest,
 ) -> CommandResult<DiscoveryResultsResponse> {
-    match results(&state, request) {
+    recorded("discovery_results", || match results(&state, request) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 
 pub fn results(
@@ -233,21 +233,23 @@ pub fn discovery_cancel(
     state: State<'_, AppState>,
     request: DiscoveryCancelRequest,
 ) -> CommandResult<DiscoveryCancelResponse> {
-    if let Ok(runs) = state.scan_runs.lock() {
-        request_cancel(&runs, &request.scan_id);
-    }
-    CommandResult::success(DiscoveryCancelResponse {
-        scan_id: request.scan_id,
-        accepted: true,
+    recorded("discovery_cancel", || {
+        if let Ok(runs) = state.scan_runs.lock() {
+            request_cancel(&runs, &request.scan_id);
+        }
+        CommandResult::success(DiscoveryCancelResponse {
+            scan_id: request.scan_id,
+            accepted: true,
+        })
     })
 }
 
 #[tauri::command(async)]
 pub fn discovery_current(state: State<'_, AppState>) -> CommandResult<DiscoveryCurrentResponse> {
-    match current(&state) {
+    recorded("discovery_current", || match current(&state) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 
 pub fn live_scan_id(runs: &HashMap<String, ScanRun>) -> Option<String> {

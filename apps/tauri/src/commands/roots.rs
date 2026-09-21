@@ -1,5 +1,5 @@
 use crate::{
-    commands::{app_error, map_state_error},
+    commands::{app_error, map_state_error, recorded},
     transport::*,
 };
 use skillbinder_app::{AppState, PENDING_GRANT_SECONDS, PendingGrant};
@@ -13,10 +13,10 @@ use tauri_plugin_dialog::DialogExt;
 
 #[tauri::command(async)]
 pub fn roots_pick(app: AppHandle, state: State<'_, AppState>) -> CommandResult<RootsPickResponse> {
-    match pick(&app, &state) {
+    recorded("roots_pick", || match pick(&app, &state) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 
 pub fn pick(app: &AppHandle, state: &AppState) -> Result<RootsPickResponse, AppError> {
@@ -66,10 +66,10 @@ pub fn roots_register(
     state: State<'_, AppState>,
     request: RootsRegisterRequest,
 ) -> CommandResult<RootsRegisterResponse> {
-    match register(&state, request) {
+    recorded("roots_register", || match register(&state, request) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 
 pub fn register(
@@ -134,10 +134,10 @@ pub fn register(
 
 #[tauri::command(async)]
 pub fn roots_list(state: State<'_, AppState>) -> CommandResult<RootsListResponse> {
-    match list(&state) {
+    recorded("roots_list", || match list(&state) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 
 pub fn list(state: &AppState) -> Result<RootsListResponse, AppError> {
@@ -152,10 +152,10 @@ pub fn roots_update(
     state: State<'_, AppState>,
     request: RootsUpdateRequest,
 ) -> CommandResult<RootsUpdateResponse> {
-    match update(&state, request) {
+    recorded("roots_update", || match update(&state, request) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 
 pub fn update(
@@ -181,15 +181,17 @@ pub fn roots_remove(
     state: State<'_, AppState>,
     request: RootsRemoveRequest,
 ) -> CommandResult<RootsRemoveResponse> {
-    state
-        .store
-        .remove_scan_root(&request.root_id)
-        .map_err(map_state_error)
-        .map_or_else(CommandResult::failure, |_removed| {
-            CommandResult::success(RootsRemoveResponse {
-                root_id: request.root_id,
+    recorded("roots_remove", || {
+        state
+            .store
+            .remove_scan_root(&request.root_id)
+            .map_err(map_state_error)
+            .map_or_else(CommandResult::failure, |_removed| {
+                CommandResult::success(RootsRemoveResponse {
+                    root_id: request.root_id,
+                })
             })
-        })
+    })
 }
 
 fn root_view(root: &ScanRoot) -> RootView {

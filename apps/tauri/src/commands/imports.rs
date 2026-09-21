@@ -1,4 +1,7 @@
-use crate::{commands::discovery::map_validation, transport::*};
+use crate::{
+    commands::{discovery::map_validation, recorded},
+    transport::*,
+};
 use skillbinder_app::{AppState, SCAN_SESSION_SECONDS, ScanSession};
 use skillbinder_core::{
     import::{ImportSelection, ImportSnapshot, LibraryRepository},
@@ -12,10 +15,10 @@ pub fn imports_prepare(
     state: State<'_, AppState>,
     request: ImportPrepareRequest,
 ) -> CommandResult<ImportPlanResponse> {
-    match prepare(&state, request) {
+    recorded("imports_prepare", || match prepare(&state, request) {
         Ok(value) => CommandResult::success(value),
         Err(error) => CommandResult::failure(error),
-    }
+    })
 }
 pub fn prepare(
     state: &AppState,
@@ -169,35 +172,37 @@ pub fn imports_apply(
     state: State<'_, AppState>,
     request: ImportApplyRequest,
 ) -> CommandResult<ImportApplyResponse> {
-    match state.import_service.apply(&request.plan_id) {
-        Ok(result) => CommandResult::success(ImportApplyResponse {
-            plan_id: result.plan_id,
-            imported: result
-                .imported
-                .into_iter()
-                .map(|item| ImportedSkill {
-                    skill_id: item.skill_id,
-                    slug: item.slug,
-                    display_path: item.source.display().to_string(),
-                    outcome: match item.decision {
-                        skillbinder_core::import::ImportDecision::NewSkill { .. } => {
-                            ImportOutcome::NewSkill
-                        }
-                        skillbinder_core::import::ImportDecision::AttachObservation {
-                            skill_id,
-                        } => ImportOutcome::AttachObservation { skill_id },
-                        skillbinder_core::import::ImportDecision::Conflict { .. } => {
-                            ImportOutcome::NewSkill
-                        }
-                    },
-                    file_count: item.file_count,
-                    total_bytes: item.total_bytes.to_string(),
-                })
-                .collect(),
-            library_revision: result.library_revision,
-        }),
-        Err(error) => CommandResult::failure(map_import_error(error)),
-    }
+    recorded("imports_apply", || {
+        match state.import_service.apply(&request.plan_id) {
+            Ok(result) => CommandResult::success(ImportApplyResponse {
+                plan_id: result.plan_id,
+                imported: result
+                    .imported
+                    .into_iter()
+                    .map(|item| ImportedSkill {
+                        skill_id: item.skill_id,
+                        slug: item.slug,
+                        display_path: item.source.display().to_string(),
+                        outcome: match item.decision {
+                            skillbinder_core::import::ImportDecision::NewSkill { .. } => {
+                                ImportOutcome::NewSkill
+                            }
+                            skillbinder_core::import::ImportDecision::AttachObservation {
+                                skill_id,
+                            } => ImportOutcome::AttachObservation { skill_id },
+                            skillbinder_core::import::ImportDecision::Conflict { .. } => {
+                                ImportOutcome::NewSkill
+                            }
+                        },
+                        file_count: item.file_count,
+                        total_bytes: item.total_bytes.to_string(),
+                    })
+                    .collect(),
+                library_revision: result.library_revision,
+            }),
+            Err(error) => CommandResult::failure(map_import_error(error)),
+        }
+    })
 }
 pub fn map_import_error(error: skillbinder_core::import::ImportError) -> AppError {
     match error {

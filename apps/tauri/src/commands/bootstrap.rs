@@ -1,3 +1,4 @@
+use crate::commands::recorded;
 use crate::transport::{
     AppError, BootstrapResponse, CheckState, CommandResult, ErrorCode, GitEnvironmentStatus,
     LibraryState, OnboardingProgress, OnboardingStep, PrerequisiteStatus, RecoveryAction,
@@ -18,21 +19,25 @@ const CAPABILITIES: &[&str] = &[
 
 #[tauri::command(async)]
 pub fn system_bootstrap(state: State<'_, AppState>) -> CommandResult<BootstrapResponse> {
-    if let Err(error) = state.try_ensure_process_lock() {
-        return CommandResult::failure(map_error(error));
-    }
-    bootstrap(&state)
+    recorded("system_bootstrap", || {
+        if let Err(error) = state.try_ensure_process_lock() {
+            return CommandResult::failure(map_error(error));
+        }
+        bootstrap(&state)
+    })
 }
 
 #[tauri::command(async)]
 pub fn git_environment_verify(state: State<'_, AppState>) -> CommandResult<GitEnvironmentStatus> {
-    if let Err(error) = state.try_ensure_process_lock() {
-        return CommandResult::failure(map_error(error));
-    }
-    match state.bootstrap.snapshot() {
-        Ok(snapshot) => CommandResult::success(map_git(snapshot.git)),
-        Err(error) => CommandResult::failure(map_error(error)),
-    }
+    recorded("git_environment_verify", || {
+        if let Err(error) = state.try_ensure_process_lock() {
+            return CommandResult::failure(map_error(error));
+        }
+        match state.bootstrap.snapshot() {
+            Ok(snapshot) => CommandResult::success(map_git(snapshot.git)),
+            Err(error) => CommandResult::failure(map_error(error)),
+        }
+    })
 }
 
 pub fn bootstrap(state: &AppState) -> CommandResult<BootstrapResponse> {
