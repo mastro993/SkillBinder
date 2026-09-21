@@ -8,7 +8,7 @@ use crate::{
 };
 use tauri::State;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn onboarding_progress_update(
     state: State<'_, AppState>,
     request: UpdateOnboardingProgressRequest,
@@ -25,7 +25,7 @@ pub fn onboarding_progress_update(
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn onboarding_complete_local(
     state: State<'_, AppState>,
 ) -> CommandResult<CompleteOnboardingResponse> {

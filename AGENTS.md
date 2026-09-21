@@ -35,6 +35,9 @@ local data layout. `docs/architecture/` explains the bootstrap and discovery sub
   `apps/frontend/src/native/contracts.ts` validate what arrives at runtime.
 - Lint levels come from the `[workspace.lints]` table in `Cargo.toml`, so an obvious clone or a
   dead enum variant fails `pnpm verify` instead of the review.
+- Every native command carries `#[tauri::command(async)]`. Without it the body runs on the webview
+  thread, so one SQLite query or Git subprocess freezes the window, and
+  `node scripts/check-architecture.mjs` rejects a bare attribute.
 - Write down a decision that constrains later work in `docs/adr/`, and update
   `docs/architecture/` or `docs/features/` in the commit that changes the behaviour.
 

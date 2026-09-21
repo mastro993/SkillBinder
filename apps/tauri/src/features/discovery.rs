@@ -21,7 +21,7 @@ use std::{
 };
 use tauri::{AppHandle, Manager, State};
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn discovery_start(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -155,7 +155,7 @@ pub fn scan_inputs(state: &AppState) -> Result<Vec<ScanInput>, AppError> {
     Ok(inputs)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn discovery_results(
     state: State<'_, AppState>,
     request: DiscoveryResultsRequest,
@@ -228,7 +228,7 @@ pub fn results(
     Ok(response)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn discovery_cancel(
     state: State<'_, AppState>,
     request: DiscoveryCancelRequest,

@@ -35,6 +35,22 @@ for (const directory of forbidden) {
   }
 }
 
+const commandFiles = readdirSync("apps/tauri/src", { recursive: true })
+  .filter((entry) => entry.endsWith(".rs"))
+  .map((entry) => path.join("apps/tauri/src", entry));
+for (const file of commandFiles) {
+  const attributes = readFileSync(file, "utf8").match(
+    /#\[tauri::command[^\]]*\]/g,
+  );
+  for (const attribute of attributes ?? []) {
+    if (!attribute.includes("(async)")) {
+      throw new Error(
+        `${file} registers a bare ${attribute}. Without (async) the command body runs on the webview thread, so a query, a file read, or a Git subprocess freezes the window for its whole duration.`,
+      );
+    }
+  }
+}
+
 const capability = JSON.parse(
   readFileSync("apps/tauri/capabilities/main.json", "utf8"),
 );

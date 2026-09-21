@@ -61,7 +61,7 @@ pub fn pick(app: &AppHandle, state: &AppState) -> Result<RootsPickResponse, AppE
     Ok(RootsPickResponse { grant: Some(view) })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn roots_register(
     state: State<'_, AppState>,
     request: RootsRegisterRequest,
@@ -132,7 +132,7 @@ pub fn register(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn roots_list(state: State<'_, AppState>) -> CommandResult<RootsListResponse> {
     match list(&state) {
         Ok(value) => CommandResult::success(value),
@@ -147,7 +147,7 @@ pub fn list(state: &AppState) -> Result<RootsListResponse, AppError> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn roots_update(
     state: State<'_, AppState>,
     request: RootsUpdateRequest,
@@ -176,7 +176,7 @@ pub fn update(
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn roots_remove(
     state: State<'_, AppState>,
     request: RootsRemoveRequest,

@@ -18,7 +18,7 @@ const CAPABILITIES: &[&str] = &[
     "optionalRemoteSync",
 ];
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn system_bootstrap(state: State<'_, AppState>) -> CommandResult<BootstrapResponse> {
     if let Err(error) = state.try_ensure_process_lock() {
         return CommandResult::failure(map_error(error));
@@ -26,7 +26,7 @@ pub fn system_bootstrap(state: State<'_, AppState>) -> CommandResult<BootstrapRe
     bootstrap(&state)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn git_environment_verify(state: State<'_, AppState>) -> CommandResult<GitEnvironmentStatus> {
     if let Err(error) = state.try_ensure_process_lock() {
         return CommandResult::failure(map_error(error));

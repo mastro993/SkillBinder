@@ -10,7 +10,7 @@ use skillbinder_core::{
 use std::collections::HashMap;
 use tauri::State;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn imports_prepare(
     state: State<'_, AppState>,
     request: ImportPrepareRequest,
@@ -167,7 +167,7 @@ fn candidate_changed() -> AppError {
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn imports_apply(
     state: State<'_, AppState>,
     request: ImportApplyRequest,
