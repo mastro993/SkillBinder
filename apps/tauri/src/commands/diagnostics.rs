@@ -28,8 +28,7 @@ pub fn diagnostics_reveal_logs(
 fn map_reveal_error(error: RevealError) -> AppError {
     let message = error.to_string();
     let (code, retryable, recovery, diagnostic_id) = match error {
-        // An app-owned folder this process cannot read is a storage problem, like the library
-        // database and the payload filesystem, not a caller mistake.
+        // Storage the shell owns and cannot produce is a storage problem, not a caller mistake.
         RevealError::MissingFolder => (
             ErrorCode::PermissionDenied,
             true,

@@ -1,9 +1,7 @@
-//! Opens a folder in the device file manager.
+//! Opens a folder in the device file manager through a fixed argument vector and no shell.
 //!
-//! The folder is always application-owned state, never caller input, so the only boundary here is
-//! that the folder exists and is a directory. A launcher that starts the file manager is success:
-//! the file manager outlives this command, so the child is reaped on a background thread instead of
-//! delaying the caller.
+//! The folder is checked for existence and for being a directory before anything starts, and the
+//! caller never waits for the file manager window, which outlives this call.
 
 use std::{
     env,
@@ -29,7 +27,6 @@ pub enum RevealError {
     SpawnFailed(#[source] std::io::Error),
 }
 
-/// The desktop the launcher table is chosen from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DesktopKind {
     Macos,
@@ -37,7 +34,6 @@ enum DesktopKind {
     Linux,
 }
 
-/// One candidate program: its fixed prefix, then an optional `--`, then the folder.
 struct Launcher {
     program: &'static str,
     prefix: &'static [&'static str],
@@ -87,7 +83,7 @@ fn launchers(kind: DesktopKind) -> &'static [Launcher] {
     }
 }
 
-/// Resolves a launcher on disk and starts it. A test replaces this to record the attempt.
+/// Split out so a test can inject the lookup and the start.
 trait LauncherHost {
     fn find(&self, program: &str) -> Option<PathBuf>;
     fn start(&self, program: &Path, args: &[OsString]) -> Result<(), RevealError>;
@@ -107,8 +103,8 @@ impl LauncherHost for SystemHost {
 
 /// Opens `folder` in the device file manager.
 ///
-/// The folder is application-owned state, so it is checked for existence rather than for caller
-/// permissions, and the argument reaches the launcher as an `OsStr` without a shell in between.
+/// The argument reaches the launcher as an `OsStr` and no shell is involved. The call returns once
+/// a launcher starts, so the file manager outliving it is expected.
 pub fn reveal_directory(folder: &Path) -> Result<(), RevealError> {
     reveal(folder, desktop_kind(), &SystemHost)
 }
@@ -144,7 +140,6 @@ fn arguments(launcher: &Launcher, folder: &Path) -> Vec<OsString> {
     args
 }
 
-/// A launcher given by absolute path is used as-is; a bare name is looked up on `PATH`.
 fn which(program: &str) -> Option<PathBuf> {
     let candidate = Path::new(program);
     if candidate
@@ -180,7 +175,6 @@ fn start_detached(program: &Path, args: &[OsString]) -> Result<(), RevealError> 
     Ok(())
 }
 
-/// Any desktop that is neither macOS nor Windows gets the freedesktop launchers.
 fn desktop_kind() -> DesktopKind {
     match env::consts::OS {
         "macos" => DesktopKind::Macos,
@@ -217,7 +211,6 @@ mod tests {
         }
     }
 
-    /// Records what a launch would have run.
     struct RecordingHost {
         available: Vec<&'static str>,
         fail_start: bool,
