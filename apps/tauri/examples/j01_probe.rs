@@ -116,12 +116,12 @@ fn main() {
 
     fs::create_dir_all(outside.join("data/skills/legacy")).unwrap();
     write_skill(
-        &home.join(".claude/linked-payload"),
+        &home.join(".claude/linked"),
         "linked",
         "---\nname: linked\ndescription: Linked directory.\n---\n",
     );
     symlink(
-        home.join(".claude/linked-payload"),
+        home.join(".claude/linked"),
         home.join(".claude/skills/linked"),
     )
     .unwrap();
@@ -274,10 +274,13 @@ fn main() {
     let linked = find("linked");
     let oversized = find("oversized");
     let hardlink = find("hardlink");
-    let linked_ok = matches!(
-        linked.link,
-        skillbinder_core::discovery::scan::ScanLink::RootLink { .. }
-    );
+    let linked_ok = outcome
+        .candidates
+        .iter()
+        .filter(|candidate| candidate.slug == "linked")
+        .count()
+        == 1
+        && linked.display_path.ends_with(".claude/linked");
     let oversized_ok = oversized.validation.status == ValidationStatus::Blocked
         && oversized.validation.messages.iter().any(|message| {
             message.code == skillbinder_core::library::ValidationCode::FileLimitExceeded
@@ -378,7 +381,7 @@ fn main() {
     }
 
     let revision = library.current_revision().unwrap();
-    let linked = candidate_at(&outcome, ".claude/skills/linked");
+    let linked = candidate_at(&outcome, ".claude/linked");
     let selection: Vec<ImportSelection> = [review, shared, outline, linked]
         .into_iter()
         .map(ImportSelection::from)
@@ -439,7 +442,7 @@ fn main() {
         .join(&plan.items[3].selection.slug)
         .join("SKILL.md");
     let linked_imported = linked_library_copy.is_file();
-    println!("linked skill imported through its link path: {linked_imported}");
+    println!("linked skill imported once from its original: {linked_imported}");
     if !linked_imported {
         problems.push("linked skill did not import".into());
     }

@@ -13,7 +13,6 @@ const candidate = (
   name: id,
   description: status === "invalid" ? null : "Description",
   readerAgentIds: ["claude-code"],
-  link: { kind: "direct" },
   validation: {
     status,
     messages:

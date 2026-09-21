@@ -32,7 +32,6 @@ const scan: DiscoveryScanResponse = {
       name: "Invalid",
       description: null,
       readerAgentIds: ["agent"],
-      link: { kind: "direct" },
       validation: {
         status: "invalid",
         messages: [

@@ -111,12 +111,6 @@ pub enum DuplicateStatus {
     SlugInUse { skill_id: String, slug: String },
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ScanLink {
-    Direct,
-    RootLink { resolved_path: PathBuf },
-    Unresolved { detail: String },
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanCandidate {
     pub candidate_id: String,
     pub path: PathBuf,
@@ -134,7 +128,6 @@ pub struct ScanCandidate {
     pub warnings: Vec<String>,
     pub blocked: bool,
     pub duplicate: DuplicateStatus,
-    pub link: ScanLink,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanOutcome {
@@ -155,7 +148,8 @@ pub fn scan_global_roots(
     let mut locations = Vec::new();
     let mut candidates: Vec<ScanCandidate> = Vec::new();
     let mut warnings = Vec::new();
-    let mut physical: HashMap<PathBuf, usize> = HashMap::new();
+    let mut scanned_roots: HashMap<PathBuf, (usize, Vec<usize>)> = HashMap::new();
+    let mut skill_directories: HashMap<PathBuf, usize> = HashMap::new();
     let canonical_home = source
         .canonicalize_root(home)
         .unwrap_or_else(|_| home.to_path_buf());
@@ -203,13 +197,13 @@ pub fn scan_global_roots(
                 }
             },
         };
-        if let Some(index) = physical.get(&resolved).copied() {
+        if let Some((index, discovered)) = scanned_roots.get(&resolved) {
+            let index = *index;
             locations[index].agent_ids.push(root.agent_id.clone());
             locations[index].agent_labels.push(root.agent_label.clone());
-            for candidate in &mut candidates {
-                if candidate.path.starts_with(&resolved)
-                    && !candidate.reader_agent_ids.contains(&root.agent_id)
-                {
+            for &candidate_index in discovered {
+                let candidate = &mut candidates[candidate_index];
+                if !candidate.reader_agent_ids.contains(&root.agent_id) {
                     candidate.reader_agent_ids.push(root.agent_id.clone());
                     candidate.reader_agent_labels.push(root.agent_label.clone());
                 }
@@ -217,7 +211,6 @@ pub fn scan_global_roots(
             continue;
         }
         let index = locations.len();
-        physical.insert(resolved.clone(), index);
         locations.push(ScanLocation {
             path: resolved.clone(),
             display_path: resolved.display().to_string(),
@@ -226,9 +219,10 @@ pub fn scan_global_roots(
             state: LocationState::Scanned,
             detail: None,
         });
+        let mut discovered: Vec<usize> = Vec::new();
         let mut remaining = limits.max_entries;
-        let mut stack = vec![(resolved, 0usize, Vec::<PathBuf>::new(), ScanLink::Direct)];
-        while let Some((directory, depth, chain, directory_link)) = stack.pop() {
+        let mut stack = vec![(resolved.clone(), 0usize, Vec::<PathBuf>::new())];
+        while let Some((directory, depth, chain)) = stack.pop() {
             if depth > limits.category_depth {
                 limits_reached = true;
                 continue;
@@ -258,33 +252,32 @@ pub fn scan_global_roots(
                     && matches!(meta.kind, EntryKind::File | EntryKind::Hardlink)
                 {
                     let skill_root = directory.clone();
-                    if let Some(existing) = candidates
-                        .iter_mut()
-                        .find(|candidate| candidate.path == skill_root)
-                    {
+                    let resolved_skill = source
+                        .canonicalize_root(&skill_root)
+                        .unwrap_or_else(|_| skill_root.clone());
+                    if let Some(index) = skill_directories.get(&resolved_skill).copied() {
+                        let existing = &mut candidates[index];
                         if !existing.reader_agent_ids.contains(&root.agent_id) {
                             existing.reader_agent_ids.push(root.agent_id.clone());
                             existing.reader_agent_labels.push(root.agent_label.clone());
                         }
+                        if !discovered.contains(&index) {
+                            discovered.push(index);
+                        }
                     } else {
                         let candidate_id = format!("{scan_id}:{}", candidates.len());
-                        let slug = skill_root
+                        let slug = resolved_skill
                             .file_name()
                             .and_then(|x| x.to_str())
                             .unwrap_or_default()
                             .to_owned();
-                        let canonical_path = source
-                            .canonicalize_root(&skill_root)
-                            .unwrap_or_else(|_| skill_root.clone());
-                        let identity = source
-                            .physical_identity(&canonical_path)
-                            .unwrap_or_default();
+                        let identity = source.physical_identity(&resolved_skill).unwrap_or_default();
                         let mut candidate = ScanCandidate {
                             candidate_id,
-                            path: skill_root.clone(),
-                            canonical_path,
+                            path: resolved_skill.clone(),
+                            canonical_path: resolved_skill.clone(),
                             identity,
-                            display_path: skill_root.display().to_string(),
+                            display_path: resolved_skill.display().to_string(),
                             slug,
                             reader_agent_ids: vec![root.agent_id.clone()],
                             reader_agent_labels: vec![root.agent_label.clone()],
@@ -296,10 +289,9 @@ pub fn scan_global_roots(
                             warnings: Vec::new(),
                             blocked: false,
                             duplicate: DuplicateStatus::Unique,
-                            link: directory_link.clone(),
                         };
                         match crate::library::payload::inspect_payload(
-                            &skill_root,
+                            &resolved_skill,
                             source,
                             &crate::library::payload::ValidationLimits::default(),
                         ) {
@@ -334,6 +326,8 @@ pub fn scan_global_roots(
                                 candidate.warnings.push(error.to_string());
                             }
                         }
+                        skill_directories.insert(resolved_skill, candidates.len());
+                        discovered.push(candidates.len());
                         candidates.push(candidate);
                     }
                     break;
@@ -349,7 +343,7 @@ pub fn scan_global_roots(
                     continue;
                 };
                 if meta.kind == EntryKind::Directory {
-                    stack.push((entry, depth + 1, chain.clone(), ScanLink::Direct));
+                    stack.push((entry, depth + 1, chain.clone()));
                 } else if meta.kind == EntryKind::Symlink {
                     match source.resolve_symlink(&entry, limits.max_link_hops) {
                         Ok(target) if target.starts_with(&canonical_home) => {
@@ -361,14 +355,7 @@ pub fn scan_global_roots(
                                 });
                             } else {
                                 next_chain.push(target.clone());
-                                stack.push((
-                                    entry,
-                                    depth + 1,
-                                    next_chain,
-                                    ScanLink::RootLink {
-                                        resolved_path: target,
-                                    },
-                                ));
+                                stack.push((entry, depth + 1, next_chain));
                             }
                         }
                         Err(error) => warnings.push(ScanWarning {
@@ -387,6 +374,7 @@ pub fn scan_global_roots(
                 break;
             }
         }
+        scanned_roots.insert(resolved, (index, discovered));
     }
     ScanOutcome {
         scan_id: scan_id.to_owned(),
@@ -412,6 +400,7 @@ mod tests {
         files: HashMap<PathBuf, Vec<u8>>,
         errors: HashMap<PathBuf, SourceError>,
         links: HashMap<PathBuf, PathBuf>,
+        canonical: HashMap<PathBuf, PathBuf>,
     }
     impl FakeSource {
         fn directory(&mut self, path: &str, children: &[&str]) {
@@ -430,6 +419,9 @@ mod tests {
             );
         }
         fn skill(&mut self, path: &str) {
+            self.skill_named(path, "skill");
+        }
+        fn skill_named(&mut self, path: &str, name: &str) {
             self.directory(path, &["SKILL.md"]);
             let file = PathBuf::from(path).join("SKILL.md");
             self.metadata.insert(
@@ -442,8 +434,22 @@ mod tests {
             );
             self.files.insert(
                 file,
-                b"---\nname: skill\ndescription: test\n---\nbody\n".into(),
+                format!("---\nname: {name}\ndescription: test\n---\nbody\n").into_bytes(),
             );
+        }
+        fn symlink(&mut self, path: &str, target: &str) {
+            let path = PathBuf::from(path);
+            let target = PathBuf::from(target);
+            self.metadata.insert(
+                path.clone(),
+                EntryMetadata {
+                    kind: EntryKind::Symlink,
+                    executable: false,
+                    size: 0,
+                },
+            );
+            self.links.insert(path.clone(), target.clone());
+            self.canonical.insert(path, target);
         }
         fn root(agent: &str, path: &str) -> ResolvedRoot {
             ResolvedRoot {
@@ -471,6 +477,13 @@ mod tests {
         }
         fn resolve_symlink(&self, path: &Path, _max_hops: u8) -> Result<PathBuf, SourceError> {
             self.links.get(path).cloned().ok_or(SourceError::Missing)
+        }
+        fn canonicalize_root(&self, path: &Path) -> Result<PathBuf, SourceError> {
+            Ok(self
+                .canonical
+                .get(path)
+                .cloned()
+                .unwrap_or_else(|| path.to_path_buf()))
         }
     }
     struct EmptyCatalog;
@@ -612,5 +625,118 @@ mod tests {
             },
         );
         assert!(outcome.limits_reached);
+    }
+
+    #[test]
+    fn link_outside_root_resolves_to_original_directory() {
+        let mut source = FakeSource::default();
+        source.directory("/skills", &["linked"]);
+        source.skill_named("/payloads/linked", "linked");
+        source.entries.insert(
+            PathBuf::from("/skills/linked"),
+            vec![PathBuf::from("/skills/linked/SKILL.md")],
+        );
+        source.metadata.insert(
+            PathBuf::from("/skills/linked/SKILL.md"),
+            EntryMetadata {
+                kind: EntryKind::File,
+                executable: false,
+                size: 45,
+            },
+        );
+        source.symlink("/skills/linked", "/payloads/linked");
+        let outcome = run(
+            &source,
+            &[FakeSource::root("agent", "/skills")],
+            ScanLimits::default(),
+        );
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.candidates);
+        assert_eq!(outcome.candidates[0].display_path, "/payloads/linked");
+        assert_eq!(outcome.candidates[0].slug, "linked");
+    }
+
+    #[test]
+    fn skill_and_link_in_separate_roots_yield_one_candidate() {
+        let mut source = FakeSource::default();
+        source.directory("/root-one", &["original"]);
+        source.skill_named("/root-one/original", "original");
+        source.directory("/root-two", &["linked"]);
+        source.entries.insert(
+            PathBuf::from("/root-two/linked"),
+            vec![PathBuf::from("/root-two/linked/SKILL.md")],
+        );
+        source.metadata.insert(
+            PathBuf::from("/root-two/linked/SKILL.md"),
+            EntryMetadata {
+                kind: EntryKind::File,
+                executable: false,
+                size: 45,
+            },
+        );
+        source.symlink("/root-two/linked", "/root-one/original");
+        let outcome = run(
+            &source,
+            &[
+                FakeSource::root("one", "/root-one"),
+                FakeSource::root("two", "/root-two"),
+            ],
+            ScanLimits::default(),
+        );
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.candidates);
+        assert_eq!(outcome.candidates[0].display_path, "/root-one/original");
+        assert_eq!(outcome.candidates[0].slug, "original");
+        assert_eq!(outcome.candidates[0].reader_agent_ids, vec!["one", "two"]);
+    }
+
+    #[test]
+    fn shared_root_with_linked_payload_keeps_both_readers() {
+        let mut source = FakeSource::default();
+        source.directory("/skills", &["linked"]);
+        source.skill_named("/payloads/linked", "linked");
+        source.entries.insert(
+            PathBuf::from("/skills/linked"),
+            vec![PathBuf::from("/skills/linked/SKILL.md")],
+        );
+        source.metadata.insert(
+            PathBuf::from("/skills/linked/SKILL.md"),
+            EntryMetadata {
+                kind: EntryKind::File,
+                executable: false,
+                size: 45,
+            },
+        );
+        source.symlink("/skills/linked", "/payloads/linked");
+        let outcome = run(
+            &source,
+            &[
+                FakeSource::root("one", "/skills"),
+                FakeSource::root("two", "/skills"),
+            ],
+            ScanLimits::default(),
+        );
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.candidates);
+        assert_eq!(outcome.candidates[0].display_path, "/payloads/linked");
+        assert_eq!(outcome.candidates[0].reader_agent_ids, vec!["one", "two"]);
+    }
+
+    #[test]
+    fn identical_payloads_in_separate_directories_stay_two_candidates() {
+        let mut source = FakeSource::default();
+        source.directory("/skills", &["one", "two"]);
+        source.skill_named("/skills/one", "shared");
+        source.skill_named("/skills/two", "shared");
+        let outcome = run(
+            &source,
+            &[FakeSource::root("agent", "/skills")],
+            ScanLimits::default(),
+        );
+        assert_eq!(outcome.candidates.len(), 2, "{:?}", outcome.candidates);
+        let mut slugs: Vec<&str> = outcome
+            .candidates
+            .iter()
+            .map(|candidate| candidate.slug.as_str())
+            .collect();
+        slugs.sort_unstable();
+        assert_eq!(slugs, vec!["one", "two"]);
     }
 }

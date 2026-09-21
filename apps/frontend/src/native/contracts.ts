@@ -3,7 +3,6 @@ import type {
   AppError,
   BootstrapResponse,
   CandidateDuplicate,
-  CandidateLink,
   CompleteOnboardingResponse,
   DiscoveryCandidate,
   DiscoveryScanResponse,
@@ -133,16 +132,6 @@ const validationSummarySchema: z.ZodType<ValidationSummary> = z
     messages: z.array(validationMessageSchema),
   })
   .strict();
-const candidateLinkSchema: z.ZodType<CandidateLink> = z.discriminatedUnion(
-  "kind",
-  [
-    z.object({ kind: z.literal("direct") }).strict(),
-    z
-      .object({ kind: z.literal("rootLink"), resolvedPath: z.string() })
-      .strict(),
-    z.object({ kind: z.literal("unresolved"), detail: z.string() }).strict(),
-  ],
-);
 const candidateDuplicateSchema: z.ZodType<CandidateDuplicate> =
   z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("unique") }).strict(),
@@ -178,7 +167,6 @@ const discoveryCandidateSchema: z.ZodType<DiscoveryCandidate> = z
     name: z.string().nullable(),
     description: z.string().nullable(),
     readerAgentIds: z.array(z.string()),
-    link: candidateLinkSchema,
     validation: validationSummarySchema,
     duplicate: candidateDuplicateSchema,
     fileCount: z.number(),

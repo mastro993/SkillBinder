@@ -128,19 +128,6 @@ fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> Disc
         name: candidate.name.clone(),
         description: candidate.description.clone(),
         reader_agent_ids: candidate.reader_agent_ids.clone(),
-        link: match &candidate.link {
-            skillbinder_core::discovery::scan::ScanLink::Direct => CandidateLink::Direct,
-            skillbinder_core::discovery::scan::ScanLink::RootLink { resolved_path } => {
-                CandidateLink::RootLink {
-                    resolved_path: resolved_path.display().to_string(),
-                }
-            }
-            skillbinder_core::discovery::scan::ScanLink::Unresolved { detail } => {
-                CandidateLink::Unresolved {
-                    detail: detail.clone(),
-                }
-            }
-        },
         validation: map_validation(candidate.validation.clone()),
         duplicate: match &candidate.duplicate {
             skillbinder_core::discovery::scan::DuplicateStatus::Unique => {
