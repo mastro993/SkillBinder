@@ -2,6 +2,7 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 80,
   "ignorePatterns": [
+    ".agents/",
     ".omp/",
     ".scratch/",
     "apps/frontend/src/generated/",

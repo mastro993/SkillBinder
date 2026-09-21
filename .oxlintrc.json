@@ -16,6 +16,7 @@
   "categories": { "correctness": "error" },
   "env": { "browser": true, "node": true },
   "ignorePatterns": [
+    ".agents/",
     ".omp/",
     "tests/fixtures/upstream-skills-cli/",
     "tools/anti-slop/"
