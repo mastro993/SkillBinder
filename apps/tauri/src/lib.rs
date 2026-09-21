@@ -86,6 +86,7 @@ pub fn run() {
             commands::imports::imports_prepare,
             commands::imports::imports_apply,
             commands::library::library_list,
+            commands::diagnostics::diagnostics_reveal_logs,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build SkillBinder");

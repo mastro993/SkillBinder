@@ -10,6 +10,7 @@ macro_rules! contract {
 }
 
 pub mod bootstrap;
+pub mod diagnostics;
 pub mod discovery;
 pub mod error;
 pub mod imports;
@@ -19,6 +20,7 @@ pub mod roots;
 pub mod validation;
 
 pub use bootstrap::*;
+pub use diagnostics::*;
 pub use discovery::*;
 pub use error::*;
 pub use imports::*;
@@ -78,6 +80,7 @@ mod tests {
         ImportPlanResponse::export_all(&config).unwrap();
         ImportApplyResponse::export_all(&config).unwrap();
         LibraryListResponse::export_all(&config).unwrap();
+        DiagnosticsRevealLogsResponse::export_all(&config).unwrap();
     }
 
     #[test]

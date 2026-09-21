@@ -17,6 +17,7 @@ fn main() {
         "imports_prepare",
         "imports_apply",
         "library_list",
+        "diagnostics_reveal_logs",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("failed to build SkillBinder Tauri application");
