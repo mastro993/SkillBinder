@@ -13,3 +13,4 @@ skillbinder-core = { path = "../core" }
 skillbinder-db = { path = "../db" }
 skillbinder-platform = { path = "../platform" }
 thiserror.workspace = true
+tracing.workspace = true
