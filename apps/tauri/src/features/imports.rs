@@ -4,8 +4,8 @@ use crate::{
     transport::*,
 };
 use skillbinder_core::{
-    discovery::scan::PayloadSource,
     import::{ImportSelection, ImportSnapshot, LibraryRepository},
+    source::PayloadSource,
 };
 use std::collections::HashMap;
 use tauri::State;
@@ -283,11 +283,10 @@ fn err(
 mod tests {
     use super::*;
     use skillbinder_core::{
-        discovery::scan::{
-            DuplicateStatus, EntryKind, EntryMetadata, PayloadSource, ScanCandidate, SourceError,
-        },
+        discovery::{DuplicateStatus, ScanCandidate},
         import::ImportError,
         library::ValidationSummary,
+        source::{EntryKind, EntryMetadata, PayloadSource, SourceError},
     };
     use std::path::PathBuf;
 

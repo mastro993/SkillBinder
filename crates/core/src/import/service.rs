@@ -1,7 +1,7 @@
 use super::model::*;
 use crate::{
-    discovery::scan::PayloadSource,
     library::{PayloadModel, ValidationLimits, ValidationStatus, inspect_payload},
+    source::PayloadSource,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
@@ -475,8 +475,8 @@ fn fnv1a_64(value: &[u8]) -> u64 {
 mod tests {
     use super::*;
     use crate::{
-        discovery::scan::{EntryKind, EntryMetadata, SourceError},
         library::{Manifest, ValidationSummary},
+        source::{EntryKind, EntryMetadata, SourceError},
     };
     use std::{
         collections::HashMap,

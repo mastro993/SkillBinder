@@ -214,7 +214,7 @@ fn main() {
     println!("\nlocations:");
     for location in &outcome.locations {
         if location.agent_ids.len() > 1
-            || location.state != skillbinder_core::discovery::scan::LocationState::Missing
+            || location.state != skillbinder_core::discovery::LocationState::Missing
         {
             println!(
                 "  {:?} readers={:?} state={:?}{}",
@@ -310,8 +310,7 @@ fn main() {
         legacy.is_none()
             && outcome.locations.iter().any(|location| {
                 location.display_path.contains(".astrbot")
-                    && location.state
-                        == skillbinder_core::discovery::scan::LocationState::Unreadable
+                    && location.state == skillbinder_core::discovery::LocationState::Unreadable
             })
     );
     if legacy.is_some() {

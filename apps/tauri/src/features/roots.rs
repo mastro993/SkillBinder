@@ -3,7 +3,7 @@ use crate::{
     features::{app_error, map_state_error},
     transport::*,
 };
-use skillbinder_core::discovery::{ScanRoot, scan::PayloadSource};
+use skillbinder_core::{discovery::ScanRoot, source::PayloadSource};
 use std::{
     path::Path,
     time::{Instant, SystemTime, UNIX_EPOCH},

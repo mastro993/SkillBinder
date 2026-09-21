@@ -1,7 +1,7 @@
 use crate::{git::GitEnvironment, paths::AppPaths, payload_filesystem::FilesystemPayloadSource};
 use serde_json::json;
 use skillbinder_core::{
-    discovery::scan::LibraryCatalog,
+    discovery::LibraryCatalog,
     import::{ImportError, ImportPlan, LibraryRecord, LibraryRepository},
     library::{Manifest, PayloadModel, ValidationLimits, inspect_payload},
 };

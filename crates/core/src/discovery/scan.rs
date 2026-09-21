@@ -1,350 +1,29 @@
-use serde::{Deserialize, Serialize};
+//! The traversal engine. One walk serves the registry roots and the registered project roots.
+
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
-use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EntryKind {
-    File,
-    Directory,
-    Symlink,
-    Device,
-    Hardlink,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntryMetadata {
-    pub kind: EntryKind,
-    pub executable: bool,
-    pub size: u64,
-}
+use super::{
+    outcome::{
+        DuplicateStatus, LocationState, ScanCandidate, ScanLocation, ScanOutcome, ScanProgress,
+        ScanWarning,
+    },
+    spec::{
+        Containment, ExclusionReason, ResolvedRoot, ScanExclusion, ScanInput, ScanLimits,
+        ScanPolicy,
+    },
+};
+use crate::{
+    library::{ValidationLimits, ValidationSummary, inspect_payload},
+    source::{EntryKind, PayloadSource, SourceError},
+};
 
-pub trait PayloadSource: Send + Sync {
-    fn list_entries(&self, path: &Path) -> Result<Vec<PathBuf>, SourceError>;
-    fn list_entries_limited(&self, path: &Path, cap: usize) -> Result<Vec<PathBuf>, SourceError> {
-        let mut entries = self.list_entries(path)?;
-        if entries.len() > cap {
-            entries.truncate(cap);
-        }
-        Ok(entries)
-    }
-    fn physical_identity(&self, path: &Path) -> Result<String, SourceError> {
-        self.canonicalize_root(path)
-            .map(|value| value.display().to_string())
-    }
-    fn entry_metadata(&self, path: &Path) -> Result<EntryMetadata, SourceError>;
-    fn read_file(&self, path: &Path, cap: usize) -> Result<Vec<u8>, SourceError>;
-    fn resolve_symlink(&self, path: &Path, max_hops: u8) -> Result<PathBuf, SourceError>;
-    fn canonicalize_root(&self, path: &Path) -> Result<PathBuf, SourceError> {
-        Ok(path.to_path_buf())
-    }
-    fn volume_id(&self, _path: &Path) -> Option<u64> {
-        None
-    }
-    fn exists(&self, path: &Path) -> bool {
-        self.entry_metadata(path).is_ok()
-    }
-}
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
-pub enum SourceError {
-    #[error("source is missing")]
-    Missing,
-    #[error("source is unreadable: {0}")]
-    Unreadable(String),
-    #[error("source unavailable: {0}")]
-    Unavailable(String),
-    #[error("source limit exceeded")]
-    Limit,
-}
 pub trait LibraryCatalog: Send + Sync {
     fn matching_payload(&self, digest: &str) -> Option<(String, String)>;
     fn slug_owner(&self, slug: &str) -> Option<(String, String)>;
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedRoot {
-    pub path: PathBuf,
-    pub agent_id: String,
-    pub agent_label: String,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScanLimits {
-    pub category_depth: usize,
-    pub max_entries: usize,
-    pub max_link_hops: u8,
-}
-impl Default for ScanLimits {
-    fn default() -> Self {
-        Self {
-            category_depth: 8,
-            max_entries: 5000,
-            max_link_hops: 16,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanInput {
-    pub root_id: Option<String>,
-    pub path: PathBuf,
-    pub agent_ids: Vec<String>,
-    pub agent_labels: Vec<String>,
-    pub containment: Containment,
-    pub policy: ScanPolicy,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Containment {
-    Home,
-    Grant { canonical: PathBuf },
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExclusionReason {
-    VcsMetadata,
-    DependencyVendor,
-    BuildOutput,
-    Cache,
-    VirtualEnvironment,
-    AppData,
-    MountBoundary,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ExclusionRule {
-    pub name: &'static str,
-    pub reason: ExclusionReason,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanExclusion {
-    pub name: String,
-    pub reason: ExclusionReason,
-    pub matches: u32,
-    pub sample_path: PathBuf,
-}
-
-const GLOBAL_EXCLUSIONS: &[ExclusionRule] = &[
-    ExclusionRule {
-        name: ".git",
-        reason: ExclusionReason::VcsMetadata,
-    },
-    ExclusionRule {
-        name: "node_modules",
-        reason: ExclusionReason::DependencyVendor,
-    },
-];
-const PROJECT_EXCLUSIONS: &[ExclusionRule] = &[
-    ExclusionRule {
-        name: ".git",
-        reason: ExclusionReason::VcsMetadata,
-    },
-    ExclusionRule {
-        name: ".hg",
-        reason: ExclusionReason::VcsMetadata,
-    },
-    ExclusionRule {
-        name: ".svn",
-        reason: ExclusionReason::VcsMetadata,
-    },
-    ExclusionRule {
-        name: "node_modules",
-        reason: ExclusionReason::DependencyVendor,
-    },
-    ExclusionRule {
-        name: "vendor",
-        reason: ExclusionReason::DependencyVendor,
-    },
-    ExclusionRule {
-        name: "Pods",
-        reason: ExclusionReason::DependencyVendor,
-    },
-    ExclusionRule {
-        name: "bower_components",
-        reason: ExclusionReason::DependencyVendor,
-    },
-    ExclusionRule {
-        name: "target",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: "dist",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: "build",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: "out",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: ".next",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: ".nuxt",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: ".svelte-kit",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: "DerivedData",
-        reason: ExclusionReason::BuildOutput,
-    },
-    ExclusionRule {
-        name: ".cache",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: ".turbo",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: ".parcel-cache",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: ".gradle",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: "__pycache__",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: ".pytest_cache",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: ".mypy_cache",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: ".ruff_cache",
-        reason: ExclusionReason::Cache,
-    },
-    ExclusionRule {
-        name: ".venv",
-        reason: ExclusionReason::VirtualEnvironment,
-    },
-    ExclusionRule {
-        name: "venv",
-        reason: ExclusionReason::VirtualEnvironment,
-    },
-    ExclusionRule {
-        name: ".tox",
-        reason: ExclusionReason::VirtualEnvironment,
-    },
-    ExclusionRule {
-        name: "AppData",
-        reason: ExclusionReason::AppData,
-    },
-    ExclusionRule {
-        name: "Application Data",
-        reason: ExclusionReason::AppData,
-    },
-];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScanPolicy {
-    limits: ScanLimits,
-    exclusions: &'static [ExclusionRule],
-    stop_at_mount: bool,
-}
-impl ScanPolicy {
-    pub fn global(limits: ScanLimits) -> Self {
-        Self {
-            limits,
-            exclusions: GLOBAL_EXCLUSIONS,
-            stop_at_mount: false,
-        }
-    }
-    pub fn project() -> Self {
-        Self::project_with_limits(ScanLimits {
-            category_depth: 12,
-            max_entries: 200_000,
-            max_link_hops: 16,
-        })
-    }
-    pub fn project_with_limits(limits: ScanLimits) -> Self {
-        Self {
-            limits,
-            exclusions: PROJECT_EXCLUSIONS,
-            stop_at_mount: true,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanProgress {
-    pub roots_total: u32,
-    pub roots_done: u32,
-    pub entries_seen: u32,
-    pub candidates_found: u32,
-    pub current_path: Option<PathBuf>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum LocationState {
-    Scanned,
-    Missing,
-    Unreadable,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanLocation {
-    pub location_id: String,
-    pub root_id: Option<String>,
-    pub path: PathBuf,
-    pub display_path: String,
-    pub agent_ids: Vec<String>,
-    pub agent_labels: Vec<String>,
-    pub state: LocationState,
-    pub detail: Option<String>,
-    pub limit_reached: bool,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanWarning {
-    pub path: Option<PathBuf>,
-    pub message: String,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DuplicateStatus {
-    Unique,
-    Identical { skill_id: String, slug: String },
-    SlugInUse { skill_id: String, slug: String },
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanCandidate {
-    pub candidate_id: String,
-    pub location_id: String,
-    pub path: PathBuf,
-    pub canonical_path: PathBuf,
-    pub identity: String,
-    pub display_path: String,
-    pub slug: String,
-    pub reader_agent_ids: Vec<String>,
-    pub reader_agent_labels: Vec<String>,
-    pub file_count: u32,
-    pub total_bytes: u64,
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub validation: crate::library::payload::ValidationSummary,
-    pub warnings: Vec<String>,
-    pub blocked: bool,
-    pub duplicate: DuplicateStatus,
-    pub linked: bool,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanOutcome {
-    pub scan_id: String,
-    pub locations: Vec<ScanLocation>,
-    pub candidates: Vec<ScanCandidate>,
-    pub warnings: Vec<ScanWarning>,
-    pub limits_reached: bool,
-    pub exclusions: Vec<ScanExclusion>,
-    pub cancelled: bool,
 }
 
 const CANCEL_ENTRY_INTERVAL: u32 = 512;
@@ -502,18 +181,14 @@ impl Engine<'_> {
             total_bytes: 0,
             name: None,
             description: None,
-            validation: crate::library::payload::ValidationSummary::valid(),
+            validation: ValidationSummary::valid(),
             warnings: Vec::new(),
             blocked: false,
             duplicate: DuplicateStatus::Unique,
             linked,
         };
         let mut candidate = candidate;
-        match crate::library::payload::inspect_payload(
-            &resolved_skill,
-            self.source,
-            &crate::library::payload::ValidationLimits::default(),
-        ) {
+        match inspect_payload(&resolved_skill, self.source, &ValidationLimits::default()) {
             Ok(model) => {
                 candidate.duplicate = if let Some((skill_id, slug)) =
                     self.catalog.matching_payload(&model.manifest.digest)
@@ -823,6 +498,7 @@ pub fn scan_global_roots(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source::{EntryMetadata, SourceError};
     use std::{
         collections::HashMap,
         path::{Path, PathBuf},

@@ -9,9 +9,12 @@ fn main() {
 
 #[cfg(unix)]
 mod probe {
-    use skillbinder_core::discovery::{
-        Containment, ExclusionReason, LibraryCatalog, LocationState, ScanInput, ScanLimits,
-        ScanOutcome, ScanPolicy, ScanProgress, ScanRoot, scan::PayloadSource, scan_roots,
+    use skillbinder_core::{
+        discovery::{
+            Containment, ExclusionReason, LibraryCatalog, LocationState, ScanInput, ScanLimits,
+            ScanOutcome, ScanPolicy, ScanProgress, ScanRoot, scan_roots,
+        },
+        source::PayloadSource,
     };
     use skillbinder_db::StateStore;
     use skillbinder_platform::payload_filesystem::FilesystemPayloadSource;

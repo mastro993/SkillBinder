@@ -3,11 +3,13 @@ use crate::{
     features::{app_error, map_state_error},
     transport::*,
 };
-use skillbinder_core::discovery::{
-    Containment, ScanCandidate, ScanExclusion, ScanInput, ScanLimits, ScanLocation, ScanOutcome,
-    ScanPolicy, ScanProgress as CoreScanProgress, ScanWarning,
-    scan::{ExclusionReason as CoreExclusionReason, PayloadSource},
-    scan_roots,
+use skillbinder_core::{
+    discovery::{
+        Containment, ExclusionReason as CoreExclusionReason, ScanCandidate, ScanExclusion,
+        ScanInput, ScanLimits, ScanLocation, ScanOutcome, ScanPolicy,
+        ScanProgress as CoreScanProgress, ScanWarning, scan_roots,
+    },
+    source::PayloadSource,
 };
 use std::{
     collections::HashMap,
@@ -270,7 +272,7 @@ fn page_limit(requested: u32) -> Result<u32, AppError> {
 fn is_hidden_duplicate(candidate: &ScanCandidate) -> bool {
     matches!(
         candidate.duplicate,
-        skillbinder_core::discovery::scan::DuplicateStatus::Identical { .. }
+        skillbinder_core::discovery::DuplicateStatus::Identical { .. }
     )
 }
 
@@ -361,11 +363,9 @@ fn map_discovery_location(location: &ScanLocation) -> DiscoveryLocation {
         agent_ids: location.agent_ids.clone(),
         agent_labels: location.agent_labels.clone(),
         state: match location.state {
-            skillbinder_core::discovery::scan::LocationState::Scanned => LocationState::Scanned,
-            skillbinder_core::discovery::scan::LocationState::Missing => LocationState::Missing,
-            skillbinder_core::discovery::scan::LocationState::Unreadable => {
-                LocationState::Unreadable
-            }
+            skillbinder_core::discovery::LocationState::Scanned => LocationState::Scanned,
+            skillbinder_core::discovery::LocationState::Missing => LocationState::Missing,
+            skillbinder_core::discovery::LocationState::Unreadable => LocationState::Unreadable,
         },
         detail: location.detail.clone(),
         limit_reached: location.limit_reached,
@@ -410,16 +410,14 @@ fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> Disc
         reader_agent_ids: candidate.reader_agent_ids.clone(),
         validation: map_validation(candidate.validation.clone()),
         duplicate: match &candidate.duplicate {
-            skillbinder_core::discovery::scan::DuplicateStatus::Unique => {
-                CandidateDuplicate::Unique
-            }
-            skillbinder_core::discovery::scan::DuplicateStatus::Identical { skill_id, slug } => {
+            skillbinder_core::discovery::DuplicateStatus::Unique => CandidateDuplicate::Unique,
+            skillbinder_core::discovery::DuplicateStatus::Identical { skill_id, slug } => {
                 CandidateDuplicate::Identical {
                     skill_id: skill_id.clone(),
                     slug: slug.clone(),
                 }
             }
-            skillbinder_core::discovery::scan::DuplicateStatus::SlugInUse { skill_id, slug } => {
+            skillbinder_core::discovery::DuplicateStatus::SlugInUse { skill_id, slug } => {
                 CandidateDuplicate::SlugInUse {
                     skill_id: skill_id.clone(),
                     slug: slug.clone(),
@@ -518,7 +516,7 @@ pub fn map_validation(summary: skillbinder_core::library::ValidationSummary) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_core::discovery::scan::DuplicateStatus;
+    use skillbinder_core::discovery::DuplicateStatus;
 
     fn outcome(cancelled: bool) -> ScanOutcome {
         ScanOutcome {
@@ -564,7 +562,7 @@ mod tests {
             total_bytes: 10,
             name: None,
             description: None,
-            validation: skillbinder_core::library::payload::ValidationSummary::valid(),
+            validation: skillbinder_core::library::ValidationSummary::valid(),
             warnings: Vec::new(),
             blocked: false,
             duplicate,

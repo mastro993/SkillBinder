@@ -1,4 +1,4 @@
-use skillbinder_core::discovery::scan::{EntryKind, EntryMetadata, PayloadSource, SourceError};
+use skillbinder_core::source::{EntryKind, EntryMetadata, PayloadSource, SourceError};
 use std::{
     fs,
     io::Read,

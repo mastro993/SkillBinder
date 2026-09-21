@@ -1,12 +1,18 @@
+pub mod outcome;
 pub mod registry;
 pub mod roots;
 pub mod scan;
+pub mod spec;
 
+pub use crate::source::{EntryKind, EntryMetadata, PayloadSource, SourceError};
+pub use outcome::{
+    DuplicateStatus, LocationState, ScanCandidate, ScanLocation, ScanOutcome, ScanProgress,
+    ScanWarning,
+};
 pub use registry::{AgentAdapter, Registry, RegistryError, RootTemplate};
 pub use roots::ScanRoot;
-pub use scan::{
-    Containment, EntryKind, EntryMetadata, ExclusionReason, ExclusionRule, LibraryCatalog,
-    LocationState, PayloadSource, ResolvedRoot, ScanCandidate, ScanExclusion, ScanInput,
-    ScanLimits, ScanLocation, ScanOutcome, ScanPolicy, ScanProgress, ScanWarning,
-    scan_global_roots, scan_roots,
+pub use scan::{LibraryCatalog, scan_global_roots, scan_roots};
+pub use spec::{
+    Containment, ExclusionReason, ExclusionRule, ResolvedRoot, ScanExclusion, ScanInput,
+    ScanLimits, ScanPolicy,
 };

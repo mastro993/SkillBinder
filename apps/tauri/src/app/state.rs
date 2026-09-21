@@ -1,6 +1,6 @@
 use skillbinder_core::{
     bootstrap::{BootstrapError, BootstrapService},
-    discovery::{ScanOutcome, ScanProgress, scan::ScanCandidate},
+    discovery::{ScanCandidate, ScanOutcome, ScanProgress},
     import::ImportService,
 };
 use skillbinder_db::StateStore;

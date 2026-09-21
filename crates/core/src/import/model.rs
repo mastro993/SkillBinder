@@ -1,5 +1,5 @@
 use crate::{
-    discovery::scan::ScanCandidate,
+    discovery::ScanCandidate,
     library::{Manifest, ValidationSummary},
 };
 use serde::{Deserialize, Serialize};
