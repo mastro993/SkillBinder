@@ -27,25 +27,18 @@ import type {
 import {
   bootstrapResponseSchema,
   completeOnboardingResponseSchema,
-  discoveryCancelRequestSchema,
   discoveryCancelResponseSchema,
-  discoveryResultsRequestSchema,
   discoveryResultsResponseSchema,
   discoveryStartResponseSchema,
   importApplyResponseSchema,
-  importApplyRequestSchema,
   importPlanResponseSchema,
-  importPrepareRequestSchema,
   libraryListResponseSchema,
   onboardingProgressSchema,
   parseCommandResult,
   rootsListResponseSchema,
   rootsPickResponseSchema,
-  rootsRegisterRequestSchema,
   rootsRegisterResponseSchema,
-  rootsRemoveRequestSchema,
   rootsRemoveResponseSchema,
-  rootsUpdateRequestSchema,
   rootsUpdateResponseSchema,
 } from "./contracts";
 
@@ -132,9 +125,8 @@ class TauriDesktopClient implements DesktopClient {
   }
 
   rootsRegister(grantId: string, label: string | null) {
-    const request = rootsRegisterRequestSchema.parse({ grantId, label });
     return invokeCommand("roots_register", rootsRegisterResponseSchema, {
-      request,
+      request: { grantId, label },
     });
   }
 
@@ -143,16 +135,14 @@ class TauriDesktopClient implements DesktopClient {
   }
 
   rootsUpdate(rootId: string, label: string, enabled: boolean) {
-    const request = rootsUpdateRequestSchema.parse({ rootId, label, enabled });
     return invokeCommand("roots_update", rootsUpdateResponseSchema, {
-      request,
+      request: { rootId, label, enabled },
     });
   }
 
   rootsRemove(rootId: string) {
-    const request = rootsRemoveRequestSchema.parse({ rootId });
     return invokeCommand("roots_remove", rootsRemoveResponseSchema, {
-      request,
+      request: { rootId },
     });
   }
 
@@ -161,37 +151,26 @@ class TauriDesktopClient implements DesktopClient {
   }
 
   discoveryResults(scanId: string, offset: number, limit: number) {
-    const request = discoveryResultsRequestSchema.parse({
-      scanId,
-      offset,
-      limit,
-    });
     return invokeCommand("discovery_results", discoveryResultsResponseSchema, {
-      request,
+      request: { scanId, offset, limit },
     });
   }
 
   discoveryCancel(scanId: string) {
-    const request = discoveryCancelRequestSchema.parse({ scanId });
     return invokeCommand("discovery_cancel", discoveryCancelResponseSchema, {
-      request,
+      request: { scanId },
     });
   }
 
   importsPrepare(candidateIds: string[], allowInvalidSkills: boolean) {
-    const request = importPrepareRequestSchema.parse({
-      candidateIds,
-      allowInvalidSkills,
-    });
     return invokeCommand("imports_prepare", importPlanResponseSchema, {
-      request,
+      request: { candidateIds, allowInvalidSkills },
     });
   }
 
   importsApply(planId: string) {
-    const request = importApplyRequestSchema.parse({ planId });
     return invokeCommand("imports_apply", importApplyResponseSchema, {
-      request,
+      request: { planId },
     });
   }
 

@@ -9,7 +9,6 @@ import type {
   DiscoveryExclusion,
   DiscoveryLocation,
   DiscoveryProgress,
-  DiscoveryResultsRequest,
   DiscoveryResultsResponse,
   DiscoveryStartResponse,
   DiscoveryWarning,
@@ -24,11 +23,8 @@ import type {
   RootGrantView,
   RootsListResponse,
   RootsPickResponse,
-  RootsRegisterRequest,
   RootsRegisterResponse,
-  RootsRemoveRequest,
   RootsRemoveResponse,
-  RootsUpdateRequest,
   RootsUpdateResponse,
   RootView,
   ScanPhase,
@@ -202,23 +198,14 @@ export const rootViewSchema: z.ZodType<RootView> = z
 export const rootsPickResponseSchema: z.ZodType<RootsPickResponse> = z
   .object({ grant: rootGrantViewSchema.nullable() })
   .strict();
-export const rootsRegisterRequestSchema: z.ZodType<RootsRegisterRequest> = z
-  .object({ grantId: z.string(), label: z.string().nullable() })
-  .strict();
 export const rootsRegisterResponseSchema: z.ZodType<RootsRegisterResponse> = z
   .object({ root: rootViewSchema })
   .strict();
 export const rootsListResponseSchema: z.ZodType<RootsListResponse> = z
   .object({ roots: z.array(rootViewSchema) })
   .strict();
-export const rootsUpdateRequestSchema: z.ZodType<RootsUpdateRequest> = z
-  .object({ rootId: z.string(), label: z.string(), enabled: z.boolean() })
-  .strict();
 export const rootsUpdateResponseSchema: z.ZodType<RootsUpdateResponse> = z
   .object({ root: rootViewSchema })
-  .strict();
-export const rootsRemoveRequestSchema: z.ZodType<RootsRemoveRequest> = z
-  .object({ rootId: z.string() })
   .strict();
 export const rootsRemoveResponseSchema: z.ZodType<RootsRemoveResponse> = z
   .object({ rootId: z.string() })
@@ -272,14 +259,6 @@ export const discoveryExclusionSchema: z.ZodType<DiscoveryExclusion> = z
 export const discoveryWarningSchema: z.ZodType<DiscoveryWarning> = z
   .object({ displayPath: z.string().nullable(), message: z.string() })
   .strict();
-export const discoveryResultsRequestSchema: z.ZodType<DiscoveryResultsRequest> =
-  z
-    .object({
-      scanId: z.string(),
-      offset: z.number(),
-      limit: z.number(),
-    })
-    .strict();
 export const discoveryResultsResponseSchema: z.ZodType<DiscoveryResultsResponse> =
   z
     .object({
@@ -300,9 +279,6 @@ export const discoveryResultsResponseSchema: z.ZodType<DiscoveryResultsResponse>
     })
     .strict();
 export const discoveryStartResponseSchema: z.ZodType<DiscoveryStartResponse> = z
-  .object({ scanId: z.string() })
-  .strict();
-export const discoveryCancelRequestSchema = z
   .object({ scanId: z.string() })
   .strict();
 export const discoveryCancelResponseSchema: z.ZodType<DiscoveryCancelResponse> =
@@ -381,16 +357,6 @@ export const importApplyResponseSchema: z.ZodType<ImportApplyResponse> = z
     libraryRevision: z.string().nullable(),
   })
   .strict();
-export const importPrepareRequestSchema = z
-  .object({
-    candidateIds: z.array(z.string()),
-    allowInvalidSkills: z.boolean(),
-  })
-  .strict();
-export const importApplyRequestSchema = z
-  .object({ planId: z.string() })
-  .strict();
-
 export { onboardingProgressSchema };
 
 /** A value that can cross the JSON IPC boundary. */
