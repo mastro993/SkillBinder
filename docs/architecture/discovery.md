@@ -2,13 +2,13 @@
 
 ## Ownership
 
-| Layer             | Owns                                                                                                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `crates/core`     | Registry parsing, root templates, the traversal engine and its policies, candidate identity, payload validation, manifests, import planning and apply |
-| `crates/platform` | Filesystem reads, canonicalization, link resolution, volume identity, staging, library files, journals, Git revision and status                       |
-| `crates/db`       | Plans, idempotency records, source observations, derived skill metadata, machine-local `scan_roots`                                                   |
-| `apps/tauri`      | Transport mapping, permissions, the folder-grant store, run state, the short-lived scan session, command composition                                  |
-| `apps/frontend`   | Discovery and library presentation, selection state, plan review                                                                                      |
+| Layer             | Owns                                                                                                                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crates/core`     | Registry parsing, root templates, project skill directory expansion, the traversal engine and its policies, candidate identity, payload validation, manifests, import planning and apply |
+| `crates/platform` | Filesystem reads, canonicalization, link resolution, volume identity, staging, library files, journals, Git revision and status                                                          |
+| `crates/db`       | Plans, idempotency records, source observations, derived skill metadata, machine-local `scan_roots`                                                                                      |
+| `apps/tauri`      | Transport mapping, permissions, the folder-grant store, run state, the short-lived scan session, command composition                                                                     |
+| `apps/frontend`   | Discovery and library presentation, selection state, plan review                                                                                                                         |
 
 Core performs no I/O. Every filesystem, Git, database, clock, and identifier effect arrives through
 a port that a feature module owns. The engine is pure over `PayloadSource`, `LibraryCatalog`, and a
@@ -31,6 +31,13 @@ table, and whether to stop at a mount boundary. `ScanPolicy::global` keeps the r
 policy, a never-set cancel flag, and a no-op progress sink; `j01_probe` and the registry unit tests
 keep using it.
 
+A registered project root does not reach the engine as a tree. `project_scan_inputs` expands it into
+one input per project skill directory the registry knows, the same data the global locations come
+from: the directories of agents that share one are scanned once, a directory that does not exist
+under the root is dropped, and a root whose folder is gone keeps a single input so the scan reports
+it as `missing` instead of losing it. A nested package is searched when it is registered as its own
+root, which keeps the app's promise that each selected project has an explicit root.
+
 Exclusions are data, not control flow: a name maps to a reason, the engine aggregates matches per
 name and reason with one sample path, and a registered root is never matched against the table
 itself. `.git` is matched in directory and worktree-file form. A mount boundary is recorded as an
@@ -47,7 +54,9 @@ registry.json (pinned upstream snapshot)          state.sqlite scan_roots
         |            against home + environment                |
         +--------------------------+--------------------------+
                                    v
-              scan_inputs: ScanInput { containment, policy }
+   scan_inputs: registry locations, and project_scan_inputs per registered root
+                                   v
+                    ScanInput { containment, policy }
                                    |
                                    v
      scan_roots  --PayloadSource--> filesystem (volume identity, links, entries)
@@ -120,6 +129,7 @@ or forged session entry cannot reach a file that the scan did not already read.
 
 Durable `jobs` rows for scan runs, per-root custom excludes, non-Unix mount detection, incremental
 or cached rescans by mtime, filesystem watchers, custom skill locations beyond registered roots,
-root path migration, syncing roots across devices, and project-root derived deployment targets.
+searching a nested package without registering it, root path migration, syncing roots across
+devices, and project-root derived deployment targets.
 None of them adds a branch inside the engine: each is a new policy, containment, or store, or a
 second consumer of the run state.

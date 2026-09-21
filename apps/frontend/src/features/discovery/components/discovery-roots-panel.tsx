@@ -36,7 +36,8 @@ export function DiscoveryRootsPanel({
       <CardHeader>
         <CardTitle id="roots-title">Project-search roots</CardTitle>
         <CardDescription>
-          Folders SkillBinder walks in addition to the known agent locations.
+          Folders SkillBinder searches in addition to the known agent locations.
+          Inside them only the skill folders its agents use are read.
         </CardDescription>
         <CardAction>
           <span className="text-xs text-muted-foreground">
@@ -64,11 +65,10 @@ export function DiscoveryRootsPanel({
         ) : (
           <p className="text-sm text-muted-foreground">
             No project-search root yet. SkillBinder already inspects the skill
-            folders of the agents it knows. Add a folder here to scan it as a
-            project: nested projects, worktree markers, and monorepo packages
-            are walked within the depth and entry limits, and every skipped
-            folder is reported with its reason. Import copies content and leaves
-            originals unchanged.
+            folders of the agents it knows. Add a folder here and the project
+            skill folders inside it are read, within the depth and entry limits,
+            and every skipped folder is reported with its reason. Import copies
+            content and leaves originals unchanged.
           </p>
         )}
       </CardContent>

@@ -10,7 +10,7 @@ pub use outcome::{
     ScanWarning,
 };
 pub use registry::{AgentAdapter, Registry, RegistryError, RootTemplate};
-pub use roots::ScanRoot;
+pub use roots::{ScanRoot, project_scan_inputs};
 pub use scan::{LibraryCatalog, scan_global_roots, scan_roots};
 pub use spec::{
     Containment, ExclusionReason, ExclusionRule, ResolvedRoot, ScanExclusion, ScanInput,
