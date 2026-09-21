@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { LoaderCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import {
   candidatePageLimit,
   currentQuery,
@@ -30,11 +31,11 @@ export function ScanActivity() {
   if (data.phase !== "finished" || data.totalCandidates === 0) return null;
   return (
     <span
-      className="nav-activity"
+      className="ml-auto inline-flex items-center"
       aria-live="polite"
       title={`${data.totalCandidates} skills found`}
     >
-      <span className="nav-badge">{data.totalCandidates}</span>
+      <Badge>{data.totalCandidates}</Badge>
       <span className="sr-only">skills found</span>
     </span>
   );
@@ -42,8 +43,12 @@ export function ScanActivity() {
 
 function Busy({ label }: { label: string }) {
   return (
-    <span className="nav-activity" aria-live="polite" title={label}>
-      <LoaderCircle aria-hidden size={14} className="spin" />
+    <span
+      className="ml-auto inline-flex items-center text-success"
+      aria-live="polite"
+      title={label}
+    >
+      <Spinner />
       <span className="sr-only">{label}</span>
     </span>
   );

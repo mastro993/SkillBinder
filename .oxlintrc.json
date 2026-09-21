@@ -31,12 +31,7 @@
         "contracts": [
           {
             "pattern": "^ScrollArea$",
-            "allow": [
-              "layout",
-              "main-content",
-              "onboarding-shell",
-              "discovery-table-wrap"
-            ]
+            "allow": ["layout", "onboarding-shell"]
           }
         ]
       }

@@ -2,87 +2,137 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BookOpen, Plus } from "lucide-react";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { PageHeader } from "@/components/layout/page-header";
+import type { ValidationStatus } from "@/types";
 import { libraryListQuery } from "../hooks/queries";
+
+const validationVariants = {
+  valid: "success",
+  warning: "warning",
+  invalid: "destructive",
+  blocked: "destructive",
+} satisfies Record<ValidationStatus, "success" | "warning" | "destructive">;
 
 export function LibraryView() {
   const bootstrap = useQuery(bootstrapQuery);
   const library = useQuery(libraryListQuery);
   if (bootstrap.isPending || library.isPending)
-    return <p className="page-status">Loading library…</p>;
+    return (
+      <p className="px-13 py-12 text-muted-foreground">Loading library…</p>
+    );
   if (bootstrap.isError || library.isError)
-    return <p className="page-status error">Library state unavailable.</p>;
+    return (
+      <p className="px-13 py-12 text-destructive">Library state unavailable.</p>
+    );
   if (!bootstrap.data.onboarding.completed) {
     return (
-      <div className="empty-panel">
-        <h1>Setup is not finished</h1>
-        <Link to="/onboarding">Resume setup</Link>
+      <div className="px-13 py-11.5">
+        <Empty variant="outline" className="min-h-[390px]">
+          <EmptyHeader>
+            <EmptyTitle>Setup is not finished</EmptyTitle>
+          </EmptyHeader>
+          <Button render={<Link to="/onboarding" />}>Resume setup</Button>
+        </Empty>
       </div>
     );
   }
   const data = library.data;
   return (
-    <section className="page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Canonical collection</p>
-          <h1>Library</h1>
-        </div>
-        <Button disabled>
-          <Plus size={16} /> New skill
-        </Button>
-      </header>
+    <section className="px-13 py-11.5">
+      <PageHeader
+        eyebrow="Canonical collection"
+        title="Library"
+        action={
+          <Button disabled>
+            <Plus aria-hidden="true" /> New skill
+          </Button>
+        }
+      />
       {data.hasUncommittedChanges ? (
-        <p className="library-dirty-line">
-          Imported content is not committed yet.
-        </p>
+        <Alert variant="warning" role="note" className="mb-6">
+          <AlertDescription>
+            Imported content is not committed yet.
+          </AlertDescription>
+        </Alert>
       ) : null}
       {data.skills.length === 0 ? (
-        <div className="empty-panel">
-          <span className="empty-icon">
-            <BookOpen size={26} />
-          </span>
-          <h2>Your library is ready</h2>
-          <p>
+        <Empty variant="outline" className="min-h-[390px]">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <span className="text-primary">
+                <BookOpen aria-hidden="true" />
+              </span>
+            </EmptyMedia>
+            <EmptyTitle>Your library is ready</EmptyTitle>
+          </EmptyHeader>
+          <p className="max-w-[490px] text-muted-foreground">
             No skills imported yet. Visit Discovery to inspect local skill
             folders.
           </p>
-        </div>
+        </Empty>
       ) : (
-        <div className="library-grid">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
           {data.skills.map((skill) => (
-            <article className="library-card" key={skill.skillId}>
-              <div className="library-card-header">
-                <div>
-                  <h2>{skill.displayName ?? skill.slug}</h2>
-                  <p className="table-secondary">{skill.slug}</p>
-                </div>
-                <span className={`status-pill ${skill.validation.status}`}>
-                  {skill.validation.status}
-                </span>
-              </div>
-              <p className="library-description">
-                {skill.description ?? "No description"}
-              </p>
-              <p className="library-meta">
-                {skill.fileCount} files · {skill.totalBytes} bytes
-              </p>
-              {skill.validation.messages.map((message) => (
-                <p className="table-secondary" key={message.code}>
-                  {message.message}
+            <Card key={skill.skillId}>
+              <CardHeader>
+                <CardTitle>{skill.displayName ?? skill.slug}</CardTitle>
+                <CardDescription>{skill.slug}</CardDescription>
+                <CardAction>
+                  <Badge variant={validationVariants[skill.validation.status]}>
+                    {skill.validation.status}
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <p className="min-h-[42px] text-sm text-muted-foreground">
+                  {skill.description ?? "No description"}
                 </p>
-              ))}
-              <ul className="source-list">
-                {skill.sources.map((source) => (
-                  <li key={source.displayPath}>
-                    <span>{source.displayPath}</span>
-                    <small>
-                      {source.readerAgentIds.join(", ") || "Unknown reader"}
-                    </small>
-                  </li>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {skill.fileCount} files · {skill.totalBytes} bytes
+                </p>
+                {skill.validation.messages.map((message) => (
+                  <p
+                    className="mt-1 text-xs text-muted-foreground"
+                    key={message.code}
+                  >
+                    {message.message}
+                  </p>
                 ))}
-              </ul>
-            </article>
+              </CardContent>
+              <CardFooter className="block">
+                <ul className="grid gap-2">
+                  {skill.sources.map((source) => (
+                    <li
+                      className="grid gap-0.5 border-b pb-2 text-xs last:border-b-0 last:pb-0"
+                      key={source.displayPath}
+                    >
+                      <span className="break-words">{source.displayPath}</span>
+                      <span className="text-muted-foreground">
+                        {source.readerAgentIds.join(", ") || "Unknown reader"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardFooter>
+            </Card>
           ))}
         </div>
       )}

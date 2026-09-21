@@ -1,6 +1,15 @@
-import { Dialog } from "@base-ui/react/dialog";
+import { XIcon } from "lucide-react";
 import type { ImportPlanResponse } from "@/types";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const validationLabels = {
   valid: "Valid",
@@ -26,70 +35,85 @@ export function ImportPreviewDialog({
   onClose: () => void;
 }) {
   return (
-    <Dialog.Root
+    <Dialog
       open
       modal
-      onOpenChange={(open) => {
+      onOpenChange={(open: boolean) => {
         if (!open && !applying) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="dialog-backdrop" />
-        <Dialog.Popup className="dialog">
-          <header className="dialog-header">
-            <div>
-              <p className="eyebrow">Import review</p>
-              <Dialog.Title>Review import plan</Dialog.Title>
-            </div>
-            <Dialog.Close
-              className="dialog-close"
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogClose
+          render={
+            <Button
+              variant="ghost"
+              className="absolute top-4 right-4"
+              size="icon-sm"
               aria-label="Close import review"
               disabled={applying}
+            />
+          }
+        >
+          <XIcon aria-hidden="true" />
+        </DialogClose>
+        <DialogHeader>
+          <p className="text-xs font-extrabold tracking-widest text-success uppercase">
+            Import review
+          </p>
+          <DialogTitle>Review import plan</DialogTitle>
+        </DialogHeader>
+        <DialogDescription>
+          SkillBinder will copy these sources into your local library. Originals
+          stay unchanged.
+        </DialogDescription>
+        <ul className="grid gap-2">
+          {plan.items.map((item) => (
+            <li
+              key={item.candidateId}
+              className="grid gap-1 rounded-lg border px-3 py-2.5 text-sm"
             >
-              ×
-            </Dialog.Close>
-          </header>
-          <Dialog.Description className="dialog-copy">
-            SkillBinder will copy these sources into your local library.
-            Originals stay unchanged.
-          </Dialog.Description>
-          <ul className="plan-list">
-            {plan.items.map((item) => (
-              <li key={item.candidateId}>
-                <div>
-                  <strong>{item.slug}</strong>
-                  <span>{item.displayPath}</span>
-                  <span>
-                    Destination skill: <code>{item.skillId}</code>
-                  </span>
-                </div>
-                <span>
-                  {duplicateLabel(item)} · {item.fileCount} files ·{" "}
-                  {item.totalBytes} bytes
-                </span>
-                <span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold">{item.slug}</span>
+                <span className="text-xs text-muted-foreground">
                   Validation: {validationLabels[item.validation.status]}
                 </span>
-                {item.validation.messages.map((message) => (
-                  <small key={message.code}>{message.message}</small>
-                ))}
-                {item.exclusions.length ? (
-                  <small>Warnings: {item.exclusions.join("; ")}</small>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          <footer className="dialog-actions">
-            <Button variant="ghost" onClick={onClose} disabled={applying}>
-              Back
-            </Button>
-            <Button onClick={onApply} disabled={applying}>
-              {applying ? "Importing…" : "Apply import"}
-            </Button>
-          </footer>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+              </div>
+              <span className="break-words text-xs text-muted-foreground">
+                {item.displayPath}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Destination skill: <code>{item.skillId}</code>
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {duplicateLabel(item)} · {item.fileCount} files ·{" "}
+                {item.totalBytes} bytes
+              </span>
+              {item.validation.messages.map((message) => (
+                <span
+                  className="text-xs text-muted-foreground"
+                  key={message.code}
+                >
+                  {message.message}
+                </span>
+              ))}
+              {item.exclusions.length ? (
+                <span className="text-xs text-warning">
+                  Warnings: {item.exclusions.join("; ")}
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={applying}>
+            Back
+          </Button>
+          <Button onClick={onApply} disabled={applying}>
+            {applying ? "Importing…" : "Apply import"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

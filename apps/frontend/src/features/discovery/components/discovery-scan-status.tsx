@@ -1,5 +1,14 @@
 import type { DiscoveryProgress, ScanPhase } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { progressSummary, summarizeScanPhase } from "../lib/model";
 
 export function DiscoveryScanStatus({
@@ -23,45 +32,55 @@ export function DiscoveryScanStatus({
 }) {
   const summary = phase === null ? null : summarizeScanPhase(phase, failure);
   return (
-    <section className="candidate-panel" aria-labelledby="scan-title">
-      <div className="section-heading">
-        <div>
-          <h2 id="scan-title">{summary ? summary.label : "Scan"}</h2>
-          <p role={phase === "failed" ? "alert" : undefined}>
-            {summary
-              ? summary.detail
-              : "No scan has run yet. Start one to look for skills in the registered roots."}
-          </p>
-        </div>
-        {summary?.cancellable ? (
-          <Button variant="secondary" onClick={onCancel} disabled={cancelling}>
-            {cancelling ? "Cancelling…" : "Cancel scan"}
-          </Button>
-        ) : (
-          <Button onClick={onStart} disabled={starting}>
-            {starting
-              ? "Starting…"
-              : phase === null
-                ? "Start scan"
-                : "Scan again"}
-          </Button>
-        )}
-      </div>
+    <Card aria-labelledby="scan-title">
+      <CardHeader>
+        <CardTitle id="scan-title">
+          {summary ? summary.label : "Scan"}
+        </CardTitle>
+        <CardDescription role={phase === "failed" ? "alert" : undefined}>
+          {summary
+            ? summary.detail
+            : "No scan has run yet. Start one to look for skills in the registered roots."}
+        </CardDescription>
+        <CardAction>
+          {summary?.cancellable ? (
+            <Button variant="outline" onClick={onCancel} disabled={cancelling}>
+              {cancelling ? "Cancelling…" : "Cancel scan"}
+            </Button>
+          ) : (
+            <Button onClick={onStart} disabled={starting}>
+              {starting
+                ? "Starting…"
+                : phase === null
+                  ? "Start scan"
+                  : "Scan again"}
+            </Button>
+          )}
+        </CardAction>
+      </CardHeader>
       {progress ? (
-        <div className="selection-toolbar">
-          <span>{progressSummary(progress)}</span>
-          {progress.currentPath ? (
-            <span className="table-path">{progress.currentPath}</span>
-          ) : null}
-        </div>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-muted-foreground">
+              {progressSummary(progress)}
+            </span>
+            {progress.currentPath ? (
+              <span className="max-w-[420px] break-words text-xs text-muted-foreground">
+                {progress.currentPath}
+              </span>
+            ) : null}
+          </div>
+        </CardContent>
       ) : null}
       {limitsReached ? (
-        <div className="selection-actions">
-          <span className="warning-text">
-            Scan limits reached. Some folders were left unvisited.
-          </span>
-        </div>
+        <CardContent>
+          <Alert variant="warning" role="note">
+            <AlertDescription>
+              Scan limits reached. Some folders were left unvisited.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
       ) : null}
-    </section>
+    </Card>
   );
 }

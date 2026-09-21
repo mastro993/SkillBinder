@@ -8,7 +8,24 @@ import {
 } from "lucide-react";
 import type { BootstrapResponse, OnboardingStep } from "@/types";
 import { StatusCard } from "@/components/feedback/status-card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 
 export const onboardingSteps: OnboardingStep[] = [
   "prerequisites",
@@ -30,11 +47,16 @@ export function OnboardingStepContent({
 }) {
   if (step === "prerequisites") {
     return (
-      <div className="stack">
+      <div className="grid gap-3.5">
         <StatusCard label="Version history" status={data.git.prerequisite} />
         <StatusCard label="Local data" status={data.storage} />
-        <Button variant="secondary" onClick={onRetry} disabled={pending}>
-          <RefreshCw size={16} className={pending ? "spin" : undefined} />
+        <Button
+          variant="outline"
+          className="justify-self-start"
+          onClick={onRetry}
+          disabled={pending}
+        >
+          {pending ? <Spinner /> : <RefreshCw aria-hidden="true" />}
           Recheck
         </Button>
       </div>
@@ -84,15 +106,19 @@ export function Boundaries() {
     ],
   ] as const;
   return (
-    <div className="boundary-grid">
+    <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
       {points.map(([Icon, title, copy]) => (
-        <article key={title} className="boundary-item">
-          <Icon size={20} />
-          <div>
-            <h3>{title}</h3>
-            <p>{copy}</p>
-          </div>
-        </article>
+        <Item key={title} variant="outline" size="sm">
+          <ItemMedia variant="icon">
+            <span className="text-success">
+              <Icon aria-hidden="true" />
+            </span>
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>{title}</ItemTitle>
+            <ItemDescription>{copy}</ItemDescription>
+          </ItemContent>
+        </Item>
       ))}
     </div>
   );
@@ -100,43 +126,47 @@ export function Boundaries() {
 
 function SyncChoice() {
   return (
-    <div className="choice-card">
-      <div className="choice-radio" aria-hidden="true">
-        <span />
-      </div>
-      <div>
-        <h3>Start local-only</h3>
-        <p>
+    <Item variant="selected">
+      <ItemMedia variant="icon">
+        <LockKeyhole aria-hidden="true" />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>Start local-only</ItemTitle>
+        <ItemDescription>
           Create a private local library now. Add an existing Git remote later
           from Settings.
-        </p>
-      </div>
-      <span className="recommended">Recommended</span>
-    </div>
+        </ItemDescription>
+      </ItemContent>
+      <Badge variant="success">Recommended</Badge>
+    </Item>
   );
 }
 
 function Ready() {
   return (
-    <div className="ready-panel">
-      <div className="ready-mark">
-        <LockKeyhole size={30} />
-      </div>
-      <h2>Ready for a local library</h2>
-      <p>
-        SkillBinder will initialize a Git-backed library. No network request,
-        account, Node.js runtime, or remote is required.
-      </p>
-      <ul>
-        <li>
-          Canonical skill content stays under <code>skills/</code>
-        </li>
-        <li>
-          Portable metadata stays under <code>.skillbinder/</code>
-        </li>
-        <li>Machine paths and settings stay outside Git</li>
-      </ul>
-    </div>
+    <Empty className="mx-auto max-w-[590px]">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <LockKeyhole aria-hidden="true" />
+        </EmptyMedia>
+        <EmptyTitle>Ready for a local library</EmptyTitle>
+        <EmptyDescription>
+          SkillBinder will initialize a Git-backed library. No network request,
+          account, Node.js runtime, or remote is required.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <ul className="grid list-inside list-disc gap-2 text-left">
+          <li>
+            Canonical skill content stays under <code>skills/</code>
+          </li>
+          <li>
+            Portable metadata stays under <code>.skillbinder/</code>
+          </li>
+          <li>Machine paths and settings stay outside Git</li>
+        </ul>
+      </EmptyContent>
+    </Empty>
   );
 }
 

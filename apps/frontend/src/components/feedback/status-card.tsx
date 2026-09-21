@@ -1,5 +1,6 @@
 import type { PrerequisiteStatus } from "@/types";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function StatusCard({
   label,
@@ -10,18 +11,26 @@ export function StatusCard({
 }) {
   const ready = status.state === "ready";
   return (
-    <article className={`status-card ${ready ? "ready" : "attention"}`}>
-      <div className="status-icon" aria-hidden="true">
-        {ready ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+    <Alert variant={ready ? "success" : "warning"} role="note">
+      {ready ? (
+        <CheckCircle2 aria-hidden="true" />
+      ) : (
+        <AlertCircle aria-hidden="true" />
+      )}
+      <div className="flex flex-col gap-0.5">
+        <p className="text-xs font-extrabold tracking-widest uppercase">
+          {label}
+        </p>
+        <AlertTitle>{status.summary}</AlertTitle>
+        <AlertDescription>
+          {status.detail}
+          {status.repairInstruction ? (
+            <span className="block pt-2 font-semibold">
+              {status.repairInstruction}
+            </span>
+          ) : null}
+        </AlertDescription>
       </div>
-      <div>
-        <p className="eyebrow">{label}</p>
-        <h3>{status.summary}</h3>
-        <p>{status.detail}</p>
-        {status.repairInstruction ? (
-          <p className="repair">{status.repairInstruction}</p>
-        ) : null}
-      </div>
-    </article>
+    </Alert>
   );
 }

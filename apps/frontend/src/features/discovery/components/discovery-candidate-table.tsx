@@ -1,6 +1,15 @@
 import type { DiscoveryCandidate } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { PagingState } from "../types/model";
 import { pagingLabel } from "../lib/model";
 
@@ -10,6 +19,13 @@ const statusLabels = {
   invalid: "Invalid",
   blocked: "Blocked",
 };
+
+const statusVariants = {
+  valid: "success",
+  warning: "warning",
+  invalid: "destructive",
+  blocked: "destructive",
+} as const;
 
 export function DiscoveryCandidateTable({
   candidates,
@@ -34,86 +50,92 @@ export function DiscoveryCandidateTable({
   const next = paging.nextOffset;
   return (
     <>
-      <ScrollArea className="discovery-table-wrap">
-        <table className="discovery-table">
-          <caption className="sr-only">
-            Discovered skills available for import
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Select</th>
-              <th scope="col">Skill</th>
-              <th scope="col">Location and readers</th>
-              <th scope="col">Validation</th>
-              <th scope="col">Duplicate</th>
-              <th scope="col">Payload</th>
-            </tr>
-          </thead>
-          <tbody>
-            {candidates.map((candidate) => {
-              const blocked = candidate.validation.status === "blocked";
-              const readers = candidate.readerAgentIds.map(
-                (id) => agentLabels[id] ?? id,
-              );
-              return (
-                <tr
-                  key={candidate.candidateId}
-                  className={blocked ? "row-blocked" : undefined}
-                >
-                  <td>
-                    <input
-                      type="checkbox"
+      <Table className="min-w-[900px]">
+        <caption className="sr-only">
+          Discovered skills available for import
+        </caption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[72px] text-center">Select</TableHead>
+            <TableHead>Skill</TableHead>
+            <TableHead>Location and readers</TableHead>
+            <TableHead>Validation</TableHead>
+            <TableHead>Duplicate</TableHead>
+            <TableHead>Payload</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {candidates.map((candidate) => {
+            const blocked = candidate.validation.status === "blocked";
+            const readers = candidate.readerAgentIds.map(
+              (id) => agentLabels[id] ?? id,
+            );
+            return (
+              <TableRow
+                key={candidate.candidateId}
+                variant={blocked ? "blocked" : "default"}
+              >
+                <TableCell className="align-top">
+                  <div className="flex justify-center">
+                    <Checkbox
                       checked={selected.has(candidate.candidateId)}
                       disabled={blocked || selectionDisabled}
                       aria-label={`Select ${candidate.name ?? candidate.slug}`}
-                      onChange={() => onToggle(candidate.candidateId)}
+                      onCheckedChange={() => onToggle(candidate.candidateId)}
                     />
-                  </td>
-                  <td>
-                    <strong>{candidate.name ?? candidate.slug}</strong>
-                    <span className="table-secondary">{candidate.slug}</span>
-                  </td>
-                  <td>
-                    <span className="table-path">{candidate.displayPath}</span>
-                    <span className="table-secondary">
-                      {readers.join(", ") || "Unknown reader"}
-                      {candidate.linked ? " · reached through a link" : ""}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={`status-pill ${candidate.validation.status}`}
+                  </div>
+                </TableCell>
+                <TableCell className="align-top">
+                  <p className="font-semibold">
+                    {candidate.name ?? candidate.slug}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {candidate.slug}
+                  </p>
+                </TableCell>
+                <TableCell className="align-top">
+                  <p className="max-w-[250px] break-words text-xs text-muted-foreground">
+                    {candidate.displayPath}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {readers.map((id) => agentLabels[id] ?? id).join(", ") ||
+                      "Unknown reader"}
+                    {candidate.linked ? " · reached through a link" : ""}
+                  </p>
+                </TableCell>
+                <TableCell className="align-top">
+                  <Badge variant={statusVariants[candidate.validation.status]}>
+                    {statusLabels[candidate.validation.status]}
+                  </Badge>
+                  {candidate.validation.messages.map((message) => (
+                    <p
+                      className="mt-1 text-xs text-muted-foreground"
+                      key={message.code}
                     >
-                      {statusLabels[candidate.validation.status]}
-                    </span>
-                    {candidate.validation.messages.map((message) => (
-                      <span className="table-secondary" key={message.code}>
-                        {message.message}
-                      </span>
-                    ))}
-                  </td>
-                  <td>{duplicateLabel(candidate)}</td>
-                  <td>
-                    <span>
-                      {candidate.fileCount} files ·{" "}
-                      {formatBytes(candidate.totalBytes)}
-                    </span>
-                    {candidate.warnings.map((warning) => (
-                      <span
-                        className="table-secondary warning-text"
-                        key={warning}
-                      >
-                        {warning}
-                      </span>
-                    ))}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </ScrollArea>
-      <div className="selection-toolbar">
+                      {message.message}
+                    </p>
+                  ))}
+                </TableCell>
+                <TableCell className="align-top">
+                  {duplicateLabel(candidate)}
+                </TableCell>
+                <TableCell className="align-top">
+                  <p>
+                    {candidate.fileCount} files ·{" "}
+                    {formatBytes(candidate.totalBytes)}
+                  </p>
+                  {candidate.warnings.map((warning) => (
+                    <p className="mt-1 text-xs text-warning" key={warning}>
+                      {warning}
+                    </p>
+                  ))}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      <div className="flex items-center justify-between gap-3.5 border-t px-5 py-3">
         <Button
           variant="ghost"
           onClick={() => {
@@ -123,7 +145,9 @@ export function DiscoveryCandidateTable({
         >
           Previous page
         </Button>
-        <span>{pagingLabel(paging, totalCandidates)}</span>
+        <span className="text-xs text-muted-foreground">
+          {pagingLabel(paging, totalCandidates)}
+        </span>
         <Button
           variant="ghost"
           onClick={() => {

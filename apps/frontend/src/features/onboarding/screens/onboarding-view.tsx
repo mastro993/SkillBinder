@@ -3,7 +3,10 @@ import { Navigate, useNavigate } from "@tanstack/react-router";
 import type { OnboardingStep } from "@/types";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { queryClient } from "@/lib/query-client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getDesktopClient } from "@/commands/client";
 import {
@@ -56,34 +59,34 @@ export function OnboardingView() {
     data.git.prerequisite.state === "ready" && data.storage.state === "ready";
   const visibleStep = stepAfterRevalidation(current, canContinue);
   const error = update.error ?? complete.error;
+  const stepNumber = onboardingSteps.indexOf(visibleStep) + 1;
 
   return (
-    <ScrollArea className="onboarding-shell">
-      <main className="onboarding-frame">
-        <section className="onboarding-card">
-          <header className="onboarding-header">
+    <ScrollArea className="onboarding-shell h-screen">
+      <main className="grid min-h-full place-items-center p-11">
+        <section className="flex min-h-[610px] w-full max-w-[820px] flex-col overflow-hidden rounded-3xl border bg-card shadow-xl">
+          <header className="flex items-start justify-between gap-6 px-12 pt-10 pb-6">
             <div>
-              <p className="eyebrow">SkillBinder setup</p>
-              <h1>{stepTitle(visibleStep)}</h1>
-              <p className="lead">{stepSubtitle(visibleStep)}</p>
+              <p className="mb-2 text-xs font-extrabold tracking-widest text-success uppercase">
+                SkillBinder setup
+              </p>
+              <h1 className="mb-2.5 text-4xl font-normal tracking-tight">
+                {stepTitle(visibleStep)}
+              </h1>
+              <p className="max-w-[610px] text-muted-foreground">
+                {stepSubtitle(visibleStep)}
+              </p>
             </div>
-            <div className="step-count">
-              {onboardingSteps.indexOf(visibleStep) + 1} /{" "}
-              {onboardingSteps.length}
-            </div>
+            <Badge variant="secondary">
+              {stepNumber} / {onboardingSteps.length}
+            </Badge>
           </header>
-          <div
-            className="progress-track"
-            aria-label={`Setup step ${onboardingSteps.indexOf(visibleStep) + 1} of ${onboardingSteps.length}`}
-          >
-            <div
-              style={{
-                "--progress": `${((onboardingSteps.indexOf(visibleStep) + 1) / onboardingSteps.length) * 100}%`,
-              }}
-            />
-          </div>
+          <Progress
+            value={(stepNumber / onboardingSteps.length) * 100}
+            aria-label={`Setup step ${stepNumber} of ${onboardingSteps.length}`}
+          />
 
-          <div className="onboarding-content">
+          <div className="flex-1 px-12 py-8">
             <OnboardingStepContent
               step={visibleStep}
               data={data}
@@ -93,11 +96,11 @@ export function OnboardingView() {
           </div>
 
           {error ? (
-            <p className="inline-error" role="alert">
-              {error.message}
-            </p>
+            <Alert variant="destructive" className="mx-12">
+              <AlertDescription>{error.message}</AlertDescription>
+            </Alert>
           ) : null}
-          <footer className="onboarding-actions">
+          <footer className="flex items-center justify-between border-t px-12 pt-6 pb-9">
             {visibleStep !== "prerequisites" ? (
               <Button
                 variant="ghost"
@@ -148,9 +151,9 @@ function CenteredMessage({
   action?: React.ReactNode;
 }) {
   return (
-    <main className="centered-message">
+    <main className="grid min-h-screen place-content-center justify-items-center gap-2.5 p-8 text-center">
       <h1>{title}</h1>
-      {detail ? <p>{detail}</p> : null}
+      {detail ? <p className="text-muted-foreground">{detail}</p> : null}
       {action}
     </main>
   );

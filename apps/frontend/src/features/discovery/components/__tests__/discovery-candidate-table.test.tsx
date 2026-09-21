@@ -33,6 +33,7 @@ const candidate = (
 
 describe("discovery candidate table", () => {
   it("renders invalid and blocked states and keeps blocked row disabled", () => {
+    const onToggle = vi.fn<(candidateId: string) => void>();
     render(
       <DiscoveryCandidateTable
         candidates={[
@@ -40,7 +41,7 @@ describe("discovery candidate table", () => {
           candidate("blocked", "blocked"),
         ]}
         selected={new Set()}
-        onToggle={vi.fn<(candidateId: string) => void>()}
+        onToggle={onToggle}
         agentLabels={{ "claude-code": "Claude Code" }}
         paging={pagingState(0, 50, 2)}
         totalCandidates={2}
@@ -51,9 +52,10 @@ describe("discovery candidate table", () => {
     expect(screen.getByText("Invalid")).toBeInTheDocument();
     expect(screen.getByText("Blocked")).toBeInTheDocument();
     expect(screen.getByText("Description is missing.")).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", { name: "Select blocked" }),
-    ).toBeDisabled();
+    const blocked = screen.getByRole("checkbox", { name: "Select blocked" });
+    expect(blocked).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(blocked);
+    expect(onToggle).not.toHaveBeenCalled();
   });
 
   it("exposes real accessible checkboxes for selectable rows", () => {
@@ -76,11 +78,12 @@ describe("discovery candidate table", () => {
 
   it("pages through the result set and disables selection on demand", () => {
     const onPage = vi.fn<(offset: number) => void>();
+    const onToggle = vi.fn<(candidateId: string) => void>();
     render(
       <DiscoveryCandidateTable
         candidates={[candidate("valid", "clean")]}
         selected={new Set()}
-        onToggle={vi.fn<(candidateId: string) => void>()}
+        onToggle={onToggle}
         agentLabels={{ "claude-code": "Claude Code" }}
         selectionDisabled
         paging={pagingState(50, 50, 120)}
@@ -92,9 +95,10 @@ describe("discovery candidate table", () => {
     expect(
       screen.getByText(/Showing 51–100 of 120 · page 2 of 3/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", { name: "Select clean" }),
-    ).toBeDisabled();
+    const clean = screen.getByRole("checkbox", { name: "Select clean" });
+    expect(clean).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(clean);
+    expect(onToggle).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     expect(onPage).toHaveBeenCalledWith(100);
   });

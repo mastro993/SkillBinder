@@ -25,7 +25,7 @@ apps/frontend/
 ├── src/
 │   ├── routes/           # File-based routes (__root.tsx, index.tsx, …)
 │   ├── components/       # Shared components
-│   │   └── ui/           # Shadcn components (do not touch)
+│   │   └── ui/           # Shadcn components, vendored from the base-nova (Base UI) registry
 │   ├── features/         # Self-contained feature modules
 │   ├── commands/         # Shared invokeCommand plumbing
 │   ├── lib/              # Primitives and utilities
@@ -60,6 +60,25 @@ src/features/<feature>/
 - Keep shared command plumbing in `src/commands`; place feature-specific
   command wrappers in the owning feature's `commands/` folder.
 - Put tests in the nearest folder-specific `__tests__/` directory.
+
+## UI conventions
+
+- `src/components/ui/` holds the shadcn components vendored from the `base-nova`
+  registry (Base UI primitives). Each file keeps the registry implementation;
+  local needs are met by extending its `cva` variants in that file, with a
+  comment saying why.
+- Call sites compose those components and may add layout classes only
+  (position, size, margin, gap, grid). Colors, typography, shape, spacing and
+  effects come from the component's variants. `@shadcn/lint` enforces this.
+- Style app-owned markup with Tailwind utilities bound to the tokens in
+  `src/styles.css`. A raw color, an arbitrary value outside a layout property,
+  or an inline style fails `pnpm lint`.
+- `src/styles.css` holds the token layer (`:root` / `.dark`), the `@theme
+  inline` mapping, the base layer, and `@utility` declarations for the few
+  treatments utilities cannot express (the onboarding canvas gradient, the
+  vendored `cn-font-heading` title treatment). Nothing else belongs there.
+- Dark mode follows the operating system: `src/lib/system-theme.ts` toggles the
+  `dark` class, and `.dark` overrides the same tokens.
 
 ## Known gotchas
 
