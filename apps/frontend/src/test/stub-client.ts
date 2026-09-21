@@ -22,6 +22,7 @@ export function stubDesktopClient(
     discoveryStart: unstubbed("discoveryStart"),
     discoveryResults: unstubbed("discoveryResults"),
     discoveryCancel: unstubbed("discoveryCancel"),
+    discoveryCurrent: unstubbed("discoveryCurrent"),
     importsPrepare: unstubbed("importsPrepare"),
     importsApply: unstubbed("importsApply"),
     libraryList: unstubbed("libraryList"),

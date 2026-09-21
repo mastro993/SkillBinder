@@ -72,6 +72,7 @@ mod tests {
         DiscoveryResultsResponse::export_all(&config).unwrap();
         DiscoveryCancelRequest::export_all(&config).unwrap();
         DiscoveryCancelResponse::export_all(&config).unwrap();
+        DiscoveryCurrentResponse::export_all(&config).unwrap();
         ImportPrepareRequest::export_all(&config).unwrap();
         ImportApplyRequest::export_all(&config).unwrap();
         ImportPlanResponse::export_all(&config).unwrap();

@@ -242,10 +242,41 @@ pub fn discovery_cancel(
     })
 }
 
+#[tauri::command(async)]
+pub fn discovery_current(state: State<'_, AppState>) -> CommandResult<DiscoveryCurrentResponse> {
+    match current(&state) {
+        Ok(value) => CommandResult::success(value),
+        Err(error) => CommandResult::failure(error),
+    }
+}
+
 pub fn live_scan_id(runs: &HashMap<String, ScanRun>) -> Option<String> {
     runs.values()
         .find(|run| phase_of(run) == ScanPhase::Running)
         .map(|run| run.scan_id.clone())
+}
+
+/// The run a freshly mounted view adopts: the live one at any age, otherwise the newest
+/// inside the session window whatever its phase. Pruning stays in `start`.
+pub fn current_scan_id(runs: &HashMap<String, ScanRun>) -> Option<String> {
+    if let Some(live) = live_scan_id(runs) {
+        return Some(live);
+    }
+    runs.values()
+        .filter(|run| run.created.elapsed().as_secs() < SCAN_SESSION_SECONDS)
+        .max_by(|left, right| {
+            left.created
+                .cmp(&right.created)
+                .then_with(|| left.scan_id.cmp(&right.scan_id))
+        })
+        .map(|run| run.scan_id.clone())
+}
+
+pub fn current(state: &AppState) -> Result<DiscoveryCurrentResponse, AppError> {
+    let runs = state.scan_runs.lock().map_err(|_| runs_error())?;
+    Ok(DiscoveryCurrentResponse {
+        scan_id: current_scan_id(&runs),
+    })
 }
 
 fn request_cancel(runs: &HashMap<String, ScanRun>, scan_id: &str) {
@@ -517,6 +548,7 @@ pub fn map_validation(summary: skillbinder_core::library::ValidationSummary) -> 
 mod tests {
     use super::*;
     use skillbinder_core::discovery::DuplicateStatus;
+    use std::time::Duration;
 
     fn outcome(cancelled: bool) -> ScanOutcome {
         ScanOutcome {
@@ -656,6 +688,99 @@ mod tests {
         assert_eq!(live_scan_id(&runs).as_deref(), Some("scan-1"));
         runs.insert("scan-1".to_owned(), run(Some(outcome(true)), None));
         assert_eq!(live_scan_id(&runs), None);
+    }
+
+    fn aged(scan_id: &str, result: Option<ScanOutcome>, age: Duration) -> ScanRun {
+        ScanRun {
+            scan_id: scan_id.into(),
+            created: Instant::now() - age,
+            ..run(result, None)
+        }
+    }
+
+    #[test]
+    fn a_running_run_wins_over_a_newer_finished_one() {
+        let mut runs = HashMap::new();
+        runs.insert(
+            "old-running".to_owned(),
+            aged("old-running", None, Duration::from_secs(601)),
+        );
+        runs.insert(
+            "fresh-finished".to_owned(),
+            aged("fresh-finished", Some(outcome(false)), Duration::ZERO),
+        );
+        assert_eq!(current_scan_id(&runs).as_deref(), Some("old-running"));
+    }
+
+    #[test]
+    fn the_newest_finished_run_wins() {
+        let mut runs = HashMap::new();
+        runs.insert(
+            "older".to_owned(),
+            aged("older", Some(outcome(false)), Duration::from_secs(120)),
+        );
+        runs.insert(
+            "newer".to_owned(),
+            aged("newer", Some(outcome(false)), Duration::from_secs(10)),
+        );
+        assert_eq!(current_scan_id(&runs).as_deref(), Some("newer"));
+    }
+
+    #[test]
+    fn a_cancelled_run_is_returned() {
+        let mut runs = HashMap::new();
+        runs.insert(
+            "cancelled".to_owned(),
+            aged("cancelled", Some(outcome(true)), Duration::from_secs(5)),
+        );
+        assert_eq!(current_scan_id(&runs).as_deref(), Some("cancelled"));
+    }
+
+    #[test]
+    fn a_failed_run_without_a_result_is_returned() {
+        let mut runs = HashMap::new();
+        runs.insert(
+            "failed".to_owned(),
+            ScanRun {
+                created: Instant::now(),
+                failure: Arc::new(Mutex::new(Some("boom".into()))),
+                ..run(None, None)
+            },
+        );
+        assert_eq!(current_scan_id(&runs).as_deref(), Some("scan-1"));
+    }
+
+    #[test]
+    fn an_empty_run_table_has_no_current_scan() {
+        assert_eq!(current_scan_id(&HashMap::new()), None);
+    }
+
+    #[test]
+    fn a_terminal_run_past_the_session_window_is_not_current() {
+        let mut runs = HashMap::new();
+        runs.insert(
+            "aged-out".to_owned(),
+            aged("aged-out", Some(outcome(false)), Duration::from_secs(601)),
+        );
+        assert_eq!(current_scan_id(&runs), None);
+    }
+
+    #[test]
+    fn reading_the_current_scan_leaves_the_table_untouched() {
+        let mut runs = HashMap::new();
+        runs.insert(
+            "newer".to_owned(),
+            aged("newer", Some(outcome(false)), Duration::from_secs(10)),
+        );
+        runs.insert(
+            "older".to_owned(),
+            aged("older", Some(outcome(false)), Duration::from_secs(120)),
+        );
+        let before = runs.len();
+        assert_eq!(current_scan_id(&runs).as_deref(), Some("newer"));
+        assert_eq!(runs.len(), before);
+        assert_eq!(phase_of(&runs["older"]), ScanPhase::Finished);
+        assert!(!runs["older"].cancel.load(Ordering::Relaxed));
     }
 
     #[test]

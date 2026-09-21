@@ -11,6 +11,7 @@
     "allow-discovery-start",
     "allow-discovery-results",
     "allow-discovery-cancel",
+    "allow-discovery-current",
     "allow-roots-pick",
     "allow-roots-register",
     "allow-roots-list",

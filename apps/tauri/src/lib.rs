@@ -65,6 +65,7 @@ pub fn run() {
             commands::discovery::discovery_start,
             commands::discovery::discovery_results,
             commands::discovery::discovery_cancel,
+            commands::discovery::discovery_current,
             commands::roots::roots_pick,
             commands::roots::roots_register,
             commands::roots::roots_list,

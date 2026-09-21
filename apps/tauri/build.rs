@@ -8,6 +8,7 @@ fn main() {
         "discovery_start",
         "discovery_results",
         "discovery_cancel",
+        "discovery_current",
         "roots_pick",
         "roots_register",
         "roots_list",

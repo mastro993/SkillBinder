@@ -34,6 +34,11 @@ description = "Ask a running scan to stop at its next safe boundary"
 commands.allow = ["discovery_cancel"]
 
 [[permission]]
+identifier = "allow-discovery-current"
+description = "Read the scan the shell is currently holding"
+commands.allow = ["discovery_current"]
+
+[[permission]]
 identifier = "allow-roots-pick"
 description = "Pick a project-search root through the native folder picker"
 commands.allow = ["roots_pick"]
