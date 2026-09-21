@@ -6,4 +6,4 @@ import type { DiscoveryProgress } from "./DiscoveryProgress";
 import type { DiscoveryWarning } from "./DiscoveryWarning";
 import type { ScanPhase } from "./ScanPhase";
 
-export type DiscoveryResultsResponse = { scanId: string, phase: ScanPhase, registryVersion: number, progress: DiscoveryProgress, limitsReached: boolean, locations: Array<DiscoveryLocation>, exclusions: Array<DiscoveryExclusion>, warnings: Array<DiscoveryWarning>, candidates: Array<DiscoveryCandidate>, totalCandidates: number, offset: number, limit: number, failure: string | null, };
+export type DiscoveryResultsResponse = { scanId: string, phase: ScanPhase, registryVersion: number, progress: DiscoveryProgress, limitsReached: boolean, locations: Array<DiscoveryLocation>, exclusions: Array<DiscoveryExclusion>, warnings: Array<DiscoveryWarning>, candidates: Array<DiscoveryCandidate>, totalCandidates: number, hiddenDuplicates: number, offset: number, limit: number, failure: string | null, };

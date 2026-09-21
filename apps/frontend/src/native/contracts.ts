@@ -293,6 +293,7 @@ export const discoveryResultsResponseSchema: z.ZodType<DiscoveryResultsResponse>
       warnings: z.array(discoveryWarningSchema),
       candidates: z.array(discoveryCandidateSchema),
       totalCandidates: z.number(),
+      hiddenDuplicates: z.number(),
       offset: z.number(),
       limit: z.number(),
       failure: z.string().nullable(),

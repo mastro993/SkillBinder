@@ -27,7 +27,8 @@ same data.
    screen is left and revisited, because the run lives in the shell, not in the view.
 6. On a finished scan the screen shows the candidates with paging, plus a diagnostics panel:
    the locations walked, the folders excluded on purpose aggregated by reason, and the paths that
-   could not be read.
+   could not be read. The list holds only new skills: a candidate whose payload the library
+   already holds is hidden, and the screen reports how many were hidden instead.
 7. The user reviews the candidates: name, slug, display path, readers, validation, duplicate
    state, file count, size, and warnings.
 8. Blocked candidates cannot be selected. Selecting an invalid candidate reveals a confirmation
@@ -85,10 +86,14 @@ scan's read-only view of the library, used to label a candidate identical to a l
 slug already in use.
 
 `discovery_results` returns the phase, the live progress, and, once the run reaches a terminal
-phase, the locations, exclusions, warnings, and one page of candidates with the total count.
-`limit` defaults to 100 and the shell rejects a page above 500; an offset past the total returns an
-empty page. While a scan is running the locations, exclusions, warnings, and candidates are empty
-arrays and only progress carries data.
+phase, the locations, exclusions, warnings, and one page of candidates with the total count. The
+candidate list holds only new skills: a candidate whose payload digest matches a library entry is
+hidden from it, `hiddenDuplicates` counts those for the whole run, and `totalCandidates` and
+`offset` index the visible candidates. A candidate whose slug is already in use stays visible,
+because content that differs from the library is a new skill even under a taken slug. While the
+run is still running `hiddenDuplicates` is 0. `limit` defaults to 100 and the shell rejects a page
+above 500; an offset past the total returns an empty page. While a scan is running the locations,
+exclusions, warnings, and candidates are empty arrays and only progress carries data.
 
 ## State transitions
 

@@ -185,14 +185,11 @@ pub fn roots_remove(
         .store
         .remove_scan_root(&request.root_id)
         .map_err(map_state_error)
-        .map_or_else(
-            |error| CommandResult::failure(error),
-            |_removed| {
-                CommandResult::success(RootsRemoveResponse {
-                    root_id: request.root_id,
-                })
-            },
-        )
+        .map_or_else(CommandResult::failure, |_removed| {
+            CommandResult::success(RootsRemoveResponse {
+                root_id: request.root_id,
+            })
+        })
 }
 
 fn root_view(root: &ScanRoot) -> RootView {

@@ -18,6 +18,7 @@ import { onboardingProgressSchema } from "./contracts";
 
 const storageKey = "skillbinder.fixture.onboarding";
 const preexistingSkillId = "fixture-existing";
+
 const candidates = [
   {
     candidateId: "fixture-clean",
@@ -414,11 +415,19 @@ export const fixtureDesktopClient: DesktopClient = {
         warnings: [],
         candidates: [],
         totalCandidates: 0,
+        hiddenDuplicates: 0,
         offset,
         limit,
         failure: null,
       };
     }
+    // A candidate whose payload the library already holds stays out of the list.
+    const hidden = candidates.filter(
+      ({ duplicate }) => duplicate.kind === "identical",
+    );
+    const visible = candidates.filter(
+      ({ duplicate }) => duplicate.kind !== "identical",
+    );
     return {
       scanId,
       phase: run.cancelled ? ("cancelled" as const) : ("finished" as const),
@@ -428,8 +437,9 @@ export const fixtureDesktopClient: DesktopClient = {
       locations: fixtureLocations,
       exclusions: fixtureExclusions,
       warnings: fixtureWarnings,
-      candidates: candidates.slice(offset, offset + limit),
-      totalCandidates: candidates.length,
+      candidates: visible.slice(offset, offset + limit),
+      totalCandidates: visible.length,
+      hiddenDuplicates: hidden.length,
       offset,
       limit,
       failure: null,

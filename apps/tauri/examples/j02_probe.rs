@@ -209,7 +209,7 @@ mod probe {
         if slugs.len() != FULL_CANDIDATES {
             return Err(format!("the full scan found unexpected candidates: {slugs:?}").into());
         }
-        if slugs.iter().any(|slug| *slug == "decoy") {
+        if slugs.contains(&"decoy") {
             return Err("the vendored decoy skill was scanned".into());
         }
         let decoy = outcome

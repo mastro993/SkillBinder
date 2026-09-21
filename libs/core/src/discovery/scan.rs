@@ -1388,7 +1388,7 @@ mod tests {
         );
         assert!(outcome.cancelled);
         assert!(outcome.candidates.len() < 2, "{:?}", outcome.candidates);
-        assert!(0 < outcome.candidates.len(), "{:?}", outcome.candidates);
+        assert!(!outcome.candidates.is_empty(), "{:?}", outcome.candidates);
     }
 
     #[test]

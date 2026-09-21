@@ -235,9 +235,14 @@ export function DiscoveryView() {
                 <h2 id="candidates-title">Skill candidates</h2>
                 <p>
                   {data.totalCandidates
-                    ? `${data.totalCandidates} candidates found.`
-                    : "No skill candidates found."}
+                    ? `${data.totalCandidates} new candidates found.`
+                    : "No new skill candidates found."}
                 </p>
+                {data.hiddenDuplicates > 0 ? (
+                  <p>
+                    {`${data.hiddenDuplicates} already in your library, hidden.`}
+                  </p>
+                ) : null}
               </div>
               <span>{selected.size} selected</span>
             </div>

@@ -375,6 +375,7 @@ contract! {
         pub warnings: Vec<DiscoveryWarning>,
         pub candidates: Vec<DiscoveryCandidate>,
         pub total_candidates: u32,
+        pub hidden_duplicates: u32,
         pub offset: u32,
         pub limit: u32,
         pub failure: Option<String>,

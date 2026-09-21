@@ -66,6 +66,22 @@ describe("fixture desktop client discovery", () => {
       true,
     );
     expect(finished.totalCandidates).toBe(finished.candidates.length);
+    expect(finished.hiddenDuplicates).toBe(1);
+    expect(
+      finished.candidates.map(({ candidateId }) => candidateId),
+    ).not.toContain("fixture-duplicate");
+  });
+
+  it("indexes a result page over the candidates the library does not hold", async () => {
+    const { scanId } = await fixtureDesktopClient.discoveryStart();
+    await fixtureDesktopClient.discoveryResults(scanId, 0, 50);
+
+    const page = await fixtureDesktopClient.discoveryResults(scanId, 3, 2);
+    expect(page.offset).toBe(3);
+    expect(page.candidates.map(({ candidateId }) => candidateId)).toEqual([
+      "fixture-blocked",
+      "fixture-root-link",
+    ]);
   });
 
   it("keeps the candidates of a cancelled run", async () => {

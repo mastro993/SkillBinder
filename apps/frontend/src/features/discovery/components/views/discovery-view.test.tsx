@@ -99,6 +99,7 @@ function scanResults(
     ],
     candidates: [clean, invalid],
     totalCandidates: 2,
+    hiddenDuplicates: 0,
     offset: 0,
     limit: 50,
     failure: null,
@@ -221,7 +222,7 @@ describe("discovery view", () => {
         { timeout: 3000 },
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("2 candidates found.")).toBeInTheDocument();
+    expect(screen.getByText("2 new candidates found.")).toBeInTheDocument();
     expect(screen.getByText("Dependency vendor")).toBeInTheDocument();
   });
 
@@ -322,7 +323,9 @@ describe("discovery view", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The root folder is unreadable.",
     );
-    expect(screen.getByText("No skill candidates found.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No new skill candidates found."),
+    ).toBeInTheDocument();
   });
 
   it("reads locations, exclusions, and access errors of a finished scan", async () => {
@@ -367,6 +370,47 @@ describe("discovery view", () => {
     );
     expect(
       await screen.findByRole("dialog", { name: "Review import plan" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reports only the new candidates and the ones hidden from the library", async () => {
+    await startScan(
+      {},
+      scanResults({
+        candidates: [clean],
+        totalCandidates: 6,
+        hiddenDuplicates: 2,
+      }),
+    );
+
+    expect(
+      await screen.findByText("6 new candidates found."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("2 already in your library, hidden."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no hidden line when the library holds nothing the scan found", async () => {
+    await startScan({}, scanResults());
+
+    expect(
+      await screen.findByText("2 new candidates found."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/already in your library/)).toBeNull();
+  });
+
+  it("says no new candidate was found when the library already holds them all", async () => {
+    await startScan(
+      {},
+      scanResults({ candidates: [], totalCandidates: 0, hiddenDuplicates: 3 }),
+    );
+
+    expect(
+      await screen.findByText("No new skill candidates found."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("3 already in your library, hidden."),
     ).toBeInTheDocument();
   });
 

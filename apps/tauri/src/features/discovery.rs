@@ -4,8 +4,8 @@ use crate::{
     transport::*,
 };
 use skillbinder_core::discovery::{
-    Containment, ScanExclusion, ScanInput, ScanLimits, ScanLocation, ScanOutcome, ScanPolicy,
-    ScanProgress as CoreScanProgress, ScanWarning,
+    Containment, ScanCandidate, ScanExclusion, ScanInput, ScanLimits, ScanLocation, ScanOutcome,
+    ScanPolicy, ScanProgress as CoreScanProgress, ScanWarning,
     scan::{ExclusionReason as CoreExclusionReason, PayloadSource},
     scan_roots,
 };
@@ -197,6 +197,7 @@ pub fn results(
         warnings: Vec::new(),
         candidates: Vec::new(),
         total_candidates: 0,
+        hidden_duplicates: 0,
         offset: request.offset,
         limit,
         failure,
@@ -213,10 +214,13 @@ pub fn results(
         .collect();
     response.exclusions = outcome.exclusions.iter().map(map_exclusion).collect();
     response.warnings = outcome.warnings.iter().map(map_warning).collect();
-    response.total_candidates = outcome.candidates.len() as u32;
-    let (start, end) = page_bounds(outcome.candidates.len(), request.offset, limit);
-    response.candidates = outcome.candidates[start..end]
+    let (visible, hidden_duplicates) = visible_candidates(outcome);
+    response.hidden_duplicates = hidden_duplicates;
+    response.total_candidates = visible.len() as u32;
+    let (start, end) = page_bounds(visible.len(), request.offset, limit);
+    response.candidates = visible[start..end]
         .iter()
+        .copied()
         .map(map_candidate)
         .collect();
     Ok(response)
@@ -259,6 +263,25 @@ fn page_limit(requested: u32) -> Result<u32, AppError> {
         ));
     }
     Ok(if requested == 0 { 100 } else { requested })
+}
+
+/// A candidate whose payload digest matches a library entry is already held, so it is
+/// kept out of the result list. `SlugInUse` stays visible: same slug, different content.
+fn is_hidden_duplicate(candidate: &ScanCandidate) -> bool {
+    matches!(
+        candidate.duplicate,
+        skillbinder_core::discovery::scan::DuplicateStatus::Identical { .. }
+    )
+}
+
+/// Splits the run's candidates into the ones the result list shows and the count it hides.
+/// The whole run is considered, not the requested page.
+fn visible_candidates(outcome: &ScanOutcome) -> (Vec<&ScanCandidate>, u32) {
+    let (hidden, visible): (Vec<_>, Vec<_>) = outcome
+        .candidates
+        .iter()
+        .partition(|candidate| is_hidden_duplicate(candidate));
+    (visible, hidden.len() as u32)
 }
 
 fn page_bounds(total: usize, offset: u32, limit: u32) -> (usize, usize) {
@@ -495,6 +518,7 @@ pub fn map_validation(summary: skillbinder_core::library::ValidationSummary) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use skillbinder_core::discovery::scan::DuplicateStatus;
 
     fn outcome(cancelled: bool) -> ScanOutcome {
         ScanOutcome {
@@ -523,6 +547,84 @@ mod tests {
             failure: Arc::new(Mutex::new(failure)),
             created: Instant::now(),
         }
+    }
+
+    fn candidate(candidate_id: &str, duplicate: DuplicateStatus) -> ScanCandidate {
+        ScanCandidate {
+            candidate_id: candidate_id.into(),
+            location_id: "scan-1:loc:0".into(),
+            path: format!("/work/{candidate_id}").into(),
+            canonical_path: format!("/work/{candidate_id}").into(),
+            identity: format!("identity-{candidate_id}"),
+            display_path: format!("/work/{candidate_id}"),
+            slug: candidate_id.into(),
+            reader_agent_ids: Vec::new(),
+            reader_agent_labels: Vec::new(),
+            file_count: 1,
+            total_bytes: 10,
+            name: None,
+            description: None,
+            validation: skillbinder_core::library::payload::ValidationSummary::valid(),
+            warnings: Vec::new(),
+            blocked: false,
+            duplicate,
+            linked: false,
+        }
+    }
+
+    fn identical(skill_id: &str) -> DuplicateStatus {
+        DuplicateStatus::Identical {
+            skill_id: skill_id.into(),
+            slug: skill_id.into(),
+        }
+    }
+
+    #[test]
+    fn identical_candidates_are_hidden_from_the_page() {
+        let mut outcome = outcome(false);
+        outcome.candidates = vec![
+            candidate("held", identical("skill-held")),
+            candidate("fresh", DuplicateStatus::Unique),
+        ];
+
+        let (visible, hidden_duplicates) = visible_candidates(&outcome);
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].candidate_id, "fresh");
+        assert_eq!(hidden_duplicates, 1);
+
+        // The offset indexes the filtered list: the second visible candidate, not the hidden one.
+        outcome.candidates = vec![
+            candidate("first", DuplicateStatus::Unique),
+            candidate("held", identical("skill-held")),
+            candidate("second", DuplicateStatus::Unique),
+        ];
+        let (visible, hidden_duplicates) = visible_candidates(&outcome);
+        assert_eq!(hidden_duplicates, 1);
+        assert_eq!(visible.len(), 2);
+        let (start, end) = page_bounds(visible.len(), 1, 1);
+        assert_eq!(
+            visible[start..end]
+                .iter()
+                .map(|candidate| candidate.candidate_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["second"]
+        );
+    }
+
+    #[test]
+    fn a_slug_already_in_use_stays_visible() {
+        let mut outcome = outcome(false);
+        outcome.candidates = vec![candidate(
+            "reused-slug",
+            DuplicateStatus::SlugInUse {
+                skill_id: "skill-1".into(),
+                slug: "reused-slug".into(),
+            },
+        )];
+
+        let (visible, hidden_duplicates) = visible_candidates(&outcome);
+        assert_eq!(visible.len(), 1);
+        assert_eq!(hidden_duplicates, 0);
     }
 
     #[test]
