@@ -1,8 +1,6 @@
-//! The process log subscriber: one JSON layer writing through a bounded queue into the rotating
-//! file under `AppPaths::logs()`, with the line redactor applied inside the queue worker.
-//!
-//! Installation never fails the application. If the file cannot be opened, or a subscriber is
-//! already installed, the process keeps running and records are dropped.
+//! The process log subscriber, installed once at startup. Installation is best effort: when the log
+//! file cannot be opened the records are dropped, and when another subscriber already owns the
+//! process this one steps aside and leaves it in place.
 
 use skillbinder_app::AppOpenError;
 use skillbinder_platform::{
@@ -223,12 +221,10 @@ mod tests {
 
     #[test]
     fn installed_records_reach_the_file_as_redacted_json() {
-        // `try_init` is global, so this test is the only installer in the process and it
-        // steps aside if some other subscriber got there first.
-        if tracing::dispatcher::has_been_set() {
-            eprintln!("skipping: a tracing subscriber already owns this process");
-            return;
-        }
+        assert!(
+            !tracing::dispatcher::has_been_set(),
+            "another test installed a global subscriber first, so this test can no longer prove install"
+        );
 
         let dir = TempDir::new("logging-install");
         let home = dir.path().join("home");

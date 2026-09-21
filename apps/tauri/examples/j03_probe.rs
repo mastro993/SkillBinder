@@ -1,11 +1,5 @@
-//! Runtime proof for the log sink on a real filesystem: records emitted through `tracing` reach
-//! the rotating file as one redacted JSON line each, rotation respects its policy, and a failed
-//! rotation degrades the writer instead of growing the file.
-//!
-//! It follows `j01_probe.rs` and `j02_probe.rs`: everything lands under a unique temp base with a
-//! cleanup guard, the last line is `PROBE RESULT: PASS`, and a failure prints a readable line and
-//! exits non-zero. The `logging` module of the library crate is private, so the subscriber is
-//! wired here. That duplication is deliberate and belongs in the dev-only example.
+//! The `logging` module of the library crate is private, so the subscriber is wired here instead
+//! of being shared with it.
 
 fn main() {
     #[cfg(unix)]
@@ -74,8 +68,6 @@ mod probe {
         Ok(())
     }
 
-    /// A generous policy, so every emitted record survives in one file and the assertions read the
-    /// whole run back in emission order.
     fn records_phase(paths: &AppPaths, home: &Path) -> Result<(), Box<dyn Error>> {
         let sink = open_sink(
             &paths.logs(),
@@ -90,7 +82,7 @@ mod probe {
         let dropped = flush(&sink);
         print_listing("sink directory", &paths.logs())?;
 
-        let text = read_files(&paths.logs())?
+        let text = read_log_files_oldest_first(&paths.logs())?
             .into_iter()
             .map(|(_, text)| text)
             .collect::<String>();
@@ -139,8 +131,6 @@ mod probe {
         Ok(())
     }
 
-    /// A policy of a few hundred bytes and three files: the directory must hold no more than three
-    /// files, rotate at least once, and keep every line it kept intact and in order.
     fn rotation_phase(base: &Path, home: &Path) -> Result<(), Box<dyn Error>> {
         let dir = base.join("rotation");
         let sink = open_sink(
@@ -167,9 +157,8 @@ mod probe {
             return Err(format!("{dropped} emitted records were dropped by the queue").into());
         }
 
-        // Every file, the backups included, must parse on its own as JSON lines.
         let mut records = Vec::new();
-        for (path, text) in read_files(&dir)? {
+        for (path, text) in read_log_files_oldest_first(&dir)? {
             let parsed = parse_records(&text).map_err(|error| {
                 format!("{} does not parse as JSON lines: {error}", path.display())
             })?;
@@ -203,9 +192,6 @@ mod probe {
         Ok(())
     }
 
-    /// The unit test's failure injection: a non-empty directory at the backup path makes the
-    /// rename fail. The policy is the test's one (`max_files` two), because with a larger backup
-    /// cap the blocker would be renamed out of the way instead of failing the rotation.
     fn failure_phase(base: &Path, home: &Path) -> Result<(), Box<dyn Error>> {
         let dir = base.join("failure");
         fs::create_dir_all(&dir)?;
@@ -247,8 +233,6 @@ mod probe {
             return Err("the blocking directory was not left alone".into());
         }
 
-        // The control: the same mount and policy without the blocker, so the emptiness above is
-        // the failed rotation and not a writer that never writes at all.
         let control = base.join("failure-control");
         let control_sink = open_sink(&control, policy, home)?;
         with_sink(&control_sink, || {
@@ -269,8 +253,6 @@ mod probe {
         Ok(())
     }
 
-    /// The three records with their levels, then filler long enough to force rotation under the
-    /// tiny policy. Returns what was emitted, in order.
     fn emit_records(home: &Path) -> Vec<(&'static str, &'static str)> {
         let path = format!("{}/library/notes.md", home.display());
         tracing::info!(event = "startup", path = %path, "startup finished");
@@ -344,8 +326,7 @@ mod probe {
         }
     }
 
-    /// Oldest file first, the backups above the active file, each read whole.
-    fn read_files(dir: &Path) -> Result<Vec<(PathBuf, String)>, Box<dyn Error>> {
+    fn read_log_files_oldest_first(dir: &Path) -> Result<Vec<(PathBuf, String)>, Box<dyn Error>> {
         let mut paths = Vec::new();
         for index in (1..MAX_FILES).rev() {
             paths.push(dir.join(format!("skillbinder.log.{index}")));
