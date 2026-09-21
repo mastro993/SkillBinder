@@ -25,8 +25,11 @@ same data.
    enabled root. One scan runs at a time: starting again while a scan is running returns that
    scan instead of starting a second.
 5. While the scan is `running`, the screen reports roots done, entries seen, candidates found, and
-   the directory being walked, and offers `Cancel scan`. The scan can also be followed after the
-   screen is left and revisited, because the run lives in the shell, not in the view.
+   the directory being walked, and offers `Cancel scan`. The run lives in the shell, not in the
+   view: opening the screen adopts the run the shell is holding, including a run that has already
+   finished, so leaving and returning shows the same run rather than an empty screen. `Start scan`
+   is never how a run is brought back. While a scan runs, the shell chrome says so from any screen
+   and links back here.
 6. On a finished scan the screen shows the candidates with paging, plus a diagnostics panel:
    the locations walked, the folders excluded on purpose aggregated by reason, and the paths that
    could not be read. The list holds only new skills: a candidate whose payload the library
@@ -60,11 +63,17 @@ its candidates stay visible, but writes no session. A scan id that is no longer 
 `imports_prepare` reject its candidate ids, which is the intended recovery path for the frontend:
 rescan.
 
+`discovery_current` exposes that table to the frontend. It returns the running run when there is
+one, otherwise the newest run inside the ten-minute window whatever its phase, otherwise nothing.
+A view that opens later therefore adopts the run the shell is holding, finished or not. An aged-out
+scan id makes `discovery_results` answer with the rescan recovery action, and the screen returns to
+its idle state, where `Start scan` starts a real walk.
+
 Portable library state contains no machine paths and no scan state.
 
 ## Public API
 
-The shell exposes eight commands:
+The shell exposes nine commands:
 
 | Command             | Request                                             | Response                                             |
 | ------------------- | --------------------------------------------------- | ---------------------------------------------------- |
@@ -74,6 +83,7 @@ The shell exposes eight commands:
 | `roots_update`      | `RootsUpdateRequest { rootId, label, enabled }`     | `RootsUpdateResponse { root }`                       |
 | `roots_remove`      | `RootsRemoveRequest { rootId }`                     | `RootsRemoveResponse { rootId }`                     |
 | `discovery_start`   | none                                                | `DiscoveryStartResponse { scanId }`                  |
+| `discovery_current` | none                                                | `DiscoveryCurrentResponse { scanId }`                |
 | `discovery_results` | `DiscoveryResultsRequest { scanId, offset, limit }` | `DiscoveryResultsResponse`                           |
 | `discovery_cancel`  | `DiscoveryCancelRequest { scanId }`                 | `DiscoveryCancelResponse { scanId, accepted }`       |
 
@@ -89,6 +99,10 @@ Core exposes `load_registry`, the root resolver over the registry data, `scan_ro
 `ScanPolicy::global` and `ScanPolicy::project`, and `inspect_payload`. `LibraryCatalog` is the
 scan's read-only view of the library, used to label a candidate identical to a library entry or a
 slug already in use.
+
+`discovery_current` takes no request and returns the run the shell is holding, or a `null` scan id
+when there is none. A client that opens the screen reads it once and then polls
+`discovery_results` for that id.
 
 `discovery_results` returns the phase, the live progress, and, once the run reaches a terminal
 phase, the locations, exclusions, warnings, and one page of candidates with the total count. The
@@ -190,10 +204,11 @@ boundary, a symlinked skill directory inside its grant, and a root that resolves
 
 The store round-trips `scan_roots` against a real database: enabled-first ordering, label and
 enabled updates, a duplicate canonical path rejected, removal, and persistence across reopen. The
-shell tests cover the phase mapping, the reuse of a live run, cancellation as a no-op, paging
-edges, and that a cancelled run writes no import session. The frontend keeps colocated tests for
-its paging, exclusion summarisation, scan-state copy, each discovery view, and the fixture client.
-Registry coverage is enforced twice: by the Rust tests and by `node scripts/registry.mjs check`.
+shell tests cover the phase mapping, the reuse of a live run, the selection of the current run,
+cancellation as a no-op, paging edges, and that a cancelled run writes no import session. The
+frontend keeps colocated tests for its paging, exclusion summarisation, scan-state copy, each
+discovery view, and the fixture client. Registry coverage is enforced twice: by the Rust tests and
+by `node scripts/registry.mjs check`.
 
 `cargo run -p skillbinder --example j02_probe` is the manual harness for the project scan. It
 builds a real temporary tree (nested projects, a worktree `.git` file, excluded vendors, an

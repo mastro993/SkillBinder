@@ -1,8 +1,10 @@
 import {
   queryOptions,
   useMutation,
+  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import type { ImportPlanResponse } from "@/types";
 import { getDesktopClient } from "@/commands/client";
 import { queryClient } from "@/lib/query-client";
 
@@ -21,6 +23,67 @@ export const rootsQuery = queryOptions({
   staleTime: Infinity,
   refetchOnWindowFocus: false,
 });
+
+/** The scan the shell holds right now, readable from any screen. */
+export const currentQuery = queryOptions({
+  queryKey: ["discovery", "current"],
+  queryFn: async () => (await getDesktopClient()).discoveryCurrent(),
+  staleTime: 0,
+});
+
+export const planKey = ["discovery", "plan"];
+export const importKey = ["discovery", "import"];
+
+/**
+ * Reads what a mutation wrote under `key`. It never fetches: `enabled: false` keeps the
+ * placeholder `queryFn` from running, so a value the shell has not written reads as the
+ * fallback instead of as a request.
+ */
+export function useCached<T>(key: readonly unknown[], fallback: T): T {
+  const cached = useQuery({
+    queryKey: key,
+    queryFn: async () => fallback,
+    enabled: false,
+    staleTime: Infinity,
+  });
+  return cached.data ?? fallback;
+}
+
+export interface ImportStatusIdle {
+  phase: "idle";
+}
+
+export interface ImportStatusApplying {
+  phase: "applying";
+}
+
+export interface ImportStatusComplete {
+  phase: "complete";
+}
+
+export interface ImportStatusFailed {
+  phase: "failed";
+  message: string;
+}
+
+export type ImportStatus =
+  | ImportStatusIdle
+  | ImportStatusApplying
+  | ImportStatusComplete
+  | ImportStatusFailed;
+
+export const idleImport = (): ImportStatus => ({ phase: "idle" });
+export const applyingImport = (): ImportStatus => ({ phase: "applying" });
+export const completeImport = (): ImportStatus => ({ phase: "complete" });
+export const failedImport = (message: string): ImportStatus => ({
+  phase: "failed",
+  message,
+});
+
+export interface ImportPreparation {
+  candidateIds: string[];
+  allowInvalid: boolean;
+}
 
 export function scanResultsQuery(
   scanId: string | null,
@@ -84,8 +147,16 @@ export function useRemoveRoot() {
 }
 
 export function useStartScan() {
+  const cache = useQueryClient();
   return useMutation({
     mutationFn: async () => (await getDesktopClient()).discoveryStart(),
+    // These run after the observer unmounts. The per-call `onSuccess` the view used only
+    // ran while Discovery stayed mounted, which is the reason a leaving screen lost the run.
+    onSuccess: (started) => {
+      cache.setQueryData(currentQuery.queryKey, { scanId: started.scanId });
+      cache.setQueryData<ImportPlanResponse | null>(planKey, null);
+      cache.setQueryData<ImportStatus>(importKey, idleImport());
+    },
   });
 }
 
@@ -95,6 +166,33 @@ export function useCancelScan() {
     mutationFn: async (scanId: string) =>
       (await getDesktopClient()).discoveryCancel(scanId),
     onSuccess: () => cache.invalidateQueries(resultsKey),
+  });
+}
+
+export function usePrepareImport() {
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ candidateIds, allowInvalid }: ImportPreparation) =>
+      (await getDesktopClient()).importsPrepare(candidateIds, allowInvalid),
+    onSuccess: (prepared) =>
+      cache.setQueryData<ImportPlanResponse | null>(planKey, prepared),
+  });
+}
+
+export function useApplyImport() {
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: async (planId: string) =>
+      (await getDesktopClient()).importsApply(planId),
+    onMutate: () =>
+      cache.setQueryData<ImportStatus>(importKey, applyingImport()),
+    onSuccess: async () => {
+      cache.setQueryData<ImportPlanResponse | null>(planKey, null);
+      cache.setQueryData<ImportStatus>(importKey, completeImport());
+      await invalidateLibraryAfterImport();
+    },
+    onError: (error) =>
+      cache.setQueryData<ImportStatus>(importKey, failedImport(error.message)),
   });
 }
 

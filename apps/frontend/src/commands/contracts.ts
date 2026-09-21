@@ -6,6 +6,7 @@ import type {
   CompleteOnboardingResponse,
   DiscoveryCandidate,
   DiscoveryCancelResponse,
+  DiscoveryCurrentResponse,
   DiscoveryExclusion,
   DiscoveryLocation,
   DiscoveryProgress,
@@ -283,6 +284,8 @@ export const discoveryStartResponseSchema: z.ZodType<DiscoveryStartResponse> = z
   .strict();
 export const discoveryCancelResponseSchema: z.ZodType<DiscoveryCancelResponse> =
   z.object({ scanId: z.string(), accepted: z.boolean() }).strict();
+export const discoveryCurrentResponseSchema: z.ZodType<DiscoveryCurrentResponse> =
+  z.object({ scanId: z.string().nullable() }).strict();
 const importOutcomeSchema: z.ZodType<ImportOutcome> = z.discriminatedUnion(
   "kind",
   [

@@ -1,14 +1,21 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DiscoveryCandidate, ImportPlanResponse } from "@/types";
 import { Button } from "@/components/ui/button";
-import { getDesktopClient } from "@/commands/client";
+import { NativeCommandError } from "@/commands/client";
 import {
   candidatePageLimit,
-  invalidateLibraryAfterImport,
+  currentQuery,
+  idleImport,
+  importKey,
+  type ImportStatus,
+  planKey,
   rootsQuery,
   scanResultsQuery,
+  useApplyImport,
+  useCached,
   useCancelScan,
+  usePrepareImport,
   useStartScan,
 } from "../hooks/queries";
 import {
@@ -25,52 +32,35 @@ import { ImportPreviewDialog } from "../components/import-preview-dialog";
 
 export function DiscoveryView() {
   const roots = useQuery(rootsQuery);
-  const [scanId, setScanId] = useState<string | null>(null);
+  const current = useQuery(currentQuery);
+  const scanId = current.data?.scanId ?? null;
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [invalidSelected, setInvalidSelected] = useState<Set<string>>(
     new Set(),
   );
   const [allowInvalidSkills, setAllowInvalidSkills] = useState(false);
-  const [plan, setPlan] = useState<ImportPlanResponse | null>(null);
+  const cache = useQueryClient();
+  const plan = useCached<ImportPlanResponse | null>(planKey, null);
+  const importStatus = useCached<ImportStatus>(importKey, idleImport());
 
   const [selectionScanId, setSelectionScanId] = useState<string | null>(null);
   if (selectionScanId !== scanId) {
     setSelectionScanId(scanId);
+    setOffset(0);
     setSelected(new Set());
     setInvalidSelected(new Set());
     setAllowInvalidSkills(false);
-    setPlan(null);
   }
 
   const start = useStartScan();
   const cancel = useCancelScan();
+  const prepare = usePrepareImport();
+  const apply = useApplyImport();
 
   const results = useQuery(
     scanResultsQuery(scanId, offset, candidatePageLimit),
   );
-
-  const prepare = useMutation({
-    mutationFn: ({
-      candidateIds,
-      allowInvalid,
-    }: {
-      candidateIds: string[];
-      allowInvalid: boolean;
-    }) => prepareImport(candidateIds, allowInvalid),
-    onSuccess: (prepared, _variables, context) => {
-      if (context?.scanId !== scanId) return;
-      setPlan(prepared);
-    },
-    onMutate: () => ({ scanId }),
-  });
-  const apply = useMutation({
-    mutationFn: (planId: string) => applyImport(planId),
-    onSuccess: async () => {
-      setPlan(null);
-      await invalidateLibraryAfterImport();
-    },
-  });
 
   const toggleCandidate = (candidate: DiscoveryCandidate, checked: boolean) => {
     const next = toggleSelection(selected, candidate.candidateId);
@@ -102,6 +92,11 @@ export function DiscoveryView() {
     );
 
   const data = results.data;
+  // The shell drops a run after its session window; the results call then answers with the
+  // rescan recovery action, which is the screen's cue to show its idle state again.
+  const expired =
+    results.error instanceof NativeCommandError &&
+    results.error.diagnosticId === "discovery-unknown";
   const rootCount = roots.data?.roots.length ?? 0;
   const scopeLine = roots.isError
     ? "The configured project-search roots could not be read. The scan still covers the known agent locations."
@@ -128,8 +123,10 @@ export function DiscoveryView() {
   );
   const needsConfirmation = invalidSelected.size > 0;
   const scanError = start.error?.message ?? cancel.error?.message ?? null;
-  const importError = prepare.error ?? apply.error;
-  const success = apply.isSuccess;
+  const importError =
+    prepare.error?.message ??
+    (importStatus.phase === "failed" ? importStatus.message : null);
+  const success = importStatus.phase === "complete";
 
   return (
     <section className="page">
@@ -154,21 +151,16 @@ export function DiscoveryView() {
       </p>
 
       <DiscoveryScanStatus
-        phase={data?.phase ?? null}
+        phase={expired ? null : (data?.phase ?? null)}
         progress={data?.progress ?? null}
         limitsReached={data?.limitsReached ?? false}
         failure={data?.failure ?? null}
         starting={start.isPending}
         cancelling={cancel.isPending}
-        onStart={() =>
-          start.mutate(undefined, {
-            onSuccess: (started) => {
-              cancel.reset();
-              setScanId(started.scanId);
-              setOffset(0);
-            },
-          })
-        }
+        onStart={() => {
+          cancel.reset();
+          start.mutate();
+        }}
         onCancel={() => {
           if (scanId) cancel.mutate(scanId);
         }}
@@ -184,7 +176,7 @@ export function DiscoveryView() {
           The scan is starting. Progress appears here.
         </output>
       ) : null}
-      {results.isError ? (
+      {results.isError && !expired ? (
         <div className="empty-panel">
           <h2>Scan results could not be read</h2>
           <p>{results.error.message}</p>
@@ -310,7 +302,7 @@ export function DiscoveryView() {
       ) : null}
 
       <output className="status-announcer" aria-live="polite">
-        {apply.isPending
+        {importStatus.phase === "applying"
           ? "Import in progress."
           : success
             ? "Import complete. Library refreshed."
@@ -318,7 +310,7 @@ export function DiscoveryView() {
       </output>
       {importError ? (
         <p className="inline-error" role="alert">
-          {importError.message}
+          {importError}
         </p>
       ) : null}
       {success ? (
@@ -330,19 +322,13 @@ export function DiscoveryView() {
       {plan ? (
         <ImportPreviewDialog
           plan={plan}
-          applying={apply.isPending}
-          onClose={() => setPlan(null)}
+          applying={importStatus.phase === "applying"}
+          onClose={() =>
+            cache.setQueryData<ImportPlanResponse | null>(planKey, null)
+          }
           onApply={() => apply.mutate(plan.planId)}
         />
       ) : null}
     </section>
   );
-}
-
-async function prepareImport(candidateIds: string[], allowInvalid: boolean) {
-  return (await getDesktopClient()).importsPrepare(candidateIds, allowInvalid);
-}
-
-async function applyImport(planId: string) {
-  return (await getDesktopClient()).importsApply(planId);
 }

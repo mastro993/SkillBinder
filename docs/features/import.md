@@ -41,6 +41,12 @@ Machine-local, in `state.sqlite`:
 - `skill_metadata` for the parsed description and the validation snapshot, because section 7.2
   keeps parsed descriptions out of tracked metadata.
 
+The shell keeps no import run record. `imports_apply` has no job of its own: the call runs to
+completion whether or not the screen that made it is still mounted, and navigating away mid-import
+neither cancels nor hides it. The completion the user sees on return comes from the client cache,
+which holds the plan and its terminal status, plus the refreshed library list. A plan prepared but
+never applied is held for the same five minutes as its plan row.
+
 ## Public API
 
 - `discovery_start` starts a scan over the registry roots and the enabled project-search roots, and

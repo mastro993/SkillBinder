@@ -454,6 +454,12 @@ export const fixtureDesktopClient: DesktopClient = {
     if (run) run.cancelled = true;
     return { scanId, accepted: true };
   },
+  async discoveryCurrent() {
+    const all = [...runs.values()];
+    const live = all.find((run) => run.polls <= runningPolls && !run.cancelled);
+    const run = live ?? all.at(-1);
+    return { scanId: run?.scanId ?? null };
+  },
   async importsPrepare(candidateIds, allowInvalidSkills) {
     const selected = candidates.filter(({ candidateId }) =>
       candidateIds.includes(candidateId),

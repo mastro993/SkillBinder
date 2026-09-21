@@ -5,6 +5,7 @@ import type {
   CompleteOnboardingResponse,
   DiscoveryCancelRequest,
   DiscoveryCancelResponse,
+  DiscoveryCurrentResponse,
   DiscoveryResultsRequest,
   DiscoveryResultsResponse,
   DiscoveryStartResponse,
@@ -29,6 +30,7 @@ import {
   bootstrapResponseSchema,
   completeOnboardingResponseSchema,
   discoveryCancelResponseSchema,
+  discoveryCurrentResponseSchema,
   discoveryResultsResponseSchema,
   discoveryStartResponseSchema,
   importApplyResponseSchema,
@@ -91,6 +93,7 @@ export interface DesktopClient {
     limit: number,
   ): Promise<DiscoveryResultsResponse>;
   discoveryCancel(scanId: string): Promise<DiscoveryCancelResponse>;
+  discoveryCurrent(): Promise<DiscoveryCurrentResponse>;
   importsPrepare(
     candidateIds: string[],
     allowInvalidSkills: boolean,
@@ -159,6 +162,10 @@ class TauriDesktopClient implements DesktopClient {
     return invokeCommand("discovery_cancel", discoveryCancelResponseSchema, {
       request: { scanId },
     });
+  }
+
+  discoveryCurrent() {
+    return invokeCommand("discovery_current", discoveryCurrentResponseSchema);
   }
 
   importsPrepare(candidateIds: string[], allowInvalidSkills: boolean) {

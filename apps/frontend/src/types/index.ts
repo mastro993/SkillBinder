@@ -15,6 +15,7 @@ export * from "./CandidateDuplicate";
 export * from "./DiscoveryCandidate";
 export * from "./DiscoveryCancelRequest";
 export * from "./DiscoveryCancelResponse";
+export * from "./DiscoveryCurrentResponse";
 export * from "./DiscoveryExclusion";
 export * from "./DiscoveryLocation";
 export * from "./DiscoveryProgress";

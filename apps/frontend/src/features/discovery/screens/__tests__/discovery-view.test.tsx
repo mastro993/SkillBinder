@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -13,6 +14,7 @@ import type {
   RootView,
 } from "@/types";
 import type { DesktopClient } from "@/commands/client";
+import { NativeCommandError } from "@/commands/client";
 import * as native from "@/commands/client";
 import { stubDesktopClient } from "@/test/stub-client";
 import { DiscoveryView } from "../discovery-view";
@@ -123,21 +125,39 @@ const running = scanResults({
   totalCandidates: 0,
 });
 
-function renderView(client: Partial<DesktopClient>) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  vi.spyOn(native, "getDesktopClient").mockResolvedValue(
-    stubDesktopClient({
-      rootsList: async () => ({ roots: [root] }),
-      ...client,
-    }),
+/** Waits until the results query has landed, so an absence is a real absence. */
+async function resultsSettled(queryClient: QueryClient) {
+  await waitFor(() =>
+    expect(
+      queryClient.getQueryState(["discovery", "results", "scan-1", 0, 50])
+        ?.status,
+    ).not.toBe("pending"),
   );
+  await act(async () => {});
+}
+
+function mountView(queryClient: QueryClient) {
   return render(
     <QueryClientProvider client={queryClient}>
       <DiscoveryView />
     </QueryClientProvider>,
   );
+}
+
+function renderView(
+  client: Partial<DesktopClient>,
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  }),
+) {
+  vi.spyOn(native, "getDesktopClient").mockResolvedValue(
+    stubDesktopClient({
+      rootsList: async () => ({ roots: [root] }),
+      discoveryCurrent: async () => ({ scanId: null }),
+      ...client,
+    }),
+  );
+  return { queryClient, ...mountView(queryClient) };
 }
 
 /** Starts the only scan the stub knows about and waits for its terminal phase. */
@@ -437,5 +457,116 @@ describe("discovery view", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select Clean" }),
     ).not.toBeChecked();
+  });
+
+  it("adopts a scan the shell still holds without starting one", async () => {
+    renderView({
+      discoveryCurrent: async () => ({ scanId: "scan-1" }),
+      discoveryResults: async () => running,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Scan running" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 roots/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Start scan" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the running scan after leaving and returning", async () => {
+    let held: string | null = null;
+    const { queryClient, unmount } = renderView({
+      discoveryStart: async () => {
+        held = "scan-1";
+        return { scanId: "scan-1" };
+      },
+      discoveryCurrent: async () => ({ scanId: held }),
+      discoveryResults: async () => running,
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start scan" }));
+    expect(
+      await screen.findByRole("heading", { name: "Scan running" }),
+    ).toBeInTheDocument();
+
+    unmount();
+    mountView(queryClient);
+    expect(
+      await screen.findByRole("heading", { name: "Scan running" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a finished scan's candidates after leaving and returning", async () => {
+    let held: string | null = null;
+    const { queryClient, unmount } = renderView({
+      discoveryStart: async () => {
+        held = "scan-1";
+        return { scanId: "scan-1" };
+      },
+      discoveryCurrent: async () => ({ scanId: held }),
+      discoveryResults: async () => scanResults(),
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start scan" }));
+    expect(
+      await screen.findByRole("checkbox", { name: "Select Clean" }),
+    ).toBeInTheDocument();
+
+    unmount();
+    mountView(queryClient);
+    expect(
+      await screen.findByRole("checkbox", { name: "Select Clean" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a prepared plan after leaving the review screen", async () => {
+    const { queryClient, unmount } = renderView({
+      discoveryCurrent: async () => ({ scanId: "scan-1" }),
+      discoveryResults: async () => scanResults(),
+      importsPrepare: async () => ({
+        planId: "plan",
+        expiresAt: new Date().toISOString(),
+        libraryRevision: null,
+        items: [],
+      }),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "Select Clean" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Review import" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Review import plan" }),
+    ).toBeInTheDocument();
+
+    unmount();
+    mountView(queryClient);
+    expect(
+      await screen.findByRole("dialog", { name: "Review import plan" }),
+    ).toBeInTheDocument();
+  });
+
+  it("returns to its idle state when the adopted run has aged out", async () => {
+    const { queryClient } = renderView({
+      discoveryCurrent: async () => ({ scanId: "scan-1" }),
+      discoveryResults: vi
+        .fn<DesktopClient["discoveryResults"]>()
+        .mockRejectedValue(
+          new NativeCommandError(
+            "unknown scan; rescan discovery",
+            "discovery-unknown",
+          ),
+        ),
+    });
+    await resultsSettled(queryClient);
+
+    expect(await screen.findByText(/No scan has run yet/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Start scan" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Scan results could not be read"),
+    ).not.toBeInTheDocument();
   });
 });

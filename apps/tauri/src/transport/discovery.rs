@@ -84,6 +84,12 @@ contract! {
 }
 
 contract! {
+    pub struct DiscoveryCurrentResponse {
+        pub scan_id: Option<String>,
+    }
+}
+
+contract! {
     pub struct DiscoveryCandidate {
         pub candidate_id: String,
         pub location_id: String,
