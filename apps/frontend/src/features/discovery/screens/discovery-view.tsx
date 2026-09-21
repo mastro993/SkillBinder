@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DiscoveryCandidate, ImportPlanResponse } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { PageHeader } from "@/components/layout/page-header";
 import { NativeCommandError } from "@/commands/client";
 import {
   candidatePageLimit,
@@ -86,7 +98,10 @@ export function DiscoveryView() {
 
   if (roots.isPending)
     return (
-      <output className="page-status" aria-live="polite">
+      <output
+        className="block px-13 py-12 text-muted-foreground"
+        aria-live="polite"
+      >
         Looking for registered project-search roots…
       </output>
     );
@@ -129,76 +144,74 @@ export function DiscoveryView() {
   const success = importStatus.phase === "complete";
 
   return (
-    <section className="page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Read-only inspection</p>
-          <h1>Discovery</h1>
-          <p className="lead">
-            Run a bounded scan, and choose which discovered skill copies enter
-            your library. Project-search roots are configured in Settings.
-          </p>
-        </div>
-      </header>
-
-      <p className="discovery-disclosure">
-        {scopeLine}{" "}
-        {roots.isError ? (
-          <Button variant="ghost" onClick={() => roots.refetch()}>
-            Try again
-          </Button>
-        ) : null}
-      </p>
-
-      <DiscoveryScanStatus
-        phase={expired ? null : (data?.phase ?? null)}
-        progress={data?.progress ?? null}
-        limitsReached={data?.limitsReached ?? false}
-        failure={data?.failure ?? null}
-        starting={start.isPending}
-        cancelling={cancel.isPending}
-        onStart={() => {
-          cancel.reset();
-          start.mutate();
-        }}
-        onCancel={() => {
-          if (scanId) cancel.mutate(scanId);
-        }}
+    <section className="px-13 py-11.5">
+      <PageHeader
+        eyebrow="Read-only inspection"
+        title="Discovery"
+        lead="Run a bounded scan, and choose which discovered skill copies enter your library. Project-search roots are configured in Settings."
       />
-      {scanError ? (
-        <p className="inline-error" role="alert">
-          {scanError}
-        </p>
-      ) : null}
 
-      {scanId !== null && results.isPending ? (
-        <output className="page-status" aria-live="polite">
-          The scan is starting. Progress appears here.
-        </output>
-      ) : null}
-      {results.isError && !expired ? (
-        <div className="empty-panel">
-          <h2>Scan results could not be read</h2>
-          <p>{results.error.message}</p>
-          <Button onClick={() => results.refetch()}>Try again</Button>
-        </div>
-      ) : null}
-      {data?.phase === "running" ? (
-        <output className="page-status" aria-live="polite">
-          Walking the roots. Locations, exclusions, and candidates appear when
-          the scan finishes.
-        </output>
-      ) : null}
+      <div className="grid gap-6">
+        <Alert variant="muted" role="note">
+          <AlertDescription>
+            {scopeLine}{" "}
+            {roots.isError ? (
+              <Button variant="ghost" onClick={() => roots.refetch()}>
+                Try again
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
 
-      {data && data.phase !== "running" ? (
-        <>
-          <section
-            className="candidate-panel"
-            aria-labelledby="candidates-title"
-          >
-            <div className="section-heading">
-              <div>
-                <h2 id="candidates-title">Skill candidates</h2>
+        <DiscoveryScanStatus
+          phase={expired ? null : (data?.phase ?? null)}
+          progress={data?.progress ?? null}
+          limitsReached={data?.limitsReached ?? false}
+          failure={data?.failure ?? null}
+          starting={start.isPending}
+          cancelling={cancel.isPending}
+          onStart={() => {
+            cancel.reset();
+            start.mutate();
+          }}
+          onCancel={() => {
+            if (scanId) cancel.mutate(scanId);
+          }}
+        />
+        {scanError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{scanError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {scanId !== null && results.isPending ? (
+          <output className="text-muted-foreground" aria-live="polite">
+            The scan is starting. Progress appears here.
+          </output>
+        ) : null}
+        {results.isError && !expired ? (
+          <Empty variant="outline">
+            <EmptyHeader>
+              <EmptyTitle>Scan results could not be read</EmptyTitle>
+            </EmptyHeader>
+            <p className="max-w-[490px] text-muted-foreground">
+              {results.error.message}
+            </p>
+            <Button onClick={() => results.refetch()}>Try again</Button>
+          </Empty>
+        ) : null}
+        {data?.phase === "running" ? (
+          <output className="text-muted-foreground" aria-live="polite">
+            Walking the roots. Locations, exclusions, and candidates appear when
+            the scan finishes.
+          </output>
+        ) : null}
+
+        {data && data.phase !== "running" ? (
+          <Card aria-labelledby="candidates-title">
+            <CardHeader>
+              <CardTitle id="candidates-title">Skill candidates</CardTitle>
+              <CardDescription>
                 <p>
                   {data.totalCandidates
                     ? `${data.totalCandidates} new candidates found.`
@@ -209,30 +222,38 @@ export function DiscoveryView() {
                     {`${data.hiddenDuplicates} already in your library, hidden.`}
                   </p>
                 ) : null}
-              </div>
-              <span>{selected.size} selected</span>
-            </div>
-            {data.phase === "cancelled" ? (
-              <div className="selection-toolbar">
-                <span className="warning-text">
-                  Scan cancelled. Rescan to import these candidates.
+              </CardDescription>
+              <CardAction>
+                <span className="text-xs text-muted-foreground">
+                  {selected.size} selected
                 </span>
-              </div>
+              </CardAction>
+            </CardHeader>
+            {data.phase === "cancelled" ? (
+              <CardContent>
+                <Alert variant="warning" role="note">
+                  <AlertDescription>
+                    Scan cancelled. Rescan to import these candidates.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
             ) : null}
             {data.candidates.length ? (
               <>
-                <div className="selection-toolbar">
-                  <Button
-                    variant="ghost"
-                    disabled={!canImport}
-                    onClick={() => selectAllOnPage(data.candidates)}
-                  >
-                    Select selectable on this page
-                  </Button>
-                  <span>
-                    {counts.selectable} selectable · {counts.blocked} blocked
-                  </span>
-                </div>
+                <CardContent>
+                  <div className="flex items-center justify-between gap-4">
+                    <Button
+                      variant="ghost"
+                      disabled={!canImport}
+                      onClick={() => selectAllOnPage(data.candidates)}
+                    >
+                      Select selectable on this page
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {counts.selectable} selectable · {counts.blocked} blocked
+                    </span>
+                  </div>
+                </CardContent>
                 <DiscoveryCandidateTable
                   candidates={data.candidates}
                   selected={selected}
@@ -253,55 +274,67 @@ export function DiscoveryView() {
                   totalCandidates={data.totalCandidates}
                   onPage={setOffset}
                 />
-                <div className="selection-actions">
-                  {needsConfirmation ? (
-                    <label className="confirm-toggle">
-                      <input
-                        type="checkbox"
-                        checked={allowInvalidSkills}
-                        onChange={(event) =>
-                          setAllowInvalidSkills(event.target.checked)
-                        }
-                      />{" "}
-                      I understand invalid skills may need repair before use.
-                    </label>
-                  ) : null}
-                  <Button
-                    onClick={() =>
-                      prepare.mutate({
-                        candidateIds: [...selected],
-                        allowInvalid: allowInvalidSkills,
-                      })
-                    }
-                    disabled={
-                      !canImport ||
-                      selected.size === 0 ||
-                      (needsConfirmation && !allowInvalidSkills) ||
-                      prepare.isPending
-                    }
-                  >
-                    {prepare.isPending ? "Preparing…" : "Review import"}
-                  </Button>
-                </div>
+                <CardContent>
+                  <div className="flex items-center justify-end gap-4">
+                    {needsConfirmation ? (
+                      <div className="mr-auto flex items-center gap-2 text-sm text-warning">
+                        <Checkbox
+                          checked={allowInvalidSkills}
+                          aria-label="I understand invalid skills may need repair before use."
+                          onCheckedChange={(checked) =>
+                            setAllowInvalidSkills(checked === true)
+                          }
+                        />
+                        <span>
+                          I understand invalid skills may need repair before
+                          use.
+                        </span>
+                      </div>
+                    ) : null}
+                    <Button
+                      onClick={() =>
+                        prepare.mutate({
+                          candidateIds: [...selected],
+                          allowInvalid: allowInvalidSkills,
+                        })
+                      }
+                      disabled={
+                        !canImport ||
+                        selected.size === 0 ||
+                        (needsConfirmation && !allowInvalidSkills) ||
+                        prepare.isPending
+                      }
+                    >
+                      {prepare.isPending ? "Preparing…" : "Review import"}
+                    </Button>
+                  </div>
+                </CardContent>
               </>
             ) : (
-              <p className="discovery-disclosure">
-                No skill candidate was found in the scanned roots. Add a
-                project-search root in Settings or scan again. Import copies
-                nothing when there is nothing to review.
-              </p>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  No skill candidate was found in the scanned roots. Add a
+                  project-search root in Settings or scan again. Import copies
+                  nothing when there is nothing to review.
+                </p>
+              </CardContent>
             )}
-          </section>
+          </Card>
+        ) : null}
 
+        {data && data.phase !== "running" ? (
           <DiscoveryDiagnostics
             locations={data.locations}
             exclusions={data.exclusions}
             warnings={data.warnings}
           />
-        </>
-      ) : null}
+        ) : null}
+      </div>
 
-      <output className="status-announcer" aria-live="polite">
+      <output
+        className="mt-5 block min-h-5 text-sm text-success"
+        aria-live="polite"
+      >
         {importStatus.phase === "applying"
           ? "Import in progress."
           : success
@@ -309,12 +342,12 @@ export function DiscoveryView() {
             : ""}
       </output>
       {importError ? (
-        <p className="inline-error" role="alert">
-          {importError}
-        </p>
+        <Alert variant="destructive" className="mt-2">
+          <AlertDescription>{importError}</AlertDescription>
+        </Alert>
       ) : null}
       {success ? (
-        <p className="success-line">
+        <p className="mt-2 text-sm font-bold text-success">
           Import complete. Imported skills now appear in Library, and this scan
           still shows pre-import duplicate state. Rescan to refresh it.
         </p>

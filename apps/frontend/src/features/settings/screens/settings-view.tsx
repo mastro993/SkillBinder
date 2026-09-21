@@ -1,5 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item";
+import { PageHeader } from "@/components/layout/page-header";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { DiscoveryRootsPanel } from "@/features/discovery/components/discovery-roots-panel";
 import {
@@ -25,14 +34,9 @@ export function SettingsView() {
     null;
 
   return (
-    <section className="page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">This device</p>
-          <h1>Settings</h1>
-        </div>
-      </header>
-      <div className="settings-list">
+    <section className="px-13 py-11.5">
+      <PageHeader eyebrow="This device" title="Settings" />
+      <ul className="grid gap-2">
         <Setting
           label="Application"
           value={
@@ -58,33 +62,39 @@ export function SettingsView() {
           }
         />
         <Setting label="Remote sync" value="Not connected · optional" />
-        <div className="setting-row">
-          <span>Logs</span>
-          <strong>
-            {revealLogs.data?.path ??
-              (revealLogs.isPending ? "Opening…" : "On this device")}
-          </strong>
-          <Button
-            variant="secondary"
-            onClick={() => revealLogs.mutate()}
-            disabled={revealLogs.isPending}
-          >
-            Open log folder
-          </Button>
-        </div>
-      </div>
+        <Item variant="outline" render={<li />}>
+          <ItemContent>
+            <ItemTitle>Logs</ItemTitle>
+            <ItemDescription>
+              {revealLogs.data?.path ??
+                (revealLogs.isPending ? "Opening…" : "On this device")}
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Button
+              variant="outline"
+              onClick={() => revealLogs.mutate()}
+              disabled={revealLogs.isPending}
+            >
+              Open log folder
+            </Button>
+          </ItemActions>
+        </Item>
+      </ul>
 
       {revealLogs.error ? (
-        <p className="inline-error" role="alert">
-          {revealLogs.error.message}
-        </p>
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>{revealLogs.error.message}</AlertDescription>
+        </Alert>
       ) : null}
 
       {roots.isError ? (
-        <p className="inline-error" role="alert">
-          The configured project-search roots could not be read.{" "}
-          {roots.error.message}
-        </p>
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>
+            The configured project-search roots could not be read.{" "}
+            {roots.error.message}
+          </AlertDescription>
+        </Alert>
       ) : roots.data ? (
         <DiscoveryRootsPanel
           roots={roots.data.roots}
@@ -103,9 +113,11 @@ export function SettingsView() {
 
 function Setting({ label, value }: { label: string; value: string }) {
   return (
-    <div className="setting-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <Item variant="outline" render={<li />}>
+      <ItemContent>
+        <ItemTitle>{label}</ItemTitle>
+        <ItemDescription>{value}</ItemDescription>
+      </ItemContent>
+    </Item>
   );
 }

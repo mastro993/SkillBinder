@@ -1,7 +1,20 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import type { RootView } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 
 export function DiscoveryRootsPanel({
   roots,
@@ -19,48 +32,53 @@ export function DiscoveryRootsPanel({
   onRemove: (rootId: string) => void;
 }) {
   return (
-    <section className="candidate-panel" aria-labelledby="roots-title">
-      <div className="section-heading">
-        <div>
-          <h2 id="roots-title">Project-search roots</h2>
-          <p>
-            Folders SkillBinder walks in addition to the known agent locations.
+    <Card aria-labelledby="roots-title" className="mt-6">
+      <CardHeader>
+        <CardTitle id="roots-title">Project-search roots</CardTitle>
+        <CardDescription>
+          Folders SkillBinder walks in addition to the known agent locations.
+        </CardDescription>
+        <CardAction>
+          <span className="text-xs text-muted-foreground">
+            {roots.length} registered
+          </span>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {roots.length ? (
+          <ul className="grid gap-2">
+            {roots.map((root) => (
+              <RootRow
+                key={root.rootId}
+                root={root}
+                onUpdate={onUpdate}
+                onRemove={onRemove}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No project-search root yet. SkillBinder already inspects the skill
+            folders of the agents it knows. Add a folder here to scan it as a
+            project: nested projects, worktree markers, and monorepo packages
+            are walked within the depth and entry limits, and every skipped
+            folder is reported with its reason. Import copies content and leaves
+            originals unchanged.
           </p>
-        </div>
-        <span>{roots.length} registered</span>
-      </div>
-      {error ? (
-        <p className="inline-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {roots.length ? (
-        <ul className="source-list">
-          {roots.map((root) => (
-            <RootRow
-              key={root.rootId}
-              root={root}
-              onUpdate={onUpdate}
-              onRemove={onRemove}
-            />
-          ))}
-        </ul>
-      ) : (
-        <p className="discovery-disclosure">
-          No project-search root yet. SkillBinder already inspects the skill
-          folders of the agents it knows. Add a folder here to scan it as a
-          project: nested projects, worktree markers, and monorepo packages are
-          walked within the depth and entry limits, and every skipped folder is
-          reported with its reason. Import copies content and leaves originals
-          unchanged.
-        </p>
-      )}
-      <div className="selection-actions">
+        )}
+      </CardContent>
+      <CardFooter className="justify-end">
         <Button onClick={onAdd} disabled={adding}>
-          <Plus size={16} /> {adding ? "Choosing a folder…" : "Add folder"}
+          <Plus aria-hidden="true" />{" "}
+          {adding ? "Choosing a folder…" : "Add folder"}
         </Button>
-      </div>
-    </section>
+      </CardFooter>
+    </Card>
   );
 }
 
@@ -76,23 +94,27 @@ function RootRow({
   const [label, setLabel] = useState(root.label);
   const rename = label.trim();
   return (
-    <li className="setting-row">
-      <div>
-        <strong>{root.label}</strong>
-        <span className="table-path">{root.displayPath}</span>
-        <span className="table-secondary">
+    <Item variant="outline" render={<li />}>
+      <ItemContent>
+        <ItemTitle>{root.label}</ItemTitle>
+        <p className="max-w-[360px] break-words text-xs text-muted-foreground">
+          {root.displayPath}
+        </p>
+        <p className="text-xs text-muted-foreground">
           {root.enabled ? "Scanned" : "Disabled"}
-        </span>
-      </div>
+        </p>
+      </ItemContent>
       <form
+        className="flex items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           if (rename.length === 0 || rename === root.label) return;
           onUpdate(root.rootId, rename, root.enabled);
         }}
       >
-        <input
+        <Input
           aria-label={`Label for ${root.displayPath}`}
+          className="w-48"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
         />
@@ -104,17 +126,16 @@ function RootRow({
           Rename
         </Button>
       </form>
-      <label className="confirm-toggle">
-        <input
-          type="checkbox"
+      <div className="flex items-center gap-2">
+        <Checkbox
           checked={root.enabled}
           aria-label={`Scan ${root.label}`}
-          onChange={(event) =>
-            onUpdate(root.rootId, root.label, event.target.checked)
+          onCheckedChange={(checked) =>
+            onUpdate(root.rootId, root.label, checked === true)
           }
-        />{" "}
-        Enabled
-      </label>
+        />
+        <span className="text-sm">Enabled</span>
+      </div>
       <Button
         variant="ghost"
         aria-label={`Remove ${root.label}`}
@@ -122,6 +143,6 @@ function RootRow({
       >
         Remove
       </Button>
-    </li>
+    </Item>
   );
 }

@@ -260,9 +260,10 @@ describe("discovery view", () => {
     expect(
       screen.getByText("Scan cancelled. Rescan to import these candidates."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", { name: "Select Clean" }),
-    ).toBeDisabled();
+    const clean = screen.getByRole("checkbox", { name: "Select Clean" });
+    expect(clean).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(clean);
+    expect(clean).toHaveAttribute("aria-checked", "false");
     expect(
       screen.getByRole("button", { name: "Review import" }),
     ).toBeDisabled();
