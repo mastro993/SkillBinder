@@ -5,8 +5,15 @@ import type {
   CandidateDuplicate,
   CompleteOnboardingResponse,
   DiscoveryCandidate,
-  DiscoveryScanResponse,
-  GlobalLocation,
+  DiscoveryCancelResponse,
+  DiscoveryExclusion,
+  DiscoveryLocation,
+  DiscoveryProgress,
+  DiscoveryResultsRequest,
+  DiscoveryResultsResponse,
+  DiscoveryStartResponse,
+  DiscoveryWarning,
+  ExclusionReason,
   ImportApplyResponse,
   ImportOutcome,
   ImportPlanItem,
@@ -14,6 +21,17 @@ import type {
   LibraryListResponse,
   LibrarySkill,
   OnboardingProgress,
+  RootGrantView,
+  RootsListResponse,
+  RootsPickResponse,
+  RootsRegisterRequest,
+  RootsRegisterResponse,
+  RootsRemoveRequest,
+  RootsRemoveResponse,
+  RootsUpdateRequest,
+  RootsUpdateResponse,
+  RootView,
+  ScanPhase,
   SkillSource,
   ValidationMessage,
   ValidationSummary,
@@ -150,14 +168,60 @@ const candidateDuplicateSchema: z.ZodType<CandidateDuplicate> =
       })
       .strict(),
   ]);
-const globalLocationSchema: z.ZodType<GlobalLocation> = z
+export const scanPhaseSchema: z.ZodType<ScanPhase> = z.enum([
+  "running",
+  "finished",
+  "cancelled",
+  "failed",
+]);
+export const exclusionReasonSchema: z.ZodType<ExclusionReason> = z.enum([
+  "vcsMetadata",
+  "dependencyVendor",
+  "buildOutput",
+  "cache",
+  "virtualEnvironment",
+  "appData",
+  "mountBoundary",
+]);
+export const rootGrantViewSchema: z.ZodType<RootGrantView> = z
   .object({
+    grantId: z.string(),
     displayPath: z.string(),
-    agentIds: z.array(z.string()),
-    agentLabels: z.array(z.string()),
-    state: z.enum(["scanned", "missing", "unreadable"]),
-    detail: z.string().nullable(),
+    resolvedPath: z.string(),
   })
+  .strict();
+export const rootViewSchema: z.ZodType<RootView> = z
+  .object({
+    rootId: z.string(),
+    displayPath: z.string(),
+    resolvedPath: z.string(),
+    label: z.string(),
+    enabled: z.boolean(),
+  })
+  .strict();
+export const rootsPickResponseSchema: z.ZodType<RootsPickResponse> = z
+  .object({ grant: rootGrantViewSchema.nullable() })
+  .strict();
+export const rootsRegisterRequestSchema: z.ZodType<RootsRegisterRequest> = z
+  .object({ grantId: z.string(), label: z.string().nullable() })
+  .strict();
+export const rootsRegisterResponseSchema: z.ZodType<RootsRegisterResponse> = z
+  .object({ root: rootViewSchema })
+  .strict();
+export const rootsListResponseSchema: z.ZodType<RootsListResponse> = z
+  .object({ roots: z.array(rootViewSchema) })
+  .strict();
+export const rootsUpdateRequestSchema: z.ZodType<RootsUpdateRequest> = z
+  .object({ rootId: z.string(), label: z.string(), enabled: z.boolean() })
+  .strict();
+export const rootsUpdateResponseSchema: z.ZodType<RootsUpdateResponse> = z
+  .object({ root: rootViewSchema })
+  .strict();
+export const rootsRemoveRequestSchema: z.ZodType<RootsRemoveRequest> = z
+  .object({ rootId: z.string() })
+  .strict();
+export const rootsRemoveResponseSchema: z.ZodType<RootsRemoveResponse> = z
+  .object({ rootId: z.string() })
   .strict();
 const discoveryCandidateSchema: z.ZodType<DiscoveryCandidate> = z
   .object({
@@ -176,13 +240,72 @@ const discoveryCandidateSchema: z.ZodType<DiscoveryCandidate> = z
     warnings: z.array(z.string()),
   })
   .strict();
-export const discoveryScanResponseSchema: z.ZodType<DiscoveryScanResponse> = z
+export const discoveryProgressSchema: z.ZodType<DiscoveryProgress> = z
   .object({
-    registryVersion: z.number(),
-    locations: z.array(globalLocationSchema),
-    candidates: z.array(discoveryCandidateSchema),
+    rootsTotal: z.number(),
+    rootsDone: z.number(),
+    entriesSeen: z.number(),
+    candidatesFound: z.number(),
+    currentPath: z.string().nullable(),
   })
   .strict();
+export const discoveryLocationSchema: z.ZodType<DiscoveryLocation> = z
+  .object({
+    locationId: z.string(),
+    rootId: z.string().nullable(),
+    displayPath: z.string(),
+    agentIds: z.array(z.string()),
+    agentLabels: z.array(z.string()),
+    state: z.enum(["scanned", "missing", "unreadable"]),
+    detail: z.string().nullable(),
+    limitReached: z.boolean(),
+  })
+  .strict();
+export const discoveryExclusionSchema: z.ZodType<DiscoveryExclusion> = z
+  .object({
+    name: z.string(),
+    reason: exclusionReasonSchema,
+    matches: z.number(),
+    samplePath: z.string(),
+  })
+  .strict();
+export const discoveryWarningSchema: z.ZodType<DiscoveryWarning> = z
+  .object({ displayPath: z.string().nullable(), message: z.string() })
+  .strict();
+export const discoveryResultsRequestSchema: z.ZodType<DiscoveryResultsRequest> =
+  z
+    .object({
+      scanId: z.string(),
+      offset: z.number(),
+      limit: z.number(),
+    })
+    .strict();
+export const discoveryResultsResponseSchema: z.ZodType<DiscoveryResultsResponse> =
+  z
+    .object({
+      scanId: z.string(),
+      phase: scanPhaseSchema,
+      registryVersion: z.number(),
+      progress: discoveryProgressSchema,
+      limitsReached: z.boolean(),
+      locations: z.array(discoveryLocationSchema),
+      exclusions: z.array(discoveryExclusionSchema),
+      warnings: z.array(discoveryWarningSchema),
+      candidates: z.array(discoveryCandidateSchema),
+      totalCandidates: z.number(),
+      offset: z.number(),
+      limit: z.number(),
+      failure: z.string().nullable(),
+    })
+    .strict();
+export const discoveryStartResponseSchema: z.ZodType<DiscoveryStartResponse> = z
+  .object({ scanId: z.string() })
+  .strict();
+export const discoveryCancelRequestSchema = z
+  .object({ scanId: z.string() })
+  .strict();
+export const discoveryCancelResponseSchema: z.ZodType<DiscoveryCancelResponse> =
+  z.object({ scanId: z.string(), accepted: z.boolean() }).strict();
 const importOutcomeSchema: z.ZodType<ImportOutcome> = z.discriminatedUnion(
   "kind",
   [

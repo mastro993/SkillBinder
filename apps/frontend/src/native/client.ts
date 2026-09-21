@@ -2,7 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BootstrapResponse,
   CompleteOnboardingResponse,
-  DiscoveryScanResponse,
+  DiscoveryCancelRequest,
+  DiscoveryCancelResponse,
+  DiscoveryResultsRequest,
+  DiscoveryResultsResponse,
+  DiscoveryStartResponse,
   ImportApplyRequest,
   ImportApplyResponse,
   ImportPlanResponse,
@@ -10,12 +14,24 @@ import type {
   LibraryListResponse,
   OnboardingProgress,
   OnboardingStep,
+  RootsListResponse,
+  RootsPickResponse,
+  RootsRegisterRequest,
+  RootsRegisterResponse,
+  RootsRemoveRequest,
+  RootsRemoveResponse,
+  RootsUpdateRequest,
+  RootsUpdateResponse,
   UpdateOnboardingProgressRequest,
 } from "@/generated";
 import {
   bootstrapResponseSchema,
   completeOnboardingResponseSchema,
-  discoveryScanResponseSchema,
+  discoveryCancelRequestSchema,
+  discoveryCancelResponseSchema,
+  discoveryResultsRequestSchema,
+  discoveryResultsResponseSchema,
+  discoveryStartResponseSchema,
   importApplyResponseSchema,
   importApplyRequestSchema,
   importPlanResponseSchema,
@@ -23,6 +39,14 @@ import {
   libraryListResponseSchema,
   onboardingProgressSchema,
   parseCommandResult,
+  rootsListResponseSchema,
+  rootsPickResponseSchema,
+  rootsRegisterRequestSchema,
+  rootsRegisterResponseSchema,
+  rootsRemoveRequestSchema,
+  rootsRemoveResponseSchema,
+  rootsUpdateRequestSchema,
+  rootsUpdateResponseSchema,
 } from "./contracts";
 
 import type { JsonValue } from "./contracts";
@@ -32,6 +56,11 @@ import type { ZodType } from "zod";
 /** The request payloads the native commands accept. */
 type IpcRequest =
   | UpdateOnboardingProgressRequest
+  | RootsRegisterRequest
+  | RootsUpdateRequest
+  | RootsRemoveRequest
+  | DiscoveryResultsRequest
+  | DiscoveryCancelRequest
   | ImportPrepareRequest
   | ImportApplyRequest;
 
@@ -51,7 +80,25 @@ export interface DesktopClient {
   bootstrap(): Promise<BootstrapResponse>;
   updateOnboardingProgress(step: OnboardingStep): Promise<OnboardingProgress>;
   completeLocalOnboarding(): Promise<CompleteOnboardingResponse>;
-  discoveryScan(): Promise<DiscoveryScanResponse>;
+  rootsPick(): Promise<RootsPickResponse>;
+  rootsRegister(
+    grantId: string,
+    label: string | null,
+  ): Promise<RootsRegisterResponse>;
+  rootsList(): Promise<RootsListResponse>;
+  rootsUpdate(
+    rootId: string,
+    label: string,
+    enabled: boolean,
+  ): Promise<RootsUpdateResponse>;
+  rootsRemove(rootId: string): Promise<RootsRemoveResponse>;
+  discoveryStart(): Promise<DiscoveryStartResponse>;
+  discoveryResults(
+    scanId: string,
+    offset: number,
+    limit: number,
+  ): Promise<DiscoveryResultsResponse>;
+  discoveryCancel(scanId: string): Promise<DiscoveryCancelResponse>;
   importsPrepare(
     candidateIds: string[],
     allowInvalidSkills: boolean,
@@ -80,8 +127,55 @@ class TauriDesktopClient implements DesktopClient {
     );
   }
 
-  discoveryScan() {
-    return invokeCommand("discovery_scan", discoveryScanResponseSchema);
+  rootsPick() {
+    return invokeCommand("roots_pick", rootsPickResponseSchema);
+  }
+
+  rootsRegister(grantId: string, label: string | null) {
+    const request = rootsRegisterRequestSchema.parse({ grantId, label });
+    return invokeCommand("roots_register", rootsRegisterResponseSchema, {
+      request,
+    });
+  }
+
+  rootsList() {
+    return invokeCommand("roots_list", rootsListResponseSchema);
+  }
+
+  rootsUpdate(rootId: string, label: string, enabled: boolean) {
+    const request = rootsUpdateRequestSchema.parse({ rootId, label, enabled });
+    return invokeCommand("roots_update", rootsUpdateResponseSchema, {
+      request,
+    });
+  }
+
+  rootsRemove(rootId: string) {
+    const request = rootsRemoveRequestSchema.parse({ rootId });
+    return invokeCommand("roots_remove", rootsRemoveResponseSchema, {
+      request,
+    });
+  }
+
+  discoveryStart() {
+    return invokeCommand("discovery_start", discoveryStartResponseSchema);
+  }
+
+  discoveryResults(scanId: string, offset: number, limit: number) {
+    const request = discoveryResultsRequestSchema.parse({
+      scanId,
+      offset,
+      limit,
+    });
+    return invokeCommand("discovery_results", discoveryResultsResponseSchema, {
+      request,
+    });
+  }
+
+  discoveryCancel(scanId: string) {
+    const request = discoveryCancelRequestSchema.parse({ scanId });
+    return invokeCommand("discovery_cancel", discoveryCancelResponseSchema, {
+      request,
+    });
   }
 
   importsPrepare(candidateIds: string[], allowInvalidSkills: boolean) {

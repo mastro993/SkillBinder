@@ -1,11 +1,16 @@
 import type {
   BootstrapResponse,
   CompleteOnboardingResponse,
-  DiscoveryScanResponse,
+  DiscoveryCandidate,
+  DiscoveryExclusion,
+  DiscoveryLocation,
+  DiscoveryProgress,
+  DiscoveryWarning,
   ImportPlanResponse,
   LibraryListResponse,
   OnboardingProgress,
   OnboardingStep,
+  RootView,
   ValidationSummary,
 } from "@/generated";
 import type { DesktopClient } from "./client";
@@ -135,43 +140,114 @@ const candidates = [
     linked: true,
     warnings: [],
   },
-] satisfies DiscoveryScanResponse["candidates"];
+] satisfies DiscoveryCandidate[];
 
-const locationState = (
-  displayPath: string,
-  agentIds: string[],
-  agentLabels: string[],
-  state: "scanned" | "missing" | "unreadable",
-  detail: string | null = null,
-) => ({ displayPath, agentIds, agentLabels, state, detail });
+const fixtureLocations: DiscoveryLocation[] = [
+  {
+    locationId: "fixture:loc:0",
+    rootId: null,
+    displayPath: "/Users/demo/.claude/skills",
+    agentIds: ["claude-code"],
+    agentLabels: ["Claude Code"],
+    state: "scanned",
+    detail: null,
+    limitReached: false,
+  },
+  {
+    locationId: "fixture:loc:1",
+    rootId: null,
+    displayPath: "/Users/demo/.codex/skills",
+    agentIds: ["codex"],
+    agentLabels: ["Codex"],
+    state: "scanned",
+    detail: null,
+    limitReached: false,
+  },
+  {
+    locationId: "fixture:loc:2",
+    rootId: null,
+    displayPath: "/Users/demo/.cursor/skills",
+    agentIds: ["cursor"],
+    agentLabels: ["Cursor"],
+    state: "unreadable",
+    detail: "Permission denied",
+    limitReached: false,
+  },
+  {
+    locationId: "fixture:loc:3",
+    rootId: "fixture-project",
+    displayPath: "/Users/demo/Projects/atlas",
+    agentIds: [],
+    agentLabels: [],
+    state: "scanned",
+    detail: null,
+    limitReached: true,
+  },
+];
 
-const scan: DiscoveryScanResponse = {
-  registryVersion: 1,
-  locations: [
-    locationState(
-      "/Users/demo/.claude/skills",
-      ["claude-code"],
-      ["Claude Code"],
-      "scanned",
-    ),
-    locationState("/Users/demo/.codex/skills", ["codex"], ["Codex"], "scanned"),
-    locationState(
-      "/Users/demo/.cursor/skills",
-      ["cursor"],
-      ["Cursor"],
-      "unreadable",
-      "Permission denied",
-    ),
-    locationState(
-      "/Users/demo/.openclaw/skills",
-      ["openclaw"],
-      ["OpenClaw"],
-      "missing",
-      "Directory does not exist",
-    ),
-  ],
-  candidates,
+const fixtureExclusions: DiscoveryExclusion[] = [
+  {
+    name: ".git",
+    reason: "vcsMetadata",
+    matches: 3,
+    samplePath: "/Users/demo/Projects/atlas/.git",
+  },
+  {
+    name: "node_modules",
+    reason: "dependencyVendor",
+    matches: 14,
+    samplePath: "/Users/demo/Projects/atlas/node_modules",
+  },
+  {
+    name: "target",
+    reason: "buildOutput",
+    matches: 6,
+    samplePath: "/Users/demo/Projects/atlas/crates/target",
+  },
+];
+
+const fixtureWarnings: DiscoveryWarning[] = [
+  {
+    displayPath: "/Users/demo/Projects/atlas/locked",
+    message: "Permission denied",
+  },
+  { displayPath: null, message: "Symlink cycle skipped at /Users/demo/.codex" },
+];
+
+const runningProgress: DiscoveryProgress = {
+  rootsTotal: 2,
+  rootsDone: 1,
+  entriesSeen: 1240,
+  candidatesFound: 3,
+  currentPath: "/Users/demo/Projects/atlas/packages/api",
 };
+
+const finishedProgress: DiscoveryProgress = {
+  rootsTotal: 2,
+  rootsDone: 2,
+  entriesSeen: 8421,
+  candidatesFound: 6,
+  currentPath: null,
+};
+
+/** How many `discoveryResults` polls report `running` before the fixture finishes. */
+const runningPolls = 1;
+const pickableFolders = [
+  "/Users/demo/Projects/atlas",
+  "/Users/demo/Projects/orbit",
+];
+
+let roots: RootView[] = [];
+let grantSequence = 0;
+let runSequence = 0;
+type FixtureGrant = {
+  grantId: string;
+  displayPath: string;
+  resolvedPath: string;
+};
+type FixtureRun = { scanId: string; polls: number; cancelled: boolean };
+const pendingGrants = new Map<string, FixtureGrant>();
+const runs = new Map<string, FixtureRun>();
 
 const existingValidation: ValidationSummary = { status: "valid", messages: [] };
 let library: LibraryListResponse = {
@@ -257,8 +333,112 @@ export const fixtureDesktopClient: DesktopClient = {
       currentRevision: "fixture-initial-revision",
     };
   },
-  async discoveryScan() {
-    return scan;
+  async rootsPick() {
+    const displayPath = pickableFolders[grantSequence % pickableFolders.length];
+    grantSequence += 1;
+    const grant: FixtureGrant = {
+      grantId: `fixture-grant-${grantSequence}`,
+      displayPath,
+      resolvedPath: displayPath,
+    };
+    pendingGrants.set(grant.grantId, grant);
+    return { grant };
+  },
+  async rootsRegister(grantId, label) {
+    const grant = pendingGrants.get(grantId);
+    if (!grant)
+      throw new Error("That folder grant expired. Pick the folder again.");
+    pendingGrants.delete(grantId);
+    const existing = roots.find(
+      (root) => root.resolvedPath === grant.resolvedPath,
+    );
+    if (existing)
+      throw new Error(
+        `A root for that folder is already registered as ${existing.label}.`,
+      );
+    const root: RootView = {
+      rootId: `fixture-root-${grantId}`,
+      displayPath: grant.displayPath,
+      resolvedPath: grant.resolvedPath,
+      label:
+        label?.trim() ||
+        grant.displayPath.split("/").pop() ||
+        grant.displayPath,
+      enabled: true,
+    };
+    roots = [...roots, root];
+    return { root };
+  },
+  async rootsList() {
+    return { roots };
+  },
+  async rootsUpdate(rootId, label, enabled) {
+    const existing = roots.find((root) => root.rootId === rootId);
+    if (!existing) throw new Error("That root is no longer registered.");
+    const root: RootView = { ...existing, label, enabled };
+    roots = roots.map((candidate) =>
+      candidate.rootId === rootId ? root : candidate,
+    );
+    return { root };
+  },
+  async rootsRemove(rootId) {
+    roots = roots.filter((root) => root.rootId !== rootId);
+    return { rootId };
+  },
+  async discoveryStart() {
+    const live = [...runs.values()].find((run) => run.polls <= runningPolls);
+    if (live) return { scanId: live.scanId };
+    runSequence += 1;
+    const run: FixtureRun = {
+      scanId: `fixture-scan-${runSequence}`,
+      polls: 0,
+      cancelled: false,
+    };
+    runs.set(run.scanId, run);
+    return { scanId: run.scanId };
+  },
+  async discoveryResults(scanId, offset, limit) {
+    const run = runs.get(scanId);
+    if (!run)
+      throw new Error("That scan is no longer available. Start a new scan.");
+    run.polls += 1;
+    if (run.polls <= runningPolls && !run.cancelled) {
+      return {
+        scanId,
+        phase: "running" as const,
+        registryVersion: 1,
+        progress: runningProgress,
+        limitsReached: false,
+        locations: [],
+        exclusions: [],
+        warnings: [],
+        candidates: [],
+        totalCandidates: 0,
+        offset,
+        limit,
+        failure: null,
+      };
+    }
+    return {
+      scanId,
+      phase: run.cancelled ? ("cancelled" as const) : ("finished" as const),
+      registryVersion: 1,
+      progress: finishedProgress,
+      limitsReached: true,
+      locations: fixtureLocations,
+      exclusions: fixtureExclusions,
+      warnings: fixtureWarnings,
+      candidates: candidates.slice(offset, offset + limit),
+      totalCandidates: candidates.length,
+      offset,
+      limit,
+      failure: null,
+    };
+  },
+  async discoveryCancel(scanId) {
+    const run = runs.get(scanId);
+    if (run) run.cancelled = true;
+    return { scanId, accepted: true };
   },
   async importsPrepare(candidateIds, allowInvalidSkills) {
     const selected = candidates.filter(({ candidateId }) =>
