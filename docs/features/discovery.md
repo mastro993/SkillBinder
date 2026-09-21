@@ -228,7 +228,7 @@ reviewed source does not state.
 ### Add an exclusion rule
 
 Add one `ExclusionRule { name, reason }` to `PROJECT_EXCLUSIONS` in
-`crates/core/src/discovery/scan.rs`, and to `GLOBAL_EXCLUSIONS` only when the registry path should
+`crates/core/src/discovery/spec.rs`, and to `GLOBAL_EXCLUSIONS` only when the registry path should
 skip it too. The name match is exact and case-sensitive, applies to both directories and files, and
 runs before any metadata is read, so a rule must be cheap and unambiguous. Extend
 `crates/core/src/discovery/scan.rs` tests with a tree that proves the folder is skipped and the

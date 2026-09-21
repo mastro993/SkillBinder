@@ -1,3 +1,10 @@
+//! The machine-local SQLite state behind the core ports: onboarding progress, import plans and
+//! their idempotency records, source observations, indexed skill metadata, and the registered
+//! project-search roots.
+//!
+//! This state never enters the portable library repository. The schema is created on connect, so a
+//! store opened against a new path is ready to use.
+
 use rusqlite::{Connection, OptionalExtension, params};
 use skillbinder_core::{
     bootstrap::{BootstrapError, OnboardingState},
