@@ -2,10 +2,12 @@
 
 SkillBinder is a local-first desktop manager for agent skills. It currently provides the trusted
 desktop boundary, resumable onboarding, a system-Git prerequisite check, local SQLite state, a
-Git-backed library, and journey J01: inspect every known global agent skill location, review what
-was discovered, and import selected skills as complete managed copies while the originals stay
-untouched. Editing, organization, deployment, source installation, and sync are not implemented
-yet.
+Git-backed library, and two journeys. J01 inspects every known global agent skill location, makes
+the user review what was discovered, and imports selected skills as complete managed copies while
+the originals stay untouched. J02 adds project-search roots: the user registers folders with a
+native picker, runs one bounded, cancellable scan over the registry locations and those roots, and
+follows its progress, exclusions, and paged candidates before importing. Editing, organization,
+deployment, source installation, and sync are not implemented yet.
 
 ## Workspace
 
@@ -22,8 +24,10 @@ libs/
 ```
 
 The frontend owns presentation. Rust owns filesystem access, Git, SQLite, process locks, and
-trusted state. IPC contains eight allowlisted commands: bootstrap, onboarding, discovery, import,
-and library listing. No generic filesystem, shell, SQL, Git, or HTTP command exists.
+trusted state. IPC contains fifteen allowlisted commands: bootstrap, onboarding, discovery scanning,
+project-search roots, import, and library listing. No generic filesystem, shell, SQL, Git, or HTTP
+command exists, and no command accepts a raw path: a picked folder becomes a short-lived,
+single-use grant that registration consumes.
 
 Frontend components live in `apps/frontend/src/components`, shadcn-style primitives in
 `apps/frontend/src/components/ui`, and feature UI in
@@ -77,6 +81,16 @@ fixture skills, runs the real registry, scan, payload validation, staging, and i
 real filesystem, database, and Git repository, and prints `PROBE RESULT: PASS` when the sources are
 byte-identical after the import. The unit suite never touches a real skill directory.
 
+```sh
+cargo run -p skillbinder --example j02_probe
+```
+
+`j02_probe` is the manual harness for the project scan. It builds a real temporary tree with nested
+projects, a worktree `.git` file, excluded vendor folders, an unreadable directory, and a
+symlinked payload, writes real roots into a real state database, and runs the real engine three
+times: a full scan, a scan with a tiny entry budget, and a scan cancelled mid-walk. It prints
+`PROBE RESULT: PASS` when every rule holds, and reports `SKIPPED` on non-Unix hosts.
+
 `pnpm test` also runs `node scripts/registry.mjs check`, which re-derives every agent in the pinned
 upstream skills registry from the checked-in snapshot and fails when an ID, display name, project
 directory, or global skill path differs. `node scripts/registry.mjs docs` regenerates
@@ -103,6 +117,10 @@ An import adds `skills/<skill-id>/<slug>/` payload plus
 create a Git commit; commits are an explicit user action in a later milestone, and the library view
 reports when the working tree has uncommitted changes. Which machine a skill came from is machine
 state: source observations live in `state.sqlite` and never enter the library repository.
+
+Registered project-search roots are machine state too. `state.sqlite` holds a `scan_roots` table
+with the canonical path, display path, label, and enabled flag of every folder the user registered,
+so the folder is resolved on this machine and never synced or committed.
 
 The initial commit uses `SkillBinder <local@skillbinder.invalid>`. Machine paths, credentials,
 deployment state, and preferences remain outside the portable Git repository.

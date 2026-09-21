@@ -17,6 +17,7 @@ Pinned foundation baseline, verified 2026-09-20:
 | Tailwind CSS            | 4.3.3                               |
 | Scroll area primitive   | @base-ui/react 1.8.0                |
 | SQLite crate            | rusqlite 0.40.2 with bundled SQLite |
+| Folder picker plugin    | tauri-plugin-dialog 2.7.3           |
 | Generated IPC           | ts-rs 12.0.1                        |
 | SHA-256                 | sha2 0.10.9                         |
 | YAML parser             | yaml-rust2 0.10.4                   |
@@ -24,6 +25,8 @@ Pinned foundation baseline, verified 2026-09-20:
 | Supported Git           | 2.39.0 or newer                     |
 
 Dependencies are locked by `pnpm-lock.yaml` and `Cargo.lock`. Runtime diagnostics must report the compiled SQLite version before WAL is enabled; this scaffold intentionally uses rollback journaling with `synchronous=FULL`.
+
+`tauri-plugin-dialog` is used from Rust only: `roots_pick` calls the folder picker in the shell, so the frontend never invokes it and the main capability carries no dialog permission.
 
 ## Native setup
 
