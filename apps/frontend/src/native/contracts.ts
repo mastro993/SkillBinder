@@ -368,12 +368,11 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-const envelopeSchema = z
-  .object({
-    ok: z.boolean(),
-    value: z.unknown().optional(),
-    error: z.unknown().optional(),
-  })
+const successEnvelopeSchema = z
+  .object({ ok: z.literal(true), value: z.unknown() })
+  .strict();
+const failureEnvelopeSchema = z
+  .object({ ok: z.literal(false), error: z.unknown() })
   .strict();
 
 export type CommandResultParse<T> =
@@ -393,18 +392,19 @@ export function parseCommandResult<T>(
   value: JsonValue,
   valueSchema: z.ZodType<T>,
 ): CommandResultParse<T> {
-  const envelope = envelopeSchema.safeParse(value);
-  if (!envelope.success) {
-    return { kind: "malformed", issues: describeIssues(envelope.error) };
-  }
-  if (envelope.data.ok) {
-    const parsed = valueSchema.safeParse(envelope.data.value);
+  const success = successEnvelopeSchema.safeParse(value);
+  if (success.success) {
+    const parsed = valueSchema.safeParse(success.data.value);
     return parsed.success
       ? { kind: "value", value: parsed.data }
       : { kind: "malformed", issues: describeIssues(parsed.error) };
   }
-  const parsed = appErrorSchema.safeParse(envelope.data.error);
-  return parsed.success
-    ? { kind: "failure", error: parsed.data }
-    : { kind: "malformed", issues: describeIssues(parsed.error) };
+  const failure = failureEnvelopeSchema.safeParse(value);
+  if (failure.success) {
+    const parsed = appErrorSchema.safeParse(failure.data.error);
+    return parsed.success
+      ? { kind: "failure", error: parsed.data }
+      : { kind: "malformed", issues: describeIssues(parsed.error) };
+  }
+  return { kind: "malformed", issues: describeIssues(success.error) };
 }

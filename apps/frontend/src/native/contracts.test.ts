@@ -20,4 +20,16 @@ describe("native response validation", () => {
       0,
     );
   });
+
+  it("rejects an envelope that carries both a value and an error", () => {
+    const parsed = parseCommandResult(
+      {
+        ok: true,
+        value: { step: "ready", completed: true },
+        error: { code: "INTERNAL_ERROR", message: "nope" },
+      },
+      onboardingProgressSchema,
+    );
+    expect(parsed.kind).toBe("malformed");
+  });
 });
