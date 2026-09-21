@@ -19,9 +19,44 @@ description = "Create the local SkillBinder library and finish onboarding"
 commands.allow = ["onboarding_complete_local"]
 
 [[permission]]
-identifier = "allow-discovery-scan"
-description = "Inspect registered global skill locations"
-commands.allow = ["discovery_scan"]
+identifier = "allow-discovery-start"
+description = "Start a bounded scan over the registered search roots"
+commands.allow = ["discovery_start"]
+
+[[permission]]
+identifier = "allow-discovery-results"
+description = "Read one page of scan progress and candidates"
+commands.allow = ["discovery_results"]
+
+[[permission]]
+identifier = "allow-discovery-cancel"
+description = "Ask a running scan to stop at its next safe boundary"
+commands.allow = ["discovery_cancel"]
+
+[[permission]]
+identifier = "allow-roots-pick"
+description = "Pick a project-search root through the native folder picker"
+commands.allow = ["roots_pick"]
+
+[[permission]]
+identifier = "allow-roots-register"
+description = "Register a picked folder as a project-search root"
+commands.allow = ["roots_register"]
+
+[[permission]]
+identifier = "allow-roots-list"
+description = "List the registered project-search roots"
+commands.allow = ["roots_list"]
+
+[[permission]]
+identifier = "allow-roots-update"
+description = "Rename or disable a registered project-search root"
+commands.allow = ["roots_update"]
+
+[[permission]]
+identifier = "allow-roots-remove"
+description = "Remove a registered project-search root"
+commands.allow = ["roots_remove"]
 
 [[permission]]
 identifier = "allow-imports-prepare"

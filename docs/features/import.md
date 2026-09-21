@@ -8,7 +8,8 @@ skill is the library's canonical copy from that point on.
 
 ## User flow
 
-1. `discovery_scan` returns locations and candidates with opaque candidate ids.
+1. A finished scan returns locations and candidates with opaque candidate ids. `discovery_results`
+   pages that result, and only a finished scan writes the session those ids resolve through.
 2. The frontend sends the selected ids to `imports_prepare`. Blocked candidates are refused, and an
    invalid candidate is refused unless the request allowed invalid skills.
 3. `imports_prepare` returns an immutable plan: one item per candidate with its destination skill
@@ -42,7 +43,10 @@ Machine-local, in `state.sqlite`:
 
 ## Public API
 
-- `discovery_scan` returns registered locations, candidates, warnings, and the registry version.
+- `discovery_start` starts a scan over the registry roots and the enabled project-search roots, and
+  `discovery_results` returns its phase, progress, locations, exclusions, warnings, and one
+  candidate page. A cancelled scan keeps its findings but writes no session, so its ids are refused
+  here with the rescan recovery action.
 - `imports_prepare` accepts `candidateIds` and `allowInvalidSkills`, and returns a plan.
 - `imports_apply` accepts `planId` and returns the durable result.
 - `library_list` returns library skills with sources, file counts, byte totals, validation, the
@@ -125,8 +129,8 @@ to import cycle leaves the sources byte-identical, records observations, and rep
 
 ## Extension instructions
 
-Add new payload rules in `libs/core/src/library/payload.rs` and extend the validation-code enums in
-core, in `apps/tauri/src/transport.rs`, and in `apps/frontend/src/native/contracts.ts` together,
-then run `pnpm contracts:generate`. Keep filesystem behavior in `libs/platform`. Add a port only
+Add new payload rules in `crates/core/src/library/inspect.rs` and extend the validation-code enums in
+core, in `apps/tauri/src/transport/validation.rs`, and in `apps/frontend/src/commands/contracts.ts`
+together, then run `pnpm contracts:generate`. Keep filesystem behavior in `crates/platform`. Add a port only
 when two real implementations need it. Never expose a command that accepts a destination path or a
 raw source path from the frontend: candidate ids stay opaque and resolve through the scan session.

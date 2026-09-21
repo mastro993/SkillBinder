@@ -5,7 +5,7 @@
   "identifier": "dev.skillbinder.local",
   "build": {
     "devUrl": "http://127.0.0.1:1420",
-    "frontendDist": "../frontend/dist"
+    "frontendDist": "../../dist"
   },
   "app": {
     "security": {

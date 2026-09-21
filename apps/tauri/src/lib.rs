@@ -1,8 +1,8 @@
-mod app;
-mod features;
+mod commands;
 mod transport;
 
-use app::state::AppState;
+use skillbinder_app::AppState;
+use skillbinder_platform::paths::AppPaths;
 use tauri::{Manager, WebviewWindow};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,19 +46,33 @@ pub fn run() {
                 }
             },
         ))
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            app.manage(AppState::from_app(app.handle())?);
+            let paths = AppPaths::new(
+                app.path().app_local_data_dir()?,
+                app.path().app_config_dir()?,
+                app.path().app_cache_dir()?,
+            );
+            let home = app.path().home_dir()?;
+            app.manage(AppState::open(paths, home)?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            features::bootstrap::system_bootstrap,
-            features::bootstrap::git_environment_verify,
-            features::onboarding::onboarding_progress_update,
-            features::onboarding::onboarding_complete_local,
-            features::discovery::discovery_scan,
-            features::imports::imports_prepare,
-            features::imports::imports_apply,
-            features::library::library_list,
+            commands::bootstrap::system_bootstrap,
+            commands::bootstrap::git_environment_verify,
+            commands::onboarding::onboarding_progress_update,
+            commands::onboarding::onboarding_complete_local,
+            commands::discovery::discovery_start,
+            commands::discovery::discovery_results,
+            commands::discovery::discovery_cancel,
+            commands::roots::roots_pick,
+            commands::roots::roots_register,
+            commands::roots::roots_list,
+            commands::roots::roots_update,
+            commands::roots::roots_remove,
+            commands::imports::imports_prepare,
+            commands::imports::imports_apply,
+            commands::library::library_list,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build SkillBinder");

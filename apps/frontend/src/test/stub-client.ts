@@ -1,4 +1,4 @@
-import type { DesktopClient } from "@/native/client";
+import type { DesktopClient } from "@/commands/client";
 
 function unstubbed(method: keyof DesktopClient) {
   return () => {
@@ -14,7 +14,14 @@ export function stubDesktopClient(
     bootstrap: unstubbed("bootstrap"),
     updateOnboardingProgress: unstubbed("updateOnboardingProgress"),
     completeLocalOnboarding: unstubbed("completeLocalOnboarding"),
-    discoveryScan: unstubbed("discoveryScan"),
+    rootsPick: unstubbed("rootsPick"),
+    rootsRegister: unstubbed("rootsRegister"),
+    rootsList: unstubbed("rootsList"),
+    rootsUpdate: unstubbed("rootsUpdate"),
+    rootsRemove: unstubbed("rootsRemove"),
+    discoveryStart: unstubbed("discoveryStart"),
+    discoveryResults: unstubbed("discoveryResults"),
+    discoveryCancel: unstubbed("discoveryCancel"),
     importsPrepare: unstubbed("importsPrepare"),
     importsApply: unstubbed("importsApply"),
     libraryList: unstubbed("libraryList"),

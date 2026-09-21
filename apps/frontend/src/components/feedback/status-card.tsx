@@ -1,4 +1,4 @@
-import type { PrerequisiteStatus } from "@/generated";
+import type { PrerequisiteStatus } from "@/types";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 export function StatusCard({

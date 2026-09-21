@@ -9,8 +9,8 @@ use skillbinder_core::{
 };
 use skillbinder_db::StateStore;
 use skillbinder_platform::{
-    bootstrap::LocalEnvironment, library_repository::FilesystemLibraryRepository, paths::AppPaths,
-    payload_filesystem::FilesystemPayloadSource,
+    library_repository::FilesystemLibraryRepository, local_environment::LocalEnvironment,
+    paths::AppPaths, payload_filesystem::FilesystemPayloadSource,
 };
 use std::{
     collections::hash_map::DefaultHasher,
@@ -214,7 +214,7 @@ fn main() {
     println!("\nlocations:");
     for location in &outcome.locations {
         if location.agent_ids.len() > 1
-            || location.state != skillbinder_core::discovery::scan::LocationState::Missing
+            || location.state != skillbinder_core::discovery::LocationState::Missing
         {
             println!(
                 "  {:?} readers={:?} state={:?}{}",
@@ -310,8 +310,7 @@ fn main() {
         legacy.is_none()
             && outcome.locations.iter().any(|location| {
                 location.display_path.contains(".astrbot")
-                    && location.state
-                        == skillbinder_core::discovery::scan::LocationState::Unreadable
+                    && location.state == skillbinder_core::discovery::LocationState::Unreadable
             })
     );
     if legacy.is_some() {
@@ -319,7 +318,7 @@ fn main() {
     }
 
     let imports = ImportService {
-        source: source.clone(),
+        source,
         plans: store.clone(),
         library: library.clone(),
         observations: store.clone(),
@@ -407,7 +406,7 @@ fn main() {
         true,
         ImportSnapshot {
             candidate_ids: vec![escape.candidate_id.clone()],
-            library_revision: revision.clone(),
+            library_revision: revision,
             allow_invalid_skills: true,
         },
     );

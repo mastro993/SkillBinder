@@ -2,7 +2,8 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "jsPlugins": [
     "@shadcn/lint",
-    { "name": "anti-slop", "specifier": "./tools/anti-slop/index.ts" }
+    { "name": "anti-slop", "specifier": "./tools/anti-slop/index.ts" },
+    { "name": "frontend", "specifier": "./apps/frontend/tools/oxlint/index.ts" }
   ],
   "plugins": [
     "unicorn",
@@ -16,11 +17,13 @@
   "categories": { "correctness": "error" },
   "env": { "browser": true, "node": true },
   "ignorePatterns": [
+    ".agents/",
     ".omp/",
     "tests/fixtures/upstream-skills-cli/",
     "tools/anti-slop/"
   ],
   "rules": {
+    "typescript/consistent-type-definitions": ["error", "interface"],
     "shadcn/no-restyle": [
       "error",
       {
@@ -60,6 +63,18 @@
     "anti-slop/require-safety-comment-for-type-assertion": "error"
   },
   "overrides": [
+    {
+      "files": ["apps/frontend/src/**"],
+      "rules": {
+        "frontend/no-try-statements": "error"
+      }
+    },
+    {
+      "files": ["apps/frontend/src/types/**"],
+      "rules": {
+        "typescript/consistent-type-definitions": "off"
+      }
+    },
     {
       "files": ["apps/frontend/src/components/ui/**"],
       "rules": {
