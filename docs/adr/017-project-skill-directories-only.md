@@ -41,8 +41,9 @@ longer discovers skills under `packages/` or `apps/`; each of those needs its ow
 project scan is a handful of directory lookups plus the walk inside each known directory that
 exists, so a large repository no longer spends a 200 000 entry budget on folders nobody reads.
 
-Diagnostics list the directories actually walked, each carrying the registered root's id, so a
-project with none of the known directories present reports no location rather than a fabricated one.
+The report lists the directories actually walked, each carrying the registered root's id, so a
+project with none of the known directories present reports no location rather than a fabricated
+one. That report reaches the user through the process log, not the discovery screen.
 
 `projectSkillsDir` stops being documentation for deployment only: it decides what a project scan
 reads, so a registry change is now also a discovery behavior change.

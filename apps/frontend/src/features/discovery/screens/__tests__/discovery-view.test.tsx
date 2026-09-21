@@ -29,12 +29,12 @@ const root: RootView = {
 
 const clean: DiscoveryCandidate = {
   candidateId: "clean",
-  locationId: "scan-1:loc:0",
   displayPath: "/Users/demo/Projects/atlas/skills/clean",
   slug: "clean",
   name: "Clean",
   description: "A clean skill.",
   readerAgentIds: [],
+  readerAgentLabels: [],
   validation: { status: "valid", messages: [] },
   duplicate: { kind: "unique" },
   fileCount: 2,
@@ -73,32 +73,6 @@ function scanResults(
       currentPath: null,
     },
     limitsReached: false,
-    locations: [
-      {
-        locationId: "scan-1:loc:0",
-        rootId: "root-1",
-        displayPath: "/Users/demo/Projects/atlas",
-        agentIds: [],
-        agentLabels: [],
-        state: "scanned",
-        detail: null,
-        limitReached: false,
-      },
-    ],
-    exclusions: [
-      {
-        name: "node_modules",
-        reason: "dependencyVendor",
-        matches: 4,
-        samplePath: "/Users/demo/Projects/atlas/node_modules",
-      },
-    ],
-    warnings: [
-      {
-        displayPath: "/Users/demo/Projects/atlas/locked",
-        message: "Permission denied",
-      },
-    ],
     candidates: [clean, invalid],
     totalCandidates: 2,
     hiddenDuplicates: 0,
@@ -118,9 +92,6 @@ const running = scanResults({
     candidatesFound: 3,
     currentPath: "/Users/demo/Projects/atlas/packages/api",
   },
-  locations: [],
-  exclusions: [],
-  warnings: [],
   candidates: [],
   totalCandidates: 0,
 });
@@ -226,7 +197,6 @@ describe("discovery view", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("2 new candidates found.")).toBeInTheDocument();
-    expect(screen.getByText("Dependency vendor")).toBeInTheDocument();
   });
 
   it("cancels a running scan and refuses to import its candidates", async () => {
@@ -332,17 +302,22 @@ describe("discovery view", () => {
     ).toBeInTheDocument();
   });
 
-  it("reads locations, exclusions, and access errors of a finished scan", async () => {
-    await startScan({}, scanResults());
+  it("shows the reader labels carried by the candidate", async () => {
+    const shared: DiscoveryCandidate = {
+      ...clean,
+      candidateId: "shared",
+      displayPath: "/Users/demo/.agents/skills/shared",
+      slug: "shared",
+      name: "Shared",
+      readerAgentIds: ["claude-code", "codex"],
+      readerAgentLabels: ["Claude Code", "Codex"],
+    };
+    await startScan(
+      {},
+      scanResults({ candidates: [shared], totalCandidates: 1 }),
+    );
 
-    expect(await screen.findByText("1 walked")).toBeInTheDocument();
-    expect(screen.getByText("Project-search root")).toBeInTheDocument();
-    expect(screen.getByText("4 matches")).toBeInTheDocument();
-    expect(screen.getByText("node_modules")).toBeInTheDocument();
-    expect(
-      screen.getByText("/Users/demo/Projects/atlas/locked"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Permission denied")).toBeInTheDocument();
+    expect(await screen.findByText("Claude Code, Codex")).toBeInTheDocument();
   });
 
   it("requires invalid confirmation and reviews every selected candidate", async () => {

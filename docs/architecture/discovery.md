@@ -71,7 +71,7 @@ registry.json (pinned upstream snapshot)          state.sqlite scan_roots
         |            |            v
         |            |     a mounted view adopts that run, then polls
         |            v
-        |      discovery_results (phase, progress, diagnostics, one candidate page)
+        |      discovery_results (phase, progress, one candidate page, no report)
         |
         +--> app scan session (only when finished, ten minutes, opaque candidate ids)
                      |
@@ -105,14 +105,25 @@ ids and rejects anything else with `InvalidPath` and a rescan recovery action. C
 revalidates every path it is handed by reading the payload through the filesystem port, so a stale
 or forged session entry cannot reach a file that the scan did not already read.
 
+## Where the scan report goes
+
+`ScanOutcome` still carries the locations, the exclusions, and the warnings, because the walk is
+what produces them. The shell turns them into log records when the walk ends, and the results page
+carries only the candidates. Diagnosis therefore leaves the process through the same rotating file
+as every other record, which is the artifact a support session reads, and the screen stays about
+the decision the user has to make. Moving the report back to the screen would mean adding the three
+collections to `DiscoveryResultsResponse` again and rendering them; nothing else in the engine
+would change.
+
 ## Failure boundaries
 
 - A missing root is a location with state `missing`, not an error. An unreadable root keeps its
-  reason and lets the other roots finish.
+  reason and lets the other roots finish. Both states appear in the scan report record, not in the
+  results page.
 - A root whose resolved path leaves its containment (home, or the granted folder) is `unreadable`
   and its payload is never read.
-- An unreadable entry inside a walked directory becomes a warning and the walk continues, so one
-  permission problem cannot hide the rest of a tree.
+- An unreadable entry inside a walked directory becomes a log warning and the walk continues, so
+  one permission problem cannot hide the rest of a tree.
 - Each candidate records the canonical path and native identity of the directory discovery read.
   Prepare and apply recompute both, so a directory replaced after the scan is refused rather than
   read.

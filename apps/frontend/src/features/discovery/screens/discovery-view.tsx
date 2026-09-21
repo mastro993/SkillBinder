@@ -38,7 +38,6 @@ import {
   toggleSelection,
 } from "../lib/model";
 import { DiscoveryCandidateTable } from "../components/discovery-candidate-table";
-import { DiscoveryDiagnostics } from "../components/discovery-diagnostics";
 import { DiscoveryScanStatus } from "../components/discovery-scan-status";
 import { ImportPreviewDialog } from "../components/import-preview-dialog";
 
@@ -120,14 +119,6 @@ export function DiscoveryView() {
       : `Scanning the known agent locations plus ${rootCount} project-search ${rootCount === 1 ? "root" : "roots"}.`;
   const summary = data ? summarizeScanPhase(data.phase, data.failure) : null;
   const canImport = summary?.importable === true;
-  const agentLabels = Object.fromEntries(
-    (data?.locations ?? []).flatMap((location) =>
-      location.agentIds.map((id, index) => [
-        id,
-        location.agentLabels[index] ?? id,
-      ]),
-    ),
-  );
   const counts = selectionCounts(
     data?.candidates ?? [],
     new Set(
@@ -202,8 +193,7 @@ export function DiscoveryView() {
         ) : null}
         {data?.phase === "running" ? (
           <output className="text-muted-foreground" aria-live="polite">
-            Walking the roots. Locations, exclusions, and candidates appear when
-            the scan finishes.
+            Walking the roots. Candidates appear when the scan finishes.
           </output>
         ) : null}
 
@@ -264,7 +254,6 @@ export function DiscoveryView() {
                     if (candidate)
                       toggleCandidate(candidate, !selected.has(candidateId));
                   }}
-                  agentLabels={agentLabels}
                   selectionDisabled={!canImport}
                   paging={pagingState(
                     data.offset,
@@ -320,14 +309,6 @@ export function DiscoveryView() {
               </CardContent>
             )}
           </Card>
-        ) : null}
-
-        {data && data.phase !== "running" ? (
-          <DiscoveryDiagnostics
-            locations={data.locations}
-            exclusions={data.exclusions}
-            warnings={data.warnings}
-          />
         ) : null}
       </div>
 

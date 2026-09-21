@@ -2,10 +2,7 @@ import type {
   BootstrapResponse,
   CompleteOnboardingResponse,
   DiscoveryCandidate,
-  DiscoveryExclusion,
-  DiscoveryLocation,
   DiscoveryProgress,
-  DiscoveryWarning,
   ImportPlanResponse,
   LibraryListResponse,
   OnboardingProgress,
@@ -22,12 +19,12 @@ const preexistingSkillId = "fixture-existing";
 const candidates = [
   {
     candidateId: "fixture-clean",
-    locationId: "fixture-clean",
     displayPath: "/Users/demo/.claude/skills/review",
     slug: "review",
     name: "Review",
     description: "Review code for correctness.",
     readerAgentIds: ["claude-code"],
+    readerAgentLabels: ["Claude Code"],
     validation: {
       status: "valid" as const,
       messages: [],
@@ -40,12 +37,12 @@ const candidates = [
   },
   {
     candidateId: "fixture-shared",
-    locationId: "fixture-shared",
     displayPath: "/Users/demo/.agents/skills/research",
     slug: "research",
     name: "Research",
     description: "Research a topic with cited sources.",
     readerAgentIds: ["claude-code", "codex"],
+    readerAgentLabels: ["Claude Code", "Codex"],
     validation: { status: "valid" as const, messages: [] },
     duplicate: { kind: "unique" as const },
     fileCount: 4,
@@ -55,12 +52,12 @@ const candidates = [
   },
   {
     candidateId: "fixture-invalid",
-    locationId: "fixture-invalid",
     displayPath: "/Users/demo/.codex/skills/outline",
     slug: "outline",
     name: "Outline",
     description: null,
     readerAgentIds: ["codex"],
+    readerAgentLabels: ["Codex"],
     validation: {
       status: "invalid" as const,
       messages: [
@@ -78,12 +75,12 @@ const candidates = [
   },
   {
     candidateId: "fixture-blocked",
-    locationId: "fixture-blocked",
     displayPath: "/Users/demo/.cursor/skills/unsafe",
     slug: "unsafe",
     name: "Unsafe",
     description: "Blocked skill.",
     readerAgentIds: ["cursor"],
+    readerAgentLabels: ["Cursor"],
     validation: {
       status: "blocked" as const,
       messages: [
@@ -101,12 +98,12 @@ const candidates = [
   },
   {
     candidateId: "fixture-duplicate",
-    locationId: "fixture-duplicate",
     displayPath: "/Users/demo/.claude/skills/existing",
     slug: "existing",
     name: "Existing",
     description: "Already imported.",
     readerAgentIds: ["claude-code"],
+    readerAgentLabels: ["Claude Code"],
     validation: { status: "valid" as const, messages: [] },
     duplicate: {
       kind: "identical" as const,
@@ -120,12 +117,12 @@ const candidates = [
   },
   {
     candidateId: "fixture-root-link",
-    locationId: "fixture-root-link",
     displayPath: "/Users/demo/shared/docs",
     slug: "docs",
     name: "Docs",
     description: "Write clear docs.",
     readerAgentIds: ["gemini"],
+    readerAgentLabels: ["Gemini"],
     validation: {
       status: "warning" as const,
       messages: [
@@ -142,78 +139,6 @@ const candidates = [
     warnings: [],
   },
 ] satisfies DiscoveryCandidate[];
-
-const fixtureLocations: DiscoveryLocation[] = [
-  {
-    locationId: "fixture:loc:0",
-    rootId: null,
-    displayPath: "/Users/demo/.claude/skills",
-    agentIds: ["claude-code"],
-    agentLabels: ["Claude Code"],
-    state: "scanned",
-    detail: null,
-    limitReached: false,
-  },
-  {
-    locationId: "fixture:loc:1",
-    rootId: null,
-    displayPath: "/Users/demo/.codex/skills",
-    agentIds: ["codex"],
-    agentLabels: ["Codex"],
-    state: "scanned",
-    detail: null,
-    limitReached: false,
-  },
-  {
-    locationId: "fixture:loc:2",
-    rootId: null,
-    displayPath: "/Users/demo/.cursor/skills",
-    agentIds: ["cursor"],
-    agentLabels: ["Cursor"],
-    state: "unreadable",
-    detail: "Permission denied",
-    limitReached: false,
-  },
-  {
-    locationId: "fixture:loc:3",
-    rootId: "fixture-project",
-    displayPath: "/Users/demo/Projects/atlas",
-    agentIds: [],
-    agentLabels: [],
-    state: "scanned",
-    detail: null,
-    limitReached: true,
-  },
-];
-
-const fixtureExclusions: DiscoveryExclusion[] = [
-  {
-    name: ".git",
-    reason: "vcsMetadata",
-    matches: 3,
-    samplePath: "/Users/demo/Projects/atlas/.git",
-  },
-  {
-    name: "node_modules",
-    reason: "dependencyVendor",
-    matches: 14,
-    samplePath: "/Users/demo/Projects/atlas/node_modules",
-  },
-  {
-    name: "target",
-    reason: "buildOutput",
-    matches: 6,
-    samplePath: "/Users/demo/Projects/atlas/crates/target",
-  },
-];
-
-const fixtureWarnings: DiscoveryWarning[] = [
-  {
-    displayPath: "/Users/demo/Projects/atlas/locked",
-    message: "Permission denied",
-  },
-  { displayPath: null, message: "Symlink cycle skipped at /Users/demo/.codex" },
-];
 
 const runningProgress: DiscoveryProgress = {
   rootsTotal: 2,
@@ -414,9 +339,6 @@ export const fixtureDesktopClient: DesktopClient = {
         registryVersion: 1,
         progress: runningProgress,
         limitsReached: false,
-        locations: [],
-        exclusions: [],
-        warnings: [],
         candidates: [],
         totalCandidates: 0,
         hiddenDuplicates: 0,
@@ -438,9 +360,6 @@ export const fixtureDesktopClient: DesktopClient = {
       registryVersion: 1,
       progress: finishedProgress,
       limitsReached: true,
-      locations: fixtureLocations,
-      exclusions: fixtureExclusions,
-      warnings: fixtureWarnings,
       candidates: visible.slice(offset, offset + limit),
       totalCandidates: visible.length,
       hiddenDuplicates: hidden.length,

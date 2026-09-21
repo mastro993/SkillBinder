@@ -2,4 +2,4 @@
 import type { CandidateDuplicate } from "./CandidateDuplicate";
 import type { ValidationSummary } from "./ValidationSummary";
 
-export type DiscoveryCandidate = { candidateId: string, locationId: string, displayPath: string, slug: string, name: string | null, description: string | null, readerAgentIds: Array<string>, validation: ValidationSummary, duplicate: CandidateDuplicate, fileCount: number, totalBytes: string, linked: boolean, warnings: Array<string>, };
+export type DiscoveryCandidate = { candidateId: string, displayPath: string, slug: string, name: string | null, description: string | null, readerAgentIds: Array<string>, readerAgentLabels: Array<string>, validation: ValidationSummary, duplicate: CandidateDuplicate, fileCount: number, totalBytes: string, linked: boolean, warnings: Array<string>, };

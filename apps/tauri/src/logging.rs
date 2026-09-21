@@ -14,6 +14,7 @@ use std::{
     path::Path,
     sync::{Arc, Mutex, Once},
 };
+use tracing::Subscriber;
 use tracing_subscriber::{
     Layer, filter::LevelFilter, fmt, fmt::MakeWriter, layer::SubscriberExt, registry,
     util::SubscriberInitExt,
@@ -43,6 +44,14 @@ impl Drop for LoggingGuard {
 }
 
 pub fn install(paths: &AppPaths, home: &Path) -> LoggingGuard {
+    let sink = open_sink(paths, home);
+    let _ = subscriber(Arc::clone(&sink)).try_init();
+    install_panic_hook();
+
+    LoggingGuard { sink }
+}
+
+fn open_sink(paths: &AppPaths, home: &Path) -> Arc<Mutex<Option<LogSink>>> {
     let sink = Arc::new(Mutex::new(None));
     match RotatingLog::open(paths.logs(), RotationPolicy::default()) {
         Ok(writer) => {
@@ -55,19 +64,18 @@ pub fn install(paths: &AppPaths, home: &Path) -> LoggingGuard {
             eprintln!("skillbinder: cannot open the log file, every record is dropped: {error}");
         }
     }
+    sink
+}
 
-    let layer = fmt::layer()
-        .json()
-        .flatten_event(true)
-        .with_ansi(false)
-        .with_writer(SinkMakeWriter {
-            sink: Arc::clone(&sink),
-        })
-        .with_filter(level_filter());
-    let _ = registry().with(layer).try_init();
-    install_panic_hook();
-
-    LoggingGuard { sink }
+fn subscriber(sink: Arc<Mutex<Option<LogSink>>>) -> impl Subscriber + Send + Sync + 'static {
+    registry().with(
+        fmt::layer()
+            .json()
+            .flatten_event(true)
+            .with_ansi(false)
+            .with_writer(SinkMakeWriter { sink })
+            .with_filter(level_filter()),
+    )
 }
 
 pub(crate) fn record_startup_failure(error: &AppOpenError) {
@@ -220,12 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn installed_records_reach_the_file_as_redacted_json() {
-        assert!(
-            !tracing::dispatcher::has_been_set(),
-            "another test installed a global subscriber first, so this test can no longer prove install"
-        );
-
+    fn records_written_through_the_installed_sink_are_redacted_json() {
         let dir = TempDir::new("logging-install");
         let home = dir.path().join("home");
         let paths = AppPaths::new(
@@ -236,15 +239,23 @@ mod tests {
         paths
             .create_base_directories()
             .expect("create base directories");
-        let guard = install(&paths, &home);
+        // The process-global install is not this test's subject: another test may own the global
+        // subscriber, so the sink and the layer are driven directly here.
+        let sink = open_sink(&paths, &home);
+        let guard = LoggingGuard {
+            sink: Arc::clone(&sink),
+        };
+        install_panic_hook();
 
-        let secret = format!("{}/library/notes.md", home.display());
-        tracing::info!(event = "startup", path = %secret, "startup finished");
-        record_startup_failure(&AppOpenError::Registry(RegistryError::Json(
-            "free text that must not be logged".into(),
-        )));
-        let panicked = std::panic::catch_unwind(|| panic!("payload that must not be logged"));
-        assert!(panicked.is_err(), "the panic must still unwind");
+        tracing::subscriber::with_default(subscriber(sink), || {
+            let secret = format!("{}/library/notes.md", home.display());
+            tracing::info!(event = "startup", path = %secret, "startup finished");
+            record_startup_failure(&AppOpenError::Registry(RegistryError::Json(
+                "free text that must not be logged".into(),
+            )));
+            let panicked = std::panic::catch_unwind(|| panic!("payload that must not be logged"));
+            assert!(panicked.is_err(), "the panic must still unwind");
+        });
         guard.flush();
 
         let written =

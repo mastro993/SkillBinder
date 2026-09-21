@@ -649,15 +649,15 @@ For each selected project-search root, inspect only the project skill directorie
 
 Stop payload traversal at a discovered skill root so supporting files are not treated as unrelated projects. Where an adapter supports category folders, allow bounded nesting before `SKILL.md` is found. A nested project or monorepo member is searched when the user registers it as its own root. Never descend into an unregistered folder looking for one.
 
-Default project traversal excludes `.git`, `node_modules`, build outputs, caches, dependency vendors, app data, and mount boundaries. Explain exclusions. Explicit skill roots override project-search exclusions. Do not apply project `.gitignore` rules as a silent reason to miss installed skill directories.
+Default project traversal excludes `.git`, `node_modules`, build outputs, caches, dependency vendors, app data, and mount boundaries. Record every exclusion with its reason in the local log. Explicit skill roots override project-search exclusions. Do not apply project `.gitignore` rules as a silent reason to miss installed skill directories.
 
 Never scan the entire home directory or disk just because a default project directory is not found. A user can select a broad root, but the UI must show its scope and allow cancellation.
 
 ### 10.4 Results and incremental work
 
-Return scan results in pages. Each candidate includes location ID, display path, agent-reader IDs, link status, candidate name, validation status, size summary, duplicate status, and warnings.
+Return scan results in pages. Each candidate includes display path, agent-reader IDs and labels, link status, candidate name, validation status, size summary, duplicate status, and warnings. The screen shows candidates and progress only. Keep the scan report, the locations walked, the folders excluded on purpose, and the paths that could not be read, out of the screen and in the local log.
 
-An unreadable directory is an error entry, not a reason to abort the whole scan. Show partial completion and limits reached. Cancellation retains results already found but does not import them.
+An unreadable directory is a logged finding, not a reason to abort the whole scan. Show partial completion and limits reached. Cancellation retains results already found but does not import them.
 
 Use file metadata to reduce work during ordinary refresh. Hash selected candidates before import. A matching timestamp is not proof of unchanged content for destructive actions.
 
