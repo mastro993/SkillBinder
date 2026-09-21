@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, BookOpen, Settings, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScanActivity } from "@/features/discovery/components/scan-activity";
 
 export function AppShell({ children }: PropsWithChildren) {
   const path = useRouterState({ select: (state) => state.location.pathname });
@@ -34,6 +35,7 @@ export function AppShell({ children }: PropsWithChildren) {
             <Settings size={18} /> Settings
           </Link>
         </nav>
+        <ScanActivity />
         <p className="sidebar-note">Local-first · No account</p>
       </aside>
       <ScrollArea className="main-content">

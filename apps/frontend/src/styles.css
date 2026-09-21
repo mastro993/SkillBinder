@@ -378,6 +378,19 @@ p {
   background: #dce3d7;
   color: #253d2b;
 }
+.scan-activity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 8px 8px;
+  color: #4e743c;
+  font-size: 11px;
+}
+.scan-activity a {
+  color: #4e743c;
+  font-weight: 700;
+}
 .sidebar-note {
   margin: auto 8px 0;
   color: #7c857e;
