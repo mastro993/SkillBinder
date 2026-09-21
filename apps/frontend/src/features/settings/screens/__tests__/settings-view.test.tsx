@@ -7,11 +7,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BootstrapResponse, RootView } from "@/generated";
-import type { DesktopClient } from "@/native/client";
-import * as native from "@/native/client";
+import type { BootstrapResponse, RootView } from "@/types";
+import type { DesktopClient } from "@/commands/client";
+import * as native from "@/commands/client";
 import { stubDesktopClient } from "@/test/stub-client";
-import { SettingsView } from "./settings-view";
+import { SettingsView } from "../settings-view";
 
 const bootstrap: BootstrapResponse = {
   appVersion: "fixture",

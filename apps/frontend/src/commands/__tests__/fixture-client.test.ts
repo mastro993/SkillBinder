@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixtureDesktopClient } from "./fixture-client";
+import { fixtureDesktopClient } from "../fixture-client";
 
 describe("fixture desktop client discovery", () => {
   it("mints a grant, registers it as a mutable root, and removes it", async () => {

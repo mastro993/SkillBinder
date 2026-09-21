@@ -31,7 +31,7 @@ import type {
   SkillSource,
   ValidationMessage,
   ValidationSummary,
-} from "@/generated";
+} from "@/types";
 
 const errorCodeSchema = z.enum([
   "validationFailed",

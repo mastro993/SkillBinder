@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { DiscoveryCandidate, ImportPlanResponse } from "@/generated";
+import type { DiscoveryCandidate, ImportPlanResponse } from "@/types";
 import { Button } from "@/components/ui/button";
-import { getDesktopClient } from "@/native/client";
+import { getDesktopClient } from "@/commands/client";
 import {
   candidatePageLimit,
   invalidateLibraryAfterImport,
@@ -10,18 +10,18 @@ import {
   scanResultsQuery,
   useCancelScan,
   useStartScan,
-} from "../../queries";
+} from "../hooks/queries";
 import {
   pagingState,
   selectAllSelectable,
   selectionCounts,
   summarizeScanPhase,
   toggleSelection,
-} from "../../model";
-import { DiscoveryCandidateTable } from "./discovery-candidate-table";
-import { DiscoveryDiagnostics } from "./discovery-diagnostics";
-import { DiscoveryScanStatus } from "./discovery-scan-status";
-import { ImportPreviewDialog } from "../dialogs/import-preview-dialog";
+} from "../lib/model";
+import { DiscoveryCandidateTable } from "../components/discovery-candidate-table";
+import { DiscoveryDiagnostics } from "../components/discovery-diagnostics";
+import { DiscoveryScanStatus } from "../components/discovery-scan-status";
+import { ImportPreviewDialog } from "../components/import-preview-dialog";
 
 export function DiscoveryView() {
   const roots = useQuery(rootsQuery);

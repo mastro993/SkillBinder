@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import type { RootView } from "@/generated";
+import type { RootView } from "@/types";
 import { Button } from "@/components/ui/button";
 
 export function DiscoveryRootsPanel({

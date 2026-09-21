@@ -4,8 +4,8 @@ import type {
   DiscoveryExclusion,
   DiscoveryLocation,
   DiscoveryWarning,
-} from "@/generated";
-import { DiscoveryDiagnostics } from "./discovery-diagnostics";
+} from "@/types";
+import { DiscoveryDiagnostics } from "../discovery-diagnostics";
 
 afterEach(cleanup);
 

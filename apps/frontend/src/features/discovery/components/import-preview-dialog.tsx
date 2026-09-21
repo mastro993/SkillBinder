@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import type { ImportPlanResponse } from "@/generated";
+import type { ImportPlanResponse } from "@/types";
 import { Button } from "@/components/ui/button";
 
 const validationLabels = {

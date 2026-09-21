@@ -11,11 +11,11 @@ import type {
   DiscoveryCandidate,
   DiscoveryResultsResponse,
   RootView,
-} from "@/generated";
-import type { DesktopClient } from "@/native/client";
-import * as native from "@/native/client";
+} from "@/types";
+import type { DesktopClient } from "@/commands/client";
+import * as native from "@/commands/client";
 import { stubDesktopClient } from "@/test/stub-client";
-import { DiscoveryView } from "./discovery-view";
+import { DiscoveryView } from "../discovery-view";
 
 const root: RootView = {
   rootId: "root-1",

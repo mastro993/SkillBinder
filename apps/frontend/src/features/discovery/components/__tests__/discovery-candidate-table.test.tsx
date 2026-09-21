@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DiscoveryCandidate } from "@/generated";
-import { pagingState } from "../../model";
-import { DiscoveryCandidateTable } from "./discovery-candidate-table";
+import type { DiscoveryCandidate } from "@/types";
+import { pagingState } from "../../lib/model";
+import { DiscoveryCandidateTable } from "../discovery-candidate-table";
 
 afterEach(cleanup);
 

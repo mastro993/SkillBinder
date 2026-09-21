@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BootstrapResponse } from "@/generated";
-import type { DesktopClient } from "@/native/client";
-import * as native from "@/native/client";
+import type { BootstrapResponse } from "@/types";
+import type { DesktopClient } from "@/commands/client";
+import * as native from "@/commands/client";
 import { stubDesktopClient } from "@/test/stub-client";
-import { LibraryView } from "./library-view";
+import { LibraryView } from "../library-view";
 
 afterEach(() => {
   cleanup();

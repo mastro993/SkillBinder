@@ -3,8 +3,8 @@ import type {
   DiscoveryLocation,
   DiscoveryWarning,
   LocationState,
-} from "@/generated";
-import { summarizeExclusions } from "../../model";
+} from "@/types";
+import { summarizeExclusions } from "../lib/model";
 
 const locationStateLabels = {
   scanned: "Scanned",

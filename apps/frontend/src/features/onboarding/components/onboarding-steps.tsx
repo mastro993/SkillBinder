@@ -6,7 +6,7 @@ import {
   LockKeyhole,
   RefreshCw,
 } from "lucide-react";
-import type { BootstrapResponse, OnboardingStep } from "@/generated";
+import type { BootstrapResponse, OnboardingStep } from "@/types";
 import { StatusCard } from "@/components/feedback/status-card";
 import { Button } from "@/components/ui/button";
 

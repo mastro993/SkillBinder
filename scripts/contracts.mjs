@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const task = process.argv[2];
-const generated = path.resolve("apps/frontend/src/generated");
+const generated = path.resolve("apps/frontend/src/types");
 
 function snapshot() {
   return new Map(

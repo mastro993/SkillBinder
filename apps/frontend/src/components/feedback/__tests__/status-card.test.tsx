@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { StatusCard } from "./status-card";
+import { StatusCard } from "../status-card";
 
 describe("StatusCard", () => {
   it("shows a repair instruction for a failed prerequisite", () => {

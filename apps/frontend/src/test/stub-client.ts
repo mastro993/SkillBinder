@@ -1,4 +1,4 @@
-import type { DesktopClient } from "@/native/client";
+import type { DesktopClient } from "@/commands/client";
 
 function unstubbed(method: keyof DesktopClient) {
   return () => {

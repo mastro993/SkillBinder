@@ -1,3 +1,4 @@
+import { Result } from "@praha/byethrow";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   BootstrapResponse,
@@ -23,7 +24,7 @@ import type {
   RootsUpdateRequest,
   RootsUpdateResponse,
   UpdateOnboardingProgressRequest,
-} from "@/generated";
+} from "@/types";
 import {
   bootstrapResponseSchema,
   completeOnboardingResponseSchema,
@@ -56,8 +57,6 @@ type IpcRequest =
   | DiscoveryCancelRequest
   | ImportPrepareRequest
   | ImportApplyRequest;
-
-type IpcArguments = { request: IpcRequest };
 
 export class NativeCommandError extends Error {
   constructor(
@@ -182,17 +181,15 @@ class TauriDesktopClient implements DesktopClient {
 async function invokeCommand<T>(
   command: string,
   valueSchema: ZodType<T>,
-  args?: IpcArguments,
+  args?: { request: IpcRequest },
 ): Promise<T> {
-  let raw: JsonValue;
-  try {
-    raw = await invoke<JsonValue>(command, args);
-  } catch (cause: unknown) {
-    throw new NativeCommandError(
-      describeRejection(cause),
-      "transport.rejected",
-    );
-  }
+  const raw = await Result.unwrap(
+    Result.try({
+      try: () => invoke<JsonValue>(command, args),
+      catch: (cause) =>
+        new NativeCommandError(describeRejection(cause), "transport.rejected"),
+    }),
+  );
   const parsed = parseCommandResult(raw, valueSchema);
   if (parsed.kind === "value") return parsed.value;
   if (parsed.kind === "failure") {

@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { bootstrapQuery } from "@/app/bootstrap-query";
+import { bootstrapQuery } from "@/lib/bootstrap-query";
+import { DiscoveryRootsPanel } from "@/features/discovery/components/discovery-roots-panel";
 import {
-  DiscoveryRootsPanel,
   rootsQuery,
   useAddRoot,
   useRemoveRoot,
   useUpdateRoot,
-} from "@/features/discovery";
+} from "@/features/discovery/hooks/queries";
 
 export function SettingsView() {
   const bootstrap = useQuery(bootstrapQuery);

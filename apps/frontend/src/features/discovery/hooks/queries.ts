@@ -3,8 +3,8 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { getDesktopClient } from "@/native/client";
-import { queryClient } from "@/app/query";
+import { getDesktopClient } from "@/commands/client";
+import { queryClient } from "@/lib/query-client";
 
 /** Candidates requested per results page; the shell rejects a page above 500. */
 export const candidatePageLimit = 50;
@@ -55,11 +55,11 @@ export function useAddRoot() {
   });
 }
 
-export type RootChange = {
+export interface RootChange {
   rootId: string;
   label: string;
   enabled: boolean;
-};
+}
 
 export function useUpdateRoot() {
   const cache = useQueryClient();

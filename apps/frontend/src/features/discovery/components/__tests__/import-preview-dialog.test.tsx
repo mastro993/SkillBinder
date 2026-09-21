@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ImportPlanResponse } from "@/generated";
-import { ImportPreviewDialog } from "./import-preview-dialog";
+import type { ImportPlanResponse } from "@/types";
+import { ImportPreviewDialog } from "../import-preview-dialog";
 
 afterEach(cleanup);
 const plan: ImportPlanResponse = {

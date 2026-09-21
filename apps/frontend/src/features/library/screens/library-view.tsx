@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BookOpen, Plus } from "lucide-react";
-import { bootstrapQuery } from "@/app/bootstrap-query";
+import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { Button } from "@/components/ui/button";
-import { libraryListQuery } from "../queries";
+import { libraryListQuery } from "../hooks/queries";
 
 export function LibraryView() {
   const bootstrap = useQuery(bootstrapQuery);

@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Boundaries, stepAfterRevalidation } from "./onboarding-steps";
+import {
+  Boundaries,
+  stepAfterRevalidation,
+} from "../../components/onboarding-steps";
 
 describe("onboarding boundaries", () => {
   it("explains portable and machine-local ownership", () => {

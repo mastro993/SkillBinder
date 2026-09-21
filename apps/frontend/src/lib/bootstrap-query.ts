@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { getDesktopClient } from "@/native/client";
+import { getDesktopClient } from "@/commands/client";
 
 export const bootstrapQuery = queryOptions({
   queryKey: ["system", "bootstrap"],

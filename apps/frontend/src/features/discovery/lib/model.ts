@@ -4,30 +4,12 @@ import type {
   DiscoveryProgress,
   ExclusionReason,
   ScanPhase,
-} from "@/generated";
-
-export type PagingState = {
-  page: number;
-  pages: number;
-  start: number;
-  end: number;
-  previousOffset: number | null;
-  nextOffset: number | null;
-};
-
-export type ExclusionSummary = {
-  reason: ExclusionReason;
-  label: string;
-  matches: number;
-  names: string[];
-};
-
-export type ScanSummary = {
-  label: string;
-  detail: string;
-  importable: boolean;
-  cancellable: boolean;
-};
+} from "@/types";
+import type {
+  ExclusionSummary,
+  PagingState,
+  ScanSummary,
+} from "../types/model";
 
 const exclusionReasonLabels = {
   vcsMetadata: "Version-control metadata",

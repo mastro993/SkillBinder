@@ -12,7 +12,7 @@ import type {
   OnboardingStep,
   RootView,
   ValidationSummary,
-} from "@/generated";
+} from "@/types";
 import type { DesktopClient } from "./client";
 import { onboardingProgressSchema } from "./contracts";
 
@@ -241,12 +241,16 @@ const pickableFolders = [
 let roots: RootView[] = [];
 let grantSequence = 0;
 let runSequence = 0;
-type FixtureGrant = {
+interface FixtureGrant {
   grantId: string;
   displayPath: string;
   resolvedPath: string;
-};
-type FixtureRun = { scanId: string; polls: number; cancelled: boolean };
+}
+interface FixtureRun {
+  scanId: string;
+  polls: number;
+  cancelled: boolean;
+}
 const pendingGrants = new Map<string, FixtureGrant>();
 const runs = new Map<string, FixtureRun>();
 

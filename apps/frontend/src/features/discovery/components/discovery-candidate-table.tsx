@@ -1,7 +1,8 @@
-import type { DiscoveryCandidate } from "@/generated";
+import type { DiscoveryCandidate } from "@/types";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { pagingLabel, type PagingState } from "../../model";
+import type { PagingState } from "../types/model";
+import { pagingLabel } from "../lib/model";
 
 const statusLabels = {
   valid: "Valid",

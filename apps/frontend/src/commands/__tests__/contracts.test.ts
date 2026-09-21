@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { onboardingProgressSchema, parseCommandResult } from "./contracts";
+import { onboardingProgressSchema, parseCommandResult } from "../contracts";
 
 describe("native response validation", () => {
   it("names the field that breaks a success payload", () => {

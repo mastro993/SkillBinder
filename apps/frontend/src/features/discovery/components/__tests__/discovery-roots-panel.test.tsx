@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RootView } from "@/generated";
-import { DiscoveryRootsPanel } from "./discovery-roots-panel";
+import type { RootView } from "@/types";
+import { DiscoveryRootsPanel } from "../discovery-roots-panel";
 
 afterEach(cleanup);
 

@@ -1,18 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "@tanstack/react-router";
-import type { OnboardingStep } from "@/generated";
-import { bootstrapQuery } from "@/app/bootstrap-query";
-import { queryClient } from "@/app/query";
+import type { OnboardingStep } from "@/types";
+import { bootstrapQuery } from "@/lib/bootstrap-query";
+import { queryClient } from "@/lib/query-client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getDesktopClient } from "@/native/client";
+import { getDesktopClient } from "@/commands/client";
 import {
   OnboardingStepContent,
   onboardingSteps,
   stepAfterRevalidation,
   stepSubtitle,
   stepTitle,
-} from "./onboarding-steps";
+} from "../components/onboarding-steps";
 
 export function OnboardingView() {
   const navigate = useNavigate();

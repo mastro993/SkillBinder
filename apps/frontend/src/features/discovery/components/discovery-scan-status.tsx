@@ -1,6 +1,6 @@
-import type { DiscoveryProgress, ScanPhase } from "@/generated";
+import type { DiscoveryProgress, ScanPhase } from "@/types";
 import { Button } from "@/components/ui/button";
-import { progressSummary, summarizeScanPhase } from "../../model";
+import { progressSummary, summarizeScanPhase } from "../lib/model";
 
 export function DiscoveryScanStatus({
   phase,

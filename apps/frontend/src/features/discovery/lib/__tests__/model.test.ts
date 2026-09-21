@@ -3,7 +3,7 @@ import type {
   DiscoveryCandidate,
   DiscoveryExclusion,
   DiscoveryProgress,
-} from "@/generated";
+} from "@/types";
 import {
   pagingLabel,
   pagingState,
@@ -13,7 +13,7 @@ import {
   summarizeExclusions,
   summarizeScanPhase,
   toggleSelection,
-} from "./model";
+} from "../model";
 
 const candidates: DiscoveryCandidate[] = [
   {

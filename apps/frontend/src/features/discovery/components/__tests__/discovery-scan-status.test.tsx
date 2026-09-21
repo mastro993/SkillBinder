@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DiscoveryProgress, ScanPhase } from "@/generated";
-import { DiscoveryScanStatus } from "./discovery-scan-status";
+import type { DiscoveryProgress, ScanPhase } from "@/types";
+import { DiscoveryScanStatus } from "../discovery-scan-status";
 
 afterEach(cleanup);
 
