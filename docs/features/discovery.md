@@ -233,15 +233,15 @@ skip it too. The name match is exact and case-sensitive, applies to both directo
 runs before any metadata is read, so a rule must be cheap and unambiguous. Extend
 `crates/core/src/discovery/scan.rs` tests with a tree that proves the folder is skipped and the
 exclusion is aggregated under its reason. A new `ExclusionReason` variant is a wire change: add it
-to the enum, to the transport DTO in `apps/tauri/src/transport.rs`, regenerate the TypeScript, and
-add its label to `exclusionReasonLabels` in
-`apps/frontend/src/features/discovery/model.ts`.
+to the enum, to the transport DTO in `apps/tauri/src/transport/discovery.rs`, regenerate the
+TypeScript, and add its label to `exclusionReasonLabels` in
+`apps/frontend/src/features/discovery/lib/model.ts`.
 
 ### Add a root
 
 At runtime a root is registered through `roots_pick` and `roots_register`, and there is nothing to
 extend: the picker mints the grant and the store persists the row. To add a new _source_ of roots,
-follow the same shape: build a `ScanInput` in `apps/tauri/src/features/discovery.rs::scan_inputs`
+follow the same shape: build a `ScanInput` in `apps/tauri/src/commands/discovery.rs::scan_inputs`
 with its own `Containment` and `ScanPolicy`, persist any machine-local state through `StateStore`,
 and keep the path out of IPC. Never add a command that accepts a raw path, and never grow a branch
 inside the engine for one source: a policy and a containment are the extension points.

@@ -18,8 +18,9 @@ apps/
 ├── frontend/   Vite, React, TanStack Router, TanStack Query, Tailwind
 └── tauri/      Tauri shell, typed IPC DTOs, command adapters
 crates/
+├── app/        Context initialization: the service graph and session state
 ├── core/       Domain rules, agent registry, payload validation, use cases
-├── db/         SQLite-owned machine state
+├── db/         SQLite-owned machine state: Diesel schema, repositories, migrations
 └── platform/   Paths, process lock, system Git, filesystem, library storage
 ```
 
@@ -30,10 +31,14 @@ command exists, and no command accepts a raw path: a picked folder becomes a sho
 single-use grant that registration consumes.
 
 Frontend components live in `apps/frontend/src/components`, shadcn-style primitives in
-`apps/frontend/src/components/ui`, and feature UI in
-`apps/frontend/src/features/<feature>/components`. Do not add a shared UI package. Add generated
-primitives to `components/ui`; put custom cross-feature presentation in `components`; put
-feature-specific views beside their feature.
+`apps/frontend/src/components/ui`, shared command plumbing in `apps/frontend/src/commands`, shared
+types in `apps/frontend/src/types`, and primitives and utilities in `apps/frontend/src/lib`. A
+feature owns a whole directory under `apps/frontend/src/features/<feature>`: route-level screens in
+`screens/`, private UI in `components/`, types in `types/`, pure helpers in `lib/`, React hooks in
+`hooks/`, and tests in the `__tests__/` folder of the directory that owns the code. Do not add a
+shared UI package. Add generated primitives to `components/ui`; put custom cross-feature
+presentation in `components`. `apps/frontend/src/routeTree.gen.ts` is generated from
+`apps/frontend/src/routes` by `pnpm --filter frontend generate-routes`.
 
 ## Setup
 
@@ -75,7 +80,7 @@ Rust crates declare their lint levels in the `[workspace.lints]` table of `Cargo
 `pnpm lint:rust` runs `cargo clippy` over every target with warnings denied, so a redundant clone or
 a needless collection fails the gate rather than the review.
 
-Rust DTOs in `apps/tauri/src/transport.rs` generate TypeScript into `apps/frontend/src/generated`.
+Rust DTOs in `apps/tauri/src/transport/` generate TypeScript into `apps/frontend/src/types`.
 `pnpm contracts:check` fails when regeneration changes committed output.
 
 ```sh

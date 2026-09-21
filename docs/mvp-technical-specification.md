@@ -382,28 +382,24 @@ apps/frontend/src/
 │       └── empty-state.test.tsx
 └── features/
     └── deployment/
+        ├── screens/                # route-level components imported by src/routes
+        │   └── deployment-review.tsx
         ├── components/             # deployment-specific UI
-        │   ├── views/
-        │   │   ├── deployment-review.tsx
-        │   │   └── deployment-review.test.tsx
-        │   └── dialogs/
-        │       └── deployment-confirm-dialog.tsx
-        ├── hooks/
-        ├── queries/
-        ├── commands/
-        ├── model/
-        ├── validation/
-        ├── tests/                  # tests that cover multiple feature modules
-        └── index.ts                # feature public API
+        │   └── deployment-confirm-dialog.tsx
+        ├── hooks/                  # React hooks, including query definitions
+        ├── commands/               # feature-specific command wrappers, when needed
+        ├── types/                  # zod schemas plus inferred/domain/UI types
+        ├── lib/                    # pure helpers
+        └── __tests__/              # tests that span this feature's folders
 ```
 
-Store feature-specific screens, dialogs, forms, lists, and other rendered feature UI under `apps/frontend/src/features/{feature}/components`. Add purpose-based subfolders such as `views/` or `dialogs/` when useful. Store shared custom components under `apps/frontend/src/components`, directly or in purpose-based subfolders such as `layout/` and `feedback/`. Do not add a `components/shared` wrapper or a parallel `components/{feature}` tree. Do not put feature-specific components in `src/components/ui`, anywhere else under the shared `src/components` root, or a library package.
+Store route-level feature screens under `apps/frontend/src/features/{feature}/screens` and the rest of the rendered feature UI under `apps/frontend/src/features/{feature}/components`, adding purpose-based subfolders such as `dialogs/` when useful. Store shared custom components under `apps/frontend/src/components`, directly or in purpose-based subfolders such as `layout/` and `feedback/`. Do not add a `components/shared` wrapper or a parallel `components/{feature}` tree. Do not put feature-specific components in `src/components/ui`, anywhere else under the shared `src/components` root, or a library package.
 
-Keep hooks, query definitions, commands, models, and validation beside `components/` under the same `src/features/{feature}` directory. Feature components import their own feature modules through internal paths. They must not import their own feature's public barrel if that creates a dependency cycle. Route entries and other features use the feature's public API. Keep local visual state in the component when it has no feature-level use. Thin route entries and app bootstrap providers remain in `src/app`; they must not become a second location for custom view implementations. For example, an app-shell component belongs in `src/components/layout` and receives feature content through props; the app layer composes it with feature views.
+Keep hooks, command wrappers, types, and pure helpers in their own folders under the same `src/features/{feature}` directory. Feature components import their own feature modules through internal paths. Route files import the feature screen directly; do not add a per-feature barrel file. Keep local visual state in the component when it has no feature-level use. Thin route entries stay in `src/routes`, the router instance and its type registration sit in `src/router.tsx`, and shared providers live in `src/lib`; none of them may become a second location for custom view implementations. For example, an app-shell component belongs in `src/components/layout` and receives feature content through props; the app layer composes it with feature views.
 
-Keep shadcn configuration in `apps/frontend/components.json`. Set its component aliases to the app-local `@/components` and `@/components/ui` paths. Resolve the `@/` alias to `apps/frontend/src` in both TypeScript and Vite. Configure any generated helper imports to use app-local files, not a UI workspace package. Generator aliases do not change feature ownership: move generated feature-specific components into `src/features/{feature}/components` before committing them. Keep Tailwind entry styles and theme tokens under `src/app/styles`.
+Keep shadcn configuration in `apps/frontend/components.json`. Set its component aliases to the app-local `@/components` and `@/components/ui` paths. Resolve the `@/` alias to `apps/frontend/src` in both TypeScript and Vite. Configure any generated helper imports to use app-local files, not a UI workspace package. Generator aliases do not change feature ownership: move generated feature-specific components into `src/features/{feature}/components` before committing them. Keep Tailwind entry styles and theme tokens in `apps/frontend/src/styles.css`.
 
-Use a public API for each feature, with explicit exports for views and other modules that external consumers need. Avoid a root barrel that exports every component and feature. Import shared custom components and shadcn primitives from their individual modules. Put component unit tests beside the component they test. Keep hook, query, and model unit tests beside their modules. Use a feature-local `tests/` folder for tests that cover multiple feature modules.
+Import every module by its concrete file path. Do not add barrel files, and never a root barrel that exports every component and feature. Import shared custom components and shadcn primitives from their individual modules. Put a test in the `__tests__/` folder of the directory that owns the code under test, and give a test that spans a feature's folders the feature-level `__tests__/`.
 
 A Rust core feature uses this pattern:
 
@@ -498,7 +494,6 @@ Use one local database with `foreign_keys=ON`, a bounded busy timeout, WAL after
 
 | Table or table group                | Required fields and role                                                                                 |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `schema_migrations`                 | Applied local schema versions                                                                            |
 | `device_settings`                   | Onboarding state, theme, local limits, retention preferences, optional approved Git executable path      |
 | `scan_roots`                        | ID, native path encoding, display path, grant, limits, excludes                                          |
 | `projects`                          | ID, root path, display label, availability, last scan                                                    |
