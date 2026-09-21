@@ -619,7 +619,7 @@ impl Engine<'_> {
         let mut discovered: Vec<usize> = Vec::new();
         let mut remaining = input.policy.limits.max_entries;
         let mut limit_reached = false;
-        let mut stack = vec![(resolved.clone(), 0_usize, Vec::<PathBuf>::new(), false)];
+        let mut stack = vec![(resolved, 0_usize, Vec::<PathBuf>::new(), false)];
         while let Some((directory, depth, chain, linked)) = stack.pop() {
             self.progress.emit(Some(directory.clone()));
             if self.cancel.load(Ordering::Relaxed) {

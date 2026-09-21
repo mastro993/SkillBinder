@@ -86,10 +86,7 @@ impl AppState {
             Err(error) => return Err(error.into()),
         };
         Ok(Self {
-            bootstrap: BootstrapService::new(
-                Arc::new(LocalEnvironment::new(paths.clone())),
-                store.clone(),
-            ),
+            bootstrap: BootstrapService::new(Arc::new(LocalEnvironment::new(paths.clone())), store),
             onboarding_write: Mutex::new(()),
             paths,
             home,

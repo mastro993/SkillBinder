@@ -319,7 +319,7 @@ fn main() {
     }
 
     let imports = ImportService {
-        source: source.clone(),
+        source,
         plans: store.clone(),
         library: library.clone(),
         observations: store.clone(),
@@ -407,7 +407,7 @@ fn main() {
         true,
         ImportSnapshot {
             candidate_ids: vec![escape.candidate_id.clone()],
-            library_revision: revision.clone(),
+            library_revision: revision,
             allow_invalid_skills: true,
         },
     );

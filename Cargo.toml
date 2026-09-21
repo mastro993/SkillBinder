@@ -8,6 +8,16 @@ edition = "2024"
 license = "AGPL-3.0-only"
 rust-version = "1.96"
 
+[workspace.lints.rust]
+future_incompatible = "warn"
+nonstandard_style = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = 10 }
+redundant_clone = { level = "deny", priority = 9 }
+needless_collect = { level = "deny", priority = 9 }
+large_enum_variant = { level = "deny", priority = 9 }
+
 [workspace.dependencies]
 chrono = { version = "0.4.42", default-features = false, features = [
   "clock",

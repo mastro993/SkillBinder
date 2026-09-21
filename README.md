@@ -61,13 +61,19 @@ harnesses exist.
 
 ```sh
 pnpm lint
+pnpm lint:rust
 pnpm format:check
+pnpm format:check:rust
 pnpm typecheck
 pnpm contracts:check
 pnpm test
 pnpm test:rust
 pnpm test:integration
 ```
+
+Rust crates declare their lint levels in the `[workspace.lints]` table of `Cargo.toml`.
+`pnpm lint:rust` runs `cargo clippy` over every target with warnings denied, so a redundant clone or
+a needless collection fails the gate rather than the review.
 
 Rust DTOs in `apps/tauri/src/transport.rs` generate TypeScript into `apps/frontend/src/generated`.
 `pnpm contracts:check` fails when regeneration changes committed output.

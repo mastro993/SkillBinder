@@ -791,7 +791,7 @@ mod tests {
         let source = source();
         let library = Arc::new(FakeLibrary::default());
         let service = service(
-            source.clone(),
+            source,
             Arc::new(FakePlans::default()),
             library,
             Arc::new(FakeObservations::default()),

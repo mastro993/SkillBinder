@@ -792,6 +792,144 @@ mod tests {
         );
     }
 
+    fn codes(model: &PayloadModel) -> Vec<(ValidationCode, ValidationLevel)> {
+        let mut codes = model
+            .validation
+            .messages
+            .iter()
+            .map(|message| (message.code, message.level))
+            .collect::<Vec<_>>();
+        codes.sort_by_key(|(code, level)| (*code as u8, *level as u8));
+        codes
+    }
+
+    #[test]
+    fn mixed_payload_reports_every_entry_rule_and_builds_the_manifest() {
+        let mut source = FakeSource::valid_skill();
+        source.directory("/home/skill/assets");
+        source.file("/home/skill/assets/data.bin", b"data");
+        source.file("/home/skill/data.txt", b"second");
+        source.file("/home/skill/.git", b"ignored");
+        source.directory("/home/skill/RESERVED.");
+        source.directory("/home/skill/.claude-plugin");
+        source.file("/home/skill/.claude-plugin/plugin.json", b"{}");
+        source.symlink("/home/skill/outside", "/elsewhere/payload");
+        let model = inspect_payload(
+            Path::new("/home/skill"),
+            &source,
+            &ValidationLimits::default(),
+        )
+        .unwrap();
+        assert_eq!(model.validation.status, ValidationStatus::Blocked);
+        assert_eq!(model.name.as_deref(), Some("skill"));
+        assert_eq!(model.description.as_deref(), Some("test"));
+        assert_eq!(
+            codes(&model),
+            vec![
+                (ValidationCode::ReservedEntryName, ValidationLevel::Blocked),
+                (ValidationCode::ExternalSymlink, ValidationLevel::Blocked),
+                (
+                    ValidationCode::VcsMetadataExcluded,
+                    ValidationLevel::Warning
+                ),
+                (ValidationCode::PluginManifest, ValidationLevel::Blocked),
+            ]
+        );
+        assert!(model.warnings.is_empty());
+        let mut paths = model
+            .entries
+            .iter()
+            .map(|entry| (entry.path.clone(), entry.kind, entry.bytes))
+            .collect::<Vec<_>>();
+        paths.sort_by(|a, b| a.0.cmp(&b.0));
+        assert_eq!(
+            paths,
+            vec![
+                (".claude-plugin".to_owned(), ManifestKind::Directory, 0),
+                (
+                    ".claude-plugin/plugin.json".to_owned(),
+                    ManifestKind::File,
+                    2
+                ),
+                ("RESERVED.".to_owned(), ManifestKind::Directory, 0),
+                ("SKILL.md".to_owned(), ManifestKind::File, 43),
+                ("assets".to_owned(), ManifestKind::Directory, 0),
+                ("assets/data.bin".to_owned(), ManifestKind::File, 4),
+                ("data.txt".to_owned(), ManifestKind::File, 6),
+            ]
+        );
+        assert_eq!(
+            model.manifest.digest,
+            "sha256:e64e5e573a877751fe3f2587b4b61ffc09b8d0b97bc88162ff3bd15d56bf662c"
+        );
+    }
+
+    #[test]
+    fn header_rules_pin_each_validation_level() {
+        let mut source = FakeSource::default();
+        source.directory("/home/skill");
+        let long_name = format!("-{}--", "x".repeat(66));
+        source.file(
+            "/home/skill/SKILL.md",
+            format!("---\nname: {long_name}\ndescription:\n---\nbody\n").as_bytes(),
+        );
+        let model = inspect_payload(
+            Path::new("/home/skill"),
+            &source,
+            &ValidationLimits::default(),
+        )
+        .unwrap();
+        assert_eq!(model.validation.status, ValidationStatus::Invalid);
+        assert_eq!(
+            codes(&model),
+            vec![
+                (ValidationCode::NameMismatch, ValidationLevel::Invalid),
+                (ValidationCode::NameTooLong, ValidationLevel::Warning),
+                (ValidationCode::NameHyphenRule, ValidationLevel::Warning),
+                (ValidationCode::DescriptionMissing, ValidationLevel::Invalid),
+            ]
+        );
+    }
+
+    #[test]
+    fn file_byte_limit_blocks_the_payload_and_drops_the_manifest() {
+        let mut source = FakeSource::valid_skill();
+        source.file("/home/skill/big.bin", &[0_u8; 64]);
+        let limits = ValidationLimits {
+            file_bytes: 8,
+            ..ValidationLimits::default()
+        };
+        let model = inspect_payload(Path::new("/home/skill"), &source, &limits).unwrap();
+        assert_eq!(model.validation.status, ValidationStatus::Blocked);
+        assert_eq!(
+            codes(&model),
+            vec![(ValidationCode::FileLimitExceeded, ValidationLevel::Blocked)]
+        );
+        assert!(model.entries.is_empty());
+        assert!(model.manifest.entries.is_empty());
+    }
+
+    #[test]
+    fn entry_budget_blocks_the_payload_and_drops_the_manifest() {
+        let mut source = FakeSource::valid_skill();
+        source.file("/home/skill/first.bin", b"a");
+        source.file("/home/skill/second.bin", b"b");
+        let limits = ValidationLimits {
+            entries: 1,
+            ..ValidationLimits::default()
+        };
+        let model = inspect_payload(Path::new("/home/skill"), &source, &limits).unwrap();
+        assert_eq!(model.validation.status, ValidationStatus::Blocked);
+        assert_eq!(
+            codes(&model),
+            vec![(
+                ValidationCode::PayloadLimitExceeded,
+                ValidationLevel::Blocked
+            )]
+        );
+        assert!(model.manifest.entries.is_empty());
+    }
+
     #[test]
     fn normalized_path_collision_is_blocked() {
         let mut source = FakeSource::valid_skill();

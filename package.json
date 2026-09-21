@@ -9,8 +9,10 @@
     "dev:frontend": "pnpm --filter @skillbinder/frontend dev:fixture",
     "build": "node scripts/run.mjs build",
     "lint": "oxlint",
+    "lint:rust": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
+    "format:check:rust": "cargo fmt --all --check",
     "typecheck": "pnpm --filter @skillbinder/frontend typecheck",
     "contracts:generate": "node scripts/contracts.mjs generate",
     "contracts:check": "node scripts/contracts.mjs check",
@@ -21,7 +23,7 @@
     "test:integration": "cargo test --workspace --tests",
     "test:e2e": "node scripts/pending-check.mjs desktop-e2e",
     "test:runtime": "node scripts/pending-check.mjs runtime-smoke",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm contracts:check && pnpm test && pnpm test:rust"
+    "verify": "pnpm format:check && pnpm format:check:rust && pnpm lint && pnpm lint:rust && pnpm typecheck && pnpm contracts:check && pnpm test && pnpm test:rust"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.83.0",
