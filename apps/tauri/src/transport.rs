@@ -227,15 +227,6 @@ contract! {
 
 contract! {
     #[serde(tag = "kind", rename_all_fields = "camelCase")]
-    pub enum CandidateLink {
-        Direct,
-        RootLink { resolved_path: String },
-        Unresolved { detail: String },
-    }
-}
-
-contract! {
-    #[serde(tag = "kind", rename_all_fields = "camelCase")]
     pub enum CandidateDuplicate {
         Unique,
         Identical { skill_id: String, slug: String },
@@ -251,7 +242,6 @@ contract! {
         pub name: Option<String>,
         pub description: Option<String>,
         pub reader_agent_ids: Vec<String>,
-        pub link: CandidateLink,
         pub validation: ValidationSummary,
         pub duplicate: CandidateDuplicate,
         pub file_count: u32,
@@ -262,12 +252,9 @@ contract! {
 
 contract! {
     pub struct DiscoveryScanResponse {
-        pub registry_agent_count: u32,
         pub registry_version: u32,
         pub locations: Vec<GlobalLocation>,
         pub candidates: Vec<DiscoveryCandidate>,
-        pub warnings: Vec<String>,
-        pub limits_reached: bool,
     }
 }
 
@@ -434,9 +421,6 @@ mod tests {
             name: Some("code-review".into()),
             description: Some("Reviews code.".into()),
             reader_agent_ids: vec!["claude-code".into()],
-            link: CandidateLink::RootLink {
-                resolved_path: "/data/skills/code-review".into(),
-            },
             validation: ValidationSummary {
                 status: ValidationStatus::Valid,
                 messages: vec![ValidationMessage {
@@ -454,8 +438,6 @@ mod tests {
         };
 
         let value = serde_json::to_value(&candidate).unwrap();
-        assert_eq!(value["link"]["kind"], "rootLink");
-        assert_eq!(value["link"]["resolvedPath"], "/data/skills/code-review");
         assert_eq!(value["duplicate"]["kind"], "identical");
         assert_eq!(value["fileCount"], 3);
         assert_eq!(value["totalBytes"], "2048");

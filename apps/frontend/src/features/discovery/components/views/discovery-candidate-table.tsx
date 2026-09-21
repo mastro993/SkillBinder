@@ -64,9 +64,6 @@ export function DiscoveryCandidateTable({
                   <span className="table-secondary">
                     {readers.join(", ") || "Unknown reader"}
                   </span>
-                  <span className="table-secondary">
-                    {linkLabel(candidate)}
-                  </span>
                 </td>
                 <td>
                   <span
@@ -102,13 +99,6 @@ export function DiscoveryCandidateTable({
       </table>
     </ScrollArea>
   );
-}
-
-function linkLabel(candidate: DiscoveryCandidate) {
-  if (candidate.link.kind === "direct") return "Direct location";
-  if (candidate.link.kind === "rootLink")
-    return `Root link → ${candidate.link.resolvedPath}`;
-  return `Unresolved link: ${candidate.link.detail}`;
 }
 
 function duplicateLabel(candidate: DiscoveryCandidate) {

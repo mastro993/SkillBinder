@@ -461,17 +461,6 @@ p {
   color: #737c75;
   line-height: 1.55;
 }
-.empty-detail {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: #f0f2ed;
-  color: #6d766f;
-  font-size: 12px;
-  font-weight: 700;
-}
 .settings-list {
   overflow: hidden;
   border: 1px solid #dde0d8;
@@ -505,7 +494,6 @@ p {
 }
 
 .discovery-disclosure,
-.warning-panel,
 .library-dirty-line {
   margin-bottom: 20px;
   padding: 12px 15px;
@@ -514,17 +502,6 @@ p {
   color: #4d6248;
   font-size: 13px;
 }
-.warning-panel {
-  background: #fff5df;
-  color: #76541e;
-}
-.warning-panel p {
-  margin: 0;
-}
-.warning-panel p + p {
-  margin-top: 5px;
-}
-.locations-panel,
 .candidate-panel {
   margin-bottom: 24px;
   border: 1px solid #dde0d8;
@@ -554,14 +531,12 @@ p {
   color: #737c75;
   font-size: 12px;
 }
-.location-list,
 .plan-list,
 .source-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.location-list li,
 .plan-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -569,23 +544,18 @@ p {
   padding: 14px 20px;
   border-bottom: 1px solid #eceee9;
 }
-.location-list li:last-child,
 .plan-list li:last-child {
   border-bottom: 0;
 }
-.location-list li > div,
 .plan-list li > div {
   display: grid;
   gap: 3px;
 }
-.location-list span,
-.location-list small,
 .plan-list span,
 .plan-list small {
   color: #737c75;
   font-size: 12px;
 }
-.location-state,
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -596,17 +566,14 @@ p {
   font-weight: 800;
   text-transform: capitalize;
 }
-.location-state.scanned,
 .status-pill.valid {
   background: #e5f0df;
   color: #4e743c;
 }
-.location-state.missing,
 .status-pill.warning {
   background: #fff0cf;
   color: #76541e;
 }
-.location-state.unreadable,
 .status-pill.blocked,
 .status-pill.invalid {
   background: #ffe6e2;
@@ -888,8 +855,7 @@ p {
     color: #e6ebe6;
     border-color: #444c45;
   }
-  .step-count,
-  .empty-detail {
+  .step-count {
     background: #303730;
     color: #bbc2bc;
   }

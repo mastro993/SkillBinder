@@ -107,8 +107,7 @@ export function DiscoveryView() {
           <p className="eyebrow">Read-only inspection</p>
           <h1>Discovery</h1>
           <p className="lead">
-            Inspect known global locations, then choose which skill copies enter
-            your library.
+            Choose which discovered skill copies enter your library.
           </p>
         </div>
         <Button
@@ -125,49 +124,9 @@ export function DiscoveryView() {
       </header>
 
       <div className="discovery-disclosure">
-        Discovery only reads these locations. Import copies content into
-        SkillBinder and leaves originals unchanged.
+        Discovery never changes your existing skill folders. Import copies
+        content into SkillBinder and leaves originals unchanged.
       </div>
-      <section className="locations-panel" aria-labelledby="locations-title">
-        <div className="section-heading">
-          <h2 id="locations-title">Inspected global locations</h2>
-          <span>{data.registryAgentCount} supported agents</span>
-        </div>
-        <ul className="location-list">
-          {data.locations.map((location) => (
-            <li key={location.displayPath}>
-              <div>
-                <strong>{location.displayPath}</strong>
-                <span>
-                  {location.agentLabels.join(", ") || "No reader agents"}
-                </span>
-              </div>
-              <span className={`location-state ${location.state}`}>
-                {location.state === "scanned"
-                  ? "Scanned"
-                  : location.state === "missing"
-                    ? "Missing"
-                    : "Unreadable"}
-              </span>
-              {location.detail ? <small>{location.detail}</small> : null}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {data.warnings.length || data.limitsReached ? (
-        <div className="warning-panel" aria-live="polite">
-          {data.warnings.map((warning) => (
-            <p key={warning}>{warning}</p>
-          ))}
-          {data.limitsReached ? (
-            <p>
-              Discovery limit reached. Rescan after narrowing locations to see
-              more results.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
 
       <section className="candidate-panel" aria-labelledby="candidates-title">
         <div className="section-heading">
@@ -176,7 +135,7 @@ export function DiscoveryView() {
             <p>
               {data.candidates.length
                 ? `${data.candidates.length} candidates found.`
-                : "Nothing discovered in available locations."}
+                : "No skill candidates found."}
             </p>
           </div>
           <span>{counts.selected} selected</span>
@@ -234,11 +193,7 @@ export function DiscoveryView() {
               </Button>
             </div>
           </>
-        ) : (
-          <div className="empty-detail">
-            No skill folders found. Inspected paths remain listed above.
-          </div>
-        )}
+        ) : null}
       </section>
 
       <output className="status-announcer" aria-live="polite">

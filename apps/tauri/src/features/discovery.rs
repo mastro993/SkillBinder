@@ -85,17 +85,24 @@ pub fn run_scan(state: &AppState) -> Result<DiscoveryScanResponse, AppError> {
         },
     );
     cache.retain(|_, session| session.created.elapsed().as_secs() < SCAN_SESSION_SECONDS);
+    for warning in &outcome.warnings {
+        eprintln!(
+            "discovery scan warning: {}: {}",
+            warning
+                .path
+                .as_deref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "<unknown>".into()),
+            warning.message
+        );
+    }
+    if outcome.limits_reached {
+        eprintln!("discovery scan reached its traversal limit");
+    }
     Ok(DiscoveryScanResponse {
-        registry_agent_count: state.registry.agent_count,
         registry_version: state.registry.version,
         locations: outcome.locations.into_iter().map(map_location).collect(),
         candidates,
-        warnings: outcome
-            .warnings
-            .into_iter()
-            .map(|warning| warning.message)
-            .collect(),
-        limits_reached: outcome.limits_reached,
     })
 }
 fn map_location(location: skillbinder_core::discovery::ScanLocation) -> GlobalLocation {
@@ -121,19 +128,6 @@ fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> Disc
         name: candidate.name.clone(),
         description: candidate.description.clone(),
         reader_agent_ids: candidate.reader_agent_ids.clone(),
-        link: match &candidate.link {
-            skillbinder_core::discovery::scan::ScanLink::Direct => CandidateLink::Direct,
-            skillbinder_core::discovery::scan::ScanLink::RootLink { resolved_path } => {
-                CandidateLink::RootLink {
-                    resolved_path: resolved_path.display().to_string(),
-                }
-            }
-            skillbinder_core::discovery::scan::ScanLink::Unresolved { detail } => {
-                CandidateLink::Unresolved {
-                    detail: detail.clone(),
-                }
-            }
-        },
         validation: map_validation(candidate.validation.clone()),
         duplicate: match &candidate.duplicate {
             skillbinder_core::discovery::scan::DuplicateStatus::Unique => {

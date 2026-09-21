@@ -21,7 +21,6 @@ const candidates = [
     name: "Review",
     description: "Review code for correctness.",
     readerAgentIds: ["claude-code"],
-    link: { kind: "direct" as const },
     validation: {
       status: "valid" as const,
       messages: [],
@@ -38,7 +37,6 @@ const candidates = [
     name: "Research",
     description: "Research a topic with cited sources.",
     readerAgentIds: ["claude-code", "codex"],
-    link: { kind: "direct" as const },
     validation: { status: "valid" as const, messages: [] },
     duplicate: { kind: "unique" as const },
     fileCount: 4,
@@ -52,7 +50,6 @@ const candidates = [
     name: "Outline",
     description: null,
     readerAgentIds: ["codex"],
-    link: { kind: "direct" as const },
     validation: {
       status: "invalid" as const,
       messages: [
@@ -74,7 +71,6 @@ const candidates = [
     name: "Unsafe",
     description: "Blocked skill.",
     readerAgentIds: ["cursor"],
-    link: { kind: "direct" as const },
     validation: {
       status: "blocked" as const,
       messages: [
@@ -96,7 +92,6 @@ const candidates = [
     name: "Existing",
     description: "Already imported.",
     readerAgentIds: ["claude-code"],
-    link: { kind: "direct" as const },
     validation: { status: "valid" as const, messages: [] },
     duplicate: {
       kind: "identical" as const,
@@ -109,15 +104,11 @@ const candidates = [
   },
   {
     candidateId: "fixture-root-link",
-    displayPath: "/Users/demo/.gemini/skills/docs",
+    displayPath: "/Users/demo/shared/docs",
     slug: "docs",
     name: "Docs",
     description: "Write clear docs.",
     readerAgentIds: ["gemini"],
-    link: {
-      kind: "rootLink" as const,
-      resolvedPath: "/Users/demo/shared/docs",
-    },
     validation: {
       status: "warning" as const,
       messages: [
@@ -130,7 +121,7 @@ const candidates = [
     duplicate: { kind: "unique" as const },
     fileCount: 5,
     totalBytes: "4096",
-    warnings: ["Root link resolved inside approved location."],
+    warnings: [],
   },
 ] satisfies DiscoveryScanResponse["candidates"];
 
@@ -143,7 +134,6 @@ const locationState = (
 ) => ({ displayPath, agentIds, agentLabels, state, detail });
 
 const scan: DiscoveryScanResponse = {
-  registryAgentCount: 79,
   registryVersion: 1,
   locations: [
     locationState(
@@ -169,8 +159,6 @@ const scan: DiscoveryScanResponse = {
     ),
   ],
   candidates,
-  warnings: ["One location could not be read; results may be incomplete."],
-  limitsReached: false,
 };
 
 const existingValidation: ValidationSummary = { status: "valid", messages: [] };

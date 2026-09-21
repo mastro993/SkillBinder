@@ -16,7 +16,6 @@ const candidates: DiscoveryCandidate[] = [
     name: "Valid",
     description: "Valid",
     readerAgentIds: ["agent"],
-    link: { kind: "direct" },
     validation: { status: "valid", messages: [] },
     duplicate: { kind: "unique" },
     fileCount: 1,
@@ -30,7 +29,6 @@ const candidates: DiscoveryCandidate[] = [
     name: "Invalid",
     description: null,
     readerAgentIds: ["agent"],
-    link: { kind: "direct" },
     validation: {
       status: "invalid",
       messages: [{ code: "descriptionMissing", message: "Missing" }],
@@ -47,7 +45,6 @@ const candidates: DiscoveryCandidate[] = [
     name: "Blocked",
     description: "Blocked",
     readerAgentIds: ["agent"],
-    link: { kind: "direct" },
     validation: {
       status: "blocked",
       messages: [{ code: "unsafeEntryPath", message: "Unsafe" }],

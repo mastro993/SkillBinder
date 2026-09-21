@@ -12,7 +12,6 @@ export * from "./PrerequisiteStatus";
 export * from "./RecoveryAction";
 export * from "./UpdateOnboardingProgressRequest";
 export * from "./CandidateDuplicate";
-export * from "./CandidateLink";
 export * from "./DiscoveryCandidate";
 export * from "./DiscoveryScanResponse";
 export * from "./GlobalLocation";

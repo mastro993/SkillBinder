@@ -14,7 +14,6 @@ import type { DiscoveryScanResponse } from "@/generated";
 import { DiscoveryView } from "./discovery-view";
 
 const scan: DiscoveryScanResponse = {
-  registryAgentCount: 2,
   registryVersion: 1,
   locations: [
     {
@@ -33,7 +32,6 @@ const scan: DiscoveryScanResponse = {
       name: "Invalid",
       description: null,
       readerAgentIds: ["agent"],
-      link: { kind: "direct" },
       validation: {
         status: "invalid",
         messages: [
@@ -46,8 +44,6 @@ const scan: DiscoveryScanResponse = {
       warnings: [],
     },
   ],
-  warnings: [],
-  limitsReached: false,
 };
 
 function renderView(client: Partial<DesktopClient>) {
@@ -226,22 +222,15 @@ describe("discovery view", () => {
     ).toBeInTheDocument();
   });
 });
-it("shows inspected paths for empty partial scans and limit warnings", async () => {
+it("shows the empty state when no candidates are discovered", async () => {
   renderView({
     discoveryScan: vi.fn<DesktopClient["discoveryScan"]>().mockResolvedValue({
       ...scan,
       candidates: [],
-      warnings: ["Some paths were unreadable."],
-      limitsReached: true,
     }),
   });
   expect(
-    await screen.findByText("Nothing discovered in available locations."),
+    await screen.findByText("No skill candidates found."),
   ).toBeInTheDocument();
-  expect(screen.getByText("/skills")).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      "Discovery limit reached. Rescan after narrowing locations to see more results.",
-    ),
-  ).toBeInTheDocument();
+  expect(screen.queryByText("/skills")).not.toBeInTheDocument();
 });

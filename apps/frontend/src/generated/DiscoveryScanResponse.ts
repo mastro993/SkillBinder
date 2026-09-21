@@ -2,4 +2,4 @@
 import type { DiscoveryCandidate } from "./DiscoveryCandidate";
 import type { GlobalLocation } from "./GlobalLocation";
 
-export type DiscoveryScanResponse = { registryAgentCount: number, registryVersion: number, locations: Array<GlobalLocation>, candidates: Array<DiscoveryCandidate>, warnings: Array<string>, limitsReached: boolean, };
+export type DiscoveryScanResponse = { registryVersion: number, locations: Array<GlobalLocation>, candidates: Array<DiscoveryCandidate>, };

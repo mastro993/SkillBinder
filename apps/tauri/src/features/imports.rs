@@ -382,7 +382,6 @@ mod tests {
             warnings: Vec::new(),
             blocked: false,
             duplicate: DuplicateStatus::Unique,
-            link: skillbinder_core::discovery::scan::ScanLink::Direct,
         }
     }
 
