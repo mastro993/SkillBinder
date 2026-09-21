@@ -31,9 +31,11 @@ same data.
    finished, so leaving and returning shows the same run rather than an empty screen. `Start scan`
    is never how a run is brought back. While a scan runs, the shell chrome says so from any screen
    and links back here.
-6. On a finished scan the screen shows the candidates with paging. The list holds only new skills:
-   a candidate whose payload the library already holds is hidden, and the screen reports how many
-   were hidden instead.
+6. On a finished scan the screen shows the candidates with paging, and nothing else. The scan
+   report, meaning the locations walked, the folders excluded on purpose, and the paths that could
+   not be read, goes to the process log, which Settings can reveal. The list holds only new
+   skills: a candidate whose payload the library already holds is hidden, and the screen reports
+   how many were hidden instead.
 7. The user reviews the candidates: name, slug, display path, readers, validation, duplicate
    state, file count, size, and warnings.
 8. Blocked candidates cannot be selected. Selecting an invalid candidate reveals a confirmation
@@ -106,21 +108,21 @@ when there is none. A client that opens the screen reads it once and then polls
 `discovery_results` for that id.
 
 `discovery_results` returns the phase, the live progress, and, once the run reaches a terminal
-phase, the locations, exclusions, warnings, and one page of candidates with the total count. The
-candidate list holds only new skills: a candidate whose payload digest matches a library entry is
+phase, one page of candidates with the total count. A candidate carries its own display path,
+readers, validation, duplicate state, size, and link status, so the screen needs no location list
+to describe it. The candidate list holds only new skills: a candidate whose payload digest matches a library entry is
 hidden from it, `hiddenDuplicates` counts those for the whole run, and `totalCandidates` and
 `offset` index the visible candidates. A candidate whose slug is already in use stays visible,
 because content that differs from the library is a new skill even under a taken slug. While the
 run is still running `hiddenDuplicates` is 0. `limit` defaults to 100 and the shell rejects a page
-above 500; an offset past the total returns an empty page. While a scan is running the locations,
-exclusions, warnings, and candidates are empty arrays and only progress carries data.
+above 500; an offset past the total returns an empty page. While a scan is running the candidates
+are an empty array and only progress carries data.
 
 ## State transitions
 
 A scan run is `running`, `finished`, `cancelled`, or `failed`. A failed worker reports its failure
 message through the same result. A cancelled run keeps its candidates but never becomes
-importable. A location is `scanned`, `missing`, or `unreadable`, and carries whether its entry
-budget was reached. A candidate carries a validation summary whose status is `valid`, `warning`,
+importable. A candidate carries a validation summary whose status is `valid`, `warning`,
 `invalid`, or `blocked`, plus a duplicate decision of `unique`, `identical`, or `slugInUse`, and
 whether the skill directory was reached through a link.
 
@@ -158,12 +160,12 @@ root, and excludes `.git`, `.hg`, `.svn`, `node_modules`, `vendor`, `Pods`, `bow
 `.turbo`, `.parcel-cache`, `.gradle`, `__pycache__`, `.pytest_cache`, `.mypy_cache`,
 `.ruff_cache`, `.venv`, `venv`, `.tox`, `AppData`, and `Application Data`.
 
-Exclusions are reason-coded data. Each matched folder name is reported once per reason with a match
-count and one sample path, so a monorepo cannot flood the screen. A registered root is never
+Exclusions are reason-coded data. Each matched folder name is recorded once per reason with a match
+count and one sample path, so a monorepo cannot flood the report. A registered root is never
 skipped by name, so a root named `node_modules` is still walked. `.git` is skipped both as a
-directory and as the worktree marker file. An unreadable entry becomes a warning and the walk
-continues. The project policy stops descent at a mount boundary on Unix; on platforms where the
-volume identity is not reported, mounts are not detected and the walk continues.
+directory and as the worktree marker file. An unreadable entry is recorded and the walk continues.
+The project policy stops descent at a mount boundary on Unix; on platforms where the volume
+identity is not reported, mounts are not detected and the walk continues.
 
 The walk stops descending once a directory is accepted as a skill root. A directory that contains
 `SKILL.md` directly is a skill root. A skill directory reached through a link is resolved to its
@@ -172,6 +174,12 @@ directory, with every reader agent attached, and the candidate records that it w
 a link. Locations and candidates deduplicate by physical identity, falling back to the canonical
 path when the identity cannot be read. A root that canonicalises outside its containment is
 reported as unreadable and its payload is not read.
+
+The shell writes the scan report to the process log when a walk ends: one summary record with the
+counts, one record per location with its state and reason, one record per exclusion rule that
+matched, and one warning record per path that could not be read. Records carry the scan id, so a
+support session can read what a scan touched without the user leaving the screen open. Redaction
+happens in the log sink, as it does for every other record.
 
 `discovery_cancel` flips a flag the walk checks at every directory boundary and every 512 entries;
 the walk finishes its current batch, stops, and keeps everything it found. An unknown or already
@@ -195,8 +203,8 @@ root (naming the existing label) and a candidate page above 500. `InternalError`
 unavailable grant store, unavailable run state, and a registry root that could not be resolved.
 Validation failures on a selected candidate map to `ValidationFailed` or `UnsupportedSkill` and
 name the offending paths. A cancelled run's candidates are rejected by `imports_prepare` with the
-rescan recovery action. An unreadable directory becomes a scan warning, or a candidate warning,
-instead of failing the whole scan.
+rescan recovery action. An unreadable directory becomes a log warning, and a candidate warning
+when it sits inside that candidate's payload, instead of failing the whole scan.
 
 ## Tests
 
@@ -218,9 +226,9 @@ with none of them, and a vanished root that keeps one input.
 The store round-trips `scan_roots` against a real database: enabled-first ordering, label and
 enabled updates, a duplicate canonical path rejected, removal, and persistence across reopen. The
 shell tests cover the phase mapping, the reuse of a live run, the selection of the current run,
-cancellation as a no-op, paging edges, and that a cancelled run writes no import session. The
-frontend keeps colocated tests for its paging, exclusion summarisation, scan-state copy, each
-discovery view, and the fixture client. Registry coverage is enforced twice: by the Rust tests and
+cancellation as a no-op, paging edges, the scan report records a finished or failed walk writes,
+and that a cancelled run writes no import session. The frontend keeps colocated tests for its
+paging, reader labels, scan-state copy, each discovery view, and the fixture client. Registry coverage is enforced twice: by the Rust tests and
 by `node scripts/registry.mjs check`.
 
 `cargo run -p skillbinder --example j02_probe` is the manual harness for the project scan. It
@@ -261,10 +269,8 @@ Add one `ExclusionRule { name, reason }` to `PROJECT_EXCLUSIONS` in
 skip it too. The name match is exact and case-sensitive, applies to both directories and files, and
 runs before any metadata is read, so a rule must be cheap and unambiguous. Extend
 `crates/core/src/discovery/scan.rs` tests with a tree that proves the folder is skipped and the
-exclusion is aggregated under its reason. A new `ExclusionReason` variant is a wire change: add it
-to the enum, to the transport DTO in `apps/tauri/src/transport/discovery.rs`, regenerate the
-TypeScript, and add its label to `exclusionReasonLabels` in
-`apps/frontend/src/features/discovery/lib/model.ts`.
+exclusion is aggregated under its reason. A new `ExclusionReason` variant stays inside core: the
+report reaches the user through the process log, and no wire type carries it.
 
 ### Add a root
 

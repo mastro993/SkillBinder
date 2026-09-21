@@ -119,14 +119,6 @@ export function DiscoveryView() {
       : `Scanning the known agent locations plus ${rootCount} project-search ${rootCount === 1 ? "root" : "roots"}.`;
   const summary = data ? summarizeScanPhase(data.phase, data.failure) : null;
   const canImport = summary?.importable === true;
-  const agentLabels = Object.fromEntries(
-    (data?.locations ?? []).flatMap((location) =>
-      location.agentIds.map((id, index) => [
-        id,
-        location.agentLabels[index] ?? id,
-      ]),
-    ),
-  );
   const counts = selectionCounts(
     data?.candidates ?? [],
     new Set(
@@ -262,7 +254,6 @@ export function DiscoveryView() {
                     if (candidate)
                       toggleCandidate(candidate, !selected.has(candidateId));
                   }}
-                  agentLabels={agentLabels}
                   selectionDisabled={!canImport}
                   paging={pagingState(
                     data.offset,

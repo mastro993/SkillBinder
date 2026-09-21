@@ -35,7 +35,7 @@ describe("fixture desktop client discovery", () => {
     expect((await fixtureDesktopClient.rootsList()).roots).toEqual([]);
   });
 
-  it("reports a running phase, then a finished result with diagnostics", async () => {
+  it("reports a running phase, then a finished result with candidates", async () => {
     const { scanId } = await fixtureDesktopClient.discoveryStart();
     const running = await fixtureDesktopClient.discoveryResults(scanId, 0, 50);
     expect(running.phase).toBe("running");
@@ -48,16 +48,6 @@ describe("fixture desktop client discovery", () => {
     expect(finished.phase).toBe("finished");
     expect(finished.limitsReached).toBe(true);
     expect(
-      finished.exclusions.some(
-        (exclusion) => exclusion.reason === "dependencyVendor",
-      ),
-    ).toBe(true);
-    expect(
-      finished.locations.some(
-        (location) => location.state === "unreadable" && location.detail,
-      ),
-    ).toBe(true);
-    expect(
       finished.candidates.some(
         (candidate) => candidate.validation.status === "blocked",
       ),
@@ -65,6 +55,13 @@ describe("fixture desktop client discovery", () => {
     expect(finished.candidates.some((candidate) => candidate.linked)).toBe(
       true,
     );
+    expect(
+      finished.candidates.every(
+        (candidate) =>
+          candidate.readerAgentLabels.length ===
+          candidate.readerAgentIds.length,
+      ),
+    ).toBe(true);
     expect(finished.totalCandidates).toBe(finished.candidates.length);
     expect(finished.hiddenDuplicates).toBe(1);
     expect(

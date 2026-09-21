@@ -13,13 +13,13 @@ import {
 const candidates: DiscoveryCandidate[] = [
   {
     candidateId: "valid",
-    locationId: "valid",
     linked: false,
     displayPath: "/valid",
     slug: "valid",
     name: "Valid",
     description: "Valid",
     readerAgentIds: ["agent"],
+    readerAgentLabels: ["agent"],
     validation: { status: "valid", messages: [] },
     duplicate: { kind: "unique" },
     fileCount: 1,
@@ -28,13 +28,13 @@ const candidates: DiscoveryCandidate[] = [
   },
   {
     candidateId: "invalid",
-    locationId: "invalid",
     linked: false,
     displayPath: "/invalid",
     slug: "invalid",
     name: "Invalid",
     description: null,
     readerAgentIds: ["agent"],
+    readerAgentLabels: ["agent"],
     validation: {
       status: "invalid",
       messages: [{ code: "descriptionMissing", message: "Missing" }],
@@ -46,13 +46,13 @@ const candidates: DiscoveryCandidate[] = [
   },
   {
     candidateId: "blocked",
-    locationId: "blocked",
     linked: false,
     displayPath: "/blocked",
     slug: "blocked",
     name: "Blocked",
     description: "Blocked",
     readerAgentIds: ["agent"],
+    readerAgentLabels: ["agent"],
     validation: {
       status: "blocked",
       messages: [{ code: "unsafeEntryPath", message: "Unsafe" }],

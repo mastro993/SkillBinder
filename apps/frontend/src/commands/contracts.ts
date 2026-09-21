@@ -8,13 +8,9 @@ import type {
   DiscoveryCandidate,
   DiscoveryCancelResponse,
   DiscoveryCurrentResponse,
-  DiscoveryExclusion,
-  DiscoveryLocation,
   DiscoveryProgress,
   DiscoveryResultsResponse,
   DiscoveryStartResponse,
-  DiscoveryWarning,
-  ExclusionReason,
   GitSyncStatus,
   ImportApplyResponse,
   ImportOutcome,
@@ -177,15 +173,6 @@ export const scanPhaseSchema: z.ZodType<ScanPhase> = z.enum([
   "cancelled",
   "failed",
 ]);
-export const exclusionReasonSchema: z.ZodType<ExclusionReason> = z.enum([
-  "vcsMetadata",
-  "dependencyVendor",
-  "buildOutput",
-  "cache",
-  "virtualEnvironment",
-  "appData",
-  "mountBoundary",
-]);
 export const rootGrantViewSchema: z.ZodType<RootGrantView> = z
   .object({
     grantId: z.string(),
@@ -220,12 +207,12 @@ export const rootsRemoveResponseSchema: z.ZodType<RootsRemoveResponse> = z
 const discoveryCandidateSchema: z.ZodType<DiscoveryCandidate> = z
   .object({
     candidateId: z.string(),
-    locationId: z.string(),
     displayPath: z.string(),
     slug: z.string(),
     name: z.string().nullable(),
     description: z.string().nullable(),
     readerAgentIds: z.array(z.string()),
+    readerAgentLabels: z.array(z.string()),
     validation: validationSummarySchema,
     duplicate: candidateDuplicateSchema,
     fileCount: z.number(),
@@ -243,29 +230,6 @@ export const discoveryProgressSchema: z.ZodType<DiscoveryProgress> = z
     currentPath: z.string().nullable(),
   })
   .strict();
-export const discoveryLocationSchema: z.ZodType<DiscoveryLocation> = z
-  .object({
-    locationId: z.string(),
-    rootId: z.string().nullable(),
-    displayPath: z.string(),
-    agentIds: z.array(z.string()),
-    agentLabels: z.array(z.string()),
-    state: z.enum(["scanned", "missing", "unreadable"]),
-    detail: z.string().nullable(),
-    limitReached: z.boolean(),
-  })
-  .strict();
-export const discoveryExclusionSchema: z.ZodType<DiscoveryExclusion> = z
-  .object({
-    name: z.string(),
-    reason: exclusionReasonSchema,
-    matches: z.number(),
-    samplePath: z.string(),
-  })
-  .strict();
-export const discoveryWarningSchema: z.ZodType<DiscoveryWarning> = z
-  .object({ displayPath: z.string().nullable(), message: z.string() })
-  .strict();
 export const discoveryResultsResponseSchema: z.ZodType<DiscoveryResultsResponse> =
   z
     .object({
@@ -274,9 +238,6 @@ export const discoveryResultsResponseSchema: z.ZodType<DiscoveryResultsResponse>
       registryVersion: z.number(),
       progress: discoveryProgressSchema,
       limitsReached: z.boolean(),
-      locations: z.array(discoveryLocationSchema),
-      exclusions: z.array(discoveryExclusionSchema),
-      warnings: z.array(discoveryWarningSchema),
       candidates: z.array(discoveryCandidateSchema),
       totalCandidates: z.number(),
       hiddenDuplicates: z.number(),
