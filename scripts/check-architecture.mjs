@@ -3,7 +3,7 @@ import path from "node:path";
 
 const expected = {
   apps: ["frontend", "tauri"],
-  crates: ["core", "db", "platform"],
+  crates: ["app", "core", "db", "platform"],
 };
 
 for (const [root, allowed] of Object.entries(expected)) {
@@ -129,6 +129,138 @@ if (capability.windows.join("\n") !== "main" || capability.remote) {
   throw new Error(
     "Native command capability must target only the local main window",
   );
+}
+
+// AGENTS.md names the layout, so the layout is a gate rather than a convention a reader has to spot.
+const frontendSource = {
+  requiredDirectories: [
+    "commands",
+    "components",
+    "features",
+    "lib",
+    "routes",
+    "test",
+    "types",
+  ],
+  requiredFiles: ["main.tsx", "routeTree.gen.ts", "router.tsx", "styles.css"],
+  // `test/` holds the vitest setup and its stub client, which are neither a primitive nor a type.
+  allowedDirectories: [
+    "commands",
+    "components",
+    "features",
+    "lib",
+    "routes",
+    "test",
+    "types",
+  ],
+};
+
+const entries = (root) =>
+  readdirSync(root, { withFileTypes: true }).map((entry) => ({
+    name: entry.name,
+    directory: entry.isDirectory(),
+  }));
+
+const source = entries("apps/frontend/src");
+const sourceNames = new Set(source.map((entry) => entry.name));
+for (const name of frontendSource.requiredDirectories) {
+  if (!sourceNames.has(name))
+    throw new Error(
+      `apps/frontend/src/${name} is missing. AGENTS.md names it; create it or restore the move.`,
+    );
+}
+for (const name of frontendSource.requiredFiles) {
+  if (!sourceNames.has(name))
+    throw new Error(`apps/frontend/src/${name} is missing.`);
+}
+for (const entry of source) {
+  if (!entry.directory) continue;
+  if (!frontendSource.allowedDirectories.includes(entry.name)) {
+    throw new Error(
+      `apps/frontend/src/${entry.name} is not part of the documented frontend layout. Move it under one of: ${frontendSource.allowedDirectories.join(", ")}.`,
+    );
+  }
+}
+
+const featureFolders = [
+  "components",
+  "commands",
+  "hooks",
+  "lib",
+  "screens",
+  "types",
+  "__tests__",
+];
+for (const feature of entries("apps/frontend/src/features")) {
+  if (!feature.directory) {
+    throw new Error(
+      `apps/frontend/src/features/${feature.name} is a file. A feature is a folder module.`,
+    );
+  }
+  for (const entry of entries(`apps/frontend/src/features/${feature.name}`)) {
+    if (!entry.directory) {
+      throw new Error(
+        `apps/frontend/src/features/${feature.name}/${entry.name} sits at the feature root. Feature code belongs under one of: ${featureFolders.join(", ")}.`,
+      );
+    }
+    if (!featureFolders.includes(entry.name)) {
+      throw new Error(
+        `apps/frontend/src/features/${feature.name}/${entry.name} is not a documented feature folder.`,
+      );
+    }
+  }
+}
+
+const testFiles = readdirSync("apps/frontend/src", { recursive: true }).filter(
+  (entry) => /\.test\.[tj]sx?$/.test(entry),
+);
+for (const file of testFiles) {
+  const parts = path
+    .dirname(path.join("apps/frontend/src", file))
+    .split(path.sep);
+  if (!parts.includes("__tests__")) {
+    throw new Error(
+      `${path.join("apps/frontend/src", file)} is not in a __tests__ folder. AGENTS.md puts tests in the nearest folder-specific __tests__ directory.`,
+    );
+  }
+}
+
+const tauriSource = entries("apps/tauri/src").map((entry) => entry.name);
+if (!tauriSource.includes("commands")) {
+  throw new Error(
+    "apps/tauri/src/commands is missing. AGENTS.md places the Tauri commands there, wired in mod.rs.",
+  );
+}
+if (tauriSource.includes("features")) {
+  throw new Error(
+    "apps/tauri/src/features still exists. The Tauri commands live in apps/tauri/src/commands.",
+  );
+}
+for (const required of [
+  "apps/tauri/src/commands/mod.rs",
+  "crates/app/src/lib.rs",
+]) {
+  try {
+    readFileSync(required);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      throw new Error(`${required} is missing. AGENTS.md names it.`);
+    throw error;
+  }
+}
+
+for (const required of [
+  "crates/db/migrations",
+  "crates/db/src/repositories",
+  "docs/agents",
+]) {
+  try {
+    readdirSync(required);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      throw new Error(`${required} is missing. AGENTS.md names it.`);
+    throw error;
+  }
 }
 
 console.log("Architecture check passed.");
