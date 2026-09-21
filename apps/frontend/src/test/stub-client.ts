@@ -26,6 +26,7 @@ export function stubDesktopClient(
     importsPrepare: unstubbed("importsPrepare"),
     importsApply: unstubbed("importsApply"),
     libraryList: unstubbed("libraryList"),
+    diagnosticsRevealLogs: unstubbed("diagnosticsRevealLogs"),
     ...overrides,
   };
 }
