@@ -25,6 +25,8 @@ skillbinder-platform = { path = "../../crates/platform" }
 tauri.workspace = true
 tauri-plugin-dialog = "2.7.3"
 tauri-plugin-single-instance = "2.4.5"
+tracing.workspace = true
+tracing-subscriber.workspace = true
 ts-rs.workspace = true
 uuid.workspace = true
 

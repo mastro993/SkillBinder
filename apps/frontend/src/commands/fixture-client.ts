@@ -551,4 +551,9 @@ export const fixtureDesktopClient: DesktopClient = {
   async libraryList() {
     return library;
   },
+  async diagnosticsRevealLogs() {
+    return {
+      path: "/Users/demo/Library/Application Support/dev.skillbinder.local/logs",
+    };
+  },
 };

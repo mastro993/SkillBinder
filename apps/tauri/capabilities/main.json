@@ -8,6 +8,7 @@
     "allow-git-environment-verify",
     "allow-onboarding-progress-update",
     "allow-onboarding-complete-local",
+    "allow-diagnostics-reveal-logs",
     "allow-discovery-start",
     "allow-discovery-results",
     "allow-discovery-cancel",

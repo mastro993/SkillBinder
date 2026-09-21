@@ -236,8 +236,13 @@ impl ObservationStore for StateStore {
         Ok(stored.map(
             |(description, validation, updated_at)| IndexedSkillMetadata {
                 description,
-                validation: serde_json::from_str(&validation)
-                    .unwrap_or_else(|_| ValidationSummary::valid()),
+                validation: match serde_json::from_str(&validation) {
+                    Ok(validation) => validation,
+                    Err(_) => {
+                        warn_index_fallback(skill_id, "validation_summary");
+                        ValidationSummary::valid()
+                    }
+                },
                 updated_at: updated_at as u64,
             },
         ))
@@ -248,13 +253,37 @@ impl ObservationStore for StateStore {
     }
 }
 fn observation_from_row(row: ObservationRow) -> SourceObservation {
+    let warnings = match serde_json::from_str(&row.warnings) {
+        Ok(warnings) => warnings,
+        Err(_) => {
+            warn_index_fallback(&row.skill_id, "observation");
+            Vec::new()
+        }
+    };
+    let reader_agent_ids = match serde_json::from_str(&row.reader_agents) {
+        Ok(reader_agent_ids) => reader_agent_ids,
+        Err(_) => {
+            warn_index_fallback(&row.skill_id, "observation");
+            Vec::new()
+        }
+    };
     SourceObservation {
         source: PathBuf::from(row.source),
         skill_id: row.skill_id,
         digest: row.digest,
-        warnings: serde_json::from_str(&row.warnings).unwrap_or_default(),
-        reader_agent_ids: serde_json::from_str(&row.reader_agents).unwrap_or_default(),
+        warnings,
+        reader_agent_ids,
     }
+}
+/// A stored index row that cannot be read is not a reason to fail the read, but it is a reason to
+/// say so: the caller sees a permissive default and the skill id is the only handle on it.
+fn warn_index_fallback(skill_id: &str, fallback: &'static str) {
+    tracing::warn!(
+        event = "indexed_metadata_fallback",
+        skill_id,
+        fallback,
+        "stored indexed metadata could not be read and a default was used"
+    );
 }
 #[cfg(test)]
 mod tests {

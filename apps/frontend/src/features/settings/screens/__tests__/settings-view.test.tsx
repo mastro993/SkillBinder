@@ -166,4 +166,39 @@ describe("settings view", () => {
     );
     await waitFor(() => expect(rootsRemove).toHaveBeenCalledWith("root-1"));
   });
+
+  it("opens the log folder without naming a path and shows it", async () => {
+    const diagnosticsRevealLogs = vi
+      .fn<DesktopClient["diagnosticsRevealLogs"]>()
+      .mockResolvedValue({
+        path: "/Users/demo/Library/Application Support/dev.skillbinder.local/logs",
+      });
+    renderSettings({ diagnosticsRevealLogs });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open log folder" }),
+    );
+
+    await waitFor(() => expect(diagnosticsRevealLogs).toHaveBeenCalledWith());
+    expect(
+      await screen.findByText(
+        "/Users/demo/Library/Application Support/dev.skillbinder.local/logs",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows why the log folder could not be opened", async () => {
+    const diagnosticsRevealLogs = vi
+      .fn<DesktopClient["diagnosticsRevealLogs"]>()
+      .mockRejectedValue(new Error("no file manager program is available"));
+    renderSettings({ diagnosticsRevealLogs });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open log folder" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "no file manager program is available",
+    );
+  });
 });

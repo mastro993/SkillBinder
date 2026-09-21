@@ -3,6 +3,7 @@ export * from "./BootstrapResponse";
 export * from "./CheckState";
 export * from "./CommandResult";
 export * from "./CompleteOnboardingResponse";
+export * from "./DiagnosticsRevealLogsResponse";
 export * from "./ErrorCode";
 export * from "./GitEnvironmentStatus";
 export * from "./LibraryState";

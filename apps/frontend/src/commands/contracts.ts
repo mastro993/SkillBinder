@@ -4,6 +4,7 @@ import type {
   BootstrapResponse,
   CandidateDuplicate,
   CompleteOnboardingResponse,
+  DiagnosticsRevealLogsResponse,
   DiscoveryCandidate,
   DiscoveryCancelResponse,
   DiscoveryCurrentResponse,
@@ -360,6 +361,8 @@ export const importApplyResponseSchema: z.ZodType<ImportApplyResponse> = z
     libraryRevision: z.string().nullable(),
   })
   .strict();
+export const diagnosticsRevealLogsResponseSchema: z.ZodType<DiagnosticsRevealLogsResponse> =
+  z.object({ path: z.string() }).strict();
 export { onboardingProgressSchema };
 
 /** A value that can cross the JSON IPC boundary. */

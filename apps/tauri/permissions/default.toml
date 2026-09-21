@@ -77,3 +77,8 @@ commands.allow = ["imports_apply"]
 identifier = "allow-library-list"
 description = "List managed library skills"
 commands.allow = ["library_list"]
+
+[[permission]]
+identifier = "allow-diagnostics-reveal-logs"
+description = "Open the application log folder in the device file manager"
+commands.allow = ["diagnostics_reveal_logs"]

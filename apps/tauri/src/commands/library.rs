@@ -1,14 +1,19 @@
-use crate::{commands::discovery::map_validation, transport::*};
+use crate::{
+    commands::{discovery::map_validation, recorded},
+    transport::*,
+};
 use skillbinder_app::AppState;
 use skillbinder_core::import::{LibraryRepository, ObservationStore};
 use tauri::State;
 
 #[tauri::command(async)]
 pub fn library_list(state: State<'_, AppState>) -> CommandResult<LibraryListResponse> {
-    match list(state.library.as_ref(), state.store.as_ref()) {
-        Ok(value) => CommandResult::success(value),
-        Err(error) => CommandResult::failure(error),
-    }
+    recorded("library_list", || {
+        match list(state.library.as_ref(), state.store.as_ref()) {
+            Ok(value) => CommandResult::success(value),
+            Err(error) => CommandResult::failure(error),
+        }
+    })
 }
 
 fn list(

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { DiscoveryRootsPanel } from "@/features/discovery/components/discovery-roots-panel";
 import {
@@ -7,6 +8,7 @@ import {
   useRemoveRoot,
   useUpdateRoot,
 } from "@/features/discovery/hooks/queries";
+import { useRevealLogs } from "@/features/settings/hooks/reveal-logs";
 
 export function SettingsView() {
   const bootstrap = useQuery(bootstrapQuery);
@@ -14,6 +16,7 @@ export function SettingsView() {
   const addRoot = useAddRoot();
   const updateRoot = useUpdateRoot();
   const removeRoot = useRemoveRoot();
+  const revealLogs = useRevealLogs();
 
   const rootError =
     addRoot.error?.message ??
@@ -55,7 +58,27 @@ export function SettingsView() {
           }
         />
         <Setting label="Remote sync" value="Not connected · optional" />
+        <div className="setting-row">
+          <span>Logs</span>
+          <strong>
+            {revealLogs.data?.path ??
+              (revealLogs.isPending ? "Opening…" : "On this device")}
+          </strong>
+          <Button
+            variant="secondary"
+            onClick={() => revealLogs.mutate()}
+            disabled={revealLogs.isPending}
+          >
+            Open log folder
+          </Button>
+        </div>
       </div>
+
+      {revealLogs.error ? (
+        <p className="inline-error" role="alert">
+          {revealLogs.error.message}
+        </p>
+      ) : null}
 
       {roots.isError ? (
         <p className="inline-error" role="alert">

@@ -59,6 +59,11 @@ impl LocalEnvironment {
             };
         };
         let Ok(git) = self.git.verify() else {
+            tracing::warn!(
+                event = "library_revision_skipped",
+                state = "ready",
+                "library revision could not be verified and was skipped"
+            );
             return LibrarySnapshot {
                 status: LibraryStatus::Ready,
                 current_revision: None,

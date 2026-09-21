@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BootstrapResponse,
   CompleteOnboardingResponse,
+  DiagnosticsRevealLogsResponse,
   DiscoveryCancelRequest,
   DiscoveryCancelResponse,
   DiscoveryCurrentResponse,
@@ -29,6 +30,7 @@ import type {
 import {
   bootstrapResponseSchema,
   completeOnboardingResponseSchema,
+  diagnosticsRevealLogsResponseSchema,
   discoveryCancelResponseSchema,
   discoveryCurrentResponseSchema,
   discoveryResultsResponseSchema,
@@ -100,6 +102,7 @@ export interface DesktopClient {
   ): Promise<ImportPlanResponse>;
   importsApply(planId: string): Promise<ImportApplyResponse>;
   libraryList(): Promise<LibraryListResponse>;
+  diagnosticsRevealLogs(): Promise<DiagnosticsRevealLogsResponse>;
 }
 
 class TauriDesktopClient implements DesktopClient {
@@ -182,6 +185,13 @@ class TauriDesktopClient implements DesktopClient {
 
   libraryList() {
     return invokeCommand("library_list", libraryListResponseSchema);
+  }
+
+  diagnosticsRevealLogs() {
+    return invokeCommand(
+      "diagnostics_reveal_logs",
+      diagnosticsRevealLogsResponseSchema,
+    );
   }
 }
 

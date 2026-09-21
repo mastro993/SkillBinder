@@ -24,6 +24,10 @@ impl AppPaths {
         self.data.join("library")
     }
 
+    pub fn logs(&self) -> PathBuf {
+        self.data.join("logs")
+    }
+
     pub fn lock(&self) -> PathBuf {
         self.data.join("locks").join("app.lock")
     }

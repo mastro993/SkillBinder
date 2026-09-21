@@ -1,9 +1,11 @@
 mod commands;
+mod logging;
 mod transport;
 
+use logging::LoggingGuard;
 use skillbinder_app::AppState;
 use skillbinder_platform::paths::AppPaths;
-use tauri::{Manager, WebviewWindow};
+use tauri::{Manager, RunEvent, WebviewWindow};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SecondInstanceDecision {
@@ -40,8 +42,9 @@ pub fn run() {
                     window.as_ref().map(|window| window as &dyn ExistingWindow),
                 ) == SecondInstanceDecision::ExitedWithoutFocus
                 {
-                    eprintln!(
-                        "Second SkillBinder instance exited; main window could not be focused"
+                    tracing::warn!(
+                        event = "second_instance.unfocused",
+                        "second SkillBinder instance exited; main window could not be focused"
                     );
                 }
             },
@@ -54,7 +57,16 @@ pub fn run() {
                 app.path().app_cache_dir()?,
             );
             let home = app.path().home_dir()?;
-            app.manage(AppState::open(paths, home)?);
+            app.manage(logging::install(&paths, &home));
+            match AppState::open(paths, home) {
+                Ok(state) => {
+                    app.manage(state);
+                }
+                Err(error) => {
+                    logging::record_startup_failure(&error);
+                    return Err(error.into());
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -74,11 +86,18 @@ pub fn run() {
             commands::imports::imports_prepare,
             commands::imports::imports_apply,
             commands::library::library_list,
+            commands::diagnostics::diagnostics_reveal_logs,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build SkillBinder");
 
-    application.run(|_, _| {});
+    application.run(|app, event| {
+        if matches!(event, RunEvent::Exit)
+            && let Some(guard) = app.try_state::<LoggingGuard>()
+        {
+            guard.flush();
+        }
+    });
 }
 
 #[cfg(test)]
