@@ -15,9 +15,7 @@ Failure before the library rename leaves onboarding incomplete. A later retry re
 
 ## Commands
 
-- `system_bootstrap`
-- `git_environment_verify`
-- `onboarding_progress_update`
-- `onboarding_complete_local`
-
-Tauri permissions enumerate exactly these commands for the named `main` window. No remote origin is allowed.
+The onboarding commands are `system_bootstrap`, `git_environment_verify`,
+`onboarding_progress_update`, and `onboarding_complete_local`. The main-window capability grants
+these four together with the discovery, root, import, and library commands; `node
+scripts/check-architecture.mjs` fails when the set drifts. No remote origin is allowed.

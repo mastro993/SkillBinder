@@ -1,50 +1,53 @@
 # SkillBinder agents instructions
 
-## Project structure
+A Tauri desktop app: a React frontend, an IPC shell in `apps/tauri`, and three Rust crates.
 
-```json
-apps/
-├── frontend/         # Frontend app, Typescript, React, Tanstack Router
-├── tauri/            # Tauri IPC commands
-└── server/           # Axum HTTP handlers
-
-crates/
-├── app/              # Context initialization
-├── core/             # Business logic, models, services
-└── db/               # Diesel ORM, repositories, migrations
+```text
+Frontend view -> queries.ts -> native/client.ts -> invoke
+    -> apps/tauri/src/features/<feature>.rs   (DTOs in transport.rs, permissions in capabilities/)
+    -> crates/core                            (domain rules, use cases, port traits; no I/O)
+    -> crates/platform (filesystem, Git, process lock, library files) and crates/db (SQLite)
 ```
 
-See `apps/frontend/AGENTS.md` for frontend-specific conventions.
+`README.md` holds the workspace layout, the UI placement rules, the verification commands, and the
+local data layout. `docs/architecture/` explains the bootstrap and discovery subsystems, and
+`docs/features/` explains the two journeys.
 
-## Agent Playbook
+## Where a change goes
 
-### Adding a feature with backend data
+| Change                                       | Owner                                                                 |
+| -------------------------------------------- | --------------------------------------------------------------------- |
+| Route, view, selection state                 | `apps/frontend/src/features/<feature>/`                               |
+| Reading data from the shell                  | `apps/frontend/src/features/<feature>/queries.ts`                     |
+| IPC command, DTO, permission                 | `apps/tauri/src/features/<feature>.rs`, `apps/tauri/src/transport.rs` |
+| Domain rule, use case, port trait            | `crates/core/src/<feature>/`                                          |
+| Filesystem, Git, process lock, library files | `crates/platform/src/`                                                |
+| SQLite schema and machine state              | `crates/db/src/`                                                      |
+| A decision worth remembering later           | `docs/adr/`                                                           |
 
-1. **Frontend route/UI** → `apps/frontend/src/routes/`
-2. **Command wrapper** → `apps/frontend/src/commands/` or
-   `apps/frontend/src/features/<feature>/commands/`
-3. **Tauri command** → `apps/tauri/src/commands/*.rs`, wire in `mod.rs` +
-   `lib.rs`
-4. **Web endpoint** → `apps/server/src/api/`, call `crates/core` service
-5. **Core logic** → `crates/core/` services/repos
-6. **DB** → `crates/db/` repositories, migrations in `crates/db/migrations`
-7. **Tests** → Vitest for TS, `#[test]` for Rust
+## Conventions the surrounding files do not show
 
-### UI patterns
+- `crates/core` decides, it does not touch. A filesystem, Git, database, clock, or identifier
+  effect reaches it through a port trait that one feature module owns, so the domain stays pure and
+  testable without a temporary directory.
+- Rust owns every IPC payload shape, so a DTO change starts in
+  `apps/tauri/src/transport.rs` and ends with `pnpm contracts:generate`. The zod schemas in
+  `apps/frontend/src/native/contracts.ts` validate what arrives at runtime.
+- Lint levels come from the `[workspace.lints]` table in `Cargo.toml`, so an obvious clone or a
+  dead enum variant fails `pnpm verify` instead of the review.
+- Write down a decision that constrains later work in `docs/adr/`, and update
+  `docs/architecture/` or `docs/features/` in the commit that changes the behaviour.
 
-- Components: always use `shadcn` and `@base-ui/react`
-- Forms: `react-hook-form` + `zod` schemas from
-  `apps/frontend/src/features/<feature>/types/`
-- Theme: tokens in `apps/frontend/src/styles.css`
+## Adding a feature that needs backend data
 
-### Architecture pattern
-
-```json
-Frontend command wrapper → invokeCommand → Tauri IPC
-                ↓
-            crates/app (wiring)
-                ↓
-            crates/core (business logic)
-                ↓
-            crates/db (repository)
-```
+1. Write the port trait and the use case in `crates/core/src/<feature>/`, with the tests beside them.
+2. Implement the port in `crates/platform` or `crates/db` when the feature reads files, Git, or
+   SQLite.
+3. Add the DTOs to `apps/tauri/src/transport.rs`, then run `pnpm contracts:generate`.
+4. Add the command to `apps/tauri/src/features/<feature>.rs` and register it in
+   `apps/tauri/src/lib.rs`. Then declare `allow-<command>` in `apps/tauri/permissions/default.toml`,
+   list that identifier in `apps/tauri/capabilities/main.json`, and add it to the expected list in
+   `scripts/check-architecture.mjs`.
+5. Add the query or the mutation in `apps/frontend/src/features/<feature>/queries.ts`.
+6. Build the view in `apps/frontend/src/features/<feature>/components/`.
+7. Document the behaviour in `docs/features/` in the commit that ships it.
