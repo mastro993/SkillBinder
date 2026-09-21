@@ -5,7 +5,7 @@ Status: accepted, 2026-09-20.
 ## Decision
 
 Discovery reads a declarative registry checked into the repository at
-`libs/core/src/discovery/registry.json`, pinned to `vercel-labs/skills` commit
+`crates/core/src/discovery/registry.json`, pinned to `vercel-labs/skills` commit
 `7407f3893ad4dceab546ac002c3ef806e4000c73`. Every agent ID in that upstream `AgentType` union has
 one entry. No part of the upstream JavaScript runtime is bundled or executed.
 

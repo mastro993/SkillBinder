@@ -3,7 +3,7 @@ import path from "node:path";
 
 const expected = {
   apps: ["frontend", "tauri"],
-  libs: ["core", "db", "platform"],
+  crates: ["core", "db", "platform"],
 };
 
 for (const [root, allowed] of Object.entries(expected)) {
@@ -19,10 +19,10 @@ for (const [root, allowed] of Object.entries(expected)) {
 }
 
 const forbidden = [
-  "libs/ui",
-  "libs/contracts",
-  "libs/desktop-client",
-  "libs/ipc-contracts",
+  "crates/ui",
+  "crates/contracts",
+  "crates/desktop-client",
+  "crates/ipc-contracts",
 ];
 for (const directory of forbidden) {
   try {

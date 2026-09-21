@@ -34,28 +34,28 @@ The product owner accepted the recommendations from the preceding requirements d
 
 ### 1.1 Approved product baseline
 
-| Area                   | Decision                                                                                                                                                                                                                                                                                                          |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent coverage         | Support all agents in the complete pinned skills CLI registry, with documented additional read paths and custom roots. Do not reduce acceptance to a selected subset. See section 10.                                                                                                                             |
-| Content                | Manage Agent Skills folders with `SKILL.md` and their supporting files. Do not manage standalone rules, prompts, or agent configuration as separate products.                                                                                                                                                     |
-| Discovery              | Check known global directories. Search for projects only inside roots selected by the user. Provide custom directories. Show results before import.                                                                                                                                                               |
-| Import                 | Copy selected skills into app-managed storage. Leave original files unchanged. Combine identical imports while retaining all source locations. Keep different versions separate.                                                                                                                                  |
-| History                | Use one Git repository for the library, including organization metadata. Commit successful library changes automatically.                                                                                                                                                                                         |
-| Sync                   | Provide manual remote sync. Do not put machine paths or credentials in the synced repository.                                                                                                                                                                                                                     |
-| Organization           | Nested logical folders, one folder per skill, multiple tags. Bulk selection by folder, tag, or manual selection.                                                                                                                                                                                                  |
-| Deployment             | Copy files. The user explicitly deploys changes. Show a plan and a diff before writing.                                                                                                                                                                                                                           |
-| Conflicts              | Detect external changes. Never silently replace changed or unrelated files. Back up before replacement. No automatic text conflict resolution.                                                                                                                                                                    |
-| Authoring              | Basic text editor, Markdown preview, and validation. Edit text files throughout a skill. Never run skill scripts from this app.                                                                                                                                                                                   |
-| Sources                | Install from public and private GitHub repositories or supported skills.sh links/install references. Private GitHub access uses existing local Git authentication. Let the user select individual skills. Record exact source commits.                                                                            |
-| Source updates         | Check and apply only on user request. Show differences and preserve local edits.                                                                                                                                                                                                                                  |
-| Runtime                | Core management is offline. No app account or app-owned backend. Node.js is not an end-user runtime requirement. The engineering design requires a supported local Git executable.                                                                                                                                |
-| Git authentication     | Reuse the user's local Git authentication. Do not collect tokens, create an app sign-in flow, or maintain an app credential store.                                                                                                                                                                                |
-| Distribution           | Installers, signing, notarization, app stores, release hosting, and public compatibility certification are out of scope. Local builds and cross-OS testing remain required.                                                                                                                                       |
-| App updates            | In-app update checks, update downloads, updater integration, feeds, and update signing are out of scope. Manual skill-source updates remain in scope.                                                                                                                                                             |
-| Source license policy  | Public source under the approved `AGPL-3.0-only` license. Include the license text, consistent package metadata, and required notices. See section 25.4.                                                                                                                                                          |
-| Boundaries             | Frontend owns presentation. Rust owns files, Git, downloads, jobs, and trusted state. Use typed IPC.                                                                                                                                                                                                              |
-| Code layout            | `apps/frontend`, `apps/Tauri`, and `libs`. Group by feature in each package, then by purpose inside each feature. Feature-specific frontend components remain inside their feature. The shared frontend component root below is an explicit owner-approved exception.                                             |
-| UI component locations | All UI components belong to `apps/frontend`. Put shadcn/ui components in `apps/frontend/src/components/ui`. Put shared custom components in `apps/frontend/src/components`. Put feature-specific components in `apps/frontend/src/features/{feature}/components`. Do not create a shared UI package under `libs`. |
+| Area                   | Decision                                                                                                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent coverage         | Support all agents in the complete pinned skills CLI registry, with documented additional read paths and custom roots. Do not reduce acceptance to a selected subset. See section 10.                                                                                                                               |
+| Content                | Manage Agent Skills folders with `SKILL.md` and their supporting files. Do not manage standalone rules, prompts, or agent configuration as separate products.                                                                                                                                                       |
+| Discovery              | Check known global directories. Search for projects only inside roots selected by the user. Provide custom directories. Show results before import.                                                                                                                                                                 |
+| Import                 | Copy selected skills into app-managed storage. Leave original files unchanged. Combine identical imports while retaining all source locations. Keep different versions separate.                                                                                                                                    |
+| History                | Use one Git repository for the library, including organization metadata. Commit successful library changes automatically.                                                                                                                                                                                           |
+| Sync                   | Provide manual remote sync. Do not put machine paths or credentials in the synced repository.                                                                                                                                                                                                                       |
+| Organization           | Nested logical folders, one folder per skill, multiple tags. Bulk selection by folder, tag, or manual selection.                                                                                                                                                                                                    |
+| Deployment             | Copy files. The user explicitly deploys changes. Show a plan and a diff before writing.                                                                                                                                                                                                                             |
+| Conflicts              | Detect external changes. Never silently replace changed or unrelated files. Back up before replacement. No automatic text conflict resolution.                                                                                                                                                                      |
+| Authoring              | Basic text editor, Markdown preview, and validation. Edit text files throughout a skill. Never run skill scripts from this app.                                                                                                                                                                                     |
+| Sources                | Install from public and private GitHub repositories or supported skills.sh links/install references. Private GitHub access uses existing local Git authentication. Let the user select individual skills. Record exact source commits.                                                                              |
+| Source updates         | Check and apply only on user request. Show differences and preserve local edits.                                                                                                                                                                                                                                    |
+| Runtime                | Core management is offline. No app account or app-owned backend. Node.js is not an end-user runtime requirement. The engineering design requires a supported local Git executable.                                                                                                                                  |
+| Git authentication     | Reuse the user's local Git authentication. Do not collect tokens, create an app sign-in flow, or maintain an app credential store.                                                                                                                                                                                  |
+| Distribution           | Installers, signing, notarization, app stores, release hosting, and public compatibility certification are out of scope. Local builds and cross-OS testing remain required.                                                                                                                                         |
+| App updates            | In-app update checks, update downloads, updater integration, feeds, and update signing are out of scope. Manual skill-source updates remain in scope.                                                                                                                                                               |
+| Source license policy  | Public source under the approved `AGPL-3.0-only` license. Include the license text, consistent package metadata, and required notices. See section 25.4.                                                                                                                                                            |
+| Boundaries             | Frontend owns presentation. Rust owns files, Git, downloads, jobs, and trusted state. Use typed IPC.                                                                                                                                                                                                                |
+| Code layout            | `apps/frontend`, `apps/Tauri`, and `crates`. Group by feature in each package, then by purpose inside each feature. Feature-specific frontend components remain inside their feature. The shared frontend component root below is an explicit owner-approved exception.                                             |
+| UI component locations | All UI components belong to `apps/frontend`. Put shadcn/ui components in `apps/frontend/src/components/ui`. Put shared custom components in `apps/frontend/src/components`. Put feature-specific components in `apps/frontend/src/features/{feature}/components`. Do not create a shared UI package under `crates`. |
 
 ### 1.2 Decisions G1–G5
 
@@ -162,7 +162,7 @@ apps/frontend
              |
              | generated request/response types
              v
-libs/desktop-client
+crates/desktop-client
   typed invoke wrapper + event client
              |
              | Tauri IPC: validated commands, not generic file access
@@ -171,12 +171,12 @@ apps/Tauri
   app lifecycle + command adapters + dependency composition
              |
              v
-libs/core
+crates/core
   feature use cases + domain rules + ports
              ^
              | implements ports
              |
-libs/platform
+crates/platform
   local filesystem + system Git + SQLite + restricted HTTPS
              |
              +-- managed library repository
@@ -191,7 +191,7 @@ Tauri uses `tauri.conf.json` to locate and configure its Rust project. This perm
 
 `apps/frontend` may import `contracts` and `desktop-client`. It owns all UI components; there is no shared UI workspace package. It must not import platform-specific Node modules or native implementation files.
 
-Within the frontend, route entries compose views exposed by the public API of `src/features/{feature}`. Feature-specific views and components live in `src/features/{feature}/components`. These components may import their own feature's hooks, queries, commands, models, and validation through internal module paths. They may also import shared custom components from `src/components` and shadcn primitives from `src/components/ui`. Non-UI feature modules must not import presentation components or route files. Shared custom components and UI primitives must not import features, the desktop client, or IPC APIs. Shared components receive feature data and actions through typed props and callbacks. Shared custom components may import UI primitives; UI primitives must not depend on shared custom components. No package under `libs` may depend on `apps/frontend`.
+Within the frontend, route entries compose views exposed by the public API of `src/features/{feature}`. Feature-specific views and components live in `src/features/{feature}/components`. These components may import their own feature's hooks, queries, commands, models, and validation through internal module paths. They may also import shared custom components from `src/components` and shadcn primitives from `src/components/ui`. Non-UI feature modules must not import presentation components or route files. Shared custom components and UI primitives must not import features, the desktop client, or IPC APIs. Shared components receive feature data and actions through typed props and callbacks. Shared custom components may import UI primitives; UI primitives must not depend on shared custom components. No package under `crates` may depend on `apps/frontend`.
 
 `apps/Tauri` may import `core`, `platform`, and `ipc-contracts`. It is the composition root. Commands validate transport input, call a use case, map its result, and return. They do not contain scanning, Git, or file-copy algorithms.
 
@@ -256,7 +256,7 @@ Do not introduce an experimental dependency for a core safety requirement withou
 
 ### 5.2 System-Git adapter and process safety
 
-Keep this adapter in the relevant feature modules under `libs/platform`. Core ports describe operations such as read a tree, create a commit, compare refs, fetch, and push. They do not accept arbitrary command text or Git options. A small private process supervisor can serve these adapters.
+Keep this adapter in the relevant feature modules under `crates/platform`. Core ports describe operations such as read a tree, create a commit, compare refs, fetch, and push. They do not accept arbitrary command text or Git options. A small private process supervisor can serve these adapters.
 
 **Executable discovery:** Resolve the local Git executable outside source and target directories. Resolve relative PATH entries only against a controlled app directory; never search an untrusted project or the current directory. Support an explicit native executable picker when GUI PATH differs from terminal PATH. Validate the chosen executable, version, and required capabilities. Store only its local path and non-secret compatibility status. Never run a login shell to discover Git or parse shell startup files.
 
@@ -335,7 +335,7 @@ Preserve the requested capitalization of `apps/Tauri`. Package names remain lowe
 │           ├── lib.rs
 │           ├── app/                  # lifecycle and dependency composition
 │           └── features/             # IPC adapters, grouped by domain feature
-├── libs/
+├── crates/
 │   ├── contracts/                    # generated TS transport package
 │   ├── desktop-client/               # typed IPC and event access; no React
 │   ├── ipc-contracts/                # Rust transport types and exports
@@ -428,10 +428,10 @@ Outside the approved shared frontend component root, do not create package-wide 
 # pnpm-workspace.yaml
 packages:
   - apps/*
-  - libs/*
+  - crates/*
 ```
 
-Only directories with `package.json` become JavaScript packages. Rust-only directories remain Cargo workspace members. Use `workspace:*` for internal JavaScript package dependencies. Define Rust members explicitly: `apps/Tauri`, `libs/core`, `libs/platform`, and `libs/ipc-contracts`. Add Rust test-support membership only if it is implemented as a crate.
+Only directories with `package.json` become JavaScript packages. Rust-only directories remain Cargo workspace members. Use `workspace:*` for internal JavaScript package dependencies. Define Rust members explicitly: `apps/Tauri`, `crates/core`, `crates/platform`, and `crates/ipc-contracts`. Add Rust test-support membership only if it is implemented as a crate.
 
 Enforce dependency boundaries with package exports and an architecture check. The check must allow feature components to import their own feature modules, shared custom components, and shadcn primitives. It must reject shared UI workspace packages, feature-specific UI under the shared component root, and custom UI outside `apps/frontend/src/features/{feature}/components` or `apps/frontend/src/components`, apart from the documented bootstrap/route exceptions. It must also reject imports from shared components or primitives into features, the desktop client, or IPC APIs; imports from primitives into shared custom components; imports from non-UI feature modules into presentation components; feature imports of route files; and cross-feature access to private modules. Test both permitted and prohibited imports. Check relative imports as well as aliases. Do not rely on developer convention alone. Static checks enforce module paths and dependencies; code review must also verify that a component placed in the shared root has no feature-specific role.
 
@@ -1029,7 +1029,7 @@ Network failures never block local editing, organization, history, or deployment
 
 ### 19.1 Contract ownership
 
-Rust DTOs in `libs/ipc-contracts` are the transport source of truth. Export TypeScript into `libs/contracts/src/features/<feature>/model/`. Generate or verify the command registry, client signatures, permission list, and DTO fixtures in CI.
+Rust DTOs in `crates/ipc-contracts` are the transport source of truth. Export TypeScript into `crates/contracts/src/features/<feature>/model/`. Generate or verify the command registry, client signatures, permission list, and DTO fixtures in CI.
 
 Use `serde` naming rules consistently. Use strings for UUIDs, commit IDs, native path references, and counters that could exceed JavaScript's safe integer range. Use explicit `null` for optional fields where the contract requires it. Do not send platform error objects or Rust debug output to the frontend.
 

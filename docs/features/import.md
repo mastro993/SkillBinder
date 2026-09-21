@@ -129,8 +129,8 @@ to import cycle leaves the sources byte-identical, records observations, and rep
 
 ## Extension instructions
 
-Add new payload rules in `libs/core/src/library/payload.rs` and extend the validation-code enums in
+Add new payload rules in `crates/core/src/library/payload.rs` and extend the validation-code enums in
 core, in `apps/tauri/src/transport.rs`, and in `apps/frontend/src/native/contracts.ts` together,
-then run `pnpm contracts:generate`. Keep filesystem behavior in `libs/platform`. Add a port only
+then run `pnpm contracts:generate`. Keep filesystem behavior in `crates/platform`. Add a port only
 when two real implementations need it. Never expose a command that accepts a destination path or a
 raw source path from the frontend: candidate ids stay opaque and resolve through the scan session.

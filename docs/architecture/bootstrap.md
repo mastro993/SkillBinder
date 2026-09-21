@@ -2,7 +2,7 @@
 
 ## Ownership
 
-The frontend renders prerequisite status and persists only a step through typed commands. `apps/tauri` maps transport DTOs and composes the long-lived services. `libs/core` owns the onboarding use case, step transitions, and ports. `libs/platform` implements application storage, trusted system-Git, process lock, and local-library ports. `libs/db` implements the non-secret onboarding-state port with SQLite.
+The frontend renders prerequisite status and persists only a step through typed commands. `apps/tauri` maps transport DTOs and composes the long-lived services. `crates/core` owns the onboarding use case, step transitions, and ports. `crates/platform` implements application storage, trusted system-Git, process lock, and local-library ports. `crates/db` implements the non-secret onboarding-state port with SQLite.
 
 ## State flow
 

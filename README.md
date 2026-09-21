@@ -17,7 +17,7 @@ Only these application and library roots are allowed:
 apps/
 ├── frontend/   Vite, React, TanStack Router, TanStack Query, Tailwind
 └── tauri/      Tauri shell, typed IPC DTOs, command adapters
-libs/
+crates/
 ├── core/       Domain rules, agent registry, payload validation, use cases
 ├── db/         SQLite-owned machine state
 └── platform/   Paths, process lock, system Git, filesystem, library storage

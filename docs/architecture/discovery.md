@@ -2,13 +2,13 @@
 
 ## Ownership
 
-| Layer           | Owns                                                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `libs/core`     | Registry parsing, root templates, the traversal engine and its policies, candidate identity, payload validation, manifests, import planning and apply |
-| `libs/platform` | Filesystem reads, canonicalization, link resolution, volume identity, staging, library files, journals, Git revision and status                       |
-| `libs/db`       | Plans, idempotency records, source observations, derived skill metadata, machine-local `scan_roots`                                                   |
-| `apps/tauri`    | Transport mapping, permissions, the folder-grant store, run state, the short-lived scan session, command composition                                  |
-| `apps/frontend` | Discovery and library presentation, selection state, plan review                                                                                      |
+| Layer             | Owns                                                                                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crates/core`     | Registry parsing, root templates, the traversal engine and its policies, candidate identity, payload validation, manifests, import planning and apply |
+| `crates/platform` | Filesystem reads, canonicalization, link resolution, volume identity, staging, library files, journals, Git revision and status                       |
+| `crates/db`       | Plans, idempotency records, source observations, derived skill metadata, machine-local `scan_roots`                                                   |
+| `apps/tauri`      | Transport mapping, permissions, the folder-grant store, run state, the short-lived scan session, command composition                                  |
+| `apps/frontend`   | Discovery and library presentation, selection state, plan review                                                                                      |
 
 Core performs no I/O. Every filesystem, Git, database, clock, and identifier effect arrives through
 a port that a feature module owns. The engine is pure over `PayloadSource`, `LibraryCatalog`, and a

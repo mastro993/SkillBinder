@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
-const registryPath = resolve(root, "libs/core/src/discovery/registry.json");
+const registryPath = resolve(root, "crates/core/src/discovery/registry.json");
 const docsPath = resolve(root, "docs/agent-support.md");
 
 const read = (path) => readFileSync(path, "utf8");

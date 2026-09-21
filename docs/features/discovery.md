@@ -209,7 +209,7 @@ the real engine: a full scan, a scan with a tiny entry budget, and a cancelled s
 2. Copy only the reviewed `src/agents.ts` and `src/types.ts` into
    `tests/fixtures/upstream-skills-cli/<commit>/`.
 3. Update `upstream.commit`, `upstream.files`, and `upstream.retrievedAt` in
-   `libs/core/src/discovery/registry.json`.
+   `crates/core/src/discovery/registry.json`.
 4. Transcribe every union ID and its declarative fields. Keep project-only `globalRoots` empty and
    list multiple candidate directories in upstream precedence order.
 5. Run `node scripts/registry.mjs docs`, inspect the table, then run
@@ -228,10 +228,10 @@ reviewed source does not state.
 ### Add an exclusion rule
 
 Add one `ExclusionRule { name, reason }` to `PROJECT_EXCLUSIONS` in
-`libs/core/src/discovery/scan.rs`, and to `GLOBAL_EXCLUSIONS` only when the registry path should
+`crates/core/src/discovery/scan.rs`, and to `GLOBAL_EXCLUSIONS` only when the registry path should
 skip it too. The name match is exact and case-sensitive, applies to both directories and files, and
 runs before any metadata is read, so a rule must be cheap and unambiguous. Extend
-`libs/core/src/discovery/scan.rs` tests with a tree that proves the folder is skipped and the
+`crates/core/src/discovery/scan.rs` tests with a tree that proves the folder is skipped and the
 exclusion is aggregated under its reason. A new `ExclusionReason` variant is a wire change: add it
 to the enum, to the transport DTO in `apps/tauri/src/transport.rs`, regenerate the TypeScript, and
 add its label to `exclusionReasonLabels` in
