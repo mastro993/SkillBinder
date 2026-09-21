@@ -7,13 +7,21 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryResultsResponse } from "@/types";
 import type { DesktopClient } from "@/commands/client";
 import * as native from "@/commands/client";
+import { AppShell } from "@/components/layout/app-shell";
 import { stubDesktopClient } from "@/test/stub-client";
-import { ScanActivity } from "../scan-activity";
+import type { ImportStatus } from "../../hooks/queries";
 
 function results(
   overrides: Partial<DiscoveryResultsResponse> = {},
@@ -43,8 +51,14 @@ function results(
   };
 }
 
-/** Puts the chip on a screen of its own, so `Link` has a router to work with. */
-function renderChip(client: Partial<DesktopClient>) {
+interface ShellOptions {
+  importPhase?: ImportStatus["phase"];
+}
+
+function renderShell(
+  client: Partial<DesktopClient>,
+  options: ShellOptions = {},
+) {
   vi.spyOn(native, "getDesktopClient").mockResolvedValue(
     stubDesktopClient(client),
   );
@@ -53,10 +67,9 @@ function renderChip(client: Partial<DesktopClient>) {
     getParentRoute: () => root,
     path: "/library",
     component: () => (
-      <>
+      <AppShell>
         <p>Library screen</p>
-        <ScanActivity />
-      </>
+      </AppShell>
     ),
   });
   const router = createRouter({
@@ -66,6 +79,11 @@ function renderChip(client: Partial<DesktopClient>) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  if (options.importPhase !== undefined) {
+    queryClient.setQueryData(["discovery", "import"], {
+      phase: options.importPhase,
+    });
+  }
   return {
     queryClient,
     ...render(
@@ -76,21 +94,28 @@ function renderChip(client: Partial<DesktopClient>) {
   };
 }
 
-/** Waits until the shell's answers have landed, so an absence is a real absence. */
-async function settle(queryClient: QueryClient) {
-  await screen.findByText("Library screen");
-  await waitFor(() =>
-    expect(queryClient.getQueryState(["discovery", "current"])?.status).toBe(
-      "success",
-    ),
-  );
+async function settleScanResults(queryClient: QueryClient) {
+  await settleCurrentScan(queryClient);
   await waitFor(() =>
     expect(
       queryClient.getQueryState(["discovery", "results", "scan-1", 0, 50])
         ?.status,
     ).not.toBe("pending"),
   );
+}
+
+async function settleCurrentScan(queryClient: QueryClient) {
+  await screen.findByText("Library screen");
+  await waitFor(() =>
+    expect(queryClient.getQueryState(["discovery", "current"])?.status).toBe(
+      "success",
+    ),
+  );
   await act(async () => {});
+}
+
+function discoveryRow() {
+  return within(screen.getByRole("link", { name: /Discovery/ }));
 }
 
 afterEach(() => {
@@ -99,44 +124,118 @@ afterEach(() => {
 });
 
 describe("scan activity", () => {
-  it("stays out of the sidebar when the shell holds no scan", async () => {
-    const { queryClient } = renderChip({
+  it("shows nothing in the nav row when the shell holds no scan", async () => {
+    const { queryClient } = renderShell({
       discoveryCurrent: async () => ({ scanId: null }),
     });
 
-    await settle(queryClient);
-    expect(screen.queryByText(/Scan running/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Open Discovery" }),
-    ).not.toBeInTheDocument();
+    await settleScanResults(queryClient);
+    const row = discoveryRow();
+    expect(row.queryByText(/^\d+$/)).not.toBeInTheDocument();
+    expect(row.queryByText("Scanning for skills")).not.toBeInTheDocument();
+    expect(row.queryByText("Importing skills")).not.toBeInTheDocument();
   });
 
-  it("stays out of the sidebar when the adopted scan has finished", async () => {
-    const { queryClient } = renderChip({
+  it("spins in the nav row while the held scan has no answer yet", async () => {
+    const { queryClient } = renderShell({
       discoveryCurrent: async () => ({ scanId: "scan-1" }),
-      discoveryResults: async (_scanId, offset, limit) =>
-        results({ phase: "finished", offset, limit }),
+      discoveryResults: () =>
+        new Promise<DiscoveryResultsResponse>(() => undefined),
     });
 
-    await settle(queryClient);
-    expect(screen.queryByText(/Scan running/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Open Discovery" }),
-    ).not.toBeInTheDocument();
+    await settleCurrentScan(queryClient);
+    expect(discoveryRow().getByText("Scanning for skills")).toBeInTheDocument();
+    expect(discoveryRow().queryByText(/^\d+$/)).not.toBeInTheDocument();
   });
 
-  it("says a scan is running and offers the way back to Discovery", async () => {
-    renderChip({
+  it("spins in the nav row while the scan is running", async () => {
+    const { queryClient } = renderShell({
       discoveryCurrent: async () => ({ scanId: "scan-1" }),
       discoveryResults: async (_scanId, offset, limit) =>
         results({ offset, limit }),
     });
 
-    expect(
-      await screen.findByText(/Scan running · 1 of 2 roots/),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("link", { name: "Open Discovery" }),
-    ).toBeInTheDocument();
+    await settleScanResults(queryClient);
+    expect(discoveryRow().getByText("Scanning for skills")).toBeInTheDocument();
+  });
+
+  it("counts the skills found when the scan finishes", async () => {
+    const { queryClient } = renderShell({
+      discoveryCurrent: async () => ({ scanId: "scan-1" }),
+      discoveryResults: async (_scanId, offset, limit) =>
+        results({
+          phase: "finished",
+          totalCandidates: 3,
+          offset,
+          limit,
+        }),
+    });
+
+    await settleScanResults(queryClient);
+    const row = discoveryRow();
+    expect(row.getByText("3")).toBeInTheDocument();
+    expect(row.getByText("skills found")).toBeInTheDocument();
+    expect(row.queryByText("Scanning for skills")).not.toBeInTheDocument();
+    expect(row.queryByText("Importing skills")).not.toBeInTheDocument();
+  });
+
+  it("shows no badge when the finished scan found no skills", async () => {
+    const { queryClient } = renderShell({
+      discoveryCurrent: async () => ({ scanId: "scan-1" }),
+      discoveryResults: async (_scanId, offset, limit) =>
+        results({
+          phase: "finished",
+          totalCandidates: 0,
+          offset,
+          limit,
+        }),
+    });
+
+    await settleScanResults(queryClient);
+    const row = discoveryRow();
+    expect(row.queryByText(/^\d+$/)).not.toBeInTheDocument();
+    expect(row.queryByText("Scanning for skills")).not.toBeInTheDocument();
+    expect(row.queryByText("Importing skills")).not.toBeInTheDocument();
+  });
+
+  it("shows no badge for a cancelled scan, even when it found skills", async () => {
+    const { queryClient } = renderShell({
+      discoveryCurrent: async () => ({ scanId: "scan-1" }),
+      discoveryResults: async (_scanId, offset, limit) =>
+        results({
+          phase: "cancelled",
+          totalCandidates: 3,
+          offset,
+          limit,
+        }),
+    });
+
+    await settleScanResults(queryClient);
+    const row = discoveryRow();
+    expect(row.queryByText(/^\d+$/)).not.toBeInTheDocument();
+    expect(row.queryByText("Scanning for skills")).not.toBeInTheDocument();
+    expect(row.queryByText("Importing skills")).not.toBeInTheDocument();
+  });
+
+  it("spins in the nav row while the import applies", async () => {
+    const { queryClient } = renderShell(
+      {
+        discoveryCurrent: async () => ({ scanId: "scan-1" }),
+        discoveryResults: async (_scanId, offset, limit) =>
+          results({
+            phase: "finished",
+            totalCandidates: 3,
+            offset,
+            limit,
+          }),
+      },
+      { importPhase: "applying" },
+    );
+
+    await settleScanResults(queryClient);
+    const row = discoveryRow();
+    expect(row.getByText("Importing skills")).toBeInTheDocument();
+    expect(row.queryByText("3")).not.toBeInTheDocument();
+    expect(row.queryByText("skills found")).not.toBeInTheDocument();
   });
 });

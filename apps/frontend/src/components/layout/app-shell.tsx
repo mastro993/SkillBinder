@@ -21,6 +21,7 @@ export function AppShell({ children }: PropsWithChildren) {
             to="/discovery"
           >
             <Compass size={18} /> Discovery
+            <ScanActivity />
           </Link>
           <Link
             className={path === "/library" ? "nav-link active" : "nav-link"}
@@ -35,7 +36,6 @@ export function AppShell({ children }: PropsWithChildren) {
             <Settings size={18} /> Settings
           </Link>
         </nav>
-        <ScanActivity />
         <p className="sidebar-note">Local-first · No account</p>
       </aside>
       <ScrollArea className="main-content">

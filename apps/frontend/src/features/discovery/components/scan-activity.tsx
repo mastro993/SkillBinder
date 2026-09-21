@@ -1,29 +1,50 @@
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { LoaderCircle } from "lucide-react";
 import {
   candidatePageLimit,
   currentQuery,
+  idleImport,
+  importKey,
   scanResultsQuery,
+  useCached,
+  type ImportStatus,
 } from "../hooks/queries";
 
 /**
- * Standing on any screen, this reads the same results query Discovery does, so the two
- * share one cache entry and one poll and the running chip stays honest without a wire type
- * of its own.
+ * Reads the same results query the Discovery screen reads, so the nav row shows the run from
+ * any screen without a wire type of its own.
  */
 export function ScanActivity() {
   const current = useQuery(currentQuery);
   const scanId = current.data?.scanId ?? null;
   const results = useQuery(scanResultsQuery(scanId, 0, candidatePageLimit));
+  const importStatus = useCached<ImportStatus>(importKey, idleImport());
   const data = results.data;
-  if (data?.phase !== "running") return null;
+
+  if (importStatus.phase === "applying")
+    return <Busy label="Importing skills" />;
+  if (scanId === null) return null;
+  if (data === undefined)
+    return results.isError ? null : <Busy label="Scanning for skills" />;
+  if (data.phase === "running") return <Busy label="Scanning for skills" />;
+  if (data.phase !== "finished" || data.totalCandidates === 0) return null;
   return (
-    <aside className="scan-activity" aria-live="polite">
-      <span>
-        Scan running · {data.progress.rootsDone} of {data.progress.rootsTotal}{" "}
-        roots
-      </span>
-      <Link to="/discovery">Open Discovery</Link>
-    </aside>
+    <span
+      className="nav-activity"
+      aria-live="polite"
+      title={`${data.totalCandidates} skills found`}
+    >
+      <span className="nav-badge">{data.totalCandidates}</span>
+      <span className="sr-only">skills found</span>
+    </span>
+  );
+}
+
+function Busy({ label }: { label: string }) {
+  return (
+    <span className="nav-activity" aria-live="polite" title={label}>
+      <LoaderCircle aria-hidden size={14} className="spin" />
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }

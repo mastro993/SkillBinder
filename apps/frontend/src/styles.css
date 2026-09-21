@@ -378,18 +378,23 @@ p {
   background: #dce3d7;
   color: #253d2b;
 }
-.scan-activity {
-  display: flex;
+.nav-activity {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 8px 8px;
+  margin-left: auto;
   color: #4e743c;
-  font-size: 11px;
 }
-.scan-activity a {
-  color: #4e743c;
-  font-weight: 700;
+.nav-badge {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #29422f;
+  color: #f2f3ed;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 .sidebar-note {
   margin: auto 8px 0;
