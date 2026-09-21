@@ -114,6 +114,15 @@ Tauri resolves platform-native application directories. Durable local data inclu
 contains source repositories and previews. SkillBinder does not place active data on a roaming or
 network filesystem.
 
+Logs live in the `logs/` subdirectory of that resolved local data directory, which on macOS is
+`~/Library/Application Support/dev.skillbinder.local/logs`. The active file is `skillbinder.log`,
+and `skillbinder.log.1` through `skillbinder.log.4` hold the older ones.
+
+The active file rotates at 5 MiB or at 14 days, five files are kept at most, and backups older than
+14 days are deleted. Every line is redacted before it reaches disk, so a file passed to someone
+else has already had the home directory prefix, URL userinfo, credential parameters, and
+authorization header values removed.
+
 Completing local-only onboarding creates:
 
 ```text
