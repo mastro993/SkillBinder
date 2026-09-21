@@ -46,6 +46,7 @@ pub fn run() {
                 }
             },
         ))
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(AppState::from_app(app.handle())?);
             Ok(())
@@ -56,6 +57,14 @@ pub fn run() {
             features::onboarding::onboarding_progress_update,
             features::onboarding::onboarding_complete_local,
             features::discovery::discovery_scan,
+            features::discovery::discovery_start,
+            features::discovery::discovery_results,
+            features::discovery::discovery_cancel,
+            features::roots::roots_pick,
+            features::roots::roots_register,
+            features::roots::roots_list,
+            features::roots::roots_update,
+            features::roots::roots_remove,
             features::imports::imports_prepare,
             features::imports::imports_apply,
             features::library::library_list,

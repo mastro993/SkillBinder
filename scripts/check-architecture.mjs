@@ -42,13 +42,21 @@ const customPermissions = capability.permissions
   .filter((permission) => !permission.startsWith("core:"))
   .sort();
 const expectedPermissions = [
+  "allow-discovery-cancel",
+  "allow-discovery-results",
   "allow-discovery-scan",
+  "allow-discovery-start",
   "allow-git-environment-verify",
   "allow-imports-apply",
   "allow-imports-prepare",
   "allow-library-list",
   "allow-onboarding-complete-local",
   "allow-onboarding-progress-update",
+  "allow-roots-list",
+  "allow-roots-pick",
+  "allow-roots-register",
+  "allow-roots-remove",
+  "allow-roots-update",
   "allow-system-bootstrap",
 ];
 if (customPermissions.join("\n") !== expectedPermissions.join("\n")) {

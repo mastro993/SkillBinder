@@ -367,6 +367,7 @@ mod tests {
     fn cached_candidate() -> ScanCandidate {
         ScanCandidate {
             candidate_id: "cached".into(),
+            location_id: "scan:loc:0".into(),
             path: CACHED.into(),
             canonical_path: CACHED.into(),
             identity: CACHED.into(),
@@ -382,6 +383,7 @@ mod tests {
             warnings: Vec::new(),
             blocked: false,
             duplicate: DuplicateStatus::Unique,
+            linked: false,
         }
     }
 

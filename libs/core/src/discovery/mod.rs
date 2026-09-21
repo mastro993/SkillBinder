@@ -1,8 +1,12 @@
 pub mod registry;
+pub mod roots;
 pub mod scan;
 
 pub use registry::{AgentAdapter, Registry, RegistryError, RootTemplate};
+pub use roots::ScanRoot;
 pub use scan::{
-    EntryKind, EntryMetadata, LibraryCatalog, PayloadSource, ResolvedRoot, ScanCandidate,
-    ScanLimits, ScanLocation, ScanOutcome, ScanRoot, ScanWarning, scan_global_roots,
+    Containment, EntryKind, EntryMetadata, ExclusionReason, ExclusionRule, LibraryCatalog,
+    LocationState, PayloadSource, ResolvedRoot, ScanCandidate, ScanExclusion, ScanInput,
+    ScanLimits, ScanLocation, ScanOutcome, ScanPolicy, ScanProgress, ScanWarning,
+    scan_global_roots, scan_roots,
 };

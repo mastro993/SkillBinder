@@ -19,6 +19,7 @@ skillbinder-core = { path = "../../libs/core" }
 skillbinder-db = { path = "../../libs/db" }
 skillbinder-platform = { path = "../../libs/platform" }
 tauri.workspace = true
+tauri-plugin-dialog = "2.7.3"
 tauri-plugin-single-instance = "2.4.5"
 ts-rs.workspace = true
 uuid.workspace = true

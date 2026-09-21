@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
 };
 use thiserror::Error;
 
@@ -41,6 +42,9 @@ pub trait PayloadSource: Send + Sync {
     fn canonicalize_root(&self, path: &Path) -> Result<PathBuf, SourceError> {
         Ok(path.to_path_buf())
     }
+    fn volume_id(&self, _path: &Path) -> Option<u64> {
+        None
+    }
     fn exists(&self, path: &Path) -> bool {
         self.entry_metadata(path).is_ok()
     }
@@ -67,8 +71,7 @@ pub struct ResolvedRoot {
     pub agent_id: String,
     pub agent_label: String,
 }
-pub type ScanRoot = ResolvedRoot;
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScanLimits {
     pub category_depth: usize,
     pub max_entries: usize,
@@ -84,6 +87,207 @@ impl Default for ScanLimits {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScanInput {
+    pub root_id: Option<String>,
+    pub path: PathBuf,
+    pub agent_ids: Vec<String>,
+    pub agent_labels: Vec<String>,
+    pub containment: Containment,
+    pub policy: ScanPolicy,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Containment {
+    Home,
+    Grant { canonical: PathBuf },
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExclusionReason {
+    VcsMetadata,
+    DependencyVendor,
+    BuildOutput,
+    Cache,
+    VirtualEnvironment,
+    AppData,
+    MountBoundary,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExclusionRule {
+    pub name: &'static str,
+    pub reason: ExclusionReason,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScanExclusion {
+    pub name: String,
+    pub reason: ExclusionReason,
+    pub matches: u32,
+    pub sample_path: PathBuf,
+}
+
+const GLOBAL_EXCLUSIONS: &[ExclusionRule] = &[
+    ExclusionRule {
+        name: ".git",
+        reason: ExclusionReason::VcsMetadata,
+    },
+    ExclusionRule {
+        name: "node_modules",
+        reason: ExclusionReason::DependencyVendor,
+    },
+];
+const PROJECT_EXCLUSIONS: &[ExclusionRule] = &[
+    ExclusionRule {
+        name: ".git",
+        reason: ExclusionReason::VcsMetadata,
+    },
+    ExclusionRule {
+        name: ".hg",
+        reason: ExclusionReason::VcsMetadata,
+    },
+    ExclusionRule {
+        name: ".svn",
+        reason: ExclusionReason::VcsMetadata,
+    },
+    ExclusionRule {
+        name: "node_modules",
+        reason: ExclusionReason::DependencyVendor,
+    },
+    ExclusionRule {
+        name: "vendor",
+        reason: ExclusionReason::DependencyVendor,
+    },
+    ExclusionRule {
+        name: "Pods",
+        reason: ExclusionReason::DependencyVendor,
+    },
+    ExclusionRule {
+        name: "bower_components",
+        reason: ExclusionReason::DependencyVendor,
+    },
+    ExclusionRule {
+        name: "target",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: "dist",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: "build",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: "out",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: ".next",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: ".nuxt",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: ".svelte-kit",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: "DerivedData",
+        reason: ExclusionReason::BuildOutput,
+    },
+    ExclusionRule {
+        name: ".cache",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: ".turbo",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: ".parcel-cache",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: ".gradle",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: "__pycache__",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: ".pytest_cache",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: ".mypy_cache",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: ".ruff_cache",
+        reason: ExclusionReason::Cache,
+    },
+    ExclusionRule {
+        name: ".venv",
+        reason: ExclusionReason::VirtualEnvironment,
+    },
+    ExclusionRule {
+        name: "venv",
+        reason: ExclusionReason::VirtualEnvironment,
+    },
+    ExclusionRule {
+        name: ".tox",
+        reason: ExclusionReason::VirtualEnvironment,
+    },
+    ExclusionRule {
+        name: "AppData",
+        reason: ExclusionReason::AppData,
+    },
+    ExclusionRule {
+        name: "Application Data",
+        reason: ExclusionReason::AppData,
+    },
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScanPolicy {
+    limits: ScanLimits,
+    exclusions: &'static [ExclusionRule],
+    stop_at_mount: bool,
+}
+impl ScanPolicy {
+    pub fn global(limits: ScanLimits) -> Self {
+        Self {
+            limits,
+            exclusions: GLOBAL_EXCLUSIONS,
+            stop_at_mount: false,
+        }
+    }
+    pub fn project() -> Self {
+        Self::project_with_limits(ScanLimits {
+            category_depth: 12,
+            max_entries: 200_000,
+            max_link_hops: 16,
+        })
+    }
+    pub fn project_with_limits(limits: ScanLimits) -> Self {
+        Self {
+            limits,
+            exclusions: PROJECT_EXCLUSIONS,
+            stop_at_mount: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScanProgress {
+    pub roots_total: u32,
+    pub roots_done: u32,
+    pub entries_seen: u32,
+    pub candidates_found: u32,
+    pub current_path: Option<PathBuf>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LocationState {
     Scanned,
@@ -92,12 +296,15 @@ pub enum LocationState {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanLocation {
+    pub location_id: String,
+    pub root_id: Option<String>,
     pub path: PathBuf,
     pub display_path: String,
     pub agent_ids: Vec<String>,
     pub agent_labels: Vec<String>,
     pub state: LocationState,
     pub detail: Option<String>,
+    pub limit_reached: bool,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanWarning {
@@ -113,6 +320,7 @@ pub enum DuplicateStatus {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanCandidate {
     pub candidate_id: String,
+    pub location_id: String,
     pub path: PathBuf,
     pub canonical_path: PathBuf,
     pub identity: String,
@@ -128,6 +336,7 @@ pub struct ScanCandidate {
     pub warnings: Vec<String>,
     pub blocked: bool,
     pub duplicate: DuplicateStatus,
+    pub linked: bool,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanOutcome {
@@ -136,7 +345,461 @@ pub struct ScanOutcome {
     pub candidates: Vec<ScanCandidate>,
     pub warnings: Vec<ScanWarning>,
     pub limits_reached: bool,
+    pub exclusions: Vec<ScanExclusion>,
+    pub cancelled: bool,
 }
+
+const CANCEL_ENTRY_INTERVAL: u32 = 512;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum DirectoryKey {
+    Identity(String),
+    Canonical(PathBuf),
+}
+fn directory_key(source: &dyn PayloadSource, canonical: &Path) -> DirectoryKey {
+    match source.physical_identity(canonical) {
+        Ok(identity) => DirectoryKey::Identity(identity),
+        Err(_) => DirectoryKey::Canonical(canonical.to_path_buf()),
+    }
+}
+
+struct ProgressSink<'a> {
+    sink: &'a mut dyn FnMut(ScanProgress),
+    roots_total: u32,
+    roots_done: u32,
+    entries_seen: u32,
+    candidates_found: u32,
+}
+impl ProgressSink<'_> {
+    fn emit(&mut self, current_path: Option<PathBuf>) {
+        let snapshot = ScanProgress {
+            roots_total: self.roots_total,
+            roots_done: self.roots_done,
+            entries_seen: self.entries_seen,
+            candidates_found: self.candidates_found,
+            current_path,
+        };
+        (self.sink)(snapshot);
+    }
+}
+
+struct Engine<'a> {
+    scan_id: &'a str,
+    source: &'a dyn PayloadSource,
+    catalog: &'a dyn LibraryCatalog,
+    home: PathBuf,
+    cancel: &'a AtomicBool,
+    progress: ProgressSink<'a>,
+    locations: Vec<ScanLocation>,
+    candidates: Vec<ScanCandidate>,
+    warnings: Vec<ScanWarning>,
+    exclusions: Vec<ScanExclusion>,
+    scanned_roots: HashMap<DirectoryKey, (usize, Vec<usize>)>,
+    skill_directories: HashMap<DirectoryKey, usize>,
+    limits_reached: bool,
+    cancelled: bool,
+}
+impl Engine<'_> {
+    fn key(&self, canonical: &Path) -> DirectoryKey {
+        directory_key(self.source, canonical)
+    }
+    fn reason_for(&self, policy: &ScanPolicy, name: &str) -> Option<ExclusionReason> {
+        policy
+            .exclusions
+            .iter()
+            .find(|rule| rule.name == name)
+            .map(|rule| rule.reason)
+    }
+    fn record_exclusion(&mut self, name: &str, reason: ExclusionReason, path: &Path) {
+        if let Some(existing) = self
+            .exclusions
+            .iter_mut()
+            .find(|item| item.name == name && item.reason == reason)
+        {
+            existing.matches += 1;
+            return;
+        }
+        self.exclusions.push(ScanExclusion {
+            name: name.to_owned(),
+            reason,
+            matches: 1,
+            sample_path: path.to_path_buf(),
+        });
+    }
+    fn crossed_mount(&self, stop_at_mount: bool, parent: &Path, child: &Path) -> bool {
+        if !stop_at_mount {
+            return false;
+        }
+        match (self.source.volume_id(parent), self.source.volume_id(child)) {
+            (Some(left), Some(right)) => left != right,
+            _ => false,
+        }
+    }
+    fn merge_readers(&mut self, index: usize, agent_ids: &[String], agent_labels: &[String]) {
+        let candidate = &mut self.candidates[index];
+        for (position, agent_id) in agent_ids.iter().enumerate() {
+            if !candidate.reader_agent_ids.contains(agent_id) {
+                candidate.reader_agent_ids.push(agent_id.clone());
+                candidate
+                    .reader_agent_labels
+                    .push(agent_labels.get(position).cloned().unwrap_or_default());
+            }
+        }
+    }
+    fn reject_root(&mut self, input: &ScanInput, state: LocationState, detail: Option<String>) {
+        let index = self.locations.len();
+        self.locations.push(ScanLocation {
+            location_id: format!("{}:loc:{index}", self.scan_id),
+            root_id: input.root_id.clone(),
+            path: input.path.clone(),
+            display_path: input.path.display().to_string(),
+            agent_ids: input.agent_ids.clone(),
+            agent_labels: input.agent_labels.clone(),
+            state,
+            detail,
+            limit_reached: false,
+        });
+    }
+    fn record_skill(
+        &mut self,
+        input: &ScanInput,
+        location_index: usize,
+        directory: &Path,
+        linked: bool,
+        discovered: &mut Vec<usize>,
+    ) {
+        let skill_root = directory.to_path_buf();
+        let resolved_skill = self
+            .source
+            .canonicalize_root(&skill_root)
+            .unwrap_or_else(|_| skill_root.clone());
+        let skill_key = self.key(&resolved_skill);
+        if let Some(index) = self.skill_directories.get(&skill_key).copied() {
+            self.candidates[index].linked |= linked;
+            self.merge_readers(index, &input.agent_ids, &input.agent_labels);
+            if !discovered.contains(&index) {
+                discovered.push(index);
+            }
+            return;
+        }
+        let location_id = self.locations[location_index].location_id.clone();
+        let candidate = ScanCandidate {
+            candidate_id: format!("{}:{}", self.scan_id, self.candidates.len()),
+            location_id,
+            path: resolved_skill.clone(),
+            canonical_path: resolved_skill.clone(),
+            identity: self
+                .source
+                .physical_identity(&resolved_skill)
+                .unwrap_or_default(),
+            display_path: resolved_skill.display().to_string(),
+            slug: resolved_skill
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default()
+                .to_owned(),
+            reader_agent_ids: input.agent_ids.clone(),
+            reader_agent_labels: input.agent_labels.clone(),
+            file_count: 0,
+            total_bytes: 0,
+            name: None,
+            description: None,
+            validation: crate::library::payload::ValidationSummary::valid(),
+            warnings: Vec::new(),
+            blocked: false,
+            duplicate: DuplicateStatus::Unique,
+            linked,
+        };
+        let mut candidate = candidate;
+        match crate::library::payload::inspect_payload(
+            &resolved_skill,
+            self.source,
+            &crate::library::payload::ValidationLimits::default(),
+        ) {
+            Ok(model) => {
+                candidate.duplicate = if let Some((skill_id, slug)) =
+                    self.catalog.matching_payload(&model.manifest.digest)
+                {
+                    DuplicateStatus::Identical { skill_id, slug }
+                } else if let Some((skill_id, slug)) = self.catalog.slug_owner(&candidate.slug) {
+                    DuplicateStatus::SlugInUse { skill_id, slug }
+                } else {
+                    DuplicateStatus::Unique
+                };
+                candidate.file_count = model
+                    .entries
+                    .iter()
+                    .filter(|entry| entry.kind == crate::library::ManifestKind::File)
+                    .count() as u32;
+                candidate.total_bytes = model.entries.iter().map(|entry| entry.bytes).sum();
+                candidate.name = model.name;
+                candidate.description = model.description;
+                candidate.validation = model.validation;
+                candidate.blocked =
+                    candidate.validation.status == crate::library::ValidationStatus::Blocked;
+                candidate.warnings = model.warnings;
+            }
+            Err(error) => {
+                candidate.blocked = true;
+                candidate.warnings.push(error.to_string());
+            }
+        }
+        self.skill_directories
+            .insert(skill_key, self.candidates.len());
+        discovered.push(self.candidates.len());
+        self.candidates.push(candidate);
+        self.progress.candidates_found = self.candidates.len() as u32;
+        self.progress.emit(Some(resolved_skill));
+    }
+    fn scan_root(&mut self, input: &ScanInput) {
+        if let Err(error) = self.source.entry_metadata(&input.path) {
+            let missing = matches!(error, SourceError::Missing);
+            let detail = if missing {
+                None
+            } else {
+                Some(error.to_string())
+            };
+            self.reject_root(
+                input,
+                if missing {
+                    LocationState::Missing
+                } else {
+                    LocationState::Unreadable
+                },
+                detail,
+            );
+            return;
+        }
+        let resolved = match self.source.canonicalize_root(&input.path) {
+            Ok(path) => path,
+            Err(error) => {
+                self.reject_root(input, LocationState::Unreadable, Some(error.to_string()));
+                return;
+            }
+        };
+        let boundary = match &input.containment {
+            Containment::Home => self.home.clone(),
+            Containment::Grant { canonical } => canonical.clone(),
+        };
+        if !resolved.starts_with(&boundary) {
+            let detail = match &input.containment {
+                Containment::Home => "root resolves outside home",
+                Containment::Grant { .. } => "root resolves outside its grant",
+            };
+            self.reject_root(input, LocationState::Unreadable, Some(detail.to_owned()));
+            return;
+        }
+        let key = self.key(&resolved);
+        if let Some((index, discovered)) = self.scanned_roots.get(&key).cloned() {
+            let location = &mut self.locations[index];
+            location.agent_ids.extend(input.agent_ids.iter().cloned());
+            location
+                .agent_labels
+                .extend(input.agent_labels.iter().cloned());
+            if location.root_id.is_none() {
+                location.root_id = input.root_id.clone();
+            }
+            for candidate_index in discovered {
+                self.merge_readers(candidate_index, &input.agent_ids, &input.agent_labels);
+            }
+            return;
+        }
+        let location_index = self.locations.len();
+        self.locations.push(ScanLocation {
+            location_id: format!("{}:loc:{location_index}", self.scan_id),
+            root_id: input.root_id.clone(),
+            path: resolved.clone(),
+            display_path: resolved.display().to_string(),
+            agent_ids: input.agent_ids.clone(),
+            agent_labels: input.agent_labels.clone(),
+            state: LocationState::Scanned,
+            detail: None,
+            limit_reached: false,
+        });
+        let mut discovered: Vec<usize> = Vec::new();
+        let mut remaining = input.policy.limits.max_entries;
+        let mut limit_reached = false;
+        let mut stack = vec![(resolved.clone(), 0_usize, Vec::<PathBuf>::new(), false)];
+        while let Some((directory, depth, chain, linked)) = stack.pop() {
+            self.progress.emit(Some(directory.clone()));
+            if self.cancel.load(Ordering::Relaxed) {
+                self.cancelled = true;
+                break;
+            }
+            if depth > input.policy.limits.category_depth {
+                limit_reached = true;
+                continue;
+            }
+            let entries = match self.source.list_entries_limited(&directory, remaining) {
+                Ok(entries) => entries,
+                Err(error) => {
+                    self.warnings.push(ScanWarning {
+                        path: Some(directory),
+                        message: error.to_string(),
+                    });
+                    continue;
+                }
+            };
+            for entry in entries {
+                self.progress.entries_seen += 1;
+                if self
+                    .progress
+                    .entries_seen
+                    .is_multiple_of(CANCEL_ENTRY_INTERVAL)
+                    && self.cancel.load(Ordering::Relaxed)
+                {
+                    self.cancelled = true;
+                    break;
+                }
+                if remaining == 0 {
+                    limit_reached = true;
+                    break;
+                }
+                remaining -= 1;
+                let name = entry
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+                    .to_owned();
+                if let Some(reason) = self.reason_for(&input.policy, &name) {
+                    self.record_exclusion(&name, reason, &entry);
+                    continue;
+                }
+                if name == "SKILL.md"
+                    && let Ok(metadata) = self.source.entry_metadata(&entry)
+                    && matches!(metadata.kind, EntryKind::File | EntryKind::Hardlink)
+                {
+                    self.record_skill(input, location_index, &directory, linked, &mut discovered);
+                    break;
+                }
+                let metadata = match self.source.entry_metadata(&entry) {
+                    Ok(metadata) => metadata,
+                    Err(_) => {
+                        self.warnings.push(ScanWarning {
+                            path: Some(entry),
+                            message: "unreadable directory".into(),
+                        });
+                        continue;
+                    }
+                };
+                match metadata.kind {
+                    EntryKind::Directory => {
+                        if self.crossed_mount(input.policy.stop_at_mount, &directory, &entry) {
+                            self.record_exclusion(&name, ExclusionReason::MountBoundary, &entry);
+                            continue;
+                        }
+                        stack.push((entry, depth + 1, chain.clone(), linked));
+                    }
+                    EntryKind::Symlink => {
+                        let target = match self
+                            .source
+                            .resolve_symlink(&entry, input.policy.limits.max_link_hops)
+                        {
+                            Ok(target) => target,
+                            Err(error) => {
+                                self.warnings.push(ScanWarning {
+                                    path: Some(entry),
+                                    message: error.to_string(),
+                                });
+                                continue;
+                            }
+                        };
+                        if !target.starts_with(&boundary) {
+                            self.warnings.push(ScanWarning {
+                                path: Some(entry),
+                                message: "link resolves outside root".into(),
+                            });
+                            continue;
+                        }
+                        let mut next_chain = chain.clone();
+                        if next_chain.contains(&target) {
+                            self.warnings.push(ScanWarning {
+                                path: Some(entry),
+                                message: "link cycle".into(),
+                            });
+                        } else if self.crossed_mount(
+                            input.policy.stop_at_mount,
+                            &directory,
+                            &target,
+                        ) {
+                            self.record_exclusion(&name, ExclusionReason::MountBoundary, &entry);
+                        } else {
+                            next_chain.push(target);
+                            stack.push((entry, depth + 1, next_chain, true));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if self.cancelled || remaining == 0 {
+                if remaining == 0 {
+                    limit_reached = true;
+                }
+                break;
+            }
+        }
+        self.locations[location_index].limit_reached = limit_reached;
+        if limit_reached {
+            self.limits_reached = true;
+        }
+        self.scanned_roots.insert(key, (location_index, discovered));
+    }
+}
+
+pub fn scan_roots(
+    scan_id: &str,
+    roots: &[ScanInput],
+    source: &dyn PayloadSource,
+    catalog: &dyn LibraryCatalog,
+    home: &Path,
+    cancel: &AtomicBool,
+    on_progress: &mut dyn FnMut(ScanProgress),
+) -> ScanOutcome {
+    let home = source
+        .canonicalize_root(home)
+        .unwrap_or_else(|_| home.to_path_buf());
+    let mut engine = Engine {
+        scan_id,
+        source,
+        catalog,
+        home,
+        cancel,
+        progress: ProgressSink {
+            sink: on_progress,
+            roots_total: roots.len() as u32,
+            roots_done: 0,
+            entries_seen: 0,
+            candidates_found: 0,
+        },
+        locations: Vec::new(),
+        candidates: Vec::new(),
+        warnings: Vec::new(),
+        exclusions: Vec::new(),
+        scanned_roots: HashMap::new(),
+        skill_directories: HashMap::new(),
+        limits_reached: false,
+        cancelled: false,
+    };
+    for (position, input) in roots.iter().enumerate() {
+        engine.scan_root(input);
+        if engine.cancelled {
+            engine.progress.emit(None);
+            break;
+        }
+        engine.progress.roots_done = position as u32 + 1;
+        engine.progress.emit(None);
+    }
+    ScanOutcome {
+        scan_id: scan_id.to_owned(),
+        locations: engine.locations,
+        candidates: engine.candidates,
+        warnings: engine.warnings,
+        limits_reached: engine.limits_reached,
+        exclusions: engine.exclusions,
+        cancelled: engine.cancelled,
+    }
+}
+
 pub fn scan_global_roots(
     scan_id: &str,
     roots: &[ResolvedRoot],
@@ -145,244 +808,28 @@ pub fn scan_global_roots(
     home: &Path,
     limits: ScanLimits,
 ) -> ScanOutcome {
-    let mut locations = Vec::new();
-    let mut candidates: Vec<ScanCandidate> = Vec::new();
-    let mut warnings = Vec::new();
-    let mut scanned_roots: HashMap<PathBuf, (usize, Vec<usize>)> = HashMap::new();
-    let mut skill_directories: HashMap<PathBuf, usize> = HashMap::new();
-    let canonical_home = source
-        .canonicalize_root(home)
-        .unwrap_or_else(|_| home.to_path_buf());
-    let mut limits_reached = false;
-    for root in roots {
-        let resolved = match source.entry_metadata(&root.path) {
-            Err(error) => {
-                locations.push(ScanLocation {
-                    path: root.path.clone(),
-                    display_path: root.path.display().to_string(),
-                    agent_ids: vec![root.agent_id.clone()],
-                    agent_labels: vec![root.agent_label.clone()],
-                    state: if matches!(error, SourceError::Missing) {
-                        LocationState::Missing
-                    } else {
-                        LocationState::Unreadable
-                    },
-                    detail: (!matches!(error, SourceError::Missing)).then(|| error.to_string()),
-                });
-                continue;
-            }
-            Ok(_) => match source.canonicalize_root(&root.path) {
-                Ok(path) if path.starts_with(&canonical_home) => path,
-                Ok(_) => {
-                    locations.push(ScanLocation {
-                        path: root.path.clone(),
-                        display_path: root.path.display().to_string(),
-                        agent_ids: vec![root.agent_id.clone()],
-                        agent_labels: vec![root.agent_label.clone()],
-                        state: LocationState::Unreadable,
-                        detail: Some("root resolves outside home".into()),
-                    });
-                    continue;
-                }
-                Err(error) => {
-                    locations.push(ScanLocation {
-                        path: root.path.clone(),
-                        display_path: root.path.display().to_string(),
-                        agent_ids: vec![root.agent_id.clone()],
-                        agent_labels: vec![root.agent_label.clone()],
-                        state: LocationState::Unreadable,
-                        detail: Some(error.to_string()),
-                    });
-                    continue;
-                }
-            },
-        };
-        if let Some((index, discovered)) = scanned_roots.get(&resolved) {
-            let index = *index;
-            locations[index].agent_ids.push(root.agent_id.clone());
-            locations[index].agent_labels.push(root.agent_label.clone());
-            for &candidate_index in discovered {
-                let candidate = &mut candidates[candidate_index];
-                if !candidate.reader_agent_ids.contains(&root.agent_id) {
-                    candidate.reader_agent_ids.push(root.agent_id.clone());
-                    candidate.reader_agent_labels.push(root.agent_label.clone());
-                }
-            }
-            continue;
-        }
-        let index = locations.len();
-        locations.push(ScanLocation {
-            path: resolved.clone(),
-            display_path: resolved.display().to_string(),
+    let inputs = roots
+        .iter()
+        .map(|root| ScanInput {
+            root_id: None,
+            path: root.path.clone(),
             agent_ids: vec![root.agent_id.clone()],
             agent_labels: vec![root.agent_label.clone()],
-            state: LocationState::Scanned,
-            detail: None,
-        });
-        let mut discovered: Vec<usize> = Vec::new();
-        let mut remaining = limits.max_entries;
-        let mut stack = vec![(resolved.clone(), 0usize, Vec::<PathBuf>::new())];
-        while let Some((directory, depth, chain)) = stack.pop() {
-            if depth > limits.category_depth {
-                limits_reached = true;
-                continue;
-            }
-            let entries = match source.list_entries_limited(&directory, remaining) {
-                Ok(entries) => entries,
-                Err(error) => {
-                    warnings.push(ScanWarning {
-                        path: Some(directory),
-                        message: error.to_string(),
-                    });
-                    continue;
-                }
-            };
-            for entry in entries {
-                if remaining == 0 {
-                    limits_reached = true;
-                    break;
-                }
-                remaining -= 1;
-                let name = entry
-                    .file_name()
-                    .and_then(|v| v.to_str())
-                    .unwrap_or_default();
-                if name == "SKILL.md"
-                    && let Ok(meta) = source.entry_metadata(&entry)
-                    && matches!(meta.kind, EntryKind::File | EntryKind::Hardlink)
-                {
-                    let skill_root = directory.clone();
-                    let resolved_skill = source
-                        .canonicalize_root(&skill_root)
-                        .unwrap_or_else(|_| skill_root.clone());
-                    if let Some(index) = skill_directories.get(&resolved_skill).copied() {
-                        let existing = &mut candidates[index];
-                        if !existing.reader_agent_ids.contains(&root.agent_id) {
-                            existing.reader_agent_ids.push(root.agent_id.clone());
-                            existing.reader_agent_labels.push(root.agent_label.clone());
-                        }
-                        if !discovered.contains(&index) {
-                            discovered.push(index);
-                        }
-                    } else {
-                        let candidate_id = format!("{scan_id}:{}", candidates.len());
-                        let slug = resolved_skill
-                            .file_name()
-                            .and_then(|x| x.to_str())
-                            .unwrap_or_default()
-                            .to_owned();
-                        let identity = source.physical_identity(&resolved_skill).unwrap_or_default();
-                        let mut candidate = ScanCandidate {
-                            candidate_id,
-                            path: resolved_skill.clone(),
-                            canonical_path: resolved_skill.clone(),
-                            identity,
-                            display_path: resolved_skill.display().to_string(),
-                            slug,
-                            reader_agent_ids: vec![root.agent_id.clone()],
-                            reader_agent_labels: vec![root.agent_label.clone()],
-                            file_count: 0,
-                            total_bytes: 0,
-                            name: None,
-                            description: None,
-                            validation: crate::library::payload::ValidationSummary::valid(),
-                            warnings: Vec::new(),
-                            blocked: false,
-                            duplicate: DuplicateStatus::Unique,
-                        };
-                        match crate::library::payload::inspect_payload(
-                            &resolved_skill,
-                            source,
-                            &crate::library::payload::ValidationLimits::default(),
-                        ) {
-                            Ok(model) => {
-                                candidate.duplicate = if let Some((skill_id, slug)) =
-                                    catalog.matching_payload(&model.manifest.digest)
-                                {
-                                    DuplicateStatus::Identical { skill_id, slug }
-                                } else if let Some((skill_id, slug)) =
-                                    catalog.slug_owner(&candidate.slug)
-                                {
-                                    DuplicateStatus::SlugInUse { skill_id, slug }
-                                } else {
-                                    DuplicateStatus::Unique
-                                };
-                                candidate.file_count = model
-                                    .entries
-                                    .iter()
-                                    .filter(|e| e.kind == crate::library::ManifestKind::File)
-                                    .count()
-                                    as u32;
-                                candidate.total_bytes = model.entries.iter().map(|e| e.bytes).sum();
-                                candidate.name = model.name;
-                                candidate.description = model.description;
-                                candidate.validation = model.validation;
-                                candidate.blocked = candidate.validation.status
-                                    == crate::library::ValidationStatus::Blocked;
-                                candidate.warnings = model.warnings;
-                            }
-                            Err(error) => {
-                                candidate.blocked = true;
-                                candidate.warnings.push(error.to_string());
-                            }
-                        }
-                        skill_directories.insert(resolved_skill, candidates.len());
-                        discovered.push(candidates.len());
-                        candidates.push(candidate);
-                    }
-                    break;
-                }
-                if name == ".git" || name == "node_modules" {
-                    continue;
-                }
-                let Ok(meta) = source.entry_metadata(&entry) else {
-                    warnings.push(ScanWarning {
-                        path: Some(entry),
-                        message: "unreadable directory".into(),
-                    });
-                    continue;
-                };
-                if meta.kind == EntryKind::Directory {
-                    stack.push((entry, depth + 1, chain.clone()));
-                } else if meta.kind == EntryKind::Symlink {
-                    match source.resolve_symlink(&entry, limits.max_link_hops) {
-                        Ok(target) if target.starts_with(&canonical_home) => {
-                            let mut next_chain = chain.clone();
-                            if next_chain.contains(&target) {
-                                warnings.push(ScanWarning {
-                                    path: Some(entry),
-                                    message: "link cycle".into(),
-                                });
-                            } else {
-                                next_chain.push(target.clone());
-                                stack.push((entry, depth + 1, next_chain));
-                            }
-                        }
-                        Err(error) => warnings.push(ScanWarning {
-                            path: Some(entry),
-                            message: error.to_string(),
-                        }),
-                        Ok(_) => warnings.push(ScanWarning {
-                            path: Some(entry),
-                            message: "link resolves outside root".into(),
-                        }),
-                    }
-                }
-            }
-            if remaining == 0 {
-                limits_reached = true;
-                break;
-            }
-        }
-        scanned_roots.insert(resolved, (index, discovered));
-    }
-    ScanOutcome {
-        scan_id: scan_id.to_owned(),
-        locations,
-        candidates,
-        warnings,
-        limits_reached,
-    }
+            containment: Containment::Home,
+            policy: ScanPolicy::global(limits),
+        })
+        .collect::<Vec<_>>();
+    let cancel = AtomicBool::new(false);
+    let mut on_progress = |_progress: ScanProgress| {};
+    scan_roots(
+        scan_id,
+        &inputs,
+        source,
+        catalog,
+        home,
+        &cancel,
+        &mut on_progress,
+    )
 }
 
 #[cfg(test)]
@@ -401,6 +848,7 @@ mod tests {
         errors: HashMap<PathBuf, SourceError>,
         links: HashMap<PathBuf, PathBuf>,
         canonical: HashMap<PathBuf, PathBuf>,
+        volumes: HashMap<PathBuf, u64>,
     }
     impl FakeSource {
         fn directory(&mut self, path: &str, children: &[&str]) {
@@ -484,6 +932,9 @@ mod tests {
                 .get(path)
                 .cloned()
                 .unwrap_or_else(|| path.to_path_buf()))
+        }
+        fn volume_id(&self, path: &Path) -> Option<u64> {
+            self.volumes.get(path).copied()
         }
     }
     struct EmptyCatalog;
@@ -738,5 +1189,284 @@ mod tests {
             .collect();
         slugs.sort_unstable();
         assert_eq!(slugs, vec!["one", "two"]);
+    }
+
+    fn project_input(path: &str) -> ScanInput {
+        ScanInput {
+            root_id: Some("root-1".into()),
+            path: path.into(),
+            agent_ids: Vec::new(),
+            agent_labels: Vec::new(),
+            containment: Containment::Grant {
+                canonical: path.into(),
+            },
+            policy: ScanPolicy::project(),
+        }
+    }
+    fn run_project(source: &FakeSource, path: &str) -> ScanOutcome {
+        run_project_with(source, project_input(path))
+    }
+    fn run_project_with(source: &FakeSource, input: ScanInput) -> ScanOutcome {
+        let cancel = AtomicBool::new(false);
+        let mut sink = |_progress: ScanProgress| {};
+        scan_roots(
+            "scan",
+            &[input],
+            source,
+            &EmptyCatalog,
+            Path::new("/home"),
+            &cancel,
+            &mut sink,
+        )
+    }
+
+    #[test]
+    fn project_root_outside_home_scans_and_yields_a_candidate() {
+        let mut source = FakeSource::default();
+        source.directory("/outside", &["project"]);
+        source.skill("/outside/project");
+        let outcome = run_project(&source, "/outside");
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.locations);
+        assert_eq!(outcome.candidates[0].slug, "project");
+        assert_eq!(outcome.locations.len(), 1);
+        assert_eq!(outcome.locations[0].state, LocationState::Scanned);
+        assert_eq!(outcome.locations[0].location_id, "scan:loc:0");
+        assert_eq!(outcome.locations[0].root_id.as_deref(), Some("root-1"));
+        assert_eq!(outcome.candidates[0].location_id, "scan:loc:0");
+        assert!(!outcome.cancelled);
+    }
+
+    #[test]
+    fn root_named_like_an_excluded_directory_is_still_walked() {
+        let mut source = FakeSource::default();
+        source.directory("/work/node_modules", &["skill"]);
+        source.skill("/work/node_modules/skill");
+        let outcome = run_project(&source, "/work/node_modules");
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.locations);
+        assert!(outcome.exclusions.is_empty(), "{:?}", outcome.exclusions);
+    }
+
+    #[test]
+    fn nested_monorepo_projects_below_the_root_are_found() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["apps", "packages", "README.md"]);
+        source.directory("/work/apps", &["web"]);
+        source.skill("/work/apps/web");
+        source.directory("/work/packages", &["tool"]);
+        source.skill("/work/packages/tool");
+        let outcome = run_project(&source, "/work");
+        let mut slugs = outcome
+            .candidates
+            .iter()
+            .map(|candidate| candidate.slug.as_str())
+            .collect::<Vec<_>>();
+        slugs.sort_unstable();
+        assert_eq!(slugs, vec!["tool", "web"]);
+    }
+
+    #[test]
+    fn git_directory_and_worktree_git_file_are_skipped() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &[".git", "project"]);
+        source.skill("/work/.git/hidden");
+        source.skill("/work/project");
+        source.entries.insert(
+            PathBuf::from("/work/project"),
+            vec![
+                PathBuf::from("/work/project/.git"),
+                PathBuf::from("/work/project/SKILL.md"),
+            ],
+        );
+        source.metadata.insert(
+            PathBuf::from("/work/project/.git"),
+            EntryMetadata {
+                kind: EntryKind::File,
+                executable: false,
+                size: 30,
+            },
+        );
+        let outcome = run_project(&source, "/work");
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.candidates);
+        assert_eq!(outcome.candidates[0].slug, "project");
+        let git = outcome
+            .exclusions
+            .iter()
+            .find(|exclusion| exclusion.name == ".git")
+            .expect("git exclusion recorded");
+        assert_eq!(git.reason, ExclusionReason::VcsMetadata);
+        assert_eq!(git.matches, 2);
+    }
+
+    #[test]
+    fn unreadable_child_becomes_a_warning_and_the_walk_continues() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["locked", "open"]);
+        source.errors.insert(
+            "/work/locked".into(),
+            SourceError::Unreadable("denied".into()),
+        );
+        source.skill("/work/open");
+        let outcome = run_project(&source, "/work");
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.candidates);
+        assert_eq!(outcome.candidates[0].slug, "open");
+        assert_eq!(outcome.warnings.len(), 1, "{:?}", outcome.warnings);
+        assert_eq!(
+            outcome.warnings[0].path.as_deref(),
+            Some(Path::new("/work/locked"))
+        );
+    }
+
+    #[test]
+    fn per_root_entry_budget_sets_location_and_outcome_limits() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["a", "b", "c"]);
+        source.skill("/work/a");
+        source.skill("/work/b");
+        source.skill("/work/c");
+        let outcome = run_project_with(
+            &source,
+            ScanInput {
+                policy: ScanPolicy::project_with_limits(ScanLimits {
+                    category_depth: 12,
+                    max_entries: 2,
+                    max_link_hops: 16,
+                }),
+                ..project_input("/work")
+            },
+        );
+        assert!(outcome.locations[0].limit_reached);
+        assert!(outcome.limits_reached);
+        assert!(outcome.candidates.len() < 3);
+    }
+
+    #[test]
+    fn depth_limit_stops_descent() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["one"]);
+        source.directory("/work/one", &["two"]);
+        source.directory("/work/one/two", &["deep"]);
+        source.skill("/work/one/two/deep");
+        let shallow = run_project_with(
+            &source,
+            ScanInput {
+                policy: ScanPolicy::project_with_limits(ScanLimits {
+                    category_depth: 1,
+                    max_entries: 100,
+                    max_link_hops: 16,
+                }),
+                ..project_input("/work")
+            },
+        );
+        assert!(shallow.candidates.is_empty(), "{:?}", shallow.candidates);
+        assert!(shallow.limits_reached);
+        let deep = run_project(&source, "/work");
+        assert_eq!(deep.candidates.len(), 1, "{:?}", deep.candidates);
+    }
+
+    #[test]
+    fn cancel_during_walk_returns_partial_candidates() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["one", "two"]);
+        source.skill("/work/one");
+        source.skill("/work/two");
+        let cancel = AtomicBool::new(false);
+        let mut calls = 0_u32;
+        let mut sink = |_progress: ScanProgress| {
+            calls += 1;
+            if calls >= 3 {
+                cancel.store(true, Ordering::Relaxed);
+            }
+        };
+        let outcome = scan_roots(
+            "scan",
+            &[project_input("/work")],
+            &source,
+            &EmptyCatalog,
+            Path::new("/home"),
+            &cancel,
+            &mut sink,
+        );
+        assert!(outcome.cancelled);
+        assert!(outcome.candidates.len() < 2, "{:?}", outcome.candidates);
+        assert!(0 < outcome.candidates.len(), "{:?}", outcome.candidates);
+    }
+
+    #[test]
+    fn exclusions_are_aggregated_by_name_and_reason() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["apps", "vendor"]);
+        source.directory("/work/apps", &["vendor"]);
+        source.directory("/work/vendor", &["inside"]);
+        source.directory("/work/apps/vendor", &["inside"]);
+        let outcome = run_project(&source, "/work");
+        assert!(outcome.candidates.is_empty());
+        assert_eq!(outcome.exclusions.len(), 1, "{:?}", outcome.exclusions);
+        let vendor = &outcome.exclusions[0];
+        assert_eq!(vendor.name, "vendor");
+        assert_eq!(vendor.reason, ExclusionReason::DependencyVendor);
+        assert_eq!(vendor.matches, 2);
+        assert_eq!(vendor.sample_path, PathBuf::from("/work/vendor"));
+    }
+
+    #[test]
+    fn mount_boundary_stops_descent() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["local", "mounted"]);
+        source.skill("/work/local");
+        source.skill("/work/mounted");
+        source.volumes.insert("/work".into(), 1);
+        source.volumes.insert("/work/local".into(), 1);
+        source.volumes.insert("/work/mounted".into(), 2);
+        let outcome = run_project(&source, "/work");
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.candidates);
+        assert_eq!(outcome.candidates[0].slug, "local");
+        let boundary = outcome
+            .exclusions
+            .iter()
+            .find(|exclusion| exclusion.reason == ExclusionReason::MountBoundary)
+            .expect("mount boundary recorded");
+        assert_eq!(boundary.name, "mounted");
+        assert_eq!(boundary.matches, 1);
+    }
+
+    #[test]
+    fn symlinked_skill_directory_inside_grant_is_linked_once() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["payload", "linked"]);
+        source.skill_named("/work/payload", "payload");
+        source.entries.insert(
+            PathBuf::from("/work/linked"),
+            vec![PathBuf::from("/work/linked/SKILL.md")],
+        );
+        source.metadata.insert(
+            PathBuf::from("/work/linked/SKILL.md"),
+            EntryMetadata {
+                kind: EntryKind::File,
+                executable: false,
+                size: 45,
+            },
+        );
+        source.symlink("/work/linked", "/work/payload");
+        let outcome = run_project(&source, "/work");
+        assert_eq!(outcome.candidates.len(), 1, "{:?}", outcome.candidates);
+        assert_eq!(outcome.candidates[0].slug, "payload");
+        assert_eq!(outcome.candidates[0].identity, "/work/payload");
+        assert!(outcome.candidates[0].linked);
+    }
+
+    #[test]
+    fn root_resolving_outside_its_grant_is_unreadable() {
+        let mut source = FakeSource::default();
+        source.directory("/work", &["other"]);
+        source.skill("/work/other");
+        source.canonical.insert("/work".into(), "/elsewhere".into());
+        let outcome = run_project(&source, "/work");
+        assert!(outcome.candidates.is_empty());
+        assert_eq!(outcome.locations.len(), 1);
+        assert_eq!(outcome.locations[0].state, LocationState::Unreadable);
+        assert_eq!(
+            outcome.locations[0].detail.as_deref(),
+            Some("root resolves outside its grant")
+        );
     }
 }

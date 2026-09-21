@@ -1,6 +1,6 @@
 use skillbinder_core::{
     bootstrap::{BootstrapError, BootstrapService},
-    discovery::scan::ScanCandidate,
+    discovery::{ScanOutcome, ScanProgress, scan::ScanCandidate},
     import::ImportService,
 };
 use skillbinder_db::StateStore;
@@ -13,12 +13,13 @@ use skillbinder_platform::{
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
     time::Instant,
 };
 use tauri::{AppHandle, Manager};
 
 pub const SCAN_SESSION_SECONDS: u64 = 600;
+pub const PENDING_GRANT_SECONDS: u64 = 300;
 
 #[derive(Clone)]
 pub struct ScanRootIdentity {
@@ -28,6 +29,20 @@ pub struct ScanSession {
     pub candidates: HashMap<String, ScanCandidate>,
     pub created: Instant,
     pub roots: Vec<ScanRootIdentity>,
+}
+pub struct PendingGrant {
+    pub grant_id: String,
+    pub canonical_path: PathBuf,
+    pub display_path: String,
+    pub created: Instant,
+}
+pub struct ScanRun {
+    pub scan_id: String,
+    pub cancel: Arc<AtomicBool>,
+    pub progress: Arc<Mutex<ScanProgress>>,
+    pub result: Arc<Mutex<Option<ScanOutcome>>>,
+    pub failure: Arc<Mutex<Option<String>>>,
+    pub created: Instant,
 }
 pub struct AppState {
     pub bootstrap: BootstrapService,
@@ -41,6 +56,8 @@ pub struct AppState {
     pub store: Arc<StateStore>,
     pub import_service: Arc<ImportService>,
     pub scan_sessions: Mutex<HashMap<String, ScanSession>>,
+    pub scan_runs: Mutex<HashMap<String, ScanRun>>,
+    pub pending_grants: Mutex<HashMap<String, PendingGrant>>,
 }
 impl AppState {
     pub fn from_app(app: &AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
@@ -83,6 +100,8 @@ impl AppState {
             store: state_store,
             import_service,
             scan_sessions: Mutex::new(HashMap::new()),
+            scan_runs: Mutex::new(HashMap::new()),
+            pending_grants: Mutex::new(HashMap::new()),
         })
     }
     pub fn try_ensure_process_lock(&self) -> Result<bool, BootstrapError> {

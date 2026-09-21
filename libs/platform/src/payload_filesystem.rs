@@ -118,6 +118,20 @@ impl PayloadSource for FilesystemPayloadSource {
         path.canonicalize()
             .map_err(|error| SourceError::Unavailable(error.to_string()))
     }
+    fn volume_id(&self, path: &Path) -> Option<u64> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            fs::symlink_metadata(path)
+                .ok()
+                .map(|metadata| metadata.dev())
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = path;
+            None
+        }
+    }
 }
 fn map_error(error: std::io::Error) -> SourceError {
     if error.kind() == std::io::ErrorKind::NotFound {
