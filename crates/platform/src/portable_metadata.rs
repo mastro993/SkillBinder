@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use skillbinder_core::library::Manifest;
+use skillbinder_core::library::{
+    Manifest,
+    organization::{Folder, Tag},
+};
 use std::{collections::BTreeMap, fs, path::Path};
 
 pub const SCHEMA_VERSION: u32 = 2;
@@ -12,6 +15,10 @@ pub struct PortableMetadata {
     pub library_id: String,
     pub created_at: String,
     pub content_policy_version: u32,
+    #[serde(default)]
+    pub folders: BTreeMap<String, Folder>,
+    #[serde(default)]
+    pub tags: BTreeMap<String, Tag>,
     #[serde(default)]
     pub skills: BTreeMap<String, PortableSkill>,
 }
@@ -53,6 +60,8 @@ impl PortableMetadata {
             library_id,
             created_at,
             content_policy_version: 1,
+            folders: BTreeMap::new(),
+            tags: BTreeMap::new(),
             skills: BTreeMap::new(),
         }
     }

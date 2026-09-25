@@ -48,11 +48,11 @@ impl FilesystemLibraryRepository {
         ImportError::Library(error.to_string())
     }
 
-    fn metadata(&self) -> Result<PortableMetadata, ImportError> {
+    pub(crate) fn metadata(&self) -> Result<PortableMetadata, ImportError> {
         PortableMetadata::load(&self.root().join(".skillbinder.json")).map_err(Self::map)
     }
 
-    fn write_metadata(&self, metadata: &PortableMetadata) -> Result<(), ImportError> {
+    pub(crate) fn write_metadata(&self, metadata: &PortableMetadata) -> Result<(), ImportError> {
         metadata
             .write(&self.root().join(".skillbinder.json"))
             .map_err(Self::map)
@@ -217,6 +217,30 @@ impl LibraryRepository for FilesystemLibraryRepository {
                 total_bytes: skill.total_bytes,
             })
             .collect())
+    }
+    fn organization_snapshot(
+        &self,
+    ) -> Result<skillbinder_core::library::organization::Organization, ImportError> {
+        self.read_organization()
+    }
+    fn change_organization(
+        &self,
+        change: skillbinder_core::library::organization::Change,
+        expected_revision: Option<&str>,
+    ) -> Result<skillbinder_core::library::organization::Organization, ImportError> {
+        self.write_organization(change, expected_revision)
+    }
+    fn catalog_with_organization(
+        &self,
+    ) -> Result<
+        (
+            Vec<LibraryRecord>,
+            skillbinder_core::library::organization::Organization,
+        ),
+        ImportError,
+    > {
+        let _guard = crate::organization::lock()?;
+        Ok((self.catalog()?, self.read_organization()?))
     }
     fn skill_preview(
         &self,
@@ -419,6 +443,7 @@ impl LibraryRepository for FilesystemLibraryRepository {
         slug: &str,
         model: &PayloadModel,
     ) -> Result<(), ImportError> {
+        let _guard = crate::organization::lock()?;
         let mut metadata = self.metadata()?;
         metadata.skills.insert(
             skill.to_owned(),
@@ -428,6 +453,7 @@ impl LibraryRepository for FilesystemLibraryRepository {
         Ok(())
     }
     fn remove_record_and_manifest(&self, skill: &str) -> Result<(), ImportError> {
+        let _guard = crate::organization::lock()?;
         let mut metadata = self.metadata()?;
         metadata.skills.remove(skill);
         self.write_metadata(&metadata)

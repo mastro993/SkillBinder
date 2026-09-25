@@ -9,6 +9,7 @@ pub mod git_sync;
 pub mod library_repository;
 pub mod local_environment;
 pub mod log_sink;
+pub mod organization;
 pub mod paths;
 pub mod payload_filesystem;
 pub mod portable_metadata;
