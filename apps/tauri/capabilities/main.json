@@ -23,6 +23,8 @@
     "allow-library-list",
     "allow-library-skill-preview",
     "allow-library-resolve-conflict",
+    "allow-library-organization-change",
+    "allow-library-organization-preview-delete",
     "allow-git-sync-status",
     "allow-git-sync-connect",
     "allow-git-sync-refresh",

@@ -22,6 +22,12 @@ import type {
   LibraryResolveConflictRequest,
   LibraryResolveConflictResponse,
   LibrarySkill,
+  FolderView,
+  TagView,
+  OrganizationChangeRequest,
+  OrganizationChangeResponse,
+  OrganizationDeletePreviewRequest,
+  OrganizationDeletePreviewResponse,
   OnboardingProgress,
   RootGrantView,
   RootsListResponse,
@@ -299,6 +305,8 @@ const librarySkillSchema: z.ZodType<LibrarySkill> = z
     slug: z.string(),
     displayName: z.string().nullable(),
     description: z.string().nullable(),
+    folderId: z.string().nullable(),
+    tagIds: z.array(z.string()),
     validation: validationSummarySchema,
     fileCount: z.number(),
     totalBytes: z.string(),
@@ -307,12 +315,21 @@ const librarySkillSchema: z.ZodType<LibrarySkill> = z
     payloadDirectory: z.string(),
   })
   .strict();
+const folderViewSchema: z.ZodType<FolderView> = z
+  .object({ id: z.string(), name: z.string(), parentId: z.string().nullable() })
+  .strict();
+const tagViewSchema: z.ZodType<TagView> = z
+  .object({ id: z.string(), name: z.string() })
+  .strict();
 export const libraryListResponseSchema: z.ZodType<LibraryListResponse> = z
   .object({
     libraryRevision: z.string().nullable(),
     hasUncommittedChanges: z.boolean(),
     pendingResolution: z.boolean(),
     skills: z.array(librarySkillSchema),
+    folders: z.array(folderViewSchema),
+    tags: z.array(tagViewSchema),
+    organizationRevision: z.string(),
   })
   .strict();
 export const librarySkillPreviewRequestSchema: z.ZodType<LibrarySkillPreviewRequest> =
@@ -350,6 +367,59 @@ export const libraryResolveConflictResponseSchema: z.ZodType<LibraryResolveConfl
       payloadDirectory: z.string(),
       libraryRevision: z.string().nullable(),
       hasUncommittedChanges: z.boolean(),
+    })
+    .strict();
+
+const organizationChangeSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("createFolder"),
+      name: z.string(),
+      parentId: z.string().nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("updateFolder"),
+      id: z.string(),
+      name: z.string(),
+      parentId: z.string().nullable(),
+    })
+    .strict(),
+  z.object({ kind: z.literal("deleteFolder"), id: z.string() }).strict(),
+  z.object({ kind: z.literal("createTag"), name: z.string() }).strict(),
+  z
+    .object({ kind: z.literal("renameTag"), id: z.string(), name: z.string() })
+    .strict(),
+  z.object({ kind: z.literal("deleteTag"), id: z.string() }).strict(),
+  z
+    .object({
+      kind: z.literal("assign"),
+      skillIds: z.array(z.string()),
+      folderId: z.string().nullable(),
+      setFolder: z.boolean(),
+      addTagIds: z.array(z.string()),
+      removeTagIds: z.array(z.string()),
+    })
+    .strict(),
+]);
+export const organizationChangeRequestSchema: z.ZodType<OrganizationChangeRequest> =
+  z
+    .object({
+      change: organizationChangeSchema,
+      expectedRevision: z.string().nullable(),
+    })
+    .strict();
+export const organizationChangeResponseSchema: z.ZodType<OrganizationChangeResponse> =
+  z.object({ organizationRevision: z.string() }).strict();
+export const organizationDeletePreviewRequestSchema: z.ZodType<OrganizationDeletePreviewRequest> =
+  z.object({ entity: z.string(), id: z.string() }).strict();
+export const organizationDeletePreviewResponseSchema: z.ZodType<OrganizationDeletePreviewResponse> =
+  z
+    .object({
+      childFolders: z.number(),
+      affectedSkills: z.number(),
+      organizationRevision: z.string(),
     })
     .strict();
 export const importApplyResponseSchema: z.ZodType<ImportApplyResponse> = z

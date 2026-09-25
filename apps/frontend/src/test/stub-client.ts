@@ -28,6 +28,10 @@ export function stubDesktopClient(
     libraryList: unstubbed("libraryList"),
     librarySkillPreview: unstubbed("librarySkillPreview"),
     libraryResolveConflict: unstubbed("libraryResolveConflict"),
+    libraryOrganizationChange: unstubbed("libraryOrganizationChange"),
+    libraryOrganizationPreviewDelete: unstubbed(
+      "libraryOrganizationPreviewDelete",
+    ),
     diagnosticsRevealLogs: unstubbed("diagnosticsRevealLogs"),
     gitSyncStatus: unstubbed("gitSyncStatus"),
     gitSyncConnect: unstubbed("gitSyncConnect"),

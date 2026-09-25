@@ -18,6 +18,8 @@ function skill(skillId: string, payloadDirectory: string): LibrarySkill {
     skillId,
     slug: "review",
     displayName: null,
+    folderId: null,
+    tagIds: [],
     description: null,
     validation: { status: "valid", messages: [] },
     fileCount: 2,

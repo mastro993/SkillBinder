@@ -68,6 +68,9 @@ describe("library view", () => {
         libraryRevision: null,
         hasUncommittedChanges: false,
         pendingResolution: false,
+        folders: [],
+        tags: [],
+        organizationRevision: "r",
         skills: [],
       }),
     });
@@ -85,11 +88,16 @@ describe("library view", () => {
         libraryRevision: "r",
         hasUncommittedChanges: true,
         pendingResolution: false,
+        folders: [],
+        tags: [],
+        organizationRevision: "r",
         skills: [
           {
             skillId: "skill",
             slug: "review",
             displayName: "Review",
+            folderId: null,
+            tagIds: [],
             description: "Review code.",
             validation: { status: "valid", messages: [] },
             fileCount: 2,
@@ -132,6 +140,9 @@ describe("library view", () => {
         libraryRevision: "r",
         hasUncommittedChanges: false,
         pendingResolution: false,
+        folders: [],
+        tags: [],
+        organizationRevision: "r",
         skills: [
           sharedSlugSkill("aaaa", "caveman"),
           sharedSlugSkill("bbbb", "caveman-bbbb"),
@@ -159,6 +170,63 @@ describe("library view", () => {
       expectedSkillIds: ["aaaa", "bbbb"],
     });
   });
+
+  it("combines descendant folder, tag, and search filters", async () => {
+    const skill = (id: string, folderId: string | null, tagIds: string[]) => ({
+      skillId: id,
+      slug: id,
+      displayName: id,
+      folderId,
+      tagIds,
+      description: `${id} description`,
+      validation: { status: "valid" as const, messages: [] },
+      fileCount: 1,
+      totalBytes: "10",
+      sources: [],
+      digest: `sha256:${id}`,
+      payloadDirectory: id,
+    });
+    renderLibrary({
+      bootstrap: vi
+        .fn<DesktopClient["bootstrap"]>()
+        .mockResolvedValue(bootstrap),
+      libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+        libraryRevision: "r",
+        hasUncommittedChanges: false,
+        pendingResolution: false,
+        organizationRevision: "r",
+        folders: [
+          { id: "parent", name: "Parent", parentId: null },
+          { id: "child", name: "Child", parentId: "parent" },
+        ],
+        tags: [
+          { id: "a", name: "Alpha" },
+          { id: "b", name: "Beta" },
+        ],
+        skills: [
+          skill("one", "child", ["a", "b"]),
+          skill("two", "parent", ["a"]),
+          skill("three", null, ["b"]),
+        ],
+      }),
+    });
+    await screen.findByText("one description");
+    fireEvent.click(screen.getByRole("button", { name: "Parent" }));
+    expect(screen.getByText("one description")).toBeInTheDocument();
+    expect(screen.getByText("two description")).toBeInTheDocument();
+    expect(screen.queryByText("three description")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Filter by Beta" }));
+    expect(screen.getByText("one description")).toBeInTheDocument();
+    expect(screen.queryByText("two description")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search skills" }), {
+      target: { value: "missing" },
+    });
+    expect(screen.getByText("No matching skills")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Clear filters" })[0],
+    );
+    expect(screen.getByText("three description")).toBeInTheDocument();
+  });
 });
 
 function sharedSlugSkill(skillId: string, payloadDirectory: string) {
@@ -166,6 +234,8 @@ function sharedSlugSkill(skillId: string, payloadDirectory: string) {
     skillId,
     slug: "caveman",
     displayName: null,
+    folderId: null,
+    tagIds: [],
     description: "A coding agent persona.",
     validation: { status: "valid" as const, messages: [] },
     fileCount: 2,

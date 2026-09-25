@@ -17,7 +17,7 @@ skill is the library's canonical copy from that point on.
    total. Plans expire after five minutes.
 4. `imports_apply` stages every payload, verifies each staged payload against the plan, then moves
    them into the library and records the result.
-5. `library_list` shows the imported skills, their sources, and their validation state.
+5. `library_list` shows the imported skills, their sources, validation state, and [organization](organization.md).
 
 ## Data ownership
 

@@ -21,6 +21,10 @@ import type {
   LibrarySkillPreviewResponse,
   LibraryResolveConflictRequest,
   LibraryResolveConflictResponse,
+  OrganizationChangeRequest,
+  OrganizationChangeResponse,
+  OrganizationDeletePreviewRequest,
+  OrganizationDeletePreviewResponse,
   OnboardingProgress,
   OnboardingStep,
   RootsListResponse,
@@ -49,6 +53,10 @@ import {
   librarySkillPreviewResponseSchema,
   libraryResolveConflictRequestSchema,
   libraryResolveConflictResponseSchema,
+  organizationChangeRequestSchema,
+  organizationChangeResponseSchema,
+  organizationDeletePreviewRequestSchema,
+  organizationDeletePreviewResponseSchema,
   onboardingProgressSchema,
   parseCommandResult,
   rootsListResponseSchema,
@@ -74,7 +82,9 @@ type IpcRequest =
   | ImportApplyRequest
   | GitSyncConnectRequest
   | LibrarySkillPreviewRequest
-  | LibraryResolveConflictRequest;
+  | LibraryResolveConflictRequest
+  | OrganizationChangeRequest
+  | OrganizationDeletePreviewRequest;
 
 export class NativeCommandError extends Error {
   constructor(
@@ -122,6 +132,12 @@ export interface DesktopClient {
   libraryResolveConflict(
     request: LibraryResolveConflictRequest,
   ): Promise<LibraryResolveConflictResponse>;
+  libraryOrganizationChange(
+    request: OrganizationChangeRequest,
+  ): Promise<OrganizationChangeResponse>;
+  libraryOrganizationPreviewDelete(
+    request: OrganizationDeletePreviewRequest,
+  ): Promise<OrganizationDeletePreviewResponse>;
   diagnosticsRevealLogs(): Promise<DiagnosticsRevealLogsResponse>;
   gitSyncStatus(): Promise<GitSyncStatus>;
   gitSyncConnect(request: GitSyncConnectRequest): Promise<GitSyncStatus>;
@@ -227,6 +243,38 @@ class TauriDesktopClient implements DesktopClient {
       "library_resolve_conflict",
       libraryResolveConflictResponseSchema,
       { request: libraryResolveConflictRequestSchema.parse(request) },
+    );
+  }
+
+  libraryOrganizationChange(request: OrganizationChangeRequest) {
+    const checked = organizationChangeRequestSchema.safeParse(request);
+    if (!checked.success)
+      return Promise.reject(
+        new NativeCommandError(
+          "Invalid organization change.",
+          "organization.invalid-request",
+        ),
+      );
+    return invokeCommand(
+      "library_organization_change",
+      organizationChangeResponseSchema,
+      { request: checked.data },
+    );
+  }
+
+  libraryOrganizationPreviewDelete(request: OrganizationDeletePreviewRequest) {
+    const checked = organizationDeletePreviewRequestSchema.safeParse(request);
+    if (!checked.success)
+      return Promise.reject(
+        new NativeCommandError(
+          "Invalid deletion preview.",
+          "organization.invalid-request",
+        ),
+      );
+    return invokeCommand(
+      "library_organization_preview_delete",
+      organizationDeletePreviewResponseSchema,
+      { request: checked.data },
     );
   }
 

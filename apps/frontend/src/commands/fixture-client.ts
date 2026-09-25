@@ -10,12 +10,17 @@ import type {
   LibrarySkillPreviewRequest,
   LibraryResolveConflictRequest,
   OnboardingProgress,
+  OrganizationChangeRequest,
+  OrganizationDeletePreviewRequest,
   OnboardingStep,
   RootView,
   ValidationSummary,
 } from "@/types";
 import type { DesktopClient } from "./client";
-import { onboardingProgressSchema } from "./contracts";
+import {
+  libraryListResponseSchema,
+  onboardingProgressSchema,
+} from "./contracts";
 
 const storageKey = "skillbinder.fixture.onboarding";
 const preexistingSkillId = "fixture-existing";
@@ -188,12 +193,17 @@ let library: LibraryListResponse = {
   libraryRevision: "fixture-initial-revision",
   hasUncommittedChanges: false,
   pendingResolution: false,
+  organizationRevision: "fixture-organization-0",
+  folders: [],
+  tags: [],
   skills: [
     {
       skillId: "00000000-0000-4000-8000-000000000001",
       slug: "existing",
       displayName: "Existing",
       description: "Already imported.",
+      folderId: null,
+      tagIds: [],
       validation: existingValidation,
       fileCount: 2,
       totalBytes: "1536",
@@ -211,6 +221,8 @@ let library: LibraryListResponse = {
       skillId: "00000000-0000-4000-8000-000000000002",
       slug: "existing",
       displayName: null,
+      folderId: null,
+      tagIds: [],
       description: "An older copy of the same name.",
       validation: existingValidation,
       fileCount: 1,
@@ -222,6 +234,179 @@ let library: LibraryListResponse = {
     },
   ],
 };
+const organizationStorageKey = "skillbinder.fixture.organization";
+const savedOrganization = window.localStorage.getItem(organizationStorageKey);
+if (savedOrganization) {
+  const saved = libraryListResponseSchema.safeParse(
+    JSON.parse(savedOrganization),
+  );
+  if (saved.success) library = saved.data;
+}
+let organizationCounter = 0;
+function saveOrganization() {
+  organizationCounter += 1;
+  library.organizationRevision = `fixture-organization-${organizationCounter}`;
+  library.hasUncommittedChanges = true;
+  window.localStorage.setItem(organizationStorageKey, JSON.stringify(library));
+}
+function folderDescendsFrom(folderId: string, ancestorId: string): boolean {
+  let current = library.folders.find((folder) => folder.id === folderId);
+  while (current?.parentId) {
+    if (current.parentId === ancestorId) return true;
+    current = library.folders.find((folder) => folder.id === current?.parentId);
+  }
+  return false;
+}
+function previewDelete(request: OrganizationDeletePreviewRequest) {
+  if (request.entity === "folder") {
+    if (!library.folders.some((folder) => folder.id === request.id))
+      throw new Error("Folder not found.");
+    return {
+      childFolders: library.folders.filter(
+        (folder) => folder.parentId === request.id,
+      ).length,
+      affectedSkills: library.skills.filter(
+        (skill) => skill.folderId === request.id,
+      ).length,
+      organizationRevision: library.organizationRevision,
+    };
+  }
+  if (request.entity === "tag") {
+    if (!library.tags.some((tag) => tag.id === request.id))
+      throw new Error("Tag not found.");
+    return {
+      childFolders: 0,
+      affectedSkills: library.skills.filter((skill) =>
+        skill.tagIds.includes(request.id),
+      ).length,
+      organizationRevision: library.organizationRevision,
+    };
+  }
+  throw new Error("Unknown item type.");
+}
+function changeOrganization(request: OrganizationChangeRequest) {
+  const { change, expectedRevision } = request;
+  if (
+    (change.kind === "deleteFolder" || change.kind === "deleteTag") &&
+    expectedRevision !== library.organizationRevision
+  )
+    throw new Error("Organization changed. Review it again before deleting.");
+  const name = "name" in change ? change.name.trim() : "";
+  if ("name" in change && (!name || name.length > 100))
+    throw new Error("Name must contain 1–100 characters.");
+  const key = (value: string) => value.normalize("NFKC").toLocaleLowerCase();
+  if (change.kind === "createFolder" || change.kind === "updateFolder") {
+    const parentId = change.parentId;
+    if (parentId && !library.folders.some((folder) => folder.id === parentId))
+      throw new Error("Parent folder not found.");
+    if (
+      change.kind === "updateFolder" &&
+      (parentId === change.id ||
+        (parentId && folderDescendsFrom(parentId, change.id)))
+    )
+      throw new Error("A folder cannot contain itself.");
+    if (
+      library.folders.some(
+        (folder) =>
+          folder.parentId === parentId &&
+          key(folder.name) === key(name) &&
+          (change.kind !== "updateFolder" || folder.id !== change.id),
+      )
+    )
+      throw new Error("A folder with this name already exists here.");
+    if (change.kind === "createFolder")
+      library.folders.push({ id: crypto.randomUUID(), name, parentId });
+    else {
+      const folder = library.folders.find((item) => item.id === change.id);
+      if (!folder) throw new Error("Folder not found.");
+      folder.name = name;
+      folder.parentId = parentId;
+    }
+  } else if (change.kind === "deleteFolder") {
+    previewDelete({ entity: "folder", id: change.id });
+    const folder = library.folders.find((item) => item.id === change.id)!;
+    if (
+      library.folders.some(
+        (child) =>
+          child.parentId === change.id &&
+          library.folders.some(
+            (sibling) =>
+              sibling.parentId === folder.parentId &&
+              key(sibling.name) === key(child.name),
+          ),
+      )
+    )
+      throw new Error(
+        "A child folder would conflict with a folder at the new location.",
+      );
+    library.folders = library.folders
+      .filter((item) => item.id !== change.id)
+      .map((item) =>
+        item.parentId === change.id
+          ? { ...item, parentId: folder.parentId }
+          : item,
+      );
+    library.skills = library.skills.map((skill) =>
+      skill.folderId === change.id
+        ? { ...skill, folderId: folder.parentId }
+        : skill,
+    );
+  } else if (change.kind === "createTag" || change.kind === "renameTag") {
+    if (
+      library.tags.some(
+        (tag) =>
+          key(tag.name) === key(name) &&
+          (change.kind !== "renameTag" || tag.id !== change.id),
+      )
+    )
+      throw new Error("A tag with this name already exists.");
+    if (change.kind === "createTag")
+      library.tags.push({ id: crypto.randomUUID(), name });
+    else {
+      const tag = library.tags.find((item) => item.id === change.id);
+      if (!tag) throw new Error("Tag not found.");
+      tag.name = name;
+    }
+  } else if (change.kind === "deleteTag") {
+    previewDelete({ entity: "tag", id: change.id });
+    library.tags = library.tags.filter((item) => item.id !== change.id);
+    library.skills = library.skills.map((skill) => ({
+      ...skill,
+      tagIds: skill.tagIds.filter((id) => id !== change.id),
+    }));
+  } else {
+    if (
+      !change.skillIds.length ||
+      change.skillIds.some(
+        (id) => !library.skills.some((skill) => skill.skillId === id),
+      )
+    )
+      throw new Error("Skill not found.");
+    if (
+      change.setFolder &&
+      change.folderId &&
+      !library.folders.some((folder) => folder.id === change.folderId)
+    )
+      throw new Error("Folder not found.");
+    if (
+      change.addTagIds.some((id) => !library.tags.some((tag) => tag.id === id))
+    )
+      throw new Error("Tag not found.");
+    library.skills = library.skills.map((skill) =>
+      change.skillIds.includes(skill.skillId)
+        ? {
+            ...skill,
+            folderId: change.setFolder ? change.folderId : skill.folderId,
+            tagIds: [...new Set([...skill.tagIds, ...change.addTagIds])]
+              .filter((id) => !change.removeTagIds.includes(id))
+              .sort(),
+          }
+        : skill,
+    );
+  }
+  saveOrganization();
+  return { organizationRevision: library.organizationRevision };
+}
 let plan: ImportPlanResponse | null = null;
 let gitSync: GitSyncStatus = {
   state: "notConfigured",
@@ -483,6 +668,8 @@ export const fixtureDesktopClient: DesktopClient = {
           slug: item.slug,
           displayName: candidate?.name ?? item.slug,
           description: candidate?.description ?? null,
+          folderId: null,
+          tagIds: [],
           validation: item.validation,
           fileCount: item.fileCount,
           totalBytes: item.totalBytes,
@@ -525,6 +712,12 @@ export const fixtureDesktopClient: DesktopClient = {
       content,
       unavailableReason: content === null ? "File not available." : null,
     };
+  },
+  async libraryOrganizationChange(request) {
+    return changeOrganization(request);
+  },
+  async libraryOrganizationPreviewDelete(request) {
+    return previewDelete(request);
   },
   async libraryResolveConflict(request: LibraryResolveConflictRequest) {
     const removedSkillIds = request.expectedSkillIds.filter(
