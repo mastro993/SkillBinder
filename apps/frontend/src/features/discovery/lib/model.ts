@@ -1,25 +1,5 @@
-import type {
-  DiscoveryCandidate,
-  DiscoveryExclusion,
-  DiscoveryProgress,
-  ExclusionReason,
-  ScanPhase,
-} from "@/types";
-import type {
-  ExclusionSummary,
-  PagingState,
-  ScanSummary,
-} from "../types/model";
-
-const exclusionReasonLabels = {
-  vcsMetadata: "Version-control metadata",
-  dependencyVendor: "Dependency vendor",
-  buildOutput: "Build output",
-  cache: "Cache",
-  virtualEnvironment: "Virtual environment",
-  appData: "App data",
-  mountBoundary: "Mount boundary",
-} satisfies Record<ExclusionReason, string>;
+import type { DiscoveryCandidate, DiscoveryProgress, ScanPhase } from "@/types";
+import type { PagingState, ScanSummary } from "../types/model";
 
 export function pagingState(
   offset: number,
@@ -52,24 +32,6 @@ export function pagingState(
 export function pagingLabel(paging: PagingState, total: number) {
   if (total <= 0) return "No candidates.";
   return `Showing ${paging.start}–${paging.end} of ${total} · page ${paging.page + 1} of ${paging.pages}`;
-}
-
-export function summarizeExclusions(exclusions: DiscoveryExclusion[]) {
-  const summaries = new Map<ExclusionReason, ExclusionSummary>();
-  for (const exclusion of exclusions) {
-    const summary = summaries.get(exclusion.reason) ?? {
-      reason: exclusion.reason,
-      label: exclusionReasonLabels[exclusion.reason],
-      matches: 0,
-      names: [],
-    };
-    summary.matches += exclusion.matches;
-    summary.names.push(exclusion.name);
-    summaries.set(exclusion.reason, summary);
-  }
-  return [...summaries.values()].sort(
-    (left, right) => right.matches - left.matches,
-  );
 }
 
 export function summarizeScanPhase(

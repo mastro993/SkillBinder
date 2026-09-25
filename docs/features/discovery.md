@@ -30,10 +30,9 @@ same data.
    finished, so leaving and returning shows the same run rather than an empty screen. `Start scan`
    is never how a run is brought back. While a scan runs, the shell chrome says so from any screen
    and links back here.
-6. On a finished scan the screen shows the candidates with paging, plus a diagnostics panel:
-   the locations walked, the folders excluded on purpose aggregated by reason, and the paths that
-   could not be read. The list holds only new skills: a candidate whose payload the library
-   already holds is hidden, and the screen reports how many were hidden instead.
+6. On a finished scan the screen shows the candidates with paging. The list holds only new skills:
+   a candidate whose payload the library already holds is hidden, and the screen reports how many
+   were hidden instead.
 7. The user reviews the candidates: name, slug, display path, readers, validation, duplicate
    state, file count, size, and warnings.
 8. Blocked candidates cannot be selected. Selecting an invalid candidate reveals a confirmation
