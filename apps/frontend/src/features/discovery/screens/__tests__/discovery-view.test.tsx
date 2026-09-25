@@ -226,7 +226,9 @@ describe("discovery view", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("2 new candidates found.")).toBeInTheDocument();
-    expect(screen.getByText("Dependency vendor")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Scan diagnostics" }),
+    ).toBeNull();
   });
 
   it("cancels a running scan and refuses to import its candidates", async () => {
@@ -332,17 +334,18 @@ describe("discovery view", () => {
     ).toBeInTheDocument();
   });
 
-  it("reads locations, exclusions, and access errors of a finished scan", async () => {
+  it("shows candidates without scan diagnostics", async () => {
     await startScan({}, scanResults());
 
-    expect(await screen.findByText("1 walked")).toBeInTheDocument();
-    expect(screen.getByText("Project-search root")).toBeInTheDocument();
-    expect(screen.getByText("4 matches")).toBeInTheDocument();
-    expect(screen.getByText("node_modules")).toBeInTheDocument();
     expect(
-      screen.getByText("/Users/demo/Projects/atlas/locked"),
+      await screen.findByRole("checkbox", { name: "Select Clean" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Permission denied")).toBeInTheDocument();
+    expect(screen.getByText("2 new candidates found.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Scan diagnostics" }),
+    ).toBeNull();
+    expect(screen.queryByText("Dependency vendor")).toBeNull();
+    expect(screen.queryByText("Permission denied")).toBeNull();
   });
 
   it("requires invalid confirmation and reviews every selected candidate", async () => {

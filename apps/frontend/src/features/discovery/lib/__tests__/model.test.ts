@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type {
-  DiscoveryCandidate,
-  DiscoveryExclusion,
-  DiscoveryProgress,
-} from "@/types";
+import type { DiscoveryCandidate, DiscoveryProgress } from "@/types";
 import {
   pagingLabel,
   pagingState,
   progressSummary,
   selectAllSelectable,
   selectionCounts,
-  summarizeExclusions,
   summarizeScanPhase,
   toggleSelection,
 } from "../model";
@@ -140,59 +135,6 @@ describe("discovery paging", () => {
       "Showing 51–100 of 120 · page 2 of 3",
     );
     expect(pagingLabel(pagingState(0, 50, 0), 0)).toBe("No candidates.");
-  });
-});
-
-describe("discovery exclusions", () => {
-  it("aggregates matches per reason and orders by weight", () => {
-    const exclusions: DiscoveryExclusion[] = [
-      {
-        name: ".git",
-        reason: "vcsMetadata",
-        matches: 2,
-        samplePath: "/project/.git",
-      },
-      {
-        name: "node_modules",
-        reason: "dependencyVendor",
-        matches: 14,
-        samplePath: "/project/node_modules",
-      },
-      {
-        name: "dist",
-        reason: "buildOutput",
-        matches: 1,
-        samplePath: "/project/dist",
-      },
-      {
-        name: "out",
-        reason: "buildOutput",
-        matches: 5,
-        samplePath: "/project/out",
-      },
-    ];
-
-    expect(summarizeExclusions(exclusions)).toEqual([
-      {
-        reason: "dependencyVendor",
-        label: "Dependency vendor",
-        matches: 14,
-        names: ["node_modules"],
-      },
-      {
-        reason: "buildOutput",
-        label: "Build output",
-        matches: 6,
-        names: ["dist", "out"],
-      },
-      {
-        reason: "vcsMetadata",
-        label: "Version-control metadata",
-        matches: 2,
-        names: [".git"],
-      },
-    ]);
-    expect(summarizeExclusions([])).toEqual([]);
   });
 });
 

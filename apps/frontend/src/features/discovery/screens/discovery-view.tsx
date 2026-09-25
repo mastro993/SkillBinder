@@ -38,7 +38,6 @@ import {
   toggleSelection,
 } from "../lib/model";
 import { DiscoveryCandidateTable } from "../components/discovery-candidate-table";
-import { DiscoveryDiagnostics } from "../components/discovery-diagnostics";
 import { DiscoveryScanStatus } from "../components/discovery-scan-status";
 import { ImportPreviewDialog } from "../components/import-preview-dialog";
 
@@ -202,8 +201,7 @@ export function DiscoveryView() {
         ) : null}
         {data?.phase === "running" ? (
           <output className="text-muted-foreground" aria-live="polite">
-            Walking the roots. Locations, exclusions, and candidates appear when
-            the scan finishes.
+            Walking the roots. Candidates appear when the scan finishes.
           </output>
         ) : null}
 
@@ -320,14 +318,6 @@ export function DiscoveryView() {
               </CardContent>
             )}
           </Card>
-        ) : null}
-
-        {data && data.phase !== "running" ? (
-          <DiscoveryDiagnostics
-            locations={data.locations}
-            exclusions={data.exclusions}
-            warnings={data.warnings}
-          />
         ) : null}
       </div>
 
