@@ -112,7 +112,7 @@ async function settleCurrentScan(queryClient: QueryClient) {
 }
 
 function discoveryRow() {
-  return within(screen.getByRole("link", { name: /Discovery/ }));
+  return within(screen.getByRole("link", { name: /Install/ }));
 }
 
 afterEach(() => {

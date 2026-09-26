@@ -113,7 +113,7 @@ export function LibraryView() {
             <EmptyTitle>Your library is ready</EmptyTitle>
           </EmptyHeader>
           <p className="max-w-[490px] text-muted-foreground">
-            No skills imported yet. Visit Discovery to inspect local skill
+            No skills imported yet. Visit Install to inspect local skill
             folders.
           </p>
         </Empty>

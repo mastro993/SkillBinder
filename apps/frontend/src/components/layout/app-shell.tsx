@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { to: "/discovery", label: "Discovery", icon: Compass, activity: true },
+  { to: "/discovery", label: "Install", icon: Compass, activity: true },
   { to: "/library", label: "Library", icon: BookOpen, activity: false },
 ];
 

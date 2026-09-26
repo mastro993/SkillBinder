@@ -138,7 +138,7 @@ export function DiscoveryView() {
     <section className="px-13 py-11.5">
       <PageHeader
         eyebrow="Read-only inspection"
-        title="Discovery"
+        title="Install"
         lead="Run a bounded scan, and choose which discovered skill copies enter your library. Project-search roots are configured in Settings."
       />
 
