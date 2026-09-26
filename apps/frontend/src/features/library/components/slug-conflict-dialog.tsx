@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { LibrarySkill } from "@/types";
 import { payloadPath } from "../lib/conflicts";
 
@@ -164,10 +165,17 @@ export function SlugConflictDialog({
               </Button>
             </div>
           ) : selectedSummary?.isPending ? (
-            <div className="grid gap-2" aria-label="Loading skill contents">
-              <div className="h-8 w-full animate-pulse rounded bg-muted" />
-              <div className="h-48 w-full animate-pulse rounded bg-muted" />
-            </div>
+            <>
+              <output className="sr-only">Loading skill contents</output>
+              <div className="grid gap-2">
+                <div className="flex max-h-24 flex-wrap gap-1">
+                  <Skeleton className="h-7 w-20" />
+                  <Skeleton className="h-7 w-24" />
+                  <Skeleton className="h-7 w-16" />
+                </div>
+                <Skeleton className="h-48 w-full" />
+              </div>
+            </>
           ) : (
             <>
               <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
@@ -199,10 +207,10 @@ export function SlugConflictDialog({
                   </Button>
                 </div>
               ) : preview?.isPending ? (
-                <div
-                  className="h-48 w-full animate-pulse rounded bg-muted"
-                  aria-label="Loading file"
-                />
+                <>
+                  <output className="sr-only">Loading file</output>
+                  <Skeleton className="h-48 w-full" />
+                </>
               ) : preview?.data?.content === null ? (
                 <p className="text-sm text-muted-foreground">
                   {preview.data.unavailableReason ?? "Preview unavailable."}

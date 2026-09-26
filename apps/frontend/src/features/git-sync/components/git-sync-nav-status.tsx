@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Spinner } from "@/components/ui/spinner";
 import { gitSyncMutationKey, gitSyncStatusQuery } from "../hooks/queries";
 
@@ -21,14 +22,14 @@ export function GitSyncNavStatus() {
   if (status.data?.state === "needsPush") {
     return (
       <NavIndicator label="Push available">
-        <ArrowUp size={16} aria-hidden="true" />
+        <HugeiconsIcon icon={ArrowUp01Icon} size={16} aria-hidden="true" />
       </NavIndicator>
     );
   }
   if (status.data?.state === "needsPull") {
     return (
       <NavIndicator label="Pull available">
-        <ArrowDown size={16} aria-hidden="true" />
+        <HugeiconsIcon icon={ArrowDown01Icon} size={16} aria-hidden="true" />
       </NavIndicator>
     );
   }

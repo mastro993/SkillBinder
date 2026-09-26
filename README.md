@@ -6,7 +6,7 @@ Git-backed library, and two journeys. J01 inspects every known global agent skil
 the user review what was discovered, and imports selected skills as complete managed copies while
 the originals stay untouched. J02 adds project-search roots: the user registers folders with a
 native picker, runs one bounded, cancellable scan over the registry locations and those roots, and
-follows its progress, exclusions, and paged candidates before importing. Git sync is available as
+follows its progress and paged candidates before importing. Git sync is available as
 an explicit, local-authenticated remote workflow; editing, organization, deployment, and source
 installation remain future work.
 

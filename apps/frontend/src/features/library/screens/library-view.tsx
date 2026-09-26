@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import type { ValidationStatus } from "@/types";
 import { SlugConflictDialog } from "../components/slug-conflict-dialog";
@@ -36,7 +37,37 @@ export function LibraryView() {
   const [keptSkillId, setKeptSkillId] = useState<string | null>(null);
   if (bootstrap.isPending || library.isPending)
     return (
-      <p className="px-13 py-12 text-muted-foreground">Loading library…</p>
+      <section className="px-13 py-11.5">
+        <PageHeader
+          eyebrow="Canonical collection"
+          title="Library"
+          action={<Button disabled>New skill</Button>}
+        />
+        <output className="sr-only">Loading library…</output>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+          {[0, 1, 2, 3, 4, 5].map((slot) => (
+            <Card key={slot}>
+              <CardHeader>
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-24" />
+                <CardAction>
+                  <Skeleton variant="pill" className="h-5 w-16" />
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </CardContent>
+              <CardFooter className="block">
+                <Skeleton className="h-4 w-full" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </section>
     );
   if (bootstrap.isError || library.isError)
     return (
