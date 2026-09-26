@@ -1,6 +1,6 @@
 # Library organization
 
-Library skills can have one folder and multiple tags. Folders can contain other folders. Folder and tag records live in separate portable files under `.skillbinder/folders/<id>.json` and `.skillbinder/tags/<id>.json`; assignments remain in each `.skillbinder/skills/<id>.json` record. SQLite does not own this data. Changing organization does not move skill payloads or deployed copies.
+Library skills can have one folder and multiple tags. Folders can contain other folders. Folder records, tag records, and each skill's folder and tag assignment live in the portable `.skillbinder.json` metadata, and SQLite does not own this data. Changing organization does not move skill payloads or deployed copies.
 
 ## Library screen
 
@@ -14,6 +14,7 @@ A delete preview counts direct child folders and directly assigned skills for a 
 
 Core validates the complete graph after each proposed change. Folder names are unique among siblings; tag names are unique globally. Comparison uses Unicode compatibility normalization and full case folding. IDs must be safe path components. Parent cycles, missing references, and unsorted or repeated tag IDs are refused. Rust generates IDs for new folders and tags.
 
-Platform serializes organization and skill-record access with the import writer. It writes a durable redo journal before changing any metadata file. Each replacement is written to a temporary file, synced, and renamed into place. A later read replays an interrupted journal before returning a snapshot; a replay failure surfaces as a library error. Unknown skill-record fields are preserved. Organization changes leave Git working tree changes for the user to commit explicitly, as imports do.
+Platform serializes every writer of `.skillbinder.json` with one lock, because an import that appends a skill and an organization change both read the file, edit it, and write it back. Each write goes to a sibling temporary file that is renamed over the target, so an interrupted write leaves the previous metadata intact. A change that arrives with a metadata revision is refused when the organization changed since that revision.
+Organization changes leave Git working tree changes for the user to commit explicitly, as imports do.
 
 `library_list` returns skills, folders, tags, and the organization revision in one response. `library_organization_change` applies one validated change; `library_organization_preview_delete` returns the counts and revision needed for confirmation. The frontend validates both request and response shapes with Zod.

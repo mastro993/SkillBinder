@@ -227,6 +227,51 @@ describe("library view", () => {
     );
     expect(screen.getByText("three description")).toBeInTheDocument();
   });
+
+  it("distinguishes folders with the same name under different parents", async () => {
+    renderLibrary({
+      bootstrap: vi
+        .fn<DesktopClient["bootstrap"]>()
+        .mockResolvedValue(bootstrap),
+      libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+        libraryRevision: "r",
+        hasUncommittedChanges: false,
+        pendingResolution: false,
+        organizationRevision: "r",
+        folders: [
+          { id: "work", name: "Work", parentId: null },
+          { id: "personal", name: "Personal", parentId: null },
+          { id: "work-shared", name: "Shared", parentId: "work" },
+          { id: "personal-shared", name: "Shared", parentId: "personal" },
+        ],
+        tags: [],
+        skills: [
+          {
+            skillId: "skill",
+            slug: "skill",
+            displayName: "Skill",
+            folderId: "work-shared",
+            tagIds: [],
+            description: null,
+            validation: { status: "valid", messages: [] },
+            fileCount: 1,
+            totalBytes: "10",
+            sources: [],
+            digest: "sha256:skill",
+            payloadDirectory: "skill",
+          },
+        ],
+      }),
+    });
+    expect(await screen.findByText("Work / Shared")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Organize" }));
+    expect(
+      screen.getByRole("option", { name: "Work / Shared" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Personal / Shared" }),
+    ).toBeInTheDocument();
+  });
 });
 
 function sharedSlugSkill(skillId: string, payloadDirectory: string) {

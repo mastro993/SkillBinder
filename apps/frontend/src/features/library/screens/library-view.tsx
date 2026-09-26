@@ -30,6 +30,7 @@ import { payloadPath, slugConflictGroups } from "../lib/conflicts";
 import { libraryListQuery, useResolveSlugConflict } from "../hooks/queries";
 import {
   OrganizationControls,
+  folderPath,
   includesFolder,
   type FolderScope,
   type OrganizationControlsHandle,
@@ -105,6 +106,10 @@ export function LibraryView() {
     );
   }
   const data = library.data;
+  const folderLabel = (id: string | null) => {
+    const folder = data.folders.find((item) => item.id === id);
+    return folder ? folderPath(folder, data.folders) : "Unfiled";
+  };
   const conflicts = slugConflictGroups(data.skills);
   const sharedSlugs = new Set(conflicts.map((group) => group.slug));
   const open = conflicts.find((group) => group.slug === openSlug) ?? null;
@@ -298,9 +303,7 @@ export function LibraryView() {
                         Organize
                       </Button>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {data.folders.find(
-                          (folder) => folder.id === skill.folderId,
-                        )?.name ?? "Unfiled"}
+                        {folderLabel(skill.folderId)}
                         {skill.tagIds.length
                           ? ` · ${skill.tagIds.map((id) => data.tags.find((tag) => tag.id === id)?.name ?? id).join(", ")}`
                           : ""}

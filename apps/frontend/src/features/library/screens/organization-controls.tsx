@@ -54,6 +54,18 @@ export function includesFolder(
   return false;
 }
 
+export function folderPath(folder: FolderView, folders: FolderView[]): string {
+  const names = [folder.name];
+  let parentId = folder.parentId;
+  while (parentId) {
+    const parent = folders.find((item) => item.id === parentId);
+    if (!parent) break;
+    names.unshift(parent.name);
+    parentId = parent.parentId;
+  }
+  return names.join(" / ");
+}
+
 interface Props {
   data: LibraryListResponse;
   scope: FolderScope;
@@ -272,7 +284,7 @@ export const OrganizationControls = forwardRef<
                 })
               }
             >
-              New
+              New folder
             </Button>
           </div>
           <Button
@@ -301,7 +313,7 @@ export const OrganizationControls = forwardRef<
               size="xs"
               onClick={() => open({ kind: "tag" })}
             >
-              New
+              New tag
             </Button>
           </div>
           {data.tags.length === 0 ? (
@@ -387,7 +399,9 @@ export const OrganizationControls = forwardRef<
                     ? "Edit tag"
                     : "New tag"
                   : edit?.kind === "assign"
-                    ? `Organize ${edit.skillIds.length} skill${edit.skillIds.length === 1 ? "" : "s"}`
+                    ? edit.skillIds.length === 1
+                      ? "Organize skill"
+                      : `Organize ${edit.skillIds.length} skills`
                     : edit?.entity === "folder"
                       ? "Delete folder"
                       : "Delete tag"}
@@ -420,7 +434,7 @@ export const OrganizationControls = forwardRef<
                   <option value="">No parent</option>
                   {selectableParents(edit.folder).map((folder) => (
                     <option key={folder.id} value={folder.id}>
-                      {folder.name}
+                      {folderPath(folder, data.folders)}
                     </option>
                   ))}
                 </select>
@@ -458,15 +472,13 @@ export const OrganizationControls = forwardRef<
                   <option value="">Unfiled</option>
                   {data.folders.map((folder) => (
                     <option key={folder.id} value={folder.id}>
-                      {folder.name}
+                      {folderPath(folder, data.folders)}
                     </option>
                   ))}
                 </select>
               </label>
               <fieldset className="grid gap-2">
-                <legend className="mb-2 text-sm">
-                  {edit.skillIds.length > 1 ? "Tags" : "Tags"}
-                </legend>
+                <legend className="mb-2 text-sm">Tags</legend>
                 {edit.skillIds.length > 1 ? (
                   <div className="flex gap-2">
                     <Button
