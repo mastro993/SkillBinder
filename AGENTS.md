@@ -25,6 +25,8 @@ See `apps/frontend/AGENTS.md` for frontend-specific conventions.
 
 ## Agent Playbook
 
+IMPORTANT: we do not have production users and we do not have the need to support backward compatibility or migrations. When requested to update or remove something completely removes the unnecessary. 
+
 ### Adding a feature
 
 1. **Frontend route/UI** → `apps/frontend/src/routes/`
