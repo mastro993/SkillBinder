@@ -107,6 +107,38 @@ mod tests {
     }
 
     #[test]
+    fn reads_folder_records_that_still_carry_a_parent_id() {
+        let root =
+            std::env::temp_dir().join(format!("skillbinder-legacy-{}", uuid::Uuid::new_v4()));
+        let repo = repository(&root);
+        let metadata = PortableMetadata::new("library".into(), "created".into());
+        repo.write_metadata(&metadata).unwrap();
+        let path = root.join("data").join("library").join(".skillbinder.json");
+        let mut written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        written["folders"] = serde_json::json!({
+            "legacy": { "id": "legacy", "name": "Legacy", "parentId": null }
+        });
+        std::fs::write(&path, serde_json::to_vec_pretty(&written).unwrap()).unwrap();
+
+        let graph = repo.organization_snapshot().unwrap();
+        assert_eq!(graph.folders["legacy"].name, "Legacy");
+
+        repo.change_organization(
+            Change::CreateFolder {
+                id: "fresh".into(),
+                name: "Fresh".into(),
+            },
+            None,
+        )
+        .unwrap();
+        let rewritten: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert!(rewritten["folders"]["legacy"].get("parentId").is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn persists_assignments_without_touching_skill_totals() {
         let root =
             std::env::temp_dir().join(format!("skillbinder-organization-{}", uuid::Uuid::new_v4()));

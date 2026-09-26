@@ -20,6 +20,8 @@ A delete preview counts the skills assigned to a folder, or the skills carrying 
 
 Core validates the complete graph after each proposed change. Folder names and tag names are unique, compared with Unicode compatibility normalization and full case folding. IDs must be safe path components. Missing references and unsorted or repeated tag IDs are refused. Rust generates IDs for new folders and tags.
 
+A record read from `.skillbinder.json` must not brick the library when it carries a field this version no longer writes, so unknown folder fields are ignored and dropped at the next write.
+
 Platform serializes every writer of `.skillbinder.json` with one lock, because an import that appends a skill and an organization change both read the file, edit it, and write it back. Each write goes to a sibling temporary file that is renamed over the target, so an interrupted write leaves the previous metadata intact. A change that arrives with a metadata revision is refused when the organization changed since that revision.
 Organization changes leave Git working tree changes for the user to commit explicitly, as imports do.
 
