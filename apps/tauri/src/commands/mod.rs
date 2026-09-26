@@ -1,3 +1,4 @@
+pub mod bindings;
 pub mod bootstrap;
 pub mod diagnostics;
 pub mod discovery;
@@ -71,7 +72,8 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    const COMMAND_SOURCES: [&str; 7] = [
+    const COMMAND_SOURCES: [&str; 8] = [
+        include_str!("bindings.rs"),
         include_str!("bootstrap.rs"),
         include_str!("diagnostics.rs"),
         include_str!("discovery.rs"),

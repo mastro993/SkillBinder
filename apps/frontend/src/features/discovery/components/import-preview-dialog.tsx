@@ -1,4 +1,5 @@
-import { XIcon } from "lucide-react";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type { ImportPlanResponse } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,7 +55,7 @@ export function ImportPreviewDialog({
             />
           }
         >
-          <XIcon aria-hidden="true" />
+          <HugeiconsIcon icon={Cancel01Icon} aria-hidden="true" />
         </DialogClose>
         <DialogHeader>
           <p className="text-xs font-extrabold tracking-widest text-success uppercase">

@@ -1,13 +1,21 @@
 import type { PropsWithChildren } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Compass, Settings, Sparkles } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  BookOpen02Icon,
+  CompassIcon,
+  Link01Icon,
+  Settings02Icon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScanActivity } from "@/features/discovery/components/scan-activity";
 
 const navItems = [
-  { to: "/discovery", label: "Discovery", icon: Compass, activity: true },
-  { to: "/library", label: "Library", icon: BookOpen, activity: false },
-  { to: "/settings", label: "Settings", icon: Settings, activity: false },
+  { to: "/discovery", label: "Discovery", icon: CompassIcon, activity: true },
+  { to: "/library", label: "Library", icon: BookOpen02Icon, activity: false },
+  { to: "/bindings", label: "Bindings", icon: Link01Icon, activity: false },
+  { to: "/settings", label: "Settings", icon: Settings02Icon, activity: false },
 ];
 
 const navLinkBase =
@@ -20,12 +28,12 @@ export function AppShell({ children }: PropsWithChildren) {
       <aside className="flex flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-4 pt-7 pb-5">
         <div className="flex items-center gap-2.5 px-2 pb-7 text-lg font-extrabold tracking-tight">
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles size={18} aria-hidden="true" />
+            <HugeiconsIcon icon={SparklesIcon} size={18} aria-hidden="true" />
           </span>
           <span className="max-md:hidden">SkillBinder</span>
         </div>
         <nav aria-label="Main navigation" className="grid gap-1.5">
-          {navItems.map(({ to, label, icon: Icon, activity }) => (
+          {navItems.map(({ to, label, icon, activity }) => (
             <Link
               key={to}
               to={to}
@@ -36,8 +44,8 @@ export function AppShell({ children }: PropsWithChildren) {
                   : `${navLinkBase} text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground`
               }
             >
-              <Icon size={18} aria-hidden="true" />
-              <span className="max-md:hidden">{label}</span>
+              <HugeiconsIcon icon={icon} size={18} aria-hidden="true" />
+              <span className="max-md:sr-only">{label}</span>
               {activity ? <ScanActivity /> : null}
             </Link>
           ))}

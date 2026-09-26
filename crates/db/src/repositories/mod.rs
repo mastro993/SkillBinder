@@ -11,3 +11,4 @@ pub(crate) mod roots;
 
 pub(crate) use observations::ObservationRow;
 pub(crate) use roots::DUPLICATE_PATH_MESSAGE;
+pub(crate) mod bindings;

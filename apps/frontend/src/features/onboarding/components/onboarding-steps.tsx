@@ -1,11 +1,12 @@
 import {
-  BookCopy,
-  FolderSearch,
-  GitBranch,
-  HardDrive,
-  LockKeyhole,
-  RefreshCw,
-} from "lucide-react";
+  Copy02Icon,
+  FolderSearchIcon,
+  GitBranchIcon,
+  HardDriveIcon,
+  LockKeyholeIcon,
+  RefreshCwIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type { BootstrapResponse, OnboardingStep } from "@/types";
 import { StatusCard } from "@/components/feedback/status-card";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,11 @@ export function OnboardingStepContent({
           onClick={onRetry}
           disabled={pending}
         >
-          {pending ? <Spinner /> : <RefreshCw aria-hidden="true" />}
+          {pending ? (
+            <Spinner />
+          ) : (
+            <HugeiconsIcon icon={RefreshCwIcon} aria-hidden="true" />
+          )}
           Recheck
         </Button>
       </div>
@@ -70,37 +75,37 @@ export function OnboardingStepContent({
 export function Boundaries() {
   const points = [
     [
-      BookCopy,
+      Copy02Icon,
       "Managed copies",
       "Imports create canonical copies. Original skill folders stay unchanged.",
     ],
     [
-      HardDrive,
+      HardDriveIcon,
       "Portable library",
       "Canonical skills, portable IDs, organization, and history move together in the Git library.",
     ],
     [
-      HardDrive,
+      HardDriveIcon,
       "Machine-local state",
       "Device paths, settings, credentials, and deployment state stay on this machine and outside Git.",
     ],
     [
-      FolderSearch,
+      FolderSearchIcon,
       "Bounded discovery",
       "Global known locations and only project roots you select are scanned.",
     ],
     [
-      GitBranch,
+      GitBranchIcon,
       "Local Git history",
       "Every library has version history through your supported system Git.",
     ],
     [
-      LockKeyhole,
+      LockKeyholeIcon,
       "No account or token",
       "SkillBinder has no hosted account and stores no Git credentials.",
     ],
     [
-      RefreshCw,
+      RefreshCwIcon,
       "Explicit sync",
       "Remote sync stays optional and never runs in the background.",
     ],
@@ -111,7 +116,7 @@ export function Boundaries() {
         <Item key={title} variant="outline" size="sm">
           <ItemMedia variant="icon">
             <span className="text-success">
-              <Icon aria-hidden="true" />
+              <HugeiconsIcon icon={Icon} aria-hidden="true" />
             </span>
           </ItemMedia>
           <ItemContent>
@@ -128,7 +133,7 @@ function SyncChoice() {
   return (
     <Item variant="selected">
       <ItemMedia variant="icon">
-        <LockKeyhole aria-hidden="true" />
+        <HugeiconsIcon icon={LockKeyholeIcon} aria-hidden="true" />
       </ItemMedia>
       <ItemContent>
         <ItemTitle>Start local-only</ItemTitle>
@@ -147,7 +152,7 @@ function Ready() {
     <Empty className="mx-auto max-w-[590px]">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <LockKeyhole aria-hidden="true" />
+          <HugeiconsIcon icon={LockKeyholeIcon} aria-hidden="true" />
         </EmptyMedia>
         <EmptyTitle>Ready for a local library</EmptyTitle>
         <EmptyDescription>

@@ -9,6 +9,7 @@ macro_rules! contract {
     };
 }
 
+pub mod bindings;
 pub mod bootstrap;
 pub mod diagnostics;
 pub mod discovery;
@@ -19,6 +20,7 @@ pub mod onboarding;
 pub mod roots;
 pub mod validation;
 
+pub use bindings::*;
 pub use bootstrap::*;
 pub use diagnostics::*;
 pub use discovery::*;
@@ -57,6 +59,13 @@ mod tests {
     fn export_bindings() {
         let output = Path::new(env!("CARGO_MANIFEST_DIR")).join("../frontend/src/types");
         let config = Config::new().with_out_dir(output);
+        BindingsOptionsRequest::export_all(&config).unwrap();
+        BindingsOptionsResponse::export_all(&config).unwrap();
+        BindingsCreateRequest::export_all(&config).unwrap();
+        BindingsCreateResponse::export_all(&config).unwrap();
+        BindingsListResponse::export_all(&config).unwrap();
+        BindingsRepairRequest::export_all(&config).unwrap();
+        BindingsRepairResponse::export_all(&config).unwrap();
         BootstrapResponse::export_all(&config).unwrap();
         CompleteOnboardingResponse::export_all(&config).unwrap();
         UpdateOnboardingProgressRequest::export_all(&config).unwrap();

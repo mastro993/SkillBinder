@@ -70,6 +70,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::bindings::bindings_options,
+            commands::bindings::bindings_create,
+            commands::bindings::bindings_list,
+            commands::bindings::bindings_repair,
             commands::bootstrap::system_bootstrap,
             commands::bootstrap::git_environment_verify,
             commands::onboarding::onboarding_progress_update,

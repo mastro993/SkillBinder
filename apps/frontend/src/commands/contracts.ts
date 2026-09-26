@@ -1,5 +1,12 @@
 import { z, ZodError } from "zod";
 import type {
+  BindingsOptionsResponse,
+  BindingsCreateResponse,
+  BindingsListResponse,
+  BindingsRepairResponse,
+  BindingView,
+  BindingTargetView,
+  BindingAgent,
   AppError,
   BootstrapResponse,
   CandidateDuplicate,
@@ -84,6 +91,54 @@ const appErrorSchema: z.ZodType<AppError> = z
     recoveryAction: recoveryActionSchema.nullable(),
     diagnosticId: z.string(),
   })
+  .strict();
+
+const bindingAgentSchema: z.ZodType<BindingAgent> = z
+  .object({
+    agentId: z.string(),
+    displayName: z.string(),
+    detected: z.boolean(),
+    available: z.boolean(),
+    readerPath: z.string(),
+  })
+  .strict();
+const bindingTargetSchema: z.ZodType<BindingTargetView> = z
+  .object({
+    skillId: z.string(),
+    path: z.string(),
+    readerAgentIds: z.array(z.string()),
+    status: z.enum([
+      "installed",
+      "missing",
+      "changed",
+      "unavailable",
+      "unmanaged",
+      "sourceMissing",
+      "sourceChanged",
+    ]),
+  })
+  .strict();
+const bindingViewSchema: z.ZodType<BindingView> = z
+  .object({
+    bindingId: z.string(),
+    skillIds: z.array(z.string()),
+    scope: z.enum(["global", "project"]),
+    projectRootId: z.string().nullable(),
+    agentIds: z.array(z.string()),
+    createdAt: z.string(),
+    targets: z.array(bindingTargetSchema),
+  })
+  .strict();
+export const bindingsOptionsResponseSchema: z.ZodType<BindingsOptionsResponse> =
+  z.object({ agents: z.array(bindingAgentSchema) }).strict();
+export const bindingsCreateResponseSchema: z.ZodType<BindingsCreateResponse> = z
+  .object({ binding: bindingViewSchema })
+  .strict();
+export const bindingsListResponseSchema: z.ZodType<BindingsListResponse> = z
+  .object({ bindings: z.array(bindingViewSchema) })
+  .strict();
+export const bindingsRepairResponseSchema: z.ZodType<BindingsRepairResponse> = z
+  .object({ binding: bindingViewSchema })
   .strict();
 
 export const bootstrapResponseSchema: z.ZodType<BootstrapResponse> = z

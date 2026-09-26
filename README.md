@@ -6,8 +6,9 @@ Git-backed library, and two journeys. J01 inspects every known global agent skil
 the user review what was discovered, and imports selected skills as complete managed copies while
 the originals stay untouched. J02 adds project-search roots: the user registers folders with a
 native picker, runs one bounded, cancellable scan over the registry locations and those roots, and
-follows its progress, exclusions, and paged candidates before importing. Editing, organization,
-deployment, source installation, and sync are not implemented yet.
+follows its progress, exclusions, and paged candidates before importing. The Bindings page
+copies selected library skills to global or registered project agent folders and can repair missing
+managed copies. Editing, organization, source installation, and sync are not implemented yet.
 
 ## Workspace
 
@@ -143,7 +144,7 @@ with the canonical path, display path, label, and enabled flag of every folder t
 so the folder is resolved on this machine and never synced or committed.
 
 The initial commit uses `SkillBinder <local@skillbinder.invalid>`. Machine paths, credentials,
-deployment state, and preferences remain outside the portable Git repository.
+binding actions, copy receipts, and preferences remain outside the portable Git repository.
 
 ## License
 
