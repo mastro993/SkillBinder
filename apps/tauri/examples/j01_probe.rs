@@ -9,8 +9,10 @@ use skillbinder_core::{
 };
 use skillbinder_db::StateStore;
 use skillbinder_platform::{
-    library_repository::FilesystemLibraryRepository, local_environment::LocalEnvironment,
-    paths::AppPaths, payload_filesystem::FilesystemPayloadSource,
+    library_repository::{FilesystemLibraryRepository, payload_directories},
+    local_environment::LocalEnvironment,
+    paths::AppPaths,
+    payload_filesystem::FilesystemPayloadSource,
 };
 use std::{
     collections::hash_map::DefaultHasher,
@@ -357,12 +359,12 @@ fn main() {
         problems.push("batch dedup did not collapse identical candidates".into());
     }
 
-    let copied_review = paths
-        .library()
-        .join("skills")
-        .join(&dedup_plan.items[0].skill_id)
-        .join(&dedup_plan.items[0].selection.slug)
-        .join("assets/notes.md");
+    let copied_review = imported_payload(
+        &paths,
+        &dedup_plan.items[0].skill_id,
+        &dedup_plan.items[0].selection.slug,
+    )
+    .join("assets/notes.md");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -434,12 +436,12 @@ fn main() {
         problems.push("journal still present after a successful apply".into());
     }
 
-    let linked_library_copy = paths
-        .library()
-        .join("skills")
-        .join(&plan.items[3].skill_id)
-        .join(&plan.items[3].selection.slug)
-        .join("SKILL.md");
+    let linked_library_copy = imported_payload(
+        &paths,
+        &plan.items[3].skill_id,
+        &plan.items[3].selection.slug,
+    )
+    .join("SKILL.md");
     let linked_imported = linked_library_copy.is_file();
     println!("linked skill imported once from its original: {linked_imported}");
     if !linked_imported {
@@ -455,13 +457,10 @@ fn main() {
     println!("\nlibrary tree:");
     for entry in fs::read_dir(paths.library().join("skills")).unwrap() {
         let entry = entry.unwrap();
-        for inner in fs::read_dir(entry.path()).unwrap() {
-            let inner = inner.unwrap();
-            println!(
-                "  skills/{}/{}",
-                entry.file_name().to_string_lossy(),
-                inner.file_name().to_string_lossy()
-            );
+        let name = entry.file_name().to_string_lossy().into_owned();
+        println!("  skills/{name}");
+        if !entry.path().join("SKILL.md").is_file() {
+            problems.push(format!("skills/{name} is not a payload directory"));
         }
     }
 
@@ -470,16 +469,12 @@ fn main() {
     for record in &records {
         let observations = store.list(&record.skill_id).unwrap();
         println!(
-            "  {} slug={} digest={} files={} observations={:?}",
+            "  {} slug={} digest={} files={} bytes={} observations={:?}",
             record.skill_id,
             record.slug,
             record.digest,
-            record
-                .manifest
-                .entries
-                .iter()
-                .filter(|e| e.kind == skillbinder_core::library::ManifestKind::File)
-                .count(),
+            record.file_count,
+            record.total_bytes,
             observations
                 .iter()
                 .map(|o| o.source.display().to_string())
@@ -520,20 +515,21 @@ fn main() {
     let failure_plan = imports
         .prepare(failure_selection, false, failure_snapshot)
         .unwrap();
-    let occupied = paths
-        .library()
-        .join("skills")
-        .join(&failure_plan.items[1].skill_id)
-        .join(&failure_plan.items[1].selection.slug);
+    let occupied = imported_payload(
+        &paths,
+        &failure_plan.items[1].skill_id,
+        &failure_plan.items[1].selection.slug,
+    );
     fs::create_dir_all(&occupied).unwrap();
     fs::write(occupied.join("unrelated.txt"), "keep me\n").unwrap();
     let failure_result = imports.apply(&failure_plan.id);
     let unrelated_kept = occupied.join("unrelated.txt").is_file();
-    let first_rolled_back = !paths
-        .library()
-        .join("skills")
-        .join(&failure_plan.items[0].skill_id)
-        .exists();
+    let first_rolled_back = !imported_payload(
+        &paths,
+        &failure_plan.items[0].skill_id,
+        &failure_plan.items[0].selection.slug,
+    )
+    .exists();
     let failure_records = library.catalog().unwrap();
     let no_partial_records = failure_records.iter().all(|record| {
         record.skill_id != failure_plan.items[0].skill_id
@@ -625,6 +621,13 @@ fn snapshot_for(library: &dyn LibraryRepository, selections: &[ImportSelection])
         library_revision: library.current_revision().unwrap(),
         allow_invalid_skills: false,
     }
+}
+
+fn imported_payload(paths: &AppPaths, skill_id: &str, slug: &str) -> PathBuf {
+    let directory = payload_directories([(skill_id, slug)])
+        .remove(skill_id)
+        .expect("payload directory");
+    paths.library().join("skills").join(directory)
 }
 
 fn review_hashed_source(home: &Path, skill: &str) -> PathBuf {

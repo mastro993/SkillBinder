@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+const ROOT_DIRECTORY: &str = ".skillbinder";
 
 #[derive(Debug, Clone)]
 pub struct AppPaths {
@@ -14,6 +16,13 @@ impl AppPaths {
             config,
             cache,
         }
+    }
+
+    /// One root for durable state, configuration, and disposable caches, so the whole application
+    /// directory is discoverable and movable as a unit.
+    pub fn for_home(home: &Path) -> Self {
+        let root = home.join(ROOT_DIRECTORY);
+        Self::new(root.clone(), root.clone(), root)
     }
 
     pub fn database(&self) -> PathBuf {
@@ -54,5 +63,30 @@ impl AppPaths {
             std::fs::create_dir_all(path)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_app_directory_is_one_root_under_the_home_directory() {
+        let paths = AppPaths::for_home(Path::new("/home/dev"));
+        assert_eq!(paths.data, PathBuf::from("/home/dev/.skillbinder"));
+        assert_eq!(paths.config, paths.data);
+        assert_eq!(paths.cache, paths.data);
+        assert_eq!(
+            paths.library(),
+            PathBuf::from("/home/dev/.skillbinder/library")
+        );
+        assert_eq!(
+            paths.database(),
+            PathBuf::from("/home/dev/.skillbinder/state.sqlite")
+        );
+        assert_eq!(
+            paths.git_sync_config(),
+            PathBuf::from("/home/dev/.skillbinder/git-sync.json")
+        );
     }
 }

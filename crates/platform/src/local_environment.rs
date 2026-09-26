@@ -194,29 +194,17 @@ impl LocalEnvironment {
 
     fn read_library_record(&self) -> Result<Option<LibraryRecord>, BootstrapError> {
         let portable = self.paths.library().join(".skillbinder.json");
-        if portable.is_file() {
-            let metadata =
-                PortableMetadata::load(&portable).map_err(BootstrapError::RecoveryRequired)?;
-            return Ok(Some(LibraryRecord {
-                schema_version: metadata.schema_version,
-                library_id: metadata.library_id,
-                created_at: metadata.created_at,
-                content_policy_version: metadata.content_policy_version,
-            }));
-        }
-        // Read the old layout so existing local libraries remain recoverable after upgrade.
-        let legacy = self
-            .paths
-            .library()
-            .join(".skillbinder")
-            .join("library.json");
-        if !legacy.is_file() {
+        if !portable.is_file() {
             return Ok(None);
         }
-        let bytes = fs::read(legacy).map_err(storage_error)?;
-        serde_json::from_slice(&bytes)
-            .map(Some)
-            .map_err(|error| BootstrapError::RecoveryRequired(error.to_string()))
+        let metadata =
+            PortableMetadata::load(&portable).map_err(BootstrapError::RecoveryRequired)?;
+        Ok(Some(LibraryRecord {
+            schema_version: metadata.schema_version,
+            library_id: metadata.library_id,
+            created_at: metadata.created_at,
+            content_policy_version: metadata.content_policy_version,
+        }))
     }
 }
 

@@ -21,6 +21,10 @@ import type {
   ImportPlanItem,
   ImportPlanResponse,
   LibraryListResponse,
+  LibrarySkillPreviewRequest,
+  LibrarySkillPreviewResponse,
+  LibraryResolveConflictRequest,
+  LibraryResolveConflictResponse,
   LibrarySkill,
   OnboardingProgress,
   RootGrantView,
@@ -295,6 +299,9 @@ const importOutcomeSchema: z.ZodType<ImportOutcome> = z.discriminatedUnion(
     z
       .object({ kind: z.literal("attachObservation"), skillId: z.string() })
       .strict(),
+    z
+      .object({ kind: z.literal("conflict"), skillIds: z.array(z.string()) })
+      .strict(),
   ],
 );
 const importPlanItemSchema: z.ZodType<ImportPlanItem> = z
@@ -335,15 +342,55 @@ const librarySkillSchema: z.ZodType<LibrarySkill> = z
     fileCount: z.number(),
     totalBytes: z.string(),
     sources: z.array(skillSourceSchema),
+    digest: z.string(),
+    payloadDirectory: z.string(),
   })
   .strict();
 export const libraryListResponseSchema: z.ZodType<LibraryListResponse> = z
   .object({
     libraryRevision: z.string().nullable(),
     hasUncommittedChanges: z.boolean(),
+    pendingResolution: z.boolean(),
     skills: z.array(librarySkillSchema),
   })
   .strict();
+export const librarySkillPreviewRequestSchema: z.ZodType<LibrarySkillPreviewRequest> =
+  z
+    .object({
+      skillId: z.string(),
+      path: z.string().nullable(),
+    })
+    .strict();
+export const librarySkillPreviewResponseSchema: z.ZodType<LibrarySkillPreviewResponse> =
+  z
+    .object({
+      skillId: z.string(),
+      lastEditedAt: z.number().int().nonnegative().nullable(),
+      files: z.array(z.string()),
+      path: z.string(),
+      content: z.string().nullable(),
+      unavailableReason: z.string().nullable(),
+    })
+    .strict();
+export const libraryResolveConflictRequestSchema: z.ZodType<LibraryResolveConflictRequest> =
+  z
+    .object({
+      slug: z.string(),
+      keepSkillId: z.string(),
+      expectedSkillIds: z.array(z.string()),
+    })
+    .strict();
+export const libraryResolveConflictResponseSchema: z.ZodType<LibraryResolveConflictResponse> =
+  z
+    .object({
+      slug: z.string(),
+      keptSkillId: z.string(),
+      removedSkillIds: z.array(z.string()),
+      payloadDirectory: z.string(),
+      libraryRevision: z.string().nullable(),
+      hasUncommittedChanges: z.boolean(),
+    })
+    .strict();
 export const importApplyResponseSchema: z.ZodType<ImportApplyResponse> = z
   .object({
     planId: z.string(),

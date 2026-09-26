@@ -24,14 +24,39 @@ skill is the library's canonical copy from that point on.
 Core owns payload validation, manifests, duplicate decisions, plan state transitions, and the
 import use cases. Platform owns source reads, staging, library files, journals, and Git revision
 reads. SQLite owns machine-local plans, idempotency records, source observations, and the derived
-skill metadata index. Portable data stays in `.skillbinder.json` and `skills/<skill-id>/<slug>/`.
+skill metadata index. Portable data stays in `.skillbinder.json` and `skills/<slug>/`.
 
 Portable, in `library/`:
 
 ```text
-.skillbinder.json                         library identity and skill metadata/manifests
-skills/<skill-id>/<slug>/                 payload bytes, copied exactly
+.skillbinder.json                         library identity, skill catalog, payload digests
+skills/<slug>/                           payload bytes, copied exactly
 ```
+
+Two skills can carry the same slug, because content, not the name, is what makes two imports
+distinct. The lowest skill id keeps the bare slug and the others carry an id suffix, as in
+`skills/caveman/` and `skills/caveman-613ed699/`. An import whose slug another skill already uses is
+prepared as a conflict, so the review screen says the import adds a second copy instead of calling it
+a new skill.
+
+### Resolving a shared slug
+
+The library screen lists every slug that names more than one skill and asks which copy to keep. The
+resolution dialog shows when each copy's files last changed in the local library. It lets the user
+browse the files and read bounded text previews before choosing. The timestamp comes from local
+file modification times, so copying or pulling a skill can change it. Binary and oversized files
+remain listed without a text preview.
+
+The chosen skill stays at `skills/<slug>/`, and the others move to
+`backups/resolutions/<operationId>/<directory>` under the application directory, which is outside the
+library and never part of the portable metadata. Their records leave `.skillbinder.json`, and their
+observations and indexed metadata leave `state.sqlite`. A journal at
+`journals/resolve-<operationId>.json` is written before the first move, so an interrupted resolution
+finishes on the next attempt instead of stacking a second one, and the operation converges on the same
+end state however many times it is retried.
+
+Nothing is committed by a resolution. The change reaches Git only through Sync, and the response
+carries the same dirty flag the list shows.
 
 Machine-local, in `state.sqlite`:
 
@@ -75,7 +100,7 @@ Prepare and apply both recompute them and refuse a candidate whose directory was
 link now points somewhere else, or whose canonical path leaves both the scanned root and the home
 directory. The frontend receives an invalid-path error with a rescan recovery action.
 
-An import writes a journal at `<AppLocalData>/journals/import-<planId>.json` before the first move
+An import writes a journal at `~/.skillbinder/journals/import-<planId>.json` before the first move
 into `skills/` and removes it after the result is durable. While a journal exists, both prepare and
 apply refuse with `RECOVERY_REQUIRED` before any mutation, so a new batch cannot stack on an
 unresolved one. A repeat of a completed plan still returns its stored result, because the

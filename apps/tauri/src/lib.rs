@@ -51,12 +51,8 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let paths = AppPaths::new(
-                app.path().app_local_data_dir()?,
-                app.path().app_config_dir()?,
-                app.path().app_cache_dir()?,
-            );
             let home = app.path().home_dir()?;
+            let paths = AppPaths::for_home(&home);
             app.manage(logging::install(&paths, &home));
             match AppState::open(paths, home) {
                 Ok(state) => {
@@ -86,6 +82,8 @@ pub fn run() {
             commands::imports::imports_prepare,
             commands::imports::imports_apply,
             commands::library::library_list,
+            commands::library::library_skill_preview,
+            commands::library::library_resolve_conflict,
             commands::git_sync::git_sync_status,
             commands::git_sync::git_sync_connect,
             commands::git_sync::git_sync_refresh,

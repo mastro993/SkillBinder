@@ -1,5 +1,5 @@
 use crate::{
-    commands::{discovery::map_validation, recorded},
+    commands::{discovery::map_validation, imports::map_import_error, recorded},
     transport::*,
 };
 use skillbinder_app::AppState;
@@ -12,6 +12,70 @@ pub fn library_list(state: State<'_, AppState>) -> CommandResult<LibraryListResp
         match list(state.library.as_ref(), state.store.as_ref()) {
             Ok(value) => CommandResult::success(value),
             Err(error) => CommandResult::failure(error),
+        }
+    })
+}
+
+#[tauri::command(async)]
+pub fn library_skill_preview(
+    state: State<'_, AppState>,
+    request: LibrarySkillPreviewRequest,
+) -> CommandResult<LibrarySkillPreviewResponse> {
+    recorded("library_skill_preview", || {
+        match state
+            .library
+            .skill_preview(&request.skill_id, request.path.as_deref())
+        {
+            Ok(preview) => CommandResult::success(LibrarySkillPreviewResponse {
+                skill_id: preview.skill_id,
+                last_edited_at: preview.last_edited_at,
+                files: preview.files,
+                path: preview.path,
+                content: preview.content,
+                unavailable_reason: preview.unavailable_reason,
+            }),
+            Err(error) => CommandResult::failure(map_import_error(error)),
+        }
+    })
+}
+
+#[tauri::command(async)]
+pub fn library_resolve_conflict(
+    state: State<'_, AppState>,
+    request: LibraryResolveConflictRequest,
+) -> CommandResult<LibraryResolveConflictResponse> {
+    recorded("library_resolve_conflict", || {
+        match state.library_maintenance.resolve_conflict(
+            skillbinder_core::library_maintenance::ResolveConflictRequest {
+                slug: request.slug,
+                keep_skill_id: request.keep_skill_id,
+                expected_skill_ids: request.expected_skill_ids,
+            },
+        ) {
+            Ok(outcome) => match (
+                state.library.current_revision(),
+                state.library.has_uncommitted_changes(),
+            ) {
+                (Ok(library_revision), Ok(has_uncommitted_changes)) => {
+                    CommandResult::success(LibraryResolveConflictResponse {
+                        slug: outcome.slug,
+                        kept_skill_id: outcome.kept_skill_id,
+                        removed_skill_ids: outcome.removed_skill_ids,
+                        payload_directory: outcome.payload_directory,
+                        library_revision,
+                        has_uncommitted_changes,
+                    })
+                }
+                (revision, dirty) => {
+                    let error = revision
+                        .err()
+                        .or(dirty.err())
+                        .map(|error| error.to_string())
+                        .unwrap_or_default();
+                    CommandResult::failure(internal("library-resolution", error))
+                }
+            },
+            Err(error) => CommandResult::failure(map_import_error(error)),
         }
     })
 }
@@ -56,24 +120,19 @@ fn list(
                 display_name: None,
                 description,
                 validation,
-                file_count: record
-                    .manifest
-                    .entries
-                    .iter()
-                    .filter(|entry| entry.kind == skillbinder_core::library::ManifestKind::File)
-                    .count() as u32,
-                total_bytes: record
-                    .manifest
-                    .entries
-                    .iter()
-                    .map(|entry| entry.bytes)
-                    .sum::<u64>()
-                    .to_string(),
+                file_count: record.file_count,
+                total_bytes: record.total_bytes.to_string(),
                 sources,
+                digest: record.digest,
+                payload_directory: record.payload_directory,
             })
         })
         .collect::<Result<Vec<_>, AppError>>()?;
     Ok(LibraryListResponse {
+        pending_resolution: library
+            .pending_resolution()
+            .map_err(|error| internal("library-resolution", error.to_string()))?
+            .is_some(),
         library_revision: library
             .current_revision()
             .map_err(|error| internal("library-revision", error.to_string()))?,
@@ -165,6 +224,12 @@ mod tests {
         fn has_uncommitted_changes(&self) -> Result<bool, ImportError> {
             Ok(self.dirty)
         }
+        fn apply_resolution(
+            &self,
+            _resolution: &skillbinder_core::library_maintenance::ConflictResolution,
+        ) -> Result<String, ImportError> {
+            unreachable!()
+        }
     }
 
     struct FakeObservations {
@@ -231,7 +296,9 @@ mod tests {
             skill_id: skill_id.into(),
             slug: slug.into(),
             digest: manifest.digest().to_owned(),
-            manifest,
+            file_count: manifest.file_count(),
+            total_bytes: manifest.total_bytes(),
+            payload_directory: slug.into(),
         }
     }
 
@@ -269,6 +336,9 @@ mod tests {
         assert_eq!(review.validation.status, TransportStatus::Valid);
         assert_eq!(review.file_count, 2);
         assert_eq!(review.total_bytes, "50");
+        assert_eq!(review.payload_directory, "review");
+        assert!(review.digest.starts_with("sha256:"));
+        assert!(!response.pending_resolution);
         assert_eq!(review.sources.len(), 1);
         assert_eq!(
             review.sources[0].display_path,

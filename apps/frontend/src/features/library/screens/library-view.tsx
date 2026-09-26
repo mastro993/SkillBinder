@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Plus } from "lucide-react";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -14,15 +14,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { PageHeader } from "@/components/layout/page-header";
 import type { ValidationStatus } from "@/types";
-import { libraryListQuery } from "../hooks/queries";
+import { SlugConflictDialog } from "../components/slug-conflict-dialog";
+import { payloadPath, slugConflictGroups } from "../lib/conflicts";
+import { libraryListQuery, useResolveSlugConflict } from "../hooks/queries";
 
 const validationVariants = {
   valid: "success",
@@ -34,6 +31,9 @@ const validationVariants = {
 export function LibraryView() {
   const bootstrap = useQuery(bootstrapQuery);
   const library = useQuery(libraryListQuery);
+  const resolve = useResolveSlugConflict();
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [keptSkillId, setKeptSkillId] = useState<string | null>(null);
   if (bootstrap.isPending || library.isPending)
     return (
       <p className="px-13 py-12 text-muted-foreground">Loading library…</p>
@@ -55,32 +55,61 @@ export function LibraryView() {
     );
   }
   const data = library.data;
+  const conflicts = slugConflictGroups(data.skills);
+  const sharedSlugs = new Set(conflicts.map((group) => group.slug));
+  const open = conflicts.find((group) => group.slug === openSlug) ?? null;
   return (
     <section className="px-13 py-11.5">
       <PageHeader
         eyebrow="Canonical collection"
         title="Library"
-        action={
-          <Button disabled>
-            <Plus aria-hidden="true" /> New skill
-          </Button>
-        }
+        action={<Button disabled>New skill</Button>}
       />
       {data.hasUncommittedChanges ? (
         <Alert variant="warning" role="note" className="mb-6">
           <AlertDescription>
-            Imported content is not committed yet.
+            Library changes are not committed yet.
           </AlertDescription>
+        </Alert>
+      ) : null}
+      {conflicts.length ? (
+        <Alert variant="warning" role="note" className="mb-6">
+          <AlertDescription>
+            {conflicts.length === 1
+              ? "One slug names two different skills."
+              : `${conflicts.length} slugs name two different skills.`}{" "}
+            Choose which copy to keep in each.
+            {data.pendingResolution
+              ? " A previous resolution was interrupted; the next attempt finishes it."
+              : ""}
+          </AlertDescription>
+          <ul className="mt-3 grid gap-2">
+            {conflicts.map((group) => (
+              <li
+                className="flex items-center justify-between gap-3 text-sm"
+                key={group.slug}
+              >
+                <span>
+                  <code>{group.slug}</code> · {group.skills.length} copies
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setOpenSlug(group.slug);
+                    setKeptSkillId(group.skills[0]?.skillId ?? null);
+                  }}
+                >
+                  Choose which to keep
+                </Button>
+              </li>
+            ))}
+          </ul>
         </Alert>
       ) : null}
       {data.skills.length === 0 ? (
         <Empty variant="outline" className="min-h-[390px]">
           <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <span className="text-primary">
-                <BookOpen aria-hidden="true" />
-              </span>
-            </EmptyMedia>
             <EmptyTitle>Your library is ready</EmptyTitle>
           </EmptyHeader>
           <p className="max-w-[490px] text-muted-foreground">
@@ -94,7 +123,11 @@ export function LibraryView() {
             <Card key={skill.skillId}>
               <CardHeader>
                 <CardTitle>{skill.displayName ?? skill.slug}</CardTitle>
-                <CardDescription>{skill.slug}</CardDescription>
+                <CardDescription>
+                  {sharedSlugs.has(skill.slug)
+                    ? payloadPath(skill)
+                    : skill.slug}
+                </CardDescription>
                 <CardAction>
                   <Badge variant={validationVariants[skill.validation.status]}>
                     {skill.validation.status}
@@ -136,6 +169,34 @@ export function LibraryView() {
           ))}
         </div>
       )}
+      {open && keptSkillId ? (
+        <SlugConflictDialog
+          slug={open.slug}
+          skills={open.skills}
+          keptSkillId={keptSkillId}
+          resolving={resolve.isPending}
+          onKeepChange={setKeptSkillId}
+          onClose={() => {
+            setOpenSlug(null);
+            setKeptSkillId(null);
+          }}
+          onConfirm={() =>
+            resolve.mutate(
+              {
+                slug: open.slug,
+                keepSkillId: keptSkillId,
+                expectedSkillIds: open.skills.map((skill) => skill.skillId),
+              },
+              {
+                onSuccess: () => {
+                  setOpenSlug(null);
+                  setKeptSkillId(null);
+                },
+              },
+            )
+          }
+        />
+      ) : null}
     </section>
   );
 }

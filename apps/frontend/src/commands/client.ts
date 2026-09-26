@@ -17,6 +17,10 @@ import type {
   GitSyncConnectRequest,
   GitSyncStatus,
   LibraryListResponse,
+  LibrarySkillPreviewRequest,
+  LibrarySkillPreviewResponse,
+  LibraryResolveConflictRequest,
+  LibraryResolveConflictResponse,
   OnboardingProgress,
   OnboardingStep,
   RootsListResponse,
@@ -41,6 +45,10 @@ import {
   importPlanResponseSchema,
   gitSyncStatusSchema,
   libraryListResponseSchema,
+  librarySkillPreviewRequestSchema,
+  librarySkillPreviewResponseSchema,
+  libraryResolveConflictRequestSchema,
+  libraryResolveConflictResponseSchema,
   onboardingProgressSchema,
   parseCommandResult,
   rootsListResponseSchema,
@@ -64,7 +72,9 @@ type IpcRequest =
   | DiscoveryCancelRequest
   | ImportPrepareRequest
   | ImportApplyRequest
-  | GitSyncConnectRequest;
+  | GitSyncConnectRequest
+  | LibrarySkillPreviewRequest
+  | LibraryResolveConflictRequest;
 
 export class NativeCommandError extends Error {
   constructor(
@@ -106,6 +116,12 @@ export interface DesktopClient {
   ): Promise<ImportPlanResponse>;
   importsApply(planId: string): Promise<ImportApplyResponse>;
   libraryList(): Promise<LibraryListResponse>;
+  librarySkillPreview(
+    request: LibrarySkillPreviewRequest,
+  ): Promise<LibrarySkillPreviewResponse>;
+  libraryResolveConflict(
+    request: LibraryResolveConflictRequest,
+  ): Promise<LibraryResolveConflictResponse>;
   diagnosticsRevealLogs(): Promise<DiagnosticsRevealLogsResponse>;
   gitSyncStatus(): Promise<GitSyncStatus>;
   gitSyncConnect(request: GitSyncConnectRequest): Promise<GitSyncStatus>;
@@ -196,6 +212,22 @@ class TauriDesktopClient implements DesktopClient {
 
   libraryList() {
     return invokeCommand("library_list", libraryListResponseSchema);
+  }
+
+  librarySkillPreview(request: LibrarySkillPreviewRequest) {
+    return invokeCommand(
+      "library_skill_preview",
+      librarySkillPreviewResponseSchema,
+      { request: librarySkillPreviewRequestSchema.parse(request) },
+    );
+  }
+
+  libraryResolveConflict(request: LibraryResolveConflictRequest) {
+    return invokeCommand(
+      "library_resolve_conflict",
+      libraryResolveConflictResponseSchema,
+      { request: libraryResolveConflictRequestSchema.parse(request) },
+    );
   }
 
   diagnosticsRevealLogs() {

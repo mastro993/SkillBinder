@@ -47,6 +47,9 @@ pub trait ObservationStore: Send + Sync {
     fn remove_index_metadata(&self, _skill_id: &str) -> Result<(), ImportError> {
         Ok(())
     }
+    fn remove_observations(&self, _skill_id: &str) -> Result<(), ImportError> {
+        Ok(())
+    }
     fn indexed_metadata(
         &self,
         _skill_id: &str,
@@ -56,6 +59,13 @@ pub trait ObservationStore: Send + Sync {
 }
 pub trait LibraryRepository: Send + Sync {
     fn catalog(&self) -> Result<Vec<LibraryRecord>, ImportError>;
+    fn skill_preview(
+        &self,
+        _skill_id: &str,
+        _path: Option<&str>,
+    ) -> Result<LibrarySkillPreview, ImportError> {
+        Err(ImportError::Library("skill preview unavailable".into()))
+    }
     fn stage_payload(
         &self,
         plan_id: &str,
@@ -102,13 +112,44 @@ pub trait LibraryRepository: Send + Sync {
     fn unresolved_import_journal(&self) -> Result<Option<String>, ImportError> {
         Ok(None)
     }
+    fn pending_resolution(
+        &self,
+    ) -> Result<Option<crate::library_maintenance::ConflictResolution>, ImportError> {
+        Ok(None)
+    }
+    fn write_resolution_journal(
+        &self,
+        _resolution: &crate::library_maintenance::ConflictResolution,
+    ) -> Result<(), ImportError> {
+        Ok(())
+    }
+    fn remove_resolution_journal(&self, _operation_id: &str) -> Result<(), ImportError> {
+        Ok(())
+    }
+    /// Keep one skill of a shared slug and move the others out of the library. Returns the kept
+    /// skill's directory name. Must converge when called again after an interruption.
+    fn apply_resolution(
+        &self,
+        resolution: &crate::library_maintenance::ConflictResolution,
+    ) -> Result<String, ImportError>;
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryRecord {
     pub skill_id: String,
     pub slug: String,
     pub digest: String,
-    pub manifest: crate::library::Manifest,
+    pub file_count: u32,
+    pub total_bytes: u64,
+    pub payload_directory: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LibrarySkillPreview {
+    pub skill_id: String,
+    pub last_edited_at: Option<u32>,
+    pub files: Vec<String>,
+    pub path: String,
+    pub content: Option<String>,
+    pub unavailable_reason: Option<String>,
 }
 pub trait Clock: Send + Sync {
     fn now_seconds(&self) -> u64;
@@ -180,7 +221,15 @@ impl ImportService {
         let id = self.ids.next_id();
         let request_hash = request_hash(&snapshot, &selections);
         let mut items = Vec::new();
-        let mut planned = Vec::<(String, crate::library::Manifest, String)>::new();
+
+        struct Planned {
+            digest: String,
+            manifest: crate::library::Manifest,
+            skill_id: String,
+            slug: String,
+        }
+
+        let mut planned = Vec::<Planned>::new();
         for mut selection in selections {
             let model = inspect_payload(&selection.source, self.source.as_ref(), &self.limits)
                 .map_err(|e| ImportError::UnsupportedSkill(e.to_string()))?;
@@ -215,16 +264,30 @@ impl ImportService {
             }
             let same: Vec<_> = catalog
                 .iter()
-                .filter(|r| {
-                    r.digest == model.manifest.digest && r.manifest.equivalent(&model.manifest)
-                })
+                .filter(|r| r.digest == model.manifest.digest)
                 .collect();
             let planned_match = planned
                 .iter()
-                .find(|(digest, manifest, _)| {
-                    digest == &model.manifest.digest && manifest.equivalent(&model.manifest)
+                .find(|planned| {
+                    planned.digest == model.manifest.digest
+                        && planned.manifest.equivalent(&model.manifest)
                 })
-                .map(|(_, _, skill_id)| skill_id.clone());
+                .map(|planned| planned.skill_id.clone());
+            if planned.iter().any(|planned| {
+                planned.slug == selection.slug
+                    && !(planned.digest == model.manifest.digest
+                        && planned.manifest.equivalent(&model.manifest))
+            }) {
+                return Err(ImportError::Validation(format!(
+                    "{} and another selected skill share a slug with different content",
+                    selection.slug
+                )));
+            }
+            let owners: Vec<String> = catalog
+                .iter()
+                .filter(|record| record.slug == selection.slug)
+                .map(|record| record.skill_id.clone())
+                .collect();
             let decision = if let Some(skill_id) = planned_match {
                 ImportDecision::AttachObservation { skill_id }
             } else if same.len() == 1 {
@@ -235,22 +298,28 @@ impl ImportService {
                 return Err(ImportError::Validation(
                     "multiple identical library entries require a choice".into(),
                 ));
-            } else {
+            } else if owners.is_empty() {
                 ImportDecision::NewSkill {
                     skill_id: self.ids.next_id(),
                 }
+            } else {
+                ImportDecision::Conflict { skill_ids: owners }
             };
             let skill_id = match &decision {
                 ImportDecision::NewSkill { skill_id }
                 | ImportDecision::AttachObservation { skill_id } => skill_id.clone(),
-                ImportDecision::Conflict { .. } => unreachable!("conflicts rejected above"),
+                ImportDecision::Conflict { .. } => self.ids.next_id(),
             };
-            if matches!(decision, ImportDecision::NewSkill { .. }) {
-                planned.push((
-                    model.manifest.digest.clone(),
-                    model.manifest.clone(),
-                    skill_id.clone(),
-                ));
+            if matches!(
+                decision,
+                ImportDecision::NewSkill { .. } | ImportDecision::Conflict { .. }
+            ) {
+                planned.push(Planned {
+                    digest: model.manifest.digest.clone(),
+                    manifest: model.manifest.clone(),
+                    skill_id: skill_id.clone(),
+                    slug: selection.slug.clone(),
+                });
             }
             items.push(ImportPlanItem {
                 selection,
@@ -398,7 +467,12 @@ impl ImportService {
                 reader_agent_ids: item.selection.reader_agent_ids.clone(),
             };
             let result = (|| {
-                if matches!(item.decision, ImportDecision::NewSkill { .. }) {
+                // A conflict imports as a second copy of a slug another skill already owns, and is
+                // labelled that way in the plan; the library screen is where a user resolves it.
+                if matches!(
+                    item.decision,
+                    ImportDecision::NewSkill { .. } | ImportDecision::Conflict { .. }
+                ) {
                     self.library.move_staged_payload(
                         plan_id,
                         &item.skill_id,
@@ -428,12 +502,8 @@ impl ImportService {
                     slug: item.selection.slug.clone(),
                     source: item.selection.source.clone(),
                     decision: item.decision.clone(),
-                    file_count: model
-                        .entries
-                        .iter()
-                        .filter(|entry| entry.kind == crate::library::ManifestKind::File)
-                        .count() as u32,
-                    total_bytes: model.entries.iter().map(|e| e.bytes).sum(),
+                    file_count: model.manifest.file_count(),
+                    total_bytes: model.manifest.total_bytes(),
                 });
                 Ok::<(), ImportError>(())
             })();
@@ -499,14 +569,7 @@ impl ImportService {
 fn fingerprint_catalog(catalog: &[LibraryRecord]) -> String {
     let mut rows = catalog
         .iter()
-        .map(|record| {
-            format!(
-                "{}|{}|{}",
-                record.skill_id,
-                record.slug,
-                crate::library::manifest::digest_entries(&record.manifest.entries)
-            )
-        })
+        .map(|record| format!("{}|{}|{}", record.skill_id, record.slug, record.digest))
         .collect::<Vec<_>>();
     rows.sort();
     format!("{:x}", fnv1a_64(rows.join("\n").as_bytes()))
@@ -685,6 +748,16 @@ mod tests {
         ) -> Result<(), ImportError> {
             Ok(())
         }
+        fn apply_resolution(
+            &self,
+            resolution: &crate::library_maintenance::ConflictResolution,
+        ) -> Result<String, ImportError> {
+            self.catalog
+                .lock()
+                .unwrap()
+                .retain(|record| !resolution.drop_skill_ids.contains(&record.skill_id));
+            Ok(resolution.slug.clone())
+        }
         fn move_staged_payload(
             &self,
             _plan: &str,
@@ -808,6 +881,70 @@ mod tests {
     }
 
     #[test]
+    fn a_slug_another_skill_owns_becomes_a_conflict_that_imports_a_second_copy() {
+        let source = source();
+        let library = Arc::new(FakeLibrary::default());
+        library.catalog.lock().unwrap().push(LibraryRecord {
+            skill_id: "existing".into(),
+            slug: "skill".into(),
+            digest: "sha256:taken".into(),
+            file_count: 1,
+            total_bytes: 1,
+            payload_directory: "skill".into(),
+        });
+        let service = service(
+            source,
+            Arc::new(FakePlans::default()),
+            library.clone(),
+            Arc::new(FakeObservations::default()),
+            1,
+        );
+        let plan = service
+            .prepare(vec![selection(ROOT, "skill")], false, snapshot())
+            .unwrap();
+        match &plan.items[0].decision {
+            ImportDecision::Conflict { skill_ids } => {
+                assert_eq!(skill_ids, &vec!["existing".to_owned()])
+            }
+            other => panic!("expected a conflict, got {other:?}"),
+        }
+        assert_ne!(plan.items[0].skill_id, "existing");
+        service.apply(&plan.id).unwrap();
+        assert!(
+            library
+                .moved
+                .lock()
+                .unwrap()
+                .contains(&plan.items[0].skill_id),
+            "the conflicting skill is imported as a second copy"
+        );
+    }
+
+    #[test]
+    fn two_selected_candidates_that_share_a_slug_are_refused() {
+        let source = source();
+        source.put(
+            "/other/skill",
+            b"---\nname: skill\ndescription: other\n---\nother body\n",
+        );
+        let service = service(
+            source,
+            Arc::new(FakePlans::default()),
+            Arc::new(FakeLibrary::default()),
+            Arc::new(FakeObservations::default()),
+            1,
+        );
+        let error = service
+            .prepare(
+                vec![selection(ROOT, "skill"), selection("/other/skill", "skill")],
+                false,
+                snapshot(),
+            )
+            .unwrap_err();
+        assert!(matches!(error, ImportError::Validation(_)), "{error:?}");
+    }
+
+    #[test]
     fn identical_payload_attaches_observation() {
         let source = source();
         let model = inspect_payload(
@@ -821,7 +958,9 @@ mod tests {
             skill_id: "existing".into(),
             slug: "skill".into(),
             digest: model.manifest.digest.clone(),
-            manifest: model.manifest,
+            file_count: model.manifest.file_count(),
+            total_bytes: model.manifest.total_bytes(),
+            payload_directory: "skill".into(),
         });
         let observations = Arc::new(FakeObservations::default());
         let service = service(
@@ -877,7 +1016,9 @@ mod tests {
                 skill_id: id.into(),
                 slug: "skill".into(),
                 digest: model.manifest.digest.clone(),
-                manifest: model.manifest.clone(),
+                file_count: model.manifest.file_count(),
+                total_bytes: model.manifest.total_bytes(),
+                payload_directory: "skill".into(),
             });
         }
         let service = service(

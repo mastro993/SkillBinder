@@ -435,41 +435,44 @@ Enforce dependency boundaries with package exports and an architecture check. Th
 
 ### 7.1 App paths
 
-Use Tauri/Rust OS path resolution. Do not build paths from hard-coded home strings. Put durable state under the resolved app-local-data directory, configuration under the app-config directory, and disposable downloads under the app-cache directory. Tauri exposes platform-aware app directory resolution. [S07]
+Use the resolved home directory from Tauri/Rust OS path resolution. Do not build paths from hard-coded home strings, and do not read `HOME` directly. The whole application directory is one root, `~/.skillbinder`, holding durable state, configuration, and disposable caches, so it is discoverable and movable as a unit. Tauri exposes platform-aware home directory resolution. [S07]
 
 Use local storage, not a roaming profile or a cloud-sync folder, for the library and database. Do not put the active data directory on a network filesystem. In particular, SQLite WAL requires local shared-memory coordination and is not a network-filesystem solution. [S18]
 
 User-selected library relocation is not in the MVP. A later relocation feature must close handles, copy and verify the full state, and switch paths transactionally.
 
 ```text
-<AppLocalData>/
+~/.skillbinder/
 ├── library/
 │   ├── .git/
 │   ├── .skillbinder.json
-│   └── skills/<skill-id>/<slug>/
+│   └── skills/<slug>/
 │       ├── SKILL.md
 │       └── supporting files and directories
 ├── state.sqlite
+├── git-sync.json
 ├── drafts/
 ├── journals/
 ├── staging/
 ├── backups/
 ├── recovery/
 ├── logs/
-└── locks/
-
-<AppCache>/
+├── locks/
 ├── source-repositories/
 └── source-previews/
 ```
 
-The UUID parent gives each skill a stable library location. The child directory uses the skill slug so `SKILL.md` has the expected parent name. Agent Skills defines the skill as a directory and requires its name to match the parent directory. [S04]
+A skill's payload lives in the directory named after its slug, so `SKILL.md` has the expected parent name. Agent Skills defines the skill as a directory and requires its name to match the parent directory. [S04]
+
+Two skills can carry the same slug, because content, not the name, is what makes two imports distinct. When that happens the lowest skill id keeps the bare slug and the others carry an id suffix, as in `skills/caveman/` and `skills/caveman-613ed699/`. The skill name stays the slug in the frontmatter and in the metadata, so a suffixed directory holds a payload whose frontmatter name differs from its parent directory. Nothing in the application re-inspects a stored payload, and any feature that reads or re-binds one must take the destination name from the metadata slug rather than from the directory name.
+
+The library screen resolves a shared slug: the user picks the copy to keep, the others move to `backups/resolutions/<operationId>/` outside the library, and their records, observations, and indexed metadata are removed. A journal at `journals/resolve-<operationId>.json` makes the operation repeatable after an interruption.
 
 ### 7.2 Git-tracked state
 
-Track skill payloads, skill catalog records, folders, tags, content manifests, and the library schema record in `.skillbinder.json`.
+Track skill payloads, skill catalog records, folders, tags, payload digests, and the library schema record in `.skillbinder.json`.
 
-`.skillbinder.json` contains `schemaVersion`, `libraryId`, `createdAt`, `contentPolicyVersion`, and portable skill metadata/manifests. It must not contain a device ID or a timestamp updated on every mutation.
+`.skillbinder.json` contains `schemaVersion`, `libraryId`, `createdAt`, `contentPolicyVersion`, and a record per skill with its payload digest and totals. It must not contain a device ID or a timestamp updated on every mutation.
 
 Skill catalog records contain stable IDs, slug, optional display name, folder and tag IDs, and remote provenance. Do not duplicate the authoritative `SKILL.md` description in tracked metadata. Parsed descriptions belong in the local index.
 

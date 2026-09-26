@@ -3,6 +3,7 @@ use skillbinder_core::{
     bootstrap::{BootstrapError, BootstrapService},
     discovery::{Registry, RegistryError},
     import::ImportService,
+    library_maintenance::LibraryMaintenance,
 };
 use skillbinder_db::StateStore;
 use skillbinder_platform::{
@@ -37,6 +38,7 @@ pub struct AppState {
     pub git_sync: Arc<GitSyncService>,
     pub store: Arc<StateStore>,
     pub import_service: Arc<ImportService>,
+    pub library_maintenance: Arc<LibraryMaintenance>,
     pub scan_sessions: Mutex<HashMap<String, ScanSession>>,
     pub scan_runs: Mutex<HashMap<String, ScanRun>>,
     pub pending_grants: Mutex<HashMap<String, PendingGrant>>,
@@ -58,6 +60,11 @@ impl AppState {
             ids: Arc::new(skillbinder_core::import::UuidSource),
             limits: Default::default(),
         });
+        let library_maintenance = Arc::new(LibraryMaintenance {
+            library: library.clone(),
+            observations: store.clone(),
+            ids: Arc::new(skillbinder_core::import::UuidSource),
+        });
         let process_lock = match ProcessLock::acquire(&paths) {
             Ok(lock) => Some(lock),
             Err(BootstrapError::Storage(_)) => None,
@@ -75,6 +82,7 @@ impl AppState {
             git_sync,
             store: state_store,
             import_service,
+            library_maintenance,
             scan_sessions: Mutex::new(HashMap::new()),
             scan_runs: Mutex::new(HashMap::new()),
             pending_grants: Mutex::new(HashMap::new()),

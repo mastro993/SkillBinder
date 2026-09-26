@@ -10,6 +10,8 @@ import type {
   GitSyncStatus,
   ImportPlanResponse,
   LibraryListResponse,
+  LibrarySkillPreviewRequest,
+  LibraryResolveConflictRequest,
   OnboardingProgress,
   OnboardingStep,
   RootView,
@@ -260,9 +262,10 @@ const existingValidation: ValidationSummary = { status: "valid", messages: [] };
 let library: LibraryListResponse = {
   libraryRevision: "fixture-initial-revision",
   hasUncommittedChanges: false,
+  pendingResolution: false,
   skills: [
     {
-      skillId: preexistingSkillId,
+      skillId: "00000000-0000-4000-8000-000000000001",
       slug: "existing",
       displayName: "Existing",
       description: "Already imported.",
@@ -275,6 +278,22 @@ let library: LibraryListResponse = {
           readerAgentIds: ["claude-code"],
         },
       ],
+      digest:
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      payloadDirectory: "existing",
+    },
+    {
+      skillId: "00000000-0000-4000-8000-000000000002",
+      slug: "existing",
+      displayName: null,
+      description: "An older copy of the same name.",
+      validation: existingValidation,
+      fileCount: 1,
+      totalBytes: "640",
+      sources: [],
+      digest:
+        "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      payloadDirectory: "existing-00000000",
     },
   ],
 };
@@ -549,6 +568,8 @@ export const fixtureDesktopClient: DesktopClient = {
           fileCount: item.fileCount,
           totalBytes: item.totalBytes,
           sources: [source],
+          digest: `sha256:${item.skillId.slice(0, 8).padEnd(8, "0")}${"0".repeat(56)}`,
+          payloadDirectory: item.slug,
         });
       }
     }
@@ -563,9 +584,57 @@ export const fixtureDesktopClient: DesktopClient = {
   async libraryList() {
     return library;
   },
+  async librarySkillPreview(request: LibrarySkillPreviewRequest) {
+    const older = request.skillId.endsWith("0002");
+    const path = request.path ?? "SKILL.md";
+    const files = older
+      ? ["SKILL.md"]
+      : ["SKILL.md", "references/checklist.md"];
+    const content =
+      path === "SKILL.md"
+        ? older
+          ? "---\nname: existing\ndescription: Older guidance.\n---\n\nUse the older review process."
+          : "---\nname: existing\ndescription: Current guidance.\n---\n\nReview the change and consult references/checklist.md."
+        : path === "references/checklist.md" && !older
+          ? "# Review checklist\n\n- Check behavior.\n- Check tests."
+          : null;
+    return {
+      skillId: request.skillId,
+      lastEditedAt: older ? 1_740_000_000 : 1_760_000_000,
+      files,
+      path,
+      content,
+      unavailableReason: content === null ? "File not available." : null,
+    };
+  },
+  async libraryResolveConflict(request: LibraryResolveConflictRequest) {
+    const removedSkillIds = request.expectedSkillIds.filter(
+      (skillId) => skillId !== request.keepSkillId,
+    );
+    library = {
+      ...library,
+      libraryRevision: `fixture-revision-${Date.now()}`,
+      hasUncommittedChanges: true,
+      skills: library.skills
+        .filter((skill) => !removedSkillIds.includes(skill.skillId))
+        .map((skill) =>
+          skill.skillId === request.keepSkillId
+            ? { ...skill, slug: request.slug, payloadDirectory: request.slug }
+            : skill,
+        ),
+    };
+    return {
+      slug: request.slug,
+      keptSkillId: request.keepSkillId,
+      removedSkillIds,
+      payloadDirectory: request.slug,
+      libraryRevision: library.libraryRevision,
+      hasUncommittedChanges: true,
+    };
+  },
   async diagnosticsRevealLogs() {
     return {
-      path: "/Users/demo/Library/Application Support/dev.skillbinder.local/logs",
+      path: "/Users/demo/.skillbinder/logs",
     };
   },
   async gitSyncStatus() {

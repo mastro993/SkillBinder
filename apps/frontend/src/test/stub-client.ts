@@ -26,6 +26,8 @@ export function stubDesktopClient(
     importsPrepare: unstubbed("importsPrepare"),
     importsApply: unstubbed("importsApply"),
     libraryList: unstubbed("libraryList"),
+    librarySkillPreview: unstubbed("librarySkillPreview"),
+    libraryResolveConflict: unstubbed("libraryResolveConflict"),
     diagnosticsRevealLogs: unstubbed("diagnosticsRevealLogs"),
     gitSyncStatus: unstubbed("gitSyncStatus"),
     gitSyncConnect: unstubbed("gitSyncConnect"),

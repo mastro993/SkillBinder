@@ -171,7 +171,7 @@ describe("settings view", () => {
     const diagnosticsRevealLogs = vi
       .fn<DesktopClient["diagnosticsRevealLogs"]>()
       .mockResolvedValue({
-        path: "/Users/demo/Library/Application Support/dev.skillbinder.local/logs",
+        path: "/Users/demo/.skillbinder/logs",
       });
     renderSettings({ diagnosticsRevealLogs });
 
@@ -181,9 +181,7 @@ describe("settings view", () => {
 
     await waitFor(() => expect(diagnosticsRevealLogs).toHaveBeenCalledWith());
     expect(
-      await screen.findByText(
-        "/Users/demo/Library/Application Support/dev.skillbinder.local/logs",
-      ),
+      await screen.findByText("/Users/demo/.skillbinder/logs"),
     ).toBeInTheDocument();
   });
 

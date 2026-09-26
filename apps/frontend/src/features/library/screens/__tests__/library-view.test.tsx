@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BootstrapResponse } from "@/types";
 import type { DesktopClient } from "@/commands/client";
@@ -61,6 +67,7 @@ describe("library view", () => {
       libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
         libraryRevision: null,
         hasUncommittedChanges: false,
+        pendingResolution: false,
         skills: [],
       }),
     });
@@ -77,6 +84,7 @@ describe("library view", () => {
       libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
         libraryRevision: "r",
         hasUncommittedChanges: true,
+        pendingResolution: false,
         skills: [
           {
             skillId: "skill",
@@ -92,14 +100,78 @@ describe("library view", () => {
                 readerAgentIds: ["Claude Code"],
               },
             ],
+            digest: "sha256:aa",
+            payloadDirectory: "review",
           },
         ],
       }),
     });
     expect(await screen.findByText("Review code.")).toBeInTheDocument();
     expect(
-      screen.getByText("Imported content is not committed yet."),
+      screen.getByText("Library changes are not committed yet."),
     ).toBeInTheDocument();
     expect(screen.getByText("/skills/review")).toBeInTheDocument();
   });
+
+  it("resolves a shared slug by keeping the chosen copy", async () => {
+    const libraryResolveConflict = vi
+      .fn<DesktopClient["libraryResolveConflict"]>()
+      .mockResolvedValue({
+        slug: "caveman",
+        keptSkillId: "bbbb",
+        removedSkillIds: ["aaaa"],
+        payloadDirectory: "caveman",
+        libraryRevision: "r2",
+        hasUncommittedChanges: true,
+      });
+    renderLibrary({
+      bootstrap: vi
+        .fn<DesktopClient["bootstrap"]>()
+        .mockResolvedValue(bootstrap),
+      libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+        libraryRevision: "r",
+        hasUncommittedChanges: false,
+        pendingResolution: false,
+        skills: [
+          sharedSlugSkill("aaaa", "caveman"),
+          sharedSlugSkill("bbbb", "caveman-bbbb"),
+        ],
+      }),
+      libraryResolveConflict,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose which to keep" }),
+    );
+    fireEvent.click(
+      screen.getByRole("radio", { name: /library\/skills\/caveman-bbbb/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Keep this copy and move 1 aside/ }),
+    );
+
+    await waitFor(() =>
+      expect(libraryResolveConflict).toHaveBeenCalledTimes(1),
+    );
+    expect(libraryResolveConflict).toHaveBeenCalledWith({
+      slug: "caveman",
+      keepSkillId: "bbbb",
+      expectedSkillIds: ["aaaa", "bbbb"],
+    });
+  });
 });
+
+function sharedSlugSkill(skillId: string, payloadDirectory: string) {
+  return {
+    skillId,
+    slug: "caveman",
+    displayName: null,
+    description: "A coding agent persona.",
+    validation: { status: "valid" as const, messages: [] },
+    fileCount: 2,
+    totalBytes: "20",
+    sources: [],
+    digest: `sha256:${skillId}`,
+    payloadDirectory,
+  };
+}

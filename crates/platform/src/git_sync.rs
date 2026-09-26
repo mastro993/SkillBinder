@@ -348,7 +348,7 @@ impl GitSyncService {
             ));
         }
         let metadata = self.output(git, &["show", &format!("{reference}:.skillbinder.json")])?;
-        serde_json::from_str::<crate::portable_metadata::PortableMetadata>(&metadata).map_err(
+        crate::portable_metadata::PortableMetadata::parse(metadata.as_bytes()).map_err(
             |error| GitSyncError::RemoteUnavailable(format!("remote metadata is invalid: {error}")),
         )?;
         Ok(())
@@ -471,6 +471,7 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ));
+        let _ = std::fs::remove_dir_all(&root);
         let library = root.join("data/library");
         let remote = root.join("remote.git");
         let peer = root.join("peer");
@@ -478,7 +479,7 @@ mod tests {
         std::fs::create_dir_all(&remote).unwrap();
         std::fs::write(
             library.join(".skillbinder.json"),
-            "{\"schemaVersion\":1,\"libraryId\":\"library\",\"createdAt\":\"now\",\"contentPolicyVersion\":1,\"skills\":{}}\n",
+            "{\"schemaVersion\":2,\"libraryId\":\"library\",\"createdAt\":\"now\",\"contentPolicyVersion\":1,\"skills\":{}}\n",
         )
         .unwrap();
         std::fs::write(library.join("skills/review/SKILL.md"), "local").unwrap();

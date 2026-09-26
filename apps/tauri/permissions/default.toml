@@ -79,6 +79,16 @@ description = "List managed library skills"
 commands.allow = ["library_list"]
 
 [[permission]]
+identifier = "allow-library-skill-preview"
+description = "Inspect a managed skill without changing the library"
+commands.allow = ["library_skill_preview"]
+
+[[permission]]
+identifier = "allow-library-resolve-conflict"
+description = "Choose which copy of a slug names one skill and move the others aside"
+commands.allow = ["library_resolve_conflict"]
+
+[[permission]]
 identifier = "allow-diagnostics-reveal-logs"
 description = "Open the application log folder in the device file manager"
 commands.allow = ["diagnostics_reveal_logs"]

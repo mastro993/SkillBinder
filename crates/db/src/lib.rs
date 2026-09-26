@@ -202,6 +202,10 @@ impl ObservationStore for StateStore {
         )
         .map_err(import_error)
     }
+    fn remove_observations(&self, skill_id: &str) -> Result<(), ImportError> {
+        let mut connection = self.connect().map_err(import_error)?;
+        observations::delete_for_skill(&mut connection, skill_id).map_err(import_error)
+    }
     fn list(&self, skill_id: &str) -> Result<Vec<SourceObservation>, ImportError> {
         let mut connection = self.connect().map_err(import_error)?;
         Ok(observations::list(&mut connection, skill_id)
