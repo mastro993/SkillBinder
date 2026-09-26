@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,13 +26,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import type { ValidationStatus } from "@/types";
 import { SlugConflictDialog } from "../components/slug-conflict-dialog";
+import { AssignFolderDialog } from "../components/assign-folder-dialog";
 import { FolderDialog } from "../components/folder-dialog";
 import { payloadPath, slugConflictGroups } from "../lib/conflicts";
 import { libraryListQuery, useResolveSlugConflict } from "../hooks/queries";
-import {
-  OrganizationControls,
-  type OrganizationControlsHandle,
-} from "./organization-controls";
 
 const validationVariants = {
   valid: "success",
@@ -42,13 +39,11 @@ const validationVariants = {
 } satisfies Record<ValidationStatus, "success" | "warning" | "destructive">;
 
 export function LibraryView({ folderId }: { folderId?: string }) {
-  const controlsRef = useRef<OrganizationControlsHandle>(null);
   const navigate = useNavigate();
   const [folderDialog, setFolderDialog] = useState(false);
   const [search, setSearch] = useState("");
-  const [activeTags, setActiveTags] = useState<string[]>([]);
-  const [matchAny, setMatchAny] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [assignIds, setAssignIds] = useState<string[] | null>(null);
   const bootstrap = useQuery(bootstrapQuery);
   const library = useQuery(libraryListQuery);
   const resolve = useResolveSlugConflict();
@@ -129,13 +124,6 @@ export function LibraryView({ folderId }: { folderId?: string }) {
   const open = conflicts.find((group) => group.slug === openSlug) ?? null;
   const visibleSkills = data.skills.filter((skill) => {
     if (folderId && skill.folderId !== folderId) return false;
-    if (
-      activeTags.length &&
-      !(matchAny
-        ? activeTags.some((id) => skill.tagIds.includes(id))
-        : activeTags.every((id) => skill.tagIds.includes(id)))
-    )
-      return false;
     const query = search.trim().toLocaleLowerCase();
     return (
       !query ||
@@ -207,168 +195,171 @@ export function LibraryView({ folderId }: { folderId?: string }) {
           </ul>
         </Alert>
       ) : null}
-      <div className="grid grid-cols-[220px_minmax(0,1fr)] gap-6">
-        <OrganizationControls
-          ref={controlsRef}
+      {assignIds ? (
+        <AssignFolderDialog
           data={data}
-          selectedIds={selectedIds}
-          clearSelection={() => setSelectedIds([])}
-          activeTags={activeTags}
-          setActiveTags={setActiveTags}
-          matchAny={matchAny}
-          setMatchAny={setMatchAny}
+          skillIds={assignIds}
+          onOpenChange={(open) => {
+            if (!open) setAssignIds(null);
+          }}
         />
-        <div className="grid content-start gap-4">
-          {data.skills.length === 0 ? (
-            <Empty variant="outline" className="min-h-[390px]">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <span className="text-primary" aria-hidden="true">
-                    Skills
-                  </span>
-                </EmptyMedia>
-                <EmptyTitle>Your library is ready</EmptyTitle>
-              </EmptyHeader>
-              <p className="max-w-[490px] text-muted-foreground">
-                No skills imported yet. Visit Discovery to inspect local skill
-                folders.
-              </p>
-            </Empty>
-          ) : (
-            <>
-              <div className="flex items-center gap-3">
-                <Input
-                  aria-label="Search skills"
-                  placeholder="Search skills"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-                {search || activeTags.length ? (
+      ) : null}
+      <div className="grid content-start gap-4">
+        {data.skills.length === 0 ? (
+          <Empty variant="outline" className="min-h-[390px]">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <span className="text-primary" aria-hidden="true">
+                  Skills
+                </span>
+              </EmptyMedia>
+              <EmptyTitle>Your library is ready</EmptyTitle>
+            </EmptyHeader>
+            <p className="max-w-[490px] text-muted-foreground">
+              No skills imported yet. Visit Discovery to inspect local skill
+              folders.
+            </p>
+          </Empty>
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <Input
+                aria-label="Search skills"
+                placeholder="Search skills"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              {selectedIds.length ? (
+                <>
+                  <output className="text-sm text-muted-foreground">
+                    {selectedIds.length} selected
+                  </output>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAssignIds(selectedIds)}
+                  >
+                    Organize selected
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      setSearch("");
-                      setActiveTags([]);
-                    }}
+                    onClick={() => setSelectedIds([])}
                   >
-                    Clear filters
+                    Clear selection
+                  </Button>
+                </>
+              ) : null}
+              {search ? (
+                <Button variant="ghost" size="sm" onClick={() => setSearch("")}>
+                  Clear search
+                </Button>
+              ) : null}
+            </div>
+            {visibleSkills.length === 0 ? (
+              <div className="rounded-lg border p-8 text-center">
+                <p className="font-medium">
+                  {folder ? "No skills in this folder" : "No matching skills"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {folder
+                    ? "Assign skills to this folder from a skill card."
+                    : "Try another search."}
+                </p>
+                {search ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => setSearch("")}
+                  >
+                    Clear search
                   </Button>
                 ) : null}
               </div>
-              {visibleSkills.length === 0 ? (
-                <div className="rounded-lg border p-8 text-center">
-                  <p className="font-medium">
-                    {folder ? "No skills in this folder" : "No matching skills"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {folder
-                      ? "Assign skills to this folder from a skill card."
-                      : "Try another tag or search."}
-                  </p>
-                  {search || activeTags.length ? (
+            ) : null}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-start gap-4">
+              {visibleSkills.map((skill) => (
+                <Card key={skill.skillId}>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        aria-label={`Select ${skill.displayName ?? skill.slug}`}
+                        checked={selectedIds.includes(skill.skillId)}
+                        onCheckedChange={(checked) =>
+                          setSelectedIds(
+                            checked
+                              ? [...selectedIds, skill.skillId]
+                              : selectedIds.filter(
+                                  (id) => id !== skill.skillId,
+                                ),
+                          )
+                        }
+                      />
+                      <CardTitle>{skill.displayName ?? skill.slug}</CardTitle>
+                    </div>
+                    <CardDescription>
+                      {sharedSlugs.has(skill.slug)
+                        ? payloadPath(skill)
+                        : skill.slug}
+                    </CardDescription>
+                    <CardAction>
+                      <Badge
+                        variant={validationVariants[skill.validation.status]}
+                      >
+                        {skill.validation.status}
+                      </Badge>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="min-h-[42px] text-sm text-muted-foreground">
+                      {skill.description ?? "No description"}
+                    </p>
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="mt-4"
-                      onClick={() => {
-                        setSearch("");
-                        setActiveTags([]);
-                      }}
+                      size="xs"
+                      onClick={() => setAssignIds([skill.skillId])}
                     >
-                      Clear filters
+                      Organize
                     </Button>
-                  ) : null}
-                </div>
-              ) : null}
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-start gap-4">
-                {visibleSkills.map((skill) => (
-                  <Card key={skill.skillId}>
-                    <CardHeader>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          aria-label={`Select ${skill.displayName ?? skill.slug}`}
-                          checked={selectedIds.includes(skill.skillId)}
-                          onCheckedChange={(checked) =>
-                            setSelectedIds(
-                              checked
-                                ? [...selectedIds, skill.skillId]
-                                : selectedIds.filter(
-                                    (id) => id !== skill.skillId,
-                                  ),
-                            )
-                          }
-                        />
-                        <CardTitle>{skill.displayName ?? skill.slug}</CardTitle>
-                      </div>
-                      <CardDescription>
-                        {sharedSlugs.has(skill.slug)
-                          ? payloadPath(skill)
-                          : skill.slug}
-                      </CardDescription>
-                      <CardAction>
-                        <Badge
-                          variant={validationVariants[skill.validation.status]}
-                        >
-                          {skill.validation.status}
-                        </Badge>
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="min-h-[42px] text-sm text-muted-foreground">
-                        {skill.description ?? "No description"}
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        onClick={() =>
-                          controlsRef.current?.organizeSkill(skill.skillId)
-                        }
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {folderLabel(skill.folderId)}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {skill.fileCount} files · {skill.totalBytes} bytes
+                    </p>
+                    {skill.validation.messages.map((message) => (
+                      <p
+                        className="mt-1 text-xs text-muted-foreground"
+                        key={message.code}
                       >
-                        Organize
-                      </Button>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {folderLabel(skill.folderId)}
-                        {skill.tagIds.length
-                          ? ` · ${skill.tagIds.map((id) => data.tags.find((tag) => tag.id === id)?.name ?? id).join(", ")}`
-                          : ""}
+                        {message.message}
                       </p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {skill.fileCount} files · {skill.totalBytes} bytes
-                      </p>
-                      {skill.validation.messages.map((message) => (
-                        <p
-                          className="mt-1 text-xs text-muted-foreground"
-                          key={message.code}
+                    ))}
+                  </CardContent>
+                  <CardFooter className="block">
+                    <ul className="grid gap-2">
+                      {skill.sources.map((source) => (
+                        <li
+                          className="grid gap-0.5 border-b pb-2 text-xs last:border-b-0 last:pb-0"
+                          key={source.displayPath}
                         >
-                          {message.message}
-                        </p>
+                          <span className="break-words">
+                            {source.displayPath}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {source.readerAgentIds.join(", ") ||
+                              "Unknown reader"}
+                          </span>
+                        </li>
                       ))}
-                    </CardContent>
-                    <CardFooter className="block">
-                      <ul className="grid gap-2">
-                        {skill.sources.map((source) => (
-                          <li
-                            className="grid gap-0.5 border-b pb-2 text-xs last:border-b-0 last:pb-0"
-                            key={source.displayPath}
-                          >
-                            <span className="break-words">
-                              {source.displayPath}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {source.readerAgentIds.join(", ") ||
-                                "Unknown reader"}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+                    </ul>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
       </div>
       {open && keptSkillId ? (
         <SlugConflictDialog

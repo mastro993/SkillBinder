@@ -213,13 +213,13 @@ describe("library view", () => {
     });
   });
 
-  it("combines tag and search filters", async () => {
-    const skill = (id: string, folderId: string | null, tagIds: string[]) => ({
+  it("filters by search and assigns the selection to a folder", async () => {
+    const skill = (id: string, folderId: string | null) => ({
       skillId: id,
       slug: id,
       displayName: id,
       folderId,
-      tagIds,
+      tagIds: [],
       description: `${id} description`,
       validation: { status: "valid" as const, messages: [] },
       fileCount: 1,
@@ -228,39 +228,50 @@ describe("library view", () => {
       digest: `sha256:${id}`,
       payloadDirectory: id,
     });
+    const libraryOrganizationChange = vi
+      .fn<DesktopClient["libraryOrganizationChange"]>()
+      .mockResolvedValue({ organizationRevision: "r2" });
     renderLibrary({
       bootstrap: vi
         .fn<DesktopClient["bootstrap"]>()
         .mockResolvedValue(bootstrap),
+      libraryOrganizationChange,
       libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
         libraryRevision: "r",
         hasUncommittedChanges: false,
         pendingResolution: false,
         organizationRevision: "r",
-        folders: [{ id: "parent", name: "Parent" }],
-        tags: [
-          { id: "a", name: "Alpha" },
-          { id: "b", name: "Beta" },
-        ],
-        skills: [
-          skill("one", "parent", ["a", "b"]),
-          skill("two", "parent", ["a"]),
-          skill("three", null, ["b"]),
-        ],
+        folders: [{ id: "reading", name: "Reading" }],
+        tags: [],
+        skills: [skill("one", null), skill("two", null)],
       }),
     });
     await screen.findByText("one description");
-    fireEvent.click(screen.getByRole("checkbox", { name: "Filter by Beta" }));
-    expect(screen.getByText("one description")).toBeInTheDocument();
-    expect(screen.queryByText("two description")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search skills" }), {
-      target: { value: "missing" },
+      target: { value: "two" },
     });
-    expect(screen.getByText("No matching skills")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Clear filters" })[0],
-    );
     expect(screen.getByText("two description")).toBeInTheDocument();
+    expect(screen.queryByText("one description")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select one" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize selected" }));
+    fireEvent.change(screen.getByLabelText("Folder"), {
+      target: { value: "reading" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(libraryOrganizationChange).toHaveBeenCalledWith({
+        change: {
+          kind: "assign",
+          skillIds: ["one"],
+          folderId: "reading",
+          setFolder: true,
+          addTagIds: [],
+          removeTagIds: [],
+        },
+        expectedRevision: null,
+      }),
+    );
   });
 
   it("shows only the folder's skills on the folder page", async () => {
