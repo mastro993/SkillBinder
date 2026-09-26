@@ -1,4 +1,5 @@
 import type {
+  BindingView,
   BootstrapResponse,
   CompleteOnboardingResponse,
   DiscoveryCandidate,
@@ -277,6 +278,7 @@ let library: LibraryListResponse = {
   ],
 };
 let plan: ImportPlanResponse | null = null;
+let bindings: BindingView[] = [];
 
 function progress(): OnboardingProgress {
   const saved = window.localStorage.getItem(storageKey);
@@ -293,6 +295,91 @@ function save(value: OnboardingProgress) {
 }
 
 export const fixtureDesktopClient: DesktopClient = {
+  async bindingsOptions(projectRootId) {
+    const project = roots.find((root) => root.rootId === projectRootId);
+    const base = project?.resolvedPath;
+    return {
+      agents: [
+        {
+          agentId: "codex",
+          displayName: "Codex",
+          detected: true,
+          available: true,
+          readerPath: base
+            ? `${base}/.agents/skills`
+            : "/Users/demo/.codex/skills",
+        },
+        {
+          agentId: "claude-code",
+          displayName: "Claude Code",
+          detected: true,
+          available: true,
+          readerPath: base
+            ? `${base}/.claude/skills`
+            : "/Users/demo/.claude/skills",
+        },
+        {
+          agentId: "cline",
+          displayName: "Cline",
+          detected: Boolean(base),
+          available: true,
+          readerPath: base
+            ? `${base}/.agents/skills`
+            : "/Users/demo/.agents/skills",
+        },
+      ],
+    };
+  },
+  async bindingsCreate(skillIds, scope, projectRootId, agentIds) {
+    const options = await this.bindingsOptions(projectRootId);
+    const targets = skillIds.flatMap((skillId) => {
+      const skill = library.skills.find((item) => item.skillId === skillId);
+      if (!skill) throw new Error("Select a skill in the library.");
+      const byPath = new Map<string, string[]>();
+      for (const agent of options.agents.filter((item) =>
+        agentIds.includes(item.agentId),
+      )) {
+        const path = `${agent.readerPath}/${skill.slug}`;
+        byPath.set(path, [...(byPath.get(path) ?? []), agent.agentId]);
+      }
+      return [...byPath].map(([path, readerAgentIds]) => ({
+        skillId,
+        path,
+        readerAgentIds,
+        status: "installed",
+      }));
+    });
+    const binding: BindingView = {
+      bindingId: `fixture-binding-${bindings.length + 1}`,
+      skillIds,
+      scope,
+      projectRootId,
+      agentIds,
+      createdAt: Date.now().toString(),
+      targets,
+    };
+    bindings = [binding, ...bindings];
+    return { binding };
+  },
+  async bindingsList() {
+    return { bindings };
+  },
+  async bindingsRepair(bindingId) {
+    const binding = bindings.find((item) => item.bindingId === bindingId);
+    if (!binding) throw new Error("Unknown binding.");
+    const repaired = {
+      ...binding,
+      targets: binding.targets.map((target) =>
+        target.status === "missing"
+          ? { ...target, status: "installed" }
+          : target,
+      ),
+    };
+    bindings = bindings.map((item) =>
+      item.bindingId === bindingId ? repaired : item,
+    );
+    return { binding: repaired };
+  },
   async bootstrap(): Promise<BootstrapResponse> {
     const onboarding = progress();
     return {

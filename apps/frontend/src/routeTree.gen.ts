@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShellRouteImport } from './routes/_shell'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as ShellBindingsRouteImport } from './routes/_shell.bindings'
 import { Route as ShellDiscoveryRouteImport } from './routes/_shell.discovery'
 import { Route as ShellLibraryRouteImport } from './routes/_shell.library'
 import { Route as ShellSettingsRouteImport } from './routes/_shell.settings'
@@ -29,6 +30,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ShellBindingsRoute = ShellBindingsRouteImport.update({
+  id: '/bindings',
+  path: '/bindings',
+  getParentRoute: () => ShellRoute,
 } as any)
 const ShellDiscoveryRoute = ShellDiscoveryRouteImport.update({
   id: '/discovery',
@@ -49,6 +55,7 @@ const ShellSettingsRoute = ShellSettingsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/bindings': typeof ShellBindingsRoute
   '/discovery': typeof ShellDiscoveryRoute
   '/library': typeof ShellLibraryRoute
   '/settings': typeof ShellSettingsRoute
@@ -56,6 +63,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/bindings': typeof ShellBindingsRoute
   '/discovery': typeof ShellDiscoveryRoute
   '/library': typeof ShellLibraryRoute
   '/settings': typeof ShellSettingsRoute
@@ -65,20 +73,24 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_shell': typeof ShellRouteWithChildren
   '/onboarding': typeof OnboardingRoute
+  '/_shell/bindings': typeof ShellBindingsRoute
   '/_shell/discovery': typeof ShellDiscoveryRoute
   '/_shell/library': typeof ShellLibraryRoute
   '/_shell/settings': typeof ShellSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/onboarding' | '/discovery' | '/library' | '/settings'
+  fullPaths:
+    '/' | '/onboarding' | '/bindings' | '/discovery' | '/library' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/onboarding' | '/discovery' | '/library' | '/settings'
+  to:
+    '/' | '/onboarding' | '/bindings' | '/discovery' | '/library' | '/settings'
   id:
     | '__root__'
     | '/'
     | '/_shell'
     | '/onboarding'
+    | '/_shell/bindings'
     | '/_shell/discovery'
     | '/_shell/library'
     | '/_shell/settings'
@@ -113,6 +125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_shell/bindings': {
+      id: '/_shell/bindings'
+      path: '/bindings'
+      fullPath: '/bindings'
+      preLoaderRoute: typeof ShellBindingsRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/discovery': {
       id: '/_shell/discovery'
       path: '/discovery'
@@ -138,12 +157,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface ShellRouteChildren {
+  ShellBindingsRoute: typeof ShellBindingsRoute
   ShellDiscoveryRoute: typeof ShellDiscoveryRoute
   ShellLibraryRoute: typeof ShellLibraryRoute
   ShellSettingsRoute: typeof ShellSettingsRoute
 }
 
 const ShellRouteChildren: ShellRouteChildren = {
+  ShellBindingsRoute: ShellBindingsRoute,
   ShellDiscoveryRoute: ShellDiscoveryRoute,
   ShellLibraryRoute: ShellLibraryRoute,
   ShellSettingsRoute: ShellSettingsRoute,

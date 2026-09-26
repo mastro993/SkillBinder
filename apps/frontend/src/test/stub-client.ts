@@ -11,6 +11,10 @@ export function stubDesktopClient(
   overrides: Partial<DesktopClient>,
 ): DesktopClient {
   return {
+    bindingsOptions: unstubbed("bindingsOptions"),
+    bindingsCreate: unstubbed("bindingsCreate"),
+    bindingsList: unstubbed("bindingsList"),
+    bindingsRepair: unstubbed("bindingsRepair"),
     bootstrap: unstubbed("bootstrap"),
     updateOnboardingProgress: unstubbed("updateOnboardingProgress"),
     completeLocalOnboarding: unstubbed("completeLocalOnboarding"),

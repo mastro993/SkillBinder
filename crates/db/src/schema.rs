@@ -68,3 +68,23 @@ diesel::allow_tables_to_appear_in_same_query!(
     skill_metadata,
     source_observations,
 );
+
+diesel::table! {
+    binding_actions (id) {
+        id -> Text,
+        skill_ids -> Text,
+        scope -> Text,
+        project_root_id -> Nullable<Text>,
+        agent_ids -> Text,
+        target_paths -> Text,
+        created_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    binding_receipts (target_path) {
+        target_path -> Text,
+        skill_id -> Text,
+        digest -> Text,
+    }
+}

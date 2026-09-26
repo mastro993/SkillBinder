@@ -1,6 +1,10 @@
 import { Result } from "@praha/byethrow";
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  BindingsOptionsResponse,
+  BindingsCreateResponse,
+  BindingsListResponse,
+  BindingsRepairResponse,
   BootstrapResponse,
   CompleteOnboardingResponse,
   DiagnosticsRevealLogsResponse,
@@ -28,6 +32,10 @@ import type {
   UpdateOnboardingProgressRequest,
 } from "@/types";
 import {
+  bindingsOptionsResponseSchema,
+  bindingsCreateResponseSchema,
+  bindingsListResponseSchema,
+  bindingsRepairResponseSchema,
   bootstrapResponseSchema,
   completeOnboardingResponseSchema,
   diagnosticsRevealLogsResponseSchema,
@@ -53,6 +61,14 @@ import { z, type ZodType } from "zod";
 
 /** The request payloads the native commands accept. */
 type IpcRequest =
+  | { projectRootId: string | null }
+  | {
+      skillIds: string[];
+      scope: string;
+      projectRootId: string | null;
+      agentIds: string[];
+    }
+  | { bindingId: string }
   | UpdateOnboardingProgressRequest
   | RootsRegisterRequest
   | RootsUpdateRequest
@@ -73,6 +89,17 @@ export class NativeCommandError extends Error {
 }
 
 export interface DesktopClient {
+  bindingsOptions(
+    projectRootId: string | null,
+  ): Promise<BindingsOptionsResponse>;
+  bindingsCreate(
+    skillIds: string[],
+    scope: string,
+    projectRootId: string | null,
+    agentIds: string[],
+  ): Promise<BindingsCreateResponse>;
+  bindingsList(): Promise<BindingsListResponse>;
+  bindingsRepair(bindingId: string): Promise<BindingsRepairResponse>;
   bootstrap(): Promise<BootstrapResponse>;
   updateOnboardingProgress(step: OnboardingStep): Promise<OnboardingProgress>;
   completeLocalOnboarding(): Promise<CompleteOnboardingResponse>;
@@ -106,6 +133,29 @@ export interface DesktopClient {
 }
 
 class TauriDesktopClient implements DesktopClient {
+  bindingsOptions(projectRootId: string | null) {
+    return invokeCommand("bindings_options", bindingsOptionsResponseSchema, {
+      request: { projectRootId },
+    });
+  }
+  bindingsCreate(
+    skillIds: string[],
+    scope: string,
+    projectRootId: string | null,
+    agentIds: string[],
+  ) {
+    return invokeCommand("bindings_create", bindingsCreateResponseSchema, {
+      request: { skillIds, scope, projectRootId, agentIds },
+    });
+  }
+  bindingsList() {
+    return invokeCommand("bindings_list", bindingsListResponseSchema);
+  }
+  bindingsRepair(bindingId: string) {
+    return invokeCommand("bindings_repair", bindingsRepairResponseSchema, {
+      request: { bindingId },
+    });
+  }
   bootstrap() {
     return invokeCommand("system_bootstrap", bootstrapResponseSchema);
   }

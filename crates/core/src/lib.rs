@@ -5,6 +5,7 @@
 //! through a port trait, which `crates/platform` and `crates/db` implement against the real world
 //! and the unit tests implement in memory.
 
+pub mod bindings;
 pub mod bootstrap;
 pub mod discovery;
 pub mod import;

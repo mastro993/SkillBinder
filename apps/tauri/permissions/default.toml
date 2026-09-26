@@ -82,3 +82,23 @@ commands.allow = ["library_list"]
 identifier = "allow-diagnostics-reveal-logs"
 description = "Open the application log folder in the device file manager"
 commands.allow = ["diagnostics_reveal_logs"]
+
+[[permission]]
+identifier = "allow-bindings-options"
+description = "List available binding agents and detected folders"
+commands.allow = ["bindings_options"]
+
+[[permission]]
+identifier = "allow-bindings-create"
+description = "Copy selected library skills into selected agent folders"
+commands.allow = ["bindings_create"]
+
+[[permission]]
+identifier = "allow-bindings-list"
+description = "List machine-local bindings and copy status"
+commands.allow = ["bindings_list"]
+
+[[permission]]
+identifier = "allow-bindings-repair"
+description = "Restore missing managed binding copies"
+commands.allow = ["bindings_repair"]

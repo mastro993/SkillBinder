@@ -1,0 +1,7 @@
+# Bindings architecture
+
+`bindings_options` resolves registry agent folders for a global scope or registered project root. The frontend sends a project root ID, not a path. `bindings_create` accepts selected library skill IDs, scope, project root ID, and agent IDs. It checks canonical library manifests, root identity, registered agent paths, and existing target ownership before writing. Agents that resolve to the same physical skill path share one copy, and the response lists all known readers.
+
+The core `coalesce_targets` function groups physical paths. The platform `deploy_copy` operation checks source and target content, stages files, and reserves the destination directory without replacing an existing entry. The Tauri command composes these rules with the library catalog and machine-local state. SQLite stores each binding action separately from one receipt per physical target path. An action is saved before the first copy so a partial operation remains visible.
+
+`bindings_list` recomputes each copy status from its receipt, current manifest, and filesystem entry. The frontend polls while the page is open and refreshes on focus. `bindings_repair` accepts an action ID, resolves its saved targets against the current registry and registered project root, then restores only absent copies. It cannot replace changed or unmanaged content. All four commands are granted only to the main desktop window.

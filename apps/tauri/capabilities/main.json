@@ -4,6 +4,10 @@
   "description": "Minimum permissions for the bundled SkillBinder window",
   "windows": ["main"],
   "permissions": [
+    "allow-bindings-options",
+    "allow-bindings-create",
+    "allow-bindings-list",
+    "allow-bindings-repair",
     "allow-system-bootstrap",
     "allow-git-environment-verify",
     "allow-onboarding-progress-update",

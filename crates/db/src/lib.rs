@@ -285,6 +285,31 @@ fn warn_index_fallback(skill_id: &str, fallback: &'static str) {
         "stored indexed metadata could not be read and a default was used"
     );
 }
+
+pub use repositories::bindings::{BindingActionRow, BindingReceiptRow};
+
+impl StateStore {
+    pub fn list_bindings(&self) -> Result<Vec<BindingActionRow>, StateError> {
+        let mut connection = self.connect()?;
+        repositories::bindings::list(&mut connection).map_err(StateError::from)
+    }
+
+    pub fn insert_binding(&self, row: &BindingActionRow) -> Result<(), StateError> {
+        let mut connection = self.connect()?;
+        repositories::bindings::insert(&mut connection, row).map_err(StateError::from)
+    }
+
+    pub fn binding_receipt(&self, path: &str) -> Result<Option<BindingReceiptRow>, StateError> {
+        let mut connection = self.connect()?;
+        repositories::bindings::receipt(&mut connection, path).map_err(StateError::from)
+    }
+
+    pub fn put_binding_receipt(&self, row: &BindingReceiptRow) -> Result<(), StateError> {
+        let mut connection = self.connect()?;
+        repositories::bindings::put_receipt(&mut connection, row).map_err(StateError::from)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -323,6 +348,41 @@ mod tests {
             enabled,
             created_at,
         }
+    }
+
+    #[test]
+    fn overlapping_bindings_remain_independent_actions_with_one_receipt() {
+        let (database, store) = temporary_store();
+        for id in ["first", "second"] {
+            store
+                .insert_binding(&BindingActionRow {
+                    id: id.into(),
+                    skill_ids: "[\"review\"]".into(),
+                    scope: "project".into(),
+                    project_root_id: Some("project".into()),
+                    agent_ids: "[\"codex\"]".into(),
+                    target_paths: "[]".into(),
+                    created_at: 1,
+                })
+                .unwrap();
+        }
+        store
+            .put_binding_receipt(&BindingReceiptRow {
+                target_path: "/project/.agents/skills/review".into(),
+                skill_id: "review".into(),
+                digest: "sha256:test".into(),
+            })
+            .unwrap();
+        assert_eq!(store.list_bindings().unwrap().len(), 2);
+        assert_eq!(
+            store
+                .binding_receipt("/project/.agents/skills/review")
+                .unwrap()
+                .unwrap()
+                .skill_id,
+            "review"
+        );
+        fs::remove_file(database).unwrap();
     }
 
     #[test]

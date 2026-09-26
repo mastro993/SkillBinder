@@ -27,6 +27,7 @@ pub enum AppOpenError {
 pub struct AppState {
     pub bootstrap: BootstrapService,
     pub onboarding_write: Mutex<()>,
+    pub bindings_write: Mutex<()>,
     pub paths: AppPaths,
     pub home: PathBuf,
     pub process_lock: Mutex<Option<ProcessLock>>,
@@ -63,6 +64,7 @@ impl AppState {
         Ok(Self {
             bootstrap: BootstrapService::new(Arc::new(LocalEnvironment::new(paths.clone())), store),
             onboarding_write: Mutex::new(()),
+            bindings_write: Mutex::new(()),
             paths,
             home,
             process_lock: Mutex::new(process_lock),
