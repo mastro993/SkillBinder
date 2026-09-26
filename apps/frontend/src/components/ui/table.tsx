@@ -59,6 +59,8 @@ function TableRow({
       data-slot="table-row"
       className={cn(
         "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        // A blocked candidate cannot be imported, so its whole row reads as inert rather than
+        // as a row the user forgot to select.
         variant === "blocked" && "bg-destructive/5 hover:bg-destructive/10",
         className,
       )}

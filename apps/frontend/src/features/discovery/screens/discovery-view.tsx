@@ -234,7 +234,10 @@ export function DiscoveryView() {
                 ) : null}
               </CardDescription>
               <CardAction>
-                <span className="text-xs text-muted-foreground">
+                <span
+                  className="text-xs text-muted-foreground"
+                  aria-live="polite"
+                >
                   {selected.size} selected
                 </span>
               </CardAction>
