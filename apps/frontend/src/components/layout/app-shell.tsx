@@ -1,12 +1,16 @@
 import type { PropsWithChildren } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Compass, Settings, Sparkles } from "lucide-react";
+import { BookOpen, Compass, GitBranch, Settings, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScanActivity } from "@/features/discovery/components/scan-activity";
+import { gitSyncStatusQuery } from "@/features/git-sync/hooks/queries";
 
 const navItems = [
   { to: "/discovery", label: "Discovery", icon: Compass, activity: true },
   { to: "/library", label: "Library", icon: BookOpen, activity: false },
+  { to: "/git", label: "Git sync", icon: GitBranch, activity: false },
   { to: "/settings", label: "Settings", icon: Settings, activity: false },
 ];
 
@@ -15,6 +19,7 @@ const navLinkBase =
 
 export function AppShell({ children }: PropsWithChildren) {
   const path = useRouterState({ select: (state) => state.location.pathname });
+  const gitSync = useQuery(gitSyncStatusQuery);
   return (
     <div className="grid h-screen grid-cols-[232px_minmax(0,1fr)] max-md:grid-cols-[72px_minmax(0,1fr)]">
       <aside className="flex flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-4 pt-7 pb-5">
@@ -39,6 +44,9 @@ export function AppShell({ children }: PropsWithChildren) {
               <Icon size={18} aria-hidden="true" />
               <span className="max-md:hidden">{label}</span>
               {activity ? <ScanActivity /> : null}
+              {to === "/git" && gitSync.data ? (
+                <GitSyncNavStatus state={gitSync.data.state} />
+              ) : null}
             </Link>
           ))}
         </nav>
@@ -50,5 +58,30 @@ export function AppShell({ children }: PropsWithChildren) {
         <main className="min-w-0">{children}</main>
       </ScrollArea>
     </div>
+  );
+}
+
+function GitSyncNavStatus({
+  state,
+}: {
+  state: "notConfigured" | "synced" | "needsPull" | "needsPush" | "needsSync";
+}) {
+  const label = {
+    notConfigured: "Set up",
+    synced: "Ready",
+    needsPull: "Pull",
+    needsPush: "Push",
+    needsSync: "Sync",
+  }[state];
+  const variant =
+    state === "synced"
+      ? "success"
+      : state === "needsSync"
+        ? "destructive"
+        : "outline";
+  return (
+    <Badge variant={variant} className="ml-auto max-md:hidden">
+      {label}
+    </Badge>
   );
 }

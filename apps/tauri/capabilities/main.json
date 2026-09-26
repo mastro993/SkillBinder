@@ -20,6 +20,13 @@
     "allow-roots-remove",
     "allow-imports-prepare",
     "allow-imports-apply",
-    "allow-library-list"
+    "allow-library-list",
+    "allow-git-sync-status",
+    "allow-git-sync-connect",
+    "allow-git-sync-refresh",
+    "allow-git-sync-pull",
+    "allow-git-sync-push",
+    "allow-git-sync",
+    "allow-git-sync-disconnect"
   ]
 }

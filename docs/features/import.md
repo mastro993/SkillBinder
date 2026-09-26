@@ -24,13 +24,12 @@ skill is the library's canonical copy from that point on.
 Core owns payload validation, manifests, duplicate decisions, plan state transitions, and the
 import use cases. Platform owns source reads, staging, library files, journals, and Git revision
 reads. SQLite owns machine-local plans, idempotency records, source observations, and the derived
-skill metadata index. Portable data stays under `.skillbinder` and `skills/<skill-id>/<slug>/`.
+skill metadata index. Portable data stays in `.skillbinder.json` and `skills/<skill-id>/<slug>/`.
 
 Portable, in `library/`:
 
 ```text
-.skillbinder/skills/<skill-id>.json       id, slug, display name, folder, tags, upstream bindings
-.skillbinder/manifests/<skill-id>.json    digest and complete entry list
+.skillbinder.json                         library identity and skill metadata/manifests
 skills/<skill-id>/<slug>/                 payload bytes, copied exactly
 ```
 

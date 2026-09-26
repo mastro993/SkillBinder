@@ -445,12 +445,7 @@ User-selected library relocation is not in the MVP. A later relocation feature m
 <AppLocalData>/
 ├── library/
 │   ├── .git/
-│   ├── library.json
-│   ├── catalog/
-│   │   ├── skills/<skill-id>.json
-│   │   ├── folders/<folder-id>.json
-│   │   ├── tags/<tag-id>.json
-│   │   └── manifests/<skill-id>.json
+│   ├── .skillbinder.json
 │   └── skills/<skill-id>/<slug>/
 │       ├── SKILL.md
 │       └── supporting files and directories
@@ -472,9 +467,9 @@ The UUID parent gives each skill a stable library location. The child directory 
 
 ### 7.2 Git-tracked state
 
-Track skill payloads, skill catalog records, folders, tags, content manifests, and the library schema record. Each catalog entity uses a separate JSON file to limit unrelated merge conflicts.
+Track skill payloads, skill catalog records, folders, tags, content manifests, and the library schema record in `.skillbinder.json`.
 
-`library.json` contains `schemaVersion`, `libraryId`, `createdAt`, and `contentPolicyVersion`. It must not contain a device ID or a timestamp updated on every mutation.
+`.skillbinder.json` contains `schemaVersion`, `libraryId`, `createdAt`, `contentPolicyVersion`, and portable skill metadata/manifests. It must not contain a device ID or a timestamp updated on every mutation.
 
 Skill catalog records contain stable IDs, slug, optional display name, folder and tag IDs, and remote provenance. Do not duplicate the authoritative `SKILL.md` description in tracked metadata. Parsed descriptions belong in the local index.
 

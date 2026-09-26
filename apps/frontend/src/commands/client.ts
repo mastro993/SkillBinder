@@ -14,6 +14,8 @@ import type {
   ImportApplyResponse,
   ImportPlanResponse,
   ImportPrepareRequest,
+  GitSyncConnectRequest,
+  GitSyncStatus,
   LibraryListResponse,
   OnboardingProgress,
   OnboardingStep,
@@ -37,6 +39,7 @@ import {
   discoveryStartResponseSchema,
   importApplyResponseSchema,
   importPlanResponseSchema,
+  gitSyncStatusSchema,
   libraryListResponseSchema,
   onboardingProgressSchema,
   parseCommandResult,
@@ -60,7 +63,8 @@ type IpcRequest =
   | DiscoveryResultsRequest
   | DiscoveryCancelRequest
   | ImportPrepareRequest
-  | ImportApplyRequest;
+  | ImportApplyRequest
+  | GitSyncConnectRequest;
 
 export class NativeCommandError extends Error {
   constructor(
@@ -103,6 +107,13 @@ export interface DesktopClient {
   importsApply(planId: string): Promise<ImportApplyResponse>;
   libraryList(): Promise<LibraryListResponse>;
   diagnosticsRevealLogs(): Promise<DiagnosticsRevealLogsResponse>;
+  gitSyncStatus(): Promise<GitSyncStatus>;
+  gitSyncConnect(request: GitSyncConnectRequest): Promise<GitSyncStatus>;
+  gitSyncRefresh(): Promise<GitSyncStatus>;
+  gitSyncPull(): Promise<GitSyncStatus>;
+  gitSyncPush(): Promise<GitSyncStatus>;
+  gitSync(): Promise<GitSyncStatus>;
+  gitSyncDisconnect(): Promise<GitSyncStatus>;
 }
 
 class TauriDesktopClient implements DesktopClient {
@@ -192,6 +203,34 @@ class TauriDesktopClient implements DesktopClient {
       "diagnostics_reveal_logs",
       diagnosticsRevealLogsResponseSchema,
     );
+  }
+
+  gitSyncStatus() {
+    return invokeCommand("git_sync_status", gitSyncStatusSchema);
+  }
+
+  gitSyncConnect(request: GitSyncConnectRequest) {
+    return invokeCommand("git_sync_connect", gitSyncStatusSchema, { request });
+  }
+
+  gitSyncRefresh() {
+    return invokeCommand("git_sync_refresh", gitSyncStatusSchema);
+  }
+
+  gitSyncPull() {
+    return invokeCommand("git_sync_pull", gitSyncStatusSchema);
+  }
+
+  gitSyncPush() {
+    return invokeCommand("git_sync_push", gitSyncStatusSchema);
+  }
+
+  gitSync() {
+    return invokeCommand("git_sync", gitSyncStatusSchema);
+  }
+
+  gitSyncDisconnect() {
+    return invokeCommand("git_sync_disconnect", gitSyncStatusSchema);
   }
 }
 

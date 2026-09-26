@@ -15,6 +15,7 @@ import type {
   DiscoveryStartResponse,
   DiscoveryWarning,
   ExclusionReason,
+  GitSyncStatus,
   ImportApplyResponse,
   ImportOutcome,
   ImportPlanItem,
@@ -363,6 +364,24 @@ export const importApplyResponseSchema: z.ZodType<ImportApplyResponse> = z
   .strict();
 export const diagnosticsRevealLogsResponseSchema: z.ZodType<DiagnosticsRevealLogsResponse> =
   z.object({ path: z.string() }).strict();
+export const gitSyncStatusSchema: z.ZodType<GitSyncStatus> = z
+  .object({
+    state: z.enum([
+      "notConfigured",
+      "synced",
+      "needsPull",
+      "needsPush",
+      "needsSync",
+    ]),
+    remote: z.string().nullable(),
+    branch: z.string().nullable(),
+    localRevision: z.string().nullable(),
+    remoteRevision: z.string().nullable(),
+    ahead: z.number(),
+    behind: z.number(),
+    hasLocalChanges: z.boolean(),
+  })
+  .strict();
 export { onboardingProgressSchema };
 
 /** A value that can cross the JSON IPC boundary. */

@@ -13,6 +13,7 @@ pub mod bootstrap;
 pub mod diagnostics;
 pub mod discovery;
 pub mod error;
+pub mod git_sync;
 pub mod imports;
 pub mod library;
 pub mod onboarding;
@@ -23,6 +24,7 @@ pub use bootstrap::*;
 pub use diagnostics::*;
 pub use discovery::*;
 pub use error::*;
+pub use git_sync::*;
 pub use imports::*;
 pub use library::*;
 pub use onboarding::*;
@@ -81,6 +83,9 @@ mod tests {
         ImportApplyResponse::export_all(&config).unwrap();
         LibraryListResponse::export_all(&config).unwrap();
         DiagnosticsRevealLogsResponse::export_all(&config).unwrap();
+        GitSyncState::export_all(&config).unwrap();
+        GitSyncStatus::export_all(&config).unwrap();
+        GitSyncConnectRequest::export_all(&config).unwrap();
     }
 
     #[test]

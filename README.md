@@ -6,8 +6,9 @@ Git-backed library, and two journeys. J01 inspects every known global agent skil
 the user review what was discovered, and imports selected skills as complete managed copies while
 the originals stay untouched. J02 adds project-search roots: the user registers folders with a
 native picker, runs one bounded, cancellable scan over the registry locations and those roots, and
-follows its progress, exclusions, and paged candidates before importing. Editing, organization,
-deployment, source installation, and sync are not implemented yet.
+follows its progress, exclusions, and paged candidates before importing. Git sync is available as
+an explicit, local-authenticated remote workflow; editing, organization, deployment, and source
+installation remain future work.
 
 ## Workspace
 
@@ -128,15 +129,14 @@ Completing local-only onboarding creates:
 ```text
 library/
 ├── .git/
-├── .skillbinder/library.json
+├── .skillbinder.json
 └── skills/
 ```
 
-An import adds `skills/<skill-id>/<slug>/` payload plus
-`.skillbinder/skills/<skill-id>.json` and `.skillbinder/manifests/<skill-id>.json`. Import does not
-create a Git commit; commits are an explicit user action in a later milestone, and the library view
-reports when the working tree has uncommitted changes. Which machine a skill came from is machine
-state: source observations live in `state.sqlite` and never enter the library repository.
+An import adds `skills/<skill-id>/<slug>/` payload plus skill metadata and manifests in
+`.skillbinder.json`. Git remote connection, pull, push, and sync are explicit actions in the Git
+sync screen. Which machine a skill came from is machine state: source observations live in
+`state.sqlite` and never enter the library repository.
 
 Registered project-search roots are machine state too. `state.sqlite` holds a `scan_roots` table
 with the canonical path, display path, label, and enabled flag of every folder the user registered,

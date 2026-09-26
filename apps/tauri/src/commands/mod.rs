@@ -1,6 +1,7 @@
 pub mod bootstrap;
 pub mod diagnostics;
 pub mod discovery;
+pub mod git_sync;
 pub mod imports;
 pub mod library;
 pub mod onboarding;
@@ -71,11 +72,12 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    const COMMAND_SOURCES: [&str; 7] = [
+    const COMMAND_SOURCES: [&str; 8] = [
         include_str!("bootstrap.rs"),
         include_str!("diagnostics.rs"),
         include_str!("discovery.rs"),
         include_str!("imports.rs"),
+        include_str!("git_sync.rs"),
         include_str!("library.rs"),
         include_str!("onboarding.rs"),
         include_str!("roots.rs"),

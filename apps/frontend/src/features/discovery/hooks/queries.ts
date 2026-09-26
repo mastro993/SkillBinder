@@ -197,5 +197,8 @@ export function useApplyImport() {
 }
 
 export function invalidateLibraryAfterImport() {
-  return queryClient.invalidateQueries({ queryKey: ["library", "list"] });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["library", "list"] }),
+    queryClient.invalidateQueries({ queryKey: ["git-sync", "status"] }),
+  ]);
 }

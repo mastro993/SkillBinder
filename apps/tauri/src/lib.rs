@@ -86,6 +86,13 @@ pub fn run() {
             commands::imports::imports_prepare,
             commands::imports::imports_apply,
             commands::library::library_list,
+            commands::git_sync::git_sync_status,
+            commands::git_sync::git_sync_connect,
+            commands::git_sync::git_sync_refresh,
+            commands::git_sync::git_sync_pull,
+            commands::git_sync::git_sync_push,
+            commands::git_sync::git_sync,
+            commands::git_sync::git_sync_disconnect,
             commands::diagnostics::diagnostics_reveal_logs,
         ])
         .build(tauri::generate_context!())

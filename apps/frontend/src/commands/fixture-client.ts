@@ -6,6 +6,8 @@ import type {
   DiscoveryLocation,
   DiscoveryProgress,
   DiscoveryWarning,
+  GitSyncConnectRequest,
+  GitSyncStatus,
   ImportPlanResponse,
   LibraryListResponse,
   OnboardingProgress,
@@ -277,6 +279,16 @@ let library: LibraryListResponse = {
   ],
 };
 let plan: ImportPlanResponse | null = null;
+let gitSync: GitSyncStatus = {
+  state: "notConfigured",
+  remote: null,
+  branch: null,
+  localRevision: "fixture-initial-revision",
+  remoteRevision: null,
+  ahead: 0,
+  behind: 0,
+  hasLocalChanges: false,
+};
 
 function progress(): OnboardingProgress {
   const saved = window.localStorage.getItem(storageKey);
@@ -555,5 +567,55 @@ export const fixtureDesktopClient: DesktopClient = {
     return {
       path: "/Users/demo/Library/Application Support/dev.skillbinder.local/logs",
     };
+  },
+  async gitSyncStatus() {
+    return gitSync;
+  },
+  async gitSyncConnect(request: GitSyncConnectRequest) {
+    gitSync = {
+      ...gitSync,
+      state: "needsPush",
+      remote: request.remote,
+      branch: request.branch,
+    };
+    return gitSync;
+  },
+  async gitSyncRefresh() {
+    return gitSync;
+  },
+  async gitSyncPull() {
+    gitSync = {
+      ...gitSync,
+      state: "synced",
+      remoteRevision: gitSync.localRevision,
+    };
+    return gitSync;
+  },
+  async gitSyncPush() {
+    gitSync = {
+      ...gitSync,
+      state: "synced",
+      remoteRevision: gitSync.localRevision,
+      ahead: 0,
+      behind: 0,
+      hasLocalChanges: false,
+    };
+    library = { ...library, hasUncommittedChanges: false };
+    return gitSync;
+  },
+  async gitSync() {
+    return fixtureDesktopClient.gitSyncPush();
+  },
+  async gitSyncDisconnect() {
+    gitSync = {
+      ...gitSync,
+      state: "notConfigured",
+      remote: null,
+      branch: null,
+      remoteRevision: null,
+      ahead: 0,
+      behind: 0,
+    };
+    return gitSync;
   },
 };

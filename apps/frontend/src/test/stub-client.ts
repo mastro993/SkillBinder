@@ -27,6 +27,13 @@ export function stubDesktopClient(
     importsApply: unstubbed("importsApply"),
     libraryList: unstubbed("libraryList"),
     diagnosticsRevealLogs: unstubbed("diagnosticsRevealLogs"),
+    gitSyncStatus: unstubbed("gitSyncStatus"),
+    gitSyncConnect: unstubbed("gitSyncConnect"),
+    gitSyncRefresh: unstubbed("gitSyncRefresh"),
+    gitSyncPull: unstubbed("gitSyncPull"),
+    gitSyncPush: unstubbed("gitSyncPush"),
+    gitSync: unstubbed("gitSync"),
+    gitSyncDisconnect: unstubbed("gitSyncDisconnect"),
     ...overrides,
   };
 }
