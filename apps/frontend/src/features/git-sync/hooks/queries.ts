@@ -14,9 +14,12 @@ export const gitSyncStatusQuery = queryOptions({
   refetchInterval: 30_000,
 });
 
+export const gitSyncMutationKey = ["git-sync"];
+
 function useGitSyncMutation(operation: keyof GitSyncOperations) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: gitSyncMutationKey,
     mutationFn: async () => {
       const client = await getDesktopClient();
       return client[operation]();
@@ -39,6 +42,7 @@ interface GitSyncOperations {
 export function useGitSyncConnect() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: gitSyncMutationKey,
     mutationFn: async (request: GitSyncConnectRequest) =>
       (await getDesktopClient()).gitSyncConnect(request),
     onSuccess: (status) => {
