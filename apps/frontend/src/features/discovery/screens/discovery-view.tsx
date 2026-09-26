@@ -14,6 +14,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { PageHeader } from "@/components/layout/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { NativeCommandError } from "@/commands/client";
 import {
   candidatePageLimit,
@@ -97,12 +98,31 @@ export function DiscoveryView() {
 
   if (roots.isPending)
     return (
-      <output
-        className="block px-13 py-12 text-muted-foreground"
-        aria-live="polite"
-      >
-        Looking for registered project-search roots…
-      </output>
+      <section className="px-13 py-11.5">
+        <PageHeader
+          eyebrow="Read-only inspection"
+          title="Discovery"
+          lead="Run a bounded scan, and choose which discovered skill copies enter your library. Project-search roots are configured in Settings."
+        />
+        <output className="sr-only">
+          Looking for registered project-search roots…
+        </output>
+        <div className="grid gap-6">
+          <Skeleton className="h-12 w-full" />
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-64" />
+              <CardAction>
+                <Skeleton className="h-10 w-28" />
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-4 w-56" />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     );
 
   const data = results.data;
