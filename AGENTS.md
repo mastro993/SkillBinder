@@ -42,6 +42,9 @@ See `apps/frontend/AGENTS.md` for frontend-specific conventions.
 - Forms: `react-hook-form` + `zod` schemas from
   `apps/frontend/src/features/<feature>/types/`
 - Theme: tokens in `apps/frontend/src/styles.css`
+- Loading: progressive, per-section skeletons. Spinners and progress bars only on explicit request.
+- Motion: layout stays stable; skeletons match final dimensions; enter, exit, and layout changes use subtle, short transitions.
+
 
 ### Architecture pattern
 
