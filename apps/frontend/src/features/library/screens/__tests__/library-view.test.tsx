@@ -1,5 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  Outlet,
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
+import {
   cleanup,
   fireEvent,
   render,
@@ -18,16 +26,50 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderLibrary(client: Partial<DesktopClient>) {
+function FolderScreen() {
+  const { folderId } = folderRoute.useParams();
+  return <LibraryView folderId={folderId} />;
+}
+
+const rootRoute = createRootRoute({ component: () => <Outlet /> });
+const folderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/library/$folderId",
+  component: FolderScreen,
+});
+const routeTree = rootRoute.addChildren([
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/library",
+    component: () => <LibraryView />,
+  }),
+  folderRoute,
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/onboarding",
+    component: () => <p>Onboarding</p>,
+  }),
+]);
+
+function renderLibrary(
+  client: Partial<DesktopClient>,
+  { folderId }: { folderId?: string } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   vi.spyOn(native, "getDesktopClient").mockResolvedValue(
     stubDesktopClient(client),
   );
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({
+      initialEntries: [folderId ? `/library/${folderId}` : "/library"],
+    }),
+  });
   return render(
     <QueryClientProvider client={queryClient}>
-      <LibraryView />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }
@@ -171,7 +213,7 @@ describe("library view", () => {
     });
   });
 
-  it("combines descendant folder, tag, and search filters", async () => {
+  it("combines tag and search filters", async () => {
     const skill = (id: string, folderId: string | null, tagIds: string[]) => ({
       skillId: id,
       slug: id,
@@ -195,26 +237,19 @@ describe("library view", () => {
         hasUncommittedChanges: false,
         pendingResolution: false,
         organizationRevision: "r",
-        folders: [
-          { id: "parent", name: "Parent", parentId: null },
-          { id: "child", name: "Child", parentId: "parent" },
-        ],
+        folders: [{ id: "parent", name: "Parent" }],
         tags: [
           { id: "a", name: "Alpha" },
           { id: "b", name: "Beta" },
         ],
         skills: [
-          skill("one", "child", ["a", "b"]),
+          skill("one", "parent", ["a", "b"]),
           skill("two", "parent", ["a"]),
           skill("three", null, ["b"]),
         ],
       }),
     });
     await screen.findByText("one description");
-    fireEvent.click(screen.getByRole("button", { name: "Parent" }));
-    expect(screen.getByText("one description")).toBeInTheDocument();
-    expect(screen.getByText("two description")).toBeInTheDocument();
-    expect(screen.queryByText("three description")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Filter by Beta" }));
     expect(screen.getByText("one description")).toBeInTheDocument();
     expect(screen.queryByText("two description")).not.toBeInTheDocument();
@@ -225,51 +260,81 @@ describe("library view", () => {
     fireEvent.click(
       screen.getAllByRole("button", { name: "Clear filters" })[0],
     );
-    expect(screen.getByText("three description")).toBeInTheDocument();
+    expect(screen.getByText("two description")).toBeInTheDocument();
   });
 
-  it("distinguishes folders with the same name under different parents", async () => {
-    renderLibrary({
-      bootstrap: vi
-        .fn<DesktopClient["bootstrap"]>()
-        .mockResolvedValue(bootstrap),
-      libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
-        libraryRevision: "r",
-        hasUncommittedChanges: false,
-        pendingResolution: false,
-        organizationRevision: "r",
-        folders: [
-          { id: "work", name: "Work", parentId: null },
-          { id: "personal", name: "Personal", parentId: null },
-          { id: "work-shared", name: "Shared", parentId: "work" },
-          { id: "personal-shared", name: "Shared", parentId: "personal" },
-        ],
-        tags: [],
-        skills: [
-          {
-            skillId: "skill",
-            slug: "skill",
-            displayName: "Skill",
-            folderId: "work-shared",
-            tagIds: [],
-            description: null,
-            validation: { status: "valid", messages: [] },
-            fileCount: 1,
-            totalBytes: "10",
-            sources: [],
-            digest: "sha256:skill",
-            payloadDirectory: "skill",
-          },
-        ],
-      }),
-    });
-    expect(await screen.findByText("Work / Shared")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Organize" }));
+  it("shows only the folder's skills on the folder page", async () => {
+    renderLibrary(
+      {
+        bootstrap: vi
+          .fn<DesktopClient["bootstrap"]>()
+          .mockResolvedValue(bootstrap),
+        libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+          libraryRevision: "r",
+          hasUncommittedChanges: false,
+          pendingResolution: false,
+          organizationRevision: "r",
+          folders: [{ id: "work", name: "Work" }],
+          tags: [],
+          skills: [
+            {
+              skillId: "inside",
+              slug: "inside",
+              displayName: "Inside",
+              folderId: "work",
+              tagIds: [],
+              description: "inside description",
+              validation: { status: "valid", messages: [] },
+              fileCount: 1,
+              totalBytes: "10",
+              sources: [],
+              digest: "sha256:inside",
+              payloadDirectory: "inside",
+            },
+            {
+              skillId: "outside",
+              slug: "outside",
+              displayName: "Outside",
+              folderId: null,
+              tagIds: [],
+              description: "outside description",
+              validation: { status: "valid", messages: [] },
+              fileCount: 1,
+              totalBytes: "10",
+              sources: [],
+              digest: "sha256:outside",
+              payloadDirectory: "outside",
+            },
+          ],
+        }),
+      },
+      { folderId: "work" },
+    );
+    expect(await screen.findByText("inside description")).toBeInTheDocument();
+    expect(screen.queryByText("outside description")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Work" })).toBeInTheDocument();
+  });
+
+  it("reports a folder that no longer exists", async () => {
+    renderLibrary(
+      {
+        bootstrap: vi
+          .fn<DesktopClient["bootstrap"]>()
+          .mockResolvedValue(bootstrap),
+        libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+          libraryRevision: "r",
+          hasUncommittedChanges: false,
+          pendingResolution: false,
+          organizationRevision: "r",
+          folders: [],
+          tags: [],
+          skills: [],
+        }),
+      },
+      { folderId: "gone" },
+    );
     expect(
-      screen.getByRole("option", { name: "Work / Shared" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: "Personal / Shared" }),
+      await screen.findByText("This folder no longer exists"),
     ).toBeInTheDocument();
   });
 });

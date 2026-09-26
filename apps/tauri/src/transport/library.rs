@@ -42,7 +42,6 @@ contract! {
     pub struct FolderView {
         pub id: String,
         pub name: String,
-        pub parent_id: Option<String>,
     }
 }
 contract! {
@@ -61,12 +60,10 @@ contract! {
 pub enum OrganizationChange {
     CreateFolder {
         name: String,
-        parent_id: Option<String>,
     },
     UpdateFolder {
         id: String,
         name: String,
-        parent_id: Option<String>,
     },
     DeleteFolder {
         id: String,
@@ -108,7 +105,6 @@ contract! {
 }
 contract! {
     pub struct OrganizationDeletePreviewResponse {
-        pub child_folders: u32,
         pub affected_skills: u32,
         pub organization_revision: String,
     }

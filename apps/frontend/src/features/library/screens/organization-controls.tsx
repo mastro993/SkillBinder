@@ -19,18 +19,12 @@ import {
   type OrganizationNameForm,
 } from "../types/organization";
 import type {
-  FolderView,
   LibraryListResponse,
   OrganizationChange,
   OrganizationDeletePreviewResponse,
 } from "@/types";
 
-export type FolderScope =
-  | { kind: "all" }
-  | { kind: "unfiled" }
-  | { kind: "folder"; id: string };
 type Edit =
-  | { kind: "folder"; folder?: FolderView; parentId: string | null }
   | { kind: "tag"; tagId?: string; name?: string }
   | { kind: "assign"; skillIds: string[] }
   | {
@@ -41,35 +35,8 @@ type Edit =
       preview: OrganizationDeletePreviewResponse;
     };
 
-export function includesFolder(
-  folderId: string | null,
-  selectedId: string,
-  folders: FolderView[],
-): boolean {
-  let current = folderId;
-  while (current) {
-    if (current === selectedId) return true;
-    current = folders.find((folder) => folder.id === current)?.parentId ?? null;
-  }
-  return false;
-}
-
-export function folderPath(folder: FolderView, folders: FolderView[]): string {
-  const names = [folder.name];
-  let parentId = folder.parentId;
-  while (parentId) {
-    const parent = folders.find((item) => item.id === parentId);
-    if (!parent) break;
-    names.unshift(parent.name);
-    parentId = parent.parentId;
-  }
-  return names.join(" / ");
-}
-
 interface Props {
   data: LibraryListResponse;
-  scope: FolderScope;
-  setScope: (scope: FolderScope) => void;
   selectedIds: string[];
   clearSelection: () => void;
   activeTags: string[];
@@ -87,8 +54,6 @@ export const OrganizationControls = forwardRef<
 >(function OrganizationControls(
   {
     data,
-    scope,
-    setScope,
     selectedIds,
     clearSelection,
     activeTags,
@@ -109,7 +74,6 @@ export const OrganizationControls = forwardRef<
     resolver: zodResolver(organizationNameSchema),
     defaultValues: { name: "" },
   });
-  const [parentId, setParentId] = useState<string | null>(null);
   const [folderId, setFolderId] = useState<string | null | undefined>(null);
   const [tagAction, setTagAction] = useState<"add" | "remove">("add");
   const [tagIds, setTagIds] = useState<string[]>([]);
@@ -120,12 +84,6 @@ export const OrganizationControls = forwardRef<
       expectedRevision: string | null;
     }) => (await getDesktopClient()).libraryOrganizationChange(request),
     onSuccess: async (_result, request) => {
-      if (
-        request.change.kind === "deleteFolder" &&
-        scope.kind === "folder" &&
-        scope.id === request.change.id
-      )
-        setScope({ kind: "all" });
       if (request.change.kind === "deleteTag") {
         const deletedId = request.change.id;
         setActiveTags(activeTags.filter((id) => id !== deletedId));
@@ -160,17 +118,7 @@ export const OrganizationControls = forwardRef<
   const open = (next: Edit) => {
     setEdit(next);
     setError("");
-    reset({
-      name:
-        next.kind === "folder"
-          ? (next.folder?.name ?? "")
-          : next.kind === "tag"
-            ? (next.name ?? "")
-            : "",
-    });
-    setParentId(
-      next.kind === "folder" ? (next.folder?.parentId ?? next.parentId) : null,
-    );
+    reset({ name: next.kind === "tag" ? (next.name ?? "") : "" });
     if (next.kind === "assign") {
       const assigned = data.skills.filter((skill) =>
         next.skillIds.includes(skill.skillId),
@@ -183,11 +131,7 @@ export const OrganizationControls = forwardRef<
   const submit = (name: string) => {
     if (!edit) return;
     let command: OrganizationChange;
-    if (edit.kind === "folder") {
-      command = edit.folder
-        ? { kind: "updateFolder", id: edit.folder.id, name, parentId }
-        : { kind: "createFolder", name, parentId };
-    } else if (edit.kind === "tag") {
+    if (edit.kind === "tag") {
       command = edit.tagId
         ? { kind: "renameTag", id: edit.tagId, name }
         : { kind: "createTag", name };
@@ -211,10 +155,7 @@ export const OrganizationControls = forwardRef<
               : [],
       };
     } else {
-      command =
-        edit.entity === "folder"
-          ? { kind: "deleteFolder", id: edit.id }
-          : { kind: "deleteTag", id: edit.id };
+      command = { kind: "deleteTag", id: edit.id };
     }
     change.mutate({
       change: command,
@@ -225,86 +166,12 @@ export const OrganizationControls = forwardRef<
   useImperativeHandle(ref, () => ({
     organizeSkill: (id: string) => open({ kind: "assign", skillIds: [id] }),
   }));
-  const selectableParents = (folder?: FolderView) =>
-    data.folders.filter(
-      (item) =>
-        !folder ||
-        (item.id !== folder.id &&
-          !includesFolder(item.id, folder.id, data.folders)),
-    );
-  const folderRows = (parent: string | null): React.ReactNode =>
-    data.folders
-      .filter((folder) => folder.parentId === parent)
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((folder) => (
-        <li key={folder.id}>
-          <div className="flex items-center gap-1">
-            <Button
-              variant={
-                scope.kind === "folder" && scope.id === folder.id
-                  ? "secondary"
-                  : "ghost"
-              }
-              size="sm"
-              className="min-w-0 flex-1 justify-start"
-              onClick={() => setScope({ kind: "folder", id: folder.id })}
-            >
-              {folder.name}
-            </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              aria-label={`Edit ${folder.name}`}
-              onClick={() =>
-                open({ kind: "folder", folder, parentId: folder.parentId })
-              }
-            >
-              Edit
-            </Button>
-          </div>
-          <ul className="pl-3">{folderRows(folder.id)}</ul>
-        </li>
-      ));
   return (
     <>
       <aside
         className="grid content-start gap-5 border-r pr-5"
         aria-label="Organize library"
       >
-        <div className="grid gap-1">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium">Folders</h2>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() =>
-                open({
-                  kind: "folder",
-                  parentId: scope.kind === "folder" ? scope.id : null,
-                })
-              }
-            >
-              New folder
-            </Button>
-          </div>
-          <Button
-            variant={scope.kind === "all" ? "secondary" : "ghost"}
-            size="sm"
-            className="justify-start"
-            onClick={() => setScope({ kind: "all" })}
-          >
-            All skills
-          </Button>
-          <Button
-            variant={scope.kind === "unfiled" ? "secondary" : "ghost"}
-            size="sm"
-            className="justify-start"
-            onClick={() => setScope({ kind: "unfiled" })}
-          >
-            Unfiled
-          </Button>
-          <ul className="grid gap-1">{folderRows(null)}</ul>
-        </div>
         <div className="grid gap-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium">Tags</h2>
@@ -390,57 +257,22 @@ export const OrganizationControls = forwardRef<
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {edit?.kind === "folder"
-                ? edit.folder
-                  ? "Edit folder"
-                  : "New folder"
-                : edit?.kind === "tag"
-                  ? edit.tagId
-                    ? "Edit tag"
-                    : "New tag"
-                  : edit?.kind === "assign"
-                    ? edit.skillIds.length === 1
-                      ? "Organize skill"
-                      : `Organize ${edit.skillIds.length} skills`
-                    : edit?.entity === "folder"
-                      ? "Delete folder"
-                      : "Delete tag"}
+              {edit?.kind === "tag"
+                ? edit.tagId
+                  ? "Edit tag"
+                  : "New tag"
+                : edit?.kind === "assign"
+                  ? edit.skillIds.length === 1
+                    ? "Organize skill"
+                    : `Organize ${edit.skillIds.length} skills`
+                  : "Delete tag"}
             </DialogTitle>
             {edit?.kind === "delete" ? (
               <DialogDescription>
-                {edit.entity === "folder"
-                  ? `Delete ${edit.name}? ${edit.preview.childFolders} child folder${edit.preview.childFolders === 1 ? "" : "s"} and ${edit.preview.affectedSkills} skill${edit.preview.affectedSkills === 1 ? "" : "s"} will move up one level.`
-                  : `Delete ${edit.name}? It will be removed from ${edit.preview.affectedSkills} skill${edit.preview.affectedSkills === 1 ? "" : "s"}.`}
+                {`Delete ${edit.name}? It will be removed from ${edit.preview.affectedSkills} skill${edit.preview.affectedSkills === 1 ? "" : "s"}.`}
               </DialogDescription>
             ) : null}
           </DialogHeader>
-          {edit?.kind === "folder" ? (
-            <div className="grid gap-3">
-              <label htmlFor="organization-name" className="grid gap-1 text-sm">
-                Name
-                <Input id="organization-name" {...register("name")} />
-              </label>
-              <label
-                htmlFor="organization-parent"
-                className="grid gap-1 text-sm"
-              >
-                Parent folder
-                <select
-                  id="organization-parent"
-                  className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
-                  value={parentId ?? ""}
-                  onChange={(event) => setParentId(event.target.value || null)}
-                >
-                  <option value="">No parent</option>
-                  {selectableParents(edit.folder).map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folderPath(folder, data.folders)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : null}
           {edit?.kind === "tag" ? (
             <label htmlFor="organization-name" className="grid gap-1 text-sm">
               Name
@@ -472,7 +304,7 @@ export const OrganizationControls = forwardRef<
                   <option value="">Unfiled</option>
                   {data.folders.map((folder) => (
                     <option key={folder.id} value={folder.id}>
-                      {folderPath(folder, data.folders)}
+                      {folder.name}
                     </option>
                   ))}
                 </select>
@@ -531,7 +363,7 @@ export const OrganizationControls = forwardRef<
               ) : null}
             </div>
           ) : null}
-          {errors.name && (edit?.kind === "folder" || edit?.kind === "tag") ? (
+          {errors.name && edit?.kind === "tag" ? (
             <p role="alert" className="text-sm text-destructive">
               {errors.name.message}
             </p>
@@ -542,18 +374,11 @@ export const OrganizationControls = forwardRef<
             </p>
           ) : null}
           <DialogFooter>
-            {(edit?.kind === "folder" && edit.folder) ||
-            (edit?.kind === "tag" && edit.tagId) ? (
+            {edit?.kind === "tag" && edit.tagId ? (
               <Button
                 variant="destructive"
                 disabled={preview.isPending}
                 onClick={() => {
-                  if (edit?.kind === "folder" && edit.folder)
-                    preview.mutate({
-                      entity: "folder",
-                      id: edit.folder.id,
-                      name: edit.folder.name,
-                    });
                   if (edit?.kind === "tag" && edit.tagId)
                     preview.mutate({
                       entity: "tag",
@@ -572,7 +397,7 @@ export const OrganizationControls = forwardRef<
               variant={edit?.kind === "delete" ? "destructive" : "default"}
               disabled={change.isPending}
               onClick={() => {
-                if (edit?.kind === "folder" || edit?.kind === "tag")
+                if (edit?.kind === "tag")
                   void handleSubmit(({ name }) => submit(name))();
                 else submit("");
               }}

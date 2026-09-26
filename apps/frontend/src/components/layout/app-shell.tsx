@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from "react";
+import { Fragment, type PropsWithChildren } from "react";
 import {
   BookOpen01Icon,
   Compass01Icon,
@@ -9,6 +9,8 @@ import {
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { SidebarFolderList } from "@/features/library/components/sidebar-folder-list";
 import { ScanActivity } from "@/features/discovery/components/scan-activity";
 import { GitSyncNavStatus } from "@/features/git-sync/components/git-sync-nav-status";
 
@@ -67,8 +69,17 @@ export function AppShell({ children }: PropsWithChildren) {
           </span>
           <span className="max-md:hidden">SkillBinder</span>
         </div>
-        <nav aria-label="Main navigation" className="grid gap-1.5">
-          {mainNavItems.map(renderNavItem)}
+        <nav
+          aria-label="Main navigation"
+          className="grid min-h-0 content-start gap-1.5 overflow-y-auto"
+        >
+          {mainNavItems.map((item, index) => (
+            <Fragment key={item.to}>
+              {index > 0 ? <Separator className="my-1" /> : null}
+              {renderNavItem(item)}
+              {item.to === "/library" ? <SidebarFolderList /> : null}
+            </Fragment>
+          ))}
         </nav>
         <nav aria-label="Secondary navigation" className="mt-auto grid gap-1.5">
           {footerNavItems.map(renderNavItem)}

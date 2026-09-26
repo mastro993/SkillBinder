@@ -249,22 +249,11 @@ function saveOrganization() {
   library.hasUncommittedChanges = true;
   window.localStorage.setItem(organizationStorageKey, JSON.stringify(library));
 }
-function folderDescendsFrom(folderId: string, ancestorId: string): boolean {
-  let current = library.folders.find((folder) => folder.id === folderId);
-  while (current?.parentId) {
-    if (current.parentId === ancestorId) return true;
-    current = library.folders.find((folder) => folder.id === current?.parentId);
-  }
-  return false;
-}
 function previewDelete(request: OrganizationDeletePreviewRequest) {
   if (request.entity === "folder") {
     if (!library.folders.some((folder) => folder.id === request.id))
       throw new Error("Folder not found.");
     return {
-      childFolders: library.folders.filter(
-        (folder) => folder.parentId === request.id,
-      ).length,
       affectedSkills: library.skills.filter(
         (skill) => skill.folderId === request.id,
       ).length,
@@ -275,7 +264,6 @@ function previewDelete(request: OrganizationDeletePreviewRequest) {
     if (!library.tags.some((tag) => tag.id === request.id))
       throw new Error("Tag not found.");
     return {
-      childFolders: 0,
       affectedSkills: library.skills.filter((skill) =>
         skill.tagIds.includes(request.id),
       ).length,
@@ -296,60 +284,26 @@ function changeOrganization(request: OrganizationChangeRequest) {
     throw new Error("Name must contain 1–100 characters.");
   const key = (value: string) => value.normalize("NFKC").toLocaleLowerCase();
   if (change.kind === "createFolder" || change.kind === "updateFolder") {
-    const parentId = change.parentId;
-    if (parentId && !library.folders.some((folder) => folder.id === parentId))
-      throw new Error("Parent folder not found.");
-    if (
-      change.kind === "updateFolder" &&
-      (parentId === change.id ||
-        (parentId && folderDescendsFrom(parentId, change.id)))
-    )
-      throw new Error("A folder cannot contain itself.");
     if (
       library.folders.some(
         (folder) =>
-          folder.parentId === parentId &&
           key(folder.name) === key(name) &&
           (change.kind !== "updateFolder" || folder.id !== change.id),
       )
     )
-      throw new Error("A folder with this name already exists here.");
+      throw new Error("A folder with this name already exists.");
     if (change.kind === "createFolder")
-      library.folders.push({ id: crypto.randomUUID(), name, parentId });
+      library.folders.push({ id: crypto.randomUUID(), name });
     else {
       const folder = library.folders.find((item) => item.id === change.id);
       if (!folder) throw new Error("Folder not found.");
       folder.name = name;
-      folder.parentId = parentId;
     }
   } else if (change.kind === "deleteFolder") {
     previewDelete({ entity: "folder", id: change.id });
-    const folder = library.folders.find((item) => item.id === change.id)!;
-    if (
-      library.folders.some(
-        (child) =>
-          child.parentId === change.id &&
-          library.folders.some(
-            (sibling) =>
-              sibling.parentId === folder.parentId &&
-              key(sibling.name) === key(child.name),
-          ),
-      )
-    )
-      throw new Error(
-        "A child folder would conflict with a folder at the new location.",
-      );
-    library.folders = library.folders
-      .filter((item) => item.id !== change.id)
-      .map((item) =>
-        item.parentId === change.id
-          ? { ...item, parentId: folder.parentId }
-          : item,
-      );
+    library.folders = library.folders.filter((item) => item.id !== change.id);
     library.skills = library.skills.map((skill) =>
-      skill.folderId === change.id
-        ? { ...skill, folderId: folder.parentId }
-        : skill,
+      skill.folderId === change.id ? { ...skill, folderId: null } : skill,
     );
   } else if (change.kind === "createTag" || change.kind === "renameTag") {
     if (

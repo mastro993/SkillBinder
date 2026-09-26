@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -26,13 +26,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import type { ValidationStatus } from "@/types";
 import { SlugConflictDialog } from "../components/slug-conflict-dialog";
+import { FolderDialog } from "../components/folder-dialog";
 import { payloadPath, slugConflictGroups } from "../lib/conflicts";
 import { libraryListQuery, useResolveSlugConflict } from "../hooks/queries";
 import {
   OrganizationControls,
-  folderPath,
-  includesFolder,
-  type FolderScope,
   type OrganizationControlsHandle,
 } from "./organization-controls";
 
@@ -43,9 +41,10 @@ const validationVariants = {
   blocked: "destructive",
 } satisfies Record<ValidationStatus, "success" | "warning" | "destructive">;
 
-export function LibraryView() {
+export function LibraryView({ folderId }: { folderId?: string }) {
   const controlsRef = useRef<OrganizationControlsHandle>(null);
-  const [scope, setScope] = useState<FolderScope>({ kind: "all" });
+  const navigate = useNavigate();
+  const [folderDialog, setFolderDialog] = useState(false);
   const [search, setSearch] = useState("");
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [matchAny, setMatchAny] = useState(false);
@@ -61,7 +60,7 @@ export function LibraryView() {
         <PageHeader
           eyebrow="Canonical collection"
           title="Library"
-          action={<Button disabled>New skill</Button>}
+          action={<Button disabled>Add folder</Button>}
         />
         <output className="sr-only">Loading library…</output>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
@@ -106,20 +105,30 @@ export function LibraryView() {
     );
   }
   const data = library.data;
+  const folder = folderId
+    ? data.folders.find((item) => item.id === folderId)
+    : undefined;
+  if (folderId && !folder)
+    return (
+      <section className="px-13 py-11.5">
+        <PageHeader eyebrow="Canonical collection" title="Folder not found" />
+        <Empty variant="outline" className="min-h-[390px]">
+          <EmptyHeader>
+            <EmptyTitle>This folder no longer exists</EmptyTitle>
+          </EmptyHeader>
+          <Button render={<Link to="/library" />}>Back to Library</Button>
+        </Empty>
+      </section>
+    );
   const folderLabel = (id: string | null) => {
-    const folder = data.folders.find((item) => item.id === id);
-    return folder ? folderPath(folder, data.folders) : "Unfiled";
+    const assigned = data.folders.find((item) => item.id === id);
+    return assigned ? assigned.name : "Unfiled";
   };
   const conflicts = slugConflictGroups(data.skills);
   const sharedSlugs = new Set(conflicts.map((group) => group.slug));
   const open = conflicts.find((group) => group.slug === openSlug) ?? null;
   const visibleSkills = data.skills.filter((skill) => {
-    if (scope.kind === "unfiled" && skill.folderId !== null) return false;
-    if (
-      scope.kind === "folder" &&
-      !includesFolder(skill.folderId, scope.id, data.folders)
-    )
-      return false;
+    if (folderId && skill.folderId !== folderId) return false;
     if (
       activeTags.length &&
       !(matchAny
@@ -139,8 +148,22 @@ export function LibraryView() {
     <section className="px-13 py-11.5">
       <PageHeader
         eyebrow="Canonical collection"
-        title="Library"
-        action={<Button disabled>New skill</Button>}
+        title={folder ? folder.name : "Library"}
+        action={
+          folder ? (
+            <Button variant="outline" onClick={() => setFolderDialog(true)}>
+              Edit folder
+            </Button>
+          ) : (
+            <Button onClick={() => setFolderDialog(true)}>Add folder</Button>
+          )
+        }
+      />
+      <FolderDialog
+        folder={folder}
+        open={folderDialog}
+        onOpenChange={setFolderDialog}
+        onDeleted={() => void navigate({ to: "/library" })}
       />
       {data.hasUncommittedChanges ? (
         <Alert variant="warning" role="note" className="mb-6">
@@ -188,8 +211,6 @@ export function LibraryView() {
         <OrganizationControls
           ref={controlsRef}
           data={data}
-          scope={scope}
-          setScope={setScope}
           selectedIds={selectedIds}
           clearSelection={() => setSelectedIds([])}
           activeTags={activeTags}
@@ -222,14 +243,13 @@ export function LibraryView() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
-                {search || activeTags.length || scope.kind !== "all" ? (
+                {search || activeTags.length ? (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => {
                       setSearch("");
                       setActiveTags([]);
-                      setScope({ kind: "all" });
                     }}
                   >
                     Clear filters
@@ -238,22 +258,27 @@ export function LibraryView() {
               </div>
               {visibleSkills.length === 0 ? (
                 <div className="rounded-lg border p-8 text-center">
-                  <p className="font-medium">No matching skills</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Try another folder, tag, or search.
+                  <p className="font-medium">
+                    {folder ? "No skills in this folder" : "No matching skills"}
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={() => {
-                      setSearch("");
-                      setActiveTags([]);
-                      setScope({ kind: "all" });
-                    }}
-                  >
-                    Clear filters
-                  </Button>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {folder
+                      ? "Assign skills to this folder from a skill card."
+                      : "Try another tag or search."}
+                  </p>
+                  {search || activeTags.length ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => {
+                        setSearch("");
+                        setActiveTags([]);
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
               <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-start gap-4">

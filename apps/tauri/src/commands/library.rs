@@ -164,7 +164,6 @@ fn list(
             .map(|folder| FolderView {
                 id: folder.id.clone(),
                 name: folder.name.clone(),
-                parent_id: folder.parent_id.clone(),
             })
             .collect(),
         tags: organization
@@ -186,20 +185,11 @@ pub fn library_organization_change(
 ) -> CommandResult<OrganizationChangeResponse> {
     recorded("library_organization_change", || {
         let change = match request.change {
-            OrganizationChange::CreateFolder { name, parent_id } => Change::CreateFolder {
+            OrganizationChange::CreateFolder { name } => Change::CreateFolder {
                 id: uuid::Uuid::new_v4().to_string(),
                 name,
-                parent_id,
             },
-            OrganizationChange::UpdateFolder {
-                id,
-                name,
-                parent_id,
-            } => Change::UpdateFolder {
-                id,
-                name,
-                parent_id,
-            },
+            OrganizationChange::UpdateFolder { id, name } => Change::UpdateFolder { id, name },
             OrganizationChange::DeleteFolder { id } => Change::DeleteFolder { id },
             OrganizationChange::CreateTag { name } => Change::CreateTag {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -261,7 +251,6 @@ pub fn library_organization_preview_delete(
                 .preview_delete(folder_id, &request.id)
                 .map_err(skillbinder_core::import::ImportError::Validation)?;
             Ok(OrganizationDeletePreviewResponse {
-                child_folders: impact.child_folders as u32,
                 affected_skills: impact.affected_skills as u32,
                 organization_revision: skillbinder_platform::organization::revision(&graph)?,
             })

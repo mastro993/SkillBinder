@@ -316,7 +316,7 @@ const librarySkillSchema: z.ZodType<LibrarySkill> = z
   })
   .strict();
 const folderViewSchema: z.ZodType<FolderView> = z
-  .object({ id: z.string(), name: z.string(), parentId: z.string().nullable() })
+  .object({ id: z.string(), name: z.string() })
   .strict();
 const tagViewSchema: z.ZodType<TagView> = z
   .object({ id: z.string(), name: z.string() })
@@ -375,7 +375,6 @@ const organizationChangeSchema = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("createFolder"),
       name: z.string(),
-      parentId: z.string().nullable(),
     })
     .strict(),
   z
@@ -383,7 +382,6 @@ const organizationChangeSchema = z.discriminatedUnion("kind", [
       kind: z.literal("updateFolder"),
       id: z.string(),
       name: z.string(),
-      parentId: z.string().nullable(),
     })
     .strict(),
   z.object({ kind: z.literal("deleteFolder"), id: z.string() }).strict(),
@@ -417,7 +415,6 @@ export const organizationDeletePreviewRequestSchema: z.ZodType<OrganizationDelet
 export const organizationDeletePreviewResponseSchema: z.ZodType<OrganizationDeletePreviewResponse> =
   z
     .object({
-      childFolders: z.number(),
       affectedSkills: z.number(),
       organizationRevision: z.string(),
     })

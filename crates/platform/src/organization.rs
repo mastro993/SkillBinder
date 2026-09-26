@@ -132,7 +132,6 @@ mod tests {
             Change::CreateFolder {
                 id: "parent".into(),
                 name: "Parent".into(),
-                parent_id: None,
             },
             None,
         )

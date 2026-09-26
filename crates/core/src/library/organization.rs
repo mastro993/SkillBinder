@@ -8,7 +8,6 @@ use unicode_normalization::UnicodeNormalization;
 pub struct Folder {
     pub id: String,
     pub name: String,
-    pub parent_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,12 +39,10 @@ pub enum Change {
     CreateFolder {
         id: String,
         name: String,
-        parent_id: Option<String>,
     },
     UpdateFolder {
         id: String,
         name: String,
-        parent_id: Option<String>,
     },
     DeleteFolder {
         id: String,
@@ -73,7 +70,6 @@ pub enum Change {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteImpact {
-    pub child_folders: usize,
     pub affected_skills: usize,
 }
 
@@ -104,26 +100,8 @@ impl Organization {
             if !safe_id(id) || id != &folder.id || clean(&folder.name)? != folder.name {
                 return Err("Invalid folder record.".into());
             }
-            if folder
-                .parent_id
-                .as_ref()
-                .is_some_and(|parent| !self.folders.contains_key(parent))
-            {
-                return Err("A folder refers to a missing parent.".into());
-            }
-            if !folders.insert((folder.parent_id.clone(), key(&folder.name))) {
-                return Err("A folder with this name already exists here.".into());
-            }
-            let mut visited = BTreeSet::from([id.as_str()]);
-            let mut next = folder.parent_id.as_deref();
-            while let Some(parent) = next {
-                if !visited.insert(parent) {
-                    return Err("A folder cannot contain itself.".into());
-                }
-                next = self
-                    .folders
-                    .get(parent)
-                    .and_then(|value| value.parent_id.as_deref());
+            if !folders.insert(key(&folder.name)) {
+                return Err("A folder with this name already exists.".into());
             }
         }
         let mut tags = BTreeSet::new();
@@ -164,30 +142,19 @@ impl Organization {
         id: &str,
     ) -> Result<DeleteImpact, String> {
         if let Some(id) = folder_id {
-            let folder = self.folders.get(id).ok_or("Folder not found.")?;
             let mut proposed = self.clone();
-            proposed.folders.remove(id);
-            for child in proposed
-                .folders
-                .values_mut()
-                .filter(|child| child.parent_id.as_deref() == Some(id))
-            {
-                child.parent_id = folder.parent_id.clone();
+            if proposed.folders.remove(id).is_none() {
+                return Err("Folder not found.".into());
             }
             for skill in proposed
                 .skills
                 .values_mut()
                 .filter(|skill| skill.folder_id.as_deref() == Some(id))
             {
-                skill.folder_id = folder.parent_id.clone();
+                skill.folder_id = None;
             }
             proposed.validate()?;
             Ok(DeleteImpact {
-                child_folders: self
-                    .folders
-                    .values()
-                    .filter(|child| child.parent_id.as_deref() == Some(id))
-                    .count(),
                 affected_skills: self
                     .skills
                     .values()
@@ -199,7 +166,6 @@ impl Organization {
                 return Err("Tag not found.".into());
             }
             Ok(DeleteImpact {
-                child_folders: 0,
                 affected_skills: self
                     .skills
                     .values()
@@ -212,11 +178,7 @@ impl Organization {
     pub fn apply(&self, change: Change) -> Result<Self, String> {
         let mut next = self.clone();
         match change {
-            Change::CreateFolder {
-                id,
-                name,
-                parent_id,
-            } => {
+            Change::CreateFolder { id, name } => {
                 if next.folders.contains_key(&id) {
                     return Err("Folder ID already exists.".into());
                 }
@@ -225,39 +187,24 @@ impl Organization {
                     Folder {
                         id,
                         name: clean(&name)?,
-                        parent_id,
                     },
                 );
             }
-            Change::UpdateFolder {
-                id,
-                name,
-                parent_id,
-            } => {
+            Change::UpdateFolder { id, name } => {
                 let folder = next.folders.get_mut(&id).ok_or("Folder not found.")?;
                 folder.name = clean(&name)?;
-                folder.parent_id = parent_id;
             }
             Change::DeleteFolder { id } => {
                 self.preview_delete(Some(&id), &id)?;
-                let parent_id = next
-                    .folders
-                    .remove(&id)
-                    .ok_or("Folder not found.")?
-                    .parent_id;
-                for child in next
-                    .folders
-                    .values_mut()
-                    .filter(|child| child.parent_id.as_deref() == Some(&id))
-                {
-                    child.parent_id = parent_id.clone();
+                if next.folders.remove(&id).is_none() {
+                    return Err("Folder not found.".into());
                 }
                 for skill in next
                     .skills
                     .values_mut()
                     .filter(|skill| skill.folder_id.as_deref() == Some(&id))
                 {
-                    skill.folder_id = parent_id.clone();
+                    skill.folder_id = None;
                 }
             }
             Change::CreateTag { id, name } => {
@@ -317,7 +264,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn graph_rules_and_reparenting() {
+    fn graph_rules_and_folder_delete() {
         let mut graph = Organization::default();
         graph
             .skills
@@ -326,14 +273,12 @@ mod tests {
             .apply(Change::CreateFolder {
                 id: "a".into(),
                 name: "First".into(),
-                parent_id: None,
             })
             .unwrap();
         graph = graph
             .apply(Change::CreateFolder {
                 id: "b".into(),
-                name: "Child".into(),
-                parent_id: Some("a".into()),
+                name: "Second".into(),
             })
             .unwrap();
         assert!(
@@ -341,7 +286,6 @@ mod tests {
                 .apply(Change::CreateFolder {
                     id: "c".into(),
                     name: "FIRST".into(),
-                    parent_id: None
                 })
                 .is_err()
         );
@@ -362,12 +306,18 @@ mod tests {
         assert!(
             graph
                 .apply(Change::UpdateFolder {
-                    id: "a".into(),
-                    name: "First".into(),
-                    parent_id: Some("b".into())
+                    id: "b".into(),
+                    name: "First".into()
                 })
                 .is_err()
         );
+        graph = graph
+            .apply(Change::UpdateFolder {
+                id: "b".into(),
+                name: "Renamed".into(),
+            })
+            .unwrap();
+        assert_eq!(graph.folders["b"].name, "Renamed");
         graph = graph
             .apply(Change::Assign {
                 skill_ids: vec!["skill".into()],
@@ -379,15 +329,12 @@ mod tests {
             .unwrap();
         assert_eq!(
             graph.preview_delete(Some("a"), "a").unwrap(),
-            DeleteImpact {
-                child_folders: 1,
-                affected_skills: 1
-            }
+            DeleteImpact { affected_skills: 1 }
         );
         graph = graph
             .apply(Change::DeleteFolder { id: "a".into() })
             .unwrap();
-        assert_eq!(graph.folders["b"].parent_id, None);
         assert_eq!(graph.skills["skill"].folder_id, None);
+        assert_eq!(graph.folders.len(), 1);
     }
 }
