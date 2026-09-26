@@ -911,24 +911,6 @@ mod tests {
     }
 
     #[test]
-    fn nested_monorepo_projects_below_the_root_are_found() {
-        let mut source = FakeSource::default();
-        source.directory("/work", &["apps", "packages", "README.md"]);
-        source.directory("/work/apps", &["web"]);
-        source.skill("/work/apps/web");
-        source.directory("/work/packages", &["tool"]);
-        source.skill("/work/packages/tool");
-        let outcome = run_project(&source, "/work");
-        let mut slugs = outcome
-            .candidates
-            .iter()
-            .map(|candidate| candidate.slug.as_str())
-            .collect::<Vec<_>>();
-        slugs.sort_unstable();
-        assert_eq!(slugs, vec!["tool", "web"]);
-    }
-
-    #[test]
     fn git_directory_and_worktree_git_file_are_skipped() {
         let mut source = FakeSource::default();
         source.directory("/work", &[".git", "project"]);

@@ -96,12 +96,12 @@ mod tests {
     fn discovery_candidate_serializes_tagged_variants() {
         let candidate = DiscoveryCandidate {
             candidate_id: "scan-1:0".into(),
-            location_id: "scan-1:loc:0".into(),
             display_path: "/home/dev/.claude/skills/code-review".into(),
             slug: "code-review".into(),
             name: Some("code-review".into()),
             description: Some("Reviews code.".into()),
             reader_agent_ids: vec!["claude-code".into()],
+            reader_agent_labels: vec!["Claude Code".into()],
             validation: ValidationSummary {
                 status: ValidationStatus::Valid,
                 messages: vec![ValidationMessage {
@@ -123,7 +123,6 @@ mod tests {
         assert_eq!(value["duplicate"]["kind"], "identical");
         assert_eq!(value["fileCount"], 3);
         assert_eq!(value["totalBytes"], "2048");
-        assert_eq!(value["locationId"], "scan-1:loc:0");
         assert_eq!(value["linked"], false);
         assert_eq!(
             value["validation"]["messages"][0]["code"],
@@ -238,18 +237,14 @@ mod tests {
     }
 
     #[test]
-    fn scan_phase_and_exclusion_reason_use_camel_case_names() {
+    fn scan_phase_uses_camel_case_names() {
         assert_eq!(
             serde_json::to_value(ScanPhase::Cancelled).unwrap(),
             serde_json::json!("cancelled")
         );
         assert_eq!(
-            serde_json::to_value(ExclusionReason::MountBoundary).unwrap(),
-            serde_json::json!("mountBoundary")
-        );
-        assert_eq!(
-            serde_json::to_value(ExclusionReason::DependencyVendor).unwrap(),
-            serde_json::json!("dependencyVendor")
+            serde_json::to_value(ScanPhase::Finished).unwrap(),
+            serde_json::json!("finished")
         );
     }
 

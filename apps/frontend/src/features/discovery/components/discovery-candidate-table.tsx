@@ -31,7 +31,6 @@ export function DiscoveryCandidateTable({
   candidates,
   selected,
   onToggle,
-  agentLabels,
   selectionDisabled = false,
   paging,
   totalCandidates,
@@ -40,7 +39,6 @@ export function DiscoveryCandidateTable({
   candidates: DiscoveryCandidate[];
   selected: ReadonlySet<string>;
   onToggle: (candidateId: string) => void;
-  agentLabels: Record<string, string>;
   selectionDisabled?: boolean;
   paging: PagingState;
   totalCandidates: number;
@@ -68,7 +66,7 @@ export function DiscoveryCandidateTable({
           {candidates.map((candidate) => {
             const blocked = candidate.validation.status === "blocked";
             const readers = candidate.readerAgentIds.map(
-              (id) => agentLabels[id] ?? id,
+              (id, index) => candidate.readerAgentLabels[index] ?? id,
             );
             return (
               <TableRow
@@ -98,8 +96,7 @@ export function DiscoveryCandidateTable({
                     {candidate.displayPath}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {readers.map((id) => agentLabels[id] ?? id).join(", ") ||
-                      "Unknown reader"}
+                    {readers.join(", ") || "Unknown reader"}
                     {candidate.linked ? " · reached through a link" : ""}
                   </p>
                 </TableCell>

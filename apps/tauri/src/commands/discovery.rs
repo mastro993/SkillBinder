@@ -5,9 +5,8 @@ use crate::{
 use skillbinder_app::{AppState, SCAN_SESSION_SECONDS, ScanRootIdentity, ScanRun, ScanSession};
 use skillbinder_core::{
     discovery::{
-        Containment, ExclusionReason as CoreExclusionReason, ScanCandidate, ScanExclusion,
-        ScanInput, ScanLimits, ScanLocation, ScanOutcome, ScanPolicy,
-        ScanProgress as CoreScanProgress, ScanWarning, scan_roots,
+        Containment, LocationState, ScanCandidate, ScanInput, ScanLimits, ScanOutcome, ScanPolicy,
+        ScanProgress as CoreScanProgress, project_scan_inputs, scan_roots,
     },
     source::PayloadSource,
 };
@@ -93,6 +92,7 @@ pub fn start(app: &AppHandle, state: &AppState) -> Result<DiscoveryStartResponse
         }));
         match outcome {
             Ok(outcome) => {
+                report_scan(&outcome);
                 if let Some(session) = session_for(&outcome, &identities) {
                     cache_session(&state, &worker_scan_id, session);
                 }
@@ -101,6 +101,11 @@ pub fn start(app: &AppHandle, state: &AppState) -> Result<DiscoveryStartResponse
                 }
             }
             Err(_) => {
+                tracing::error!(
+                    event = "scan",
+                    scan_id = %worker_scan_id,
+                    outcome = "failed",
+                );
                 if let Ok(mut slot) = failure.lock() {
                     *slot = Some("the scan worker failed".into());
                 }
@@ -141,16 +146,11 @@ pub fn scan_inputs(state: &AppState) -> Result<Vec<ScanInput>, AppError> {
         if !root.enabled {
             continue;
         }
-        inputs.push(ScanInput {
-            root_id: Some(root.id.clone()),
-            path: root.canonical_path.clone(),
-            agent_ids: Vec::new(),
-            agent_labels: Vec::new(),
-            containment: Containment::Grant {
-                canonical: root.canonical_path,
-            },
-            policy: ScanPolicy::project(),
-        });
+        inputs.extend(project_scan_inputs(
+            &root,
+            &state.registry,
+            state.source.as_ref(),
+        ));
     }
     Ok(inputs)
 }
@@ -194,9 +194,6 @@ pub fn results(
         registry_version: state.registry.version,
         progress,
         limits_reached: false,
-        locations: Vec::new(),
-        exclusions: Vec::new(),
-        warnings: Vec::new(),
         candidates: Vec::new(),
         total_candidates: 0,
         hidden_duplicates: 0,
@@ -209,13 +206,6 @@ pub fn results(
         return Ok(response);
     };
     response.limits_reached = outcome.limits_reached;
-    response.locations = outcome
-        .locations
-        .iter()
-        .map(map_discovery_location)
-        .collect();
-    response.exclusions = outcome.exclusions.iter().map(map_exclusion).collect();
-    response.warnings = outcome.warnings.iter().map(map_warning).collect();
     let (visible, hidden_duplicates) = visible_candidates(outcome);
     response.hidden_duplicates = hidden_duplicates;
     response.total_candidates = visible.len() as u32;
@@ -368,6 +358,76 @@ fn cache_session(state: &AppState, scan_id: &str, session: ScanSession) {
     cache.retain(|_, session| session.created.elapsed().as_secs() < SCAN_SESSION_SECONDS);
 }
 
+/// The scan report belongs to the log, not to the results page. What the walk touched, what it
+/// skipped on purpose, and what it could not read stay here for support, and the screen keeps
+/// only the candidates.
+fn report_scan(outcome: &ScanOutcome) {
+    let mut scanned = 0_u32;
+    let mut missing = 0_u32;
+    let mut unreadable = 0_u32;
+    for location in &outcome.locations {
+        match location.state {
+            LocationState::Scanned => scanned += 1,
+            LocationState::Missing => missing += 1,
+            LocationState::Unreadable => unreadable += 1,
+        }
+    }
+    tracing::info!(
+        event = "scan",
+        scan_id = %outcome.scan_id,
+        outcome = if outcome.cancelled { "cancelled" } else { "finished" },
+        locations = outcome.locations.len(),
+        scanned,
+        missing,
+        unreadable,
+        candidates = outcome.candidates.len(),
+        exclusions = outcome.exclusions.len(),
+        warnings = outcome.warnings.len(),
+        limits_reached = outcome.limits_reached,
+    );
+    for location in &outcome.locations {
+        tracing::info!(
+            event = "scan.location",
+            scan_id = %outcome.scan_id,
+            path = %location.display_path,
+            state = location_state(&location.state),
+            detail = location.detail.as_deref(),
+            root_id = location.root_id.as_deref(),
+            agent_ids = ?location.agent_ids,
+            limit_reached = location.limit_reached,
+        );
+    }
+    for exclusion in &outcome.exclusions {
+        tracing::info!(
+            event = "scan.exclusion",
+            scan_id = %outcome.scan_id,
+            name = %exclusion.name,
+            reason = ?exclusion.reason,
+            matches = exclusion.matches,
+            sample_path = %exclusion.sample_path.display(),
+        );
+    }
+    for warning in &outcome.warnings {
+        tracing::warn!(
+            event = "scan.warning",
+            scan_id = %outcome.scan_id,
+            path = warning
+                .path
+                .as_deref()
+                .map(|path| path.display().to_string()),
+            message = %warning.message,
+        );
+    }
+}
+
+fn location_state(state: &LocationState) -> &'static str {
+    match state {
+        LocationState::Scanned => "scanned",
+        LocationState::Missing => "missing",
+        LocationState::Unreadable => "unreadable",
+    }
+}
+
 fn runs_error() -> AppError {
     app_error(
         ErrorCode::InternalError,
@@ -388,59 +448,15 @@ fn map_progress(progress: CoreScanProgress) -> DiscoveryProgress {
     }
 }
 
-fn map_discovery_location(location: &ScanLocation) -> DiscoveryLocation {
-    DiscoveryLocation {
-        location_id: location.location_id.clone(),
-        root_id: location.root_id.clone(),
-        display_path: location.display_path.clone(),
-        agent_ids: location.agent_ids.clone(),
-        agent_labels: location.agent_labels.clone(),
-        state: match location.state {
-            skillbinder_core::discovery::LocationState::Scanned => LocationState::Scanned,
-            skillbinder_core::discovery::LocationState::Missing => LocationState::Missing,
-            skillbinder_core::discovery::LocationState::Unreadable => LocationState::Unreadable,
-        },
-        detail: location.detail.clone(),
-        limit_reached: location.limit_reached,
-    }
-}
-
-fn map_exclusion(exclusion: &ScanExclusion) -> DiscoveryExclusion {
-    DiscoveryExclusion {
-        name: exclusion.name.clone(),
-        reason: match exclusion.reason {
-            CoreExclusionReason::VcsMetadata => ExclusionReason::VcsMetadata,
-            CoreExclusionReason::DependencyVendor => ExclusionReason::DependencyVendor,
-            CoreExclusionReason::BuildOutput => ExclusionReason::BuildOutput,
-            CoreExclusionReason::Cache => ExclusionReason::Cache,
-            CoreExclusionReason::VirtualEnvironment => ExclusionReason::VirtualEnvironment,
-            CoreExclusionReason::AppData => ExclusionReason::AppData,
-            CoreExclusionReason::MountBoundary => ExclusionReason::MountBoundary,
-        },
-        matches: exclusion.matches,
-        sample_path: exclusion.sample_path.display().to_string(),
-    }
-}
-
-fn map_warning(warning: &ScanWarning) -> DiscoveryWarning {
-    DiscoveryWarning {
-        display_path: warning
-            .path
-            .as_deref()
-            .map(|path| path.display().to_string()),
-        message: warning.message.clone(),
-    }
-}
-
 fn map_candidate(candidate: &skillbinder_core::discovery::ScanCandidate) -> DiscoveryCandidate {
     DiscoveryCandidate {
         candidate_id: candidate.candidate_id.clone(),
-        location_id: candidate.location_id.clone(),
         display_path: candidate.display_path.clone(),
         slug: candidate.slug.clone(),
         name: candidate.name.clone(),
         description: candidate.description.clone(),
         reader_agent_ids: candidate.reader_agent_ids.clone(),
+        reader_agent_labels: candidate.reader_agent_labels.clone(),
         validation: map_validation(candidate.validation.clone()),
         duplicate: match &candidate.duplicate {
             skillbinder_core::discovery::DuplicateStatus::Unique => CandidateDuplicate::Unique,
@@ -609,6 +625,118 @@ mod tests {
             skill_id: skill_id.into(),
             slug: skill_id.into(),
         }
+    }
+
+    fn scanned_report() -> ScanOutcome {
+        use skillbinder_core::discovery::{
+            ExclusionReason as CoreReason, LocationState as CoreState, ScanExclusion, ScanLocation,
+            ScanWarning,
+        };
+        let location = |index: usize, state: CoreState, path: &str| ScanLocation {
+            location_id: format!("scan-1:loc:{index}"),
+            root_id: None,
+            path: path.into(),
+            display_path: path.into(),
+            agent_ids: vec!["claude-code".into()],
+            agent_labels: vec!["Claude Code".into()],
+            state,
+            detail: None,
+            limit_reached: false,
+        };
+        ScanOutcome {
+            scan_id: "scan-1".into(),
+            locations: vec![
+                location(0, CoreState::Scanned, "/home/dev/.claude/skills"),
+                location(1, CoreState::Missing, "/home/dev/.codex/skills"),
+                location(2, CoreState::Unreadable, "/home/dev/.cursor/skills"),
+            ],
+            candidates: vec![candidate("found", DuplicateStatus::Unique)],
+            warnings: vec![ScanWarning {
+                path: Some("/home/dev/.cursor/skills".into()),
+                message: "source is unreadable: denied".into(),
+            }],
+            limits_reached: false,
+            exclusions: vec![ScanExclusion {
+                name: "node_modules".into(),
+                reason: CoreReason::DependencyVendor,
+                matches: 2,
+                sample_path: "/work/node_modules".into(),
+            }],
+            cancelled: false,
+        }
+    }
+
+    fn capture(outcome: &ScanOutcome) -> Vec<serde_json::Value> {
+        let written = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let subscriber = tracing_subscriber::fmt()
+            .json()
+            .flatten_event(true)
+            .with_ansi(false)
+            .with_writer({
+                let written = Arc::clone(&written);
+                move || ReportWriter(Arc::clone(&written))
+            })
+            .finish();
+        tracing::subscriber::with_default(subscriber, || report_scan(outcome));
+        let written =
+            String::from_utf8(written.lock().expect("lock buffer").clone()).expect("utf8 records");
+        written
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("json record"))
+            .collect()
+    }
+
+    struct ReportWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for ReportWriter {
+        fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .expect("lock buffer")
+                .extend_from_slice(buffer);
+            Ok(buffer.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_finished_scan_reports_its_diagnosis_to_the_log() {
+        let records = capture(&scanned_report());
+        let summary = &records[0];
+        assert_eq!(summary["event"], "scan");
+        assert_eq!(summary["outcome"], "finished");
+        assert_eq!(summary["locations"], 3);
+        assert_eq!(summary["scanned"], 1);
+        assert_eq!(summary["missing"], 1);
+        assert_eq!(summary["unreadable"], 1);
+        assert_eq!(summary["candidates"], 1);
+        assert_eq!(summary["exclusions"], 1);
+        assert_eq!(summary["warnings"], 1);
+
+        let states = records
+            .iter()
+            .filter(|record| record["event"] == "scan.location")
+            .map(|record| record["state"].as_str().unwrap_or_default().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(states, vec!["scanned", "missing", "unreadable"]);
+
+        let exclusion = records
+            .iter()
+            .find(|record| record["event"] == "scan.exclusion")
+            .expect("exclusion record");
+        assert_eq!(exclusion["name"], "node_modules");
+        assert_eq!(exclusion["reason"], "DependencyVendor");
+        assert_eq!(exclusion["matches"], 2);
+
+        let warning = records
+            .iter()
+            .find(|record| record["event"] == "scan.warning")
+            .expect("warning record");
+        assert_eq!(warning["level"], "WARN");
+        assert_eq!(warning["path"], "/home/dev/.cursor/skills");
+        assert_eq!(warning["message"], "source is unreadable: denied");
     }
 
     #[test]

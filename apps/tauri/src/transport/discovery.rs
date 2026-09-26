@@ -3,55 +3,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 contract! {
-    pub enum LocationState {
-        Scanned,
-        Missing,
-        Unreadable,
-    }
-}
-
-contract! {
-    pub enum ExclusionReason {
-        VcsMetadata,
-        DependencyVendor,
-        BuildOutput,
-        Cache,
-        VirtualEnvironment,
-        AppData,
-        MountBoundary,
-    }
-}
-
-contract! {
-    pub struct DiscoveryExclusion {
-        pub name: String,
-        pub reason: ExclusionReason,
-        pub matches: u32,
-        pub sample_path: String,
-    }
-}
-
-contract! {
-    pub struct DiscoveryWarning {
-        pub display_path: Option<String>,
-        pub message: String,
-    }
-}
-
-contract! {
-    pub struct DiscoveryLocation {
-        pub location_id: String,
-        pub root_id: Option<String>,
-        pub display_path: String,
-        pub agent_ids: Vec<String>,
-        pub agent_labels: Vec<String>,
-        pub state: LocationState,
-        pub detail: Option<String>,
-        pub limit_reached: bool,
-    }
-}
-
-contract! {
     pub enum ScanPhase {
         Running,
         Finished,
@@ -92,12 +43,12 @@ contract! {
 contract! {
     pub struct DiscoveryCandidate {
         pub candidate_id: String,
-        pub location_id: String,
         pub display_path: String,
         pub slug: String,
         pub name: Option<String>,
         pub description: Option<String>,
         pub reader_agent_ids: Vec<String>,
+        pub reader_agent_labels: Vec<String>,
         pub validation: ValidationSummary,
         pub duplicate: CandidateDuplicate,
         pub file_count: u32,
@@ -114,9 +65,6 @@ contract! {
         pub registry_version: u32,
         pub progress: DiscoveryProgress,
         pub limits_reached: bool,
-        pub locations: Vec<DiscoveryLocation>,
-        pub exclusions: Vec<DiscoveryExclusion>,
-        pub warnings: Vec<DiscoveryWarning>,
         pub candidates: Vec<DiscoveryCandidate>,
         pub total_candidates: u32,
         pub hidden_duplicates: u32,

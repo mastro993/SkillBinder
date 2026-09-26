@@ -11,8 +11,8 @@ fn main() {
 mod probe {
     use skillbinder_core::{
         discovery::{
-            Containment, ExclusionReason, LibraryCatalog, LocationState, ScanInput, ScanLimits,
-            ScanOutcome, ScanPolicy, ScanProgress, ScanRoot, scan_roots,
+            ExclusionReason, LibraryCatalog, LocationState, Registry, ScanInput, ScanLimits,
+            ScanOutcome, ScanPolicy, ScanProgress, ScanRoot, project_scan_inputs, scan_roots,
         },
         source::PayloadSource,
     };
@@ -54,7 +54,7 @@ mod probe {
         build_tree(&grant)?;
         let _cleanup = Cleanup {
             base: base.clone(),
-            locked: grant.join("unreadable"),
+            locked: grant.join(".claude/skills/unreadable"),
         };
 
         let source = FilesystemPayloadSource;
@@ -86,30 +86,29 @@ mod probe {
             registered[0].canonical_path.display()
         );
 
-        let full = scan(
-            &source,
-            &[
-                project_input(&canonical_grant, "probe-root", ScanPolicy::project()),
-                project_input(&base.join("gone"), "gone-root", ScanPolicy::project()),
-            ],
-            None,
-        )?;
+        let registry = Registry::load()?;
+        let roots = project_scan_inputs(&registered[0], &registry, &source);
+        let gone = project_scan_inputs(&registered[1], &registry, &source);
+        println!("known skill directories: {}", roots.len());
+
+        let mut inputs = roots.clone();
+        inputs.extend(gone);
+        let full = scan(&source, &inputs, None)?;
         print_outcome("full scan", &full);
         assert_full_scan(&full)?;
 
-        let limited = scan(
-            &source,
-            &[project_input(
-                &canonical_grant,
-                "probe-root",
-                ScanPolicy::project_with_limits(ScanLimits {
+        let limited_inputs = roots
+            .iter()
+            .map(|input| ScanInput {
+                policy: ScanPolicy::project_with_limits(ScanLimits {
                     category_depth: 12,
                     max_entries: 4,
                     max_link_hops: 16,
                 }),
-            )],
-            None,
-        )?;
+                ..input.clone()
+            })
+            .collect::<Vec<_>>();
+        let limited = scan(&source, &limited_inputs, None)?;
         print_outcome("budget scan", &limited);
         if !limited.limits_reached {
             return Err("a tiny entry budget did not set limits_reached".into());
@@ -123,15 +122,7 @@ mod probe {
         }
 
         let cancel = AtomicBool::new(false);
-        let cancelled = scan(
-            &source,
-            &[project_input(
-                &canonical_grant,
-                "probe-root",
-                ScanPolicy::project(),
-            )],
-            Some(&cancel),
-        )?;
+        let cancelled = scan(&source, &roots, Some(&cancel))?;
         print_outcome("cancelled scan", &cancelled);
         if !cancelled.cancelled {
             return Err("the cancelled scan did not report cancelled".into());
@@ -147,19 +138,6 @@ mod probe {
              (covered by the discovery unit test)"
         );
         Ok(())
-    }
-
-    fn project_input(path: &Path, root_id: &str, policy: ScanPolicy) -> ScanInput {
-        ScanInput {
-            root_id: Some(root_id.to_owned()),
-            path: path.to_path_buf(),
-            agent_ids: Vec::new(),
-            agent_labels: Vec::new(),
-            containment: Containment::Grant {
-                canonical: path.to_path_buf(),
-            },
-            policy,
-        }
     }
 
     fn scan(
@@ -214,6 +192,9 @@ mod probe {
         }
         if slugs.contains(&"decoy") {
             return Err("the vendored decoy skill was scanned".into());
+        }
+        if slugs.contains(&"loose") {
+            return Err("a skill outside the known skill directories was scanned".into());
         }
         let decoy = outcome
             .candidates
@@ -318,11 +299,13 @@ mod probe {
     }
 
     fn build_tree(grant: &Path) -> Result<(), Box<dyn Error>> {
-        let alpha = grant.join("projects/alpha");
+        let skills = grant.join(".claude/skills");
+
+        let alpha = skills.join("alpha");
         fs::create_dir_all(&alpha)?;
         fs::write(alpha.join("SKILL.md"), SKILL)?;
 
-        let beta = grant.join("projects/beta");
+        let beta = skills.join("beta");
         fs::create_dir_all(&beta)?;
         fs::write(
             beta.join("README.md"),
@@ -331,27 +314,28 @@ mod probe {
         fs::write(beta.join(".git"), "gitdir: /work/worktrees/beta\n")?;
 
         for name in ["p2", "p3", "p4", "p5"] {
-            let sibling = grant.join("projects").join(name);
+            let sibling = skills.join(name);
             fs::create_dir_all(&sibling)?;
             fs::write(sibling.join("SKILL.md"), SKILL)?;
         }
 
-        let decoy = grant.join("vendor/decoy");
+        let decoy = skills.join("vendor/decoy");
         fs::create_dir_all(&decoy)?;
         fs::write(decoy.join("SKILL.md"), SKILL)?;
 
-        let payload = grant.join("payload");
+        let payload = skills.join("payload");
         fs::create_dir_all(&payload)?;
         fs::write(payload.join("SKILL.md"), SKILL)?;
+        symlink("payload", skills.join("alias"))?;
 
-        let links = grant.join("links");
-        fs::create_dir_all(&links)?;
-        symlink("../payload", links.join("alias"))?;
-
-        let unreadable = grant.join("unreadable");
+        let unreadable = skills.join("unreadable");
         fs::create_dir_all(&unreadable)?;
         fs::write(unreadable.join("SKILL.md"), SKILL)?;
         fs::set_permissions(&unreadable, fs::Permissions::from_mode(0o000))?;
+
+        let loose = grant.join("src/loose");
+        fs::create_dir_all(&loose)?;
+        fs::write(loose.join("SKILL.md"), SKILL)?;
         Ok(())
     }
 

@@ -82,6 +82,15 @@ impl Registry {
     pub fn load() -> Result<Self, RegistryError> {
         Self::parse(REGISTRY_JSON)
     }
+    /// The project-relative skill directories the registry knows, deduplicated in registry order.
+    pub fn project_skill_dirs(&self) -> Vec<&str> {
+        let mut seen = HashSet::new();
+        self.agents
+            .iter()
+            .map(|agent| agent.project_skills_dir.as_str())
+            .filter(|dir| seen.insert(*dir))
+            .collect()
+    }
     pub fn parse(input: &str) -> Result<Self, RegistryError> {
         let wire: WireRegistry =
             serde_json::from_str(input).map_err(|e| RegistryError::Json(e.to_string()))?;

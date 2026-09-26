@@ -11,13 +11,13 @@ const candidate = (
   id: string,
 ): DiscoveryCandidate => ({
   candidateId: id,
-  locationId: `location-${id}`,
   linked: false,
   displayPath: `/skills/${id}`,
   slug: id,
   name: id,
   description: status === "invalid" ? null : "Description",
   readerAgentIds: ["claude-code"],
+  readerAgentLabels: ["Claude Code"],
   validation: {
     status,
     messages:
@@ -42,7 +42,6 @@ describe("discovery candidate table", () => {
         ]}
         selected={new Set()}
         onToggle={onToggle}
-        agentLabels={{ "claude-code": "Claude Code" }}
         paging={pagingState(0, 50, 2)}
         totalCandidates={2}
         onPage={vi.fn<(offset: number) => void>()}
@@ -65,7 +64,6 @@ describe("discovery candidate table", () => {
         candidates={[candidate("valid", "clean")]}
         selected={new Set(["clean"])}
         onToggle={onToggle}
-        agentLabels={{ "claude-code": "Claude Code" }}
         paging={pagingState(0, 50, 1)}
         totalCandidates={1}
         onPage={vi.fn<(offset: number) => void>()}
@@ -84,7 +82,6 @@ describe("discovery candidate table", () => {
         candidates={[candidate("valid", "clean")]}
         selected={new Set()}
         onToggle={onToggle}
-        agentLabels={{ "claude-code": "Claude Code" }}
         selectionDisabled
         paging={pagingState(50, 50, 120)}
         totalCandidates={120}
