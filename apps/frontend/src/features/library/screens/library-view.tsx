@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -62,7 +63,7 @@ export function LibraryView() {
         title="Library"
         action={
           <Button disabled>
-            <Plus aria-hidden="true" /> New skill
+            <HugeiconsIcon icon={PlusSignIcon} aria-hidden="true" /> New skill
           </Button>
         }
       />
@@ -78,7 +79,7 @@ export function LibraryView() {
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <span className="text-primary">
-                <BookOpen aria-hidden="true" />
+                <HugeiconsIcon icon={BookOpen02Icon} aria-hidden="true" />
               </span>
             </EmptyMedia>
             <EmptyTitle>Your library is ready</EmptyTitle>
