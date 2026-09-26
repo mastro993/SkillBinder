@@ -16,3 +16,4 @@ pub mod process_lock;
 pub mod redact;
 pub mod reveal;
 pub mod rotating_log;
+pub mod sync_commit;

@@ -939,6 +939,8 @@ Create commits for imports, source updates, saves, file operations, organization
 
 Use predictable messages and an operation trailer, for example `Update skill: code-review` with an opaque `Operation-ID`. Commit messages must not include machine paths, credentials, or full skill text.
 
+A library sync commit is titled `chore(skills): SkillBinder sync {id}`. The `{id}` is a UTC timestamp with a short random suffix, so it stays unique across devices instead of counting locally, and it is repeated in the `Operation-ID` trailer. Its description lists the skills added, removed, and updated, naming the slug, folder, tags, digest, and totals that moved. When the catalog itself is unchanged, the description reports the managed file totals instead.
+
 History supports pagination, change summaries, per-skill filtering, file diffs, binary-change summaries, and a whole-skill restore preview. A restore makes a new commit with the selected historical state. It never resets the branch or erases later history.
 
 A skill restore includes its payload and selected skill metadata. If its historical folder/tag references no longer exist, the preview must propose restoring those records or mapping the skill to the current organization. Require a choice. Do not commit dangling references.
@@ -977,9 +979,9 @@ Machine paths and deployments are registered independently after clone. A projec
 
 ### 18.3 Fetch and preview
 
-Fetching updates remote-tracking state, not the active library. Validate the incoming Git tree before it can become a working tree: schema, IDs, folder graph, payload manifests, limits, allowed paths, and unsupported file types.
+Fetching updates remote-tracking state, not the active library. The library working tree holds only `skills/` and `.skillbinder.json`. A branch may also carry files that belong to whoever else shares the repository, so a sync must leave every other path alone: never materialized here, never committed, never deleted. Only those two owned paths ever travel from this machine to the remote.
 
-Reject entries outside the library schema. Do not materialize remote `.git`, Git configuration, hooks, symlinks, or arbitrary root-level files. Do not fetch submodules or execute filters. A remote repository is untrusted input even when the user owns it.
+Validate the incoming library metadata before it can reach the working tree. `.skillbinder.json` at the incoming reference must parse under the supported schema. Do not fetch submodules or execute filters. A remote repository is untrusted input even when the user owns it, and a shared branch is not permission to read or write the files beside the library.
 
 Show the local commit, observed remote commit, incoming changes, outgoing changes, and proposed result. No background fetch or push occurs unless a later product decision adds it.
 

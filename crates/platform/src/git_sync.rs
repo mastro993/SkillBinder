@@ -1,11 +1,18 @@
 use crate::{
     git::{GitEnvironment, GitError, VerifiedGit},
     paths::AppPaths,
+    portable_metadata::PortableMetadata,
+    sync_commit,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use skillbinder_core::git_sync::{SyncFacts, SyncState, classify};
 use std::{ffi::OsString, fs, sync::Mutex};
 use thiserror::Error;
+
+/// The only paths SkillBinder tracks. Everything else a branch may carry belongs to whoever else
+/// shares that repository, and stays untouched.
+const SCOPE_PATTERNS: [&str; 2] = ["/skills/", "/.skillbinder.json"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,6 +85,7 @@ impl GitSyncService {
             .map_err(|_| GitSyncError::Storage("Git sync lock is poisoned".into()))?;
         let git = self.git.verify()?;
         self.ensure_origin(&git, remote)?;
+        self.scope_working_tree(&git)?;
         self.write_config(&RemoteConfig {
             remote: remote.trim().to_owned(),
             branch: branch.trim().to_owned(),
@@ -104,7 +112,8 @@ impl GitSyncService {
             return Ok(status);
         }
         let reference = remote_reference(&config.branch);
-        self.check_managed_diff(&git, &reference)?;
+        self.scope_working_tree(&git)?;
+        self.check_remote_metadata(&git, &reference)?;
         self.run(&git, &["merge", "--ff-only", &reference])?;
         self.status_locked()
     }
@@ -151,7 +160,8 @@ impl GitSyncService {
         }
         if status.state == SyncState::NeedsPull {
             let reference = remote_reference(&config.branch);
-            self.check_managed_diff(&git, &reference)?;
+            self.scope_working_tree(&git)?;
+            self.check_remote_metadata(&git, &reference)?;
             self.run(&git, &["merge", "--ff-only", &reference])?;
             status = self.status_locked_with(&git, &config)?;
         }
@@ -310,7 +320,31 @@ impl GitSyncService {
         }
     }
 
+    /// Keeps the library working tree to the paths SkillBinder owns. A branch can also carry files
+    /// that belong to whoever else shares it, and those must never be materialized, committed, or
+    /// deleted here.
+    fn scope_working_tree(&self, git: &VerifiedGit) -> Result<(), GitSyncError> {
+        let relative = self.output(git, &["rev-parse", "--git-path", "info/sparse-checkout"])?;
+        let current = fs::read_to_string(self.paths.library().join(relative)).unwrap_or_default();
+        if current.lines().eq(SCOPE_PATTERNS.iter().copied()) {
+            return Ok(());
+        }
+        self.run(
+            git,
+            &[
+                "sparse-checkout",
+                "set",
+                "--no-cone",
+                "--",
+                SCOPE_PATTERNS[0],
+                SCOPE_PATTERNS[1],
+            ],
+        )?;
+        Ok(())
+    }
+
     fn commit_managed_changes(&self, git: &VerifiedGit) -> Result<(), GitSyncError> {
+        self.scope_working_tree(git)?;
         let staged = self.output(git, &["diff", "--cached", "--name-only"])?;
         if staged.lines().any(|path| !is_managed_path(path)) {
             return Err(GitSyncError::Storage(
@@ -322,6 +356,15 @@ impl GitSyncService {
         if staged.trim().is_empty() {
             return Ok(());
         }
+        let id = sync_commit::new_sync_id(Utc::now());
+        let change = sync_commit::catalog_change(
+            self.catalog(git, "HEAD:.skillbinder.json").as_ref(),
+            self.catalog(git, ":.skillbinder.json").as_ref(),
+        );
+        let stats = self
+            .output(git, &["diff", "--cached", "--shortstat"])
+            .unwrap_or_default();
+        let message = sync_commit::commit_message(&id, &change, Some(&stats));
         self.run(
             git,
             &[
@@ -334,19 +377,27 @@ impl GitSyncService {
                 "commit",
                 "--no-verify",
                 "-m",
-                "Sync SkillBinder library",
+                message.as_str(),
             ],
         )?;
         Ok(())
     }
 
-    fn check_managed_diff(&self, git: &VerifiedGit, reference: &str) -> Result<(), GitSyncError> {
-        let changed = self.output(git, &["diff", "--name-only", &format!("HEAD..{reference}")])?;
-        if changed.lines().any(|path| !is_managed_path(path)) {
-            return Err(GitSyncError::RemoteUnavailable(
-                "remote contains files outside the SkillBinder library".into(),
-            ));
-        }
+    /// The catalog recorded in one Git tree. A missing or unreadable tree is an absent catalog, so a
+    /// change description never blocks the commit it describes.
+    fn catalog(&self, git: &VerifiedGit, tree: &str) -> Option<PortableMetadata> {
+        let bytes = self.output(git, &["show", tree]).ok()?;
+        PortableMetadata::parse(bytes.as_bytes()).ok()
+    }
+
+    /// Validates the incoming library metadata before the reference can reach the working tree. The
+    /// branch may carry files that belong to whoever else shares it, so only the library metadata is
+    /// checked here; [`Self::scope_working_tree`] keeps those other paths out of this working tree.
+    fn check_remote_metadata(
+        &self,
+        git: &VerifiedGit,
+        reference: &str,
+    ) -> Result<(), GitSyncError> {
         let metadata = self.output(git, &["show", &format!("{reference}:.skillbinder.json")])?;
         crate::portable_metadata::PortableMetadata::parse(metadata.as_bytes()).map_err(
             |error| GitSyncError::RemoteUnavailable(format!("remote metadata is invalid: {error}")),
@@ -514,7 +565,164 @@ mod tests {
             std::fs::read_to_string(library.join("skills/review/SKILL.md")).unwrap(),
             "remote"
         );
+
+        std::fs::write(library.join("skills/review/SKILL.md"), "local edit").unwrap();
+        std::fs::write(
+            library.join(".skillbinder.json"),
+            metadata_json("f_2", &["t_1"], &"a".repeat(64)),
+        )
+        .unwrap();
+        assert_eq!(service.push().unwrap().state, SyncState::Synced);
+
+        let subject = library_log(&library, "%s");
+        let id = subject
+            .strip_prefix("chore(skills): SkillBinder sync ")
+            .unwrap_or_else(|| panic!("unexpected sync commit subject: {subject}"));
+        let body = library_log(&library, "%b");
+        assert!(body.contains("Skills added:\n- review\n"), "{body}");
+        assert!(body.contains(&format!("Operation-ID: {id}")), "{body}");
+
+        std::fs::write(
+            library.join(".skillbinder.json"),
+            metadata_json("f_3", &["t_2"], &"a".repeat(64)),
+        )
+        .unwrap();
+        assert_eq!(service.push().unwrap().state, SyncState::Synced);
+        let body = library_log(&library, "%b");
+        assert!(
+            body.contains("Skills updated:\n- review: folder f_2 -> f_3, tags +t_2 -t_1\n"),
+            "{body}"
+        );
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn syncs_a_branch_that_also_carries_other_files_without_touching_them() {
+        let root = std::env::temp_dir().join(format!(
+            "skillbinder-git-sync-shared-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        let library = root.join("data/library");
+        let remote = root.join("remote.git");
+        let peer = root.join("peer");
+        std::fs::create_dir_all(library.join("skills/review")).unwrap();
+        std::fs::create_dir_all(&remote).unwrap();
+        write_empty_metadata(&library);
+        std::fs::write(library.join("skills/review/SKILL.md"), "local").unwrap();
+        run_git(&library, &["init", "--initial-branch=main"]);
+        run_git(&library, &["config", "user.name", "Test"]);
+        run_git(&library, &["config", "user.email", "test@example.invalid"]);
+        run_git(&library, &["add", "."]);
+        run_git(&library, &["commit", "-m", "initial"]);
+        run_git(&remote, &["init", "--bare", "--initial-branch=main"]);
+
+        let paths = AppPaths::new(root.join("data"), root.join("config"), root.join("cache"));
+        paths.create_base_directories().unwrap();
+        let service = GitSyncService::new(paths);
+        let remote_url = format!("file://{}", remote.display());
+        service.connect(&remote_url, "main").unwrap();
+        assert_eq!(service.push().unwrap().state, SyncState::Synced);
+
+        run_git_at(&root, &["clone", &remote_url, "peer"]);
+        run_git(&peer, &["config", "user.name", "Peer"]);
+        run_git(&peer, &["config", "user.email", "peer@example.invalid"]);
+        std::fs::create_dir_all(peer.join("docs")).unwrap();
+        std::fs::write(peer.join("README.md"), "other").unwrap();
+        std::fs::write(peer.join("docs/notes.md"), "notes").unwrap();
+        std::fs::write(peer.join(".gitattributes"), "*.md text\n").unwrap();
+        run_git(&peer, &["add", "."]);
+        run_git(&peer, &["commit", "-m", "other files"]);
+        run_git(&peer, &["push", "origin", "main"]);
+
+        assert_eq!(service.status().unwrap().state, SyncState::NeedsPull);
+        assert_eq!(service.pull().unwrap().state, SyncState::Synced);
+        for foreign in ["README.md", "docs", ".gitattributes"] {
+            assert!(
+                !library.join(foreign).exists(),
+                "{foreign} reached the library working tree"
+            );
+        }
+        assert!(git_output(&library, &["ls-files"]).contains("README.md"));
+
+        std::fs::write(library.join("skills/review/SKILL.md"), "local edit").unwrap();
+        std::fs::write(library.join("stray.txt"), "stray").unwrap();
+        std::fs::write(
+            library.join(".skillbinder.json"),
+            metadata_json("f_2", &["t_1"], &"a".repeat(64)),
+        )
+        .unwrap();
+        assert_eq!(service.push().unwrap().state, SyncState::Synced);
+
+        let subject = library_log(&library, "%s");
+        assert!(
+            subject.starts_with("chore(skills): SkillBinder sync "),
+            "{subject}"
+        );
+        assert_eq!(
+            git_output(&remote, &["ls-tree", "-r", "--name-only", "main"]),
+            ".gitattributes\n.skillbinder.json\nREADME.md\ndocs/notes.md\nskills/review/SKILL.md"
+        );
+        assert_eq!(git_output(&remote, &["show", "main:README.md"]), "other");
+        assert_eq!(
+            git_output(&remote, &["show", "main:docs/notes.md"]),
+            "notes"
+        );
+        assert_eq!(
+            git_output(&remote, &["show", "main:skills/review/SKILL.md"]),
+            "local edit"
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    fn write_empty_metadata(library: &std::path::Path) {
+        std::fs::write(
+            library.join(".skillbinder.json"),
+            "{\"schemaVersion\":2,\"libraryId\":\"library\",\"createdAt\":\"now\",\"contentPolicyVersion\":1,\"skills\":{}}\n",
+        )
+        .unwrap();
+    }
+
+    fn git_output(directory: &std::path::Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .current_dir(directory)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git command failed: git {}",
+            args.join(" ")
+        );
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .trim_end()
+            .to_owned()
+    }
+
+    fn metadata_json(folder: &str, tags: &[&str], digest: &str) -> String {
+        let tags: Vec<String> = tags.iter().map(|tag| format!("\"{tag}\"")).collect();
+        format!(
+            "{{\"schemaVersion\":2,\"libraryId\":\"library\",\"createdAt\":\"now\",\"contentPolicyVersion\":1,\"skills\":{{\"skill\":{{\"id\":\"skill\",\"slug\":\"review\",\"displayName\":null,\"folderId\":\"{folder}\",\"tagIds\":[{}],\"upstreamBindings\":[],\"digest\":\"{digest}\",\"fileCount\":1,\"totalBytes\":10}}}}}}\n",
+            tags.join(",")
+        )
+    }
+
+    fn library_log(directory: &std::path::Path, format: &str) -> String {
+        let output = std::process::Command::new("git")
+            .current_dir(directory)
+            .args(["log", "-1", &format!("--pretty={format}")])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "git log failed");
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .trim_end()
+            .to_owned()
     }
 
     fn run_git(directory: &std::path::Path, args: &[&str]) {
