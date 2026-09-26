@@ -1,6 +1,13 @@
 import type { PropsWithChildren } from "react";
+import {
+  BookOpen01Icon,
+  Compass01Icon,
+  GitBranchIcon,
+  Settings01Icon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Compass, GitBranch, Settings, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScanActivity } from "@/features/discovery/components/scan-activity";
 import { GitSyncNavStatus } from "@/features/git-sync/components/git-sync-nav-status";
@@ -8,18 +15,23 @@ import { GitSyncNavStatus } from "@/features/git-sync/components/git-sync-nav-st
 interface NavItem {
   to: string;
   label: string;
-  icon: typeof Compass;
+  icon: IconSvgElement;
   activity: boolean;
 }
 
 const mainNavItems: NavItem[] = [
-  { to: "/discovery", label: "Discovery", icon: Compass, activity: true },
-  { to: "/library", label: "Library", icon: BookOpen, activity: false },
+  {
+    to: "/discovery",
+    label: "Discovery",
+    icon: Compass01Icon,
+    activity: true,
+  },
+  { to: "/library", label: "Library", icon: BookOpen01Icon, activity: false },
 ];
 
 const footerNavItems: NavItem[] = [
-  { to: "/git", label: "Git sync", icon: GitBranch, activity: false },
-  { to: "/settings", label: "Settings", icon: Settings, activity: false },
+  { to: "/git", label: "Git sync", icon: GitBranchIcon, activity: false },
+  { to: "/settings", label: "Settings", icon: Settings01Icon, activity: false },
 ];
 
 const navLinkBase =
@@ -39,7 +51,7 @@ export function AppShell({ children }: PropsWithChildren) {
             : `${navLinkBase} text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground`
         }
       >
-        <Icon size={18} aria-hidden="true" />
+        <HugeiconsIcon icon={Icon} size={18} aria-hidden="true" />
         <span className="max-md:hidden">{label}</span>
         {activity ? <ScanActivity /> : null}
         {to === "/git" ? <GitSyncNavStatus /> : null}
@@ -51,7 +63,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <aside className="flex flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-4 pt-7 pb-5">
         <div className="flex items-center gap-2.5 px-2 pb-7 text-lg font-extrabold tracking-tight">
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles size={18} aria-hidden="true" />
+            <HugeiconsIcon icon={SparklesIcon} size={18} aria-hidden="true" />
           </span>
           <span className="max-md:hidden">SkillBinder</span>
         </div>

@@ -1,6 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Cloud, GitBranch, RefreshCw, Unplug } from "lucide-react";
+import {
+  CloudIcon,
+  GitBranchIcon,
+  RefreshIcon,
+  UnplugIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -166,7 +172,11 @@ export function GitSyncView() {
             </CardContent>
             <CardFooter className="justify-end">
               <Button type="submit" disabled={connect.isPending}>
-                <Cloud />
+                <HugeiconsIcon
+                  icon={CloudIcon}
+                  data-icon="inline-start"
+                  aria-hidden="true"
+                />
                 {connect.isPending ? "Connecting…" : "Connect remote"}
               </Button>
             </CardFooter>
@@ -181,7 +191,8 @@ export function GitSyncView() {
                   <CardTitle>{copy?.label}</CardTitle>
                   <CardDescription>{copy?.description}</CardDescription>
                 </div>
-                <GitBranch
+                <HugeiconsIcon
+                  icon={GitBranchIcon}
                   className="mt-1 text-muted-foreground"
                   aria-hidden="true"
                 />
@@ -226,7 +237,11 @@ export function GitSyncView() {
                   onClick={() => refresh.mutate()}
                   disabled={operation}
                 >
-                  <RefreshCw />
+                  <HugeiconsIcon
+                    icon={RefreshIcon}
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />
                   Refresh status
                 </Button>
                 {current.state === "needsPull" ? (
@@ -250,13 +265,17 @@ export function GitSyncView() {
                 onClick={() => disconnect.mutate()}
                 disabled={operation}
               >
-                <Unplug />
+                <HugeiconsIcon
+                  icon={UnplugIcon}
+                  data-icon="inline-start"
+                  aria-hidden="true"
+                />
                 Disconnect
               </Button>
             </CardFooter>
           </Card>
           <Alert variant="muted">
-            <GitBranch aria-hidden="true" />
+            <HugeiconsIcon icon={GitBranchIcon} aria-hidden="true" />
             <AlertTitle>Only library content travels</AlertTitle>
             <AlertDescription>
               Skill payloads in <code>skills/</code> and portable metadata in{" "}

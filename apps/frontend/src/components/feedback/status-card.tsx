@@ -1,5 +1,9 @@
 import type { PrerequisiteStatus } from "@/types";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function StatusCard({
@@ -13,9 +17,9 @@ export function StatusCard({
   return (
     <Alert variant={ready ? "success" : "warning"} role="note">
       {ready ? (
-        <CheckCircle2 aria-hidden="true" />
+        <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden="true" />
       ) : (
-        <AlertCircle aria-hidden="true" />
+        <HugeiconsIcon icon={AlertCircleIcon} aria-hidden="true" />
       )}
       <div className="flex flex-col gap-0.5">
         <p className="text-xs font-extrabold tracking-widest uppercase">

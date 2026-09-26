@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type { RootView } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,11 @@ export function DiscoveryRootsPanel({
       </CardContent>
       <CardFooter className="justify-end">
         <Button onClick={onAdd} disabled={adding}>
-          <Plus aria-hidden="true" />{" "}
+          <HugeiconsIcon
+            icon={PlusSignIcon}
+            data-icon="inline-start"
+            aria-hidden="true"
+          />{" "}
           {adding ? "Choosing a folder…" : "Add folder"}
         </Button>
       </CardFooter>
