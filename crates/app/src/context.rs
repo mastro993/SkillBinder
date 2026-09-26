@@ -6,8 +6,9 @@ use skillbinder_core::{
 };
 use skillbinder_db::StateStore;
 use skillbinder_platform::{
-    library_repository::FilesystemLibraryRepository, local_environment::LocalEnvironment,
-    paths::AppPaths, payload_filesystem::FilesystemPayloadSource, process_lock::ProcessLock,
+    git_sync::GitSyncService, library_repository::FilesystemLibraryRepository,
+    local_environment::LocalEnvironment, paths::AppPaths,
+    payload_filesystem::FilesystemPayloadSource, process_lock::ProcessLock,
 };
 use std::{
     collections::HashMap,
@@ -33,6 +34,7 @@ pub struct AppState {
     pub registry: Registry,
     pub source: Arc<FilesystemPayloadSource>,
     pub library: Arc<FilesystemLibraryRepository>,
+    pub git_sync: Arc<GitSyncService>,
     pub store: Arc<StateStore>,
     pub import_service: Arc<ImportService>,
     pub scan_sessions: Mutex<HashMap<String, ScanSession>>,
@@ -46,6 +48,7 @@ impl AppState {
         let state_store = store.clone();
         let source = Arc::new(FilesystemPayloadSource);
         let library = Arc::new(FilesystemLibraryRepository::new(paths.clone()));
+        let git_sync = Arc::new(GitSyncService::new(paths.clone()));
         let import_service = Arc::new(ImportService {
             source: source.clone(),
             plans: store.clone(),
@@ -69,6 +72,7 @@ impl AppState {
             registry: Registry::load()?,
             source,
             library,
+            git_sync,
             store: state_store,
             import_service,
             scan_sessions: Mutex::new(HashMap::new()),

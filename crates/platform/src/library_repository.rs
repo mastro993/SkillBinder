@@ -1,4 +1,9 @@
-use crate::{git::GitEnvironment, paths::AppPaths, payload_filesystem::FilesystemPayloadSource};
+use crate::{
+    git::GitEnvironment,
+    paths::AppPaths,
+    payload_filesystem::FilesystemPayloadSource,
+    portable_metadata::{PortableMetadata, PortableSkill},
+};
 use serde_json::json;
 use skillbinder_core::{
     discovery::LibraryCatalog,
@@ -31,9 +36,106 @@ impl FilesystemLibraryRepository {
     fn map(error: impl ToString) -> ImportError {
         ImportError::Library(error.to_string())
     }
+
+    fn metadata(&self) -> Result<PortableMetadata, ImportError> {
+        let path = self.root().join(".skillbinder.json");
+        if path.is_file() {
+            return PortableMetadata::load(&path).map_err(Self::map);
+        }
+        let legacy = self.root().join(".skillbinder/library.json");
+        let bytes = fs::read(&legacy).map_err(Self::map)?;
+        let record: serde_json::Value = serde_json::from_slice(&bytes).map_err(Self::map)?;
+        let library_id = record
+            .get("libraryId")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| Self::map("library metadata has no library id"))?;
+        let created_at = record
+            .get("createdAt")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let mut metadata = PortableMetadata::new(library_id.to_owned(), created_at.to_owned());
+        let skills = self.root().join(".skillbinder/skills");
+        let manifests = self.root().join(".skillbinder/manifests");
+        if skills.is_dir() && manifests.is_dir() {
+            for item in fs::read_dir(skills).map_err(Self::map)? {
+                let record_path = item.map_err(Self::map)?.path();
+                if record_path.extension().and_then(|value| value.to_str()) != Some("json") {
+                    continue;
+                }
+                let skill = record_path
+                    .file_stem()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+                    .to_owned();
+                let record: serde_json::Value =
+                    serde_json::from_slice(&fs::read(&record_path).map_err(Self::map)?)
+                        .map_err(Self::map)?;
+                let manifest_path = manifests.join(format!("{skill}.json"));
+                let manifest = serde_json::from_slice(&fs::read(manifest_path).map_err(Self::map)?)
+                    .map_err(Self::map)?;
+                metadata.skills.insert(
+                    skill.clone(),
+                    PortableSkill {
+                        id: skill,
+                        slug: record
+                            .get("slug")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or_default()
+                            .to_owned(),
+                        display_name: record
+                            .get("displayName")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned),
+                        folder_id: record
+                            .get("folderId")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned),
+                        tag_ids: record
+                            .get("tagIds")
+                            .and_then(serde_json::Value::as_array)
+                            .map(|values| {
+                                values
+                                    .iter()
+                                    .filter_map(serde_json::Value::as_str)
+                                    .map(str::to_owned)
+                                    .collect()
+                            })
+                            .unwrap_or_default(),
+                        upstream_bindings: record
+                            .get("upstreamBindings")
+                            .and_then(serde_json::Value::as_array)
+                            .cloned()
+                            .unwrap_or_default(),
+                        manifest,
+                    },
+                );
+            }
+        }
+        Ok(metadata)
+    }
+
+    fn write_metadata(&self, metadata: &PortableMetadata) -> Result<(), ImportError> {
+        metadata
+            .write(&self.root().join(".skillbinder.json"))
+            .map_err(Self::map)
+    }
 }
 impl LibraryRepository for FilesystemLibraryRepository {
     fn catalog(&self) -> Result<Vec<LibraryRecord>, ImportError> {
+        let portable = self.root().join(".skillbinder.json");
+        if portable.is_file() {
+            let metadata = PortableMetadata::load(&portable).map_err(Self::map)?;
+            return Ok(metadata
+                .skills
+                .into_values()
+                .map(|skill| LibraryRecord {
+                    skill_id: skill.id,
+                    slug: skill.slug,
+                    digest: skill.manifest.digest.clone(),
+                    manifest: skill.manifest,
+                })
+                .collect());
+        }
         let dir = self.root().join(".skillbinder/manifests");
         let mut out = Vec::new();
         if !dir.exists() {
@@ -141,18 +243,29 @@ impl LibraryRepository for FilesystemLibraryRepository {
         slug: &str,
         model: &PayloadModel,
     ) -> Result<(), ImportError> {
-        let meta = self.root().join(".skillbinder");
-        fs::create_dir_all(meta.join("skills")).map_err(Self::map)?;
-        fs::create_dir_all(meta.join("manifests")).map_err(Self::map)?;
-        fs::write(meta.join("skills").join(format!("{skill}.json")),serde_json::to_vec_pretty(&json!({"schemaVersion":1,"id":skill,"slug":slug,"displayName":null,"folderId":null,"tagIds":[],"upstreamBindings":[]})).map_err(Self::map)?).map_err(Self::map)?;
-        fs::write(
-            meta.join("manifests").join(format!("{skill}.json")),
-            serde_json::to_vec_pretty(&model.manifest).map_err(Self::map)?,
-        )
-        .map_err(Self::map)?;
+        let mut metadata = self.metadata()?;
+        metadata.skills.insert(
+            skill.to_owned(),
+            PortableSkill {
+                id: skill.to_owned(),
+                slug: slug.to_owned(),
+                display_name: None,
+                folder_id: None,
+                tag_ids: Vec::new(),
+                upstream_bindings: Vec::new(),
+                manifest: model.manifest.clone(),
+            },
+        );
+        self.write_metadata(&metadata)?;
         Ok(())
     }
     fn remove_record_and_manifest(&self, skill: &str) -> Result<(), ImportError> {
+        let portable = self.root().join(".skillbinder.json");
+        if portable.is_file() {
+            let mut metadata = PortableMetadata::load(&portable).map_err(Self::map)?;
+            metadata.skills.remove(skill);
+            return self.write_metadata(&metadata);
+        }
         let root = self.root();
         for relative in [
             format!(".skillbinder/skills/{skill}.json"),
@@ -226,6 +339,7 @@ impl LibraryRepository for FilesystemLibraryRepository {
                     OsString::from("--porcelain"),
                     OsString::from("--"),
                     OsString::from("skills"),
+                    OsString::from(".skillbinder.json"),
                     OsString::from(".skillbinder"),
                 ],
             )

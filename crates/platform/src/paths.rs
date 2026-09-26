@@ -28,6 +28,10 @@ impl AppPaths {
         self.data.join("logs")
     }
 
+    pub fn git_sync_config(&self) -> PathBuf {
+        self.config.join("git-sync.json")
+    }
+
     pub fn lock(&self) -> PathBuf {
         self.data.join("locks").join("app.lock")
     }

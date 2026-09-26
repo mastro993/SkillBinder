@@ -1,6 +1,7 @@
 use crate::{
     git::{GitEnvironment, GitError, VerifiedGit as PlatformVerifiedGit},
     paths::AppPaths,
+    portable_metadata::PortableMetadata,
 };
 use chrono::{SecondsFormat, Utc};
 use serde::Serialize;
@@ -101,7 +102,6 @@ impl LocalEnvironment {
             fs::remove_dir_all(&staging).map_err(storage_error)?;
         }
         fs::create_dir_all(staging.join("skills")).map_err(storage_error)?;
-        fs::create_dir_all(staging.join(".skillbinder")).map_err(storage_error)?;
 
         let record = LibraryRecord {
             schema_version: 1,
@@ -109,14 +109,9 @@ impl LocalEnvironment {
             created_at: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
             content_policy_version: 1,
         };
-        fs::write(
-            staging.join(".skillbinder").join("library.json"),
-            format!(
-                "{}\n",
-                serde_json::to_string_pretty(&record).expect("library record serializes")
-            ),
-        )
-        .map_err(storage_error)?;
+        PortableMetadata::new(record.library_id.clone(), record.created_at.clone())
+            .write(&staging.join(".skillbinder.json"))
+            .map_err(BootstrapError::RecoveryRequired)?;
 
         let empty_hooks = self.paths.config.join("git-hooks");
         fs::create_dir_all(&empty_hooks).map_err(storage_error)?;
@@ -133,7 +128,7 @@ impl LocalEnvironment {
                 ],
             )
             .map_err(map_git_error)?;
-        self.run_library_git(&git, &staging, &["add", "--", ".skillbinder/library.json"])?;
+        self.run_library_git(&git, &staging, &["add", "--", ".skillbinder.json"])?;
         self.run_library_git(
             &git,
             &staging,
@@ -198,15 +193,27 @@ impl LocalEnvironment {
     }
 
     fn read_library_record(&self) -> Result<Option<LibraryRecord>, BootstrapError> {
-        let path = self
+        let portable = self.paths.library().join(".skillbinder.json");
+        if portable.is_file() {
+            let metadata =
+                PortableMetadata::load(&portable).map_err(BootstrapError::RecoveryRequired)?;
+            return Ok(Some(LibraryRecord {
+                schema_version: metadata.schema_version,
+                library_id: metadata.library_id,
+                created_at: metadata.created_at,
+                content_policy_version: metadata.content_policy_version,
+            }));
+        }
+        // Read the old layout so existing local libraries remain recoverable after upgrade.
+        let legacy = self
             .paths
             .library()
             .join(".skillbinder")
             .join("library.json");
-        if !path.is_file() {
+        if !legacy.is_file() {
             return Ok(None);
         }
-        let bytes = fs::read(path).map_err(storage_error)?;
+        let bytes = fs::read(legacy).map_err(storage_error)?;
         serde_json::from_slice(&bytes)
             .map(Some)
             .map_err(|error| BootstrapError::RecoveryRequired(error.to_string()))
