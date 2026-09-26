@@ -38,6 +38,16 @@ pub(crate) fn append(
     Ok(())
 }
 
+/// Drops every observation recorded for a skill.
+pub(crate) fn delete_for_skill(
+    connection: &mut SqliteConnection,
+    skill_id: &str,
+) -> QueryResult<()> {
+    diesel::delete(source_observations::table.filter(source_observations::skill_id.eq(skill_id)))
+        .execute(connection)?;
+    Ok(())
+}
+
 /// Drops the newest observation matching the source, skill id and digest.
 pub(crate) fn rollback(
     connection: &mut SqliteConnection,

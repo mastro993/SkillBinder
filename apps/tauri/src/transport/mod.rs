@@ -13,6 +13,7 @@ pub mod bootstrap;
 pub mod diagnostics;
 pub mod discovery;
 pub mod error;
+pub mod git_sync;
 pub mod imports;
 pub mod library;
 pub mod onboarding;
@@ -23,6 +24,7 @@ pub use bootstrap::*;
 pub use diagnostics::*;
 pub use discovery::*;
 pub use error::*;
+pub use git_sync::*;
 pub use imports::*;
 pub use library::*;
 pub use onboarding::*;
@@ -80,7 +82,14 @@ mod tests {
         ImportPlanResponse::export_all(&config).unwrap();
         ImportApplyResponse::export_all(&config).unwrap();
         LibraryListResponse::export_all(&config).unwrap();
+        LibraryResolveConflictRequest::export_all(&config).unwrap();
+        LibraryResolveConflictResponse::export_all(&config).unwrap();
+        LibrarySkillPreviewRequest::export_all(&config).unwrap();
+        LibrarySkillPreviewResponse::export_all(&config).unwrap();
         DiagnosticsRevealLogsResponse::export_all(&config).unwrap();
+        GitSyncState::export_all(&config).unwrap();
+        GitSyncStatus::export_all(&config).unwrap();
+        GitSyncConnectRequest::export_all(&config).unwrap();
     }
 
     #[test]
@@ -148,6 +157,34 @@ mod tests {
                 .unwrap()
                 .plan_id,
             "plan-1"
+        );
+    }
+
+    #[test]
+    fn skill_preview_contract_uses_nullable_content_and_unix_seconds() {
+        let request: LibrarySkillPreviewRequest = serde_json::from_value(serde_json::json!({
+            "skillId": "skill-1",
+            "path": null
+        }))
+        .unwrap();
+        assert_eq!(request.path, None);
+
+        let value = serde_json::to_value(LibrarySkillPreviewResponse {
+            skill_id: "skill-1".into(),
+            last_edited_at: Some(1_800_000_000),
+            files: vec!["SKILL.md".into()],
+            path: "SKILL.md".into(),
+            content: None,
+            unavailable_reason: Some("Binary file cannot be previewed.".into()),
+        })
+        .unwrap();
+        assert_eq!(value["skillId"], "skill-1");
+        assert_eq!(value["lastEditedAt"], 1_800_000_000);
+        assert_eq!(value["files"], serde_json::json!(["SKILL.md"]));
+        assert!(value["content"].is_null());
+        assert_eq!(
+            value["unavailableReason"],
+            "Binary file cannot be previewed."
         );
     }
 

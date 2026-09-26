@@ -48,7 +48,7 @@ name the type that carries it and use that spelling everywhere:
   `PayloadSource` and `LibraryCatalog` that the engine is pure over.
 - Import: the candidate, the plan, the skill id, and the slug, as used in
   `docs/features/import.md`.
-- Library: portable metadata under `.skillbinder/` and payloads under `skills/<skill-id>/<slug>/`.
+- Library: portable metadata in `.skillbinder.json` and payloads under `skills/<slug>/`.
 
 Add a glossary term only when a core type or a recorded decision introduces it. If the docs and the
 core crate disagree, the core crate is right until the change lands in both.

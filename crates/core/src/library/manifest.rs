@@ -41,6 +41,15 @@ impl Manifest {
     pub fn equivalent(&self, other: &Self) -> bool {
         self.entries == other.entries
     }
+    pub fn file_count(&self) -> u32 {
+        self.entries
+            .iter()
+            .filter(|entry| entry.kind == ManifestKind::File)
+            .count() as u32
+    }
+    pub fn total_bytes(&self) -> u64 {
+        self.entries.iter().map(|entry| entry.bytes).sum()
+    }
 }
 fn kind_order(kind: ManifestKind) -> u8 {
     match kind {

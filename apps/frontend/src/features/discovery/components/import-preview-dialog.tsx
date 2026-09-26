@@ -1,5 +1,6 @@
 import { XIcon } from "lucide-react";
 import type { ImportPlanResponse } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -66,6 +67,15 @@ export function ImportPreviewDialog({
           SkillBinder will copy these sources into your local library. Originals
           stay unchanged.
         </DialogDescription>
+        {plan.items.some((item) => item.outcome.kind === "conflict") ? (
+          <Alert variant="warning" role="note">
+            <AlertDescription>
+              A slug in this plan is already used by another skill, so the
+              import adds a second copy. Choose which copy to keep in the
+              Library.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <ul className="grid gap-2">
           {plan.items.map((item) => (
             <li
@@ -118,6 +128,10 @@ export function ImportPreviewDialog({
 }
 
 function duplicateLabel(item: ImportPlanResponse["items"][number]) {
+  if (item.outcome.kind === "conflict") {
+    const owners = item.outcome.skillIds.length;
+    return `Adds a second copy: ${owners === 1 ? "another skill already uses" : `${owners} skills already use`} this slug`;
+  }
   if (item.duplicate.kind === "identical")
     return "Attach source to the existing skill";
   if (item.duplicate.kind === "slugInUse") return "Slug already in use";

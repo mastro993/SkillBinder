@@ -3,11 +3,13 @@ use skillbinder_core::{
     bootstrap::{BootstrapError, BootstrapService},
     discovery::{Registry, RegistryError},
     import::ImportService,
+    library_maintenance::LibraryMaintenance,
 };
 use skillbinder_db::StateStore;
 use skillbinder_platform::{
-    library_repository::FilesystemLibraryRepository, local_environment::LocalEnvironment,
-    paths::AppPaths, payload_filesystem::FilesystemPayloadSource, process_lock::ProcessLock,
+    git_sync::GitSyncService, library_repository::FilesystemLibraryRepository,
+    local_environment::LocalEnvironment, paths::AppPaths,
+    payload_filesystem::FilesystemPayloadSource, process_lock::ProcessLock,
 };
 use std::{
     collections::HashMap,
@@ -33,8 +35,10 @@ pub struct AppState {
     pub registry: Registry,
     pub source: Arc<FilesystemPayloadSource>,
     pub library: Arc<FilesystemLibraryRepository>,
+    pub git_sync: Arc<GitSyncService>,
     pub store: Arc<StateStore>,
     pub import_service: Arc<ImportService>,
+    pub library_maintenance: Arc<LibraryMaintenance>,
     pub scan_sessions: Mutex<HashMap<String, ScanSession>>,
     pub scan_runs: Mutex<HashMap<String, ScanRun>>,
     pub pending_grants: Mutex<HashMap<String, PendingGrant>>,
@@ -46,6 +50,7 @@ impl AppState {
         let state_store = store.clone();
         let source = Arc::new(FilesystemPayloadSource);
         let library = Arc::new(FilesystemLibraryRepository::new(paths.clone()));
+        let git_sync = Arc::new(GitSyncService::new(paths.clone()));
         let import_service = Arc::new(ImportService {
             source: source.clone(),
             plans: store.clone(),
@@ -54,6 +59,11 @@ impl AppState {
             clock: Arc::new(skillbinder_core::import::SystemClock),
             ids: Arc::new(skillbinder_core::import::UuidSource),
             limits: Default::default(),
+        });
+        let library_maintenance = Arc::new(LibraryMaintenance {
+            library: library.clone(),
+            observations: store.clone(),
+            ids: Arc::new(skillbinder_core::import::UuidSource),
         });
         let process_lock = match ProcessLock::acquire(&paths) {
             Ok(lock) => Some(lock),
@@ -69,8 +79,10 @@ impl AppState {
             registry: Registry::load()?,
             source,
             library,
+            git_sync,
             store: state_store,
             import_service,
+            library_maintenance,
             scan_sessions: Mutex::new(HashMap::new()),
             scan_runs: Mutex::new(HashMap::new()),
             pending_grants: Mutex::new(HashMap::new()),

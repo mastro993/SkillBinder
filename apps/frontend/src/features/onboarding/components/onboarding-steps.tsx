@@ -161,7 +161,7 @@ function Ready() {
             Canonical skill content stays under <code>skills/</code>
           </li>
           <li>
-            Portable metadata stays under <code>.skillbinder/</code>
+            Portable metadata stays in <code>.skillbinder.json</code>
           </li>
           <li>Machine paths and settings stay outside Git</li>
         </ul>

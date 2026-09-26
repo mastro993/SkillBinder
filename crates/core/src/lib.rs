@@ -7,7 +7,9 @@
 
 pub mod bootstrap;
 pub mod discovery;
+pub mod git_sync;
 pub mod import;
 pub mod library;
+pub mod library_maintenance;
 pub mod onboarding;
 pub mod source;

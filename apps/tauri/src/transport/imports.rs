@@ -7,6 +7,8 @@ contract! {
     pub enum ImportOutcome {
         NewSkill,
         AttachObservation { skill_id: String },
+        /// The slug is already used by these library skills, so the import adds a second copy.
+        Conflict { skill_ids: Vec<String> },
     }
 }
 

@@ -83,14 +83,22 @@ pub fn prepare(
                     } => ImportOutcome::AttachObservation {
                         skill_id: skill_id.clone(),
                     },
-                    skillbinder_core::import::ImportDecision::Conflict { .. } => {
-                        ImportOutcome::NewSkill
+                    skillbinder_core::import::ImportDecision::Conflict { ref skill_ids } => {
+                        ImportOutcome::Conflict {
+                            skill_ids: skill_ids.clone(),
+                        }
                     }
                 },
                 duplicate: match item.decision {
                     skillbinder_core::import::ImportDecision::AttachObservation { skill_id } => {
                         CandidateDuplicate::Identical {
                             skill_id,
+                            slug: item.selection.slug.clone(),
+                        }
+                    }
+                    skillbinder_core::import::ImportDecision::Conflict { ref skill_ids } => {
+                        CandidateDuplicate::SlugInUse {
+                            skill_id: skill_ids.first().cloned().unwrap_or_default(),
                             slug: item.selection.slug.clone(),
                         }
                     }
@@ -190,8 +198,8 @@ pub fn imports_apply(
                             skillbinder_core::import::ImportDecision::AttachObservation {
                                 skill_id,
                             } => ImportOutcome::AttachObservation { skill_id },
-                            skillbinder_core::import::ImportDecision::Conflict { .. } => {
-                                ImportOutcome::NewSkill
+                            skillbinder_core::import::ImportDecision::Conflict { skill_ids } => {
+                                ImportOutcome::Conflict { skill_ids }
                             }
                         },
                         file_count: item.file_count,

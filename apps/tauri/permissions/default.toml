@@ -79,6 +79,51 @@ description = "List managed library skills"
 commands.allow = ["library_list"]
 
 [[permission]]
+identifier = "allow-library-skill-preview"
+description = "Inspect a managed skill without changing the library"
+commands.allow = ["library_skill_preview"]
+
+[[permission]]
+identifier = "allow-library-resolve-conflict"
+description = "Choose which copy of a slug names one skill and move the others aside"
+commands.allow = ["library_resolve_conflict"]
+
+[[permission]]
 identifier = "allow-diagnostics-reveal-logs"
 description = "Open the application log folder in the device file manager"
 commands.allow = ["diagnostics_reveal_logs"]
+
+[[permission]]
+identifier = "allow-git-sync-status"
+description = "Read current Git remote and library sync status"
+commands.allow = ["git_sync_status"]
+
+[[permission]]
+identifier = "allow-git-sync-connect"
+description = "Configure a Git remote for the local library"
+commands.allow = ["git_sync_connect"]
+
+[[permission]]
+identifier = "allow-git-sync-refresh"
+description = "Refresh Git remote and library sync status"
+commands.allow = ["git_sync_refresh"]
+
+[[permission]]
+identifier = "allow-git-sync-pull"
+description = "Fast-forward the local library from its configured Git remote"
+commands.allow = ["git_sync_pull"]
+
+[[permission]]
+identifier = "allow-git-sync-push"
+description = "Commit managed library changes and push them to Git"
+commands.allow = ["git_sync_push"]
+
+[[permission]]
+identifier = "allow-git-sync"
+description = "Synchronize managed library changes with Git"
+commands.allow = ["git_sync"]
+
+[[permission]]
+identifier = "allow-git-sync-disconnect"
+description = "Remove the configured Git remote from SkillBinder"
+commands.allow = ["git_sync_disconnect"]

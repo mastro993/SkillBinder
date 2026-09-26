@@ -2,4 +2,4 @@
 import type { SkillSource } from "./SkillSource";
 import type { ValidationSummary } from "./ValidationSummary";
 
-export type LibrarySkill = { skillId: string, slug: string, displayName: string | null, description: string | null, validation: ValidationSummary, fileCount: number, totalBytes: string, sources: Array<SkillSource>, };
+export type LibrarySkill = { skillId: string, slug: string, displayName: string | null, description: string | null, validation: ValidationSummary, fileCount: number, totalBytes: string, sources: Array<SkillSource>, digest: string, payloadDirectory: string, };

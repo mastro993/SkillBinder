@@ -14,7 +14,13 @@ import type {
   ImportApplyResponse,
   ImportPlanResponse,
   ImportPrepareRequest,
+  GitSyncConnectRequest,
+  GitSyncStatus,
   LibraryListResponse,
+  LibrarySkillPreviewRequest,
+  LibrarySkillPreviewResponse,
+  LibraryResolveConflictRequest,
+  LibraryResolveConflictResponse,
   OnboardingProgress,
   OnboardingStep,
   RootsListResponse,
@@ -37,7 +43,12 @@ import {
   discoveryStartResponseSchema,
   importApplyResponseSchema,
   importPlanResponseSchema,
+  gitSyncStatusSchema,
   libraryListResponseSchema,
+  librarySkillPreviewRequestSchema,
+  librarySkillPreviewResponseSchema,
+  libraryResolveConflictRequestSchema,
+  libraryResolveConflictResponseSchema,
   onboardingProgressSchema,
   parseCommandResult,
   rootsListResponseSchema,
@@ -60,7 +71,10 @@ type IpcRequest =
   | DiscoveryResultsRequest
   | DiscoveryCancelRequest
   | ImportPrepareRequest
-  | ImportApplyRequest;
+  | ImportApplyRequest
+  | GitSyncConnectRequest
+  | LibrarySkillPreviewRequest
+  | LibraryResolveConflictRequest;
 
 export class NativeCommandError extends Error {
   constructor(
@@ -102,7 +116,20 @@ export interface DesktopClient {
   ): Promise<ImportPlanResponse>;
   importsApply(planId: string): Promise<ImportApplyResponse>;
   libraryList(): Promise<LibraryListResponse>;
+  librarySkillPreview(
+    request: LibrarySkillPreviewRequest,
+  ): Promise<LibrarySkillPreviewResponse>;
+  libraryResolveConflict(
+    request: LibraryResolveConflictRequest,
+  ): Promise<LibraryResolveConflictResponse>;
   diagnosticsRevealLogs(): Promise<DiagnosticsRevealLogsResponse>;
+  gitSyncStatus(): Promise<GitSyncStatus>;
+  gitSyncConnect(request: GitSyncConnectRequest): Promise<GitSyncStatus>;
+  gitSyncRefresh(): Promise<GitSyncStatus>;
+  gitSyncPull(): Promise<GitSyncStatus>;
+  gitSyncPush(): Promise<GitSyncStatus>;
+  gitSync(): Promise<GitSyncStatus>;
+  gitSyncDisconnect(): Promise<GitSyncStatus>;
 }
 
 class TauriDesktopClient implements DesktopClient {
@@ -187,11 +214,55 @@ class TauriDesktopClient implements DesktopClient {
     return invokeCommand("library_list", libraryListResponseSchema);
   }
 
+  librarySkillPreview(request: LibrarySkillPreviewRequest) {
+    return invokeCommand(
+      "library_skill_preview",
+      librarySkillPreviewResponseSchema,
+      { request: librarySkillPreviewRequestSchema.parse(request) },
+    );
+  }
+
+  libraryResolveConflict(request: LibraryResolveConflictRequest) {
+    return invokeCommand(
+      "library_resolve_conflict",
+      libraryResolveConflictResponseSchema,
+      { request: libraryResolveConflictRequestSchema.parse(request) },
+    );
+  }
+
   diagnosticsRevealLogs() {
     return invokeCommand(
       "diagnostics_reveal_logs",
       diagnosticsRevealLogsResponseSchema,
     );
+  }
+
+  gitSyncStatus() {
+    return invokeCommand("git_sync_status", gitSyncStatusSchema);
+  }
+
+  gitSyncConnect(request: GitSyncConnectRequest) {
+    return invokeCommand("git_sync_connect", gitSyncStatusSchema, { request });
+  }
+
+  gitSyncRefresh() {
+    return invokeCommand("git_sync_refresh", gitSyncStatusSchema);
+  }
+
+  gitSyncPull() {
+    return invokeCommand("git_sync_pull", gitSyncStatusSchema);
+  }
+
+  gitSyncPush() {
+    return invokeCommand("git_sync_push", gitSyncStatusSchema);
+  }
+
+  gitSync() {
+    return invokeCommand("git_sync", gitSyncStatusSchema);
+  }
+
+  gitSyncDisconnect() {
+    return invokeCommand("git_sync_disconnect", gitSyncStatusSchema);
   }
 }
 

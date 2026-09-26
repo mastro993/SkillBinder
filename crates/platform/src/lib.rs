@@ -5,12 +5,15 @@
 //! a temporary directory or a Git repository.
 
 pub mod git;
+pub mod git_sync;
 pub mod library_repository;
 pub mod local_environment;
 pub mod log_sink;
 pub mod paths;
 pub mod payload_filesystem;
+pub mod portable_metadata;
 pub mod process_lock;
 pub mod redact;
 pub mod reveal;
 pub mod rotating_log;
+pub mod sync_commit;

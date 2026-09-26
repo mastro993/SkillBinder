@@ -16,9 +16,9 @@ The rotating writer lives in `crates/platform/src/rotating_log.rs`, the line red
 `crates/platform/src/log_sink.rs`. The queue is drained by a dedicated worker thread, so no emitter
 performs file IO.
 
-The log root is `AppPaths::logs()`, which is the resolved application local data directory plus
-`logs`. On macOS that resolves to `~/Library/Application Support/dev.skillbinder.local/logs`. No
-path is built from a hard-coded home string.
+The log root is `AppPaths::logs()`, which is the application directory plus `logs`. The application
+directory is `~/.skillbinder`, resolved from the home directory Tauri reports, so the log root is
+`~/.skillbinder/logs`. No path is built from a hard-coded home string.
 
 The active file is `skillbinder.log`, and `skillbinder.log.1` through `skillbinder.log.4` hold the
 older ones. The policy is five files of 5 MiB each, which is 5242880 bytes per file, and 14 days of
@@ -66,8 +66,11 @@ shapes considered, and it fails the request, because domain warnings stay unaudi
 file writer in the shell crate whose job is transport mapping and composition.
 
 A `~/.skillbinder/logs` root was rejected. It adds a second directory root next to the application
-local data directory that the specification already defines, and it contradicts the rule against
-paths built from a hard-coded home string.
+local data directory that the specification defined at the time, and it contradicted the rule
+against paths built from a hard-coded home string. Superseded: the application directory is now
+`~/.skillbinder` itself, so the log root is inside the single application root and the second-root
+objection no longer applies. The path is still resolved from the home directory Tauri reports, not
+from a home string in the source.
 
 The `env-filter` feature of `tracing-subscriber` was rejected. It pulls in regex machinery for a
 filter that no user-facing surface exposes, when one level word covers the requirement.

@@ -435,46 +435,44 @@ Enforce dependency boundaries with package exports and an architecture check. Th
 
 ### 7.1 App paths
 
-Use Tauri/Rust OS path resolution. Do not build paths from hard-coded home strings. Put durable state under the resolved app-local-data directory, configuration under the app-config directory, and disposable downloads under the app-cache directory. Tauri exposes platform-aware app directory resolution. [S07]
+Use the resolved home directory from Tauri/Rust OS path resolution. Do not build paths from hard-coded home strings, and do not read `HOME` directly. The whole application directory is one root, `~/.skillbinder`, holding durable state, configuration, and disposable caches, so it is discoverable and movable as a unit. Tauri exposes platform-aware home directory resolution. [S07]
 
 Use local storage, not a roaming profile or a cloud-sync folder, for the library and database. Do not put the active data directory on a network filesystem. In particular, SQLite WAL requires local shared-memory coordination and is not a network-filesystem solution. [S18]
 
 User-selected library relocation is not in the MVP. A later relocation feature must close handles, copy and verify the full state, and switch paths transactionally.
 
 ```text
-<AppLocalData>/
+~/.skillbinder/
 ├── library/
 │   ├── .git/
-│   ├── library.json
-│   ├── catalog/
-│   │   ├── skills/<skill-id>.json
-│   │   ├── folders/<folder-id>.json
-│   │   ├── tags/<tag-id>.json
-│   │   └── manifests/<skill-id>.json
-│   └── skills/<skill-id>/<slug>/
+│   ├── .skillbinder.json
+│   └── skills/<slug>/
 │       ├── SKILL.md
 │       └── supporting files and directories
 ├── state.sqlite
+├── git-sync.json
 ├── drafts/
 ├── journals/
 ├── staging/
 ├── backups/
 ├── recovery/
 ├── logs/
-└── locks/
-
-<AppCache>/
+├── locks/
 ├── source-repositories/
 └── source-previews/
 ```
 
-The UUID parent gives each skill a stable library location. The child directory uses the skill slug so `SKILL.md` has the expected parent name. Agent Skills defines the skill as a directory and requires its name to match the parent directory. [S04]
+A skill's payload lives in the directory named after its slug, so `SKILL.md` has the expected parent name. Agent Skills defines the skill as a directory and requires its name to match the parent directory. [S04]
+
+Two skills can carry the same slug, because content, not the name, is what makes two imports distinct. When that happens the lowest skill id keeps the bare slug and the others carry an id suffix, as in `skills/caveman/` and `skills/caveman-613ed699/`. The skill name stays the slug in the frontmatter and in the metadata, so a suffixed directory holds a payload whose frontmatter name differs from its parent directory. Nothing in the application re-inspects a stored payload, and any feature that reads or re-binds one must take the destination name from the metadata slug rather than from the directory name.
+
+The library screen resolves a shared slug: the user picks the copy to keep, the others move to `backups/resolutions/<operationId>/` outside the library, and their records, observations, and indexed metadata are removed. A journal at `journals/resolve-<operationId>.json` makes the operation repeatable after an interruption.
 
 ### 7.2 Git-tracked state
 
-Track skill payloads, skill catalog records, folders, tags, content manifests, and the library schema record. Each catalog entity uses a separate JSON file to limit unrelated merge conflicts.
+Track skill payloads, skill catalog records, folders, tags, payload digests, and the library schema record in `.skillbinder.json`.
 
-`library.json` contains `schemaVersion`, `libraryId`, `createdAt`, and `contentPolicyVersion`. It must not contain a device ID or a timestamp updated on every mutation.
+`.skillbinder.json` contains `schemaVersion`, `libraryId`, `createdAt`, `contentPolicyVersion`, and a record per skill with its payload digest and totals. It must not contain a device ID or a timestamp updated on every mutation.
 
 Skill catalog records contain stable IDs, slug, optional display name, folder and tag IDs, and remote provenance. Do not duplicate the authoritative `SKILL.md` description in tracked metadata. Parsed descriptions belong in the local index.
 
@@ -941,6 +939,8 @@ Create commits for imports, source updates, saves, file operations, organization
 
 Use predictable messages and an operation trailer, for example `Update skill: code-review` with an opaque `Operation-ID`. Commit messages must not include machine paths, credentials, or full skill text.
 
+A library sync commit is titled `chore(skills): SkillBinder sync {id}`. The `{id}` is a UTC timestamp with a short random suffix, so it stays unique across devices instead of counting locally, and it is repeated in the `Operation-ID` trailer. Its description lists the skills added, removed, and updated, naming the slug, folder, tags, digest, and totals that moved. When the catalog itself is unchanged, the description reports the managed file totals instead.
+
 History supports pagination, change summaries, per-skill filtering, file diffs, binary-change summaries, and a whole-skill restore preview. A restore makes a new commit with the selected historical state. It never resets the branch or erases later history.
 
 A skill restore includes its payload and selected skill metadata. If its historical folder/tag references no longer exist, the preview must propose restoring those records or mapping the skill to the current organization. Require a choice. Do not commit dangling references.
@@ -979,9 +979,9 @@ Machine paths and deployments are registered independently after clone. A projec
 
 ### 18.3 Fetch and preview
 
-Fetching updates remote-tracking state, not the active library. Validate the incoming Git tree before it can become a working tree: schema, IDs, folder graph, payload manifests, limits, allowed paths, and unsupported file types.
+Fetching updates remote-tracking state, not the active library. The library working tree holds only `skills/` and `.skillbinder.json`. A branch may also carry files that belong to whoever else shares the repository, so a sync must leave every other path alone: never materialized here, never committed, never deleted. Only those two owned paths ever travel from this machine to the remote.
 
-Reject entries outside the library schema. Do not materialize remote `.git`, Git configuration, hooks, symlinks, or arbitrary root-level files. Do not fetch submodules or execute filters. A remote repository is untrusted input even when the user owns it.
+Validate the incoming library metadata before it can reach the working tree. `.skillbinder.json` at the incoming reference must parse under the supported schema. Do not fetch submodules or execute filters. A remote repository is untrusted input even when the user owns it, and a shared branch is not permission to read or write the files beside the library.
 
 Show the local commit, observed remote commit, incoming changes, outgoing changes, and proposed result. No background fetch or push occurs unless a later product decision adds it.
 

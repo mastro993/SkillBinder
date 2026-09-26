@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,14 @@ export function SettingsView() {
               : "Not created"
           }
         />
-        <Setting label="Remote sync" value="Not connected · optional" />
+        <Setting
+          label="Remote sync"
+          value={
+            <a href="#/git" className="text-primary hover:underline">
+              Open Git sync
+            </a>
+          }
+        />
         <Item variant="outline" render={<li />}>
           <ItemContent>
             <ItemTitle>Logs</ItemTitle>
@@ -111,7 +119,7 @@ export function SettingsView() {
   );
 }
 
-function Setting({ label, value }: { label: string; value: string }) {
+function Setting({ label, value }: { label: string; value: ReactNode }) {
   return (
     <Item variant="outline" render={<li />}>
       <ItemContent>
