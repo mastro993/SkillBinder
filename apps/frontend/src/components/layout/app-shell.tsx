@@ -1,9 +1,9 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import {
-  BookOpen01Icon,
   Compass01Icon,
   GitBranchIcon,
   Settings01Icon,
+  SparkleIcon,
   SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
@@ -46,7 +46,7 @@ const discovery: NavItem = {
 const library: NavItem = {
   to: "/library",
   label: "Library",
-  icon: BookOpen01Icon,
+  icon: SparkleIcon,
 };
 const footerItems: NavItem[] = [
   { to: "/git", label: "Sync", icon: GitBranchIcon },
