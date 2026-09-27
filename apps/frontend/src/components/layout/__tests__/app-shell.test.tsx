@@ -17,6 +17,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LibraryListResponse } from "@/types";
+import type { DesktopClient } from "@/commands/client";
 import * as native from "@/commands/client";
 import { stubDesktopClient } from "@/test/stub-client";
 import { AppShell } from "../app-shell";
@@ -54,22 +55,26 @@ function librarySkill(
 function renderShell(
   libraryList: () => Promise<LibraryListResponse>,
   initialPath = "/library",
+  organizationChange?: DesktopClient["libraryOrganizationChange"],
 ) {
-  vi.spyOn(native, "getDesktopClient").mockResolvedValue(
-    stubDesktopClient({
-      libraryList,
-      discoveryCurrent: async () => ({ scanId: null }),
-      gitSyncStatus: async () => ({
-        state: "synced",
-        remote: null,
-        branch: null,
-        localRevision: "revision",
-        remoteRevision: null,
-        ahead: 0,
-        behind: 0,
-        hasLocalChanges: false,
-      }),
+  const overrides: Partial<DesktopClient> = {
+    libraryList,
+    discoveryCurrent: async () => ({ scanId: null }),
+    gitSyncStatus: async () => ({
+      state: "synced",
+      remote: null,
+      branch: null,
+      localRevision: "revision",
+      remoteRevision: null,
+      ahead: 0,
+      behind: 0,
+      hasLocalChanges: false,
     }),
+  };
+  if (organizationChange)
+    overrides.libraryOrganizationChange = organizationChange;
+  vi.spyOn(native, "getDesktopClient").mockResolvedValue(
+    stubDesktopClient(overrides),
   );
   const root = createRootRoute({
     component: () => (
@@ -142,7 +147,7 @@ describe("app sidebar", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps ordered navigation, separator, and pinned Sync destination", async () => {
+  it("keeps Discovery and Skills together above the Folders group", async () => {
     renderShell(async () => baseLibrary);
     await screen.findByText("All skills");
 
@@ -152,7 +157,11 @@ describe("app sidebar", () => {
         .getAllByRole("link")
         .map((link) => link.getAttribute("href")),
     ).toEqual(["/discovery", "/library"]);
-    expect(within(main).getByRole("separator")).toBeInTheDocument();
+    expect(within(main).queryByRole("separator")).not.toBeInTheDocument();
+    expect(within(main).getByText("Folders")).toBeInTheDocument();
+    expect(
+      within(main).getByRole("button", { name: "New folder" }),
+    ).toHaveAttribute("title", "New folder");
     const footer = screen.getByRole("navigation", {
       name: "Secondary navigation",
     });
@@ -172,11 +181,9 @@ describe("app sidebar", () => {
       "data-sidebar",
       "menu-badge",
     );
-    await waitFor(() =>
-      expect(
-        within(main).queryByRole("list", { name: "Folders" }),
-      ).not.toBeInTheDocument(),
-    );
+    expect(
+      within(main).getByRole("list", { name: "Folders" }),
+    ).toBeEmptyDOMElement();
   });
 
   it("shows loading rows, then sorted folder links with only current folder selected", async () => {
@@ -261,6 +268,66 @@ describe("app sidebar", () => {
     );
   });
 
+  it("creates a folder from the sidebar without changing the route", async () => {
+    const folders: LibraryListResponse["folders"] = [];
+    const change = vi.fn<DesktopClient["libraryOrganizationChange"]>(
+      async () => {
+        folders.push({ id: "design", name: "Design" });
+        return { organizationRevision: "updated" };
+      },
+    );
+    renderShell(
+      async () => ({ ...baseLibrary, folders: [...folders] }),
+      "/discovery",
+      change,
+    );
+    await screen.findByText("Discovery screen");
+    const add = screen.getByRole("button", { name: "New folder" });
+    fireEvent.click(add);
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), {
+      target: { value: "Design" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith({
+        change: { kind: "createFolder", name: "Design" },
+        expectedRevision: null,
+      }),
+    );
+    expect(
+      await screen.findByRole("link", { name: "Design, 0 skills" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(add).toHaveFocus());
+    expect(screen.getByText("Discovery screen")).toBeInTheDocument();
+  });
+
+  it("keeps the folder dialog open on creation error and closes on Cancel", async () => {
+    const change = vi.fn<DesktopClient["libraryOrganizationChange"]>(() =>
+      Promise.reject(new Error("Folder name already exists")),
+    );
+    renderShell(async () => baseLibrary, "/library", change);
+    await screen.findByText("All skills");
+    const add = screen.getByRole("button", { name: "New folder" });
+    fireEvent.click(add);
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), {
+      target: { value: "Design" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Folder name already exists",
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "New folder" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(add).toHaveFocus();
+  });
+
   it("opens the complete directory in a narrow drawer and closes after navigation", async () => {
     Object.defineProperty(window, "innerWidth", {
       configurable: true,
@@ -296,5 +363,29 @@ describe("app sidebar", () => {
     expect(
       await screen.findByRole("navigation", { name: "Main navigation" }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps the mobile drawer open while creating and dismissing a folder", async () => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 600,
+    });
+    renderShell(async () => baseLibrary);
+    await screen.findByText("All skills");
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    const drawer = await screen.findByRole("dialog", { name: "Sidebar" });
+    const add = within(drawer).getByRole("button", { name: "New folder" });
+    fireEvent.click(add);
+    expect(
+      await screen.findByRole("dialog", { name: "New folder" }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "New folder" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("dialog", { name: "Sidebar" })).toBeInTheDocument();
+    expect(add).toHaveFocus();
   });
 });

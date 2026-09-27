@@ -607,14 +607,14 @@ function SidebarMenuSkeleton({
   );
 }
 
-// Folder rows use only a left inset so their badges reach the main menu edge.
+// Folder groups need a deeper left inset without a guide or right inset.
 const sidebarMenuSubVariants = cva(
-  "flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border py-0.5 group-data-[collapsible=icon]:hidden",
+  "flex min-w-0 translate-x-px flex-col gap-1 py-0.5 group-data-[collapsible=icon]:hidden",
   {
     variants: {
       inset: {
-        default: "mx-3.5 px-2.5",
-        left: "ml-3.5 pl-2.5",
+        default: "mx-3.5 border-l border-sidebar-border px-2.5",
+        group: "ml-5.5 pl-2.5",
       },
     },
     defaultVariants: { inset: "default" },

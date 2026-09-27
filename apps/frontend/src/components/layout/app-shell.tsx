@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from "react";
+import type { PropsWithChildren } from "react";
 import {
   Compass01Icon,
   GitBranchIcon,
@@ -26,7 +26,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarSeparator,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -70,7 +69,7 @@ function AppSidebar() {
   const { setOpenMobile } = useSidebar();
   const library = useQuery(libraryListQuery);
 
-  function navItem({ to, label, icon }: NavItem, children?: ReactNode) {
+  function navItem({ to, label, icon }: NavItem) {
     return (
       <SidebarMenuItem key={to}>
         <SidebarMenuButton
@@ -100,7 +99,6 @@ function AppSidebar() {
             </SidebarMenuBadge>
           ) : null}
         </SidebarMenuButton>
-        {children}
       </SidebarMenuItem>
     );
   }
@@ -118,12 +116,12 @@ function AppSidebar() {
       <SidebarContent>
         <nav aria-label="Main navigation">
           <SidebarGroup>
-            <SidebarMenu>{navItem(discovery)}</SidebarMenu>
+            <SidebarMenu>
+              {navItem(discovery)}
+              {navItem(skills)}
+            </SidebarMenu>
           </SidebarGroup>
-          <SidebarSeparator />
-          <SidebarGroup>
-            <SidebarMenu>{navItem(skills, <SidebarFolderList />)}</SidebarMenu>
-          </SidebarGroup>
+          <SidebarFolderList />
         </nav>
       </SidebarContent>
       <SidebarFooter>

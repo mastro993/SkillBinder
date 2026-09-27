@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,11 +32,13 @@ export function FolderDialog({
   open,
   onOpenChange,
   onDeleted,
+  finalFocus,
 }: {
   folder?: FolderView;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeleted?: () => void;
+  finalFocus?: RefObject<HTMLElement | null>;
 }) {
   const queryClient = useQueryClient();
   const [preview, setPreview] =
@@ -100,7 +102,7 @@ export function FolderDialog({
         onOpenChange(opened);
       }}
     >
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>{folder ? "Edit folder" : "New folder"}</DialogTitle>
           <DialogDescription>
