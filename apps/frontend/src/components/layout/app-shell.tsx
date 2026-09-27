@@ -7,6 +7,7 @@ import {
   SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -21,6 +22,7 @@ import {
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -29,6 +31,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { SidebarFolderList } from "@/features/library/components/sidebar-folder-list";
+import { libraryListQuery } from "@/features/library/hooks/queries";
 import { ScanActivity } from "@/features/discovery/components/scan-activity";
 import { GitSyncNavStatus } from "@/features/git-sync/components/git-sync-nav-status";
 
@@ -43,9 +46,9 @@ const discovery: NavItem = {
   label: "Discovery",
   icon: Compass01Icon,
 };
-const library: NavItem = {
+const skills: NavItem = {
   to: "/library",
-  label: "Library",
+  label: "Skills",
   icon: SparkleIcon,
 };
 const footerItems: NavItem[] = [
@@ -65,6 +68,7 @@ function savedSidebarWidth() {
 function AppSidebar() {
   const path = useRouterState({ select: (state) => state.location.pathname });
   const { setOpenMobile } = useSidebar();
+  const library = useQuery(libraryListQuery);
 
   function navItem({ to, label, icon }: NavItem, children?: ReactNode) {
     return (
@@ -75,6 +79,11 @@ function AppSidebar() {
               to={to}
               activeOptions={{ exact: true }}
               title={label}
+              aria-label={
+                to === "/library" && library.data
+                  ? `Skills, ${library.data.skills.length} ${library.data.skills.length === 1 ? "skill" : "skills"}`
+                  : undefined
+              }
               onClick={() => setOpenMobile(false)}
             />
           }
@@ -85,6 +94,11 @@ function AppSidebar() {
           <span className="min-w-0 truncate">{label}</span>
           {to === "/discovery" ? <ScanActivity /> : null}
           {to === "/git" ? <GitSyncNavStatus /> : null}
+          {to === "/library" && library.data ? (
+            <SidebarMenuBadge className="relative ml-auto shrink-0">
+              {library.data.skills.length}
+            </SidebarMenuBadge>
+          ) : null}
         </SidebarMenuButton>
         {children}
       </SidebarMenuItem>
@@ -108,7 +122,7 @@ function AppSidebar() {
           </SidebarGroup>
           <SidebarSeparator />
           <SidebarGroup>
-            <SidebarMenu>{navItem(library, <SidebarFolderList />)}</SidebarMenu>
+            <SidebarMenu>{navItem(skills, <SidebarFolderList />)}</SidebarMenu>
           </SidebarGroup>
         </nav>
       </SidebarContent>

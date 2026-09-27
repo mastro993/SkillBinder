@@ -31,6 +31,26 @@ const baseLibrary: LibraryListResponse = {
   skills: [],
 };
 
+function librarySkill(
+  id: string,
+  folderId: string | null,
+): LibraryListResponse["skills"][number] {
+  return {
+    skillId: id,
+    slug: id,
+    displayName: id,
+    description: null,
+    folderId,
+    tagIds: [],
+    validation: { status: "valid", messages: [] },
+    fileCount: 1,
+    totalBytes: "10",
+    sources: [],
+    digest: `sha256:${id}`,
+    payloadDirectory: id,
+  };
+}
+
 function renderShell(
   libraryList: () => Promise<LibraryListResponse>,
   initialPath = "/library",
@@ -130,8 +150,8 @@ describe("app sidebar", () => {
     expect(
       within(main)
         .getAllByRole("link")
-        .map((link) => link.textContent),
-    ).toEqual(["Discovery", "Library"]);
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/discovery", "/library"]);
     expect(within(main).getByRole("separator")).toBeInTheDocument();
     const footer = screen.getByRole("navigation", {
       name: "Secondary navigation",
@@ -144,9 +164,13 @@ describe("app sidebar", () => {
     expect(
       within(footer).getByRole("link", { name: /^Sync/ }),
     ).toHaveTextContent("Sync");
-    expect(within(main).getByRole("link", { name: "Library" })).toHaveAttribute(
-      "aria-current",
-      "page",
+    const skills = await within(main).findByRole("link", {
+      name: "Skills, 0 skills",
+    });
+    expect(skills).toHaveAttribute("aria-current", "page");
+    expect(within(skills).getByText("0")).toHaveAttribute(
+      "data-sidebar",
+      "menu-badge",
     );
     await waitFor(() =>
       expect(
@@ -175,48 +199,64 @@ describe("app sidebar", () => {
         { id: "design", name: "Design" },
       ],
     });
-    await within(folders).findByRole("link", { name: "Design" });
+    await within(folders).findByRole("link", { name: "Design, 0 skills" });
     expect(
       within(folders)
         .getAllByRole("link")
-        .map((link) => link.textContent),
+        .map((link) => link.querySelector("span")?.textContent),
     ).toEqual(["Design", "Writing"]);
     expect(
-      within(folders).getByRole("link", { name: "Design" }),
+      within(folders).getByRole("link", { name: "Design, 0 skills" }),
     ).toHaveAttribute("aria-current", "page");
     expect(
-      within(folders).getByRole("link", { name: "Design" }),
+      within(folders).getByRole("link", { name: "Design, 0 skills" }),
     ).toHaveAttribute("title", "Design");
-    expect(screen.getByRole("link", { name: "Library" })).not.toHaveAttribute(
-      "aria-current",
-    );
+    expect(
+      screen.getByRole("link", { name: "Skills, 0 skills" }),
+    ).not.toHaveAttribute("aria-current");
   });
 
-  it("refreshes folder links when library organization invalidates", async () => {
+  it("refreshes folder links and skill counts when library organization invalidates", async () => {
     let names = [{ id: "design", name: "Design" }];
+    let skills = [librarySkill("one", "design"), librarySkill("two", null)];
     const { queryClient } = renderShell(async () => ({
       ...baseLibrary,
       folders: names,
+      skills,
     }));
-    await screen.findByRole("link", { name: "Design" });
+    await screen.findByRole("link", { name: "Design, 1 skill" });
+    expect(
+      screen.getByRole("link", { name: "Skills, 2 skills" }),
+    ).toHaveTextContent("2");
 
     names = [
       { id: "design", name: "Research" },
       { id: "writing", name: "Writing" },
     ];
+    skills = [
+      librarySkill("one", "writing"),
+      librarySkill("two", null),
+      librarySkill("three", "writing"),
+    ];
     await queryClient.invalidateQueries({ queryKey: ["library", "list"] });
     expect(
-      await screen.findByRole("link", { name: "Research" }),
+      await screen.findByRole("link", { name: "Research, 0 skills" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Design" }),
+      screen.getByRole("link", { name: "Writing, 2 skills" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Skills, 3 skills" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /^Design,/ }),
     ).not.toBeInTheDocument();
 
     names = [{ id: "writing", name: "Writing" }];
     await queryClient.invalidateQueries({ queryKey: ["library", "list"] });
     await waitFor(() =>
       expect(
-        screen.queryByRole("link", { name: "Research" }),
+        screen.queryByRole("link", { name: /^Research,/ }),
       ).not.toBeInTheDocument(),
     );
   });
@@ -234,7 +274,9 @@ describe("app sidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
 
     const drawer = await screen.findByRole("dialog", { name: "Sidebar" });
-    const folder = await within(drawer).findByRole("link", { name: "Design" });
+    const folder = await within(drawer).findByRole("link", {
+      name: "Design, 0 skills",
+    });
     expect(
       within(drawer).getByRole("link", { name: "Sync" }),
     ).toBeInTheDocument();

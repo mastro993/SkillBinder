@@ -4,6 +4,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   SidebarMenuSkeleton,
+  SidebarMenuBadge,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
@@ -16,6 +17,11 @@ export function SidebarFolderList() {
   const path = useRouterState({ select: (state) => state.location.pathname });
   const { setOpenMobile } = useSidebar();
   const folders = library.data?.folders ?? [];
+  const counts = new Map<string, number>();
+  for (const skill of library.data?.skills ?? []) {
+    if (skill.folderId)
+      counts.set(skill.folderId, (counts.get(skill.folderId) ?? 0) + 1);
+  }
 
   if (library.isPending) {
     return (
@@ -36,6 +42,7 @@ export function SidebarFolderList() {
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((folder) => {
           const active = path === `/library/${folder.id}`;
+          const count = counts.get(folder.id) ?? 0;
           return (
             <SidebarMenuSubItem key={folder.id}>
               <SidebarMenuSubButton
@@ -45,6 +52,7 @@ export function SidebarFolderList() {
                     params={{ folderId: folder.id }}
                     activeOptions={{ exact: true }}
                     title={folder.name}
+                    aria-label={`${folder.name}, ${count} ${count === 1 ? "skill" : "skills"}`}
                     onClick={() => setOpenMobile(false)}
                   />
                 }
@@ -53,6 +61,9 @@ export function SidebarFolderList() {
               >
                 <HugeiconsIcon icon={Folder01Icon} aria-hidden="true" />
                 <span className="min-w-0 truncate">{folder.name}</span>
+                <SidebarMenuBadge className="relative ml-auto shrink-0">
+                  {count}
+                </SidebarMenuBadge>
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
           );
