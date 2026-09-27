@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/sidebar";
 import { libraryListQuery } from "../hooks/queries";
 
-/** Flat folders stay visible beneath Library so organization is clear on every page. */
 export function SidebarFolderList() {
   const library = useQuery(libraryListQuery);
   const path = useRouterState({ select: (state) => state.location.pathname });
@@ -53,7 +52,7 @@ export function SidebarFolderList() {
                 aria-current={active ? "page" : undefined}
               >
                 <HugeiconsIcon icon={Folder01Icon} aria-hidden="true" />
-                <span className="truncate">{folder.name}</span>
+                <span className="min-w-0 truncate">{folder.name}</span>
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
           );

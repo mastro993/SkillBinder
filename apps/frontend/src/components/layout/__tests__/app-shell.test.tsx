@@ -103,6 +103,7 @@ function renderShell(
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  window.localStorage.removeItem("skillbinder.sidebar.width");
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
     value: 1024,
@@ -110,6 +111,17 @@ afterEach(() => {
 });
 
 describe("app sidebar", () => {
+  it("exposes the shadcn resize handle for desktop navigation", async () => {
+    renderShell(async () => baseLibrary);
+    await screen.findByText("All skills");
+    expect(
+      screen.getByRole("separator", { name: "Resize sidebar" }),
+    ).toHaveAttribute("aria-orientation", "vertical");
+    expect(
+      document.querySelector('[data-slot="resizable-panel-group"]'),
+    ).toBeInTheDocument();
+  });
+
   it("keeps ordered navigation, separator, and pinned Sync destination", async () => {
     renderShell(async () => baseLibrary);
     await screen.findByText("All skills");
