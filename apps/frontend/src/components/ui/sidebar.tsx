@@ -607,15 +607,30 @@ function SidebarMenuSkeleton({
   );
 }
 
-function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
+// Folder rows use only a left inset so their badges reach the main menu edge.
+const sidebarMenuSubVariants = cva(
+  "flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border py-0.5 group-data-[collapsible=icon]:hidden",
+  {
+    variants: {
+      inset: {
+        default: "mx-3.5 px-2.5",
+        left: "ml-3.5 pl-2.5",
+      },
+    },
+    defaultVariants: { inset: "default" },
+  },
+);
+
+function SidebarMenuSub({
+  className,
+  inset,
+  ...props
+}: React.ComponentProps<"ul"> & VariantProps<typeof sidebarMenuSubVariants>) {
   return (
     <ul
       data-slot="sidebar-menu-sub"
       data-sidebar="menu-sub"
-      className={cn(
-        "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5 group-data-[collapsible=icon]:hidden",
-        className,
-      )}
+      className={cn(sidebarMenuSubVariants({ inset }), className)}
       {...props}
     />
   );

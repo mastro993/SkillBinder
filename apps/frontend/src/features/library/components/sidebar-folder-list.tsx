@@ -25,7 +25,7 @@ export function SidebarFolderList() {
 
   if (library.isPending) {
     return (
-      <SidebarMenuSub aria-label="Folders" aria-busy="true">
+      <SidebarMenuSub inset="left" aria-label="Folders" aria-busy="true">
         {[0, 1].map((index) => (
           <SidebarMenuSubItem key={index}>
             <SidebarMenuSkeleton showIcon />
@@ -37,7 +37,7 @@ export function SidebarFolderList() {
   if (folders.length === 0) return null;
 
   return (
-    <SidebarMenuSub aria-label="Folders">
+    <SidebarMenuSub inset="left" aria-label="Folders">
       {[...folders]
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((folder) => {
