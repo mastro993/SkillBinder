@@ -19,6 +19,13 @@
       "skillPath": "skills/shadcn/SKILL.md",
       "computedHash": "f615de216e085a84e31593ad0fa9062232adc40cd87b7c7ab2b8e49abf6500be"
     },
+    "tauri-pilot": {
+      "source": "mpiton/tauri-pilot",
+      "ref": "v0.8.0",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "c3831f2e06fd55b42e7da9094b2c5f185d1d8f9c38cecff3d8d0051733cf9234"
+    },
     "tauri-v2": {
       "source": "nodnarbnitram/claude-code-extensions",
       "sourceType": "github",

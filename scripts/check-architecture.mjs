@@ -114,10 +114,10 @@ for (const handler of handlers) {
 const customPermissions = capability.permissions
   .filter((permission) => !permission.startsWith("core:"))
   .sort();
-const declared = [...grantedByHandler.values()].sort();
+const declared = [...grantedByHandler.values(), "pilot:default"].sort();
 if (customPermissions.join("\n") !== declared.join("\n")) {
   throw new Error(
-    `Main capability permissions diverged from permissions/default.toml: ${customPermissions.join(", ")}`,
+    `Main capability permissions diverged from declared app and plugin permissions: ${customPermissions.join(", ")}`,
   );
 }
 if (

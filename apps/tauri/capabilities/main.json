@@ -29,6 +29,7 @@
     "allow-git-sync-pull",
     "allow-git-sync-push",
     "allow-git-sync",
-    "allow-git-sync-disconnect"
+    "allow-git-sync-disconnect",
+    "pilot:default"
   ]
 }

@@ -34,21 +34,24 @@ fn handle_second_instance(window: Option<&dyn ExistingWindow>) -> SecondInstance
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let application = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(
-            |app, _arguments, _working_directory| {
-                let window = app.get_webview_window("main");
-                if handle_second_instance(
-                    window.as_ref().map(|window| window as &dyn ExistingWindow),
-                ) == SecondInstanceDecision::ExitedWithoutFocus
-                {
-                    tracing::warn!(
-                        event = "second_instance.unfocused",
-                        "second SkillBinder instance exited; main window could not be focused"
-                    );
-                }
-            },
-        ))
+    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(
+        |app, _arguments, _working_directory| {
+            let window = app.get_webview_window("main");
+            if handle_second_instance(window.as_ref().map(|window| window as &dyn ExistingWindow))
+                == SecondInstanceDecision::ExitedWithoutFocus
+            {
+                tracing::warn!(
+                    event = "second_instance.unfocused",
+                    "second SkillBinder instance exited; main window could not be focused"
+                );
+            }
+        },
+    ));
+
+    #[cfg(debug_assertions)]
+    let builder = builder.plugin(tauri_plugin_pilot::init());
+
+    let application = builder
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let home = app.path().home_dir()?;
