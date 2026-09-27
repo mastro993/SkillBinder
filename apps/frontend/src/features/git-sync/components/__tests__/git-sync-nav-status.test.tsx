@@ -87,7 +87,7 @@ async function settledStatus(queryClient: QueryClient) {
 }
 
 function gitSyncRow() {
-  return within(screen.getByRole("link", { name: /Git sync/ }));
+  return within(screen.getByRole("link", { name: /Sync/ }));
 }
 
 const indicators = ["Push available", "Pull available", "Updating Git sync"];

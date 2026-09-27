@@ -1,4 +1,4 @@
-import { Fragment, type PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import {
   BookOpen01Icon,
   Compass01Icon,
@@ -9,7 +9,20 @@ import {
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarSeparator,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import { SidebarFolderList } from "@/features/library/components/sidebar-folder-list";
 import { ScanActivity } from "@/features/discovery/components/scan-activity";
 import { GitSyncNavStatus } from "@/features/git-sync/components/git-sync-nav-status";
@@ -18,76 +31,93 @@ interface NavItem {
   to: string;
   label: string;
   icon: IconSvgElement;
-  activity: boolean;
 }
 
-const mainNavItems: NavItem[] = [
-  {
-    to: "/discovery",
-    label: "Discovery",
-    icon: Compass01Icon,
-    activity: true,
-  },
-  { to: "/library", label: "Library", icon: BookOpen01Icon, activity: false },
+const discovery: NavItem = {
+  to: "/discovery",
+  label: "Discovery",
+  icon: Compass01Icon,
+};
+const library: NavItem = {
+  to: "/library",
+  label: "Library",
+  icon: BookOpen01Icon,
+};
+const footerItems: NavItem[] = [
+  { to: "/git", label: "Sync", icon: GitBranchIcon },
+  { to: "/settings", label: "Settings", icon: Settings01Icon },
 ];
 
-const footerNavItems: NavItem[] = [
-  { to: "/git", label: "Git sync", icon: GitBranchIcon, activity: false },
-  { to: "/settings", label: "Settings", icon: Settings01Icon, activity: false },
-];
-
-const navLinkBase =
-  "flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-bold max-md:justify-center";
-
-export function AppShell({ children }: PropsWithChildren) {
+function AppSidebar() {
   const path = useRouterState({ select: (state) => state.location.pathname });
-  function renderNavItem({ to, label, icon: Icon, activity }: NavItem) {
+  const { setOpenMobile } = useSidebar();
+
+  function navItem({ to, label, icon }: NavItem, children?: ReactNode) {
     return (
-      <Link
-        key={to}
-        to={to}
-        aria-current={path === to ? "page" : undefined}
-        className={
-          path === to
-            ? `${navLinkBase} bg-sidebar-accent text-sidebar-accent-foreground`
-            : `${navLinkBase} text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground`
-        }
-      >
-        <HugeiconsIcon icon={Icon} size={18} aria-hidden="true" />
-        <span className="max-md:hidden">{label}</span>
-        {activity ? <ScanActivity /> : null}
-        {to === "/git" ? <GitSyncNavStatus /> : null}
-      </Link>
+      <SidebarMenuItem key={to}>
+        <SidebarMenuButton
+          render={
+            <Link
+              to={to}
+              activeOptions={{ exact: true }}
+              onClick={() => setOpenMobile(false)}
+            />
+          }
+          isActive={path === to}
+          aria-current={path === to ? "page" : undefined}
+        >
+          <HugeiconsIcon icon={icon} aria-hidden="true" />
+          <span>{label}</span>
+          {to === "/discovery" ? <ScanActivity /> : null}
+          {to === "/git" ? <GitSyncNavStatus /> : null}
+        </SidebarMenuButton>
+        {children}
+      </SidebarMenuItem>
     );
   }
+
   return (
-    <div className="grid h-screen grid-cols-[232px_minmax(0,1fr)] max-md:grid-cols-[72px_minmax(0,1fr)]">
-      <aside className="flex flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-4 pt-7 pb-5">
-        <div className="flex items-center gap-2.5 px-2 pb-7 text-lg font-extrabold tracking-tight">
+    <Sidebar>
+      <SidebarHeader>
+        <div className="flex items-center gap-2.5 p-2 text-lg font-extrabold tracking-tight">
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
             <HugeiconsIcon icon={SparklesIcon} size={18} aria-hidden="true" />
           </span>
-          <span className="max-md:hidden">SkillBinder</span>
+          <span>SkillBinder</span>
         </div>
-        <nav
-          aria-label="Main navigation"
-          className="grid min-h-0 content-start gap-1.5 overflow-y-auto"
-        >
-          {mainNavItems.map((item, index) => (
-            <Fragment key={item.to}>
-              {index > 0 ? <Separator className="my-1" /> : null}
-              {renderNavItem(item)}
-              {item.to === "/library" ? <SidebarFolderList /> : null}
-            </Fragment>
-          ))}
+      </SidebarHeader>
+      <SidebarContent>
+        <nav aria-label="Main navigation">
+          <SidebarGroup>
+            <SidebarMenu>{navItem(discovery)}</SidebarMenu>
+          </SidebarGroup>
+          <SidebarSeparator />
+          <SidebarGroup>
+            <SidebarMenu>{navItem(library, <SidebarFolderList />)}</SidebarMenu>
+          </SidebarGroup>
         </nav>
-        <nav aria-label="Secondary navigation" className="mt-auto grid gap-1.5">
-          {footerNavItems.map(renderNavItem)}
+      </SidebarContent>
+      <SidebarFooter>
+        <nav aria-label="Secondary navigation">
+          <SidebarMenu>{footerItems.map((item) => navItem(item))}</SidebarMenu>
         </nav>
-      </aside>
-      <ScrollArea className="min-h-0 min-w-0">
-        <main className="min-w-0">{children}</main>
-      </ScrollArea>
-    </div>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+
+export function AppShell({ children }: PropsWithChildren) {
+  return (
+    <SidebarProvider open className="h-screen min-h-0">
+      <AppSidebar />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="md:hidden">
+          <SidebarTrigger aria-label="Open navigation" />
+        </div>
+        <ScrollArea className="min-h-0 min-w-0 flex-1">
+          <main className="min-w-0">{children}</main>
+        </ScrollArea>
+      </div>
+    </SidebarProvider>
   );
 }

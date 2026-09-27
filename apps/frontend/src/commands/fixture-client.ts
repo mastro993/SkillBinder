@@ -642,7 +642,7 @@ export const fixtureDesktopClient: DesktopClient = {
     return { planId, imported, libraryRevision: library.libraryRevision };
   },
   async libraryList() {
-    return library;
+    return structuredClone(library);
   },
   async librarySkillPreview(request: LibrarySkillPreviewRequest) {
     const older = request.skillId.endsWith("0002");

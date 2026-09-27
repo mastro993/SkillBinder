@@ -6,7 +6,7 @@ Library skills can have one folder and multiple tags. Folders are a single flat 
 
 The Library screen lists every skill by default and creates folders from its top-right **Add folder** action, which asks for a name only.
 
-A folder opens its own page at `/library/<folder>` and shows the skills assigned to it. The sidebar lists the folders that exist, directly below the Library item, and each one links to its page; the sidebar has no create or edit controls. That page's **Edit folder** action renames or deletes the folder. Deleting asks for confirmation with the number of skills that will move to Unfiled, then returns to the Library screen. Skills keep at most one folder: assigning a skill to a new folder replaces the previous one.
+A folder opens its own page at `/library/<folder>` and shows the skills assigned to it. The sidebar shows folders as an indented, alphabetical directory with folder icons directly below Library. The selected folder is highlighted; Library is highlighted only on the all-skills page. The directory scrolls independently of the pinned logo, Sync, and Settings links. In narrow windows, the menu button opens the complete directory in a drawer. The sidebar has no create or edit controls. That page's **Edit folder** action renames or deletes the folder. Deleting asks for confirmation with the number of skills that will move to Unfiled, then returns to the Library screen. Skills keep at most one folder: assigning a skill to a new folder replaces the previous one.
 
 ## Library screen
 
