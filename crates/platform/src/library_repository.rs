@@ -571,6 +571,7 @@ impl LibraryRepository for FilesystemLibraryRepository {
     }
 
     fn apply_resolution(&self, resolution: &ConflictResolution) -> Result<String, ImportError> {
+        let _guard = crate::organization::lock()?;
         let mut metadata = self.metadata()?;
         let before = payload_directories(payload_records(&metadata));
         for skill in &resolution.drop_skill_ids {

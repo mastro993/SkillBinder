@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,12 +44,18 @@ export function FolderDialog({
   const [error, setError] = useState("");
   const {
     register,
+    reset,
     handleSubmit,
     formState: { errors },
   } = useForm<OrganizationNameForm>({
     resolver: zodResolver(organizationNameSchema),
     defaultValues: { name: folder?.name ?? "" },
   });
+  // `useForm` only reads `defaultValues` on mount, and this dialog stays mounted across
+  // folders, so each open starts from the folder it is showing.
+  useEffect(() => {
+    if (open) reset({ name: folder?.name ?? "" });
+  }, [open, folder?.id, folder?.name, reset]);
   const change = useMutation({
     mutationFn: async (request: {
       change: OrganizationChange;

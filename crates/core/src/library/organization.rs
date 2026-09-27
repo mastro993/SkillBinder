@@ -3,9 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
 
-/// Portable metadata is user-visible on disk, so a folder record must not brick the
-/// library when it carries a field this version no longer writes. Unknown fields are
-/// dropped on the next write.
+/// Portable metadata is user-visible on disk, so a record must not brick the library when it
+/// carries a field this version no longer writes. Unknown fields are dropped on the next write.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Folder {
@@ -14,7 +13,7 @@ pub struct Folder {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct Tag {
     pub id: String,
     pub name: String,
