@@ -394,19 +394,33 @@ function SidebarGroupLabel({
   });
 }
 
+// Folder creation uses a smaller icon while keeping the standard action target.
+const sidebarGroupActionVariants = cva(
+  "absolute top-3.5 right-3 flex aspect-square w-5 cursor-pointer items-center justify-center rounded-md p-0 text-sidebar-foreground ring-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:shrink-0",
+  {
+    variants: {
+      iconSize: {
+        default: "[&>svg]:size-4",
+        compact: "[&>svg]:size-3",
+      },
+    },
+    defaultVariants: { iconSize: "default" },
+  },
+);
+
 function SidebarGroupAction({
   className,
   render,
+  iconSize = "default",
   ...props
-}: useRender.ComponentProps<"button"> & React.ComponentProps<"button">) {
+}: useRender.ComponentProps<"button"> &
+  React.ComponentProps<"button"> &
+  VariantProps<typeof sidebarGroupActionVariants>) {
   return useRender({
     defaultTagName: "button",
     props: mergeProps<"button">(
       {
-        className: cn(
-          "absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
-          className,
-        ),
+        className: cn(sidebarGroupActionVariants({ iconSize }), className),
       },
       props,
     ),
@@ -607,30 +621,15 @@ function SidebarMenuSkeleton({
   );
 }
 
-// Folder groups need a deeper left inset without a guide or right inset.
-const sidebarMenuSubVariants = cva(
-  "flex min-w-0 translate-x-px flex-col gap-1 py-0.5 group-data-[collapsible=icon]:hidden",
-  {
-    variants: {
-      inset: {
-        default: "mx-3.5 border-l border-sidebar-border px-2.5",
-        group: "ml-5.5 pl-2.5",
-      },
-    },
-    defaultVariants: { inset: "default" },
-  },
-);
-
-function SidebarMenuSub({
-  className,
-  inset,
-  ...props
-}: React.ComponentProps<"ul"> & VariantProps<typeof sidebarMenuSubVariants>) {
+function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
   return (
     <ul
       data-slot="sidebar-menu-sub"
       data-sidebar="menu-sub"
-      className={cn(sidebarMenuSubVariants({ inset }), className)}
+      className={cn(
+        "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5 group-data-[collapsible=icon]:hidden",
+        className,
+      )}
       {...props}
     />
   );

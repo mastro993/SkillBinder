@@ -10,9 +10,9 @@ import {
   SidebarGroupLabel,
   SidebarMenuSkeleton,
   SidebarMenuBadge,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { FolderDialog } from "./folder-dialog";
@@ -36,6 +36,7 @@ export function SidebarFolderList() {
       <SidebarGroupLabel>Folders</SidebarGroupLabel>
       <SidebarGroupAction
         ref={addButtonRef}
+        iconSize="compact"
         type="button"
         aria-label="New folder"
         title="New folder"
@@ -44,16 +45,15 @@ export function SidebarFolderList() {
         <HugeiconsIcon icon={PlusSignIcon} aria-hidden="true" />
       </SidebarGroupAction>
       <SidebarGroupContent>
-        <SidebarMenuSub
-          inset="group"
+        <SidebarMenu
           aria-label="Folders"
           aria-busy={library.isPending || undefined}
         >
           {library.isPending
             ? [0, 1].map((index) => (
-                <SidebarMenuSubItem key={index}>
+                <SidebarMenuItem key={index}>
                   <SidebarMenuSkeleton showIcon />
-                </SidebarMenuSubItem>
+                </SidebarMenuItem>
               ))
             : [...folders]
                 .sort((a, b) => a.name.localeCompare(b.name))
@@ -61,8 +61,8 @@ export function SidebarFolderList() {
                   const active = path === `/library/${folder.id}`;
                   const count = counts.get(folder.id) ?? 0;
                   return (
-                    <SidebarMenuSubItem key={folder.id}>
-                      <SidebarMenuSubButton
+                    <SidebarMenuItem key={folder.id}>
+                      <SidebarMenuButton
                         render={
                           <Link
                             to="/library/$folderId"
@@ -81,11 +81,11 @@ export function SidebarFolderList() {
                         <SidebarMenuBadge className="relative ml-auto shrink-0">
                           {count}
                         </SidebarMenuBadge>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   );
                 })}
-        </SidebarMenuSub>
+        </SidebarMenu>
       </SidebarGroupContent>
       <FolderDialog
         open={dialogOpen}

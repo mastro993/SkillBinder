@@ -219,6 +219,9 @@ describe("app sidebar", () => {
       within(folders).getByRole("link", { name: "Design, 0 skills" }),
     ).toHaveAttribute("title", "Design");
     expect(
+      within(folders).getByRole("link", { name: "Design, 0 skills" }),
+    ).toHaveAttribute("data-sidebar", "menu-button");
+    expect(
       screen.getByRole("link", { name: "Skills, 0 skills" }),
     ).not.toHaveAttribute("aria-current");
   });
