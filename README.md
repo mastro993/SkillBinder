@@ -57,12 +57,18 @@ pnpm dev
 `apps/tauri`. `pnpm build` generates transport types, builds bundled frontend assets, then builds a
 runnable native application without installer bundles.
 
-Native development verification requires tauri-pilot CLI 0.8.0. Install it, start SkillBinder, and
-target the app's socket and `main` window before inspecting the UI:
+Native development verification requires tauri-pilot CLI 0.8.0. Install it and start SkillBinder in
+one terminal:
 
 ```sh
 cargo install tauri-pilot-cli --version 0.8.0 --locked
 pnpm dev
+```
+
+Keep that terminal running. In a second terminal, target the app's socket and `main` window before
+inspecting the UI:
+
+```sh
 export TAURI_PILOT_SOCKET=/tmp/tauri-pilot-dev.skillbinder.local.sock
 export TAURI_PILOT_WINDOW=main
 tauri-pilot ping
