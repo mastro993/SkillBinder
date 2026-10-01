@@ -41,6 +41,7 @@ IMPORTANT: we do not have production users and we do not have the need to suppor
 ### UI patterns
 
 - Components: always use `shadcn/ui` and `@base-ui/react`
+- Strictly use `@hugeicons/core-free-icons`. Nothing else. If you come across lucide-react or similar, replace it.
 - Forms: `react-hook-form` + `zod` schemas from
   `apps/frontend/src/features/<feature>/types/`
 - Theme: tokens in `apps/frontend/src/styles.css`
