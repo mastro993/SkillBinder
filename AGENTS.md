@@ -88,6 +88,8 @@ Frontend command wrapper → invokeCommand → Tauri IPC
 
 ## Agent skills
 
+Use the tauri-pilot skill to verify and test the native app started with `pnpm dev`; target SkillBinder's socket and `main` window, inspect snapshots, assert expected UI, and check error logs.
+
 ### Issue tracker
 
 Issues live in GitHub Issues, and external PRs are also a triage surface. See `docs/agents/issue-tracker.md`.

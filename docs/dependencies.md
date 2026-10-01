@@ -1,34 +1,39 @@
 # Dependency baseline
 
-Pinned foundation baseline, verified 2026-09-20:
+Pinned foundation baseline, verified 2026-09-27:
 
-| Tool or library         | Version                         |
-| ----------------------- | ------------------------------- |
-| Node.js                 | 24.14.1                         |
-| pnpm                    | 10.33.0                         |
-| Rust                    | 1.96.0                          |
-| Tauri CLI / API         | 2.11.5 / 2.11.1                 |
-| Tauri Rust crate        | 2.11.6                          |
-| Vite                    | 8.3.0                           |
-| React                   | 19.3.0                          |
-| TypeScript              | 6.0.3                           |
-| Lint / format           | oxlint 1.83.0 / oxfmt 0.68.0    |
-| TanStack Router / Query | 1.170.38 / 5.103.1              |
-| Tailwind CSS            | 4.3.3                           |
-| Scroll area primitive   | @base-ui/react 1.8.0            |
-| SQLite crate            | Diesel 2.3.13 on bundled SQLite |
-| Folder picker plugin    | tauri-plugin-dialog 2.7.3       |
-| Generated IPC           | ts-rs 12.0.1                    |
-| SHA-256                 | sha2 0.10.9                     |
-| YAML parser             | yaml-rust2 0.10.4               |
-| Unicode normalization   | unicode-normalization 0.1.24    |
-| Logging facade          | tracing 0.1.44                  |
-| Log formatter           | tracing-subscriber 0.3.23       |
-| Supported Git           | 2.39.0 or newer                 |
+| Tool or library          | Version                         |
+| ------------------------ | ------------------------------- |
+| Node.js                  | 24.14.1                         |
+| pnpm                     | 10.33.0                         |
+| Rust                     | 1.96.0                          |
+| Tauri CLI / API          | 2.11.5 / 2.11.1                 |
+| Tauri Rust crate         | 2.11.6                          |
+| Vite                     | 8.3.0                           |
+| React                    | 19.3.0                          |
+| TypeScript               | 6.0.3                           |
+| Lint / format            | oxlint 1.83.0 / oxfmt 0.68.0    |
+| TanStack Router / Query  | 1.170.38 / 5.103.1              |
+| Tailwind CSS             | 4.3.3                           |
+| Scroll area primitive    | @base-ui/react 1.8.0            |
+| SQLite crate             | Diesel 2.3.13 on bundled SQLite |
+| Folder picker plugin     | tauri-plugin-dialog 2.7.3       |
+| Native inspection plugin | tauri-plugin-pilot 0.8.0        |
+| Native inspection CLI    | tauri-pilot-cli 0.8.0           |
+| Generated IPC            | ts-rs 12.0.1                    |
+| SHA-256                  | sha2 0.10.9                     |
+| YAML parser              | yaml-rust2 0.10.4               |
+| Unicode normalization    | unicode-normalization 0.1.24    |
+| Logging facade           | tracing 0.1.44                  |
+| Log formatter            | tracing-subscriber 0.3.23       |
+| Supported Git            | 2.39.0 or newer                 |
 
 Dependencies are locked by `pnpm-lock.yaml` and `Cargo.lock`. Runtime diagnostics must report the compiled SQLite version before WAL is enabled; this scaffold intentionally uses rollback journaling with `synchronous=FULL`.
 
 `tauri-plugin-dialog` is used from Rust only: `roots_pick` calls the folder picker in the shell, so the frontend never invokes it and the main capability carries no dialog permission.
+
+`tauri-plugin-pilot` is registered only in debug builds. It grants `pilot:default` to the `main`
+window so tauri-pilot CLI 0.8.0 can inspect and verify the native app during development.
 
 ## Native setup
 
