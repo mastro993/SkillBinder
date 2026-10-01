@@ -78,7 +78,7 @@ export function SidebarFolderList() {
                       >
                         <HugeiconsIcon icon={Folder01Icon} aria-hidden="true" />
                         <span className="min-w-0 truncate">{folder.name}</span>
-                        <SidebarMenuBadge className="relative ml-auto shrink-0">
+                        <SidebarMenuBadge className="relative ml-auto shrink-0 justify-end">
                           {count}
                         </SidebarMenuBadge>
                       </SidebarMenuButton>
