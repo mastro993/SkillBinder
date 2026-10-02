@@ -3,7 +3,7 @@
   "jsPlugins": [
     "@shadcn/lint",
     { "name": "anti-slop", "specifier": "./tools/anti-slop/index.ts" },
-    { "name": "frontend", "specifier": "./apps/frontend/tools/oxlint/index.ts" }
+    { "name": "frontend", "specifier": "./tools/oxlint/index.ts" }
   ],
   "plugins": [
     "unicorn",

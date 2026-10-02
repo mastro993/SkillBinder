@@ -545,11 +545,11 @@ type UpstreamBinding = {
 
 This avoids requiring a commit to contain its own commit ID. A duplicated variant may retain a baseline pointing to the original skill ID and acceptance operation. A later accepted update records the new operation and current skill ID. The accepted payload digest and upstream commit are always required.
 
-A folder has an ID, name, and nullable parent ID. A tag has an ID and name. Folder and tag names use Unicode normalization for comparison. Folder names must be unique among siblings. Tag names must be unique under case-folded comparison.
+A folder has an ID and a name; folders are a single flat level and cannot be nested. A tag has an ID and name. Folder and tag names use Unicode normalization for comparison. Folder and tag names must be unique under case-folded comparison.
 
-A skill has at most one folder. Tag IDs are unique and sorted in serialized JSON. Folder graphs must be acyclic. Missing folder/tag references are validation errors during normal mutations and sync.
+A skill has at most one folder. Tag IDs are unique and sorted in serialized JSON. Missing folder/tag references are validation errors during normal mutations and sync.
 
-Deleting a folder moves its direct children and skills to its parent after preview. Deleting a tag removes its references in the same library transaction. Deleting a skill removes its library records and content, but not its deployments. History remains available.
+Deleting a folder moves its skills to Unfiled after preview. Deleting a tag removes its references in the same library transaction. Deleting a skill removes its library records and content, but not its deployments. History remains available.
 
 ### 8.2 Content manifest
 

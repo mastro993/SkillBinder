@@ -17,6 +17,8 @@ fn main() {
         "imports_prepare",
         "imports_apply",
         "library_list",
+        "library_organization_change",
+        "library_organization_preview_delete",
         "diagnostics_reveal_logs",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))

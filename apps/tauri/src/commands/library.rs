@@ -3,7 +3,10 @@ use crate::{
     transport::*,
 };
 use skillbinder_app::AppState;
-use skillbinder_core::import::{LibraryRepository, ObservationStore};
+use skillbinder_core::{
+    import::{LibraryRepository, ObservationStore},
+    library::organization::Change,
+};
 use tauri::State;
 
 #[tauri::command(async)]
@@ -84,9 +87,12 @@ fn list(
     library: &dyn LibraryRepository,
     observations: &dyn ObservationStore,
 ) -> Result<LibraryListResponse, AppError> {
-    let skills = library
-        .catalog()
-        .map_err(|error| internal("library-list", error.to_string()))?
+    let (records, organization) = library
+        .catalog_with_organization()
+        .map_err(|error| internal("library-organization", error.to_string()))?;
+    let organization_revision = skillbinder_platform::organization::revision(&organization)
+        .map_err(|error| internal("library-organization", error.to_string()))?;
+    let skills = records
         .into_iter()
         .map(|record| {
             let skill_id = record.skill_id.clone();
@@ -117,7 +123,19 @@ fn list(
             Ok(LibrarySkill {
                 skill_id: record.skill_id,
                 slug: record.slug,
-                display_name: None,
+                display_name: organization
+                    .skills
+                    .get(&skill_id)
+                    .and_then(|skill| skill.display_name.clone()),
+                folder_id: organization
+                    .skills
+                    .get(&skill_id)
+                    .and_then(|skill| skill.folder_id.clone()),
+                tag_ids: organization
+                    .skills
+                    .get(&skill_id)
+                    .map(|skill| skill.tag_ids.clone())
+                    .unwrap_or_default(),
                 description,
                 validation,
                 file_count: record.file_count,
@@ -140,7 +158,118 @@ fn list(
             .has_uncommitted_changes()
             .map_err(|error| internal("library-git", error.to_string()))?,
         skills,
+        folders: organization
+            .folders
+            .values()
+            .map(|folder| FolderView {
+                id: folder.id.clone(),
+                name: folder.name.clone(),
+            })
+            .collect(),
+        tags: organization
+            .tags
+            .values()
+            .map(|tag| TagView {
+                id: tag.id.clone(),
+                name: tag.name.clone(),
+            })
+            .collect(),
+        organization_revision,
     })
+}
+
+#[tauri::command(async)]
+pub fn library_organization_change(
+    state: State<'_, AppState>,
+    request: OrganizationChangeRequest,
+) -> CommandResult<OrganizationChangeResponse> {
+    recorded("library_organization_change", || {
+        let change = match request.change {
+            OrganizationChange::CreateFolder { name } => Change::CreateFolder {
+                id: uuid::Uuid::new_v4().to_string(),
+                name,
+            },
+            OrganizationChange::UpdateFolder { id, name } => Change::UpdateFolder { id, name },
+            OrganizationChange::DeleteFolder { id } => Change::DeleteFolder { id },
+            OrganizationChange::CreateTag { name } => Change::CreateTag {
+                id: uuid::Uuid::new_v4().to_string(),
+                name,
+            },
+            OrganizationChange::RenameTag { id, name } => Change::RenameTag { id, name },
+            OrganizationChange::DeleteTag { id } => Change::DeleteTag { id },
+            OrganizationChange::Assign {
+                skill_ids,
+                folder_id,
+                set_folder,
+                add_tag_ids,
+                remove_tag_ids,
+            } => Change::Assign {
+                skill_ids,
+                folder_id,
+                set_folder,
+                add_tag_ids,
+                remove_tag_ids,
+            },
+        };
+        let deletion = matches!(
+            change,
+            Change::DeleteFolder { .. } | Change::DeleteTag { .. }
+        );
+        if deletion && request.expected_revision.is_none() {
+            return CommandResult::failure(validation("Review the deletion before confirming."));
+        }
+        match state
+            .library
+            .change_organization(change, request.expected_revision.as_deref())
+            .and_then(|graph| skillbinder_platform::organization::revision(&graph))
+        {
+            Ok(organization_revision) => CommandResult::success(OrganizationChangeResponse {
+                organization_revision,
+            }),
+            Err(error) => CommandResult::failure(validation(&error.to_string())),
+        }
+    })
+}
+
+#[tauri::command(async)]
+pub fn library_organization_preview_delete(
+    state: State<'_, AppState>,
+    request: OrganizationDeletePreviewRequest,
+) -> CommandResult<OrganizationDeletePreviewResponse> {
+    recorded("library_organization_preview_delete", || {
+        let result = state.library.organization_snapshot().and_then(|graph| {
+            let folder_id = match request.entity.as_str() {
+                "folder" => Some(request.id.as_str()),
+                "tag" => None,
+                _ => {
+                    return Err(skillbinder_core::import::ImportError::Validation(
+                        "Unknown item type.".into(),
+                    ));
+                }
+            };
+            let impact = graph
+                .preview_delete(folder_id, &request.id)
+                .map_err(skillbinder_core::import::ImportError::Validation)?;
+            Ok(OrganizationDeletePreviewResponse {
+                affected_skills: impact.affected_skills as u32,
+                organization_revision: skillbinder_platform::organization::revision(&graph)?,
+            })
+        });
+        match result {
+            Ok(value) => CommandResult::success(value),
+            Err(error) => CommandResult::failure(validation(&error.to_string())),
+        }
+    })
+}
+
+fn validation(message: &str) -> AppError {
+    AppError {
+        code: ErrorCode::ValidationFailed,
+        message: message.to_owned(),
+        retryable: false,
+        recovery_action: None,
+        diagnostic_id: "library-organization".into(),
+    }
 }
 
 fn internal(diagnostic_id: &str, message: String) -> AppError {

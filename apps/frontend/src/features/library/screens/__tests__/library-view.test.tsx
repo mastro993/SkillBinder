@@ -1,5 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  Outlet,
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
+import {
   cleanup,
   fireEvent,
   render,
@@ -18,16 +26,50 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderLibrary(client: Partial<DesktopClient>) {
+function FolderScreen() {
+  const { folderId } = folderRoute.useParams();
+  return <LibraryView folderId={folderId} />;
+}
+
+const rootRoute = createRootRoute({ component: () => <Outlet /> });
+const folderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/library/$folderId",
+  component: FolderScreen,
+});
+const routeTree = rootRoute.addChildren([
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/library",
+    component: () => <LibraryView />,
+  }),
+  folderRoute,
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/onboarding",
+    component: () => <p>Onboarding</p>,
+  }),
+]);
+
+function renderLibrary(
+  client: Partial<DesktopClient>,
+  { folderId }: { folderId?: string } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   vi.spyOn(native, "getDesktopClient").mockResolvedValue(
     stubDesktopClient(client),
   );
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({
+      initialEntries: [folderId ? `/library/${folderId}` : "/library"],
+    }),
+  });
   return render(
     <QueryClientProvider client={queryClient}>
-      <LibraryView />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }
@@ -68,6 +110,9 @@ describe("library view", () => {
         libraryRevision: null,
         hasUncommittedChanges: false,
         pendingResolution: false,
+        folders: [],
+        tags: [],
+        organizationRevision: "r",
         skills: [],
       }),
     });
@@ -85,11 +130,16 @@ describe("library view", () => {
         libraryRevision: "r",
         hasUncommittedChanges: true,
         pendingResolution: false,
+        folders: [],
+        tags: [],
+        organizationRevision: "r",
         skills: [
           {
             skillId: "skill",
             slug: "review",
             displayName: "Review",
+            folderId: null,
+            tagIds: [],
             description: "Review code.",
             validation: { status: "valid", messages: [] },
             fileCount: 2,
@@ -132,6 +182,9 @@ describe("library view", () => {
         libraryRevision: "r",
         hasUncommittedChanges: false,
         pendingResolution: false,
+        folders: [],
+        tags: [],
+        organizationRevision: "r",
         skills: [
           sharedSlugSkill("aaaa", "caveman"),
           sharedSlugSkill("bbbb", "caveman-bbbb"),
@@ -159,6 +212,142 @@ describe("library view", () => {
       expectedSkillIds: ["aaaa", "bbbb"],
     });
   });
+
+  it("filters by search and assigns the selection to a folder", async () => {
+    const skill = (id: string, folderId: string | null) => ({
+      skillId: id,
+      slug: id,
+      displayName: id,
+      folderId,
+      tagIds: [],
+      description: `${id} description`,
+      validation: { status: "valid" as const, messages: [] },
+      fileCount: 1,
+      totalBytes: "10",
+      sources: [],
+      digest: `sha256:${id}`,
+      payloadDirectory: id,
+    });
+    const libraryOrganizationChange = vi
+      .fn<DesktopClient["libraryOrganizationChange"]>()
+      .mockResolvedValue({ organizationRevision: "r2" });
+    renderLibrary({
+      bootstrap: vi
+        .fn<DesktopClient["bootstrap"]>()
+        .mockResolvedValue(bootstrap),
+      libraryOrganizationChange,
+      libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+        libraryRevision: "r",
+        hasUncommittedChanges: false,
+        pendingResolution: false,
+        organizationRevision: "r",
+        folders: [{ id: "reading", name: "Reading" }],
+        tags: [],
+        skills: [skill("one", null), skill("two", null)],
+      }),
+    });
+    await screen.findByText("one description");
+    fireEvent.change(screen.getByRole("textbox", { name: "Search skills" }), {
+      target: { value: "two" },
+    });
+    expect(screen.getByText("two description")).toBeInTheDocument();
+    expect(screen.queryByText("one description")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select one" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize selected" }));
+    fireEvent.change(screen.getByLabelText("Folder"), {
+      target: { value: "reading" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(libraryOrganizationChange).toHaveBeenCalledWith({
+        change: {
+          kind: "assign",
+          skillIds: ["one"],
+          folderId: "reading",
+          setFolder: true,
+          addTagIds: [],
+          removeTagIds: [],
+        },
+        expectedRevision: null,
+      }),
+    );
+  });
+
+  it("shows only the folder's skills on the folder page", async () => {
+    renderLibrary(
+      {
+        bootstrap: vi
+          .fn<DesktopClient["bootstrap"]>()
+          .mockResolvedValue(bootstrap),
+        libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+          libraryRevision: "r",
+          hasUncommittedChanges: false,
+          pendingResolution: false,
+          organizationRevision: "r",
+          folders: [{ id: "work", name: "Work" }],
+          tags: [],
+          skills: [
+            {
+              skillId: "inside",
+              slug: "inside",
+              displayName: "Inside",
+              folderId: "work",
+              tagIds: [],
+              description: "inside description",
+              validation: { status: "valid", messages: [] },
+              fileCount: 1,
+              totalBytes: "10",
+              sources: [],
+              digest: "sha256:inside",
+              payloadDirectory: "inside",
+            },
+            {
+              skillId: "outside",
+              slug: "outside",
+              displayName: "Outside",
+              folderId: null,
+              tagIds: [],
+              description: "outside description",
+              validation: { status: "valid", messages: [] },
+              fileCount: 1,
+              totalBytes: "10",
+              sources: [],
+              digest: "sha256:outside",
+              payloadDirectory: "outside",
+            },
+          ],
+        }),
+      },
+      { folderId: "work" },
+    );
+    expect(await screen.findByText("inside description")).toBeInTheDocument();
+    expect(screen.queryByText("outside description")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Work" })).toBeInTheDocument();
+  });
+
+  it("reports a folder that no longer exists", async () => {
+    renderLibrary(
+      {
+        bootstrap: vi
+          .fn<DesktopClient["bootstrap"]>()
+          .mockResolvedValue(bootstrap),
+        libraryList: vi.fn<DesktopClient["libraryList"]>().mockResolvedValue({
+          libraryRevision: "r",
+          hasUncommittedChanges: false,
+          pendingResolution: false,
+          organizationRevision: "r",
+          folders: [],
+          tags: [],
+          skills: [],
+        }),
+      },
+      { folderId: "gone" },
+    );
+    expect(
+      await screen.findByText("This folder no longer exists"),
+    ).toBeInTheDocument();
+  });
 });
 
 function sharedSlugSkill(skillId: string, payloadDirectory: string) {
@@ -166,6 +355,8 @@ function sharedSlugSkill(skillId: string, payloadDirectory: string) {
     skillId,
     slug: "caveman",
     displayName: null,
+    folderId: null,
+    tagIds: [],
     description: "A coding agent persona.",
     validation: { status: "valid" as const, messages: [] },
     fileCount: 2,

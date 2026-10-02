@@ -94,3 +94,17 @@ describe("fixture desktop client discovery", () => {
     expect(cancelled.candidates.length).toBeGreaterThan(0);
   });
 });
+
+it("returns a fresh library snapshot after folder changes", async () => {
+  const before = await fixtureDesktopClient.libraryList();
+  await fixtureDesktopClient.libraryOrganizationChange({
+    change: { kind: "createFolder", name: "Sidebar test folder" },
+    expectedRevision: null,
+  });
+  const after = await fixtureDesktopClient.libraryList();
+
+  expect(before.folders).toEqual([]);
+  expect(after.folders.map((folder) => folder.name)).toEqual([
+    "Sidebar test folder",
+  ]);
+});

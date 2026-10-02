@@ -66,6 +66,29 @@ pub trait LibraryRepository: Send + Sync {
     ) -> Result<LibrarySkillPreview, ImportError> {
         Err(ImportError::Library("skill preview unavailable".into()))
     }
+    fn organization_snapshot(
+        &self,
+    ) -> Result<crate::library::organization::Organization, ImportError> {
+        Ok(crate::library::organization::Organization::default())
+    }
+    fn change_organization(
+        &self,
+        _change: crate::library::organization::Change,
+        _expected_revision: Option<&str>,
+    ) -> Result<crate::library::organization::Organization, ImportError> {
+        Err(ImportError::Library("organization is unavailable".into()))
+    }
+    fn catalog_with_organization(
+        &self,
+    ) -> Result<
+        (
+            Vec<LibraryRecord>,
+            crate::library::organization::Organization,
+        ),
+        ImportError,
+    > {
+        Ok((self.catalog()?, self.organization_snapshot()?))
+    }
     fn stage_payload(
         &self,
         plan_id: &str,

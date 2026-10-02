@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { bootstrapQuery } from "@/lib/bootstrap-query";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardAction,
@@ -14,11 +16,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import type { ValidationStatus } from "@/types";
 import { SlugConflictDialog } from "../components/slug-conflict-dialog";
+import { AssignFolderDialog } from "../components/assign-folder-dialog";
+import { FolderDialog } from "../components/folder-dialog";
 import { payloadPath, slugConflictGroups } from "../lib/conflicts";
 import { libraryListQuery, useResolveSlugConflict } from "../hooks/queries";
 
@@ -29,7 +38,12 @@ const validationVariants = {
   blocked: "destructive",
 } satisfies Record<ValidationStatus, "success" | "warning" | "destructive">;
 
-export function LibraryView() {
+export function LibraryView({ folderId }: { folderId?: string }) {
+  const navigate = useNavigate();
+  const [folderDialog, setFolderDialog] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [assignIds, setAssignIds] = useState<string[] | null>(null);
   const bootstrap = useQuery(bootstrapQuery);
   const library = useQuery(libraryListQuery);
   const resolve = useResolveSlugConflict();
@@ -41,7 +55,7 @@ export function LibraryView() {
         <PageHeader
           eyebrow="Canonical collection"
           title="Library"
-          action={<Button disabled>New skill</Button>}
+          action={<Button disabled>Add folder</Button>}
         />
         <output className="sr-only">Loading library…</output>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
@@ -86,15 +100,58 @@ export function LibraryView() {
     );
   }
   const data = library.data;
+  const folder = folderId
+    ? data.folders.find((item) => item.id === folderId)
+    : undefined;
+  if (folderId && !folder)
+    return (
+      <section className="px-13 py-11.5">
+        <PageHeader eyebrow="Canonical collection" title="Folder not found" />
+        <Empty variant="outline" className="min-h-[390px]">
+          <EmptyHeader>
+            <EmptyTitle>This folder no longer exists</EmptyTitle>
+          </EmptyHeader>
+          <Button render={<Link to="/library" />}>Back to Library</Button>
+        </Empty>
+      </section>
+    );
+  const folderLabel = (id: string | null) => {
+    const assigned = data.folders.find((item) => item.id === id);
+    return assigned ? assigned.name : "Unfiled";
+  };
   const conflicts = slugConflictGroups(data.skills);
   const sharedSlugs = new Set(conflicts.map((group) => group.slug));
   const open = conflicts.find((group) => group.slug === openSlug) ?? null;
+  const visibleSkills = data.skills.filter((skill) => {
+    if (folderId && skill.folderId !== folderId) return false;
+    const query = search.trim().toLocaleLowerCase();
+    return (
+      !query ||
+      [skill.displayName, skill.slug, skill.description].some((value) =>
+        value?.toLocaleLowerCase().includes(query),
+      )
+    );
+  });
   return (
     <section className="px-13 py-11.5">
       <PageHeader
         eyebrow="Canonical collection"
-        title="Library"
-        action={<Button disabled>New skill</Button>}
+        title={folder ? folder.name : "Library"}
+        action={
+          folder ? (
+            <Button variant="outline" onClick={() => setFolderDialog(true)}>
+              Edit folder
+            </Button>
+          ) : (
+            <Button onClick={() => setFolderDialog(true)}>Add folder</Button>
+          )
+        }
+      />
+      <FolderDialog
+        folder={folder}
+        open={folderDialog}
+        onOpenChange={setFolderDialog}
+        onDeleted={() => void navigate({ to: "/library" })}
       />
       {data.hasUncommittedChanges ? (
         <Alert variant="warning" role="note" className="mb-6">
@@ -138,68 +195,172 @@ export function LibraryView() {
           </ul>
         </Alert>
       ) : null}
-      {data.skills.length === 0 ? (
-        <Empty variant="outline" className="min-h-[390px]">
-          <EmptyHeader>
-            <EmptyTitle>Your library is ready</EmptyTitle>
-          </EmptyHeader>
-          <p className="max-w-[490px] text-muted-foreground">
-            No skills imported yet. Visit Discovery to inspect local skill
-            folders.
-          </p>
-        </Empty>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
-          {data.skills.map((skill) => (
-            <Card key={skill.skillId}>
-              <CardHeader>
-                <CardTitle>{skill.displayName ?? skill.slug}</CardTitle>
-                <CardDescription>
-                  {sharedSlugs.has(skill.slug)
-                    ? payloadPath(skill)
-                    : skill.slug}
-                </CardDescription>
-                <CardAction>
-                  <Badge variant={validationVariants[skill.validation.status]}>
-                    {skill.validation.status}
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <p className="min-h-[42px] text-sm text-muted-foreground">
-                  {skill.description ?? "No description"}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {skill.fileCount} files · {skill.totalBytes} bytes
-                </p>
-                {skill.validation.messages.map((message) => (
-                  <p
-                    className="mt-1 text-xs text-muted-foreground"
-                    key={message.code}
+      {assignIds ? (
+        <AssignFolderDialog
+          data={data}
+          skillIds={assignIds}
+          onOpenChange={(open) => {
+            if (!open) setAssignIds(null);
+          }}
+        />
+      ) : null}
+      <div className="grid content-start gap-4">
+        {data.skills.length === 0 ? (
+          <Empty variant="outline" className="min-h-[390px]">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <span className="text-primary" aria-hidden="true">
+                  Skills
+                </span>
+              </EmptyMedia>
+              <EmptyTitle>Your library is ready</EmptyTitle>
+            </EmptyHeader>
+            <p className="max-w-[490px] text-muted-foreground">
+              No skills imported yet. Visit Discovery to inspect local skill
+              folders.
+            </p>
+          </Empty>
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <Input
+                aria-label="Search skills"
+                placeholder="Search skills"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              {selectedIds.length ? (
+                <>
+                  <output className="text-sm text-muted-foreground">
+                    {selectedIds.length} selected
+                  </output>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAssignIds(selectedIds)}
                   >
-                    {message.message}
-                  </p>
-                ))}
-              </CardContent>
-              <CardFooter className="block">
-                <ul className="grid gap-2">
-                  {skill.sources.map((source) => (
-                    <li
-                      className="grid gap-0.5 border-b pb-2 text-xs last:border-b-0 last:pb-0"
-                      key={source.displayPath}
+                    Organize selected
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedIds([])}
+                  >
+                    Clear selection
+                  </Button>
+                </>
+              ) : null}
+              {search ? (
+                <Button variant="ghost" size="sm" onClick={() => setSearch("")}>
+                  Clear search
+                </Button>
+              ) : null}
+            </div>
+            {visibleSkills.length === 0 ? (
+              <div className="rounded-lg border p-8 text-center">
+                <p className="font-medium">
+                  {folder ? "No skills in this folder" : "No matching skills"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {folder
+                    ? "Assign skills to this folder from a skill card."
+                    : "Try another search."}
+                </p>
+                {search ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => setSearch("")}
+                  >
+                    Clear search
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-start gap-4">
+              {visibleSkills.map((skill) => (
+                <Card key={skill.skillId}>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        aria-label={`Select ${skill.displayName ?? skill.slug}`}
+                        checked={selectedIds.includes(skill.skillId)}
+                        onCheckedChange={(checked) =>
+                          setSelectedIds(
+                            checked
+                              ? [...selectedIds, skill.skillId]
+                              : selectedIds.filter(
+                                  (id) => id !== skill.skillId,
+                                ),
+                          )
+                        }
+                      />
+                      <CardTitle>{skill.displayName ?? skill.slug}</CardTitle>
+                    </div>
+                    <CardDescription>
+                      {sharedSlugs.has(skill.slug)
+                        ? payloadPath(skill)
+                        : skill.slug}
+                    </CardDescription>
+                    <CardAction>
+                      <Badge
+                        variant={validationVariants[skill.validation.status]}
+                      >
+                        {skill.validation.status}
+                      </Badge>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="min-h-[42px] text-sm text-muted-foreground">
+                      {skill.description ?? "No description"}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => setAssignIds([skill.skillId])}
                     >
-                      <span className="break-words">{source.displayPath}</span>
-                      <span className="text-muted-foreground">
-                        {source.readerAgentIds.join(", ") || "Unknown reader"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
+                      Organize
+                    </Button>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {folderLabel(skill.folderId)}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {skill.fileCount} files · {skill.totalBytes} bytes
+                    </p>
+                    {skill.validation.messages.map((message) => (
+                      <p
+                        className="mt-1 text-xs text-muted-foreground"
+                        key={message.code}
+                      >
+                        {message.message}
+                      </p>
+                    ))}
+                  </CardContent>
+                  <CardFooter className="block">
+                    <ul className="grid gap-2">
+                      {skill.sources.map((source) => (
+                        <li
+                          className="grid gap-0.5 border-b pb-2 text-xs last:border-b-0 last:pb-0"
+                          key={source.displayPath}
+                        >
+                          <span className="break-words">
+                            {source.displayPath}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {source.readerAgentIds.join(", ") ||
+                              "Unknown reader"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
       {open && keptSkillId ? (
         <SlugConflictDialog
           slug={open.slug}

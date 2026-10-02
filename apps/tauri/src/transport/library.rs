@@ -15,6 +15,8 @@ contract! {
         pub slug: String,
         pub display_name: Option<String>,
         pub description: Option<String>,
+        pub folder_id: Option<String>,
+        pub tag_ids: Vec<String>,
         pub validation: ValidationSummary,
         pub file_count: u32,
         pub total_bytes: String,
@@ -30,6 +32,81 @@ contract! {
         pub has_uncommitted_changes: bool,
         pub pending_resolution: bool,
         pub skills: Vec<LibrarySkill>,
+        pub folders: Vec<FolderView>,
+        pub tags: Vec<TagView>,
+        pub organization_revision: String,
+    }
+}
+
+contract! {
+    pub struct FolderView {
+        pub id: String,
+        pub name: String,
+    }
+}
+contract! {
+    pub struct TagView {
+        pub id: String,
+        pub name: String,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum OrganizationChange {
+    CreateFolder {
+        name: String,
+    },
+    UpdateFolder {
+        id: String,
+        name: String,
+    },
+    DeleteFolder {
+        id: String,
+    },
+    CreateTag {
+        name: String,
+    },
+    RenameTag {
+        id: String,
+        name: String,
+    },
+    DeleteTag {
+        id: String,
+    },
+    Assign {
+        skill_ids: Vec<String>,
+        folder_id: Option<String>,
+        set_folder: bool,
+        add_tag_ids: Vec<String>,
+        remove_tag_ids: Vec<String>,
+    },
+}
+contract! {
+    pub struct OrganizationChangeRequest {
+        pub change: OrganizationChange,
+        pub expected_revision: Option<String>,
+    }
+}
+contract! {
+    pub struct OrganizationChangeResponse {
+        pub organization_revision: String,
+    }
+}
+contract! {
+    pub struct OrganizationDeletePreviewRequest {
+        pub entity: String,
+        pub id: String,
+    }
+}
+contract! {
+    pub struct OrganizationDeletePreviewResponse {
+        pub affected_skills: u32,
+        pub organization_revision: String,
     }
 }
 

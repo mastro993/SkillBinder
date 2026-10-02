@@ -16,6 +16,7 @@ import { Route as ShellDiscoveryRouteImport } from './routes/_shell.discovery'
 import { Route as ShellGitRouteImport } from './routes/_shell.git'
 import { Route as ShellLibraryRouteImport } from './routes/_shell.library'
 import { Route as ShellSettingsRouteImport } from './routes/_shell.settings'
+import { Route as ShellLibraryFolderIdRouteImport } from './routes/_shell.library_.$folderId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -51,6 +52,11 @@ const ShellSettingsRoute = ShellSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellLibraryFolderIdRoute = ShellLibraryFolderIdRouteImport.update({
+  id: '/library_/$folderId',
+  path: '/library/$folderId',
+  getParentRoute: () => ShellRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/git': typeof ShellGitRoute
   '/library': typeof ShellLibraryRoute
   '/settings': typeof ShellSettingsRoute
+  '/library/$folderId': typeof ShellLibraryFolderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/git': typeof ShellGitRoute
   '/library': typeof ShellLibraryRoute
   '/settings': typeof ShellSettingsRoute
+  '/library/$folderId': typeof ShellLibraryFolderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,13 +85,27 @@ export interface FileRoutesById {
   '/_shell/git': typeof ShellGitRoute
   '/_shell/library': typeof ShellLibraryRoute
   '/_shell/settings': typeof ShellSettingsRoute
+  '/_shell/library_/$folderId': typeof ShellLibraryFolderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/onboarding' | '/discovery' | '/git' | '/library' | '/settings'
+    | '/'
+    | '/onboarding'
+    | '/discovery'
+    | '/git'
+    | '/library'
+    | '/settings'
+    | '/library/$folderId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/onboarding' | '/discovery' | '/git' | '/library' | '/settings'
+  to:
+    | '/'
+    | '/onboarding'
+    | '/discovery'
+    | '/git'
+    | '/library'
+    | '/settings'
+    | '/library/$folderId'
   id:
     | '__root__'
     | '/'
@@ -93,6 +115,7 @@ export interface FileRouteTypes {
     | '/_shell/git'
     | '/_shell/library'
     | '/_shell/settings'
+    | '/_shell/library_/$folderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,6 +175,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellSettingsRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/library_/$folderId': {
+      id: '/_shell/library_/$folderId'
+      path: '/library/$folderId'
+      fullPath: '/library/$folderId'
+      preLoaderRoute: typeof ShellLibraryFolderIdRouteImport
+      parentRoute: typeof ShellRoute
+    }
   }
 }
 
@@ -160,6 +190,7 @@ interface ShellRouteChildren {
   ShellGitRoute: typeof ShellGitRoute
   ShellLibraryRoute: typeof ShellLibraryRoute
   ShellSettingsRoute: typeof ShellSettingsRoute
+  ShellLibraryFolderIdRoute: typeof ShellLibraryFolderIdRoute
 }
 
 const ShellRouteChildren: ShellRouteChildren = {
@@ -167,6 +198,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellGitRoute: ShellGitRoute,
   ShellLibraryRoute: ShellLibraryRoute,
   ShellSettingsRoute: ShellSettingsRoute,
+  ShellLibraryFolderIdRoute: ShellLibraryFolderIdRoute,
 }
 
 const ShellRouteWithChildren = ShellRoute._addFileChildren(ShellRouteChildren)

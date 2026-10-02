@@ -94,6 +94,16 @@ description = "Open the application log folder in the device file manager"
 commands.allow = ["diagnostics_reveal_logs"]
 
 [[permission]]
+identifier = "allow-library-organization-change"
+description = "Organize library skills"
+commands.allow = ["library_organization_change"]
+
+[[permission]]
+identifier = "allow-library-organization-preview-delete"
+description = "Preview an organization deletion"
+commands.allow = ["library_organization_preview_delete"]
+
+[[permission]]
 identifier = "allow-git-sync-status"
 description = "Read current Git remote and library sync status"
 commands.allow = ["git_sync_status"]

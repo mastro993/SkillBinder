@@ -94,6 +94,8 @@ pub fn run() {
             commands::git_sync::git_sync_push,
             commands::git_sync::git_sync,
             commands::git_sync::git_sync_disconnect,
+            commands::library::library_organization_change,
+            commands::library::library_organization_preview_delete,
             commands::diagnostics::diagnostics_reveal_logs,
         ])
         .build(tauri::generate_context!())

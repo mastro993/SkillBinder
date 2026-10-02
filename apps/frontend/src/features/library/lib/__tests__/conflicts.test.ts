@@ -11,6 +11,8 @@ function skill(
     skillId,
     slug,
     displayName: null,
+    folderId: null,
+    tagIds: [],
     description: null,
     validation: { status: "valid", messages: [] },
     fileCount: 1,

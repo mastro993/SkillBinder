@@ -86,6 +86,10 @@ mod tests {
         LibraryResolveConflictResponse::export_all(&config).unwrap();
         LibrarySkillPreviewRequest::export_all(&config).unwrap();
         LibrarySkillPreviewResponse::export_all(&config).unwrap();
+        OrganizationChangeRequest::export_all(&config).unwrap();
+        OrganizationChangeResponse::export_all(&config).unwrap();
+        OrganizationDeletePreviewRequest::export_all(&config).unwrap();
+        OrganizationDeletePreviewResponse::export_all(&config).unwrap();
         DiagnosticsRevealLogsResponse::export_all(&config).unwrap();
         GitSyncState::export_all(&config).unwrap();
         GitSyncStatus::export_all(&config).unwrap();
