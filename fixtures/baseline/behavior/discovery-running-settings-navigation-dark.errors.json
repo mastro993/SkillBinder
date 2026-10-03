@@ -1,0 +1,11 @@
+[
+  {
+    "args": [
+      "Base UI: A component that acts as a button expected a native <button> because the `nativeButton` prop is true. Rendering a non-<button> removes native button semantics, which can impact forms and accessibility. Use a real <button> in the `render` prop, or set `nativeButton` to `false`.\nLibraryView@http://127.0.0.1:1420/src/features/library/screens/library-view.tsx:284:37\nupdateMemo@http://127.0.0.1:1420/node_modules/.vite/deps/react-dom_client.js:5140:26\nuseMemo@http://127.0.0.1:1420/node_modules/.vite/deps/react-dom_client.js:14549:23\nMatchInnerImpl@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6607:34\nMatchView@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6581:54\nOutletImpl@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6663:63\nSplitComponent@http://127.0.0.1:1420/src/routes/_shell.tsx:7:35\nupdateMemo@http://127.0.0.1:1420/node_modules/.vite/deps/react-dom_client.js:5140:26\nuseMemo@http://127.0.0.1:1420/node_modules/.vite/deps/react-dom_client.js:14549:23\nMatchInnerImpl@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6607:34\nMatchView@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6581:54\nOutletImpl@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6663:63\nRoot@http://127.0.0.1:1420/src/routes/__root.tsx:294:26\nmountMemo@http://127.0.0.1:1420/node_modules/.vite/deps/react-dom_client.js:5123:30\nuseMemo@http://127.0.0.1:1420/node_modules/.vite/deps/react-dom_client.js:14297:22\nMatchInnerImpl@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6607:34\nMatchView@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6581:54\nMatchesInner@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6747:78\nMatches@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6734:56\nRouterProvider@http://127.0.0.1:1420/node_modules/.vite/deps/index.dev-BBqLXMAV.js:6920:56"
+    ],
+    "id": 1,
+    "level": "error",
+    "source": "logOnce@http://127.0.0.1:1420/node_modules/.vite/deps/useRenderElement-CN9gryK3.js:32:23",
+    "timestamp": 1791026671617
+  }
+]

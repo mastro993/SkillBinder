@@ -1,0 +1,5 @@
+{
+  "operation": "press Home after clicking Resize sidebar",
+  "error": "cannot press: window 'main' did not gain focus (another application has it)",
+  "followup": "Use supported pointer drag; development capture separately verifies Home/End."
+}

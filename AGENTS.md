@@ -1,104 +1,33 @@
-# SkillBinder
+# SkillBinder agent instructions
 
-Agent skills management app built with Tauri (Rust backend + React frontend).
+SkillBinder is a native Rust desktop rewrite using GPUI and unmodified Ely components. Read `docs/native-gate.md` before implementation. The current stage contains only the platform dependency gate.
 
-## Overview
+## Boundaries
 
-- **Frontend**: React + Vite + Tailwind v4 + shadcn (`apps/frontend/`)
-- **Desktop**: Tauri/Rust with SQLite (`apps/tauri/`, `crates/`)
+- `apps/skillbinder` owns executable configuration and native lifecycle.
+- `crates/ui` owns rendering, interactions, dialogs, and native integration.
+- `crates/theme` owns appearance and baseline dimensions.
+- `xtask` owns evidence verification and registry documentation.
+- `crates/proto`, `crates/engine`, and `crates/client` are deferred until all-platform acceptance passes. Their planned responsibilities are in `docs/architecture/native.md`.
 
-## Project structure
+Do not add empty crates or pass-through services to fill the planned tree. Do not rebuild domain features before the native dependency gate passes on macOS, Windows, and Linux.
 
-```json
-apps/
-├── frontend/         # Frontend app, Typescript, React, Tanstack Router
-└── tauri/            # Tauri IPC commands
+## Implementation rules
 
-crates/
-├── app/              # Context initialization
-├── core/             # Business logic, models, services
-├── db/               # Diesel ORM, repositories, migrations
-└── platform/         # Filesystem, Git, process lock, library files
-```
+Use small, specialized modules. Model state with typed data and enums. Use `Result`, `Option`, and `?` for fallible operations. Keep blocking filesystem, SQLite, hashing, and Git work outside the GPUI thread.
 
-See `apps/frontend/AGENTS.md` for frontend-specific conventions.
+Use Ely public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 
-## Agent Playbook
+Preserve the captured UI and behavior. The approved scope contains onboarding, Discovery, Library, flat folders, Sync, and Settings. It excludes bindings, deployments, nested folders, and tag-management UI.
 
-IMPORTANT: we do not have production users and we do not have the need to support backward compatibility or migrations. When requested to update or remove something completely removes the unnecessary. 
+Update affected behavior documents in `docs/`. Keep application code and documentation independent of external architecture examples. Preserve dependency and asset licenses.
 
-### Adding a feature
+## Research and verification
 
-1. **Frontend route/UI** → `apps/frontend/src/routes/`
-2. **Command wrapper** → `apps/frontend/src/commands/` or
-   `apps/frontend/src/features/<feature>/commands/`
-3. **Tauri command** → `apps/tauri/src/commands/*.rs`, wire in `mod.rs` +
-   `lib.rs`
-5. **Core logic** → `crates/core/` services/repos
-6. **DB** → `crates/db/` repositories, migrations in `crates/db/migrations`
-7. **Tests** → Vitest for TS, `#[test]` for Rust
+Prefer available skills. Use Context7 for library documentation when available, Exa for general search, and GitHits for public source examples. Use revision-pinned upstream sources when a requested service is unavailable.
 
-### UI patterns
+Use `cargo fmt --all --check`, workspace Clippy with warnings denied, workspace tests, `cargo run -p xtask -- verify`, and a locked release build. Verification must distinguish compilation, native interaction, visual parity, and packaged-app smoke tests.
 
-- Components: always use `shadcn/ui` and `@base-ui/react`
-- Strictly use `@hugeicons/core-free-icons`. Nothing else. If you come across lucide-react or similar, replace it.
-- Forms: `react-hook-form` + `zod` schemas from
-  `apps/frontend/src/features/<feature>/types/`
-- Theme: tokens in `apps/frontend/src/styles.css`
-- Loading: progressive, per-section skeletons. Spinners and progress bars only on explicit request.
-- Motion: layout stays stable; skeletons match final dimensions; enter, exit, and layout changes use subtle, short transitions.
+Native test controls exist only behind `native-test`. Do not add a production debug server. Use isolated test roots and local bare remotes for future domain tests.
 
-
-### Architecture pattern
-
-```json
-Frontend command wrapper → invokeCommand → Tauri IPC
-                ↓
-            crates/app (wiring)
-                ↓
-            crates/core (business logic)
-                ↓
-            crates/db (repository)
-```
-
----
-
-## Conventions
-
-### TypeScript
-
-- Strict mode, no unused locals/params
-- Prefer interfaces over types, avoid enums
-- Functional components, named exports
-- Directory names: lowercase-with-dashes
-- Never `throw/try/catch`. Use `@praha/byethrow`
-
-### Rust
-
-- Idiomatic Rust, small focused functions
-- `Result`/`Option`, propagate with `?`, `thiserror` for domain errors
-- Keep Tauri commands thin—delegate to `crates/core`
-- Migrations in `crates/db/migrations`
-
-### Security
-
-- All data local (SQLite), no cloud
-- Secrets via OS keyring—never disk/localStorage
-
----
-
-## Agent skills
-
-Use the tauri-pilot skill to verify and test the native app started with `pnpm dev`; target SkillBinder's socket and `main` window, inspect snapshots, assert expected UI, and check error logs.
-
-### Issue tracker
-
-Issues live in GitHub Issues, and external PRs are also a triage surface. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Use the default Matt Pocock triage label vocabulary. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Use single-context domain docs. See `docs/agents/domain.md`.
+Preserve unrelated work. Rebase onto current `main` before a new implementation task. Do not merge or publish without explicit authorization. Follow the issue tracker guidance under `docs/agents/`.

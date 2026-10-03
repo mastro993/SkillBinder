@@ -1,0 +1,11 @@
+{
+  "windowId": 1121,
+  "pid": 53090,
+  "bounds": {
+    "x": 274,
+    "y": 103,
+    "width": 1180,
+    "height": 760
+  },
+  "captureChange": "Original window dimensions. Vite --mode production strips development tools; original fixture UI and components remain."
+}

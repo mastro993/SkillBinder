@@ -1,0 +1,33 @@
+{
+  "elements": [
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinder setupCr",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 3,
+      "name": "SkillBinder setupCreate your libraryOne last revie",
+      "ref": "e2",
+      "role": "presentation"
+    },
+    {
+      "depth": 7,
+      "name": "Back",
+      "ref": "e3",
+      "role": "button"
+    },
+    {
+      "depth": 7,
+      "name": "Create local library",
+      "ref": "e4",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

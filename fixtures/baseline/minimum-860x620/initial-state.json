@@ -1,0 +1,14 @@
+{
+  "plugin_version": "0.8.0",
+  "readyState": "complete",
+  "scroll": {
+    "x": 0,
+    "y": 0
+  },
+  "title": "SkillBinder",
+  "url": "http://127.0.0.1:1420/#/onboarding",
+  "viewport": {
+    "height": 588,
+    "width": 860
+  }
+}

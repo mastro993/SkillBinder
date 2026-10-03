@@ -1,0 +1,87 @@
+{
+  "elements": [
+    {
+      "depth": 0,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e2",
+      "role": "generic"
+    },
+    {
+      "depth": 12,
+      "name": "Discovery5skills found",
+      "ref": "e3",
+      "role": "link"
+    },
+    {
+      "depth": 12,
+      "name": "Skills, 6 skills",
+      "ref": "e4",
+      "role": "link"
+    },
+    {
+      "depth": 10,
+      "name": "New folder",
+      "ref": "e5",
+      "role": "button"
+    },
+    {
+      "depth": 11,
+      "name": "Sync",
+      "ref": "e6",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Settings",
+      "ref": "e7",
+      "role": "link"
+    },
+    {
+      "depth": 4,
+      "name": "Resize sidebar",
+      "ref": "e8",
+      "role": "separator"
+    },
+    {
+      "depth": 8,
+      "name": "Open navigation",
+      "ref": "e9",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "This deviceSettingsApplicationSkillBinder 0.1.0-fi",
+      "ref": "e10",
+      "role": "presentation"
+    },
+    {
+      "depth": 15,
+      "name": "Open Git sync",
+      "ref": "e11",
+      "role": "link"
+    },
+    {
+      "depth": 14,
+      "name": "Open log folder",
+      "ref": "e12",
+      "role": "button"
+    },
+    {
+      "depth": 13,
+      "name": "Add folder",
+      "ref": "e13",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

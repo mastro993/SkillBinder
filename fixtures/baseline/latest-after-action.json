@@ -1,0 +1,207 @@
+{
+  "elements": [
+    {
+      "depth": 0,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e2",
+      "role": "generic"
+    },
+    {
+      "depth": 12,
+      "name": "Discovery5skills found",
+      "ref": "e3",
+      "role": "link"
+    },
+    {
+      "depth": 12,
+      "name": "Skills, 6 skills",
+      "ref": "e4",
+      "role": "link"
+    },
+    {
+      "depth": 10,
+      "name": "New folder",
+      "ref": "e5",
+      "role": "button"
+    },
+    {
+      "depth": 13,
+      "name": "Research, 0 skills",
+      "ref": "e6",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Sync",
+      "ref": "e7",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Settings",
+      "ref": "e8",
+      "role": "link"
+    },
+    {
+      "depth": 4,
+      "name": "Resize sidebar",
+      "ref": "e9",
+      "role": "separator"
+    },
+    {
+      "depth": 8,
+      "name": "Open navigation",
+      "ref": "e10",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Canonical collectionLibraryAdd folderOne slug name",
+      "ref": "e11",
+      "role": "presentation"
+    },
+    {
+      "depth": 12,
+      "name": "Add folder",
+      "ref": "e12",
+      "role": "button"
+    },
+    {
+      "depth": 14,
+      "name": "Choose which to keep",
+      "ref": "e13",
+      "role": "button"
+    },
+    {
+      "depth": 13,
+      "name": "Search skills",
+      "ref": "e14",
+      "role": "textbox"
+    },
+    {
+      "depth": 16,
+      "name": "Select Existing",
+      "ref": "e15",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e16",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e17",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select existing",
+      "ref": "e18",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e19",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e20",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Review",
+      "ref": "e21",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e22",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e23",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Research",
+      "ref": "e24",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e25",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e26",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Outline",
+      "ref": "e27",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e28",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e29",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Docs",
+      "ref": "e30",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e31",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e32",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

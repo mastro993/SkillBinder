@@ -1,0 +1,94 @@
+{
+  "elements": [
+    {
+      "depth": 0,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e2",
+      "role": "generic"
+    },
+    {
+      "depth": 12,
+      "name": "Discovery5skills found",
+      "ref": "e3",
+      "role": "link"
+    },
+    {
+      "depth": 12,
+      "name": "Skills, 6 skills",
+      "ref": "e4",
+      "role": "link"
+    },
+    {
+      "depth": 10,
+      "name": "New folder",
+      "ref": "e5",
+      "role": "button"
+    },
+    {
+      "depth": 13,
+      "name": "Research, 0 skills",
+      "ref": "e6",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Sync",
+      "ref": "e7",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Settings",
+      "ref": "e8",
+      "role": "link"
+    },
+    {
+      "depth": 4,
+      "name": "Resize sidebar",
+      "ref": "e9",
+      "role": "separator"
+    },
+    {
+      "depth": 8,
+      "name": "Open navigation",
+      "ref": "e10",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Portable libraryKeep your library in syncConnect o",
+      "ref": "e11",
+      "role": "presentation"
+    },
+    {
+      "depth": 16,
+      "name": "https://github.com/you/skills.git",
+      "ref": "e12",
+      "role": "textbox"
+    },
+    {
+      "depth": 16,
+      "name": "main",
+      "ref": "e13",
+      "role": "textbox",
+      "value": "main"
+    },
+    {
+      "depth": 14,
+      "name": "Connect remote",
+      "ref": "e14",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

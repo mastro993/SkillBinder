@@ -1,0 +1,518 @@
+{
+  "elements": [
+    {
+      "depth": 0,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e2",
+      "role": "generic"
+    },
+    {
+      "depth": 12,
+      "name": "Discovery5skills found",
+      "ref": "e3",
+      "role": "link"
+    },
+    {
+      "depth": 12,
+      "name": "Skills, 6 skills",
+      "ref": "e4",
+      "role": "link"
+    },
+    {
+      "depth": 10,
+      "name": "New folder",
+      "ref": "e5",
+      "role": "button"
+    },
+    {
+      "depth": 11,
+      "name": "Sync",
+      "ref": "e6",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Settings",
+      "ref": "e7",
+      "role": "link"
+    },
+    {
+      "depth": 4,
+      "name": "Resize sidebar",
+      "ref": "e8",
+      "role": "separator"
+    },
+    {
+      "depth": 8,
+      "name": "Open navigation",
+      "ref": "e9",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Canonical collectionLibraryAdd folderLibrary chang",
+      "ref": "e10",
+      "role": "presentation"
+    },
+    {
+      "depth": 12,
+      "name": "Add folder",
+      "ref": "e11",
+      "role": "button"
+    },
+    {
+      "depth": 14,
+      "name": "Choose which to keep",
+      "ref": "e12",
+      "role": "button"
+    },
+    {
+      "depth": 13,
+      "name": "Search skills",
+      "ref": "e13",
+      "role": "textbox"
+    },
+    {
+      "depth": 16,
+      "name": "Select Existing",
+      "ref": "e14",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e15",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e16",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select existing",
+      "ref": "e17",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e18",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e19",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Review",
+      "ref": "e20",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e21",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e22",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Research",
+      "ref": "e23",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e24",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e25",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Outline",
+      "ref": "e26",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e27",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e28",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Docs",
+      "ref": "e29",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e30",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e31",
+      "role": "button"
+    },
+    {
+      "depth": 3,
+      "name": "Open TanStack Devtools",
+      "ref": "e32",
+      "role": "button"
+    },
+    {
+      "depth": 6,
+      "name": "Resize TanStack Devtools panel",
+      "ref": "e33",
+      "role": "separator"
+    },
+    {
+      "depth": 7,
+      "name": "Workbench destinations",
+      "ref": "e34",
+      "role": "navigation"
+    },
+    {
+      "depth": 8,
+      "name": "Plugins",
+      "ref": "e35",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Marketplace",
+      "ref": "e36",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "SEO",
+      "ref": "e37",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Settings",
+      "ref": "e38",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Detach TanStack Devtools",
+      "ref": "e39",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Close TanStack Devtools",
+      "ref": "e40",
+      "role": "button"
+    },
+    {
+      "depth": 6,
+      "name": "Plugin panels",
+      "ref": "e41",
+      "role": "navigation"
+    },
+    {
+      "depth": 8,
+      "name": "Panes in this group",
+      "ref": "e42",
+      "role": "group"
+    },
+    {
+      "depth": 11,
+      "name": "TanStack Router",
+      "ref": "e43",
+      "role": "button"
+    },
+    {
+      "depth": 10,
+      "name": "Close TanStack Router",
+      "ref": "e44",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "TANSTACKTanStack Router v1Router22 itemsstate5 ite",
+      "ref": "e45",
+      "role": "generic"
+    },
+    {
+      "depth": 11,
+      "ref": "e46",
+      "role": "button"
+    },
+    {
+      "depth": 13,
+      "name": "TANSTACKTanStack Router v1",
+      "ref": "e47",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "name": "Router22 items",
+      "ref": "e48",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "state5 items",
+      "ref": "e49",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "matches3 items",
+      "ref": "e50",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "location8 items",
+      "ref": "e51",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "resolvedLocation8 items",
+      "ref": "e52",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "routesById9 items",
+      "ref": "e53",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "routesByPath7 items",
+      "ref": "e54",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "options9 items",
+      "ref": "e55",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "context1 item",
+      "ref": "e56",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "routeTree12 items",
+      "ref": "e57",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "history4 items",
+      "ref": "e58",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "protocolAllowlist4 items",
+      "ref": "e59",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "_committed3 items",
+      "ref": "e60",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "protocolAllowlist4 items",
+      "ref": "e61",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "processedTree5 items",
+      "ref": "e62",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "_tx6 items",
+      "ref": "e63",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "disabled": true,
+      "name": "Routes",
+      "ref": "e64",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "name": "Matches",
+      "ref": "e65",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "name": "History",
+      "ref": "e66",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "name": "Open match details for __root__",
+      "ref": "e67",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "Open match details for /",
+      "ref": "e68",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "\u2794",
+      "ref": "e69",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "Open match details for /_shell",
+      "ref": "e70",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "Open match details for /_shell/discovery",
+      "ref": "e71",
+      "role": "button"
+    },
+    {
+      "depth": 21,
+      "name": "\u2794",
+      "ref": "e72",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "Open match details for /_shell/git",
+      "ref": "e73",
+      "role": "button"
+    },
+    {
+      "depth": 21,
+      "name": "\u2794",
+      "ref": "e74",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "Open match details for /_shell/library",
+      "ref": "e75",
+      "role": "button"
+    },
+    {
+      "depth": 21,
+      "name": "\u2794",
+      "ref": "e76",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "Open match details for /_shell/settings",
+      "ref": "e77",
+      "role": "button"
+    },
+    {
+      "depth": 21,
+      "name": "\u2794",
+      "ref": "e78",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "Open match details for /_shell/library_/$folderId",
+      "ref": "e79",
+      "role": "button"
+    },
+    {
+      "depth": 17,
+      "name": "Open match details for /onboarding",
+      "ref": "e80",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "\u2794",
+      "ref": "e81",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "ref": "e82",
+      "role": "paragraph"
+    },
+    {
+      "depth": 8,
+      "name": "Press Enter to pick this pane up and move it with ",
+      "ref": "e83",
+      "role": "paragraph"
+    },
+    {
+      "depth": 4,
+      "name": "Hide the plugin and section tabs",
+      "ref": "e84",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

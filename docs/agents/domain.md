@@ -1,54 +1,35 @@
-# Domain docs
+# Domain documentation
 
 ## One context
 
-SkillBinder is a single bounded context: one product, one core crate, one vocabulary. Do not split
-the documentation by subdomain, and do not start a second glossary. Every file below covers the
-whole app, not a slice of it.
+SkillBinder is one bounded context with one product vocabulary. Keep domain terms consistent across engine operations, typed interfaces, UI copy, tests, and documentation. Do not create competing glossaries for individual packages.
 
-## Where domain knowledge lives
+## Sources of domain knowledge
 
-- `docs/mvp-technical-specification.md` is the full specification: product rules, data ownership,
-  and the boundaries between install, edit, deploy, commit, and sync.
-- `docs/features/<feature>.md` is the behavior of one user-facing feature: purpose, user flow, and
-  data ownership. `docs/features/discovery.md` and `docs/features/import.md` exist today.
-- `docs/adr/<nnn>-<slug>.md` records one decision with its alternatives, consequences, and reversal
-  cost. The status line reads `Status: accepted, YYYY-MM-DD.`. `docs/adr/007-provider-registry-and-shared-paths.md`
-  and `docs/adr/014-complete-agent-coverage.md` exist today, and the numbers continue in sequence.
-- `docs/architecture/<area>.md` records which layer owns what, the state flow between them, and the
-  command set of the area. `docs/architecture/bootstrap.md` and `docs/architecture/discovery.md`
-  exist today.
-- The module documentation in `crates/core/src/lib.rs` and its modules carries the domain language
-  of the code: `bootstrap`, `discovery`, `import`, `library`, `onboarding`, and `source`.
-- `README.md` states the journeys the app currently provides and which ones are not implemented
-  yet. It is the entry point, not the rule book.
+- `fixtures/contracts/domain-contract.md` preserves the shipped behavior at the captured baseline revision. It defines acceptance cases for the rewrite, not currently implemented native features.
+- `fixtures/contracts/ui-copy.md` and the canonical native captures preserve visible wording and interactions.
+- `docs/architecture/native.md` defines package ownership and the target execution and storage model.
+- `docs/native-gate.md` records the current implementation stage and verification limits.
+- `README.md` identifies what this checkout can run.
+- `docs/features/<feature>.md` describes a reconstructed feature once it exists. Add it with the feature rather than documenting an aspirational implementation as complete.
 
-## When to write
+The shipped scope contains four onboarding steps, Discovery, import review, Library, flat folders, shared-slug resolution, Sync, and Settings. Binding and deployment screens, nested folders, and tag-management UI are outside that scope.
 
-The document changes in the same commit as the behavior change, never in a later cleanup pass.
+## Update documentation with behavior
 
-- A new user-facing feature or a change to an existing flow updates or adds `docs/features/<feature>.md`.
-- A choice between real alternatives, or a rule a future reader would otherwise re-litigate, adds
-  `docs/adr/<nnn>-<slug>.md`. If no alternative was rejected, there is no decision to record.
-- A change to which layer owns what, to a state flow, or to the command set updates
-  `docs/architecture/<area>.md`. `node scripts/check-architecture.mjs` fails when the granted
-  commands drift from the handlers, so the architecture file and the permissions move together.
-- A change to the domain types or their rules updates the module documentation in `crates/core`.
-- `docs/agent-support.md` is generated from `crates/core/src/discovery/registry.json` by
-  `node scripts/registry.mjs docs`. Never edit it by hand.
+Change the affected documents in the same change as the behavior. Update architecture documentation when ownership, state flow, or concurrency changes. Add a decision record only when a real choice and rejected alternatives need to survive the task.
 
-## Glossary
+Domain types belong in the planned proto and engine packages once feature reconstruction is allowed. Document invariants beside their owning types and use the same names in feature documentation. A discrepancy between code and the approved contract is a defect to resolve, not permission to silently change the contract.
 
-Terms come from the core crate types, not from prose invented in the docs. When a term is needed,
-name the type that carries it and use that spelling everywhere:
+Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verify the reviewed registry and its evidence with `cargo run -p xtask -- verify`.
 
-- Onboarding: `OnboardingStep` in `crates/core/src/onboarding.rs`, with the transition rules beside
-  it.
-- Discovery: `ScanInput`, `Containment`, `ScanPolicy`, and `ScanOutcome`, plus the ports
-  `PayloadSource` and `LibraryCatalog` that the engine is pure over.
-- Import: the candidate, the plan, the skill id, and the slug, as used in
-  `docs/features/import.md`.
-- Library: portable metadata in `.skillbinder.json` and payloads under `skills/<slug>/`.
+## Vocabulary
 
-Add a glossary term only when a core type or a recorded decision introduces it. If the docs and the
-core crate disagree, the core crate is right until the change lands in both.
+- An agent is a registered skill reader with documented global roots and a direct project skill directory.
+- A scan observes source candidates without changing their bytes.
+- An import plan records immutable reviewed candidates and expires after 300 seconds.
+- A library owns portable metadata in `.skillbinder.json` schema 2 and payloads under `skills/<slug>/`.
+- A folder is flat. Each skill has at most one folder assignment.
+- Sync and Push are explicit actions that may commit managed changes. Imports and organization changes remain uncommitted until those actions.
+
+Expand this vocabulary only when a domain type or an accepted behavior introduces a term.

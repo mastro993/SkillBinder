@@ -1,0 +1,38 @@
+{
+  "sourceRevision": "83d55ef789a7cf256021f6620742e0e9021a8312",
+  "sourceFiles": [
+    "apps/frontend/src/commands/fixture-client.ts",
+    "apps/frontend/src/features/discovery/screens/discovery-view.tsx",
+    "apps/frontend/src/features/library/screens/library-view.tsx"
+  ],
+  "onboarding": {
+    "initial": { "step": "prerequisites", "completed": false },
+    "completed": { "step": "ready", "completed": true }
+  },
+  "scan": {
+    "running": { "rootsTotal": 2, "rootsDone": 1, "entriesSeen": 1240, "candidatesFound": 3, "currentPath": "/Users/demo/Projects/atlas/packages/api" },
+    "finished": { "rootsTotal": 2, "rootsDone": 2, "entriesSeen": 8421, "candidatesFound": 6, "currentPath": null, "limitsReached": true, "hiddenDuplicates": 1, "visibleCandidates": 5 }
+  },
+  "candidates": [
+    { "id": "fixture-clean", "path": "/Users/demo/.claude/skills/review", "slug": "review", "name": "Review", "description": "Review code for correctness.", "readers": ["claude-code"], "validation": "valid", "duplicate": "unique", "files": 3, "bytes": 2048, "linked": false, "expected": "selectable and importable" },
+    { "id": "fixture-shared", "path": "/Users/demo/.agents/skills/research", "slug": "research", "name": "Research", "description": "Research a topic with cited sources.", "readers": ["claude-code", "codex"], "validation": "valid", "duplicate": "unique", "files": 4, "bytes": 3072, "linked": false, "warnings": ["Shared location read by two agents."], "expected": "one row with both reader labels" },
+    { "id": "fixture-invalid", "path": "/Users/demo/.codex/skills/outline", "slug": "outline", "name": "Outline", "description": null, "readers": ["codex"], "validation": "invalid", "messages": [{ "code": "descriptionMissing", "message": "Description is missing." }], "duplicate": "unique", "files": 1, "bytes": 512, "linked": false, "expected": "selectable only after invalid-skill acknowledgement for prepare" },
+    { "id": "fixture-blocked", "path": "/Users/demo/.cursor/skills/unsafe", "slug": "unsafe", "name": "Unsafe", "description": "Blocked skill.", "readers": ["cursor"], "validation": "blocked", "messages": [{ "code": "unsafeEntryPath", "message": "Entry path escapes skill root." }], "duplicate": "unique", "files": 2, "bytes": 1024, "linked": false, "expected": "visible but not selectable" },
+    { "id": "fixture-duplicate", "path": "/Users/demo/.claude/skills/existing", "slug": "existing", "name": "Existing", "description": "Already imported.", "readers": ["claude-code"], "validation": "valid", "duplicate": "identical", "files": 2, "bytes": 1536, "linked": false, "expected": "hidden from candidate table and counted once" },
+    { "id": "fixture-root-link", "path": "/Users/demo/shared/docs", "slug": "docs", "name": "Docs", "description": "Write clear docs.", "readers": ["gemini"], "validation": "warning", "messages": [{ "code": "vcsMetadataExcluded", "message": "Version-control metadata excluded." }], "duplicate": "unique", "files": 5, "bytes": 4096, "linked": true, "expected": "visible warning and link indicator" }
+  ],
+  "library": {
+    "revision": "fixture-initial-revision",
+    "organizationRevision": "fixture-organization-0",
+    "hasUncommittedChanges": false,
+    "pendingResolution": false,
+    "folders": [],
+    "tags": [],
+    "skills": [
+      { "id": "00000000-0000-4000-8000-000000000001", "slug": "existing", "displayName": "Existing", "description": "Already imported.", "folderId": null, "tagIds": [], "files": 2, "bytes": 1536, "payloadDirectory": "existing", "sources": [{ "path": "/Users/demo/.claude/skills/existing", "readers": ["claude-code"] }] },
+      { "id": "00000000-0000-4000-8000-000000000002", "slug": "existing", "displayName": null, "description": "An older copy of the same name.", "folderId": null, "tagIds": [], "files": 1, "bytes": 640, "payloadDirectory": "existing-00000000", "sources": [] }
+    ],
+    "expected": "one shared-slug warning; resolution dialog offers both copies"
+  },
+  "git": { "initialState": "notConfigured", "remote": null, "branch": null, "ahead": 0, "behind": 0, "hasLocalChanges": false }
+}

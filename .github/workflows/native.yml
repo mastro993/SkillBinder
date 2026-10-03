@@ -1,0 +1,45 @@
+name: Native dependency gate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang cmake ninja-build pkg-config libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libssl-dev libvulkan1 xdg-desktop-portal
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Verify retained evidence
+        run: cargo run -p xtask --locked -- verify
+      - name: Check native graph
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Run workspace tests
+        run: cargo test --workspace --all-targets --locked
+      - name: Build interactive native gate
+        run: cargo build -p skillbinder --features native-test --locked
+      - name: Build release application
+        run: cargo build -p skillbinder --release --locked
