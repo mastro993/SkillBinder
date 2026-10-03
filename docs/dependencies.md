@@ -1,46 +1,45 @@
-# Dependency baseline
+# Dependencies and native prerequisites
 
-Pinned foundation baseline, verified 2026-09-27:
+| Dependency | Version / role |
+| --- | --- |
+| Rust | 1.96.0, pinned in rust-toolchain.toml |
+| GPUI | 0.2.2, native renderer and window/input platform |
+| gpui-component | 0.5.1, controls, dialogs, keyboard focus and text input |
+| SQLite / Diesel | Bundled SQLite, Diesel 2.3; exact graph in Cargo.lock |
+| System Git | 2.39 or newer, trusted local authentication |
+| Hugeicons | Bundled MIT SVGs; no runtime download |
+| Node.js | 24, development verification scripts only |
 
-| Tool or library          | Version                         |
-| ------------------------ | ------------------------------- |
-| Node.js                  | 24.14.1                         |
-| pnpm                     | 10.33.0                         |
-| Rust                     | 1.96.0                          |
-| Tauri CLI / API          | 2.11.5 / 2.11.1                 |
-| Tauri Rust crate         | 2.11.6                          |
-| Vite                     | 8.3.0                           |
-| React                    | 19.3.0                          |
-| TypeScript               | 6.0.3                           |
-| Lint / format            | oxlint 1.83.0 / oxfmt 0.68.0    |
-| TanStack Router / Query  | 1.170.38 / 5.103.1              |
-| Tailwind CSS             | 4.3.3                           |
-| Scroll area primitive    | @base-ui/react 1.8.0            |
-| SQLite crate             | Diesel 2.3.13 on bundled SQLite |
-| Folder picker plugin     | tauri-plugin-dialog 2.7.3       |
-| Native inspection plugin | tauri-plugin-pilot 0.8.0        |
-| Native inspection CLI    | tauri-pilot-cli 0.8.0           |
-| Generated IPC            | ts-rs 12.0.1                    |
-| SHA-256                  | sha2 0.10.9                     |
-| YAML parser              | yaml-rust2 0.10.4               |
-| Unicode normalization    | unicode-normalization 0.1.24    |
-| Logging facade           | tracing 0.1.44                  |
-| Log formatter            | tracing-subscriber 0.3.23       |
-| Supported Git            | 2.39.0 or newer                 |
+`Cargo.lock` locks all native dependencies. The application has no JavaScript runtime or package
+installation step. Optional embedded-browser features of dependencies are not enabled.
 
-Dependencies are locked by `pnpm-lock.yaml` and `Cargo.lock`. Runtime diagnostics must report the compiled SQLite version before WAL is enabled; this scaffold intentionally uses rollback journaling with `synchronous=FULL`.
+## Linux
 
-`tauri-plugin-dialog` is used from Rust only: `roots_pick` calls the folder picker in the shell, so the frontend never invokes it and the main capability carries no dialog permission.
+A C/C++ compiler, pkg-config, CMake, Clang/libclang, X11/Wayland development headers, fontconfig,
+freetype, xkbcommon, OpenSSL, and a Vulkan-capable graphics driver are required. On Ubuntu:
 
-`tauri-plugin-pilot` is registered only in debug builds. It grants `pilot:default` to the `main`
-window so tauri-pilot CLI 0.8.0 can inspect and verify the native app during development.
+```sh
+sudo apt-get install build-essential pkg-config cmake clang libclang-dev libssl-dev \
+  libfontconfig1-dev libfreetype6-dev libx11-dev libxcb1-dev libxkbcommon-dev \
+  libxkbcommon-x11-dev libwayland-dev libvulkan-dev libx11-xcb-dev libxrandr-dev \
+  libxi-dev libxcursor-dev libxinerama-dev libasound2-dev
+```
 
-## Native setup
+Folder dialogs use the desktop portal; install `xdg-desktop-portal` plus your desktop's backend.
+`xdg-open` opens the logs folder. Headless launch testing needs Xvfb and a compatible software Vulkan
+driver; a successful compile does not establish that every virtual GPU supports GPUI rendering.
 
-- macOS: Xcode Command Line Tools and WebKit supplied by macOS.
-- Windows: Microsoft C++ Build Tools and WebView2 development/runtime prerequisites.
-- Linux: distribution packages required by Tauri 2, including WebKitGTK and system tray/build libraries.
+## macOS
 
-Run Tauri's current prerequisite instructions for the host OS before `pnpm dev` or `pnpm build`. Local feature tests require no account, GitHub token, cloud service, skills CLI, or real credential store.
+Install Xcode Command Line Tools. GPUI uses Cocoa and Metal; test on an actual supported Mac.
 
-Tested during scaffold creation: macOS on Apple Silicon, Git 2.50.1 (Apple Git-155). Other OS families require CI evidence before compatibility claims.
+## Windows
+
+Install Visual Studio C++ Build Tools, the Windows SDK, and the Rust MSVC toolchain. GPUI uses the
+native Windows graphics stack. No installer signing credentials are needed for source builds.
+
+## Verification scope
+
+CI builds/checks the native workspace on Linux, macOS, and Windows. Filesystem probes that rely
+on Unix permissions or symlinks explicitly skip on other hosts. Native window tests and actual
+runner outcomes are evidence for those environments, not a public compatibility certification.

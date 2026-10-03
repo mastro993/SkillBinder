@@ -53,7 +53,7 @@ Core owns registry parsing, path-template resolution, the traversal engine, scan
 candidate identity, bounded traversal, and payload validation. Platform owns filesystem access,
 including the volume identity the mount check reads. SQLite owns the machine-local plan,
 idempotency, observation, and index rows, and the `scan_roots` table that holds registered
-project-search roots. The Tauri shell holds the run state, the pending folder grants, and a
+project-search roots. The application service layer holds the run state, the pending folder grants, and a
 short-lived scan session so IPC can hand out opaque candidate ids instead of paths.
 
 Registered roots are machine-local: they live in `state.sqlite`, never in the library repository,
@@ -62,10 +62,10 @@ and a root is identified by its canonical path, a display path, a label, and an 
 The shell keeps a run's phase, progress, cancel flag, and outcome for ten minutes, and prunes older
 entries. The scan session is written only when a run finishes; a cancelled run keeps its outcome so
 its candidates stay visible, but writes no session. A scan id that is no longer cached makes
-`imports_prepare` reject its candidate ids, which is the intended recovery path for the frontend:
+`imports_prepare` reject its candidate ids, which is the intended recovery path for the UI:
 rescan.
 
-`discovery_current` exposes that table to the frontend. It returns the running run when there is
+`discovery_current` exposes that table to the UI. It returns the running run when there is
 one, otherwise the newest run inside the ten-minute window whatever its phase, otherwise nothing.
 A view that opens later therefore adopts the run the shell is holding, finished or not. An aged-out
 scan id makes `discovery_results` answer with the rescan recovery action, and the screen returns to
@@ -126,7 +126,7 @@ importable. A candidate carries a validation summary whose status is `valid`, `w
 `invalid`, or `blocked`, plus a duplicate decision of `unique`, `identical`, or `slugInUse`, and
 whether the skill directory was reached through a link.
 
-Selection is frontend state. `imports_prepare` turns a selection into an immutable plan;
+Selection is UI state. `imports_prepare` turns a selection into an immutable plan;
 `imports_apply` consumes it once. A discovery run has no persisted state; the registered roots are
 configuration, not scan results.
 
@@ -227,11 +227,11 @@ The store round-trips `scan_roots` against a real database: enabled-first orderi
 enabled updates, a duplicate canonical path rejected, removal, and persistence across reopen. The
 shell tests cover the phase mapping, the reuse of a live run, the selection of the current run,
 cancellation as a no-op, paging edges, the scan report records a finished or failed walk writes,
-and that a cancelled run writes no import session. The frontend keeps colocated tests for its
+and that a cancelled run writes no import session. The UI keeps colocated tests for its
 paging, reader labels, scan-state copy, each discovery view, and the fixture client. Registry coverage is enforced twice: by the Rust tests and
 by `node scripts/registry.mjs check`.
 
-`cargo run -p skillbinder --example j02_probe` is the manual harness for the project scan. It
+`cargo run -p skillbinder-app --example j02_probe` is the manual harness for the project scan. It
 builds a real temporary tree (skills inside a known project skill directory, a skill outside it, a
 worktree `.git` file, excluded vendors, an unreadable directory, a symlinked payload), registers
 real roots in a real state database, expands them the way the shell does, and runs the real engine:
@@ -278,7 +278,7 @@ At runtime a root is registered through `roots_pick` and `roots_register`, and t
 extend: the picker mints the grant and the store persists the row. A registered project root reaches
 the engine through `project_scan_inputs`, so a new _source_ of project roots registers a `ScanRoot`
 and lets that expansion decide which directories are walked. To add a new _source_ of global roots,
-follow the same shape: build a `ScanInput` in `apps/tauri/src/commands/discovery.rs::scan_inputs`
+follow the same shape: build a `ScanInput` in `crates/app/src/actions/discovery.rs::scan_inputs`
 with its own `Containment` and `ScanPolicy`, persist any machine-local state through `StateStore`,
 and keep the path out of IPC. Never add a command that accepts a raw path, and never grow a branch
 inside the engine for one source: a policy and a containment are the extension points.

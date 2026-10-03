@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-  "apps/tauri",
+  "apps/desktop",
+  "crates/ui",
   "crates/app",
   "crates/core",
   "crates/db",
@@ -13,6 +14,7 @@ version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 rust-version = "1.96"
+publish = false
 
 [workspace.lints.rust]
 future_incompatible = "warn"
@@ -25,6 +27,12 @@ needless_collect = { level = "deny", priority = 9 }
 large_enum_variant = { level = "deny", priority = 9 }
 
 [workspace.dependencies]
+skillbinder-app = { path = "crates/app" }
+skillbinder-core = { path = "crates/core" }
+skillbinder-db = { path = "crates/db" }
+skillbinder-platform = { path = "crates/platform" }
+skillbinder-ui = { path = "crates/ui" }
+
 chrono = { version = "0.4.42", default-features = false, features = [
   "clock",
   "serde",
@@ -37,7 +45,6 @@ semver = "1.0.28"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sha2 = "=0.10.9"
-tauri = "2.11.6"
 thiserror = "2.0.20"
 tracing = "=0.1.44"
 tracing-subscriber = { version = "=0.3.23", default-features = false, features = [
@@ -46,7 +53,20 @@ tracing-subscriber = { version = "=0.3.23", default-features = false, features =
   "registry",
   "std",
 ] }
-ts-rs = { version = "12.0.1", features = ["serde-compat"] }
 uuid = { version = "1.18.1", features = ["v4"] }
 unicode-normalization = "=0.1.24"
 yaml-rust2 = "=0.10.4"
+
+gpui = "=0.2.2"
+gpui-component = "=0.5.1"
+tempfile = "3.22"
+
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0
+
+[profile.release]
+lto = "thin"
+strip = "symbols"

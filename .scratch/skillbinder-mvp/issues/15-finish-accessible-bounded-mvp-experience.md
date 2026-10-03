@@ -15,5 +15,5 @@
 - [ ] Production capability configuration exposes only bundled local UI, the named main window, required native dialogs/window actions, and allowlisted SkillBinder commands under an explicit CSP.
 - [ ] Imported scripts, instructions, hooks, installers, filters, plugin manifests, and setup content remain inert; review copy explains downstream agent risk without claiming structural validation proves trust.
 - [ ] No telemetry or automatic crash upload exists; production logs and UI errors obey the approved redaction rules.
-- [ ] Static architecture and unit checks enforce feature ownership, dependency direction, generated transport consistency, command allowlisting, accessible component behavior, limit handling, and absence of generic privileged frontend APIs.
+- [ ] Static architecture and unit checks enforce feature ownership, dependency direction, generated transport consistency, command allowlisting, accessible component behavior, limit handling, and absence of generic privileged UI APIs.
 

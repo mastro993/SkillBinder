@@ -1,0 +1,21 @@
+[package]
+name = "skillbinder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui.workspace = true
+skillbinder-app.workspace = true
+skillbinder-core.workspace = true
+skillbinder-platform.workspace = true
+skillbinder-ui.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

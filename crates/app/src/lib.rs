@@ -2,7 +2,7 @@
 //! adapters into the core services, acquires the single-instance process lock, and holds the live
 //! scan sessions, scans, and pending root grants that commands read and write.
 //!
-//! The crate is Tauri-free. The host supplies its application paths and home directory, so the same
+//! The crate is independent of the desktop toolkit. The host supplies its application paths and home directory, so the same
 //! context can be built from a test harness, a CLI, or the desktop shell.
 
 pub mod context;
@@ -13,3 +13,8 @@ pub use session::{
     PENDING_GRANT_SECONDS, PendingGrant, SCAN_SESSION_SECONDS, ScanRootIdentity, ScanRun,
     ScanSession,
 };
+pub use skillbinder_platform::paths::AppPaths;
+
+pub mod actions;
+pub mod logging;
+pub mod models;

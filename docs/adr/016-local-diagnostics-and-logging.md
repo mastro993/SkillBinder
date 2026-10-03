@@ -9,7 +9,7 @@ facade and written to one local rotating file. `tracing` is a facade, so `core`,
 `platform` emit at the layer that owns the decision without depending on a logging crate and
 without inverting the dependency direction.
 
-One subscriber is installed by `apps/tauri` in the Tauri setup hook, before application state
+One subscriber is installed by `apps/desktop` in the native startup, before application state
 opens. It formats JSON lines and owns a panic hook that records a panic location and no payload.
 The rotating writer lives in `crates/platform/src/rotating_log.rs`, the line redactor in
 `crates/platform/src/redact.rs`, and the bounded queue that feeds the writer in
@@ -17,7 +17,7 @@ The rotating writer lives in `crates/platform/src/rotating_log.rs`, the line red
 performs file IO.
 
 The log root is `AppPaths::logs()`, which is the application directory plus `logs`. The application
-directory is `~/.skillbinder`, resolved from the home directory Tauri reports, so the log root is
+directory is `~/.skillbinder`, resolved from the home directory the OS reports, so the log root is
 `~/.skillbinder/logs`. No path is built from a hard-coded home string.
 
 The active file is `skillbinder.log`, and `skillbinder.log.1` through `skillbinder.log.4` hold the
@@ -40,14 +40,14 @@ into a message under an unrecognized name can still write it. Provenance is guar
 coverage is not.
 
 Command outcomes are recorded once, in `commands::recorded`, which is the only seam a command
-touches. A record carries the `diagnostic_id` the frontend already shows on an error, the error
+touches. A record carries the `diagnostic_id` the UI already shows on an error, the error
 code, and whether the error is retryable. A record never carries the `AppError` message string.
 
 Verbosity is one word in the `SKILLBINDER_LOG` environment variable, mapped to a level filter and
 defaulting to `info`, which is the level the app ships at.
 
 The design deliberately excludes telemetry, automatic crash upload, a log export command, a log
-viewer, and a Settings surface for paths or levels. The frontend and the webview do not log beyond
+viewer, and a Settings surface for paths or levels. The UI and the UI thread do not log beyond
 what crosses the command boundary. There is no second log directory, no portable log location, and
 no log location inside the library repository, so a log file never enters a Git history.
 
@@ -61,7 +61,7 @@ strongest of the shapes considered, because an event type can have no path or me
 `core` and `db` could not emit at all without a logging port on core traits, which would leave
 rollback failures and JSON fallbacks invisible.
 
-A boundary-only audit that logs inside `apps/tauri` was rejected. It is the smallest diff of the
+A boundary-only audit that logs inside `apps/desktop` was rejected. It is the smallest diff of the
 shapes considered, and it fails the request, because domain warnings stay unauditable and it puts a
 file writer in the shell crate whose job is transport mapping and composition.
 
@@ -69,7 +69,7 @@ A `~/.skillbinder/logs` root was rejected. It adds a second directory root next 
 local data directory that the specification defined at the time, and it contradicted the rule
 against paths built from a hard-coded home string. Superseded: the application directory is now
 `~/.skillbinder` itself, so the log root is inside the single application root and the second-root
-objection no longer applies. The path is still resolved from the home directory Tauri reports, not
+objection no longer applies. The path is still resolved from the home directory the OS reports, not
 from a home string in the source.
 
 The `env-filter` feature of `tracing-subscriber` was rejected. It pulls in regex machinery for a
@@ -77,7 +77,7 @@ filter that no user-facing surface exposes, when one level word covers the requi
 
 ## Consequences
 
-Logging never fails a command and never blocks the webview. A full queue drops and counts lines
+Logging never fails a command and never blocks the UI thread. A full queue drops and counts lines
 instead of making the emitter wait, and a failed rotation degrades the sink instead of taking the
 process down or growing a file without bound.
 

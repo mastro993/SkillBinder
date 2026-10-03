@@ -1,0 +1,250 @@
+use serde::{Deserialize, Serialize};
+
+macro_rules! contract {
+    ($item:item) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        $item
+    };
+}
+
+pub mod bootstrap;
+pub mod diagnostics;
+pub mod discovery;
+pub mod error;
+pub mod git_sync;
+pub mod imports;
+pub mod library;
+pub mod onboarding;
+pub mod roots;
+pub mod validation;
+
+pub use bootstrap::*;
+pub use diagnostics::*;
+pub use discovery::*;
+pub use error::*;
+pub use git_sync::*;
+pub use imports::*;
+pub use library::*;
+pub use onboarding::*;
+pub use roots::*;
+pub use validation::*;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CommandResult<T> {
+    Success { ok: bool, value: T },
+    Failure { ok: bool, error: AppError },
+}
+
+impl<T> CommandResult<T> {
+    pub fn into_result(self) -> Result<T, AppError> {
+        match self {
+            Self::Success { value, .. } => Ok(value),
+            Self::Failure { error, .. } => Err(error),
+        }
+    }
+
+    pub fn success(value: T) -> Self {
+        Self::Success { ok: true, value }
+    }
+
+    pub fn failure(error: AppError) -> Self {
+        Self::Failure { ok: false, error }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn discovery_candidate_serializes_tagged_variants() {
+        let candidate = DiscoveryCandidate {
+            candidate_id: "scan-1:0".into(),
+            display_path: "/home/dev/.claude/skills/code-review".into(),
+            slug: "code-review".into(),
+            name: Some("code-review".into()),
+            description: Some("Reviews code.".into()),
+            reader_agent_ids: vec!["claude-code".into()],
+            reader_agent_labels: vec!["Claude Code".into()],
+            validation: ValidationSummary {
+                status: ValidationStatus::Valid,
+                messages: vec![ValidationMessage {
+                    code: ValidationCode::VcsMetadataExcluded,
+                    message: "Excluded .git directory".into(),
+                }],
+            },
+            duplicate: CandidateDuplicate::Identical {
+                skill_id: "skill-1".into(),
+                slug: "code-review".into(),
+            },
+            file_count: 3,
+            total_bytes: "2048".into(),
+            linked: false,
+            warnings: Vec::new(),
+        };
+
+        let value = serde_json::to_value(&candidate).unwrap();
+        assert_eq!(value["duplicate"]["kind"], "identical");
+        assert_eq!(value["fileCount"], 3);
+        assert_eq!(value["totalBytes"], "2048");
+        assert_eq!(value["linked"], false);
+        assert_eq!(
+            value["validation"]["messages"][0]["code"],
+            "vcsMetadataExcluded"
+        );
+
+        assert_eq!(
+            serde_json::to_value(ImportOutcome::NewSkill).unwrap(),
+            serde_json::json!({ "kind": "newSkill" })
+        );
+    }
+
+    #[test]
+    fn import_requests_reject_unknown_input() {
+        assert!(
+            serde_json::from_value::<ImportPrepareRequest>(serde_json::json!({
+                "candidateIds": ["scan-1:0"],
+                "path": "/etc"
+            }))
+            .is_err()
+        );
+        assert!(
+            !serde_json::from_value::<ImportPrepareRequest>(serde_json::json!({
+                "candidateIds": ["scan-1:0"]
+            }))
+            .unwrap()
+            .allow_invalid_skills
+        );
+        assert_eq!(
+            serde_json::from_value::<ImportApplyRequest>(serde_json::json!({ "planId": "plan-1" }))
+                .unwrap()
+                .plan_id,
+            "plan-1"
+        );
+    }
+
+    #[test]
+    fn skill_preview_contract_uses_nullable_content_and_unix_seconds() {
+        let request: LibrarySkillPreviewRequest = serde_json::from_value(serde_json::json!({
+            "skillId": "skill-1",
+            "path": null
+        }))
+        .unwrap();
+        assert_eq!(request.path, None);
+
+        let value = serde_json::to_value(LibrarySkillPreviewResponse {
+            skill_id: "skill-1".into(),
+            last_edited_at: Some(1_800_000_000),
+            files: vec!["SKILL.md".into()],
+            path: "SKILL.md".into(),
+            content: None,
+            unavailable_reason: Some("Binary file cannot be previewed.".into()),
+        })
+        .unwrap();
+        assert_eq!(value["skillId"], "skill-1");
+        assert_eq!(value["lastEditedAt"], 1_800_000_000);
+        assert_eq!(value["files"], serde_json::json!(["SKILL.md"]));
+        assert!(value["content"].is_null());
+        assert_eq!(
+            value["unavailableReason"],
+            "Binary file cannot be previewed."
+        );
+    }
+
+    #[test]
+    fn scan_requests_reject_unknown_input() {
+        assert!(
+            serde_json::from_value::<RootsRegisterRequest>(serde_json::json!({
+                "grantId": "grant-1",
+                "path": "/etc"
+            }))
+            .is_err()
+        );
+        assert_eq!(
+            serde_json::from_value::<RootsRegisterRequest>(serde_json::json!({
+                "grantId": "grant-1"
+            }))
+            .unwrap()
+            .label,
+            None
+        );
+        assert!(
+            serde_json::from_value::<DiscoveryResultsRequest>(serde_json::json!({
+                "scanId": "scan-1",
+                "offset": 0,
+                "limit": 100,
+                "unexpected": true
+            }))
+            .is_err()
+        );
+        assert_eq!(
+            serde_json::from_value::<RootsUpdateRequest>(serde_json::json!({
+                "rootId": "root-1",
+                "label": "Work",
+                "enabled": false
+            }))
+            .unwrap(),
+            RootsUpdateRequest {
+                root_id: "root-1".into(),
+                label: "Work".into(),
+                enabled: false,
+            }
+        );
+        assert_eq!(
+            serde_json::from_value::<DiscoveryCancelRequest>(serde_json::json!({
+                "scanId": "scan-1"
+            }))
+            .unwrap()
+            .scan_id,
+            "scan-1"
+        );
+    }
+
+    #[test]
+    fn scan_phase_uses_camel_case_names() {
+        assert_eq!(
+            serde_json::to_value(ScanPhase::Cancelled).unwrap(),
+            serde_json::json!("cancelled")
+        );
+        assert_eq!(
+            serde_json::to_value(ScanPhase::Finished).unwrap(),
+            serde_json::json!("finished")
+        );
+    }
+
+    #[test]
+    fn result_envelope_serializes_success_and_failure() {
+        let success = CommandResult::success("ready");
+        assert_eq!(
+            serde_json::to_value(success).unwrap(),
+            serde_json::json!({ "ok": true, "value": "ready" })
+        );
+
+        let failure: CommandResult<()> = CommandResult::failure(AppError {
+            code: ErrorCode::GitNotFound,
+            message: "Git was not found".into(),
+            retryable: true,
+            recovery_action: Some(RecoveryAction::ConfigureGit),
+            diagnostic_id: "bootstrap.git.not-found".into(),
+        });
+        assert_eq!(serde_json::to_value(failure).unwrap()["ok"], false);
+    }
+
+    #[test]
+    fn onboarding_request_rejects_unknown_input() {
+        assert!(
+            serde_json::from_value::<UpdateOnboardingProgressRequest>(serde_json::json!({
+                "step": "boundaries",
+                "command": "arbitrary"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<UpdateOnboardingProgressRequest>(serde_json::json!({
+                "step": "arbitrary"
+            }))
+            .is_err()
+        );
+    }
+}

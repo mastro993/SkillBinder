@@ -1,11 +1,13 @@
-# Kanai — MVP Technical Specification
+# SkillBinder — MVP Technical Specification
 
-Document version: 1.8  
-Prepared: 2026-09-16  
-Audience: product owner, desktop engineers, frontend engineers, and QA  
+Document version: 1.8
+Prepared: 2026-09-16
+Audience: product owner, desktop engineers, UI engineers, and QA
 Status: implementation specification with approved MVP scope; distribution and in-app updates excluded
 
-Revision 1.5: Set the approved product name to **Kanai**. Use `Kanai` for user-facing product identity and `kanai` for code/package naming where a lowercase identifier is required. Retain all approved MVP architecture, all-agent coverage, local Git authentication, `AGPL-3.0-only`, private GitHub skill installation, frontend component placement, and the exclusion of distribution and in-app updates.
+Native architecture revision, 2026-10-03. UI and application layout follow the GPUI workspace described in sections 4–6.
+
+Revision 1.5: Set the approved product name to **SkillBinder**. Use `SkillBinder` for user-facing product identity and `skillbinder` for code/package naming where a lowercase identifier is required. Retain all approved MVP architecture, all-agent coverage, local Git authentication, `AGPL-3.0-only`, private GitHub skill installation, UI component placement, and the exclusion of distribution and in-app updates.
 
 This revision supersedes conflicting requirements in earlier versions. In particular, the previous no-installed-Git promise, app-managed credential store, six-agent baseline, installer milestones, and updater preparation do not apply.
 
@@ -18,17 +20,17 @@ This revision supersedes conflicting requirements in earlier versions. In partic
 | Data and safety            | [7. Storage](#7-persistent-storage-and-ownership) · [8. Data model](#8-data-model-and-content-identity) · [9. File safety](#9-filesystem-and-content-safety-policy)                                                                                                                                                                                                                                 |
 | Discovery and sources      | [10. Registry](#10-discovery-and-agent-registry) · [11. Import](#11-validation-and-import) · [12. Installation](#12-github-and-skillssh-installation)                                                                                                                                                                                                                                               |
 | Library and delivery       | [13. Editing](#13-organization-editing-and-library-ux) · [14. Transactions](#14-library-transactions-and-crash-recovery) · [15. Deployment](#15-targets-and-deployment) · [16. Backups](#16-drift-removal-and-backups)                                                                                                                                                                              |
-| History and interfaces     | [17. History](#17-local-history-and-restore) · [18. Sync](#18-manual-library-sync) · [19. IPC](#19-ipc-contract) · [20. Jobs](#20-job-lifecycle)                                                                                                                                                                                                                                                    |
-| UX and quality             | [21. Frontend](#21-frontend-behavior-and-information-design) · [22. Security](#22-security-and-privacy-controls) · [23. Limits](#23-engineering-limits-and-performance-targets) · [24. Tests](#24-test-plan-and-acceptance-criteria)                                                                                                                                                                |
+| History and interfaces     | [17. History](#17-local-history-and-restore) · [18. Sync](#18-manual-library-sync) · [19. application API](#19-ipc-contract) · [20. Jobs](#20-job-lifecycle)                                                                                                                                                                                                                                                    |
+| UX and quality             | [21. UI](#21-UI-behavior-and-information-design) · [22. Security](#22-security-and-privacy-controls) · [23. Limits](#23-engineering-limits-and-performance-targets) · [24. Tests](#24-test-plan-and-acceptance-criteria)                                                                                                                                                                |
 | Build and handoff          | [25. Platforms and scope](#25-platforms-local-builds-and-deferred-distribution) · [26. Operations](#26-migrations-diagnostics-and-operations) · [27. Development](#27-local-development-and-ci-contract) · [28. Milestones](#28-implementation-sequence) · [29. Documentation](#29-required-engineering-documentation) · [30. Done](#30-definition-of-done) · [31. Sources](#31-primary-references) |
 
 ## 1. Document status and decision rules
 
-This document describes a desktop application for Windows, Linux, and macOS. It uses Tauri, a Vite and TanStack frontend, shadcn/ui, Tailwind CSS, and a pnpm monorepo.
+This document describes the product roadmap for a native GPUI desktop application on Windows, Linux, and macOS. README records implemented features; this roadmap also includes future work.
 
 The product owner accepted the recommendations from the preceding requirements discussion. This document separates those decisions from new engineering proposals. It does not treat unanswered product questions as approved requirements.
 
-**Approved** means the owner stated or accepted the requirement. **Engineering design** means this document defines a technical method for an approved requirement. **Out of scope** means no implementation, disabled feature, or preparation pipeline is required for the current MVP. The final product confirmations in section 1.4 are approved. Deferred distribution and publisher decisions do not block the current implementation. The product name is approved as **Kanai**.
+**Approved** means the owner stated or accepted the requirement. **Engineering design** means this document defines a technical method for an approved requirement. **Out of scope** means no implementation, disabled feature, or preparation pipeline is required for the current MVP. The final product confirmations in section 1.4 are approved. Deferred distribution and publisher decisions do not block the current implementation. The product name is approved as **SkillBinder**.
 
 “MUST” is an MVP acceptance requirement for the applicable scope. “SHOULD” permits a documented exception. “MAY” identifies an optional feature. Numeric limits and performance budgets in this document are engineering targets, not measured results.
 
@@ -53,9 +55,9 @@ The product owner accepted the recommendations from the preceding requirements d
 | Distribution           | Installers, signing, notarization, app stores, release hosting, and public compatibility certification are out of scope. Local builds and cross-OS testing remain required.                                                                                                                                         |
 | App updates            | In-app update checks, update downloads, updater integration, feeds, and update signing are out of scope. Manual skill-source updates remain in scope.                                                                                                                                                               |
 | Source license policy  | Public source under the approved `AGPL-3.0-only` license. Include the license text, consistent package metadata, and required notices. See section 25.4.                                                                                                                                                            |
-| Boundaries             | Frontend owns presentation. Rust owns files, Git, downloads, jobs, and trusted state. Use typed IPC.                                                                                                                                                                                                                |
-| Code layout            | `apps/frontend`, `apps/Tauri`, and `crates`. Group by feature in each package, then by purpose inside each feature. Feature-specific frontend components remain inside their feature. The shared frontend component root below is an explicit owner-approved exception.                                             |
-| UI component locations | All UI components belong to `apps/frontend`. Put shadcn/ui components in `apps/frontend/src/components/ui`. Put shared custom components in `apps/frontend/src/components`. Put feature-specific components in `apps/frontend/src/features/{feature}/components`. Do not create a shared UI package under `crates`. |
+| Boundaries | UI owns presentation; application/core/platform own files, Git, jobs, and trusted state through typed Rust actions. |
+| Code layout | Main application in `apps/desktop`; focused libraries in `crates/`. |
+| UI component locations | All UI components and screens belong to `crates/ui`. |
 
 ### 1.2 Decisions G1–G5
 
@@ -65,15 +67,15 @@ The product owner accepted the recommendations from the preceding requirements d
 | G2       | Use local Git authentication; private GitHub skill installation approved | Use system Git through a narrow Rust process adapter for public/private source installation, manual source updates, and library sync. Reuse trusted local credential helpers and SSH configuration. No app token UI, credential database, custom OAuth flow, or embedded Git authentication implementation. |
 | G3       | Distribution is out of scope at present                                  | Remove installer formats, signing, notarization, release channels, and public OS/CPU promises from the current work. Keep source builds, native tests, and data integrity work on Windows, Linux, and macOS.                                                                                                |
 | G4       | Remove in-app updates from scope                                         | Do not add an updater plugin, feed, signing keys, update screens, or hidden update capability. This decision does not remove manual updates of installed skills.                                                                                                                                            |
-| G5       | Public source; `AGPL-3.0-only` approved; product name **Kanai** approved | Apply the approved license to Kanai-owned code. Include its unmodified text, consistent metadata, contribution terms, and third-party notices. See section 25.4. Publisher and production distribution identity remain deferred.                                                                            |
+| G5       | Public source; `AGPL-3.0-only` approved; product name **SkillBinder** approved | Apply the approved license to SkillBinder-owned code. Include its unmodified text, consistent metadata, contribution terms, and third-party notices. See section 25.4. Publisher and production distribution identity remain deferred.                                                                            |
 
-The system-Git adapter is an engineering recommendation for G2. It replaces `git2`/libgit2 throughout this design. Normal use requires a working local Git installation. It does not require Node.js, pnpm, the skills CLI, or a general-purpose shell command interface. Git can itself invoke the user's configured authentication programs. Those programs are part of the trusted local environment, not imported skill content. [S08][S28]
+The system-Git adapter is an engineering recommendation for G2. It replaces `git2`/libgit2 throughout this design. Normal use requires a working local Git installation. It does not require Node.js, the skills CLI, or a general-purpose shell command interface. Git can itself invoke the user's configured authentication programs. Those programs are part of the trusted local environment, not imported skill content. [S08][S28]
 
 ### 1.3 Current MVP completion definition
 
 The MVP supports one local library per OS user and one application window. It includes discovery, import, organization, editing, history, copy deployment, drift detection, source installation, manual skill-source updates, and manual library sync.
 
-Completion means a documented source build and tested application on all three OS families. It does not mean a public installer release. State exact tested OS, CPU, Git, and WebView versions without claiming broader compatibility. Do not require distribution credentials or an updater host to build or test the app.
+Completion means a documented source build and tested application on all three OS families. It does not mean a public installer release. State exact tested OS, CPU, Git, and native renderer versions without claiming broader compatibility. Do not require distribution credentials or an updater host to build or test the app.
 
 ### 1.4 Final product confirmations — approved
 
@@ -83,19 +85,19 @@ The owner approved both decisions below on 2026-09-16. No product confirmation r
 
 **Exact license:** Use `AGPL-3.0-only`. The named license is approved, not a recommendation awaiting confirmation. Implement the license and notice requirements in section 25.4 before source publication. Do not substitute MIT, an “or later” license identifier, or a custom fork restriction.
 
-The supported source-provider baseline remains GitHub. The library-sync adapter uses ordinary Git HTTPS and SSH remotes without a provider API. This transport design does not promise support for every host policy, private source provider, custom remote helper, or company authentication environment. Record tested configurations. Do not invent credentials, publisher identities, pricing, or production bundle identifiers. The approved brand name is **Kanai**.
+The supported source-provider baseline remains GitHub. The library-sync adapter uses ordinary Git HTTPS and SSH remotes without a provider API. This transport design does not promise support for every host policy, private source provider, custom remote helper, or company authentication environment. Record tested configurations. Do not invent credentials, publisher identities, pricing, or production bundle identifiers. The approved brand name is **SkillBinder**.
 
 ## 1.5 Product identity
 
-The approved product name is **Kanai**. This is a settled MVP decision.
+The approved product name is **SkillBinder**. This is a settled MVP decision.
 
 Naming rules:
 
-- Use **Kanai** in user-facing text, documentation titles, window titles, and product references.
-- Use `kanai` when a lowercase code, package, directory, executable, or repository identifier is required, unless an ecosystem convention requires another form.
-- Do not style the name as `KanAI`. The product name is **Kanai**.
+- Use **SkillBinder** in user-facing text, documentation titles, window titles, and product references.
+- Use `skillbinder` when a lowercase code, package, directory, executable, or repository identifier is required, unless an ecosystem convention requires another form.
+- Do not style the name as `KanAI`. The product name is **SkillBinder**.
 - Do not invent a production bundle identifier, publisher identity, signing identity, domain, or distribution namespace. Those remain out of scope until distribution is defined.
-- Internal generic domain names such as `Skill`, `Agent`, `Deployment`, and `Library` must remain domain-oriented. Do not prefix domain types with `Kanai` unless required to avoid an external naming collision.
+- Internal generic domain names such as `Skill`, `Agent`, `Deployment`, and `Library` must remain domain-oriented. Do not prefix domain types with `SkillBinder` unless required to avoid an external naming collision.
 
 ## 2. Product objective and boundaries
 
@@ -128,7 +130,7 @@ The app is a skill file manager. It is not an agent runtime, malware scanner, ge
 
 There is no full-disk scan by default, background daemon, scheduled sync, live deployment, link-based deployment, script execution, AI generation, team account system, remote collaboration service, plugin marketplace, or automatic text merge. Installer distribution and in-app updates are also excluded.
 
-Do not execute `npx skills`, package installers, repository hooks, or repository-provided code. Only the Rust system-Git adapter may launch approved Git commands. Accepting an install command as input means parsing a restricted reference syntax, not executing that command. Do not expose a terminal or generic command runner through IPC.
+Do not execute `npx skills`, package installers, repository hooks, or repository-provided code. Only the Rust system-Git adapter may launch approved Git commands. Accepting an install command as input means parsing a restricted reference syntax, not executing that command. Do not expose a terminal or generic command runner through application API.
 
 Do not edit an agent's configuration, enable or disable its tools, install its runtime, or restart it. “Deployed” means that files were written and verified. It does not mean that an agent loaded or used them.
 
@@ -144,7 +146,7 @@ An **operation plan** is a bounded, immutable description of a proposed change. 
 
 The following invariants apply throughout the app:
 
-- The frontend cannot perform arbitrary file, shell, SQL, Git, or network operations.
+- The UI cannot perform arbitrary file, shell, SQL, Git, or network operations.
 - The library is the source of truth for managed content. The local database is the source of truth for device settings and deployment records.
 - A source location is not a managed deployment merely because the app imported it.
 - A logical folder never determines a skill's deployment path.
@@ -156,50 +158,17 @@ The following invariants apply throughout the app:
 
 ## 4. System architecture
 
-```text
-apps/frontend
-  React views + TanStack Router + TanStack Query
-             |
-             | generated request/response types
-             v
-crates/desktop-client
-  typed invoke wrapper + event client
-             |
-             | Tauri IPC: validated commands, not generic file access
-             v
-apps/Tauri
-  app lifecycle + command adapters + dependency composition
-             |
-             v
-crates/core
-  feature use cases + domain rules + ports
-             ^
-             | implements ports
-             |
-crates/platform
-  local filesystem + system Git + SQLite + restricted HTTPS
-             |
-             +-- managed library repository
-             +-- machine-local database and recovery storage
-             +-- explicitly authorized target directories
-             +-- approved external Git/HTTP origins
-```
-
-Tauri uses `tauri.conf.json` to locate and configure its Rust project. This permits the requested sibling-app layout without putting the frontend inside the Rust project. [S01]
+The native desktop entry point is `apps/desktop`. All UI is defined in `crates/ui`, which calls
+`crates/app` actions through typed Rust models. App services use core domain ports, implemented by
+`crates/platform` and `crates/db`. See `docs/architecture/desktop.md` for implemented feature coverage.
 
 ### 4.1 Dependency rules
 
-`apps/frontend` may import `contracts` and `desktop-client`. It owns all UI components; there is no shared UI workspace package. It must not import platform-specific Node modules or native implementation files.
-
-Within the frontend, route entries compose views exposed by the public API of `src/features/{feature}`. Feature-specific views and components live in `src/features/{feature}/components`. These components may import their own feature's hooks, queries, commands, models, and validation through internal module paths. They may also import shared custom components from `src/components` and shadcn primitives from `src/components/ui`. Non-UI feature modules must not import presentation components or route files. Shared custom components and UI primitives must not import features, the desktop client, or IPC APIs. Shared components receive feature data and actions through typed props and callbacks. Shared custom components may import UI primitives; UI primitives must not depend on shared custom components. No package under `crates` may depend on `apps/frontend`.
-
-`apps/Tauri` may import `core`, `platform`, and `ipc-contracts`. It is the composition root. Commands validate transport input, call a use case, map its result, and return. They do not contain scanning, Git, or file-copy algorithms.
-
-`core` must not depend on Tauri, a WebView, SQLite, HTTP clients, or concrete Git code. Platform code implements ports defined by the feature that owns the operation.
-
-`platform` may depend on `core`, but not on the frontend or application shell. `ipc-contracts` contains transport types, not domain behavior. Domain-to-DTO conversion belongs in the shell's feature adapters.
-
-Cross-feature calls use a feature's public API. No feature may import another feature's private implementation. Avoid global service classes and generic `utils` packages. A shared abstraction must have at least two real consumers or a clear platform boundary.
+UI depends on app; app depends on core, db, and platform; db and platform depend on core.
+Core has no rendering, database, filesystem, or concrete Git dependencies. No library depends on
+an application. UI components live under `crates/ui/src/components`; feature screens under
+`crates/ui/src/screens`. Models and actions live under `crates/app/src/models` and `actions`.
+Cross-feature calls use public APIs. Shared components receive typed data and callbacks.
 
 ### 4.2 Runtime concurrency
 
@@ -215,44 +184,25 @@ Use a single-instance application guard and an OS-level process lock on the app 
 
 ## 5. Technology decisions
 
-These choices implement the accepted stack. Pin exact compatible versions during the foundation milestone. Commit the JavaScript and Rust lockfiles. A reference to a documentation version is not permission to use an unpinned `latest` dependency.
-
-| Concern            | Engineering design                                                                                                                                                           |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Desktop            | Tauri 2 with a Rust application core                                                                                                                                         |
-| UI                 | React and TypeScript in strict mode, Vite                                                                                                                                    |
-| Routing            | TanStack Router; file-based route entries with hash history for local bundled-frontend navigation                                                                            |
-| Query state        | TanStack Query; local IPC queries use offline-capable settings                                                                                                               |
-| Styling            | Tailwind CSS and shadcn/ui, with one consistent primitive base; use the Base UI-based setup                                                                                  |
-| UI primitives      | App-owned shadcn components in `apps/frontend/src/components/ui`; no feature logic or IPC access                                                                             |
-| Custom UI          | Feature-specific components in `apps/frontend/src/features/{feature}/components`; shared custom components in `apps/frontend/src/components`; no shared UI workspace package |
-| Editor             | CodeMirror 6, plain text and Markdown first; lazy-load additional language support                                                                                           |
-| Preview            | A Markdown renderer with raw HTML disabled; local resource access goes through validated resource IDs                                                                        |
-| Runtime schemas    | Rust validation at the trust boundary; Zod for frontend form validation only                                                                                                 |
-| IPC types          | Rust `serde` DTOs plus `ts-rs` generated TypeScript types; serialization contract tests                                                                                      |
-| Local Git          | Supported system Git, invoked by Rust with typed operations, explicit arguments, controlled repository paths, and supervised processes                                       |
-| Local database     | `rusqlite` with a bundled, patched SQLite build                                                                                                                              |
-| HTTP               | `reqwest` with certificate verification enabled and a reviewed TLS configuration                                                                                             |
-| YAML               | A maintained parser such as `yaml-rust2`, with explicit input limits and restricted parsing                                                                                  |
-| Git authentication | Existing local Git credential helpers and SSH setup; no app-managed credential storage                                                                                       |
-| File observation   | `notify` behind a watcher port; explicit scan remains authoritative                                                                                                          |
-| Diagnostics        | Rust `tracing` and local rotating logs, with content and secret redaction                                                                                                    |
-| Unit tests         | Vitest/React Testing Library and Rust test tooling                                                                                                                           |
-| Desktop E2E        | WebdriverIO with the Tauri service, in a test-only build                                                                                                                     |
-| CI                 | GitHub Actions, with jobs on each supported OS                                                                                                                               |
-| Workspace          | pnpm for JavaScript packages; a root Cargo workspace for Rust crates                                                                                                         |
-
-TanStack Router documents a Vite integration. shadcn/ui documents a Vite setup. pnpm and Cargo each have their own workspace model; one does not replace the other. [S09][S11][S12][S13]
-
-`ts-rs` exports Rust types to TypeScript. It does not replace runtime validation or prove that every custom serializer has the same output. Add cross-language fixtures for all public DTO shapes. [S14]
+| Concern | Engineering design |
+| --- | --- |
+| Desktop and UI | GPUI 0.2.2 and gpui-component 0.5.1, native Rust |
+| Navigation | Persistent screen state in crates/ui |
+| Queries | Typed Rust actions on the background executor, weak-entity result delivery |
+| Styling | Shared semantic colors, OS light/dark appearance, bundled Hugeicons |
+| Input | Native text editing, keyboard selection, clipboard and IME |
+| Preview | Inert text, bounded file reads through the library service |
+| Validation | Core rules and typed application requests |
+| State | SQLite with Diesel; portable library content stored in Git |
+| Workspace | Cargo, with one desktop application and focused library crates |
+| Tests | Rust unit/integration/presentation tests and real-filesystem journey probes |
 
 ### 5.1 Version and dependency gate
 
-Before the first feature milestone, record Node, pnpm, Rust, Tauri CLI/API/crate, Vite, React, TanStack, Tailwind, shadcn primitive, SQLite, the supported Git version range, and tested authentication configurations in `docs/dependencies.md`.
-
-Select a supported Node LTS release for development. Pin it in the development configuration and CI. Pin the Rust toolchain in `rust-toolchain.toml`. Record the SQLite runtime version and enabled features in diagnostics. Check the selected SQLite build against published WAL fixes before enabling WAL. [S18]
-
-Do not introduce an experimental dependency for a core safety requirement without an ADR and a tested replacement strategy.
+Pin Rust in `rust-toolchain.toml` and dependencies in `Cargo.lock`. Record native prerequisites
+in `docs/dependencies.md`. Node 24 is used only for dependency-free repository verification scripts.
+Record the SQLite runtime version before enabling WAL and review published fixes. [S18]
+Do not introduce an experimental dependency for a core safety requirement without an ADR.
 
 ### 5.2 System-Git adapter and process safety
 
@@ -280,162 +230,25 @@ Set `GIT_TERMINAL_PROMPT=0` so Git does not wait for terminal input. This does n
 
 ## 6. Monorepo and feature structure
 
-Preserve the requested capitalization of `apps/Tauri`. Package names remain lowercase. CI must run on a case-sensitive filesystem to detect incorrect imports.
-
 ```text
-/
-├── apps/
-│   ├── frontend/
-│   │   ├── package.json
-│   │   ├── vite.config.ts
-│   │   ├── components.json           # shadcn configuration; paths stay in this app
-│   │   ├── index.html
-│   │   └── src/
-│   │       ├── app/                  # bootstrap and route composition only
-│   │       │   ├── providers/
-│   │       │   ├── routes/
-│   │       │   └── styles/
-│   │       ├── components/          # shared custom components and shadcn only
-│   │       │   ├── ui/              # shadcn/ui primitives only
-│   │       │   ├── layout/          # shared custom layout components
-│   │       │   └── feedback/        # shared custom feedback components
-│   │       └── features/            # each feature owns its UI and logic
-│   │           ├── onboarding/
-│   │           ├── discovery/
-│   │           ├── library/
-│   │           ├── organization/
-│   │           ├── editor/
-│   │           ├── sources/
-│   │           ├── targets/
-│   │           ├── deployment/
-│   │           │   ├── components/
-│   │           │   │   ├── views/
-│   │           │   │   └── dialogs/
-│   │           │   ├── hooks/
-│   │           │   ├── queries/
-│   │           │   ├── commands/
-│   │           │   ├── model/
-│   │           │   ├── validation/
-│   │           │   ├── tests/
-│   │           │   └── index.ts
-│   │           ├── history/
-│   │           ├── sync/
-│   │           ├── jobs/
-│   │           └── settings/
-│   └── Tauri/
-│       ├── package.json              # pnpm wrapper for the Tauri CLI
-│       ├── Cargo.toml
-│       ├── build.rs
-│       ├── tauri.conf.json
-│       ├── capabilities/
-│       ├── permissions/
-│       ├── icons/
-│       └── src/
-│           ├── main.rs
-│           ├── lib.rs
-│           ├── app/                  # lifecycle and dependency composition
-│           └── features/             # IPC adapters, grouped by domain feature
-├── crates/
-│   ├── contracts/                    # generated TS transport package
-│   ├── desktop-client/               # typed IPC and event access; no React
-│   ├── ipc-contracts/                # Rust transport types and exports
-│   ├── core/                         # Rust domain rules and use cases
-│   ├── platform/                     # concrete Rust adapters
-│   └── test-support/                 # fixtures and test helpers, never production
-├── scripts/                          # cross-platform orchestration and checks
-├── tools/                            # repository-owned lint plugins
-├── tests/
-│   ├── desktop/                      # WDIO feature suites
-│   ├── fixtures/                     # synthetic skills and remote repositories
-│   └── runtime/                      # non-test build and restart smoke tests
-├── docs/
-│   ├── adr/
-│   ├── architecture/
-│   ├── features/
-│   ├── operations/
-│   └── testing/
-├── .github/workflows/
-├── package.json
-├── pnpm-workspace.yaml
-├── pnpm-lock.yaml
-├── Cargo.toml
-├── Cargo.lock
-├── rust-toolchain.toml
-├── .env.example
-└── README.md
+apps/desktop/       Process, native window and application lifecycle
+crates/ui/          All components, screens, theme, assets, and presentation state
+crates/app/         Application actions/models, service wiring, sessions and logging
+crates/core/        Domain rules, use cases and ports
+crates/db/          SQLite repositories and migrations
+crates/platform/    Filesystem, Git, process locks and native adapters
 ```
 
-### 6.1 Group by feature, then purpose
-
-Each frontend feature owns its components and logic under one feature directory. Only shared custom components and shadcn primitives belong in `src/components`. Create only folders that have a real use. The purpose-based component subfolders below are examples, not mandatory empty directories.
-
-```text
-apps/frontend/src/
-├── components/                     # shared components only
-│   ├── ui/                         # shadcn/ui primitives
-│   │   ├── button.tsx
-│   │   └── dialog.tsx
-│   ├── layout/
-│   │   └── app-shell.tsx
-│   └── feedback/
-│       ├── empty-state.tsx
-│       └── empty-state.test.tsx
-└── features/
-    └── deployment/
-        ├── screens/                # route-level components imported by src/routes
-        │   └── deployment-review.tsx
-        ├── components/             # deployment-specific UI
-        │   └── deployment-confirm-dialog.tsx
-        ├── hooks/                  # React hooks, including query definitions
-        ├── commands/               # feature-specific command wrappers, when needed
-        ├── types/                  # zod schemas plus inferred/domain/UI types
-        ├── lib/                    # pure helpers
-        └── __tests__/              # tests that span this feature's folders
-```
-
-Store route-level feature screens under `apps/frontend/src/features/{feature}/screens` and the rest of the rendered feature UI under `apps/frontend/src/features/{feature}/components`, adding purpose-based subfolders such as `dialogs/` when useful. Store shared custom components under `apps/frontend/src/components`, directly or in purpose-based subfolders such as `layout/` and `feedback/`. Do not add a `components/shared` wrapper or a parallel `components/{feature}` tree. Do not put feature-specific components in `src/components/ui`, anywhere else under the shared `src/components` root, or a library package.
-
-Keep hooks, command wrappers, types, and pure helpers in their own folders under the same `src/features/{feature}` directory. Feature components import their own feature modules through internal paths. Route files import the feature screen directly; do not add a per-feature barrel file. Keep local visual state in the component when it has no feature-level use. Thin route entries stay in `src/routes`, the router instance and its type registration sit in `src/router.tsx`, and shared providers live in `src/lib`; none of them may become a second location for custom view implementations. For example, an app-shell component belongs in `src/components/layout` and receives feature content through props; the app layer composes it with feature views.
-
-Keep shadcn configuration in `apps/frontend/components.json`. Set its component aliases to the app-local `@/components` and `@/components/ui` paths. Resolve the `@/` alias to `apps/frontend/src` in both TypeScript and Vite. Configure any generated helper imports to use app-local files, not a UI workspace package. Generator aliases do not change feature ownership: move generated feature-specific components into `src/features/{feature}/components` before committing them. Keep Tailwind entry styles and theme tokens in `apps/frontend/src/styles.css`.
-
-Import every module by its concrete file path. Do not add barrel files, and never a root barrel that exports every component and feature. Import shared custom components and shadcn primitives from their individual modules. Put a test in the `__tests__/` folder of the directory that owns the code under test, and give a test that spans a feature's folders the feature-level `__tests__/`.
-
-A Rust core feature uses this pattern:
-
-```text
-features/deployment/
-├── domain/           # plan, state, policy, and invariant types
-├── application/      # prepare, apply, verify, remove, and recover use cases
-├── ports/            # target filesystem, ledger, and backup interfaces
-├── tests/
-└── mod.rs
-```
-
-A platform feature uses `adapters/`, `model/`, `migrations/`, and `tests/` as needed. For example, `features/history/adapters/system_git_repository.rs` implements the history port. It does not become a global repository service for unrelated domains.
-
-The frontend shared `src/components` root, including its `ui` primitive directory, is an explicit exception to strict feature-first grouping. Feature-specific components follow the normal feature-first rule under `src/features/{feature}/components`. A component does not become shared merely because it appears on several screens. Keep domain-specific components in their owning feature; another feature may consume them only through that feature's public API. Move a custom component to the shared root only when it has a genuinely shared presentation role and no feature or IPC dependencies.
-
-Outside the approved shared frontend component root, do not create package-wide `components/`, `hooks/`, `services/`, `models/`, or general-purpose `utils/` folders. Feature-local purpose folders, including `features/{feature}/components`, are required where applicable and are not exceptions. Bootstrap files, generated transport exports, migration roots, tool configuration, and a narrowly scoped shadcn class-name helper are permitted exceptions. Document each exception.
-
-### 6.2 Workspace configuration
-
-```yaml
-# pnpm-workspace.yaml
-packages:
-  - apps/*
-  - crates/*
-```
-
-Only directories with `package.json` become JavaScript packages. Rust-only directories remain Cargo workspace members. Use `workspace:*` for internal JavaScript package dependencies. Define Rust members explicitly: `apps/Tauri`, `crates/core`, `crates/platform`, and `crates/ipc-contracts`. Add Rust test-support membership only if it is implemented as a crate.
-
-Enforce dependency boundaries with package exports and an architecture check. The check must allow feature components to import their own feature modules, shared custom components, and shadcn primitives. It must reject shared UI workspace packages, feature-specific UI under the shared component root, and custom UI outside `apps/frontend/src/features/{feature}/components` or `apps/frontend/src/components`, apart from the documented bootstrap/route exceptions. It must also reject imports from shared components or primitives into features, the desktop client, or IPC APIs; imports from primitives into shared custom components; imports from non-UI feature modules into presentation components; feature imports of route files; and cross-feature access to private modules. Test both permitted and prohibited imports. Check relative imports as well as aliases. Do not rely on developer convention alone. Static checks enforce module paths and dependencies; code review must also verify that a component placed in the shared root has no feature-specific role.
+Group by feature within each crate. Keep shared UI primitives in `crates/ui/src/components` and
+feature screens in `crates/ui/src/screens`. Business operations belong in application actions or
+core use cases, never in render methods. Register workspace members explicitly in Cargo.toml.
+`node scripts/check-architecture.mjs` enforces workspace roots and dependency direction.
 
 ## 7. Persistent storage and ownership
 
 ### 7.1 App paths
 
-Use the resolved home directory from Tauri/Rust OS path resolution. Do not build paths from hard-coded home strings, and do not read `HOME` directly. The whole application directory is one root, `~/.skillbinder`, holding durable state, configuration, and disposable caches, so it is discoverable and movable as a unit. Tauri exposes platform-aware home directory resolution. [S07]
+Use the resolved home directory from Rust OS path resolution. Do not build paths from hard-coded home strings, and do not read `HOME` directly. The whole application directory is one root, `~/.skillbinder`, holding durable state, configuration, and disposable caches, so it is discoverable and movable as a unit.
 
 Use local storage, not a roaming profile or a cloud-sync folder, for the library and database. Do not put the active data directory on a network filesystem. In particular, SQLite WAL requires local shared-memory coordination and is not a network-filesystem solution. [S18]
 
@@ -482,13 +295,13 @@ Remote provenance contains a sanitized repository locator, selected subpath, tra
 
 Do not sync absolute paths, project registrations, source observations, target identities, deployment receipts, drafts, jobs, logs, backups, Git executable settings, authentication diagnostics, or remote settings. Authentication material stays with the existing local Git tools; the app does not store it.
 
-A machine path must not appear in an automatically generated commit message or author field. Use a local non-identifying author such as `Kanai <local@kanai.invalid>`, unless the user explicitly sets another identity.
+A machine path must not appear in an automatically generated commit message or author field. Use a local non-identifying author such as `SkillBinder <local@skillbinder.invalid>`, unless the user explicitly sets another identity.
 
 The tracked payload can itself contain private text or embedded paths. Explain this before first push. A repository filter cannot remove secrets from arbitrary skill content without changing that content.
 
 ### 7.4 SQLite ownership
 
-Use one local database with `foreign_keys=ON`, a bounded busy timeout, WAL after compatibility verification, and `synchronous=FULL` for durable state. Use parameterized statements. Do not expose SQL over IPC.
+Use one local database with `foreign_keys=ON`, a bounded busy timeout, WAL after compatibility verification, and `synchronous=FULL` for durable state. Use parameterized statements. Do not expose SQL over application API.
 
 | Table or table group                | Required fields and role                                                                                 |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -581,7 +394,7 @@ Allow regular files and directories. Reject device files, sockets, pipes, hard-l
 
 Reject absolute paths, `..` traversal, drive prefixes inside relative paths, alternate data stream syntax, NULs, and unsafe path separators. Reject names that cannot be represented safely on the approved Windows, Linux, and macOS targets. Check Windows reserved names, trailing dots/spaces, case collisions, Unicode normalization collisions, and target path-length limits.
 
-Do not silently rename or omit a conflicting payload file. Explain the problem and require the user to prepare a portable copy. Detect invalid UTF-8 payload filenames and report them as unsupported. Native root paths may be non-UTF-8; store them with a lossless native encoding and expose an opaque ID plus a display string to the frontend.
+Do not silently rename or omit a conflicting payload file. Explain the problem and require the user to prepare a portable copy. Detect invalid UTF-8 payload filenames and report them as unsupported. Native root paths may be non-UTF-8; store them with a lossless native encoding and expose an opaque ID plus a display string to the UI.
 
 VCS administrative entries such as `.git` are never payload. If encountered inside a selected local skill, show them as excluded administrative content before import. Do not cross into nested repositories. Do not import `.git` files that point to another repository.
 
@@ -599,7 +412,7 @@ A user may explicitly choose a target root that resolves through a link. Record 
 
 ### 9.3 Path authorization
 
-Native folder selection returns a backend-owned grant ID. IPC requests refer to registered root, target, skill, file, and plan IDs. Do not accept unrestricted destination paths in write commands.
+Native folder selection returns a backend-owned grant ID. application API requests refer to registered root, target, skill, file, and plan IDs. Do not accept unrestricted destination paths in write commands.
 
 Validate path containment with path components and native file identity. A string-prefix check is not sufficient. Validate again at apply time. Use no-follow and handle-relative operations where the OS supports them. On Windows, inspect reparse points and final handle paths.
 
@@ -782,7 +595,7 @@ Disable raw HTML. Do not render remote images, embedded pages, scripts, SVG mark
 
 Resolve local image references to validated skill-relative resource IDs. Bound image dimensions and decoded memory. Only allow approved raster types in the initial preview. Block links that leave the skill root through path traversal.
 
-Open an external HTTP(S) link only after a user click through a restricted native opener. Never open `javascript:`, `data:`, arbitrary custom schemes, or local executable paths from rendered content. No remote page receives the app's IPC permissions.
+Open an external HTTP(S) link only after a user click through a restricted native opener. Never open `javascript:`, `data:`, arbitrary custom schemes, or local executable paths from rendered content. No remote page receives the app's application API permissions.
 
 ## 14. Library transactions and crash recovery
 
@@ -839,9 +652,9 @@ Allow target selection even when the agent executable is absent, but show **Agen
 
 `prepare_deployment` resolves the selected skills at one committed library revision. It computes exact destination paths, validation results, baseline and current destination hashes, file additions/modifications/removals, required backups, byte totals, and available-space checks.
 
-The plan must include the registry version, target identity, current grant, current destination snapshot, skill content digests, and expiry. It is stored in Rust/local state and represented to the frontend by a plan ID and a read-only summary.
+The plan must include the registry version, target identity, current grant, current destination snapshot, skill content digests, and expiry. It is stored in Rust/local state and represented to the UI by a plan ID and a read-only summary.
 
-The user approves specific plan items and conflict decisions. The frontend cannot rewrite the prepared destination or substitute file bytes. At apply time, revalidate every precondition and invalidate stale plans.
+The user approves specific plan items and conflict decisions. The UI cannot rewrite the prepared destination or substitute file bytes. At apply time, revalidate every precondition and invalidate stale plans.
 
 Preview exposes whole-file diffs and file lists. Large or binary differences receive a summary, never an empty diff that looks unchanged.
 
@@ -959,7 +772,7 @@ The transport design permits standard HTTPS and SSH Git locators. Sync does not 
 
 The user supplies a repository locator and branch, not a token. Show **Use local Git authentication** and **Test connection**. A test is a bounded, read-only Git operation. It proves current read access only; write access is established by a later explicit push. Store only sanitized connection settings and non-secret status.
 
-Git uses the user's credential helper for HTTPS or local SSH setup for SSH. Never display or copy stored passwords, tokens, or private keys. The app has no credential-store port, token form, credential IPC command, or OAuth callback. [S28]
+Git uses the user's credential helper for HTTPS or local SSH setup for SSH. Never display or copy stored passwords, tokens, or private keys. The app has no credential-store port, token form, credential application API command, or OAuth callback. [S28]
 
 GUI launch can lack the terminal's PATH or SSH agent environment. Show the chosen Git executable, transport, and a redacted failure category. Offer retry after the user repairs local setup. Do not launch a shell, load shell profiles, automatically change global config, or disable host verification. Trusted helpers may display their own UI during an explicit operation; terminal-only setup must be completed outside the app.
 
@@ -1020,45 +833,17 @@ A non-fast-forward rejection returns the user to fetch and preview. When a conne
 
 Network failures never block local editing, organization, history, or deployment. Disconnecting a remote removes only the app's local connection settings after confirmation. It does not delete the remote repository, local history, or credentials managed by Git. Do not call a credential helper's erase operation.
 
-## 19. IPC contract
+## 19. Application action contract
 
 ### 19.1 Contract ownership
 
-Rust DTOs in `crates/ipc-contracts` are the transport source of truth. Export TypeScript into `crates/contracts/src/features/<feature>/model/`. Generate or verify the command registry, client signatures, permission list, and DTO fixtures in CI.
+Rust models in `crates/app/src/models` define typed requests, responses, errors, and recovery actions.
+`crates/app/src/actions` composes domain operations. UI code converts action envelopes to Rust
+`Result` values and schedules each operation off the UI thread. No serialization boundary is
+required between screens and services. Existing model serialization remains tested for logs and fixtures.
 
-Use `serde` naming rules consistently. Use strings for UUIDs, commit IDs, native path references, and counters that could exceed JavaScript's safe integer range. Use explicit `null` for optional fields where the contract requires it. Do not send platform error objects or Rust debug output to the frontend.
-
-All commands return a typed result envelope. Native transport failure is handled separately by `desktop-client`.
-
-```typescript
-type AppError = {
-  code: ErrorCode;
-  message: string;
-  retryable: boolean;
-  recoveryAction: RecoveryAction | null;
-  diagnosticId: string;
-};
-
-type CommandResult<T> = { ok: true; value: T } | { ok: false; error: AppError };
-
-type MutationContext = {
-  operationId: string;
-  expectedLibraryRevision: string | null;
-};
-
-type PreparedPlan = {
-  id: string;
-  kind: PlanKind;
-  expiresAt: string;
-  libraryRevision: string | null;
-  summary: PlanSummary;
-  conflicts: PlanConflict[];
-};
-
-type JobHandle = { jobId: string };
-```
-
-These examples describe the contract. They do not imply that handwritten TypeScript is authoritative. Serialize production Rust fixtures and validate them in the TypeScript test suite. [S03][S14]
+`AppError` carries a stable code, message, retryability, optional recovery action, and diagnostic ID.
+Prepared plans retain identity, expiry, candidate snapshots, and library revision preconditions.
 
 ### 19.2 Command groups
 
@@ -1097,7 +882,7 @@ A plan is single-use. A repeated apply returns its durable job/result. Expired, 
 
 Library writes require an expected revision. Editor writes also require the expected file hash. Deployment writes require current target identity and observed destination state. Sync writes require expected local and remote heads.
 
-Disable frontend automatic retries for mutations. A user retry must recheck the durable operation status first.
+Disable UI automatic retries for mutations. A user retry must recheck the durable operation status first.
 
 ### 19.4 Errors
 
@@ -1128,9 +913,9 @@ Events are hints, not the durable source of truth. Use `library_changed`, `job_c
 
 Each event has protocol version, event ID, monotonic session sequence, related entity IDs, and the relevant revision/job version. Do not include secret values or full file contents.
 
-Subscribe before fetching the initial snapshot, buffer events during bootstrap, and reconcile revisions after load. On a sequence gap, window focus, WebView reload, or reconnect, query durable state again. Poll active jobs at a bounded interval as a fallback.
+Subscribe before fetching the initial snapshot, buffer events during bootstrap, and reconcile revisions after load. On a sequence gap, window focus, native renderer reload, or reconnect, query durable state again. Poll active jobs at a bounded interval as a fallback.
 
-Unsubscribe on teardown. Coalesce progress updates so a large scan does not flood the WebView.
+Unsubscribe on teardown. Coalesce progress updates so a large scan does not flood the native renderer.
 
 ## 20. Job lifecycle
 
@@ -1148,11 +933,11 @@ Planning and user conflict decisions happen before apply; do not keep a filesyst
 
 Persist the job before dispatch. Record phase, item counts, bytes where known, warnings, and last durable checkpoint. Use indeterminate progress when a total is unknown. Never fabricate a percentage from elapsed time.
 
-Jobs survive a WebView reload. On process restart, classify interrupted jobs from their journals. A network read may be restarted through a new job. A write must be reconciled before retry.
+Jobs survive a native renderer reload. On process restart, classify interrupted jobs from their journals. A network read may be restarted through a new job. A write must be reconciled before retry.
 
 Keep failed jobs visible until acknowledged. Include a safe **Show details** action with diagnostic ID and affected display paths. Redact secrets and default to hiding full home-directory prefixes in exported diagnostics.
 
-## 21. Frontend behavior and information design
+## 21. UI behavior and information design
 
 ### 21.1 Navigation
 
@@ -1173,9 +958,9 @@ Use a single-window desktop layout with sidebar navigation, a main list/detail a
 /recovery
 ```
 
-Route files contain composition only. They import feature views through the public API of `apps/frontend/src/features/{feature}`. Feature views and other feature-specific components live in that feature's `components/` folder. Query definitions, hooks, validation, and business-facing actions stay beside it in the same feature directory. Shared custom components live in `apps/frontend/src/components`; shadcn primitives live in its `ui/` subfolder. Do not implement screens inside route files, create a parallel shared-root folder for a feature, or move components into a library package.
+Feature screens live in `crates/ui/src/screens` and compose shared native controls from `crates/ui/src/components`. Actions and models belong in `crates/app`.
 
-Use hash history so the local WebView can reload a route without server-side fallback routing. Test reload, back/forward, and initial deep navigation in non-test local builds on all three OS families.
+Use hash history so the local native renderer can reload a route without server-side fallback routing. Test reload, back/forward, and initial deep navigation in non-test local builds on all three OS families.
 
 ### 21.2 Screen requirements
 
@@ -1196,15 +981,13 @@ Use hash history so the local WebView can reload a route without server-side fal
 
 ### 21.3 State management
 
-Use TanStack Query for durable native state. Use React state/reducers for selections, open dialogs, and unsaved editor state. Use route search parameters for shareable filters and navigation state. Do not mirror the whole library into a separate global store.
+Keep navigation and selection in a long-lived GPUI workspace entity. Discovery jobs belong to
+application state and continue across navigation. Results are paged; invalid-skill confirmation
+covers the complete selection. Clear selections when the scan identity changes.
 
-TanStack Query has default stale/refetch/retry behavior designed around common network use. Configure it explicitly for IPC. [S10]
-
-Local read queries use `networkMode: 'always'`, no network-status gating, and an explicit stale policy. Prefer revision-based invalidation; use focus reconciliation to recover missed events. Mutations use `retry: false`. Native commands still enforce all write preconditions.
-
-Remote operations are Rust jobs, not long-lived frontend fetches. The frontend's local IPC call must work when the browser reports offline; Rust returns the actual network result for the remote action.
-
-Query keys include library ID and relevant revision or entity ID. Clear stale query data when adopting another library. Do not reuse a cached file from another library just because its route ID matches.
+Schedule blocking actions on the background executor and coalesce progress updates. Preserve
+current data during refresh, disable duplicate writes, and deliver results only to live entities.
+Do not automatically retry mutations or initiate remote Git operations on screen load.
 
 ### 21.4 Interaction quality
 
@@ -1218,15 +1001,15 @@ Virtualize long lists only when needed, and preserve accessible focus and select
 
 ## 22. Security and privacy controls
 
-### 22.1 Tauri permissions
+### 22.1 Native application boundary
 
-Ship only bundled UI code. Do not load a remote website inside the privileged window. Enable only the named main-window capability. Do not grant capabilities to wildcard windows or remote origins.
+Compile the UI and assets into the desktop application. UI components call specific typed actions;
+there is no general filesystem, SQL, shell, or arbitrary network action. Native folder pickers
+create short-lived grants that registration consumes once. All domain containment, identity,
+locking, and validation checks remain authoritative regardless of UI state.
 
-Tauri custom application commands registered through `invoke_handler` are callable by app windows by default unless restricted through the app command manifest. Configure `AppManifest::commands` and explicit permissions; a restrictive filesystem-plugin scope alone does not secure custom Rust commands. [S02]
-
-Do not expose filesystem, shell, SQL, or HTTP plugin APIs directly to the frontend. Native dialogs, restricted opening/reveal actions, and window APIs receive the minimum needed permissions. Maintain a test that enumerates available commands and rejects unintended ones.
-
-Set an explicit production Content Security Policy. Allow only the local resource and IPC origins needed on each target OS. Do not disable CSP to fix a preview or editor issue. No remote script sources and no `unsafe-eval`. Any editor-related style exception must be narrow, documented, and tested. [S19]
+Imported text is inert and cannot execute code or navigate a privileged renderer. Do not add
+remote executable UI or expose a generic script bridge.
 
 ### 22.2 Imported content and downstream risk
 
@@ -1242,7 +1025,7 @@ No telemetry or automatic crash upload in the baseline. Keep logs local. Diagnos
 
 Do not log file bodies, access tokens, authorization headers, complete source URLs with credentials, draft content, or private repository names by default. Use structured identifiers and error categories.
 
-There is no token or password entry in the UI. Git and its trusted local authentication tools own credential exchange. Do not capture helper output containing secrets, dump Git configuration, or forward raw subprocess stderr to the WebView. Local Git configuration can use insecure storage; the app must not claim it secures credentials that it does not manage. Disconnect must not erase shared Git credentials.
+There is no token or password entry in the UI. Git and its trusted local authentication tools own credential exchange. Do not capture helper output containing secrets, dump Git configuration, or forward raw subprocess stderr to the native renderer. Local Git configuration can use insecure storage; the app must not claim it secures credentials that it does not manage. Disconnect must not erase shared Git credentials.
 
 The app's local files and Git history are not encrypted by this design. Explain this in privacy documentation. OS disk encryption and user account security are outside the app's guarantees. A private Git remote also contains plaintext repository content for parties authorized to read it.
 
@@ -1250,7 +1033,7 @@ The app's local files and Git history are not encrypted by this design. Explain 
 
 Review dependency licenses, use vulnerability scanning for Rust and JavaScript, and record native-library versions. Pin CI actions to reviewed commit SHAs. Do not expose real Git credentials or other secrets to pull-request builds. Distribution signing secrets are not needed in this scope.
 
-Test-only IPC, fixture commands, alternate app-data overrides, and embedded WebDriver servers must be absent from production builds. Inspect a non-test compiled binary and its configuration, not only source flags. Installer inspection is out of scope.
+Test-only application API, fixture commands, alternate app-data overrides, and embedded WebDriver servers must be absent from production builds. Inspect a non-test compiled binary and its configuration, not only source flags. Installer inspection is out of scope.
 
 ## 23. Engineering limits and performance targets
 
@@ -1288,7 +1071,7 @@ Measure optimized non-test builds without a debugger. Record p50/p95 where repea
 | -------------------------------------- | --------------------------------------------------------------------------------------- |
 | Warm startup to usable indexed library | p95 at or below 3 seconds                                                               |
 | Indexed search/filter result           | p95 at or below 200 ms                                                                  |
-| Local short IPC operation              | p95 at or below 100 ms, excluding disk/network jobs                                     |
+| Local short application API operation              | p95 at or below 100 ms, excluding disk/network jobs                                     |
 | First progress feedback for a long job | Within 300 ms of accepted dispatch                                                      |
 | Search-root scan of reference fixture  | Under 60 seconds on documented hardware; UI remains usable                              |
 | Cancel acknowledgment                  | Within 300 ms; completion waits for the next safe write boundary                        |
@@ -1301,15 +1084,14 @@ A progress indicator does not excuse an unbounded operation. Tests must cover li
 
 ### 24.1 Test layers
 
-Unit tests cover pure domain rules, source parsing, identity/digests, organization graphs, sync entity decisions, operation state machines, and error mapping.
+Unit tests cover domain rules, identity/digests, sync decisions, operation state machines, and
+error mapping. Integration tests and journey probes use real temporary directories, SQLite,
+and local Git repositories; filesystem mocks alone are insufficient for write safety.
 
-Rust integration tests use real temporary directories, SQLite, and local Git repositories. They must cover file permissions, snapshots, recovery, and concurrency. Mocking the filesystem alone is insufficient for deployment safety.
-
-Frontend tests cover query invalidation, offline IPC behavior, forms, accessible controls, dirty-editor protection, conflict selection, empty/error states, and job progress. Feature component unit tests live beside their components under `src/features/{feature}/components`. Shared component unit tests live beside their components under `src/components`. Hook, query, and model unit tests stay beside their feature modules. Tests that cover multiple feature modules live under that feature's `tests/` folder. Architecture tests enforce the component paths and import rules in section 6, including allowed imports from feature components to shared components.
-
-Desktop E2E tests launch a Tauri test build and use real IPC plus isolated fixture directories. The current Tauri guidance documents WebdriverIO's embedded service across Windows, Linux, and macOS. The direct `tauri-driver` route has different macOS limits. Verify the selected service version during the foundation milestone. [S16]
-
-Runtime smoke tests use a clean non-test build launched directly, with the supported local Git prerequisite. Verify that no test server or privileged test command is present. A debug E2E pass does not replace this check. Installer and application-update tests are out of scope.
+Presentation tests cover selection, invalid opt-in, cancelled scan restrictions, state across
+navigation, and confirmation semantics. Native launch checks cover window layout, input,
+modal focus, OS appearance, and platform dialogs. Record environments actually exercised.
+Run source builds and checks on Windows, Linux, and macOS. Production builds contain no test server.
 
 ### 24.2 Required fixture groups
 
@@ -1338,8 +1120,8 @@ Use controlled HTTPS/SSH Git servers and isolated test credential helpers for au
 | A15 | Kill the app around Git ref/index publication                             | Restart reconciles the committed revision and local materialization.                                                                                                                                                                                                                                                                                                                                                                                        |
 | A16 | Disk full or permission loss during replace                               | Original/backup remains available; failure is visible.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | A17 | Two overlapping deployment plans                                          | One serializes or becomes stale. No mixed payload.                                                                                                                                                                                                                                                                                                                                                                                                          |
-| A18 | Repeat an IPC request after lost response                                 | One durable result; no duplicate commit or replacement.                                                                                                                                                                                                                                                                                                                                                                                                     |
-| A19 | Edit file, reload WebView, restart app                                    | Draft recovery works without claiming the draft was saved.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| A18 | Repeat an application API request after lost response                                 | One durable result; no duplicate commit or replacement.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| A19 | Edit file, reload native renderer, restart app                                    | Draft recovery works without claiming the draft was saved.                                                                                                                                                                                                                                                                                                                                                                                                  |
 | A20 | Restore an old skill                                                      | A new commit restores the approved state; targets remain unchanged.                                                                                                                                                                                                                                                                                                                                                                                         |
 | A21 | Fetch a source update with local edits                                    | Conflict choices preserve both versions; no auto text merge.                                                                                                                                                                                                                                                                                                                                                                                                |
 | A22 | Sync between two devices with different home paths                        | Only portable library state transfers. Targets remain machine-specific.                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -1348,15 +1130,15 @@ Use controlled HTTPS/SSH Git servers and isolated test credential helpers for au
 | A25 | Remote contains unsupported paths or schema                               | Incoming state is rejected before materialization.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | A26 | Disconnect network                                                        | Local search, edit, history, and deployment still work.                                                                                                                                                                                                                                                                                                                                                                                                     |
 | A27 | SQLite index is damaged                                                   | Index can be rebuilt without discarding deployment records.                                                                                                                                                                                                                                                                                                                                                                                                 |
-| A28 | Render hostile Markdown/HTML/link content                                 | No script execution, remote image fetch, arbitrary opener, or IPC access.                                                                                                                                                                                                                                                                                                                                                                                   |
+| A28 | Render hostile Markdown/HTML/link content                                 | No script execution, remote image fetch, arbitrary opener, or application API access.                                                                                                                                                                                                                                                                                                                                                                                   |
 | A29 | Open two app instances                                                    | Only one persistent-state owner; second instance focuses or exits.                                                                                                                                                                                                                                                                                                                                                                                          |
 | A30 | Deploy same-slug variants to one target                                   | Plan cannot proceed until collision is resolved.                                                                                                                                                                                                                                                                                                                                                                                                            |
 | A31 | Delete a library skill                                                    | Deployed copies remain and become detached.                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | A32 | Backup quota reached                                                      | Destructive action blocks rather than deleting protected backups.                                                                                                                                                                                                                                                                                                                                                                                           |
 | A33 | Launch without Git, then configure Git                                    | Show a setup error; do not create an unversioned library. After Git passes validation, runtime workflows work without Node.js or the skills CLI.                                                                                                                                                                                                                                                                                                            |
 | A34 | Open older supported app data in a newer local build                      | Library, local settings, deployments, and connection settings survive tested schema migrations. No installer or updater is required.                                                                                                                                                                                                                                                                                                                        |
-| A35 | Inspect a non-test compiled app                                           | No embedded test driver, fixture IPC, debug data-path override, or updater integration.                                                                                                                                                                                                                                                                                                                                                                     |
-| A36 | Verify frontend component architecture                                    | shadcn/ui components are in `apps/frontend/src/components/ui`; shared custom components are in `apps/frontend/src/components`; feature-specific components are in `apps/frontend/src/features/{feature}/components`. No shared UI package or parallel `src/components/{feature}` tree exists. Import-boundary tests allow feature components to use shared UI and reject reverse dependencies. The documented bootstrap and route exceptions remain narrow. |
+| A35 | Inspect a non-test compiled app                                           | No embedded test driver, fixture application API, debug data-path override, or updater integration.                                                                                                                                                                                                                                                                                                                                                                     |
+| A36 | Verify UI component architecture | All UI definitions live in crates/ui. Native host code lives in apps/desktop. Dependency checks enforce UI → app → core/db/platform. |
 | A37 | Compare complete upstream and app agent sets                              | Every ID in the pinned registry has an implemented adapter and applicable path/scope tests. No six-agent subset passes acceptance.                                                                                                                                                                                                                                                                                                                          |
 | A38 | Agent has no global scope or shares another agent's path                  | No invented scope; shared physical targets are scanned and written once.                                                                                                                                                                                                                                                                                                                                                                                    |
 | A39 | HTTPS Git with an isolated credential helper                              | Explicit connection/sync reuses the helper. The app receives no credential fields and stores no token.                                                                                                                                                                                                                                                                                                                                                      |
@@ -1381,7 +1163,7 @@ Include simulated concurrent edits by another process. Test Windows file-lock be
 
 ### 25.1 Cross-platform implementation remains required
 
-Windows, Linux, and macOS remain required runtime families. Build and test locally and in native CI environments. Record actual OS, architecture, Git, and WebView versions in `docs/platform-support.md`. These are test environments, not an approved public support matrix.
+Windows, Linux, and macOS remain required runtime families. Build and test locally and in native CI environments. Record actual OS, architecture, Git, and native renderer versions in `docs/platform-support.md`. These are test environments, not an approved public support matrix.
 
 Do not adopt the earlier Windows 11, macOS 14, Ubuntu 24.04, CPU, or package proposals as owner-approved release requirements. Select reproducible development runners, record their limitations, and test native filesystem behavior on each family. macOS-only development is not sufficient evidence for the cross-platform requirement.
 
@@ -1389,13 +1171,13 @@ Do not adopt the earlier Windows 11, macOS 14, Ubuntu 24.04, CPU, or package pro
 
 Do not implement installers, app-store submission, signing, notarization, release hosting, publication workflows, package-manager channels, or installer upgrade/uninstall logic. No Apple Developer account or Windows signing credential is required for current MVP acceptance.
 
-`pnpm build` must still produce a runnable non-test application from bundled frontend assets. Native compilation and a local macOS app container are not a commitment to distribute an installer. Build without invoking installer bundling targets. Keep development and test data directories isolated. Do not claim a test build is a signed public product.
+`cargo build -p skillbinder --release` must produce a runnable native application. Native compilation and a local macOS app container are not a commitment to distribute an installer. Build without invoking installer bundling targets. Keep development and test data directories isolated. Do not claim a test build is a signed public product.
 
-The product name is **Kanai**. Production identifier, publisher identity, release channels, supported public OS/CPU matrix, and distribution terms remain deferred inputs. Use `Kanai` in user-facing product text and `kanai` for lowercase code/package identifiers where appropriate. Use explicit development identifiers for bundle/application IDs; do not invent a permanent production identifier. Before any later identifier change, document the effect on existing data paths. No data deletion is permitted as a shortcut.
+The product name is **SkillBinder**. Production identifier, publisher identity, release channels, supported public OS/CPU matrix, and distribution terms remain deferred inputs. Use `SkillBinder` in user-facing product text and `skillbinder` for lowercase code/package identifiers where appropriate. Use explicit development identifiers for bundle/application IDs; do not invent a permanent production identifier. Before any later identifier change, document the effect on existing data paths. No data deletion is permitted as a shortcut.
 
 ### 25.3 In-app updates are out of scope — G4
 
-Do not add Tauri updater dependencies or permissions, update screens, automatic checks, update download code, manifests, feeds, verification keys, or key-rotation work. Do not build a disabled updater as preparation.
+Do not add application updater dependencies or permissions, update screens, automatic checks, update download code, manifests, feeds, verification keys, or key-rotation work. Do not build a disabled updater as preparation.
 
 Application-update delivery is separate from schema migration. Continue to test opening older supported data with a newer local build. Manual **skill-source update** checks in section 12 and explicit Git library sync remain required.
 
@@ -1415,7 +1197,7 @@ Public source does not decide price, contributor copyright ownership, or a futur
 
 ### 26.1 Data migrations
 
-Version the portable library schema, content policy/digest format, SQLite schema, and IPC protocol separately. A content-policy change must not silently reinterpret old deployment baselines.
+Version the portable library schema, content policy/digest format, SQLite schema, and application model version separately. A content-policy change must not silently reinterpret old deployment baselines.
 
 Before a migration, acquire locks, preserve the current library ref, and create a consistent backup of non-derived local state. Apply local database changes transactionally. Apply portable format changes through the library transaction protocol.
 
@@ -1443,49 +1225,22 @@ Record available-space checks and keep a reserve for journals and SQLite commits
 
 ## 27. Local development and CI contract
 
-### 27.1 Root commands
-
-Implement cross-platform orchestration in `scripts/` using Node scripts, not Bash-only commands. These are required root commands, not a claim that a repository already exists:
-
-```text
-pnpm install --frozen-lockfile
-pnpm dev
-pnpm dev:frontend
-pnpm build
-pnpm lint
-pnpm format:check
-pnpm typecheck
-pnpm contracts:generate
-pnpm contracts:check
-pnpm test
-pnpm test:rust
-pnpm test:integration
-pnpm test:e2e
-pnpm test:runtime
-pnpm verify
+```sh
+cargo run -p skillbinder --locked
+cargo build -p skillbinder --release --locked
+node scripts/verify.mjs
+cargo run -p skillbinder-app --example j01_probe --locked
+cargo run -p skillbinder-app --example j02_probe --locked
+cargo run -p skillbinder-app --example j03_probe --locked
 ```
 
-`pnpm dev` starts Vite at a fixed local address/port, waits for readiness, and starts Tauri with its working directory explicitly set to `apps/Tauri`. The orchestrator stops child processes when it exits. Do not rely on accidental current-directory behavior.
+`verify.mjs` runs architecture/registry checks, formatting, Clippy, and Rust tests. All scripts
+work from the repository root and require no installed JavaScript packages. Native prerequisites
+and the pinned toolchain are documented in README and docs/dependencies.md.
 
-`pnpm build` generates contracts, builds `apps/frontend`, and invokes a non-test Tauri build from `apps/Tauri` with installer bundling disabled. `pnpm test:runtime` exercises that local build; it does not install or publish a package. Configure `frontendDist` as `../frontend/dist`, relative to the Tauri config. Set the development URL to the orchestrated Vite server. Disable redundant Tauri pre-build hooks if the root orchestrator already performs these steps. Tauri documents its frontend build configuration and path settings. [S27]
-
-`pnpm dev:frontend` uses fixture-backed `DesktopClient` implementations and never accesses the real filesystem. Make mock mode visually clear. Do not ship mock data in production.
-
-### 27.2 Required development setup
-
-README instructions must identify the pinned Node/pnpm/Rust versions, supported system-Git capabilities/version range, and native build prerequisites for each OS. Developers should be able to run local feature tests without an account, GitHub token, or cloud service.
-
-`.env.example` contains only documented non-secret development settings, such as fixture mode and local dev-server configuration. Do not put Git credentials, tokens, or distribution signing settings into an example.
-
-Use fixture directories under a test temp root. Production builds must ignore development app-data overrides. Tests must assert that no fixture operation touches a real home skill directory.
-
-### 27.3 CI checks
-
-Run frontend formatting, lint, type checks, unit tests, contract regeneration/diff checks, Rust formatting, Clippy, Rust tests, integration tests, architecture checks, and dependency/license scans on every pull request.
-
-Run filesystem-sensitive tests and desktop E2E on the selected test environment for each of Windows, Linux, and macOS. Run a Linux case-sensitive import/path check. Verify the frontend component locations and dependency direction from section 6 in CI. Run non-test local-build smoke tests and data migration tests. Do not add installer or updater jobs to MVP CI.
-
-Commit generated DTOs, the complete adapter registry snapshot, its upstream commit/digest, and generated coverage documentation. CI fails when regeneration produces a diff or any upstream agent ID lacks required coverage. Do not allow a manual transport type edit to pass without matching Rust changes.
+Use isolated temporary homes in tests. CI checks the native Cargo workspace on all three OS
+families and runs Unix-specific probes on Linux. Commit the registry source snapshot and generated
+coverage document, and fail verification on drift. Distribution and updater jobs remain out of scope.
 
 ## 28. Implementation sequence
 
@@ -1493,7 +1248,7 @@ Build and test vertical slices. Do not build all screens before file safety and 
 
 | Milestone                       | Deliverable                                                                                                                                                                                  | Exit condition                                                                                                                                                                                                     |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| M0 — Foundations                | Workspace, approved component structure, desktop shell, typed IPC, test harness, paths/locks, dependency inventory, Git environment check, full registry snapshot, license text and metadata | Clean dev/build on all three OS families; import-boundary checks pass; no production test APIs; approved G1–G5 decisions and final confirmations recorded; `AGPL-3.0-only` metadata in place                       |
+| M0 — Foundations                | Workspace, approved component structure, desktop shell, typed application actions, test harness, paths/locks, dependency inventory, Git environment check, full registry snapshot, license text and metadata | Clean dev/build on all three OS families; import-boundary checks pass; no production test APIs; approved G1–G5 decisions and final confirmations recorded; `AGPL-3.0-only` metadata in place                       |
 | M1 — Safe local library         | Payload validator, manifests, local Git, SQLite index, transaction journals, basic list/detail                                                                                               | Import, restart, deduplication, and failure-injection cases pass                                                                                                                                                   |
 | M2 — Discovery and organization | Complete agent registry, per-adapter fixtures, selected-root scan, folder/tag features                                                                                                       | Every upstream agent ID covered; shared paths and missing scopes correct; original files untouched                                                                                                                 |
 | M3 — Editing and history        | New skill, text editor, drafts, diffs, restore                                                                                                                                               | Concurrency checks, recovery drafts, binary handling, and new-commit restore pass                                                                                                                                  |
@@ -1506,13 +1261,13 @@ A milestone is not complete because its UI exists. Its persistence and failure b
 
 ## 29. Required engineering documentation
 
-The root README must explain the product scope, workspace layout, setup, local commands, testing, build outputs, development mock mode, and where user data is stored. Document all three frontend component locations. Show how to add a shadcn primitive, a shared custom component, and a feature-specific component without creating a shared UI package or a parallel component tree.
+The root README must explain product scope, workspace layout, setup, local commands, testing, build outputs, and user data. It must show how components in crates/ui compose application actions.
 
 Create the following ADRs with the decision, alternatives, consequences, and reversal cost:
 
 ```text
 001-rust-owns-privileged-operations.md
-002-pnpm-and-cargo-workspaces.md
+002-cargo-workspace.md
 003-feature-first-package-structure.md
 004-git-portable-state-and-local-sqlite.md
 005-copy-deployment-and-explicit-adoption.md
@@ -1528,11 +1283,11 @@ Create the following ADRs with the decision, alternatives, consequences, and rev
 015-public-source-and-copyleft-policy.md
 ```
 
-ADR 003 must record the owner-approved frontend component paths. Feature-specific UI follows the feature-first rule in `src/features/{feature}/components`; only the shared `src/components` root is an exception. Record the import direction between app composition, feature components, feature logic, shared components, and shadcn primitives.
+ADR 003 must record the native UI component paths and dependency direction between desktop, UI, application services, domain, and adapters.
 
 ADRs 008 and 013 must include public/private GitHub source installation and manual source updates through existing local Git authentication. ADR 015 must record `AGPL-3.0-only` as approved, with repository metadata, contribution terms, and third-party notice requirements. Do not leave either decision marked as pending.
 
-Each feature document must include its purpose, user flow, data ownership, public API, state transitions, validation, errors, tests, and extension instructions. Frontend feature documents must identify the feature directory under `src/features/{feature}`, its `components/` folder, its other purpose-based folders, and any shared components it consumes from `src/components`.
+Each feature document must include its purpose, user flow, data ownership, public API, state transitions, validation, errors, tests, and extension instructions. UI feature documents must identify the feature directory under `src/features/{feature}`, its `components/` folder, its other purpose-based folders, and any shared components it consumes from `src/components`.
 
 Provide runbooks for failed deployment recovery, library/index repair, low disk space, missing/unsupported Git, local authentication setup failures, SSH host verification, source update conflicts, sync divergence, interrupted Git processes, migration failure, and restoring an exported library. Distribution and updater key-rotation runbooks are out of scope.
 
@@ -1546,11 +1301,11 @@ The current MVP is complete only when the following are true:
 - Original imports remain unchanged, target writes are reviewed, backups are verified, and recovery cases pass.
 - Library content and organization are versioned; local paths, credentials, and deployment receipts remain local.
 - Source install, source update, library sync, and deployment remain separate explicit operations.
-- Production IPC is narrow, hostile content is inert in previews, and no imported code executes inside the manager.
+- Production application API is narrow, hostile content is inert in previews, and no imported code executes inside the manager.
 - Every applicable MVP-blocking acceptance case has evidence, not only a checked box. All agent IDs in the pinned registry have the required fixture coverage.
 - Performance is measured against the declared workload, with any exceptions documented.
 - G1–G5 match the owner decisions. Private GitHub source installation and manual updates pass acceptance through local Git authentication. The repository uses `AGPL-3.0-only` with consistent metadata and required notices. No installer distribution or in-app update work is required.
-- Feature-specific components stay in `src/features/{feature}/components`. Shared custom components stay in `src/components`, with shadcn primitives in `src/components/ui`. No shared UI package or parallel shared-root feature tree exists. Component import-boundary checks pass.
+- All UI components live in `crates/ui`. Architecture checks enforce allowed crate dependencies.
 - README, ADRs, feature documents, support runbooks, notices, and platform test notes match the local build.
 
 This document is a design and acceptance specification. It does not report an implemented application, passing tests, achieved benchmarks, or a completed security review.
@@ -1561,25 +1316,14 @@ References are retained from revision 1.3. Revision 1.4 records the owner's fina
 
 | ID  | Primary source                                                                              | Address                                                                            |
 | --- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| S01 | Tauri — Project Structure                                                                   | `https://v2.tauri.app/start/project-structure/`                                    |
-| S02 | Tauri — Capabilities and application command permissions                                    | `https://v2.tauri.app/security/capabilities/`                                      |
-| S03 | Tauri — Calling Rust from the Frontend                                                      | `https://v2.tauri.app/develop/calling-rust/`                                       |
 | S04 | Agent Skills — Specification                                                                | `https://agentskills.io/specification`                                             |
 | S05 | Vercel Labs — skills CLI source and agent-path table                                        | `https://github.com/vercel-labs/skills`                                            |
 | S06 | skills.sh — API Reference and authentication                                                | `https://skills.sh/docs/api`                                                       |
-| S07 | Tauri — App path resolution API                                                             | `https://v2.tauri.app/reference/javascript/api/namespacepath/`                     |
 | S08 | Git — command interface, SSH environment, and terminal prompt control                       | `https://git-scm.com/docs/git`                                                     |
-| S09 | TanStack Router — Installation with Vite                                                    | `https://tanstack.com/router/latest/docs/framework/react/installation/with-vite`   |
-| S10 | TanStack Query — Important Defaults                                                         | `https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults` |
-| S11 | shadcn/ui — Vite installation                                                               | `https://ui.shadcn.com/docs/installation/vite`                                     |
-| S12 | pnpm — Workspaces                                                                           | `https://pnpm.io/workspaces`                                                       |
 | S13 | Cargo — Workspaces                                                                          | `https://doc.rust-lang.org/cargo/reference/workspaces.html`                        |
-| S14 | ts-rs — Rust-to-TypeScript type export                                                      | `https://docs.rs/ts-rs/latest/ts_rs/`                                              |
 | S15 | yaml-rust2 — Parser documentation                                                           | `https://docs.rs/yaml-rust2/latest/yaml_rust2/`                                    |
-| S16 | Tauri — WebDriver and WebdriverIO testing                                                   | `https://v2.tauri.app/develop/tests/webdriver/`                                    |
 | S17 | Reserved reference ID; former updater reference removed because the feature is out of scope | —                                                                                  |
 | S18 | SQLite — Write-Ahead Logging, durability, and published fixes                               | `https://sqlite.org/wal.html`                                                      |
-| S19 | Tauri — Content Security Policy                                                             | `https://v2.tauri.app/security/csp/`                                               |
 | S20 | Claude Code — Skills, directories, aliases, and plugin behavior                             | `https://code.claude.com/docs/en/skills`                                           |
 | S21 | OpenAI — Build skills and Codex local discovery                                             | `https://developers.openai.com/codex/build-skills`                                 |
 | S22 | OpenAI — Reusable Codex skills, including older user-directory guidance                     | `https://developers.openai.com/codex/use-cases/reusable-codex-skills`              |
@@ -1587,7 +1331,6 @@ References are retained from revision 1.3. Revision 1.4 records the owner's fina
 | S24 | GitHub — About agent skills                                                                 | `https://docs.github.com/en/copilot/concepts/agents/about-agent-skills`            |
 | S25 | Gemini CLI — Agent Skills                                                                   | `https://geminicli.com/docs/cli/skills/`                                           |
 | S26 | OpenCode — Agent Skills                                                                     | `https://opencode.ai/docs/skills/`                                                 |
-| S27 | Tauri — Configuration reference                                                             | `https://v2.tauri.app/reference/config/`                                           |
 | S28 | Git — credential helpers and authentication flow                                            | `https://git-scm.com/docs/gitcredentials`                                          |
 | S29 | Git — configuration controls, including hook paths                                          | `https://git-scm.com/docs/git-config`                                              |
 | S30 | Git — raw object hashing and filter bypass                                                  | `https://git-scm.com/docs/git-hash-object`                                         |
@@ -1602,15 +1345,15 @@ The requirements in this revision are owner-approved. Where an earlier section c
 
 ## A. First-run onboarding and discovery
 
-Kanai MUST guide first-run setup. It MUST validate Git availability and execution, application-data access, and other required local prerequisites. Missing requirements MUST produce a repair instruction and a retry action. Onboarding MUST be resumable after interruption.
+SkillBinder MUST guide first-run setup. It MUST validate Git availability and execution, application-data access, and other required local prerequisites. Missing requirements MUST produce a repair instruction and a retry action. Onboarding MUST be resumable after interruption.
 
-Kanai MUST automatically inspect known global skill locations for all supported agents. The user MUST select one or more project roots (for example `~/Developer`, `~/Work`, or `D:\Projects`). Kanai MUST search project-level known skill locations only below those selected roots and MUST NOT perform an unrestricted whole-disk scan by default.
+SkillBinder MUST automatically inspect known global skill locations for all supported agents. The user MUST select one or more project roots (for example `~/Developer`, `~/Work`, or `D:\Projects`). SkillBinder MUST search project-level known skill locations only below those selected roots and MUST NOT perform an unrestricted whole-disk scan by default.
 
-Before import, Kanai MUST show the discovered skills and their physical locations. Import MUST preserve original files. After import, the normal library view MUST expose the relationship **Library Skill -> Installation -> Location**. “All skills” means all skills discovered in known locations and selected project roots, not an unverifiable claim about the whole machine. Project roots and discovery MUST remain editable after onboarding.
+Before import, SkillBinder MUST show the discovered skills and their physical locations. Import MUST preserve original files. After import, the normal library view MUST expose the relationship **Library Skill -> Installation -> Location**. “All skills” means all skills discovered in known locations and selected project roots, not an unverifiable claim about the whole machine. Project roots and discovery MUST remain editable after onboarding.
 
 ## B. Logical folders and tags
 
-Folders are Kanai logical metadata, not filesystem directories. Folders MAY be nested. A skill belongs to zero or one logical folder and MAY have multiple tags. Moving a skill between folders MUST NOT move canonical skill files or deployed copies.
+Folders are SkillBinder logical metadata, not filesystem directories. Folders MAY be nested. A skill belongs to zero or one logical folder and MAY have multiple tags. Moving a skill between folders MUST NOT move canonical skill files or deployed copies.
 
 Folders and tags are recursive/dynamic operation scopes. Deploying a folder MUST resolve all skills contained directly or indirectly in that folder. Deploying a tag MUST resolve all skills currently carrying that tag. Logical folder structure MUST NOT be reproduced at an agent destination.
 
@@ -1618,13 +1361,13 @@ Folders and tags are recursive/dynamic operation scopes. Deploying a folder MUST
 
 Deploying a skill, folder, tag, or explicit selection MUST create persistent deployment policy records. A policy expresses **Selection -> Desired Skills -> Target**. Targets are global agent targets or project targets. Physical deployment uses copies.
 
-For each target, Kanai MUST calculate the desired physical skill set as the union of all active policies for that target. Removing a skill from one folder/tag MUST NOT remove its physical copy when another active policy still requires it.
+For each target, SkillBinder MUST calculate the desired physical skill set as the union of all active policies for that target. Removing a skill from one folder/tag MUST NOT remove its physical copy when another active policy still requires it.
 
-Each skill-target deployment MUST retain a last-deployed snapshot/revision. Health uses a three-way model: **canonical library state <-> last deployed state <-> current destination state**. Kanai MUST distinguish content drift from membership drift.
+Each skill-target deployment MUST retain a last-deployed snapshot/revision. Health uses a three-way model: **canonical library state <-> last deployed state <-> current destination state**. SkillBinder MUST distinguish content drift from membership drift.
 
-When a destination is externally deleted, the user MUST be able to accept that state by detaching/forgetting the deployment or repair it by recreating the copy. When a destination is externally modified, Kanai MUST offer reviewable actions to import the changes into the canonical skill, detach the deployment, or restore the canonical version. Conflicts MUST NOT be overwritten silently.
+When a destination is externally deleted, the user MUST be able to accept that state by detaching/forgetting the deployment or repair it by recreating the copy. When a destination is externally modified, SkillBinder MUST offer reviewable actions to import the changes into the canonical skill, detach the deployment, or restore the canonical version. Conflicts MUST NOT be overwritten silently.
 
-Changing folder/tag membership MUST perform impact analysis. If the group is deployed, Kanai MUST warn before changing affected targets. The user MUST be able to cancel, change membership without updating targets (creating membership drift), or change membership and update affected deployments.
+Changing folder/tag membership MUST perform impact analysis. If the group is deployed, SkillBinder MUST warn before changing affected targets. The user MUST be able to cancel, change membership without updating targets (creating membership drift), or change membership and update affected deployments.
 
 ## D. Git library and optional remote synchronization
 
@@ -1633,37 +1376,37 @@ The canonical portable repository layout is:
 ```text
 repository/
 ├── skills/       # canonical skill content
-├── .kanai/       # portable Kanai metadata only
+├── .skillbinder/       # portable SkillBinder metadata only
 └── ...           # arbitrary user-owned repository content
 ```
 
-`skills/` contains complete canonical skill folders. `.kanai/` contains portable metadata such as schema/library identity, folders, tags, and source provenance. Machine-specific project roots, deployment records/snapshots, scan state, credentials, and machine preferences MUST remain local and MUST NOT be synchronized through `.kanai/`.
+`skills/` contains complete canonical skill folders. `.skillbinder/` contains portable metadata such as schema/library identity, folders, tags, and source provenance. Machine-specific project roots, deployment records/snapshots, scan state, credentials, and machine preferences MUST remain local and MUST NOT be synchronized through `.skillbinder/`.
 
-Kanai MUST always use local Git history. Remote synchronization is optional. During onboarding the user MAY stay local-only, connect an existing remote repository, or initialize a local repository and be guided to connect a remote. Remote repository creation through a provider API is not required.
+SkillBinder MUST always use local Git history. Remote synchronization is optional. During onboarding the user MAY stay local-only, connect an existing remote repository, or initialize a local repository and be guided to connect a remote. Remote repository creation through a provider API is not required.
 
-Kanai MUST use the user's local Git authentication. It MUST NOT implement an independent token/account store for Git. User-controlled Commit, Fetch/Pull review, and Push actions MUST be available. Automatic commits after every library mutation are NOT required and MUST NOT replace explicit user commit boundaries.
+SkillBinder MUST use the user's local Git authentication. It MUST NOT implement an independent token/account store for Git. User-controlled Commit, Fetch/Pull review, and Push actions MUST be available. Automatic commits after every library mutation are NOT required and MUST NOT replace explicit user commit boundaries.
 
-Kanai-managed commits MUST stage only `skills/**` and `.kanai/**` by default. It MUST NOT stage unrelated repository content. Because Git synchronization works at repository level, fetch/pull review MUST warn when incoming commits affect paths outside Kanai-managed paths.
+SkillBinder-managed commits MUST stage only `skills/**` and `.skillbinder/**` by default. It MUST NOT stage unrelated repository content. Because Git synchronization works at repository level, fetch/pull review MUST warn when incoming commits affect paths outside SkillBinder-managed paths.
 
-An existing remote containing Kanai state MUST support using the remote library or reviewing/merging it with local discovery. An empty remote MAY receive the local library. Remote sync MUST remain optional and Kanai MUST remain usable offline.
+An existing remote containing SkillBinder state MUST support using the remote library or reviewing/merging it with local discovery. An empty remote MAY receive the local library. Remote sync MUST remain optional and SkillBinder MUST remain usable offline.
 
 ## E. Install feature and skills.sh
 
-**Install** means adding a skill to the canonical Kanai library. **Deploy** means copying a canonical skill to an agent/project target. Installation MUST NOT automatically deploy a skill.
+**Install** means adding a skill to the canonical SkillBinder library. **Deploy** means copying a canonical skill to an agent/project target. Installation MUST NOT automatically deploy a skill.
 
-Kanai MUST provide a dedicated Install feature. skills.sh is a first-class catalog. The intended UX is in-app discovery/search, skill/source review, installation into `skills/<skill>/`, and portable source provenance under `.kanai/`. Implementation MUST use a documented/stable skills.sh integration mechanism and MUST NOT depend on HTML scraping. If a suitable supported catalog interface is unavailable, implementation MUST stop at that integration gate rather than invent an undocumented API.
+SkillBinder MUST provide a dedicated Install feature. skills.sh is a first-class catalog. The intended UX is in-app discovery/search, skill/source review, installation into `skills/<skill>/`, and portable source provenance under `.skillbinder/`. Implementation MUST use a documented/stable skills.sh integration mechanism and MUST NOT depend on HTML scraping. If a suitable supported catalog interface is unavailable, implementation MUST stop at that integration gate rather than invent an undocumented API.
 
 Git repository installation remains supported, including private GitHub repositories through local Git authentication. Installed skills SHOULD retain source type, source identifier/repository, upstream skill path, and exact revision/commit when available. Manual upstream update checks MUST show diffs/conflicts before changing canonical content.
 
-During or after installation, the user MUST be able to assign a folder and tags. If a selected folder/tag already has deployment policies, Kanai MUST perform impact analysis. With user approval, the newly installed skill MUST be deployed to every unique target whose active policy now requires it. Choosing not to update MUST leave those policies visibly out of sync.
+During or after installation, the user MUST be able to assign a folder and tags. If a selected folder/tag already has deployment policies, SkillBinder MUST perform impact analysis. With user approval, the newly installed skill MUST be deployed to every unique target whose active policy now requires it. Choosing not to update MUST leave those policies visibly out of sync.
 
 ## F. Canonical skill editing and redeployment
 
-Kanai MUST allow editing canonical skill text content from inside the app. Editing MUST affect the canonical copy under `skills/<skill>/`, never directly edit deployed copies. `SKILL.md` and supported text payload files are editable within the declared safety/size limits.
+SkillBinder MUST allow editing canonical skill text content from inside the app. Editing MUST affect the canonical copy under `skills/<skill>/`, never directly edit deployed copies. `SKILL.md` and supported text payload files are editable within the declared safety/size limits.
 
 After a canonical edit is saved, every managed deployment containing that skill whose last-deployed snapshot differs MUST show **Update available**. Unsaved editor state, saved/uncommitted Git state, and deployment update state are independent concepts. Git commit status MUST NOT block deployment.
 
-A **Redeploy skill** action MUST automatically resolve every unique destination where active policies currently require the skill. A destination required by several policies MUST be updated once. Before writes, Kanai MUST show a consolidated deployment plan and per-target diff/status.
+A **Redeploy skill** action MUST automatically resolve every unique destination where active policies currently require the skill. A destination required by several policies MUST be updated once. Before writes, SkillBinder MUST show a consolidated deployment plan and per-target diff/status.
 
 Redeploy MUST NOT silently overwrite target drift. If a target changed since the last deployed snapshot, that target is a conflict and requires an explicit decision: import target changes, overwrite after review, detach, or exclude it from the current redeployment. Other safe targets MAY proceed according to the reviewed plan. Multiple canonical edits before redeployment collapse to the latest desired canonical state.
 
@@ -1673,21 +1416,21 @@ Changes that alter skill identity or deployment paths (for example rename) are s
 
 Cross-agent execution observability is explicitly POST-MVP. The MVP MUST, however, keep identities and revision relationships sufficient to later associate observations with a skill, canonical/deployed revision, agent, project, and deployment when evidence is available.
 
-Future agent integrations MUST report an observability capability level such as **Full**, **Partial**, or **Deployment only**. Kanai MUST NOT infer actual skill execution merely from deployment. Observed usage must be backed by agent/session/hook/log evidence exposed by that agent. Normalized observations and evidence remain local by default and MUST NOT be synchronized through the portable Git library.
+Future agent integrations MUST report an observability capability level such as **Full**, **Partial**, or **Deployment only**. SkillBinder MUST NOT infer actual skill execution merely from deployment. Observed usage must be backed by agent/session/hook/log evidence exposed by that agent. Normalized observations and evidence remain local by default and MUST NOT be synchronized through the portable Git library.
 
 ## H. Future Dream — post-MVP
 
 Dream is explicitly POST-MVP and depends on observability. It is an evidence-gated skill optimization loop, not a continuous rewriting system.
 
-Dream MAY run at most once per day when the machine is awake and the required Kanai process is running. A scheduled opportunity MUST do nothing unless enough meaningful new skill-usage evidence exists since the previous Dream analysis. The evidence threshold is a future configurable/product-tuned rule and MUST NOT be represented as a fixed arbitrary usage count in the MVP.
+Dream MAY run at most once per day when the machine is awake and the required SkillBinder process is running. A scheduled opportunity MUST do nothing unless enough meaningful new skill-usage evidence exists since the previous Dream analysis. The evidence threshold is a future configurable/product-tuned rule and MUST NOT be represented as a fixed arbitrary usage count in the MVP.
 
 A Dream run is successful even when it produces zero proposals. **Dream optimizes for demonstrated problems, not for continuous change.** A proposal requires evidence of a meaningful recurring problem, such as repeated corrections, repeated failures, ambiguous instructions, systematically ignored rules, or unnecessary work associated with the skill. A single weak session should not normally produce an improvement proposal.
 
-Dream analysis uses a user-selected cloud LLM through BYOK. Kanai has no required backend. Raw observations remain local except for the minimal selected context intentionally sent to the configured model provider for a Dream request. The UI MUST make this boundary explicit. Provider credentials MUST be stored using the OS credential facility and MUST NOT enter Git, `.kanai/`, logs, or Dream records. The provider layer SHOULD be vendor-independent and MAY include supported vendor adapters and an OpenAI-compatible endpoint.
+Dream analysis uses a user-selected cloud LLM through BYOK. SkillBinder has no required backend. Raw observations remain local except for the minimal selected context intentionally sent to the configured model provider for a Dream request. The UI MUST make this boundary explicit. Provider credentials MUST be stored using the OS credential facility and MUST NOT enter Git, `.skillbinder/`, logs, or Dream records. The provider layer SHOULD be vendor-independent and MAY include supported vendor adapters and an OpenAI-compatible endpoint.
 
 Dream output MUST be a proposal, never an automatic canonical mutation. A proposal MUST include the evidence basis, the problem hypothesis, and a reviewable diff. The user MUST explicitly Apply or Reject it. Rejected proposals SHOULD be retained locally so the same suggestion is not repeated without materially new evidence.
 
-After an accepted proposal changes the canonical skill, the normal deployment system applies: affected deployments become outdated and may be redeployed. Future observations SHOULD allow Kanai to compare behavior before and after the revision so it can test whether the demonstrated problem decreased rather than starting an endless rewrite cycle.
+After an accepted proposal changes the canonical skill, the normal deployment system applies: affected deployments become outdated and may be redeployed. Future observations SHOULD allow SkillBinder to compare behavior before and after the revision so it can test whether the demonstrated problem decreased rather than starting an endless rewrite cycle.
 
 ## I. Scope statement
 

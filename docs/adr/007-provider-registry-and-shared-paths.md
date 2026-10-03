@@ -53,4 +53,4 @@ the agent loads them.
 
 Replacing the registry with a different source means re-deriving the JSON and the comparison half
 of `scripts/registry.mjs`. Consumers only depend on the resolved root list, so the scan, import,
-and frontend layers do not change.
+and UI layers do not change.

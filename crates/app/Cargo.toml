@@ -4,13 +4,18 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+publish.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-skillbinder-core = { path = "../core" }
-skillbinder-db = { path = "../db" }
-skillbinder-platform = { path = "../platform" }
+skillbinder-core.workspace = true
+skillbinder-db.workspace = true
+skillbinder-platform.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+tracing-subscriber.workspace = true

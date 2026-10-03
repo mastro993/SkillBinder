@@ -1,5 +1,9 @@
 # Contributing
 
-By contributing, you agree that SkillBinder-owned contributions are provided under `AGPL-3.0-only`.
+Contributions to SkillBinder-owned code are provided under AGPL-3.0-only.
 
-Keep application roots limited to `apps/frontend` and `apps/tauri`; keep shared Rust libraries limited to `crates/app`, `crates/core`, `crates/db`, and `crates/platform`. Run `pnpm verify` before submitting changes. Never add imported skill content, credentials, private repository names, machine paths, installer signing material, or updater infrastructure to the repository.
+The executable lives in `apps/desktop`; all UI is in `crates/ui`. Application services, domain logic,
+SQLite, and platform adapters live in `crates/app`, `crates/core`, `crates/db`, and `crates/platform`.
+Run `node scripts/verify.mjs` before submitting changes. See README for native prerequisites.
+Never commit imported skill payloads, credentials, private repository names, machine paths,
+installer signing material, or updater infrastructure.

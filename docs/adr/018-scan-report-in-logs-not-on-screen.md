@@ -29,8 +29,8 @@ only part of it the rest of the screen used.
 Keeping the fields on the wire and only hiding the panel was rejected as well. A payload the client
 never renders has to be kept working, serialized, and validated on every poll for no user.
 
-Deriving reader labels in the frontend was rejected. The registry lives in core, and shipping it to
-the frontend to re-resolve labels would duplicate the source of truth that already decides what a
+Deriving reader labels in the UI was rejected. The registry lives in core, and shipping it to
+the UI to re-resolve labels would duplicate the source of truth that already decides what a
 scan reads.
 
 ## Consequences
@@ -45,11 +45,11 @@ per walked location plus one line per excluded folder name. That is bounded by t
 locations and exclusion rules, not by the size of the tree.
 
 `ExclusionReason` and `LocationState` are core-only types now. Adding a reason or a state is a core
-change with a log record, not a wire change with a frontend label.
+change with a log record, not a wire change with a UI label.
 
 ## Reversal cost
 
 Restoring the panel means adding the three collections back to `DiscoveryResultsResponse`, mapping
-them in `apps/tauri/src/commands/discovery.rs`, regenerating the two removed enum contracts, and
+them in `crates/app/src/actions/discovery.rs`, regenerating the two removed enum contracts, and
 restoring the diagnostics component with the exclusion summariser. The state lists still exist in
 `ScanOutcome`, so no engine work is involved.

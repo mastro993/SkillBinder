@@ -7,8 +7,8 @@
 | `crates/core`     | Registry parsing, root templates, project skill directory expansion, the traversal engine and its policies, candidate identity, payload validation, manifests, import planning and apply |
 | `crates/platform` | Filesystem reads, canonicalization, link resolution, volume identity, staging, library files, journals, Git revision and status                                                          |
 | `crates/db`       | Plans, idempotency records, source observations, derived skill metadata, machine-local `scan_roots`                                                                                      |
-| `apps/tauri`      | Transport mapping, permissions, the folder-grant store, run state, the short-lived scan session, command composition                                                                     |
-| `apps/frontend`   | Discovery and library presentation, selection state, plan review                                                                                                                         |
+| `apps/desktop`      | Transport mapping, permissions, the folder-grant store, run state, the short-lived scan session, command composition                                                                     |
+| `crates/ui`   | Discovery and library presentation, selection state, plan review                                                                                                                         |
 
 Core performs no I/O. Every filesystem, Git, database, clock, and identifier effect arrives through
 a port that a feature module owns. The engine is pure over `PayloadSource`, `LibraryCatalog`, and a
@@ -94,9 +94,9 @@ flag, and the outcome, and returns a scan id immediately. `discovery_results` re
 running returns the live id instead of stacking a second walk. The shell exposes that run through
 `discovery_current`, which prefers the running run and otherwise takes the newest run inside the
 ten-minute window whatever its phase, so a view that mounts later adopts the run the shell is still
-holding. The frontend therefore keeps no scan id of its own.
+holding. The UI therefore keeps no scan id of its own.
 
-The frontend may not pass a source path. A picked folder becomes a single-use, five-minute grant in
+The UI may not pass a source path. A picked folder becomes a single-use, five-minute grant in
 the shell, and `roots_register` consumes the grant id, so no command carries a raw path.
 `discovery_results` returns candidate ids of the form `<scan id>:<index>` and
 keeps the resolved candidates in a shell-owned session written only for a finished run, so a

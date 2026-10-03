@@ -4,6 +4,7 @@
 //! Each module implements a port that `crates/core` declares, so the domain stays testable without
 //! a temporary directory or a Git repository.
 
+pub mod activation;
 pub mod git;
 pub mod git_sync;
 pub mod library_repository;

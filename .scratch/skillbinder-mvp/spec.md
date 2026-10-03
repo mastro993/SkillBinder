@@ -14,7 +14,7 @@ Build SkillBinder, a cross-platform desktop skill file manager for Windows, Linu
 
 SkillBinder keeps portable skill content and organization in the library while keeping device paths, deployment receipts, jobs, drafts, credentials, and settings local. It uses the user's installed Git and existing local Git authentication for history, private/public GitHub installation, source updates, and optional manual remote synchronization. Install, deploy, source update, commit, fetch review, sync apply, and push remain separate user actions.
 
-Every destructive operation uses bounded immutable plans, apply-time precondition checks, durable backups where applicable, verification, and recovery records. Imported content remains inert inside SkillBinder. The frontend uses narrow typed IPC; Rust owns filesystem, Git, database, network, job, and recovery work.
+Every destructive operation uses bounded immutable plans, apply-time precondition checks, durable backups where applicable, verification, and recovery records. Imported content remains inert inside SkillBinder. The UI uses narrow typed IPC; Rust owns filesystem, Git, database, network, job, and recovery work.
 
 ## User Stories
 
@@ -116,8 +116,8 @@ Every destructive operation uses bounded immutable plans, apply-time preconditio
 96. As a security-conscious user, I want filesystem, Git, SQL, and network access owned by narrow native commands, so that the WebView cannot perform arbitrary privileged work.
 97. As a privacy-conscious user, I want local logs with redaction and explicit diagnostic export preview, so that skill bodies, credentials, and private repository names are not uploaded or logged by default.
 98. As a privacy-conscious user, I want clear disclosure that local files and Git history are not encrypted by SkillBinder, so that I understand the actual protection boundary.
-99. As a developer, I want feature-owned frontend and Rust modules with enforced dependency direction, so that ownership stays clear as SkillBinder grows.
-100. As a developer, I want generated typed IPC contracts plus runtime validation, so that frontend and backend agree without trusting transport input.
+99. As a developer, I want feature-owned UI and Rust modules with enforced dependency direction, so that ownership stays clear as SkillBinder grows.
+100. As a developer, I want generated typed IPC contracts plus runtime validation, so that UI and backend agree without trusting transport input.
 101. As a developer, I want bounded concurrency for library mutation, target writes, scans, network work, SQLite, and Git processes, so that the UI stays responsive and state remains consistent.
 102. As a developer, I want exact dependency and toolchain pins plus committed lockfiles, so that source builds are reproducible.
 103. As a maintainer, I want a pinned complete agent registry snapshot, generated coverage documentation, and per-agent path fixtures, so that “all supported agents” has an auditable definition.
@@ -132,13 +132,13 @@ Every destructive operation uses bounded immutable plans, apply-time preconditio
 ## Implementation Decisions
 
 - Product name is **SkillBinder**. Use `skillbinder` only where lowercase identifiers are required. Do not invent a production bundle identifier, publisher, domain, signing identity, or distribution namespace.
-- Build a single-window Tauri 2 desktop application with React and strict TypeScript in the frontend and Rust for privileged operations. Support source builds and testing on Windows, Linux, and macOS.
-- Use pnpm for JavaScript workspaces and Cargo for Rust workspaces. Keep frontend, Tauri shell, transport contracts, typed desktop client, core domain, platform adapters, and test support as separate packages or crates with enforced dependency direction.
-- Group code by feature, then purpose. Frontend feature UI stays with its owning feature. Only presentation-only shared components and shadcn primitives live in the shared frontend component area. Do not create a shared UI package.
+- Build a single-window native GPUI application in Rust. Support source builds and testing on Windows, Linux, and macOS.
+- Use a Cargo workspace: the main application in apps/desktop; all UI in crates/ui; services, core, storage, and adapters in focused crates.
+- Group by feature within crates. Share presentation primitives under crates/ui/src/components.
 - Route composition and app bootstrap remain thin. Cross-feature access goes through feature public APIs. Shared UI cannot import features, desktop IPC, or native contracts.
-- Rust core owns domain rules and use cases without depending on Tauri, WebView, SQLite, HTTP, or concrete Git. Platform adapters implement feature-owned ports. Tauri validates transport input, invokes use cases, and maps results.
-- Use TanStack Router with local hash history, TanStack Query configured for local IPC, Tailwind CSS, Radix-based shadcn/ui primitives, CodeMirror 6, and a Markdown renderer with raw HTML disabled.
-- Use Rust `serde` transport DTOs and generated TypeScript types. Runtime validation remains mandatory at trust boundaries; generated types do not replace it. Cross-language fixtures verify serialization.
+- Rust core owns domain rules and use cases without depending on GPUI, WebView, SQLite, HTTP, or concrete Git. Platform adapters implement feature-owned ports. GPUI validates transport input, invokes use cases, and maps results.
+- Use GPUI native controls and a shared semantic light/dark theme. Imported content is inert text.
+- Use typed Rust application models and action signatures. Runtime domain validation remains mandatory.
 - Resolve durable, config, and cache locations through OS APIs. Keep the active library and SQLite database on local storage. Library relocation is outside MVP.
 - Store canonical portable data in one Git library containing `skills/` and `.skillbinder/`. Permit unrelated user-owned repository content, but stage only SkillBinder-managed paths by default.
 - Revision 1.8 governs Git behavior: local Git history is always available, while Commit, fetch review, sync apply, and Push are explicit user actions. Saved canonical state, uncommitted Git state, and deployment state remain independent.
@@ -170,10 +170,10 @@ Every destructive operation uses bounded immutable plans, apply-time preconditio
 - Provide optional manual library sync over Git HTTPS or SSH. Accept only an empty remote or compatible SkillBinder library identity. Fetch into quarantine, validate schema and content, preview entity and unrelated-path changes, then apply only after explicit decisions.
 - Resolve sync at the entity level. Do not auto-merge skill text, folder graphs, tags, deletes, or provenance. Preserve local work and require explicit keep-local, take-incoming, duplicate, map, restore, or abort decisions as applicable.
 - Treat uncertain Git process or push outcomes as reconciliation states. Verify refs before retry. Network failure never blocks local-only workflows.
-- Model long work as durable jobs with per-item results, bounded event rates, safe cancellation points, and explicit retries. Reconnecting the frontend reads durable state rather than trusting missed events.
+- Model long work as durable jobs with per-item results, bounded event rates, safe cancellation points, and explicit retries. Reconnecting the UI reads durable state rather than trusting missed events.
 - Use one long-lived application service container, one process-level data lock, and a single-instance window guard. Do not place all application state behind one mutex.
 - Apply explicit resource limits for YAML, payload files, total skill size and entries, source caches, repository trees, scan depth and entries, symlink hops, editable text, inline diffs, page size, plans, Git timeouts, retries, and UI event rates. Limit changes cannot disable path or entry safety.
-- Ship only bundled frontend code with an explicit CSP, named window capabilities, and an allowlisted command manifest. Do not expose generic filesystem, shell, SQL, Git, or HTTP APIs to the frontend.
+- Ship only bundled UI code with an explicit CSP, named window capabilities, and an allowlisted command manifest. Do not expose generic filesystem, shell, SQL, Git, or HTTP APIs to the UI.
 - Never execute imported content, repository hooks, setup scripts, filters, installers, skill instructions, or plugin manifests. Make downstream agent-execution risk visible without claiming validation proves safety.
 - Keep logs and diagnostics local with content, secret, credential, private-source, and path redaction. Diagnostic export requires preview and explicit action. No telemetry or automatic crash upload is included.
 - Pin exact compatible dependency and toolchain versions, commit lockfiles and generated contracts, scan dependencies and licenses, and pin CI actions to reviewed commits.
@@ -184,16 +184,16 @@ Every destructive operation uses bounded immutable plans, apply-time preconditio
 ## Testing Decisions
 
 - Use unit seams only. Each feature is tested through its public module or use-case API with deterministic fakes for filesystem, Git, SQLite, HTTP, clock, process, and event ports. Do not add desktop E2E, multi-process, real filesystem, real Git server, or full-stack IPC test harnesses.
-- Good unit tests assert externally visible module behavior: returned decisions, emitted domain events, requested port effects, durable-state transitions, validation errors, and preserved byte models. They do not assert private functions, SQL statement order, React implementation details, or call order unless ordering is part of the contract.
+- Good unit tests assert externally visible module behavior: returned decisions, emitted domain events, requested port effects, durable-state transitions, validation errors, and preserved byte models. They do not assert private functions, SQL statement order, rendering implementation details, or call order unless ordering is part of the contract.
 - Rust domain unit tests cover manifests and digests, portable names, duplicate decisions, folder/tag graphs, deployment-policy union, content and membership drift, operation plans, idempotency, jobs, journal and recovery state machines, source parsing, sync entity decisions, limits, and public error mapping.
 - Rust application unit tests drive each use case through fake ports. Cover onboarding, discovery/import, organization, editing, explicit commit, deployment planning/apply decisions, drift resolution, restore, source install/update, sync, interruption reconciliation, and failure mapping without touching native resources.
-- IPC unit tests round-trip public DTOs, reject malformed inputs, verify generated TypeScript matches Rust contracts, and enumerate the production command allowlist. Transport adapters are tested as pure request-to-use-case and result-to-response mappings.
-- Frontend unit tests use React Testing Library and mocked typed-client boundaries for forms, accessible names, keyboard operation, query invalidation, offline states, conflict choices, dirty-editor protection, job progress, and empty/error/partial states.
+- Application tests validate typed requests, durable results, error mapping, and preserved safety invariants.
+- UI tests cover forms, keyboard operation, state refresh, offline states, conflict choices, job progress, and empty/error states.
 - Migration unit tests cover ordered schema transitions, validation, rollback decisions, and unsupported-version errors through an in-memory state model or the narrowest existing migration API. They do not open a production database.
 - Recovery unit tests exhaustively drive every journal state and injected port failure, proving the next action, preserved version, retryability, and user-visible error without killing a real process.
 - Agent registry unit tests compare the exact pinned upstream ID set with implemented declarative adapters and generated documentation. Table-driven cases cover scopes, aliases, read-only locations, shared physical identities, desired targets, drift classification, and removal decisions.
 - Source and sync unit tests model HTTPS/SSH results, local-auth outcomes, moved refs, partial fetch, hostile configuration, divergence, and uncertain push states through fake Git/process ports. No real credentials or external services are used.
-- Architecture checks remain static unit-level checks over dependency metadata and source imports. They enforce component ownership, feature boundaries, generated-contract consistency, and absence of generic privileged frontend APIs.
+- Architecture checks remain static unit-level checks over dependency metadata and source imports. They enforce component ownership, feature boundaries, generated-contract consistency, and absence of generic privileged UI APIs.
 - CI runs formatting, lint, type checks, unit tests, contract regeneration/diff checks, architecture checks, and dependency/license scans. Windows, Linux, and macOS jobs compile the source and run the same platform-independent unit suite.
 - Performance budgets remain design targets. Unit benchmarks may cover pure indexing, filtering, digest, planning, and state-transition logic; end-to-end runtime performance evidence is not part of this test seam.
 

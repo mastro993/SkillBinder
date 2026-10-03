@@ -52,6 +52,6 @@ reads, so a registry change is now also a discovery behavior change.
 
 Returning to a full walk means dropping the expansion from `crates/core/src/discovery/roots.rs` and
 building one grant-rooted `ScanInput` per registered root in
-`apps/tauri/src/commands/discovery.rs::scan_inputs`, which is what that function did before. The
-engine, the wire contract, and the frontend never depended on either shape, so the reversal is local
+`crates/app/src/actions/discovery.rs::scan_inputs`, which is what that function did before. The
+engine, the wire contract, and the UI never depended on either shape, so the reversal is local
 to the shell and its tests.

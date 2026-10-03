@@ -10,7 +10,7 @@ skill is the library's canonical copy from that point on.
 
 1. A finished scan returns candidates with opaque candidate ids. `discovery_results`
    pages that result, and only a finished scan writes the session those ids resolve through.
-2. The frontend sends the selected ids to `imports_prepare`. Blocked candidates are refused, and an
+2. The UI sends the selected ids to `imports_prepare`. Blocked candidates are refused, and an
    invalid candidate is refused unless the request allowed invalid skills.
 3. `imports_prepare` returns an immutable plan: one item per candidate with its destination skill
    id, its duplicate decision, its exclusions, its validation summary, its file count, and its byte
@@ -99,7 +99,7 @@ returns the stored result instead of running again.
 Each candidate carries the canonical path and native identity recorded when discovery read it.
 Prepare and apply both recompute them and refuse a candidate whose directory was replaced, whose
 link now points somewhere else, or whose canonical path leaves both the scanned root and the home
-directory. The frontend receives an invalid-path error with a rescan recovery action.
+directory. The UI receives an invalid-path error with a rescan recovery action.
 
 An import writes a journal at `~/.skillbinder/journals/import-<planId>.json` before the first move
 into `skills/` and removes it after the result is durable. While a journal exists, both prepare and
@@ -143,7 +143,7 @@ stale idempotency key. `UnsupportedSkill` covers blocked payloads and names the 
 destination that already exists. `StalePlan` covers an expired or consumed plan, a library that
 changed since prepare, and an unknown candidate id, and its recovery action is `RescanDiscovery`.
 `LimitExceeded` covers a reached scanning or payload bound. `RECOVERY_REQUIRED` covers an unresolved
-import journal. The transport mapping never returns Rust debug output to the frontend.
+import journal. The transport mapping never returns Rust debug output to the UI.
 
 ## Tests
 
@@ -155,13 +155,13 @@ journal placement, observation recording, and candidate-id resolution through th
 
 The SQLite adapter is covered by a real-filesystem probe rather than by unit tests, because the
 repository's test seam excludes real database files. Run it with
-`cargo run -p skillbinder --example j01_probe`; it prints `PROBE RESULT: PASS` when a full discovery
+`cargo run -p skillbinder-app --example j01_probe`; it prints `PROBE RESULT: PASS` when a full discovery
 to import cycle leaves the sources byte-identical, records observations, and replays idempotently.
 
 ## Extension instructions
 
 Add new payload rules in `crates/core/src/library/inspect.rs` and extend the validation-code enums in
-core, in `apps/tauri/src/transport/validation.rs`, and in `apps/frontend/src/commands/contracts.ts`
-together, then run `pnpm contracts:generate`. Keep filesystem behavior in `crates/platform`. Add a port only
+core and in `crates/app/src/models/validation.rs`
+together, then run `cargo test -p skillbinder-app`. Keep filesystem behavior in `crates/platform`. Add a port only
 when two real implementations need it. Never expose a command that accepts a destination path or a
-raw source path from the frontend: candidate ids stay opaque and resolve through the scan session.
+raw source path from the UI: candidate ids stay opaque and resolve through the scan session.
