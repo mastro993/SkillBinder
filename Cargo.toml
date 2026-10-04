@@ -1,6 +1,6 @@
 [workspace]
-members = ["apps/skillbinder", "crates/proto", "crates/engine", "crates/client", "crates/ui", "crates/theme", "xtask"]
-default-members = ["apps/skillbinder"]
+members = ["apps/desktop", "crates/proto", "crates/engine", "crates/client", "crates/ui", "crates/theme", "xtask"]
+default-members = ["apps/desktop"]
 resolver = "3"
 
 [workspace.package]

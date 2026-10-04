@@ -1,0 +1,3 @@
+[mcp_servers.gpui]
+command = "gpui-mcp"
+args = ["--app-id", "skillbinder"]

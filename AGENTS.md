@@ -1,10 +1,10 @@
-# SkillBinder agent instructions
+# Agent instructions
 
-SkillBinder is a native Rust desktop application using GPUI and unmodified Ely components. The shipped product journeys are implemented. Read `docs/native-gate.md` for current platform verification and remaining evidence limits before implementation.
+SkillBinder is a native Rust desktop application using GPUI
 
 ## Boundaries
 
-- `apps/skillbinder` owns executable configuration and native lifecycle.
+- `apps/desktop` owns executable configuration and native lifecycle.
 - `crates/ui` owns rendering, interactions, dialogs, and native integration.
 - `crates/theme` owns appearance and baseline dimensions.
 - `xtask` owns evidence verification and registry documentation.

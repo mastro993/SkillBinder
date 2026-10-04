@@ -6,7 +6,7 @@ The executable embeds one engine in its process. There is no daemon or network c
 
 | Package | Responsibility |
 | --- | --- |
-| `apps/skillbinder` | Native lifecycle, configuration, Tokio runtime, engine lifetime, process lock, and orderly shutdown |
+| `apps/desktop` | Native lifecycle, configuration, Tokio runtime, engine lifetime, process lock, and orderly shutdown |
 | `crates/proto` | Shared IDs, typed inputs and results, immutable snapshots, and safe structured errors |
 | `crates/engine` | Feature-oriented domain operations, jobs, persistence, filesystem operations, Git, and recovery |
 | `crates/client` | Typed operations, cached projections, coalesced subscriptions, request generations, and stale-read rejection |

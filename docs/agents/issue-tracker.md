@@ -14,7 +14,7 @@ A ready work item names its acceptance evidence, dependencies, and ownership. A 
 
 ## Implement and verify
 
-The executable lives in `apps/skillbinder`, native presentation in `crates/ui`, appearance in `crates/theme`, and repository tooling in `xtask`. Shared typed contracts live in `crates/proto`, domain operations and durable state in `crates/engine`, and cached projections and subscriptions in `crates/client`. Their responsibilities are specified in `docs/architecture/native.md`.
+The executable lives in `apps/desktop`, native presentation in `crates/ui`, appearance in `crates/theme`, and repository tooling in `xtask`. Shared typed contracts live in `crates/proto`, domain operations and durable state in `crates/engine`, and cached projections and subscriptions in `crates/client`. Their responsibilities are specified in `docs/architecture/native.md`.
 
 Use the verification commands in the README. Add meaningful Rust tests at the owning behavior boundary when new domain operations are implemented. Native input, focus, directory selection, and rendering require an interactive desktop check with recorded evidence.
 
