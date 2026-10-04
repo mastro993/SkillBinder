@@ -62,16 +62,7 @@ jobs:
           export XDG_RUNTIME_DIR="$RUNNER_TEMP/native-runtime"
           mkdir -p "$XDG_RUNTIME_DIR"
           chmod 700 "$XDG_RUNTIME_DIR"
-          dbus-run-session -- xvfb-run -a env -u WAYLAND_DISPLAY timeout 70 bash .github/scripts/native-smoke-linux.sh target/debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-x11"
-          weston --backend=headless --renderer=pixman --socket=wayland-skillbinder --idle-time=0 --log="$RUNNER_TEMP/weston.log" &
-          weston_pid=$!
-          trap 'kill "$weston_pid"' EXIT
-          for attempt in $(seq 1 50); do
-            test -S "$XDG_RUNTIME_DIR/wayland-skillbinder" && break
-            sleep 0.1
-          done
-          test -S "$XDG_RUNTIME_DIR/wayland-skillbinder"
-          dbus-run-session -- env -u DISPLAY WAYLAND_DISPLAY=wayland-skillbinder timeout 70 bash .github/scripts/native-smoke-linux.sh target/debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-wayland"
+          dbus-run-session -- xvfb-run -a bash .github/scripts/native-linux-sessions.sh
       - name: Build release application
         run: cargo build -p skillbinder --release --locked
       - name: Package release application

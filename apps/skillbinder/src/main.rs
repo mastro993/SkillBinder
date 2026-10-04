@@ -126,6 +126,7 @@ fn run() -> anyhow::Result<()> {
             bounds.origin.x = px(f32::from(bounds.origin.x).floor());
             bounds.origin.y = px(f32::from(bounds.origin.y).floor());
             let options = WindowOptions {
+                app_id: Some("skillbinder".into()),
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 window_min_size: Some(size(px(860.0), px(588.0))),
                 titlebar: Some(TitlebarOptions {

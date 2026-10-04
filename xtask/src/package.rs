@@ -83,7 +83,7 @@ pub(crate) fn package(root: &Path, target: Option<&str>) -> anyhow::Result<()> {
         } else {
             fs::write(
                 directory.join("skillbinder.desktop"),
-                "[Desktop Entry]\nType=Application\nName=SkillBinder\nComment=Manage a local library of agent skills\nExec=skillbinder\nIcon=skillbinder\nTerminal=false\nCategories=Development;Utility;\n",
+                "[Desktop Entry]\nType=Application\nName=SkillBinder\nComment=Manage a local library of agent skills\nExec=skillbinder\nIcon=skillbinder\nStartupWMClass=skillbinder\nTerminal=false\nCategories=Development;Utility;\n",
             )?;
             fs::write(
                 directory.join("INSTALL.txt"),

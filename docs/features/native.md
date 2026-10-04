@@ -6,7 +6,7 @@ The audited shipped baseline is revision `83d55ef789a7cf256021f6620742e0e9021a83
 
 Four persisted steps cover prerequisites, source boundaries, optional synchronization, and final library creation. Backward navigation is allowed; forward skipping is refused. Git 2.39 or newer and writable storage are required. Library initialization stages metadata and a repository before atomically publishing the directory. Completion is idempotent.
 
-The executable owns the Tokio runtime and process lock. A second launch requests activation of the existing native window through an app-owned local marker. Shutdown cancels discovery and drains durable operations before flushing logs.
+The executable owns the Tokio runtime and process lock. A second launch requests activation of the existing native window through an app-owned local marker. The Linux window uses the `skillbinder` application ID matching its desktop entry; Wayland compositors retain control over whether an activation request raises the window or requests attention. Shutdown cancels discovery and drains durable operations before flushing logs.
 
 ## Discovery and roots
 

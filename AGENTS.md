@@ -1,6 +1,6 @@
 # SkillBinder agent instructions
 
-SkillBinder is a native Rust desktop rewrite using GPUI and unmodified Ely components. Read `docs/native-gate.md` before implementation. Platform compilation has passed on macOS, Windows, and Linux. Product feature reconstruction is active.
+SkillBinder is a native Rust desktop application using GPUI and unmodified Ely components. The shipped product journeys are implemented. Read `docs/native-gate.md` for current platform verification and remaining evidence limits before implementation.
 
 ## Boundaries
 
@@ -10,7 +10,7 @@ SkillBinder is a native Rust desktop rewrite using GPUI and unmodified Ely compo
 - `xtask` owns evidence verification and registry documentation.
 - `crates/proto` owns shared typed contracts; `crates/engine` owns domain operations and durable state; `crates/client` owns projections and subscriptions. Responsibilities are in `docs/architecture/native.md`.
 
-Do not add empty crates or pass-through services to fill the planned tree. Native platform interaction and packaging checks remain acceptance work while functional reconstruction proceeds.
+Do not add empty crates or pass-through services. Keep domain tests, native rendering, physical interaction, and packaged-app checks distinct when recording verification.
 
 ## Implementation rules
 

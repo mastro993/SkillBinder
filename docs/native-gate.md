@@ -38,7 +38,7 @@ cargo run -p skillbinder --features native-test --locked -- \
 
 The smoke test initializes only the supplied test directory, renders all four product screens and an Ely dialog across actual native frames, checks Unicode text and focus, then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. Test-only stage and renderer logs identify startup failures; Linux CI collects thread backtraces if a smoke process stalls. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or debug server.
 
-CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Linux renderer checks run separately under X11 and Wayland. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
+CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Linux renderer checks run separately under X11 and Wayland. Wayland uses Weston nested in Xvfb so the compositor supplies an input seat; Weston's headless backend supplies no input and cannot exercise this desktop application. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
 
 ## Native interaction checklist
 

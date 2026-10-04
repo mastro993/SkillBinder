@@ -14,7 +14,7 @@ First launch checks Git 2.39 or newer and storage access, then creates a local l
 
 The application uses a fresh `SkillBinder` directory beneath each operating system's local application-data directory. Existing `~/.skillbinder` data is left untouched. There is no migration or compatibility application.
 
-UI styling and visual fidelity are deferred while functional reconstruction is verified. See [feature coverage](docs/features/native.md) and [verification status](docs/native-gate.md).
+The shipped features are implemented; UI styling and visual fidelity are deferred. See [feature coverage](docs/features/native.md) and [verification status](docs/native-gate.md).
 
 ## Build and verify
 
