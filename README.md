@@ -35,6 +35,6 @@ For isolated native testing:
 cargo run -p skillbinder --features native-test --locked -- --data-dir /tmp/skillbinder-test --home /tmp/skillbinder-test-home
 ```
 
-Add `--smoke-test` to exercise native rendering, text, focus, overlays, and orderly exit automatically against the isolated data directory. These test arguments are absent from ordinary builds. Native tests exercise the real embedded engine without a debug server.
+Add `--smoke-test` to exercise native rendering, text, focus, overlays, and orderly exit automatically against the isolated data directory. The `native-test` build also accepts `--mcp --data-dir <isolated-path>` for opt-in UI automation through the [GPUI MCP bridge](docs/native-gate.md#run-the-opt-in-mcp-bridge). Ordinary builds contain no bridge or test flags.
 
 See [architecture](docs/architecture/native.md), [baseline evidence](fixtures/baseline/README.md), and [contributing](CONTRIBUTING.md).

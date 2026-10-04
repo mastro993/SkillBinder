@@ -1,6 +1,9 @@
 use super::{Effect, NativeView};
 use ely_gpui_component::buttons::Button;
-use gpui::{Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder};
+use gpui::{
+    Context, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
+    div, prelude::FluentBuilder,
+};
 use skillbinder_proto::OnboardingStep;
 
 impl NativeView {
@@ -47,12 +50,19 @@ impl NativeView {
             .justify_center()
             .child(
                 div()
+                    .id("onboarding-content")
                     .w_96()
                     .flex()
                     .flex_col()
                     .gap_4()
                     .child("SkillBinder")
-                    .child(title)
+                    .child(
+                        div()
+                            .id("onboarding-title")
+                            .role(gpui::Role::Heading)
+                            .aria_label(title)
+                            .child(title),
+                    )
                     .child(detail)
                     .when(step == OnboardingStep::Prerequisites, |row| {
                         row.child(format!(

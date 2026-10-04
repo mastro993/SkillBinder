@@ -30,7 +30,7 @@ The executable drains the engine in GPUI’s quit hook before native termination
 
 ## Dependency boundary
 
-Ely is pinned to `2f8b2f687cd1e9b98a7cd29d4e882d09406fc547`. GPUI and `gpui_platform` use official revision `1a28cff4b409169bac058bca40dfbfeb7621d19b`. Cargo resolves one graph and one lockfile.
+Ely remains unmodified at `2f8b2f687cd1e9b98a7cd29d4e882d09406fc547`. Both Cargo GPUI patch tables select the GPUI copy in `gpui-mcp` revision `9dda8e5cb49990261e3fdaa26abe38112d30dafb`. The `gpui_platform` dependency remains at official revision `1a28cff4b409169bac058bca40dfbfeb7621d19b`. The patch affects ordinary builds too, although the optional bridge dependency is present only with `native-test`.
 
 The application enables `font-kit`, X11, and Wayland through supported platform features. Ely remains unmodified. The application asset source maps each exercised icon path to licensed Hugeicons artwork and rejects an unmapped icon path.
 

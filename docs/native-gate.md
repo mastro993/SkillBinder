@@ -36,7 +36,42 @@ cargo run -p skillbinder --features native-test --locked -- \
   --smoke-test --data-dir /tmp/skillbinder-native-smoke
 ```
 
-The smoke test initializes only the supplied test directory, renders all four product screens and an Ely dialog across actual native frames, checks Unicode text and focus, then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. Test-only stage and renderer logs identify startup failures; Linux CI collects thread backtraces if a smoke process stalls. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or debug server.
+The smoke test initializes only the supplied test directory, renders all four product screens and an Ely dialog across actual native frames, checks Unicode text and focus, then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. Test-only stage and renderer logs identify startup failures; Linux CI collects thread backtraces if a smoke process stalls. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or bridge.
+
+### Run the opt-in MCP bridge
+
+Install the pinned upstream server separately:
+
+```sh
+cargo install --git https://github.com/themixednuts/gpui-mcp \
+  --rev 9dda8e5cb49990261e3fdaa26abe38112d30dafb \
+  --locked gpui-mcp-server
+```
+
+Start the test build with a disposable data directory. MCP mode keeps onboarding in its normal state and leaves the window open until you quit the application.
+
+```sh
+cargo run -p skillbinder --features native-test --locked -- \
+  --mcp --data-dir /tmp/skillbinder-mcp-fixture
+```
+
+Configure an MCP client to start the server:
+
+```json
+{"mcpServers":{"gpui":{"command":"gpui-mcp","args":["--app-id","skillbinder"]}}}
+```
+
+For Codex, run `codex mcp add gpui -- gpui-mcp --app-id skillbinder`. The server discovers the running window; the client configuration needs no endpoint path or token. The bridge starts only when both `native-test` and `--mcp` are present. `--mcp` requires `--data-dir`, conflicts with `--smoke-test`, and refuses the platform data directory or the real home as an explicit `--home` override. The GPUI patch applies to every build, while the optional MCP bridge dependency stays outside the ordinary app graph. The quit hook stops the bridge before draining the engine. MCP automation proves native rendered interaction, not visual parity or packaged-app behavior.
+
+For a repeatable local interaction check, build the native test app and run the pinned server through `xtask`:
+
+```sh
+cargo build -p skillbinder --features native-test --locked
+cargo run -p xtask --locked -- mcp-smoke \
+  target/debug/skillbinder ~/.cargo/bin/gpui-mcp
+```
+
+The task creates an isolated fixture, selects the launched process by PID, completes onboarding, opens Sync, types and replaces text in the Ely Remote URL input, quits through the keyboard, and checks that the process leaves MCP discovery. Ely exposes this input for focus and typing, but not the upstream `set_text` action; the task uses Select All followed by `type_text`. It keeps the child processes bounded and stops them on failure. Run this check in a desktop session. MCP screenshot capture and visual parity remain separate checks. During the macOS integration run, screen capture preflight returned false and screenshot capture returned `application window was not available for capture`.
 
 CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Linux renderer checks run separately under X11 and Wayland. Wayland uses Weston nested in Xvfb so the compositor supplies an input seat; Weston's headless backend supplies no input and cannot exercise this desktop application. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
 
@@ -57,6 +92,8 @@ Use disposable source directories, library data, and a local bare remote.
 The baseline revision is `83d55ef789a7cf256021f6620742e0e9021a8312`. It was still current after fetching and rebasing before feature reconstruction.
 
 On 2026-10-04, macOS ARM64 local checks passed for workspace formatting, strict Clippy, 82 domain, integration, and client tests, evidence verification, native debug compilation, and the locked release build. The real renderer smoke test passed, including the native quit hook. The hook drains the worker before AppKit termination; code after the native event loop is not relied on for shutdown. A subprocess-inheritance regression also verifies that shutdown explicitly releases library ownership before reopening. Portable-name policy is tested independently of the host filesystem, which may normalize or reject unsafe fixture names before inspection.
+
+The MCP integration also passed those local checks and two native launch-argument tests. A real MCP session completed onboarding, navigated all four product screens, focused and replaced Unicode text in an Ely input, and quit successfully. Restart and second-instance activation preserved the existing library and published one endpoint; quit removed its descriptor. A native-test launch without `--mcp` published no endpoint, and the ordinary dependency graph excluded the bridge. The new bridge has not yet been verified on Windows or Linux.
 
 Interactive macOS testing exercised four-step onboarding, native project selection, registry discovery, expired-plan refusal, reviewed import, retained results across navigation and restart, file preview, folder creation/assignment/deletion, remote Connect/Refresh/Push against a local bare remote, second-instance activation, and Cmd+Q. Source fixture bytes and the remote commit were independently checked. Sanitized Library and Sync screenshots accompany the rewrite PR. The packaged macOS production app rendered initial onboarding and exited cleanly; the unsigned DMG was created successfully.
 

@@ -9,7 +9,9 @@ use gpui::{
     WindowOptions, actions, px, size,
 };
 use skillbinder_client::Client;
-use skillbinder_engine::{Engine, EngineConfig};
+use skillbinder_engine::Engine;
+#[cfg(not(feature = "native-test"))]
+use skillbinder_engine::EngineConfig;
 
 actions!(
     skillbinder,
@@ -27,7 +29,7 @@ fn main() -> std::process::ExitCode {
     std::process::ExitCode::SUCCESS
 }
 fn run() -> anyhow::Result<()> {
-    if std::env::args().nth(1).as_deref() == Some("--version") {
+    if std::env::args_os().skip(1).collect::<Vec<_>>() == ["--version"] {
         println!("SkillBinder {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
@@ -37,12 +39,15 @@ fn run() -> anyhow::Result<()> {
         "SkillBinder requires a Wayland or X11 desktop session."
     );
     #[cfg(feature = "native-test")]
-    let smoke = native_test::Smoke::from_arguments();
+    let (config, mode) = native_test::parse_launch(std::env::args_os().skip(1))?;
+    #[cfg(feature = "native-test")]
+    let smoke = (mode == native_test::NativeMode::Smoke).then(native_test::Smoke::default);
     #[cfg(feature = "native-test")]
     if smoke.is_some() {
         native_test::initialize_logging()?;
         eprintln!("Native smoke: opening isolated engine");
     }
+    #[cfg(not(feature = "native-test"))]
     let config = configuration()?;
     let Some((_instance, mut activation)) = instance::Instance::acquire(&config.data_dir)? else {
         return Ok(());
@@ -74,8 +79,16 @@ fn run() -> anyhow::Result<()> {
             }
             let opened = std::rc::Rc::new(std::cell::Cell::new(false));
             let opened_on_quit = opened.clone();
+            #[cfg(feature = "native-test")]
+            let bridge = std::rc::Rc::new(std::cell::RefCell::new(None::<gpui_mcp::BridgeHandle>));
+            #[cfg(feature = "native-test")]
+            let bridge_on_quit = bridge.clone();
             cx.on_app_quit(move |_| {
                 // AppKit terminates the process during quit; code after run may never execute.
+                #[cfg(feature = "native-test")]
+                if let Some(bridge) = bridge_on_quit.borrow_mut().take() {
+                    bridge.shutdown();
+                }
                 if let Err(error) = shutdown_runtime.block_on(engine.shutdown()) {
                     eprintln!("Could not finish shutdown: {error}");
                     std::process::exit(1);
@@ -143,6 +156,20 @@ fn run() -> anyhow::Result<()> {
                 skillbinder_theme::follow_window(window, cx);
                 let view = cx.new(|cx| skillbinder_ui::NativeView::new(client, window, cx));
                 #[cfg(feature = "native-test")]
+                if mode == native_test::NativeMode::Mcp {
+                    let Ok(app_id) = gpui_mcp::AppId::new("skillbinder") else {
+                        unreachable!("static SkillBinder app ID is valid");
+                    };
+                    let bridge_config = gpui_mcp::BridgeConfig::new(app_id, "SkillBinder");
+                    match gpui_mcp::BridgeHandle::install(window, cx, bridge_config) {
+                        Ok(handle) => *bridge.borrow_mut() = Some(handle),
+                        Err(error) => {
+                            eprintln!("Could not start native MCP bridge: {error}");
+                            return view;
+                        }
+                    }
+                }
+                #[cfg(feature = "native-test")]
                 if let Some(smoke) = smoke {
                     smoke.start(view.clone(), window);
                 }
@@ -150,6 +177,8 @@ fn run() -> anyhow::Result<()> {
                 view
             }) {
                 eprintln!("Could not open SkillBinder: {error}");
+            }
+            if !opened.get() {
                 cx.quit();
             }
             #[cfg(feature = "native-test")]
@@ -158,30 +187,11 @@ fn run() -> anyhow::Result<()> {
         });
     Ok(())
 }
+#[cfg(not(feature = "native-test"))]
 fn configuration() -> anyhow::Result<EngineConfig> {
-    #[cfg(feature = "native-test")]
-    {
-        let mut arguments = std::env::args().skip(1);
-        let mut data = None;
-        let mut home = None;
-        while let Some(argument) = arguments.next() {
-            match argument.as_str() {
-                "--data-dir" => data = arguments.next().map(std::path::PathBuf::from),
-                "--home" => home = arguments.next().map(std::path::PathBuf::from),
-                "--smoke-test" => {}
-                _ => anyhow::bail!("Unknown native-test argument: {argument}"),
-            }
-        }
-        if let Some(data) = data {
-            return Ok(EngineConfig::isolated(
-                data.clone(),
-                home.unwrap_or_else(|| data.join("fixture-home")),
-            ));
-        }
-        anyhow::ensure!(
-            !std::env::args().any(|argument| argument == "--smoke-test"),
-            "--smoke-test requires an isolated --data-dir"
-        );
-    }
+    anyhow::ensure!(
+        std::env::args_os().skip(1).next().is_none(),
+        "Native test arguments require a native-test build"
+    );
     Ok(EngineConfig::platform()?)
 }

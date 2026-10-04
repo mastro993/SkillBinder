@@ -44,6 +44,8 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - name: Run workspace tests
         run: cargo test --workspace --all-targets --locked
+      - name: Test native launch arguments
+        run: cargo test -p skillbinder --features native-test --locked
       - name: Build native test application
         run: cargo build -p skillbinder --features native-test --locked
       - name: Exercise native renderer on macOS

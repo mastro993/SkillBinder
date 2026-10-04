@@ -1,4 +1,6 @@
 use gpui::{Entity, Window};
+mod arguments;
+pub(crate) use arguments::{NativeMode, parse_launch};
 use skillbinder_engine::Engine;
 use skillbinder_proto::OnboardingStep;
 use skillbinder_ui::NativeView;
@@ -28,11 +30,6 @@ pub(crate) fn initialize_logging() -> anyhow::Result<()> {
 pub(crate) struct Smoke(Arc<Mutex<Option<Result<(), String>>>>);
 
 impl Smoke {
-    pub(crate) fn from_arguments() -> Option<Self> {
-        std::env::args()
-            .any(|argument| argument == "--smoke-test")
-            .then(Self::default)
-    }
     pub(crate) fn start(self, view: Entity<NativeView>, window: &Window) {
         self.frame(view, window, 0);
     }
