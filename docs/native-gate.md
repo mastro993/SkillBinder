@@ -34,7 +34,7 @@ cargo run -p skillbinder --features native-test --locked -- \
   --smoke-test --data-dir /tmp/skillbinder-native-smoke
 ```
 
-The smoke test initializes only the supplied test directory, renders all four product screens and an Ely dialog across actual native frames, checks Unicode text and focus, then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or debug server.
+The smoke test initializes only the supplied test directory, renders all four product screens and an Ely dialog across actual native frames, checks Unicode text and focus, then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. Test-only stage and renderer logs identify startup failures; Linux CI collects thread backtraces if a smoke process stalls. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or debug server.
 
 CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Linux renderer checks run separately under X11 and Wayland. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
 

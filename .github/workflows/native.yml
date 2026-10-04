@@ -2,6 +2,7 @@ name: Native application
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -26,7 +27,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential clang cmake ninja-build pkg-config libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libssl-dev libvulkan1 mesa-vulkan-drivers xdg-desktop-portal xvfb weston
+          sudo apt-get install -y build-essential clang cmake ninja-build pkg-config libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libssl-dev libvulkan1 mesa-vulkan-drivers xdg-desktop-portal xvfb weston gdb
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Install pinned Rust toolchain
@@ -34,6 +35,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: native-${{ matrix.os }}
+          cache-on-failure: true
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Verify retained evidence
@@ -46,6 +48,7 @@ jobs:
         run: cargo build -p skillbinder --features native-test --locked
       - name: Exercise native renderer on macOS
         if: runner.os == 'macOS'
+        timeout-minutes: 2
         run: target/debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-smoke"
       - name: Exercise native renderer on Windows
         if: runner.os == 'Windows'
@@ -59,7 +62,7 @@ jobs:
           export XDG_RUNTIME_DIR="$RUNNER_TEMP/native-runtime"
           mkdir -p "$XDG_RUNTIME_DIR"
           chmod 700 "$XDG_RUNTIME_DIR"
-          dbus-run-session -- xvfb-run -a env -u WAYLAND_DISPLAY timeout 60 target/debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-x11"
+          dbus-run-session -- xvfb-run -a env -u WAYLAND_DISPLAY timeout 70 bash .github/scripts/native-smoke-linux.sh target/debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-x11"
           weston --backend=headless --renderer=pixman --socket=wayland-skillbinder --idle-time=0 --log="$RUNNER_TEMP/weston.log" &
           weston_pid=$!
           trap 'kill "$weston_pid"' EXIT
@@ -68,7 +71,7 @@ jobs:
             sleep 0.1
           done
           test -S "$XDG_RUNTIME_DIR/wayland-skillbinder"
-          dbus-run-session -- env -u DISPLAY WAYLAND_DISPLAY=wayland-skillbinder timeout 60 target/debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-wayland"
+          dbus-run-session -- env -u DISPLAY WAYLAND_DISPLAY=wayland-skillbinder timeout 70 bash .github/scripts/native-smoke-linux.sh target/debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-wayland"
       - name: Build release application
         run: cargo build -p skillbinder --release --locked
       - name: Package release application

@@ -4,6 +4,26 @@ use skillbinder_proto::OnboardingStep;
 use skillbinder_ui::NativeView;
 use std::sync::{Arc, Mutex};
 
+struct SmokeLogger;
+impl log::Log for SmokeLogger {
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
+        metadata.level() <= log::Level::Info
+    }
+    fn log(&self, record: &log::Record<'_>) {
+        if self.enabled(record.metadata()) {
+            eprintln!("{} {}: {}", record.level(), record.target(), record.args());
+        }
+    }
+    fn flush(&self) {}
+}
+
+pub(crate) fn initialize_logging() -> anyhow::Result<()> {
+    log::set_logger(&SmokeLogger)
+        .map_err(|_| anyhow::anyhow!("Could not initialize native smoke logging"))?;
+    log::set_max_level(log::LevelFilter::Info);
+    Ok(())
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct Smoke(Arc<Mutex<Option<Result<(), String>>>>);
 
@@ -18,6 +38,7 @@ impl Smoke {
     }
     fn frame(self, view: Entity<NativeView>, window: &Window, step: usize) {
         window.on_next_frame(move |window, cx| {
+            eprintln!("Native smoke: rendered frame {step}");
             let result = view.update(cx, |view, cx| view.smoke_step(step, window, cx));
             match result {
                 Ok(false) => self.frame(view, window, step + 1),

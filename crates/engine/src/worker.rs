@@ -20,7 +20,7 @@ enum Message {
 }
 struct Owner {
     sender: mpsc::Sender<Message>,
-    thread: Mutex<Option<JoinHandle<()>>>,
+    thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
 }
 /// Cloneable typed handle to the embedded engine worker.
@@ -36,7 +36,7 @@ pub(crate) struct State {
     pub scans: Scans,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
     pub recovery_required: bool,
-    _lock: File,
+    lock: File,
 }
 impl Engine {
     /// Opens fresh storage, obtains the exclusive library writer lock, and recovers journals.
@@ -75,7 +75,7 @@ impl Engine {
             scans: scans.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
-            _lock: lock,
+            lock,
         };
         state.recover()?;
         if state.library_dir().join(".git").exists()
@@ -100,6 +100,8 @@ impl Engine {
                 }
                 state.scans.wait_for_shutdown();
                 state.log.flush();
+                drop(state.database);
+                FileExt::unlock(&state.lock).map_err(|_| AppError::storage())
             })
             .map_err(|_| AppError::storage())?;
         Ok(Self {
@@ -148,7 +150,7 @@ impl Engine {
             .map_err(|_| AppError::storage())?
             .take()
         {
-            thread.join().map_err(|_| AppError::storage())?;
+            thread.join().map_err(|_| AppError::storage())??;
         }
         Ok(())
     }
@@ -399,7 +401,42 @@ impl State {
             scans: Scans::default(),
             grants: BTreeMap::new(),
             recovery_required: false,
-            _lock: File::create(data_dir.join("test.lock")).unwrap(),
+            lock: File::create(data_dir.join("test.lock")).unwrap(),
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    #[expect(
+        clippy::unwrap_used,
+        reason = "Fixture failures must abort the regression test."
+    )]
+    async fn shutdown_releases_lock_while_a_child_retains_the_descriptor() {
+        let temp = tempfile::tempdir().unwrap();
+        let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
+        let engine = Engine::open(config.clone()).unwrap();
+        let inherited_descriptor = engine
+            .call(|state| state.lock.try_clone().map_err(|_| AppError::storage()))
+            .await
+            .unwrap();
+        let mut child = std::process::Command::new("/bin/cat")
+            .stdin(std::process::Stdio::piped())
+            .stdout(inherited_descriptor)
+            .spawn()
+            .unwrap();
+        assert!(
+            matches!(Engine::open(config.clone()), Err(error) if error.category == ErrorCategory::Busy)
+        );
+
+        engine.shutdown().await.unwrap();
+        assert!(child.try_wait().unwrap().is_none());
+        let reopened = Engine::open(config);
+        drop(child.stdin.take());
+        assert!(child.wait().unwrap().success());
+        reopened.unwrap().shutdown().await.unwrap();
     }
 }

@@ -33,6 +33,11 @@ fn run() -> anyhow::Result<()> {
     }
     #[cfg(feature = "native-test")]
     let smoke = native_test::Smoke::from_arguments();
+    #[cfg(feature = "native-test")]
+    if smoke.is_some() {
+        native_test::initialize_logging()?;
+        eprintln!("Native smoke: opening isolated engine");
+    }
     let config = configuration()?;
     let Some((_instance, mut activation)) = instance::Instance::acquire(&config.data_dir)? else {
         return Ok(());
@@ -48,12 +53,20 @@ fn run() -> anyhow::Result<()> {
     }
     let client = runtime.block_on(Client::new(engine.clone(), runtime.handle().clone()))?;
     #[cfg(feature = "native-test")]
+    if smoke.is_some() {
+        eprintln!("Native smoke: starting platform event loop");
+    }
+    #[cfg(feature = "native-test")]
     let smoke_result = smoke.clone();
     let shutdown_runtime = runtime.handle().clone();
     gpui_platform::application()
         .with_assets(skillbinder_ui::Assets)
         .run(move |cx: &mut App| {
             skillbinder_ui::init(cx);
+            #[cfg(feature = "native-test")]
+            if smoke.is_some() {
+                eprintln!("Native smoke: opening window");
+            }
             let opened = std::rc::Rc::new(std::cell::Cell::new(false));
             let opened_on_quit = opened.clone();
             cx.on_app_quit(move |_| {
@@ -117,6 +130,10 @@ fn run() -> anyhow::Result<()> {
                 ..Default::default()
             };
             if let Err(error) = cx.open_window(options, |window, cx| {
+                #[cfg(feature = "native-test")]
+                if smoke.is_some() {
+                    eprintln!("Native smoke: creating view");
+                }
                 skillbinder_theme::follow_window(window, cx);
                 let view = cx.new(|cx| skillbinder_ui::NativeView::new(client, window, cx));
                 #[cfg(feature = "native-test")]
@@ -129,6 +146,8 @@ fn run() -> anyhow::Result<()> {
                 eprintln!("Could not open SkillBinder: {error}");
                 cx.quit();
             }
+            #[cfg(feature = "native-test")]
+            eprintln!("Native test: window initialization returned");
             cx.activate(true);
         });
     Ok(())

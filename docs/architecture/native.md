@@ -26,7 +26,7 @@ Navigation never cancels committed work. The engine retains terminal import outc
 
 The client publishes immutable projections through coalescing subscriptions. Full refresh generations reject superseded reads; scan updates are read while holding the publication lock so older observations cannot replace newer scans. Failed projection refreshes never turn a completed mutation into a failure. Detailed acceptance cases remain in `fixtures/contracts/domain-contract.md`.
 
-The executable drains the engine in GPUI’s quit hook before native termination. This is necessary on macOS, where AppKit can terminate the process without returning from the application event loop. Quit shortcuts and last-window closure share this path.
+The executable drains the engine in GPUI’s quit hook before native termination. This is necessary on macOS, where AppKit can terminate the process without returning from the application event loop. Quit shortcuts and last-window closure share this path. The worker closes SQLite and explicitly releases the library lock before shutdown returns. This also releases inherited references held by subprocesses; closing only the worker's descriptor would leave those references locked.
 
 ## Dependency boundary
 

@@ -5764,6 +5764,7 @@ dependencies = [
  "fs2",
  "gpui",
  "gpui_platform",
+ "log",
  "skillbinder-client",
  "skillbinder-engine",
  "skillbinder-proto",

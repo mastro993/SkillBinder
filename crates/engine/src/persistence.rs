@@ -4,8 +4,10 @@ use serde::{Serialize, de::DeserializeOwned};
 use skillbinder_proto::{
     AppError, AppResult, ErrorCategory, ImportOutcome, Library, SkillDetails, SkillId,
 };
+#[cfg(unix)]
+use std::fs::File;
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
 };

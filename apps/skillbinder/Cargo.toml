@@ -7,11 +7,12 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-native-test = ["skillbinder-ui/native-test"]
+native-test = ["skillbinder-ui/native-test", "dep:log"]
 
 [dependencies]
 gpui.workspace = true
 anyhow.workspace = true
+log = { workspace = true, optional = true }
 skillbinder-engine.workspace = true
 skillbinder-client.workspace = true
 skillbinder-proto.workspace = true
