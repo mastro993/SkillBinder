@@ -52,7 +52,12 @@ fn explicit_directory_changes_digest() {
 fn unsafe_names_and_plugin_manifests_block() {
     for name in ["CON.txt", "trailing.", "colon:name", "bad\\name"] {
         let (_root, path) = source();
-        if fs::write(path.join(name), b"x").is_ok() {
+        let path = fs::canonicalize(path).unwrap();
+        if fs::write(path.join(name), b"x").is_ok()
+            && fs::read_dir(&path)
+                .unwrap()
+                .any(|entry| entry.unwrap().file_name() == name)
+        {
             assert_eq!(
                 inspect(&path).unwrap().status,
                 ValidationStatus::Blocked,

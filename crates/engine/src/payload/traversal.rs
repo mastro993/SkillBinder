@@ -334,3 +334,14 @@ fn open_regular(_root: &Path, path: &Path) -> std::io::Result<fs::File> {
 pub(super) fn collision_key(path: &str) -> String {
     path.nfkc().case_fold().collect()
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn rejects_names_even_when_the_host_cannot_represent_them() {
+        for name in ["CON.txt", "trailing.", "colon:name", "bad\\name"] {
+            assert!(!super::portable(name), "{name}");
+        }
+        assert!(super::portable("review.md"));
+    }
+}
