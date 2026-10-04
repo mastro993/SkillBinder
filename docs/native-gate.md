@@ -1,43 +1,63 @@
-# Verify the native dependency gate
+# Verify the native application
 
-This stage proves that the exact dependency graph can build and support native interactions. It does not implement the product journeys.
+The workspace implements the shipped product journeys with pinned GPUI and unmodified Ely. Functional coverage is documented in [native features](features/native.md). Visual fidelity and polish are deferred by the user's latest instruction.
 
-## Install platform prerequisites
+## Prerequisites
 
-On macOS, install Xcode and its command-line tools, including Metal support.
+Use Rust 1.96.0 from `rust-toolchain.toml` and Git 2.39 or newer.
 
-On Windows, use a Visual Studio developer shell with the MSVC C++ tools, Windows SDK 10.0.20348.0 or newer, and CMake.
+- macOS: Xcode and command-line tools, including Metal support.
+- Windows: Visual Studio MSVC C++ tools, Windows SDK 10.0.20348.0 or newer, and CMake.
+- Linux: C/C++ toolchain, Clang, CMake, Ninja, `pkg-config`, Fontconfig, Wayland, X11/XCB, XKBCommon, OpenSSL, and Vulkan libraries. Native directory selection requires a working desktop portal. The CI workflow lists Ubuntu package names.
 
-On Debian or Ubuntu, install the C and C++ toolchain, Clang, CMake, Ninja, `pkg-config`, Fontconfig, Wayland, X11/XCB, XKBCommon, OpenSSL, and Vulkan libraries. Native directory selection also requires a working desktop portal. The CI workflow lists its package names.
+## Automated checks
 
-Use the Rust 1.96.0 toolchain pinned by `rust-toolchain.toml`. Upstream's repository toolchain is newer, so compile the actual graph before changing this pin.
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-targets --locked
+cargo run -p xtask --locked -- verify
+cargo build -p skillbinder --release --locked
+cargo run -p xtask --locked -- package
+```
 
-## Exercise the real application
+Domain and integration tests use isolated storage and local bare Git remotes. They cover payload policy, source preservation, expiring grants and plans, scan retention, import replay, organization revisions, shared-slug backups, concurrent writers, interruption recovery, remote adoption, divergence, unrelated-file protection, Git attribute and ignore rules, log redaction, and client publication ordering.
 
-1. Run `cargo build -p skillbinder --features native-test --locked`.
-2. Run `cargo run -p skillbinder --features native-test --locked` in an interactive native desktop session.
-3. Confirm the standard SkillBinder titlebar, initial 1180 by 760 outer window, and minimum 860 by 620 outer window. The macOS baseline client area is 1180 by 728, with a minimum of 860 by 588. Record differences on other operating systems.
-4. Type, select, copy, paste, and compose text through an installed IME. Confirm that text input retains focus correctly.
-5. Use Tab and Shift+Tab between controls. Open the dialog, confirm focus remains inside it, then press Escape and confirm focus returns to the opener.
-6. Open the directory picker. Cancel once, then choose an isolated test directory. Confirm the selected path appears in the field. The gate does not write to that directory.
-7. Inspect the check, folder, and dialog-close icons. They must use the retained Hugeicons artwork.
-8. Change system appearance and confirm the window updates. Capture light and dark images and record the display scale.
-9. Close the last window and confirm the process exits.
+`xtask verify` checks the retained 79-agent registry, licensed assets, generated registry documentation, and 88 canonical baseline images. It does not establish native interaction or visual parity.
 
-Repeat these checks on macOS, Windows, Linux X11, and Linux Wayland. Compilation alone does not prove a working native session.
+The native test feature provides isolated startup and a renderer smoke test:
 
-## Verification status
+```sh
+cargo run -p skillbinder --features native-test --locked -- \
+  --data-dir /tmp/skillbinder-native-test --home /tmp/skillbinder-native-home
+cargo run -p skillbinder --features native-test --locked -- \
+  --smoke-test --data-dir /tmp/skillbinder-native-smoke
+```
 
-The canonical macOS baseline contains 88 images, their geometry and accessibility records, and separate development interaction evidence. `xtask verify` checks integrity and retained registry data.
+The smoke test initializes only the supplied test directory, renders all four product screens and an Ely dialog across actual native frames, checks Unicode text and focus, then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or debug server.
 
-On 2026-10-03, the macOS ARM64 graph built with Rust 1.96.0 in debug, native-test, and release configurations. Formatting, all-target and all-feature Clippy, the workspace test command, and `xtask verify` passed. There are no domain tests at this foundation stage; the test command runs zero tests.
+CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Linux renderer checks run separately under X11 and Wayland. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
 
-A task-local native app bundle exercised real text entry, retained Hugeicons artwork, native directory selection and cancellation, dialog Tab and Shift+Tab focus, Escape dismissal and focus restoration, and last-window process exit. Native captures confirmed 1180 by 760 initial outer dimensions and an enforced 860 by 620 minimum. An initial fractional centered origin added one pixel to the native frame; rounding the origin to logical pixels fixed the measured dimensions.
+## Native interaction checklist
 
-Additional clipboard round-trip and appearance checks could not complete. A system automation query timed out and the computer-use tool refused access to the foreground system notification app. The prompt was left untouched, the original clipboard was restored and verified, no appearance or input-source settings changed, and the test app was closed. Selection, copy/paste, IME composition, and appearance changes remain unverified.
+Use disposable source directories, library data, and a local bare remote.
 
-Windows and Linux native runners are not available on the current host. The CI workflow defines build checks for macOS, Windows, and Linux. Pull request checks record each run's outcome. The all-platform dependency gate remains open until native build and interaction evidence is available for every required platform.
+1. Complete all four setup steps; quit and reopen between steps to verify resumption.
+2. Select a project directory through the native picker, register it, rename and enable/disable it, then verify direct agent skill discovery.
+3. Scan, select candidates, acknowledge invalid metadata when applicable, review and apply an import. Navigate during work; retain the result until dismissed. Confirm original source bytes remain unchanged.
+4. Search Library, inspect a file, create/rename a folder, assign skills, and delete the folder through its revision-checked preview. Resolve two distinct copies sharing a slug and inspect the backup.
+5. Connect a disposable remote. Confirm Refresh does not commit, Push explicitly commits, Pull is fast-forward only, and Disconnect retains local files.
+6. Type, select, copy/paste, and compose through an IME. Check Tab/Shift+Tab, dialog focus, Escape dismissal, pending dismissal locks, directory-picker cancellation, appearance, and reduced motion.
+7. Resize the sidebar and window, restart, launch a second instance, and close the final window. Verify native activation, persisted data, and process exit.
 
-Product feature reconstruction, full UI parity, native IME verification, Linux runtime checks, packaged-app smoke tests, signing, and publication remain incomplete.
+## Recorded evidence
 
-The pinned public GPUI and Ely APIs have not established cross-platform backdrop blur matching the existing modal overlays. A dim dialog in the gate does not resolve that visual requirement. Preserve this as a parity blocker until a verified implementation or an explicit requirement change resolves it.
+The baseline revision is `83d55ef789a7cf256021f6620742e0e9021a8312`. It was still current after fetching and rebasing before feature reconstruction.
+
+On 2026-10-04, macOS ARM64 local checks passed for workspace formatting, strict Clippy, 80 domain, integration, and client tests, evidence verification, native debug compilation, and the locked release build. The real renderer smoke test passed, including the native quit hook. The hook drains the worker before AppKit termination; code after the native event loop is not relied on for shutdown.
+
+Interactive macOS testing exercised four-step onboarding, native project selection, registry discovery, expired-plan refusal, reviewed import, retained results across navigation and restart, file preview, folder creation/assignment/deletion, remote Connect/Refresh/Push against a local bare remote, second-instance activation, and Cmd+Q. Source fixture bytes and the remote commit were independently checked. Sanitized Library and Sync screenshots accompany the rewrite PR. The packaged macOS production app rendered initial onboarding and exited cleanly; the unsigned DMG was created successfully.
+
+The earlier dependency gate also verified directory-picker cancellation, dialog Tab/Shift+Tab and Escape restoration, retained icon artwork, initial 1180×760 outer window geometry, minimum 860×620 outer geometry, and final-window exit on macOS. That evidence does not establish every reconstructed screen's keyboard behavior.
+
+Full cross-platform interactive journeys, IME composition, clipboard round trips, system appearance/reduced-motion changes, and exact visual comparisons remain separate unverified categories. CI results in the rewrite PR are the authority for current platform build, renderer, and package checks. Signing and publication are separate from this rewrite.

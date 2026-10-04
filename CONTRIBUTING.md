@@ -1,25 +1,25 @@
 # Contributing to SkillBinder
 
-## Build and verify a change
+## Build and verify
 
-1. Read [the native gate status](docs/native-gate.md) before changing product behavior. Feature reconstruction is blocked until the minimal replacement passes all three native platforms.
-2. Install Rust through `rustup` and the platform prerequisites listed in that guide.
-3. Run `cargo run -p skillbinder --features native-test --locked` to exercise native controls.
-4. Run the verification commands in the README.
-5. Update the affected documents in `docs/` when behavior changes.
+1. Read [feature coverage](docs/features/native.md), [architecture](docs/architecture/native.md), and [verification status](docs/native-gate.md).
+2. Install the pinned Rust toolchain and platform prerequisites.
+3. Run the app with an isolated `native-test` data directory for interaction checks.
+4. Run the README verification commands, including the locked release build.
+5. Update affected behavior documentation in `docs/`.
 
-Keep modules focused on one feature or responsibility. Share dependencies and lints through the root manifest. Preserve the exact Ely and GPUI revisions unless a separate dependency decision changes them.
+Keep modules focused on one feature or responsibility. Centralize dependencies and lint policy in the root manifest. Preserve the exact Ely and GPUI revisions unless a separate dependency decision changes them.
 
-## Preserve the UI contract
+## Native UI
 
-Use the canonical baseline captures and licensed Hugeicons assets. The baseline's production font is the native system font. Development captures injected Inter through development tools and are not the typography reference.
+Use Ely public editing, interaction, focus, and overlay APIs without modifying dependency sources. Use retained Hugeicons assets. The application sets the native system font after Ely initialization.
 
-Use Ely's public APIs without modifying dependency sources. Compose application-owned GPUI styling when a finished component cannot match the contract. Record a concrete blocker when a public API cannot support a required interaction or visual effect.
-
-Do not claim visual parity from a successful build or a headless test. Capture the same operating system, theme, window size, and state for comparisons. Record native input, focus restoration, IME, reduced motion, and directory-picker results separately.
+Functional parity comes first; the user deferred visual fidelity and polish. Retained screenshots remain the reference for later appearance work. Never infer native behavior from compilation or fixture images. Record real input, focus, directory selection, and platform results separately.
 
 ## Protect local data
 
-The foundation does not open application data. Future engine tests must use explicit isolated data roots and local Git remotes. The native application uses a fresh `SkillBinder` directory beneath the operating system's local application-data directory. It must leave `~/.skillbinder` untouched.
+Tests use isolated data roots and local bare Git remotes. The application uses a fresh `SkillBinder` directory beneath each operating system's local application-data directory and leaves `~/.skillbinder` untouched. Never run destructive tests against a user's library or sources.
 
-Do not push, publish, sign, or merge unless the task authorizes that action. Changes to credentials and publishing remain separate from packaging verification.
+Keep filesystem, hashing, SQLite, and Git work off the GPUI thread. UI code uses typed client operations. Recovery must finish before another durable mutation. Do not bypass source, revision, journal, or Git isolation checks to make a test pass.
+
+Packaging does not authorize signing, publishing, or merging. Perform those actions only when the task explicitly permits them.

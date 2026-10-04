@@ -1,6 +1,7 @@
 //! Repository verification and registry documentation.
 
 mod evidence;
+mod package;
 mod registry;
 
 use std::path::Path;
@@ -18,6 +19,7 @@ fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Some("registry") => registry::print(root),
-        _ => anyhow::bail!("Usage: cargo run -p xtask -- <verify|registry>"),
+        Some("package") => package::package(root, std::env::args().nth(2).as_deref()),
+        _ => anyhow::bail!("Usage: cargo run -p xtask -- <verify|registry|package [target]>"),
     }
 }

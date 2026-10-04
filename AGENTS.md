@@ -1,6 +1,6 @@
 # SkillBinder agent instructions
 
-SkillBinder is a native Rust desktop rewrite using GPUI and unmodified Ely components. Read `docs/native-gate.md` before implementation. The current stage contains only the platform dependency gate.
+SkillBinder is a native Rust desktop rewrite using GPUI and unmodified Ely components. Read `docs/native-gate.md` before implementation. Platform compilation has passed on macOS, Windows, and Linux. Product feature reconstruction is active.
 
 ## Boundaries
 
@@ -8,9 +8,9 @@ SkillBinder is a native Rust desktop rewrite using GPUI and unmodified Ely compo
 - `crates/ui` owns rendering, interactions, dialogs, and native integration.
 - `crates/theme` owns appearance and baseline dimensions.
 - `xtask` owns evidence verification and registry documentation.
-- `crates/proto`, `crates/engine`, and `crates/client` are deferred until all-platform acceptance passes. Their planned responsibilities are in `docs/architecture/native.md`.
+- `crates/proto` owns shared typed contracts; `crates/engine` owns domain operations and durable state; `crates/client` owns projections and subscriptions. Responsibilities are in `docs/architecture/native.md`.
 
-Do not add empty crates or pass-through services to fill the planned tree. Do not rebuild domain features before the native dependency gate passes on macOS, Windows, and Linux.
+Do not add empty crates or pass-through services to fill the planned tree. Native platform interaction and packaging checks remain acceptance work while functional reconstruction proceeds.
 
 ## Implementation rules
 
@@ -18,7 +18,7 @@ Use small, specialized modules. Model state with typed data and enums. Use `Resu
 
 Use Ely public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 
-Preserve the captured UI and behavior. The approved scope contains onboarding, Discovery, Library, flat folders, Sync, and Settings. It excludes bindings, deployments, nested folders, and tag-management UI.
+Preserve captured behavior. The user has deferred UI fidelity and polish until after functional reconstruction. The approved scope contains onboarding, Discovery, Library, flat folders, Sync, and Settings. It excludes bindings, deployments, nested folders, and tag-management UI.
 
 Update affected behavior documents in `docs/`. Keep application code and documentation independent of external architecture examples. Preserve dependency and asset licenses.
 

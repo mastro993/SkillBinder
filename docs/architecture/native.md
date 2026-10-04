@@ -1,8 +1,8 @@
 # Native architecture
 
-The executable embeds one engine in its process. There is no daemon or network command transport. The dependency gate currently implements the executable, UI integration, theme setup, and repository tooling.
+The executable embeds one engine in its process. There is no daemon or network command transport. The native workspace implements every audited shipped journey: onboarding, Discovery and imports, Library and flat folders, Sync, and Settings.
 
-## Target ownership
+## Ownership
 
 | Package | Responsibility |
 | --- | --- |
@@ -14,17 +14,19 @@ The executable embeds one engine in its process. There is no daemon or network c
 | `crates/theme` | Colors, typography, dimensions, and motion |
 | `xtask` | Verification, registry documentation, fixtures, and packaging |
 
-The proto, engine, and client packages do not exist yet. Creating them during the dependency gate would add unused interfaces before their behavior can be verified.
+The UI invokes typed client operations. It never accesses SQLite, mutates filesystem content, or starts Git processes. Domain adapters remain private to feature-oriented engine modules.
 
 ## Execution and storage contract
 
-The engine keeps storage and system adapters private within feature modules. A single worker owns the bundled SQLite connection. A mutation coordinator serializes changes to managed files, metadata, and the Git working tree. Discovery and bounded reads remain independent.
+The engine keeps storage and system adapters private within feature modules. A single worker owns the bundled SQLite connection. Its typed job queue serializes changes to managed files, metadata, and the Git working tree. Discovery runs independently. Bounded previews run on the engine worker and never block the GPUI event loop.
 
 The application stores machine-local state beneath the operating system's local application-data directory in `SkillBinder`. The portable library uses `.skillbinder.json` schema 2 and `skills/<slug>/`. There is no old-database migration or compatibility layer.
 
 Navigation never cancels committed work. The engine retains terminal import outcomes, journals durable mutations, and replays completed imports idempotently. Recovery must reconcile interrupted operations before enabling further mutations. Scan retention begins after terminal completion, cancellation, or failure.
 
-These paragraphs define the accepted target, not implemented engine behavior. Detailed acceptance cases remain in `fixtures/contracts/domain-contract.md`.
+The client publishes immutable projections through coalescing subscriptions. Full refresh generations reject superseded reads; scan updates are read while holding the publication lock so older observations cannot replace newer scans. Failed projection refreshes never turn a completed mutation into a failure. Detailed acceptance cases remain in `fixtures/contracts/domain-contract.md`.
+
+The executable drains the engine in GPUI’s quit hook before native termination. This is necessary on macOS, where AppKit can terminate the process without returning from the application event loop. Quit shortcuts and last-window closure share this path.
 
 ## Dependency boundary
 

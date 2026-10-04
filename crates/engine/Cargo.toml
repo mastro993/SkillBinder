@@ -1,0 +1,34 @@
+[package]
+name = "skillbinder-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+skillbinder-proto.workspace = true
+tokio.workspace = true
+time.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+directories.workspace = true
+fs2.workspace = true
+regex.workspace = true
+unicode-normalization.workspace = true
+unicode-casefold.workspace = true
+yaml-rust2.workspace = true
+tempfile.workspace = true
+url = "2.5.8"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.5", features = ["fs", "process"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
