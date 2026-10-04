@@ -31,6 +31,11 @@ fn run() -> anyhow::Result<()> {
         println!("SkillBinder {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
+    #[cfg(target_os = "linux")]
+    anyhow::ensure!(
+        gpui::guess_compositor() != "Headless",
+        "SkillBinder requires a Wayland or X11 desktop session."
+    );
     #[cfg(feature = "native-test")]
     let smoke = native_test::Smoke::from_arguments();
     #[cfg(feature = "native-test")]

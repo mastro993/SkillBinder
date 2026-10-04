@@ -10,6 +10,8 @@ Use Rust 1.96.0 from `rust-toolchain.toml` and Git 2.39 or newer.
 - Windows: Visual Studio MSVC C++ tools, Windows SDK 10.0.20348.0 or newer, and CMake.
 - Linux: C/C++ toolchain, Clang, CMake, Ninja, `pkg-config`, Fontconfig, Wayland, X11/XCB, XKBCommon, OpenSSL, and Vulkan libraries. Native directory selection requires a working desktop portal. The CI workflow lists Ubuntu package names.
 
+Both `gpui` and `gpui_platform` enable the `wayland` and `x11` features. At the pinned revision, the platform's X11 feature does not enable core X11 display detection; omitting the core feature selects a headless event loop under X11. Linux startup requires an available desktop session and reports a clear error if neither display is available.
+
 ## Automated checks
 
 ```sh
@@ -54,7 +56,7 @@ Use disposable source directories, library data, and a local bare remote.
 
 The baseline revision is `83d55ef789a7cf256021f6620742e0e9021a8312`. It was still current after fetching and rebasing before feature reconstruction.
 
-On 2026-10-04, macOS ARM64 local checks passed for workspace formatting, strict Clippy, 80 domain, integration, and client tests, evidence verification, native debug compilation, and the locked release build. The real renderer smoke test passed, including the native quit hook. The hook drains the worker before AppKit termination; code after the native event loop is not relied on for shutdown.
+On 2026-10-04, macOS ARM64 local checks passed for workspace formatting, strict Clippy, 81 domain, integration, and client tests, evidence verification, native debug compilation, and the locked release build. The real renderer smoke test passed, including the native quit hook. The hook drains the worker before AppKit termination; code after the native event loop is not relied on for shutdown. A subprocess-inheritance regression also verifies that shutdown explicitly releases library ownership before reopening.
 
 Interactive macOS testing exercised four-step onboarding, native project selection, registry discovery, expired-plan refusal, reviewed import, retained results across navigation and restart, file preview, folder creation/assignment/deletion, remote Connect/Refresh/Push against a local bare remote, second-instance activation, and Cmd+Q. Source fixture bytes and the remote commit were independently checked. Sanitized Library and Sync screenshots accompany the rewrite PR. The packaged macOS production app rendered initial onboarding and exited cleanly; the unsigned DMG was created successfully.
 
