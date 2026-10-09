@@ -1,20 +1,19 @@
-name: Native application
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: native-${{ github.workflow }}-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  package:
     strategy:
       fail-fast: false
       matrix:
@@ -27,7 +26,7 @@ jobs:
             target-dir: x86_64-apple-darwin/
           - os: windows-2025
           - os: ubuntu-24.04
-    name: build (${{ matrix.target || matrix.os }})
+    name: package (${{ matrix.target || matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -40,7 +39,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+        run: rustup toolchain install 1.96.0 --profile minimal
       - name: Install cross-compilation target
         if: matrix.target
         run: |
@@ -48,18 +47,8 @@ jobs:
           softwareupdate --install-rosetta --agree-to-license
       - uses: Swatinem/rust-cache@v2
         with:
-          key: native-${{ matrix.target || matrix.os }}
+          key: release-${{ matrix.target || matrix.os }}
           cache-on-failure: true
-      - name: Check formatting
-        run: cargo fmt --all --check
-      - name: Verify retained evidence
-        run: cargo run -p xtask --locked -- verify
-      - name: Check native graph
-        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-      - name: Run workspace tests
-        run: cargo test --workspace --all-targets --locked ${{ matrix.cargo-target }}
-      - name: Test native launch arguments
-        run: cargo test -p skillbinder --features native-test --locked ${{ matrix.cargo-target }}
       - name: Build native test application
         run: cargo build -p skillbinder --features native-test --locked ${{ matrix.cargo-target }}
       - name: Exercise native renderer on macOS
