@@ -6,7 +6,7 @@ The workspace implements the shipped product journeys with pinned GPUI Kit. Func
 
 Use Rust 1.96.0 from `rust-toolchain.toml` and Git 2.39 or newer.
 
-- macOS: Xcode and command-line tools, including Metal support.
+- macOS: macOS 26 or newer, with Xcode 26 or newer and its command-line tools, including Metal support. `.cargo/config.toml` sets `MACOSX_DEPLOYMENT_TARGET` to 26.0, and the packaged app declares the same `LSMinimumSystemVersion`.
 - Windows: Visual Studio MSVC C++ tools, Windows SDK 10.0.20348.0 or newer, and CMake.
 - Linux: C/C++ toolchain, Clang, CMake, Ninja, `pkg-config`, Fontconfig, Wayland, X11/XCB, XKBCommon, OpenSSL, and Vulkan libraries. Native directory selection requires a working desktop portal. The CI workflow lists Ubuntu package names.
 
@@ -73,7 +73,7 @@ cargo run -p xtask --locked -- mcp-smoke \
 
 The task creates an isolated fixture, selects the launched process by PID, completes onboarding, opens Sync, types and replaces text in the GPUI Kit Remote URL input, quits through the keyboard, and checks that the process leaves MCP discovery. The task uses Select All followed by `type_text` to exercise keyboard editing rather than replacing the input through a programmatic setter. Kit redirects semantic input focus to its inner editor, so the bridge can report the outer input's `focused` flag as false while typing succeeds. The check requires the replacement to appear in the intended input; the renderer smoke separately checks the editing state's real focus handle. The task keeps child processes bounded and stops them on failure. Run this check in a desktop session. MCP screenshot capture and visual parity remain separate checks. During the earlier macOS integration run, screen capture preflight returned false and screenshot capture returned `application window was not available for capture`.
 
-CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Linux renderer checks run separately under X11 and Wayland. Wayland uses Weston nested in Xvfb so the compositor supplies an input seat; Weston's headless backend supplies no input and cannot exercise this desktop application. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
+CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Both macOS jobs run on `macos-26`, because GitHub offers no Intel macOS 26 runner. The Intel job cross-compiles `x86_64-apple-darwin`, then runs its tests, renderer smoke, and packaged executable under Rosetta. Rosetta does not replace testing on Intel hardware. Each macOS package must declare a minimum system version of 26.0. Linux renderer checks run separately under X11 and Wayland. Wayland uses Weston nested in Xvfb so the compositor supplies an input seat; Weston's headless backend supplies no input and cannot exercise this desktop application. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
 
 ## Native interaction checklist
 

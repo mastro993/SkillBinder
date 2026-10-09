@@ -10,6 +10,8 @@ Install Rust 1.96 through `rustup` and the [platform prerequisites](docs/native-
 cargo run -p skillbinder --locked
 ```
 
+SkillBinder requires macOS 26 or newer on Apple silicon or Intel Macs. Windows and Linux builds are also supported.
+
 First launch checks Git 2.39 or newer and storage access, then creates a local library through four setup steps. Synchronization is optional. In Settings, select project folders through the native directory picker. Discovery searches the 79-agent registry and those project boundaries. Imports copy files; they never modify sources.
 
 The application uses a fresh `SkillBinder` directory beneath each operating system's local application-data directory. Existing `~/.skillbinder` data is left untouched. There is no migration or compatibility application.
