@@ -18,7 +18,7 @@ impl log::Log for SmokeLogger {
     }
     fn log(&self, record: &log::Record<'_>) {
         if self.enabled(record.metadata()) {
-            if record.level() == log::Level::Error && !is_platform_backend(record.target()) {
+            if record.level() == log::Level::Error && !is_host_environment(record.target()) {
                 RENDER_ERROR.store(true, Ordering::Relaxed);
             }
             eprintln!("{} {}: {}", record.level(), record.target(), record.args());
@@ -27,24 +27,28 @@ impl log::Log for SmokeLogger {
     fn flush(&self) {}
 }
 
-/// Platform backends report host display and input conditions, such as Xvfb
-/// exposing no pointer, rather than rendering failures.
-fn is_platform_backend(target: &str) -> bool {
+/// Platform backends and wgpu's EGL adapter probe report host display, input,
+/// and driver conditions, such as Xvfb exposing no pointer or nested Weston
+/// lacking a GL driver while Vulkan renders, rather than rendering failures.
+fn is_host_environment(target: &str) -> bool {
     let krate = target.split("::").next().unwrap_or_default();
     matches!(krate, "gpui_linux" | "gpui_macos" | "gpui_windows")
+        || target.starts_with("wgpu_hal::gles::egl")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::is_platform_backend;
+    use super::is_host_environment;
 
     #[test]
-    fn ignores_only_platform_backend_errors() {
-        assert!(is_platform_backend("gpui_linux::linux::x11::client"));
-        assert!(is_platform_backend("gpui_windows"));
-        assert!(!is_platform_backend("gpui::elements::svg"));
-        assert!(!is_platform_backend("gpui_wgpu::wgpu_context"));
-        assert!(!is_platform_backend(""));
+    fn ignores_only_host_environment_errors() {
+        assert!(is_host_environment("gpui_linux::linux::x11::client"));
+        assert!(is_host_environment("gpui_windows"));
+        assert!(is_host_environment("wgpu_hal::gles::egl"));
+        assert!(!is_host_environment("wgpu_hal::vulkan::instance"));
+        assert!(!is_host_environment("gpui::elements::svg"));
+        assert!(!is_host_environment("gpui_wgpu::wgpu_context"));
+        assert!(!is_host_environment(""));
     }
 }
 
