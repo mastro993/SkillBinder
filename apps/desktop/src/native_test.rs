@@ -18,13 +18,34 @@ impl log::Log for SmokeLogger {
     }
     fn log(&self, record: &log::Record<'_>) {
         if self.enabled(record.metadata()) {
-            if record.level() == log::Level::Error {
+            if record.level() == log::Level::Error && !is_platform_backend(record.target()) {
                 RENDER_ERROR.store(true, Ordering::Relaxed);
             }
             eprintln!("{} {}: {}", record.level(), record.target(), record.args());
         }
     }
     fn flush(&self) {}
+}
+
+/// Platform backends report host display and input conditions, such as Xvfb
+/// exposing no pointer, rather than rendering failures.
+fn is_platform_backend(target: &str) -> bool {
+    let krate = target.split("::").next().unwrap_or_default();
+    matches!(krate, "gpui_linux" | "gpui_macos" | "gpui_windows")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_platform_backend;
+
+    #[test]
+    fn ignores_only_platform_backend_errors() {
+        assert!(is_platform_backend("gpui_linux::linux::x11::client"));
+        assert!(is_platform_backend("gpui_windows"));
+        assert!(!is_platform_backend("gpui::elements::svg"));
+        assert!(!is_platform_backend("gpui_wgpu::wgpu_context"));
+        assert!(!is_platform_backend(""));
+    }
 }
 
 pub(crate) fn initialize_logging() -> anyhow::Result<()> {
