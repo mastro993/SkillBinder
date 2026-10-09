@@ -1,0 +1,285 @@
+{
+  "package": "@hugeicons/core-free-icons",
+  "version": "4.3.5",
+  "packageLicenseField": "MIT",
+  "licenseFile": "LICENSE.md",
+  "licenseSha256": "1658d8213209df7b9b86dfc05d724ede48d00dbc27abc15976ec7adec9601cde",
+  "renderer": {
+    "package": "@hugeicons/react",
+    "version": "1.1.10",
+    "defaults": {
+      "width": 24,
+      "height": 24,
+      "viewBox": "0 0 24 24",
+      "fill": "none",
+      "color": "currentColor"
+    },
+    "note": "Children use package geometry and renderer ordering for opacity-bearing elements. No application-specific size or color overrides are baked into these assets."
+  },
+  "glyphs": [
+    {
+      "name": "AlertCircleIcon",
+      "file": "AlertCircleIcon.svg",
+      "usedBy": [
+        "components/feedback/status-card.tsx"
+      ],
+      "sourceModule": "dist/esm/AlertCircleIcon.js",
+      "sourceModuleSha256": "ae9ba6fdd8f7d4519c2e39c45b3ff77e497d827490da81cdb4500124cf91ce68",
+      "svgSha256": "8eecc9622c32204e594230b584db5e8f26384c6f097dd629deda721ba4988898",
+      "elementCount": 3
+    },
+    {
+      "name": "ArrowDown01Icon",
+      "file": "ArrowDown01Icon.svg",
+      "usedBy": [
+        "features/git-sync/components/git-sync-nav-status.tsx"
+      ],
+      "sourceModule": "dist/esm/ArrowDown01Icon.js",
+      "sourceModuleSha256": "3e880ddfd6491df41ca3e7261b7862c4224d99a10aaa52a832156d3b0f50fcb8",
+      "svgSha256": "6bf96206d60962769a75ec4e33cd000cd76b2a7198fb2472ebfb3b425b159e96",
+      "elementCount": 1
+    },
+    {
+      "name": "ArrowUp01Icon",
+      "file": "ArrowUp01Icon.svg",
+      "usedBy": [
+        "features/git-sync/components/git-sync-nav-status.tsx"
+      ],
+      "sourceModule": "dist/esm/ArrowUp01Icon.js",
+      "sourceModuleSha256": "a565814bb81874b47d660d80d02f1b86a8d9cf394be5119fc3b25cf0ab719c49",
+      "svgSha256": "cf94ab62737fd202bd3486ce6b7a7cce07428b2194a3f74b43bccf28f83a76ac",
+      "elementCount": 1
+    },
+    {
+      "name": "BookCopyIcon",
+      "file": "BookCopyIcon.svg",
+      "usedBy": [
+        "features/onboarding/components/onboarding-steps.tsx"
+      ],
+      "sourceModule": "dist/esm/BookCopyIcon.js",
+      "sourceModuleSha256": "a3bec601ac1230d0eb21dd84cd76434e4466cbaa541e892f273163579e2a44b9",
+      "svgSha256": "90cce0ce7e306b9165881f0dd8c1c64970641a8be48650cd3a21de65eb19954c",
+      "elementCount": 4
+    },
+    {
+      "name": "Cancel01Icon",
+      "file": "Cancel01Icon.svg",
+      "usedBy": [
+        "components/ui/dialog.tsx",
+        "components/ui/sheet.tsx",
+        "features/discovery/components/import-preview-dialog.tsx"
+      ],
+      "sourceModule": "dist/esm/Cancel01Icon.js",
+      "sourceModuleSha256": "b370872edae0e589754be184c5a039f7f9b0eed78d53e0d91bbfdf3948bb9e7d",
+      "svgSha256": "0a70b4c71abe68b2b8c141223a14eb2a479c6bc320c6b44ba9da4bfeae405a40",
+      "elementCount": 1,
+      "usageOverrides": [
+        {
+          "usedBy": "components/ui/sheet.tsx",
+          "strokeWidth": 2,
+          "file": "Cancel01Icon-stroke-2.svg",
+          "svgSha256": "91eb53d8437d7bd1289203edb466be2457f74146c37890ec3bc0c23bb35e105e"
+        }
+      ]
+    },
+    {
+      "name": "CheckmarkCircle02Icon",
+      "file": "CheckmarkCircle02Icon.svg",
+      "usedBy": [
+        "components/feedback/status-card.tsx"
+      ],
+      "sourceModule": "dist/esm/CheckmarkCircle02Icon.js",
+      "sourceModuleSha256": "596376acecdf28ee8e24a1932226baf9fa9e8315cba213a366c0318a485d5ccb",
+      "svgSha256": "245d75593b851ce0d286e99e3a7fce47eb2d9c9aeeeacc68b7a3889f31d3df98",
+      "elementCount": 2
+    },
+    {
+      "name": "CloudIcon",
+      "file": "CloudIcon.svg",
+      "usedBy": [
+        "features/git-sync/screens/git-sync-view.tsx"
+      ],
+      "sourceModule": "dist/esm/CloudIcon.js",
+      "sourceModuleSha256": "6ce093446915c2fc77a8922ebfd8dc496d234bc6f36c681dad52a35f0f24f7fc",
+      "svgSha256": "5e0d3642f9fc1020983e587c7f434cd1ff651c1ef4df3956fb17fffa737b9cec",
+      "elementCount": 1
+    },
+    {
+      "name": "Compass01Icon",
+      "file": "Compass01Icon.svg",
+      "usedBy": [
+        "components/layout/app-shell.tsx"
+      ],
+      "sourceModule": "dist/esm/Compass01Icon.js",
+      "sourceModuleSha256": "8a8c10bd254890eb17ca555ac975b2dc1180609b4e72bad2136cd229ca493886",
+      "svgSha256": "1ca7b07a22792eab36402f11a943f84fb3d015b2f0b2d360384327eb8f6ce09c",
+      "elementCount": 5
+    },
+    {
+      "name": "Folder01Icon",
+      "file": "Folder01Icon.svg",
+      "usedBy": [
+        "features/library/components/sidebar-folder-list.tsx"
+      ],
+      "sourceModule": "dist/esm/Folder01Icon.js",
+      "sourceModuleSha256": "ee58c2dc8a6c7001ddf6147bbe4b39a55b1a40123f31418337373c6ec34b40c1",
+      "svgSha256": "b62de3453be2c540b91bb2d9212b3c77c0aebfd48c62c35bbc8e4f1b8e735386",
+      "elementCount": 1
+    },
+    {
+      "name": "FolderSearchIcon",
+      "file": "FolderSearchIcon.svg",
+      "usedBy": [
+        "features/onboarding/components/onboarding-steps.tsx"
+      ],
+      "sourceModule": "dist/esm/FolderSearchIcon.js",
+      "sourceModuleSha256": "e8922136acc16820076685d2f620fb03c73d53ac87dd8cafa83143df321c48d2",
+      "svgSha256": "a04b958cccf89959b1ede59308ab6532cfa78faede44686b1dfc96fd76ea37b0",
+      "elementCount": 2
+    },
+    {
+      "name": "GitBranchIcon",
+      "file": "GitBranchIcon.svg",
+      "usedBy": [
+        "components/layout/app-shell.tsx",
+        "features/git-sync/screens/git-sync-view.tsx",
+        "features/onboarding/components/onboarding-steps.tsx"
+      ],
+      "sourceModule": "dist/esm/GitBranchIcon.js",
+      "sourceModuleSha256": "4d521561a4bde7d13bc45f38cf0b1f0983b817527792a2b1c36999e4d90aecc2",
+      "svgSha256": "e3ffcf9046b9182940273006255d149ea670ab584e537e1d68bf09a7823e4623",
+      "elementCount": 5
+    },
+    {
+      "name": "HardDriveIcon",
+      "file": "HardDriveIcon.svg",
+      "usedBy": [
+        "features/onboarding/components/onboarding-steps.tsx"
+      ],
+      "sourceModule": "dist/esm/HardDriveIcon.js",
+      "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36",
+      "svgSha256": "bd935ffcbbd5911e5b862166645d72fa560e059b5b9e09191f33101da764f6f1",
+      "elementCount": 3
+    },
+    {
+      "name": "Loading03Icon",
+      "file": "Loading03Icon.svg",
+      "usedBy": [
+        "components/ui/spinner.tsx"
+      ],
+      "sourceModule": "dist/esm/Loading03Icon.js",
+      "sourceModuleSha256": "c15c7f78d53ee23e3d9e5e57c0d36959d031536eb545a9d6479c8cb44c2d1bc4",
+      "svgSha256": "f7ae406659f9069feb8b0967890cfd24b41c3e44fa3b57a97fcf410c92a86ba2",
+      "elementCount": 8
+    },
+    {
+      "name": "PlusSignIcon",
+      "file": "PlusSignIcon.svg",
+      "usedBy": [
+        "features/discovery/components/discovery-roots-panel.tsx",
+        "features/library/components/sidebar-folder-list.tsx"
+      ],
+      "sourceModule": "dist/esm/PlusSignIcon.js",
+      "sourceModuleSha256": "6569be537715da9149e59593c46665caff88a04a26f495ed54c6203c6691df88",
+      "svgSha256": "55afede25d5295e4ca51250240c826e33853175b206002af910e127a468f8290",
+      "elementCount": 1
+    },
+    {
+      "name": "RefreshIcon",
+      "file": "RefreshIcon.svg",
+      "usedBy": [
+        "features/git-sync/screens/git-sync-view.tsx",
+        "features/onboarding/components/onboarding-steps.tsx"
+      ],
+      "sourceModule": "dist/esm/RefreshIcon.js",
+      "sourceModuleSha256": "e3d01c2d958567182b44c96b62f4f9b164f3dfe7f54d65be059da1691d26ae54",
+      "svgSha256": "d257ffdf65abb696f448c7864e6dbf58583135c46e3be832587d82ec04c6e857",
+      "elementCount": 1
+    },
+    {
+      "name": "Settings01Icon",
+      "file": "Settings01Icon.svg",
+      "usedBy": [
+        "components/layout/app-shell.tsx"
+      ],
+      "sourceModule": "dist/esm/Settings01Icon.js",
+      "sourceModuleSha256": "2a786adfc5785d70757a7d86faea37ba6d731e159668b57736113a829eb2901f",
+      "svgSha256": "d2eb8f072d1604b721fb78b524a8868fe96bf08cd697047e3a41b689bfee5cd1",
+      "elementCount": 2
+    },
+    {
+      "name": "SidebarLeftIcon",
+      "file": "SidebarLeftIcon.svg",
+      "usedBy": [
+        "components/ui/sidebar.tsx"
+      ],
+      "sourceModule": "dist/esm/SidebarLeftIcon.js",
+      "sourceModuleSha256": "2c60b1fbcc254d0de9d0db9c35ea964c5c004a9a6be786f1a18e7bf32a63bedd",
+      "svgSha256": "f0b3b83252e597b4a4f4eed8ba794267b96eaa62db61c2da01b870524d4df87c",
+      "elementCount": 3,
+      "usageOverrides": [
+        {
+          "usedBy": "components/ui/sidebar.tsx",
+          "strokeWidth": 2,
+          "file": "SidebarLeftIcon-stroke-2.svg",
+          "svgSha256": "149f1ac66f48e73054fd7bf6da60bc72b459fc945882c00eb5078b99bc24ec49"
+        }
+      ]
+    },
+    {
+      "name": "SparkleIcon",
+      "file": "SparkleIcon.svg",
+      "usedBy": [
+        "components/layout/app-shell.tsx"
+      ],
+      "sourceModule": "dist/esm/SparkleIcon.js",
+      "sourceModuleSha256": "3ec3bd8711b8a9f14a5b125d687d47308bd99c2940b773d04f619cfab3a0477b",
+      "svgSha256": "c600d8736286c964d065c83c5682b66c70c6a3e172c28849f8acf89d5057d1d4",
+      "elementCount": 1
+    },
+    {
+      "name": "SparklesIcon",
+      "file": "SparklesIcon.svg",
+      "usedBy": [
+        "components/layout/app-shell.tsx"
+      ],
+      "sourceModule": "dist/esm/SparklesIcon.js",
+      "sourceModuleSha256": "0b08fb0697a72ca06c721ab2a98a63ea5858b1ed0544977e9d133bfde34ff3ee",
+      "svgSha256": "c5cab67bc0fe74dabe3ce01b71bcc9d61ed05979cb3b32640df9e75f7aac1086",
+      "elementCount": 2
+    },
+    {
+      "name": "SquareLock02Icon",
+      "file": "SquareLock02Icon.svg",
+      "usedBy": [
+        "features/onboarding/components/onboarding-steps.tsx"
+      ],
+      "sourceModule": "dist/esm/SquareLock02Icon.js",
+      "sourceModuleSha256": "7c3ca044758757e925775b73557c9d4b07561b2e5990264cc20b6a8d76430148",
+      "svgSha256": "561e979df3a7d522562410362be020371b707c5e28ca0cc1d13ffaa6e4da0ff2",
+      "elementCount": 3
+    },
+    {
+      "name": "Tick02Icon",
+      "file": "Tick02Icon.svg",
+      "usedBy": [
+        "components/ui/checkbox.tsx"
+      ],
+      "sourceModule": "dist/esm/Tick02Icon.js",
+      "sourceModuleSha256": "400664e4740d9d87a586b697ed4ce48c1198a2f3c6f226f538cf898b2e1e2235",
+      "svgSha256": "b194213dd33124f022d08ceb8337edc222a33499ea78732d1e9ac65f07f44d36",
+      "elementCount": 1
+    },
+    {
+      "name": "UnplugIcon",
+      "file": "UnplugIcon.svg",
+      "usedBy": [
+        "features/git-sync/screens/git-sync-view.tsx"
+      ],
+      "sourceModule": "dist/esm/UnplugIcon.js",
+      "sourceModuleSha256": "875b151bca0b2998972f3cfecc5e2b19f2360af470c557bdd893f12110c35a39",
+      "svgSha256": "f8b79c6c9c1b6bfe985c8713b049530d983930791f2a3a3d19c40661571d7714",
+      "elementCount": 5
+    }
+  ]
+}

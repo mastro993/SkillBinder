@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "backend": "cgwindow",
+    "byte_size": 40049,
+    "height": 1117,
+    "output_path": "/private/tmp/skillbinder-production-baselines/sync-disconnected-dark.png",
+    "scale_factor": null,
+    "tcc_denied": true,
+    "width": 1728,
+    "window_id": 1121
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "elements": [
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 12,
+      "name": "Discovery5skills found",
+      "ref": "e2",
+      "role": "link"
+    },
+    {
+      "depth": 12,
+      "name": "Skills, 2 skills",
+      "ref": "e3",
+      "role": "link"
+    },
+    {
+      "depth": 10,
+      "name": "New folder",
+      "ref": "e4",
+      "role": "button"
+    },
+    {
+      "depth": 11,
+      "name": "Sync",
+      "ref": "e5",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Settings",
+      "ref": "e6",
+      "role": "link"
+    },
+    {
+      "depth": 4,
+      "name": "Resize sidebar",
+      "ref": "e7",
+      "role": "separator"
+    },
+    {
+      "depth": 8,
+      "name": "Open navigation",
+      "ref": "e8",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Read-only inspectionDiscoveryRun a bounded scan, a",
+      "ref": "e9",
+      "role": "presentation"
+    },
+    {
+      "depth": 15,
+      "name": "Scan again",
+      "ref": "e10",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "name": "Select selectable on this page",
+      "ref": "e11",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "Select Review",
+      "ref": "e12",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 19,
+      "ref": "e13",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Research",
+      "ref": "e14",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 19,
+      "ref": "e15",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Outline",
+      "ref": "e16",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 19,
+      "ref": "e17",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Unsafe",
+      "ref": "e18",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 19,
+      "disabled": true,
+      "ref": "e19",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Docs",
+      "ref": "e20",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 19,
+      "ref": "e21",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 14,
+      "disabled": true,
+      "name": "Previous page",
+      "ref": "e22",
+      "role": "button"
+    },
+    {
+      "depth": 14,
+      "disabled": true,
+      "name": "Next page",
+      "ref": "e23",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "disabled": true,
+      "name": "Review import",
+      "ref": "e24",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

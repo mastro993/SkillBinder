@@ -1,0 +1,33 @@
+{
+  "elements": [
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinder setupCh",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 3,
+      "name": "SkillBinder setupCheck your setupRequired local to",
+      "ref": "e2",
+      "role": "presentation"
+    },
+    {
+      "depth": 8,
+      "name": "Recheck",
+      "ref": "e3",
+      "role": "button"
+    },
+    {
+      "depth": 7,
+      "name": "Continue",
+      "ref": "e4",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

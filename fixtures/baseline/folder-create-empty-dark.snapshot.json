@@ -1,0 +1,246 @@
+{
+  "elements": [
+    {
+      "depth": 0,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e2",
+      "role": "generic"
+    },
+    {
+      "depth": 12,
+      "name": "Discovery5skills found",
+      "ref": "e3",
+      "role": "link"
+    },
+    {
+      "depth": 12,
+      "name": "Skills, 6 skills",
+      "ref": "e4",
+      "role": "link"
+    },
+    {
+      "depth": 10,
+      "name": "New folder",
+      "ref": "e5",
+      "role": "button"
+    },
+    {
+      "depth": 11,
+      "name": "Sync",
+      "ref": "e6",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Settings",
+      "ref": "e7",
+      "role": "link"
+    },
+    {
+      "depth": 4,
+      "name": "Resize sidebar",
+      "ref": "e8",
+      "role": "separator"
+    },
+    {
+      "depth": 8,
+      "name": "Open navigation",
+      "ref": "e9",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Canonical collectionLibraryAdd folderLibrary chang",
+      "ref": "e10",
+      "role": "presentation"
+    },
+    {
+      "depth": 12,
+      "name": "Add folder",
+      "ref": "e11",
+      "role": "button"
+    },
+    {
+      "depth": 14,
+      "name": "Choose which to keep",
+      "ref": "e12",
+      "role": "button"
+    },
+    {
+      "depth": 13,
+      "name": "Search skills",
+      "ref": "e13",
+      "role": "textbox"
+    },
+    {
+      "depth": 16,
+      "name": "Select Existing",
+      "ref": "e14",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e15",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e16",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select existing",
+      "ref": "e17",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e18",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e19",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Review",
+      "ref": "e20",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e21",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e22",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Research",
+      "ref": "e23",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e24",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e25",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Outline",
+      "ref": "e26",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e27",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e28",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "Select Docs",
+      "ref": "e29",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 16,
+      "ref": "e30",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Organize",
+      "ref": "e31",
+      "role": "button"
+    },
+    {
+      "depth": 1,
+      "name": "New folderNameCancelSaveClose",
+      "ref": "e32",
+      "role": "generic"
+    },
+    {
+      "depth": 2,
+      "ref": "e33",
+      "role": "button"
+    },
+    {
+      "depth": 2,
+      "name": "New folder",
+      "ref": "e34",
+      "role": "dialog"
+    },
+    {
+      "depth": 4,
+      "ref": "e35",
+      "role": "textbox"
+    },
+    {
+      "depth": 4,
+      "name": "Cancel",
+      "ref": "e36",
+      "role": "button"
+    },
+    {
+      "depth": 4,
+      "name": "Save",
+      "ref": "e37",
+      "role": "button"
+    },
+    {
+      "depth": 3,
+      "name": "Close",
+      "ref": "e38",
+      "role": "button"
+    },
+    {
+      "depth": 2,
+      "ref": "e39",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

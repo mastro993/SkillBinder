@@ -1,0 +1,1047 @@
+{
+  "baselineRevision": "83d55ef789a7cf256021f6620742e0e9021a8312",
+  "kind": "Canonical macOS production-equivalent typography baseline with original fixture components",
+  "applicationMode": "Vite serve --mode production; development-tools plugin removes devtools. Native debug app and original fixture client retained. This is not packaged release validation.",
+  "sourceChanges": "Archive only: isolated home, identifier dev.skillbinder.baseline, incognito true; Vite production mode; startup width/height for dimension sets. No application components changed.",
+  "capture": "Raw CGWindow fallback PNGs on black desktop. tcc_denied:true. No images cropped, masked, or edited. Fixture badge retained.",
+  "typography": "No web fonts loaded: every document.fonts list empty. Development Inter injection absent; system fallback uses native Apple font. CSS requested stack remains preserved in computed styles.",
+  "groups": [
+    {
+      "directory": ".",
+      "count": 52,
+      "window": {
+        "windowId": 1121,
+        "pid": 53090,
+        "bounds": {
+          "x": 274,
+          "y": 103,
+          "width": 1180,
+          "height": 760
+        },
+        "captureChange": "Original window dimensions. Vite --mode production strips development tools; original fixture UI and components remain."
+      },
+      "viewport": {
+        "height": 728,
+        "width": 1180
+      }
+    },
+    {
+      "directory": "minimum-860x620",
+      "count": 18,
+      "window": {
+        "windowId": 1165,
+        "pid": 56362,
+        "bounds": {
+          "x": 434,
+          "y": 138,
+          "width": 860,
+          "height": 620
+        },
+        "captureChange": "Only startup width/height changed in archived tauri.conf.json. minWidth860/minHeight620, identifier, incognito and application source unchanged."
+      },
+      "viewport": {
+        "height": 588,
+        "width": 860
+      }
+    },
+    {
+      "directory": "wide-1600x900",
+      "count": 18,
+      "window": {
+        "windowId": 1190,
+        "pid": 58790,
+        "bounds": {
+          "x": 64,
+          "y": 68,
+          "width": 1600,
+          "height": 900
+        },
+        "captureChange": "Only startup width/height changed in archived tauri.conf.json. minWidth860/minHeight620, identifier, incognito and application source unchanged."
+      },
+      "viewport": {
+        "height": 868,
+        "width": 1600
+      }
+    }
+  ],
+  "imageCount": 88,
+  "developmentBehaviorEvidence": "behavior/manifest.json",
+  "remainingGaps": [
+    "No Windows/Linux native baselines",
+    "No real directory picker interaction, native IME session, OS reduced-motion changes, or motion video",
+    "Native engine effects are simulated by existing fixture client",
+    "Production keyboard Home press failed due other-app focus; existing pointer control verifies widths here; development evidence verifies Home/End",
+    "Final cross-renderer visual parity not yet verified"
+  ],
+  "warnings": [],
+  "images": [
+    {
+      "name": "discovery-idle-dark.png",
+      "sha256": "943574fbbd6534b19119f5dc1c40eb1ac67275e80b7e616cd45c87fc4274c140",
+      "snapshot": "discovery-idle-dark.snapshot.json",
+      "dom": "discovery-idle-dark.dom.json",
+      "nativeMetadata": "discovery-idle-dark.native.json",
+      "errorLogs": "discovery-idle-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "discovery-idle-light.png",
+      "sha256": "02a6af3be7ba5e2a098dc90ba2a00af7171cd409ee77df93a270f5e5d3799440",
+      "snapshot": "discovery-idle-light.snapshot.json",
+      "dom": "discovery-idle-light.dom.json",
+      "nativeMetadata": "discovery-idle-light.native.json",
+      "errorLogs": "discovery-idle-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "discovery-invalid-selection-dark.png",
+      "sha256": "a06ae33a2f37735c8e268218575603149dccc40d1d0d87fe63400fddbf45c67e",
+      "snapshot": "discovery-invalid-selection-dark.snapshot.json",
+      "dom": "discovery-invalid-selection-dark.dom.json",
+      "nativeMetadata": "discovery-invalid-selection-dark.native.json",
+      "errorLogs": "discovery-invalid-selection-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "discovery-invalid-selection-light.png",
+      "sha256": "bd51aaed340a000096df4f70de11079be6302e68c226ce5b9f140b94ffda1f96",
+      "snapshot": "discovery-invalid-selection-light.snapshot.json",
+      "dom": "discovery-invalid-selection-light.dom.json",
+      "nativeMetadata": "discovery-invalid-selection-light.native.json",
+      "errorLogs": "discovery-invalid-selection-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "discovery-results-dark.png",
+      "sha256": "1253894e82c2a5d0a8f3cdec518c2ac820133e8123b67b74077135cddde7a429",
+      "snapshot": "discovery-results-dark.snapshot.json",
+      "dom": "discovery-results-dark.dom.json",
+      "nativeMetadata": "discovery-results-dark.native.json",
+      "errorLogs": "discovery-results-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "discovery-results-light.png",
+      "sha256": "0d8ca1f92c7e1241b4cbf69a817ae345d44f978ada7c1c828cddcf200590c5a9",
+      "snapshot": "discovery-results-light.snapshot.json",
+      "dom": "discovery-results-light.dom.json",
+      "nativeMetadata": "discovery-results-light.native.json",
+      "errorLogs": "discovery-results-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "folder-create-empty-dark.png",
+      "sha256": "a59c22245af24bbcbb2e8b500033e9e4f1bc26d0ef9f1d2978662c2d35c73e11",
+      "snapshot": "folder-create-empty-dark.snapshot.json",
+      "dom": "folder-create-empty-dark.dom.json",
+      "nativeMetadata": "folder-create-empty-dark.native.json",
+      "errorLogs": "folder-create-empty-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "folder-create-empty-light.png",
+      "sha256": "b810f9c949657a1bcda839d6543f30c9debb79c653f4458415b506b5f2f33ce2",
+      "snapshot": "folder-create-empty-light.snapshot.json",
+      "dom": "folder-create-empty-light.dom.json",
+      "nativeMetadata": "folder-create-empty-light.native.json",
+      "errorLogs": "folder-create-empty-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "folder-edit-dark.png",
+      "sha256": "bd49347a8cf854ef4e2f7f53533efd267480975f93823c8d5739b73251e32220",
+      "snapshot": "folder-edit-dark.snapshot.json",
+      "dom": "folder-edit-dark.dom.json",
+      "nativeMetadata": "folder-edit-dark.native.json",
+      "errorLogs": "folder-edit-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "folder-edit-light.png",
+      "sha256": "558b1718e9c77174505e1d2fe1dba8e02ea0d119ce118b9ef916e887634ccbea",
+      "snapshot": "folder-edit-light.snapshot.json",
+      "dom": "folder-edit-light.dom.json",
+      "nativeMetadata": "folder-edit-light.native.json",
+      "errorLogs": "folder-edit-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "folder-empty-dark.png",
+      "sha256": "2b4de8db77518fd701e374c562ee98bed83e92b34373afff954eaf7742cf90aa",
+      "snapshot": "folder-empty-dark.snapshot.json",
+      "dom": "folder-empty-dark.dom.json",
+      "nativeMetadata": "folder-empty-dark.native.json",
+      "errorLogs": "folder-empty-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "folder-empty-light.png",
+      "sha256": "390a43564b90f0803b94cb38f980e7fc126fc28d181ea7dc855e7558226f8feb",
+      "snapshot": "folder-empty-light.snapshot.json",
+      "dom": "folder-empty-light.dom.json",
+      "nativeMetadata": "folder-empty-light.native.json",
+      "errorLogs": "folder-empty-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "import-completed-dark.png",
+      "sha256": "1e9c77f10a6f500c9f33c19613a361708764935b1c910a94687dadc40ec2a9c6",
+      "snapshot": "import-completed-dark.snapshot.json",
+      "dom": "import-completed-dark.dom.json",
+      "nativeMetadata": "import-completed-dark.native.json",
+      "errorLogs": "import-completed-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "import-completed-light.png",
+      "sha256": "c16a23ddd22ed242ce45f6b57ac556c71091ec5a08c0d0b5bd6033b4f0f2718c",
+      "snapshot": "import-completed-light.snapshot.json",
+      "dom": "import-completed-light.dom.json",
+      "nativeMetadata": "import-completed-light.native.json",
+      "errorLogs": "import-completed-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "import-review-dark.png",
+      "sha256": "8b8704d5207a91cbe09eb37734ede6b9f23b77a26ad1165b2e3ad4f2e7fe2578",
+      "snapshot": "import-review-dark.snapshot.json",
+      "dom": "import-review-dark.dom.json",
+      "nativeMetadata": "import-review-dark.native.json",
+      "errorLogs": "import-review-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "import-review-footer-dark.png",
+      "sha256": "d97e61865009b196d8dd13634a053abbc793fa2ea34bef7de73b5924e0f65e92",
+      "snapshot": "import-review-footer-dark.snapshot.json",
+      "dom": "import-review-footer-dark.dom.json",
+      "nativeMetadata": "import-review-footer-dark.native.json",
+      "errorLogs": "import-review-footer-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "import-review-footer-light.png",
+      "sha256": "4b92638f1b0bddbfe464b929c268de8f928f777bdff18d4035c43a08a10a1296",
+      "snapshot": "import-review-footer-light.snapshot.json",
+      "dom": "import-review-footer-light.dom.json",
+      "nativeMetadata": "import-review-footer-light.native.json",
+      "errorLogs": "import-review-footer-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "import-review-light.png",
+      "sha256": "8c1f054ab20416835818a9dae5aeec69047d8007f6fe8bbefbab105db1364a4d",
+      "snapshot": "import-review-light.snapshot.json",
+      "dom": "import-review-light.dom.json",
+      "nativeMetadata": "import-review-light.native.json",
+      "errorLogs": "import-review-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "library-no-match-dark.png",
+      "sha256": "5e809983cdf8490c32bfed44a6bef2cbc09778c6dd9bfff42b29512b7eb5c631",
+      "snapshot": "library-no-match-dark.snapshot.json",
+      "dom": "library-no-match-dark.dom.json",
+      "nativeMetadata": "library-no-match-dark.native.json",
+      "errorLogs": "library-no-match-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "library-no-match-light.png",
+      "sha256": "519d9f8a230f3f0ef150a985155459dfda8a466b32c3771c19443556e197f19f",
+      "snapshot": "library-no-match-light.snapshot.json",
+      "dom": "library-no-match-light.dom.json",
+      "nativeMetadata": "library-no-match-light.native.json",
+      "errorLogs": "library-no-match-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "library-shared-slug-dark.png",
+      "sha256": "edae1ee36a0970751c702779aeb4775e495b3cfbe86433447d8b04b0b7f87908",
+      "snapshot": "library-shared-slug-dark.snapshot.json",
+      "dom": "library-shared-slug-dark.dom.json",
+      "nativeMetadata": "library-shared-slug-dark.native.json",
+      "errorLogs": "library-shared-slug-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "library-shared-slug-light.png",
+      "sha256": "3830f651ae836f6f0d85921c4d02f7df300ef747e1f115f63da3f5bb0fcf8627",
+      "snapshot": "library-shared-slug-light.snapshot.json",
+      "dom": "library-shared-slug-light.dom.json",
+      "nativeMetadata": "library-shared-slug-light.native.json",
+      "errorLogs": "library-shared-slug-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-1-prerequisites-dark.png",
+      "sha256": "6d87aae80c104c24f79793245c15238d5c6e9b52a70cb6ebdeb55f1ea94c0bbd",
+      "snapshot": "onboarding-1-prerequisites-dark.snapshot.json",
+      "dom": "onboarding-1-prerequisites-dark.dom.json",
+      "nativeMetadata": "onboarding-1-prerequisites-dark.native.json",
+      "errorLogs": "onboarding-1-prerequisites-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-1-prerequisites-light.png",
+      "sha256": "e51ba467f2d767fc632414c6a91b6c00bc612a333babfc9251e39984457eedbd",
+      "snapshot": "onboarding-1-prerequisites-light.snapshot.json",
+      "dom": "onboarding-1-prerequisites-light.dom.json",
+      "nativeMetadata": "onboarding-1-prerequisites-light.native.json",
+      "errorLogs": "onboarding-1-prerequisites-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-2-boundaries-dark.png",
+      "sha256": "c6ccbc56cbf370596f6cdbc3a33d94a5072c46eb4534a9f54f1efed5692dd42c",
+      "snapshot": "onboarding-2-boundaries-dark.snapshot.json",
+      "dom": "onboarding-2-boundaries-dark.dom.json",
+      "nativeMetadata": "onboarding-2-boundaries-dark.native.json",
+      "errorLogs": "onboarding-2-boundaries-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-2-boundaries-light.png",
+      "sha256": "c1fb2042827a4dc532e4591b54034c1d6bc2850b94ec004274f150cf14624168",
+      "snapshot": "onboarding-2-boundaries-light.snapshot.json",
+      "dom": "onboarding-2-boundaries-light.dom.json",
+      "nativeMetadata": "onboarding-2-boundaries-light.native.json",
+      "errorLogs": "onboarding-2-boundaries-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-3-sync-choice-dark.png",
+      "sha256": "8cb21e8d3a341274fcd3019e5bff154e15ce4094900e3d1329d590b95bf4a95e",
+      "snapshot": "onboarding-3-sync-choice-dark.snapshot.json",
+      "dom": "onboarding-3-sync-choice-dark.dom.json",
+      "nativeMetadata": "onboarding-3-sync-choice-dark.native.json",
+      "errorLogs": "onboarding-3-sync-choice-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-3-sync-choice-light.png",
+      "sha256": "ed4b2a4b026047372228d9b3d7feb90c6d749c25adf3c8b8c05d1a490d44423a",
+      "snapshot": "onboarding-3-sync-choice-light.snapshot.json",
+      "dom": "onboarding-3-sync-choice-light.dom.json",
+      "nativeMetadata": "onboarding-3-sync-choice-light.native.json",
+      "errorLogs": "onboarding-3-sync-choice-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-4-ready-dark.png",
+      "sha256": "a1c7ab38f4c4b4014330dd8e0bf6f56111ca5be93d7ff06c4eb53912305b0ad6",
+      "snapshot": "onboarding-4-ready-dark.snapshot.json",
+      "dom": "onboarding-4-ready-dark.dom.json",
+      "nativeMetadata": "onboarding-4-ready-dark.native.json",
+      "errorLogs": "onboarding-4-ready-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "onboarding-4-ready-light.png",
+      "sha256": "ff00946f4c744d19aeccc9354e3a493b05dade06cb3bd59cd769e5e2b6a8fe18",
+      "snapshot": "onboarding-4-ready-light.snapshot.json",
+      "dom": "onboarding-4-ready-light.dom.json",
+      "nativeMetadata": "onboarding-4-ready-light.native.json",
+      "errorLogs": "onboarding-4-ready-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "settings-no-roots-dark.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "settings-no-roots-dark.snapshot.json",
+      "dom": "settings-no-roots-dark.dom.json",
+      "nativeMetadata": "settings-no-roots-dark.native.json",
+      "errorLogs": "settings-no-roots-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "settings-no-roots-light.png",
+      "sha256": "df074c159730af9cddcd27ce32a387c86b6a1483db4c345d9db27e1fb30b94ed",
+      "snapshot": "settings-no-roots-light.snapshot.json",
+      "dom": "settings-no-roots-light.dom.json",
+      "nativeMetadata": "settings-no-roots-light.native.json",
+      "errorLogs": "settings-no-roots-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "settings-root-added-dark.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "settings-root-added-dark.snapshot.json",
+      "dom": "settings-root-added-dark.dom.json",
+      "nativeMetadata": "settings-root-added-dark.native.json",
+      "errorLogs": "settings-root-added-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "settings-root-added-light.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "settings-root-added-light.snapshot.json",
+      "dom": "settings-root-added-light.dom.json",
+      "nativeMetadata": "settings-root-added-light.native.json",
+      "errorLogs": "settings-root-added-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "settings-root-disabled-dark.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "settings-root-disabled-dark.snapshot.json",
+      "dom": "settings-root-disabled-dark.dom.json",
+      "nativeMetadata": "settings-root-disabled-dark.native.json",
+      "errorLogs": "settings-root-disabled-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "settings-root-disabled-light.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "settings-root-disabled-light.snapshot.json",
+      "dom": "settings-root-disabled-light.dom.json",
+      "nativeMetadata": "settings-root-disabled-light.native.json",
+      "errorLogs": "settings-root-disabled-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "shared-slug-preview-dark.png",
+      "sha256": "204c66de5c7e8b4876059ca76f877b3a5ecd3eb3de21c78ed26aa2b35f964192",
+      "snapshot": "shared-slug-preview-dark.snapshot.json",
+      "dom": "shared-slug-preview-dark.dom.json",
+      "nativeMetadata": "shared-slug-preview-dark.native.json",
+      "errorLogs": "shared-slug-preview-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "shared-slug-preview-light.png",
+      "sha256": "1aea8d94fb58bffd78f48896ae0212ee18ed88c163049b074a12e84f14a27b90",
+      "snapshot": "shared-slug-preview-light.snapshot.json",
+      "dom": "shared-slug-preview-light.dom.json",
+      "nativeMetadata": "shared-slug-preview-light.native.json",
+      "errorLogs": "shared-slug-preview-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "shared-slug-reference-file-dark.png",
+      "sha256": "8b946013a527d5c7b00b253294d92a18e86ab5ca580e91ec8477e8fd49fc3c9e",
+      "snapshot": "shared-slug-reference-file-dark.snapshot.json",
+      "dom": "shared-slug-reference-file-dark.dom.json",
+      "nativeMetadata": "shared-slug-reference-file-dark.native.json",
+      "errorLogs": "shared-slug-reference-file-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "shared-slug-reference-file-light.png",
+      "sha256": "6320410ec8ebdc04fea5b5831783c42f6844722f65355374c9d97a1d14e3042a",
+      "snapshot": "shared-slug-reference-file-light.snapshot.json",
+      "dom": "shared-slug-reference-file-light.dom.json",
+      "nativeMetadata": "shared-slug-reference-file-light.native.json",
+      "errorLogs": "shared-slug-reference-file-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sidebar-192-pointer-drag-dark.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sidebar-192-pointer-drag-dark.snapshot.json",
+      "dom": "sidebar-192-pointer-drag-dark.dom.json",
+      "nativeMetadata": "sidebar-192-pointer-drag-dark.native.json",
+      "errorLogs": "sidebar-192-pointer-drag-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sidebar-192-pointer-drag-light.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sidebar-192-pointer-drag-light.snapshot.json",
+      "dom": "sidebar-192-pointer-drag-light.dom.json",
+      "nativeMetadata": "sidebar-192-pointer-drag-light.native.json",
+      "errorLogs": "sidebar-192-pointer-drag-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sidebar-232-pointer-drag-dark.png",
+      "sha256": "f04e3f86c2bdc7314df95ee11c5ab92ad72c62372eac591025cad1ecfad6bc31",
+      "snapshot": "sidebar-232-pointer-drag-dark.snapshot.json",
+      "dom": "sidebar-232-pointer-drag-dark.dom.json",
+      "nativeMetadata": "sidebar-232-pointer-drag-dark.native.json",
+      "errorLogs": "sidebar-232-pointer-drag-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sidebar-232-pointer-drag-light.png",
+      "sha256": "8f4dc1228d36d438f9bd81936bbe7d40b8eacdccab613db91b77aa58bec0a4d7",
+      "snapshot": "sidebar-232-pointer-drag-light.snapshot.json",
+      "dom": "sidebar-232-pointer-drag-light.dom.json",
+      "nativeMetadata": "sidebar-232-pointer-drag-light.native.json",
+      "errorLogs": "sidebar-232-pointer-drag-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sidebar-400-pointer-drag-dark.png",
+      "sha256": "3337e8b733b66fbef263c51f3c7d15d3a869fb385cd8674a14052dd212fee75f",
+      "snapshot": "sidebar-400-pointer-drag-dark.snapshot.json",
+      "dom": "sidebar-400-pointer-drag-dark.dom.json",
+      "nativeMetadata": "sidebar-400-pointer-drag-dark.native.json",
+      "errorLogs": "sidebar-400-pointer-drag-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sidebar-400-pointer-drag-light.png",
+      "sha256": "407be97fc76b47b77c2b54d0c74a08791f129ae3aaff145bb7ddc5860c33a308",
+      "snapshot": "sidebar-400-pointer-drag-light.snapshot.json",
+      "dom": "sidebar-400-pointer-drag-light.dom.json",
+      "nativeMetadata": "sidebar-400-pointer-drag-light.native.json",
+      "errorLogs": "sidebar-400-pointer-drag-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sync-connected-needs-push-dark.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sync-connected-needs-push-dark.snapshot.json",
+      "dom": "sync-connected-needs-push-dark.dom.json",
+      "nativeMetadata": "sync-connected-needs-push-dark.native.json",
+      "errorLogs": "sync-connected-needs-push-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sync-connected-needs-push-light.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sync-connected-needs-push-light.snapshot.json",
+      "dom": "sync-connected-needs-push-light.dom.json",
+      "nativeMetadata": "sync-connected-needs-push-light.native.json",
+      "errorLogs": "sync-connected-needs-push-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sync-disconnected-dark.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sync-disconnected-dark.snapshot.json",
+      "dom": "sync-disconnected-dark.dom.json",
+      "nativeMetadata": "sync-disconnected-dark.native.json",
+      "errorLogs": "sync-disconnected-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sync-disconnected-light.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sync-disconnected-light.snapshot.json",
+      "dom": "sync-disconnected-light.dom.json",
+      "nativeMetadata": "sync-disconnected-light.native.json",
+      "errorLogs": "sync-disconnected-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sync-synced-dark.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sync-synced-dark.snapshot.json",
+      "dom": "sync-synced-dark.dom.json",
+      "nativeMetadata": "sync-synced-dark.native.json",
+      "errorLogs": "sync-synced-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "sync-synced-light.png",
+      "sha256": "1f7c5378ef727857a7b9fbd7128026072cd9494bdca99ede053eeb249226d6e7",
+      "snapshot": "sync-synced-light.snapshot.json",
+      "dom": "sync-synced-light.dom.json",
+      "nativeMetadata": "sync-synced-light.native.json",
+      "errorLogs": "sync-synced-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/discovery-results-dark.png",
+      "sha256": "1901423ec69958d56ac03a2db0fcd31d10fd89fc003fbfda9fce41c374d50d16",
+      "snapshot": "minimum-860x620/discovery-results-dark.snapshot.json",
+      "dom": "minimum-860x620/discovery-results-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/discovery-results-dark.native.json",
+      "errorLogs": "minimum-860x620/discovery-results-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/discovery-results-light.png",
+      "sha256": "160455659c59f1e80f67d0096381d91edb4ac0ec192ea8d2c1a903b77e4c385e",
+      "snapshot": "minimum-860x620/discovery-results-light.snapshot.json",
+      "dom": "minimum-860x620/discovery-results-light.dom.json",
+      "nativeMetadata": "minimum-860x620/discovery-results-light.native.json",
+      "errorLogs": "minimum-860x620/discovery-results-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/import-review-dark.png",
+      "sha256": "c23ecedf030e3982a15d5568a907c2dc0530b74832a37cc8796a34fd7791106a",
+      "snapshot": "minimum-860x620/import-review-dark.snapshot.json",
+      "dom": "minimum-860x620/import-review-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/import-review-dark.native.json",
+      "errorLogs": "minimum-860x620/import-review-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/import-review-footer-dark.png",
+      "sha256": "fc1fa3fe4be539ed7d1f5d64ffc989eb394fb8c31233269286c35846d222307f",
+      "snapshot": "minimum-860x620/import-review-footer-dark.snapshot.json",
+      "dom": "minimum-860x620/import-review-footer-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/import-review-footer-dark.native.json",
+      "errorLogs": "minimum-860x620/import-review-footer-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/import-review-footer-light.png",
+      "sha256": "f9bde23f860f2c553ae68e92619908b74359509cbfcf2781775ee7ecb77a6a6c",
+      "snapshot": "minimum-860x620/import-review-footer-light.snapshot.json",
+      "dom": "minimum-860x620/import-review-footer-light.dom.json",
+      "nativeMetadata": "minimum-860x620/import-review-footer-light.native.json",
+      "errorLogs": "minimum-860x620/import-review-footer-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/import-review-light.png",
+      "sha256": "fb5f46042a3f70c5a2eace55f0d0483250d8da83d56164aefe0593f946165511",
+      "snapshot": "minimum-860x620/import-review-light.snapshot.json",
+      "dom": "minimum-860x620/import-review-light.dom.json",
+      "nativeMetadata": "minimum-860x620/import-review-light.native.json",
+      "errorLogs": "minimum-860x620/import-review-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/library-shared-slug-dark.png",
+      "sha256": "aebb492bf11edb55e7ada894669951d5004c22be2a7ae9a37e25dd10c604fa93",
+      "snapshot": "minimum-860x620/library-shared-slug-dark.snapshot.json",
+      "dom": "minimum-860x620/library-shared-slug-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/library-shared-slug-dark.native.json",
+      "errorLogs": "minimum-860x620/library-shared-slug-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/library-shared-slug-light.png",
+      "sha256": "a9813bdb29b8c38d0d2ab6a3043cfbd38758c9fe352164a0fd905675a2072454",
+      "snapshot": "minimum-860x620/library-shared-slug-light.snapshot.json",
+      "dom": "minimum-860x620/library-shared-slug-light.dom.json",
+      "nativeMetadata": "minimum-860x620/library-shared-slug-light.native.json",
+      "errorLogs": "minimum-860x620/library-shared-slug-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/onboarding-prerequisites-dark.png",
+      "sha256": "12b391318644263876c69453c0dee87ccfe217fba992bac6d7cb2bddc8db5431",
+      "snapshot": "minimum-860x620/onboarding-prerequisites-dark.snapshot.json",
+      "dom": "minimum-860x620/onboarding-prerequisites-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/onboarding-prerequisites-dark.native.json",
+      "errorLogs": "minimum-860x620/onboarding-prerequisites-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/onboarding-prerequisites-light.png",
+      "sha256": "ce8d6bcd2d6ed46783456f07822c285d4c0dc8ba377aabbcdd36b29e7e138ed7",
+      "snapshot": "minimum-860x620/onboarding-prerequisites-light.snapshot.json",
+      "dom": "minimum-860x620/onboarding-prerequisites-light.dom.json",
+      "nativeMetadata": "minimum-860x620/onboarding-prerequisites-light.native.json",
+      "errorLogs": "minimum-860x620/onboarding-prerequisites-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/settings-root-added-dark.png",
+      "sha256": "7790666a3b452b2505b1ed1ebe31f06def3c589e1b4a5dee4aedf2302be7defe",
+      "snapshot": "minimum-860x620/settings-root-added-dark.snapshot.json",
+      "dom": "minimum-860x620/settings-root-added-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/settings-root-added-dark.native.json",
+      "errorLogs": "minimum-860x620/settings-root-added-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/settings-root-added-light.png",
+      "sha256": "9b19513f7d879ee22a5d30315fa77f6a00be49cd19495865cba98a56643a36fa",
+      "snapshot": "minimum-860x620/settings-root-added-light.snapshot.json",
+      "dom": "minimum-860x620/settings-root-added-light.dom.json",
+      "nativeMetadata": "minimum-860x620/settings-root-added-light.native.json",
+      "errorLogs": "minimum-860x620/settings-root-added-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/shared-slug-preview-dark.png",
+      "sha256": "ef359bf2a395d80fc485647b2bfc604e3fa7da89a1166f9e9937812bfa4ea856",
+      "snapshot": "minimum-860x620/shared-slug-preview-dark.snapshot.json",
+      "dom": "minimum-860x620/shared-slug-preview-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/shared-slug-preview-dark.native.json",
+      "errorLogs": "minimum-860x620/shared-slug-preview-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/shared-slug-preview-light.png",
+      "sha256": "4fc2fa91bb0a61b55a46598773755a053d87ad0b5ab69f54da24e38f9e04efca",
+      "snapshot": "minimum-860x620/shared-slug-preview-light.snapshot.json",
+      "dom": "minimum-860x620/shared-slug-preview-light.dom.json",
+      "nativeMetadata": "minimum-860x620/shared-slug-preview-light.native.json",
+      "errorLogs": "minimum-860x620/shared-slug-preview-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/sidebar-192-dark.png",
+      "sha256": "12ef6650dc54e4178885d5d1ee5e3cb6534412164202b8ba492058c687f1aa71",
+      "snapshot": "minimum-860x620/sidebar-192-dark.snapshot.json",
+      "dom": "minimum-860x620/sidebar-192-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/sidebar-192-dark.native.json",
+      "errorLogs": "minimum-860x620/sidebar-192-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/sidebar-192-light.png",
+      "sha256": "7d2622da415dc8d602a32edf50fd6b7351cfa8fc5796a91979d0a527578645df",
+      "snapshot": "minimum-860x620/sidebar-192-light.snapshot.json",
+      "dom": "minimum-860x620/sidebar-192-light.dom.json",
+      "nativeMetadata": "minimum-860x620/sidebar-192-light.native.json",
+      "errorLogs": "minimum-860x620/sidebar-192-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/sidebar-400-dark.png",
+      "sha256": "03e5974a1b87d0b71579de7f713788fa9b5af13b39336a43d89928a4544af9dd",
+      "snapshot": "minimum-860x620/sidebar-400-dark.snapshot.json",
+      "dom": "minimum-860x620/sidebar-400-dark.dom.json",
+      "nativeMetadata": "minimum-860x620/sidebar-400-dark.native.json",
+      "errorLogs": "minimum-860x620/sidebar-400-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "minimum-860x620/sidebar-400-light.png",
+      "sha256": "abf0246c5f9542c7ad8b8741c4af9ffc2f9b976e124f3c057165ef4cbc28c75c",
+      "snapshot": "minimum-860x620/sidebar-400-light.snapshot.json",
+      "dom": "minimum-860x620/sidebar-400-light.dom.json",
+      "nativeMetadata": "minimum-860x620/sidebar-400-light.native.json",
+      "errorLogs": "minimum-860x620/sidebar-400-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/discovery-results-dark.png",
+      "sha256": "c5e35bac092509cd77b68ee3fd868ebc1345ab38048597d35fcfea6e99a53357",
+      "snapshot": "wide-1600x900/discovery-results-dark.snapshot.json",
+      "dom": "wide-1600x900/discovery-results-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/discovery-results-dark.native.json",
+      "errorLogs": "wide-1600x900/discovery-results-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/discovery-results-light.png",
+      "sha256": "5e487eace15b0a7e6a8a320a057652cb3611b2fac787dececa2804debd6082f9",
+      "snapshot": "wide-1600x900/discovery-results-light.snapshot.json",
+      "dom": "wide-1600x900/discovery-results-light.dom.json",
+      "nativeMetadata": "wide-1600x900/discovery-results-light.native.json",
+      "errorLogs": "wide-1600x900/discovery-results-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/import-review-dark.png",
+      "sha256": "2efdf6d1a437e3bbc60cfb7c73c55f362d4bd50c4518d11ba26d95ca19e17133",
+      "snapshot": "wide-1600x900/import-review-dark.snapshot.json",
+      "dom": "wide-1600x900/import-review-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/import-review-dark.native.json",
+      "errorLogs": "wide-1600x900/import-review-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/import-review-footer-dark.png",
+      "sha256": "2efdf6d1a437e3bbc60cfb7c73c55f362d4bd50c4518d11ba26d95ca19e17133",
+      "snapshot": "wide-1600x900/import-review-footer-dark.snapshot.json",
+      "dom": "wide-1600x900/import-review-footer-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/import-review-footer-dark.native.json",
+      "errorLogs": "wide-1600x900/import-review-footer-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/import-review-footer-light.png",
+      "sha256": "7a68d94cda22bc6d559b5ffde29f40a4bdfee183c2700d25f39f6aa834d23fdc",
+      "snapshot": "wide-1600x900/import-review-footer-light.snapshot.json",
+      "dom": "wide-1600x900/import-review-footer-light.dom.json",
+      "nativeMetadata": "wide-1600x900/import-review-footer-light.native.json",
+      "errorLogs": "wide-1600x900/import-review-footer-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/import-review-light.png",
+      "sha256": "7a68d94cda22bc6d559b5ffde29f40a4bdfee183c2700d25f39f6aa834d23fdc",
+      "snapshot": "wide-1600x900/import-review-light.snapshot.json",
+      "dom": "wide-1600x900/import-review-light.dom.json",
+      "nativeMetadata": "wide-1600x900/import-review-light.native.json",
+      "errorLogs": "wide-1600x900/import-review-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/library-shared-slug-dark.png",
+      "sha256": "612a79ce78624d1cced5d16ea4a0b9a0d869e4e275f907425217085d24cf40ad",
+      "snapshot": "wide-1600x900/library-shared-slug-dark.snapshot.json",
+      "dom": "wide-1600x900/library-shared-slug-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/library-shared-slug-dark.native.json",
+      "errorLogs": "wide-1600x900/library-shared-slug-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/library-shared-slug-light.png",
+      "sha256": "f5bf2d60468252b35c486a8510d72e9cef05bca7782a46b8c4f4e5c2cda7b572",
+      "snapshot": "wide-1600x900/library-shared-slug-light.snapshot.json",
+      "dom": "wide-1600x900/library-shared-slug-light.dom.json",
+      "nativeMetadata": "wide-1600x900/library-shared-slug-light.native.json",
+      "errorLogs": "wide-1600x900/library-shared-slug-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/onboarding-prerequisites-dark.png",
+      "sha256": "7a57ec894071bc699f48a88db8c8c0a499e0482a4a8ed0282c0eec355348ef93",
+      "snapshot": "wide-1600x900/onboarding-prerequisites-dark.snapshot.json",
+      "dom": "wide-1600x900/onboarding-prerequisites-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/onboarding-prerequisites-dark.native.json",
+      "errorLogs": "wide-1600x900/onboarding-prerequisites-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/onboarding-prerequisites-light.png",
+      "sha256": "d10b581d65356e68f31fd5ba22b8b4862a895b8beb37e77df579b06a20117c17",
+      "snapshot": "wide-1600x900/onboarding-prerequisites-light.snapshot.json",
+      "dom": "wide-1600x900/onboarding-prerequisites-light.dom.json",
+      "nativeMetadata": "wide-1600x900/onboarding-prerequisites-light.native.json",
+      "errorLogs": "wide-1600x900/onboarding-prerequisites-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": false,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/settings-root-added-dark.png",
+      "sha256": "c9995634cc37008b095a1f7e7503deb2fefdc50891198897e8c50f55eb94b754",
+      "snapshot": "wide-1600x900/settings-root-added-dark.snapshot.json",
+      "dom": "wide-1600x900/settings-root-added-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/settings-root-added-dark.native.json",
+      "errorLogs": "wide-1600x900/settings-root-added-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/settings-root-added-light.png",
+      "sha256": "8f3704b81b7e797eaacf9bb0dccfec78e06c266c3763871f6487eabc215450f4",
+      "snapshot": "wide-1600x900/settings-root-added-light.snapshot.json",
+      "dom": "wide-1600x900/settings-root-added-light.dom.json",
+      "nativeMetadata": "wide-1600x900/settings-root-added-light.native.json",
+      "errorLogs": "wide-1600x900/settings-root-added-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/shared-slug-preview-dark.png",
+      "sha256": "8b7ac7ead9220e899446529ef1ebb12e161d38175245b2629e286ec5868114f3",
+      "snapshot": "wide-1600x900/shared-slug-preview-dark.snapshot.json",
+      "dom": "wide-1600x900/shared-slug-preview-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/shared-slug-preview-dark.native.json",
+      "errorLogs": "wide-1600x900/shared-slug-preview-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/shared-slug-preview-light.png",
+      "sha256": "f360786b39280ba3e6950016b844fa40b84bc209ca07c8556fb56610f41df4b7",
+      "snapshot": "wide-1600x900/shared-slug-preview-light.snapshot.json",
+      "dom": "wide-1600x900/shared-slug-preview-light.dom.json",
+      "nativeMetadata": "wide-1600x900/shared-slug-preview-light.native.json",
+      "errorLogs": "wide-1600x900/shared-slug-preview-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/sidebar-192-dark.png",
+      "sha256": "d61c003985851dc8eb355c8e2024e57cc2e3698830cb7968d9b53eaa952b29bf",
+      "snapshot": "wide-1600x900/sidebar-192-dark.snapshot.json",
+      "dom": "wide-1600x900/sidebar-192-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/sidebar-192-dark.native.json",
+      "errorLogs": "wide-1600x900/sidebar-192-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/sidebar-192-light.png",
+      "sha256": "ed3fdb05bc32e10c7b6111d72f7e266239ec5dc6a570190c210cebad3db51f67",
+      "snapshot": "wide-1600x900/sidebar-192-light.snapshot.json",
+      "dom": "wide-1600x900/sidebar-192-light.dom.json",
+      "nativeMetadata": "wide-1600x900/sidebar-192-light.native.json",
+      "errorLogs": "wide-1600x900/sidebar-192-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/sidebar-400-dark.png",
+      "sha256": "dd5e1a0474354ba411b9684822245d3f29979bc2920afe32f03f3abcb7ec9a5a",
+      "snapshot": "wide-1600x900/sidebar-400-dark.snapshot.json",
+      "dom": "wide-1600x900/sidebar-400-dark.dom.json",
+      "nativeMetadata": "wide-1600x900/sidebar-400-dark.native.json",
+      "errorLogs": "wide-1600x900/sidebar-400-dark.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    },
+    {
+      "name": "wide-1600x900/sidebar-400-light.png",
+      "sha256": "5a6c9fba57cbf580fab9049cc545f8ef6ac0e00ccebeac0fe6eac7ad96069816",
+      "snapshot": "wide-1600x900/sidebar-400-light.snapshot.json",
+      "dom": "wide-1600x900/sidebar-400-light.dom.json",
+      "nativeMetadata": "wide-1600x900/sidebar-400-light.native.json",
+      "errorLogs": "wide-1600x900/sidebar-400-light.errors.json",
+      "loadedWebFonts": [],
+      "documentHasFocus": true,
+      "captureBackend": "cgwindow"
+    }
+  ]
+}

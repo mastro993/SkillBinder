@@ -1,0 +1,11 @@
+{
+  "windowId": 1190,
+  "pid": 58790,
+  "bounds": {
+    "x": 64,
+    "y": 68,
+    "width": 1600,
+    "height": 900
+  },
+  "captureChange": "Only startup width/height changed in archived tauri.conf.json. minWidth860/minHeight620, identifier, incognito and application source unchanged."
+}

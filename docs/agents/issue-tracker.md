@@ -2,64 +2,26 @@
 
 ## Where work lives
 
-Issues live in GitHub Issues on `origin`, `https://github.com/mastro993/SkillBinder.git`.
+Issues live in GitHub Issues on `origin`, `https://github.com/mastro993/SkillBinder.git`. External pull requests are also a triage surface. Evaluate them using the same evidence and label vocabulary as issues.
 
-External pull requests are a triage surface as well. A pull request from outside the project is
-read as a work item: it is triaged the same way as an issue, and it either answers the report or
-becomes one.
+The native application implements the shipped product journeys. `docs/native-gate.md` records verified checks and remaining platform evidence. `fixtures/contracts/domain-contract.md` preserves the shipped behavior, while `docs/features/native.md` describes its current implementation. Retired MVP plans do not expand the approved scope.
 
-## The life of a work item
+## Describe a work item
 
-1. **Planning notes.** `.scratch/skillbinder-mvp/spec.md` holds the MVP problem statement,
-   solution, and user stories. `.scratch/skillbinder-mvp/issues/` holds the numbered tickets
-   (`01-bootstrap-skillbinder-and-resumable-onboarding.md` through
-   `16-prove-cross-platform-source-readiness.md`), each with `**What to build:**`,
-   `**Blocked by:**`, `**Status:**`, and acceptance checkboxes. A file there is a plan, not a
-   tracked issue. `Status: ready-for-agent` means the blockers are done.
-2. **Settled documentation.** Behavior that will survive the ticket lands in
-   `docs/features/<feature>.md`. A decision with rejected alternatives lands in
-   `docs/adr/<nnn>-<slug>.md`. Layer ownership and state flow land in `docs/architecture/`.
-   The full specification stays in `docs/mvp-technical-specification.md`.
-3. **Code.** `crates/core` holds the domain rules, `crates/app` the context initialization,
-   `crates/db` the SQLite state, `crates/platform` the filesystem and Git ports, `apps/tauri` the
-   IPC shell and the DTOs under `apps/tauri/src/transport/`, `apps/frontend` the presentation. Root
-   `AGENTS.md` gives the order to add a feature with backend data in.
-4. **Tests.** Rust `#[test]` functions and Vitest files in the nearest `__tests__/`. The manual
-   harnesses are `cargo run -p skillbinder --example j01_probe` and
-   `cargo run -p skillbinder --example j02_probe`; each prints `PROBE RESULT: PASS` when its rules
-   hold.
-5. **Landing.** A branch, a green `pnpm verify`, and a pull request against `origin`. An
-   acceptance checkbox is checked with evidence, not with code that merely compiles.
+Read root `AGENTS.md`, `CONTRIBUTING.md`, the native gate status, and the affected architecture or feature documentation. State the observable problem, the operating system and screen where it occurs, and the command or interaction that reproduces it. Separate an observed defect from a proposed implementation.
 
-## Before opening an issue
+A ready work item names its acceptance evidence, dependencies, and ownership. A build result does not satisfy a native interaction or visual parity requirement. Use `triage-labels.md` for category and state labels. Triage remains human-invoked.
 
-Read in this order:
+## Implement and verify
 
-- The matching file in `.scratch/skillbinder-mvp/issues/`, and the spec it comes from.
-- `docs/features/` for the feature being touched, `docs/architecture/` for the layers it crosses,
-  and `docs/adr/` for the decisions already taken.
-- Root `AGENTS.md` for the conventions and `apps/frontend/AGENTS.md` for frontend work.
-- `CONTRIBUTING.md` for what must never enter the repository.
+The executable lives in `apps/desktop`, native presentation in `crates/ui`, appearance in `crates/theme`, and repository tooling in `xtask`. Shared typed contracts live in `crates/proto`, domain operations and durable state in `crates/engine`, and cached projections and subscriptions in `crates/client`. Their responsibilities are specified in `docs/architecture/native.md`.
 
-Then state the observable behavior that is wrong, the surface it is wrong on, and the command that
-shows it, rather than a proposed patch.
+Use the verification commands in the README. Add meaningful Rust tests at the owning behavior boundary when new domain operations are implemented. Native input, focus, directory selection, and rendering require an interactive desktop check with recorded evidence.
 
-## How a fix lands
+A registry change updates `fixtures/contracts/registry-79.json` and its pinned provenance. Run `cargo run -p xtask -- verify`. Generate registry documentation with `cargo run -p xtask -- registry > docs/supported-agents.md`.
 
-Branch from the default branch, make the change, then run `pnpm verify`, which chains
-`format:check`, `format:check:rust`, `lint`, `lint:rust`, `typecheck`, `contracts:check`, `test`,
-and `test:rust`. Open the pull request against `origin` once it passes.
+## Deliver an authorized change
 
-Two gates need a regeneration step first:
+Preserve unrelated work, rebase onto current `main`, and update affected documents with the behavior change. Open a pull request only when requested. Use the repository template when one exists and include `Closes #<number>` for the issue being resolved. Merge only with explicit authorization.
 
-- A change to `apps/tauri/src/transport/` needs `pnpm contracts:generate`, because
-  `contracts:check` fails when the committed TypeScript in `apps/frontend/src/types` is stale.
-- A change to `crates/core/src/discovery/registry.json` needs `node scripts/registry.mjs docs` to
-  regenerate `docs/agent-support.md`, and stays red in `registry:check` until the checked-in
-  registry matches the pinned upstream snapshot in `tests/fixtures/upstream-skills-cli/`.
-
-A new or removed frontend route needs `pnpm --filter frontend generate-routes` before the
-typecheck will pass.
-
-Never add imported skill content, credentials, private repository names, machine paths, installer
-signing material, or updater infrastructure to the repository.
+Do not include credentials, private skill payloads, private repository identifiers, or signing material. Sanitize native evidence before sharing it. Keep publishing and credential-dependent signing separate from local packaging checks.

@@ -1,0 +1,180 @@
+{
+  "elements": [
+    {
+      "depth": 0,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e1",
+      "role": "generic"
+    },
+    {
+      "depth": 1,
+      "name": "Fixture mode \u00b7 no native accessSkillBinderDiscover",
+      "ref": "e2",
+      "role": "generic"
+    },
+    {
+      "depth": 12,
+      "name": "Discovery5skills found",
+      "ref": "e3",
+      "role": "link"
+    },
+    {
+      "depth": 12,
+      "name": "Skills, 6 skills",
+      "ref": "e4",
+      "role": "link"
+    },
+    {
+      "depth": 10,
+      "name": "New folder",
+      "ref": "e5",
+      "role": "button"
+    },
+    {
+      "depth": 11,
+      "name": "Sync",
+      "ref": "e6",
+      "role": "link"
+    },
+    {
+      "depth": 11,
+      "name": "Settings",
+      "ref": "e7",
+      "role": "link"
+    },
+    {
+      "depth": 4,
+      "name": "Resize sidebar",
+      "ref": "e8",
+      "role": "separator"
+    },
+    {
+      "depth": 8,
+      "name": "Open navigation",
+      "ref": "e9",
+      "role": "button"
+    },
+    {
+      "depth": 8,
+      "name": "Read-only inspectionDiscoveryRun a bounded scan, a",
+      "ref": "e10",
+      "role": "presentation"
+    },
+    {
+      "depth": 15,
+      "name": "Scan again",
+      "ref": "e11",
+      "role": "button"
+    },
+    {
+      "depth": 15,
+      "name": "Select selectable on this page",
+      "ref": "e12",
+      "role": "button"
+    },
+    {
+      "depth": 19,
+      "name": "Select Review",
+      "ref": "e13",
+      "role": "checkbox"
+    },
+    {
+      "checked": true,
+      "depth": 19,
+      "ref": "e14",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Research",
+      "ref": "e15",
+      "role": "checkbox"
+    },
+    {
+      "checked": true,
+      "depth": 19,
+      "ref": "e16",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Outline",
+      "ref": "e17",
+      "role": "checkbox"
+    },
+    {
+      "checked": true,
+      "depth": 19,
+      "ref": "e18",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Unsafe",
+      "ref": "e19",
+      "role": "checkbox"
+    },
+    {
+      "checked": false,
+      "depth": 19,
+      "disabled": true,
+      "ref": "e20",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 19,
+      "name": "Select Docs",
+      "ref": "e21",
+      "role": "checkbox"
+    },
+    {
+      "checked": true,
+      "depth": 19,
+      "ref": "e22",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 14,
+      "disabled": true,
+      "name": "Previous page",
+      "ref": "e23",
+      "role": "button"
+    },
+    {
+      "depth": 14,
+      "disabled": true,
+      "name": "Next page",
+      "ref": "e24",
+      "role": "button"
+    },
+    {
+      "depth": 16,
+      "name": "I understand invalid skills may need repair before",
+      "ref": "e25",
+      "role": "checkbox"
+    },
+    {
+      "checked": true,
+      "depth": 16,
+      "ref": "e26",
+      "role": "checkbox",
+      "value": "on"
+    },
+    {
+      "depth": 15,
+      "name": "Review import",
+      "ref": "e27",
+      "role": "button"
+    }
+  ],
+  "options": {
+    "depth": null,
+    "interactive": true,
+    "selector": null
+  }
+}

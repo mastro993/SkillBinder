@@ -1,0 +1,3 @@
+[env]
+# Minimum supported macOS release; keep in sync with LSMinimumSystemVersion in xtask/src/package.rs.
+MACOSX_DEPLOYMENT_TARGET = "26.0"

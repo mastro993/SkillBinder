@@ -1,0 +1,14 @@
+{
+  "images": 88,
+  "associatedEvidenceComplete": true,
+  "allLoadedWebFontsEmpty": true,
+  "allNativeScreenshotResponsesSucceeded": true,
+  "sidebarWidthsAllThreeDimensions": [
+    192,
+    400,
+    232
+  ],
+  "startupConfigRestoredByteExactly": true,
+  "productionConsoleErrors": 0,
+  "nativeEngineEffectsVerified": false
+}

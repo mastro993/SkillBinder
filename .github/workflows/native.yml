@@ -1,0 +1,106 @@
+name: Native application
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-26
+          # GitHub offers no Intel macOS 26 runner; build x86_64 and run it under Rosetta.
+          - os: macos-26
+            target: x86_64-apple-darwin
+            cargo-target: --target x86_64-apple-darwin
+            target-dir: x86_64-apple-darwin/
+          - os: windows-2025
+          - os: ubuntu-24.04
+    name: build (${{ matrix.target || matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang cmake ninja-build pkg-config libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libssl-dev libvulkan1 mesa-vulkan-drivers xdg-desktop-portal xvfb weston gdb
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+      - name: Install cross-compilation target
+        if: matrix.target
+        run: |
+          rustup target add ${{ matrix.target }}
+          softwareupdate --install-rosetta --agree-to-license
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: native-${{ matrix.target || matrix.os }}
+          cache-on-failure: true
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Verify retained evidence
+        run: cargo run -p xtask --locked -- verify
+      - name: Check native graph
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Run workspace tests
+        run: cargo test --workspace --all-targets --locked ${{ matrix.cargo-target }}
+      - name: Test native launch arguments
+        run: cargo test -p skillbinder --features native-test --locked ${{ matrix.cargo-target }}
+      - name: Build native test application
+        run: cargo build -p skillbinder --features native-test --locked ${{ matrix.cargo-target }}
+      - name: Exercise native renderer on macOS
+        if: runner.os == 'macOS'
+        timeout-minutes: 2
+        run: target/${{ matrix.target-dir }}debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-smoke"
+      - name: Exercise native renderer on Windows
+        if: runner.os == 'Windows'
+        run: |
+          $process = Start-Process target/debug/skillbinder.exe -ArgumentList @('--smoke-test', '--data-dir', "$env:RUNNER_TEMP/native-smoke") -PassThru -NoNewWindow
+          if (!$process.WaitForExit(60000)) { $process.Kill(); throw 'Native smoke timed out' }
+          if ($process.ExitCode -ne 0) { throw "Native smoke failed: $($process.ExitCode)" }
+      - name: Exercise Linux X11 and Wayland
+        if: runner.os == 'Linux'
+        run: |
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/native-runtime"
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          dbus-run-session -- xvfb-run -a bash .github/scripts/native-linux-sessions.sh
+      - name: Build release application
+        run: cargo build -p skillbinder --release --locked ${{ matrix.cargo-target }}
+      - name: Package release application
+        run: cargo run -p xtask --locked -- package ${{ matrix.target }}
+      - name: Verify packaged executable
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            for app in dist/*/SkillBinder.app/Contents/MacOS/skillbinder; do
+              "$app" --version
+              vtool -show-build "$app" | grep -q 'minos 26.0'
+            done
+          elif [ "$RUNNER_OS" = Windows ]; then
+            dist/*/SkillBinder/skillbinder.exe --version
+          else
+            dist/*/SkillBinder/skillbinder --version
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skillbinder-${{ matrix.target || matrix.os }}
+          path: |
+            dist/**/*.dmg
+            dist/**/*.zip
+            dist/**/*.tar.gz
+          if-no-files-found: error

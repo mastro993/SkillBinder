@@ -1,0 +1,866 @@
+{
+  "baselineRevision": "83d55ef789a7cf256021f6620742e0e9021a8312",
+  "kind": "macOS native development fixture baseline",
+  "windowBounds": {
+    "x": 274,
+    "y": 103,
+    "width": 1180,
+    "height": 760
+  },
+  "webviewViewport": {
+    "width": 1180,
+    "height": 728
+  },
+  "displayPixels": {
+    "width": 1728,
+    "height": 1117
+  },
+  "devicePixelRatio": 1,
+  "captureBackend": "cgwindow",
+  "tccDenied": true,
+  "note": "Native fallback retains raw app pixels on black desktop. No image edits. Captures contain original fixture mode badge and devtools trigger. Window titlebar inactive. Hidden devtools elements remain in accessibility snapshots. Development devtools load Inter; these captures are not authoritative production typography. Production supplemental baseline required. Every capture waits document.fonts.ready after shared-slug-reference-file; earlier font lists already report loaded.",
+  "nativeEngineProof": false,
+  "fixtureInjections": "fixture-injections.jsonl",
+  "interactions": "interactions.jsonl",
+  "screenshots": [
+    {
+      "name": "discovery-cancelled-dark",
+      "png": "discovery-cancelled-dark.png",
+      "sha256": "71d9e8df3a133339b080edf90d362b320d2cb0d438035d7615ce370bcdc15708",
+      "snapshot": "discovery-cancelled-dark.snapshot.json",
+      "dom": "discovery-cancelled-dark.dom.json",
+      "nativeMetadata": "discovery-cancelled-dark.native.json",
+      "errorLogs": "discovery-cancelled-dark.errors.json"
+    },
+    {
+      "name": "discovery-cancelled-light",
+      "png": "discovery-cancelled-light.png",
+      "sha256": "501957aa89d19548555896c8ee2857baa9450bd9a7063bf09db525da84d91f8a",
+      "snapshot": "discovery-cancelled-light.snapshot.json",
+      "dom": "discovery-cancelled-light.dom.json",
+      "nativeMetadata": "discovery-cancelled-light.native.json",
+      "errorLogs": "discovery-cancelled-light.errors.json"
+    },
+    {
+      "name": "discovery-failed-fixture-dark",
+      "png": "discovery-failed-fixture-dark.png",
+      "sha256": "0619c6b4720f04c4a34fd27d687aeefb41d4c6aa2934fa3d06c23608e4305290",
+      "snapshot": "discovery-failed-fixture-dark.snapshot.json",
+      "dom": "discovery-failed-fixture-dark.dom.json",
+      "nativeMetadata": "discovery-failed-fixture-dark.native.json",
+      "errorLogs": "discovery-failed-fixture-dark.errors.json"
+    },
+    {
+      "name": "discovery-failed-fixture-light",
+      "png": "discovery-failed-fixture-light.png",
+      "sha256": "a5fdb9c5ea9dc5ce6efb3473b9acc62b37e6cb952b18517090f34860d6543f39",
+      "snapshot": "discovery-failed-fixture-light.snapshot.json",
+      "dom": "discovery-failed-fixture-light.dom.json",
+      "nativeMetadata": "discovery-failed-fixture-light.native.json",
+      "errorLogs": "discovery-failed-fixture-light.errors.json"
+    },
+    {
+      "name": "discovery-idle-dark",
+      "png": "discovery-idle-dark.png",
+      "sha256": "c085fc7e9c663d0eb18a475d593db22d5361e81796b36e198350147cb2c349c2",
+      "snapshot": "discovery-idle-dark.snapshot.json",
+      "dom": "discovery-idle-dark.dom.json",
+      "nativeMetadata": "discovery-idle-dark.native.json",
+      "errorLogs": "discovery-idle-dark.errors.json"
+    },
+    {
+      "name": "discovery-idle-light",
+      "png": "discovery-idle-light.png",
+      "sha256": "aeafff32636831a6cb1d3689ac670a54124584445fae08756d24b581af368a4b",
+      "snapshot": "discovery-idle-light.snapshot.json",
+      "dom": "discovery-idle-light.dom.json",
+      "nativeMetadata": "discovery-idle-light.native.json",
+      "errorLogs": "discovery-idle-light.errors.json"
+    },
+    {
+      "name": "discovery-invalid-selection-dark",
+      "png": "discovery-invalid-selection-dark.png",
+      "sha256": "ea0131b61c9a5a5b7df8f97661ea4741c530f1ff109c57abf4a1c462d760122f",
+      "snapshot": "discovery-invalid-selection-dark.snapshot.json",
+      "dom": "discovery-invalid-selection-dark.dom.json",
+      "nativeMetadata": "discovery-invalid-selection-dark.native.json",
+      "errorLogs": "discovery-invalid-selection-dark.errors.json"
+    },
+    {
+      "name": "discovery-invalid-selection-light",
+      "png": "discovery-invalid-selection-light.png",
+      "sha256": "13c0d2400e9bca231466ecbf6a3c9f7ccee74783ad46e2f3b14b689b888e4d38",
+      "snapshot": "discovery-invalid-selection-light.snapshot.json",
+      "dom": "discovery-invalid-selection-light.dom.json",
+      "nativeMetadata": "discovery-invalid-selection-light.native.json",
+      "errorLogs": "discovery-invalid-selection-light.errors.json"
+    },
+    {
+      "name": "discovery-results-dark",
+      "png": "discovery-results-dark.png",
+      "sha256": "a4bf4c9b93bd00f705fe89111fe1730572115d36f8a1e0590d96107486c301a6",
+      "snapshot": "discovery-results-dark.snapshot.json",
+      "dom": "discovery-results-dark.dom.json",
+      "nativeMetadata": "discovery-results-dark.native.json",
+      "errorLogs": "discovery-results-dark.errors.json"
+    },
+    {
+      "name": "discovery-results-light",
+      "png": "discovery-results-light.png",
+      "sha256": "ba0191738e8e808dabcf55980617da2f4322c796e7d7825d76035f860a5626ae",
+      "snapshot": "discovery-results-light.snapshot.json",
+      "dom": "discovery-results-light.dom.json",
+      "nativeMetadata": "discovery-results-light.native.json",
+      "errorLogs": "discovery-results-light.errors.json"
+    },
+    {
+      "name": "discovery-running-fixture-dark",
+      "png": "discovery-running-fixture-dark.png",
+      "sha256": "7e211056b1c3c8a2e9abded644dfc6e8856333fcf58ea0634eedb2aaa8015e9e",
+      "snapshot": "discovery-running-fixture-dark.snapshot.json",
+      "dom": "discovery-running-fixture-dark.dom.json",
+      "nativeMetadata": "discovery-running-fixture-dark.native.json",
+      "errorLogs": "discovery-running-fixture-dark.errors.json"
+    },
+    {
+      "name": "discovery-running-fixture-light",
+      "png": "discovery-running-fixture-light.png",
+      "sha256": "3e85efe3aed0084d66fd1a744368d808780c78f66d49044b1db62fc6f05b7d23",
+      "snapshot": "discovery-running-fixture-light.snapshot.json",
+      "dom": "discovery-running-fixture-light.dom.json",
+      "nativeMetadata": "discovery-running-fixture-light.native.json",
+      "errorLogs": "discovery-running-fixture-light.errors.json"
+    },
+    {
+      "name": "discovery-running-return-dark",
+      "png": "discovery-running-return-dark.png",
+      "sha256": "6ae6f9f2da9b86a4162b5c4f962e61cef489c502f99bb5ebeff75e90e53a38df",
+      "snapshot": "discovery-running-return-dark.snapshot.json",
+      "dom": "discovery-running-return-dark.dom.json",
+      "nativeMetadata": "discovery-running-return-dark.native.json",
+      "errorLogs": "discovery-running-return-dark.errors.json"
+    },
+    {
+      "name": "discovery-running-return-light",
+      "png": "discovery-running-return-light.png",
+      "sha256": "ba939191675a54e0e4d685f66981d9822c8daf5b30c9fabeed5bdb78ddf20521",
+      "snapshot": "discovery-running-return-light.snapshot.json",
+      "dom": "discovery-running-return-light.dom.json",
+      "nativeMetadata": "discovery-running-return-light.native.json",
+      "errorLogs": "discovery-running-return-light.errors.json"
+    },
+    {
+      "name": "discovery-running-settings-navigation-dark",
+      "png": "discovery-running-settings-navigation-dark.png",
+      "sha256": "32b2ad1406b7af7f7b4fbf98217d0fc58b1aa832ee179b5d3c8ee51fba1edeb3",
+      "snapshot": "discovery-running-settings-navigation-dark.snapshot.json",
+      "dom": "discovery-running-settings-navigation-dark.dom.json",
+      "nativeMetadata": "discovery-running-settings-navigation-dark.native.json",
+      "errorLogs": "discovery-running-settings-navigation-dark.errors.json"
+    },
+    {
+      "name": "discovery-running-settings-navigation-light",
+      "png": "discovery-running-settings-navigation-light.png",
+      "sha256": "bd4a707909a709a4d205650d4c051f105c931b86b403e00519ef7b9b9845c295",
+      "snapshot": "discovery-running-settings-navigation-light.snapshot.json",
+      "dom": "discovery-running-settings-navigation-light.dom.json",
+      "nativeMetadata": "discovery-running-settings-navigation-light.native.json",
+      "errorLogs": "discovery-running-settings-navigation-light.errors.json"
+    },
+    {
+      "name": "folder-create-empty-dark",
+      "png": "folder-create-empty-dark.png",
+      "sha256": "42afa1fe790026f8dad342d35779853502024be5089991c0de7e4c742ba1b65e",
+      "snapshot": "folder-create-empty-dark.snapshot.json",
+      "dom": "folder-create-empty-dark.dom.json",
+      "nativeMetadata": "folder-create-empty-dark.native.json",
+      "errorLogs": "folder-create-empty-dark.errors.json"
+    },
+    {
+      "name": "folder-create-empty-light",
+      "png": "folder-create-empty-light.png",
+      "sha256": "c28353572873051051620bab6bf9d2fec37e895c20a7901f655a20f702a60312",
+      "snapshot": "folder-create-empty-light.snapshot.json",
+      "dom": "folder-create-empty-light.dom.json",
+      "nativeMetadata": "folder-create-empty-light.native.json",
+      "errorLogs": "folder-create-empty-light.errors.json"
+    },
+    {
+      "name": "folder-delete-confirmation-dark",
+      "png": "folder-delete-confirmation-dark.png",
+      "sha256": "4385da3a03ea0eb368a19e6f57cbf52df88db27f09bc75479c1e4f49cd5f535d",
+      "snapshot": "folder-delete-confirmation-dark.snapshot.json",
+      "dom": "folder-delete-confirmation-dark.dom.json",
+      "nativeMetadata": "folder-delete-confirmation-dark.native.json",
+      "errorLogs": "folder-delete-confirmation-dark.errors.json"
+    },
+    {
+      "name": "folder-delete-confirmation-light",
+      "png": "folder-delete-confirmation-light.png",
+      "sha256": "7e09bf8efb19dd5e26b6fe0f7351b4110c7e76a6521ca5c96427c05c744189a7",
+      "snapshot": "folder-delete-confirmation-light.snapshot.json",
+      "dom": "folder-delete-confirmation-light.dom.json",
+      "nativeMetadata": "folder-delete-confirmation-light.native.json",
+      "errorLogs": "folder-delete-confirmation-light.errors.json"
+    },
+    {
+      "name": "folder-edit-dark",
+      "png": "folder-edit-dark.png",
+      "sha256": "0a8838f8e644dc446142b76fbc385582a7aa9b46980bc050c403c509c431497e",
+      "snapshot": "folder-edit-dark.snapshot.json",
+      "dom": "folder-edit-dark.dom.json",
+      "nativeMetadata": "folder-edit-dark.native.json",
+      "errorLogs": "folder-edit-dark.errors.json"
+    },
+    {
+      "name": "folder-edit-light",
+      "png": "folder-edit-light.png",
+      "sha256": "8c796353d3ad0a746db6f106c27d1a707f7910136419ba0426828baf2535d087",
+      "snapshot": "folder-edit-light.snapshot.json",
+      "dom": "folder-edit-light.dom.json",
+      "nativeMetadata": "folder-edit-light.native.json",
+      "errorLogs": "folder-edit-light.errors.json"
+    },
+    {
+      "name": "folder-empty-dark",
+      "png": "folder-empty-dark.png",
+      "sha256": "84f4b91c5c5f2f398003ac2905291d89d842de0247fb4b9466fbc44bfa9e433e",
+      "snapshot": "folder-empty-dark.snapshot.json",
+      "dom": "folder-empty-dark.dom.json",
+      "nativeMetadata": "folder-empty-dark.native.json",
+      "errorLogs": "folder-empty-dark.errors.json"
+    },
+    {
+      "name": "folder-empty-light",
+      "png": "folder-empty-light.png",
+      "sha256": "15fb68b55868b8ce38f610507caf0fb906f4d08bb6800b5bb60d29e8273b371c",
+      "snapshot": "folder-empty-light.snapshot.json",
+      "dom": "folder-empty-light.dom.json",
+      "nativeMetadata": "folder-empty-light.native.json",
+      "errorLogs": "folder-empty-light.errors.json"
+    },
+    {
+      "name": "folder-populated-dark",
+      "png": "folder-populated-dark.png",
+      "sha256": "4453448c9b13eb5273be242a7064e6f76436cb74ea0aa22d96485361f8a4276b",
+      "snapshot": "folder-populated-dark.snapshot.json",
+      "dom": "folder-populated-dark.dom.json",
+      "nativeMetadata": "folder-populated-dark.native.json",
+      "errorLogs": "folder-populated-dark.errors.json"
+    },
+    {
+      "name": "folder-populated-light",
+      "png": "folder-populated-light.png",
+      "sha256": "6b87af7cd557656686ec52ad1ca0bad1ffad38e3b0b0d1525595d68073eaa95a",
+      "snapshot": "folder-populated-light.snapshot.json",
+      "dom": "folder-populated-light.dom.json",
+      "nativeMetadata": "folder-populated-light.native.json",
+      "errorLogs": "folder-populated-light.errors.json"
+    },
+    {
+      "name": "import-applying-escape-retained-dark",
+      "png": "import-applying-escape-retained-dark.png",
+      "sha256": "91de33a1ec9288e29375166c1dad0ea444ddd3491bf58e8bcfdb25926e24ef56",
+      "snapshot": "import-applying-escape-retained-dark.snapshot.json",
+      "dom": "import-applying-escape-retained-dark.dom.json",
+      "nativeMetadata": "import-applying-escape-retained-dark.native.json",
+      "errorLogs": "import-applying-escape-retained-dark.errors.json"
+    },
+    {
+      "name": "import-applying-escape-retained-light",
+      "png": "import-applying-escape-retained-light.png",
+      "sha256": "4b46235507fe502f3e10a185ea3f8b60578bb004220fe2ffc0e7edb7313509f6",
+      "snapshot": "import-applying-escape-retained-light.snapshot.json",
+      "dom": "import-applying-escape-retained-light.dom.json",
+      "nativeMetadata": "import-applying-escape-retained-light.native.json",
+      "errorLogs": "import-applying-escape-retained-light.errors.json"
+    },
+    {
+      "name": "import-applying-fixture-dark",
+      "png": "import-applying-fixture-dark.png",
+      "sha256": "921af5d29ec25cb96464270631c573e058e5ee3f5e689dc69bce7ebb276f50ce",
+      "snapshot": "import-applying-fixture-dark.snapshot.json",
+      "dom": "import-applying-fixture-dark.dom.json",
+      "nativeMetadata": "import-applying-fixture-dark.native.json",
+      "errorLogs": "import-applying-fixture-dark.errors.json"
+    },
+    {
+      "name": "import-applying-fixture-light",
+      "png": "import-applying-fixture-light.png",
+      "sha256": "dd74bb979e25292106a1b2baf7be2505f9d3c25ffdcef9edf75b187c946b2c17",
+      "snapshot": "import-applying-fixture-light.snapshot.json",
+      "dom": "import-applying-fixture-light.dom.json",
+      "nativeMetadata": "import-applying-fixture-light.native.json",
+      "errorLogs": "import-applying-fixture-light.errors.json"
+    },
+    {
+      "name": "import-applying-footer-dark",
+      "png": "import-applying-footer-dark.png",
+      "sha256": "380447521614c626cd58cb28dcc71e5aef5ad0ea6070cfd5847bdf9a10b56173",
+      "snapshot": "import-applying-footer-dark.snapshot.json",
+      "dom": "import-applying-footer-dark.dom.json",
+      "nativeMetadata": "import-applying-footer-dark.native.json",
+      "errorLogs": "import-applying-footer-dark.errors.json"
+    },
+    {
+      "name": "import-applying-footer-light",
+      "png": "import-applying-footer-light.png",
+      "sha256": "ff6c43099874fc7d7aec535fa844b601c8cb276124f9a0e033f72f8282939407",
+      "snapshot": "import-applying-footer-light.snapshot.json",
+      "dom": "import-applying-footer-light.dom.json",
+      "nativeMetadata": "import-applying-footer-light.native.json",
+      "errorLogs": "import-applying-footer-light.errors.json"
+    },
+    {
+      "name": "import-complete-retained-dark",
+      "png": "import-complete-retained-dark.png",
+      "sha256": "6b3ba37824ccc02c3cf191ee0126a9e9827d7abdfbd7e4b5cfb796fa20924c9e",
+      "snapshot": "import-complete-retained-dark.snapshot.json",
+      "dom": "import-complete-retained-dark.dom.json",
+      "nativeMetadata": "import-complete-retained-dark.native.json",
+      "errorLogs": "import-complete-retained-dark.errors.json"
+    },
+    {
+      "name": "import-complete-retained-light",
+      "png": "import-complete-retained-light.png",
+      "sha256": "1d3a81ad075ccbfe5437cba57b79aabbd504e1ea73b741e1707ec7c282dce0ec",
+      "snapshot": "import-complete-retained-light.snapshot.json",
+      "dom": "import-complete-retained-light.dom.json",
+      "nativeMetadata": "import-complete-retained-light.native.json",
+      "errorLogs": "import-complete-retained-light.errors.json"
+    },
+    {
+      "name": "import-completed-dark",
+      "png": "import-completed-dark.png",
+      "sha256": "75bcf3999f00efaeb7719dd2513c56a2467e84ed7fab610ca540958dc36690e9",
+      "snapshot": "import-completed-dark.snapshot.json",
+      "dom": "import-completed-dark.dom.json",
+      "nativeMetadata": "import-completed-dark.native.json",
+      "errorLogs": "import-completed-dark.errors.json"
+    },
+    {
+      "name": "import-completed-light",
+      "png": "import-completed-light.png",
+      "sha256": "5bbdf0d221f7b0b3ebd5a0d994268c10334af543ac76ba8583f302ba3f42bc76",
+      "snapshot": "import-completed-light.snapshot.json",
+      "dom": "import-completed-light.dom.json",
+      "nativeMetadata": "import-completed-light.native.json",
+      "errorLogs": "import-completed-light.errors.json"
+    },
+    {
+      "name": "import-review-dark",
+      "png": "import-review-dark.png",
+      "sha256": "3cde16ea08cf92591811bcd6995753379e6895dc518a604c4eff434a56143989",
+      "snapshot": "import-review-dark.snapshot.json",
+      "dom": "import-review-dark.dom.json",
+      "nativeMetadata": "import-review-dark.native.json",
+      "errorLogs": "import-review-dark.errors.json"
+    },
+    {
+      "name": "import-review-footer-dark",
+      "png": "import-review-footer-dark.png",
+      "sha256": "1df8faec573a0d506a7ef6bd3b4d59c719ffc4d3113c7d623ab50d3e173ba5e5",
+      "snapshot": "import-review-footer-dark.snapshot.json",
+      "dom": "import-review-footer-dark.dom.json",
+      "nativeMetadata": "import-review-footer-dark.native.json",
+      "errorLogs": "import-review-footer-dark.errors.json"
+    },
+    {
+      "name": "import-review-footer-light",
+      "png": "import-review-footer-light.png",
+      "sha256": "9830da0c666949331e81194c6b1e1703ea345aa61ffa7c3257fa3a708045c66a",
+      "snapshot": "import-review-footer-light.snapshot.json",
+      "dom": "import-review-footer-light.dom.json",
+      "nativeMetadata": "import-review-footer-light.native.json",
+      "errorLogs": "import-review-footer-light.errors.json"
+    },
+    {
+      "name": "import-review-light",
+      "png": "import-review-light.png",
+      "sha256": "6605c29c8348a5d496b3228eb3357c5e2fad252cb8302cd1a4fafe6ce5235b9a",
+      "snapshot": "import-review-light.snapshot.json",
+      "dom": "import-review-light.dom.json",
+      "nativeMetadata": "import-review-light.native.json",
+      "errorLogs": "import-review-light.errors.json"
+    },
+    {
+      "name": "library-conflict-resolved-dark",
+      "png": "library-conflict-resolved-dark.png",
+      "sha256": "d05859569ed75d6a3a766d704347ec5d62a18e1a3724f7106f0fee0ec0974b90",
+      "snapshot": "library-conflict-resolved-dark.snapshot.json",
+      "dom": "library-conflict-resolved-dark.dom.json",
+      "nativeMetadata": "library-conflict-resolved-dark.native.json",
+      "errorLogs": "library-conflict-resolved-dark.errors.json"
+    },
+    {
+      "name": "library-conflict-resolved-light",
+      "png": "library-conflict-resolved-light.png",
+      "sha256": "86eb0f6440ec95a415ec30066da167be583f91030fb7424c6688707452ce8042",
+      "snapshot": "library-conflict-resolved-light.snapshot.json",
+      "dom": "library-conflict-resolved-light.dom.json",
+      "nativeMetadata": "library-conflict-resolved-light.native.json",
+      "errorLogs": "library-conflict-resolved-light.errors.json"
+    },
+    {
+      "name": "library-loaded-after-delay-dark",
+      "png": "library-loaded-after-delay-dark.png",
+      "sha256": "a80c729bb31800ff92ab2675620a8c93637959c2c6a65b49ab79b072faa19913",
+      "snapshot": "library-loaded-after-delay-dark.snapshot.json",
+      "dom": "library-loaded-after-delay-dark.dom.json",
+      "nativeMetadata": "library-loaded-after-delay-dark.native.json",
+      "errorLogs": "library-loaded-after-delay-dark.errors.json"
+    },
+    {
+      "name": "library-loaded-after-delay-light",
+      "png": "library-loaded-after-delay-light.png",
+      "sha256": "ef043168638d325f4732a87d34f1e44b8713b00a489033880fcfd70840654a62",
+      "snapshot": "library-loaded-after-delay-light.snapshot.json",
+      "dom": "library-loaded-after-delay-light.dom.json",
+      "nativeMetadata": "library-loaded-after-delay-light.native.json",
+      "errorLogs": "library-loaded-after-delay-light.errors.json"
+    },
+    {
+      "name": "library-loading-fixture-dark",
+      "png": "library-loading-fixture-dark.png",
+      "sha256": "7d46e3cbf50a70d234d14263a6abce536ca0714a7077bc3a1ea5124ace693226",
+      "snapshot": "library-loading-fixture-dark.snapshot.json",
+      "dom": "library-loading-fixture-dark.dom.json",
+      "nativeMetadata": "library-loading-fixture-dark.native.json",
+      "errorLogs": "library-loading-fixture-dark.errors.json"
+    },
+    {
+      "name": "library-loading-fixture-light",
+      "png": "library-loading-fixture-light.png",
+      "sha256": "b7d31a54e994a21ffddcf81bc795042bd33b4bdce6ea6df093c7e32b77f28c81",
+      "snapshot": "library-loading-fixture-light.snapshot.json",
+      "dom": "library-loading-fixture-light.dom.json",
+      "nativeMetadata": "library-loading-fixture-light.native.json",
+      "errorLogs": "library-loading-fixture-light.errors.json"
+    },
+    {
+      "name": "library-no-match-dark",
+      "png": "library-no-match-dark.png",
+      "sha256": "26d5cfe96d8e6aa3cee0a4a664c9094f6fb0cd30823548d457265111f263ea01",
+      "snapshot": "library-no-match-dark.snapshot.json",
+      "dom": "library-no-match-dark.dom.json",
+      "nativeMetadata": "library-no-match-dark.native.json",
+      "errorLogs": "library-no-match-dark.errors.json"
+    },
+    {
+      "name": "library-no-match-light",
+      "png": "library-no-match-light.png",
+      "sha256": "e7461d3e51aa860c23592b71c71f7ac4d79a8f3969bd4ed99bfaa14932221825",
+      "snapshot": "library-no-match-light.snapshot.json",
+      "dom": "library-no-match-light.dom.json",
+      "nativeMetadata": "library-no-match-light.native.json",
+      "errorLogs": "library-no-match-light.errors.json"
+    },
+    {
+      "name": "library-selection-dark",
+      "png": "library-selection-dark.png",
+      "sha256": "3f601edb179da101a3fc9944e1b57fd8f8e4a0ca1502947ce65fdb1d7bea1387",
+      "snapshot": "library-selection-dark.snapshot.json",
+      "dom": "library-selection-dark.dom.json",
+      "nativeMetadata": "library-selection-dark.native.json",
+      "errorLogs": "library-selection-dark.errors.json"
+    },
+    {
+      "name": "library-selection-light",
+      "png": "library-selection-light.png",
+      "sha256": "66535c92d2751c26f8b3cde2d7f28ff80824d7df652cffeb9aada525dcf027d5",
+      "snapshot": "library-selection-light.snapshot.json",
+      "dom": "library-selection-light.dom.json",
+      "nativeMetadata": "library-selection-light.native.json",
+      "errorLogs": "library-selection-light.errors.json"
+    },
+    {
+      "name": "library-shared-slug-dark",
+      "png": "library-shared-slug-dark.png",
+      "sha256": "a76f05e73fe80cb3ce84a5d09ee76c292d50a31f1bd7245f65a82739508a590e",
+      "snapshot": "library-shared-slug-dark.snapshot.json",
+      "dom": "library-shared-slug-dark.dom.json",
+      "nativeMetadata": "library-shared-slug-dark.native.json",
+      "errorLogs": "library-shared-slug-dark.errors.json"
+    },
+    {
+      "name": "library-shared-slug-light",
+      "png": "library-shared-slug-light.png",
+      "sha256": "589f1218484206fb2d40f117d008e227ec853133bceaa83a0282a7890ad24be2",
+      "snapshot": "library-shared-slug-light.snapshot.json",
+      "dom": "library-shared-slug-light.dom.json",
+      "nativeMetadata": "library-shared-slug-light.native.json",
+      "errorLogs": "library-shared-slug-light.errors.json"
+    },
+    {
+      "name": "onboarding-1-prerequisites-dark",
+      "png": "onboarding-1-prerequisites-dark.png",
+      "sha256": "04fa7894409cbdf0507b72cfb94194384f539b93b9c2760768636b70eb85fcb5",
+      "snapshot": "onboarding-1-prerequisites-dark.snapshot.json",
+      "dom": "onboarding-1-prerequisites-dark.dom.json",
+      "nativeMetadata": "onboarding-1-prerequisites-dark.native.json",
+      "errorLogs": "onboarding-1-prerequisites-dark.errors.json"
+    },
+    {
+      "name": "onboarding-1-prerequisites-light",
+      "png": "onboarding-1-prerequisites-light.png",
+      "sha256": "94a3a17bf5d809b482df6aaef2473ec10999a0017bd75a4bef7da03f54e6884b",
+      "snapshot": "onboarding-1-prerequisites-light.snapshot.json",
+      "dom": "onboarding-1-prerequisites-light.dom.json",
+      "nativeMetadata": "onboarding-1-prerequisites-light.native.json",
+      "errorLogs": "onboarding-1-prerequisites-light.errors.json"
+    },
+    {
+      "name": "onboarding-2-boundaries-dark",
+      "png": "onboarding-2-boundaries-dark.png",
+      "sha256": "083200c84e189c38f356222f9f787450589a23ea7c5f2f9805c9a89a11b9d031",
+      "snapshot": "onboarding-2-boundaries-dark.snapshot.json",
+      "dom": "onboarding-2-boundaries-dark.dom.json",
+      "nativeMetadata": "onboarding-2-boundaries-dark.native.json",
+      "errorLogs": "onboarding-2-boundaries-dark.errors.json"
+    },
+    {
+      "name": "onboarding-2-boundaries-light",
+      "png": "onboarding-2-boundaries-light.png",
+      "sha256": "2fd0a5557e87658255195de2befb565dbf46ee177734b151e61844113d4635c5",
+      "snapshot": "onboarding-2-boundaries-light.snapshot.json",
+      "dom": "onboarding-2-boundaries-light.dom.json",
+      "nativeMetadata": "onboarding-2-boundaries-light.native.json",
+      "errorLogs": "onboarding-2-boundaries-light.errors.json"
+    },
+    {
+      "name": "onboarding-3-sync-choice-dark",
+      "png": "onboarding-3-sync-choice-dark.png",
+      "sha256": "39203e3d2c036c61821989cb03f80262454a7a5e21a1a00fbb9091879b1b4436",
+      "snapshot": "onboarding-3-sync-choice-dark.snapshot.json",
+      "dom": "onboarding-3-sync-choice-dark.dom.json",
+      "nativeMetadata": "onboarding-3-sync-choice-dark.native.json",
+      "errorLogs": "onboarding-3-sync-choice-dark.errors.json"
+    },
+    {
+      "name": "onboarding-3-sync-choice-light",
+      "png": "onboarding-3-sync-choice-light.png",
+      "sha256": "b7748a3e6228f9147182ed399b035302781f447ac7910966d37115e9a49f071c",
+      "snapshot": "onboarding-3-sync-choice-light.snapshot.json",
+      "dom": "onboarding-3-sync-choice-light.dom.json",
+      "nativeMetadata": "onboarding-3-sync-choice-light.native.json",
+      "errorLogs": "onboarding-3-sync-choice-light.errors.json"
+    },
+    {
+      "name": "onboarding-4-ready-dark",
+      "png": "onboarding-4-ready-dark.png",
+      "sha256": "6fb256fc219b4c403075ea3c39f7c0bdcbe79520f3bd63e45ecc6ea117110d72",
+      "snapshot": "onboarding-4-ready-dark.snapshot.json",
+      "dom": "onboarding-4-ready-dark.dom.json",
+      "nativeMetadata": "onboarding-4-ready-dark.native.json",
+      "errorLogs": "onboarding-4-ready-dark.errors.json"
+    },
+    {
+      "name": "onboarding-4-ready-light",
+      "png": "onboarding-4-ready-light.png",
+      "sha256": "9c9fadae4cdca4267580e3d31ebcf1ad23ec240eb4675c61727e84b6fe420079",
+      "snapshot": "onboarding-4-ready-light.snapshot.json",
+      "dom": "onboarding-4-ready-light.dom.json",
+      "nativeMetadata": "onboarding-4-ready-light.native.json",
+      "errorLogs": "onboarding-4-ready-light.errors.json"
+    },
+    {
+      "name": "organize-skills-dark",
+      "png": "organize-skills-dark.png",
+      "sha256": "a164e4f4388b18b6cad19a161760f6d37cebacde49ec16286da9c78fa929a5c6",
+      "snapshot": "organize-skills-dark.snapshot.json",
+      "dom": "organize-skills-dark.dom.json",
+      "nativeMetadata": "organize-skills-dark.native.json",
+      "errorLogs": "organize-skills-dark.errors.json"
+    },
+    {
+      "name": "organize-skills-light",
+      "png": "organize-skills-light.png",
+      "sha256": "129f474ea62ea131f9b2df579ae10a9950c322b649ce97d6b2832ecf4ab0531e",
+      "snapshot": "organize-skills-light.snapshot.json",
+      "dom": "organize-skills-light.dom.json",
+      "nativeMetadata": "organize-skills-light.native.json",
+      "errorLogs": "organize-skills-light.errors.json"
+    },
+    {
+      "name": "settings-no-roots-dark",
+      "png": "settings-no-roots-dark.png",
+      "sha256": "65dd62551b1b1e4f05422b8356a37700061a34ab91cfbb5d1112b9596920fa0d",
+      "snapshot": "settings-no-roots-dark.snapshot.json",
+      "dom": "settings-no-roots-dark.dom.json",
+      "nativeMetadata": "settings-no-roots-dark.native.json",
+      "errorLogs": "settings-no-roots-dark.errors.json"
+    },
+    {
+      "name": "settings-no-roots-light",
+      "png": "settings-no-roots-light.png",
+      "sha256": "ddd3277d8214a5d86984223453ba1802002d9b750b7ca5c35da882ad4349d684",
+      "snapshot": "settings-no-roots-light.snapshot.json",
+      "dom": "settings-no-roots-light.dom.json",
+      "nativeMetadata": "settings-no-roots-light.native.json",
+      "errorLogs": "settings-no-roots-light.errors.json"
+    },
+    {
+      "name": "settings-root-added-dark",
+      "png": "settings-root-added-dark.png",
+      "sha256": "1b25de589b2fc0521dcaeec32ea1bbe83371f57f1d5b814e4d6ffbadfdfe9b35",
+      "snapshot": "settings-root-added-dark.snapshot.json",
+      "dom": "settings-root-added-dark.dom.json",
+      "nativeMetadata": "settings-root-added-dark.native.json",
+      "errorLogs": "settings-root-added-dark.errors.json"
+    },
+    {
+      "name": "settings-root-added-light",
+      "png": "settings-root-added-light.png",
+      "sha256": "2189aed7a0814af435cd4582203bf0f457597c4aad3b78b133f1ded2674edfcb",
+      "snapshot": "settings-root-added-light.snapshot.json",
+      "dom": "settings-root-added-light.dom.json",
+      "nativeMetadata": "settings-root-added-light.native.json",
+      "errorLogs": "settings-root-added-light.errors.json"
+    },
+    {
+      "name": "settings-root-disabled-dark",
+      "png": "settings-root-disabled-dark.png",
+      "sha256": "6f6c29aa0887b257b8ae6ef35e6be7126d5f2a09d579fff97616d717bc9f473a",
+      "snapshot": "settings-root-disabled-dark.snapshot.json",
+      "dom": "settings-root-disabled-dark.dom.json",
+      "nativeMetadata": "settings-root-disabled-dark.native.json",
+      "errorLogs": "settings-root-disabled-dark.errors.json"
+    },
+    {
+      "name": "settings-root-disabled-light",
+      "png": "settings-root-disabled-light.png",
+      "sha256": "4ae7c56bd9ef9b41acb10ba8936b9377c88828856636b7783c083329882907df",
+      "snapshot": "settings-root-disabled-light.snapshot.json",
+      "dom": "settings-root-disabled-light.dom.json",
+      "nativeMetadata": "settings-root-disabled-light.native.json",
+      "errorLogs": "settings-root-disabled-light.errors.json"
+    },
+    {
+      "name": "settings-root-removed-dark",
+      "png": "settings-root-removed-dark.png",
+      "sha256": "5b66be0129db9e33c4de846f1e338923df14ba91fff8deba7be54cb42be553c0",
+      "snapshot": "settings-root-removed-dark.snapshot.json",
+      "dom": "settings-root-removed-dark.dom.json",
+      "nativeMetadata": "settings-root-removed-dark.native.json",
+      "errorLogs": "settings-root-removed-dark.errors.json"
+    },
+    {
+      "name": "settings-root-removed-light",
+      "png": "settings-root-removed-light.png",
+      "sha256": "f71ffa0bcc75d143d9f8e8cb9221889163623f45372d1671d0fdad8ff3a875b4",
+      "snapshot": "settings-root-removed-light.snapshot.json",
+      "dom": "settings-root-removed-light.dom.json",
+      "nativeMetadata": "settings-root-removed-light.native.json",
+      "errorLogs": "settings-root-removed-light.errors.json"
+    },
+    {
+      "name": "shared-slug-preview-dark",
+      "png": "shared-slug-preview-dark.png",
+      "sha256": "a0958e11453c92b62e71d206d32c3886152bd440a9cbdc9b43a769dfcf9150fa",
+      "snapshot": "shared-slug-preview-dark.snapshot.json",
+      "dom": "shared-slug-preview-dark.dom.json",
+      "nativeMetadata": "shared-slug-preview-dark.native.json",
+      "errorLogs": "shared-slug-preview-dark.errors.json"
+    },
+    {
+      "name": "shared-slug-preview-light",
+      "png": "shared-slug-preview-light.png",
+      "sha256": "1da0d5f04441230e61c65860e444c96e2fa152aee78e73a35356c5b627dccbb7",
+      "snapshot": "shared-slug-preview-light.snapshot.json",
+      "dom": "shared-slug-preview-light.dom.json",
+      "nativeMetadata": "shared-slug-preview-light.native.json",
+      "errorLogs": "shared-slug-preview-light.errors.json"
+    },
+    {
+      "name": "shared-slug-reference-file-dark",
+      "png": "shared-slug-reference-file-dark.png",
+      "sha256": "49e5addecc8ddcb337b7641b8b1f3d30409d9e21e6a79051776faff9c20b2f82",
+      "snapshot": "shared-slug-reference-file-dark.snapshot.json",
+      "dom": "shared-slug-reference-file-dark.dom.json",
+      "nativeMetadata": "shared-slug-reference-file-dark.native.json",
+      "errorLogs": "shared-slug-reference-file-dark.errors.json"
+    },
+    {
+      "name": "shared-slug-reference-file-light",
+      "png": "shared-slug-reference-file-light.png",
+      "sha256": "c12bcdb9c6b6524b4044b64bf7eec371dde1c59b76acbe652a2b0a73de6b95fa",
+      "snapshot": "shared-slug-reference-file-light.snapshot.json",
+      "dom": "shared-slug-reference-file-light.dom.json",
+      "nativeMetadata": "shared-slug-reference-file-light.native.json",
+      "errorLogs": "shared-slug-reference-file-light.errors.json"
+    },
+    {
+      "name": "sidebar-192-keyboard-home-dark",
+      "png": "sidebar-192-keyboard-home-dark.png",
+      "sha256": "bb8622918d87cc3951d2582a25d2013a5bc55cda24afc4ad2a97ce6551275f28",
+      "snapshot": "sidebar-192-keyboard-home-dark.snapshot.json",
+      "dom": "sidebar-192-keyboard-home-dark.dom.json",
+      "nativeMetadata": "sidebar-192-keyboard-home-dark.native.json",
+      "errorLogs": "sidebar-192-keyboard-home-dark.errors.json"
+    },
+    {
+      "name": "sidebar-192-keyboard-home-light",
+      "png": "sidebar-192-keyboard-home-light.png",
+      "sha256": "78645847e80f8a929a582c05e9eb06f912849a27858c0d0cec210e3d5509d0c2",
+      "snapshot": "sidebar-192-keyboard-home-light.snapshot.json",
+      "dom": "sidebar-192-keyboard-home-light.dom.json",
+      "nativeMetadata": "sidebar-192-keyboard-home-light.native.json",
+      "errorLogs": "sidebar-192-keyboard-home-light.errors.json"
+    },
+    {
+      "name": "sidebar-232-pointer-drag-dark",
+      "png": "sidebar-232-pointer-drag-dark.png",
+      "sha256": "469f619e24b95cc94724111e637d7b433eb158bc235646fee99fe7ab57967768",
+      "snapshot": "sidebar-232-pointer-drag-dark.snapshot.json",
+      "dom": "sidebar-232-pointer-drag-dark.dom.json",
+      "nativeMetadata": "sidebar-232-pointer-drag-dark.native.json",
+      "errorLogs": "sidebar-232-pointer-drag-dark.errors.json"
+    },
+    {
+      "name": "sidebar-232-pointer-drag-light",
+      "png": "sidebar-232-pointer-drag-light.png",
+      "sha256": "fcd83a511f9f6ac01afee7569f5f72d010916b44a35a4ea851ee72cccc3eeab0",
+      "snapshot": "sidebar-232-pointer-drag-light.snapshot.json",
+      "dom": "sidebar-232-pointer-drag-light.dom.json",
+      "nativeMetadata": "sidebar-232-pointer-drag-light.native.json",
+      "errorLogs": "sidebar-232-pointer-drag-light.errors.json"
+    },
+    {
+      "name": "sidebar-keyboard-end-dark",
+      "png": "sidebar-keyboard-end-dark.png",
+      "sha256": "9f8b7f4e1fd3f12b51bcb836e665afbaea37d98b0b3ad0a45c3451bc075ef6ec",
+      "snapshot": "sidebar-keyboard-end-dark.snapshot.json",
+      "dom": "sidebar-keyboard-end-dark.dom.json",
+      "nativeMetadata": "sidebar-keyboard-end-dark.native.json",
+      "errorLogs": "sidebar-keyboard-end-dark.errors.json"
+    },
+    {
+      "name": "sidebar-keyboard-end-light",
+      "png": "sidebar-keyboard-end-light.png",
+      "sha256": "fef4b3417744d6bf93b830092130288124472ede5184f627c9e594c35bb66486",
+      "snapshot": "sidebar-keyboard-end-light.snapshot.json",
+      "dom": "sidebar-keyboard-end-light.dom.json",
+      "nativeMetadata": "sidebar-keyboard-end-light.native.json",
+      "errorLogs": "sidebar-keyboard-end-light.errors.json"
+    },
+    {
+      "name": "sync-connected-needs-push-dark",
+      "png": "sync-connected-needs-push-dark.png",
+      "sha256": "c8ce5248839884ea12743e974bc19a2787306c8593db901965b2045c27c378d4",
+      "snapshot": "sync-connected-needs-push-dark.snapshot.json",
+      "dom": "sync-connected-needs-push-dark.dom.json",
+      "nativeMetadata": "sync-connected-needs-push-dark.native.json",
+      "errorLogs": "sync-connected-needs-push-dark.errors.json"
+    },
+    {
+      "name": "sync-connected-needs-push-light",
+      "png": "sync-connected-needs-push-light.png",
+      "sha256": "f76a4db995582af024e34400cf31e94d5395ad39272cca6db5eb278a080d1944",
+      "snapshot": "sync-connected-needs-push-light.snapshot.json",
+      "dom": "sync-connected-needs-push-light.dom.json",
+      "nativeMetadata": "sync-connected-needs-push-light.native.json",
+      "errorLogs": "sync-connected-needs-push-light.errors.json"
+    },
+    {
+      "name": "sync-disconnected-dark",
+      "png": "sync-disconnected-dark.png",
+      "sha256": "f99fa1fe927aa6eda589e1dcd5a2e3d8708687a0155185212e9582baa6eb2e3c",
+      "snapshot": "sync-disconnected-dark.snapshot.json",
+      "dom": "sync-disconnected-dark.dom.json",
+      "nativeMetadata": "sync-disconnected-dark.native.json",
+      "errorLogs": "sync-disconnected-dark.errors.json"
+    },
+    {
+      "name": "sync-disconnected-light",
+      "png": "sync-disconnected-light.png",
+      "sha256": "170f60a78a54b6ea7a86a15b53d12aeff3d2d7268e66ffd5aaafa2e0408ff708",
+      "snapshot": "sync-disconnected-light.snapshot.json",
+      "dom": "sync-disconnected-light.dom.json",
+      "nativeMetadata": "sync-disconnected-light.native.json",
+      "errorLogs": "sync-disconnected-light.errors.json"
+    },
+    {
+      "name": "sync-pending-fixture-delay-dark",
+      "png": "sync-pending-fixture-delay-dark.png",
+      "sha256": "4fe02827bef55e7976f6c8a4b4144b09fc0168c1cf34c103d14209cf2fd79e4d",
+      "snapshot": "sync-pending-fixture-delay-dark.snapshot.json",
+      "dom": "sync-pending-fixture-delay-dark.dom.json",
+      "nativeMetadata": "sync-pending-fixture-delay-dark.native.json",
+      "errorLogs": "sync-pending-fixture-delay-dark.errors.json"
+    },
+    {
+      "name": "sync-pending-fixture-delay-light",
+      "png": "sync-pending-fixture-delay-light.png",
+      "sha256": "12453bf4f49928f8a4003cdf57a3d1530418c2c5e65ed948cd14a2618a1c299a",
+      "snapshot": "sync-pending-fixture-delay-light.snapshot.json",
+      "dom": "sync-pending-fixture-delay-light.dom.json",
+      "nativeMetadata": "sync-pending-fixture-delay-light.native.json",
+      "errorLogs": "sync-pending-fixture-delay-light.errors.json"
+    },
+    {
+      "name": "sync-pending-return-dark",
+      "png": "sync-pending-return-dark.png",
+      "sha256": "568f2eb4ffeb5d169579cca07d246a3e23de6d6545b41d17035c9f9b6dd61c44",
+      "snapshot": "sync-pending-return-dark.snapshot.json",
+      "dom": "sync-pending-return-dark.dom.json",
+      "nativeMetadata": "sync-pending-return-dark.native.json",
+      "errorLogs": "sync-pending-return-dark.errors.json"
+    },
+    {
+      "name": "sync-pending-return-light",
+      "png": "sync-pending-return-light.png",
+      "sha256": "16f1f4d1744259508f32db425bba63c196c9cf4d9eaea72dd33e9353b04712c4",
+      "snapshot": "sync-pending-return-light.snapshot.json",
+      "dom": "sync-pending-return-light.dom.json",
+      "nativeMetadata": "sync-pending-return-light.native.json",
+      "errorLogs": "sync-pending-return-light.errors.json"
+    },
+    {
+      "name": "sync-pending-settings-navigation-dark",
+      "png": "sync-pending-settings-navigation-dark.png",
+      "sha256": "5eecae5e2329d33b3753e524796b1aecad163ae3a5146b02ebd8e5052393dd63",
+      "snapshot": "sync-pending-settings-navigation-dark.snapshot.json",
+      "dom": "sync-pending-settings-navigation-dark.dom.json",
+      "nativeMetadata": "sync-pending-settings-navigation-dark.native.json",
+      "errorLogs": "sync-pending-settings-navigation-dark.errors.json"
+    },
+    {
+      "name": "sync-pending-settings-navigation-light",
+      "png": "sync-pending-settings-navigation-light.png",
+      "sha256": "e289a5a266b14a0432c86cf9c42454c224f14910698ba079f2adf43f1d2f74f9",
+      "snapshot": "sync-pending-settings-navigation-light.snapshot.json",
+      "dom": "sync-pending-settings-navigation-light.dom.json",
+      "nativeMetadata": "sync-pending-settings-navigation-light.native.json",
+      "errorLogs": "sync-pending-settings-navigation-light.errors.json"
+    },
+    {
+      "name": "sync-synced-dark",
+      "png": "sync-synced-dark.png",
+      "sha256": "a0e311adbab670ee9974c8c772a65560d5026caa2b1f5b10f502b7e8c6a03b06",
+      "snapshot": "sync-synced-dark.snapshot.json",
+      "dom": "sync-synced-dark.dom.json",
+      "nativeMetadata": "sync-synced-dark.native.json",
+      "errorLogs": "sync-synced-dark.errors.json"
+    },
+    {
+      "name": "sync-synced-light",
+      "png": "sync-synced-light.png",
+      "sha256": "571dfd45b733f2f0922ecfbcc7e04627d6e1706d427d0d6027f93ec260893df0",
+      "snapshot": "sync-synced-light.snapshot.json",
+      "dom": "sync-synced-light.dom.json",
+      "nativeMetadata": "sync-synced-light.native.json",
+      "errorLogs": "sync-synced-light.errors.json"
+    }
+  ],
+  "knownGaps": [
+    "Production typography supplemental captures pending",
+    "Window sizes 860x620 and wider require app restart with capture-only window config; public window API denied capability",
+    "No real native directory picker: existing rootsPick fixture returns demo directory",
+    "No OS reduced-motion preference change or native IME session",
+    "No video motion capture; computed durations preserved in DOM metadata",
+    "No Windows/Linux baseline captures"
+  ],
+  "observedErrors": [
+    "Base UI nativeButton warning in LibraryView after deleting folder; captured verbatim in error logs."
+  ]
+}

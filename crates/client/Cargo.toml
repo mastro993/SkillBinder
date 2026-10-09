@@ -1,0 +1,18 @@
+[package]
+name = "skillbinder-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+skillbinder-proto.workspace = true
+skillbinder-engine.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

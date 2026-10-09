@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SkillBinder",
+  "version": "0.1.0",
+  "identifier": "dev.skillbinder.baseline",
+  "build": {
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../../dist"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "SkillBinder",
+        "width": 1600,
+        "height": 900,
+        "minWidth": 860,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false,
+        "incognito": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": false,
+    "icon": []
+  }
+}
