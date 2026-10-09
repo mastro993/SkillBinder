@@ -1,6 +1,6 @@
 # SkillBinder
 
-SkillBinder manages a local library of agent skills with native GPUI screens and unmodified Ely components. Discover installed skills, review copies before importing them, organize a flat folder library, and synchronize its portable files through Git.
+SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover installed skills, review copies before importing them, organize a flat folder library, and synchronize its portable files through Git.
 
 ## Run
 

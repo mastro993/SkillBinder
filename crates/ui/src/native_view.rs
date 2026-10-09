@@ -9,13 +9,12 @@ mod sync;
 
 use std::{collections::BTreeSet, future::Future, path::PathBuf, sync::Arc};
 
-use ely_gpui_component::{
-    buttons::Button,
-    forms::{InputEvent, TextInput},
-    primitives::FocusScope,
-    theme::ActiveTheme,
+use gpui_kit::component::{
+    ActiveTheme, Disableable,
+    button::Button,
+    input::{InputEvent, InputState},
 };
-use gpui::{
+use gpui_kit::{
     AppContext, Context, DragMoveEvent, Entity, FocusHandle, Focusable, InteractiveElement,
     IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement, Styled,
     Subscription, Task, Window, div, prelude::FluentBuilder,
@@ -38,7 +37,7 @@ enum LibraryFilter {
     Folder(FolderId),
 }
 
-struct SidebarDrag(gpui::EntityId);
+struct SidebarDrag(gpui_kit::EntityId);
 
 enum DialogState {
     ImportPlan(ImportPlan),
@@ -83,11 +82,11 @@ pub struct NativeView {
     resizing_sidebar: bool,
     selected_skill: Option<SkillId>,
     preview: Option<SkillPreview>,
-    search: Entity<TextInput>,
-    folder_name: Entity<TextInput>,
-    root_label: Entity<TextInput>,
-    remote_url: Entity<TextInput>,
-    remote_branch: Entity<TextInput>,
+    search: Entity<InputState>,
+    folder_name: Entity<InputState>,
+    root_label: Entity<InputState>,
+    remote_url: Entity<InputState>,
+    remote_branch: Entity<InputState>,
     _search_subscription: Subscription,
     _activation_subscription: Subscription,
     _subscription: Task<()>,
@@ -124,23 +123,27 @@ impl NativeView {
                 }
             }
         });
-        let search = cx.new(|cx| TextInput::new(window, cx).placeholder("Search skills"));
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search skills"));
         let search_subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
-            if *event == InputEvent::Changed {
+            if matches!(event, InputEvent::Change) {
                 cx.notify();
             }
         });
-        let folder_name = cx.new(|cx| TextInput::new(window, cx).placeholder("Folder name"));
-        let root_label = cx.new(|cx| TextInput::new(window, cx).placeholder("Project label"));
-        let remote_url = cx.new(|cx| TextInput::new(window, cx).placeholder("Remote URL"));
+        let folder_name = cx.new(|cx| InputState::new(window, cx).placeholder("Folder name"));
+        let root_label = cx.new(|cx| InputState::new(window, cx).placeholder("Project label"));
+        let remote_url = cx.new(|cx| InputState::new(window, cx).placeholder("Remote URL"));
         let remote_branch = cx.new(|cx| {
-            let mut input = TextInput::new(window, cx).placeholder("Branch");
-            input.set_text("main", cx);
-            input
+            InputState::new(window, cx)
+                .placeholder("Branch")
+                .default_value("main")
         });
         if let Some(remote) = &snapshot.sync.remote {
-            remote_url.update(cx, |input, cx| input.set_text(remote.url.clone(), cx));
-            remote_branch.update(cx, |input, cx| input.set_text(remote.branch.clone(), cx));
+            remote_url.update(cx, |input, cx| {
+                input.set_value(remote.url.clone(), window, cx)
+            });
+            remote_branch.update(cx, |input, cx| {
+                input.set_value(remote.branch.clone(), window, cx)
+            });
         }
         Self {
             client,
@@ -251,7 +254,7 @@ impl NativeView {
         cx.notify();
     }
 
-    fn navigate(&mut self, screen: Screen, cx: &mut Context<Self>) {
+    fn navigate(&mut self, screen: Screen, window: &mut Window, cx: &mut Context<Self>) {
         if self.screen != screen {
             self.candidate_page = 0;
             self.selected_candidates.clear();
@@ -259,7 +262,8 @@ impl NativeView {
             self.selected_skills.clear();
             self.selected_skill = None;
             self.preview = None;
-            self.search.update(cx, |input, cx| input.set_text("", cx));
+            self.search
+                .update(cx, |input, cx| input.set_value("", window, cx));
         }
         self.screen = screen;
         self.error = None;
@@ -278,8 +282,8 @@ impl NativeView {
         cx.notify();
     }
 
-    fn input_text(input: &Entity<TextInput>, cx: &Context<Self>) -> String {
-        input.read(cx).text().trim().to_owned()
+    fn input_text(input: &Entity<InputState>, cx: &Context<Self>) -> String {
+        input.read(cx).value().trim().to_owned()
     }
 
     fn reveal_logs(&self, cx: &mut Context<Self>) {
@@ -335,7 +339,8 @@ impl NativeView {
                         .map(|slug| div().child(format!("Resolve shared name: {slug} in Library"))),
                 )
                 .child(
-                    Button::new("dismiss-import", "Dismiss result")
+                    Button::new("dismiss-import")
+                        .label("Dismiss result")
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, _, cx| {
                             let client = view.client.clone();
@@ -351,7 +356,7 @@ impl NativeView {
 }
 
 impl Focusable for NativeView {
-    fn focus_handle(&self, _: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _: &gpui_kit::App) -> FocusHandle {
         self.focus.clone()
     }
 }
@@ -418,18 +423,18 @@ impl Render for NativeView {
                 )
                 .into_any_element()
         };
-        let dialog = self.render_dialog(window, cx);
-        let colors = cx.theme().colors.clone();
+        self.sync_dialog(window, cx);
+        let colors = cx.theme().colors;
         let global_error = self
             .error
             .as_ref()
             .or(self.snapshot.background_error.as_ref());
-        FocusScope::new(&self.focus)
-            .root()
+        div()
+            .track_focus(&self.focus)
             .size_full()
             .font_family(skillbinder_theme::system_font())
-            .bg(colors.bg)
-            .text_color(colors.fg)
+            .bg(colors.background)
+            .text_color(colors.foreground)
             .child(body)
             .when_some(global_error, |root, error| {
                 root.child(
@@ -439,7 +444,7 @@ impl Render for NativeView {
                         .right_4()
                         .max_w_96()
                         .p_4()
-                        .bg(colors.surface)
+                        .bg(colors.secondary)
                         .border_1()
                         .border_color(colors.border)
                         .child(format!(
@@ -448,6 +453,5 @@ impl Render for NativeView {
                         )),
                 )
             })
-            .child(dialog)
     }
 }

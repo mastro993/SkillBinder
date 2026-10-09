@@ -16,7 +16,7 @@ Do not add empty crates or pass-through services. Keep domain tests, native rend
 
 Use small, specialized modules. Model state with typed data and enums. Use `Result`, `Option`, and `?` for fallible operations. Keep blocking filesystem, SQLite, hashing, and Git work outside the GPUI thread.
 
-Use Ely public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
+Use GPUI Kit public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 
 Preserve captured behavior. The user has deferred UI fidelity and polish until after functional reconstruction. The approved scope contains onboarding, Discovery, Library, flat folders, Sync, and Settings. It excludes bindings, deployments, nested folders, and tag-management UI.
 

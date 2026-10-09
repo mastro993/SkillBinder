@@ -1,6 +1,10 @@
 use super::{Effect, NativeView};
-use ely_gpui_component::{buttons::Button, forms::Checkbox, theme::ActiveTheme};
-use gpui::{Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder};
+use gpui_kit::component::{
+    ActiveTheme, Disableable,
+    button::{Button, ButtonVariants},
+    checkbox::Checkbox,
+};
+use gpui_kit::{Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder};
 use skillbinder_proto::*;
 
 impl NativeView {
@@ -28,7 +32,8 @@ impl NativeView {
             .child("Discovery")
             .child("Find skills in registered project roots and supported user locations.")
             .child(
-                Button::new("scan-start", "Scan again")
+                Button::new("scan-start")
+                    .label("Scan again")
                     .disabled(self.busy || running)
                     .on_click(cx.listener(|view, _, _, cx| {
                         let client = view.client.clone();
@@ -40,7 +45,8 @@ impl NativeView {
             )
             .when(running, |page| {
                 page.child(
-                    Button::new("scan-cancel", "Cancel scan")
+                    Button::new("scan-cancel")
+                        .label("Cancel scan")
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, _, cx| {
                             let client = view.client.clone();
@@ -72,14 +78,15 @@ impl NativeView {
                         .iter()
                         .all(|id| self.selected_candidates.contains(id));
                 page = page.child(
-                    Checkbox::new("select-discovery-page", all_selected)
+                    Checkbox::new("select-discovery-page")
+                        .checked(all_selected)
                         .label("Select this page")
                         .on_change({
                             let weak = cx.entity().downgrade();
                             move |checked, _, cx| {
                                 let _ = weak.update(cx, |view, cx| {
                                     for id in &page_ids {
-                                        if checked {
+                                        if *checked {
                                             view.selected_candidates.insert(id.clone());
                                         } else {
                                             view.selected_candidates.remove(id);
@@ -103,7 +110,8 @@ impl NativeView {
                         .flex_col()
                         .gap_1()
                         .child(
-                            Checkbox::new(format!("candidate-{id}"), chosen)
+                            Checkbox::new(format!("candidate-{id}"))
+                                .checked(chosen)
                                 .label(format!("{} · {:?}", candidate.slug, candidate.validation))
                                 .disabled(
                                     !finished || candidate.validation == ValidationStatus::Blocked,
@@ -112,7 +120,7 @@ impl NativeView {
                                     let weak = cx.entity().downgrade();
                                     move |checked, _, cx| {
                                         let _ = weak.update(cx, |view, cx| {
-                                            if checked {
+                                            if *checked {
                                                 view.selected_candidates.insert(id.clone());
                                             } else {
                                                 view.selected_candidates.remove(&id);
@@ -142,7 +150,8 @@ impl NativeView {
                         .flex()
                         .gap_2()
                         .child(
-                            Button::new("discovery-previous", "Previous")
+                            Button::new("discovery-previous")
+                                .label("Previous")
                                 .disabled(self.candidate_page == 0)
                                 .on_click(cx.listener(|view, _, _, cx| {
                                     view.candidate_page = view.candidate_page.saturating_sub(1);
@@ -151,7 +160,8 @@ impl NativeView {
                         )
                         .child(format!("Page {} of {}", self.candidate_page + 1, pages))
                         .child(
-                            Button::new("discovery-next", "Next")
+                            Button::new("discovery-next")
+                                .label("Next")
                                 .disabled(self.candidate_page + 1 >= pages)
                                 .on_click(cx.listener(|view, _, _, cx| {
                                     view.candidate_page += 1;
@@ -162,13 +172,14 @@ impl NativeView {
             }
             if has_invalid {
                 page = page.child(
-                    Checkbox::new("acknowledge-invalid", self.acknowledge_invalid)
+                    Checkbox::new("acknowledge-invalid")
+                        .checked(self.acknowledge_invalid)
                         .label("I understand the selected invalid skills may not work as expected")
                         .on_change({
                             let weak = cx.entity().downgrade();
                             move |checked, _, cx| {
                                 let _ = weak.update(cx, |view, cx| {
-                                    view.acknowledge_invalid = checked;
+                                    view.acknowledge_invalid = *checked;
                                     cx.notify();
                                 });
                             }
@@ -178,7 +189,8 @@ impl NativeView {
             let scan_id = scan.id.clone();
             let acknowledge = self.acknowledge_invalid;
             page = page.child(
-                Button::new("prepare-import", "Review import")
+                Button::new("prepare-import")
+                    .label("Review import")
                     .primary()
                     .disabled(
                         self.busy

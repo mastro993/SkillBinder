@@ -1,10 +1,15 @@
-use gpui::{Entity, Window};
+use gpui_kit::{Entity, Window};
 mod arguments;
 pub(crate) use arguments::{NativeMode, parse_launch};
 use skillbinder_engine::Engine;
 use skillbinder_proto::OnboardingStep;
 use skillbinder_ui::NativeView;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
+
+static RENDER_ERROR: AtomicBool = AtomicBool::new(false);
 
 struct SmokeLogger;
 impl log::Log for SmokeLogger {
@@ -13,6 +18,9 @@ impl log::Log for SmokeLogger {
     }
     fn log(&self, record: &log::Record<'_>) {
         if self.enabled(record.metadata()) {
+            if record.level() == log::Level::Error {
+                RENDER_ERROR.store(true, Ordering::Relaxed);
+            }
             eprintln!("{} {}: {}", record.level(), record.target(), record.args());
         }
     }
@@ -49,6 +57,10 @@ impl Smoke {
         });
     }
     pub(crate) fn verify(self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !RENDER_ERROR.load(Ordering::Relaxed),
+            "Native renderer reported an error"
+        );
         let outcome = self
             .0
             .lock()

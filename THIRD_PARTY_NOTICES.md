@@ -4,8 +4,8 @@ SkillBinder depends on third-party Rust packages under their respective licenses
 
 ## Native UI dependencies
 
-- Ely GPUI Components, revision `2f8b2f687cd1e9b98a7cd29d4e882d09406fc547`, is licensed under MIT or Apache-2.0. Its embedded font assets retain their accompanying licenses.
-- GPUI and its platform crates, official revision `1a28cff4b409169bac058bca40dfbfeb7621d19b`, retain their upstream license terms.
+- GPUI Kit 0.7.0 and its GPUI Base and GPUI Component crates are licensed under Apache-2.0. Their source is available at `https://github.com/longbridge/gpui-kit`, release revision `0c830f4d257e69fdd17200650533ab4ca9a40cc0`.
+- GPUI Pre 0.3.7 and its platform crates retain their upstream license terms. The shared backend is supplied by the unmodified `gpui-mcp` repository at revision `9dda8e5cb49990261e3fdaa26abe38112d30dafb`; its GPUI patch and Apache-2.0 MCP bridge retain their notices. The bridge is included only in native-test builds.
 - Hugeicons artwork is extracted from `@hugeicons/core-free-icons` version `4.3.5`. The complete MIT notice is in `assets/hugeicons/LICENSE.md`. `inventory.json` records the exact package modules, artwork hashes, and variants.
 
 The historical font license records under `fixtures/contracts/font-licenses` document baseline research. No font binaries from the previous application are bundled.

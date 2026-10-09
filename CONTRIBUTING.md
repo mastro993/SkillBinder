@@ -8,11 +8,11 @@
 4. Run the README verification commands, including the locked release build.
 5. Update affected behavior documentation in `docs/`.
 
-Keep modules focused on one feature or responsibility. Centralize dependencies and lint policy in the root manifest. Preserve the exact Ely and GPUI revisions unless a separate dependency decision changes them.
+Keep modules focused on one feature or responsibility. Centralize dependencies and lint policy in the root manifest. Preserve the exact GPUI Kit and GPUI backend versions unless a separate dependency decision changes them.
 
 ## Native UI
 
-Use Ely public editing, interaction, focus, and overlay APIs without modifying dependency sources. Use retained Hugeicons assets. The application sets the native system font after Ely initialization.
+Use GPUI Kit public editing, interaction, focus, and overlay APIs without modifying dependency sources. Use retained Hugeicons assets. The application sets the native system font after GPUI Kit initialization.
 
 Functional parity comes first; the user deferred visual fidelity and polish. Retained screenshots remain the reference for later appearance work. Never infer native behavior from compilation or fixture images. Record real input, focus, directory selection, and platform results separately.
 

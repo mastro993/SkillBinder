@@ -1,6 +1,9 @@
 use super::{Effect, NativeView};
-use ely_gpui_component::buttons::Button;
-use gpui::{
+use gpui_kit::component::{
+    Disableable,
+    button::{Button, ButtonVariants},
+};
+use gpui_kit::{
     Context, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
     div, prelude::FluentBuilder,
 };
@@ -59,7 +62,7 @@ impl NativeView {
                     .child(
                         div()
                             .id("onboarding-title")
-                            .role(gpui::Role::Heading)
+                            .role(gpui_kit::Role::Heading)
                             .aria_label(title)
                             .child(title),
                     )
@@ -82,7 +85,8 @@ impl NativeView {
                             }
                         ))
                         .child(
-                            Button::new("recheck-prerequisites", "Check again")
+                            Button::new("recheck-prerequisites")
+                                .label("Check again")
                                 .disabled(self.busy)
                                 .on_click(cx.listener(|view, _, _, cx| {
                                     let client = view.client.clone();
@@ -97,7 +101,8 @@ impl NativeView {
                     })
                     .when_some(back, |row, previous| {
                         row.child(
-                            Button::new("onboarding-back", "Back")
+                            Button::new("onboarding-back")
+                                .label("Back")
                                 .disabled(self.busy)
                                 .on_click(cx.listener(move |view, _, _, cx| {
                                     let client = view.client.clone();
@@ -114,30 +119,30 @@ impl NativeView {
                         )
                     })
                     .child(
-                        Button::new(
-                            "onboarding-next",
-                            if step == OnboardingStep::Ready {
+                        Button::new("onboarding-next")
+                            .label(if step == OnboardingStep::Ready {
                                 "Create library"
                             } else {
                                 "Continue"
-                            },
-                        )
-                        .primary()
-                        .disabled(self.busy || (step == OnboardingStep::Prerequisites && !ready))
-                        .on_click(cx.listener(move |view, _, _, cx| {
-                            let client = client.clone();
-                            view.run(
-                                async move {
-                                    if next == OnboardingStep::Complete {
-                                        client.complete_onboarding().await?;
-                                    } else {
-                                        client.set_onboarding(next).await?;
-                                    }
-                                    Ok(Effect::None)
-                                },
-                                cx,
-                            );
-                        })),
+                            })
+                            .primary()
+                            .disabled(
+                                self.busy || (step == OnboardingStep::Prerequisites && !ready),
+                            )
+                            .on_click(cx.listener(move |view, _, _, cx| {
+                                let client = client.clone();
+                                view.run(
+                                    async move {
+                                        if next == OnboardingStep::Complete {
+                                            client.complete_onboarding().await?;
+                                        } else {
+                                            client.set_onboarding(next).await?;
+                                        }
+                                        Ok(Effect::None)
+                                    },
+                                    cx,
+                                );
+                            })),
                     ),
             )
     }

@@ -10,7 +10,7 @@ publish.workspace = true
 native-test = ["skillbinder-ui/native-test", "dep:log", "dep:gpui-mcp"]
 
 [dependencies]
-gpui.workspace = true
+gpui-kit.workspace = true
 anyhow.workspace = true
 log = { workspace = true, optional = true }
 gpui-mcp = { workspace = true, optional = true }
@@ -19,7 +19,6 @@ skillbinder-client.workspace = true
 skillbinder-proto.workspace = true
 tokio.workspace = true
 fs2.workspace = true
-gpui_platform.workspace = true
 skillbinder-theme.workspace = true
 skillbinder-ui.workspace = true
 

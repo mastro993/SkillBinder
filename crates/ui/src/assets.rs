@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use gpui::{AssetSource, SharedString};
+use gpui_kit::{AssetSource, SharedString};
 
 /// Embedded application artwork with explicit component icon replacements.
 pub struct Assets;
@@ -11,7 +11,7 @@ const ICONS: &[(&str, &[u8])] = &[
         include_bytes!("../../../assets/hugeicons/Tick02Icon.svg"),
     ),
     (
-        "icons/x.svg",
+        "icons/close.svg",
         include_bytes!("../../../assets/hugeicons/Cancel01Icon.svg"),
     ),
     (
@@ -28,7 +28,7 @@ impl AssetSource for Assets {
         if path.starts_with("icons/") {
             anyhow::bail!("Missing application icon mapping for {path}");
         }
-        ely_gpui_component::Assets.load(path)
+        Ok(None)
     }
 
     fn list(&self, path: &str) -> anyhow::Result<Vec<SharedString>> {
@@ -39,6 +39,6 @@ impl AssetSource for Assets {
                 .map(|(name, _)| SharedString::from(*name))
                 .collect());
         }
-        ely_gpui_component::Assets.list(path)
+        Ok(Vec::new())
     }
 }

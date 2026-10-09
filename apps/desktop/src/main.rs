@@ -4,7 +4,7 @@ mod instance;
 #[cfg(feature = "native-test")]
 mod native_test;
 
-use gpui::{
+use gpui_kit::{
     App, AppContext, Bounds, KeyBinding, Menu, MenuItem, TitlebarOptions, WindowBounds,
     WindowOptions, actions, px, size,
 };
@@ -35,7 +35,7 @@ fn run() -> anyhow::Result<()> {
     }
     #[cfg(target_os = "linux")]
     anyhow::ensure!(
-        gpui::guess_compositor() != "Headless",
+        gpui_kit::guess_compositor() != "Headless",
         "SkillBinder requires a Wayland or X11 desktop session."
     );
     #[cfg(feature = "native-test")]
@@ -69,7 +69,7 @@ fn run() -> anyhow::Result<()> {
     #[cfg(feature = "native-test")]
     let smoke_result = smoke.clone();
     let shutdown_runtime = runtime.handle().clone();
-    gpui_platform::application()
+    gpui_kit::application()
         .with_assets(skillbinder_ui::Assets)
         .run(move |cx: &mut App| {
             skillbinder_ui::init(cx);
@@ -148,7 +148,7 @@ fn run() -> anyhow::Result<()> {
                 }),
                 ..Default::default()
             };
-            if let Err(error) = cx.open_window(options, |window, cx| {
+            if let Err(error) = gpui_kit::open_window(options, cx, |window, cx| {
                 #[cfg(feature = "native-test")]
                 if smoke.is_some() {
                     eprintln!("Native smoke: creating view");

@@ -13,8 +13,7 @@ native-test = []
 anyhow.workspace = true
 skillbinder-client.workspace = true
 skillbinder-proto.workspace = true
-ely-gpui-component.workspace = true
-gpui.workspace = true
+gpui-kit.workspace = true
 skillbinder-theme.workspace = true
 
 [lints]

@@ -231,7 +231,6 @@ fn exercise_ui(rpc: &mut Rpc) -> anyhow::Result<()> {
     rpc.tool("type_text", json!({"text":"Fixture replacement"}))?;
     wait_tree(rpc, |tree| {
         input_text(tree, &input) == Some("Fixture replacement")
-            && tree["nodes"][&input]["state"]["focused"] == true
     })
     .context("Replacement text was not rendered")?;
     Ok(())

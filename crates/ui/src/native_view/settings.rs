@@ -1,10 +1,11 @@
 use super::{DialogState, Effect, NativeView};
-use ely_gpui_component::{
-    buttons::Button,
-    forms::{Checkbox, Input},
-    theme::ActiveTheme,
+use gpui_kit::component::{
+    ActiveTheme, Disableable,
+    button::{Button, ButtonVariants},
+    checkbox::Checkbox,
+    input::Input,
 };
-use gpui::{Context, IntoElement, ParentElement, PathPromptOptions, Styled, div};
+use gpui_kit::{Context, IntoElement, ParentElement, PathPromptOptions, Styled, div};
 use skillbinder_proto::*;
 
 impl NativeView {
@@ -16,9 +17,10 @@ impl NativeView {
             .child("Settings")
             .child("Project roots")
             .child(
-                Button::new("choose-root", "Choose project folder")
+                Button::new("choose-root")
+                    .label("Choose project folder")
                     .disabled(self.busy)
-                    .on_click(cx.listener(|view, _, _, cx| {
+                    .on_click(cx.listener(|view, _, window, cx| {
                         let picker = cx.prompt_for_paths(PathPromptOptions {
                             files: false,
                             directories: true,
@@ -40,9 +42,9 @@ impl NativeView {
                             }
                         });
                         view.busy = true;
-                        cx.spawn(async move |this, cx| {
+                        cx.spawn_in(window, async move |this, cx| {
                             let result = handle.await;
-                            let _ = this.update(cx, |view, cx| {
+                            let _ = this.update_in(cx, |view, window, cx| {
                                 view.busy = false;
                                 match result {
                                     Ok(Ok(Effect::Grant(grant))) => {
@@ -51,8 +53,9 @@ impl NativeView {
                                             .and_then(|name| name.to_str())
                                             .unwrap_or("Project")
                                             .to_owned();
-                                        view.root_label
-                                            .update(cx, |input, cx| input.set_text(suggested, cx));
+                                        view.root_label.update(cx, |input, cx| {
+                                            input.set_value(suggested, window, cx)
+                                        });
                                         view.grant = Some(grant);
                                         view.editing_root = None;
                                     }
@@ -73,7 +76,8 @@ impl NativeView {
                 .child(format!("Selected: {}", grant.display_path))
                 .child(Input::new(&self.root_label))
                 .child(
-                    Button::new("register-root", "Add root")
+                    Button::new("register-root")
+                        .label("Add root")
                         .primary()
                         .disabled(self.busy)
                         .on_click(cx.listener(move |view, _, _, cx| {
@@ -109,7 +113,8 @@ impl NativeView {
                 .gap_2()
                 .child(format!("{} · {}", root.label, root.path))
                 .child(
-                    Checkbox::new(format!("root-enabled-{id}"), enabled)
+                    Checkbox::new(format!("root-enabled-{id}"))
+                        .checked(enabled)
                         .label("Include in discovery")
                         .disabled(self.busy)
                         .on_change({
@@ -117,6 +122,7 @@ impl NativeView {
                             let id = id.clone();
                             let label = label.clone();
                             move |enabled, _, cx| {
+                                let enabled = *enabled;
                                 let _ = weak.update(cx, |view, cx| {
                                     let client = view.client.clone();
                                     let id = id.clone();
@@ -135,22 +141,25 @@ impl NativeView {
                         }),
                 )
                 .child(
-                    Button::new(format!("root-edit-{id}"), "Edit label")
+                    Button::new(format!("root-edit-{id}"))
+                        .label("Edit label")
                         .disabled(self.busy)
                         .on_click(cx.listener({
                             let id = id.clone();
                             let label = label.clone();
-                            move |view, _, _, cx| {
+                            move |view, _, window, cx| {
                                 view.grant = None;
                                 view.editing_root = Some(id.clone());
-                                view.root_label
-                                    .update(cx, |input, cx| input.set_text(label.clone(), cx));
+                                view.root_label.update(cx, |input, cx| {
+                                    input.set_value(label.clone(), window, cx)
+                                });
                                 cx.notify();
                             }
                         })),
                 )
                 .child(
-                    Button::new(format!("root-remove-{id}"), "Remove")
+                    Button::new(format!("root-remove-{id}"))
+                        .label("Remove")
                         .disabled(self.busy)
                         .on_click(cx.listener(move |view, _, _, cx| {
                             view.dialog = DialogState::RemoveRoot(id.clone());
@@ -160,7 +169,8 @@ impl NativeView {
             if editing {
                 let id = root.id.clone();
                 row = row.child(Input::new(&self.root_label)).child(
-                    Button::new(format!("root-save-{id}"), "Save label")
+                    Button::new(format!("root-save-{id}"))
+                        .label("Save label")
                         .disabled(self.busy)
                         .on_click(cx.listener(move |view, _, _, cx| {
                             let label = Self::input_text(&view.root_label, cx);
@@ -214,7 +224,8 @@ impl NativeView {
                     .map_or("Local only", |remote| remote.url.as_str())
             ))
             .child(
-                Button::new("reveal-logs", "Reveal logs")
+                Button::new("reveal-logs")
+                    .label("Reveal logs")
                     .on_click(cx.listener(|view, _, _, cx| view.reveal_logs(cx))),
             )
     }

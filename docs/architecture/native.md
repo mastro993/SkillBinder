@@ -30,8 +30,10 @@ The executable drains the engine in GPUI’s quit hook before native termination
 
 ## Dependency boundary
 
-Ely remains unmodified at `2f8b2f687cd1e9b98a7cd29d4e882d09406fc547`. Both Cargo GPUI patch tables select the GPUI copy in `gpui-mcp` revision `9dda8e5cb49990261e3fdaa26abe38112d30dafb`. The `gpui_platform` dependency remains at official revision `1a28cff4b409169bac058bca40dfbfeb7621d19b`. The patch affects ordinary builds too, although the optional bridge dependency is present only with `native-test`.
+The application depends on GPUI Kit 0.7.0. Kit re-exports the matching GPUI Pre 0.3.7 types, platform bootstrap, Base infrastructure, and styled components. Application crates import these APIs through `gpui_kit`; there is no separate component or platform dependency.
 
-The application enables `font-kit`, X11, and Wayland through supported platform features. Ely remains unmodified. The application asset source maps each exercised icon path to licensed Hugeicons artwork and rejects an unmapped icon path.
+The Cargo `gpui-pre` patch selects the backend supplied by `gpui-mcp` revision `9dda8e5cb49990261e3fdaa26abe38112d30dafb`. The optional bridge selects its supported `gpui-pre` backend with default features disabled. Kit, its platform, and the bridge therefore share one GPUI type graph. The backend patch also applies to ordinary builds, while the bridge itself is present only with `native-test`. No dependency source is modified.
 
-Ely registers its bundled fonts during initialization. The application then sets the native system font explicitly so the component default does not change the production baseline's typography.
+Kit enables `font-kit`, X11, Wayland, and runtime shaders through its platform dependency. The application asset source maps exercised component icon paths to licensed Hugeicons artwork and rejects unmapped icons. It does not fall back to a different icon catalog or bundle component fonts. The application sets the native system font explicitly and follows window appearance through the public theme API.
+
+Kit's `open_window` installs its `Root` around the application view. Root owns keyboard traversal and the native dialog layer. The view owns `InputState` entities and subscriptions across renders; input changes use Kit's window-aware editing API. Typed dialog state remains in the view, and a single window dialog builder reads its current state on each render. Dismissal restores prior focus. Review dialogs use explicit footer actions and refuse implicit confirmation from Enter on the modal container. Escape, backdrop dismissal, close controls, and footer cancellation are disabled while a dialog operation is pending.

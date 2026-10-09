@@ -1,10 +1,8 @@
 use super::{DialogState, Effect, LibraryFilter, NativeView};
-use ely_gpui_component::{
-    buttons::Button,
-    forms::{Checkbox, Input},
-    theme::ActiveTheme,
+use gpui_kit::component::{
+    ActiveTheme, Disableable, button::Button, checkbox::Checkbox, input::Input,
 };
-use gpui::{Context, IntoElement, ParentElement, Styled, div};
+use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::*;
 
 impl NativeView {
@@ -18,7 +16,7 @@ impl NativeView {
         let Some(library) = &self.snapshot.library else {
             return page.child("Finish onboarding to open your library.");
         };
-        let query = self.search.read(cx).text().trim().to_lowercase();
+        let query = self.search.read(cx).value().trim().to_lowercase();
         let mut folders: Vec<_> = library.library.folders.iter().collect();
         folders.sort_by(|a, b| {
             a.name
@@ -32,7 +30,8 @@ impl NativeView {
                 .gap_2()
                 .child(Input::new(&self.folder_name))
                 .child(
-                    Button::new("create-folder", "Create folder")
+                    Button::new("create-folder")
+                        .label("Create folder")
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, _, cx| {
                             let name = Self::input_text(&view.folder_name, cx);
@@ -63,22 +62,19 @@ impl NativeView {
             .flex()
             .gap_2()
             .child(
-                Button::new(
-                    "folder-all",
-                    format!("All ({})", library.library.skills.len()),
-                )
-                .on_click(cx.listener(|view, _, _, cx| {
-                    view.library_filter = LibraryFilter::All;
-                    view.selected_skills.clear();
-                    view.selected_skill = None;
-                    view.preview = None;
-                    cx.notify();
-                })),
+                Button::new("folder-all")
+                    .label(format!("All ({})", library.library.skills.len()))
+                    .on_click(cx.listener(|view, _, _, cx| {
+                        view.library_filter = LibraryFilter::All;
+                        view.selected_skills.clear();
+                        view.selected_skill = None;
+                        view.preview = None;
+                        cx.notify();
+                    })),
             )
             .child(
-                Button::new(
-                    "folder-unfiled",
-                    format!(
+                Button::new("folder-unfiled")
+                    .label(format!(
                         "Unfiled ({})",
                         library
                             .library
@@ -86,22 +82,20 @@ impl NativeView {
                             .iter()
                             .filter(|skill| skill.folder_id.is_none())
                             .count()
-                    ),
-                )
-                .on_click(cx.listener(|view, _, _, cx| {
-                    view.library_filter = LibraryFilter::Unfiled;
-                    view.selected_skills.clear();
-                    view.selected_skill = None;
-                    view.preview = None;
-                    cx.notify();
-                })),
+                    ))
+                    .on_click(cx.listener(|view, _, _, cx| {
+                        view.library_filter = LibraryFilter::Unfiled;
+                        view.selected_skills.clear();
+                        view.selected_skill = None;
+                        view.preview = None;
+                        cx.notify();
+                    })),
             );
         for folder in &folders {
             let id = folder.id.clone();
             folder_row = folder_row.child(
-                Button::new(
-                    format!("folder-{id}"),
-                    format!(
+                Button::new(format!("folder-{id}"))
+                    .label(format!(
                         "{} ({})",
                         folder.name,
                         library
@@ -110,15 +104,14 @@ impl NativeView {
                             .iter()
                             .filter(|skill| skill.folder_id.as_ref() == Some(&id))
                             .count()
-                    ),
-                )
-                .on_click(cx.listener(move |view, _, _, cx| {
-                    view.library_filter = LibraryFilter::Folder(id.clone());
-                    view.selected_skills.clear();
-                    view.selected_skill = None;
-                    view.preview = None;
-                    cx.notify();
-                })),
+                    ))
+                    .on_click(cx.listener(move |view, _, _, cx| {
+                        view.library_filter = LibraryFilter::Folder(id.clone());
+                        view.selected_skills.clear();
+                        view.selected_skill = None;
+                        view.preview = None;
+                        cx.notify();
+                    })),
             );
         }
         page = page.child(folder_row);
@@ -129,7 +122,8 @@ impl NativeView {
                     .flex()
                     .gap_2()
                     .child(
-                        Button::new("rename-folder", "Rename selected folder")
+                        Button::new("rename-folder")
+                            .label("Rename selected folder")
                             .disabled(self.busy)
                             .on_click(cx.listener({
                                 let folder_id = folder_id.clone();
@@ -155,7 +149,8 @@ impl NativeView {
                             })),
                     )
                     .child(
-                        Button::new("delete-folder", "Delete selected folder")
+                        Button::new("delete-folder")
+                            .label("Delete selected folder")
                             .disabled(self.busy)
                             .on_click(cx.listener(move |view, _, _, cx| {
                                 let client = view.client.clone();
@@ -178,7 +173,8 @@ impl NativeView {
             let client = self.client.clone();
             let ids = selected_skills.clone();
             assignments = assignments.child(
-                Button::new("assign-unfiled", "Move to Unfiled")
+                Button::new("assign-unfiled")
+                    .label("Move to Unfiled")
                     .disabled(self.busy)
                     .on_click(cx.listener(move |view, _, _, cx| {
                         let client = client.clone();
@@ -201,7 +197,8 @@ impl NativeView {
                 let id = folder.id.clone();
                 let ids = selected_skills.clone();
                 assignments = assignments.child(
-                    Button::new(format!("assign-{id}"), format!("Move to {}", folder.name))
+                    Button::new(format!("assign-{id}"))
+                        .label(format!("Move to {}", folder.name))
                         .disabled(self.busy)
                         .on_click(cx.listener(move |view, _, _, cx| {
                             let client = view.client.clone();
@@ -258,14 +255,15 @@ impl NativeView {
                     .flex()
                     .gap_2()
                     .child(
-                        Checkbox::new(format!("skill-select-{id}"), checked)
+                        Checkbox::new(format!("skill-select-{id}"))
+                            .checked(checked)
                             .label("Select")
                             .on_change({
                                 let weak = cx.entity().downgrade();
                                 let id = id.clone();
                                 move |checked, _, cx| {
                                     let _ = weak.update(cx, |view, cx| {
-                                        if checked {
+                                        if *checked {
                                             view.selected_skills.insert(id.clone());
                                         } else {
                                             view.selected_skills.remove(&id);
@@ -276,24 +274,24 @@ impl NativeView {
                             }),
                     )
                     .child(
-                        Button::new(
-                            format!("skill-open-{id}"),
-                            skill
-                                .display_name
-                                .clone()
-                                .unwrap_or_else(|| skill.slug.clone()),
-                        )
-                        .on_click(cx.listener(move |view, _, _, cx| {
-                            view.selected_skill = Some(id.clone());
-                            let client = view.client.clone();
-                            let skill = id.clone();
-                            view.run(
-                                async move {
-                                    client.preview_skill(skill, None).await.map(Effect::Preview)
-                                },
-                                cx,
-                            );
-                        })),
+                        Button::new(format!("skill-open-{id}"))
+                            .label(
+                                skill
+                                    .display_name
+                                    .clone()
+                                    .unwrap_or_else(|| skill.slug.clone()),
+                            )
+                            .on_click(cx.listener(move |view, _, _, cx| {
+                                view.selected_skill = Some(id.clone());
+                                let client = view.client.clone();
+                                let skill = id.clone();
+                                view.run(
+                                    async move {
+                                        client.preview_skill(skill, None).await.map(Effect::Preview)
+                                    },
+                                    cx,
+                                );
+                            })),
                     )
                     .child(details.map(|d| d.description.clone()).unwrap_or_default()),
             );
@@ -331,29 +329,24 @@ impl NativeView {
                     let id = skill_id.clone();
                     let path = entry.path.clone();
                     detail = detail.child(
-                        Button::new(
-                            format!("file-{}", entry.path),
-                            format!(
+                        Button::new(format!("file-{}", entry.path))
+                            .label(format!(
                                 "{} {}",
                                 if entry.directory { "Folder" } else { "File" },
                                 entry.path
-                            ),
-                        )
-                        .disabled(entry.directory || self.busy)
-                        .on_click(cx.listener(move |view, _, _, cx| {
-                            let client = view.client.clone();
-                            let id = id.clone();
-                            let path = Some(path.clone());
-                            view.run(
-                                            async move {
-                                                client
-                                                    .preview_skill(id, path)
-                                                    .await
-                                                    .map(Effect::Preview)
-                                            },
-                                            cx,
-                                        );
-                        })),
+                            ))
+                            .disabled(entry.directory || self.busy)
+                            .on_click(cx.listener(move |view, _, _, cx| {
+                                let client = view.client.clone();
+                                let id = id.clone();
+                                let path = Some(path.clone());
+                                view.run(
+                                    async move {
+                                        client.preview_skill(id, path).await.map(Effect::Preview)
+                                    },
+                                    cx,
+                                );
+                            })),
                     );
                 }
                 if let Some(text) = &preview.text {
@@ -375,19 +368,17 @@ impl NativeView {
         for (slug, ids) in conflicts.into_iter().filter(|(_, ids)| ids.len() > 1) {
             let revision = library.revision.clone();
             page = page.child(
-                Button::new(
-                    format!("conflict-{slug}"),
-                    format!("Resolve shared name: {slug}"),
-                )
-                .on_click(cx.listener(move |view, _, _, cx| {
-                    view.dialog = DialogState::Conflict {
-                        slug: slug.clone(),
-                        ids: ids.clone(),
-                        revision: revision.clone(),
-                        selected: ids.first().cloned(),
-                    };
-                    cx.notify();
-                })),
+                Button::new(format!("conflict-{slug}"))
+                    .label(format!("Resolve shared name: {slug}"))
+                    .on_click(cx.listener(move |view, _, _, cx| {
+                        view.dialog = DialogState::Conflict {
+                            slug: slug.clone(),
+                            ids: ids.clone(),
+                            revision: revision.clone(),
+                            selected: ids.first().cloned(),
+                        };
+                        cx.notify();
+                    })),
             );
         }
         page

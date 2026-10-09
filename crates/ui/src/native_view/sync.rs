@@ -1,6 +1,10 @@
 use super::{Effect, NativeView};
-use ely_gpui_component::{buttons::Button, forms::Input};
-use gpui::{Context, IntoElement, ParentElement, Styled, div};
+use gpui_kit::component::{
+    Disableable,
+    button::{Button, ButtonVariants},
+    input::Input,
+};
+use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::*;
 
 impl NativeView {
@@ -50,7 +54,8 @@ impl NativeView {
                 ),
             ] {
                 page = page.child(
-                    Button::new(id, label)
+                    Button::new(id)
+                        .label(label)
                         .disabled(self.busy || !enabled)
                         .on_click(cx.listener(move |view, _, _, cx| {
                             let client = view.client.clone();
@@ -67,7 +72,8 @@ impl NativeView {
                 .child(Input::new(&self.remote_url))
                 .child(Input::new(&self.remote_branch))
                 .child(
-                    Button::new("sync-connect", "Connect remote")
+                    Button::new("sync-connect")
+                        .label("Connect remote")
                         .primary()
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, _, cx| {

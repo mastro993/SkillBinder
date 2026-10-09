@@ -1,6 +1,6 @@
 # Verify the native application
 
-The workspace implements the shipped product journeys with pinned GPUI and unmodified Ely. Functional coverage is documented in [native features](features/native.md). Visual fidelity and polish are deferred by the user's latest instruction.
+The workspace implements the shipped product journeys with pinned GPUI Kit. Functional coverage is documented in [native features](features/native.md). Visual fidelity and polish are deferred by the user's latest instruction.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ Use Rust 1.96.0 from `rust-toolchain.toml` and Git 2.39 or newer.
 - Windows: Visual Studio MSVC C++ tools, Windows SDK 10.0.20348.0 or newer, and CMake.
 - Linux: C/C++ toolchain, Clang, CMake, Ninja, `pkg-config`, Fontconfig, Wayland, X11/XCB, XKBCommon, OpenSSL, and Vulkan libraries. Native directory selection requires a working desktop portal. The CI workflow lists Ubuntu package names.
 
-Both `gpui` and `gpui_platform` enable the `wayland` and `x11` features. At the pinned revision, the platform's X11 feature does not enable core X11 display detection; omitting the core feature selects a headless event loop under X11. Linux startup requires an available desktop session and reports a clear error if neither display is available.
+GPUI Kit pins GPUI Pre 0.3.7 and enables the platform's `font-kit`, `wayland`, `x11`, and `runtime_shaders` features. Feature unification also enables X11 and Wayland in the shared GPUI backend. Linux startup requires an available desktop session and reports a clear error if neither display is available.
 
 ## Automated checks
 
@@ -36,7 +36,7 @@ cargo run -p skillbinder --features native-test --locked -- \
   --smoke-test --data-dir /tmp/skillbinder-native-smoke
 ```
 
-The smoke test initializes only the supplied test directory, renders all four product screens and an Ely dialog across actual native frames, checks Unicode text and focus, then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. Test-only stage and renderer logs identify startup failures; Linux CI collects thread backtraces if a smoke process stalls. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or bridge.
+The smoke test initializes only the supplied test directory and renders all four product screens and a GPUI Kit dialog across actual native frames. It checks Unicode text, input focus, modal focus capture and restoration, and refusal of implicit confirmation. Renderer error logs fail the check, including missing icon mappings. The test then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. Test-only stage and renderer logs identify startup failures; Linux CI collects thread backtraces if a smoke process stalls. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or bridge.
 
 ### Run the opt-in MCP bridge
 
@@ -71,7 +71,7 @@ cargo run -p xtask --locked -- mcp-smoke \
   target/debug/skillbinder ~/.cargo/bin/gpui-mcp
 ```
 
-The task creates an isolated fixture, selects the launched process by PID, completes onboarding, opens Sync, types and replaces text in the Ely Remote URL input, quits through the keyboard, and checks that the process leaves MCP discovery. Ely exposes this input for focus and typing, but not the upstream `set_text` action; the task uses Select All followed by `type_text`. It keeps the child processes bounded and stops them on failure. Run this check in a desktop session. MCP screenshot capture and visual parity remain separate checks. During the macOS integration run, screen capture preflight returned false and screenshot capture returned `application window was not available for capture`.
+The task creates an isolated fixture, selects the launched process by PID, completes onboarding, opens Sync, types and replaces text in the GPUI Kit Remote URL input, quits through the keyboard, and checks that the process leaves MCP discovery. The task uses Select All followed by `type_text` to exercise keyboard editing rather than replacing the input through a programmatic setter. Kit redirects semantic input focus to its inner editor, so the bridge can report the outer input's `focused` flag as false while typing succeeds. The check requires the replacement to appear in the intended input; the renderer smoke separately checks the editing state's real focus handle. The task keeps child processes bounded and stops them on failure. Run this check in a desktop session. MCP screenshot capture and visual parity remain separate checks. During the earlier macOS integration run, screen capture preflight returned false and screenshot capture returned `application window was not available for capture`.
 
 CI checks macOS ARM64, macOS Intel, Windows x64, and Linux x64. Linux renderer checks run separately under X11 and Wayland. Wayland uses Weston nested in Xvfb so the compositor supplies an input seat; Weston's headless backend supplies no input and cannot exercise this desktop application. Each platform produces an unsigned package and checks the packaged executable's version. These checks remain distinct from interactive desktop and packaged-window testing.
 
@@ -89,11 +89,17 @@ Use disposable source directories, library data, and a local bare remote.
 
 ## Recorded evidence
 
+The GPUI Kit 0.7.0 migration passed macOS ARM64 formatting, strict workspace Clippy, 82 workspace tests, two native launch-argument tests, retained-evidence verification, and a locked release build. The renderer smoke passed Unicode editing, real input focus, modal focus capture and restoration, and refusal of implicit confirmation. Two negative controls failed before their fixes: an unmapped close icon and Enter bypassing the explicit review action. The MCP smoke passed onboarding, Unicode typing and replacement, keyboard quit, and discovery cleanup. A separate native session created a folder, opened its deletion review, kept it open on Enter, traversed only modal controls with Tab and Shift+Tab, cancelled with Escape, then deleted it through its explicit action. Screenshot capture was unavailable. The dependency graph contains one GPUI Pre backend and excludes the MCP bridge from ordinary builds.
+
+The migration also produced an unsigned macOS app and DMG. The packaged executable returned `SkillBinder 0.1.0` for `--version`; packaged-window interaction was not repeated.
+
+The remaining evidence below describes the original rewrite before the component migration. It does not establish the same interaction checks for GPUI Kit on Windows or Linux.
+
 The baseline revision is `83d55ef789a7cf256021f6620742e0e9021a8312`. It was still current after fetching and rebasing before feature reconstruction.
 
 On 2026-10-04, macOS ARM64 local checks passed for workspace formatting, strict Clippy, 82 domain, integration, and client tests, evidence verification, native debug compilation, and the locked release build. The real renderer smoke test passed, including the native quit hook. The hook drains the worker before AppKit termination; code after the native event loop is not relied on for shutdown. A subprocess-inheritance regression also verifies that shutdown explicitly releases library ownership before reopening. Portable-name policy is tested independently of the host filesystem, which may normalize or reject unsafe fixture names before inspection.
 
-The MCP integration also passed those local checks and two native launch-argument tests. A real MCP session completed onboarding, navigated all four product screens, focused and replaced Unicode text in an Ely input, and quit successfully. Restart and second-instance activation preserved the existing library and published one endpoint; quit removed its descriptor. A native-test launch without `--mcp` published no endpoint, and the ordinary dependency graph excluded the bridge. The new bridge has not yet been verified on Windows or Linux.
+The MCP integration also passed those local checks and two native launch-argument tests. A real MCP session completed onboarding, navigated all four product screens, focused and replaced Unicode text in the previous component input, and quit successfully. Restart and second-instance activation preserved the existing library and published one endpoint; quit removed its descriptor. A native-test launch without `--mcp` published no endpoint, and the ordinary dependency graph excluded the bridge. The new bridge has not yet been verified on Windows or Linux.
 
 Interactive macOS testing exercised four-step onboarding, native project selection, registry discovery, expired-plan refusal, reviewed import, retained results across navigation and restart, file preview, folder creation/assignment/deletion, remote Connect/Refresh/Push against a local bare remote, second-instance activation, and Cmd+Q. Source fixture bytes and the remote commit were independently checked. Sanitized Library and Sync screenshots accompany the rewrite PR. The packaged macOS production app rendered initial onboarding and exited cleanly; the unsigned DMG was created successfully.
 
