@@ -54,6 +54,28 @@ pub enum Appearance {
     /// Always dark.
     Dark,
 }
+impl Appearance {
+    /// Preference after a two-state toggle, given whether the system is currently dark.
+    ///
+    /// The toggle shows the opposite of what is visible. Landing on the system appearance
+    /// clears the override, so the toggle can always return to following the system; any
+    /// other result is stored as an explicit override. Only user interaction calls this, so
+    /// an override that later matches the system is kept.
+    pub fn toggled(self, system_dark: bool) -> Self {
+        let dark = match self {
+            Self::System => !system_dark,
+            Self::Light => true,
+            Self::Dark => false,
+        };
+        if dark == system_dark {
+            Self::System
+        } else if dark {
+            Self::Dark
+        } else {
+            Self::Light
+        }
+    }
+}
 impl Default for Preferences {
     fn default() -> Self {
         Self {
@@ -88,7 +110,23 @@ pub struct AppSnapshot {
 
 #[cfg(test)]
 mod tests {
-    use super::Preferences;
+    use super::{Appearance, Preferences};
+
+    #[test]
+    fn appearance_toggle_overrides_then_returns_to_system() {
+        for system_dark in [false, true] {
+            let opposite = if system_dark {
+                Appearance::Light
+            } else {
+                Appearance::Dark
+            };
+            assert_eq!(Appearance::System.toggled(system_dark), opposite);
+            assert_eq!(opposite.toggled(system_dark), Appearance::System);
+        }
+        // An override that came to match the system still flips what is visible.
+        assert_eq!(Appearance::Dark.toggled(true), Appearance::Light);
+        assert_eq!(Appearance::Light.toggled(false), Appearance::Dark);
+    }
 
     #[test]
     fn preferences_saved_before_sidebar_collapse_still_load() -> serde_json::Result<()> {
