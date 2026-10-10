@@ -1,19 +1,19 @@
-name: Release
+name: Native builds
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: native-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  package:
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -26,11 +26,13 @@ jobs:
             target-dir: x86_64-apple-darwin/
           - os: windows-2025
           - os: ubuntu-24.04
-    name: package (${{ matrix.target || matrix.os }})
+    name: build (${{ matrix.target || matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install Linux prerequisites
         if: runner.os == 'Linux'
         run: |
@@ -47,7 +49,7 @@ jobs:
           softwareupdate --install-rosetta --agree-to-license
       - uses: Swatinem/rust-cache@v2
         with:
-          key: release-${{ matrix.target || matrix.os }}
+          key: native-${{ matrix.target || matrix.os }}
           cache-on-failure: true
       - name: Check native graph
         run: cargo clippy --workspace --all-targets --all-features --locked ${{ matrix.cargo-target }} -- -D warnings
@@ -61,6 +63,7 @@ jobs:
         run: target/${{ matrix.target-dir }}debug/skillbinder --smoke-test --data-dir "$RUNNER_TEMP/native-smoke"
       - name: Exercise native renderer on Windows
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $process = Start-Process target/debug/skillbinder.exe -ArgumentList @('--smoke-test', '--data-dir', "$env:RUNNER_TEMP/native-smoke") -PassThru -NoNewWindow
           if (!$process.WaitForExit(60000)) { $process.Kill(); throw 'Native smoke timed out' }
@@ -74,26 +77,6 @@ jobs:
           dbus-run-session -- xvfb-run -a bash .github/scripts/native-linux-sessions.sh
       - name: Build release application
         run: cargo build -p skillbinder --release --locked ${{ matrix.cargo-target }}
-      - name: Package release application
-        run: cargo run -p xtask --locked -- package ${{ matrix.target }}
-      - name: Verify packaged executable
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = macOS ]; then
-            for app in dist/*/SkillBinder.app/Contents/MacOS/skillbinder; do
-              "$app" --version
-              vtool -show-build "$app" | grep -q 'minos 26.0'
-            done
-          elif [ "$RUNNER_OS" = Windows ]; then
-            dist/*/SkillBinder/skillbinder.exe --version
-          else
-            dist/*/SkillBinder/skillbinder --version
-          fi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: skillbinder-${{ matrix.target || matrix.os }}
-          path: |
-            dist/**/*.dmg
-            dist/**/*.zip
-            dist/**/*.tar.gz
-          if-no-files-found: error
+      - name: Check macOS minimum system version
+        if: runner.os == 'macOS'
+        run: vtool -show-build target/${{ matrix.target-dir }}release/skillbinder | grep -q 'minos 26.0'
