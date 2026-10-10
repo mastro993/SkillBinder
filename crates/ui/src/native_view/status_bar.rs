@@ -125,8 +125,11 @@ impl NativeView {
             (false, _) => "Not synced",
         };
         [
-            text_item("status-branch", app_icon("git-branch"), branch, muted).into_any_element(),
+            text_item("status-branch", app_icon("git-branch"), branch, muted)
+                .tooltip("Current branch")
+                .into_any_element(),
             text_item("status-commit", app_icon("git-commit"), "Commit", muted)
+                .tooltip("Commit and push changes")
                 .when(sync.changed_files > 0, |item| {
                     item.child(
                         Tag::secondary()
@@ -138,9 +141,12 @@ impl NativeView {
                 .into_any_element(),
             item_button("status-sync")
                 .accessibility_label(sync_label)
+                .tooltip("Synchronize now")
                 .child(labelled(sync_icon, sync_label, muted))
                 .into_any_element(),
-            text_item("status-history", app_icon("history"), "History", muted).into_any_element(),
+            text_item("status-history", app_icon("history"), "History", muted)
+                .tooltip("Open changes history")
+                .into_any_element(),
         ]
     }
 }
