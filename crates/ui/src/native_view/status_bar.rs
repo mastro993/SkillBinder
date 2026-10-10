@@ -3,8 +3,8 @@
 use super::controls::button;
 use super::{NativeView, Screen};
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable, button::Button, button::ButtonVariants, h_flex,
-    separator::Separator, status_bar::StatusBar,
+    ActiveTheme, Icon, IconName, Sizable, ThemeMode, button::Button, button::ButtonVariants,
+    h_flex, separator::Separator, status_bar::StatusBar,
 };
 use gpui_kit::{
     AnyElement, Context, Div, Hsla, IntoElement, ParentElement, Styled, Window, div, px,
@@ -26,11 +26,8 @@ const TEXT_ICON_NUDGE: f32 = 0.5;
 
 impl NativeView {
     pub(super) fn toggle_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.appearance = if cx.theme().is_dark() {
-            Appearance::Light
-        } else {
-            Appearance::Dark
-        };
+        let system_dark = ThemeMode::from(window.appearance()).is_dark();
+        self.appearance = self.appearance.toggled(system_dark);
         apply_appearance(self.appearance, window, cx);
         self.persist_preferences(cx);
     }
@@ -108,8 +105,8 @@ pub(super) fn apply_appearance(
     skillbinder_theme::set_mode(
         match appearance {
             Appearance::System => None,
-            Appearance::Light => Some(gpui_kit::component::ThemeMode::Light),
-            Appearance::Dark => Some(gpui_kit::component::ThemeMode::Dark),
+            Appearance::Light => Some(ThemeMode::Light),
+            Appearance::Dark => Some(ThemeMode::Dark),
         },
         window,
         cx,
