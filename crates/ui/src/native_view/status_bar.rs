@@ -82,10 +82,12 @@ impl NativeView {
                 ))
                 .into_any_element(),
             // Not in GPUI Kit's icon set; the app's asset source supplies it.
-            labelled(glyph(app_icon("box"), muted), VERSION, muted)
-                .h_5()
-                .px_1()
-                .into_any_element(),
+            hint(
+                labelled(glyph(app_icon("box"), muted), VERSION, muted)
+                    .h_5()
+                    .px_1(),
+                "Check for updates",
+            ),
         ]
         .into_iter()
         .chain(git);
