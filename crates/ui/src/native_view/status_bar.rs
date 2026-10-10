@@ -4,13 +4,16 @@ use super::controls::button;
 use super::{NativeView, Screen};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable, ThemeMode, button::Button, button::ButtonVariants,
-    h_flex, separator::Separator, status_bar::StatusBar,
+    h_flex, hover_card::HoverCard, separator::Separator, spinner::Spinner, status_bar::StatusBar,
+    tag::Tag,
 };
 use gpui_kit::{
-    AnyElement, Context, Div, Hsla, IntoElement, ParentElement, Styled, Window, div, px,
+    Anchor, AnyElement, Context, Div, Hsla, IntoElement, ParentElement, SharedString, Styled,
+    Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::Appearance;
+use skillbinder_proto::{Appearance, SyncState};
 use skillbinder_theme::STATUS_BAR_HEIGHT;
+use std::time::Duration;
 
 const REPOSITORY_URL: &str = "https://github.com/mastro993/SkillBinder";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -23,6 +26,8 @@ const ICON_ONLY_SIZE: f32 = 14.0;
 const TEXT_ICON_SIZE: f32 = 12.0;
 /// Optical offset, measured on a 2x display; one device pixel there.
 const TEXT_ICON_NUDGE: f32 = 0.5;
+/// Matches GPUI Kit's tooltip delay.
+const HINT_DELAY: Duration = Duration::from_millis(500);
 
 impl NativeView {
     pub(super) fn toggle_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -38,6 +43,7 @@ impl NativeView {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
+        let git = self.git_items(cx.theme().muted_foreground);
         let theme = cx.theme();
         let (background, border, muted, dark) = (
             theme.sidebar,
@@ -45,39 +51,46 @@ impl NativeView {
             theme.muted_foreground,
             theme.is_dark(),
         );
+        let (appearance_icon, appearance_label) = if dark {
+            (IconName::Moon, "Switch to light theme")
+        } else {
+            (IconName::Sun, "Switch to dark theme")
+        };
         let left = [
             // Icon-only controls share one item, so no separator splits them.
             h_flex()
                 .gap_2()
-                .child(
+                .child(hint(
                     icon_item("status-settings", IconName::Settings, "Settings", muted).on_click(
                         cx.listener(|view, _, window, cx| {
                             view.navigate(Screen::Settings, window, cx)
                         }),
                     ),
-                )
-                .child(
+                    "Settings",
+                ))
+                .child(hint(
                     icon_item(
                         "status-appearance",
-                        if dark { IconName::Moon } else { IconName::Sun },
-                        if dark {
-                            "Switch to light theme"
-                        } else {
-                            "Switch to dark theme"
-                        },
+                        appearance_icon,
+                        appearance_label,
                         muted,
                     )
                     .on_click(
                         cx.listener(|view, _, window, cx| view.toggle_appearance(window, cx)),
                     ),
-                )
+                    appearance_label,
+                ))
                 .into_any_element(),
             // Not in GPUI Kit's icon set; the app's asset source supplies it.
-            labelled(Icon::empty().path("icons/box.svg"), VERSION, muted)
-                .h_5()
-                .px_1()
-                .into_any_element(),
-        ];
+            hint(
+                labelled(glyph(app_icon("box"), muted), VERSION, muted)
+                    .h_5()
+                    .px_1(),
+                "Check for updates",
+            ),
+        ]
+        .into_iter()
+        .chain(git);
         let right = [
             text_item("status-contribute", IconName::Github, "Contribute", muted)
                 .on_click(|_, _, cx| cx.open_url(REPOSITORY_URL))
@@ -97,6 +110,62 @@ impl NativeView {
     }
 }
 
+impl NativeView {
+    /// Git status items. Their actions are not implemented yet, so clicks do nothing.
+    fn git_items(&self, muted: Hsla) -> [AnyElement; 4] {
+        let sync = &self.snapshot.sync;
+        // The managed library is initialized on `main` until a remote names another branch.
+        let branch = sync.remote.as_ref().map_or_else(
+            || SharedString::from("main"),
+            |remote| remote.branch.clone().into(),
+        );
+        let sync_icon = if self.syncing {
+            Spinner::new()
+                .icon(app_icon("refresh-03"))
+                .color(muted)
+                .with_size(px(TEXT_ICON_SIZE))
+                .into_any_element()
+        } else {
+            glyph(app_icon("refresh-03"), muted).into_any_element()
+        };
+        let sync_label = match (self.syncing, sync.state) {
+            (true, _) => "Synchronizing",
+            (false, SyncState::Synced) => "Synced",
+            (false, _) => "Not synced",
+        };
+        [
+            hint(
+                text_item("status-branch", app_icon("git-branch"), branch, muted),
+                "Current branch",
+            ),
+            hint(
+                text_item("status-commit", app_icon("git-commit"), "Commit", muted).when(
+                    sync.changed_files > 0,
+                    |item| {
+                        item.child(
+                            Tag::secondary()
+                                .xsmall()
+                                .rounded_full()
+                                .child(sync.changed_files.to_string()),
+                        )
+                    },
+                ),
+                "Commit and push changes",
+            ),
+            hint(
+                item_button("status-sync")
+                    .accessibility_label(sync_label)
+                    .child(labelled(sync_icon, sync_label, muted)),
+                "Synchronize now",
+            ),
+            hint(
+                text_item("status-history", app_icon("history"), "History", muted),
+                "Open changes history",
+            ),
+        ]
+    }
+}
+
 pub(super) fn apply_appearance(
     appearance: Appearance,
     window: &mut Window,
@@ -113,7 +182,7 @@ pub(super) fn apply_appearance(
     );
 }
 
-/// Icon-only item; `label` names it for tooltips and assistive technology.
+/// Icon-only item; `label` names it for assistive technology.
 fn icon_item(id: &'static str, icon: IconName, label: &'static str, muted: Hsla) -> Button {
     item_button(id)
         .size_6()
@@ -125,13 +194,43 @@ fn icon_item(id: &'static str, icon: IconName, label: &'static str, muted: Hsla)
                 .text_color(muted),
         )
         .accessibility_label(label)
-        .tooltip(label)
 }
 
-fn text_item(id: &'static str, icon: IconName, label: &'static str, muted: Hsla) -> Button {
+/// A tooltip-like hint with inverted theme colors: dark on the light theme, light on the dark one.
+/// GPUI Kit tooltips always take the popover colors, so a hover card stands in for them.
+fn hint(trigger: impl IntoElement + 'static, text: &'static str) -> AnyElement {
+    HoverCard::new(text)
+        // The bar sits at the window's bottom edge, so hints open above their item.
+        .anchor(Anchor::BottomCenter)
+        .open_delay(HINT_DELAY)
+        .close_delay(Duration::ZERO)
+        .appearance(false)
+        .trigger(trigger)
+        .content(move |_, _, cx| {
+            let theme = cx.theme();
+            div()
+                .bg(theme.foreground)
+                .text_color(theme.background)
+                .rounded(theme.radius)
+                .shadow_md()
+                .py_0p5()
+                .px_2()
+                .text_sm()
+                .child(text)
+        })
+        .into_any_element()
+}
+
+fn text_item(
+    id: &'static str,
+    icon: impl Into<Icon>,
+    label: impl Into<SharedString>,
+    muted: Hsla,
+) -> Button {
+    let label = label.into();
     item_button(id)
-        .accessibility_label(label)
-        .child(labelled(icon, label, muted))
+        .accessibility_label(label.clone())
+        .child(labelled(glyph(icon, muted), label, muted))
 }
 
 /// Hover shows only the ghost background: item content sets its own color.
@@ -139,19 +238,24 @@ fn item_button(id: &'static str) -> Button {
     button(id).ghost().xsmall()
 }
 
-/// Icon-and-text content, shared by buttons and plain labels. Icons resolve their color when
-/// built rather than inheriting it, so icon and text each receive `color` explicitly.
-fn labelled(icon: impl Into<Icon>, text: impl IntoElement, color: Hsla) -> Div {
+/// Artwork outside GPUI Kit's icon set, supplied by the app's asset source.
+fn app_icon(name: &str) -> Icon {
+    Icon::empty().path(format!("icons/{name}.svg"))
+}
+
+/// Icons resolve their color when built rather than inheriting it, so they receive it explicitly.
+fn glyph(icon: impl Into<Icon>, color: Hsla) -> Icon {
+    icon.into().with_size(px(TEXT_ICON_SIZE)).text_color(color)
+}
+
+/// Icon-and-text content, shared by buttons and plain labels.
+fn labelled(icon: impl IntoElement, text: impl IntoElement, color: Hsla) -> Div {
     h_flex()
         .gap_2()
         .child(
-            icon.into()
-                .with_size(px(TEXT_ICON_SIZE))
-                .text_color(color)
-                // Box-centred text reads low beside a box-centred icon: digits and lowercase
-                // sit below the line box's centre, so the icon drops to meet them.
-                .relative()
-                .top(px(TEXT_ICON_NUDGE)),
+            // Box-centred text reads low beside a box-centred icon: digits and lowercase sit
+            // below the line box's centre, so the icon drops to meet them.
+            h_flex().relative().top(px(TEXT_ICON_NUDGE)).child(icon),
         )
         .child(div().text_color(color).child(text))
 }
