@@ -5,6 +5,19 @@ use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::*;
 
 impl NativeView {
+    /// Runs one Git operation, marking the view as syncing until it settles.
+    pub(super) fn synchronize(&mut self, action: SyncAction, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        self.syncing = true;
+        let client = self.client.clone();
+        self.run(
+            async move { client.synchronize(action).await.map(|_| Effect::None) },
+            cx,
+        );
+    }
+
     pub(super) fn render_sync(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let sync = &self.snapshot.sync;
         let mut page = div().flex().flex_col().gap_4().child("Sync").child(format!(
@@ -54,13 +67,7 @@ impl NativeView {
                     button(id)
                         .label(label)
                         .inactive(self.busy || !enabled)
-                        .on_click(cx.listener(move |view, _, _, cx| {
-                            let client = view.client.clone();
-                            view.run(
-                            async move { client.synchronize(action).await.map(|_| Effect::None) },
-                            cx,
-                        );
-                        })),
+                        .on_click(cx.listener(move |view, _, _, cx| view.synchronize(action, cx))),
                 );
             }
         } else {

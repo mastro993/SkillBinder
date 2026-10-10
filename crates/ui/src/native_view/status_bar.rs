@@ -4,12 +4,13 @@ use super::controls::button;
 use super::{NativeView, Screen};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable, ThemeMode, button::Button, button::ButtonVariants,
-    h_flex, separator::Separator, status_bar::StatusBar,
+    h_flex, separator::Separator, spinner::Spinner, status_bar::StatusBar, tag::Tag,
 };
 use gpui_kit::{
-    AnyElement, Context, Div, Hsla, IntoElement, ParentElement, Styled, Window, div, px,
+    AnyElement, Context, Div, Hsla, IntoElement, ParentElement, SharedString, Styled, Window, div,
+    prelude::FluentBuilder, px,
 };
-use skillbinder_proto::Appearance;
+use skillbinder_proto::{Appearance, SyncState};
 use skillbinder_theme::STATUS_BAR_HEIGHT;
 
 const REPOSITORY_URL: &str = "https://github.com/mastro993/SkillBinder";
@@ -38,6 +39,7 @@ impl NativeView {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
+        let git = self.git_items(cx.theme().muted_foreground);
         let theme = cx.theme();
         let (background, border, muted, dark) = (
             theme.sidebar,
@@ -73,11 +75,13 @@ impl NativeView {
                 )
                 .into_any_element(),
             // Not in GPUI Kit's icon set; the app's asset source supplies it.
-            labelled(Icon::empty().path("icons/box.svg"), VERSION, muted)
+            labelled(glyph(app_icon("box"), muted), VERSION, muted)
                 .h_5()
                 .px_1()
                 .into_any_element(),
-        ];
+        ]
+        .into_iter()
+        .chain(git);
         let right = [
             text_item("status-contribute", IconName::Github, "Contribute", muted)
                 .on_click(|_, _, cx| cx.open_url(REPOSITORY_URL))
@@ -94,6 +98,50 @@ impl NativeView {
             .border_color(border);
         let bar = separated(left, border).fold(bar, StatusBar::left);
         separated(right, border).fold(bar, StatusBar::right)
+    }
+}
+
+impl NativeView {
+    /// Git status items. Their actions are not implemented yet, so clicks do nothing.
+    fn git_items(&self, muted: Hsla) -> [AnyElement; 4] {
+        let sync = &self.snapshot.sync;
+        // The managed library is initialized on `main` until a remote names another branch.
+        let branch = sync.remote.as_ref().map_or_else(
+            || SharedString::from("main"),
+            |remote| remote.branch.clone().into(),
+        );
+        let sync_icon = if self.syncing {
+            Spinner::new()
+                .icon(app_icon("refresh-03"))
+                .color(muted)
+                .with_size(px(TEXT_ICON_SIZE))
+                .into_any_element()
+        } else {
+            glyph(app_icon("refresh-03"), muted).into_any_element()
+        };
+        let sync_label = match (self.syncing, sync.state) {
+            (true, _) => "Synchronizing",
+            (false, SyncState::Synced) => "Synced",
+            (false, _) => "Not synced",
+        };
+        [
+            text_item("status-branch", app_icon("git-branch"), branch, muted).into_any_element(),
+            text_item("status-commit", app_icon("git-commit"), "Commit", muted)
+                .when(sync.changed_files > 0, |item| {
+                    item.child(
+                        Tag::secondary()
+                            .xsmall()
+                            .rounded_full()
+                            .child(sync.changed_files.to_string()),
+                    )
+                })
+                .into_any_element(),
+            item_button("status-sync")
+                .accessibility_label(sync_label)
+                .child(labelled(sync_icon, sync_label, muted))
+                .into_any_element(),
+            text_item("status-history", app_icon("history"), "History", muted).into_any_element(),
+        ]
     }
 }
 
@@ -128,10 +176,16 @@ fn icon_item(id: &'static str, icon: IconName, label: &'static str, muted: Hsla)
         .tooltip(label)
 }
 
-fn text_item(id: &'static str, icon: IconName, label: &'static str, muted: Hsla) -> Button {
+fn text_item(
+    id: &'static str,
+    icon: impl Into<Icon>,
+    label: impl Into<SharedString>,
+    muted: Hsla,
+) -> Button {
+    let label = label.into();
     item_button(id)
-        .accessibility_label(label)
-        .child(labelled(icon, label, muted))
+        .accessibility_label(label.clone())
+        .child(labelled(glyph(icon, muted), label, muted))
 }
 
 /// Hover shows only the ghost background: item content sets its own color.
@@ -139,19 +193,24 @@ fn item_button(id: &'static str) -> Button {
     button(id).ghost().xsmall()
 }
 
-/// Icon-and-text content, shared by buttons and plain labels. Icons resolve their color when
-/// built rather than inheriting it, so icon and text each receive `color` explicitly.
-fn labelled(icon: impl Into<Icon>, text: impl IntoElement, color: Hsla) -> Div {
+/// Artwork outside GPUI Kit's icon set, supplied by the app's asset source.
+fn app_icon(name: &str) -> Icon {
+    Icon::empty().path(format!("icons/{name}.svg"))
+}
+
+/// Icons resolve their color when built rather than inheriting it, so they receive it explicitly.
+fn glyph(icon: impl Into<Icon>, color: Hsla) -> Icon {
+    icon.into().with_size(px(TEXT_ICON_SIZE)).text_color(color)
+}
+
+/// Icon-and-text content, shared by buttons and plain labels.
+fn labelled(icon: impl IntoElement, text: impl IntoElement, color: Hsla) -> Div {
     h_flex()
         .gap_2()
         .child(
-            icon.into()
-                .with_size(px(TEXT_ICON_SIZE))
-                .text_color(color)
-                // Box-centred text reads low beside a box-centred icon: digits and lowercase
-                // sit below the line box's centre, so the icon drops to meet them.
-                .relative()
-                .top(px(TEXT_ICON_NUDGE)),
+            // Box-centred text reads low beside a box-centred icon: digits and lowercase sit
+            // below the line box's centre, so the icon drops to meet them.
+            h_flex().relative().top(px(TEXT_ICON_NUDGE)).child(icon),
         )
         .child(div().text_color(color).child(text))
 }

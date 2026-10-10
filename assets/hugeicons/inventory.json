@@ -154,12 +154,24 @@
       "usedBy": [
         "components/layout/app-shell.tsx",
         "features/git-sync/screens/git-sync-view.tsx",
-        "features/onboarding/components/onboarding-steps.tsx"
+        "features/onboarding/components/onboarding-steps.tsx",
+        "crates/ui/src/native_view/status_bar.rs"
       ],
       "sourceModule": "dist/esm/GitBranchIcon.js",
       "sourceModuleSha256": "4d521561a4bde7d13bc45f38cf0b1f0983b817527792a2b1c36999e4d90aecc2",
       "svgSha256": "e3ffcf9046b9182940273006255d149ea670ab584e537e1d68bf09a7823e4623",
       "elementCount": 5
+    },
+    {
+      "name": "GitCommitIcon",
+      "file": "GitCommitIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/status_bar.rs"
+      ],
+      "sourceModule": "dist/esm/GitCommitIcon.js",
+      "sourceModuleSha256": "87a61e661062415ecf684793eb3ebd8234a8cf09e620f8e2dda53b27385151e8",
+      "svgSha256": "43cacb5ad63da0151b7638ac13f3451ec523942f1017aaa38bd199aed8f437b9",
+      "elementCount": 2
     },
     {
       "name": "GithubIcon",
@@ -181,6 +193,17 @@
       "sourceModule": "dist/esm/HardDriveIcon.js",
       "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36",
       "svgSha256": "bd935ffcbbd5911e5b862166645d72fa560e059b5b9e09191f33101da764f6f1",
+      "elementCount": 3
+    },
+    {
+      "name": "HistoryIcon",
+      "file": "HistoryIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/status_bar.rs"
+      ],
+      "sourceModule": "dist/esm/HistoryIcon.js",
+      "sourceModuleSha256": "65b13d46d66403b7ba78343194c639d198e255fcbfab1fd79dd9810c226e3ac1",
+      "svgSha256": "ea9b868bffa7c6ba31ad2a3f78ab3ef7cc8611c4ea66b9967e355f5ee80fc494",
       "elementCount": 3
     },
     {
@@ -238,6 +261,17 @@
       "sourceModuleSha256": "6569be537715da9149e59593c46665caff88a04a26f495ed54c6203c6691df88",
       "svgSha256": "55afede25d5295e4ca51250240c826e33853175b206002af910e127a468f8290",
       "elementCount": 1
+    },
+    {
+      "name": "Refresh03Icon",
+      "file": "Refresh03Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/status_bar.rs"
+      ],
+      "sourceModule": "dist/esm/Refresh03Icon.js",
+      "sourceModuleSha256": "721f4168013230d87fe4ddd1caa6b4aa0b195f667d4246c416cb6398948ebfef",
+      "svgSha256": "ff9a296c769aeac60e2d7f84c8815e5f291472e88c7be029c48e3de46d2630f2",
+      "elementCount": 3
     },
     {
       "name": "RefreshIcon",
