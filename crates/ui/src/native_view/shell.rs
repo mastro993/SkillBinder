@@ -1,4 +1,4 @@
-//! Application chrome: full-height sidebar, borderless header, and fixed sidebar toggle.
+//! Application chrome: sidebar, borderless header, fixed sidebar toggle, and status bar.
 
 use std::rc::Rc;
 
@@ -89,10 +89,12 @@ impl NativeView {
         let preferences = Preferences {
             sidebar_width: self.sidebar_width,
             sidebar_collapsed: self.sidebar_collapsed,
+            appearance: self.appearance,
         };
         let stored = &self.snapshot.preferences;
         if (preferences.sidebar_width - stored.sidebar_width).abs() < 0.5
             && preferences.sidebar_collapsed == stored.sidebar_collapsed
+            && preferences.appearance == stored.appearance
         {
             self.preference_writes.finish();
             return;
@@ -127,10 +129,12 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let collapsed = self.sidebar_collapsed;
-        div()
+        let shell = div()
             .id("product-shell")
             .relative()
-            .size_full()
+            .flex_1()
+            .min_h_0()
+            .w_full()
             .flex()
             .on_drag_move(
                 cx.listener(|view, event: &DragMoveEvent<Rc<SidebarDrag>>, _, cx| {
@@ -178,7 +182,13 @@ impl NativeView {
                             .child(page),
                     ),
             )
-            .child(self.render_sidebar_toggle(window, cx))
+            .child(self.render_sidebar_toggle(window, cx));
+        div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .child(shell)
+            .child(self.render_status_bar(window, cx))
             .into_any_element()
     }
 

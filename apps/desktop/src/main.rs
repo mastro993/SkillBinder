@@ -229,7 +229,7 @@ fn run() -> anyhow::Result<()> {
 #[cfg(not(feature = "native-test"))]
 fn configuration() -> anyhow::Result<EngineConfig> {
     anyhow::ensure!(
-        std::env::args_os().skip(1).next().is_none(),
+        std::env::args_os().nth(1).is_none(),
         "Native test arguments require a native-test build"
     );
     Ok(EngineConfig::platform()?)

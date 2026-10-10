@@ -62,6 +62,17 @@
       "elementCount": 4
     },
     {
+      "name": "BoxIcon",
+      "file": "BoxIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/status_bar.rs"
+      ],
+      "sourceModule": "dist/esm/BoxIcon.js",
+      "sourceModuleSha256": "48ae66d62cfbb23ed01529924c04cc2df98a50b8a2ad4f71db50d9fa0236588a",
+      "svgSha256": "232b53965939b51918df90d39354b84d332571d2c2d259f449039ea13413b367",
+      "elementCount": 1
+    },
+    {
       "name": "Cancel01Icon",
       "file": "Cancel01Icon.svg",
       "usedBy": [
@@ -151,6 +162,17 @@
       "elementCount": 5
     },
     {
+      "name": "GithubIcon",
+      "file": "GithubIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/status_bar.rs"
+      ],
+      "sourceModule": "dist/esm/GithubIcon.js",
+      "sourceModuleSha256": "7d1797839ee0115a0ce7b19ad730d78c679d01daf01b4f900df1bf84ec38e4cd",
+      "svgSha256": "788846f2d0300212ae55196734ff6ac85bfd824cd1600025e1b32893e4706aae",
+      "elementCount": 2
+    },
+    {
       "name": "HardDriveIcon",
       "file": "HardDriveIcon.svg",
       "usedBy": [
@@ -195,6 +217,17 @@
       "elementCount": 8
     },
     {
+      "name": "Moon02Icon",
+      "file": "Moon02Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/status_bar.rs"
+      ],
+      "sourceModule": "dist/esm/Moon02Icon.js",
+      "sourceModuleSha256": "4668e1c4c1066c198ae809e31996cf693dc5ddd8785c411bcb45c4857ab31ec6",
+      "svgSha256": "ac6e3e471b416dc8f99332476511d89ec67d2311bda276174ff18810e5599fd1",
+      "elementCount": 1
+    },
+    {
       "name": "PlusSignIcon",
       "file": "PlusSignIcon.svg",
       "usedBy": [
@@ -222,7 +255,8 @@
       "name": "Settings01Icon",
       "file": "Settings01Icon.svg",
       "usedBy": [
-        "components/layout/app-shell.tsx"
+        "components/layout/app-shell.tsx",
+        "crates/ui/src/native_view/status_bar.rs"
       ],
       "sourceModule": "dist/esm/Settings01Icon.js",
       "sourceModuleSha256": "2a786adfc5785d70757a7d86faea37ba6d731e159668b57736113a829eb2901f",
@@ -280,6 +314,17 @@
       "sourceModuleSha256": "7c3ca044758757e925775b73557c9d4b07561b2e5990264cc20b6a8d76430148",
       "svgSha256": "561e979df3a7d522562410362be020371b707c5e28ca0cc1d13ffaa6e4da0ff2",
       "elementCount": 3
+    },
+    {
+      "name": "Sun03Icon",
+      "file": "Sun03Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/status_bar.rs"
+      ],
+      "sourceModule": "dist/esm/Sun03Icon.js",
+      "sourceModuleSha256": "55da814690d01d88ea8dddc1bccb42a4b09a43cd3cb10af44916830dfee7bbce",
+      "svgSha256": "e208c5fcdf7c04900f52d0f23412963f73e369b1aa72c28a1d63d834de243c3b",
+      "elementCount": 2
     },
     {
       "name": "Tick02Icon",

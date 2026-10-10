@@ -8,6 +8,7 @@ mod onboarding;
 mod settings;
 mod shell;
 mod sidebar;
+mod status_bar;
 mod sync;
 
 pub use shell::ToggleSidebar;
@@ -82,6 +83,7 @@ pub struct NativeView {
     library_filter: LibraryFilter,
     sidebar_width: f32,
     sidebar_collapsed: bool,
+    appearance: Appearance,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
     sidebar_motion: u64,
     /// Collapsed sidebar still mounted for its closing motion.
@@ -106,6 +108,8 @@ impl NativeView {
         let snapshot = client.snapshot();
         let sidebar_width = sidebar::clamp_sidebar_width(snapshot.preferences.sidebar_width);
         let sidebar_collapsed = snapshot.preferences.sidebar_collapsed;
+        let appearance = snapshot.preferences.appearance;
+        status_bar::apply_appearance(appearance, window, cx);
         let activation_subscription = cx.observe_window_activation(window, |view, window, cx| {
             if window.is_window_active() && view.snapshot.sync.remote.is_some() && !view.busy {
                 let client = view.client.clone();
@@ -174,6 +178,7 @@ impl NativeView {
             library_filter: LibraryFilter::All,
             sidebar_width,
             sidebar_collapsed,
+            appearance,
             sidebar_motion: 0,
             sidebar_closing: false,
             resizing_sidebar: false,
@@ -355,7 +360,8 @@ impl Focusable for NativeView {
 
 impl Render for NativeView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let body = if self.snapshot.bootstrap.step != OnboardingStep::Complete {
+        let onboarding = self.snapshot.bootstrap.step != OnboardingStep::Complete;
+        let body = if onboarding {
             div()
                 .size_full()
                 .flex()
@@ -390,7 +396,12 @@ impl Render for NativeView {
                 root.child(
                     div()
                         .absolute()
-                        .bottom_4()
+                        // Clears the status bar, which only the product shell shows.
+                        .bottom(gpui_kit::px(if onboarding {
+                            16.0
+                        } else {
+                            skillbinder_theme::STATUS_BAR_HEIGHT + 16.0
+                        }))
                         .right_4()
                         .max_w_96()
                         .p_4()

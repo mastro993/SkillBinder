@@ -7,6 +7,10 @@ pub struct Assets;
 
 const ICONS: &[(&str, &[u8])] = &[
     (
+        "icons/box.svg",
+        include_bytes!("../../../assets/hugeicons/BoxIcon.svg"),
+    ),
+    (
         "icons/check.svg",
         include_bytes!("../../../assets/hugeicons/Tick02Icon.svg"),
     ),
@@ -19,12 +23,28 @@ const ICONS: &[(&str, &[u8])] = &[
         include_bytes!("../../../assets/hugeicons/Folder01Icon.svg"),
     ),
     (
+        "icons/github.svg",
+        include_bytes!("../../../assets/hugeicons/GithubIcon.svg"),
+    ),
+    (
+        "icons/moon.svg",
+        include_bytes!("../../../assets/hugeicons/Moon02Icon.svg"),
+    ),
+    (
         "icons/panel-left-close.svg",
         include_bytes!("../../../assets/hugeicons/LayoutLeftIcon.svg"),
     ),
     (
         "icons/panel-left-open.svg",
         include_bytes!("../../../assets/hugeicons/LayoutAlignLeftIcon.svg"),
+    ),
+    (
+        "icons/settings.svg",
+        include_bytes!("../../../assets/hugeicons/Settings01Icon.svg"),
+    ),
+    (
+        "icons/sun.svg",
+        include_bytes!("../../../assets/hugeicons/Sun03Icon.svg"),
     ),
 ];
 

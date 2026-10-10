@@ -29,6 +29,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
         .save_preferences(Preferences {
             sidebar_width: 320.0,
             sidebar_collapsed: true,
+            appearance: Appearance::Dark,
         })
         .await?;
     let updated = engine.snapshot().await?;
@@ -39,6 +40,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
     let current = shared.snapshots.borrow().clone();
     assert_eq!(current.preferences.sidebar_width, 320.0);
     assert!(current.preferences.sidebar_collapsed);
+    assert_eq!(current.preferences.appearance, Appearance::Dark);
     assert_eq!(current.scan.as_ref().map(|scan| &scan.id), Some(&scan.id));
     assert_eq!(shared.requested.load(Ordering::Acquire), 2);
     assert!(current.generation >= 2);
