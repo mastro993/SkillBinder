@@ -38,12 +38,28 @@ pub struct Preferences {
     /// Whether the sidebar is hidden.
     #[serde(default)]
     pub sidebar_collapsed: bool,
+    /// Color scheme; preferences stored before it existed follow the system.
+    #[serde(default)]
+    pub appearance: Appearance,
+}
+/// Color scheme preference.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Appearance {
+    /// Follows the window appearance.
+    #[default]
+    System,
+    /// Always light.
+    Light,
+    /// Always dark.
+    Dark,
 }
 impl Default for Preferences {
     fn default() -> Self {
         Self {
             sidebar_width: 232.0,
             sidebar_collapsed: false,
+            appearance: Appearance::System,
         }
     }
 }
