@@ -26,7 +26,7 @@ Update affected behavior documents in `docs/`. Keep application code and documen
 
 Prefer available skills. Use Context7 for library documentation when available, Exa for general search, and GitHits for public source examples. Use revision-pinned upstream sources when a requested service is unavailable.
 
-Use `cargo fmt --all --check`, workspace Clippy with warnings denied, workspace tests, `cargo run -p xtask -- verify`, and a locked release build. Verification must distinguish compilation, native interaction, visual parity, and packaged-app smoke tests.
+Use `cargo fmt --all --check`, workspace Clippy with warnings denied, `cccc .` (complexity limits in `cccc.toml`; install with `cargo install cccc-cli`), workspace tests, `cargo run -p xtask -- verify`, and a locked release build. Refactor functions that exceed the `cccc` limits; do not raise the limits. Verification must distinguish compilation, native interaction, visual parity, and packaged-app smoke tests.
 
 Native test controls exist only behind `native-test`. Do not add a production debug server. Use isolated test roots and local bare remotes for future domain tests.
 

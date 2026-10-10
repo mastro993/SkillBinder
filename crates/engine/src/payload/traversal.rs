@@ -177,53 +177,61 @@ impl Walk {
                 self.directory(&physical, &relative, ancestors, depth + 1)?;
                 ancestors.pop();
             } else if metadata.is_file() {
-                let limit = if key == "SKILL.md" {
-                    1024 * 1024
-                } else {
-                    10 * 1024 * 1024
-                };
-                if metadata.len() > limit || self.total + metadata.len() > MAX_TOTAL {
-                    self.block("The payload exceeds its file or total byte limit.");
-                    continue;
-                }
-                let mut file = open_regular(&self.root, &physical)
-                    .map_err(|_| AppError::stale("SourceChanged"))?;
-                let before = file.metadata().map_err(|_| AppError::storage())?;
-                if !before.is_file() || !same_file(&metadata, &before) {
-                    return Err(AppError::stale("SourceChanged"));
-                }
-                let mut bytes = Vec::new();
-                (&mut file)
-                    .take(limit + 1)
-                    .read_to_end(&mut bytes)
-                    .map_err(|_| AppError::storage())?;
-                if bytes.len() as u64 > limit || self.total + bytes.len() as u64 > MAX_TOTAL {
-                    self.block("The payload exceeds its file or total byte limit.");
-                    continue;
-                }
-                let after = file.metadata().map_err(|_| AppError::storage())?;
-                if before.len() != after.len()
-                    || before.modified().ok() != after.modified().ok()
-                    || resolve_within_source(&self.root, &item.path())
-                        .ok()
-                        .as_ref()
-                        != Some(&physical)
-                {
-                    return Err(AppError::stale("SourceChanged"));
-                }
-                self.total += bytes.len() as u64;
-                self.entries.push(ManifestEntry {
-                    kind: ManifestKind::File,
-                    path: key.clone(),
-                    sha256: format!("{:x}", Sha256::digest(&bytes)),
-                    bytes: bytes.len() as u64,
-                    executable: executable(&before),
-                });
-                self.files.insert(key, bytes);
+                self.file(&item.path(), &physical, &metadata, key)?;
             } else {
                 self.block("The payload contains an unsupported entry type.");
             }
         }
+        Ok(())
+    }
+
+    fn file(
+        &mut self,
+        item: &Path,
+        physical: &Path,
+        metadata: &fs::Metadata,
+        key: String,
+    ) -> AppResult<()> {
+        let limit = if key == "SKILL.md" {
+            1024 * 1024
+        } else {
+            10 * 1024 * 1024
+        };
+        if metadata.len() > limit || self.total + metadata.len() > MAX_TOTAL {
+            self.block("The payload exceeds its file or total byte limit.");
+            return Ok(());
+        }
+        let mut file =
+            open_regular(&self.root, physical).map_err(|_| AppError::stale("SourceChanged"))?;
+        let before = file.metadata().map_err(|_| AppError::storage())?;
+        if !before.is_file() || !same_file(metadata, &before) {
+            return Err(AppError::stale("SourceChanged"));
+        }
+        let mut bytes = Vec::new();
+        (&mut file)
+            .take(limit + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| AppError::storage())?;
+        if bytes.len() as u64 > limit || self.total + bytes.len() as u64 > MAX_TOTAL {
+            self.block("The payload exceeds its file or total byte limit.");
+            return Ok(());
+        }
+        let after = file.metadata().map_err(|_| AppError::storage())?;
+        if before.len() != after.len()
+            || before.modified().ok() != after.modified().ok()
+            || resolve_within_source(&self.root, item).ok().as_deref() != Some(physical)
+        {
+            return Err(AppError::stale("SourceChanged"));
+        }
+        self.total += bytes.len() as u64;
+        self.entries.push(ManifestEntry {
+            kind: ManifestKind::File,
+            path: key.clone(),
+            sha256: format!("{:x}", Sha256::digest(&bytes)),
+            bytes: bytes.len() as u64,
+            executable: executable(&before),
+        });
+        self.files.insert(key, bytes);
         Ok(())
     }
 }

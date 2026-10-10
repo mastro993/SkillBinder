@@ -23,6 +23,7 @@ The shipped features are implemented; UI styling and visual fidelity are deferre
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cccc .
 cargo test --workspace --all-targets --locked
 cargo run -p xtask --locked -- verify
 cargo build -p skillbinder --release --locked

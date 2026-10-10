@@ -17,6 +17,7 @@ GPUI Kit pins GPUI Pre 0.3.7 and enables the platform's `font-kit`, `wayland`, `
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cccc .
 cargo test --workspace --all-targets --locked
 cargo run -p xtask --locked -- verify
 cargo build -p skillbinder --release --locked
