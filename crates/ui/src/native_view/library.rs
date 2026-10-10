@@ -1,7 +1,6 @@
+use super::controls::{Inactive, button};
 use super::{DialogState, Effect, LibraryFilter, NativeView};
-use gpui_kit::component::{
-    ActiveTheme, Disableable, button::Button, checkbox::Checkbox, input::Input,
-};
+use gpui_kit::component::{ActiveTheme, checkbox::Checkbox, input::Input};
 use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::*;
 
@@ -30,9 +29,9 @@ impl NativeView {
                 .gap_2()
                 .child(Input::new(&self.folder_name))
                 .child(
-                    Button::new("create-folder")
+                    button("create-folder")
                         .label("Create folder")
-                        .disabled(self.busy)
+                        .inactive(self.busy)
                         .on_click(cx.listener(|view, _, _, cx| {
                             let name = Self::input_text(&view.folder_name, cx);
                             if name.is_empty() {
@@ -62,7 +61,7 @@ impl NativeView {
             .flex()
             .gap_2()
             .child(
-                Button::new("folder-all")
+                button("folder-all")
                     .label(format!("All ({})", library.library.skills.len()))
                     .on_click(cx.listener(|view, _, _, cx| {
                         view.library_filter = LibraryFilter::All;
@@ -73,7 +72,7 @@ impl NativeView {
                     })),
             )
             .child(
-                Button::new("folder-unfiled")
+                button("folder-unfiled")
                     .label(format!(
                         "Unfiled ({})",
                         library
@@ -94,7 +93,7 @@ impl NativeView {
         for folder in &folders {
             let id = folder.id.clone();
             folder_row = folder_row.child(
-                Button::new(format!("folder-{id}"))
+                button(format!("folder-{id}"))
                     .label(format!(
                         "{} ({})",
                         folder.name,
@@ -122,9 +121,9 @@ impl NativeView {
                     .flex()
                     .gap_2()
                     .child(
-                        Button::new("rename-folder")
+                        button("rename-folder")
                             .label("Rename selected folder")
-                            .disabled(self.busy)
+                            .inactive(self.busy)
                             .on_click(cx.listener({
                                 let folder_id = folder_id.clone();
                                 move |view, _, _, cx| {
@@ -149,9 +148,9 @@ impl NativeView {
                             })),
                     )
                     .child(
-                        Button::new("delete-folder")
+                        button("delete-folder")
                             .label("Delete selected folder")
-                            .disabled(self.busy)
+                            .inactive(self.busy)
                             .on_click(cx.listener(move |view, _, _, cx| {
                                 let client = view.client.clone();
                                 let id = folder_id.clone();
@@ -173,9 +172,9 @@ impl NativeView {
             let client = self.client.clone();
             let ids = selected_skills.clone();
             assignments = assignments.child(
-                Button::new("assign-unfiled")
+                button("assign-unfiled")
                     .label("Move to Unfiled")
-                    .disabled(self.busy)
+                    .inactive(self.busy)
                     .on_click(cx.listener(move |view, _, _, cx| {
                         let client = client.clone();
                         let skills = ids.clone();
@@ -197,9 +196,9 @@ impl NativeView {
                 let id = folder.id.clone();
                 let ids = selected_skills.clone();
                 assignments = assignments.child(
-                    Button::new(format!("assign-{id}"))
+                    button(format!("assign-{id}"))
                         .label(format!("Move to {}", folder.name))
-                        .disabled(self.busy)
+                        .inactive(self.busy)
                         .on_click(cx.listener(move |view, _, _, cx| {
                             let client = view.client.clone();
                             let skills = ids.clone();
@@ -274,7 +273,7 @@ impl NativeView {
                             }),
                     )
                     .child(
-                        Button::new(format!("skill-open-{id}"))
+                        button(format!("skill-open-{id}"))
                             .label(
                                 skill
                                     .display_name
@@ -329,13 +328,13 @@ impl NativeView {
                     let id = skill_id.clone();
                     let path = entry.path.clone();
                     detail = detail.child(
-                        Button::new(format!("file-{}", entry.path))
+                        button(format!("file-{}", entry.path))
                             .label(format!(
                                 "{} {}",
                                 if entry.directory { "Folder" } else { "File" },
                                 entry.path
                             ))
-                            .disabled(entry.directory || self.busy)
+                            .inactive(entry.directory || self.busy)
                             .on_click(cx.listener(move |view, _, _, cx| {
                                 let client = view.client.clone();
                                 let id = id.clone();
@@ -368,7 +367,7 @@ impl NativeView {
         for (slug, ids) in conflicts.into_iter().filter(|(_, ids)| ids.len() > 1) {
             let revision = library.revision.clone();
             page = page.child(
-                Button::new(format!("conflict-{slug}"))
+                button(format!("conflict-{slug}"))
                     .label(format!("Resolve shared name: {slug}"))
                     .on_click(cx.listener(move |view, _, _, cx| {
                         view.dialog = DialogState::Conflict {

@@ -35,11 +35,15 @@ pub struct Bootstrap {
 pub struct Preferences {
     /// Sidebar width in logical pixels, clamped to 192 through 400.
     pub sidebar_width: f32,
+    /// Whether the sidebar is hidden.
+    #[serde(default)]
+    pub sidebar_collapsed: bool,
 }
 impl Default for Preferences {
     fn default() -> Self {
         Self {
             sidebar_width: 232.0,
+            sidebar_collapsed: false,
         }
     }
 }
@@ -64,4 +68,17 @@ pub struct AppSnapshot {
     pub import_outcome: Option<ImportOutcome>,
     /// Local appearance preferences.
     pub preferences: Preferences,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Preferences;
+
+    #[test]
+    fn preferences_saved_before_sidebar_collapse_still_load() -> serde_json::Result<()> {
+        let preferences: Preferences = serde_json::from_str(r#"{"sidebar_width":300.0}"#)?;
+        assert_eq!(preferences.sidebar_width, 300.0);
+        assert!(!preferences.sidebar_collapsed);
+        Ok(())
+    }
 }

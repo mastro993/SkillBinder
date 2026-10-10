@@ -4,14 +4,16 @@ mod instance;
 #[cfg(feature = "native-test")]
 mod native_test;
 
+use gpui_kit::component::TitleBar;
 use gpui_kit::{
     App, AppContext, Bounds, KeyBinding, Menu, MenuItem, TitlebarOptions, WindowBounds,
-    WindowOptions, actions, px, size,
+    WindowOptions, actions, point, px, size,
 };
 use skillbinder_client::Client;
 use skillbinder_engine::Engine;
 #[cfg(not(feature = "native-test"))]
 use skillbinder_engine::EngineConfig;
+use skillbinder_ui::ToggleSidebar;
 
 actions!(
     skillbinder,
@@ -20,6 +22,32 @@ actions!(
         Quit
     ]
 );
+
+/// macOS draws the app under a transparent titlebar; other platforms keep native decorations.
+fn window_chrome() -> WindowOptions {
+    if cfg!(target_os = "macos") {
+        let base = TitleBar::window_options();
+        WindowOptions {
+            titlebar: base.titlebar.map(|titlebar| {
+                let (x, y) = skillbinder_theme::TRAFFIC_LIGHTS_ORIGIN;
+                TitlebarOptions {
+                    title: Some("SkillBinder".into()),
+                    traffic_light_position: Some(point(px(x), px(y))),
+                    ..titlebar
+                }
+            }),
+            ..base
+        }
+    } else {
+        WindowOptions {
+            titlebar: Some(TitlebarOptions {
+                title: Some("SkillBinder".into()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+}
 
 fn main() -> std::process::ExitCode {
     if let Err(error) = run() {
@@ -112,12 +140,27 @@ fn run() -> anyhow::Result<()> {
             } else {
                 "ctrl-q"
             };
-            cx.bind_keys([KeyBinding::new(quit_key, Quit, None)]);
-            cx.set_menus(vec![Menu {
-                name: "SkillBinder".into(),
-                disabled: false,
-                items: vec![MenuItem::action("Quit SkillBinder", Quit)],
-            }]);
+            let sidebar_key = if cfg!(target_os = "macos") {
+                "cmd-b"
+            } else {
+                "ctrl-b"
+            };
+            cx.bind_keys([
+                KeyBinding::new(quit_key, Quit, None),
+                KeyBinding::new(sidebar_key, ToggleSidebar, None),
+            ]);
+            cx.set_menus(vec![
+                Menu {
+                    name: "SkillBinder".into(),
+                    disabled: false,
+                    items: vec![MenuItem::action("Quit SkillBinder", Quit)],
+                },
+                Menu {
+                    name: "View".into(),
+                    disabled: false,
+                    items: vec![MenuItem::action("Toggle Sidebar", ToggleSidebar)],
+                },
+            ]);
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {
                     cx.quit();
@@ -142,11 +185,7 @@ fn run() -> anyhow::Result<()> {
                 app_id: Some("skillbinder".into()),
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 window_min_size: Some(size(px(860.0), px(588.0))),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("SkillBinder".into()),
-                    ..Default::default()
-                }),
-                ..Default::default()
+                ..window_chrome()
             };
             if let Err(error) = gpui_kit::open_window(options, cx, |window, cx| {
                 #[cfg(feature = "native-test")]

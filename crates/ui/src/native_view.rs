@@ -1,3 +1,4 @@
+mod controls;
 mod dialogs;
 mod discovery;
 mod library;
@@ -5,19 +6,22 @@ mod library;
 mod native_test;
 mod onboarding;
 mod settings;
+mod shell;
+mod sidebar;
 mod sync;
+
+pub use shell::ToggleSidebar;
 
 use std::{collections::BTreeSet, future::Future, path::PathBuf, sync::Arc};
 
+use controls::{Inactive, button};
 use gpui_kit::component::{
-    ActiveTheme, Disableable,
-    button::Button,
+    ActiveTheme,
     input::{InputEvent, InputState},
 };
 use gpui_kit::{
-    AppContext, Context, DragMoveEvent, Entity, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement, Styled,
-    Subscription, Task, Window, div, prelude::FluentBuilder,
+    AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement,
+    ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder,
 };
 use skillbinder_client::Client;
 use skillbinder_proto::*;
@@ -36,8 +40,6 @@ enum LibraryFilter {
     Unfiled,
     Folder(FolderId),
 }
-
-struct SidebarDrag(gpui_kit::EntityId);
 
 enum DialogState {
     ImportPlan(ImportPlan),
@@ -79,7 +81,13 @@ pub struct NativeView {
     selected_skills: BTreeSet<SkillId>,
     library_filter: LibraryFilter,
     sidebar_width: f32,
+    sidebar_collapsed: bool,
+    /// Sidebar toggle count; zero renders without motion, so launch does not animate.
+    sidebar_motion: u64,
+    /// Collapsed sidebar still mounted for its closing motion.
+    sidebar_closing: bool,
     resizing_sidebar: bool,
+    preference_writes: shell::PreferenceWrites,
     selected_skill: Option<SkillId>,
     preview: Option<SkillPreview>,
     search: Entity<InputState>,
@@ -96,7 +104,8 @@ impl NativeView {
     /// Creates the native view and subscribes to client projections.
     pub fn new(client: Client, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = client.snapshot();
-        let sidebar_width = snapshot.preferences.sidebar_width.clamp(192.0, 400.0);
+        let sidebar_width = sidebar::clamp_sidebar_width(snapshot.preferences.sidebar_width);
+        let sidebar_collapsed = snapshot.preferences.sidebar_collapsed;
         let activation_subscription = cx.observe_window_activation(window, |view, window, cx| {
             if window.is_window_active() && view.snapshot.sync.remote.is_some() && !view.busy {
                 let client = view.client.clone();
@@ -145,10 +154,13 @@ impl NativeView {
                 input.set_value(remote.branch.clone(), window, cx)
             });
         }
+        // Window-level shortcuts such as ToggleSidebar dispatch through the focused view.
+        let focus = cx.focus_handle();
+        window.focus(&focus, cx);
         Self {
             client,
             snapshot,
-            focus: cx.focus_handle(),
+            focus,
             screen: Screen::Discovery,
             busy: false,
             error: None,
@@ -161,7 +173,11 @@ impl NativeView {
             selected_skills: BTreeSet::new(),
             library_filter: LibraryFilter::All,
             sidebar_width,
+            sidebar_collapsed,
+            sidebar_motion: 0,
+            sidebar_closing: false,
             resizing_sidebar: false,
+            preference_writes: shell::PreferenceWrites::default(),
             selected_skill: None,
             preview: None,
             search,
@@ -205,8 +221,12 @@ impl NativeView {
             }
         }
         self.snapshot = latest;
-        if self.snapshot.preferences.sidebar_width != self.sidebar_width && !self.resizing_sidebar {
-            self.sidebar_width = self.snapshot.preferences.sidebar_width.clamp(192.0, 400.0);
+        if self.snapshot.preferences.sidebar_width != self.sidebar_width
+            && !self.resizing_sidebar
+            && !self.preference_writes.is_busy()
+        {
+            self.sidebar_width =
+                sidebar::clamp_sidebar_width(self.snapshot.preferences.sidebar_width);
         }
         cx.notify();
     }
@@ -290,34 +310,6 @@ impl NativeView {
         cx.reveal_path(&PathBuf::from(&self.snapshot.bootstrap.logs_path));
     }
 
-    fn persist_sidebar_width(&mut self, cx: &mut Context<Self>) {
-        self.resizing_sidebar = false;
-        let width = self.sidebar_width;
-        if (width - self.snapshot.preferences.sidebar_width).abs() < 0.5 {
-            return;
-        }
-        let client = self.client.clone();
-        let handle = client.runtime().spawn(async move {
-            client
-                .save_preferences(Preferences {
-                    sidebar_width: width,
-                })
-                .await
-        });
-        cx.spawn(async move |this, cx| {
-            let result = handle.await;
-            let _ = this.update(cx, |view, cx| {
-                match result {
-                    Ok(Ok(())) => view.receive(view.client.snapshot(), cx),
-                    Ok(Err(error)) => view.error = Some(error),
-                    Err(_) => view.error = Some(AppError::storage()),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
     fn render_import_outcome(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let mut banner = div();
         if let Some(outcome) = &self.snapshot.import_outcome {
@@ -339,9 +331,9 @@ impl NativeView {
                         .map(|slug| div().child(format!("Resolve shared name: {slug} in Library"))),
                 )
                 .child(
-                    Button::new("dismiss-import")
+                    button("dismiss-import")
                         .label("Dismiss result")
-                        .disabled(self.busy)
+                        .inactive(self.busy)
                         .on_click(cx.listener(|view, _, _, cx| {
                             let client = view.client.clone();
                             view.run(
@@ -364,7 +356,13 @@ impl Focusable for NativeView {
 impl Render for NativeView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let body = if self.snapshot.bootstrap.step != OnboardingStep::Complete {
-            self.render_onboarding(cx).into_any_element()
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(self.render_header(false, window, cx))
+                .child(div().flex_1().min_h_0().child(self.render_onboarding(cx)))
+                .into_any_element()
         } else {
             let page = match self.screen {
                 Screen::Discovery => self.render_discovery(cx).into_any_element(),
@@ -372,56 +370,7 @@ impl Render for NativeView {
                 Screen::Sync => self.render_sync(cx).into_any_element(),
                 Screen::Settings => self.render_settings(cx).into_any_element(),
             };
-            let outcome = self.render_import_outcome(cx);
-            div()
-                .id("product-shell")
-                .size_full()
-                .flex()
-                .on_drag_move(
-                    cx.listener(|view, event: &DragMoveEvent<SidebarDrag>, _, cx| {
-                        if event.drag(cx).0 != cx.entity_id() {
-                            return;
-                        }
-                        view.resizing_sidebar = true;
-                        view.sidebar_width =
-                            f32::from(event.event.position.x - event.bounds.left())
-                                .clamp(192.0, 400.0);
-                        cx.notify();
-                    }),
-                )
-                .on_drop(cx.listener(|view, drag: &SidebarDrag, _, cx| {
-                    if drag.0 == cx.entity_id() {
-                        view.persist_sidebar_width(cx);
-                    }
-                }))
-                .on_mouse_up(
-                    MouseButton::Left,
-                    cx.listener(|view, _, _, cx| {
-                        if view.resizing_sidebar {
-                            view.persist_sidebar_width(cx);
-                        }
-                    }),
-                )
-                .on_mouse_up_out(
-                    MouseButton::Left,
-                    cx.listener(|view, _, _, cx| {
-                        if view.resizing_sidebar {
-                            view.persist_sidebar_width(cx);
-                        }
-                    }),
-                )
-                .child(self.render_sidebar(cx))
-                .child(
-                    div()
-                        .id("main-content")
-                        .flex_1()
-                        .min_w_0()
-                        .overflow_y_scroll()
-                        .p_6()
-                        .child(outcome)
-                        .child(page),
-                )
-                .into_any_element()
+            self.render_shell(page, window, cx)
         };
         self.sync_dialog(window, cx);
         let colors = cx.theme().colors;
@@ -431,6 +380,7 @@ impl Render for NativeView {
             .or(self.snapshot.background_error.as_ref());
         div()
             .track_focus(&self.focus)
+            .on_action(cx.listener(|view, _: &ToggleSidebar, _, cx| view.toggle_sidebar(cx)))
             .size_full()
             .font_family(skillbinder_theme::system_font())
             .bg(colors.background)

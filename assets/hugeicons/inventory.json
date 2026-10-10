@@ -162,6 +162,28 @@
       "elementCount": 3
     },
     {
+      "name": "LayoutAlignLeftIcon",
+      "file": "LayoutAlignLeftIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/shell.rs"
+      ],
+      "sourceModule": "dist/esm/LayoutAlignLeftIcon.js",
+      "sourceModuleSha256": "7809c75865486a0eddca152a2da607a5e21347e6d94be79c936fc2567ee52632",
+      "svgSha256": "a8479524ef24c3ee0860f6e446208291edd94fc9fb267e966c94a18bb8486a02",
+      "elementCount": 2
+    },
+    {
+      "name": "LayoutLeftIcon",
+      "file": "LayoutLeftIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/shell.rs"
+      ],
+      "sourceModule": "dist/esm/LayoutLeftIcon.js",
+      "sourceModuleSha256": "5ebae4a5cc00ee1fa45d4bf3ea04fac124921aed292b611531fa8bd395e3ca7c",
+      "svgSha256": "2740cf8ea59a2808c7ec54d3be17701997616770c023ef9614186d70dd612495",
+      "elementCount": 2
+    },
+    {
       "name": "Loading03Icon",
       "file": "Loading03Icon.svg",
       "usedBy": [
