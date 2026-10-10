@@ -87,6 +87,7 @@ pub struct NativeView {
     /// Collapsed sidebar still mounted for its closing motion.
     sidebar_closing: bool,
     resizing_sidebar: bool,
+    preference_writes: shell::PreferenceWrites,
     selected_skill: Option<SkillId>,
     preview: Option<SkillPreview>,
     search: Entity<InputState>,
@@ -176,6 +177,7 @@ impl NativeView {
             sidebar_motion: 0,
             sidebar_closing: false,
             resizing_sidebar: false,
+            preference_writes: shell::PreferenceWrites::default(),
             selected_skill: None,
             preview: None,
             search,
@@ -219,7 +221,10 @@ impl NativeView {
             }
         }
         self.snapshot = latest;
-        if self.snapshot.preferences.sidebar_width != self.sidebar_width && !self.resizing_sidebar {
+        if self.snapshot.preferences.sidebar_width != self.sidebar_width
+            && !self.resizing_sidebar
+            && !self.preference_writes.is_busy()
+        {
             self.sidebar_width =
                 sidebar::clamp_sidebar_width(self.snapshot.preferences.sidebar_width);
         }

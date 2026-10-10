@@ -28,6 +28,39 @@ const TOGGLE_LEFT_MACOS: f32 = 93.0;
 const TOGGLE_SIZE: f32 = 24.0;
 const HEADER_GAP: f32 = 8.0;
 
+/// Serialises preference saves: each one is a separate engine job, so two in flight could
+/// land out of order and persist the older value.
+#[derive(Default)]
+pub(super) struct PreferenceWrites {
+    in_flight: bool,
+    pending: bool,
+}
+
+impl PreferenceWrites {
+    /// Starts a save, or records that the latest values must be saved after the current one.
+    fn begin(&mut self) -> bool {
+        if self.in_flight {
+            self.pending = true;
+            return false;
+        }
+        self.in_flight = true;
+        true
+    }
+
+    fn finish(&mut self) {
+        self.in_flight = false;
+    }
+
+    fn take_pending(&mut self) -> bool {
+        std::mem::take(&mut self.pending)
+    }
+
+    /// While local preferences are newer than the stored snapshot.
+    pub(super) fn is_busy(&self) -> bool {
+        self.in_flight || self.pending
+    }
+}
+
 /// macOS draws the traffic lights over app content, so the chrome reserves their row.
 pub(super) fn reserves_traffic_lights(window: &Window) -> bool {
     cfg!(target_os = "macos") && !window.is_fullscreen()
@@ -50,6 +83,9 @@ fn header_inset(toggle_left: f32, sidebar_visible: f32) -> f32 {
 impl NativeView {
     pub(super) fn persist_preferences(&mut self, cx: &mut Context<Self>) {
         self.resizing_sidebar = false;
+        if !self.preference_writes.begin() {
+            return;
+        }
         let preferences = Preferences {
             sidebar_width: self.sidebar_width,
             sidebar_collapsed: self.sidebar_collapsed,
@@ -58,6 +94,7 @@ impl NativeView {
         if (preferences.sidebar_width - stored.sidebar_width).abs() < 0.5
             && preferences.sidebar_collapsed == stored.sidebar_collapsed
         {
+            self.preference_writes.finish();
             return;
         }
         let client = self.client.clone();
@@ -67,10 +104,15 @@ impl NativeView {
         cx.spawn(async move |this, cx| {
             let result = handle.await;
             let _ = this.update(cx, |view, cx| {
+                view.preference_writes.finish();
                 match result {
                     Ok(Ok(())) => view.receive(view.client.snapshot(), cx),
                     Ok(Err(error)) => view.error = Some(error),
                     Err(_) => view.error = Some(AppError::storage()),
+                }
+                // Compared against the snapshot just received, so the newest value always lands.
+                if view.preference_writes.take_pending() {
+                    view.persist_preferences(cx);
                 }
                 cx.notify();
             });
@@ -238,7 +280,22 @@ impl NativeView {
 
 #[cfg(test)]
 mod tests {
-    use super::{HEADER_GAP, header_inset};
+    use super::{HEADER_GAP, PreferenceWrites, header_inset};
+
+    #[test]
+    fn preference_writes_queue_the_latest_value_behind_the_current_save() {
+        let mut writes = PreferenceWrites::default();
+        assert!(writes.begin());
+        assert!(!writes.begin());
+        assert!(!writes.begin());
+        writes.finish();
+        assert!(writes.is_busy(), "a newer value is still waiting");
+        assert!(writes.take_pending());
+        assert!(!writes.take_pending(), "coalesced into one follow-up save");
+        assert!(writes.begin());
+        writes.finish();
+        assert!(!writes.is_busy());
+    }
 
     #[test]
     fn header_clears_the_toggle_only_while_the_sidebar_is_narrow() {
