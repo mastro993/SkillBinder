@@ -146,24 +146,24 @@ impl Git {
         remote: Option<&RemoteConfig>,
         fetch: bool,
     ) -> AppResult<SyncSnapshot> {
-        let dirty = !self
-            .output(
-                repo,
-                &[
-                    "status",
-                    "--porcelain=v1",
-                    "-z",
-                    "--untracked-files=all",
-                    "--ignored=matching",
-                    "--",
-                    MANAGED[0],
-                    MANAGED[1],
-                ],
-            )?
-            .is_empty();
+        let changed_files = changed_files(&self.output(
+            repo,
+            &[
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+                "--ignored=matching",
+                "--",
+                MANAGED[0],
+                MANAGED[1],
+            ],
+        )?);
+        let dirty = changed_files > 0;
         let Some(remote) = remote else {
             return Ok(SyncSnapshot {
                 uncommitted: dirty,
+                changed_files,
                 ..Default::default()
             });
         };
@@ -207,6 +207,7 @@ impl Git {
             ahead,
             behind,
             uncommitted: dirty,
+            changed_files,
             refreshed_at: fetch.then(|| {
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -387,6 +388,18 @@ impl Git {
 }
 fn managed(path: &str) -> bool {
     path == ".skillbinder.json" || path.starts_with("skills/")
+}
+/// Counts `git status --porcelain=v1 -z` entries; renames and copies carry a second path.
+fn changed_files(status: &str) -> u64 {
+    let mut paths = status.split_terminator('\0');
+    let mut count = 0;
+    while let Some(entry) = paths.next() {
+        if entry.get(..2).is_some_and(|xy| xy.contains(['R', 'C'])) {
+            paths.next();
+        }
+        count += 1;
+    }
+    count
 }
 fn count(value: Option<&str>) -> AppResult<u64> {
     value

@@ -574,12 +574,9 @@ fn ignored_managed_changes_are_dirty_and_foreign_ignored_files_stay_local() {
     fs::write(f.repo.join(".git/info/exclude"), "*.txt\n").unwrap();
     fs::write(f.repo.join("skills/demo/new.txt"), "managed bytes").unwrap();
     fs::write(f.repo.join("private.txt"), "private bytes").unwrap();
-    assert!(
-        f.git
-            .status(&f.repo, Some(&f.remote), false)
-            .unwrap()
-            .uncommitted
-    );
+    let status = f.git.status(&f.repo, Some(&f.remote), false).unwrap();
+    assert!(status.uncommitted);
+    assert_eq!(status.changed_files, 1);
     f.push();
     assert_eq!(
         f.git
@@ -602,5 +599,13 @@ fn ignored_managed_changes_are_dirty_and_foreign_ignored_files_stay_local() {
             .output(&f.repo, &["ls-tree", "-r", "--name-only", "HEAD"])
             .unwrap()
             .contains("private.txt")
+    );
+}
+#[test]
+fn changed_files_counts_renames_once() {
+    assert_eq!(changed_files(""), 0);
+    assert_eq!(
+        changed_files(" M skills/a/SKILL.md\0R  skills/b/new.md\0skills/b/old.md\0?? x\0"),
+        3
     );
 }

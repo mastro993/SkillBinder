@@ -36,6 +36,9 @@ pub struct SyncSnapshot {
     pub behind: u64,
     /// Whether managed files have uncommitted changes.
     pub uncommitted: bool,
+    /// Number of managed paths with uncommitted changes.
+    #[serde(default)]
+    pub changed_files: u64,
     /// Last successful fetch as Unix seconds.
     pub refreshed_at: Option<u64>,
 }

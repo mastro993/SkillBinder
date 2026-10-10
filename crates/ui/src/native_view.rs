@@ -72,6 +72,8 @@ pub struct NativeView {
     focus: FocusHandle,
     screen: Screen,
     busy: bool,
+    /// A Git synchronization is in flight; implies `busy`.
+    syncing: bool,
     error: Option<AppError>,
     dialog: DialogState,
     grant: Option<DirectoryGrant>,
@@ -111,17 +113,8 @@ impl NativeView {
         let appearance = snapshot.preferences.appearance;
         status_bar::apply_appearance(appearance, window, cx);
         let activation_subscription = cx.observe_window_activation(window, |view, window, cx| {
-            if window.is_window_active() && view.snapshot.sync.remote.is_some() && !view.busy {
-                let client = view.client.clone();
-                view.run(
-                    async move {
-                        client
-                            .synchronize(SyncAction::Refresh)
-                            .await
-                            .map(|_| Effect::None)
-                    },
-                    cx,
-                );
+            if window.is_window_active() && view.snapshot.sync.remote.is_some() {
+                view.synchronize(SyncAction::Refresh, cx);
             }
         });
         let mut receiver = client.subscribe();
@@ -167,6 +160,7 @@ impl NativeView {
             focus,
             screen: Screen::Discovery,
             busy: false,
+            syncing: false,
             error: None,
             dialog: DialogState::None,
             grant: None,
@@ -251,6 +245,7 @@ impl NativeView {
             let result = handle.await;
             let _ = this.update(cx, |view, cx| {
                 view.busy = false;
+                view.syncing = false;
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);
@@ -293,16 +288,7 @@ impl NativeView {
         self.screen = screen;
         self.error = None;
         if screen == Screen::Sync {
-            let client = self.client.clone();
-            self.run(
-                async move {
-                    client
-                        .synchronize(SyncAction::Refresh)
-                        .await
-                        .map(|_| Effect::None)
-                },
-                cx,
-            );
+            self.synchronize(SyncAction::Refresh, cx);
         }
         cx.notify();
     }
