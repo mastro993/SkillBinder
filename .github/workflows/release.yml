@@ -49,6 +49,10 @@ jobs:
         with:
           key: release-${{ matrix.target || matrix.os }}
           cache-on-failure: true
+      - name: Check native graph
+        run: cargo clippy --workspace --all-targets --all-features --locked ${{ matrix.cargo-target }} -- -D warnings
+      - name: Run workspace tests
+        run: cargo test --workspace --all-targets --all-features --locked ${{ matrix.cargo-target }}
       - name: Build native test application
         run: cargo build -p skillbinder --features native-test --locked ${{ matrix.cargo-target }}
       - name: Exercise native renderer on macOS
