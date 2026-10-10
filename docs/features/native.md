@@ -8,6 +8,18 @@ Four persisted steps cover prerequisites, source boundaries, optional synchroniz
 
 The executable owns the Tokio runtime and process lock. A second launch requests activation of the existing native window through an app-owned local marker. The Linux window uses the `skillbinder` application ID matching its desktop entry; Wayland compositors retain control over whether an activation request raises the window or requests attention. Shutdown cancels discovery and drains durable operations before flushing logs.
 
+## Application shell
+
+On macOS the window uses a transparent titlebar, so the shell fills the whole window and the traffic lights float over its top-left corner. Windows and Linux keep native decorations. The shell has a full-height sidebar and a header.
+
+The sidebar has a one-device-pixel right border, which is also the resize divider, and a background slightly darker than the main surface. Users can resize it by dragging its edge or with the arrow, Home, and End keys on its resize control. Width is clamped to 192 through 400 logical pixels. It can be hidden from the sidebar toggle, the View menu, or Cmd+B on macOS and Ctrl+B on Windows and Linux. A hidden sidebar is removed entirely, with no icon rail. Width and hidden state are machine-local preferences that persist across restarts. Preferences stored before the hidden state existed load as visible.
+
+The sidebar toggle stays at one position whether the sidebar is open or closed. On macOS it sits just right of the traffic lights, and elsewhere it sits at the leading edge of the header row. Opening and closing take 220 ms with cubic ease-in-out. The sidebar's footprint widens or narrows, so the main area reflows. Meanwhile the full-width sidebar stays pinned to the moving edge and slides in or out. The header's leading inset follows the same curve to stay clear of the toggle. A closing sidebar unmounts after its transition so its controls leave keyboard order. The launch state appears without motion. When the app reports reduced motion, the change happens immediately.
+
+The header starts at the sidebar's right edge, is 50 points tall, and has no border or background. On macOS the traffic lights sit 16 points from the left edge, vertically centred in that row, and the toggle follows one light-spacing after them. Its trailing group holds buttons that the active screen supplies; Discovery supplies its scan controls there. On macOS the header doubles as the window drag region. Onboarding shows the header without the toggle or screen buttons.
+
+Every button, including the sidebar toggle and dialog close buttons, shows a hand cursor while enabled and the arrow while disabled. GPUI Kit buttons keep the arrow except link and text variants, so the app builds its own: dialogs replace the kit's close control with an app button in the title row. That button is hidden while an operation is pending, as the kit control was.
+
 ## Discovery and roots
 
 The retained registry covers 79 agents. Templates expand home and environment defaults. Shared physical skill directories list every reader label. Project registrations search only known direct skill directories beneath the selected canonical boundary, not arbitrary document folders. Global and project traversal have separate depth, entry, exclusion, and mount policies. Links are limited to 16 hops, including links inside registered discovery roots before physical-path deduplication. Source aliases retain their original path for import revalidation.

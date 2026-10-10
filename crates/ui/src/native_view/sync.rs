@@ -1,9 +1,6 @@
+use super::controls::{Inactive, button};
 use super::{Effect, NativeView};
-use gpui_kit::component::{
-    Disableable,
-    button::{Button, ButtonVariants},
-    input::Input,
-};
+use gpui_kit::component::{button::ButtonVariants, input::Input};
 use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::*;
 
@@ -54,9 +51,9 @@ impl NativeView {
                 ),
             ] {
                 page = page.child(
-                    Button::new(id)
+                    button(id)
                         .label(label)
-                        .disabled(self.busy || !enabled)
+                        .inactive(self.busy || !enabled)
                         .on_click(cx.listener(move |view, _, _, cx| {
                             let client = view.client.clone();
                             view.run(
@@ -72,10 +69,10 @@ impl NativeView {
                 .child(Input::new(&self.remote_url))
                 .child(Input::new(&self.remote_branch))
                 .child(
-                    Button::new("sync-connect")
+                    button("sync-connect")
                         .label("Connect remote")
                         .primary()
-                        .disabled(self.busy)
+                        .inactive(self.busy)
                         .on_click(cx.listener(|view, _, _, cx| {
                             let url = Self::input_text(&view.remote_url, cx);
                             let branch = Self::input_text(&view.remote_branch, cx);

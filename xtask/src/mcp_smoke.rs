@@ -214,6 +214,7 @@ fn exercise_ui(rpc: &mut Rpc) -> anyhow::Result<()> {
             .is_some_and(|actions| actions.contains(&json!("click")))
     })
     .context("Onboarding did not complete")?;
+    exercise_sidebar(rpc)?;
     rpc.tool("click_element", json!({"id":"nav-sync"}))?;
     let tree =
         wait_tree(rpc, |tree| remote_input(tree).is_some()).context("Sync input did not appear")?;
@@ -233,6 +234,30 @@ fn exercise_ui(rpc: &mut Rpc) -> anyhow::Result<()> {
         input_text(tree, &input) == Some("Fixture replacement")
     })
     .context("Replacement text was not rendered")?;
+    Ok(())
+}
+
+fn exercise_sidebar(rpc: &mut Rpc) -> anyhow::Result<()> {
+    let handle_x = |tree: &Value| tree["nodes"]["sidebar-resize"]["bounds"]["x"].as_f64();
+    let tree = wait_tree(rpc, |tree| handle_x(tree).is_some())?;
+    let bounds = &tree["nodes"]["sidebar-resize"]["bounds"];
+    let start = handle_x(&tree).context("Sidebar resize handle missing")?;
+    let x = start + bounds["width"].as_f64().unwrap_or(0.0) / 2.0;
+    let y = bounds["y"].as_f64().unwrap_or(0.0) + bounds["height"].as_f64().unwrap_or(0.0) / 2.0;
+    rpc.tool(
+        "drag_coordinates",
+        json!({"from_x":x,"from_y":y,"to_x":x + 60.0,"to_y":y}),
+    )?;
+    wait_tree(rpc, |tree| {
+        handle_x(tree).is_some_and(|moved| moved > start + 30.0)
+    })
+    .context("Dragging the handle did not resize the sidebar")?;
+    rpc.tool("click_element", json!({"id":"collapse"}))?;
+    wait_tree(rpc, |tree| tree["nodes"]["nav-sync"].is_null())
+        .context("Sidebar did not collapse")?;
+    rpc.tool("click_element", json!({"id":"collapse"}))?;
+    wait_tree(rpc, |tree| !tree["nodes"]["nav-sync"].is_null())
+        .context("Sidebar did not expand")?;
     Ok(())
 }
 

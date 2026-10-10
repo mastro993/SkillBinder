@@ -1,16 +1,53 @@
+use super::controls::{Inactive, button};
 use super::{Effect, NativeView};
 use gpui_kit::component::{
-    ActiveTheme, Disableable,
-    button::{Button, ButtonVariants},
-    checkbox::Checkbox,
+    ActiveTheme, Disableable, Sizable, button::ButtonVariants, checkbox::Checkbox,
 };
-use gpui_kit::{Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::*;
 
 impl NativeView {
+    pub(super) fn discovery_header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let running = self
+            .snapshot
+            .scan
+            .as_ref()
+            .is_some_and(|scan| scan.status == ScanStatus::Running);
+        let mut actions = vec![
+            button("scan-start")
+                .label("Scan again")
+                .small()
+                .inactive(self.busy || running)
+                .on_click(cx.listener(|view, _, _, cx| {
+                    let client = view.client.clone();
+                    view.run(
+                        async move { client.start_scan().await.map(|_| Effect::None) },
+                        cx,
+                    );
+                }))
+                .into_any_element(),
+        ];
+        if running {
+            actions.push(
+                button("scan-cancel")
+                    .label("Cancel scan")
+                    .small()
+                    .inactive(self.busy)
+                    .on_click(cx.listener(|view, _, _, cx| {
+                        let client = view.client.clone();
+                        view.run(
+                            async move { client.cancel_scan().await.map(|_| Effect::None) },
+                            cx,
+                        );
+                    }))
+                    .into_any_element(),
+            );
+        }
+        actions
+    }
+
     pub(super) fn render_discovery(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let scan = self.snapshot.scan.as_ref();
-        let running = scan.is_some_and(|scan| scan.status == ScanStatus::Running);
         let finished = scan.is_some_and(|scan| scan.status == ScanStatus::Finished);
         let selected: Vec<_> = self.selected_candidates.iter().cloned().collect();
         let has_invalid = scan.is_some_and(|scan| {
@@ -30,33 +67,7 @@ impl NativeView {
             .flex_col()
             .gap_4()
             .child("Discovery")
-            .child("Find skills in registered project roots and supported user locations.")
-            .child(
-                Button::new("scan-start")
-                    .label("Scan again")
-                    .disabled(self.busy || running)
-                    .on_click(cx.listener(|view, _, _, cx| {
-                        let client = view.client.clone();
-                        view.run(
-                            async move { client.start_scan().await.map(|_| Effect::None) },
-                            cx,
-                        );
-                    })),
-            )
-            .when(running, |page| {
-                page.child(
-                    Button::new("scan-cancel")
-                        .label("Cancel scan")
-                        .disabled(self.busy)
-                        .on_click(cx.listener(|view, _, _, cx| {
-                            let client = view.client.clone();
-                            view.run(
-                                async move { client.cancel_scan().await.map(|_| Effect::None) },
-                                cx,
-                            );
-                        })),
-                )
-            });
+            .child("Find skills in registered project roots and supported user locations.");
         if let Some(scan) = scan {
             page = page.child(format!(
                 "{:?} · {} locations checked · {} identical copies hidden",
@@ -150,9 +161,9 @@ impl NativeView {
                         .flex()
                         .gap_2()
                         .child(
-                            Button::new("discovery-previous")
+                            button("discovery-previous")
                                 .label("Previous")
-                                .disabled(self.candidate_page == 0)
+                                .inactive(self.candidate_page == 0)
                                 .on_click(cx.listener(|view, _, _, cx| {
                                     view.candidate_page = view.candidate_page.saturating_sub(1);
                                     cx.notify();
@@ -160,9 +171,9 @@ impl NativeView {
                         )
                         .child(format!("Page {} of {}", self.candidate_page + 1, pages))
                         .child(
-                            Button::new("discovery-next")
+                            button("discovery-next")
                                 .label("Next")
-                                .disabled(self.candidate_page + 1 >= pages)
+                                .inactive(self.candidate_page + 1 >= pages)
                                 .on_click(cx.listener(|view, _, _, cx| {
                                     view.candidate_page += 1;
                                     cx.notify();
@@ -189,10 +200,10 @@ impl NativeView {
             let scan_id = scan.id.clone();
             let acknowledge = self.acknowledge_invalid;
             page = page.child(
-                Button::new("prepare-import")
+                button("prepare-import")
                     .label("Review import")
                     .primary()
-                    .disabled(
+                    .inactive(
                         self.busy
                             || !finished
                             || selected.is_empty()

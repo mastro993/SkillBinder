@@ -1,8 +1,6 @@
+use super::controls::{Inactive, button};
 use super::{Effect, NativeView};
-use gpui_kit::component::{
-    Disableable,
-    button::{Button, ButtonVariants},
-};
+use gpui_kit::component::button::ButtonVariants;
 use gpui_kit::{
     Context, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
     div, prelude::FluentBuilder,
@@ -85,9 +83,9 @@ impl NativeView {
                             }
                         ))
                         .child(
-                            Button::new("recheck-prerequisites")
+                            button("recheck-prerequisites")
                                 .label("Check again")
-                                .disabled(self.busy)
+                                .inactive(self.busy)
                                 .on_click(cx.listener(|view, _, _, cx| {
                                     let client = view.client.clone();
                                     view.run(
@@ -101,9 +99,9 @@ impl NativeView {
                     })
                     .when_some(back, |row, previous| {
                         row.child(
-                            Button::new("onboarding-back")
+                            button("onboarding-back")
                                 .label("Back")
-                                .disabled(self.busy)
+                                .inactive(self.busy)
                                 .on_click(cx.listener(move |view, _, _, cx| {
                                     let client = view.client.clone();
                                     view.run(
@@ -119,14 +117,14 @@ impl NativeView {
                         )
                     })
                     .child(
-                        Button::new("onboarding-next")
+                        button("onboarding-next")
                             .label(if step == OnboardingStep::Ready {
                                 "Create library"
                             } else {
                                 "Continue"
                             })
                             .primary()
-                            .disabled(
+                            .inactive(
                                 self.busy || (step == OnboardingStep::Prerequisites && !ready),
                             )
                             .on_click(cx.listener(move |view, _, _, cx| {

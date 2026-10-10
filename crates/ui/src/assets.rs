@@ -18,6 +18,14 @@ const ICONS: &[(&str, &[u8])] = &[
         "icons/folder.svg",
         include_bytes!("../../../assets/hugeicons/Folder01Icon.svg"),
     ),
+    (
+        "icons/panel-left-close.svg",
+        include_bytes!("../../../assets/hugeicons/LayoutLeftIcon.svg"),
+    ),
+    (
+        "icons/panel-left-open.svg",
+        include_bytes!("../../../assets/hugeicons/LayoutAlignLeftIcon.svg"),
+    ),
 ];
 
 impl AssetSource for Assets {

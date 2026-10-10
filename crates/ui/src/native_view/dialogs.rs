@@ -1,13 +1,9 @@
-use super::{DialogState, Effect, NativeView, Screen, SidebarDrag};
+use super::controls::{Inactive, button};
+use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::{
-    ActiveTheme, Disableable, WindowExt,
-    button::{Button, ButtonVariants},
-    dialog::Dialog,
+    IconName, Sizable, WindowExt, button::ButtonVariants, dialog::Dialog, h_flex,
 };
-use gpui_kit::{
-    AppContext, Axis, Context, EmptyView, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div,
-};
+use gpui_kit::{Context, IntoElement, ParentElement, Styled, Window, div, prelude::FluentBuilder};
 use skillbinder_proto::*;
 
 impl NativeView {
@@ -26,7 +22,7 @@ impl NativeView {
                     let close_view = cx.entity().downgrade();
                     view.build_dialog(dialog, cx)
                         .overlay_closable(!view.busy)
-                        .close_button(!view.busy)
+                        .close_button(false)
                         .keyboard(!view.busy)
                         .on_ok(|_, _, _| false)
                         .on_close(move |_, _, cx| {
@@ -48,80 +44,29 @@ impl NativeView {
         }
     }
 
-    pub(super) fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let width = self.sidebar_width;
-        let count = self
-            .snapshot
-            .library
-            .as_ref()
-            .map_or(0, |library| library.library.skills.len());
-        div()
-            .flex()
-            .w(gpui_kit::px(width))
-            .h_full()
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .p_4()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .border_r_1()
-                    .border_color(cx.theme().colors.border)
-                    .child("SkillBinder")
-                    .child(format!("{count} skills"))
-                    .children(
-                        [
-                            (Screen::Discovery, "Discovery", "nav-discovery"),
-                            (Screen::Library, "Library", "nav-library"),
-                        ]
-                        .into_iter()
-                        .map(|(screen, title, id)| {
-                            Button::new(id).label(title).w_full().on_click(cx.listener(
-                                move |view, _, window, cx| view.navigate(screen, window, cx),
-                            ))
-                        }),
-                    )
-                    .child(div().flex_1())
-                    .child(Button::new("nav-sync").label("Sync").w_full().on_click(
-                        cx.listener(|view, _, window, cx| view.navigate(Screen::Sync, window, cx)),
-                    ))
-                    .child(
-                        Button::new("nav-settings")
-                            .label("Settings")
-                            .w_full()
-                            .on_click(cx.listener(|view, _, window, cx| {
-                                view.navigate(Screen::Settings, window, cx)
-                            })),
-                    ),
-            )
-            .child(
-                div()
-                    .id("sidebar-resize-control")
-                    .tab_index(0)
-                    .aria_label("Resize sidebar")
-                    .on_key_down(cx.listener(|view, event: &gpui_kit::KeyDownEvent, _, cx| {
-                        let next = match event.keystroke.key.as_str() {
-                            "left" => view.sidebar_width - 8.0,
-                            "right" => view.sidebar_width + 8.0,
-                            "home" => 192.0,
-                            "end" => 400.0,
-                            _ => return,
-                        };
-                        view.sidebar_width = next.clamp(192.0, 400.0);
-                        view.persist_sidebar_width(cx);
-                        cx.stop_propagation();
-                        cx.notify();
-                    }))
-                    .child(
-                        gpui_kit::base::resize_handle("sidebar-resize", Axis::Horizontal)
-                            .with_appearance(gpui_kit::component::resize_handle_appearance())
-                            .on_drag(SidebarDrag(cx.entity_id()), |_, _, _, cx| {
-                                cx.new(|_| EmptyView)
-                            }),
-                    ),
-            )
+    /// Title row with an app close button: GPUI Kit's built-in close control keeps the arrow cursor.
+    fn dialog_title(
+        &self,
+        title: &'static str,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
+        h_flex()
+            .w_full()
+            .justify_between()
+            .gap_2()
+            .child(title)
+            .when(!self.busy, |row| {
+                row.child(
+                    button("dialog-close")
+                        .ghost()
+                        .small()
+                        .icon(IconName::Close)
+                        .accessibility_label("Close dialog")
+                        .on_click(
+                            cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
+                        ),
+                )
+            })
     }
 
     fn build_dialog(&self, dialog: Dialog, cx: &mut Context<Self>) -> Dialog {
@@ -143,47 +88,50 @@ impl NativeView {
                         body = body.child(format!("{:?}: {}", message.status, message.message));
                     }
                 }
-                dialog.title("Review import").child(body).footer(
-                    div()
-                        .flex()
-                        .gap_2()
-                        .child(
-                            Button::new("import-close")
-                                .label("Back")
-                                .disabled(busy)
-                                .on_click(cx.listener(|view, _, window, cx| {
-                                    view.dismiss_dialog(window, cx)
-                                })),
-                        )
-                        .child({
-                            let weak = cx.entity().downgrade();
-                            Button::new("import-apply")
-                                .label("Import")
-                                .primary()
-                                .disabled(busy)
-                                .on_click(move |_, _, cx| {
-                                    let _ = weak.update(cx, |view, cx| {
-                                        let client = view.client.clone();
-                                        let plan_id = plan_id.clone();
-                                        view.run(
-                                            async move {
-                                                client
-                                                    .apply_import(plan_id)
-                                                    .await
-                                                    .map(|_| Effect::CloseDialog)
-                                            },
-                                            cx,
-                                        );
-                                    });
-                                })
-                        }),
-                )
+                dialog
+                    .title(self.dialog_title("Review import", cx))
+                    .child(body)
+                    .footer(
+                        div()
+                            .flex()
+                            .gap_2()
+                            .child(
+                                button("import-close")
+                                    .label("Back")
+                                    .inactive(busy)
+                                    .on_click(cx.listener(|view, _, window, cx| {
+                                        view.dismiss_dialog(window, cx)
+                                    })),
+                            )
+                            .child({
+                                let weak = cx.entity().downgrade();
+                                button("import-apply")
+                                    .label("Import")
+                                    .primary()
+                                    .inactive(busy)
+                                    .on_click(move |_, _, cx| {
+                                        let _ = weak.update(cx, |view, cx| {
+                                            let client = view.client.clone();
+                                            let plan_id = plan_id.clone();
+                                            view.run(
+                                                async move {
+                                                    client
+                                                        .apply_import(plan_id)
+                                                        .await
+                                                        .map(|_| Effect::CloseDialog)
+                                                },
+                                                cx,
+                                            );
+                                        });
+                                    })
+                            }),
+                    )
             }
             DialogState::DeleteFolder(preview) => {
                 let id = preview.folder.id.clone();
                 let revision = preview.revision.clone();
                 dialog
-                    .title("Delete folder")
+                    .title(self.dialog_title("Delete folder", cx))
                     .child(div().child(format!(
                         "Delete {}? {} skills will become Unfiled.",
                         preview.folder.name, preview.affected_skills
@@ -193,18 +141,18 @@ impl NativeView {
                             .flex()
                             .gap_2()
                             .child(
-                                Button::new("delete-cancel")
+                                button("delete-cancel")
                                     .label("Cancel")
-                                    .disabled(busy)
+                                    .inactive(busy)
                                     .on_click(cx.listener(|view, _, window, cx| {
                                         view.dismiss_dialog(window, cx)
                                     })),
                             )
                             .child({
                                 let weak = cx.entity().downgrade();
-                                Button::new("delete-confirm")
+                                button("delete-confirm")
                                     .label("Delete folder")
-                                    .disabled(busy)
+                                    .inactive(busy)
                                     .on_click(move |_, _, cx| {
                                         let _ = weak.update(cx, |view, cx| {
                                             let client = view.client.clone();
@@ -262,13 +210,13 @@ impl NativeView {
                         }
                     }
                     body = body.child(
-                        Button::new(format!("select-copy-{id}"))
+                        button(format!("select-copy-{id}"))
                             .label(if selected.as_ref() == Some(id) {
                                 format!("Selected: {id}")
                             } else {
                                 format!("Inspect {id}")
                             })
-                            .disabled(self.busy)
+                            .inactive(self.busy)
                             .on_click(cx.listener(move |view, _, _, cx| {
                                 if let DialogState::Conflict { selected, .. } = &mut view.dialog {
                                     *selected = Some(choice.clone());
@@ -295,9 +243,9 @@ impl NativeView {
                             let skill = keep.clone();
                             let path = entry.path.clone();
                             body = body.child(
-                                Button::new(format!("conflict-file-{}", entry.path))
+                                button(format!("conflict-file-{}", entry.path))
                                     .label(entry.path.clone())
-                                    .disabled(entry.directory || busy)
+                                    .inactive(entry.directory || busy)
                                     .on_click(cx.listener(move |view, _, _, cx| {
                                         let client = view.client.clone();
                                         let skill = skill.clone();
@@ -323,9 +271,9 @@ impl NativeView {
                     } else {
                         let skill = keep.clone();
                         body = body.child(
-                            Button::new("load-conflict-preview")
+                            button("load-conflict-preview")
                                 .label("Load selected copy preview")
-                                .disabled(busy)
+                                .inactive(busy)
                                 .on_click(cx.listener(move |view, _, _, cx| {
                                     let client = view.client.clone();
                                     let skill = skill.clone();
@@ -346,57 +294,60 @@ impl NativeView {
                 let expected = ids.clone();
                 let slug = slug.clone();
                 let revision = revision.clone();
-                dialog.title("Resolve shared name").child(body).footer(
-                    div()
-                        .flex()
-                        .gap_2()
-                        .child(
-                            Button::new("conflict-cancel")
-                                .label("Cancel")
-                                .disabled(busy)
-                                .on_click(cx.listener(|view, _, window, cx| {
-                                    view.dismiss_dialog(window, cx)
-                                })),
-                        )
-                        .child({
-                            let weak = cx.entity().downgrade();
-                            Button::new("conflict-confirm")
-                                .label("Keep selected copy")
-                                .disabled(busy || keep.is_none())
-                                .on_click(move |_, _, cx| {
-                                    let _ = weak.update(cx, |view, cx| {
-                                        let Some(keep) = keep.clone() else {
-                                            return;
-                                        };
-                                        let client = view.client.clone();
-                                        let slug = slug.clone();
-                                        let expected = expected.clone();
-                                        let revision = revision.clone();
-                                        view.run(
-                                            async move {
-                                                client
-                                                    .resolve_conflict(
-                                                        slug, keep, expected, revision,
-                                                    )
-                                                    .await
-                                                    .map(|_| Effect::CloseDialog)
-                                            },
-                                            cx,
-                                        );
-                                    });
-                                })
-                        }),
-                )
+                dialog
+                    .title(self.dialog_title("Resolve shared name", cx))
+                    .child(body)
+                    .footer(
+                        div()
+                            .flex()
+                            .gap_2()
+                            .child(
+                                button("conflict-cancel")
+                                    .label("Cancel")
+                                    .inactive(busy)
+                                    .on_click(cx.listener(|view, _, window, cx| {
+                                        view.dismiss_dialog(window, cx)
+                                    })),
+                            )
+                            .child({
+                                let weak = cx.entity().downgrade();
+                                button("conflict-confirm")
+                                    .label("Keep selected copy")
+                                    .inactive(busy || keep.is_none())
+                                    .on_click(move |_, _, cx| {
+                                        let _ = weak.update(cx, |view, cx| {
+                                            let Some(keep) = keep.clone() else {
+                                                return;
+                                            };
+                                            let client = view.client.clone();
+                                            let slug = slug.clone();
+                                            let expected = expected.clone();
+                                            let revision = revision.clone();
+                                            view.run(
+                                                async move {
+                                                    client
+                                                        .resolve_conflict(
+                                                            slug, keep, expected, revision,
+                                                        )
+                                                        .await
+                                                        .map(|_| Effect::CloseDialog)
+                                                },
+                                                cx,
+                                            );
+                                        });
+                                    })
+                            }),
+                    )
             }
             DialogState::RemoveRoot(id) => {
                 let id = id.clone();
-                dialog.title("Remove project root")
+                dialog.title(self.dialog_title("Remove project root", cx))
                     .child(div().child("Discovery will stop reading this project root. Managed imports remain in your library."))
                     .footer(div().flex().gap_2()
-        .child(Button::new("remove-cancel").label("Cancel").disabled(busy)
+        .child(button("remove-cancel").label("Cancel").inactive(busy)
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx))))
-        .child({let weak = cx.entity().downgrade(); Button::new("remove-confirm").label("Remove root")
-                        .disabled(busy).on_click(move |_, _, cx| { let _ = weak.update(cx, |view, cx| {
+        .child({let weak = cx.entity().downgrade(); button("remove-confirm").label("Remove root")
+                        .inactive(busy).on_click(move |_, _, cx| { let _ = weak.update(cx, |view, cx| {
                             let client = view.client.clone(); let id = id.clone();
                             view.run(async move { client.remove_root(id).await.map(|_| Effect::CloseDialog) }, cx);
                         }); })}))
