@@ -12,6 +12,34 @@ pub const STATUS_BAR_HEIGHT: f32 = 30.0;
 /// Top-left of the 14 pt macOS traffic lights, vertically centred in the header row.
 pub const TRAFFIC_LIGHTS_ORIGIN: (f32, f32) = (16.0, (HEADER_HEIGHT - 14.0) / 2.0);
 
+/// Sidebar metrics in points, measured from the reference design.
+pub mod sidebar {
+    /// Height of a navigation or folder row.
+    pub const ROW_HEIGHT: f32 = 32.0;
+    /// Vertical space between rows.
+    pub const ROW_GAP: f32 = 1.0;
+    /// Space between the sidebar edges and a row's selection fill.
+    pub const INSET: f32 = 8.0;
+    /// Horizontal padding inside a row.
+    pub const ROW_PADDING: f32 = 8.0;
+    /// Row icon size.
+    pub const ICON_SIZE: f32 = 16.0;
+    /// Space between a row icon and its label.
+    pub const ICON_GAP: f32 = 8.0;
+    /// Row label size.
+    pub const LABEL_SIZE: f32 = 14.0;
+    /// Section title and trailing count size.
+    pub const DETAIL_SIZE: f32 = 12.0;
+    /// Height of a section title row.
+    pub const SECTION_HEIGHT: f32 = 28.0;
+    /// Space above a section title.
+    pub const SECTION_GAP: f32 = 8.0;
+    /// Corner radius of the selection fill.
+    pub const RADIUS: f32 = 8.0;
+    /// Diameter of a row's attention dot.
+    pub const DOT_SIZE: f32 = 8.0;
+}
+
 /// Applies the system font used by the production baseline.
 pub fn init(cx: &mut App) {
     Theme::update(cx, |theme| theme.font_family = system_font().into());
@@ -48,14 +76,22 @@ fn effective_mode(window: &Window, cx: &App) -> ThemeMode {
         .unwrap_or_else(|| ThemeMode::from(window.appearance()))
 }
 
-/// Loads the mode's colors, then keeps the sidebar slightly darker than the main surface.
+/// Loads the mode's colors, then applies the sidebar surfaces of the reference design.
+///
+/// The light sidebar stays slightly darker than the main surface.
 fn apply_mode(mode: ThemeMode, cx: &mut App) {
     Theme::change(mode, None, cx);
     Theme::update(cx, |theme| {
-        let background = theme.background;
-        theme.sidebar = gpui_kit::Hsla {
-            l: (background.l - 0.02).max(0.0),
-            ..background
-        };
+        if mode.is_dark() {
+            theme.sidebar = gpui_kit::rgb(0x161616).into();
+            theme.sidebar_accent = gpui_kit::rgb(0x2f2f2f).into();
+            theme.sidebar_accent_foreground = gpui_kit::rgb(0xebebeb).into();
+        } else {
+            let background = theme.background;
+            theme.sidebar = gpui_kit::Hsla {
+                l: (background.l - 0.02).max(0.0),
+                ..background
+            };
+        }
     });
 }

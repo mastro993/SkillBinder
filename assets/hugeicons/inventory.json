@@ -40,6 +40,28 @@
       "elementCount": 1
     },
     {
+      "name": "ArrowLeft01Icon",
+      "file": "ArrowLeft01Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/sidebar.rs"
+      ],
+      "sourceModule": "dist/esm/ArrowLeft01Icon.js",
+      "sourceModuleSha256": "7fe0f420f68e9d8b94753a3a917f5cc4286281fe5f2ae7d7fc1b9c3bb7e9206e",
+      "svgSha256": "1bd27b544390c06f5fa44f20ab6b64ad50929c51e7adc0976e546beb8a347f7f",
+      "elementCount": 1
+    },
+    {
+      "name": "ArrowRight01Icon",
+      "file": "ArrowRight01Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/sidebar.rs"
+      ],
+      "sourceModule": "dist/esm/ArrowRight01Icon.js",
+      "sourceModuleSha256": "8929116230c031a6a4e756486528d31f8b8b495ae5b94e885fa3434d6a2709e8",
+      "svgSha256": "1e01eb8423d2782cc0b640adf151571dcabdab12d12f8cb2815465eb84b3d6e0",
+      "elementCount": 1
+    },
+    {
       "name": "ArrowUp01Icon",
       "file": "ArrowUp01Icon.svg",
       "usedBy": [
@@ -54,7 +76,8 @@
       "name": "BookCopyIcon",
       "file": "BookCopyIcon.svg",
       "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx"
+        "features/onboarding/components/onboarding-steps.tsx",
+        "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/BookCopyIcon.js",
       "sourceModuleSha256": "a3bec601ac1230d0eb21dd84cd76434e4466cbaa541e892f273163579e2a44b9",
@@ -119,7 +142,8 @@
       "name": "Compass01Icon",
       "file": "Compass01Icon.svg",
       "usedBy": [
-        "components/layout/app-shell.tsx"
+        "components/layout/app-shell.tsx",
+        "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/Compass01Icon.js",
       "sourceModuleSha256": "8a8c10bd254890eb17ca555ac975b2dc1180609b4e72bad2136cd229ca493886",
@@ -130,7 +154,8 @@
       "name": "Folder01Icon",
       "file": "Folder01Icon.svg",
       "usedBy": [
-        "features/library/components/sidebar-folder-list.tsx"
+        "features/library/components/sidebar-folder-list.tsx",
+        "crates/ui/src/native_view/sidebar_folders.rs"
       ],
       "sourceModule": "dist/esm/Folder01Icon.js",
       "sourceModuleSha256": "ee58c2dc8a6c7001ddf6147bbe4b39a55b1a40123f31418337373c6ec34b40c1",
@@ -255,7 +280,8 @@
       "file": "PlusSignIcon.svg",
       "usedBy": [
         "features/discovery/components/discovery-roots-panel.tsx",
-        "features/library/components/sidebar-folder-list.tsx"
+        "features/library/components/sidebar-folder-list.tsx",
+        "crates/ui/src/native_view/sidebar_folders.rs"
       ],
       "sourceModule": "dist/esm/PlusSignIcon.js",
       "sourceModuleSha256": "6569be537715da9149e59593c46665caff88a04a26f495ed54c6203c6691df88",
@@ -278,7 +304,8 @@
       "file": "RefreshIcon.svg",
       "usedBy": [
         "features/git-sync/screens/git-sync-view.tsx",
-        "features/onboarding/components/onboarding-steps.tsx"
+        "features/onboarding/components/onboarding-steps.tsx",
+        "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/RefreshIcon.js",
       "sourceModuleSha256": "e3d01c2d958567182b44c96b62f4f9b164f3dfe7f54d65be059da1691d26ae54",
@@ -290,7 +317,8 @@
       "file": "Settings01Icon.svg",
       "usedBy": [
         "components/layout/app-shell.tsx",
-        "crates/ui/src/native_view/status_bar.rs"
+        "crates/ui/src/native_view/status_bar.rs",
+        "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/Settings01Icon.js",
       "sourceModuleSha256": "2a786adfc5785d70757a7d86faea37ba6d731e159668b57736113a829eb2901f",

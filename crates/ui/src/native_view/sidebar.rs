@@ -1,19 +1,24 @@
-//! Sidebar navigation, resizing, and its open/close motion.
+//! Sidebar navigation, back/forward controls, resizing, and its open/close motion.
 
 use std::{rc::Rc, time::Duration};
 
-use super::controls::button;
-use super::{NativeView, Screen, shell::reserves_traffic_lights};
-use gpui_kit::component::{ActiveTheme, button::Button};
+use super::controls::{Inactive, app_icon, button};
+use super::sidebar_row::{activate, count, dot, row, spinner};
+use super::{LibraryFilter, NativeView, Route};
+use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, h_flex};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, AppContext, Axis, Context, ElementId, EmptyView,
-    InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled, Window,
-    div, prelude::FluentBuilder, px,
+    Animation, AnimationExt, AnyElement, AppContext, Axis, Context, Div, ElementId, EmptyView,
+    InteractiveElement, IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled,
+    Window, div, prelude::FluentBuilder, px,
 };
+use skillbinder_proto::{ScanStatus, SyncSnapshot, SyncState};
+use skillbinder_theme::sidebar::{INSET, ROW_GAP};
 
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
 const SIDEBAR_MOTION: Duration = Duration::from_millis(220);
+/// Small ghost button size for the back and forward controls.
+const CONTROL_SIZE: f32 = 24.0;
 
 /// Drag payload; the resize handle hands it to GPUI wrapped in an `Rc`.
 pub(super) struct SidebarDrag(pub(super) gpui_kit::EntityId);
@@ -92,55 +97,130 @@ impl NativeView {
     }
 
     fn render_sidebar(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let snapshot = self.snapshot.clone();
         let theme = cx.theme();
-        let count = self
-            .snapshot
+        let (background, foreground, border) = (
+            theme.sidebar,
+            theme.sidebar_foreground,
+            theme.sidebar_border,
+        );
+        let skills = snapshot
             .library
             .as_ref()
-            .map_or(0, |library| library.library.skills.len());
+            .map(|library| library.library.skills.len());
+        let discovery = match &snapshot.scan {
+            Some(scan) if scan.status == ScanStatus::Running => Some(spinner(cx)),
+            Some(scan) if !scan.candidates.is_empty() => Some(count(scan.candidates.len(), cx)),
+            _ => None,
+        };
+        let sync = if self.syncing {
+            Some(spinner(cx))
+        } else {
+            needs_sync(&snapshot.sync).then(|| dot(cx))
+        };
         div()
             .id("sidebar")
+            .relative()
             .flex()
             .flex_col()
             .flex_shrink_0()
             .w(px(self.sidebar_width))
             .h_full()
-            .p_4()
-            .when(reserves_traffic_lights(window), |nav| {
-                nav.pt(px(skillbinder_theme::HEADER_HEIGHT))
-            })
-            .gap_2()
-            .bg(theme.sidebar)
-            .text_color(theme.sidebar_foreground)
+            .pt(px(skillbinder_theme::HEADER_HEIGHT))
+            .px(px(INSET))
+            .pb(px(INSET))
+            .bg(background)
+            .text_color(foreground)
             // One device pixel: a hairline on Retina instead of 1pt's two pixels.
             .border_r(px(1.0 / window.scale_factor()))
-            .border_color(theme.sidebar_border)
-            .child("SkillBinder")
-            .child(format!("{count} skills"))
-            .children(
-                [
-                    (Screen::Discovery, "Discovery", "nav-discovery"),
-                    (Screen::Library, "Library", "nav-library"),
-                ]
-                .into_iter()
-                .map(|(screen, title, id)| self.nav_button(screen, title, id, cx)),
+            .border_color(border)
+            .child(self.render_history_controls(cx))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(ROW_GAP))
+                    .child(
+                        self.nav_row(Route::Discovery, "compass", "Discovery", cx)
+                            .children(discovery),
+                    )
+                    .child(
+                        self.nav_row(
+                            Route::Library(LibraryFilter::All),
+                            "book-copy",
+                            "Library",
+                            cx,
+                        )
+                        .when_some(skills, |row, skills| row.child(count(skills, cx))),
+                    )
+                    .child(
+                        self.nav_row(Route::Sync, "refresh", "Sync", cx)
+                            .children(sync),
+                    ),
             )
-            .child(div().flex_1())
-            .child(self.nav_button(Screen::Sync, "Sync", "nav-sync", cx))
-            .child(self.nav_button(Screen::Settings, "Settings", "nav-settings", cx))
+            .map(|sidebar| match &snapshot.library {
+                Some(library) => sidebar.child(self.render_folders(library, cx)),
+                None => sidebar.child(div().flex_1()),
+            })
+            .child(self.nav_row(Route::Settings, "settings", "Settings", cx))
     }
 
-    fn nav_button(
+    /// Library is selected only while it lists every skill; folders select their own row.
+    fn nav_row(
         &self,
-        screen: Screen,
-        title: &'static str,
-        id: &'static str,
+        route: Route,
+        icon: &str,
+        label: &'static str,
         cx: &mut Context<Self>,
-    ) -> Button {
-        button(id)
-            .label(title)
-            .w_full()
-            .on_click(cx.listener(move |view, _, window, cx| view.navigate(screen, window, cx)))
+    ) -> Stateful<Div> {
+        let selected = self.route == route;
+        activate(
+            row(
+                format!("nav-{}", label.to_lowercase()),
+                app_icon(icon),
+                None,
+                label,
+                selected,
+                cx,
+            ),
+            label,
+            cx,
+            move |view, window, cx| view.navigate(route.clone(), window, cx),
+        )
+    }
+
+    /// Back and forward, right-aligned in the sidebar's header row.
+    fn render_history_controls(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let control = |id: &'static str, icon: &str, label: &'static str, enabled: bool| {
+            button(id)
+                .ghost()
+                .small()
+                .icon(app_icon(icon).size_4())
+                .accessibility_label(label)
+                .inactive(!enabled)
+        };
+        h_flex()
+            .absolute()
+            .top(px((skillbinder_theme::HEADER_HEIGHT - CONTROL_SIZE) / 2.0))
+            .right(px(INSET))
+            .child(
+                control(
+                    "go-back",
+                    "chevron-left",
+                    "Back",
+                    self.history.can_go_back(),
+                )
+                .on_click(cx.listener(|view, _, window, cx| view.go_back(window, cx))),
+            )
+            .child(
+                control(
+                    "go-forward",
+                    "chevron-right",
+                    "Forward",
+                    self.history.can_go_forward(),
+                )
+                .on_click(cx.listener(|view, _, window, cx| view.go_forward(window, cx))),
+            )
     }
 
     pub(super) fn render_resize_control(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
@@ -171,6 +251,14 @@ impl NativeView {
                     }),
             )
     }
+}
+
+/// Local or remote changes are waiting for Push, Pull, or Sync.
+fn needs_sync(sync: &SyncSnapshot) -> bool {
+    matches!(
+        sync.state,
+        SyncState::NeedsPull | SyncState::NeedsPush | SyncState::NeedsSync
+    ) || sync.changed_files > 0
 }
 
 #[cfg(test)]

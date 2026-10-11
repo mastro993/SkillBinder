@@ -7,6 +7,10 @@ pub struct Assets;
 
 const ICONS: &[(&str, &[u8])] = &[
     (
+        "icons/book-copy.svg",
+        include_bytes!("../../../assets/hugeicons/BookCopyIcon.svg"),
+    ),
+    (
         "icons/box.svg",
         include_bytes!("../../../assets/hugeicons/BoxIcon.svg"),
     ),
@@ -15,8 +19,20 @@ const ICONS: &[(&str, &[u8])] = &[
         include_bytes!("../../../assets/hugeicons/Tick02Icon.svg"),
     ),
     (
+        "icons/chevron-left.svg",
+        include_bytes!("../../../assets/hugeicons/ArrowLeft01Icon.svg"),
+    ),
+    (
+        "icons/chevron-right.svg",
+        include_bytes!("../../../assets/hugeicons/ArrowRight01Icon.svg"),
+    ),
+    (
         "icons/close.svg",
         include_bytes!("../../../assets/hugeicons/Cancel01Icon.svg"),
+    ),
+    (
+        "icons/compass.svg",
+        include_bytes!("../../../assets/hugeicons/Compass01Icon.svg"),
     ),
     (
         "icons/folder.svg",
@@ -51,8 +67,16 @@ const ICONS: &[(&str, &[u8])] = &[
         include_bytes!("../../../assets/hugeicons/LayoutAlignLeftIcon.svg"),
     ),
     (
+        "icons/plus.svg",
+        include_bytes!("../../../assets/hugeicons/PlusSignIcon.svg"),
+    ),
+    (
         "icons/refresh-03.svg",
         include_bytes!("../../../assets/hugeicons/Refresh03Icon.svg"),
+    ),
+    (
+        "icons/refresh.svg",
+        include_bytes!("../../../assets/hugeicons/RefreshIcon.svg"),
     ),
     (
         "icons/settings.svg",
