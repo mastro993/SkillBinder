@@ -147,6 +147,98 @@ pub(crate) fn payload_relative(library: &Library, skill: &Skill) -> String {
         )
     }
 }
+/// Orders folders by user position; duplicate positions from remote edits fall back to name.
+fn sort_folders(folders: &mut [Folder]) {
+    folders.sort_by_cached_key(|folder| {
+        (folder.position, normalized(&folder.name), folder.id.clone())
+    });
+}
+fn apply_organization(
+    library: &mut Library,
+    change: OrganizationChange,
+    revision: &str,
+) -> AppResult<()> {
+    match change {
+        OrganizationChange::CreateFolder { name } => {
+            let position = library
+                .folders
+                .iter()
+                .map(|folder| folder.position.saturating_add(1))
+                .max()
+                .unwrap_or(0);
+            library.folders.push(Folder {
+                id: FolderId::new(),
+                name: validate_name(&name)?,
+                position,
+                color: None,
+            });
+        }
+        OrganizationChange::RenameFolder { id, name } => {
+            folder_mut(library, &id)?.name = validate_name(&name)?;
+        }
+        OrganizationChange::Assign { skills, folder } => assign(library, &skills, folder)?,
+        OrganizationChange::ReorderFolders { order } => reorder_folders(library, &order)?,
+        OrganizationChange::SetFolderColor { id, color } => {
+            folder_mut(library, &id)?.color = color;
+        }
+        OrganizationChange::DeleteFolder { id, revision: seen } => {
+            if seen != revision {
+                return Err(AppError::stale(
+                    "The library changed after the deletion preview.",
+                ));
+            }
+            folder_mut(library, &id)?;
+            library.folders.retain(|folder| folder.id != id);
+            for skill in &mut library.skills {
+                if skill.folder_id.as_ref() == Some(&id) {
+                    skill.folder_id = None;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+fn folder_mut<'a>(library: &'a mut Library, id: &FolderId) -> AppResult<&'a mut Folder> {
+    library
+        .folders
+        .iter_mut()
+        .find(|folder| &folder.id == id)
+        .ok_or_else(|| AppError::not_found("Folder no longer exists."))
+}
+fn assign(library: &mut Library, skills: &[SkillId], folder: Option<FolderId>) -> AppResult<()> {
+    if let Some(id) = &folder {
+        folder_mut(library, id)?;
+    }
+    if skills.is_empty()
+        || skills
+            .iter()
+            .any(|id| !library.skills.iter().any(|skill| &skill.id == id))
+    {
+        return Err(AppError::not_found("Select existing skills to organize."));
+    }
+    for skill in &mut library.skills {
+        if skills.contains(&skill.id) {
+            skill.folder_id = folder.clone();
+        }
+    }
+    Ok(())
+}
+fn reorder_folders(library: &mut Library, order: &[FolderId]) -> AppResult<()> {
+    let mut requested: Vec<_> = order.iter().collect();
+    requested.sort();
+    let mut current: Vec<_> = library.folders.iter().map(|folder| &folder.id).collect();
+    current.sort();
+    if requested != current {
+        return Err(AppError::stale("The folders changed. Reorder them again."));
+    }
+    for folder in &mut library.folders {
+        folder.position = order
+            .iter()
+            .position(|id| id == &folder.id)
+            .unwrap_or_default() as u32;
+    }
+    Ok(())
+}
 impl State {
     pub(crate) fn read_library(&self) -> AppResult<Library> {
         let path = self.library_dir().join(".skillbinder.json");
@@ -156,10 +248,11 @@ impl State {
                 "Library metadata is not a bounded regular file.",
             ));
         }
-        let library: Library =
+        let mut library: Library =
             serde_json::from_slice(&fs::read(path).map_err(|_| AppError::storage())?)
                 .map_err(|_| AppError::validation("Library metadata could not be read."))?;
         validate_library(&library)?;
+        sort_folders(&mut library.folders);
         Ok(library)
     }
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
@@ -219,58 +312,12 @@ impl State {
         self.require_recovered()?;
         let before = self.library_snapshot()?;
         let mut after = before.library.clone();
-        match change {
-            OrganizationChange::CreateFolder { name } => after.folders.push(Folder {
-                id: FolderId::new(),
-                name: validate_name(&name)?,
-            }),
-            OrganizationChange::RenameFolder { id, name } => {
-                let folder = after
-                    .folders
-                    .iter_mut()
-                    .find(|folder| folder.id == id)
-                    .ok_or_else(|| AppError::not_found("Folder no longer exists."))?;
-                folder.name = validate_name(&name)?;
-            }
-            OrganizationChange::Assign { skills, folder } => {
-                if folder
-                    .as_ref()
-                    .is_some_and(|id| !after.folders.iter().any(|folder| &folder.id == id))
-                {
-                    return Err(AppError::not_found("Folder no longer exists."));
-                }
-                if skills.is_empty()
-                    || skills
-                        .iter()
-                        .any(|id| !after.skills.iter().any(|skill| &skill.id == id))
-                {
-                    return Err(AppError::not_found("Select existing skills to organize."));
-                }
-                for skill in &mut after.skills {
-                    if skills.contains(&skill.id) {
-                        skill.folder_id = folder.clone();
-                    }
-                }
-            }
-            OrganizationChange::DeleteFolder { id, revision } => {
-                if revision != before.revision {
-                    return Err(AppError::stale(
-                        "The library changed after the deletion preview.",
-                    ));
-                }
-                if !after.folders.iter().any(|folder| folder.id == id) {
-                    return Err(AppError::not_found("Folder no longer exists."));
-                }
-                after.folders.retain(|folder| folder.id != id);
-                for skill in &mut after.skills {
-                    if skill.folder_id.as_ref() == Some(&id) {
-                        skill.folder_id = None;
-                    }
-                }
-            }
-        }
+        apply_organization(&mut after, change, &before.revision)?;
         validate_library(&after)?;
-        after.folders.sort_by_key(|folder| normalized(&folder.name));
+        sort_folders(&mut after.folders);
+        for (position, folder) in after.folders.iter_mut().enumerate() {
+            folder.position = position as u32;
+        }
         self.commit(Journal {
             id: uuid::Uuid::new_v4().to_string(),
             before: before.library,

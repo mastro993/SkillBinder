@@ -337,10 +337,14 @@ fn rollback_accepts_reordered_record_maps() {
         skillbinder_proto::Folder {
             id: skillbinder_proto::FolderId("z".into()),
             name: "Z".into(),
+            position: 0,
+            color: None,
         },
         skillbinder_proto::Folder {
             id: skillbinder_proto::FolderId("a".into()),
             name: "A".into(),
+            position: 1,
+            color: None,
         },
     ];
     inject(&[("after_metadata", false)]);

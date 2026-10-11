@@ -46,7 +46,7 @@ Payload policy preserves the captured limits, portable names, Unicode case colli
 
 ## Library and organization
 
-Library supports text search, flat folder pages, Unfiled, multi-selection, assignment, folder creation and rename, and revision-checked deletion previews. Deleting a folder unfiles its skills. Names are trimmed and unique under NFKC plus full Unicode case folding. Portable tags remain stored and validated without tag-management UI.
+Library supports text search, flat folder pages, Unfiled, multi-selection, assignment, folder creation and rename, and revision-checked deletion previews. Deleting a folder unfiles its skills. Folders keep a user-defined order and an optional color from a fixed eight-color palette. New folders are appended last without a color. Reordering requires every current folder exactly once, and positions are renumbered densely after each organization change. Names are trimmed and unique under NFKC plus full Unicode case folding. Portable tags remain stored and validated without tag-management UI.
 
 Skill details show source observations, readers, validation, counts, and bounded file previews. Listing is limited to 5,000 entries and depth 32; text is limited to 128 KiB. Binary and oversized files remain listed with an explanation. Relative-path and canonical containment checks reject traversal and escaping links.
 
@@ -64,13 +64,13 @@ Imports and organization changes remain uncommitted until explicit Push or Sync.
 
 One worker owns bundled SQLite and serializes library and Git mutations. Discovery remains independent. Journals persist applying or rolling-back direction, next-move intent, and expected physical identity and digest. Recovery completes or reverses interrupted moves before allowing further mutations. Unknown states retain their journal and block writes. Recovery refuses externally changed portable metadata before moving payloads or replacing metadata. A committed database transaction is never rolled back through filesystem-only recovery.
 
-Portable schema 2 stores folders, tags, and skills as maps keyed by identity. Machine-local metadata, plans, outcomes, observations, roots, preferences, logs, staging, journals, and backups live in platform-local storage. No old database is migrated.
+Portable schema 2 stores folders, tags, and skills as maps keyed by identity. Folder order and color are portable fields, so they sync with the library; reads sort folders by position, then name, so duplicate positions from separate edits never block loading. Machine-local metadata, plans, outcomes, observations, roots, preferences, logs, staging, journals, and backups live in platform-local storage. No old database is migrated.
 
 Logs use a bounded queue, 5 MiB rotation, at most five files, and 14-day retention. Home paths and common credential formats are redacted. Settings reveals only the engine-owned log directory. Safe errors include category, recovery action, retryability, and diagnostic identity.
 
 ## Acceptance evidence
 
-Engine unit tests cover manifest and payload policy, local bare-remote Git behavior, redaction, and injected crash or I/O failures during forward and rollback recovery. Public-operation integration tests exercise setup, roots, shared reader discovery, cancellation, stale imports, byte preservation, replay after restart, conflicts, Unicode folder names, assignment, stale deletion, bounded previews, and concurrent engine refusal.
+Engine unit tests cover manifest and payload policy, local bare-remote Git behavior, redaction, and injected crash or I/O failures during forward and rollback recovery. Public-operation integration tests exercise setup, roots, shared reader discovery, cancellation, stale imports, byte preservation, replay after restart, conflicts, Unicode folder names, assignment, folder order and color, stale deletion, bounded previews, and concurrent engine refusal.
 
 Native interaction, each platform build, and packaged-app smoke tests are separate evidence categories. Current results and remaining platform checks are recorded in [the verification guide](../native-gate.md). Captured fixtures alone do not establish engine or native interaction behavior.
 

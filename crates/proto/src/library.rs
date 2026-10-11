@@ -24,6 +24,40 @@ pub struct ValidationMessage {
     /// Safe explanation.
     pub message: String,
 }
+/// A named folder color, resolved against the active theme when rendered.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FolderColor {
+    /// Neutral gray.
+    Gray,
+    /// Red.
+    Red,
+    /// Orange.
+    Orange,
+    /// Yellow.
+    Yellow,
+    /// Green.
+    Green,
+    /// Blue.
+    Blue,
+    /// Purple.
+    Purple,
+    /// Pink.
+    Pink,
+}
+impl FolderColor {
+    /// Every color in menu order.
+    pub const ALL: [Self; 8] = [
+        Self::Gray,
+        Self::Red,
+        Self::Orange,
+        Self::Yellow,
+        Self::Green,
+        Self::Blue,
+        Self::Purple,
+        Self::Pink,
+    ];
+}
 /// A flat portable folder.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Folder {
@@ -31,6 +65,12 @@ pub struct Folder {
     pub id: FolderId,
     /// Unique normalized display name.
     pub name: String,
+    /// User-defined order; the engine keeps positions dense from zero.
+    #[serde(default)]
+    pub position: u32,
+    /// Optional quick-scan color.
+    #[serde(default)]
+    pub color: Option<FolderColor>,
 }
 /// A retained portable tag; no tag editor is exposed in the application.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -78,7 +118,7 @@ pub struct Library {
     /// Payload policy version, currently 1.
     #[serde(default = "policy_version")]
     pub content_policy_version: u32,
-    /// Flat folders.
+    /// Flat folders, ordered by position after reads.
     #[serde(default, with = "folder_map")]
     pub folders: Vec<Folder>,
     /// Tags preserved in portable state.
@@ -136,6 +176,18 @@ pub enum OrganizationChange {
         skills: Vec<SkillId>,
         /// Destination, or Unfiled when absent.
         folder: Option<FolderId>,
+    },
+    /// Replace the folder order with a permutation of every existing folder.
+    ReorderFolders {
+        /// Every folder identity in its new order.
+        order: Vec<FolderId>,
+    },
+    /// Set or clear a folder color.
+    SetFolderColor {
+        /// Folder being colored.
+        id: FolderId,
+        /// Replacement color, or none.
+        color: Option<FolderColor>,
     },
     /// Delete a previewed folder and unfile its skills.
     DeleteFolder {
