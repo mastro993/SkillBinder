@@ -32,11 +32,7 @@ pub(super) fn row(
     } else {
         theme.muted_foreground
     };
-    let icon_color = tint.unwrap_or(if selected {
-        text
-    } else {
-        text.opacity(ICON_OPACITY)
-    });
+    let icon_color = tint.unwrap_or(if selected { text } else { icon_color(cx) });
     let hover = theme.sidebar_accent.opacity(0.5);
     div()
         .id(id.into())
@@ -59,6 +55,11 @@ pub(super) fn row(
                 .text_color(icon_color),
         )
         .child(div().flex_1().min_w_0().truncate().child(label.into()))
+}
+
+/// Icon color of unselected rows, shared by the row menus.
+pub(super) fn icon_color(cx: &App) -> Hsla {
+    cx.theme().muted_foreground.opacity(ICON_OPACITY)
 }
 
 /// Runs `action` on click, and on Enter or Space while the row has keyboard focus.

@@ -5,10 +5,10 @@ use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
 use super::controls::{app_icon, button};
 use super::sidebar_reorder::{FolderDrag, FolderDragPreview};
-use super::sidebar_row::{activate, count, row};
+use super::sidebar_row::{activate, count, icon_color, row};
 use super::{Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
-    ActiveTheme, Side, Sizable,
+    ActiveTheme, Icon, Side, Sizable,
     button::ButtonVariants,
     input::{Input, InputEvent, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
@@ -236,9 +236,10 @@ impl NativeView {
         move |menu, window, cx| {
             let (color_view, color_id) = (view.clone(), id.clone());
             let danger = cx.theme().danger;
+            let plain = icon_color(cx);
             menu.item(
                 PopupMenuItem::new("Rename")
-                    .icon(app_icon("pencil-edit"))
+                    .icon(menu_icon("pencil-edit", plain))
                     .on_click(menu_action(
                         view.clone(),
                         id.clone(),
@@ -248,19 +249,20 @@ impl NativeView {
                     )),
             )
             .submenu_with_icon(
-                Some(app_icon("paint-board")),
+                Some(menu_icon("paint-board", plain)),
                 "Color",
                 window,
                 cx,
                 move |menu, _, cx| {
                     let dark = cx.theme().mode.is_dark();
+                    let plain = icon_color(cx);
                     let choices = std::iter::once(None).chain(FolderColor::ALL.map(Some));
                     // Each choice shows its tinted folder, so the check moves to the right.
                     choices.fold(menu.check_side(Side::Right), |menu, color| {
                         let (view, id) = (color_view.clone(), color_id.clone());
                         let swatch = match color {
-                            Some(color) => app_icon("folder").text_color(folder_tint(color, dark)),
-                            None => app_icon("folder"),
+                            Some(color) => menu_icon("folder", folder_tint(color, dark)),
+                            None => menu_icon("folder", plain),
                         };
                         menu.item(
                             PopupMenuItem::new(color.map_or("None", color_name))
@@ -278,7 +280,7 @@ impl NativeView {
             .separator()
             .item(
                 PopupMenuItem::new("Move Up")
-                    .icon(app_icon("arrow-up"))
+                    .icon(menu_icon("arrow-up", plain))
                     .disabled(index == 0)
                     .on_click(menu_action(
                         view.clone(),
@@ -288,7 +290,7 @@ impl NativeView {
             )
             .item(
                 PopupMenuItem::new("Move Down")
-                    .icon(app_icon("arrow-down"))
+                    .icon(menu_icon("arrow-down", plain))
                     .disabled(index + 1 >= len)
                     .on_click(menu_action(
                         view.clone(),
@@ -300,7 +302,7 @@ impl NativeView {
             .item(
                 // A custom element, because plain items draw their label in the menu color.
                 PopupMenuItem::element(move |_, _| div().text_color(danger).child("Delete…"))
-                    .icon(app_icon("delete").text_color(danger))
+                    .icon(menu_icon("delete", danger))
                     .on_click(menu_action(view.clone(), id.clone(), |view, id, _, cx| {
                         let (client, id) = (view.client.clone(), id.clone());
                         view.run(
@@ -433,6 +435,12 @@ impl NativeView {
             cx,
         );
     }
+}
+
+/// A menu glyph spaced from its label like a sidebar row's: kit menus leave 4 points
+/// between icon and label, so the icon tops that up to the row gap.
+fn menu_icon(name: &str, color: Hsla) -> Icon {
+    app_icon(name).text_color(color).mr(px(ICON_GAP - 4.0))
 }
 
 /// A menu click handler that runs `action` on the view for one folder.
