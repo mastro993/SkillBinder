@@ -1,5 +1,6 @@
 use crate::{ProjectId, ScanId, ScanStatus, SkillId};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// A place that holds deployed copies of library skills.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
@@ -38,6 +39,61 @@ pub struct Deployment {
     pub digest: String,
     /// Copy locations, one per agent skill directory.
     pub paths: Vec<String>,
+    /// Copies that no longer matched `digest` when the target was last scanned; the others did.
+    pub changes: BTreeMap<String, CopyChange>,
+}
+
+impl Deployment {
+    /// How the deployment drifted from the digest it was written with, given the library
+    /// skill's current digest; `None` while the copies and the library still match it.
+    pub fn drift(&self, library_digest: &str) -> Option<Drift> {
+        let has = |change| self.changes.values().any(|c| *c == change);
+        let library_changed = library_digest != self.digest;
+        if has(CopyChange::Changed) {
+            Some(if library_changed {
+                Drift::Conflict
+            } else {
+                Drift::ProjectChanged
+            })
+        } else if has(CopyChange::Missing) {
+            Some(Drift::Missing)
+        } else {
+            library_changed.then_some(Drift::Outdated)
+        }
+    }
+}
+
+/// How one recorded copy differs from its deployment's digest.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum CopyChange {
+    /// The copy's bytes differ, or it can no longer be read as a skill.
+    Changed,
+    /// Nothing is left at the recorded path.
+    Missing,
+}
+
+/// How a deployment drifted. SkillBinder never resolves drift on its own; the user picks a
+/// `Remedy`, and drift is never a reason to forget a deployment.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Drift {
+    /// A copy changed in the target; the library skill did not.
+    ProjectChanged,
+    /// The library skill changed; the copies did not.
+    Outdated,
+    /// A copy and the library skill both changed.
+    Conflict,
+    /// A copy is gone, and none of the others changed.
+    Missing,
+}
+
+/// The side a drifted deployment is resolved to.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Remedy {
+    /// Rewrite every copy from the library skill: restore, update, or redeploy them.
+    UseLibrary,
+    /// Replace the library skill with the changed copy, then rewrite the other copies from it.
+    /// The library change stays uncommitted until Sync. Only for a changed copy.
+    UseProject,
 }
 
 /// Progress and result of scanning a project the user is adding.

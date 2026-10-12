@@ -54,7 +54,7 @@ impl State {
         let mut query = self
             .database
             .prepare(
-                "SELECT target,skill_id,digest,paths FROM deployments ORDER BY target,skill_id",
+                "SELECT target,skill_id,digest,paths,changes FROM deployments ORDER BY target,skill_id",
             )
             .map_err(|_| AppError::storage())?;
         let rows = query
@@ -64,18 +64,20 @@ impl State {
                     SkillId(row.get(1)?),
                     row.get::<_, String>(2)?,
                     row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
                 ))
             })
             .map_err(|_| AppError::storage())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| AppError::storage())?;
         rows.into_iter()
-            .map(|(key, skill_id, digest, paths)| {
+            .map(|(key, skill_id, digest, paths, changes)| {
                 Ok(Deployment {
                     target: target(key),
                     skill_id,
                     digest,
                     paths: serde_json::from_str(&paths).map_err(|_| AppError::storage())?,
+                    changes: serde_json::from_str(&changes).map_err(|_| AppError::storage())?,
                 })
             })
             .collect()

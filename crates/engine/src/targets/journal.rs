@@ -13,6 +13,7 @@ use rusqlite::{Transaction, params};
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::*;
 use std::{
+    collections::BTreeMap,
     fs,
     io::ErrorKind,
     path::{Path, PathBuf},
@@ -27,8 +28,10 @@ pub(crate) struct DeploymentJournal {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) enum Change {
-    /// New deployments; undone unless the database recorded them.
-    Add(Vec<Copies>),
+    /// Copies written from the library, new or replacing changed and outdated ones, and their
+    /// deployments; undone unless the database recorded them.
+    #[serde(alias = "Add")]
+    Write(Vec<Copies>),
     /// One deployment being removed; always finished.
     Remove {
         copies: Copies,
@@ -48,12 +51,39 @@ pub(crate) struct Copies {
     pub paths: Vec<PathBuf>,
     /// Copies this operation creates; the others already held identical bytes.
     pub written: Vec<PathBuf>,
+    /// Copies this operation replaces. Each is set aside until the database records the
+    /// write, so an unrecorded write restores it.
+    #[serde(default)]
+    pub replaced: Vec<PathBuf>,
+}
+
+impl Copies {
+    /// Every path this operation writes, with its stable step index, and whether it replaces a copy.
+    fn writes(deployments: &[Copies]) -> impl Iterator<Item = (usize, &Path, &str, bool)> {
+        deployments
+            .iter()
+            .flat_map(|copies| {
+                let written = copies.written.iter().map(|path| (path, false));
+                let replaced = copies.replaced.iter().map(|path| (path, true));
+                written
+                    .chain(replaced)
+                    .map(|(path, replaces)| (path.as_path(), copies.digest.as_str(), replaces))
+            })
+            .enumerate()
+            .map(|(index, (path, digest, replaces))| (index, path, digest, replaces))
+    }
 }
 
 /// The sibling of `path` that a journaled step stages into or deletes from.
 fn scratch(path: &Path, journal: &str, index: usize) -> AppResult<PathBuf> {
     let parent = path.parent().ok_or_else(AppError::storage)?;
     Ok(parent.join(format!(".skillbinder-{journal}-{index}")))
+}
+
+/// The sibling of `path` that a replaced copy waits in until the write is recorded.
+fn replaced(path: &Path, journal: &str, index: usize) -> AppResult<PathBuf> {
+    let parent = path.parent().ok_or_else(AppError::storage)?;
+    Ok(parent.join(format!(".skillbinder-{journal}-{index}-replaced")))
 }
 
 fn exists(path: &Path) -> AppResult<bool> {
@@ -112,7 +142,7 @@ impl State {
             .unwrap_or(false))
     }
 
-    /// Runs a journaled change. A failure undoes an addition or finishes a removal at once;
+    /// Runs a journaled change. A failure undoes a write or finishes a removal at once;
     /// if that fails too, the journal stays and the library waits for recovery.
     pub(crate) fn run_deployment(
         &mut self,
@@ -122,7 +152,7 @@ impl State {
         self.save_deployment_journal(&journal)?;
         self.recovery_required = true;
         let mut journal = journal;
-        let result = if matches!(journal.change, Change::Add(_)) {
+        let result = if matches!(journal.change, Change::Write(_)) {
             self.write_copies(&journal, sources).map(|()| Vec::new())
         } else {
             self.settle_removal(&mut journal)
@@ -148,34 +178,44 @@ impl State {
         journal: &DeploymentJournal,
         sources: &[Inspection],
     ) -> AppResult<()> {
-        let Change::Add(deployments) = &journal.change else {
+        let Change::Write(deployments) = &journal.change else {
             return Err(AppError::storage());
         };
-        let mut index = 0;
+        let mut sources_by_digest = BTreeMap::new();
         for (copies, source) in deployments.iter().zip(sources) {
-            for path in &copies.written {
-                let parent = path.parent().ok_or_else(AppError::storage)?;
-                fs::create_dir_all(parent).map_err(|_| AppError::storage())?;
-                let staging = scratch(path, &journal.id, index)?;
-                index += 1;
-                payload::stage(source, &staging)?;
-                checkpoint("deploy_staged")?;
-                fs::rename(&staging, path).map_err(|_| AppError::storage())?;
+            sources_by_digest.insert(copies.digest.as_str(), source);
+        }
+        for (index, path, digest, replaces) in Copies::writes(deployments) {
+            let source = sources_by_digest
+                .get(digest)
+                .ok_or_else(AppError::storage)?;
+            let parent = path.parent().ok_or_else(AppError::storage)?;
+            fs::create_dir_all(parent).map_err(|_| AppError::storage())?;
+            let staging = scratch(path, &journal.id, index)?;
+            payload::stage(source, &staging)?;
+            checkpoint("deploy_staged")?;
+            if replaces {
+                fs::rename(path, replaced(path, &journal.id, index)?)
+                    .map_err(|_| AppError::storage())?;
                 sync_directory(parent)?;
-                checkpoint("deploy_renamed")?;
+                checkpoint("deploy_set_aside")?;
             }
+            fs::rename(&staging, path).map_err(|_| AppError::storage())?;
+            sync_directory(parent)?;
+            checkpoint("deploy_renamed")?;
         }
         let transaction = self
             .database
             .transaction()
             .map_err(|_| AppError::storage())?;
         for copies in deployments {
-            record(&transaction, &journal.target, copies)?;
+            record(&transaction, &journal.target, copies, &BTreeMap::new())?;
         }
         mark(&transaction, journal)?;
         checkpoint("deploy_before_database")?;
         transaction.commit().map_err(|_| AppError::storage())?;
-        checkpoint("deploy_after_database")
+        checkpoint("deploy_after_database")?;
+        self.undo_write(journal)
     }
 
     /// Deletes each copy that still matches the digest or that the user confirmed discarding,
@@ -203,11 +243,15 @@ impl State {
                 )
                 .map_err(|_| AppError::storage())?;
             if !kept.is_empty() {
+                let changed = kept
+                    .iter()
+                    .map(|path| (path.display().to_string(), CopyChange::Changed))
+                    .collect();
                 let remaining = Copies {
                     paths: kept.clone(),
                     ..copies
                 };
-                record(&transaction, &journal.target, &remaining)?;
+                record(&transaction, &journal.target, &remaining, &changed)?;
             }
             mark(&transaction, journal)?;
             checkpoint("remove_before_database")?;
@@ -296,25 +340,42 @@ impl State {
         Ok(())
     }
 
-    /// Undoes an unrecorded addition: deletes its scratch copies and the copies it wrote that
-    /// still hold its bytes. A recorded addition only loses leftover scratch copies.
-    fn undo_addition(&self, journal: &DeploymentJournal) -> AppResult<()> {
-        let Change::Add(deployments) = &journal.change else {
+    /// Undoes an unrecorded write: deletes its scratch copies and the copies it wrote that still
+    /// hold its bytes, and puts back the copies it replaced. A recorded write only loses its
+    /// scratch copies and the copies it replaced.
+    fn undo_write(&self, journal: &DeploymentJournal) -> AppResult<()> {
+        let Change::Write(deployments) = &journal.change else {
             return Err(AppError::storage());
         };
         let committed = self.deployment_committed(journal)?;
-        let written = deployments
-            .iter()
-            .flat_map(|copies| copies.written.iter().map(|path| (path, &copies.digest)));
-        for (index, (path, digest)) in written.enumerate() {
+        for (index, path, digest, replaces) in Copies::writes(deployments) {
             let staging = scratch(path, &journal.id, index)?;
             if exists(&staging)? {
                 delete(&staging)?;
             }
-            if !committed && exists(path)? && matches(path, digest) {
-                fs::rename(path, &staging).map_err(|_| AppError::storage())?;
+            let previous = replaced(path, &journal.id, index)?;
+            if committed {
+                if exists(&previous)? {
+                    delete(&previous)?;
+                }
+                continue;
+            }
+            if replaces && !exists(&previous)? {
+                // The replaced copy was never moved, so nothing was written here.
+                continue;
+            }
+            if exists(path)? {
+                if matches(path, digest) {
+                    fs::rename(path, &staging).map_err(|_| AppError::storage())?;
+                    sync_parent(path)?;
+                    delete(&staging)?;
+                } else if replaces {
+                    self.set_aside(path, path, &journal.id)?;
+                }
+            }
+            if replaces {
+                fs::rename(&previous, path).map_err(|_| AppError::storage())?;
                 sync_parent(path)?;
-                delete(&staging)?;
             }
         }
         Ok(())
@@ -322,7 +383,7 @@ impl State {
 
     fn settle(&mut self, journal: &mut DeploymentJournal) -> AppResult<()> {
         match journal.change {
-            Change::Add(_) => self.undo_addition(journal),
+            Change::Write(_) => self.undo_write(journal),
             Change::Remove { .. } => self.settle_removal(journal).map(|_| ()),
         }
     }
@@ -359,7 +420,13 @@ fn set_deleting(journal: &mut DeploymentJournal, index: Option<usize>) {
     }
 }
 
-fn record(transaction: &Transaction, target: &DeploymentTarget, copies: &Copies) -> AppResult<()> {
+/// Records a deployment, replacing any earlier record of it.
+fn record(
+    transaction: &Transaction,
+    target: &DeploymentTarget,
+    copies: &Copies,
+    changes: &BTreeMap<String, CopyChange>,
+) -> AppResult<()> {
     let mut paths: Vec<_> = copies
         .paths
         .iter()
@@ -368,13 +435,15 @@ fn record(transaction: &Transaction, target: &DeploymentTarget, copies: &Copies)
     paths.sort();
     transaction
         .execute(
-            "INSERT INTO deployments(target,skill_id,digest,paths,recorded_at) VALUES(?1,?2,?3,?4,?5)",
+            "INSERT OR REPLACE INTO deployments(target,skill_id,digest,paths,recorded_at,changes) \
+             VALUES(?1,?2,?3,?4,?5,?6)",
             params![
                 key(target),
                 copies.skill_id.as_str(),
                 copies.digest,
                 serde_json::to_string(&paths).map_err(|_| AppError::storage())?,
-                now()
+                now(),
+                serde_json::to_string(changes).map_err(|_| AppError::storage())?
             ],
         )
         .map_err(|_| AppError::storage())?;

@@ -1,6 +1,7 @@
 //! Turns a target scan into deployments, and keeps deployed skills in the library.
 
 use super::{
+    drift::copy_change,
     key,
     scan::{Findings, Scope},
 };
@@ -155,8 +156,9 @@ impl State {
     }
 
     /// Replaces the target's deployments with the library skills its scan found, and saves a
-    /// new project with them, in one transaction. A recorded copy that still exists stays
-    /// recorded with its digest even when it changed, so removing it asks first.
+    /// new project with them, in one transaction. A recorded copy stays recorded with its
+    /// digest when it changed or disappeared, and the scan records how it differs, so the user
+    /// resolves the drift and removing a changed copy asks first.
     pub(crate) fn record_scan(
         &mut self,
         target: &DeploymentTarget,
@@ -177,6 +179,11 @@ impl State {
             _ => BTreeSet::new(),
         };
         let library = self.read_library()?;
+        let found: BTreeMap<String, String> = findings
+            .copies
+            .iter()
+            .map(|copy| (copy.path.clone(), copy.digest.clone()))
+            .collect();
         let mut deployed: BTreeMap<SkillId, (String, Vec<String>)> = BTreeMap::new();
         let mut importable: BTreeMap<String, String> = BTreeMap::new();
         for copy in findings.copies {
@@ -209,7 +216,7 @@ impl State {
         if let Some(project) = new {
             insert_project(&transaction, project)?;
         }
-        replace_deployments(&transaction, target, &deployed)?;
+        replace_deployments(&transaction, target, &deployed, &found)?;
         seed_agents(&transaction, target, &findings.agents)?;
         transaction.commit().map_err(|_| AppError::storage())?;
         let mut importable: Vec<_> = importable.into_values().collect();
@@ -220,8 +227,9 @@ impl State {
         })
     }
 
-    /// Adds the target's recorded copies that the scan did not match, such as changed copies,
-    /// while they exist outside nested projects and their skill stays in the library.
+    /// Adds the target's recorded copies that the scan did not match, such as changed or
+    /// missing copies, while they lie outside nested projects and their skill stays in the
+    /// library.
     fn retain_recorded(
         &self,
         target: &DeploymentTarget,
@@ -243,7 +251,7 @@ impl State {
                 let inside = nested
                     .iter()
                     .any(|project| Path::new(&path).starts_with(project));
-                if found.contains(&path) || inside || fs::symlink_metadata(&path).is_err() {
+                if found.contains(&path) || inside {
                     continue;
                 }
                 deployed
@@ -300,7 +308,7 @@ fn insert_project(transaction: &Transaction, project: &PendingProject) -> AppRes
         .map_err(|_| AppError::storage())?;
     let mut query = transaction
         .prepare(
-            "SELECT d.target,d.skill_id,d.paths,p.canonical_path FROM deployments d \
+            "SELECT d.target,d.skill_id,d.paths,p.canonical_path,d.changes FROM deployments d \
              JOIN projects p ON p.id=d.target WHERE p.id<>?1",
         )
         .map_err(|_| AppError::storage())?;
@@ -311,20 +319,22 @@ fn insert_project(transaction: &Transaction, project: &PendingProject) -> AppRes
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
             ))
         })
         .map_err(|_| AppError::storage())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| AppError::storage())?;
-    for (target, skill, paths, ancestor) in rows {
+    for (target, skill, paths, ancestor, changes) in rows {
         if !project.path.starts_with(&ancestor) {
             continue;
         }
         let paths: Vec<String> = serde_json::from_str(&paths).map_err(|_| AppError::storage())?;
-        let kept: Vec<_> = paths
-            .iter()
-            .filter(|path| !Path::new(path).starts_with(&project.path))
-            .collect();
+        let outside = |path: &String| !Path::new(path).starts_with(&project.path);
+        let kept: Vec<_> = paths.iter().filter(|path| outside(path)).collect();
+        let mut changes: BTreeMap<String, CopyChange> =
+            serde_json::from_str(&changes).map_err(|_| AppError::storage())?;
+        changes.retain(|path, _| outside(path));
         if kept.len() == paths.len() {
             continue;
         }
@@ -335,9 +345,10 @@ fn insert_project(transaction: &Transaction, project: &PendingProject) -> AppRes
             )
         } else {
             transaction.execute(
-                "UPDATE deployments SET paths=?1 WHERE target=?2 AND skill_id=?3",
+                "UPDATE deployments SET paths=?1,changes=?2 WHERE target=?3 AND skill_id=?4",
                 params![
                     serde_json::to_string(&kept).map_err(|_| AppError::storage())?,
+                    serde_json::to_string(&changes).map_err(|_| AppError::storage())?,
                     target,
                     skill
                 ],
@@ -348,10 +359,32 @@ fn insert_project(transaction: &Transaction, project: &PendingProject) -> AppRes
     Ok(())
 }
 
+/// How each copy differs from `digest`, given the digests the scan found at each path. A path
+/// the scan did not report, such as one reached through a linked agent directory, is checked
+/// directly.
+fn changes(
+    digest: &str,
+    paths: &[String],
+    found: &BTreeMap<String, String>,
+) -> BTreeMap<String, CopyChange> {
+    paths
+        .iter()
+        .filter_map(|path| {
+            let change = match found.get(path) {
+                Some(copy) if copy == digest => None,
+                Some(_) => Some(CopyChange::Changed),
+                None => copy_change(Path::new(path), digest),
+            };
+            Some((path.clone(), change?))
+        })
+        .collect()
+}
+
 fn replace_deployments(
     transaction: &Transaction,
     target: &DeploymentTarget,
     deployed: &BTreeMap<SkillId, (String, Vec<String>)>,
+    found: &BTreeMap<String, String>,
 ) -> AppResult<()> {
     transaction
         .execute("DELETE FROM deployments WHERE target=?1", [key(target)])
@@ -361,13 +394,16 @@ fn replace_deployments(
         paths.sort();
         transaction
             .execute(
-                "INSERT INTO deployments(target,skill_id,digest,paths,recorded_at) VALUES(?1,?2,?3,?4,?5)",
+                "INSERT INTO deployments(target,skill_id,digest,paths,recorded_at,changes) \
+                 VALUES(?1,?2,?3,?4,?5,?6)",
                 params![
                     key(target),
                     skill.as_str(),
                     digest,
                     serde_json::to_string(&paths).map_err(|_| AppError::storage())?,
-                    now()
+                    now(),
+                    serde_json::to_string(&changes(digest, &paths, found))
+                        .map_err(|_| AppError::storage())?
                 ],
             )
             .map_err(|_| AppError::storage())?;

@@ -85,7 +85,28 @@ impl Fixture {
     fn remove(&self, state: &mut State, discard: &[String]) -> AppResult<Removal> {
         state.remove_deployment(&DeploymentTarget::Global, &self.skill, discard)
     }
+
+    /// Changes the deployed copy, then restores it from the library.
+    fn restore(&self, state: &mut State) -> AppResult<()> {
+        fs::write(self.copy().join("SKILL.md"), EDITED).unwrap();
+        // As a rescan would show it.
+        let mut shown = state.deployments().unwrap().remove(0);
+        shown.changes = [(shown.paths[0].clone(), CopyChange::Changed)].into();
+        state.resolve_drift(&shown, Drift::ProjectChanged, Remedy::UseLibrary)
+    }
+
+    fn copy_text(&self) -> String {
+        fs::read_to_string(self.copy().join("SKILL.md")).unwrap()
+    }
 }
+
+const EDITED: &str = "edited in the project";
+const RESTORE_STEPS: [&str; 4] = [
+    "deploy_staged",
+    "deploy_set_aside",
+    "deploy_renamed",
+    "deploy_before_database",
+];
 
 fn inject(points: &[(&'static str, bool)]) {
     FAULTS.with(|faults| *faults.borrow_mut() = points.iter().copied().collect());
@@ -135,6 +156,44 @@ fn a_failed_addition_is_undone_at_once() {
         assert!(fixture.add(&mut state).is_err(), "{point}");
         assert_settled(&state, &fixture.copy(), false);
     }
+}
+
+#[test]
+fn a_crash_while_restoring_puts_the_changed_copy_back() {
+    for point in RESTORE_STEPS {
+        let (fixture, mut state) = Fixture::new();
+        fixture.add(&mut state).unwrap();
+        inject(&[(point, true)]);
+        assert!(catch_unwind(AssertUnwindSafe(|| fixture.restore(&mut state))).is_err());
+        let state = fixture.reopen(state);
+        assert_eq!(fixture.copy_text(), EDITED, "{point}");
+        assert_settled(&state, &fixture.copy(), true);
+    }
+}
+
+#[test]
+fn a_failed_restore_puts_the_changed_copy_back_at_once() {
+    for point in RESTORE_STEPS {
+        let (fixture, mut state) = Fixture::new();
+        fixture.add(&mut state).unwrap();
+        inject(&[(point, false)]);
+        assert!(fixture.restore(&mut state).is_err(), "{point}");
+        assert_eq!(fixture.copy_text(), EDITED, "{point}");
+        assert_settled(&state, &fixture.copy(), true);
+    }
+}
+
+#[test]
+fn a_crash_after_recording_a_restore_keeps_the_library_copy() {
+    let (fixture, mut state) = Fixture::new();
+    fixture.add(&mut state).unwrap();
+    inject(&[("deploy_after_database", true)]);
+    assert!(catch_unwind(AssertUnwindSafe(|| fixture.restore(&mut state))).is_err());
+    let state = fixture.reopen(state);
+    let library = state.library_dir().join("skills/alpha/SKILL.md");
+    assert_eq!(fixture.copy_text(), fs::read_to_string(library).unwrap());
+    assert_settled(&state, &fixture.copy(), true);
+    assert!(state.deployments().unwrap()[0].changes.is_empty());
 }
 
 #[test]

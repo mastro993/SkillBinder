@@ -201,6 +201,21 @@ impl Client {
         )
         .await
     }
+    /// Resolves a drifted deployment with the remedy the user picked.
+    pub async fn resolve_drift(
+        &self,
+        shown: Deployment,
+        expected: Drift,
+        remedy: Remedy,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(
+            self.shared
+                .engine
+                .resolve_drift(shown, expected, remedy)
+                .await,
+        )
+        .await
+    }
     /// Rescans in the background; failures surface as the background error.
     pub fn spawn_rescan(&self, target: DeploymentTarget) {
         let client = self.clone();

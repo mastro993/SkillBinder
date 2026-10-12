@@ -16,11 +16,11 @@ use std::{
 };
 
 /// Where a target may be written.
-struct Place {
+pub(super) struct Place {
     /// The project folder, or `None` for Global.
     project: Option<PathBuf>,
     /// Folders that every write and deletion must stay inside.
-    boundaries: Vec<PathBuf>,
+    pub(super) boundaries: Vec<PathBuf>,
 }
 
 impl State {
@@ -41,7 +41,7 @@ impl State {
     }
 
     /// Like `place`, but refuses a project whose folder is missing.
-    fn writable_place(&self, target: &DeploymentTarget) -> AppResult<Place> {
+    pub(super) fn writable_place(&self, target: &DeploymentTarget) -> AppResult<Place> {
         let place = self.place(target)?;
         if place.project.as_ref().is_some_and(|path| !path.is_dir()) {
             return Err(AppError::validation(
@@ -137,7 +137,7 @@ impl State {
         let journal = DeploymentJournal {
             id: uuid::Uuid::new_v4().to_string(),
             target: target.clone(),
-            change: Change::Add(deployments),
+            change: Change::Write(deployments),
         };
         let result = self.run_deployment(journal, &sources).map(|_| ());
         self.targets.wrote();
@@ -182,6 +182,7 @@ impl State {
                     digest: deployment.digest.clone(),
                     paths,
                     written: Vec::new(),
+                    replaced: Vec::new(),
                 },
                 discard: discard.iter().map(PathBuf::from).collect(),
                 deleting: None,
@@ -215,6 +216,7 @@ fn plan(
         digest: skill.digest.clone(),
         paths: Vec::new(),
         written: Vec::new(),
+        replaced: Vec::new(),
     };
     let mut own = BTreeSet::new();
     for directory in directories {
@@ -250,7 +252,7 @@ fn plan(
 
 /// Resolves `path` after the links in the part of its parent that exists, and refuses it unless
 /// it is a named entry inside one of `boundaries`.
-fn contained(path: &Path, boundaries: &[PathBuf]) -> AppResult<PathBuf> {
+pub(super) fn contained(path: &Path, boundaries: &[PathBuf]) -> AppResult<PathBuf> {
     let outside = || AppError::validation("A deployment path leaves its target.");
     let normal = path.is_absolute()
         && path

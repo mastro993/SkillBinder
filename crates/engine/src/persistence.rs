@@ -23,7 +23,23 @@ pub(crate) fn open(path: &Path) -> AppResult<Connection> {
         DROP TABLE IF EXISTS scan_roots;
         CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,canonical_path TEXT NOT NULL UNIQUE,name TEXT NOT NULL,position INTEGER NOT NULL,created_at INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS target_agents(target TEXT NOT NULL,agent TEXT NOT NULL,PRIMARY KEY(target,agent));
-        CREATE TABLE IF NOT EXISTS deployments(target TEXT NOT NULL,skill_id TEXT NOT NULL,digest TEXT NOT NULL,paths TEXT NOT NULL,recorded_at INTEGER NOT NULL,PRIMARY KEY(target,skill_id));") .map_err(|_| AppError::storage())?;
+        CREATE TABLE IF NOT EXISTS deployments(target TEXT NOT NULL,skill_id TEXT NOT NULL,digest TEXT NOT NULL,paths TEXT NOT NULL,recorded_at INTEGER NOT NULL,changes TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(target,skill_id));") .map_err(|_| AppError::storage())?;
+    // Databases written before drift was recorded gain the column.
+    let drift: bool = connection
+        .query_row(
+            "SELECT COUNT(*)>0 FROM pragma_table_info('deployments') WHERE name='changes'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|_| AppError::storage())?;
+    if !drift {
+        connection
+            .execute(
+                "ALTER TABLE deployments ADD COLUMN changes TEXT NOT NULL DEFAULT '{}'",
+                [],
+            )
+            .map_err(|_| AppError::storage())?;
+    }
     Ok(connection)
 }
 pub(crate) fn now() -> u64 {

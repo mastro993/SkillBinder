@@ -3,6 +3,7 @@
 mod deploy;
 #[cfg(test)]
 mod deploy_tests;
+mod drift;
 mod journal;
 mod operations;
 pub(crate) mod progress;

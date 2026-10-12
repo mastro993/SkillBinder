@@ -141,6 +141,19 @@ impl Engine {
             .await
     }
 
+    /// Resolves the deployment the user was `shown`, with its `expected` drift, using the
+    /// remedy the user picked. A deployment whose copies or drift changed meanwhile is stale and
+    /// nothing is written.
+    pub async fn resolve_drift(
+        &self,
+        shown: Deployment,
+        expected: Drift,
+        remedy: Remedy,
+    ) -> AppResult<()> {
+        self.call(move |state| state.resolve_drift(&shown, expected, remedy))
+            .await
+    }
+
     /// Renames a project; names need not be unique.
     pub async fn rename_project(&self, id: ProjectId, name: String) -> AppResult<()> {
         self.call(move |state| state.rename_project(&id, &name))
