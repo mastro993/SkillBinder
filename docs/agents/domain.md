@@ -35,7 +35,7 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - A deployment target is Global or a project. Each target has the agents whose skill directories it writes to.
 - A deployment pairs one library skill with one deployment target that holds a copy of it. Adding a skill to a target copies it into the target's agent skill directories; removing it deletes those copies and leaves the library skill in place. Projects and deployments are machine-local.
 - A deployment drifts when its copies or its library skill no longer match the digest it was written with. A rescan records which copies changed or went missing. A deployment is project changed when a copy changed and the library skill did not, outdated when the library skill changed and the copies did not, in conflict when both changed, and missing when a copy is gone and none changed. Drift never drops a deployment, and SkillBinder never resolves it on its own: the user picks a remedy, which uses the library version (restore, update, or redeploy) or accepts the changed copy into the library, or removes the deployment.
-- An importable skill is a discovered skill whose content matches no library skill.
+- An importable skill is a discovered skill whose content matches no library skill. Importing one from its target's page records the copies there as the new skill's deployment without writing them.
 - Discovery is read-only. It lists each discovered skill once with every location where it was found, and it never changes deployments.
 - Sync and Push are explicit actions that may commit managed changes. Imports and organization changes remain uncommitted until those actions.
 
