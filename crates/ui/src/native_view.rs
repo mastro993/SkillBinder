@@ -18,6 +18,7 @@ mod status_bar;
 mod sync;
 mod target_dialogs;
 mod target_drift;
+mod target_importables;
 mod target_page;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};

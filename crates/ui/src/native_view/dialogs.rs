@@ -73,64 +73,79 @@ impl NativeView {
             })
     }
 
+    /// Review of an import plan; an import started from a target page also names that target.
+    fn import_plan_dialog(
+        &self,
+        dialog: Dialog,
+        plan: &ImportPlan,
+        cx: &mut Context<Self>,
+    ) -> Dialog {
+        let busy = self.busy;
+        let plan_id = plan.id.clone();
+        let mut body = div().flex().flex_col().gap_2().child(format!(
+            "Review {} selected sources before copying them into the managed library.",
+            plan.items.len()
+        ));
+        if let Some(target) = &plan.deployment {
+            body = body.child(format!(
+                "Its copies in {} stay in place and become its deployment there.",
+                self.target_name(target)
+            ));
+        }
+        for item in &plan.items {
+            body = body.child(format!(
+                "{} — {:?} — {} → {} ({} bytes)",
+                item.slug, item.decision, item.source, item.destination, item.total_bytes
+            ));
+            for message in &item.messages {
+                body = body.child(format!("{:?}: {}", message.status, message.message));
+            }
+        }
+        dialog
+            .title(self.dialog_title("Review import", cx))
+            .child(body)
+            .footer(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(
+                        button("import-close")
+                            .label("Back")
+                            .inactive(busy)
+                            .on_click(
+                                cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
+                            ),
+                    )
+                    .child({
+                        let weak = cx.entity().downgrade();
+                        button("import-apply")
+                            .label("Import")
+                            .primary()
+                            .inactive(busy)
+                            .on_click(move |_, _, cx| {
+                                let _ = weak.update(cx, |view, cx| {
+                                    let client = view.client.clone();
+                                    let plan_id = plan_id.clone();
+                                    view.run(
+                                        async move {
+                                            client
+                                                .apply_import(plan_id)
+                                                .await
+                                                .map(|_| Effect::CloseDialog)
+                                        },
+                                        cx,
+                                    );
+                                });
+                            })
+                    }),
+            )
+    }
+
     fn build_dialog(&self, dialog: Dialog, cx: &mut Context<Self>) -> Dialog {
         let busy = self.busy;
         match &self.dialog {
             DialogState::None => dialog,
-            DialogState::ImportPlan(plan) => {
-                let plan_id = plan.id.clone();
-                let mut body = div().flex().flex_col().gap_2().child(format!(
-                    "Review {} selected sources before copying them into the managed library.",
-                    plan.items.len()
-                ));
-                for item in &plan.items {
-                    body = body.child(format!(
-                        "{} — {:?} — {} → {} ({} bytes)",
-                        item.slug, item.decision, item.source, item.destination, item.total_bytes
-                    ));
-                    for message in &item.messages {
-                        body = body.child(format!("{:?}: {}", message.status, message.message));
-                    }
-                }
-                dialog
-                    .title(self.dialog_title("Review import", cx))
-                    .child(body)
-                    .footer(
-                        div()
-                            .flex()
-                            .gap_2()
-                            .child(
-                                button("import-close")
-                                    .label("Back")
-                                    .inactive(busy)
-                                    .on_click(cx.listener(|view, _, window, cx| {
-                                        view.dismiss_dialog(window, cx)
-                                    })),
-                            )
-                            .child({
-                                let weak = cx.entity().downgrade();
-                                button("import-apply")
-                                    .label("Import")
-                                    .primary()
-                                    .inactive(busy)
-                                    .on_click(move |_, _, cx| {
-                                        let _ = weak.update(cx, |view, cx| {
-                                            let client = view.client.clone();
-                                            let plan_id = plan_id.clone();
-                                            view.run(
-                                                async move {
-                                                    client
-                                                        .apply_import(plan_id)
-                                                        .await
-                                                        .map(|_| Effect::CloseDialog)
-                                                },
-                                                cx,
-                                            );
-                                        });
-                                    })
-                            }),
-                    )
-            }
+            DialogState::ImportPlan(plan) => self.import_plan_dialog(dialog, plan, cx),
             DialogState::DeleteFolder(preview) => {
                 let id = preview.folder.id.clone();
                 let revision = preview.revision.clone();

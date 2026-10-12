@@ -1,5 +1,5 @@
-//! The page of Global or a project: its target agents, which can be edited, and its deployments,
-//! which can be added, removed, and resolved when they drift.
+//! The page of Global or a project: its target agents, which can be edited, its deployments,
+//! which can be added, removed, and resolved when they drift, and its importable skills.
 
 use std::collections::BTreeSet;
 
@@ -36,6 +36,7 @@ impl NativeView {
             ))
             .child(self.render_target_agents(target, cx))
             .child(self.render_deployments(target, missing, cx))
+            .child(self.render_importables(target, missing, cx))
             .into_any_element()
     }
 
