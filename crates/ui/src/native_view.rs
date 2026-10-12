@@ -10,6 +10,7 @@ mod settings;
 mod shell;
 mod sidebar;
 mod sidebar_folders;
+mod sidebar_reorder;
 mod sidebar_row;
 mod status_bar;
 mod sync;
@@ -75,6 +76,7 @@ pub struct NativeView {
     selected_skills: BTreeSet<SkillId>,
     /// Inline folder name editing in the sidebar.
     folder_edit: Option<FolderEdit>,
+    folder_reorder: sidebar_reorder::FolderReorder,
     sidebar_width: f32,
     sidebar_collapsed: bool,
     appearance: Appearance,
@@ -166,6 +168,7 @@ impl NativeView {
             acknowledge_invalid: false,
             selected_skills: BTreeSet::new(),
             folder_edit: None,
+            folder_reorder: sidebar_reorder::FolderReorder::default(),
             sidebar_width,
             sidebar_collapsed,
             appearance,
@@ -241,6 +244,7 @@ impl NativeView {
             let _ = this.update(cx, |view, cx| {
                 view.busy = false;
                 view.syncing = false;
+                view.folder_reorder.settle();
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);

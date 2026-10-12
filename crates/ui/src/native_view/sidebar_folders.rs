@@ -1,9 +1,10 @@
 //! The sidebar Folders section: Unfiled, user-ordered folders, inline naming, row menus,
-//! colors, and drag reordering.
+//! colors, and the reorder menu actions.
 
-use std::collections::BTreeMap;
+use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
 use super::controls::{app_icon, button};
+use super::sidebar_reorder::{FolderDrag, FolderDragPreview};
 use super::sidebar_row::{activate, count, row};
 use super::{Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
@@ -13,13 +14,13 @@ use gpui_kit::component::{
     menu::{ContextMenuExt, PopupMenuItem},
 };
 use gpui_kit::{
-    AnyElement, App, AppContext, ClickEvent, Context, Entity, Hsla, InteractiveElement,
-    IntoElement, KeyDownEvent, ParentElement, Render, SharedString, StatefulInteractiveElement,
-    Styled, WeakEntity, Window, div, prelude::FluentBuilder, px, rgb,
+    AnyElement, App, AppContext, ClickEvent, Context, DragMoveEvent, Entity, Hsla,
+    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, ParentElement, SharedString,
+    StatefulInteractiveElement, Styled, WeakEntity, Window, div, prelude::FluentBuilder, px, rgb,
 };
 use skillbinder_proto::{Folder, FolderColor, FolderId, LibrarySnapshot, OrganizationChange};
 use skillbinder_theme::sidebar::{
-    DETAIL_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_GAP, ROW_HEIGHT, ROW_PADDING,
+    DETAIL_SIZE, ICON_GAP, ICON_SIZE, INSET, LABEL_SIZE, RADIUS, ROW_GAP, ROW_HEIGHT, ROW_PADDING,
     SECTION_GAP, SECTION_HEIGHT,
 };
 
@@ -30,39 +31,32 @@ pub(super) enum FolderEdit {
     Rename(FolderId),
 }
 
-/// Drag payload for reordering folder rows.
-struct FolderDrag {
-    id: FolderId,
-    label: SharedString,
-}
-
-/// Floating label under the pointer while a folder row is dragged.
-struct FolderDragPreview(SharedString);
-
-impl Render for FolderDragPreview {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        div()
-            .px(px(ROW_PADDING))
-            .py_1()
-            .rounded(px(RADIUS))
-            .bg(theme.sidebar_accent)
-            .text_color(theme.sidebar_accent_foreground)
-            .child(self.0.clone())
-    }
+/// How a folder row is drawn this frame.
+struct RowPlacement {
+    index: usize,
+    len: usize,
+    /// Vertical distance from its slot while it slides.
+    offset: f32,
+    /// The row is lifted under the pointer, so its slot stays empty.
+    floating: bool,
 }
 
 impl NativeView {
     pub(super) fn render_folders(
         &self,
         library: &LibrarySnapshot,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let mut counts = BTreeMap::<Option<&FolderId>, usize>::new();
         for skill in &library.library.skills {
             *counts.entry(skill.folder_id.as_ref()).or_default() += 1;
         }
-        let folders = &library.library.folders;
+        let (order, floating) = self.shown_folders(cx);
+        let now = Instant::now();
+        if self.folder_reorder.moving(now) {
+            window.request_animation_frame();
+        }
         // Other routes report all skills, which no folder row represents.
         let selected = |candidate: LibraryFilter| self.library_filter() == &candidate;
         let unfiled = activate(
@@ -79,8 +73,10 @@ impl NativeView {
             |view, window, cx| view.navigate(Route::Library(LibraryFilter::Unfiled), window, cx),
         )
         .child(count(counts.get(&None).copied().unwrap_or(0), cx));
-        let rows: Vec<AnyElement> = folders
+        let folders = &library.library.folders;
+        let rows: Vec<AnyElement> = order
             .iter()
+            .filter_map(|id| folders.iter().find(|folder| &folder.id == id))
             .enumerate()
             .map(|(index, folder)| {
                 if self.folder_edit == Some(FolderEdit::Rename(folder.id.clone())) {
@@ -88,7 +84,13 @@ impl NativeView {
                 }
                 let skills = counts.get(&Some(&folder.id)).copied().unwrap_or(0);
                 let selected = selected(LibraryFilter::Folder(folder.id.clone()));
-                self.render_folder_row(folder, index, folders.len(), skills, selected, cx)
+                let placement = RowPlacement {
+                    index,
+                    len: order.len(),
+                    offset: self.folder_reorder.offset(&folder.id, now),
+                    floating: floating.as_ref() == Some(&folder.id),
+                };
+                self.render_folder_row(folder, placement, skills, selected, cx)
             })
             .collect();
         let creating = self.folder_edit == Some(FolderEdit::Create);
@@ -108,7 +110,29 @@ impl NativeView {
                     .min_h_0()
                     .overflow_y_scroll()
                     .child(unfiled)
-                    .children(rows)
+                    .child(
+                        // Drag moves are measured from the first folder slot; releasing the
+                        // pointer anywhere keeps the order shown.
+                        div()
+                            .id("sidebar-folder-rows")
+                            .flex()
+                            .flex_col()
+                            .gap(px(ROW_GAP))
+                            .on_drag_move(cx.listener(
+                                |view, event: &DragMoveEvent<FolderDrag>, _, cx| {
+                                    view.drag_folder(event, cx)
+                                },
+                            ))
+                            .on_mouse_up(
+                                MouseButton::Left,
+                                cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
+                            )
+                            .on_mouse_up_out(
+                                MouseButton::Left,
+                                cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
+                            )
+                            .children(rows),
+                    )
                     .when(creating, |list| {
                         list.child(self.render_folder_name_field(None, cx))
                     }),
@@ -148,19 +172,17 @@ impl NativeView {
     fn render_folder_row(
         &self,
         folder: &Folder,
-        index: usize,
-        len: usize,
+        placement: RowPlacement,
         skills: usize,
         selected: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let dark = cx.theme().mode.is_dark();
-        let drop_target = cx.theme().sidebar_accent;
         let id = folder.id.clone();
         let label: SharedString = folder.name.clone().into();
         let route = Route::Library(LibraryFilter::Folder(id.clone()));
         let tint = folder.color.map(|color| folder_tint(color, dark));
-        let menu = self.folder_menu(folder, index, len, cx);
+        let menu = self.folder_menu(folder, placement.index, placement.len, cx);
         activate(
             row(
                 format!("folder-{id}"),
@@ -175,18 +197,22 @@ impl NativeView {
             move |view, window, cx| view.navigate(route.clone(), window, cx),
         )
         .child(count(skills, cx))
+        .relative()
+        .top(px(placement.offset))
+        .when(placement.floating, |row| row.opacity(0.0))
         .on_drag(
             FolderDrag {
-                id: id.clone(),
+                id,
                 label,
+                tint,
+                skills,
+                width: self.sidebar_width - 2.0 * INSET,
+                grab: Cell::new(0.0),
             },
-            |drag, _, _, cx| cx.new(|_| FolderDragPreview(drag.label.clone())),
-        )
-        .drag_over::<FolderDrag>(move |style, _, _, _| style.bg(drop_target))
-        .on_drop(
-            cx.listener(move |view, drag: &FolderDrag, _, cx| {
-                view.move_folder(&drag.id, index, cx)
-            }),
+            |drag, offset, _, cx| {
+                drag.grab.set(f32::from(offset.y));
+                cx.new(|_| FolderDragPreview::new(drag))
+            },
         )
         .context_menu(menu)
         .into_any_element()
@@ -372,23 +398,7 @@ impl NativeView {
         self.change_folders(OrganizationChange::SetFolderColor { id, color }, cx);
     }
 
-    /// Moves `id` to `target`, the index of the row it was dropped on or stepped to.
-    fn move_folder(&mut self, id: &FolderId, target: usize, cx: &mut Context<Self>) {
-        let Some(library) = &self.snapshot.library else {
-            return;
-        };
-        let order: Vec<_> = library
-            .library
-            .folders
-            .iter()
-            .map(|f| f.id.clone())
-            .collect();
-        if let Some(order) = moved(order, id, target) {
-            self.change_folders(OrganizationChange::ReorderFolders { order }, cx);
-        }
-    }
-
-    fn change_folders(&mut self, change: OrganizationChange, cx: &mut Context<Self>) {
+    pub(super) fn change_folders(&mut self, change: OrganizationChange, cx: &mut Context<Self>) {
         let client = self.client.clone();
         self.run(
             async move {
@@ -411,18 +421,6 @@ fn menu_action(
     move |_, window, cx| {
         let _ = view.update(cx, |view, cx| action(view, &id, window, cx));
     }
-}
-
-/// `order` with `id` moved to `target`, or `None` when nothing would change.
-fn moved(mut order: Vec<FolderId>, id: &FolderId, target: usize) -> Option<Vec<FolderId>> {
-    let from = order.iter().position(|candidate| candidate == id)?;
-    let target = target.min(order.len() - 1);
-    if from == target {
-        return None;
-    }
-    let id = order.remove(from);
-    order.insert(target, id);
-    Some(order)
 }
 
 fn color_name(color: FolderColor) -> &'static str {
@@ -451,33 +449,4 @@ fn folder_tint(color: FolderColor, dark: bool) -> Hsla {
         FolderColor::Pink => (0xf472b6, 0xdb2777),
     };
     rgb(if dark { dark_tone } else { light_tone }).into()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::moved;
-    use skillbinder_proto::FolderId;
-
-    fn ids(names: &[&str]) -> Vec<FolderId> {
-        names.iter().map(|name| FolderId((*name).into())).collect()
-    }
-
-    #[test]
-    fn dropping_on_a_row_takes_its_place() {
-        let order = ids(&["a", "b", "c", "d"]);
-        assert_eq!(
-            moved(order.clone(), &FolderId("a".into()), 2),
-            Some(ids(&["b", "c", "a", "d"]))
-        );
-        assert_eq!(
-            moved(order.clone(), &FolderId("d".into()), 1),
-            Some(ids(&["a", "d", "b", "c"]))
-        );
-        assert_eq!(
-            moved(order.clone(), &FolderId("b".into()), 9),
-            Some(ids(&["a", "c", "d", "b"]))
-        );
-        assert_eq!(moved(order.clone(), &FolderId("c".into()), 2), None);
-        assert_eq!(moved(order, &FolderId("x".into()), 0), None);
-    }
 }

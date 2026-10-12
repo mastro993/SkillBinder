@@ -155,7 +155,7 @@ impl NativeView {
                     ),
             )
             .map(|sidebar| match &snapshot.library {
-                Some(library) => sidebar.child(self.render_folders(library, cx)),
+                Some(library) => sidebar.child(self.render_folders(library, window, cx)),
                 None => sidebar.child(div().flex_1()),
             })
             .child(
