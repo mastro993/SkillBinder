@@ -152,17 +152,23 @@ impl NativeView {
                             cx,
                         )
                         .when_some(skills, |row, skills| row.child(count(skills, cx))),
-                    )
-                    .child(
-                        self.nav_row(Route::Sync, "refresh", "Sync", cx)
-                            .children(sync),
                     ),
             )
             .map(|sidebar| match &snapshot.library {
                 Some(library) => sidebar.child(self.render_folders(library, cx)),
                 None => sidebar.child(div().flex_1()),
             })
-            .child(self.nav_row(Route::Settings, "settings", "Settings", cx))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(ROW_GAP))
+                    .child(
+                        self.nav_row(Route::Sync, "refresh", "Sync", cx)
+                            .children(sync),
+                    )
+                    .child(self.nav_row(Route::Settings, "settings", "Settings", cx)),
+            )
     }
 
     /// Library is selected only while it lists every skill; folders select their own row.
