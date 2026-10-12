@@ -1,5 +1,5 @@
 //! The page of Global or a project: its target agents, which can be edited, and its deployments,
-//! which can be added and removed.
+//! which can be added, removed, and resolved when they drift.
 
 use std::collections::BTreeSet;
 
@@ -204,13 +204,6 @@ impl NativeView {
                     })),
             );
         for deployment in deployments {
-            let slug = skills
-                .iter()
-                .find(|skill| skill.id == deployment.skill_id)
-                .map_or_else(
-                    || deployment.skill_id.to_string(),
-                    |skill| skill.slug.clone(),
-                );
             let (target, skill) = (target.clone(), deployment.skill_id.clone());
             section = section.child(
                 div()
@@ -220,13 +213,15 @@ impl NativeView {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(slug)
-                    .children(
-                        deployment
-                            .paths
-                            .iter()
-                            .map(|path| div().child(path.clone())),
-                    )
+                    .child(self.skill_slug(&skill))
+                    .children(deployment.paths.iter().map(|path| {
+                        div().child(match deployment.changes.get(path) {
+                            Some(CopyChange::Changed) => format!("{path} · changed"),
+                            Some(CopyChange::Missing) => format!("{path} · missing"),
+                            None => path.clone(),
+                        })
+                    }))
+                    .children(self.render_drift(deployment, self.busy || missing, cx))
                     .child(
                         button(format!("deployment-remove-{}", deployment.skill_id))
                             .label("Remove")

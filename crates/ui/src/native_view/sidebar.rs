@@ -118,7 +118,7 @@ impl NativeView {
         let sync = if self.syncing {
             Some(spinner(cx))
         } else {
-            needs_sync(&snapshot.sync).then(|| dot(cx))
+            needs_sync(&snapshot.sync).then(|| dot(cx.theme().blue))
         };
         div()
             .id("sidebar")

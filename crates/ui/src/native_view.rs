@@ -17,6 +17,7 @@ mod sidebar_row;
 mod status_bar;
 mod sync;
 mod target_dialogs;
+mod target_drift;
 mod target_page;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
@@ -61,6 +62,12 @@ enum DialogState {
         target: DeploymentTarget,
         skill: SkillId,
         paths: Vec<String>,
+    },
+    /// Confirms discarding the changed copies of the deployment as `shown` by writing the
+    /// library version over them.
+    DiscardChanges {
+        shown: Deployment,
+        drift: Drift,
     },
     None,
 }

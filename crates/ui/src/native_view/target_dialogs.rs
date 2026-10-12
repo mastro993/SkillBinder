@@ -142,12 +142,7 @@ impl NativeView {
         else {
             return dialog;
         };
-        let slug = self
-            .snapshot
-            .library
-            .as_ref()
-            .and_then(|library| library.library.skills.iter().find(|s| &s.id == skill))
-            .map_or_else(|| skill.to_string(), |skill| skill.slug.clone());
+        let slug = self.skill_slug(skill);
         let (target, skill, confirmed) = (target.clone(), skill.clone(), paths.clone());
         dialog
             .title(self.dialog_title("Remove changed copy", cx))

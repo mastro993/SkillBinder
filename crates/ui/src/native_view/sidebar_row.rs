@@ -115,12 +115,12 @@ pub(super) fn detail(text: impl Into<SharedString>, cx: &App) -> AnyElement {
 }
 
 /// A trailing attention dot.
-pub(super) fn dot(cx: &App) -> AnyElement {
+pub(super) fn dot(color: Hsla) -> AnyElement {
     div()
         .flex_shrink_0()
         .size(px(DOT_SIZE))
         .rounded_full()
-        .bg(cx.theme().blue)
+        .bg(color)
         .into_any_element()
 }
 

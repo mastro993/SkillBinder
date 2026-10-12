@@ -9,7 +9,7 @@ use super::sidebar::GLOBAL;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{
-    activate, add_button, count, icon_color, name_field, row, section_header, spinner,
+    activate, add_button, count, dot, icon_color, name_field, row, section_header, spinner,
 };
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
@@ -120,7 +120,7 @@ impl NativeView {
         let accessible = if project.missing {
             format!("{}, folder missing", project.name)
         } else {
-            project.name.clone()
+            self.target_label(project.name.clone(), &target)
         };
         let trailing = self.target_trailing(&target, project.missing, cx);
         let deployed = self.deployment_count(&target);
@@ -161,7 +161,17 @@ impl NativeView {
         .into_any_element()
     }
 
-    /// A spinner while rescanning, a warning while the folder is missing, else the count.
+    /// The row's accessible name, which reports drifted deployments.
+    fn target_label(&self, name: String, target: &DeploymentTarget) -> String {
+        match self.drifted(target) {
+            0 => name,
+            1 => format!("{name}, 1 deployment drifted"),
+            drifted => format!("{name}, {drifted} deployments drifted"),
+        }
+    }
+
+    /// A spinner while rescanning, a warning while the folder is missing, a warning dot while a
+    /// deployment drifted, else the count.
     fn target_trailing(
         &self,
         target: &DeploymentTarget,
@@ -176,6 +186,8 @@ impl NativeView {
                 .flex_shrink_0()
                 .text_color(cx.theme().warning)
                 .into_any_element()
+        } else if self.drifted(target) > 0 {
+            dot(cx.theme().warning)
         } else {
             count(self.deployment_count(target), cx)
         }
