@@ -194,7 +194,7 @@ impl NativeView {
         label: &'static str,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let selected = self.selected_target.is_none() && self.route == route;
+        let selected = self.route == route;
         activate(
             row(
                 format!("nav-{}", label.to_lowercase()),

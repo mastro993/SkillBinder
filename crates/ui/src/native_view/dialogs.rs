@@ -340,6 +340,8 @@ impl NativeView {
             }
             DialogState::AddProject => self.add_project_dialog(dialog, cx),
             DialogState::RemoveProject(id) => self.remove_project_dialog(dialog, id, cx),
+            DialogState::AddSkills { .. } => self.add_skills_dialog(dialog, cx),
+            DialogState::RemoveChanged { .. } => self.remove_changed_dialog(dialog, cx),
         }
     }
 }

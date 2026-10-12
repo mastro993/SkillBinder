@@ -16,6 +16,8 @@ mod sidebar_reorder;
 mod sidebar_row;
 mod status_bar;
 mod sync;
+mod target_dialogs;
+mod target_page;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
@@ -48,6 +50,18 @@ enum DialogState {
     /// Scan progress and outcome of the project being added.
     AddProject,
     RemoveProject(ProjectId),
+    /// Library skills, and agents when the target has none yet, chosen to add to a target.
+    AddSkills {
+        target: DeploymentTarget,
+        skills: BTreeSet<SkillId>,
+        agents: Option<BTreeSet<String>>,
+    },
+    /// Confirms discarding copies that changed since they were deployed.
+    RemoveChanged {
+        target: DeploymentTarget,
+        skill: SkillId,
+        paths: Vec<String>,
+    },
     None,
 }
 
@@ -57,6 +71,7 @@ enum Effect {
     Plan(ImportPlan),
     Preview(SkillPreview),
     DeletePreview(DeletePreview),
+    Dialog(DialogState),
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -80,8 +95,8 @@ pub struct NativeView {
     /// Inline folder name editing in the sidebar.
     folder_edit: Option<FolderEdit>,
     folder_reorder: RowReorder<FolderId>,
-    /// Global or a project selected in the sidebar; cleared by navigating to a route.
-    selected_target: Option<DeploymentTarget>,
+    /// Target agents being edited on the current target page.
+    agent_edit: Option<BTreeSet<String>>,
     /// Inline project renaming in the sidebar.
     project_edit: Option<ProjectId>,
     project_reorder: RowReorder<ProjectId>,
@@ -179,7 +194,7 @@ impl NativeView {
             selected_skills: BTreeSet::new(),
             folder_edit: None,
             folder_reorder: RowReorder::default(),
-            selected_target: None,
+            agent_edit: None,
             project_edit: None,
             project_reorder: RowReorder::default(),
             sidebar_width,
@@ -232,9 +247,10 @@ impl NativeView {
             }
         }
         let project_exists = |id: &ProjectId| latest.projects.iter().any(|p| &p.id == id);
-        if matches!(&self.selected_target, Some(DeploymentTarget::Project(id)) if !project_exists(id))
+        if matches!(&self.route, Route::Target(DeploymentTarget::Project(id)) if !project_exists(id))
         {
-            self.selected_target = None;
+            self.route = Route::Discovery;
+            self.agent_edit = None;
         }
         if self
             .project_edit
@@ -284,6 +300,7 @@ impl NativeView {
                             Effect::DeletePreview(preview) => {
                                 view.dialog = DialogState::DeleteFolder(preview)
                             }
+                            Effect::Dialog(dialog) => view.dialog = dialog,
                         }
                     }
                     Ok(Err(error)) => view.error = Some(error),
@@ -316,7 +333,8 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted folder falls back to all skills.
+    /// Shows `route` without touching history; a deleted folder falls back to all skills, and
+    /// a removed project to Discovery.
     fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
         let folder_exists = |id: &FolderId| {
             self.snapshot
@@ -324,9 +342,13 @@ impl NativeView {
                 .as_ref()
                 .is_some_and(|library| library.library.folders.iter().any(|f| &f.id == id))
         };
+        let project_exists = |id: &ProjectId| self.snapshot.projects.iter().any(|p| &p.id == id);
         let route = match route {
             Route::Library(LibraryFilter::Folder(id)) if !folder_exists(&id) => {
                 Route::Library(LibraryFilter::All)
+            }
+            Route::Target(DeploymentTarget::Project(id)) if !project_exists(&id) => {
+                Route::Discovery
             }
             route => route,
         };
@@ -337,12 +359,12 @@ impl NativeView {
             self.selected_skills.clear();
             self.selected_skill = None;
             self.preview = None;
+            self.agent_edit = None;
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
         }
         let sync = route == Route::Sync;
         self.route = route;
-        self.selected_target = None;
         self.error = None;
         if sync {
             self.synchronize(SyncAction::Refresh, cx);
@@ -421,9 +443,10 @@ impl Render for NativeView {
                 .child(div().flex_1().min_h_0().child(self.render_onboarding(cx)))
                 .into_any_element()
         } else {
-            let page = match self.route {
+            let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library(_) => self.render_library(cx).into_any_element(),
+                Route::Target(target) => self.render_target(&target.clone(), cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),
                 Route::Settings => self.render_settings(cx).into_any_element(),
             };

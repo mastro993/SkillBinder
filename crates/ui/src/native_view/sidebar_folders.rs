@@ -57,10 +57,7 @@ impl NativeView {
         if self.folder_reorder.moving(now) {
             window.request_animation_frame();
         }
-        // Other routes report all skills, which no folder row represents.
-        let selected = |candidate: LibraryFilter| {
-            self.selected_target.is_none() && self.library_filter() == &candidate
-        };
+        let selected = |candidate: LibraryFilter| self.route == Route::Library(candidate);
         let unfiled = activate(
             row(
                 "folder-unfiled",

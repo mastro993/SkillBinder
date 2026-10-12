@@ -11,7 +11,7 @@ use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{
     activate, add_button, count, icon_color, name_field, row, section_header, spinner,
 };
-use super::{DialogState, Effect, NativeView};
+use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
     input::{InputEvent, InputState},
@@ -115,7 +115,7 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let target = DeploymentTarget::Project(project.id.clone());
-        let selected = self.selected_target.as_ref() == Some(&target);
+        let selected = self.route == Route::Target(target.clone());
         let label: SharedString = project.name.clone().into();
         let accessible = if project.missing {
             format!("{}, folder missing", project.name)
@@ -136,7 +136,7 @@ impl NativeView {
             ),
             accessible,
             cx,
-            move |view, _, cx| view.open_target(target.clone(), cx),
+            move |view, window, cx| view.open_target(target.clone(), window, cx),
         )
         .child(trailing)
         .relative()
@@ -237,11 +237,15 @@ impl NativeView {
         }
     }
 
-    /// Selects a target and rescans it in the background. Its page arrives in a later slice.
-    pub(super) fn open_target(&mut self, target: DeploymentTarget, cx: &mut Context<Self>) {
-        self.selected_target = Some(target.clone());
+    /// Opens a target's page and rescans it in the background.
+    pub(super) fn open_target(
+        &mut self,
+        target: DeploymentTarget,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigate(Route::Target(target.clone()), window, cx);
         self.client.spawn_rescan(target);
-        cx.notify();
     }
 
     pub(super) fn adding_project(&self) -> bool {
