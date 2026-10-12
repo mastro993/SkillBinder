@@ -90,7 +90,7 @@ impl State {
         }))
     }
 
-    fn project_path(&self, id: &ProjectId) -> AppResult<Option<PathBuf>> {
+    pub(super) fn project_path(&self, id: &ProjectId) -> AppResult<Option<PathBuf>> {
         Ok(self
             .database
             .query_row(
@@ -155,7 +155,8 @@ impl State {
     }
 
     /// Replaces the target's deployments with the library skills its scan found, and saves a
-    /// new project with them, in one transaction.
+    /// new project with them, in one transaction. A recorded copy that still exists stays
+    /// recorded with its digest even when it changed, so removing it asks first.
     pub(crate) fn record_scan(
         &mut self,
         target: &DeploymentTarget,
@@ -200,6 +201,7 @@ impl State {
                 }
             }
         }
+        self.retain_recorded(target, &nested, &library, &mut deployed)?;
         let transaction = self
             .database
             .transaction()
@@ -216,6 +218,42 @@ impl State {
             in_library: deployed.len(),
             importable,
         })
+    }
+
+    /// Adds the target's recorded copies that the scan did not match, such as changed copies,
+    /// while they exist outside nested projects and their skill stays in the library.
+    fn retain_recorded(
+        &self,
+        target: &DeploymentTarget,
+        nested: &BTreeSet<PathBuf>,
+        library: &Library,
+        deployed: &mut BTreeMap<SkillId, (String, Vec<String>)>,
+    ) -> AppResult<()> {
+        let found: BTreeSet<String> = deployed
+            .values()
+            .flat_map(|(_, paths)| paths.iter().cloned())
+            .collect();
+        for recorded in self
+            .deployments()?
+            .into_iter()
+            .filter(|d| &d.target == target)
+            .filter(|d| library.skills.iter().any(|skill| skill.id == d.skill_id))
+        {
+            for path in recorded.paths {
+                let inside = nested
+                    .iter()
+                    .any(|project| Path::new(&path).starts_with(project));
+                if found.contains(&path) || inside || fs::symlink_metadata(&path).is_err() {
+                    continue;
+                }
+                deployed
+                    .entry(recorded.skill_id.clone())
+                    .or_insert_with(|| (recorded.digest.clone(), Vec::new()))
+                    .1
+                    .push(path);
+            }
+        }
+        Ok(())
     }
 
     /// Refuses a library change that drops a skill still deployed to any target.

@@ -5,7 +5,7 @@ use std::{
     collections::BTreeSet,
     sync::{
         Arc, Mutex, MutexGuard,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
 };
 
@@ -28,6 +28,8 @@ pub(crate) struct TargetScans {
     progress: Arc<Mutex<Progress>>,
     /// Stops every scan at shutdown.
     stopping: Arc<AtomicBool>,
+    /// Counts deployment writes, so a rescan that overlapped one saves nothing and runs again.
+    writes: Arc<AtomicU64>,
 }
 
 impl TargetScans {
@@ -120,6 +122,15 @@ impl TargetScans {
     /// Whether the running rescan of `target` was asked to run again.
     pub(crate) fn take_rerun(&self, target: &DeploymentTarget) -> AppResult<bool> {
         Ok(self.lock()?.rerun.remove(target))
+    }
+
+    /// Records a deployment write or a target agent change.
+    pub(crate) fn wrote(&self) {
+        self.writes.fetch_add(1, Ordering::AcqRel);
+    }
+
+    pub(crate) fn writes(&self) -> u64 {
+        self.writes.load(Ordering::Acquire)
     }
 
     pub(crate) fn stopping(&self) -> Arc<AtomicBool> {

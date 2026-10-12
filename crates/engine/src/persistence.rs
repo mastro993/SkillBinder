@@ -219,6 +219,7 @@ impl State {
             }
             self.remove_journal(&journal)?;
         }
+        self.recover_deployments()?;
         self.recovery_required = false;
         Ok(())
     }
@@ -472,13 +473,13 @@ impl State {
 }
 
 #[cfg(not(test))]
-fn checkpoint(_: &str) -> AppResult<()> {
+pub(crate) fn checkpoint(_: &str) -> AppResult<()> {
     Ok(())
 }
 #[cfg(test)]
-thread_local! { static FAULTS: std::cell::RefCell<std::collections::VecDeque<(&'static str, bool)>> = const { std::cell::RefCell::new(std::collections::VecDeque::new()) }; }
+thread_local! { pub(crate) static FAULTS: std::cell::RefCell<std::collections::VecDeque<(&'static str, bool)>> = const { std::cell::RefCell::new(std::collections::VecDeque::new()) }; }
 #[cfg(test)]
-fn checkpoint(name: &str) -> AppResult<()> {
+pub(crate) fn checkpoint(name: &str) -> AppResult<()> {
     let fault = FAULTS.with(|faults| {
         let mut faults = faults.borrow_mut();
         if faults.front().is_some_and(|(point, _)| *point == name) {

@@ -1,5 +1,9 @@
 //! Global and projects: machine-local deployment targets, their agents, and recorded deployments.
 
+mod deploy;
+#[cfg(test)]
+mod deploy_tests;
+mod journal;
 mod operations;
 pub(crate) mod progress;
 mod record;

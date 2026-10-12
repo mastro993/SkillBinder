@@ -168,6 +168,39 @@ impl Client {
         }
         Ok(())
     }
+    /// Replaces the agents whose skill directories a target writes to.
+    pub async fn set_target_agents(
+        &self,
+        target: DeploymentTarget,
+        agents: Vec<String>,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.set_target_agents(target, agents).await)
+            .await
+    }
+    /// Copies library skills into a target and records the deployments.
+    pub async fn add_deployments(
+        &self,
+        target: DeploymentTarget,
+        skills: Vec<SkillId>,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.add_deployments(target, skills).await)
+            .await
+    }
+    /// Deletes a deployment's copies; a changed copy is kept unless `discard` lists it.
+    pub async fn remove_deployment(
+        &self,
+        target: DeploymentTarget,
+        skill: SkillId,
+        discard: Vec<String>,
+    ) -> AppResult<Removal> {
+        self.refresh_preserving_outcome(
+            self.shared
+                .engine
+                .remove_deployment(target, skill, discard)
+                .await,
+        )
+        .await
+    }
     /// Rescans in the background; failures surface as the background error.
     pub fn spawn_rescan(&self, target: DeploymentTarget) {
         let client = self.clone();

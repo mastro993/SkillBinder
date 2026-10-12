@@ -60,3 +60,29 @@ pub struct ProjectAddition {
     /// Safe failure message.
     pub error: Option<String>,
 }
+
+/// A registry agent whose skill directory a deployment target can write to.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AgentOption {
+    /// Registry identity.
+    pub id: String,
+    /// Name shown to the user.
+    pub display_name: String,
+    /// Skill directory relative to a project folder.
+    pub project_skills_dir: String,
+    /// Global skill directory Root writes to, or `None` when this device has none.
+    pub global_skills_dir: Option<String>,
+}
+
+/// What removing a deployment did.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Removal {
+    /// The copies are deleted and the deployment is forgotten; the library skill stays.
+    Removed,
+    /// These copies no longer match the recorded digest and were kept. Removing the deployment
+    /// again with them confirmed for discarding deletes them.
+    Drifted {
+        /// Copies that differ from the recorded digest.
+        paths: Vec<String>,
+    },
+}

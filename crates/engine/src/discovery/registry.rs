@@ -1,7 +1,7 @@
 use super::paths;
 use crate::{lifecycle::EngineConfig, logging::Logger};
 use serde::Deserialize;
-use skillbinder_proto::{AppError, AppResult};
+use skillbinder_proto::{AgentOption, AppError, AppResult};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -65,6 +65,65 @@ pub(crate) fn project_skill_dirs() -> AppResult<BTreeMap<String, Vec<String>>> {
             .push(agent.id);
     }
     Ok(directories)
+}
+/// Every registry agent, by display name, with the skill directories it reads.
+pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>> {
+    let mut options: Vec<_> = registry()?
+        .agents
+        .into_iter()
+        .map(|agent| AgentOption {
+            global_skills_dir: global_dir(&agent, config).map(|path| path.display().to_string()),
+            id: agent.id,
+            display_name: agent.display_name,
+            project_skills_dir: agent.project_skills_dir,
+        })
+        .collect();
+    options.sort_by_cached_key(|option| (option.display_name.to_lowercase(), option.id.clone()));
+    Ok(options)
+}
+/// The skill directories `agents` read in a target: each agent's project skill directory in
+/// `project`, or its global skill directory for Root. Agents sharing a directory share it.
+pub(crate) fn skill_dirs(
+    config: &EngineConfig,
+    project: Option<&Path>,
+    agents: &[String],
+) -> AppResult<BTreeSet<PathBuf>> {
+    let registry = registry()?;
+    let mut directories = BTreeSet::new();
+    for id in agents {
+        let agent = registry
+            .agents
+            .iter()
+            .find(|agent| &agent.id == id)
+            .ok_or_else(|| AppError::validation("Choose agents from the supported list."))?;
+        let directory = match project {
+            Some(project) => Some(project.join(&agent.project_skills_dir)),
+            None => global_dir(agent, config),
+        };
+        directories.insert(directory.ok_or_else(|| {
+            AppError::validation(format!(
+                "{} has no global skill directory on this device.",
+                agent.display_name
+            ))
+        })?);
+    }
+    Ok(directories)
+}
+/// Every global skill directory on this device: the places Root may write to.
+pub(crate) fn global_dirs(config: &EngineConfig) -> AppResult<Vec<PathBuf>> {
+    Ok(registry()?
+        .agents
+        .iter()
+        .flat_map(|agent| agent.global_roots.iter())
+        .filter_map(|template| expand(template, config))
+        .collect())
+}
+/// Root writes to an agent's first global root that expands on this device.
+fn global_dir(agent: &Agent, config: &EngineConfig) -> Option<PathBuf> {
+    agent
+        .global_roots
+        .iter()
+        .find_map(|template| expand(template, config))
 }
 fn add(
     locations: &mut BTreeMap<PathBuf, Location>,

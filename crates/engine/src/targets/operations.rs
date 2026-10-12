@@ -61,31 +61,34 @@ impl Engine {
     }
 
     /// Rescans one target and replaces its recorded deployments. A request made while a rescan
-    /// of the target runs makes that rescan run once more. A project whose folder is missing or
-    /// unreadable keeps its deployments, and a removed project is skipped.
+    /// of the target runs makes that rescan run once more, and so does a deployment write that
+    /// overlapped it. A project whose folder is missing or unreadable keeps its deployments,
+    /// and a removed project is skipped.
     pub async fn rescan_target(&self, target: DeploymentTarget) -> AppResult<()> {
         let Some(_rescan) = self.targets().begin_rescan(&target)? else {
             return Ok(());
         };
         loop {
-            self.rescan_once(target.clone()).await?;
-            if !self.targets().take_rerun(&target)? {
+            let saved = self.rescan_once(target.clone()).await?;
+            if saved && !self.targets().take_rerun(&target)? {
                 return Ok(());
             }
         }
     }
 
-    async fn rescan_once(&self, target: DeploymentTarget) -> AppResult<()> {
+    /// Scans once; `false` when a deployment write overlapped the scan and nothing was saved.
+    async fn rescan_once(&self, target: DeploymentTarget) -> AppResult<bool> {
         let request = target.clone();
         let prepared = self
             .call(move |state| {
-                Ok(state
-                    .rescan_scope(&request)?
-                    .map(|scope| (scope, state.config.clone(), state.log.clone())))
+                Ok(state.rescan_scope(&request)?.map(|scope| {
+                    let writes = state.targets.writes();
+                    (scope, state.config.clone(), state.log.clone(), writes)
+                }))
             })
             .await?;
-        let Some((scope, config, log)) = prepared else {
-            return Ok(());
+        let Some((scope, config, log, writes)) = prepared else {
+            return Ok(true);
         };
         let cancel = self.targets().stopping();
         let findings = blocking(move || {
@@ -97,7 +100,44 @@ impl Engine {
             scan::scan(&config, &scope, &control)
         })
         .await?;
-        self.call(move |state| state.record_scan(&target, None, findings).map(|_| ()))
+        self.call(move |state| {
+            if state.targets.writes() != writes {
+                return Ok(false);
+            }
+            state.record_scan(&target, None, findings).map(|_| true)
+        })
+        .await
+    }
+
+    /// Replaces the agents whose skill directories a target writes to.
+    pub async fn set_target_agents(
+        &self,
+        target: DeploymentTarget,
+        agents: Vec<String>,
+    ) -> AppResult<()> {
+        self.call(move |state| state.set_target_agents(&target, &agents))
+            .await
+    }
+
+    /// Copies library skills into the target's agent skill directories and records them.
+    pub async fn add_deployments(
+        &self,
+        target: DeploymentTarget,
+        skills: Vec<SkillId>,
+    ) -> AppResult<()> {
+        self.call(move |state| state.add_deployments(&target, &skills))
+            .await
+    }
+
+    /// Deletes a deployment's recorded copies; a changed copy is deleted only when `discard`
+    /// lists it.
+    pub async fn remove_deployment(
+        &self,
+        target: DeploymentTarget,
+        skill: SkillId,
+        discard: Vec<String>,
+    ) -> AppResult<Removal> {
+        self.call(move |state| state.remove_deployment(&target, &skill, &discard))
             .await
     }
 

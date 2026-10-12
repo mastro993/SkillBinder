@@ -355,6 +355,7 @@ impl State {
             bootstrap,
             library,
             home: self.config.home.display().to_string(),
+            agents: crate::discovery::registry::agent_options(&self.config)?,
             global_agents: self.target_agents(&DeploymentTarget::Global)?,
             projects: self.projects()?,
             deployments: self.deployments()?,

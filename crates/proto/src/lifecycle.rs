@@ -101,6 +101,8 @@ pub struct AppSnapshot {
     pub library: Option<LibrarySnapshot>,
     /// Home folder that holds Global's agent skill locations.
     pub home: String,
+    /// Registry agents a target can write to, by display name.
+    pub agents: Vec<crate::AgentOption>,
     /// Registry agent identities Global writes to.
     pub global_agents: Vec<String>,
     /// Added projects in user order.

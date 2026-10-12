@@ -79,6 +79,32 @@ pub fn inspect(path: &Path) -> AppResult<Inspection> {
 /// and manifest must still match the inspection; all links become ordinary entries.
 /// Failed staging leaves no destination. The caller owns the destination parent.
 pub fn materialize(expected: &Inspection, destination: &Path) -> AppResult<()> {
+    let snapshot = verified(expected, destination)?;
+    let parent = destination.parent().ok_or_else(AppError::storage)?;
+    let staged = tempfile::Builder::new()
+        .prefix(".payload-")
+        .tempdir_in(parent)
+        .map_err(|_| AppError::storage())?;
+    write(&snapshot, staged.path())?;
+    confirm(expected, staged.path())?;
+    fs::rename(staged.path(), destination).map_err(|_| AppError::storage())?;
+    sync(parent)
+}
+
+/// Writes a verified copy into the absent directory `staging`, which the caller names so it
+/// can find the copy after a crash. A failed copy removes `staging`.
+pub fn stage(expected: &Inspection, staging: &Path) -> AppResult<()> {
+    let snapshot = verified(expected, staging)?;
+    fs::create_dir(staging).map_err(|_| AppError::storage())?;
+    let written = write(&snapshot, staging).and_then(|()| confirm(expected, staging));
+    if written.is_err() {
+        let _ = fs::remove_dir_all(staging);
+    }
+    written
+}
+
+/// Re-reads the source and checks that `destination` is absent and outside it.
+fn verified(expected: &Inspection, destination: &Path) -> AppResult<traversal::Snapshot> {
     if expected.status == ValidationStatus::Blocked {
         return Err(AppError::validation("Blocked payloads cannot be imported."));
     }
@@ -95,12 +121,13 @@ pub fn materialize(expected: &Inspection, destination: &Path) -> AppResult<()> {
             "The staging destination must be absent and outside the source.",
         ));
     }
-    let staged = tempfile::Builder::new()
-        .prefix(".payload-")
-        .tempdir_in(parent)
-        .map_err(|_| AppError::storage())?;
+    Ok(snapshot)
+}
+
+/// Writes every manifest entry under `root` and syncs it.
+fn write(snapshot: &traversal::Snapshot, root: &Path) -> AppResult<()> {
     for entry in &snapshot.inspection.manifest.entries {
-        let target = staged.path().join(&entry.path);
+        let target = root.join(&entry.path);
         match entry.kind {
             ManifestKind::Directory => fs::create_dir(&target).map_err(|_| AppError::storage())?,
             ManifestKind::File => {
@@ -125,33 +152,36 @@ pub fn materialize(expected: &Inspection, destination: &Path) -> AppResult<()> {
             }
         }
     }
-    #[cfg(unix)]
+    for entry in snapshot
+        .inspection
+        .manifest
+        .entries
+        .iter()
+        .rev()
+        .filter(|entry| entry.kind == ManifestKind::Directory)
     {
-        for entry in snapshot
-            .inspection
-            .manifest
-            .entries
-            .iter()
-            .rev()
-            .filter(|entry| entry.kind == ManifestKind::Directory)
-        {
-            fs::File::open(staged.path().join(&entry.path))
-                .and_then(|file| file.sync_all())
-                .map_err(|_| AppError::storage())?;
-        }
-        fs::File::open(staged.path())
-            .and_then(|file| file.sync_all())
-            .map_err(|_| AppError::storage())?;
+        sync(&root.join(&entry.path))?;
     }
-    let staged_manifest = inspect(staged.path())?.manifest;
-    if staged_manifest != expected.manifest || inspect(&expected.canonical_source)? != *expected {
+    sync(root)
+}
+
+/// Checks that the copy at `copy` matches the inspection and the source still does.
+fn confirm(expected: &Inspection, copy: &Path) -> AppResult<()> {
+    if inspect(copy)?.manifest != expected.manifest
+        || inspect(&expected.canonical_source)? != *expected
+    {
         return Err(AppError::stale("SourceChanged"));
     }
-    fs::rename(staged.path(), destination).map_err(|_| AppError::storage())?;
+    Ok(())
+}
+
+fn sync(directory: &Path) -> AppResult<()> {
     #[cfg(unix)]
-    fs::File::open(destination.parent().ok_or_else(AppError::storage)?)
+    fs::File::open(directory)
         .and_then(|file| file.sync_all())
         .map_err(|_| AppError::storage())?;
+    #[cfg(not(unix))]
+    let _ = directory;
     Ok(())
 }
 
