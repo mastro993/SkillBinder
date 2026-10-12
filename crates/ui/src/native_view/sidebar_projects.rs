@@ -9,7 +9,7 @@ use super::sidebar::GLOBAL;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{
-    activate, add_button, count, dot, icon_color, name_field, row, section_header, spinner,
+    activate, add_button, count, detail, dot, icon_color, name_field, row, section_header, spinner,
 };
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
@@ -162,7 +162,7 @@ impl NativeView {
     }
 
     /// The row's accessible name, which reports drifted deployments.
-    fn target_label(&self, name: String, target: &DeploymentTarget) -> String {
+    pub(super) fn target_label(&self, name: String, target: &DeploymentTarget) -> String {
         match self.drifted(target) {
             0 => name,
             1 => format!("{name}, 1 deployment drifted"),
@@ -171,8 +171,8 @@ impl NativeView {
     }
 
     /// A spinner while rescanning, a warning while the folder is missing, a warning dot while a
-    /// deployment drifted, else the count.
-    fn target_trailing(
+    /// deployment drifted, else Global's `~` or a project's count.
+    pub(super) fn target_trailing(
         &self,
         target: &DeploymentTarget,
         missing: bool,
@@ -189,7 +189,10 @@ impl NativeView {
         } else if self.drifted(target) > 0 {
             dot(cx.theme().warning)
         } else {
-            count(self.deployment_count(target), cx)
+            match target {
+                DeploymentTarget::Global => detail("~", cx),
+                DeploymentTarget::Project(_) => count(self.deployment_count(target), cx),
+            }
         }
     }
 

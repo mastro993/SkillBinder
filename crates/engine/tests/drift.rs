@@ -21,7 +21,7 @@ struct Setup {
 }
 
 impl Setup {
-    /// `alpha` in the library, deployed to Root for Claude Code and to a project for Claude
+    /// `alpha` in the library, deployed to Global for Claude Code and to a project for Claude
     /// Code and Codex.
     async fn new() -> Self {
         let fixture = Fixture::new();
@@ -36,7 +36,7 @@ impl Setup {
         let id = engine.snapshot().await.unwrap().projects[0].id.clone();
         let project = DeploymentTarget::Project(id);
         for (target, agents) in [
-            (DeploymentTarget::Root, vec!["claude-code".into()]),
+            (DeploymentTarget::Global, vec!["claude-code".into()]),
             (project.clone(), vec!["claude-code".into(), "codex".into()]),
         ] {
             engine
@@ -60,7 +60,7 @@ impl Setup {
         self.fixture.data.join("library/skills/alpha")
     }
 
-    fn root_copy(&self) -> std::path::PathBuf {
+    fn global_copy(&self) -> std::path::PathBuf {
         self.fixture.home.join(".claude/skills/alpha")
     }
 
@@ -171,14 +171,14 @@ async fn a_project_change_is_restored_or_accepted_into_the_library() {
     let backups = setup.fixture.data.join("backups/drift");
     assert_eq!(fs::read_dir(backups).unwrap().count(), 1);
 
-    // Root is now outdated, and a rescan never updates it on its own.
-    let root = DeploymentTarget::Root;
-    assert_eq!(setup.drift(&root).await, Some(Drift::Outdated));
-    assert!(body(&setup.root_copy()).contains("Alpha"));
+    // Global is now outdated, and a rescan never updates it on its own.
+    let global = DeploymentTarget::Global;
+    assert_eq!(setup.drift(&global).await, Some(Drift::Outdated));
+    assert!(body(&setup.global_copy()).contains("Alpha"));
     assert_eq!(
         category(
             setup
-                .resolve(&root, Drift::Outdated, Remedy::UseProject)
+                .resolve(&global, Drift::Outdated, Remedy::UseProject)
                 .await
         ),
         ErrorCategory::Validation
@@ -186,23 +186,23 @@ async fn a_project_change_is_restored_or_accepted_into_the_library() {
 
     // Update project.
     setup
-        .resolve(&root, Drift::Outdated, Remedy::UseLibrary)
+        .resolve(&global, Drift::Outdated, Remedy::UseLibrary)
         .await
         .unwrap();
-    assert!(body(&setup.root_copy()).contains("Accepted"));
-    assert_eq!(setup.drift(&root).await, None);
+    assert!(body(&setup.global_copy()).contains("Accepted"));
+    assert_eq!(setup.drift(&global).await, None);
     setup.engine.shutdown().await.unwrap();
 }
 
 #[tokio::test]
 async fn a_conflict_keeps_the_side_the_user_picks() {
     let setup = Setup::new().await;
-    let (root, project) = (DeploymentTarget::Root, setup.project.clone());
+    let (global, project) = (DeploymentTarget::Global, setup.project.clone());
     let change_library = async |body: &str| {
-        edit(&setup.root_copy(), body);
-        assert_eq!(setup.drift(&root).await, Some(Drift::ProjectChanged));
+        edit(&setup.global_copy(), body);
+        assert_eq!(setup.drift(&global).await, Some(Drift::ProjectChanged));
         setup
-            .resolve(&root, Drift::ProjectChanged, Remedy::UseProject)
+            .resolve(&global, Drift::ProjectChanged, Remedy::UseProject)
             .await
             .unwrap();
     };
@@ -229,7 +229,7 @@ async fn a_conflict_keeps_the_side_the_user_picks() {
     assert!(body(&setup.library()).contains("Project side"));
     assert!(body(&setup.project_copy()).contains("Project side"));
     assert_eq!(setup.drift(&project).await, None);
-    assert_eq!(setup.drift(&root).await, Some(Drift::Outdated));
+    assert_eq!(setup.drift(&global).await, Some(Drift::Outdated));
     setup.engine.shutdown().await.unwrap();
 }
 

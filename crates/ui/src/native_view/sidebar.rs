@@ -3,7 +3,7 @@
 use std::{rc::Rc, time::Duration};
 
 use super::controls::{Inactive, app_icon, button};
-use super::sidebar_row::{activate, count, detail, dot, row, spinner};
+use super::sidebar_row::{activate, count, dot, row, spinner};
 use super::{LibraryFilter, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, h_flex, tooltip::Tooltip};
 use gpui_kit::{
@@ -215,11 +215,8 @@ impl NativeView {
     fn render_global_row(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let target = DeploymentTarget::Global;
         let selected = self.route == Route::Target(target.clone());
-        let trailing = if self.snapshot.rescanning.contains(&target) {
-            spinner(cx)
-        } else {
-            detail("~", cx)
-        };
+        let trailing = self.target_trailing(&target, false, cx);
+        let accessible = self.target_label(GLOBAL.to_owned(), &target);
         let home: SharedString = self.snapshot.home.clone().into();
         activate(
             row(
@@ -230,7 +227,7 @@ impl NativeView {
                 selected,
                 cx,
             ),
-            GLOBAL,
+            accessible,
             cx,
             |view, window, cx| view.open_target(DeploymentTarget::Global, window, cx),
         )
