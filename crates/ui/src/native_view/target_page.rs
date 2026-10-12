@@ -1,10 +1,10 @@
-//! The page of Global or a project: its target agents, which can be edited, its deployments,
+//! The page of Installed (the Global target) or a project: its target agents, which can be edited, its deployments,
 //! which can be added, removed, and resolved when they drift, and its importable skills.
 
 use std::collections::BTreeSet;
 
 use super::controls::{Inactive, button};
-use super::sidebar::GLOBAL;
+use super::sidebar::INSTALLED;
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, checkbox::Checkbox};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
@@ -21,7 +21,7 @@ impl NativeView {
             DeploymentTarget::Project(id) => self.snapshot.projects.iter().find(|p| &p.id == id),
         };
         let location = project.map_or_else(
-            || "Global agent skill locations under your home".to_owned(),
+            || "Agent skill locations under your home".to_owned(),
             |project| project.path.clone(),
         );
         let missing = project.is_some_and(|project| project.missing);
@@ -40,10 +40,10 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Global, or the project's name.
+    /// Installed, or the project's name.
     pub(super) fn target_name(&self, target: &DeploymentTarget) -> String {
         match target {
-            DeploymentTarget::Global => GLOBAL.to_owned(),
+            DeploymentTarget::Global => INSTALLED.to_owned(),
             DeploymentTarget::Project(id) => self
                 .snapshot
                 .projects

@@ -6,7 +6,6 @@ use skillbinder_proto::{DeploymentTarget, FolderId};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum LibraryFilter {
     All,
-    Unfiled,
     Folder(FolderId),
 }
 
@@ -64,14 +63,14 @@ mod tests {
     #[test]
     fn back_and_forward_walk_the_visited_routes() {
         let mut history = History::default();
-        let unfiled = Route::Library(LibraryFilter::Unfiled);
+        let library = Route::Library(LibraryFilter::All);
         history.push(Route::Discovery);
-        history.push(unfiled.clone());
-        assert_eq!(history.back(Route::Settings), Some(unfiled.clone()));
-        assert_eq!(history.back(unfiled.clone()), Some(Route::Discovery));
+        history.push(library.clone());
+        assert_eq!(history.back(Route::Settings), Some(library.clone()));
+        assert_eq!(history.back(library.clone()), Some(Route::Discovery));
         assert_eq!(history.back(Route::Discovery), None);
-        assert_eq!(history.forward(Route::Discovery), Some(unfiled.clone()));
-        assert_eq!(history.forward(unfiled), Some(Route::Settings));
+        assert_eq!(history.forward(Route::Discovery), Some(library.clone()));
+        assert_eq!(history.forward(library), Some(Route::Settings));
         assert!(!history.can_go_forward());
     }
 

@@ -166,11 +166,11 @@ pub enum OrganizationChange {
         /// Replacement unique name.
         name: String,
     },
-    /// Assign selected skills, or move them to Unfiled.
+    /// Assign selected skills to a folder, or remove them from their folder.
     Assign {
         /// Selected existing skill identities.
         skills: Vec<SkillId>,
-        /// Destination, or Unfiled when absent.
+        /// Destination, or no folder when absent.
         folder: Option<FolderId>,
     },
     /// Replace the folder order with a permutation of every existing folder.
@@ -198,7 +198,7 @@ pub enum OrganizationChange {
 pub struct DeletePreview {
     /// Folder being removed.
     pub folder: Folder,
-    /// Skills that will become unfiled.
+    /// Skills that will be left without a folder.
     pub affected_skills: usize,
     /// Required revision for confirmation.
     pub revision: String,

@@ -5,11 +5,11 @@
 use std::{cell::Cell, time::Instant};
 
 use super::controls::{Inactive, app_icon};
-use super::sidebar::GLOBAL;
+use super::sidebar::INSTALLED;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{
-    activate, add_button, count, detail, dot, icon_color, name_field, row, section_header, spinner,
+    activate, add_button, count, dot, icon_color, name_field, row, section_header, spinner,
 };
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
@@ -171,7 +171,7 @@ impl NativeView {
     }
 
     /// A spinner while rescanning, a warning while the folder is missing, a warning dot while a
-    /// deployment drifted, else Global's `~` or a project's count.
+    /// deployment drifted, else the target's number of deployments.
     pub(super) fn target_trailing(
         &self,
         target: &DeploymentTarget,
@@ -189,10 +189,7 @@ impl NativeView {
         } else if self.drifted(target) > 0 {
             dot(cx.theme().warning)
         } else {
-            match target {
-                DeploymentTarget::Global => detail("~", cx),
-                DeploymentTarget::Project(_) => count(self.deployment_count(target), cx),
-            }
+            count(self.deployment_count(target), cx)
         }
     }
 
@@ -278,7 +275,7 @@ impl NativeView {
             .count()
     }
 
-    /// Names of the targets that hold `skill`: Global first, then projects in sidebar order.
+    /// Names of the targets that hold `skill`: Installed first, then projects in sidebar order.
     pub(super) fn deployment_targets(&self, skill: &SkillId) -> Vec<String> {
         let holds = |target: DeploymentTarget| {
             self.snapshot
@@ -286,8 +283,8 @@ impl NativeView {
                 .iter()
                 .any(|deployment| &deployment.skill_id == skill && deployment.target == target)
         };
-        let global = holds(DeploymentTarget::Global).then(|| GLOBAL.to_owned());
-        global
+        let installed = holds(DeploymentTarget::Global).then(|| INSTALLED.to_owned());
+        installed
             .into_iter()
             .chain(
                 self.snapshot

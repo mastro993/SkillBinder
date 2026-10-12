@@ -152,7 +152,7 @@ impl NativeView {
                 dialog
                     .title(self.dialog_title("Delete folder", cx))
                     .child(div().child(format!(
-                        "Delete {}? {} skills will become Unfiled.",
+                        "Delete {}? Its {} skills stay in the library without a folder.",
                         preview.folder.name, preview.affected_skills
                     )))
                     .footer(

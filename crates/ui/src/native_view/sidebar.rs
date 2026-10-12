@@ -15,7 +15,7 @@ use skillbinder_proto::{DeploymentTarget, ScanStatus, SyncSnapshot, SyncState};
 use skillbinder_theme::sidebar::{INSET, ROW_GAP};
 
 /// The deployment target made of the global agent skill locations under home.
-pub(super) const GLOBAL: &str = "Global";
+pub(super) const INSTALLED: &str = "Installed";
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
 const SIDEBAR_MOTION: Duration = Duration::from_millis(220);
@@ -210,20 +210,21 @@ impl NativeView {
         )
     }
 
-    /// Global is a deployment target, not a project, so it sits with the navigation rows. Its
-    /// trailing `~` and tooltip say that its skills live under the home folder.
+    /// Installed is the Global deployment target, not a project, so it sits with the navigation
+    /// rows. Its count is the number of skills installed there, and its tooltip shows the home
+    /// folder its skills live under.
     fn render_global_row(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let target = DeploymentTarget::Global;
         let selected = self.route == Route::Target(target.clone());
         let trailing = self.target_trailing(&target, false, cx);
-        let accessible = self.target_label(GLOBAL.to_owned(), &target);
+        let accessible = self.target_label(INSTALLED.to_owned(), &target);
         let home: SharedString = self.snapshot.home.clone().into();
         activate(
             row(
                 "nav-global",
                 app_icon("hard-drive"),
                 None,
-                GLOBAL,
+                INSTALLED,
                 selected,
                 cx,
             ),

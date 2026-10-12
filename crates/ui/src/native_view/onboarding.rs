@@ -19,7 +19,7 @@ impl NativeView {
             ),
             OnboardingStep::Boundaries => (
                 "Keep sources separate",
-                "Discovery reads Global and your projects. Imports create managed copies in your private library.",
+                "Discovery reads installed skills and your projects. Imports create managed copies in your private library.",
             ),
             OnboardingStep::SyncChoice => (
                 "Sync is optional",

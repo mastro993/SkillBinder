@@ -2,7 +2,6 @@
 //! can pick, and the confirmation before a remedy discards changes made in the target.
 
 use super::controls::{Inactive, button};
-use super::sidebar::GLOBAL;
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::{ActiveTheme, dialog::Dialog};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
@@ -39,7 +38,7 @@ impl NativeView {
         let drift = self.deployment_drift(deployment)?;
         let name = self.target_name(&deployment.target);
         let side = match deployment.target {
-            DeploymentTarget::Global => GLOBAL,
+            DeploymentTarget::Global => "installed",
             DeploymentTarget::Project(_) => "project",
         };
         let (summary, remedies): (String, Vec<(String, Remedy)>) = match drift {
