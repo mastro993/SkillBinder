@@ -11,8 +11,8 @@ use super::controls::app_icon;
 use super::sidebar_row::{count, row};
 use gpui_kit::base::animation::ease_out_cubic;
 use gpui_kit::{
-    App, Context, DragMoveEvent, Hsla, IntoElement, ParentElement, Render, SharedString, Styled,
-    Window, px,
+    App, Context, CursorStyle, DragMoveEvent, Hsla, IntoElement, ParentElement, Render,
+    SharedString, Styled, Window, px,
 };
 use skillbinder_proto::{Folder, FolderId, OrganizationChange};
 use skillbinder_theme::sidebar::{ROW_GAP, ROW_HEIGHT};
@@ -171,8 +171,14 @@ impl NativeView {
     pub(super) fn drag_folder(
         &mut self,
         event: &DragMoveEvent<FolderDrag>,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // The drag starts with the row's pointing hand; GPUI assigns the drag after the
+        // preview is built, so the first move swaps in the grabbing hand.
+        if cx.active_drag_cursor_style() != Some(CursorStyle::ClosedHand) {
+            cx.set_active_drag_cursor_style(CursorStyle::ClosedHand, window);
+        }
         let len = self.folders().len();
         let drag = event.drag(cx);
         let top = f32::from(event.event.position.y - event.bounds.top()) - drag.grab.get();

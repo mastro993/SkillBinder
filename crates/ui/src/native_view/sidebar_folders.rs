@@ -119,8 +119,8 @@ impl NativeView {
                             .flex_col()
                             .gap(px(ROW_GAP))
                             .on_drag_move(cx.listener(
-                                |view, event: &DragMoveEvent<FolderDrag>, _, cx| {
-                                    view.drag_folder(event, cx)
+                                |view, event: &DragMoveEvent<FolderDrag>, window, cx| {
+                                    view.drag_folder(event, window, cx)
                                 },
                             ))
                             .on_mouse_up(
