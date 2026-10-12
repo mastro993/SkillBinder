@@ -15,7 +15,7 @@ pub(super) enum LibraryFilter {
 pub(super) enum Route {
     Discovery,
     Library(LibraryFilter),
-    /// The page of Root or a project: `project/{id}`, or Root's own route.
+    /// The page of Global or a project: `project/{id}`, or Global's own route.
     Target(DeploymentTarget),
     Sync,
     Settings,
@@ -80,13 +80,13 @@ mod tests {
         let mut history = History::default();
         let project = Route::Target(DeploymentTarget::Project(ProjectId::new()));
         history.push(Route::Discovery);
-        history.push(Route::Target(DeploymentTarget::Root));
+        history.push(Route::Target(DeploymentTarget::Global));
         assert_eq!(
             history.back(project.clone()),
-            Some(Route::Target(DeploymentTarget::Root))
+            Some(Route::Target(DeploymentTarget::Global))
         );
         assert_eq!(
-            history.forward(Route::Target(DeploymentTarget::Root)),
+            history.forward(Route::Target(DeploymentTarget::Global)),
             Some(project)
         );
     }

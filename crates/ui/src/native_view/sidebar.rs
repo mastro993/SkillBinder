@@ -214,7 +214,7 @@ impl NativeView {
     /// trailing `~` and tooltip say that its skills live under the home folder.
     fn render_global_row(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let target = DeploymentTarget::Global;
-        let selected = self.selected_target.as_ref() == Some(&target);
+        let selected = self.route == Route::Target(target.clone());
         let trailing = if self.snapshot.rescanning.contains(&target) {
             spinner(cx)
         } else {
@@ -232,7 +232,7 @@ impl NativeView {
             ),
             GLOBAL,
             cx,
-            |view, _, cx| view.open_target(DeploymentTarget::Global, cx),
+            |view, window, cx| view.open_target(DeploymentTarget::Global, window, cx),
         )
         .child(trailing)
         .tooltip(move |window, cx| Tooltip::new(home.clone()).build(window, cx))

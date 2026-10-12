@@ -1,4 +1,4 @@
-//! Adding skills to Root and projects, and removing them, in isolated roots.
+//! Adding skills to Global and projects, and removing them, in isolated roots.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
@@ -124,11 +124,11 @@ async fn adding_copies_bytes_into_every_agent_directory_and_records_them() {
 }
 
 #[tokio::test]
-async fn adding_to_root_writes_the_global_skill_directory() {
+async fn adding_to_global_writes_the_global_skill_directory() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let skill = library_skill(&fixture, &engine).await;
-    let target = DeploymentTarget::Root;
+    let target = DeploymentTarget::Global;
     engine
         .set_target_agents(target.clone(), vec!["claude-code".into()])
         .await

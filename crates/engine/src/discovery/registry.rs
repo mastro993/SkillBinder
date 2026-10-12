@@ -82,7 +82,7 @@ pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>
     Ok(options)
 }
 /// The skill directories `agents` read in a target: each agent's project skill directory in
-/// `project`, or its global skill directory for Root. Agents sharing a directory share it.
+/// `project`, or its global skill directory for Global. Agents sharing a directory share it.
 pub(crate) fn skill_dirs(
     config: &EngineConfig,
     project: Option<&Path>,
@@ -109,7 +109,7 @@ pub(crate) fn skill_dirs(
     }
     Ok(directories)
 }
-/// Every global skill directory on this device: the places Root may write to.
+/// Every global skill directory on this device: the places Global may write to.
 pub(crate) fn global_dirs(config: &EngineConfig) -> AppResult<Vec<PathBuf>> {
     Ok(registry()?
         .agents
@@ -118,7 +118,7 @@ pub(crate) fn global_dirs(config: &EngineConfig) -> AppResult<Vec<PathBuf>> {
         .filter_map(|template| expand(template, config))
         .collect())
 }
-/// Root writes to an agent's first global root that expands on this device.
+/// Global writes to an agent's first global root that expands on this device.
 fn global_dir(agent: &Agent, config: &EngineConfig) -> Option<PathBuf> {
     agent
         .global_roots

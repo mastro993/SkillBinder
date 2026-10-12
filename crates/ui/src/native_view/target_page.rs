@@ -1,10 +1,10 @@
-//! The page of Root or a project: its target agents, which can be edited, and its deployments,
+//! The page of Global or a project: its target agents, which can be edited, and its deployments,
 //! which can be added and removed.
 
 use std::collections::BTreeSet;
 
 use super::controls::{Inactive, button};
-use super::sidebar_projects::ROOT;
+use super::sidebar::GLOBAL;
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, checkbox::Checkbox};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
@@ -17,7 +17,7 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let project = match target {
-            DeploymentTarget::Root => None,
+            DeploymentTarget::Global => None,
             DeploymentTarget::Project(id) => self.snapshot.projects.iter().find(|p| &p.id == id),
         };
         let location = project.map_or_else(
@@ -39,10 +39,10 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Root, or the project's name.
+    /// Global, or the project's name.
     pub(super) fn target_name(&self, target: &DeploymentTarget) -> String {
         match target {
-            DeploymentTarget::Root => ROOT.to_owned(),
+            DeploymentTarget::Global => GLOBAL.to_owned(),
             DeploymentTarget::Project(id) => self
                 .snapshot
                 .projects
@@ -54,7 +54,7 @@ impl NativeView {
 
     pub(super) fn target_agents(&self, target: &DeploymentTarget) -> &[String] {
         match target {
-            DeploymentTarget::Root => &self.snapshot.root_agents,
+            DeploymentTarget::Global => &self.snapshot.global_agents,
             DeploymentTarget::Project(id) => self
                 .snapshot
                 .projects
@@ -71,7 +71,7 @@ impl NativeView {
             .iter()
             .filter_map(|agent| {
                 let directory = match target {
-                    DeploymentTarget::Root => agent.global_skills_dir.clone()?,
+                    DeploymentTarget::Global => agent.global_skills_dir.clone()?,
                     DeploymentTarget::Project(_) => agent.project_skills_dir.clone(),
                 };
                 Some((

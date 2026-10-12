@@ -70,7 +70,7 @@ pub struct AgentOption {
     pub display_name: String,
     /// Skill directory relative to a project folder.
     pub project_skills_dir: String,
-    /// Global skill directory Root writes to, or `None` when this device has none.
+    /// Global skill directory Global writes to, or `None` when this device has none.
     pub global_skills_dir: Option<String>,
 }
 

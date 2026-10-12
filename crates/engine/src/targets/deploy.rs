@@ -17,7 +17,7 @@ use std::{
 
 /// Where a target may be written.
 struct Place {
-    /// The project folder, or `None` for Root.
+    /// The project folder, or `None` for Global.
     project: Option<PathBuf>,
     /// Folders that every write and deletion must stay inside.
     boundaries: Vec<PathBuf>,

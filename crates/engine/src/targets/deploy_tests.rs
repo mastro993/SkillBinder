@@ -20,7 +20,7 @@ struct Fixture {
 }
 
 impl Fixture {
-    /// A library holding `alpha`, with Root writing to Claude Code's global directory.
+    /// A library holding `alpha`, with Global writing to Claude Code's global directory.
     fn new() -> (Self, State) {
         let directory = tempfile::tempdir().unwrap();
         let root = fs::canonicalize(directory.path()).unwrap().join("data");
@@ -55,7 +55,7 @@ impl Fixture {
         };
         write_json(&state.library_dir().join(".skillbinder.json"), &library).unwrap();
         state
-            .set_target_agents(&DeploymentTarget::Root, &["claude-code".into()])
+            .set_target_agents(&DeploymentTarget::Global, &["claude-code".into()])
             .unwrap();
         (
             Self {
@@ -79,11 +79,11 @@ impl Fixture {
     }
 
     fn add(&self, state: &mut State) -> AppResult<()> {
-        state.add_deployments(&DeploymentTarget::Root, std::slice::from_ref(&self.skill))
+        state.add_deployments(&DeploymentTarget::Global, std::slice::from_ref(&self.skill))
     }
 
     fn remove(&self, state: &mut State, discard: &[String]) -> AppResult<Removal> {
-        state.remove_deployment(&DeploymentTarget::Root, &self.skill, discard)
+        state.remove_deployment(&DeploymentTarget::Global, &self.skill, discard)
     }
 }
 
@@ -187,7 +187,7 @@ fn removal_refuses_a_recorded_path_outside_the_target() {
     state
         .database
         .execute(
-            "INSERT INTO deployments(target,skill_id,digest,paths,recorded_at) VALUES('root',?1,?2,?3,0)",
+            "INSERT INTO deployments(target,skill_id,digest,paths,recorded_at) VALUES('global',?1,?2,?3,0)",
             rusqlite::params![
                 fixture.skill.as_str(),
                 digest,
