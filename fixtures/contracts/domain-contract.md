@@ -43,8 +43,12 @@ Added after the captured baseline; `docs/agents/domain.md` defines the terms and
 - Global is the registry's global locations under home, always present, never renamed or removed. A project is a picked canonical folder; its name starts as the last path component, is editable, and need not be unique. Global and projects are deployment targets with target agents that default to the agent skill directories found at the top of the target.
 - Adding a project consumes a directory grant, refuses an exact duplicate path, allows nested projects, scans, and saves the project and its deployments in one transaction. Cancellation saves nothing; a failed scan saves nothing and reports a safe error.
 - A project scan walks the folder with project limits, looks for each agent's project skill directory in every directory, and skips registered nested projects. A skill whose digest matches a library skill is recorded as a deployment with its digest and every path found; other skills are importable and not imported.
-- Targets are rescanned on launch and when opened. A rescan replaces the target's deployments. A project whose folder is missing keeps its deployments. Removing a project forgets it and its deployments without touching files.
-- A library skill with deployments cannot be deleted; the refusal names the targets. No operation in this slice writes into a target.
+- Targets are rescanned on launch and when opened. A rescan replaces the target's deployments, but keeps a recorded copy that still exists with its recorded digest even when it changed. A project whose folder is missing keeps its deployments. Removing a project forgets it and its deployments without touching files.
+- A library skill with deployments cannot be deleted; the refusal names the targets.
+- Writes outside the library are allowed only into deployment targets, only through adding and removing deployments, and only to target agent skill directories and recorded paths. Import and Discovery stay read-only.
+- Adding skills to a target copies each into every target agent's skill directory as `<directory>/<slug>`, as a copy and never a link, and records the library digest and every path. A target without agents asks for them first. Identical bytes already present are recorded without writing; different content refuses the whole addition before any write.
+- Removing a deployment deletes its copies at the recorded paths and keeps the library skill. Copies that no longer match the recorded digest are kept and listed until the user confirms discarding those exact copies. A recorded path outside the target is refused.
+- Deployment writes are journaled. Recovery undoes an unrecorded addition and finishes an interrupted removal without deleting an unconfirmed changed copy.
 - Discovery covers Global and every project and never changes deployments. It lists each discovered skill once per slug and content digest, with every location holding those bytes and each location's readers. Same slug with different content, or with a different validation result, stays separate. Identical-to-library hiding counts and hides whole aggregated entries. Importing an aggregated entry copies one of its locations, which the import review names as the source.
 
 ## Concrete acceptance examples
@@ -66,6 +70,9 @@ Added after the captured baseline; `docs/agents/domain.md` defines the terms and
 | Add a project whose `.claude/skills/x` and `.agents/skills/x` match library skill `x`, plus unknown `y` | One deployment of `x` with two paths; `y` listed as importable. |
 | Add the same folder twice | Second addition refused, naming the existing project. |
 | Add `outer`, then nested project `outer/packages/inner` | `inner` holds the skills inside it; `outer` no longer records them. |
+| Add library skill `x` to a project whose agents are Claude Code and Codex | Copies at `.claude/skills/x` and `.agents/skills/x` with identical bytes; one deployment with both paths. |
+| Add `x` where `.agents/skills/x` holds different content | Refused naming the path; nothing written. |
+| Remove a deployment whose `.claude/skills/x` was edited | Nothing deleted; the edited copy is listed for confirmation; confirming deletes both copies and keeps library `x`. |
 | Resolve a shared slug by discarding a copy deployed to Global | Refused: `<slug> is deployed to Global. …`; library unchanged. |
 
 ## Evidence and retention

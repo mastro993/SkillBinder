@@ -1,6 +1,6 @@
 # Native architecture
 
-The executable embeds one engine in its process. There is no daemon or network command transport. The native workspace implements every audited shipped journey: onboarding, Discovery and imports, Library and flat folders, Sync, and Settings. It also implements Global and projects with recorded deployments.
+The executable embeds one engine in its process. There is no daemon or network command transport. The native workspace implements every audited shipped journey: onboarding, Discovery and imports, Library and flat folders, Sync, and Settings. It also implements Global and projects, their pages, and deployments that copy library skills into them.
 
 ## Ownership
 
@@ -18,11 +18,11 @@ The UI invokes typed client operations. It never accesses SQLite, mutates filesy
 
 ## Execution and storage contract
 
-The engine keeps storage and system adapters private within feature modules. A single worker owns the bundled SQLite connection. Its typed job queue serializes changes to managed files, metadata, and the Git working tree. Discovery runs independently. Target scans of Global and projects run on blocking runtime threads: the worker prepares their inputs, and saves each result in one transaction. Their progress lives in a shared in-memory record that the client reads without waiting for the worker. Cancelling a project addition and saving its result take the same lock, so a cancelled addition never saves. Bounded previews run on the engine worker and never block the GPUI event loop.
+The engine keeps storage and system adapters private within feature modules. A single worker owns the bundled SQLite connection. Its typed job queue serializes changes to managed files, metadata, the Git working tree, and deployment copies in Global and projects. Deployment writes are the only writes outside application storage; they reach only target agent skill directories and recorded deployment paths, behind their own journal. Discovery runs independently. Target scans of Global and projects run on blocking runtime threads: the worker prepares their inputs, and saves each result in one transaction. Their progress lives in a shared in-memory record that the client reads without waiting for the worker. Cancelling a project addition and saving its result take the same lock, so a cancelled addition never saves. Bounded previews run on the engine worker and never block the GPUI event loop.
 
 The application stores machine-local state beneath the operating system's local application-data directory in `SkillBinder`. The portable library uses `.skillbinder.json` schema 2 and `skills/<slug>/`. There is no old-database migration or compatibility layer.
 
-Navigation never cancels committed work. The engine retains terminal import outcomes, journals durable mutations, and replays completed imports idempotently. Recovery must reconcile interrupted operations before enabling further mutations. Scan retention begins after terminal completion, cancellation, or failure. A finished or failed project addition is retained until the user dismisses it.
+Navigation never cancels committed work. The engine retains terminal import outcomes, journals durable mutations, and replays completed imports idempotently. Recovery must reconcile interrupted operations before enabling further mutations. Scan retention begins after terminal completion, cancellation, or failure. A finished or failed project addition is retained until the user dismisses it. A deployment write counts as a durable mutation: an overlapping target rescan discards its result and runs again.
 
 The client publishes immutable projections through coalescing subscriptions. Full refresh generations reject superseded reads; Discovery and target scan progress are read while holding the publication lock, so older progress cannot replace newer progress. On creation the client rescans Global and then each project in the background. Failed projection refreshes never turn a completed mutation into a failure. Detailed acceptance cases remain in `fixtures/contracts/domain-contract.md`.
 
