@@ -1,7 +1,7 @@
 use super::paths;
 use crate::{lifecycle::EngineConfig, logging::Logger};
 use serde::Deserialize;
-use skillbinder_proto::{AppError, AppResult, ProjectRoot};
+use skillbinder_proto::{AppError, AppResult};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -20,55 +20,57 @@ struct Agent {
     project_skills_dir: String,
     global_roots: Vec<String>,
 }
-pub(super) struct Location {
+pub(crate) struct Location {
     pub path: PathBuf,
     pub boundary: PathBuf,
+    /// Agent display names that read this location.
     pub readers: Vec<String>,
+    /// Registry identities of the same agents.
+    pub agents: Vec<String>,
     pub project: bool,
 }
-pub(super) fn locations(
-    config: &EngineConfig,
-    roots: &[ProjectRoot],
-    log: &Logger,
-) -> AppResult<Vec<Location>> {
-    let registry: Registry = serde_json::from_str(include_str!(
+fn registry() -> AppResult<Registry> {
+    serde_json::from_str(include_str!(
         "../../../../fixtures/contracts/registry-79.json"
     ))
-    .map_err(|_| AppError::storage())?;
+    .map_err(|_| AppError::storage())
+}
+/// Global agent locations under home, plus the direct skill directories of each project.
+pub(crate) fn locations(
+    config: &EngineConfig,
+    projects: &[PathBuf],
+    log: &Logger,
+) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
-    for agent in registry.agents {
-        for template in agent.global_roots {
-            if let Some(path) = expand(&template, config) {
-                add(
-                    &mut combined,
-                    path,
-                    &config.home,
-                    &agent.display_name,
-                    false,
-                    log,
-                );
+    for agent in registry()?.agents {
+        for template in &agent.global_roots {
+            if let Some(path) = expand(template, config) {
+                add(&mut combined, path, &config.home, &agent, false, log);
             }
         }
-        for root in roots.iter().filter(|root| root.enabled) {
-            let boundary = PathBuf::from(&root.path);
-            add(
-                &mut combined,
-                boundary.join(&agent.project_skills_dir),
-                &boundary,
-                &agent.display_name,
-                true,
-                log,
-            );
+        for boundary in projects {
+            let path = boundary.join(&agent.project_skills_dir);
+            add(&mut combined, path, boundary, &agent, true, log);
         }
-        let _ = agent.id;
     }
     Ok(combined.into_values().collect())
+}
+/// Relative project skill directories, each with the identities of the agents that read it.
+pub(crate) fn project_skill_dirs() -> AppResult<BTreeMap<String, Vec<String>>> {
+    let mut directories: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for agent in registry()?.agents {
+        directories
+            .entry(agent.project_skills_dir)
+            .or_default()
+            .push(agent.id);
+    }
+    Ok(directories)
 }
 fn add(
     locations: &mut BTreeMap<PathBuf, Location>,
     path: PathBuf,
     boundary: &Path,
-    reader: &str,
+    agent: &Agent,
     project: bool,
     log: &Logger,
 ) {
@@ -101,17 +103,22 @@ fn add(
             path,
             boundary: canonical_boundary,
             readers: Vec::new(),
+            agents: Vec::new(),
             project,
         });
     location.project |= project;
-    location.readers.push(reader.to_owned());
-    location.readers = location
-        .readers
-        .iter()
-        .cloned()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
+    for (list, value) in [
+        (&mut location.readers, &agent.display_name),
+        (&mut location.agents, &agent.id),
+    ] {
+        list.push(value.clone());
+        *list = list
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+    }
 }
 fn expand(template: &str, config: &EngineConfig) -> Option<PathBuf> {
     let mut output = String::new();
@@ -155,14 +162,9 @@ mod tests {
         assert_eq!(registry.agents.len(), 79);
         let temp = tempfile::tempdir()?;
         let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-        let roots = vec![ProjectRoot {
-            id: Default::default(),
-            path: temp.path().join("project").display().to_string(),
-            label: "Project".into(),
-            enabled: true,
-        }];
+        let projects = vec![temp.path().join("project")];
         let log = Logger::start(temp.path().join("logs"), &config.home)?;
-        let locations = locations(&config, &roots, &log)?;
+        let locations = locations(&config, &projects, &log)?;
         assert_eq!(
             locations
                 .iter()
@@ -171,6 +173,7 @@ mod tests {
             1
         );
         assert!(locations.iter().any(|location| location.readers.len() > 1));
+        assert!(project_skill_dirs()?[".agents/skills"].len() > 1);
         assert_eq!(expand("${UNSET}/skills", &config), None);
         assert_eq!(
             expand("${UNSET:-~/.config}/skills", &config),

@@ -27,7 +27,11 @@ impl NativeView {
                         .on_ok(|_, _, _| false)
                         .on_close(move |_, _, cx| {
                             let _ = close_view.update(cx, |view, cx| {
-                                view.dialog = DialogState::None;
+                                if matches!(view.dialog, DialogState::AddProject) {
+                                    view.close_addition(cx);
+                                } else {
+                                    view.dialog = DialogState::None;
+                                }
                                 cx.notify();
                             });
                         })
@@ -36,7 +40,7 @@ impl NativeView {
         }
     }
 
-    fn dismiss_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn dismiss_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.busy {
             self.dialog = DialogState::None;
             window.close_dialog(cx);
@@ -45,7 +49,7 @@ impl NativeView {
     }
 
     /// Title row with an app close button: GPUI Kit's built-in close control keeps the arrow cursor.
-    fn dialog_title(
+    pub(super) fn dialog_title(
         &self,
         title: &'static str,
         cx: &mut Context<Self>,
@@ -201,12 +205,7 @@ impl NativeView {
                             .as_ref()
                             .and_then(|library| library.details.get(id))
                         {
-                            body = body.child(details.description.clone()).children(
-                                details
-                                    .sources
-                                    .iter()
-                                    .map(|source| div().child(source.clone())),
-                            );
+                            body = body.child(details.description.clone());
                         }
                     }
                     body = body.child(
@@ -339,19 +338,8 @@ impl NativeView {
                             }),
                     )
             }
-            DialogState::RemoveRoot(id) => {
-                let id = id.clone();
-                dialog.title(self.dialog_title("Remove project root", cx))
-                    .child(div().child("Discovery will stop reading this project root. Managed imports remain in your library."))
-                    .footer(div().flex().gap_2()
-        .child(button("remove-cancel").label("Cancel").inactive(busy)
-            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx))))
-        .child({let weak = cx.entity().downgrade(); button("remove-confirm").label("Remove root")
-                        .inactive(busy).on_click(move |_, _, cx| { let _ = weak.update(cx, |view, cx| {
-                            let client = view.client.clone(); let id = id.clone();
-                            view.run(async move { client.remove_root(id).await.map(|_| Effect::CloseDialog) }, cx);
-                        }); })}))
-            }
+            DialogState::AddProject => self.add_project_dialog(dialog, cx),
+            DialogState::RemoveProject(id) => self.remove_project_dialog(dialog, id, cx),
         }
     }
 }

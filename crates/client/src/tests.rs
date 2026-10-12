@@ -34,7 +34,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
         .await?;
     let updated = engine.snapshot().await?;
     let scan = engine.start_scan().await?;
-    shared.publish_scan()?;
+    shared.publish_progress()?;
     shared.publish_full(2, updated)?;
     shared.publish_full(1, original)?;
     let current = shared.snapshots.borrow().clone();

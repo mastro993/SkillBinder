@@ -58,7 +58,7 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         outcome: Some(ImportOutcome {
             plan_id,
             imported: vec![],
-            attached: vec![],
+            existing: vec![],
             conflicts: vec![],
         }),
     };

@@ -1,13 +1,15 @@
-mod paths;
-mod registry;
+pub(crate) mod paths;
+pub(crate) mod registry;
 #[cfg(test)]
 mod tests;
 mod traversal;
+pub(crate) mod walk;
 
 use crate::{lifecycle::EngineConfig, logging::Logger, payload::Inspection};
 use skillbinder_proto::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -85,11 +87,11 @@ impl Scans {
     pub(crate) fn start(
         &self,
         config: EngineConfig,
-        roots: Vec<ProjectRoot>,
+        projects: Vec<PathBuf>,
         managed: BTreeSet<String>,
         log: Logger,
     ) -> AppResult<ScanSnapshot> {
-        self.start_with(config, roots, managed, log, |work| {
+        self.start_with(config, projects, managed, log, |work| {
             std::thread::Builder::new()
                 .name("skillbinder-discovery".into())
                 .spawn(work)
@@ -99,7 +101,7 @@ impl Scans {
     fn start_with(
         &self,
         config: EngineConfig,
-        roots: Vec<ProjectRoot>,
+        projects: Vec<PathBuf>,
         managed: BTreeSet<String>,
         log: Logger,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
@@ -130,7 +132,7 @@ impl Scans {
         let id = snapshot.id.clone();
         let failure_log = log.clone();
         if let Err(error) = launch(Box::new(move || {
-            let result = registry::locations(&config, &roots, &log).and_then(|locations| {
+            let result = registry::locations(&config, &projects, &log).and_then(|locations| {
                 traversal::scan(&scans, &id, locations, &managed, &cancel, &log)
             });
             if let Ok(mut state) = scans.0.lock()

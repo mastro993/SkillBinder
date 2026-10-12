@@ -67,7 +67,7 @@ impl NativeView {
             .flex_col()
             .gap_4()
             .child("Discovery")
-            .child("Find skills in registered project roots and supported user locations.");
+            .child("Find skills in Root and in your projects.");
         if let Some(scan) = scan {
             page = page.child(format!(
                 "{:?} · {} locations checked · {} identical copies hidden",

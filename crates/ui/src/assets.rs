@@ -39,6 +39,14 @@ const ICONS: &[(&str, &[u8])] = &[
         include_bytes!("../../../assets/hugeicons/Cancel01Icon.svg"),
     ),
     (
+        "icons/alert-circle.svg",
+        include_bytes!("../../../assets/hugeicons/AlertCircleIcon.svg"),
+    ),
+    (
+        "icons/code-folder.svg",
+        include_bytes!("../../../assets/hugeicons/CodeFolderIcon.svg"),
+    ),
+    (
         "icons/compass.svg",
         include_bytes!("../../../assets/hugeicons/Compass01Icon.svg"),
     ),
@@ -61,6 +69,10 @@ const ICONS: &[(&str, &[u8])] = &[
     (
         "icons/github.svg",
         include_bytes!("../../../assets/hugeicons/GithubIcon.svg"),
+    ),
+    (
+        "icons/hard-drive.svg",
+        include_bytes!("../../../assets/hugeicons/HardDriveIcon.svg"),
     ),
     (
         "icons/history.svg",

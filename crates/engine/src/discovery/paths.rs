@@ -3,7 +3,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-pub(super) fn resolve(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
+pub(crate) fn resolve(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
     let mut pending = path
         .strip_prefix(boundary)
         .map_err(|_| refused())?

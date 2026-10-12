@@ -140,10 +140,6 @@ pub struct SkillDetails {
     pub validation: ValidationStatus,
     /// Individual validation findings.
     pub messages: Vec<ValidationMessage>,
-    /// Reader labels observed at source locations.
-    pub readers: Vec<String>,
-    /// Display paths of source observations.
-    pub sources: Vec<String>,
 }
 /// A revision-checked immutable library projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]

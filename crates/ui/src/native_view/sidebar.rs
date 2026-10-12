@@ -155,7 +155,17 @@ impl NativeView {
                     ),
             )
             .map(|sidebar| match &snapshot.library {
-                Some(library) => sidebar.child(self.render_folders(library, window, cx)),
+                Some(library) => sidebar.child(
+                    div()
+                        .id("sidebar-sections")
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .child(self.render_folders(library, window, cx))
+                        .child(self.render_projects(window, cx)),
+                ),
                 None => sidebar.child(div().flex_1()),
             })
             .child(
@@ -179,7 +189,7 @@ impl NativeView {
         label: &'static str,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let selected = self.route == route;
+        let selected = self.selected_target.is_none() && self.route == route;
         activate(
             row(
                 format!("nav-{}", label.to_lowercase()),

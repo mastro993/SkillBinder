@@ -18,7 +18,6 @@ struct Prepared {
     review: ImportPlan,
     after: Library,
     sources: Vec<Inspection>,
-    readers: Vec<Vec<String>>,
     catalog: String,
 }
 impl State {
@@ -57,7 +56,6 @@ impl State {
         let mut after = snapshot.library.clone();
         let mut items = Vec::new();
         let mut sources = Vec::new();
-        let mut readers = Vec::new();
         let mut selected_slugs = BTreeMap::new();
         for (candidate, previous) in selected {
             let resolved = fs::canonicalize(&candidate.display_path)
@@ -91,7 +89,7 @@ impl State {
                 .find(|(_, manifest)| manifest.equivalent(&inspection.manifest))
                 .map(|(id, _)| id.clone());
             let (skill_id, decision) = if let Some(id) = existing {
-                (id, ImportDecision::AttachObservation)
+                (id, ImportDecision::Existing)
             } else {
                 let id = SkillId::new();
                 let conflict = after
@@ -130,7 +128,6 @@ impl State {
                 messages: inspection.messages.clone(),
                 total_bytes: inspection.manifest.total_bytes(),
             });
-            readers.push(candidate.readers);
             sources.push(inspection);
         }
         validate_library(&after)?;
@@ -152,7 +149,6 @@ impl State {
             review: review.clone(),
             after,
             sources,
-            readers,
             catalog: fingerprint,
         };
         self.database
@@ -218,7 +214,7 @@ impl State {
         fs::create_dir(&staging).map_err(|_| AppError::storage())?;
         let staged = (|| {
             for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
-                if item.decision != ImportDecision::AttachObservation {
+                if item.decision != ImportDecision::Existing {
                     payload::materialize(source, &staging.join(item.skill_id.as_str()))?;
                 }
             }
@@ -263,19 +259,13 @@ impl State {
         let mut outcome = ImportOutcome {
             plan_id: id.clone(),
             imported: Vec::new(),
-            attached: Vec::new(),
+            existing: Vec::new(),
             conflicts: Vec::new(),
         };
         let mut touched = BTreeSet::new();
-        for ((item, source), readers) in prepared
-            .review
-            .items
-            .iter()
-            .zip(&prepared.sources)
-            .zip(&prepared.readers)
-        {
-            if item.decision == ImportDecision::AttachObservation {
-                outcome.attached.push(item.skill_id.clone());
+        for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
+            if item.decision == ImportDecision::Existing {
+                outcome.existing.push(item.skill_id.clone());
             } else {
                 moves.push(Move {
                     from: staging.join(item.skill_id.as_str()),
@@ -290,12 +280,6 @@ impl State {
             local.description = source.description.clone();
             local.validation = source.status;
             local.messages = source.messages.clone();
-            local.readers.extend(readers.clone());
-            local.readers.sort();
-            local.readers.dedup();
-            local.sources.push(item.source.clone());
-            local.sources.sort();
-            local.sources.dedup();
             touched.insert(item.skill_id.clone());
         }
         let result = self.commit(Journal {

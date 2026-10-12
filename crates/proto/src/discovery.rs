@@ -1,20 +1,6 @@
-use crate::{
-    CandidateId, GrantId, PlanId, RootId, ScanId, SkillId, ValidationMessage, ValidationStatus,
-};
+use crate::{CandidateId, GrantId, PlanId, ScanId, SkillId, ValidationMessage, ValidationStatus};
 use serde::{Deserialize, Serialize};
 
-/// A canonical registered project boundary.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProjectRoot {
-    /// Durable identity.
-    pub id: RootId,
-    /// User-facing canonical directory path.
-    pub path: String,
-    /// User-editable label.
-    pub label: String,
-    /// Whether discovery includes this boundary.
-    pub enabled: bool,
-}
 /// A single-use capability issued after native directory selection.
 #[derive(Clone, Debug)]
 pub struct DirectoryGrant {
@@ -78,8 +64,8 @@ pub struct ScanSnapshot {
 pub enum ImportDecision {
     /// A new managed payload.
     NewSkill,
-    /// Existing identical payload gains a source observation.
-    AttachObservation,
+    /// An identical payload is already in the library; nothing is copied.
+    Existing,
     /// Another distinct payload already has this slug.
     Conflict,
 }
@@ -124,8 +110,8 @@ pub struct ImportOutcome {
     pub plan_id: PlanId,
     /// Newly managed records.
     pub imported: Vec<SkillId>,
-    /// Existing records with new source observations.
-    pub attached: Vec<SkillId>,
+    /// Selected payloads already present in the library.
+    pub existing: Vec<SkillId>,
     /// Slugs requiring a user choice between distinct copies.
     pub conflicts: Vec<String>,
 }

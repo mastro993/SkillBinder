@@ -1,4 +1,7 @@
-use crate::{ImportOutcome, LibrarySnapshot, ProjectRoot, ScanSnapshot, SyncSnapshot};
+use crate::{
+    Deployment, DeploymentTarget, ImportOutcome, LibrarySnapshot, Project, ProjectAddition,
+    ScanSnapshot, SyncSnapshot,
+};
 use serde::{Deserialize, Serialize};
 
 /// Ordered, resumable onboarding steps.
@@ -96,8 +99,16 @@ pub struct AppSnapshot {
     pub bootstrap: Bootstrap,
     /// Library if onboarding has completed.
     pub library: Option<LibrarySnapshot>,
-    /// Configured project boundaries.
-    pub roots: Vec<ProjectRoot>,
+    /// Registry agent identities Root writes to.
+    pub root_agents: Vec<String>,
+    /// Added projects in user order.
+    pub projects: Vec<Project>,
+    /// Recorded deployments across Root and every project.
+    pub deployments: Vec<Deployment>,
+    /// The project being added, until its result is dismissed.
+    pub project_addition: Option<ProjectAddition>,
+    /// Targets whose background rescan is running.
+    pub rescanning: Vec<DeploymentTarget>,
     /// Current retained scan.
     pub scan: Option<ScanSnapshot>,
     /// Git connection and status.
