@@ -9,7 +9,8 @@ mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    ErrorCategory, ImportDecision, OnboardingStep, OrganizationChange, ScanStatus,
+    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep,
+    OrganizationChange, ScanStatus,
 };
 use std::{
     fs,
@@ -322,6 +323,73 @@ async fn folders_casefold_assign_and_stale_delete_preview() {
             .folder_id,
         None
     );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn folders_keep_user_order_and_colors() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    for name in ["Beta", "Alpha", "Gamma"] {
+        engine
+            .change_organization(OrganizationChange::CreateFolder { name: name.into() })
+            .await
+            .unwrap();
+    }
+    let names = |library: &LibrarySnapshot| -> Vec<(String, u32)> {
+        library
+            .library
+            .folders
+            .iter()
+            .map(|folder| (folder.name.clone(), folder.position))
+            .collect()
+    };
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(
+        names(&library),
+        [("Beta".into(), 0), ("Alpha".into(), 1), ("Gamma".into(), 2)]
+    );
+    let ids: Vec<_> = library
+        .library
+        .folders
+        .iter()
+        .map(|f| f.id.clone())
+        .collect();
+    assert_eq!(
+        category(
+            engine
+                .change_organization(OrganizationChange::ReorderFolders {
+                    order: vec![ids[0].clone(), ids[0].clone(), ids[1].clone()],
+                })
+                .await
+        ),
+        ErrorCategory::Stale
+    );
+    engine
+        .change_organization(OrganizationChange::ReorderFolders {
+            order: vec![ids[2].clone(), ids[0].clone(), ids[1].clone()],
+        })
+        .await
+        .unwrap();
+    engine
+        .change_organization(OrganizationChange::SetFolderColor {
+            id: ids[0].clone(),
+            color: Some(FolderColor::Green),
+        })
+        .await
+        .unwrap();
+    let preview = engine.preview_delete(ids[2].clone()).await.unwrap();
+    engine
+        .change_organization(OrganizationChange::DeleteFolder {
+            id: ids[2].clone(),
+            revision: preview.revision,
+        })
+        .await
+        .unwrap();
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(names(&library), [("Beta".into(), 0), ("Alpha".into(), 1)]);
+    assert_eq!(library.library.folders[0].color, Some(FolderColor::Green));
+    assert_eq!(library.library.folders[1].color, None);
     engine.shutdown().await.unwrap();
 }
 

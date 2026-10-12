@@ -16,13 +16,7 @@ impl NativeView {
             return page.child("Finish onboarding to open your library.");
         };
         let query = self.search.read(cx).value().trim().to_lowercase();
-        let mut folders: Vec<_> = library.library.folders.iter().collect();
-        folders.sort_by(|a, b| {
-            a.name
-                .to_lowercase()
-                .cmp(&b.name.to_lowercase())
-                .then_with(|| a.id.cmp(&b.id))
-        });
+        let folders: Vec<_> = library.library.folders.iter().collect();
         page = page.child(
             div()
                 .flex()

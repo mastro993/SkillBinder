@@ -29,7 +29,7 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - A scan observes source candidates without changing their bytes.
 - An import plan records immutable reviewed candidates and expires after 300 seconds.
 - A library owns portable metadata in `.skillbinder.json` schema 2 and payloads under `skills/<slug>/`.
-- A folder is flat. Each skill has at most one folder assignment.
+- A folder is flat. Each skill has at most one folder assignment. Folder order and color are portable organization data.
 - Sync and Push are explicit actions that may commit managed changes. Imports and organization changes remain uncommitted until those actions.
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.
