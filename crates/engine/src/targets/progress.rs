@@ -10,7 +10,7 @@ use std::{
 };
 
 pub(crate) struct Addition {
-    pub snapshot: ProjectAddition,
+    pub snapshot: WorkspaceAddition,
     pub cancel: Arc<AtomicBool>,
     pub checked: Arc<AtomicUsize>,
 }
@@ -37,7 +37,7 @@ impl TargetScans {
         self.progress.lock().map_err(|_| AppError::storage())
     }
 
-    pub(crate) fn current(&self) -> AppResult<(Option<ProjectAddition>, Vec<DeploymentTarget>)> {
+    pub(crate) fn current(&self) -> AppResult<(Option<WorkspaceAddition>, Vec<DeploymentTarget>)> {
         let progress = self.lock()?;
         let addition = progress.addition.as_ref().map(|addition| {
             let mut snapshot = addition.snapshot.clone();
@@ -57,12 +57,12 @@ impl TargetScans {
         {
             return Err(AppError::new(
                 ErrorCategory::Busy,
-                "Another project is still being added.",
+                "Another workspace is still being added.",
                 "Wait for it to finish or cancel it.",
             ));
         }
         let addition = Addition {
-            snapshot: ProjectAddition {
+            snapshot: WorkspaceAddition {
                 id: ScanId::new(),
                 name,
                 path,

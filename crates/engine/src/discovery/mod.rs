@@ -85,11 +85,11 @@ impl Scans {
     pub(crate) fn start(
         &self,
         config: EngineConfig,
-        projects: Vec<PathBuf>,
+        workspaces: Vec<PathBuf>,
         managed: BTreeSet<String>,
         log: Logger,
     ) -> AppResult<ScanSnapshot> {
-        self.start_with(config, projects, managed, log, |work| {
+        self.start_with(config, workspaces, managed, log, |work| {
             std::thread::Builder::new()
                 .name("skillbinder-discovery".into())
                 .spawn(work)
@@ -99,7 +99,7 @@ impl Scans {
     fn start_with(
         &self,
         config: EngineConfig,
-        projects: Vec<PathBuf>,
+        workspaces: Vec<PathBuf>,
         managed: BTreeSet<String>,
         log: Logger,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
@@ -130,7 +130,7 @@ impl Scans {
         let id = snapshot.id.clone();
         let failure_log = log.clone();
         if let Err(error) = launch(Box::new(move || {
-            let result = registry::locations(&config, &projects, &log).and_then(|locations| {
+            let result = registry::locations(&config, &workspaces, &log).and_then(|locations| {
                 traversal::scan(&scans, &id, locations, &managed, &cancel, &log)
             });
             if let Ok(mut state) = scans.0.lock()

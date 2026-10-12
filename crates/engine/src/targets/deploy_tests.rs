@@ -92,7 +92,7 @@ impl Fixture {
         // As a rescan would show it.
         let mut shown = state.deployments().unwrap().remove(0);
         shown.changes = [(shown.paths[0].clone(), CopyChange::Changed)].into();
-        state.resolve_drift(&shown, Drift::ProjectChanged, Remedy::UseLibrary)
+        state.resolve_drift(&shown, Drift::WorkspaceChanged, Remedy::UseLibrary)
     }
 
     fn copy_text(&self) -> String {
@@ -100,7 +100,7 @@ impl Fixture {
     }
 }
 
-const EDITED: &str = "edited in the project";
+const EDITED: &str = "edited in the workspace";
 const RESTORE_STEPS: [&str; 4] = [
     "deploy_staged",
     "deploy_set_aside",
@@ -222,11 +222,11 @@ fn recovery_keeps_a_copy_that_changed_before_it_was_confirmed() {
         .unwrap()
         .unwrap()
         .path();
-    fs::write(trash.join("SKILL.md"), "edited in the project").unwrap();
+    fs::write(trash.join("SKILL.md"), "edited in the workspace").unwrap();
     let state = fixture.reopen(state);
     assert_eq!(
         fs::read_to_string(fixture.copy().join("SKILL.md")).unwrap(),
-        "edited in the project"
+        "edited in the workspace"
     );
     assert_settled(&state, &fixture.copy(), true);
 }
@@ -282,8 +282,8 @@ fn recovery_sets_aside_a_changed_copy_whose_path_was_restored() {
         .unwrap()
         .unwrap()
         .path();
-    fs::write(trash.join("SKILL.md"), "edited in the project").unwrap();
-    // The project restored the original copy, for example from Git.
+    fs::write(trash.join("SKILL.md"), "edited in the workspace").unwrap();
+    // The workspace restored the original copy, for example from Git.
     fs::create_dir(fixture.copy()).unwrap();
     fs::copy(
         state.library_dir().join("skills/alpha/SKILL.md"),
@@ -308,7 +308,7 @@ fn recovery_sets_aside_a_changed_copy_whose_path_was_restored() {
     );
     assert_eq!(
         fs::read_to_string(kept[0].join("SKILL.md")).unwrap(),
-        "edited in the project"
+        "edited in the workspace"
     );
 }
 
@@ -320,7 +320,7 @@ fn a_second_crash_never_deletes_a_copy_that_replaced_a_deleted_one() {
     assert!(catch_unwind(AssertUnwindSafe(|| fixture.remove(&mut state, &[]))).is_err());
     // An agent writes an edited copy at the same path before SkillBinder restarts.
     fs::create_dir(fixture.copy()).unwrap();
-    fs::write(fixture.copy().join("SKILL.md"), "edited in the project").unwrap();
+    fs::write(fixture.copy().join("SKILL.md"), "edited in the workspace").unwrap();
     drop(state);
     let mut state = State::isolated_test_state(fixture.root.clone());
     inject(&[("remove_renamed", true)]);
@@ -328,7 +328,7 @@ fn a_second_crash_never_deletes_a_copy_that_replaced_a_deleted_one() {
     let state = fixture.reopen(state);
     assert_eq!(
         fs::read_to_string(fixture.copy().join("SKILL.md")).unwrap(),
-        "edited in the project"
+        "edited in the workspace"
     );
     assert_settled(&state, &fixture.copy(), true);
 }

@@ -4,7 +4,7 @@ The reviewed registry contains 79 agents. Runtime discovery is not implemented i
 
 Source: `vercel-labs/skills` at `7407f3893ad4dceab546ac002c3ef806e4000c73`.
 
-| Agent | ID | Project skills directory |
+| Agent | ID | Workspace skills directory |
 | --- | --- | --- |
 | AdaL | `adal` | `.adal/skills` |
 | AiderDesk | `aider-desk` | `.aider-desk/skills` |

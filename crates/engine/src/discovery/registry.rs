@@ -17,7 +17,9 @@ struct Registry {
 struct Agent {
     id: String,
     display_name: String,
-    project_skills_dir: String,
+    /// The upstream registry calls a workspace a project.
+    #[serde(rename = "projectSkillsDir")]
+    workspace_skills_dir: String,
     global_roots: Vec<String>,
 }
 pub(crate) struct Location {
@@ -27,7 +29,7 @@ pub(crate) struct Location {
     pub readers: Vec<String>,
     /// Registry identities of the same agents.
     pub agents: Vec<String>,
-    pub project: bool,
+    pub workspace: bool,
 }
 fn registry() -> AppResult<Registry> {
     serde_json::from_str(include_str!(
@@ -35,10 +37,10 @@ fn registry() -> AppResult<Registry> {
     ))
     .map_err(|_| AppError::storage())
 }
-/// Global agent locations under home, plus the direct skill directories of each project.
+/// Global agent locations under home, plus the direct skill directories of each workspace.
 pub(crate) fn locations(
     config: &EngineConfig,
-    projects: &[PathBuf],
+    workspaces: &[PathBuf],
     log: &Logger,
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
@@ -48,19 +50,19 @@ pub(crate) fn locations(
                 add(&mut combined, path, &config.home, &agent, false, log);
             }
         }
-        for boundary in projects {
-            let path = boundary.join(&agent.project_skills_dir);
+        for boundary in workspaces {
+            let path = boundary.join(&agent.workspace_skills_dir);
             add(&mut combined, path, boundary, &agent, true, log);
         }
     }
     Ok(combined.into_values().collect())
 }
-/// Relative project skill directories, each with the identities of the agents that read it.
-pub(crate) fn project_skill_dirs() -> AppResult<BTreeMap<String, Vec<String>>> {
+/// Relative workspace skill directories, each with the identities of the agents that read it.
+pub(crate) fn workspace_skill_dirs() -> AppResult<BTreeMap<String, Vec<String>>> {
     let mut directories: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for agent in registry()?.agents {
         directories
-            .entry(agent.project_skills_dir)
+            .entry(agent.workspace_skills_dir)
             .or_default()
             .push(agent.id);
     }
@@ -75,17 +77,17 @@ pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>
             global_skills_dir: global_dir(&agent, config).map(|path| path.display().to_string()),
             id: agent.id,
             display_name: agent.display_name,
-            project_skills_dir: agent.project_skills_dir,
+            workspace_skills_dir: agent.workspace_skills_dir,
         })
         .collect();
     options.sort_by_cached_key(|option| (option.display_name.to_lowercase(), option.id.clone()));
     Ok(options)
 }
-/// The skill directories `agents` read in a target: each agent's project skill directory in
-/// `project`, or its global skill directory for Global. Agents sharing a directory share it.
+/// The skill directories `agents` read in a target: each agent's workspace skill directory in
+/// `workspace`, or its global skill directory for Global. Agents sharing a directory share it.
 pub(crate) fn skill_dirs(
     config: &EngineConfig,
-    project: Option<&Path>,
+    workspace: Option<&Path>,
     agents: &[String],
 ) -> AppResult<BTreeSet<PathBuf>> {
     let registry = registry()?;
@@ -96,8 +98,8 @@ pub(crate) fn skill_dirs(
             .iter()
             .find(|agent| &agent.id == id)
             .ok_or_else(|| AppError::validation("Choose agents from the supported list."))?;
-        let directory = match project {
-            Some(project) => Some(project.join(&agent.project_skills_dir)),
+        let directory = match workspace {
+            Some(workspace) => Some(workspace.join(&agent.workspace_skills_dir)),
             None => global_dir(agent, config),
         };
         directories.insert(directory.ok_or_else(|| {
@@ -130,7 +132,7 @@ fn add(
     path: PathBuf,
     boundary: &Path,
     agent: &Agent,
-    project: bool,
+    workspace: bool,
     log: &Logger,
 ) {
     let canonical_boundary = fs::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
@@ -163,9 +165,9 @@ fn add(
             boundary: canonical_boundary,
             readers: Vec::new(),
             agents: Vec::new(),
-            project,
+            workspace,
         });
-    location.project |= project;
+    location.workspace |= workspace;
     for (list, value) in [
         (&mut location.readers, &agent.display_name),
         (&mut location.agents, &agent.id),
@@ -221,18 +223,18 @@ mod tests {
         assert_eq!(registry.agents.len(), 79);
         let temp = tempfile::tempdir()?;
         let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-        let projects = vec![temp.path().join("project")];
+        let workspaces = vec![temp.path().join("workspace")];
         let log = Logger::start(temp.path().join("logs"), &config.home)?;
-        let locations = locations(&config, &projects, &log)?;
+        let locations = locations(&config, &workspaces, &log)?;
         assert_eq!(
             locations
                 .iter()
-                .filter(|location| location.path == temp.path().join("project/.agents/skills"))
+                .filter(|location| location.path == temp.path().join("workspace/.agents/skills"))
                 .count(),
             1
         );
         assert!(locations.iter().any(|location| location.readers.len() > 1));
-        assert!(project_skill_dirs()?[".agents/skills"].len() > 1);
+        assert!(workspace_skill_dirs()?[".agents/skills"].len() > 1);
         assert_eq!(expand("${UNSET}/skills", &config), None);
         assert_eq!(
             expand("${UNSET:-~/.config}/skills", &config),

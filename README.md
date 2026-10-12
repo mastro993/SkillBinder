@@ -3,7 +3,7 @@
 [![Checks](https://github.com/mastro993/SkillBinder/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/mastro993/SkillBinder/actions/workflows/checks.yml?query=branch%3Amain)
 [![Native builds](https://github.com/mastro993/SkillBinder/actions/workflows/native.yml/badge.svg?branch=main)](https://github.com/mastro993/SkillBinder/actions/workflows/native.yml?query=branch%3Amain)
 
-SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover installed skills, review copies before importing them, organize a flat folder library, track which projects hold library skills, and synchronize its portable files through Git.
+SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover installed skills, review copies before importing them, organize a flat folder library, track which workspaces hold library skills, and synchronize its portable files through Git.
 
 ## Run
 
@@ -15,7 +15,7 @@ cargo run -p skillbinder --locked
 
 SkillBinder requires macOS 26 or newer on Apple silicon or Intel Macs. Windows and Linux builds are also supported.
 
-First launch checks Git 2.39 or newer and storage access, then creates a local library through four setup steps. Synchronization is optional. The sidebar lists Global, the global agent skill locations under your home folder, beside Discovery and Library, and a Projects section with the projects you add through the native directory picker. Adding a project scans it for skills and records the library skills it holds as deployments. Opening Global or a project shows its page, where you choose its target agents and add or remove skills; adding copies them into the agents' skill directories. Discovery searches the 79-agent registry and your projects. Imports copy files; they never modify sources.
+First launch checks Git 2.39 or newer and storage access, then creates a local library through four setup steps. Synchronization is optional. The sidebar's Workspaces section starts with System, the global agent skill locations under your home folder with the number of skills installed there, followed by the workspaces you add through the native directory picker. Adding a workspace scans it for skills and records the library skills it holds as deployments. Opening System or a workspace shows its page, where you choose its target agents and add or remove skills; adding copies them into the agents' skill directories. Discovery searches the 79-agent registry and your workspaces. Imports copy files; they never modify sources.
 
 The application uses a fresh `SkillBinder` directory beneath each operating system's local application-data directory. Existing `~/.skillbinder` data is left untouched. There is no migration or compatibility application.
 

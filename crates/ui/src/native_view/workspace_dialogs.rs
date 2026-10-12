@@ -1,4 +1,4 @@
-//! Adding a project through the native directory picker, its scan modal, and the remove
+//! Adding a workspace through the native directory picker, its scan modal, and the remove
 //! confirmation.
 
 use super::controls::{Inactive, button};
@@ -8,17 +8,17 @@ use gpui_kit::{Context, ParentElement, PathPromptOptions, Styled, div, prelude::
 use skillbinder_proto::*;
 
 impl NativeView {
-    /// Picks a folder, grants it, and adds it as a project. The scan's progress and outcome
+    /// Picks a folder, grants it, and adds it as a workspace. The scan's progress and outcome
     /// arrive through the snapshot; only refusals before the scan starts are errors here.
-    pub(super) fn choose_project_folder(&mut self, cx: &mut Context<Self>) {
-        if self.adding_project() {
+    pub(super) fn choose_workspace_folder(&mut self, cx: &mut Context<Self>) {
+        if self.adding_workspace() {
             return;
         }
         let picker = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Add project".into()),
+            prompt: Some("Add workspace".into()),
         });
         let client = self.client.clone();
         let handle = client.runtime().spawn(async move {
@@ -31,7 +31,7 @@ impl NativeView {
                 return Ok(());
             };
             let grant = client.grant_directory(path).await?;
-            client.add_project(grant.id).await.map(|_| ())
+            client.add_workspace(grant.id).await.map(|_| ())
         });
         cx.spawn(async move |this, cx| {
             let result = handle.await;
@@ -47,14 +47,14 @@ impl NativeView {
         .detach();
     }
 
-    /// Opens the modal while a project addition is retained, and closes it once dismissed.
+    /// Opens the modal while a workspace addition is retained, and closes it once dismissed.
     pub(super) fn sync_addition_dialog(&mut self) {
-        let addition = self.snapshot.project_addition.as_ref();
+        let addition = self.snapshot.workspace_addition.as_ref();
         let shown =
             addition.is_some_and(|addition| self.dismissed_addition.as_ref() != Some(&addition.id));
         match (&self.dialog, shown) {
-            (DialogState::None, true) => self.dialog = DialogState::AddProject,
-            (DialogState::AddProject, false) => self.dialog = DialogState::None,
+            (DialogState::None, true) => self.dialog = DialogState::AddWorkspace,
+            (DialogState::AddWorkspace, false) => self.dialog = DialogState::None,
             _ => {}
         }
         if addition.is_none() {
@@ -65,7 +65,7 @@ impl NativeView {
     /// Escape, the backdrop, Cancel, and Done close the modal: a running scan is cancelled,
     /// a finished one is dismissed.
     pub(super) fn close_addition(&mut self, cx: &mut Context<Self>) {
-        let Some(addition) = &self.snapshot.project_addition else {
+        let Some(addition) = &self.snapshot.workspace_addition else {
             return;
         };
         self.dismissed_addition = Some(addition.id.clone());
@@ -75,9 +75,9 @@ impl NativeView {
         // Not `run`: a cancel must never be dropped because another operation is pending.
         let handle = client.runtime().spawn(async move {
             if running {
-                client.cancel_project_addition().await
+                client.cancel_workspace_addition().await
             } else {
-                client.dismiss_project_addition().await.map(|()| true)
+                client.dismiss_workspace_addition().await.map(|()| true)
             }
         });
         cx.spawn(async move |this, cx| {
@@ -100,14 +100,14 @@ impl NativeView {
         cx.notify();
     }
 
-    pub(super) fn add_project_dialog(&self, dialog: Dialog, cx: &mut Context<Self>) -> Dialog {
-        let Some(addition) = &self.snapshot.project_addition else {
+    pub(super) fn add_workspace_dialog(&self, dialog: Dialog, cx: &mut Context<Self>) -> Dialog {
+        let Some(addition) = &self.snapshot.workspace_addition else {
             return dialog;
         };
         let (title, action) = match addition.status {
-            ScanStatus::Running => ("Adding project", "Cancel"),
-            ScanStatus::Finished => ("Project added", "Done"),
-            ScanStatus::Failed | ScanStatus::Cancelled => ("Could not add project", "Close"),
+            ScanStatus::Running => ("Adding workspace", "Cancel"),
+            ScanStatus::Finished => ("Workspace added", "Done"),
+            ScanStatus::Failed | ScanStatus::Cancelled => ("Could not add workspace", "Close"),
         };
         let mut body = div()
             .flex()
@@ -117,9 +117,9 @@ impl NativeView {
         body = match addition.status {
             ScanStatus::Running => body
                 .child(
-                    Progress::new("project-scan-progress")
+                    Progress::new("workspace-scan-progress")
                         .loading(true)
-                        .accessibility_label("Scanning project"),
+                        .accessibility_label("Scanning workspace"),
                 )
                 .child(format!("{} folders checked", addition.folders_checked)),
             ScanStatus::Finished => body
@@ -138,13 +138,13 @@ impl NativeView {
                 addition
                     .error
                     .clone()
-                    .unwrap_or_else(|| "The project could not be scanned.".into()),
+                    .unwrap_or_else(|| "The workspace could not be scanned.".into()),
             ),
         };
         let done = addition.status != ScanStatus::Running;
         dialog.title(title).child(body).footer(
             div().flex().gap_2().child(
-                button("project-addition-close")
+                button("workspace-addition-close")
                     .label(action)
                     .when(done, |button| button.primary())
                     .inactive(self.busy)
@@ -153,25 +153,28 @@ impl NativeView {
         )
     }
 
-    pub(super) fn remove_project_dialog(
+    pub(super) fn remove_workspace_dialog(
         &self,
         dialog: Dialog,
-        id: &ProjectId,
+        id: &WorkspaceId,
         cx: &mut Context<Self>,
     ) -> Dialog {
         let name = self
             .snapshot
-            .projects
+            .workspaces
             .iter()
-            .find(|project| &project.id == id)
-            .map_or_else(|| "this project".to_owned(), |project| project.name.clone());
-        let deployments = self.deployment_count(&DeploymentTarget::Project(id.clone()));
+            .find(|workspace| &workspace.id == id)
+            .map_or_else(
+                || "this workspace".to_owned(),
+                |workspace| workspace.name.clone(),
+            );
+        let deployments = self.deployment_count(&DeploymentTarget::Workspace(id.clone()));
         let id = id.clone();
         dialog
-            .title(self.dialog_title("Remove project", cx))
+            .title(self.dialog_title("Remove workspace", cx))
             .child(div().flex().flex_col().gap_2().child(format!("Remove {name}?")).child(
                 format!(
-                    "Removes the project and its {deployments} deployments from SkillBinder. Files in the folder are not touched."
+                    "Removes the workspace and its {deployments} deployments from SkillBinder. Files in the folder are not touched."
                 ),
             ))
             .footer(
@@ -188,14 +191,14 @@ impl NativeView {
                     )
                     .child(
                         button("remove-confirm")
-                            .label("Remove project")
+                            .label("Remove workspace")
                             .inactive(self.busy)
                             .on_click(cx.listener(move |view, _, _, cx| {
                                 let client = view.client.clone();
                                 let id = id.clone();
                                 view.run(
                                     async move {
-                                        client.remove_project(id).await.map(|_| Effect::CloseDialog)
+                                        client.remove_workspace(id).await.map(|_| Effect::CloseDialog)
                                     },
                                     cx,
                                 );

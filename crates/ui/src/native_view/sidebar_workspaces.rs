@@ -1,15 +1,15 @@
-//! The sidebar Projects section: user-ordered project rows with inline renaming, row menus,
-//! and drag reordering, the skeleton row of a project being added, and the background rescan
+//! The sidebar Workspaces section: user-ordered workspace rows with inline renaming, row menus,
+//! and drag reordering, the skeleton row of a workspace being added, and the background rescan
 //! that opening a target starts.
 
 use std::{cell::Cell, time::Instant};
 
 use super::controls::{Inactive, app_icon};
-use super::sidebar::GLOBAL;
+use super::sidebar::SYSTEM;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{
-    activate, add_button, count, detail, dot, icon_color, name_field, row, section_header, spinner,
+    activate, add_button, count, dot, icon_color, name_field, row, section_header, spinner,
 };
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
@@ -17,90 +17,92 @@ use gpui_kit::component::{
     input::{InputEvent, InputState},
     menu::{ContextMenuExt, PopupMenu, PopupMenuItem},
     skeleton::Skeleton,
+    tooltip::Tooltip,
 };
 use gpui_kit::{
     AnyElement, AppContext, Context, DragMoveEvent, Entity, InteractiveElement, IntoElement,
     MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{DeploymentTarget, Project, ProjectId, ScanStatus, SkillId};
+use skillbinder_proto::{DeploymentTarget, ScanStatus, SkillId, Workspace, WorkspaceId};
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, ICON_GAP, ICON_SIZE, INSET, RADIUS, ROW_GAP, ROW_HEIGHT, ROW_PADDING,
 };
 
 impl NativeView {
-    pub(super) fn render_projects(
+    pub(super) fn render_workspaces(
         &self,
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let now = Instant::now();
-        if self.project_reorder.moving(now) {
+        if self.workspace_reorder.moving(now) {
             window.request_animation_frame();
         }
         let (order, floating) = self
-            .project_reorder
-            .displayed(&self.project_ids(), cx.has_active_drag());
-        let projects = &self.snapshot.projects;
+            .workspace_reorder
+            .displayed(&self.workspace_ids(), cx.has_active_drag());
+        let workspaces = &self.snapshot.workspaces;
         let rows: Vec<AnyElement> = order
             .iter()
-            .filter_map(|id| projects.iter().find(|project| &project.id == id))
+            .filter_map(|id| workspaces.iter().find(|workspace| &workspace.id == id))
             .enumerate()
-            .map(|(index, project)| {
-                if self.project_edit.as_ref() == Some(&project.id) {
+            .map(|(index, workspace)| {
+                if self.workspace_edit.as_ref() == Some(&workspace.id) {
                     let icon = app_icon("code-folder").text_color(cx.theme().muted_foreground);
                     return name_field(
-                        "project-name-field",
+                        "workspace-name-field",
                         icon,
-                        &self.project_name,
+                        &self.workspace_name,
                         cx,
-                        Self::end_project_rename,
+                        Self::end_workspace_rename,
                     );
                 }
                 let placement = RowPlacement {
                     index,
                     len: order.len(),
-                    offset: self.project_reorder.offset(&project.id, now),
-                    floating: floating.as_ref() == Some(&project.id),
+                    offset: self.workspace_reorder.offset(&workspace.id, now),
+                    floating: floating.as_ref() == Some(&workspace.id),
                 };
-                self.render_project_row(project, placement, cx)
+                self.render_workspace_row(workspace, placement, cx)
             })
             .collect();
-        let adding = self.adding_project();
-        let add = add_button("project-add", "Add project", cx)
+        let adding = self.adding_workspace();
+        let add = add_button("workspace-add", "Add workspace", cx)
             .inactive(adding)
-            .on_click(cx.listener(|view, _, _, cx| view.choose_project_folder(cx)));
+            .on_click(cx.listener(|view, _, _, cx| view.choose_workspace_folder(cx)));
         div()
             .flex()
             .flex_col()
-            .child(section_header("Projects", add, cx))
+            .child(section_header("Workspaces", add, cx))
             .child(
                 div()
-                    .id("sidebar-projects")
+                    .id("sidebar-workspaces")
                     .flex()
                     .flex_col()
                     .gap(px(ROW_GAP))
+                    .child(self.render_system_row(cx))
                     .child(
-                        // Drag moves are measured from the first project slot.
+                        // Drag moves are measured from the first workspace slot.
                         div()
-                            .id("sidebar-project-rows")
+                            .id("sidebar-workspace-rows")
                             .flex()
                             .flex_col()
                             .gap(px(ROW_GAP))
                             .on_drag_move(cx.listener(
-                                |view, event: &DragMoveEvent<RowDrag<ProjectId>>, window, cx| {
+                                |view, event: &DragMoveEvent<RowDrag<WorkspaceId>>, window, cx| {
                                     let drag = event.drag(cx);
                                     let top = drag.top(event.event.position, event.bounds);
-                                    view.drag_project(drag.id.clone(), top, window, cx)
+                                    view.drag_workspace(drag.id.clone(), top, window, cx)
                                 },
                             ))
                             .on_mouse_up(
                                 MouseButton::Left,
-                                cx.listener(|view, _, _, cx| view.finish_project_drag(cx)),
+                                cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
                             )
                             .on_mouse_up_out(
                                 MouseButton::Left,
-                                cx.listener(|view, _, _, cx| view.finish_project_drag(cx)),
+                                cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
                             )
                             .children(rows),
                     )
@@ -108,26 +110,53 @@ impl NativeView {
             )
     }
 
-    fn render_project_row(
+    /// System is the Global deployment target: fixed first in Workspaces, so it cannot be
+    /// renamed, moved, or removed. Its count is the number of skills installed there, and its
+    /// tooltip shows the home folder its skills live under.
+    fn render_system_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let target = DeploymentTarget::Global;
+        let selected = self.route == Route::Target(target.clone());
+        let trailing = self.target_trailing(&target, false, cx);
+        let accessible = self.target_label(SYSTEM.to_owned(), &target);
+        let home: SharedString = self.snapshot.home.clone().into();
+        activate(
+            row(
+                "workspace-system",
+                app_icon("hard-drive"),
+                None,
+                SYSTEM,
+                selected,
+                cx,
+            ),
+            accessible,
+            cx,
+            |view, window, cx| view.open_target(DeploymentTarget::Global, window, cx),
+        )
+        .child(trailing)
+        .tooltip(move |window, cx| Tooltip::new(home.clone()).build(window, cx))
+        .into_any_element()
+    }
+
+    fn render_workspace_row(
         &self,
-        project: &Project,
+        workspace: &Workspace,
         placement: RowPlacement,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let target = DeploymentTarget::Project(project.id.clone());
+        let target = DeploymentTarget::Workspace(workspace.id.clone());
         let selected = self.route == Route::Target(target.clone());
-        let label: SharedString = project.name.clone().into();
-        let accessible = if project.missing {
-            format!("{}, folder missing", project.name)
+        let label: SharedString = workspace.name.clone().into();
+        let accessible = if workspace.missing {
+            format!("{}, folder missing", workspace.name)
         } else {
-            self.target_label(project.name.clone(), &target)
+            self.target_label(workspace.name.clone(), &target)
         };
-        let trailing = self.target_trailing(&target, project.missing, cx);
+        let trailing = self.target_trailing(&target, workspace.missing, cx);
         let deployed = self.deployment_count(&target);
-        let menu = self.project_menu(&project.id, placement.index, placement.len, cx);
+        let menu = self.workspace_menu(&workspace.id, placement.index, placement.len, cx);
         activate(
             row(
-                format!("project-{}", project.id),
+                format!("workspace-{}", workspace.id),
                 app_icon("code-folder"),
                 None,
                 label.clone(),
@@ -144,7 +173,7 @@ impl NativeView {
         .when(placement.floating, |row| row.opacity(0.0))
         .on_drag(
             RowDrag {
-                id: project.id.clone(),
+                id: workspace.id.clone(),
                 icon: "code-folder",
                 label,
                 tint: None,
@@ -171,7 +200,7 @@ impl NativeView {
     }
 
     /// A spinner while rescanning, a warning while the folder is missing, a warning dot while a
-    /// deployment drifted, else Global's `~` or a project's count.
+    /// deployment drifted, else the target's number of deployments.
     pub(super) fn target_trailing(
         &self,
         target: &DeploymentTarget,
@@ -189,17 +218,14 @@ impl NativeView {
         } else if self.drifted(target) > 0 {
             dot(cx.theme().warning)
         } else {
-            match target {
-                DeploymentTarget::Global => detail("~", cx),
-                DeploymentTarget::Project(_) => count(self.deployment_count(target), cx),
-            }
+            count(self.deployment_count(target), cx)
         }
     }
 
-    /// Rename, order, and remove actions for one project row.
-    fn project_menu(
+    /// Rename, order, and remove actions for one workspace row.
+    fn workspace_menu(
         &self,
-        id: &ProjectId,
+        id: &WorkspaceId,
         index: usize,
         len: usize,
         cx: &mut Context<Self>,
@@ -215,7 +241,7 @@ impl NativeView {
                     .on_click(menu_action(
                         view.clone(),
                         id.clone(),
-                        |view, id, window, cx| view.begin_project_rename(id, window, cx),
+                        |view, id, window, cx| view.begin_workspace_rename(id, window, cx),
                     )),
             )
             .separator()
@@ -226,7 +252,7 @@ impl NativeView {
                     .on_click(menu_action(
                         view.clone(),
                         id.clone(),
-                        move |view, id, _, cx| view.move_project(id, index.saturating_sub(1), cx),
+                        move |view, id, _, cx| view.move_workspace(id, index.saturating_sub(1), cx),
                     )),
             )
             .item(
@@ -236,7 +262,7 @@ impl NativeView {
                     .on_click(menu_action(
                         view.clone(),
                         id.clone(),
-                        move |view, id, _, cx| view.move_project(id, index + 1, cx),
+                        move |view, id, _, cx| view.move_workspace(id, index + 1, cx),
                     )),
             )
             .separator()
@@ -245,7 +271,7 @@ impl NativeView {
                 PopupMenuItem::element(move |_, _| div().text_color(danger).child("Remove…"))
                     .icon(menu_icon("delete", danger))
                     .on_click(menu_action(view.clone(), id.clone(), |view, id, _, cx| {
-                        view.dialog = DialogState::RemoveProject(id.clone());
+                        view.dialog = DialogState::RemoveWorkspace(id.clone());
                         cx.notify();
                     })),
             )
@@ -263,9 +289,9 @@ impl NativeView {
         self.client.spawn_rescan(target);
     }
 
-    pub(super) fn adding_project(&self) -> bool {
+    pub(super) fn adding_workspace(&self) -> bool {
         self.snapshot
-            .project_addition
+            .workspace_addition
             .as_ref()
             .is_some_and(|addition| addition.status == ScanStatus::Running)
     }
@@ -278,7 +304,7 @@ impl NativeView {
             .count()
     }
 
-    /// Names of the targets that hold `skill`: Global first, then projects in sidebar order.
+    /// Names of the targets that hold `skill`: System first, then workspaces in sidebar order.
     pub(super) fn deployment_targets(&self, skill: &SkillId) -> Vec<String> {
         let holds = |target: DeploymentTarget| {
             self.snapshot
@@ -286,98 +312,98 @@ impl NativeView {
                 .iter()
                 .any(|deployment| &deployment.skill_id == skill && deployment.target == target)
         };
-        let global = holds(DeploymentTarget::Global).then(|| GLOBAL.to_owned());
-        global
+        let system = holds(DeploymentTarget::Global).then(|| SYSTEM.to_owned());
+        system
             .into_iter()
             .chain(
                 self.snapshot
-                    .projects
+                    .workspaces
                     .iter()
-                    .filter(|project| holds(DeploymentTarget::Project(project.id.clone())))
-                    .map(|project| project.name.clone()),
+                    .filter(|workspace| holds(DeploymentTarget::Workspace(workspace.id.clone())))
+                    .map(|workspace| workspace.name.clone()),
             )
             .collect()
     }
 
-    fn project_ids(&self) -> Vec<ProjectId> {
+    fn workspace_ids(&self) -> Vec<WorkspaceId> {
         self.snapshot
-            .projects
+            .workspaces
             .iter()
-            .map(|project| project.id.clone())
+            .map(|workspace| workspace.id.clone())
             .collect()
     }
 
-    fn drag_project(
+    fn drag_workspace(
         &mut self,
-        id: ProjectId,
+        id: WorkspaceId,
         top: f32,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         grab_cursor(window, cx);
-        let stored = self.project_ids();
+        let stored = self.workspace_ids();
         if self
-            .project_reorder
+            .workspace_reorder
             .drag(&stored, &id, top, !cx.reduce_motion())
         {
             cx.notify();
         }
     }
 
-    fn finish_project_drag(&mut self, cx: &mut Context<Self>) {
-        let stored = self.project_ids();
+    fn finish_workspace_drag(&mut self, cx: &mut Context<Self>) {
+        let stored = self.workspace_ids();
         let (released, animate) = (cx.has_active_drag(), !cx.reduce_motion());
         if let Some(order) = self
-            .project_reorder
+            .workspace_reorder
             .finish(&stored, released, self.busy, animate)
         {
-            self.save_project_order(order, cx);
+            self.save_workspace_order(order, cx);
         }
         cx.notify();
     }
 
-    fn move_project(&mut self, id: &ProjectId, target: usize, cx: &mut Context<Self>) {
-        let stored = self.project_ids();
+    fn move_workspace(&mut self, id: &WorkspaceId, target: usize, cx: &mut Context<Self>) {
+        let stored = self.workspace_ids();
         let animate = !cx.reduce_motion();
         if let Some(order) = self
-            .project_reorder
+            .workspace_reorder
             .move_to(&stored, id, target, self.busy, animate)
         {
-            self.save_project_order(order, cx);
+            self.save_workspace_order(order, cx);
         }
         cx.notify();
     }
 
-    fn save_project_order(&mut self, order: Vec<ProjectId>, cx: &mut Context<Self>) {
+    fn save_workspace_order(&mut self, order: Vec<WorkspaceId>, cx: &mut Context<Self>) {
         let client = self.client.clone();
         self.run(
-            async move { client.reorder_projects(order).await.map(|_| Effect::None) },
+            async move { client.reorder_workspaces(order).await.map(|_| Effect::None) },
             cx,
         );
     }
 
-    fn begin_project_rename(
+    fn begin_workspace_rename(
         &mut self,
-        id: &ProjectId,
+        id: &WorkspaceId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let name = self
             .snapshot
-            .projects
+            .workspaces
             .iter()
-            .find(|project| &project.id == id)
-            .map(|project| project.name.clone())
+            .find(|workspace| &workspace.id == id)
+            .map(|workspace| workspace.name.clone())
             .unwrap_or_default();
-        self.project_edit = Some(id.clone());
-        self.project_name.update(cx, |input, cx| {
+        self.workspace_edit = Some(id.clone());
+        self.workspace_name.update(cx, |input, cx| {
             input.set_value(name, window, cx);
             input.focus(window, cx);
         });
         cx.notify();
     }
 
-    pub(super) fn project_name_event(
+    pub(super) fn workspace_name_event(
         &mut self,
         _: &Entity<InputState>,
         event: &InputEvent,
@@ -385,43 +411,48 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) {
         match event {
-            InputEvent::PressEnter { .. } => self.submit_project_rename(window, cx),
-            InputEvent::Blur => self.end_project_rename(window, cx),
+            InputEvent::PressEnter { .. } => self.submit_workspace_rename(window, cx),
+            InputEvent::Blur => self.end_workspace_rename(window, cx),
             InputEvent::Change | InputEvent::Focus => {}
         }
     }
 
-    fn submit_project_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let name = Self::input_text(&self.project_name, cx);
-        let Some(id) = self.project_edit.clone() else {
+    fn submit_workspace_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let name = Self::input_text(&self.workspace_name, cx);
+        let Some(id) = self.workspace_edit.clone() else {
             return;
         };
-        self.end_project_rename(window, cx);
+        self.end_workspace_rename(window, cx);
         if name.is_empty() {
             return;
         }
         let client = self.client.clone();
         self.run(
-            async move { client.rename_project(id, name).await.map(|_| Effect::None) },
+            async move {
+                client
+                    .rename_workspace(id, name)
+                    .await
+                    .map(|_| Effect::None)
+            },
             cx,
         );
     }
 
     /// Closes the inline field and returns keyboard focus to the window's shortcuts.
-    fn end_project_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.project_edit.take().is_some() {
+    fn end_workspace_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.workspace_edit.take().is_some() {
             window.focus(&self.focus, cx);
             cx.notify();
         }
     }
 }
 
-/// Placeholder row for the project being added.
+/// Placeholder row for the workspace being added.
 fn skeleton_row() -> AnyElement {
     let bar = || Skeleton::new().h(px(DETAIL_SIZE)).rounded(px(RADIUS / 2.0));
     div()
-        .id("project-skeleton")
-        .aria_label("Adding project")
+        .id("workspace-skeleton")
+        .aria_label("Adding workspace")
         .flex()
         .flex_shrink_0()
         .items_center()

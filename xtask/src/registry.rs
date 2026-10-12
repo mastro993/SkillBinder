@@ -35,7 +35,9 @@ struct Upstream {
 struct Agent {
     id: String,
     display_name: String,
-    project_skills_dir: String,
+    /// The upstream registry calls a workspace a project.
+    #[serde(rename = "projectSkillsDir")]
+    workspace_skills_dir: String,
 }
 
 fn load(root: &Path) -> anyhow::Result<Registry> {
@@ -81,13 +83,13 @@ fn document(mut registry: Registry) -> anyhow::Result<String> {
     )?;
     writeln!(
         text,
-        "| Agent | ID | Project skills directory |\n| --- | --- | --- |"
+        "| Agent | ID | Workspace skills directory |\n| --- | --- | --- |"
     )?;
     for agent in registry.agents {
         writeln!(
             text,
             "| {} | `{}` | `{}` |",
-            agent.display_name, agent.id, agent.project_skills_dir
+            agent.display_name, agent.id, agent.workspace_skills_dir
         )?;
     }
     Ok(text)

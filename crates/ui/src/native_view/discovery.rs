@@ -67,7 +67,7 @@ impl NativeView {
             .flex_col()
             .gap_4()
             .child("Discovery")
-            .child("Find skills in Global and in your projects.");
+            .child("Find installed skills and skills in your workspaces.");
         if let Some(scan) = scan {
             page = page.child(format!(
                 "{:?} · {} locations checked · {} already in library",

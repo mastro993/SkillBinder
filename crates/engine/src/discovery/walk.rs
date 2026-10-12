@@ -10,7 +10,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-const PROJECT_EXCLUSIONS: &[&str] = &[
+const WORKSPACE_EXCLUSIONS: &[&str] = &[
     ".git",
     ".hg",
     ".svn",
@@ -51,11 +51,11 @@ pub(crate) struct Visit<'a> {
     pub skill: bool,
 }
 
-/// Traversal policy: project boundaries use the project limits, exclusions, and mount stop.
+/// Traversal policy: workspace boundaries use the workspace limits, exclusions, and mount stop.
 pub(crate) struct Walk<'a> {
     pub boundary: &'a Path,
-    pub project: bool,
-    /// Canonical directories never entered, such as nested projects.
+    pub workspace: bool,
+    /// Canonical directories never entered, such as nested workspaces.
     pub skip: &'a BTreeSet<PathBuf>,
     pub cancel: &'a AtomicBool,
     pub log: &'a Logger,
@@ -82,8 +82,8 @@ impl Walk<'_> {
         let mut seen = BTreeSet::new();
         let mut budget = Budget {
             entries: 0,
-            max_entries: if self.project { 200_000 } else { 5000 },
-            max_depth: if self.project { 12 } else { 8 },
+            max_entries: if self.workspace { 200_000 } else { 5000 },
+            max_depth: if self.workspace { 12 } else { 8 },
         };
         while let Some((path, depth)) = queue.pop() {
             if self.cancelled() {
@@ -105,7 +105,7 @@ impl Walk<'_> {
                 }
             };
             if !canonical.starts_with(self.boundary)
-                || !same_mount(self.boundary, &canonical, self.project)
+                || !same_mount(self.boundary, &canonical, self.workspace)
                 || self.skip.contains(&canonical)
                 || !seen.insert(canonical.clone())
             {
@@ -165,7 +165,7 @@ impl Walk<'_> {
             let name = child.file_name();
             let name = name.to_string_lossy();
             skill |= name == "SKILL.md";
-            if excluded(&name, self.project) {
+            if excluded(&name, self.workspace) {
                 self.log.record(format!(
                     "Excluded discovery directory {}",
                     child.path().display()
@@ -180,9 +180,9 @@ impl Walk<'_> {
     }
 }
 
-fn excluded(name: &str, project: bool) -> bool {
-    if project {
-        PROJECT_EXCLUSIONS.contains(&name)
+fn excluded(name: &str, workspace: bool) -> bool {
+    if workspace {
+        WORKSPACE_EXCLUSIONS.contains(&name)
     } else {
         name == ".git" || name == "node_modules"
     }

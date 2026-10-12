@@ -1,10 +1,10 @@
-//! The page of Global or a project: its target agents, which can be edited, its deployments,
+//! The page of System (the Global target) or a workspace: its target agents, which can be edited, its deployments,
 //! which can be added, removed, and resolved when they drift, and its importable skills.
 
 use std::collections::BTreeSet;
 
 use super::controls::{Inactive, button};
-use super::sidebar::GLOBAL;
+use super::sidebar::SYSTEM;
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, checkbox::Checkbox};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
@@ -16,15 +16,17 @@ impl NativeView {
         target: &DeploymentTarget,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let project = match target {
+        let workspace = match target {
             DeploymentTarget::Global => None,
-            DeploymentTarget::Project(id) => self.snapshot.projects.iter().find(|p| &p.id == id),
+            DeploymentTarget::Workspace(id) => {
+                self.snapshot.workspaces.iter().find(|p| &p.id == id)
+            }
         };
-        let location = project.map_or_else(
-            || "Global agent skill locations under your home".to_owned(),
-            |project| project.path.clone(),
+        let location = workspace.map_or_else(
+            || "Agent skill locations under your home".to_owned(),
+            |workspace| workspace.path.clone(),
         );
-        let missing = project.is_some_and(|project| project.missing);
+        let missing = workspace.is_some_and(|workspace| workspace.missing);
         div()
             .flex()
             .flex_col()
@@ -32,7 +34,7 @@ impl NativeView {
             .child(self.target_name(target))
             .child(location)
             .children(missing.then_some(
-                "The project folder is missing. Its deployments are kept until it returns.",
+                "The workspace folder is missing. Its deployments are kept until it returns.",
             ))
             .child(self.render_target_agents(target, cx))
             .child(self.render_deployments(target, missing, cx))
@@ -40,28 +42,31 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Global, or the project's name.
+    /// System, or the workspace's name.
     pub(super) fn target_name(&self, target: &DeploymentTarget) -> String {
         match target {
-            DeploymentTarget::Global => GLOBAL.to_owned(),
-            DeploymentTarget::Project(id) => self
+            DeploymentTarget::Global => SYSTEM.to_owned(),
+            DeploymentTarget::Workspace(id) => self
                 .snapshot
-                .projects
+                .workspaces
                 .iter()
-                .find(|project| &project.id == id)
-                .map_or_else(|| "Project".to_owned(), |project| project.name.clone()),
+                .find(|workspace| &workspace.id == id)
+                .map_or_else(
+                    || "Workspace".to_owned(),
+                    |workspace| workspace.name.clone(),
+                ),
         }
     }
 
     pub(super) fn target_agents(&self, target: &DeploymentTarget) -> &[String] {
         match target {
             DeploymentTarget::Global => &self.snapshot.global_agents,
-            DeploymentTarget::Project(id) => self
+            DeploymentTarget::Workspace(id) => self
                 .snapshot
-                .projects
+                .workspaces
                 .iter()
-                .find(|project| &project.id == id)
-                .map_or(&[], |project| &project.agents),
+                .find(|workspace| &workspace.id == id)
+                .map_or(&[], |workspace| &workspace.agents),
         }
     }
 
@@ -73,7 +78,7 @@ impl NativeView {
             .filter_map(|agent| {
                 let directory = match target {
                     DeploymentTarget::Global => agent.global_skills_dir.clone()?,
-                    DeploymentTarget::Project(_) => agent.project_skills_dir.clone(),
+                    DeploymentTarget::Workspace(_) => agent.workspace_skills_dir.clone(),
                 };
                 Some((
                     agent.id.clone(),

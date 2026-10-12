@@ -4,8 +4,8 @@
 )]
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    AppResult, Candidate, ErrorCategory, OnboardingStep, ProjectAddition, ScanSnapshot, ScanStatus,
-    SkillId,
+    AppResult, Candidate, ErrorCategory, OnboardingStep, ScanSnapshot, ScanStatus, SkillId,
+    WorkspaceAddition,
 };
 use std::{
     fs,
@@ -18,7 +18,7 @@ pub struct Fixture {
     _temp: TempDir,
     pub data: PathBuf,
     pub home: PathBuf,
-    pub project: PathBuf,
+    pub workspace: PathBuf,
 }
 
 impl Fixture {
@@ -26,13 +26,13 @@ impl Fixture {
         let temp = tempfile::tempdir().unwrap();
         let data = temp.path().join("data");
         let home = temp.path().join("home");
-        let project = temp.path().join("project");
-        fs::create_dir_all(&project).unwrap();
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).unwrap();
         Self {
             _temp: temp,
             data,
             home,
-            project,
+            workspace,
         }
     }
 
@@ -41,7 +41,7 @@ impl Fixture {
     }
 
     pub fn skill(&self, slug: &str, body: &str) -> PathBuf {
-        write_skill(&self.project.join(".agents/skills"), slug, body)
+        write_skill(&self.workspace.join(".agents/skills"), slug, body)
     }
 
     pub async fn ready(&self) -> Engine {
@@ -57,9 +57,9 @@ impl Fixture {
         engine
     }
 
-    /// Adds the fixture project and waits for its scan to be saved.
-    pub async fn register(&self, engine: &Engine) -> ProjectAddition {
-        add_project(engine, &self.project).await
+    /// Adds the fixture workspace and waits for its scan to be saved.
+    pub async fn register(&self, engine: &Engine) -> WorkspaceAddition {
+        add_workspace(engine, &self.workspace).await
     }
 
     pub async fn scan(&self, engine: &Engine) -> ScanSnapshot {
@@ -113,16 +113,16 @@ pub fn write_skill(directory: &Path, slug: &str, body: &str) -> PathBuf {
     directory
 }
 
-pub async fn add_project(engine: &Engine, path: &Path) -> ProjectAddition {
+pub async fn add_workspace(engine: &Engine, path: &Path) -> WorkspaceAddition {
     let grant = engine.grant_directory(path.to_owned()).await.unwrap();
-    let addition = engine.add_project(grant.id).await.unwrap().unwrap();
+    let addition = engine.add_workspace(grant.id).await.unwrap().unwrap();
     assert_eq!(
         addition.status,
         ScanStatus::Finished,
         "{:?}",
         addition.error
     );
-    engine.dismiss_project_addition().unwrap();
+    engine.dismiss_workspace_addition().unwrap();
     addition
 }
 

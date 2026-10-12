@@ -63,7 +63,7 @@ pub(super) fn scan(
         }
         let walk = Walk {
             boundary: &location.boundary,
-            project: location.project,
+            workspace: location.workspace,
             skip: &skip,
             cancel,
             log,

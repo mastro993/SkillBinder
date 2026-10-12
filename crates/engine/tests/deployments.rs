@@ -1,4 +1,4 @@
-//! Adding skills to Global and projects, and removing them, in isolated roots.
+//! Adding skills to Global and workspaces, and removing them, in isolated roots.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
@@ -29,10 +29,10 @@ async fn library_skill(fixture: &Fixture, engine: &Engine) -> SkillId {
     skill
 }
 
-async fn project(fixture: &Fixture, engine: &Engine) -> DeploymentTarget {
+async fn workspace(fixture: &Fixture, engine: &Engine) -> DeploymentTarget {
     fixture.register(engine).await;
     let snapshot = engine.snapshot().await.unwrap();
-    DeploymentTarget::Project(snapshot.projects[0].id.clone())
+    DeploymentTarget::Workspace(snapshot.workspaces[0].id.clone())
 }
 
 fn deployment<'a>(snapshot: &'a AppSnapshot, target: &DeploymentTarget) -> Option<&'a Deployment> {
@@ -64,12 +64,12 @@ async fn adding_copies_bytes_into_every_agent_directory_and_records_them() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let skill = library_skill(&fixture, &engine).await;
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     let skills = vec![skill.clone()];
 
     // A target without agent skill directories asks for agents first.
     assert!(
-        engine.snapshot().await.unwrap().projects[0]
+        engine.snapshot().await.unwrap().workspaces[0]
             .agents
             .is_empty()
     );
@@ -98,10 +98,10 @@ async fn adding_copies_bytes_into_every_agent_directory_and_records_them() {
     let library = snapshot.library.as_ref().unwrap();
     let recorded = deployment(&snapshot, &target).unwrap();
     let copies = [
-        fixture.project.join(".agents/skills/alpha"),
-        fixture.project.join(".claude/skills/alpha"),
+        fixture.workspace.join(".agents/skills/alpha"),
+        fixture.workspace.join(".claude/skills/alpha"),
     ];
-    let canonical = fs::canonicalize(&fixture.project).unwrap();
+    let canonical = fs::canonicalize(&fixture.workspace).unwrap();
     let expected: Vec<_> = [".agents/skills/alpha", ".claude/skills/alpha"]
         .iter()
         .map(|relative| canonical.join(relative).display().to_string())
@@ -158,7 +158,7 @@ async fn a_different_copy_in_the_way_refuses_the_addition_before_any_write() {
     let engine = fixture.ready().await;
     let skill = library_skill(&fixture, &engine).await;
     let theirs = fixture.skill("alpha", "Theirs");
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     engine
         .set_target_agents(target.clone(), vec!["claude-code".into(), "codex".into()])
         .await
@@ -169,7 +169,7 @@ async fn a_different_copy_in_the_way_refuses_the_addition_before_any_write() {
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::Validation);
     assert!(error.message.contains("already holds a different alpha"));
-    assert!(!fixture.project.join(".claude/skills/alpha").exists());
+    assert!(!fixture.workspace.join(".claude/skills/alpha").exists());
     assert!(
         fs::read_to_string(theirs.join("SKILL.md"))
             .unwrap()
@@ -184,7 +184,7 @@ async fn removing_deletes_only_the_recorded_copies_and_keeps_the_library_skill()
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let skill = library_skill(&fixture, &engine).await;
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     engine
         .set_target_agents(target.clone(), vec!["claude-code".into()])
         .await
@@ -194,8 +194,8 @@ async fn removing_deletes_only_the_recorded_copies_and_keeps_the_library_skill()
         .await
         .unwrap();
     // Neighbours of the recorded copy, and an identical copy nobody recorded.
-    let neighbour = write_skill(&fixture.project.join(".claude/skills"), "beta", "Beta");
-    let vendored = fixture.project.join("vendor/alpha");
+    let neighbour = write_skill(&fixture.workspace.join(".claude/skills"), "beta", "Beta");
+    let vendored = fixture.workspace.join("vendor/alpha");
     let source = fixture.data.join("library/skills/alpha");
     fs::create_dir_all(&vendored).unwrap();
     fs::copy(source.join("SKILL.md"), vendored.join("SKILL.md")).unwrap();
@@ -205,7 +205,7 @@ async fn removing_deletes_only_the_recorded_copies_and_keeps_the_library_skill()
         .await
         .unwrap();
     assert_eq!(removal, Removal::Removed);
-    assert!(!fixture.project.join(".claude/skills/alpha").exists());
+    assert!(!fixture.workspace.join(".claude/skills/alpha").exists());
     assert!(neighbour.join("SKILL.md").exists());
     assert!(vendored.join("SKILL.md").exists());
     let snapshot = engine.snapshot().await.unwrap();
@@ -224,7 +224,7 @@ async fn a_changed_copy_is_removed_only_after_confirmation() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let skill = library_skill(&fixture, &engine).await;
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     engine
         .set_target_agents(target.clone(), vec!["claude-code".into(), "codex".into()])
         .await
@@ -233,8 +233,8 @@ async fn a_changed_copy_is_removed_only_after_confirmation() {
         .add_deployments(target.clone(), vec![skill.clone()])
         .await
         .unwrap();
-    let edited = fixture.project.join(".claude/skills/alpha");
-    fs::write(edited.join("SKILL.md"), "edited in the project").unwrap();
+    let edited = fixture.workspace.join(".claude/skills/alpha");
+    fs::write(edited.join("SKILL.md"), "edited in the workspace").unwrap();
 
     let removal = engine
         .remove_deployment(target.clone(), skill.clone(), Vec::new())
@@ -248,7 +248,7 @@ async fn a_changed_copy_is_removed_only_after_confirmation() {
         }
     );
     assert!(edited.join("SKILL.md").exists());
-    assert!(fixture.project.join(".agents/skills/alpha").exists());
+    assert!(fixture.workspace.join(".agents/skills/alpha").exists());
     assert!(deployment(&engine.snapshot().await.unwrap(), &target).is_some());
 
     // A rescan keeps the changed copy recorded, so removing it still asks first.
@@ -257,7 +257,7 @@ async fn a_changed_copy_is_removed_only_after_confirmation() {
     assert_eq!(deployment(&snapshot, &target).unwrap().paths.len(), 2);
 
     // Confirming one changed copy never discards another that changed after the prompt.
-    let other = fixture.project.join(".agents/skills/alpha");
+    let other = fixture.workspace.join(".agents/skills/alpha");
     fs::write(other.join("SKILL.md"), "edited by an agent").unwrap();
     let removal = engine
         .remove_deployment(target.clone(), skill.clone(), vec![canonical.clone()])
@@ -291,11 +291,14 @@ async fn agents_whose_directories_are_the_same_folder_share_one_copy() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let skill = library_skill(&fixture, &engine).await;
-    fs::create_dir_all(fixture.project.join(".agents/skills")).unwrap();
-    fs::create_dir_all(fixture.project.join(".claude")).unwrap();
-    std::os::unix::fs::symlink("../.agents/skills", fixture.project.join(".claude/skills"))
-        .unwrap();
-    let target = project(&fixture, &engine).await;
+    fs::create_dir_all(fixture.workspace.join(".agents/skills")).unwrap();
+    fs::create_dir_all(fixture.workspace.join(".claude")).unwrap();
+    std::os::unix::fs::symlink(
+        "../.agents/skills",
+        fixture.workspace.join(".claude/skills"),
+    )
+    .unwrap();
+    let target = workspace(&fixture, &engine).await;
     engine
         .set_target_agents(target.clone(), vec!["claude-code".into(), "codex".into()])
         .await
@@ -306,7 +309,7 @@ async fn agents_whose_directories_are_the_same_folder_share_one_copy() {
         .unwrap();
     assert_identical(
         &fixture.data.join("library/skills/alpha"),
-        &fixture.project.join(".agents/skills/alpha"),
+        &fixture.workspace.join(".agents/skills/alpha"),
     );
     let snapshot = engine.snapshot().await.unwrap();
     assert_eq!(deployment(&snapshot, &target).unwrap().paths.len(), 1);

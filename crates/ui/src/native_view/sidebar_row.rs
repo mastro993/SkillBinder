@@ -104,7 +104,7 @@ pub(super) fn count(value: usize, cx: &App) -> AnyElement {
 }
 
 /// A short muted trailing text with tabular figures.
-pub(super) fn detail(text: impl Into<SharedString>, cx: &App) -> AnyElement {
+fn detail(text: impl Into<SharedString>, cx: &App) -> AnyElement {
     div()
         .flex_shrink_0()
         .text_size(px(DETAIL_SIZE))

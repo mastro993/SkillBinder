@@ -17,35 +17,35 @@ use std::{
 
 /// Where a target may be written.
 pub(super) struct Place {
-    /// The project folder, or `None` for Global.
-    project: Option<PathBuf>,
+    /// The workspace folder, or `None` for Global.
+    workspace: Option<PathBuf>,
     /// Folders that every write and deletion must stay inside.
     pub(super) boundaries: Vec<PathBuf>,
 }
 
 impl State {
     fn place(&self, target: &DeploymentTarget) -> AppResult<Place> {
-        let DeploymentTarget::Project(id) = target else {
+        let DeploymentTarget::Workspace(id) = target else {
             return Ok(Place {
-                project: None,
+                workspace: None,
                 boundaries: registry::global_dirs(&self.config)?,
             });
         };
         let path = self
-            .project_path(id)?
-            .ok_or_else(|| AppError::not_found("Project no longer exists."))?;
+            .workspace_path(id)?
+            .ok_or_else(|| AppError::not_found("Workspace no longer exists."))?;
         Ok(Place {
-            project: Some(path.clone()),
+            workspace: Some(path.clone()),
             boundaries: vec![path],
         })
     }
 
-    /// Like `place`, but refuses a project whose folder is missing.
+    /// Like `place`, but refuses a workspace whose folder is missing.
     pub(super) fn writable_place(&self, target: &DeploymentTarget) -> AppResult<Place> {
         let place = self.place(target)?;
-        if place.project.as_ref().is_some_and(|path| !path.is_dir()) {
+        if place.workspace.as_ref().is_some_and(|path| !path.is_dir()) {
             return Err(AppError::validation(
-                "The project folder is missing. Reconnect it, then try again.",
+                "The workspace folder is missing. Reconnect it, then try again.",
             ));
         }
         Ok(place)
@@ -59,7 +59,7 @@ impl State {
         agents: &[String],
     ) -> AppResult<()> {
         let place = self.place(target)?;
-        registry::skill_dirs(&self.config, place.project.as_deref(), agents)?;
+        registry::skill_dirs(&self.config, place.workspace.as_deref(), agents)?;
         let agents: BTreeSet<_> = agents.iter().collect();
         let transaction = self
             .database
@@ -100,7 +100,7 @@ impl State {
                 "Choose the agents this target writes to, then add skills.",
             ));
         }
-        let directories = registry::skill_dirs(&self.config, place.project.as_deref(), &agents)?;
+        let directories = registry::skill_dirs(&self.config, place.workspace.as_deref(), &agents)?;
         let library = self.read_library()?;
         let deployed = self.deployments()?;
         let mut deployments = Vec::new();

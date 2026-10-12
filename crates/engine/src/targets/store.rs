@@ -1,4 +1,4 @@
-//! Project rows, target agents, and deployment rows in machine-local SQLite.
+//! Workspace rows, target agents, and deployment rows in machine-local SQLite.
 
 use super::{key, target};
 use crate::{library::validate_name, worker::State};
@@ -7,15 +7,15 @@ use skillbinder_proto::*;
 use std::path::Path;
 
 impl State {
-    pub(crate) fn projects(&self) -> AppResult<Vec<Project>> {
+    pub(crate) fn workspaces(&self) -> AppResult<Vec<Workspace>> {
         let mut query = self
             .database
-            .prepare("SELECT id,canonical_path,name,position FROM projects ORDER BY position,id")
+            .prepare("SELECT id,canonical_path,name,position FROM workspaces ORDER BY position,id")
             .map_err(|_| AppError::storage())?;
         let rows = query
             .query_map([], |row| {
                 Ok((
-                    ProjectId(row.get(0)?),
+                    WorkspaceId(row.get(0)?),
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, u32>(3)?,
@@ -26,8 +26,8 @@ impl State {
             .map_err(|_| AppError::storage())?;
         rows.into_iter()
             .map(|(id, path, name, position)| {
-                Ok(Project {
-                    agents: self.target_agents(&DeploymentTarget::Project(id.clone()))?,
+                Ok(Workspace {
+                    agents: self.target_agents(&DeploymentTarget::Workspace(id.clone()))?,
                     missing: !Path::new(&path).is_dir(),
                     id,
                     name,
@@ -83,30 +83,32 @@ impl State {
             .collect()
     }
 
-    pub(crate) fn rename_project(&self, id: &ProjectId, name: &str) -> AppResult<()> {
+    pub(crate) fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> AppResult<()> {
         let name = validate_name(name)?;
         let changed = self
             .database
             .execute(
-                "UPDATE projects SET name=?1 WHERE id=?2",
+                "UPDATE workspaces SET name=?1 WHERE id=?2",
                 params![name, id.as_str()],
             )
             .map_err(|_| AppError::storage())?;
         if changed == 0 {
-            return Err(AppError::not_found("Project no longer exists."));
+            return Err(AppError::not_found("Workspace no longer exists."));
         }
         Ok(())
     }
 
-    /// Replaces the project order with a permutation of every project.
-    pub(crate) fn reorder_projects(&mut self, order: &[ProjectId]) -> AppResult<()> {
+    /// Replaces the workspace order with a permutation of every workspace.
+    pub(crate) fn reorder_workspaces(&mut self, order: &[WorkspaceId]) -> AppResult<()> {
         let mut requested: Vec<_> = order.iter().collect();
         requested.sort();
-        let current = self.projects()?;
-        let mut stored: Vec<_> = current.iter().map(|project| &project.id).collect();
+        let current = self.workspaces()?;
+        let mut stored: Vec<_> = current.iter().map(|workspace| &workspace.id).collect();
         stored.sort();
         if requested != stored {
-            return Err(AppError::stale("The projects changed. Reorder them again."));
+            return Err(AppError::stale(
+                "The workspaces changed. Reorder them again.",
+            ));
         }
         let transaction = self
             .database
@@ -115,7 +117,7 @@ impl State {
         for (position, id) in order.iter().enumerate() {
             transaction
                 .execute(
-                    "UPDATE projects SET position=?1 WHERE id=?2",
+                    "UPDATE workspaces SET position=?1 WHERE id=?2",
                     params![position as u32, id.as_str()],
                 )
                 .map_err(|_| AppError::storage())?;
@@ -123,15 +125,15 @@ impl State {
         transaction.commit().map_err(|_| AppError::storage())
     }
 
-    /// Forgets a project, its agents, and its deployments. Files in the folder are not touched.
-    /// Returns the projects that contain it, whose scans may now include its folder.
-    pub(crate) fn remove_project(&mut self, id: &ProjectId) -> AppResult<Vec<ProjectId>> {
-        let projects = self.projects()?;
-        let removed = projects
+    /// Forgets a workspace, its agents, and its deployments. Files in the folder are not touched.
+    /// Returns the workspaces that contain it, whose scans may now include its folder.
+    pub(crate) fn remove_workspace(&mut self, id: &WorkspaceId) -> AppResult<Vec<WorkspaceId>> {
+        let workspaces = self.workspaces()?;
+        let removed = workspaces
             .iter()
-            .find(|project| &project.id == id)
-            .ok_or_else(|| AppError::not_found("Project no longer exists."))?;
-        let target = DeploymentTarget::Project(id.clone());
+            .find(|workspace| &workspace.id == id)
+            .ok_or_else(|| AppError::not_found("Workspace no longer exists."))?;
+        let target = DeploymentTarget::Workspace(id.clone());
         let transaction = self
             .database
             .transaction()
@@ -139,28 +141,28 @@ impl State {
         for statement in [
             "DELETE FROM deployments WHERE target=?1",
             "DELETE FROM target_agents WHERE target=?1",
-            "DELETE FROM projects WHERE id=?1",
+            "DELETE FROM workspaces WHERE id=?1",
         ] {
             transaction
                 .execute(statement, [key(&target)])
                 .map_err(|_| AppError::storage())?;
         }
-        for (position, project) in projects.iter().filter(|p| &p.id != id).enumerate() {
+        for (position, workspace) in workspaces.iter().filter(|p| &p.id != id).enumerate() {
             transaction
                 .execute(
-                    "UPDATE projects SET position=?1 WHERE id=?2",
-                    params![position as u32, project.id.as_str()],
+                    "UPDATE workspaces SET position=?1 WHERE id=?2",
+                    params![position as u32, workspace.id.as_str()],
                 )
                 .map_err(|_| AppError::storage())?;
         }
         transaction.commit().map_err(|_| AppError::storage())?;
         self.importables.remove(&target);
-        Ok(projects
+        Ok(workspaces
             .iter()
-            .filter(|project| {
-                &project.id != id && Path::new(&removed.path).starts_with(&project.path)
+            .filter(|workspace| {
+                &workspace.id != id && Path::new(&removed.path).starts_with(&workspace.path)
             })
-            .map(|project| project.id.clone())
+            .map(|workspace| workspace.id.clone())
             .collect())
     }
 }

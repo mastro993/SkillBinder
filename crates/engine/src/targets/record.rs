@@ -15,9 +15,9 @@ use std::{
     sync::atomic::Ordering,
 };
 
-/// A project that exists only until its first scan is saved.
-pub(crate) struct PendingProject {
-    pub id: ProjectId,
+/// A workspace that exists only until its first scan is saved.
+pub(crate) struct PendingWorkspace {
+    pub id: WorkspaceId,
     pub name: String,
     pub path: PathBuf,
 }
@@ -29,11 +29,11 @@ pub(crate) struct Summary {
 }
 
 impl State {
-    /// Consumes a directory grant for a new project; an exact duplicate folder is refused.
-    pub(crate) fn prepare_project(
+    /// Consumes a directory grant for a new workspace; an exact duplicate folder is refused.
+    pub(crate) fn prepare_workspace(
         &mut self,
         grant: &GrantId,
-    ) -> AppResult<(PendingProject, Scope)> {
+    ) -> AppResult<(PendingWorkspace, Scope)> {
         self.require_library()?;
         let path = self.take_grant(grant)?;
         let display = path
@@ -42,7 +42,7 @@ impl State {
         let existing = self
             .database
             .query_row(
-                "SELECT name FROM projects WHERE canonical_path=?1",
+                "SELECT name FROM workspaces WHERE canonical_path=?1",
                 [display],
                 |row| row.get::<_, String>(0),
             )
@@ -54,48 +54,48 @@ impl State {
             )));
         }
         let name = path.file_name().map_or_else(
-            || "Project".to_owned(),
+            || "Workspace".to_owned(),
             |name| name.to_string_lossy().into_owned(),
         );
-        let scope = Scope::Project {
-            nested: self.nested_projects(&path)?,
+        let scope = Scope::Workspace {
+            nested: self.nested_workspaces(&path)?,
             path: path.clone(),
         };
-        let project = PendingProject {
-            id: ProjectId::new(),
+        let workspace = PendingWorkspace {
+            id: WorkspaceId::new(),
             name,
             path,
         };
-        Ok((project, scope))
+        Ok((workspace, scope))
     }
 
     /// What a rescan covers, or `None` when there is nothing to scan: the library is not set up,
-    /// or the project folder is missing and keeps its last deployments.
+    /// or the workspace folder is missing and keeps its last deployments.
     pub(crate) fn rescan_scope(&self, target: &DeploymentTarget) -> AppResult<Option<Scope>> {
         if self.require_library().is_err() {
             return Ok(None);
         }
-        let DeploymentTarget::Project(id) = target else {
+        let DeploymentTarget::Workspace(id) = target else {
             return Ok(Some(Scope::Global));
         };
-        // A removed project has nothing to scan; an unreadable folder counts as missing.
-        let Some(path) = self.project_path(id)? else {
+        // A removed workspace has nothing to scan; an unreadable folder counts as missing.
+        let Some(path) = self.workspace_path(id)? else {
             return Ok(None);
         };
         if fs::read_dir(&path).is_err() {
             return Ok(None);
         }
-        Ok(Some(Scope::Project {
-            nested: self.nested_projects(&path)?,
+        Ok(Some(Scope::Workspace {
+            nested: self.nested_workspaces(&path)?,
             path,
         }))
     }
 
-    pub(super) fn project_path(&self, id: &ProjectId) -> AppResult<Option<PathBuf>> {
+    pub(super) fn workspace_path(&self, id: &WorkspaceId) -> AppResult<Option<PathBuf>> {
         Ok(self
             .database
             .query_row(
-                "SELECT canonical_path FROM projects WHERE id=?1",
+                "SELECT canonical_path FROM workspaces WHERE id=?1",
                 [id.as_str()],
                 |row| row.get::<_, String>(0),
             )
@@ -104,11 +104,11 @@ impl State {
             .map(PathBuf::from))
     }
 
-    pub(super) fn nested_projects(&self, path: &Path) -> AppResult<BTreeSet<PathBuf>> {
+    pub(super) fn nested_workspaces(&self, path: &Path) -> AppResult<BTreeSet<PathBuf>> {
         Ok(self
-            .projects()?
+            .workspaces()?
             .into_iter()
-            .map(|project| PathBuf::from(project.path))
+            .map(|workspace| PathBuf::from(workspace.path))
             .filter(|other| other != path && other.starts_with(path))
             .collect())
     }
@@ -118,7 +118,9 @@ impl State {
         if step == OnboardingStep::Complete {
             Ok(())
         } else {
-            Err(AppError::validation("Finish setup before adding projects."))
+            Err(AppError::validation(
+                "Finish setup before adding workspaces.",
+            ))
         }
     }
 
@@ -127,9 +129,9 @@ impl State {
     pub(crate) fn finish_addition(
         &mut self,
         id: &ScanId,
-        pending: &PendingProject,
+        pending: &PendingWorkspace,
         findings: AppResult<Findings>,
-    ) -> AppResult<Option<ProjectAddition>> {
+    ) -> AppResult<Option<WorkspaceAddition>> {
         let scans = self.targets.clone();
         let mut progress = scans.lock()?;
         let Some(current) = progress.addition.as_mut().filter(|addition| {
@@ -137,7 +139,7 @@ impl State {
         }) else {
             return Ok(None);
         };
-        let target = DeploymentTarget::Project(pending.id.clone());
+        let target = DeploymentTarget::Workspace(pending.id.clone());
         let snapshot = &mut current.snapshot;
         snapshot.folders_checked = current.checked.load(Ordering::Relaxed);
         match findings.and_then(|findings| self.record_scan(&target, Some(pending), findings)) {
@@ -156,19 +158,19 @@ impl State {
     }
 
     /// Replaces the target's deployments with the library skills its scan found, and saves a
-    /// new project with them, in one transaction. A recorded copy stays recorded with its
+    /// new workspace with them, in one transaction. A recorded copy stays recorded with its
     /// digest when it changed or disappeared, and the scan records how it differs, so the user
     /// resolves the drift and removing a changed copy asks first.
     pub(crate) fn record_scan(
         &mut self,
         target: &DeploymentTarget,
-        new: Option<&PendingProject>,
+        new: Option<&PendingWorkspace>,
         findings: Findings,
     ) -> AppResult<Summary> {
-        // Projects added or removed while the scan ran decide again which copies it holds.
+        // Workspaces added or removed while the scan ran decide again which copies it holds.
         let nested = match (new, target) {
-            (None, DeploymentTarget::Project(id)) => match self.project_path(id)? {
-                Some(path) => self.nested_projects(&path)?,
+            (None, DeploymentTarget::Workspace(id)) => match self.workspace_path(id)? {
+                Some(path) => self.nested_workspaces(&path)?,
                 None => {
                     return Ok(Summary {
                         in_library: 0,
@@ -189,7 +191,7 @@ impl State {
         for copy in findings.copies {
             if nested
                 .iter()
-                .any(|project| Path::new(&copy.path).starts_with(project))
+                .any(|workspace| Path::new(&copy.path).starts_with(workspace))
             {
                 continue;
             }
@@ -214,8 +216,8 @@ impl State {
             .database
             .transaction()
             .map_err(|_| AppError::storage())?;
-        if let Some(project) = new {
-            insert_project(&transaction, project)?;
+        if let Some(workspace) = new {
+            insert_workspace(&transaction, workspace)?;
         }
         replace_deployments(&transaction, target, &deployed, &found)?;
         seed_agents(&transaction, target, &findings.agents)?;
@@ -230,7 +232,7 @@ impl State {
     }
 
     /// Adds the target's recorded copies that the scan did not match, such as changed or
-    /// missing copies, while they lie outside nested projects and their skill stays in the
+    /// missing copies, while they lie outside nested workspaces and their skill stays in the
     /// library.
     fn retain_recorded(
         &self,
@@ -252,7 +254,7 @@ impl State {
             for path in recorded.paths {
                 let inside = nested
                     .iter()
-                    .any(|project| Path::new(&path).starts_with(project));
+                    .any(|workspace| Path::new(&path).starts_with(workspace));
                 if found.contains(&path) || inside {
                     continue;
                 }
@@ -276,7 +278,7 @@ impl State {
             let mut query = self
                 .database
                 .prepare(
-                    "SELECT COALESCE(p.name,'Global') FROM deployments d LEFT JOIN projects p ON p.id=d.target \
+                    "SELECT COALESCE(p.name,'Global') FROM deployments d LEFT JOIN workspaces p ON p.id=d.target \
                      WHERE d.skill_id=?1 ORDER BY d.target<>'global',p.position",
                 )
                 .map_err(|_| AppError::storage())?;
@@ -297,25 +299,25 @@ impl State {
     }
 }
 
-/// Inserts a new project last, and takes the copies inside it away from the projects that
-/// contain it: the deepest project wins.
-fn insert_project(transaction: &Transaction, project: &PendingProject) -> AppResult<()> {
-    let path = project.path.display().to_string();
+/// Inserts a new workspace last, and takes the copies inside it away from the workspaces that
+/// contain it: the deepest workspace wins.
+fn insert_workspace(transaction: &Transaction, workspace: &PendingWorkspace) -> AppResult<()> {
+    let path = workspace.path.display().to_string();
     transaction
         .execute(
-            "INSERT INTO projects(id,canonical_path,name,position,created_at) \
-             VALUES(?1,?2,?3,(SELECT COALESCE(MAX(position)+1,0) FROM projects),?4)",
-            params![project.id.as_str(), path, project.name, now()],
+            "INSERT INTO workspaces(id,canonical_path,name,position,created_at) \
+             VALUES(?1,?2,?3,(SELECT COALESCE(MAX(position)+1,0) FROM workspaces),?4)",
+            params![workspace.id.as_str(), path, workspace.name, now()],
         )
         .map_err(|_| AppError::storage())?;
     let mut query = transaction
         .prepare(
             "SELECT d.target,d.skill_id,d.paths,p.canonical_path,d.changes FROM deployments d \
-             JOIN projects p ON p.id=d.target WHERE p.id<>?1",
+             JOIN workspaces p ON p.id=d.target WHERE p.id<>?1",
         )
         .map_err(|_| AppError::storage())?;
     let rows = query
-        .query_map([project.id.as_str()], |row| {
+        .query_map([workspace.id.as_str()], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
@@ -328,11 +330,11 @@ fn insert_project(transaction: &Transaction, project: &PendingProject) -> AppRes
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| AppError::storage())?;
     for (target, skill, paths, ancestor, changes) in rows {
-        if !project.path.starts_with(&ancestor) {
+        if !workspace.path.starts_with(&ancestor) {
             continue;
         }
         let paths: Vec<String> = serde_json::from_str(&paths).map_err(|_| AppError::storage())?;
-        let outside = |path: &String| !Path::new(path).starts_with(&project.path);
+        let outside = |path: &String| !Path::new(path).starts_with(&workspace.path);
         let kept: Vec<_> = paths.iter().filter(|path| outside(path)).collect();
         let mut changes: BTreeMap<String, CopyChange> =
             serde_json::from_str(&changes).map_err(|_| AppError::storage())?;

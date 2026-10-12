@@ -67,10 +67,10 @@ async fn onboarding_requires_each_step_and_survives_restart() {
 }
 
 #[tokio::test]
-async fn scan_deduplicates_shared_readers_and_stays_inside_known_project_locations() {
+async fn scan_deduplicates_shared_readers_and_stays_inside_known_workspace_locations() {
     let fixture = Fixture::new();
     fixture.skill("known", "Expected source");
-    let unrelated = fixture.project.join("docs/unknown");
+    let unrelated = fixture.workspace.join("docs/unknown");
     fs::create_dir_all(&unrelated).unwrap();
     fs::write(
         unrelated.join("SKILL.md"),

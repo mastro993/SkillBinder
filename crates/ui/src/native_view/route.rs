@@ -6,7 +6,6 @@ use skillbinder_proto::{DeploymentTarget, FolderId};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum LibraryFilter {
     All,
-    Unfiled,
     Folder(FolderId),
 }
 
@@ -15,7 +14,7 @@ pub(super) enum LibraryFilter {
 pub(super) enum Route {
     Discovery,
     Library(LibraryFilter),
-    /// The page of Global or a project: `project/{id}`, or Global's own route.
+    /// The page of Global or a workspace: `workspace/{id}`, or Global's own route.
     Target(DeploymentTarget),
     Sync,
     Settings,
@@ -59,35 +58,35 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::{History, LibraryFilter, Route};
-    use skillbinder_proto::{DeploymentTarget, ProjectId};
+    use skillbinder_proto::{DeploymentTarget, WorkspaceId};
 
     #[test]
     fn back_and_forward_walk_the_visited_routes() {
         let mut history = History::default();
-        let unfiled = Route::Library(LibraryFilter::Unfiled);
+        let library = Route::Library(LibraryFilter::All);
         history.push(Route::Discovery);
-        history.push(unfiled.clone());
-        assert_eq!(history.back(Route::Settings), Some(unfiled.clone()));
-        assert_eq!(history.back(unfiled.clone()), Some(Route::Discovery));
+        history.push(library.clone());
+        assert_eq!(history.back(Route::Settings), Some(library.clone()));
+        assert_eq!(history.back(library.clone()), Some(Route::Discovery));
         assert_eq!(history.back(Route::Discovery), None);
-        assert_eq!(history.forward(Route::Discovery), Some(unfiled.clone()));
-        assert_eq!(history.forward(unfiled), Some(Route::Settings));
+        assert_eq!(history.forward(Route::Discovery), Some(library.clone()));
+        assert_eq!(history.forward(library), Some(Route::Settings));
         assert!(!history.can_go_forward());
     }
 
     #[test]
     fn target_pages_join_the_history() {
         let mut history = History::default();
-        let project = Route::Target(DeploymentTarget::Project(ProjectId::new()));
+        let workspace = Route::Target(DeploymentTarget::Workspace(WorkspaceId::new()));
         history.push(Route::Discovery);
         history.push(Route::Target(DeploymentTarget::Global));
         assert_eq!(
-            history.back(project.clone()),
+            history.back(workspace.clone()),
             Some(Route::Target(DeploymentTarget::Global))
         );
         assert_eq!(
             history.forward(Route::Target(DeploymentTarget::Global)),
-            Some(project)
+            Some(workspace)
         );
     }
 

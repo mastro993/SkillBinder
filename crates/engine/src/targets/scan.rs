@@ -21,11 +21,11 @@ use std::{
 pub(crate) enum Scope {
     /// The registry's global agent locations under home.
     Global,
-    /// Agent skill directories anywhere inside a project folder, except inside nested projects.
-    Project {
-        /// Canonical project folder.
+    /// Agent skill directories anywhere inside a workspace folder, except inside nested workspaces.
+    Workspace {
+        /// Canonical workspace folder.
         path: PathBuf,
-        /// Canonical folders of other projects inside this one; the deepest project wins.
+        /// Canonical folders of other workspaces inside this one; the deepest workspace wins.
         nested: BTreeSet<PathBuf>,
     },
 }
@@ -65,8 +65,8 @@ pub(crate) fn scan(config: &EngineConfig, scope: &Scope, control: &Control) -> A
                 .collect();
             (locations, agents, &none)
         }
-        Scope::Project { path, nested } => {
-            let (locations, agents) = project_locations(path, nested, control)?;
+        Scope::Workspace { path, nested } => {
+            let (locations, agents) = workspace_locations(path, nested, control)?;
             (locations, agents, nested)
         }
     };
@@ -75,7 +75,7 @@ pub(crate) fn scan(config: &EngineConfig, scope: &Scope, control: &Control) -> A
     for location in locations {
         let walk = Walk {
             boundary: &location.boundary,
-            project: location.project,
+            workspace: location.workspace,
             skip,
             cancel: control.cancel,
             log: control.log,
@@ -109,18 +109,18 @@ pub(crate) fn scan(config: &EngineConfig, scope: &Scope, control: &Control) -> A
     Ok(Findings { agents, copies })
 }
 
-/// Walks the project for directories that hold a known project skill directory.
-fn project_locations(
+/// Walks the workspace for directories that hold a known workspace skill directory.
+fn workspace_locations(
     root: &Path,
     nested: &BTreeSet<PathBuf>,
     control: &Control,
 ) -> AppResult<(Vec<Location>, BTreeSet<String>)> {
-    let directories = registry::project_skill_dirs()?;
+    let directories = registry::workspace_skill_dirs()?;
     let mut found: BTreeMap<PathBuf, Location> = BTreeMap::new();
     let mut agents = BTreeSet::new();
     let walk = Walk {
         boundary: root,
-        project: true,
+        workspace: true,
         skip: nested,
         cancel: control.cancel,
         log: control.log,
@@ -141,7 +141,10 @@ fn project_locations(
                     .record(format!("Unreadable target location {}", path.display()));
                 continue;
             };
-            if nested.iter().any(|project| canonical.starts_with(project)) {
+            if nested
+                .iter()
+                .any(|workspace| canonical.starts_with(workspace))
+            {
                 continue;
             }
             if visit.canonical == root {
@@ -152,7 +155,7 @@ fn project_locations(
                 boundary: root.to_path_buf(),
                 readers: Vec::new(),
                 agents: ids.clone(),
-                project: true,
+                workspace: true,
             });
         }
         Ok(true)

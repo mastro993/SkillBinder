@@ -17,11 +17,11 @@ struct Setup {
     fixture: Fixture,
     engine: Engine,
     skill: SkillId,
-    project: DeploymentTarget,
+    workspace: DeploymentTarget,
 }
 
 impl Setup {
-    /// `alpha` in the library, deployed to Global for Claude Code and to a project for Claude
+    /// `alpha` in the library, deployed to Global for Claude Code and to a workspace for Claude
     /// Code and Codex.
     async fn new() -> Self {
         let fixture = Fixture::new();
@@ -33,11 +33,14 @@ impl Setup {
             .await;
         fs::remove_dir_all(source).unwrap();
         fixture.register(&engine).await;
-        let id = engine.snapshot().await.unwrap().projects[0].id.clone();
-        let project = DeploymentTarget::Project(id);
+        let id = engine.snapshot().await.unwrap().workspaces[0].id.clone();
+        let workspace = DeploymentTarget::Workspace(id);
         for (target, agents) in [
             (DeploymentTarget::Global, vec!["claude-code".into()]),
-            (project.clone(), vec!["claude-code".into(), "codex".into()]),
+            (
+                workspace.clone(),
+                vec!["claude-code".into(), "codex".into()],
+            ),
         ] {
             engine
                 .set_target_agents(target.clone(), agents)
@@ -52,7 +55,7 @@ impl Setup {
             fixture,
             engine,
             skill,
-            project,
+            workspace,
         }
     }
 
@@ -64,13 +67,13 @@ impl Setup {
         self.fixture.home.join(".claude/skills/alpha")
     }
 
-    fn project_copy(&self) -> std::path::PathBuf {
-        self.fixture.project.join(".claude/skills/alpha")
+    fn workspace_copy(&self) -> std::path::PathBuf {
+        self.fixture.workspace.join(".claude/skills/alpha")
     }
 
-    /// The project's Codex copy, which drift tests leave alone unless they say otherwise.
+    /// The workspace's Codex copy, which drift tests leave alone unless they say otherwise.
     fn codex_copy(&self) -> std::path::PathBuf {
-        self.fixture.project.join(".agents/skills/alpha")
+        self.fixture.workspace.join(".agents/skills/alpha")
     }
 
     /// The target's deployment as a page shows it; drift never drops a deployment.
@@ -128,42 +131,42 @@ fn commit_library(library: &Path) -> bool {
 }
 
 #[tokio::test]
-async fn a_project_change_is_restored_or_accepted_into_the_library() {
+async fn a_workspace_change_is_restored_or_accepted_into_the_library() {
     let setup = Setup::new().await;
-    let project = setup.project.clone();
-    edit(&setup.project_copy(), "Edited in the project");
-    assert_eq!(setup.drift(&project).await, Some(Drift::ProjectChanged));
+    let workspace = setup.workspace.clone();
+    edit(&setup.workspace_copy(), "Edited in the workspace");
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::WorkspaceChanged));
 
     // A remedy chosen for another state writes nothing.
     assert_eq!(
         category(
             setup
-                .resolve(&project, Drift::Outdated, Remedy::UseLibrary)
+                .resolve(&workspace, Drift::Outdated, Remedy::UseLibrary)
                 .await
         ),
         ErrorCategory::Stale
     );
-    assert!(body(&setup.project_copy()).contains("Edited in the project"));
+    assert!(body(&setup.workspace_copy()).contains("Edited in the workspace"));
 
     // Restore from library.
     setup
-        .resolve(&project, Drift::ProjectChanged, Remedy::UseLibrary)
+        .resolve(&workspace, Drift::WorkspaceChanged, Remedy::UseLibrary)
         .await
         .unwrap();
-    assert_eq!(body(&setup.project_copy()), body(&setup.library()));
-    assert_eq!(setup.drift(&project).await, None);
+    assert_eq!(body(&setup.workspace_copy()), body(&setup.library()));
+    assert_eq!(setup.drift(&workspace).await, None);
 
     // Accept into library; the library change stays uncommitted until Sync.
-    edit(&setup.project_copy(), "Accepted");
-    assert_eq!(setup.drift(&project).await, Some(Drift::ProjectChanged));
+    edit(&setup.workspace_copy(), "Accepted");
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::WorkspaceChanged));
     let committed = commit_library(&setup.fixture.data.join("library"));
     setup
-        .resolve(&project, Drift::ProjectChanged, Remedy::UseProject)
+        .resolve(&workspace, Drift::WorkspaceChanged, Remedy::UseWorkspace)
         .await
         .unwrap();
     assert!(body(&setup.library()).contains("Accepted"));
     assert!(body(&setup.codex_copy()).contains("Accepted"));
-    assert_eq!(setup.drift(&project).await, None);
+    assert_eq!(setup.drift(&workspace).await, None);
     let snapshot = setup.engine.snapshot().await.unwrap();
     if committed {
         assert!(snapshot.sync.uncommitted);
@@ -178,13 +181,13 @@ async fn a_project_change_is_restored_or_accepted_into_the_library() {
     assert_eq!(
         category(
             setup
-                .resolve(&global, Drift::Outdated, Remedy::UseProject)
+                .resolve(&global, Drift::Outdated, Remedy::UseWorkspace)
                 .await
         ),
         ErrorCategory::Validation
     );
 
-    // Update project.
+    // Update workspace.
     setup
         .resolve(&global, Drift::Outdated, Remedy::UseLibrary)
         .await
@@ -197,38 +200,38 @@ async fn a_project_change_is_restored_or_accepted_into_the_library() {
 #[tokio::test]
 async fn a_conflict_keeps_the_side_the_user_picks() {
     let setup = Setup::new().await;
-    let (global, project) = (DeploymentTarget::Global, setup.project.clone());
+    let (global, workspace) = (DeploymentTarget::Global, setup.workspace.clone());
     let change_library = async |body: &str| {
         edit(&setup.global_copy(), body);
-        assert_eq!(setup.drift(&global).await, Some(Drift::ProjectChanged));
+        assert_eq!(setup.drift(&global).await, Some(Drift::WorkspaceChanged));
         setup
-            .resolve(&global, Drift::ProjectChanged, Remedy::UseProject)
+            .resolve(&global, Drift::WorkspaceChanged, Remedy::UseWorkspace)
             .await
             .unwrap();
     };
 
     // Keep the library side.
     change_library("Library side").await;
-    edit(&setup.project_copy(), "Project side");
-    assert_eq!(setup.drift(&project).await, Some(Drift::Conflict));
+    edit(&setup.workspace_copy(), "Workspace side");
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::Conflict));
     setup
-        .resolve(&project, Drift::Conflict, Remedy::UseLibrary)
+        .resolve(&workspace, Drift::Conflict, Remedy::UseLibrary)
         .await
         .unwrap();
-    assert!(body(&setup.project_copy()).contains("Library side"));
-    assert_eq!(setup.drift(&project).await, None);
+    assert!(body(&setup.workspace_copy()).contains("Library side"));
+    assert_eq!(setup.drift(&workspace).await, None);
 
-    // Keep the project side.
-    edit(&setup.project_copy(), "Project side");
+    // Keep the workspace side.
+    edit(&setup.workspace_copy(), "Workspace side");
     change_library("Library again").await;
-    assert_eq!(setup.drift(&project).await, Some(Drift::Conflict));
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::Conflict));
     setup
-        .resolve(&project, Drift::Conflict, Remedy::UseProject)
+        .resolve(&workspace, Drift::Conflict, Remedy::UseWorkspace)
         .await
         .unwrap();
-    assert!(body(&setup.library()).contains("Project side"));
-    assert!(body(&setup.project_copy()).contains("Project side"));
-    assert_eq!(setup.drift(&project).await, None);
+    assert!(body(&setup.library()).contains("Workspace side"));
+    assert!(body(&setup.workspace_copy()).contains("Workspace side"));
+    assert_eq!(setup.drift(&workspace).await, None);
     assert_eq!(setup.drift(&global).await, Some(Drift::Outdated));
     setup.engine.shutdown().await.unwrap();
 }
@@ -236,61 +239,61 @@ async fn a_conflict_keeps_the_side_the_user_picks() {
 #[tokio::test]
 async fn a_missing_copy_is_redeployed_or_its_deployment_removed() {
     let setup = Setup::new().await;
-    let project = setup.project.clone();
-    fs::remove_dir_all(setup.project_copy()).unwrap();
-    assert_eq!(setup.drift(&project).await, Some(Drift::Missing));
+    let workspace = setup.workspace.clone();
+    fs::remove_dir_all(setup.workspace_copy()).unwrap();
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::Missing));
 
-    // A missing project folder blocks every remedy.
-    let moved = setup.fixture.project.with_file_name("moved");
-    fs::rename(&setup.fixture.project, &moved).unwrap();
+    // A missing workspace folder blocks every remedy.
+    let moved = setup.fixture.workspace.with_file_name("moved");
+    fs::rename(&setup.fixture.workspace, &moved).unwrap();
     assert_eq!(
         category(
             setup
-                .resolve(&project, Drift::Missing, Remedy::UseLibrary)
+                .resolve(&workspace, Drift::Missing, Remedy::UseLibrary)
                 .await
         ),
         ErrorCategory::Validation
     );
-    fs::rename(&moved, &setup.fixture.project).unwrap();
+    fs::rename(&moved, &setup.fixture.workspace).unwrap();
 
     // Redeploy.
     setup
-        .resolve(&project, Drift::Missing, Remedy::UseLibrary)
+        .resolve(&workspace, Drift::Missing, Remedy::UseLibrary)
         .await
         .unwrap();
-    assert_eq!(body(&setup.project_copy()), body(&setup.library()));
-    assert_eq!(setup.drift(&project).await, None);
+    assert_eq!(body(&setup.workspace_copy()), body(&setup.library()));
+    assert_eq!(setup.drift(&workspace).await, None);
 
     // Remove deployment.
-    fs::remove_dir_all(setup.project_copy()).unwrap();
-    assert_eq!(setup.drift(&project).await, Some(Drift::Missing));
+    fs::remove_dir_all(setup.workspace_copy()).unwrap();
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::Missing));
     let removal = setup
         .engine
-        .remove_deployment(project.clone(), setup.skill.clone(), Vec::new())
+        .remove_deployment(workspace.clone(), setup.skill.clone(), Vec::new())
         .await
         .unwrap();
     assert_eq!(removal, Removal::Removed);
     let snapshot = setup.engine.snapshot().await.unwrap();
-    assert!(!snapshot.deployments.iter().any(|d| d.target == project));
+    assert!(!snapshot.deployments.iter().any(|d| d.target == workspace));
     setup.engine.shutdown().await.unwrap();
 }
 
 #[tokio::test]
 async fn a_drift_that_changed_since_it_was_shown_is_stale() {
     let setup = Setup::new().await;
-    let project = setup.project.clone();
-    edit(&setup.project_copy(), "Edited in the project");
-    assert_eq!(setup.drift(&project).await, Some(Drift::ProjectChanged));
-    // The project puts the original back before the user chooses.
+    let workspace = setup.workspace.clone();
+    edit(&setup.workspace_copy(), "Edited in the workspace");
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::WorkspaceChanged));
+    // The workspace puts the original back before the user chooses.
     fs::copy(
         setup.library().join("SKILL.md"),
-        setup.project_copy().join("SKILL.md"),
+        setup.workspace_copy().join("SKILL.md"),
     )
     .unwrap();
     assert_eq!(
         category(
             setup
-                .resolve(&project, Drift::ProjectChanged, Remedy::UseProject)
+                .resolve(&workspace, Drift::WorkspaceChanged, Remedy::UseWorkspace)
                 .await
         ),
         ErrorCategory::Stale
@@ -302,12 +305,12 @@ async fn a_drift_that_changed_since_it_was_shown_is_stale() {
 #[tokio::test]
 async fn copies_changed_in_different_ways_are_not_accepted() {
     let setup = Setup::new().await;
-    let project = setup.project.clone();
-    edit(&setup.project_copy(), "Claude edit");
+    let workspace = setup.workspace.clone();
+    edit(&setup.workspace_copy(), "Claude edit");
     setup.fixture.skill("alpha", "Codex edit");
-    assert_eq!(setup.drift(&project).await, Some(Drift::ProjectChanged));
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::WorkspaceChanged));
     let error = setup
-        .resolve(&project, Drift::ProjectChanged, Remedy::UseProject)
+        .resolve(&workspace, Drift::WorkspaceChanged, Remedy::UseWorkspace)
         .await
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::Validation);
@@ -319,19 +322,19 @@ async fn copies_changed_in_different_ways_are_not_accepted() {
 #[tokio::test]
 async fn a_copy_changed_after_it_was_shown_is_never_overwritten() {
     let setup = Setup::new().await;
-    let project = setup.project.clone();
-    edit(&setup.project_copy(), "Shown edit");
-    assert_eq!(setup.drift(&project).await, Some(Drift::ProjectChanged));
-    let shown = setup.shown(&project).await;
-    // Another copy changes while the confirmation is open; the drift is still ProjectChanged.
+    let workspace = setup.workspace.clone();
+    edit(&setup.workspace_copy(), "Shown edit");
+    assert_eq!(setup.drift(&workspace).await, Some(Drift::WorkspaceChanged));
+    let shown = setup.shown(&workspace).await;
+    // Another copy changes while the confirmation is open; the drift is still WorkspaceChanged.
     setup.fixture.skill("alpha", "Unseen edit");
     let result = setup
         .engine
-        .resolve_drift(shown, Drift::ProjectChanged, Remedy::UseLibrary)
+        .resolve_drift(shown, Drift::WorkspaceChanged, Remedy::UseLibrary)
         .await;
     assert_eq!(category(result), ErrorCategory::Stale);
     assert!(body(&setup.codex_copy()).contains("Unseen edit"));
-    assert!(body(&setup.project_copy()).contains("Shown edit"));
+    assert!(body(&setup.workspace_copy()).contains("Shown edit"));
     setup.engine.shutdown().await.unwrap();
 }
 
@@ -347,24 +350,27 @@ async fn a_copy_behind_a_linked_agent_directory_is_not_drift() {
         .import_one(&engine, &scan.candidates[0], &scan)
         .await;
     fs::remove_dir_all(source).unwrap();
-    fs::create_dir_all(fixture.project.join(".agents/skills")).unwrap();
-    fs::create_dir_all(fixture.project.join(".claude")).unwrap();
-    std::os::unix::fs::symlink("../.agents/skills", fixture.project.join(".claude/skills"))
-        .unwrap();
+    fs::create_dir_all(fixture.workspace.join(".agents/skills")).unwrap();
+    fs::create_dir_all(fixture.workspace.join(".claude")).unwrap();
+    std::os::unix::fs::symlink(
+        "../.agents/skills",
+        fixture.workspace.join(".claude/skills"),
+    )
+    .unwrap();
     fixture.register(&engine).await;
-    let id = engine.snapshot().await.unwrap().projects[0].id.clone();
-    let project = DeploymentTarget::Project(id);
+    let id = engine.snapshot().await.unwrap().workspaces[0].id.clone();
+    let workspace = DeploymentTarget::Workspace(id);
     engine
-        .set_target_agents(project.clone(), vec!["claude-code".into()])
+        .set_target_agents(workspace.clone(), vec!["claude-code".into()])
         .await
         .unwrap();
     engine
-        .add_deployments(project.clone(), vec![skill])
+        .add_deployments(workspace.clone(), vec![skill])
         .await
         .unwrap();
-    engine.rescan_target(project.clone()).await.unwrap();
+    engine.rescan_target(workspace.clone()).await.unwrap();
     let snapshot = engine.snapshot().await.unwrap();
-    let deployment = snapshot.deployments.iter().find(|d| d.target == project);
+    let deployment = snapshot.deployments.iter().find(|d| d.target == workspace);
     assert!(deployment.unwrap().changes.is_empty());
     engine.shutdown().await.unwrap();
 }

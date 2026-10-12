@@ -1,4 +1,4 @@
-use crate::{ProjectId, ScanId, ScanStatus, SkillId, ValidationStatus};
+use crate::{ScanId, ScanStatus, SkillId, ValidationStatus, WorkspaceId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -8,21 +8,21 @@ pub enum DeploymentTarget {
     /// The global agent skill locations under the user's home. Always present.
     Global,
     /// A folder the user added.
-    Project(ProjectId),
+    Workspace(WorkspaceId),
 }
 
 /// A folder on this device that the user added. Its canonical path is its identity.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Project {
+pub struct Workspace {
     /// Durable identity.
-    pub id: ProjectId,
+    pub id: WorkspaceId,
     /// User-editable name; starts as the folder's last path component and need not be unique.
     pub name: String,
     /// Canonical folder path.
     pub path: String,
     /// User-defined order; the engine keeps positions dense from zero.
     pub position: u32,
-    /// Registry agent identities whose skill directories this project writes to.
+    /// Registry agent identities whose skill directories this workspace writes to.
     pub agents: Vec<String>,
     /// The folder was missing when this snapshot was taken; its deployments are kept.
     pub missing: bool,
@@ -53,7 +53,7 @@ impl Deployment {
             Some(if library_changed {
                 Drift::Conflict
             } else {
-                Drift::ProjectChanged
+                Drift::WorkspaceChanged
             })
         } else if has(CopyChange::Missing) {
             Some(Drift::Missing)
@@ -77,7 +77,7 @@ pub enum CopyChange {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Drift {
     /// A copy changed in the target; the library skill did not.
-    ProjectChanged,
+    WorkspaceChanged,
     /// The library skill changed; the copies did not.
     Outdated,
     /// A copy and the library skill both changed.
@@ -93,7 +93,7 @@ pub enum Remedy {
     UseLibrary,
     /// Replace the library skill with the changed copy, then rewrite the other copies from it.
     /// The library change stays uncommitted until Sync. Only for a changed copy.
-    UseProject,
+    UseWorkspace,
 }
 
 /// A skill found in a deployment target whose content matches no library skill. Copies with one
@@ -113,16 +113,16 @@ pub struct Importable {
     pub paths: Vec<String>,
 }
 
-/// Progress and result of scanning a project the user is adding.
+/// Progress and result of scanning a workspace the user is adding.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ProjectAddition {
+pub struct WorkspaceAddition {
     /// Run identity.
     pub id: ScanId,
-    /// Name the project receives.
+    /// Name the workspace receives.
     pub name: String,
     /// Canonical folder path.
     pub path: String,
-    /// `Running` until the project is saved, or `Failed`; cancelled additions are discarded.
+    /// `Running` until the workspace is saved, or `Failed`; cancelled additions are discarded.
     pub status: ScanStatus,
     /// Folders visited so far.
     pub folders_checked: usize,
@@ -141,8 +141,8 @@ pub struct AgentOption {
     pub id: String,
     /// Name shown to the user.
     pub display_name: String,
-    /// Skill directory relative to a project folder.
-    pub project_skills_dir: String,
+    /// Skill directory relative to a workspace folder.
+    pub workspace_skills_dir: String,
     /// Global skill directory Global writes to, or `None` when this device has none.
     pub global_skills_dir: Option<String>,
 }

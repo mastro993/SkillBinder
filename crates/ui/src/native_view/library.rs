@@ -11,7 +11,6 @@ impl NativeView {
         };
         let title = match self.library_filter() {
             LibraryFilter::All => "Library".to_owned(),
-            LibraryFilter::Unfiled => "Unfiled".to_owned(),
             LibraryFilter::Folder(id) => library
                 .library
                 .folders
@@ -36,8 +35,8 @@ impl NativeView {
             let client = self.client.clone();
             let ids = selected_skills.clone();
             assignments = assignments.child(
-                button("assign-unfiled")
-                    .label("Move to Unfiled")
+                button("assign-none")
+                    .label("Remove from folder")
                     .inactive(self.busy)
                     .on_click(cx.listener(move |view, _, _, cx| {
                         let client = client.clone();
@@ -91,7 +90,6 @@ impl NativeView {
             .filter(|skill| {
                 (match self.library_filter() {
                     LibraryFilter::All => true,
-                    LibraryFilter::Unfiled => skill.folder_id.is_none(),
                     LibraryFilter::Folder(id) => skill.folder_id.as_ref() == Some(id),
                 }) && (query.is_empty()
                     || skill.slug.to_lowercase().contains(&query)

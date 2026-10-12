@@ -1,4 +1,4 @@
-//! The sidebar Folders section: Unfiled, user-ordered folders, inline naming, row menus,
+//! The sidebar Folders section: user-ordered folders, inline naming, row menus,
 //! colors, and the reorder menu actions.
 
 use std::{cell::Cell, collections::BTreeMap, time::Instant};
@@ -46,9 +46,14 @@ impl NativeView {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
-        let mut counts = BTreeMap::<Option<&FolderId>, usize>::new();
-        for skill in &library.library.skills {
-            *counts.entry(skill.folder_id.as_ref()).or_default() += 1;
+        let mut counts = BTreeMap::<&FolderId, usize>::new();
+        for folder in library
+            .library
+            .skills
+            .iter()
+            .filter_map(|skill| skill.folder_id.as_ref())
+        {
+            *counts.entry(folder).or_default() += 1;
         }
         let (order, floating) = self
             .folder_reorder
@@ -58,20 +63,6 @@ impl NativeView {
             window.request_animation_frame();
         }
         let selected = |candidate: LibraryFilter| self.route == Route::Library(candidate);
-        let unfiled = activate(
-            row(
-                "folder-unfiled",
-                app_icon("folder"),
-                None,
-                "Unfiled",
-                selected(LibraryFilter::Unfiled),
-                cx,
-            ),
-            "Unfiled",
-            cx,
-            |view, window, cx| view.navigate(Route::Library(LibraryFilter::Unfiled), window, cx),
-        )
-        .child(count(counts.get(&None).copied().unwrap_or(0), cx));
         let folders = &library.library.folders;
         let rows: Vec<AnyElement> = order
             .iter()
@@ -81,7 +72,7 @@ impl NativeView {
                 if self.folder_edit == Some(FolderEdit::Rename(folder.id.clone())) {
                     return self.render_folder_name_field(folder.color, cx);
                 }
-                let skills = counts.get(&Some(&folder.id)).copied().unwrap_or(0);
+                let skills = counts.get(&folder.id).copied().unwrap_or(0);
                 let selected = selected(LibraryFilter::Folder(folder.id.clone()));
                 let placement = RowPlacement {
                     index,
@@ -103,7 +94,6 @@ impl NativeView {
                     .flex()
                     .flex_col()
                     .gap(px(ROW_GAP))
-                    .child(unfiled)
                     .child(
                         // Drag moves are measured from the first folder slot; releasing the
                         // pointer anywhere keeps the order shown.

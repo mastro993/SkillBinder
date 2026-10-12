@@ -128,43 +128,43 @@ impl Client {
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.shared.engine.grant_directory(path).await
     }
-    /// Scans a granted folder and saves it as a project; progress is published while it runs.
-    pub async fn add_project(&self, grant: GrantId) -> AppResult<Option<ProjectAddition>> {
-        self.refresh_preserving_outcome(self.shared.engine.add_project(grant).await)
+    /// Scans a granted folder and saves it as a workspace; progress is published while it runs.
+    pub async fn add_workspace(&self, grant: GrantId) -> AppResult<Option<WorkspaceAddition>> {
+        self.refresh_preserving_outcome(self.shared.engine.add_workspace(grant).await)
             .await
     }
-    /// Discards the project being added; `false` when its scan had already been saved.
-    pub async fn cancel_project_addition(&self) -> AppResult<bool> {
-        self.refresh_preserving_outcome(self.shared.engine.cancel_project_addition())
+    /// Discards the workspace being added; `false` when its scan had already been saved.
+    pub async fn cancel_workspace_addition(&self) -> AppResult<bool> {
+        self.refresh_preserving_outcome(self.shared.engine.cancel_workspace_addition())
             .await
     }
-    /// Clears a finished or failed project addition.
-    pub async fn dismiss_project_addition(&self) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.dismiss_project_addition())
+    /// Clears a finished or failed workspace addition.
+    pub async fn dismiss_workspace_addition(&self) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.dismiss_workspace_addition())
             .await
     }
-    /// Rescans Global or a project in the background and records its deployments.
+    /// Rescans Global or a workspace in the background and records its deployments.
     pub async fn rescan_target(&self, target: DeploymentTarget) -> AppResult<()> {
         self.refresh_preserving_outcome(self.shared.engine.rescan_target(target).await)
             .await
     }
-    /// Renames a project.
-    pub async fn rename_project(&self, id: ProjectId, name: String) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.rename_project(id, name).await)
+    /// Renames a workspace.
+    pub async fn rename_workspace(&self, id: WorkspaceId, name: String) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.rename_workspace(id, name).await)
             .await
     }
-    /// Saves a new project order.
-    pub async fn reorder_projects(&self, order: Vec<ProjectId>) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.reorder_projects(order).await)
+    /// Saves a new workspace order.
+    pub async fn reorder_workspaces(&self, order: Vec<WorkspaceId>) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.reorder_workspaces(order).await)
             .await
     }
-    /// Forgets a project and its deployments, then rescans the projects that contain it.
-    pub async fn remove_project(&self, id: ProjectId) -> AppResult<()> {
+    /// Forgets a workspace and its deployments, then rescans the workspaces that contain it.
+    pub async fn remove_workspace(&self, id: WorkspaceId) -> AppResult<()> {
         let containing = self
-            .refresh_preserving_outcome(self.shared.engine.remove_project(id).await)
+            .refresh_preserving_outcome(self.shared.engine.remove_workspace(id).await)
             .await?;
         for id in containing {
-            self.spawn_rescan(DeploymentTarget::Project(id));
+            self.spawn_rescan(DeploymentTarget::Workspace(id));
         }
         Ok(())
     }
@@ -225,7 +225,7 @@ impl Client {
             }
         });
     }
-    /// Rescans Global, then each project, one at a time.
+    /// Rescans Global, then each workspace, one at a time.
     fn rescan_on_launch(&self) {
         let snapshot = self.snapshot();
         if snapshot.library.is_none() {
@@ -234,9 +234,9 @@ impl Client {
         let targets: Vec<_> = std::iter::once(DeploymentTarget::Global)
             .chain(
                 snapshot
-                    .projects
+                    .workspaces
                     .iter()
-                    .map(|project| DeploymentTarget::Project(project.id.clone())),
+                    .map(|workspace| DeploymentTarget::Workspace(workspace.id.clone())),
             )
             .collect();
         let client = self.clone();
@@ -354,7 +354,7 @@ impl Shared {
             match (self.engine.current_scan(), self.engine.target_progress()) {
                 (Ok(scan), Ok((addition, rescanning))) => {
                     snapshot.scan = scan;
-                    snapshot.project_addition = addition;
+                    snapshot.workspace_addition = addition;
                     snapshot.rescanning = rescanning;
                 }
                 (Err(error), _) | (_, Err(error)) => {
@@ -381,14 +381,14 @@ impl Shared {
                     }
                 };
             if current.scan == scan
-                && current.project_addition == addition
+                && current.workspace_addition == addition
                 && current.rescanning == rescanning
             {
                 return false;
             }
             let mut next = (**current).clone();
             next.scan = scan;
-            next.project_addition = addition;
+            next.workspace_addition = addition;
             next.rescanning = rescanning;
             next.generation = current.generation + 1;
             *current = Arc::new(next);

@@ -13,7 +13,7 @@ SkillBinder is one bounded context with one product vocabulary. Keep domain term
 - `README.md` identifies what this checkout can run.
 - `docs/features/native.md` describes the implemented features. Add behavior documentation with new features rather than documenting an aspirational implementation as complete.
 
-The shipped scope contains four onboarding steps, Discovery, import review, Library, flat folders, shared-slug resolution, Sync, and Settings. Global, projects, and deployments extend that scope. Upstream binding screens, nested folders, and tag-management UI are outside it.
+The shipped scope contains four onboarding steps, Discovery, import review, Library, flat folders, shared-slug resolution, Sync, and Settings. Global, workspaces, and deployments extend that scope. Upstream binding screens, nested folders, and tag-management UI are outside it.
 
 ## Update documentation with behavior
 
@@ -25,16 +25,16 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 
 ## Vocabulary
 
-- An agent is a registered skill reader with documented global roots and a direct project skill directory.
+- An agent is a registered skill reader with documented global roots and a direct workspace skill directory.
 - A scan observes source candidates without changing their bytes.
 - An import plan records immutable reviewed candidates and expires after 300 seconds.
 - A library owns portable metadata in `.skillbinder.json` schema 2 and payloads under `skills/<slug>/`.
 - A folder is flat. Each skill has at most one folder assignment. Folder order and color are portable organization data.
-- Global is the set of global agent skill locations under the user's home folder, such as `~/.claude/skills`. It is always present and cannot be renamed or removed. It is a deployment target, not a project: the sidebar lists it beside Discovery and Library, outside the Projects section. Avoid "Root" for it; "root" keeps its filesystem meanings.
-- A project is a folder on this device that the user added to SkillBinder. Its name starts as the folder's last path component and can be renamed. Projects replace the former project-search roots; avoid "project root" for either.
-- A deployment target is Global or a project. Each target has the agents whose skill directories it writes to.
-- A deployment pairs one library skill with one deployment target that holds a copy of it. Adding a skill to a target copies it into the target's agent skill directories; removing it deletes those copies and leaves the library skill in place. Projects and deployments are machine-local.
-- A deployment drifts when its copies or its library skill no longer match the digest it was written with. A rescan records which copies changed or went missing. A deployment is project changed when a copy changed and the library skill did not, outdated when the library skill changed and the copies did not, in conflict when both changed, and missing when a copy is gone and none changed. Drift never drops a deployment, and SkillBinder never resolves it on its own: the user picks a remedy, which uses the library version (restore, update, or redeploy) or accepts the changed copy into the library, or removes the deployment.
+- Global is the set of global agent skill locations under the user's home folder, such as `~/.claude/skills`. It is always present and cannot be renamed or removed. The app labels it System and lists it as the fixed first row of the Workspaces section, but it is not a workspace: it cannot be renamed, moved, or removed. Avoid "Root" for it; "root" keeps its filesystem meanings.
+- A workspace is a folder on this device that the user added to SkillBinder. Its name starts as the folder's last path component and can be renamed. Workspaces replace the former project-search roots; avoid "workspace root" for either.
+- A deployment target is Global or a workspace. Each target has the agents whose skill directories it writes to.
+- A deployment pairs one library skill with one deployment target that holds a copy of it. Adding a skill to a target copies it into the target's agent skill directories; removing it deletes those copies and leaves the library skill in place. Workspaces and deployments are machine-local.
+- A deployment drifts when its copies or its library skill no longer match the digest it was written with. A rescan records which copies changed or went missing. A deployment is workspace changed when a copy changed and the library skill did not, outdated when the library skill changed and the copies did not, in conflict when both changed, and missing when a copy is gone and none changed. Drift never drops a deployment, and SkillBinder never resolves it on its own: the user picks a remedy, which uses the library version (restore, update, or redeploy) or accepts the changed copy into the library, or removes the deployment.
 - An importable skill is a discovered skill whose content matches no library skill. Importing one from its target's page records the copies there as the new skill's deployment without writing them.
 - Discovery is read-only. It lists each discovered skill once with every location where it was found, and it never changes deployments.
 - Sync and Push are explicit actions that may commit managed changes. Imports and organization changes remain uncommitted until those actions.
