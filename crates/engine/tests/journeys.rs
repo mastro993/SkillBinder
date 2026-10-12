@@ -82,7 +82,8 @@ async fn scan_deduplicates_shared_readers_and_stays_inside_known_project_locatio
     let scan = fixture.scan(&engine).await;
     assert_eq!(scan.candidates.len(), 1);
     assert_eq!(scan.candidates[0].slug, "known");
-    assert!(scan.candidates[0].readers.len() > 1);
+    assert_eq!(scan.candidates[0].locations.len(), 1);
+    assert!(scan.candidates[0].locations[0].readers.len() > 1);
     engine.shutdown().await.unwrap();
 }
 

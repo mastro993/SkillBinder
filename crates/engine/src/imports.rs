@@ -57,8 +57,9 @@ impl State {
         let mut items = Vec::new();
         let mut sources = Vec::new();
         let mut selected_slugs = BTreeMap::new();
-        for (candidate, previous) in selected {
-            let resolved = fs::canonicalize(&candidate.display_path)
+        for (candidate_id, source) in selected {
+            let previous = source.inspection;
+            let resolved = fs::canonicalize(&source.display_path)
                 .map_err(|_| AppError::stale("Selected source path no longer exists."))?;
             if resolved != previous.canonical_source {
                 return Err(AppError::stale("Selected source path changed."));
@@ -118,10 +119,10 @@ impl State {
                 )
             };
             items.push(ImportItem {
-                candidate_id: candidate.id,
+                candidate_id,
                 skill_id,
                 slug: inspection.slug.clone(),
-                source: candidate.display_path,
+                source: source.display_path,
                 destination: String::new(),
                 decision,
                 validation: inspection.status,

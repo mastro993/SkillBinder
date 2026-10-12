@@ -21,7 +21,16 @@ pub enum ScanStatus {
     /// An unrecoverable scan failure occurred.
     Failed,
 }
-/// A reviewed discovery candidate; its source path is never an import input.
+/// One physical place where a discovered skill was found. Orders by path.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct CandidateLocation {
+    /// User-visible source path.
+    pub display_path: String,
+    /// All agent reader labels for this physical location.
+    pub readers: Vec<String>,
+}
+/// A discovered skill: one slug and content digest with every location holding those bytes.
+/// Its paths are never import inputs; the engine keeps the reviewed source by opaque identity.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Candidate {
     /// Opaque identity scoped to a scan.
@@ -30,10 +39,8 @@ pub struct Candidate {
     pub slug: String,
     /// Frontmatter description.
     pub description: String,
-    /// User-visible source location.
-    pub display_path: String,
-    /// All agent reader labels for this physical location.
-    pub readers: Vec<String>,
+    /// Locations with identical content, in path order; never empty.
+    pub locations: Vec<CandidateLocation>,
     /// Strongest validation result.
     pub validation: ValidationStatus,
     /// Detailed validation messages.
@@ -50,11 +57,11 @@ pub struct ScanSnapshot {
     pub id: ScanId,
     /// Worker lifecycle.
     pub status: ScanStatus,
-    /// Candidate findings, in deterministic path order.
+    /// Candidate findings, ordered by their first location's path.
     pub candidates: Vec<Candidate>,
     /// Number of visited source locations.
     pub locations_checked: usize,
-    /// Payloads already present in the managed library.
+    /// Discovered skills whose content is already in the managed library.
     pub identical_hidden: usize,
     /// Safe terminal failure message.
     pub error: Option<String>,
