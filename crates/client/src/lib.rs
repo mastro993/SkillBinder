@@ -270,6 +270,17 @@ impl Client {
             .prepare_import(scan, ids, acknowledge_invalid)
             .await
     }
+    /// Prepares the reviewed import of an importable skill shown on its target's page.
+    pub async fn prepare_target_import(
+        &self,
+        shown: Importable,
+        acknowledge_invalid: bool,
+    ) -> AppResult<ImportPlan> {
+        self.shared
+            .engine
+            .prepare_target_import(shown, acknowledge_invalid)
+            .await
+    }
     /// Applies a plan with durable replay and outcome retention.
     pub async fn apply_import(&self, plan: PlanId) -> AppResult<ImportOutcome> {
         self.refresh_preserving_outcome(self.shared.engine.apply_import(plan).await)

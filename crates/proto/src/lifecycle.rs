@@ -109,6 +109,8 @@ pub struct AppSnapshot {
     pub projects: Vec<Project>,
     /// Recorded deployments across Global and every project.
     pub deployments: Vec<Deployment>,
+    /// Skills each target's last scan found that match no library skill, by target and slug.
+    pub importables: Vec<crate::Importable>,
     /// The project being added, until its result is dismissed.
     pub project_addition: Option<ProjectAddition>,
     /// Targets whose background rescan is running.

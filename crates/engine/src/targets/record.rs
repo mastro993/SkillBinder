@@ -2,7 +2,7 @@
 
 use super::{
     drift::copy_change,
-    key,
+    importables, key,
     scan::{Findings, Scope},
 };
 use crate::{persistence::now, worker::State};
@@ -104,7 +104,7 @@ impl State {
             .map(PathBuf::from))
     }
 
-    fn nested_projects(&self, path: &Path) -> AppResult<BTreeSet<PathBuf>> {
+    pub(super) fn nested_projects(&self, path: &Path) -> AppResult<BTreeSet<PathBuf>> {
         Ok(self
             .projects()?
             .into_iter()
@@ -185,7 +185,7 @@ impl State {
             .map(|copy| (copy.path.clone(), copy.digest.clone()))
             .collect();
         let mut deployed: BTreeMap<SkillId, (String, Vec<String>)> = BTreeMap::new();
-        let mut importable: BTreeMap<String, String> = BTreeMap::new();
+        let mut unmatched = Vec::new();
         for copy in findings.copies {
             if nested
                 .iter()
@@ -203,12 +203,13 @@ impl State {
                     .or_insert_with(|| (copy.digest, Vec::new()))
                     .1
                     .push(copy.path),
-                None => {
-                    importable.entry(copy.digest).or_insert(copy.slug);
-                }
+                None => unmatched.push(copy),
             }
         }
         self.retain_recorded(target, &nested, &library, &mut deployed)?;
+        // A recorded copy that changed belongs to its deployment's drift, not to the importables.
+        let recorded: BTreeSet<&String> = deployed.values().flat_map(|(_, paths)| paths).collect();
+        unmatched.retain(|copy| !recorded.contains(&copy.path));
         let transaction = self
             .database
             .transaction()
@@ -219,12 +220,13 @@ impl State {
         replace_deployments(&transaction, target, &deployed, &found)?;
         seed_agents(&transaction, target, &findings.agents)?;
         transaction.commit().map_err(|_| AppError::storage())?;
-        let mut importable: Vec<_> = importable.into_values().collect();
-        importable.sort();
-        Ok(Summary {
+        let importables = importables::group(target, unmatched);
+        let summary = Summary {
             in_library: deployed.len(),
-            importable,
-        })
+            importable: importables.iter().map(|i| i.slug.clone()).collect(),
+        };
+        self.keep_importables(target, new, importables);
+        Ok(summary)
     }
 
     /// Adds the target's recorded copies that the scan did not match, such as changed or

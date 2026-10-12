@@ -10,7 +10,7 @@ use crate::{
     logging::Logger,
     payload,
 };
-use skillbinder_proto::{AppError, AppResult, ErrorCategory};
+use skillbinder_proto::{AppError, AppResult, ErrorCategory, ValidationStatus};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
@@ -34,6 +34,7 @@ pub(crate) enum Scope {
 pub(crate) struct SkillCopy {
     pub slug: String,
     pub digest: String,
+    pub validation: ValidationStatus,
     pub path: String,
 }
 
@@ -86,6 +87,7 @@ pub(crate) fn scan(config: &EngineConfig, scope: &Scope, control: &Control) -> A
                     Ok(inspection) => copies.push(SkillCopy {
                         slug: inspection.slug,
                         digest: inspection.manifest.digest,
+                        validation: inspection.status,
                         path: visit.path.display().to_string(),
                     }),
                     Err(error) => control.log.record(format!(

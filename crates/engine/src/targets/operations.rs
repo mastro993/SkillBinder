@@ -154,6 +154,18 @@ impl Engine {
             .await
     }
 
+    /// Prepares the reviewed import of an importable skill as `shown` on its target's page.
+    /// Applying the plan imports it and records its copies in the target as its deployment,
+    /// without rewriting them. An importable that changed since it was shown is stale.
+    pub async fn prepare_target_import(
+        &self,
+        shown: Importable,
+        acknowledge_invalid: bool,
+    ) -> AppResult<ImportPlan> {
+        self.call(move |state| state.prepare_target_import(&shown, acknowledge_invalid))
+            .await
+    }
+
     /// Renames a project; names need not be unique.
     pub async fn rename_project(&self, id: ProjectId, name: String) -> AppResult<()> {
         self.call(move |state| state.rename_project(&id, &name))

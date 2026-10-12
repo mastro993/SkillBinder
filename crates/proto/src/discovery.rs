@@ -109,6 +109,10 @@ pub struct ImportPlan {
     pub revision: String,
     /// Immutable reviewed rows.
     pub items: Vec<ImportItem>,
+    /// Target whose existing copies become the imported skill's deployment, for an import
+    /// started from that target's page.
+    #[serde(default)]
+    pub deployment: Option<crate::DeploymentTarget>,
 }
 /// Durable terminal import outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]

@@ -154,6 +154,7 @@ impl State {
                 .map_err(|_| AppError::storage())?;
         }
         transaction.commit().map_err(|_| AppError::storage())?;
+        self.importables.remove(&target);
         Ok(projects
             .iter()
             .filter(|project| {

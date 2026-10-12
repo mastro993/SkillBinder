@@ -1,4 +1,5 @@
 use crate::{
+    discovery::ImportSource,
     library::{payload_relative, validate_library},
     payload::{self, Inspection, Manifest},
     persistence::{self, Journal, Move},
@@ -19,6 +20,9 @@ struct Prepared {
     after: Library,
     sources: Vec<Inspection>,
     catalog: String,
+    /// Copies in `review.deployment` recorded as the imported skill's deployment.
+    #[serde(default)]
+    copies: Vec<String>,
 }
 impl State {
     pub(crate) fn catalog(
@@ -51,6 +55,16 @@ impl State {
     ) -> AppResult<ImportPlan> {
         self.require_recovered()?;
         let selected = self.scans.selected(&scan, &ids)?;
+        self.prepare_reviewed(selected, acknowledge_invalid, None)
+    }
+    /// Re-inspects selected sources into an immutable review plan. A `deployment` target and
+    /// its copies are recorded as the imported skill's deployment when the plan is applied.
+    pub(crate) fn prepare_reviewed(
+        &mut self,
+        selected: Vec<(CandidateId, ImportSource)>,
+        acknowledge_invalid: bool,
+        deployment: Option<(DeploymentTarget, Vec<String>)>,
+    ) -> AppResult<ImportPlan> {
         let snapshot = self.library_snapshot()?;
         let (mut catalog, fingerprint) = self.catalog(&snapshot.library)?;
         let mut after = snapshot.library.clone();
@@ -140,17 +154,20 @@ impl State {
                 .ok_or_else(AppError::storage)?;
             item.destination = payload_relative(&after, skill);
         }
+        let (target, copies) = deployment.unzip();
         let review = ImportPlan {
             id: PlanId::new(),
             expires_at: persistence::now() + 300,
             revision: snapshot.revision,
             items,
+            deployment: target,
         };
         let prepared = Prepared {
             review: review.clone(),
             after,
             sources,
             catalog: fingerprint,
+            copies: copies.unwrap_or_default(),
         };
         self.database
             .execute(
@@ -283,6 +300,7 @@ impl State {
             local.messages = source.messages.clone();
             touched.insert(item.skill_id.clone());
         }
+        let deployment = self.imported_deployment(&prepared);
         let result = self.commit(Journal {
             id: id.to_string(),
             before: snapshot.library,
@@ -300,6 +318,28 @@ impl State {
             let _ = fs::remove_dir_all(staging);
         }
         result?;
+        // The import is committed; a target rescan records copies that match a library skill,
+        // so a failed recording is logged rather than reported as a failed import.
+        if let Some((target, skill, digest)) = deployment
+            && let Err(error) = self.record_imported(&target, &skill, &digest, &prepared.copies)
+        {
+            self.log
+                .record(format!("Recording the imported deployment failed: {error}"));
+        }
         Ok(outcome)
+    }
+    /// The target, skill, and library digest an applied target import records as a deployment.
+    fn imported_deployment(
+        &self,
+        prepared: &Prepared,
+    ) -> Option<(DeploymentTarget, SkillId, String)> {
+        let target = prepared.review.deployment.clone()?;
+        let item = prepared.review.items.first()?;
+        let skill = prepared
+            .after
+            .skills
+            .iter()
+            .find(|skill| skill.id == item.skill_id)?;
+        Some((target, skill.id.clone(), skill.digest.clone()))
     }
 }

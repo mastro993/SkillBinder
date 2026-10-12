@@ -1,4 +1,4 @@
-use crate::{ProjectId, ScanId, ScanStatus, SkillId};
+use crate::{ProjectId, ScanId, ScanStatus, SkillId, ValidationStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -94,6 +94,23 @@ pub enum Remedy {
     /// Replace the library skill with the changed copy, then rewrite the other copies from it.
     /// The library change stays uncommitted until Sync. Only for a changed copy.
     UseProject,
+}
+
+/// A skill found in a deployment target whose content matches no library skill. Copies with one
+/// slug, digest, and validation result are one importable. Importing it records these copies as
+/// the new library skill's deployment in the target, without rewriting them.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Importable {
+    /// Target holding the copies.
+    pub target: DeploymentTarget,
+    /// Directory slug.
+    pub slug: String,
+    /// Manifest digest shared by the copies.
+    pub digest: String,
+    /// Strongest validation result; blocked skills cannot be imported.
+    pub validation: ValidationStatus,
+    /// Copy locations in path order; never empty.
+    pub paths: Vec<String>,
 }
 
 /// Progress and result of scanning a project the user is adding.

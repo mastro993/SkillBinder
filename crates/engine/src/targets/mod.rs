@@ -4,6 +4,7 @@ mod deploy;
 #[cfg(test)]
 mod deploy_tests;
 mod drift;
+mod importables;
 mod journal;
 mod operations;
 pub(crate) mod progress;

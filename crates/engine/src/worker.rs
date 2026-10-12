@@ -37,6 +37,9 @@ pub(crate) struct State {
     pub scans: Scans,
     pub targets: TargetScans,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
+    /// What each target's last saved scan found that matched no library skill. Like Discovery
+    /// results, these are scan observations and are not durable.
+    pub importables: BTreeMap<DeploymentTarget, Vec<Importable>>,
     pub recovery_required: bool,
     lock: File,
 }
@@ -78,6 +81,7 @@ impl Engine {
             scans: scans.clone(),
             targets: targets.clone(),
             grants: BTreeMap::new(),
+            importables: BTreeMap::new(),
             recovery_required: true,
             lock,
         };
@@ -348,6 +352,10 @@ impl State {
             current.refreshed_at = sync.refreshed_at;
             sync = current;
         }
+        let importables = library
+            .as_ref()
+            .map(|library| self.listed_importables(&library.library))
+            .unwrap_or_default();
         let (project_addition, rescanning) = self.targets.current()?;
         Ok(AppSnapshot {
             generation: 0,
@@ -359,6 +367,7 @@ impl State {
             global_agents: self.target_agents(&DeploymentTarget::Global)?,
             projects: self.projects()?,
             deployments: self.deployments()?,
+            importables,
             project_addition,
             rescanning,
             scan: self.scans.current()?,
@@ -408,6 +417,7 @@ impl State {
             scans: Scans::default(),
             targets: TargetScans::default(),
             grants: BTreeMap::new(),
+            importables: BTreeMap::new(),
             recovery_required: false,
             lock: File::create(data_dir.join("test.lock")).unwrap(),
         }
