@@ -45,7 +45,7 @@ Added after the captured baseline; `docs/agents/domain.md` defines the terms and
 - A project scan walks the folder with project limits, looks for each agent's project skill directory in every directory, and skips registered nested projects. A skill whose digest matches a library skill is recorded as a deployment with its digest and every path found; other skills are importable and not imported.
 - Targets are rescanned on launch and when opened. A rescan replaces the target's deployments. A project whose folder is missing keeps its deployments. Removing a project forgets it and its deployments without touching files.
 - A library skill with deployments cannot be deleted; the refusal names the targets. No operation in this slice writes into a target.
-- Discovery covers Root and every project and never changes deployments. It lists each discovered skill once per slug and content digest, with every location holding those bytes and each location's readers. Same slug with different content, or with a different validation result, stays separate. Identical-to-library hiding counts and hides whole aggregated entries. Importing an aggregated entry copies one of its locations, which the import review names as the source.
+- Discovery covers Global and every project and never changes deployments. It lists each discovered skill once per slug and content digest, with every location holding those bytes and each location's readers. Same slug with different content, or with a different validation result, stays separate. Identical-to-library hiding counts and hides whole aggregated entries. Importing an aggregated entry copies one of its locations, which the import review names as the source.
 
 ## Concrete acceptance examples
 
@@ -53,7 +53,7 @@ Added after the captured baseline; `docs/agents/domain.md` defines the terms and
 | --- | --- |
 | Two agent IDs point at one `.agents/skills` directory | One scanned physical location; candidate lists both readers. |
 | Identical `review` skill in `~/.claude/skills` and in a project's `.agents/skills` | One candidate listing both locations; importing it adds one library skill and a rescan hides it with a hidden count of one. |
-| `review` with different content in Root and in a project | Two candidates, each with one location. |
+| `review` with different content in Global and in a project | Two candidates, each with one location. |
 | Project root contains a known `.agents/skills/review/SKILL.md` and an unrelated `docs/review/SKILL.md` | Only the known skills directory is searched. |
 | Cancel after one candidate | Candidate remains visible; selection and import disabled; rescan required. |
 | Prepared payload bytes change before apply | Whole batch refuses `SourceChanged`; no destination or observation remains. |

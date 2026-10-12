@@ -49,9 +49,9 @@ async fn external_managed_changes_do_not_hide_the_original_source() {
 }
 
 #[tokio::test]
-async fn identical_copies_in_root_and_a_project_are_one_candidate() {
+async fn identical_copies_in_global_and_a_project_are_one_candidate() {
     let fixture = Fixture::new();
-    let root_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
+    let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
     let project_copy = fixture.skill("review", "Shared");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
@@ -62,8 +62,8 @@ async fn identical_copies_in_root_and_a_project_are_one_candidate() {
         .iter()
         .map(|location| location.display_path.as_str())
         .collect();
-    let mut expected =
-        [root_copy, project_copy].map(|path| fs::canonicalize(path).unwrap().display().to_string());
+    let mut expected = [global_copy, project_copy]
+        .map(|path| fs::canonicalize(path).unwrap().display().to_string());
     expected.sort();
     assert_eq!(paths, expected);
     assert!(
@@ -78,7 +78,11 @@ async fn identical_copies_in_root_and_a_project_are_one_candidate() {
 #[tokio::test]
 async fn same_slug_with_different_content_stays_separate() {
     let fixture = Fixture::new();
-    write_skill(&fixture.home.join(".claude/skills"), "review", "Root edit");
+    write_skill(
+        &fixture.home.join(".claude/skills"),
+        "review",
+        "Global edit",
+    );
     fixture.skill("review", "Project edit");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
@@ -95,7 +99,7 @@ async fn same_slug_with_different_content_stays_separate() {
 #[tokio::test]
 async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location() {
     let fixture = Fixture::new();
-    let root_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
+    let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
     let project_copy = fixture.skill("review", "Shared");
     let original = fs::read(project_copy.join("SKILL.md")).unwrap();
     let engine = fixture.ready().await;
@@ -135,7 +139,7 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
         1
     );
     assert_eq!(fs::read(project_copy.join("SKILL.md")).unwrap(), original);
-    assert!(root_copy.join("SKILL.md").is_file());
+    assert!(global_copy.join("SKILL.md").is_file());
     engine.shutdown().await.unwrap();
 }
 
@@ -143,10 +147,10 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
 #[tokio::test]
 async fn a_blocked_copy_does_not_absorb_an_importable_copy_with_the_same_digest() {
     let fixture = Fixture::new();
-    let root_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
+    let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
     let outside = fixture.home.join("outside.txt");
     fs::write(&outside, b"outside").unwrap();
-    std::os::unix::fs::symlink(&outside, root_copy.join("extra")).unwrap();
+    std::os::unix::fs::symlink(&outside, global_copy.join("extra")).unwrap();
     fixture.skill("review", "Shared");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
