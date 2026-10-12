@@ -164,7 +164,7 @@ impl NativeView {
                     .flex_col()
                     .gap(px(ROW_GAP))
                     .child(
-                        self.nav_row(Route::Sync, "refresh", "Sync", cx)
+                        self.nav_row(Route::Sync, "git-branch", "Sync", cx)
                             .children(sync),
                     )
                     .child(self.nav_row(Route::Settings, "settings", "Settings", cx)),
