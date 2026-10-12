@@ -1,7 +1,7 @@
 //! Window-wide status bar: items in left, center, and right slots, split by inset separators.
 
-use super::controls::button;
-use super::{NativeView, Screen};
+use super::controls::{app_icon, button};
+use super::{NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable, ThemeMode, button::Button, button::ButtonVariants,
     h_flex, hover_card::HoverCard, separator::Separator, spinner::Spinner, status_bar::StatusBar,
@@ -63,7 +63,7 @@ impl NativeView {
                 .child(hint(
                     icon_item("status-settings", IconName::Settings, "Settings", muted).on_click(
                         cx.listener(|view, _, window, cx| {
-                            view.navigate(Screen::Settings, window, cx)
+                            view.navigate(Route::Settings, window, cx)
                         }),
                     ),
                     "Settings",
@@ -236,11 +236,6 @@ fn text_item(
 /// Hover shows only the ghost background: item content sets its own color.
 fn item_button(id: &'static str) -> Button {
     button(id).ghost().xsmall()
-}
-
-/// Artwork outside GPUI Kit's icon set, supplied by the app's asset source.
-fn app_icon(name: &str) -> Icon {
-    Icon::empty().path(format!("icons/{name}.svg"))
 }
 
 /// Icons resolve their color when built rather than inheriting it, so they receive it explicitly.

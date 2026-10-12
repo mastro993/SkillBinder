@@ -6,158 +6,28 @@ use skillbinder_proto::*;
 
 impl NativeView {
     pub(super) fn render_library(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let Some(library) = &self.snapshot.library else {
+            return div().child("Finish onboarding to open your library.");
+        };
+        let title = match self.library_filter() {
+            LibraryFilter::All => "Library".to_owned(),
+            LibraryFilter::Unfiled => "Unfiled".to_owned(),
+            LibraryFilter::Folder(id) => library
+                .library
+                .folders
+                .iter()
+                .find(|folder| &folder.id == id)
+                .map_or_else(|| "Library".to_owned(), |folder| folder.name.clone()),
+        };
         let mut page = div()
             .flex()
             .flex_col()
             .gap_4()
-            .child("Library")
+            .child(title)
             .child(Input::new(&self.search));
-        let Some(library) = &self.snapshot.library else {
-            return page.child("Finish onboarding to open your library.");
-        };
         let query = self.search.read(cx).value().trim().to_lowercase();
-        let folders: Vec<_> = library.library.folders.iter().collect();
-        page = page.child(
-            div()
-                .flex()
-                .gap_2()
-                .child(Input::new(&self.folder_name))
-                .child(
-                    button("create-folder")
-                        .label("Create folder")
-                        .inactive(self.busy)
-                        .on_click(cx.listener(|view, _, _, cx| {
-                            let name = Self::input_text(&view.folder_name, cx);
-                            if name.is_empty() {
-                                return;
-                            }
-                            let client = view.client.clone();
-                            view.run(
-                                async move {
-                                    client
-                                        .change_organization(OrganizationChange::CreateFolder {
-                                            name,
-                                        })
-                                        .await
-                                        .map(|_| Effect::None)
-                                },
-                                cx,
-                            );
-                        })),
-                ),
-        );
-        let selected_folder = match &self.library_filter {
-            LibraryFilter::Folder(id) => Some(id.clone()),
-            _ => None,
-        };
+        let folders = &library.library.folders;
         let selected_skills: Vec<_> = self.selected_skills.iter().cloned().collect();
-        let mut folder_row = div()
-            .flex()
-            .gap_2()
-            .child(
-                button("folder-all")
-                    .label(format!("All ({})", library.library.skills.len()))
-                    .on_click(cx.listener(|view, _, _, cx| {
-                        view.library_filter = LibraryFilter::All;
-                        view.selected_skills.clear();
-                        view.selected_skill = None;
-                        view.preview = None;
-                        cx.notify();
-                    })),
-            )
-            .child(
-                button("folder-unfiled")
-                    .label(format!(
-                        "Unfiled ({})",
-                        library
-                            .library
-                            .skills
-                            .iter()
-                            .filter(|skill| skill.folder_id.is_none())
-                            .count()
-                    ))
-                    .on_click(cx.listener(|view, _, _, cx| {
-                        view.library_filter = LibraryFilter::Unfiled;
-                        view.selected_skills.clear();
-                        view.selected_skill = None;
-                        view.preview = None;
-                        cx.notify();
-                    })),
-            );
-        for folder in &folders {
-            let id = folder.id.clone();
-            folder_row = folder_row.child(
-                button(format!("folder-{id}"))
-                    .label(format!(
-                        "{} ({})",
-                        folder.name,
-                        library
-                            .library
-                            .skills
-                            .iter()
-                            .filter(|skill| skill.folder_id.as_ref() == Some(&id))
-                            .count()
-                    ))
-                    .on_click(cx.listener(move |view, _, _, cx| {
-                        view.library_filter = LibraryFilter::Folder(id.clone());
-                        view.selected_skills.clear();
-                        view.selected_skill = None;
-                        view.preview = None;
-                        cx.notify();
-                    })),
-            );
-        }
-        page = page.child(folder_row);
-        if let Some(folder_id) = &selected_folder {
-            let folder_id = folder_id.clone();
-            page = page.child(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(
-                        button("rename-folder")
-                            .label("Rename selected folder")
-                            .inactive(self.busy)
-                            .on_click(cx.listener({
-                                let folder_id = folder_id.clone();
-                                move |view, _, _, cx| {
-                                    let name = Self::input_text(&view.folder_name, cx);
-                                    if name.is_empty() {
-                                        return;
-                                    }
-                                    let client = view.client.clone();
-                                    let id = folder_id.clone();
-                                    view.run(
-                                        async move {
-                                            client
-                                                .change_organization(
-                                                    OrganizationChange::RenameFolder { id, name },
-                                                )
-                                                .await
-                                                .map(|_| Effect::None)
-                                        },
-                                        cx,
-                                    );
-                                }
-                            })),
-                    )
-                    .child(
-                        button("delete-folder")
-                            .label("Delete selected folder")
-                            .inactive(self.busy)
-                            .on_click(cx.listener(move |view, _, _, cx| {
-                                let client = view.client.clone();
-                                let id = folder_id.clone();
-                                view.run(
-                                    async move {
-                                        client.preview_delete(id).await.map(Effect::DeletePreview)
-                                    },
-                                    cx,
-                                );
-                            })),
-                    ),
-            );
-        }
         if !selected_skills.is_empty() {
             let mut assignments = div()
                 .flex()
@@ -186,7 +56,7 @@ impl NativeView {
                         );
                     })),
             );
-            for folder in &folders {
+            for folder in folders {
                 let id = folder.id.clone();
                 let ids = selected_skills.clone();
                 assignments = assignments.child(
@@ -219,7 +89,7 @@ impl NativeView {
             .skills
             .iter()
             .filter(|skill| {
-                (match &self.library_filter {
+                (match self.library_filter() {
                     LibraryFilter::All => true,
                     LibraryFilter::Unfiled => skill.folder_id.is_none(),
                     LibraryFilter::Folder(id) => skill.folder_id.as_ref() == Some(id),

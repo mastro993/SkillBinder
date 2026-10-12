@@ -5,13 +5,17 @@ mod library;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod onboarding;
+mod route;
 mod settings;
 mod shell;
 mod sidebar;
+mod sidebar_folders;
+mod sidebar_reorder;
+mod sidebar_row;
 mod status_bar;
 mod sync;
 
-pub use shell::ToggleSidebar;
+pub use shell::{GoBack, GoForward, ToggleSidebar};
 
 use std::{collections::BTreeSet, future::Future, path::PathBuf, sync::Arc};
 
@@ -24,23 +28,10 @@ use gpui_kit::{
     AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement,
     ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder,
 };
+use route::{History, LibraryFilter, Route};
+use sidebar_folders::FolderEdit;
 use skillbinder_client::Client;
 use skillbinder_proto::*;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Screen {
-    Discovery,
-    Library,
-    Sync,
-    Settings,
-}
-
-#[derive(Clone, PartialEq, Eq)]
-enum LibraryFilter {
-    All,
-    Unfiled,
-    Folder(FolderId),
-}
 
 enum DialogState {
     ImportPlan(ImportPlan),
@@ -70,7 +61,8 @@ pub struct NativeView {
     client: Client,
     snapshot: Arc<AppSnapshot>,
     focus: FocusHandle,
-    screen: Screen,
+    route: Route,
+    history: History,
     busy: bool,
     /// A Git synchronization is in flight; implies `busy`.
     syncing: bool,
@@ -82,7 +74,9 @@ pub struct NativeView {
     candidate_page: usize,
     acknowledge_invalid: bool,
     selected_skills: BTreeSet<SkillId>,
-    library_filter: LibraryFilter,
+    /// Inline folder name editing in the sidebar.
+    folder_edit: Option<FolderEdit>,
+    folder_reorder: sidebar_reorder::FolderReorder,
     sidebar_width: f32,
     sidebar_collapsed: bool,
     appearance: Appearance,
@@ -100,6 +94,7 @@ pub struct NativeView {
     remote_url: Entity<InputState>,
     remote_branch: Entity<InputState>,
     _search_subscription: Subscription,
+    _folder_name_subscription: Subscription,
     _activation_subscription: Subscription,
     _subscription: Task<()>,
 }
@@ -136,6 +131,8 @@ impl NativeView {
             }
         });
         let folder_name = cx.new(|cx| InputState::new(window, cx).placeholder("Folder name"));
+        let folder_name_subscription =
+            cx.subscribe_in(&folder_name, window, Self::folder_name_event);
         let root_label = cx.new(|cx| InputState::new(window, cx).placeholder("Project label"));
         let remote_url = cx.new(|cx| InputState::new(window, cx).placeholder("Remote URL"));
         let remote_branch = cx.new(|cx| {
@@ -158,7 +155,8 @@ impl NativeView {
             client,
             snapshot,
             focus,
-            screen: Screen::Discovery,
+            route: Route::Discovery,
+            history: History::default(),
             busy: false,
             syncing: false,
             error: None,
@@ -169,7 +167,8 @@ impl NativeView {
             candidate_page: 0,
             acknowledge_invalid: false,
             selected_skills: BTreeSet::new(),
-            library_filter: LibraryFilter::All,
+            folder_edit: None,
+            folder_reorder: sidebar_reorder::FolderReorder::default(),
             sidebar_width,
             sidebar_collapsed,
             appearance,
@@ -185,6 +184,7 @@ impl NativeView {
             remote_url,
             remote_branch,
             _search_subscription: search_subscription,
+            _folder_name_subscription: folder_name_subscription,
             _activation_subscription: activation_subscription,
             _subscription: subscription,
         }
@@ -199,14 +199,12 @@ impl NativeView {
             self.acknowledge_invalid = false;
         }
         if let Some(library) = &latest.library {
-            if matches!(&self.library_filter, LibraryFilter::Folder(id) if {
-                !library
-                    .library
-                    .folders
-                    .iter()
-                    .any(|folder| &folder.id == id)
-            }) {
-                self.library_filter = LibraryFilter::All;
+            let exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
+            if matches!(&self.route, Route::Library(LibraryFilter::Folder(id)) if !exists(id)) {
+                self.route = Route::Library(LibraryFilter::All);
+            }
+            if matches!(&self.folder_edit, Some(FolderEdit::Rename(id)) if !exists(id)) {
+                self.folder_edit = None;
             }
             self.selected_skills
                 .retain(|id| library.library.skills.iter().any(|s| &s.id == id));
@@ -246,6 +244,7 @@ impl NativeView {
             let _ = this.update(cx, |view, cx| {
                 view.busy = false;
                 view.syncing = false;
+                view.folder_reorder.settle();
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);
@@ -274,8 +273,41 @@ impl NativeView {
         cx.notify();
     }
 
-    fn navigate(&mut self, screen: Screen, window: &mut Window, cx: &mut Context<Self>) {
-        if self.screen != screen {
+    /// Opens `route` and records the current one for Back.
+    fn navigate(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
+        if self.route != route {
+            self.history.push(self.route.clone());
+        }
+        self.show(route, window, cx);
+    }
+
+    fn go_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(route) = self.history.back(self.route.clone()) {
+            self.show(route, window, cx);
+        }
+    }
+
+    fn go_forward(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(route) = self.history.forward(self.route.clone()) {
+            self.show(route, window, cx);
+        }
+    }
+
+    /// Shows `route` without touching history; a deleted folder falls back to all skills.
+    fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
+        let folder_exists = |id: &FolderId| {
+            self.snapshot
+                .library
+                .as_ref()
+                .is_some_and(|library| library.library.folders.iter().any(|f| &f.id == id))
+        };
+        let route = match route {
+            Route::Library(LibraryFilter::Folder(id)) if !folder_exists(&id) => {
+                Route::Library(LibraryFilter::All)
+            }
+            route => route,
+        };
+        if self.route != route {
             self.candidate_page = 0;
             self.selected_candidates.clear();
             self.acknowledge_invalid = false;
@@ -285,12 +317,21 @@ impl NativeView {
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
         }
-        self.screen = screen;
+        let sync = route == Route::Sync;
+        self.route = route;
         self.error = None;
-        if screen == Screen::Sync {
+        if sync {
             self.synchronize(SyncAction::Refresh, cx);
         }
         cx.notify();
+    }
+
+    /// Library filter of the current route; other routes behave as all skills.
+    fn library_filter(&self) -> &LibraryFilter {
+        match &self.route {
+            Route::Library(filter) => filter,
+            _ => &LibraryFilter::All,
+        }
     }
 
     fn input_text(input: &Entity<InputState>, cx: &Context<Self>) -> String {
@@ -356,11 +397,11 @@ impl Render for NativeView {
                 .child(div().flex_1().min_h_0().child(self.render_onboarding(cx)))
                 .into_any_element()
         } else {
-            let page = match self.screen {
-                Screen::Discovery => self.render_discovery(cx).into_any_element(),
-                Screen::Library => self.render_library(cx).into_any_element(),
-                Screen::Sync => self.render_sync(cx).into_any_element(),
-                Screen::Settings => self.render_settings(cx).into_any_element(),
+            let page = match self.route {
+                Route::Discovery => self.render_discovery(cx).into_any_element(),
+                Route::Library(_) => self.render_library(cx).into_any_element(),
+                Route::Sync => self.render_sync(cx).into_any_element(),
+                Route::Settings => self.render_settings(cx).into_any_element(),
             };
             self.render_shell(page, window, cx)
         };
@@ -373,6 +414,12 @@ impl Render for NativeView {
         div()
             .track_focus(&self.focus)
             .on_action(cx.listener(|view, _: &ToggleSidebar, _, cx| view.toggle_sidebar(cx)))
+            .when(!onboarding, |root| {
+                root.on_action(cx.listener(|view, _: &GoBack, window, cx| view.go_back(window, cx)))
+                    .on_action(
+                        cx.listener(|view, _: &GoForward, window, cx| view.go_forward(window, cx)),
+                    )
+            })
             .size_full()
             .font_family(skillbinder_theme::system_font())
             .bg(colors.background)

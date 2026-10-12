@@ -13,7 +13,7 @@ use skillbinder_client::Client;
 use skillbinder_engine::Engine;
 #[cfg(not(feature = "native-test"))]
 use skillbinder_engine::EngineConfig;
-use skillbinder_ui::ToggleSidebar;
+use skillbinder_ui::{GoBack, GoForward, ToggleSidebar};
 
 actions!(
     skillbinder,
@@ -145,9 +145,16 @@ fn run() -> anyhow::Result<()> {
             } else {
                 "ctrl-b"
             };
+            let (back_key, forward_key) = if cfg!(target_os = "macos") {
+                ("cmd-[", "cmd-]")
+            } else {
+                ("ctrl-[", "ctrl-]")
+            };
             cx.bind_keys([
                 KeyBinding::new(quit_key, Quit, None),
                 KeyBinding::new(sidebar_key, ToggleSidebar, None),
+                KeyBinding::new(back_key, GoBack, None),
+                KeyBinding::new(forward_key, GoForward, None),
             ]);
             cx.set_menus(vec![
                 Menu {
@@ -159,6 +166,14 @@ fn run() -> anyhow::Result<()> {
                     name: "View".into(),
                     disabled: false,
                     items: vec![MenuItem::action("Toggle Sidebar", ToggleSidebar)],
+                },
+                Menu {
+                    name: "Go".into(),
+                    disabled: false,
+                    items: vec![
+                        MenuItem::action("Back", GoBack),
+                        MenuItem::action("Forward", GoForward),
+                    ],
                 },
             ]);
             cx.on_window_closed(|cx, _| {

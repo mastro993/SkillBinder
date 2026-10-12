@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use super::controls::button;
 use super::{
-    NativeView, Screen,
+    NativeView, Route,
     sidebar::{SidebarDrag, clamp_sidebar_width, visible_width},
 };
 use gpui_kit::component::{Icon, IconName, Sizable, TitleBar, button::ButtonVariants, h_flex};
@@ -19,7 +19,11 @@ gpui_kit::actions!(
     skillbinder,
     [
         /// Shows or hides the sidebar.
-        ToggleSidebar
+        ToggleSidebar,
+        /// Returns to the previous sidebar route.
+        GoBack,
+        /// Reopens the route left by going back.
+        GoForward
     ]
 );
 
@@ -281,9 +285,9 @@ impl NativeView {
     }
 
     fn header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        match self.screen {
-            Screen::Discovery => self.discovery_header_actions(cx),
-            Screen::Library | Screen::Sync | Screen::Settings => Vec::new(),
+        match self.route {
+            Route::Discovery => self.discovery_header_actions(cx),
+            Route::Library(_) | Route::Sync | Route::Settings => Vec::new(),
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{DialogState, NativeView, Screen};
+use super::{DialogState, LibraryFilter, NativeView, Route};
 use gpui_kit::component::WindowExt;
 use gpui_kit::{Context, Focusable, Window};
 use skillbinder_proto::RootId;
@@ -16,7 +16,7 @@ impl NativeView {
                 if Self::input_text(&self.remote_branch, cx) != "main" {
                     return Err("New remote branch must default to main".into());
                 }
-                self.navigate(Screen::Sync, window, cx);
+                self.navigate(Route::Sync, window, cx);
                 self.remote_url.update(cx, |input, cx| {
                     input.set_value("Fixture café 日本語", window, cx)
                 });
@@ -28,10 +28,10 @@ impl NativeView {
                 {
                     return Err("Native text or focus was lost".into());
                 }
-                self.navigate(Screen::Settings, window, cx);
+                self.navigate(Route::Settings, window, cx);
             }
-            2 => self.navigate(Screen::Library, window, cx),
-            3 => self.navigate(Screen::Discovery, window, cx),
+            2 => self.navigate(Route::Library(LibraryFilter::All), window, cx),
+            3 => self.navigate(Route::Discovery, window, cx),
             4 => {
                 window.focus(&self.focus, cx);
                 self.dialog = DialogState::RemoveRoot(RootId::new());
