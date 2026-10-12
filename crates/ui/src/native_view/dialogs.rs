@@ -27,7 +27,7 @@ impl NativeView {
                         .on_ok(|_, _, _| false)
                         .on_close(move |_, _, cx| {
                             let _ = close_view.update(cx, |view, cx| {
-                                if matches!(view.dialog, DialogState::AddProject) {
+                                if matches!(view.dialog, DialogState::AddWorkspace) {
                                     view.close_addition(cx);
                                 } else {
                                     view.dialog = DialogState::None;
@@ -353,8 +353,8 @@ impl NativeView {
                             }),
                     )
             }
-            DialogState::AddProject => self.add_project_dialog(dialog, cx),
-            DialogState::RemoveProject(id) => self.remove_project_dialog(dialog, id, cx),
+            DialogState::AddWorkspace => self.add_workspace_dialog(dialog, cx),
+            DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
             DialogState::AddSkills { .. } => self.add_skills_dialog(dialog, cx),
             DialogState::RemoveChanged { .. } => self.remove_changed_dialog(dialog, cx),
             DialogState::DiscardChanges { .. } => self.discard_changes_dialog(dialog, cx),

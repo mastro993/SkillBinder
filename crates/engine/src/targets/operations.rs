@@ -1,4 +1,4 @@
-//! Public engine operations for Global and projects. Scans run on blocking threads; the worker
+//! Public engine operations for Global and workspaces. Scans run on blocking threads; the worker
 //! only reads inputs and saves results.
 
 use super::scan::{self, Control};
@@ -15,14 +15,14 @@ async fn blocking<T: Send + 'static>(
 }
 
 impl Engine {
-    /// Scans a granted folder and saves it as a project with its deployments in one
+    /// Scans a granted folder and saves it as a workspace with its deployments in one
     /// transaction. An expired grant, a duplicate folder, or another running addition is an
     /// error. Once the scan starts, the returned addition reports success or a safe failure;
     /// `None` means the addition was cancelled and nothing was saved.
-    pub async fn add_project(&self, grant: GrantId) -> AppResult<Option<ProjectAddition>> {
+    pub async fn add_workspace(&self, grant: GrantId) -> AppResult<Option<WorkspaceAddition>> {
         let (pending, scope, config, log) = self
             .call(move |state| {
-                let (pending, scope) = state.prepare_project(&grant)?;
+                let (pending, scope) = state.prepare_workspace(&grant)?;
                 Ok((pending, scope, state.config.clone(), state.log.clone()))
             })
             .await?;
@@ -45,25 +45,25 @@ impl Engine {
     }
 
     /// Discards the running addition and returns whether one was discarded; a scan that
-    /// already saved its project is kept.
-    pub fn cancel_project_addition(&self) -> AppResult<bool> {
+    /// already saved its workspace is kept.
+    pub fn cancel_workspace_addition(&self) -> AppResult<bool> {
         self.targets().cancel_addition()
     }
 
     /// Clears a finished or failed addition.
-    pub fn dismiss_project_addition(&self) -> AppResult<()> {
+    pub fn dismiss_workspace_addition(&self) -> AppResult<()> {
         self.targets().dismiss_addition()
     }
 
-    /// The project being added and the targets being rescanned, without waiting on the worker.
-    pub fn target_progress(&self) -> AppResult<(Option<ProjectAddition>, Vec<DeploymentTarget>)> {
+    /// The workspace being added and the targets being rescanned, without waiting on the worker.
+    pub fn target_progress(&self) -> AppResult<(Option<WorkspaceAddition>, Vec<DeploymentTarget>)> {
         self.targets().current()
     }
 
     /// Rescans one target and replaces its recorded deployments. A request made while a rescan
     /// of the target runs makes that rescan run once more, and so does a deployment write that
-    /// overlapped it. A project whose folder is missing or unreadable keeps its deployments,
-    /// and a removed project is skipped.
+    /// overlapped it. A workspace whose folder is missing or unreadable keeps its deployments,
+    /// and a removed workspace is skipped.
     pub async fn rescan_target(&self, target: DeploymentTarget) -> AppResult<()> {
         let Some(_rescan) = self.targets().begin_rescan(&target)? else {
             return Ok(());
@@ -166,20 +166,21 @@ impl Engine {
             .await
     }
 
-    /// Renames a project; names need not be unique.
-    pub async fn rename_project(&self, id: ProjectId, name: String) -> AppResult<()> {
-        self.call(move |state| state.rename_project(&id, &name))
+    /// Renames a workspace; names need not be unique.
+    pub async fn rename_workspace(&self, id: WorkspaceId, name: String) -> AppResult<()> {
+        self.call(move |state| state.rename_workspace(&id, &name))
             .await
     }
 
-    /// Replaces the project order with a permutation of every project.
-    pub async fn reorder_projects(&self, order: Vec<ProjectId>) -> AppResult<()> {
-        self.call(move |state| state.reorder_projects(&order)).await
+    /// Replaces the workspace order with a permutation of every workspace.
+    pub async fn reorder_workspaces(&self, order: Vec<WorkspaceId>) -> AppResult<()> {
+        self.call(move |state| state.reorder_workspaces(&order))
+            .await
     }
 
-    /// Forgets a project and its deployments without touching its files. Returns the projects
+    /// Forgets a workspace and its deployments without touching its files. Returns the workspaces
     /// that contain it; their next rescan covers its folder again.
-    pub async fn remove_project(&self, id: ProjectId) -> AppResult<Vec<ProjectId>> {
-        self.call(move |state| state.remove_project(&id)).await
+    pub async fn remove_workspace(&self, id: WorkspaceId) -> AppResult<Vec<WorkspaceId>> {
+        self.call(move |state| state.remove_workspace(&id)).await
     }
 }

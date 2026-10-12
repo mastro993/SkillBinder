@@ -4,15 +4,15 @@ mod discovery;
 mod error;
 mod library;
 mod lifecycle;
-mod projects;
 mod sync;
+mod workspaces;
 
 pub use discovery::*;
 pub use error::*;
 pub use library::*;
 pub use lifecycle::*;
-pub use projects::*;
 pub use sync::*;
+pub use workspaces::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ identifier!(ScanId, "A discovery run identity.");
 identifier!(CandidateId, "An opaque discovery candidate identity.");
 identifier!(PlanId, "An immutable import plan and replay key.");
 identifier!(
-    ProjectId,
-    "A project identity, independent of its folder path."
+    WorkspaceId,
+    "A workspace identity, independent of its folder path."
 );
 identifier!(GrantId, "A short-lived, single-use native directory grant.");

@@ -54,7 +54,7 @@ impl State {
                 "This deployment changed since it was shown. Rescan it, then choose again.",
             ));
         }
-        if remedy == Remedy::UseProject {
+        if remedy == Remedy::UseWorkspace {
             self.accept_copy(&deployment, library)?;
         }
         let result = self.rewrite(&deployment);

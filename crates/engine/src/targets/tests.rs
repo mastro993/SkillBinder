@@ -1,4 +1,4 @@
-use super::{record::PendingProject, scan::Findings};
+use super::{record::PendingWorkspace, scan::Findings};
 use crate::worker::State;
 use skillbinder_proto::*;
 use std::collections::BTreeSet;
@@ -14,14 +14,14 @@ fn findings() -> AppResult<Findings> {
 fn a_cancelled_addition_saves_nothing_and_a_finished_one_cannot_be_cancelled() -> AppResult<()> {
     let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
     let mut state = State::isolated_test_state(root.path().join("data"));
-    let pending = PendingProject {
-        id: ProjectId::new(),
-        name: "project".into(),
+    let pending = PendingWorkspace {
+        id: WorkspaceId::new(),
+        name: "workspace".into(),
         path: root.path().to_owned(),
     };
     let addition = state
         .targets
-        .begin_addition(pending.name.clone(), "project".into())?;
+        .begin_addition(pending.name.clone(), "workspace".into())?;
     assert!(
         state
             .targets
@@ -37,18 +37,18 @@ fn a_cancelled_addition_saves_nothing_and_a_finished_one_cannot_be_cancelled() -
     assert!(state.targets.current()?.0.is_none());
     let id = addition.snapshot.id;
     assert_eq!(state.finish_addition(&id, &pending, findings())?, None);
-    assert!(state.projects()?.is_empty());
+    assert!(state.workspaces()?.is_empty());
 
     // A failed save is reported on the addition and saves nothing; it can then be dismissed.
     let addition = state
         .targets
-        .begin_addition("project".into(), "project".into())?;
+        .begin_addition("workspace".into(), "workspace".into())?;
     let failed = state
         .finish_addition(&addition.snapshot.id, &pending, findings())?
         .ok_or_else(AppError::storage)?;
     assert_eq!(failed.status, ScanStatus::Failed);
     assert!(failed.error.is_some());
-    assert!(state.projects()?.is_empty());
+    assert!(state.workspaces()?.is_empty());
     assert!(!state.targets.cancel_addition()?);
     assert_eq!(
         state.targets.current()?.0.map(|addition| addition.status),

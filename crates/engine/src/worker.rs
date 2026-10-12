@@ -201,16 +201,16 @@ impl Engine {
         {
             return Ok(run);
         }
-        let (config, projects, managed, log) = self
+        let (config, workspaces, managed, log) = self
             .call(|state| {
                 let library = state.read_library()?;
                 Ok((
                     state.config.clone(),
                     state
-                        .projects()?
+                        .workspaces()?
                         .into_iter()
-                        .filter(|project| !project.missing)
-                        .map(|project| PathBuf::from(project.path))
+                        .filter(|workspace| !workspace.missing)
+                        .map(|workspace| PathBuf::from(workspace.path))
                         .collect(),
                     library
                         .skills
@@ -243,7 +243,7 @@ impl Engine {
                 ))
             })
             .await?;
-        self.owner.scans.start(config, projects, managed, log)
+        self.owner.scans.start(config, workspaces, managed, log)
     }
     /// Requests cooperative cancellation while retaining partial findings.
     pub async fn cancel_scan(&self) -> AppResult<ScanSnapshot> {
@@ -356,7 +356,7 @@ impl State {
             .as_ref()
             .map(|library| self.listed_importables(&library.library))
             .unwrap_or_default();
-        let (project_addition, rescanning) = self.targets.current()?;
+        let (workspace_addition, rescanning) = self.targets.current()?;
         Ok(AppSnapshot {
             generation: 0,
             background_error: None,
@@ -365,10 +365,10 @@ impl State {
             home: self.config.home.display().to_string(),
             agents: crate::discovery::registry::agent_options(&self.config)?,
             global_agents: self.target_agents(&DeploymentTarget::Global)?,
-            projects: self.projects()?,
+            workspaces: self.workspaces()?,
             deployments: self.deployments()?,
             importables,
-            project_addition,
+            workspace_addition,
             rescanning,
             scan: self.scans.current()?,
             sync,

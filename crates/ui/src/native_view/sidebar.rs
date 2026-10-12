@@ -5,17 +5,17 @@ use std::{rc::Rc, time::Duration};
 use super::controls::{Inactive, app_icon, button};
 use super::sidebar_row::{activate, count, dot, row, spinner};
 use super::{LibraryFilter, NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, h_flex, tooltip::Tooltip};
+use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, h_flex};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, AppContext, Axis, Context, Div, ElementId, EmptyView,
-    InteractiveElement, IntoElement, ParentElement, SharedString, Stateful,
-    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
+    InteractiveElement, IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled,
+    Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{DeploymentTarget, ScanStatus, SyncSnapshot, SyncState};
+use skillbinder_proto::{ScanStatus, SyncSnapshot, SyncState};
 use skillbinder_theme::sidebar::{INSET, ROW_GAP};
 
 /// The deployment target made of the global agent skill locations under home.
-pub(super) const INSTALLED: &str = "Installed";
+pub(super) const SYSTEM: &str = "System";
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
 const SIDEBAR_MOTION: Duration = Duration::from_millis(220);
@@ -154,10 +154,7 @@ impl NativeView {
                             cx,
                         )
                         .when_some(skills, |row, skills| row.child(count(skills, cx))),
-                    )
-                    .when(snapshot.library.is_some(), |nav| {
-                        nav.child(self.render_global_row(cx))
-                    }),
+                    ),
             )
             .map(|sidebar| match &snapshot.library {
                 Some(library) => sidebar.child(
@@ -169,7 +166,7 @@ impl NativeView {
                         .min_h_0()
                         .overflow_y_scroll()
                         .child(self.render_folders(library, window, cx))
-                        .child(self.render_projects(window, cx)),
+                        .child(self.render_workspaces(window, cx)),
                 ),
                 None => sidebar.child(div().flex_1()),
             })
@@ -208,32 +205,6 @@ impl NativeView {
             cx,
             move |view, window, cx| view.navigate(route.clone(), window, cx),
         )
-    }
-
-    /// Installed is the Global deployment target, not a project, so it sits with the navigation
-    /// rows. Its count is the number of skills installed there, and its tooltip shows the home
-    /// folder its skills live under.
-    fn render_global_row(&self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let target = DeploymentTarget::Global;
-        let selected = self.route == Route::Target(target.clone());
-        let trailing = self.target_trailing(&target, false, cx);
-        let accessible = self.target_label(INSTALLED.to_owned(), &target);
-        let home: SharedString = self.snapshot.home.clone().into();
-        activate(
-            row(
-                "nav-global",
-                app_icon("hard-drive"),
-                None,
-                INSTALLED,
-                selected,
-                cx,
-            ),
-            accessible,
-            cx,
-            |view, window, cx| view.open_target(DeploymentTarget::Global, window, cx),
-        )
-        .child(trailing)
-        .tooltip(move |window, cx| Tooltip::new(home.clone()).build(window, cx))
     }
 
     /// Back and forward, right-aligned in the sidebar's header row.

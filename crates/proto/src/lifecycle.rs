@@ -1,6 +1,6 @@
 use crate::{
-    Deployment, DeploymentTarget, ImportOutcome, LibrarySnapshot, Project, ProjectAddition,
-    ScanSnapshot, SyncSnapshot,
+    Deployment, DeploymentTarget, ImportOutcome, LibrarySnapshot, ScanSnapshot, SyncSnapshot,
+    Workspace, WorkspaceAddition,
 };
 use serde::{Deserialize, Serialize};
 
@@ -105,14 +105,14 @@ pub struct AppSnapshot {
     pub agents: Vec<crate::AgentOption>,
     /// Registry agent identities Global writes to.
     pub global_agents: Vec<String>,
-    /// Added projects in user order.
-    pub projects: Vec<Project>,
-    /// Recorded deployments across Global and every project.
+    /// Added workspaces in user order.
+    pub workspaces: Vec<Workspace>,
+    /// Recorded deployments across Global and every workspace.
     pub deployments: Vec<Deployment>,
     /// Skills each target's last scan found that match no library skill, by target and slug.
     pub importables: Vec<crate::Importable>,
-    /// The project being added, until its result is dismissed.
-    pub project_addition: Option<ProjectAddition>,
+    /// The workspace being added, until its result is dismissed.
+    pub workspace_addition: Option<WorkspaceAddition>,
     /// Targets whose background rescan is running.
     pub rescanning: Vec<DeploymentTarget>,
     /// Current retained scan.

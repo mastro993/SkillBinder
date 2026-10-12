@@ -5,21 +5,21 @@ mod library;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod onboarding;
-mod project_dialogs;
 mod route;
 mod settings;
 mod shell;
 mod sidebar;
 mod sidebar_folders;
-mod sidebar_projects;
 mod sidebar_reorder;
 mod sidebar_row;
+mod sidebar_workspaces;
 mod status_bar;
 mod sync;
 mod target_dialogs;
 mod target_drift;
 mod target_importables;
 mod target_page;
+mod workspace_dialogs;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
@@ -49,9 +49,9 @@ enum DialogState {
         revision: String,
         selected: Option<SkillId>,
     },
-    /// Scan progress and outcome of the project being added.
-    AddProject,
-    RemoveProject(ProjectId),
+    /// Scan progress and outcome of the workspace being added.
+    AddWorkspace,
+    RemoveWorkspace(WorkspaceId),
     /// Library skills, and agents when the target has none yet, chosen to add to a target.
     AddSkills {
         target: DeploymentTarget,
@@ -105,9 +105,9 @@ pub struct NativeView {
     folder_reorder: RowReorder<FolderId>,
     /// Target agents being edited on the current target page.
     agent_edit: Option<BTreeSet<String>>,
-    /// Inline project renaming in the sidebar.
-    project_edit: Option<ProjectId>,
-    project_reorder: RowReorder<ProjectId>,
+    /// Inline workspace renaming in the sidebar.
+    workspace_edit: Option<WorkspaceId>,
+    workspace_reorder: RowReorder<WorkspaceId>,
     sidebar_width: f32,
     sidebar_collapsed: bool,
     appearance: Appearance,
@@ -121,12 +121,12 @@ pub struct NativeView {
     preview: Option<SkillPreview>,
     search: Entity<InputState>,
     folder_name: Entity<InputState>,
-    project_name: Entity<InputState>,
+    workspace_name: Entity<InputState>,
     remote_url: Entity<InputState>,
     remote_branch: Entity<InputState>,
     _search_subscription: Subscription,
     _folder_name_subscription: Subscription,
-    _project_name_subscription: Subscription,
+    _workspace_name_subscription: Subscription,
     _activation_subscription: Subscription,
     _subscription: Task<()>,
 }
@@ -165,9 +165,9 @@ impl NativeView {
         let folder_name = cx.new(|cx| InputState::new(window, cx).placeholder("Folder name"));
         let folder_name_subscription =
             cx.subscribe_in(&folder_name, window, Self::folder_name_event);
-        let project_name = cx.new(|cx| InputState::new(window, cx).placeholder("Project name"));
-        let project_name_subscription =
-            cx.subscribe_in(&project_name, window, Self::project_name_event);
+        let workspace_name = cx.new(|cx| InputState::new(window, cx).placeholder("Workspace name"));
+        let workspace_name_subscription =
+            cx.subscribe_in(&workspace_name, window, Self::workspace_name_event);
         let remote_url = cx.new(|cx| InputState::new(window, cx).placeholder("Remote URL"));
         let remote_branch = cx.new(|cx| {
             InputState::new(window, cx)
@@ -203,8 +203,8 @@ impl NativeView {
             folder_edit: None,
             folder_reorder: RowReorder::default(),
             agent_edit: None,
-            project_edit: None,
-            project_reorder: RowReorder::default(),
+            workspace_edit: None,
+            workspace_reorder: RowReorder::default(),
             sidebar_width,
             sidebar_collapsed,
             appearance,
@@ -216,12 +216,12 @@ impl NativeView {
             preview: None,
             search,
             folder_name,
-            project_name,
+            workspace_name,
             remote_url,
             remote_branch,
             _search_subscription: search_subscription,
             _folder_name_subscription: folder_name_subscription,
-            _project_name_subscription: project_name_subscription,
+            _workspace_name_subscription: workspace_name_subscription,
             _activation_subscription: activation_subscription,
             _subscription: subscription,
         }
@@ -254,18 +254,18 @@ impl NativeView {
                 self.preview = None;
             }
         }
-        let project_exists = |id: &ProjectId| latest.projects.iter().any(|p| &p.id == id);
-        if matches!(&self.route, Route::Target(DeploymentTarget::Project(id)) if !project_exists(id))
+        let workspace_exists = |id: &WorkspaceId| latest.workspaces.iter().any(|p| &p.id == id);
+        if matches!(&self.route, Route::Target(DeploymentTarget::Workspace(id)) if !workspace_exists(id))
         {
             self.route = Route::Discovery;
             self.agent_edit = None;
         }
         if self
-            .project_edit
+            .workspace_edit
             .as_ref()
-            .is_some_and(|id| !project_exists(id))
+            .is_some_and(|id| !workspace_exists(id))
         {
-            self.project_edit = None;
+            self.workspace_edit = None;
         }
         self.snapshot = latest;
         self.sync_addition_dialog();
@@ -296,7 +296,7 @@ impl NativeView {
                 view.busy = false;
                 view.syncing = false;
                 view.folder_reorder.settle();
-                view.project_reorder.settle();
+                view.workspace_reorder.settle();
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);
@@ -342,7 +342,7 @@ impl NativeView {
     }
 
     /// Shows `route` without touching history; a deleted folder falls back to all skills, and
-    /// a removed project to Discovery.
+    /// a removed workspace to Discovery.
     fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
         let folder_exists = |id: &FolderId| {
             self.snapshot
@@ -350,12 +350,13 @@ impl NativeView {
                 .as_ref()
                 .is_some_and(|library| library.library.folders.iter().any(|f| &f.id == id))
         };
-        let project_exists = |id: &ProjectId| self.snapshot.projects.iter().any(|p| &p.id == id);
+        let workspace_exists =
+            |id: &WorkspaceId| self.snapshot.workspaces.iter().any(|p| &p.id == id);
         let route = match route {
             Route::Library(LibraryFilter::Folder(id)) if !folder_exists(&id) => {
                 Route::Library(LibraryFilter::All)
             }
-            Route::Target(DeploymentTarget::Project(id)) if !project_exists(&id) => {
+            Route::Target(DeploymentTarget::Workspace(id)) if !workspace_exists(&id) => {
                 Route::Discovery
             }
             route => route,

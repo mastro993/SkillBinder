@@ -38,15 +38,15 @@ impl NativeView {
         let drift = self.deployment_drift(deployment)?;
         let name = self.target_name(&deployment.target);
         let side = match deployment.target {
-            DeploymentTarget::Global => "installed",
-            DeploymentTarget::Project(_) => "project",
+            DeploymentTarget::Global => "system",
+            DeploymentTarget::Workspace(_) => "workspace",
         };
         let (summary, remedies): (String, Vec<(String, Remedy)>) = match drift {
-            Drift::ProjectChanged => (
+            Drift::WorkspaceChanged => (
                 format!("Changed in {name} since it was added. The library skill is unchanged."),
                 vec![
                     ("Restore from library".into(), Remedy::UseLibrary),
-                    ("Accept into library".into(), Remedy::UseProject),
+                    ("Accept into library".into(), Remedy::UseWorkspace),
                 ],
             ),
             Drift::Outdated => (
@@ -57,7 +57,7 @@ impl NativeView {
                 format!("Changed in {name} and in the library since it was added."),
                 vec![
                     ("Keep library version".into(), Remedy::UseLibrary),
-                    (format!("Keep {side} version"), Remedy::UseProject),
+                    (format!("Keep {side} version"), Remedy::UseWorkspace),
                 ],
             ),
             Drift::Missing => (
@@ -173,5 +173,5 @@ impl NativeView {
 
 /// Whether using the library version discards a copy changed in the target.
 fn drift_discards(drift: Drift) -> bool {
-    matches!(drift, Drift::ProjectChanged | Drift::Conflict)
+    matches!(drift, Drift::WorkspaceChanged | Drift::Conflict)
 }

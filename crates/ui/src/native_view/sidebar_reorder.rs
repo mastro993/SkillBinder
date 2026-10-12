@@ -1,4 +1,4 @@
-//! Sidebar row drag reordering, shared by folders and projects: the floating row, the live drop
+//! Sidebar row drag reordering, shared by folders and workspaces: the floating row, the live drop
 //! order, and the rows' slide motion.
 
 use std::{

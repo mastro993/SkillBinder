@@ -49,10 +49,10 @@ async fn external_managed_changes_do_not_hide_the_original_source() {
 }
 
 #[tokio::test]
-async fn identical_copies_in_global_and_a_project_are_one_candidate() {
+async fn identical_copies_in_global_and_a_workspace_are_one_candidate() {
     let fixture = Fixture::new();
     let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
-    let project_copy = fixture.skill("review", "Shared");
+    let workspace_copy = fixture.skill("review", "Shared");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
@@ -62,7 +62,7 @@ async fn identical_copies_in_global_and_a_project_are_one_candidate() {
         .iter()
         .map(|location| location.display_path.as_str())
         .collect();
-    let mut expected = [global_copy, project_copy]
+    let mut expected = [global_copy, workspace_copy]
         .map(|path| fs::canonicalize(path).unwrap().display().to_string());
     expected.sort();
     assert_eq!(paths, expected);
@@ -83,7 +83,7 @@ async fn same_slug_with_different_content_stays_separate() {
         "review",
         "Global edit",
     );
-    fixture.skill("review", "Project edit");
+    fixture.skill("review", "Workspace edit");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
@@ -100,8 +100,8 @@ async fn same_slug_with_different_content_stays_separate() {
 async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location() {
     let fixture = Fixture::new();
     let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
-    let project_copy = fixture.skill("review", "Shared");
-    let original = fs::read(project_copy.join("SKILL.md")).unwrap();
+    let workspace_copy = fixture.skill("review", "Shared");
+    let original = fs::read(workspace_copy.join("SKILL.md")).unwrap();
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
@@ -138,7 +138,7 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
             .len(),
         1
     );
-    assert_eq!(fs::read(project_copy.join("SKILL.md")).unwrap(), original);
+    assert_eq!(fs::read(workspace_copy.join("SKILL.md")).unwrap(), original);
     assert!(global_copy.join("SKILL.md").is_file());
     engine.shutdown().await.unwrap();
 }
@@ -173,16 +173,16 @@ async fn a_blocked_copy_does_not_absorb_an_importable_copy_with_the_same_digest(
 
 #[cfg(unix)]
 fn link_chain(
-    project: &std::path::Path,
+    workspace: &std::path::Path,
     entry: &std::path::Path,
     target: &std::path::Path,
     hops: usize,
 ) {
-    let project = fs::canonicalize(project).unwrap();
+    let workspace = fs::canonicalize(workspace).unwrap();
     let target = fs::canonicalize(target).unwrap();
     let mut previous = target;
     for index in (1..hops).rev() {
-        let link = project.join(format!("link-{index}"));
+        let link = workspace.join(format!("link-{index}"));
         std::os::unix::fs::symlink(previous, &link).unwrap();
         previous = link;
     }
@@ -194,17 +194,17 @@ fn link_chain(
 async fn registry_root_link_chain_is_checked_before_canonical_deduplication() {
     for hops in [16, 17] {
         let fixture = Fixture::new();
-        let source = fixture.project.join("payload/review");
+        let source = fixture.workspace.join("payload/review");
         fs::create_dir_all(&source).unwrap();
         fs::write(
             source.join("SKILL.md"),
             b"---\nname: review\ndescription: Registry link fixture\n---\n",
         )
         .unwrap();
-        let agents = fixture.project.join(".agents");
+        let agents = fixture.workspace.join(".agents");
         fs::create_dir_all(&agents).unwrap();
         link_chain(
-            &fixture.project,
+            &fixture.workspace,
             &agents.join("skills"),
             source.parent().unwrap(),
             hops,
@@ -226,17 +226,17 @@ async fn registry_root_link_chain_is_checked_before_canonical_deduplication() {
 async fn traversal_refuses_17_links_and_accepts_16_with_original_source_path() {
     for hops in [16, 17] {
         let fixture = Fixture::new();
-        let source = fixture.project.join("payload/review");
+        let source = fixture.workspace.join("payload/review");
         fs::create_dir_all(&source).unwrap();
         fs::write(
             source.join("SKILL.md"),
             b"---\nname: review\ndescription: Traversal link fixture\n---\n",
         )
         .unwrap();
-        let skills = fixture.project.join(".agents/skills");
+        let skills = fixture.workspace.join(".agents/skills");
         fs::create_dir_all(&skills).unwrap();
         let entry = skills.join("review");
-        link_chain(&fixture.project, &entry, &source, hops);
+        link_chain(&fixture.workspace, &entry, &source, hops);
         let engine = fixture.ready().await;
         fixture.register(&engine).await;
         let scan = fixture.scan(&engine).await;

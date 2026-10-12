@@ -14,7 +14,7 @@ pub(super) enum LibraryFilter {
 pub(super) enum Route {
     Discovery,
     Library(LibraryFilter),
-    /// The page of Global or a project: `project/{id}`, or Global's own route.
+    /// The page of Global or a workspace: `workspace/{id}`, or Global's own route.
     Target(DeploymentTarget),
     Sync,
     Settings,
@@ -58,7 +58,7 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::{History, LibraryFilter, Route};
-    use skillbinder_proto::{DeploymentTarget, ProjectId};
+    use skillbinder_proto::{DeploymentTarget, WorkspaceId};
 
     #[test]
     fn back_and_forward_walk_the_visited_routes() {
@@ -77,16 +77,16 @@ mod tests {
     #[test]
     fn target_pages_join_the_history() {
         let mut history = History::default();
-        let project = Route::Target(DeploymentTarget::Project(ProjectId::new()));
+        let workspace = Route::Target(DeploymentTarget::Workspace(WorkspaceId::new()));
         history.push(Route::Discovery);
         history.push(Route::Target(DeploymentTarget::Global));
         assert_eq!(
-            history.back(project.clone()),
+            history.back(workspace.clone()),
             Some(Route::Target(DeploymentTarget::Global))
         );
         assert_eq!(
             history.forward(Route::Target(DeploymentTarget::Global)),
-            Some(project)
+            Some(workspace)
         );
     }
 

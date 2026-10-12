@@ -1,4 +1,4 @@
-//! Importing importable skills from Global and project pages, in isolated roots.
+//! Importing importable skills from Global and workspace pages, in isolated roots.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
@@ -21,10 +21,10 @@ fn importables(snapshot: &AppSnapshot, target: &DeploymentTarget) -> Vec<Importa
         .collect()
 }
 
-async fn project(fixture: &Fixture, engine: &Engine) -> DeploymentTarget {
+async fn workspace(fixture: &Fixture, engine: &Engine) -> DeploymentTarget {
     fixture.register(engine).await;
     let snapshot = engine.snapshot().await.unwrap();
-    DeploymentTarget::Project(snapshot.projects[0].id.clone())
+    DeploymentTarget::Workspace(snapshot.workspaces[0].id.clone())
 }
 
 #[cfg(unix)]
@@ -34,12 +34,16 @@ fn inode(path: &Path) -> u64 {
 }
 
 #[tokio::test]
-async fn importing_from_a_project_records_its_existing_copies_as_the_deployment() {
+async fn importing_from_a_workspace_records_its_existing_copies_as_the_deployment() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let agents = fixture.skill("review", "Review");
-    let claude = write_skill(&fixture.project.join(".claude/skills"), "review", "Review");
-    let target = project(&fixture, &engine).await;
+    let claude = write_skill(
+        &fixture.workspace.join(".claude/skills"),
+        "review",
+        "Review",
+    );
+    let target = workspace(&fixture, &engine).await;
     #[cfg(unix)]
     let inodes = (inode(&agents), inode(&claude));
     let before = (
@@ -130,10 +134,14 @@ async fn an_importable_that_changed_since_it_was_shown_is_stale() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let copy = fixture.skill("review", "Review");
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     let shown = importables(&engine.snapshot().await.unwrap(), &target).remove(0);
 
-    write_skill(&fixture.project.join(".agents/skills"), "review", "Edited");
+    write_skill(
+        &fixture.workspace.join(".agents/skills"),
+        "review",
+        "Edited",
+    );
     assert_eq!(
         category(engine.prepare_target_import(shown.clone(), false).await),
         ErrorCategory::Stale
@@ -164,14 +172,14 @@ async fn an_importable_that_changed_since_it_was_shown_is_stale() {
 async fn invalid_metadata_needs_acknowledgement() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
-    let invalid = fixture.project.join(".agents/skills/odd");
+    let invalid = fixture.workspace.join(".agents/skills/odd");
     fs::create_dir_all(&invalid).unwrap();
     fs::write(
         invalid.join("SKILL.md"),
         "---\nname: other\ndescription: Name differs\n---\n",
     )
     .unwrap();
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     let shown = importables(&engine.snapshot().await.unwrap(), &target).remove(0);
     assert_eq!(shown.validation, ValidationStatus::Invalid);
 
@@ -190,11 +198,15 @@ async fn a_blocked_copy_stays_apart_and_cannot_be_imported() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let blocked = fixture.skill("review", "Shared");
-    let outside = fixture.project.with_file_name("outside.txt");
+    let outside = fixture.workspace.with_file_name("outside.txt");
     fs::write(&outside, b"outside").unwrap();
     std::os::unix::fs::symlink(&outside, blocked.join("extra")).unwrap();
-    write_skill(&fixture.project.join(".claude/skills"), "review", "Shared");
-    let target = project(&fixture, &engine).await;
+    write_skill(
+        &fixture.workspace.join(".claude/skills"),
+        "review",
+        "Shared",
+    );
+    let target = workspace(&fixture, &engine).await;
 
     // The digests match, but the validation results differ, so the copies stay apart.
     let shown = importables(&engine.snapshot().await.unwrap(), &target);
@@ -220,8 +232,12 @@ async fn a_copy_changed_before_apply_is_left_out_of_the_deployment() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     fixture.skill("review", "Review");
-    write_skill(&fixture.project.join(".claude/skills"), "review", "Review");
-    let target = project(&fixture, &engine).await;
+    write_skill(
+        &fixture.workspace.join(".claude/skills"),
+        "review",
+        "Review",
+    );
+    let target = workspace(&fixture, &engine).await;
     let shown = importables(&engine.snapshot().await.unwrap(), &target).remove(0);
     let plan = engine
         .prepare_target_import(shown.clone(), false)
@@ -229,7 +245,11 @@ async fn a_copy_changed_before_apply_is_left_out_of_the_deployment() {
         .unwrap();
 
     // The plan imports from the first copy; the second changes after review.
-    let edited = write_skill(&fixture.project.join(".claude/skills"), "review", "Edited");
+    let edited = write_skill(
+        &fixture.workspace.join(".claude/skills"),
+        "review",
+        "Edited",
+    );
     engine.apply_import(plan.id).await.unwrap();
 
     let snapshot = engine.snapshot().await.unwrap();
@@ -246,17 +266,17 @@ async fn a_copy_changed_before_apply_is_left_out_of_the_deployment() {
 }
 
 #[tokio::test]
-async fn a_project_removed_before_apply_gets_no_deployment() {
+async fn a_workspace_removed_before_apply_gets_no_deployment() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     fixture.skill("review", "Review");
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     let shown = importables(&engine.snapshot().await.unwrap(), &target).remove(0);
     let plan = engine.prepare_target_import(shown, false).await.unwrap();
-    let DeploymentTarget::Project(id) = target else {
+    let DeploymentTarget::Workspace(id) = target else {
         unreachable!()
     };
-    engine.remove_project(id).await.unwrap();
+    engine.remove_workspace(id).await.unwrap();
 
     let outcome = engine.apply_import(plan.id).await.unwrap();
     assert_eq!(outcome.imported.len(), 1);
@@ -266,14 +286,14 @@ async fn a_project_removed_before_apply_gets_no_deployment() {
 }
 
 #[tokio::test]
-async fn a_missing_project_folder_refuses_import() {
+async fn a_missing_workspace_folder_refuses_import() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     fixture.skill("review", "Review");
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     let shown = importables(&engine.snapshot().await.unwrap(), &target).remove(0);
-    let moved = fixture.project.with_file_name("moved");
-    fs::rename(&fixture.project, &moved).unwrap();
+    let moved = fixture.workspace.with_file_name("moved");
+    fs::rename(&fixture.workspace, &moved).unwrap();
 
     assert_eq!(
         category(engine.prepare_target_import(shown, false).await),
@@ -286,7 +306,7 @@ async fn an_import_from_discovery_stops_listing_the_importable() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     fixture.skill("review", "Review");
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     assert_eq!(
         importables(&engine.snapshot().await.unwrap(), &target).len(),
         1
@@ -307,7 +327,7 @@ async fn a_changed_deployed_copy_is_drift_and_not_importable() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     fixture.skill("review", "Review");
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     let shown = importables(&engine.snapshot().await.unwrap(), &target).remove(0);
     let plan = engine.prepare_target_import(shown, false).await.unwrap();
     engine.apply_import(plan.id).await.unwrap();
@@ -321,18 +341,18 @@ async fn a_changed_deployed_copy_is_drift_and_not_importable() {
 }
 
 #[tokio::test]
-async fn a_project_nested_before_apply_keeps_its_copies() {
+async fn a_workspace_nested_before_apply_keeps_its_copies() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     let outer = fixture.skill("review", "Review");
-    let inner = fixture.project.join("packages/inner");
+    let inner = fixture.workspace.join("packages/inner");
     write_skill(&inner.join(".agents/skills"), "review", "Review");
-    let target = project(&fixture, &engine).await;
+    let target = workspace(&fixture, &engine).await;
     let shown = importables(&engine.snapshot().await.unwrap(), &target).remove(0);
     assert_eq!(shown.paths.len(), 2);
     let plan = engine.prepare_target_import(shown, false).await.unwrap();
 
-    support::add_project(&engine, &inner).await;
+    support::add_workspace(&engine, &inner).await;
     engine.apply_import(plan.id).await.unwrap();
     let snapshot = engine.snapshot().await.unwrap();
     let outer_deployment = snapshot

@@ -1,8 +1,8 @@
-//! Importable skills in Global and projects: skills a target scan found whose content matches no
+//! Importable skills in Global and workspaces: skills a target scan found whose content matches no
 //! library skill. Importing one runs the reviewed import plan, then records its copies in the
 //! target as the new skill's deployment without rewriting them.
 
-use super::{journal::matches, key, record::PendingProject, scan::SkillCopy};
+use super::{journal::matches, key, record::PendingWorkspace, scan::SkillCopy};
 use crate::{discovery::ImportSource, payload, persistence::now, worker::State};
 use rusqlite::params;
 use skillbinder_proto::*;
@@ -36,21 +36,21 @@ pub(super) fn group(target: &DeploymentTarget, copies: Vec<SkillCopy>) -> Vec<Im
 }
 
 impl State {
-    /// Keeps what a saved scan of `target` found. A new project takes the copies inside it away
-    /// from the projects that contain it, as it takes their deployments.
+    /// Keeps what a saved scan of `target` found. A new workspace takes the copies inside it away
+    /// from the workspaces that contain it, as it takes their deployments.
     pub(super) fn keep_importables(
         &mut self,
         target: &DeploymentTarget,
-        new: Option<&PendingProject>,
+        new: Option<&PendingWorkspace>,
         found: Vec<Importable>,
     ) {
-        if let Some(project) = new {
+        if let Some(workspace) = new {
             for (other, importables) in &mut self.importables {
-                if matches!(other, DeploymentTarget::Project(_)) {
+                if matches!(other, DeploymentTarget::Workspace(_)) {
                     importables.retain_mut(|importable| {
                         importable
                             .paths
-                            .retain(|path| !Path::new(path).starts_with(&project.path));
+                            .retain(|path| !Path::new(path).starts_with(&workspace.path));
                         !importable.paths.is_empty()
                     });
                 }
@@ -107,7 +107,7 @@ impl State {
     }
 
     /// Records the copies of an imported skill that still hold its `digest` as its deployment
-    /// in `target`, except copies inside projects nested in it. A removed project records
+    /// in `target`, except copies inside workspaces nested in it. A removed workspace records
     /// nothing, and a target that already holds the skill keeps its deployment; the target's next
     /// rescan reconciles both.
     pub(crate) fn record_imported(
@@ -119,8 +119,8 @@ impl State {
     ) -> AppResult<()> {
         let nested = match target {
             DeploymentTarget::Global => BTreeSet::new(),
-            DeploymentTarget::Project(id) => match self.project_path(id)? {
-                Some(path) => self.nested_projects(&path)?,
+            DeploymentTarget::Workspace(id) => match self.workspace_path(id)? {
+                Some(path) => self.nested_workspaces(&path)?,
                 None => return Ok(()),
             },
         };
@@ -129,7 +129,7 @@ impl State {
             .filter(|path| {
                 !nested
                     .iter()
-                    .any(|project| Path::new(path).starts_with(project))
+                    .any(|workspace| Path::new(path).starts_with(workspace))
             })
             .filter(|path| matches(Path::new(path), digest))
             .collect();
