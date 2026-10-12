@@ -21,7 +21,8 @@
       "name": "AlertCircleIcon",
       "file": "AlertCircleIcon.svg",
       "usedBy": [
-        "components/feedback/status-card.tsx"
+        "components/feedback/status-card.tsx",
+        "crates/ui/src/native_view/sidebar_projects.rs"
       ],
       "sourceModule": "dist/esm/AlertCircleIcon.js",
       "sourceModuleSha256": "ae9ba6fdd8f7d4519c2e39c45b3ff77e497d827490da81cdb4500124cf91ce68",
@@ -141,6 +142,17 @@
       "elementCount": 1
     },
     {
+      "name": "CodeFolderIcon",
+      "file": "CodeFolderIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/sidebar_projects.rs"
+      ],
+      "sourceModule": "dist/esm/CodeFolderIcon.js",
+      "sourceModuleSha256": "0563e708f2796b75e1c92e52263023f193df045fe1c98888e1b62796140db0ab",
+      "svgSha256": "edc2e20c414db47dbcd078f0f9aadb3ab3dc9591f7c79ac5adcd780d1040ee1e",
+      "elementCount": 4
+    },
+    {
       "name": "Compass01Icon",
       "file": "Compass01Icon.svg",
       "usedBy": [
@@ -226,7 +238,8 @@
       "name": "HardDriveIcon",
       "file": "HardDriveIcon.svg",
       "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx"
+        "features/onboarding/components/onboarding-steps.tsx",
+        "crates/ui/src/native_view/sidebar_projects.rs"
       ],
       "sourceModule": "dist/esm/HardDriveIcon.js",
       "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36",

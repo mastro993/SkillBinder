@@ -1,7 +1,7 @@
 use super::{DialogState, LibraryFilter, NativeView, Route};
 use gpui_kit::component::WindowExt;
 use gpui_kit::{Context, Focusable, Window};
-use skillbinder_proto::RootId;
+use skillbinder_proto::ProjectId;
 
 impl NativeView {
     /// Exercises native rendering and public GPUI Kit editing and modal APIs.
@@ -34,7 +34,7 @@ impl NativeView {
             3 => self.navigate(Route::Discovery, window, cx),
             4 => {
                 window.focus(&self.focus, cx);
-                self.dialog = DialogState::RemoveRoot(RootId::new());
+                self.dialog = DialogState::RemoveProject(ProjectId::new());
             }
             5 => {
                 if !window.has_active_dialog(cx) || self.focus.is_focused(window) {

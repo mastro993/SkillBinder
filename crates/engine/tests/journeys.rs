@@ -67,61 +67,6 @@ async fn onboarding_requires_each_step_and_survives_restart() {
 }
 
 #[tokio::test]
-async fn grants_are_single_use_and_duplicate_roots_are_rejected() {
-    let fixture = Fixture::new();
-    let engine = fixture.ready().await;
-    let grant = engine
-        .grant_directory(fixture.project.clone())
-        .await
-        .unwrap();
-    let root = engine
-        .register_root(grant.id.clone(), "Fixture".into())
-        .await
-        .unwrap();
-    assert_eq!(
-        category(engine.register_root(grant.id, "Again".into()).await),
-        ErrorCategory::Stale
-    );
-    let duplicate = engine
-        .grant_directory(fixture.project.clone())
-        .await
-        .unwrap();
-    assert_eq!(
-        category(engine.register_root(duplicate.id, "Again".into()).await),
-        ErrorCategory::Validation
-    );
-    engine
-        .update_root(root.id.clone(), "Renamed".into(), false)
-        .await
-        .unwrap();
-    let snapshot = engine.snapshot().await.unwrap();
-    assert_eq!(snapshot.roots.len(), 1);
-    assert!(!snapshot.roots[0].enabled);
-    engine.remove_root(root.id).await.unwrap();
-    assert!(engine.snapshot().await.unwrap().roots.is_empty());
-    engine.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn disabled_root_is_skipped_and_reenabled_root_is_scanned() {
-    let fixture = Fixture::new();
-    fixture.skill("alpha", "Visible when enabled");
-    let engine = fixture.ready().await;
-    let root = fixture.register(&engine).await;
-    engine
-        .update_root(root.id.clone(), "Fixture".into(), false)
-        .await
-        .unwrap();
-    assert!(fixture.scan(&engine).await.candidates.is_empty());
-    engine
-        .update_root(root.id, "Fixture".into(), true)
-        .await
-        .unwrap();
-    assert_eq!(fixture.scan(&engine).await.candidates.len(), 1);
-    engine.shutdown().await.unwrap();
-}
-
-#[tokio::test]
 async fn scan_deduplicates_shared_readers_and_stays_inside_known_project_locations() {
     let fixture = Fixture::new();
     fixture.skill("known", "Expected source");
@@ -137,7 +82,8 @@ async fn scan_deduplicates_shared_readers_and_stays_inside_known_project_locatio
     let scan = fixture.scan(&engine).await;
     assert_eq!(scan.candidates.len(), 1);
     assert_eq!(scan.candidates[0].slug, "known");
-    assert!(scan.candidates[0].readers.len() > 1);
+    assert_eq!(scan.candidates[0].locations.len(), 1);
+    assert!(scan.candidates[0].locations[0].readers.len() > 1);
     engine.shutdown().await.unwrap();
 }
 

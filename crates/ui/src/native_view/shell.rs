@@ -287,7 +287,7 @@ impl NativeView {
     fn header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         match self.route {
             Route::Discovery => self.discovery_header_actions(cx),
-            Route::Library(_) | Route::Sync | Route::Settings => Vec::new(),
+            Route::Library(_) | Route::Target(_) | Route::Sync | Route::Settings => Vec::new(),
         }
     }
 }

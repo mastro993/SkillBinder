@@ -1,6 +1,6 @@
 //! Navigable routes and the in-memory back/forward history between them.
 
-use skillbinder_proto::FolderId;
+use skillbinder_proto::{DeploymentTarget, FolderId};
 
 /// Which skills the Library route lists.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -15,6 +15,8 @@ pub(super) enum LibraryFilter {
 pub(super) enum Route {
     Discovery,
     Library(LibraryFilter),
+    /// The page of Global or a project: `project/{id}`, or Global's own route.
+    Target(DeploymentTarget),
     Sync,
     Settings,
 }
@@ -57,6 +59,7 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::{History, LibraryFilter, Route};
+    use skillbinder_proto::{DeploymentTarget, ProjectId};
 
     #[test]
     fn back_and_forward_walk_the_visited_routes() {
@@ -70,6 +73,22 @@ mod tests {
         assert_eq!(history.forward(Route::Discovery), Some(unfiled.clone()));
         assert_eq!(history.forward(unfiled), Some(Route::Settings));
         assert!(!history.can_go_forward());
+    }
+
+    #[test]
+    fn target_pages_join_the_history() {
+        let mut history = History::default();
+        let project = Route::Target(DeploymentTarget::Project(ProjectId::new()));
+        history.push(Route::Discovery);
+        history.push(Route::Target(DeploymentTarget::Global));
+        assert_eq!(
+            history.back(project.clone()),
+            Some(Route::Target(DeploymentTarget::Global))
+        );
+        assert_eq!(
+            history.forward(Route::Target(DeploymentTarget::Global)),
+            Some(project)
+        );
     }
 
     #[test]

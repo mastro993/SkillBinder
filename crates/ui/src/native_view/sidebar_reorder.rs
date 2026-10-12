@@ -1,8 +1,10 @@
-//! Folder drag reordering: the floating row, the live drop order, and the rows' slide motion.
+//! Sidebar row drag reordering, shared by folders and projects: the floating row, the live drop
+//! order, and the rows' slide motion.
 
 use std::{
     cell::Cell,
     collections::HashMap,
+    hash::Hash,
     time::{Duration, Instant},
 };
 
@@ -11,53 +13,63 @@ use super::controls::app_icon;
 use super::sidebar_row::{count, row};
 use gpui_kit::base::animation::ease_out_cubic;
 use gpui_kit::{
-    App, Context, CursorStyle, DragMoveEvent, Hsla, IntoElement, ParentElement, Render,
+    App, Bounds, Context, CursorStyle, Hsla, IntoElement, ParentElement, Pixels, Point, Render,
     SharedString, Styled, Window, px,
 };
-use skillbinder_proto::{Folder, FolderId, OrganizationChange};
+use skillbinder_proto::{FolderId, OrganizationChange};
 use skillbinder_theme::sidebar::{ROW_GAP, ROW_HEIGHT};
 
 /// How long a row takes to slide into its new slot.
 const SHIFT: Duration = Duration::from_millis(180);
-/// Distance between the tops of neighbouring folder rows.
+/// Distance between the tops of neighbouring rows.
 const PITCH: f32 = ROW_HEIGHT + ROW_GAP;
 
-/// Drag payload for reordering folder rows; also what the floating row shows.
-pub(super) struct FolderDrag {
-    pub(super) id: FolderId,
+/// Drag payload for reordering rows; also what the floating row shows.
+pub(super) struct RowDrag<Id> {
+    pub(super) id: Id,
+    pub(super) icon: &'static str,
     pub(super) label: SharedString,
     pub(super) tint: Option<Hsla>,
-    pub(super) skills: usize,
+    pub(super) count: usize,
     pub(super) width: f32,
     /// Pointer distance below the row's top edge when the drag began.
     pub(super) grab: Cell<f32>,
 }
 
+impl<Id> RowDrag<Id> {
+    /// Top of the floating row relative to the first slot of the list in `bounds`.
+    pub(super) fn top(&self, position: Point<Pixels>, bounds: Bounds<Pixels>) -> f32 {
+        f32::from(position.y - bounds.top()) - self.grab.get()
+    }
+}
+
 /// The dragged row, floating under the pointer with a shadow.
-pub(super) struct FolderDragPreview {
+pub(super) struct RowDragPreview {
+    icon: &'static str,
     label: SharedString,
     tint: Option<Hsla>,
-    skills: usize,
+    count: usize,
     width: f32,
 }
 
-impl FolderDragPreview {
-    pub(super) fn new(drag: &FolderDrag) -> Self {
+impl RowDragPreview {
+    pub(super) fn new<Id>(drag: &RowDrag<Id>) -> Self {
         Self {
+            icon: drag.icon,
             label: drag.label.clone(),
             tint: drag.tint,
-            skills: drag.skills,
+            count: drag.count,
             width: drag.width,
         }
     }
 }
 
-impl Render for FolderDragPreview {
+impl Render for RowDragPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let count = count(self.skills, cx);
+        let count = count(self.count, cx);
         row(
-            "folder-drag-preview",
-            app_icon("folder"),
+            "row-drag-preview",
+            app_icon(self.icon),
             self.tint,
             self.label.clone(),
             true,
@@ -69,24 +81,42 @@ impl Render for FolderDragPreview {
     }
 }
 
-/// Drag, save, and motion state for the folder rows.
-#[derive(Default)]
-pub(super) struct FolderReorder {
-    /// The dragged folder and the index it takes if dropped now.
-    dragging: Option<(FolderId, usize)>,
-    /// Top of the floating row, relative to the first folder slot.
+/// The drag starts with the row's pointing hand; GPUI assigns the drag after the preview is
+/// built, so the first move swaps in the grabbing hand.
+pub(super) fn grab_cursor(window: &mut Window, cx: &mut App) {
+    if cx.active_drag_cursor_style() != Some(CursorStyle::ClosedHand) {
+        cx.set_active_drag_cursor_style(CursorStyle::ClosedHand, window);
+    }
+}
+
+/// Drag, save, and motion state for one list of rows.
+pub(super) struct RowReorder<Id> {
+    /// The dragged row and the index it takes if dropped now.
+    dragging: Option<(Id, usize)>,
+    /// Top of the floating row, relative to the first slot.
     floating_top: f32,
     /// The order shown while its save runs.
-    pending: Option<Vec<FolderId>>,
+    pending: Option<Vec<Id>>,
     /// Each moving row's displacement when the current motion started.
-    shifts: HashMap<FolderId, f32>,
+    shifts: HashMap<Id, f32>,
     started: Option<Instant>,
 }
 
-impl FolderReorder {
-    /// The order being saved, or the library's order.
-    fn saved(&self, folders: &[Folder]) -> Vec<FolderId> {
-        let stored: Vec<_> = folders.iter().map(|folder| folder.id.clone()).collect();
+impl<Id> Default for RowReorder<Id> {
+    fn default() -> Self {
+        Self {
+            dragging: None,
+            floating_top: 0.0,
+            pending: None,
+            shifts: HashMap::new(),
+            started: None,
+        }
+    }
+}
+
+impl<Id: Clone + Eq + Hash> RowReorder<Id> {
+    /// The order being saved, or the stored order.
+    fn saved(&self, stored: &[Id]) -> Vec<Id> {
         match &self.pending {
             Some(pending)
                 if pending.len() == stored.len()
@@ -94,22 +124,30 @@ impl FolderReorder {
             {
                 pending.clone()
             }
-            _ => stored,
+            _ => stored.to_vec(),
         }
     }
 
-    /// The saved order with the dragged folder in the slot it would drop into.
-    fn shown(&self, folders: &[Folder]) -> Vec<FolderId> {
-        let saved = self.saved(folders);
+    /// The saved order with the dragged row in the slot it would drop into.
+    fn shown(&self, stored: &[Id]) -> Vec<Id> {
+        let saved = self.saved(stored);
         match &self.dragging {
             Some((id, target)) => moved(saved.clone(), id, *target).unwrap_or(saved),
             None => saved,
         }
     }
 
+    /// The order to draw, and the row floating under the pointer while a drag is active.
+    pub(super) fn displayed(&self, stored: &[Id], drag_active: bool) -> (Vec<Id>, Option<Id>) {
+        match &self.dragging {
+            Some((id, _)) if drag_active => (self.shown(stored), Some(id.clone())),
+            _ => (self.saved(stored), None),
+        }
+    }
+
     /// Slides each row from its slot in `from` to its slot in `to`, continuing any motion
     /// still running.
-    fn shift(&mut self, from: &[FolderId], to: &[FolderId], now: Instant, animate: bool) {
+    fn shift(&mut self, from: &[Id], to: &[Id], now: Instant, animate: bool) {
         let shifts = to.iter().enumerate().filter_map(|(slot, id)| {
             let old = from.iter().position(|candidate| candidate == id)?;
             let shift = (old as f32 - slot as f32) * PITCH + self.offset(id, now);
@@ -131,7 +169,7 @@ impl FolderReorder {
     }
 
     /// How far the row is drawn from its slot at `now`.
-    pub(super) fn offset(&self, id: &FolderId, now: Instant) -> f32 {
+    pub(super) fn offset(&self, id: &Id, now: Instant) -> f32 {
         self.shifts
             .get(id)
             .map_or(0.0, |shift| shift * (1.0 - self.progress(now)))
@@ -142,107 +180,141 @@ impl FolderReorder {
         !self.shifts.is_empty() && self.progress(now) < 1.0
     }
 
-    /// The save finished; the library's order applies again.
+    /// The save finished; the stored order applies again.
     pub(super) fn settle(&mut self) {
         self.pending = None;
+    }
+
+    /// Follows the floating row, moving the other rows aside when it crosses a slot. Returns
+    /// whether the drop slot changed.
+    pub(super) fn drag(&mut self, stored: &[Id], id: &Id, top: f32, animate: bool) -> bool {
+        let len = stored.len();
+        let slot = ((top + ROW_HEIGHT / 2.0) / PITCH).floor();
+        let dragging = Some((
+            id.clone(),
+            slot.clamp(0.0, len.saturating_sub(1) as f32) as usize,
+        ));
+        self.floating_top = top;
+        if len == 0 || self.dragging == dragging {
+            return false;
+        }
+        let before = self.shown(stored);
+        self.dragging = dragging;
+        let after = self.shown(stored);
+        self.shift(&before, &after, Instant::now(), animate);
+        true
+    }
+
+    /// Ends a drag: a release keeps the order shown and the floating row settles into its
+    /// slot; a drag GPUI already ended elsewhere restores the saved order. Returns the order
+    /// to save.
+    pub(super) fn finish(
+        &mut self,
+        stored: &[Id],
+        released: bool,
+        busy: bool,
+        animate: bool,
+    ) -> Option<Vec<Id>> {
+        let (id, _) = self.dragging.clone()?;
+        let order = if released {
+            self.shown(stored)
+        } else {
+            self.saved(stored)
+        };
+        let floating_top = self.floating_top;
+        let save = self.reorder(stored, order, busy, animate);
+        let saved = self.saved(stored);
+        if released
+            && animate
+            && let Some(slot) = saved.iter().position(|other| other == &id)
+        {
+            self.shifts.insert(id, floating_top - slot as f32 * PITCH);
+        }
+        save
+    }
+
+    /// Moves `id` to `target`, sliding the rows it passes. Returns the order to save.
+    pub(super) fn move_to(
+        &mut self,
+        stored: &[Id],
+        id: &Id,
+        target: usize,
+        busy: bool,
+        animate: bool,
+    ) -> Option<Vec<Id>> {
+        let order = moved(self.saved(stored), id, target)?;
+        self.reorder(stored, order, busy, animate)
+    }
+
+    /// Shows `order` while it is saved; a refused change slides back to the saved order.
+    fn reorder(
+        &mut self,
+        stored: &[Id],
+        order: Vec<Id>,
+        busy: bool,
+        animate: bool,
+    ) -> Option<Vec<Id>> {
+        let shown = self.shown(stored);
+        self.dragging = None;
+        let saved = self.saved(stored);
+        let accepted = !busy && order != saved;
+        let next = if accepted { order.clone() } else { saved };
+        self.shift(&shown, &next, Instant::now(), animate);
+        accepted.then(|| {
+            self.pending = Some(order.clone());
+            order
+        })
     }
 }
 
 impl NativeView {
-    fn folders(&self) -> &[Folder] {
+    pub(super) fn folder_ids(&self) -> Vec<FolderId> {
         self.snapshot
             .library
-            .as_ref()
-            .map_or(&[], |library| &library.library.folders)
+            .iter()
+            .flat_map(|library| &library.library.folders)
+            .map(|folder| folder.id.clone())
+            .collect()
     }
 
-    /// The folder order to draw, and the folder whose row floats under the pointer.
-    pub(super) fn shown_folders(&self, cx: &App) -> (Vec<FolderId>, Option<FolderId>) {
-        let reorder = &self.folder_reorder;
-        match &reorder.dragging {
-            Some((id, _)) if cx.has_active_drag() => {
-                (reorder.shown(self.folders()), Some(id.clone()))
-            }
-            _ => (reorder.saved(self.folders()), None),
-        }
-    }
-
-    /// Follows the floating row, moving the other rows aside when it crosses a slot.
     pub(super) fn drag_folder(
         &mut self,
-        event: &DragMoveEvent<FolderDrag>,
+        id: FolderId,
+        top: f32,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // The drag starts with the row's pointing hand; GPUI assigns the drag after the
-        // preview is built, so the first move swaps in the grabbing hand.
-        if cx.active_drag_cursor_style() != Some(CursorStyle::ClosedHand) {
-            cx.set_active_drag_cursor_style(CursorStyle::ClosedHand, window);
+        grab_cursor(window, cx);
+        let stored = self.folder_ids();
+        if self
+            .folder_reorder
+            .drag(&stored, &id, top, !cx.reduce_motion())
+        {
+            cx.notify();
         }
-        let len = self.folders().len();
-        let drag = event.drag(cx);
-        let top = f32::from(event.event.position.y - event.bounds.top()) - drag.grab.get();
-        let slot = ((top + ROW_HEIGHT / 2.0) / PITCH).floor();
-        let dragging = Some((
-            drag.id.clone(),
-            slot.clamp(0.0, len.saturating_sub(1) as f32) as usize,
-        ));
-        self.folder_reorder.floating_top = top;
-        if len == 0 || self.folder_reorder.dragging == dragging {
-            return;
-        }
-        let before = self.folder_reorder.shown(self.folders());
-        self.folder_reorder.dragging = dragging;
-        let after = self.folder_reorder.shown(self.folders());
-        self.folder_reorder
-            .shift(&before, &after, Instant::now(), !cx.reduce_motion());
-        cx.notify();
     }
 
-    /// Saves the order shown when the pointer is released; the floating row settles into its
-    /// slot. A drag GPUI already ended elsewhere restores the saved order.
+    /// Saves the order shown when the pointer is released.
     pub(super) fn finish_folder_drag(&mut self, cx: &mut Context<Self>) {
-        let Some((id, _)) = self.folder_reorder.dragging.clone() else {
-            return;
-        };
-        let released = cx.has_active_drag();
-        let order = if released {
-            self.folder_reorder.shown(self.folders())
-        } else {
-            self.folder_reorder.saved(self.folders())
-        };
-        let floating_top = self.folder_reorder.floating_top;
-        self.reorder_folders(order, cx);
-        let saved = self.folder_reorder.saved(self.folders());
-        if released
-            && !cx.reduce_motion()
-            && let Some(slot) = saved.iter().position(|f| f == &id)
+        let stored = self.folder_ids();
+        let (released, animate) = (cx.has_active_drag(), !cx.reduce_motion());
+        if let Some(order) = self
+            .folder_reorder
+            .finish(&stored, released, self.busy, animate)
         {
-            self.folder_reorder
-                .shifts
-                .insert(id, floating_top - slot as f32 * PITCH);
+            self.change_folders(OrganizationChange::ReorderFolders { order }, cx);
         }
+        cx.notify();
     }
 
     /// Moves `id` to `target`, sliding the rows it passes.
     pub(super) fn move_folder(&mut self, id: &FolderId, target: usize, cx: &mut Context<Self>) {
-        let saved = self.folder_reorder.saved(self.folders());
-        if let Some(order) = moved(saved, id, target) {
-            self.reorder_folders(order, cx);
-        }
-    }
-
-    /// Shows `order` while it is saved; a refused change slides back to the saved order.
-    fn reorder_folders(&mut self, order: Vec<FolderId>, cx: &mut Context<Self>) {
-        let shown = self.folder_reorder.shown(self.folders());
-        self.folder_reorder.dragging = None;
-        let saved = self.folder_reorder.saved(self.folders());
-        let accepted = !self.busy && order != saved;
-        let next = if accepted { order.clone() } else { saved };
-        self.folder_reorder
-            .shift(&shown, &next, Instant::now(), !cx.reduce_motion());
-        if accepted {
-            self.folder_reorder.pending = Some(order.clone());
+        let stored = self.folder_ids();
+        let animate = !cx.reduce_motion();
+        if let Some(order) = self
+            .folder_reorder
+            .move_to(&stored, id, target, self.busy, animate)
+        {
             self.change_folders(OrganizationChange::ReorderFolders { order }, cx);
         }
         cx.notify();
@@ -250,7 +322,7 @@ impl NativeView {
 }
 
 /// `order` with `id` moved to `target`, or `None` when nothing would change.
-fn moved(mut order: Vec<FolderId>, id: &FolderId, target: usize) -> Option<Vec<FolderId>> {
+fn moved<Id: Eq>(mut order: Vec<Id>, id: &Id, target: usize) -> Option<Vec<Id>> {
     let from = order.iter().position(|candidate| candidate == id)?;
     let target = target.min(order.len() - 1);
     if from == target {
@@ -263,7 +335,7 @@ fn moved(mut order: Vec<FolderId>, id: &FolderId, target: usize) -> Option<Vec<F
 
 #[cfg(test)]
 mod tests {
-    use super::{FolderReorder, PITCH, SHIFT, moved};
+    use super::{PITCH, RowReorder, SHIFT, moved};
     use skillbinder_proto::FolderId;
     use std::time::Instant;
 
@@ -292,7 +364,7 @@ mod tests {
 
     #[test]
     fn rows_slide_from_their_old_slot_to_the_new_one() {
-        let mut reorder = FolderReorder::default();
+        let mut reorder = RowReorder::default();
         let start = Instant::now();
         reorder.shift(&ids(&["a", "b", "c"]), &ids(&["b", "a", "c"]), start, true);
         let (a, b, c) = (
@@ -312,5 +384,20 @@ mod tests {
         let drawn = reorder.offset(&a, midway);
         reorder.shift(&ids(&["b", "a", "c"]), &ids(&["a", "b", "c"]), midway, true);
         assert_eq!(reorder.offset(&a, midway), PITCH + drawn);
+    }
+
+    #[test]
+    fn a_dropped_order_is_shown_until_its_save_settles() {
+        let mut reorder = RowReorder::default();
+        let stored = ids(&["a", "b", "c"]);
+        let c = FolderId("c".into());
+        assert!(reorder.drag(&stored, &c, 0.0, false));
+        assert_eq!(reorder.displayed(&stored, true).0, ids(&["c", "a", "b"]));
+        let saved = reorder.finish(&stored, true, false, false);
+        assert_eq!(saved, Some(ids(&["c", "a", "b"])));
+        assert_eq!(reorder.displayed(&stored, false).0, ids(&["c", "a", "b"]));
+        reorder.settle();
+        assert_eq!(reorder.displayed(&stored, false).0, stored);
+        assert_eq!(reorder.move_to(&stored, &c, 1, true, false), None, "busy");
     }
 }

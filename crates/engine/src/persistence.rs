@@ -18,9 +18,28 @@ pub(crate) fn open(path: &Path) -> AppResult<Connection> {
         CREATE TABLE IF NOT EXISTS device_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS operation_plans(id TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at INTEGER NOT NULL,consumed INTEGER NOT NULL DEFAULT 0);
         CREATE TABLE IF NOT EXISTS idempotency_records(operation_id TEXT PRIMARY KEY,request_hash TEXT NOT NULL,result TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS source_observations(id TEXT PRIMARY KEY,source TEXT NOT NULL,skill_id TEXT NOT NULL,digest TEXT NOT NULL,warnings TEXT NOT NULL,reader_agents TEXT NOT NULL,observed_at INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS skill_metadata(skill_id TEXT PRIMARY KEY,description TEXT NOT NULL,validation TEXT NOT NULL,updated_at INTEGER NOT NULL);
-        CREATE TABLE IF NOT EXISTS scan_roots(id TEXT PRIMARY KEY,canonical_path TEXT NOT NULL UNIQUE,display_path TEXT NOT NULL,label TEXT NOT NULL,enabled INTEGER NOT NULL,created_at INTEGER NOT NULL);") .map_err(|_| AppError::storage())?;
+        DROP TABLE IF EXISTS source_observations;
+        DROP TABLE IF EXISTS scan_roots;
+        CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,canonical_path TEXT NOT NULL UNIQUE,name TEXT NOT NULL,position INTEGER NOT NULL,created_at INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS target_agents(target TEXT NOT NULL,agent TEXT NOT NULL,PRIMARY KEY(target,agent));
+        CREATE TABLE IF NOT EXISTS deployments(target TEXT NOT NULL,skill_id TEXT NOT NULL,digest TEXT NOT NULL,paths TEXT NOT NULL,recorded_at INTEGER NOT NULL,changes TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(target,skill_id));") .map_err(|_| AppError::storage())?;
+    // Databases written before drift was recorded gain the column.
+    let drift: bool = connection
+        .query_row(
+            "SELECT COUNT(*)>0 FROM pragma_table_info('deployments') WHERE name='changes'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|_| AppError::storage())?;
+    if !drift {
+        connection
+            .execute(
+                "ALTER TABLE deployments ADD COLUMN changes TEXT NOT NULL DEFAULT '{}'",
+                [],
+            )
+            .map_err(|_| AppError::storage())?;
+    }
     Ok(connection)
 }
 pub(crate) fn now() -> u64 {
@@ -216,11 +235,13 @@ impl State {
             }
             self.remove_journal(&journal)?;
         }
+        self.recover_deployments()?;
         self.recovery_required = false;
         Ok(())
     }
     pub(crate) fn commit(&mut self, mut journal: Journal) -> AppResult<()> {
         self.require_recovered()?;
+        self.require_undeployed(&journal.before, &journal.after)?;
         self.journal_path(&journal)?;
         if journal.completed_moves != 0
             || journal.progress.active_move.is_some()
@@ -355,16 +376,6 @@ impl State {
             .map_err(|_| AppError::storage())?;
         for (id, details) in &journal.details {
             transaction.execute("INSERT INTO skill_metadata(skill_id,description,validation,updated_at) VALUES(?1,?2,?3,?4) ON CONFLICT(skill_id) DO UPDATE SET description=excluded.description,validation=excluded.validation,updated_at=excluded.updated_at", params![id.as_str(), details.description, serde_json::to_string(details).map_err(|_| AppError::storage())?, now()]).map_err(|_| AppError::storage())?;
-            for source in &details.sources {
-                let observation = format!("{}:{}", id, source);
-                let digest = journal
-                    .after
-                    .skills
-                    .iter()
-                    .find(|skill| &skill.id == id)
-                    .map_or("", |skill| skill.digest.as_str());
-                transaction.execute("INSERT OR IGNORE INTO source_observations(id,source,skill_id,digest,warnings,reader_agents,observed_at) VALUES(?1,?2,?3,?4,?5,?6,?7)", params![observation, source, id.as_str(), digest, serde_json::to_string(&details.messages).map_err(|_| AppError::storage())?, serde_json::to_string(&details.readers).map_err(|_| AppError::storage())?, now()]).map_err(|_| AppError::storage())?;
-            }
         }
         for removed in journal
             .before
@@ -375,12 +386,6 @@ impl State {
             transaction
                 .execute(
                     "DELETE FROM skill_metadata WHERE skill_id=?1",
-                    [removed.id.as_str()],
-                )
-                .map_err(|_| AppError::storage())?;
-            transaction
-                .execute(
-                    "DELETE FROM source_observations WHERE skill_id=?1",
                     [removed.id.as_str()],
                 )
                 .map_err(|_| AppError::storage())?;
@@ -484,13 +489,13 @@ impl State {
 }
 
 #[cfg(not(test))]
-fn checkpoint(_: &str) -> AppResult<()> {
+pub(crate) fn checkpoint(_: &str) -> AppResult<()> {
     Ok(())
 }
 #[cfg(test)]
-thread_local! { static FAULTS: std::cell::RefCell<std::collections::VecDeque<(&'static str, bool)>> = const { std::cell::RefCell::new(std::collections::VecDeque::new()) }; }
+thread_local! { pub(crate) static FAULTS: std::cell::RefCell<std::collections::VecDeque<(&'static str, bool)>> = const { std::cell::RefCell::new(std::collections::VecDeque::new()) }; }
 #[cfg(test)]
-fn checkpoint(name: &str) -> AppResult<()> {
+pub(crate) fn checkpoint(name: &str) -> AppResult<()> {
     let fault = FAULTS.with(|faults| {
         let mut faults = faults.borrow_mut();
         if faults.front().is_some_and(|(point, _)| *point == name) {

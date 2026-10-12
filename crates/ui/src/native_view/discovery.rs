@@ -67,10 +67,10 @@ impl NativeView {
             .flex_col()
             .gap_4()
             .child("Discovery")
-            .child("Find skills in registered project roots and supported user locations.");
+            .child("Find skills in Global and in your projects.");
         if let Some(scan) = scan {
             page = page.child(format!(
-                "{:?} · {} locations checked · {} identical copies hidden",
+                "{:?} · {} locations checked · {} already in library",
                 scan.status, scan.locations_checked, scan.identical_hidden
             ));
             if let Some(error) = &scan.error {
@@ -142,12 +142,16 @@ impl NativeView {
                                 }),
                         )
                         .child(candidate.description.clone())
-                        .child(candidate.display_path.clone())
+                        .children(candidate.locations.iter().map(|location| {
+                            div().child(format!(
+                                "{} · {}",
+                                location.display_path,
+                                location.readers.join(", ")
+                            ))
+                        }))
                         .child(format!(
-                            "Readers: {} · {} files · {} bytes",
-                            candidate.readers.join(", "),
-                            candidate.file_count,
-                            candidate.total_bytes
+                            "{} files · {} bytes",
+                            candidate.file_count, candidate.total_bytes
                         ))
                         .children(candidate.messages.iter().map(|message| {
                             div().child(format!("{:?}: {}", message.status, message.message))

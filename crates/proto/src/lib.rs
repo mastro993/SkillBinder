@@ -4,12 +4,14 @@ mod discovery;
 mod error;
 mod library;
 mod lifecycle;
+mod projects;
 mod sync;
 
 pub use discovery::*;
 pub use error::*;
 pub use library::*;
 pub use lifecycle::*;
+pub use projects::*;
 pub use sync::*;
 
 use serde::{Deserialize, Serialize};
@@ -50,5 +52,8 @@ identifier!(FolderId, "A flat folder identity.");
 identifier!(ScanId, "A discovery run identity.");
 identifier!(CandidateId, "An opaque discovery candidate identity.");
 identifier!(PlanId, "An immutable import plan and replay key.");
-identifier!(RootId, "A registered project root identity.");
+identifier!(
+    ProjectId,
+    "A project identity, independent of its folder path."
+);
 identifier!(GrantId, "A short-lived, single-use native directory grant.");

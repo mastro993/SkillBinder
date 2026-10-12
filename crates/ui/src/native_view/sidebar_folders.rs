@@ -3,26 +3,24 @@
 
 use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
-use super::controls::{app_icon, button};
-use super::sidebar_reorder::{FolderDrag, FolderDragPreview};
-use super::sidebar_row::{activate, count, icon_color, row};
+use super::controls::app_icon;
+use super::sidebar_reorder::{RowDrag, RowDragPreview};
+use super::sidebar_row::{
+    activate, add_button, count, icon_color, name_field, row, section_header,
+};
 use super::{Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
-    ActiveTheme, Icon, Side, Sizable,
-    button::ButtonVariants,
-    input::{Input, InputEvent, InputState},
+    ActiveTheme, Icon, Side,
+    input::{InputEvent, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
 };
 use gpui_kit::{
     AnyElement, App, AppContext, ClickEvent, Context, DragMoveEvent, Entity, Hsla,
-    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, ParentElement, SharedString,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, SharedString,
     StatefulInteractiveElement, Styled, WeakEntity, Window, div, prelude::FluentBuilder, px, rgb,
 };
 use skillbinder_proto::{Folder, FolderColor, FolderId, LibrarySnapshot, OrganizationChange};
-use skillbinder_theme::sidebar::{
-    DETAIL_SIZE, ICON_GAP, ICON_SIZE, INSET, LABEL_SIZE, RADIUS, ROW_GAP, ROW_HEIGHT, ROW_PADDING,
-    SECTION_GAP, SECTION_HEIGHT,
-};
+use skillbinder_theme::sidebar::{ICON_GAP, INSET, ROW_GAP};
 
 /// Which folder name the inline sidebar field edits.
 #[derive(Clone, PartialEq, Eq)]
@@ -31,14 +29,14 @@ pub(super) enum FolderEdit {
     Rename(FolderId),
 }
 
-/// How a folder row is drawn this frame.
-struct RowPlacement {
-    index: usize,
-    len: usize,
+/// How a reorderable row is drawn this frame.
+pub(super) struct RowPlacement {
+    pub(super) index: usize,
+    pub(super) len: usize,
     /// Vertical distance from its slot while it slides.
-    offset: f32,
+    pub(super) offset: f32,
     /// The row is lifted under the pointer, so its slot stays empty.
-    floating: bool,
+    pub(super) floating: bool,
 }
 
 impl NativeView {
@@ -52,13 +50,14 @@ impl NativeView {
         for skill in &library.library.skills {
             *counts.entry(skill.folder_id.as_ref()).or_default() += 1;
         }
-        let (order, floating) = self.shown_folders(cx);
+        let (order, floating) = self
+            .folder_reorder
+            .displayed(&self.folder_ids(), cx.has_active_drag());
         let now = Instant::now();
         if self.folder_reorder.moving(now) {
             window.request_animation_frame();
         }
-        // Other routes report all skills, which no folder row represents.
-        let selected = |candidate: LibraryFilter| self.library_filter() == &candidate;
+        let selected = |candidate: LibraryFilter| self.route == Route::Library(candidate);
         let unfiled = activate(
             row(
                 "folder-unfiled",
@@ -97,8 +96,6 @@ impl NativeView {
         div()
             .flex()
             .flex_col()
-            .flex_1()
-            .min_h_0()
             .child(self.render_folders_header(cx))
             .child(
                 div()
@@ -106,9 +103,6 @@ impl NativeView {
                     .flex()
                     .flex_col()
                     .gap(px(ROW_GAP))
-                    .flex_1()
-                    .min_h_0()
-                    .overflow_y_scroll()
                     .child(unfiled)
                     .child(
                         // Drag moves are measured from the first folder slot; releasing the
@@ -119,8 +113,10 @@ impl NativeView {
                             .flex_col()
                             .gap(px(ROW_GAP))
                             .on_drag_move(cx.listener(
-                                |view, event: &DragMoveEvent<FolderDrag>, window, cx| {
-                                    view.drag_folder(event, window, cx)
+                                |view, event: &DragMoveEvent<RowDrag<FolderId>>, window, cx| {
+                                    let drag = event.drag(cx);
+                                    let top = drag.top(event.event.position, event.bounds);
+                                    view.drag_folder(drag.id.clone(), top, window, cx)
                                 },
                             ))
                             .on_mouse_up(
@@ -140,33 +136,10 @@ impl NativeView {
     }
 
     fn render_folders_header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let theme = cx.theme();
-        div()
-            .flex()
-            .flex_shrink_0()
-            .items_center()
-            .h(px(SECTION_HEIGHT))
-            .mt(px(SECTION_GAP))
-            .pl(px(ROW_PADDING))
-            // Centres the button's glyph on the rows' trailing column.
-            .pr(px(ROW_PADDING - (ROW_HEIGHT - 8.0 - ICON_SIZE) / 2.0))
-            .text_size(px(DETAIL_SIZE))
-            .text_color(theme.muted_foreground.opacity(0.8))
-            .child(div().flex_1().child("Folders"))
-            .child(
-                button("folder-create")
-                    .ghost()
-                    .xsmall()
-                    .icon(
-                        app_icon("plus")
-                            .size(px(ICON_SIZE))
-                            .text_color(theme.muted_foreground),
-                    )
-                    .accessibility_label("New folder")
-                    .on_click(cx.listener(|view, _, window, cx| {
-                        view.begin_folder_edit(FolderEdit::Create, window, cx)
-                    })),
-            )
+        let add = add_button("folder-create", "New folder", cx).on_click(cx.listener(
+            |view, _, window, cx| view.begin_folder_edit(FolderEdit::Create, window, cx),
+        ));
+        section_header("Folders", add, cx)
     }
 
     fn render_folder_row(
@@ -201,17 +174,18 @@ impl NativeView {
         .top(px(placement.offset))
         .when(placement.floating, |row| row.opacity(0.0))
         .on_drag(
-            FolderDrag {
+            RowDrag {
                 id,
+                icon: "folder",
                 label,
                 tint,
-                skills,
+                count: skills,
                 width: self.sidebar_width - 2.0 * INSET,
                 grab: Cell::new(0.0),
             },
             |drag, offset, _, cx| {
                 drag.grab.set(f32::from(offset.y));
-                cx.new(|_| FolderDragPreview::new(drag))
+                cx.new(|_| RowDragPreview::new(drag))
             },
         )
         .context_menu(menu)
@@ -324,38 +298,14 @@ impl NativeView {
     ) -> AnyElement {
         let theme = cx.theme();
         let tint = color.map(|color| folder_tint(color, theme.mode.is_dark()));
-        div()
-            .id("folder-name-field")
-            .flex()
-            .flex_shrink_0()
-            .items_center()
-            .gap(px(ICON_GAP))
-            .h(px(ROW_HEIGHT))
-            .px(px(ROW_PADDING))
-            .rounded(px(RADIUS))
-            .bg(theme.sidebar_accent)
-            .child(
-                app_icon("folder")
-                    .size(px(ICON_SIZE))
-                    .text_color(tint.unwrap_or(theme.muted_foreground)),
-            )
-            .child(
-                div().flex_1().min_w_0().child(
-                    // Unpadded, so the edited name stays aligned with row labels.
-                    Input::new(&self.folder_name)
-                        .appearance(false)
-                        .small()
-                        .px_0()
-                        .text_size(px(LABEL_SIZE)),
-                ),
-            )
-            .capture_key_down(cx.listener(|view, event: &KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" {
-                    view.end_folder_edit(window, cx);
-                    cx.stop_propagation();
-                }
-            }))
-            .into_any_element()
+        let icon = app_icon("folder").text_color(tint.unwrap_or(theme.muted_foreground));
+        name_field(
+            "folder-name-field",
+            icon,
+            &self.folder_name,
+            cx,
+            Self::end_folder_edit,
+        )
     }
 
     pub(super) fn folder_name_event(
@@ -407,7 +357,7 @@ impl NativeView {
     }
 
     /// Closes the inline field and returns keyboard focus to the window's shortcuts.
-    fn end_folder_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn end_folder_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.folder_edit.take().is_some() {
             window.focus(&self.focus, cx);
             cx.notify();
@@ -439,15 +389,15 @@ impl NativeView {
 
 /// A menu glyph spaced from its label like a sidebar row's: kit menus leave 4 points
 /// between icon and label, so the icon tops that up to the row gap.
-fn menu_icon(name: &str, color: Hsla) -> Icon {
+pub(super) fn menu_icon(name: &str, color: Hsla) -> Icon {
     app_icon(name).text_color(color).mr(px(ICON_GAP - 4.0))
 }
 
-/// A menu click handler that runs `action` on the view for one folder.
-fn menu_action(
+/// A menu click handler that runs `action` on the view for one row.
+pub(super) fn menu_action<Id: 'static>(
     view: WeakEntity<NativeView>,
-    id: FolderId,
-    action: impl Fn(&mut NativeView, &FolderId, &mut Window, &mut Context<NativeView>) + 'static,
+    id: Id,
+    action: impl Fn(&mut NativeView, &Id, &mut Window, &mut Context<NativeView>) + 'static,
 ) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
     move |_, window, cx| {
         let _ = view.update(cx, |view, cx| action(view, &id, window, cx));

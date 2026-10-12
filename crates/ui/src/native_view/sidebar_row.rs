@@ -3,15 +3,21 @@
 use std::{rc::Rc, sync::Arc};
 
 use super::NativeView;
-use super::controls::app_icon;
-use gpui_kit::component::{ActiveTheme, Icon, Sizable, spinner::Spinner};
+use super::controls::{app_icon, button};
+use gpui_kit::component::{
+    ActiveTheme, Icon, Sizable,
+    button::{Button, ButtonVariants},
+    input::{Input, InputState},
+    spinner::Spinner,
+};
 use gpui_kit::{
-    AnyElement, App, Context, Div, ElementId, FontFeatures, FontWeight, Hsla, InteractiveElement,
-    IntoElement, KeyDownEvent, MouseButton, ParentElement, SharedString, Stateful,
-    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
+    AnyElement, App, Context, Div, ElementId, Entity, FontFeatures, FontWeight, Hsla,
+    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, ParentElement, SharedString,
+    Stateful, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
+    SECTION_GAP, SECTION_HEIGHT,
 };
 
 /// Unselected icons sit a step below their label, as in the reference design.
@@ -94,22 +100,27 @@ pub(super) fn activate(
 
 /// A trailing count with tabular figures and thousands separators.
 pub(super) fn count(value: usize, cx: &App) -> AnyElement {
+    detail(format_count(value), cx)
+}
+
+/// A short muted trailing text with tabular figures.
+pub(super) fn detail(text: impl Into<SharedString>, cx: &App) -> AnyElement {
     div()
         .flex_shrink_0()
         .text_size(px(DETAIL_SIZE))
         .font_features(FontFeatures(Arc::new(vec![("tnum".into(), 1)])))
         .text_color(cx.theme().muted_foreground.opacity(ICON_OPACITY))
-        .child(format_count(value))
+        .child(text.into())
         .into_any_element()
 }
 
 /// A trailing attention dot.
-pub(super) fn dot(cx: &App) -> AnyElement {
+pub(super) fn dot(color: Hsla) -> AnyElement {
     div()
         .flex_shrink_0()
         .size(px(DOT_SIZE))
         .rounded_full()
-        .bg(cx.theme().blue)
+        .bg(color)
         .into_any_element()
 }
 
@@ -119,6 +130,73 @@ pub(super) fn spinner(cx: &App) -> AnyElement {
         .icon(app_icon("refresh-03"))
         .color(cx.theme().muted_foreground)
         .with_size(px(DETAIL_SIZE))
+        .into_any_element()
+}
+
+/// A section title with a trailing add button centred on the rows' trailing column.
+pub(super) fn section_header(title: &'static str, add: Button, cx: &App) -> Div {
+    div()
+        .flex()
+        .flex_shrink_0()
+        .items_center()
+        .h(px(SECTION_HEIGHT))
+        .mt(px(SECTION_GAP))
+        .pl(px(ROW_PADDING))
+        .pr(px(ROW_PADDING - (ROW_HEIGHT - 8.0 - ICON_SIZE) / 2.0))
+        .text_size(px(DETAIL_SIZE))
+        .text_color(cx.theme().muted_foreground.opacity(0.8))
+        .child(div().flex_1().child(title))
+        .child(add)
+}
+
+/// The plus button of a section header.
+pub(super) fn add_button(id: &'static str, label: &'static str, cx: &App) -> Button {
+    button(id)
+        .ghost()
+        .xsmall()
+        .icon(
+            app_icon("plus")
+                .size(px(ICON_SIZE))
+                .text_color(cx.theme().muted_foreground),
+        )
+        .accessibility_label(label)
+}
+
+/// An inline name field drawn in place of a row; Escape runs `cancel`.
+pub(super) fn name_field(
+    id: &'static str,
+    icon: Icon,
+    input: &Entity<InputState>,
+    cx: &mut Context<NativeView>,
+    cancel: fn(&mut NativeView, &mut Window, &mut Context<NativeView>),
+) -> AnyElement {
+    div()
+        .id(id)
+        .flex()
+        .flex_shrink_0()
+        .items_center()
+        .gap(px(ICON_GAP))
+        .h(px(ROW_HEIGHT))
+        .px(px(ROW_PADDING))
+        .rounded(px(RADIUS))
+        .bg(cx.theme().sidebar_accent)
+        .child(icon.size(px(ICON_SIZE)))
+        .child(
+            div().flex_1().min_w_0().child(
+                // Unpadded, so the edited name stays aligned with row labels.
+                Input::new(input)
+                    .appearance(false)
+                    .small()
+                    .px_0()
+                    .text_size(px(LABEL_SIZE)),
+            ),
+        )
+        .capture_key_down(cx.listener(move |view, event: &KeyDownEvent, window, cx| {
+            if event.keystroke.key == "escape" {
+                cancel(view, window, cx);
+                cx.stop_propagation();
+            }
+        }))
         .into_any_element()
 }
 

@@ -1,4 +1,7 @@
-use crate::{ImportOutcome, LibrarySnapshot, ProjectRoot, ScanSnapshot, SyncSnapshot};
+use crate::{
+    Deployment, DeploymentTarget, ImportOutcome, LibrarySnapshot, Project, ProjectAddition,
+    ScanSnapshot, SyncSnapshot,
+};
 use serde::{Deserialize, Serialize};
 
 /// Ordered, resumable onboarding steps.
@@ -96,8 +99,22 @@ pub struct AppSnapshot {
     pub bootstrap: Bootstrap,
     /// Library if onboarding has completed.
     pub library: Option<LibrarySnapshot>,
-    /// Configured project boundaries.
-    pub roots: Vec<ProjectRoot>,
+    /// Home folder that holds Global's agent skill locations.
+    pub home: String,
+    /// Registry agents a target can write to, by display name.
+    pub agents: Vec<crate::AgentOption>,
+    /// Registry agent identities Global writes to.
+    pub global_agents: Vec<String>,
+    /// Added projects in user order.
+    pub projects: Vec<Project>,
+    /// Recorded deployments across Global and every project.
+    pub deployments: Vec<Deployment>,
+    /// Skills each target's last scan found that match no library skill, by target and slug.
+    pub importables: Vec<crate::Importable>,
+    /// The project being added, until its result is dismissed.
+    pub project_addition: Option<ProjectAddition>,
+    /// Targets whose background rescan is running.
+    pub rescanning: Vec<DeploymentTarget>,
     /// Current retained scan.
     pub scan: Option<ScanSnapshot>,
     /// Git connection and status.

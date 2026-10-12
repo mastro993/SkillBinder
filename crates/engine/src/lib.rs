@@ -2,6 +2,7 @@
 
 mod discovery;
 mod git;
+mod grants;
 mod imports;
 mod index;
 mod library;
@@ -9,7 +10,7 @@ mod lifecycle;
 mod logging;
 mod payload;
 mod persistence;
-mod roots;
+mod targets;
 mod worker;
 
 pub use lifecycle::EngineConfig;

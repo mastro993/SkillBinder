@@ -1,20 +1,6 @@
-use crate::{
-    CandidateId, GrantId, PlanId, RootId, ScanId, SkillId, ValidationMessage, ValidationStatus,
-};
+use crate::{CandidateId, GrantId, PlanId, ScanId, SkillId, ValidationMessage, ValidationStatus};
 use serde::{Deserialize, Serialize};
 
-/// A canonical registered project boundary.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProjectRoot {
-    /// Durable identity.
-    pub id: RootId,
-    /// User-facing canonical directory path.
-    pub path: String,
-    /// User-editable label.
-    pub label: String,
-    /// Whether discovery includes this boundary.
-    pub enabled: bool,
-}
 /// A single-use capability issued after native directory selection.
 #[derive(Clone, Debug)]
 pub struct DirectoryGrant {
@@ -35,7 +21,16 @@ pub enum ScanStatus {
     /// An unrecoverable scan failure occurred.
     Failed,
 }
-/// A reviewed discovery candidate; its source path is never an import input.
+/// One physical place where a discovered skill was found. Orders by path.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct CandidateLocation {
+    /// User-visible source path.
+    pub display_path: String,
+    /// All agent reader labels for this physical location.
+    pub readers: Vec<String>,
+}
+/// A discovered skill: one slug and content digest with every location holding those bytes.
+/// Its paths are never import inputs; the engine keeps the reviewed source by opaque identity.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Candidate {
     /// Opaque identity scoped to a scan.
@@ -44,10 +39,8 @@ pub struct Candidate {
     pub slug: String,
     /// Frontmatter description.
     pub description: String,
-    /// User-visible source location.
-    pub display_path: String,
-    /// All agent reader labels for this physical location.
-    pub readers: Vec<String>,
+    /// Locations with identical content, in path order; never empty.
+    pub locations: Vec<CandidateLocation>,
     /// Strongest validation result.
     pub validation: ValidationStatus,
     /// Detailed validation messages.
@@ -64,11 +57,11 @@ pub struct ScanSnapshot {
     pub id: ScanId,
     /// Worker lifecycle.
     pub status: ScanStatus,
-    /// Candidate findings, in deterministic path order.
+    /// Candidate findings, ordered by their first location's path.
     pub candidates: Vec<Candidate>,
     /// Number of visited source locations.
     pub locations_checked: usize,
-    /// Payloads already present in the managed library.
+    /// Discovered skills whose content is already in the managed library.
     pub identical_hidden: usize,
     /// Safe terminal failure message.
     pub error: Option<String>,
@@ -78,8 +71,8 @@ pub struct ScanSnapshot {
 pub enum ImportDecision {
     /// A new managed payload.
     NewSkill,
-    /// Existing identical payload gains a source observation.
-    AttachObservation,
+    /// An identical payload is already in the library; nothing is copied.
+    Existing,
     /// Another distinct payload already has this slug.
     Conflict,
 }
@@ -116,6 +109,10 @@ pub struct ImportPlan {
     pub revision: String,
     /// Immutable reviewed rows.
     pub items: Vec<ImportItem>,
+    /// Target whose existing copies become the imported skill's deployment, for an import
+    /// started from that target's page.
+    #[serde(default)]
+    pub deployment: Option<crate::DeploymentTarget>,
 }
 /// Durable terminal import outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -124,8 +121,8 @@ pub struct ImportOutcome {
     pub plan_id: PlanId,
     /// Newly managed records.
     pub imported: Vec<SkillId>,
-    /// Existing records with new source observations.
-    pub attached: Vec<SkillId>,
+    /// Selected payloads already present in the library.
+    pub existing: Vec<SkillId>,
     /// Slugs requiring a user choice between distinct copies.
     pub conflicts: Vec<String>,
 }

@@ -5,9 +5,9 @@
 )]
 mod support;
 
-use skillbinder_proto::ErrorCategory;
+use skillbinder_proto::{ErrorCategory, ImportDecision, ValidationStatus};
 use std::fs;
-use support::{Fixture, category};
+use support::{Fixture, category, write_skill};
 
 #[tokio::test]
 async fn external_managed_changes_do_not_hide_the_original_source() {
@@ -45,6 +45,129 @@ async fn external_managed_changes_do_not_hide_the_original_source() {
     let matching_current_bytes = fixture.scan(&engine).await;
     assert!(matching_current_bytes.candidates.is_empty());
     assert_eq!(matching_current_bytes.identical_hidden, 1);
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn identical_copies_in_global_and_a_project_are_one_candidate() {
+    let fixture = Fixture::new();
+    let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
+    let project_copy = fixture.skill("review", "Shared");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    assert_eq!(scan.candidates.len(), 1);
+    let paths: Vec<_> = scan.candidates[0]
+        .locations
+        .iter()
+        .map(|location| location.display_path.as_str())
+        .collect();
+    let mut expected = [global_copy, project_copy]
+        .map(|path| fs::canonicalize(path).unwrap().display().to_string());
+    expected.sort();
+    assert_eq!(paths, expected);
+    assert!(
+        scan.candidates[0]
+            .locations
+            .iter()
+            .all(|location| !location.readers.is_empty())
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn same_slug_with_different_content_stays_separate() {
+    let fixture = Fixture::new();
+    write_skill(
+        &fixture.home.join(".claude/skills"),
+        "review",
+        "Global edit",
+    );
+    fixture.skill("review", "Project edit");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    assert_eq!(scan.candidates.len(), 2);
+    assert!(
+        scan.candidates
+            .iter()
+            .all(|candidate| { candidate.slug == "review" && candidate.locations.len() == 1 })
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location() {
+    let fixture = Fixture::new();
+    let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
+    let project_copy = fixture.skill("review", "Shared");
+    let original = fs::read(project_copy.join("SKILL.md")).unwrap();
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    let candidate = &scan.candidates[0];
+    let plan = engine
+        .prepare_import(scan.id.clone(), vec![candidate.id.clone()], false)
+        .await
+        .unwrap();
+    assert_eq!(plan.items.len(), 1);
+    assert_eq!(plan.items[0].decision, ImportDecision::NewSkill);
+    assert!(
+        candidate
+            .locations
+            .iter()
+            .any(|location| location.display_path == plan.items[0].source)
+    );
+    let outcome = engine.apply_import(plan.id).await.unwrap();
+    assert_eq!(outcome.imported.len(), 1);
+
+    let deployments = engine.snapshot().await.unwrap().deployments;
+    let rescan = fixture.scan(&engine).await;
+    assert!(rescan.candidates.is_empty());
+    assert_eq!(rescan.identical_hidden, 1);
+    assert_eq!(engine.snapshot().await.unwrap().deployments, deployments);
+    assert_eq!(
+        engine
+            .snapshot()
+            .await
+            .unwrap()
+            .library
+            .unwrap()
+            .library
+            .skills
+            .len(),
+        1
+    );
+    assert_eq!(fs::read(project_copy.join("SKILL.md")).unwrap(), original);
+    assert!(global_copy.join("SKILL.md").is_file());
+    engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_blocked_copy_does_not_absorb_an_importable_copy_with_the_same_digest() {
+    let fixture = Fixture::new();
+    let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
+    let outside = fixture.home.join("outside.txt");
+    fs::write(&outside, b"outside").unwrap();
+    std::os::unix::fs::symlink(&outside, global_copy.join("extra")).unwrap();
+    fixture.skill("review", "Shared");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    assert_eq!(scan.candidates.len(), 2);
+    let importable = scan
+        .candidates
+        .iter()
+        .find(|candidate| candidate.validation != ValidationStatus::Blocked)
+        .unwrap();
+    assert_eq!(importable.locations.len(), 1);
+    assert!(
+        importable.locations[0]
+            .display_path
+            .ends_with(".agents/skills/review")
+    );
+    fixture.import_one(&engine, importable, &scan).await;
     engine.shutdown().await.unwrap();
 }
 
@@ -123,7 +246,11 @@ async fn traversal_refuses_17_links_and_accepts_16_with_original_source_path() {
             "child with {hops} links"
         );
         if let Some(candidate) = scan.candidates.first() {
-            assert!(candidate.display_path.ends_with(".agents/skills/review"));
+            assert!(
+                candidate.locations[0]
+                    .display_path
+                    .ends_with(".agents/skills/review")
+            );
             fixture.import_one(&engine, candidate, &scan).await;
         }
         engine.shutdown().await.unwrap();

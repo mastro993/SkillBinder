@@ -1,4 +1,5 @@
 use crate::{
+    discovery::ImportSource,
     library::{payload_relative, validate_library},
     payload::{self, Inspection, Manifest},
     persistence::{self, Journal, Move},
@@ -18,8 +19,10 @@ struct Prepared {
     review: ImportPlan,
     after: Library,
     sources: Vec<Inspection>,
-    readers: Vec<Vec<String>>,
     catalog: String,
+    /// Copies in `review.deployment` recorded as the imported skill's deployment.
+    #[serde(default)]
+    copies: Vec<String>,
 }
 impl State {
     pub(crate) fn catalog(
@@ -52,15 +55,25 @@ impl State {
     ) -> AppResult<ImportPlan> {
         self.require_recovered()?;
         let selected = self.scans.selected(&scan, &ids)?;
+        self.prepare_reviewed(selected, acknowledge_invalid, None)
+    }
+    /// Re-inspects selected sources into an immutable review plan. A `deployment` target and
+    /// its copies are recorded as the imported skill's deployment when the plan is applied.
+    pub(crate) fn prepare_reviewed(
+        &mut self,
+        selected: Vec<(CandidateId, ImportSource)>,
+        acknowledge_invalid: bool,
+        deployment: Option<(DeploymentTarget, Vec<String>)>,
+    ) -> AppResult<ImportPlan> {
         let snapshot = self.library_snapshot()?;
         let (mut catalog, fingerprint) = self.catalog(&snapshot.library)?;
         let mut after = snapshot.library.clone();
         let mut items = Vec::new();
         let mut sources = Vec::new();
-        let mut readers = Vec::new();
         let mut selected_slugs = BTreeMap::new();
-        for (candidate, previous) in selected {
-            let resolved = fs::canonicalize(&candidate.display_path)
+        for (candidate_id, source) in selected {
+            let previous = source.inspection;
+            let resolved = fs::canonicalize(&source.display_path)
                 .map_err(|_| AppError::stale("Selected source path no longer exists."))?;
             if resolved != previous.canonical_source {
                 return Err(AppError::stale("Selected source path changed."));
@@ -91,7 +104,7 @@ impl State {
                 .find(|(_, manifest)| manifest.equivalent(&inspection.manifest))
                 .map(|(id, _)| id.clone());
             let (skill_id, decision) = if let Some(id) = existing {
-                (id, ImportDecision::AttachObservation)
+                (id, ImportDecision::Existing)
             } else {
                 let id = SkillId::new();
                 let conflict = after
@@ -120,17 +133,16 @@ impl State {
                 )
             };
             items.push(ImportItem {
-                candidate_id: candidate.id,
+                candidate_id,
                 skill_id,
                 slug: inspection.slug.clone(),
-                source: candidate.display_path,
+                source: source.display_path,
                 destination: String::new(),
                 decision,
                 validation: inspection.status,
                 messages: inspection.messages.clone(),
                 total_bytes: inspection.manifest.total_bytes(),
             });
-            readers.push(candidate.readers);
             sources.push(inspection);
         }
         validate_library(&after)?;
@@ -142,18 +154,20 @@ impl State {
                 .ok_or_else(AppError::storage)?;
             item.destination = payload_relative(&after, skill);
         }
+        let (target, copies) = deployment.unzip();
         let review = ImportPlan {
             id: PlanId::new(),
             expires_at: persistence::now() + 300,
             revision: snapshot.revision,
             items,
+            deployment: target,
         };
         let prepared = Prepared {
             review: review.clone(),
             after,
             sources,
-            readers,
             catalog: fingerprint,
+            copies: copies.unwrap_or_default(),
         };
         self.database
             .execute(
@@ -218,7 +232,7 @@ impl State {
         fs::create_dir(&staging).map_err(|_| AppError::storage())?;
         let staged = (|| {
             for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
-                if item.decision != ImportDecision::AttachObservation {
+                if item.decision != ImportDecision::Existing {
                     payload::materialize(source, &staging.join(item.skill_id.as_str()))?;
                 }
             }
@@ -263,19 +277,13 @@ impl State {
         let mut outcome = ImportOutcome {
             plan_id: id.clone(),
             imported: Vec::new(),
-            attached: Vec::new(),
+            existing: Vec::new(),
             conflicts: Vec::new(),
         };
         let mut touched = BTreeSet::new();
-        for ((item, source), readers) in prepared
-            .review
-            .items
-            .iter()
-            .zip(&prepared.sources)
-            .zip(&prepared.readers)
-        {
-            if item.decision == ImportDecision::AttachObservation {
-                outcome.attached.push(item.skill_id.clone());
+        for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
+            if item.decision == ImportDecision::Existing {
+                outcome.existing.push(item.skill_id.clone());
             } else {
                 moves.push(Move {
                     from: staging.join(item.skill_id.as_str()),
@@ -290,14 +298,9 @@ impl State {
             local.description = source.description.clone();
             local.validation = source.status;
             local.messages = source.messages.clone();
-            local.readers.extend(readers.clone());
-            local.readers.sort();
-            local.readers.dedup();
-            local.sources.push(item.source.clone());
-            local.sources.sort();
-            local.sources.dedup();
             touched.insert(item.skill_id.clone());
         }
+        let deployment = self.imported_deployment(&prepared);
         let result = self.commit(Journal {
             id: id.to_string(),
             before: snapshot.library,
@@ -315,6 +318,28 @@ impl State {
             let _ = fs::remove_dir_all(staging);
         }
         result?;
+        // The import is committed; a target rescan records copies that match a library skill,
+        // so a failed recording is logged rather than reported as a failed import.
+        if let Some((target, skill, digest)) = deployment
+            && let Err(error) = self.record_imported(&target, &skill, &digest, &prepared.copies)
+        {
+            self.log
+                .record(format!("Recording the imported deployment failed: {error}"));
+        }
         Ok(outcome)
+    }
+    /// The target, skill, and library digest an applied target import records as a deployment.
+    fn imported_deployment(
+        &self,
+        prepared: &Prepared,
+    ) -> Option<(DeploymentTarget, SkillId, String)> {
+        let target = prepared.review.deployment.clone()?;
+        let item = prepared.review.items.first()?;
+        let skill = prepared
+            .after
+            .skills
+            .iter()
+            .find(|skill| skill.id == item.skill_id)?;
+        Some((target, skill.id.clone(), skill.digest.clone()))
     }
 }

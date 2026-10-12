@@ -27,7 +27,11 @@ impl NativeView {
                         .on_ok(|_, _, _| false)
                         .on_close(move |_, _, cx| {
                             let _ = close_view.update(cx, |view, cx| {
-                                view.dialog = DialogState::None;
+                                if matches!(view.dialog, DialogState::AddProject) {
+                                    view.close_addition(cx);
+                                } else {
+                                    view.dialog = DialogState::None;
+                                }
                                 cx.notify();
                             });
                         })
@@ -36,7 +40,7 @@ impl NativeView {
         }
     }
 
-    fn dismiss_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn dismiss_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.busy {
             self.dialog = DialogState::None;
             window.close_dialog(cx);
@@ -45,7 +49,7 @@ impl NativeView {
     }
 
     /// Title row with an app close button: GPUI Kit's built-in close control keeps the arrow cursor.
-    fn dialog_title(
+    pub(super) fn dialog_title(
         &self,
         title: &'static str,
         cx: &mut Context<Self>,
@@ -69,64 +73,79 @@ impl NativeView {
             })
     }
 
+    /// Review of an import plan; an import started from a target page also names that target.
+    fn import_plan_dialog(
+        &self,
+        dialog: Dialog,
+        plan: &ImportPlan,
+        cx: &mut Context<Self>,
+    ) -> Dialog {
+        let busy = self.busy;
+        let plan_id = plan.id.clone();
+        let mut body = div().flex().flex_col().gap_2().child(format!(
+            "Review {} selected sources before copying them into the managed library.",
+            plan.items.len()
+        ));
+        if let Some(target) = &plan.deployment {
+            body = body.child(format!(
+                "Its copies in {} stay in place and become its deployment there.",
+                self.target_name(target)
+            ));
+        }
+        for item in &plan.items {
+            body = body.child(format!(
+                "{} — {:?} — {} → {} ({} bytes)",
+                item.slug, item.decision, item.source, item.destination, item.total_bytes
+            ));
+            for message in &item.messages {
+                body = body.child(format!("{:?}: {}", message.status, message.message));
+            }
+        }
+        dialog
+            .title(self.dialog_title("Review import", cx))
+            .child(body)
+            .footer(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(
+                        button("import-close")
+                            .label("Back")
+                            .inactive(busy)
+                            .on_click(
+                                cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
+                            ),
+                    )
+                    .child({
+                        let weak = cx.entity().downgrade();
+                        button("import-apply")
+                            .label("Import")
+                            .primary()
+                            .inactive(busy)
+                            .on_click(move |_, _, cx| {
+                                let _ = weak.update(cx, |view, cx| {
+                                    let client = view.client.clone();
+                                    let plan_id = plan_id.clone();
+                                    view.run(
+                                        async move {
+                                            client
+                                                .apply_import(plan_id)
+                                                .await
+                                                .map(|_| Effect::CloseDialog)
+                                        },
+                                        cx,
+                                    );
+                                });
+                            })
+                    }),
+            )
+    }
+
     fn build_dialog(&self, dialog: Dialog, cx: &mut Context<Self>) -> Dialog {
         let busy = self.busy;
         match &self.dialog {
             DialogState::None => dialog,
-            DialogState::ImportPlan(plan) => {
-                let plan_id = plan.id.clone();
-                let mut body = div().flex().flex_col().gap_2().child(format!(
-                    "Review {} selected sources before copying them into the managed library.",
-                    plan.items.len()
-                ));
-                for item in &plan.items {
-                    body = body.child(format!(
-                        "{} — {:?} — {} → {} ({} bytes)",
-                        item.slug, item.decision, item.source, item.destination, item.total_bytes
-                    ));
-                    for message in &item.messages {
-                        body = body.child(format!("{:?}: {}", message.status, message.message));
-                    }
-                }
-                dialog
-                    .title(self.dialog_title("Review import", cx))
-                    .child(body)
-                    .footer(
-                        div()
-                            .flex()
-                            .gap_2()
-                            .child(
-                                button("import-close")
-                                    .label("Back")
-                                    .inactive(busy)
-                                    .on_click(cx.listener(|view, _, window, cx| {
-                                        view.dismiss_dialog(window, cx)
-                                    })),
-                            )
-                            .child({
-                                let weak = cx.entity().downgrade();
-                                button("import-apply")
-                                    .label("Import")
-                                    .primary()
-                                    .inactive(busy)
-                                    .on_click(move |_, _, cx| {
-                                        let _ = weak.update(cx, |view, cx| {
-                                            let client = view.client.clone();
-                                            let plan_id = plan_id.clone();
-                                            view.run(
-                                                async move {
-                                                    client
-                                                        .apply_import(plan_id)
-                                                        .await
-                                                        .map(|_| Effect::CloseDialog)
-                                                },
-                                                cx,
-                                            );
-                                        });
-                                    })
-                            }),
-                    )
-            }
+            DialogState::ImportPlan(plan) => self.import_plan_dialog(dialog, plan, cx),
             DialogState::DeleteFolder(preview) => {
                 let id = preview.folder.id.clone();
                 let revision = preview.revision.clone();
@@ -201,12 +220,7 @@ impl NativeView {
                             .as_ref()
                             .and_then(|library| library.details.get(id))
                         {
-                            body = body.child(details.description.clone()).children(
-                                details
-                                    .sources
-                                    .iter()
-                                    .map(|source| div().child(source.clone())),
-                            );
+                            body = body.child(details.description.clone());
                         }
                     }
                     body = body.child(
@@ -339,19 +353,11 @@ impl NativeView {
                             }),
                     )
             }
-            DialogState::RemoveRoot(id) => {
-                let id = id.clone();
-                dialog.title(self.dialog_title("Remove project root", cx))
-                    .child(div().child("Discovery will stop reading this project root. Managed imports remain in your library."))
-                    .footer(div().flex().gap_2()
-        .child(button("remove-cancel").label("Cancel").inactive(busy)
-            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx))))
-        .child({let weak = cx.entity().downgrade(); button("remove-confirm").label("Remove root")
-                        .inactive(busy).on_click(move |_, _, cx| { let _ = weak.update(cx, |view, cx| {
-                            let client = view.client.clone(); let id = id.clone();
-                            view.run(async move { client.remove_root(id).await.map(|_| Effect::CloseDialog) }, cx);
-                        }); })}))
-            }
+            DialogState::AddProject => self.add_project_dialog(dialog, cx),
+            DialogState::RemoveProject(id) => self.remove_project_dialog(dialog, id, cx),
+            DialogState::AddSkills { .. } => self.add_skills_dialog(dialog, cx),
+            DialogState::RemoveChanged { .. } => self.remove_changed_dialog(dialog, cx),
+            DialogState::DiscardChanges { .. } => self.discard_changes_dialog(dialog, cx),
         }
     }
 }

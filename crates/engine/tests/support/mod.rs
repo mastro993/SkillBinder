@@ -4,11 +4,12 @@
 )]
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    AppResult, Candidate, ErrorCategory, OnboardingStep, ScanSnapshot, ScanStatus, SkillId,
+    AppResult, Candidate, ErrorCategory, OnboardingStep, ProjectAddition, ScanSnapshot, ScanStatus,
+    SkillId,
 };
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 use tempfile::TempDir;
@@ -40,14 +41,7 @@ impl Fixture {
     }
 
     pub fn skill(&self, slug: &str, body: &str) -> PathBuf {
-        let directory = self.project.join(".agents/skills").join(slug);
-        fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("SKILL.md"),
-            format!("---\nname: {slug}\ndescription: Test fixture\n---\n{body}\n"),
-        )
-        .unwrap();
-        directory
+        write_skill(&self.project.join(".agents/skills"), slug, body)
     }
 
     pub async fn ready(&self) -> Engine {
@@ -63,12 +57,9 @@ impl Fixture {
         engine
     }
 
-    pub async fn register(&self, engine: &Engine) -> skillbinder_proto::ProjectRoot {
-        let grant = engine.grant_directory(self.project.clone()).await.unwrap();
-        engine
-            .register_root(grant.id, "Fixture".into())
-            .await
-            .unwrap()
+    /// Adds the fixture project and waits for its scan to be saved.
+    pub async fn register(&self, engine: &Engine) -> ProjectAddition {
+        add_project(engine, &self.project).await
     }
 
     pub async fn scan(&self, engine: &Engine) -> ScanSnapshot {
@@ -108,6 +99,31 @@ impl Fixture {
         assert_eq!(outcome.imported.len(), 1);
         outcome.imported[0].clone()
     }
+}
+
+/// Writes `<directory>/<slug>/SKILL.md` with a body that sets its content digest.
+pub fn write_skill(directory: &Path, slug: &str, body: &str) -> PathBuf {
+    let directory = directory.join(slug);
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(
+        directory.join("SKILL.md"),
+        format!("---\nname: {slug}\ndescription: Test fixture\n---\n{body}\n"),
+    )
+    .unwrap();
+    directory
+}
+
+pub async fn add_project(engine: &Engine, path: &Path) -> ProjectAddition {
+    let grant = engine.grant_directory(path.to_owned()).await.unwrap();
+    let addition = engine.add_project(grant.id).await.unwrap().unwrap();
+    assert_eq!(
+        addition.status,
+        ScanStatus::Finished,
+        "{:?}",
+        addition.error
+    );
+    engine.dismiss_project_addition().unwrap();
+    addition
 }
 
 pub fn category<T>(result: AppResult<T>) -> ErrorCategory {

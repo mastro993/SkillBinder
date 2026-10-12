@@ -1,13 +1,15 @@
-mod paths;
-mod registry;
+pub(crate) mod paths;
+pub(crate) mod registry;
 #[cfg(test)]
 mod tests;
 mod traversal;
+pub(crate) mod walk;
 
 use crate::{lifecycle::EngineConfig, logging::Logger, payload::Inspection};
 use skillbinder_proto::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -15,9 +17,16 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// The location a candidate imports from, inspected during the scan. Every location of
+/// a candidate has the same content and validation report, so the first one found is used.
+#[derive(Clone)]
+pub(crate) struct ImportSource {
+    pub display_path: String,
+    pub inspection: Inspection,
+}
 pub(crate) struct ScanRun {
     pub snapshot: ScanSnapshot,
-    pub inspections: BTreeMap<CandidateId, Inspection>,
+    pub sources: BTreeMap<CandidateId, ImportSource>,
     pub cancel: Arc<AtomicBool>,
     pub terminal_at: Option<Instant>,
 }
@@ -49,7 +58,7 @@ impl Scans {
         &self,
         scan: &ScanId,
         ids: &[CandidateId],
-    ) -> AppResult<Vec<(Candidate, Inspection)>> {
+    ) -> AppResult<Vec<(CandidateId, ImportSource)>> {
         self.current()?;
         let state = self.0.lock().map_err(|_| AppError::storage())?;
         let run = state
@@ -66,30 +75,21 @@ impl Scans {
         }
         ids.iter()
             .map(|id| {
-                let candidate = run
-                    .snapshot
-                    .candidates
-                    .iter()
-                    .find(|candidate| &candidate.id == id)
-                    .ok_or_else(|| {
-                        AppError::stale("A selected candidate no longer belongs to this scan.")
-                    })?;
-                let inspection = run
-                    .inspections
-                    .get(id)
-                    .ok_or_else(|| AppError::stale("Candidate inspection is unavailable."))?;
-                Ok((candidate.clone(), inspection.clone()))
+                let source = run.sources.get(id).ok_or_else(|| {
+                    AppError::stale("A selected candidate no longer belongs to this scan.")
+                })?;
+                Ok((id.clone(), source.clone()))
             })
             .collect()
     }
     pub(crate) fn start(
         &self,
         config: EngineConfig,
-        roots: Vec<ProjectRoot>,
+        projects: Vec<PathBuf>,
         managed: BTreeSet<String>,
         log: Logger,
     ) -> AppResult<ScanSnapshot> {
-        self.start_with(config, roots, managed, log, |work| {
+        self.start_with(config, projects, managed, log, |work| {
             std::thread::Builder::new()
                 .name("skillbinder-discovery".into())
                 .spawn(work)
@@ -99,7 +99,7 @@ impl Scans {
     fn start_with(
         &self,
         config: EngineConfig,
-        roots: Vec<ProjectRoot>,
+        projects: Vec<PathBuf>,
         managed: BTreeSet<String>,
         log: Logger,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
@@ -122,7 +122,7 @@ impl Scans {
         let cancel = Arc::new(AtomicBool::new(false));
         *state = Some(ScanRun {
             snapshot: snapshot.clone(),
-            inspections: BTreeMap::new(),
+            sources: BTreeMap::new(),
             cancel: cancel.clone(),
             terminal_at: None,
         });
@@ -130,7 +130,7 @@ impl Scans {
         let id = snapshot.id.clone();
         let failure_log = log.clone();
         if let Err(error) = launch(Box::new(move || {
-            let result = registry::locations(&config, &roots, &log).and_then(|locations| {
+            let result = registry::locations(&config, &projects, &log).and_then(|locations| {
                 traversal::scan(&scans, &id, locations, &managed, &cancel, &log)
             });
             if let Ok(mut state) = scans.0.lock()
@@ -147,9 +147,12 @@ impl Scans {
                     log.record(error.to_string());
                     error.message
                 });
+                for candidate in &mut run.snapshot.candidates {
+                    candidate.locations.sort();
+                }
                 run.snapshot
                     .candidates
-                    .sort_by(|a, b| a.display_path.cmp(&b.display_path));
+                    .sort_by_cached_key(|candidate| candidate.locations.first().cloned());
                 run.terminal_at = Some(Instant::now());
             }
         })) {

@@ -37,6 +37,7 @@ impl Client {
             }),
         };
         client.start_refresh();
+        client.rescan_on_launch();
         Ok(client)
     }
     /// Returns the latest complete projection without blocking on storage.
@@ -66,7 +67,7 @@ impl Client {
                 let Some(shared) = weak.upgrade() else {
                     break;
                 };
-                if let Err(error) = shared.publish_scan() {
+                if let Err(error) = shared.publish_progress() {
                     Self { shared }.background_error(error);
                 }
             }
@@ -127,20 +128,125 @@ impl Client {
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.shared.engine.grant_directory(path).await
     }
-    /// Registers a reviewed project root.
-    pub async fn register_root(&self, grant: GrantId, label: String) -> AppResult<ProjectRoot> {
-        self.refresh_preserving_outcome(self.shared.engine.register_root(grant, label).await)
+    /// Scans a granted folder and saves it as a project; progress is published while it runs.
+    pub async fn add_project(&self, grant: GrantId) -> AppResult<Option<ProjectAddition>> {
+        self.refresh_preserving_outcome(self.shared.engine.add_project(grant).await)
             .await
     }
-    /// Changes the root label or enabled state.
-    pub async fn update_root(&self, id: RootId, label: String, enabled: bool) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.update_root(id, label, enabled).await)
+    /// Discards the project being added; `false` when its scan had already been saved.
+    pub async fn cancel_project_addition(&self) -> AppResult<bool> {
+        self.refresh_preserving_outcome(self.shared.engine.cancel_project_addition())
             .await
     }
-    /// Removes only the registered boundary.
-    pub async fn remove_root(&self, id: RootId) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.remove_root(id).await)
+    /// Clears a finished or failed project addition.
+    pub async fn dismiss_project_addition(&self) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.dismiss_project_addition())
             .await
+    }
+    /// Rescans Global or a project in the background and records its deployments.
+    pub async fn rescan_target(&self, target: DeploymentTarget) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.rescan_target(target).await)
+            .await
+    }
+    /// Renames a project.
+    pub async fn rename_project(&self, id: ProjectId, name: String) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.rename_project(id, name).await)
+            .await
+    }
+    /// Saves a new project order.
+    pub async fn reorder_projects(&self, order: Vec<ProjectId>) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.reorder_projects(order).await)
+            .await
+    }
+    /// Forgets a project and its deployments, then rescans the projects that contain it.
+    pub async fn remove_project(&self, id: ProjectId) -> AppResult<()> {
+        let containing = self
+            .refresh_preserving_outcome(self.shared.engine.remove_project(id).await)
+            .await?;
+        for id in containing {
+            self.spawn_rescan(DeploymentTarget::Project(id));
+        }
+        Ok(())
+    }
+    /// Replaces the agents whose skill directories a target writes to.
+    pub async fn set_target_agents(
+        &self,
+        target: DeploymentTarget,
+        agents: Vec<String>,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.set_target_agents(target, agents).await)
+            .await
+    }
+    /// Copies library skills into a target and records the deployments.
+    pub async fn add_deployments(
+        &self,
+        target: DeploymentTarget,
+        skills: Vec<SkillId>,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.add_deployments(target, skills).await)
+            .await
+    }
+    /// Deletes a deployment's copies; a changed copy is kept unless `discard` lists it.
+    pub async fn remove_deployment(
+        &self,
+        target: DeploymentTarget,
+        skill: SkillId,
+        discard: Vec<String>,
+    ) -> AppResult<Removal> {
+        self.refresh_preserving_outcome(
+            self.shared
+                .engine
+                .remove_deployment(target, skill, discard)
+                .await,
+        )
+        .await
+    }
+    /// Resolves a drifted deployment with the remedy the user picked.
+    pub async fn resolve_drift(
+        &self,
+        shown: Deployment,
+        expected: Drift,
+        remedy: Remedy,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(
+            self.shared
+                .engine
+                .resolve_drift(shown, expected, remedy)
+                .await,
+        )
+        .await
+    }
+    /// Rescans in the background; failures surface as the background error.
+    pub fn spawn_rescan(&self, target: DeploymentTarget) {
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            if let Err(error) = client.rescan_target(target).await {
+                client.background_error(error);
+            }
+        });
+    }
+    /// Rescans Global, then each project, one at a time.
+    fn rescan_on_launch(&self) {
+        let snapshot = self.snapshot();
+        if snapshot.library.is_none() {
+            return;
+        }
+        let targets: Vec<_> = std::iter::once(DeploymentTarget::Global)
+            .chain(
+                snapshot
+                    .projects
+                    .iter()
+                    .map(|project| DeploymentTarget::Project(project.id.clone())),
+            )
+            .collect();
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            for target in targets {
+                if let Err(error) = client.rescan_target(target).await {
+                    client.background_error(error);
+                }
+            }
+        });
     }
     /// Starts or resumes one scan worker.
     pub async fn start_scan(&self) -> AppResult<ScanSnapshot> {
@@ -162,6 +268,17 @@ impl Client {
         self.shared
             .engine
             .prepare_import(scan, ids, acknowledge_invalid)
+            .await
+    }
+    /// Prepares the reviewed import of an importable skill shown on its target's page.
+    pub async fn prepare_target_import(
+        &self,
+        shown: Importable,
+        acknowledge_invalid: bool,
+    ) -> AppResult<ImportPlan> {
+        self.shared
+            .engine
+            .prepare_target_import(shown, acknowledge_invalid)
             .await
     }
     /// Applies a plan with durable replay and outcome retention.
@@ -234,9 +351,13 @@ impl Shared {
             if generation != self.requested.load(Ordering::Acquire) {
                 return false;
             }
-            match self.engine.current_scan() {
-                Ok(scan) => snapshot.scan = scan,
-                Err(error) => {
+            match (self.engine.current_scan(), self.engine.target_progress()) {
+                (Ok(scan), Ok((addition, rescanning))) => {
+                    snapshot.scan = scan;
+                    snapshot.project_addition = addition;
+                    snapshot.rescanning = rescanning;
+                }
+                (Err(error), _) | (_, Err(error)) => {
                     result = Err(error);
                     return false;
                 }
@@ -247,21 +368,28 @@ impl Shared {
         });
         result
     }
-    fn publish_scan(&self) -> AppResult<()> {
+    /// Publishes Discovery and target scan progress without waiting on the worker.
+    fn publish_progress(&self) -> AppResult<()> {
         let mut result = Ok(());
         self.snapshots.send_if_modified(|current| {
-            let scan = match self.engine.current_scan() {
-                Ok(scan) => scan,
-                Err(error) => {
-                    result = Err(error);
-                    return false;
-                }
-            };
-            if current.scan == scan {
+            let (scan, (addition, rescanning)) =
+                match (self.engine.current_scan(), self.engine.target_progress()) {
+                    (Ok(scan), Ok(targets)) => (scan, targets),
+                    (Err(error), _) | (_, Err(error)) => {
+                        result = Err(error);
+                        return false;
+                    }
+                };
+            if current.scan == scan
+                && current.project_addition == addition
+                && current.rescanning == rescanning
+            {
                 return false;
             }
             let mut next = (**current).clone();
             next.scan = scan;
+            next.project_addition = addition;
+            next.rescanning = rescanning;
             next.generation = current.generation + 1;
             *current = Arc::new(next);
             true

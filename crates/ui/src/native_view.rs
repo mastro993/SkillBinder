@@ -5,15 +5,21 @@ mod library;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod onboarding;
+mod project_dialogs;
 mod route;
 mod settings;
 mod shell;
 mod sidebar;
 mod sidebar_folders;
+mod sidebar_projects;
 mod sidebar_reorder;
 mod sidebar_row;
 mod status_bar;
 mod sync;
+mod target_dialogs;
+mod target_drift;
+mod target_importables;
+mod target_page;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
@@ -30,6 +36,7 @@ use gpui_kit::{
 };
 use route::{History, LibraryFilter, Route};
 use sidebar_folders::FolderEdit;
+use sidebar_reorder::RowReorder;
 use skillbinder_client::Client;
 use skillbinder_proto::*;
 
@@ -42,18 +49,37 @@ enum DialogState {
         revision: String,
         selected: Option<SkillId>,
     },
-    RemoveRoot(RootId),
+    /// Scan progress and outcome of the project being added.
+    AddProject,
+    RemoveProject(ProjectId),
+    /// Library skills, and agents when the target has none yet, chosen to add to a target.
+    AddSkills {
+        target: DeploymentTarget,
+        skills: BTreeSet<SkillId>,
+        agents: Option<BTreeSet<String>>,
+    },
+    /// Confirms discarding copies that changed since they were deployed.
+    RemoveChanged {
+        target: DeploymentTarget,
+        skill: SkillId,
+        paths: Vec<String>,
+    },
+    /// Confirms discarding the changed copies of the deployment as `shown` by writing the
+    /// library version over them.
+    DiscardChanges {
+        shown: Deployment,
+        drift: Drift,
+    },
     None,
 }
 
 enum Effect {
     None,
     CloseDialog,
-    Grant(DirectoryGrant),
-    RootRegistered,
     Plan(ImportPlan),
     Preview(SkillPreview),
     DeletePreview(DeletePreview),
+    Dialog(DialogState),
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -68,15 +94,20 @@ pub struct NativeView {
     syncing: bool,
     error: Option<AppError>,
     dialog: DialogState,
-    grant: Option<DirectoryGrant>,
-    editing_root: Option<RootId>,
+    /// The addition whose modal the user closed, until the engine drops it.
+    dismissed_addition: Option<ScanId>,
     selected_candidates: BTreeSet<CandidateId>,
     candidate_page: usize,
     acknowledge_invalid: bool,
     selected_skills: BTreeSet<SkillId>,
     /// Inline folder name editing in the sidebar.
     folder_edit: Option<FolderEdit>,
-    folder_reorder: sidebar_reorder::FolderReorder,
+    folder_reorder: RowReorder<FolderId>,
+    /// Target agents being edited on the current target page.
+    agent_edit: Option<BTreeSet<String>>,
+    /// Inline project renaming in the sidebar.
+    project_edit: Option<ProjectId>,
+    project_reorder: RowReorder<ProjectId>,
     sidebar_width: f32,
     sidebar_collapsed: bool,
     appearance: Appearance,
@@ -90,11 +121,12 @@ pub struct NativeView {
     preview: Option<SkillPreview>,
     search: Entity<InputState>,
     folder_name: Entity<InputState>,
-    root_label: Entity<InputState>,
+    project_name: Entity<InputState>,
     remote_url: Entity<InputState>,
     remote_branch: Entity<InputState>,
     _search_subscription: Subscription,
     _folder_name_subscription: Subscription,
+    _project_name_subscription: Subscription,
     _activation_subscription: Subscription,
     _subscription: Task<()>,
 }
@@ -133,7 +165,9 @@ impl NativeView {
         let folder_name = cx.new(|cx| InputState::new(window, cx).placeholder("Folder name"));
         let folder_name_subscription =
             cx.subscribe_in(&folder_name, window, Self::folder_name_event);
-        let root_label = cx.new(|cx| InputState::new(window, cx).placeholder("Project label"));
+        let project_name = cx.new(|cx| InputState::new(window, cx).placeholder("Project name"));
+        let project_name_subscription =
+            cx.subscribe_in(&project_name, window, Self::project_name_event);
         let remote_url = cx.new(|cx| InputState::new(window, cx).placeholder("Remote URL"));
         let remote_branch = cx.new(|cx| {
             InputState::new(window, cx)
@@ -161,14 +195,16 @@ impl NativeView {
             syncing: false,
             error: None,
             dialog: DialogState::None,
-            grant: None,
-            editing_root: None,
+            dismissed_addition: None,
             selected_candidates: BTreeSet::new(),
             candidate_page: 0,
             acknowledge_invalid: false,
             selected_skills: BTreeSet::new(),
             folder_edit: None,
-            folder_reorder: sidebar_reorder::FolderReorder::default(),
+            folder_reorder: RowReorder::default(),
+            agent_edit: None,
+            project_edit: None,
+            project_reorder: RowReorder::default(),
             sidebar_width,
             sidebar_collapsed,
             appearance,
@@ -180,11 +216,12 @@ impl NativeView {
             preview: None,
             search,
             folder_name,
-            root_label,
+            project_name,
             remote_url,
             remote_branch,
             _search_subscription: search_subscription,
             _folder_name_subscription: folder_name_subscription,
+            _project_name_subscription: project_name_subscription,
             _activation_subscription: activation_subscription,
             _subscription: subscription,
         }
@@ -217,7 +254,21 @@ impl NativeView {
                 self.preview = None;
             }
         }
+        let project_exists = |id: &ProjectId| latest.projects.iter().any(|p| &p.id == id);
+        if matches!(&self.route, Route::Target(DeploymentTarget::Project(id)) if !project_exists(id))
+        {
+            self.route = Route::Discovery;
+            self.agent_edit = None;
+        }
+        if self
+            .project_edit
+            .as_ref()
+            .is_some_and(|id| !project_exists(id))
+        {
+            self.project_edit = None;
+        }
         self.snapshot = latest;
+        self.sync_addition_dialog();
         if self.snapshot.preferences.sidebar_width != self.sidebar_width
             && !self.resizing_sidebar
             && !self.preference_writes.is_busy()
@@ -245,22 +296,19 @@ impl NativeView {
                 view.busy = false;
                 view.syncing = false;
                 view.folder_reorder.settle();
+                view.project_reorder.settle();
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);
                         match effect {
                             Effect::None => {}
                             Effect::CloseDialog => view.dialog = DialogState::None,
-                            Effect::Grant(grant) => {
-                                view.grant = Some(grant);
-                                view.editing_root = None;
-                            }
-                            Effect::RootRegistered => view.grant = None,
                             Effect::Plan(plan) => view.dialog = DialogState::ImportPlan(plan),
                             Effect::Preview(preview) => view.preview = Some(preview),
                             Effect::DeletePreview(preview) => {
                                 view.dialog = DialogState::DeleteFolder(preview)
                             }
+                            Effect::Dialog(dialog) => view.dialog = dialog,
                         }
                     }
                     Ok(Err(error)) => view.error = Some(error),
@@ -293,7 +341,8 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted folder falls back to all skills.
+    /// Shows `route` without touching history; a deleted folder falls back to all skills, and
+    /// a removed project to Discovery.
     fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
         let folder_exists = |id: &FolderId| {
             self.snapshot
@@ -301,9 +350,13 @@ impl NativeView {
                 .as_ref()
                 .is_some_and(|library| library.library.folders.iter().any(|f| &f.id == id))
         };
+        let project_exists = |id: &ProjectId| self.snapshot.projects.iter().any(|p| &p.id == id);
         let route = match route {
             Route::Library(LibraryFilter::Folder(id)) if !folder_exists(&id) => {
                 Route::Library(LibraryFilter::All)
+            }
+            Route::Target(DeploymentTarget::Project(id)) if !project_exists(&id) => {
+                Route::Discovery
             }
             route => route,
         };
@@ -314,6 +367,7 @@ impl NativeView {
             self.selected_skills.clear();
             self.selected_skill = None;
             self.preview = None;
+            self.agent_edit = None;
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
         }
@@ -351,9 +405,9 @@ impl NativeView {
                 .flex_col()
                 .gap_2()
                 .child(format!(
-                    "Import finished: {} copied, {} existing observations, {} name conflicts",
+                    "Import finished: {} copied, {} already in library, {} name conflicts",
                     outcome.imported.len(),
-                    outcome.attached.len(),
+                    outcome.existing.len(),
                     outcome.conflicts.len()
                 ))
                 .children(
@@ -397,9 +451,10 @@ impl Render for NativeView {
                 .child(div().flex_1().min_h_0().child(self.render_onboarding(cx)))
                 .into_any_element()
         } else {
-            let page = match self.route {
+            let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library(_) => self.render_library(cx).into_any_element(),
+                Route::Target(target) => self.render_target(&target.clone(), cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),
                 Route::Settings => self.render_settings(cx).into_any_element(),
             };

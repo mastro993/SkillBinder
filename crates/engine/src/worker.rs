@@ -1,6 +1,6 @@
 use crate::{
-    discovery::Scans, git::Git, lifecycle::EngineConfig, logging::Logger, persistence,
-    roots::GrantedDirectory,
+    discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig, logging::Logger,
+    persistence, targets::progress::TargetScans,
 };
 use fs2::FileExt;
 use skillbinder_proto::*;
@@ -22,6 +22,7 @@ struct Owner {
     sender: mpsc::Sender<Message>,
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
+    targets: TargetScans,
 }
 /// Cloneable typed handle to the embedded engine worker.
 #[derive(Clone)]
@@ -34,7 +35,11 @@ pub(crate) struct State {
     pub git: Option<Git>,
     pub log: Logger,
     pub scans: Scans,
+    pub targets: TargetScans,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
+    /// What each target's last saved scan found that matched no library skill. Like Discovery
+    /// results, these are scan observations and are not durable.
+    pub importables: BTreeMap<DeploymentTarget, Vec<Importable>>,
     pub recovery_required: bool,
     lock: File,
 }
@@ -67,13 +72,16 @@ impl Engine {
             .map_err(|_| AppError::storage())?;
         let database = persistence::open(&config.data_dir.join("state.sqlite3"))?;
         let scans = Scans::default();
+        let targets = TargetScans::default();
         let mut state = State {
             config,
             database,
             git: Git::discover().ok(),
             log,
             scans: scans.clone(),
+            targets: targets.clone(),
             grants: BTreeMap::new(),
+            importables: BTreeMap::new(),
             recovery_required: true,
             lock,
         };
@@ -91,6 +99,7 @@ impl Engine {
                     match message {
                         Message::Execute(job) => job(&mut state),
                         Message::Shutdown(done) => {
+                            state.targets.stop();
                             state.scans.wait_for_shutdown();
                             state.log.flush();
                             let _ = done.send(());
@@ -109,10 +118,14 @@ impl Engine {
                 sender,
                 thread: Mutex::new(Some(thread)),
                 scans,
+                targets,
             }),
         })
     }
-    async fn call<T: Send + 'static>(
+    pub(crate) fn targets(&self) -> &TargetScans {
+        &self.owner.targets
+    }
+    pub(crate) async fn call<T: Send + 'static>(
         &self,
         operation: impl FnOnce(&mut State) -> AppResult<T> + Send + 'static,
     ) -> AppResult<T> {
@@ -178,20 +191,6 @@ impl Engine {
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.call(move |state| state.grant_directory(path)).await
     }
-    /// Consumes a directory capability to register a project boundary.
-    pub async fn register_root(&self, grant: GrantId, label: String) -> AppResult<ProjectRoot> {
-        self.call(move |state| state.register_root(grant, label))
-            .await
-    }
-    /// Renames or enables a registered root.
-    pub async fn update_root(&self, id: RootId, label: String, enabled: bool) -> AppResult<()> {
-        self.call(move |state| state.update_root(id, label, enabled))
-            .await
-    }
-    /// Removes a project boundary without touching source files.
-    pub async fn remove_root(&self, id: RootId) -> AppResult<()> {
-        self.call(move |state| state.remove_root(id)).await
-    }
     /// Starts discovery or returns the existing active run.
     pub async fn start_scan(&self) -> AppResult<ScanSnapshot> {
         if let Some(run) = self
@@ -202,12 +201,17 @@ impl Engine {
         {
             return Ok(run);
         }
-        let (config, roots, managed, log) = self
+        let (config, projects, managed, log) = self
             .call(|state| {
                 let library = state.read_library()?;
                 Ok((
                     state.config.clone(),
-                    state.roots()?,
+                    state
+                        .projects()?
+                        .into_iter()
+                        .filter(|project| !project.missing)
+                        .map(|project| PathBuf::from(project.path))
+                        .collect(),
                     library
                         .skills
                         .iter()
@@ -239,7 +243,7 @@ impl Engine {
                 ))
             })
             .await?;
-        self.owner.scans.start(config, roots, managed, log)
+        self.owner.scans.start(config, projects, managed, log)
     }
     /// Requests cooperative cancellation while retaining partial findings.
     pub async fn cancel_scan(&self) -> AppResult<ScanSnapshot> {
@@ -348,12 +352,24 @@ impl State {
             current.refreshed_at = sync.refreshed_at;
             sync = current;
         }
+        let importables = library
+            .as_ref()
+            .map(|library| self.listed_importables(&library.library))
+            .unwrap_or_default();
+        let (project_addition, rescanning) = self.targets.current()?;
         Ok(AppSnapshot {
             generation: 0,
             background_error: None,
             bootstrap,
             library,
-            roots: self.roots()?,
+            home: self.config.home.display().to_string(),
+            agents: crate::discovery::registry::agent_options(&self.config)?,
+            global_agents: self.target_agents(&DeploymentTarget::Global)?,
+            projects: self.projects()?,
+            deployments: self.deployments()?,
+            importables,
+            project_addition,
+            rescanning,
             scan: self.scans.current()?,
             sync,
             import_outcome: self.setting("import_outcome")?.flatten(),
@@ -399,7 +415,9 @@ impl State {
             git: None,
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),
+            targets: TargetScans::default(),
             grants: BTreeMap::new(),
+            importables: BTreeMap::new(),
             recovery_required: false,
             lock: File::create(data_dir.join("test.lock")).unwrap(),
         }
