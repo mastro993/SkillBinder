@@ -8,7 +8,7 @@ use super::sidebar_reorder::{FolderDrag, FolderDragPreview};
 use super::sidebar_row::{activate, count, row};
 use super::{Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
-    ActiveTheme, Sizable,
+    ActiveTheme, Side, Sizable,
     button::ButtonVariants,
     input::{Input, InputEvent, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
@@ -235,31 +235,50 @@ impl NativeView {
         let (id, current) = (folder.id.clone(), folder.color);
         move |menu, window, cx| {
             let (color_view, color_id) = (view.clone(), id.clone());
-            menu.item(PopupMenuItem::new("Rename").on_click(menu_action(
-                view.clone(),
-                id.clone(),
-                |view, id, window, cx| {
-                    view.begin_folder_edit(FolderEdit::Rename(id.clone()), window, cx)
+            let danger = cx.theme().danger;
+            menu.item(
+                PopupMenuItem::new("Rename")
+                    .icon(app_icon("pencil-edit"))
+                    .on_click(menu_action(
+                        view.clone(),
+                        id.clone(),
+                        |view, id, window, cx| {
+                            view.begin_folder_edit(FolderEdit::Rename(id.clone()), window, cx)
+                        },
+                    )),
+            )
+            .submenu_with_icon(
+                Some(app_icon("paint-board")),
+                "Color",
+                window,
+                cx,
+                move |menu, _, cx| {
+                    let dark = cx.theme().mode.is_dark();
+                    let choices = std::iter::once(None).chain(FolderColor::ALL.map(Some));
+                    // Each choice shows its tinted folder, so the check moves to the right.
+                    choices.fold(menu.check_side(Side::Right), |menu, color| {
+                        let (view, id) = (color_view.clone(), color_id.clone());
+                        let swatch = match color {
+                            Some(color) => app_icon("folder").text_color(folder_tint(color, dark)),
+                            None => app_icon("folder"),
+                        };
+                        menu.item(
+                            PopupMenuItem::new(color.map_or("None", color_name))
+                                .icon(swatch)
+                                .checked(current == color)
+                                .on_click(move |_, _, cx| {
+                                    let _ = view.update(cx, |view, cx| {
+                                        view.set_folder_color(id.clone(), color, cx)
+                                    });
+                                }),
+                        )
+                    })
                 },
-            )))
-            .submenu("Color", window, cx, move |menu, _, _| {
-                let choices = std::iter::once(None).chain(FolderColor::ALL.map(Some));
-                choices.fold(menu, |menu, color| {
-                    let (view, id) = (color_view.clone(), color_id.clone());
-                    menu.item(
-                        PopupMenuItem::new(color.map_or("None", color_name))
-                            .checked(current == color)
-                            .on_click(move |_, _, cx| {
-                                let _ = view.update(cx, |view, cx| {
-                                    view.set_folder_color(id.clone(), color, cx)
-                                });
-                            }),
-                    )
-                })
-            })
+            )
             .separator()
             .item(
                 PopupMenuItem::new("Move Up")
+                    .icon(app_icon("arrow-up"))
                     .disabled(index == 0)
                     .on_click(menu_action(
                         view.clone(),
@@ -269,6 +288,7 @@ impl NativeView {
             )
             .item(
                 PopupMenuItem::new("Move Down")
+                    .icon(app_icon("arrow-down"))
                     .disabled(index + 1 >= len)
                     .on_click(menu_action(
                         view.clone(),
@@ -277,17 +297,20 @@ impl NativeView {
                     )),
             )
             .separator()
-            .item(PopupMenuItem::new("Delete…").on_click(menu_action(
-                view.clone(),
-                id.clone(),
-                |view, id, _, cx| {
-                    let (client, id) = (view.client.clone(), id.clone());
-                    view.run(
-                        async move { client.preview_delete(id).await.map(Effect::DeletePreview) },
-                        cx,
-                    );
-                },
-            )))
+            .item(
+                // A custom element, because plain items draw their label in the menu color.
+                PopupMenuItem::element(move |_, _| div().text_color(danger).child("Delete…"))
+                    .icon(app_icon("delete").text_color(danger))
+                    .on_click(menu_action(view.clone(), id.clone(), |view, id, _, cx| {
+                        let (client, id) = (view.client.clone(), id.clone());
+                        view.run(
+                                async move {
+                                    client.preview_delete(id).await.map(Effect::DeletePreview)
+                                },
+                                cx,
+                            );
+                    })),
+            )
         }
     }
 
