@@ -100,12 +100,17 @@ pub(super) fn activate(
 
 /// A trailing count with tabular figures and thousands separators.
 pub(super) fn count(value: usize, cx: &App) -> AnyElement {
+    detail(format_count(value), cx)
+}
+
+/// A short muted trailing text with tabular figures.
+pub(super) fn detail(text: impl Into<SharedString>, cx: &App) -> AnyElement {
     div()
         .flex_shrink_0()
         .text_size(px(DETAIL_SIZE))
         .font_features(FontFeatures(Arc::new(vec![("tnum".into(), 1)])))
         .text_color(cx.theme().muted_foreground.opacity(ICON_OPACITY))
-        .child(format_count(value))
+        .child(text.into())
         .into_any_element()
 }
 

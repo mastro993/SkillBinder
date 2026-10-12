@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum DeploymentTarget {
     /// The global agent skill locations under the user's home. Always present.
-    Root,
+    Global,
     /// A folder the user added.
     Project(ProjectId),
 }

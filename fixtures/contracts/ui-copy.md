@@ -24,7 +24,7 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312`. Copy
 | Managed copies | Imports create canonical copies. Original skill folders stay unchanged. |
 | Portable library | Canonical skills, portable IDs, organization, and history move together in the Git library. |
 | Machine-local state | Device paths, settings, credentials, and deployment state stay on this machine and outside Git. |
-| Bounded discovery | Known agent locations and known skill folders in your project roots. (Captured copy; the native app now says Root and projects.) |
+| Bounded discovery | Known agent locations and known skill folders in your project roots. (Captured copy; the native app now says Global and projects.) |
 | Local Git history | Every library has version history through your supported system Git. |
 | No account or token | SkillBinder has no hosted account and stores no Git credentials. |
 | Explicit sync | Remote sync stays optional and never runs in the background. |
@@ -32,7 +32,7 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312`. Copy
 
 ## Discovery and import
 
-- Header: `Read-only inspection`, `Discovery`. Lead: `Run a bounded scan, and choose which discovered skill copies enter your library. Project-search roots are configured in Settings.` Scope line changes for zero versus registered project roots, with fallback when roots cannot be read. Superseded: project-search roots were replaced by projects; the native lead is `Find skills in Root and in your projects.`
+- Header: `Read-only inspection`, `Discovery`. Lead: `Run a bounded scan, and choose which discovered skill copies enter your library. Project-search roots are configured in Settings.` Scope line changes for zero versus registered project roots, with fallback when roots cannot be read. Superseded: project-search roots were replaced by projects; the native lead is `Find skills in Global and in your projects.`
 - Scan headings: `Scan`, `Scan running`, `Scan finished`, `Scan cancelled`, `Scan failed`. Idle detail: `No scan has run yet. Start one to look for skills in the registered roots.` Running detail: `Walking the registered roots. Results appear when it finishes.` Finished detail: `Review the candidates below and choose what enters your library.` Cancelled detail: `Cancelled before the walk finished.` Actions: `Start scan`, `Starting…`, `Cancel scan`, `Cancelling…`, `Scan again`.
 - Progress format: `<done> of <total> roots · <entries> entries seen · <candidates> candidates found`. Limit warning: `Scan limits reached. Some folders were left unvisited.` Page format: `Showing <start>–<end> of <total> · page <page> of <pages>`; empty: `No candidates.` Source: `apps/frontend/src/features/discovery/lib/model.ts`, `components/discovery-scan-status.tsx`.
 - Candidate columns: `Select`, `Skill`, `Location and readers`, `Validation`, `Duplicate`, `Payload`. Status labels: `Valid`, `Warning`, `Invalid`, `Blocked`; duplicate label: `New skill` for unique. Blocked rows remain visible and unselectable. Selected invalid rows show `I understand invalid skills may need repair before use.` with acknowledgement checkbox. Action: `Review import`, pending `Preparing…`. Source: `apps/frontend/src/features/discovery/components/discovery-candidate-table.tsx`, `screens/discovery-view.tsx`.
@@ -61,11 +61,11 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312`. Copy
 - Settings header: `This device`, `Settings`. Rows: `Application`, `Git`, `Library`, `Remote sync`, `Logs`; remote link `Open Git sync`; logs action `Open log folder`. Project roots card (removed; projects replaced project-search roots): `Project-search roots`, count `<count> registered`, action `Add folder` or `Choosing a folder…`. Rows show path, `Scanned` or `Disabled`, `Label for <path>`, `Rename`, `Enabled`, and `Remove`.
 - Source: `apps/frontend/src/features/git-sync/screens/git-sync-view.tsx`, `apps/frontend/src/features/settings/screens/settings-view.tsx`, `apps/frontend/src/features/discovery/components/discovery-roots-panel.tsx`.
 
-## Root and projects
+## Global and projects
 
-These strings were added with Root and projects; they have no captured baseline.
+These strings were added with Global and projects; they have no captured baseline.
 
-- Sidebar section `Projects` with add button label `Add project`. Pinned row `Root`. A project row's accessibility label is its name, or `<name>, folder missing` while its folder is missing; the skeleton row reads `Adding project`.
+- Navigation row `Global` after `Library`, with trailing detail `~` and the home folder path as its tooltip. Sidebar section `Projects` with add button label `Add project`. A project row's accessibility label is its name, or `<name>, folder missing` while its folder is missing; the skeleton row reads `Adding project`.
 - Project row menu: `Rename`, `Move Up`, `Move Down`, `Remove…`. Inline rename placeholder `Project name`.
 - Directory picker prompt: `Add project`. Duplicate refusal: `This folder is already added as <name>.`
 - Add modal while scanning: title `Adding project`, `<name> · <path>`, progress `Scanning project`, `<count> folders checked`, action `Cancel`. Finished: title `Project added`, `<n> in library, <m> importable`, one `<slug> · importable` line per importable skill, action `Done`. Failed: title `Could not add project`, the safe error, action `Close`.

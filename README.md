@@ -15,7 +15,7 @@ cargo run -p skillbinder --locked
 
 SkillBinder requires macOS 26 or newer on Apple silicon or Intel Macs. Windows and Linux builds are also supported.
 
-First launch checks Git 2.39 or newer and storage access, then creates a local library through four setup steps. Synchronization is optional. The sidebar lists Root, the global agent skill locations under your home, and the projects you add through the native directory picker. Adding a project scans it for skills and records the library skills it holds as deployments. Discovery searches the 79-agent registry and your projects. Imports copy files; they never modify sources, and nothing writes into Root or your projects yet.
+First launch checks Git 2.39 or newer and storage access, then creates a local library through four setup steps. Synchronization is optional. The sidebar lists Global, the global agent skill locations under your home folder, beside Discovery and Library, and a Projects section with the projects you add through the native directory picker. Adding a project scans it for skills and records the library skills it holds as deployments. Discovery searches the 79-agent registry and your projects. Imports copy files; they never modify sources, and nothing writes into Global or your projects yet.
 
 The application uses a fresh `SkillBinder` directory beneath each operating system's local application-data directory. Existing `~/.skillbinder` data is left untouched. There is no migration or compatibility application.
 

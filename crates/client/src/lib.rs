@@ -143,7 +143,7 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.dismiss_project_addition())
             .await
     }
-    /// Rescans Root or a project in the background and records its deployments.
+    /// Rescans Global or a project in the background and records its deployments.
     pub async fn rescan_target(&self, target: DeploymentTarget) -> AppResult<()> {
         self.refresh_preserving_outcome(self.shared.engine.rescan_target(target).await)
             .await
@@ -177,13 +177,13 @@ impl Client {
             }
         });
     }
-    /// Rescans Root, then each project, one at a time.
+    /// Rescans Global, then each project, one at a time.
     fn rescan_on_launch(&self) {
         let snapshot = self.snapshot();
         if snapshot.library.is_none() {
             return;
         }
-        let targets: Vec<_> = std::iter::once(DeploymentTarget::Root)
+        let targets: Vec<_> = std::iter::once(DeploymentTarget::Global)
             .chain(
                 snapshot
                     .projects

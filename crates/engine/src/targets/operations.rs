@@ -1,4 +1,4 @@
-//! Public engine operations for Root and projects. Scans run on blocking threads; the worker
+//! Public engine operations for Global and projects. Scans run on blocking threads; the worker
 //! only reads inputs and saves results.
 
 use super::scan::{self, Control};

@@ -99,11 +99,13 @@ pub struct AppSnapshot {
     pub bootstrap: Bootstrap,
     /// Library if onboarding has completed.
     pub library: Option<LibrarySnapshot>,
-    /// Registry agent identities Root writes to.
-    pub root_agents: Vec<String>,
+    /// Home folder that holds Global's agent skill locations.
+    pub home: String,
+    /// Registry agent identities Global writes to.
+    pub global_agents: Vec<String>,
     /// Added projects in user order.
     pub projects: Vec<Project>,
-    /// Recorded deployments across Root and every project.
+    /// Recorded deployments across Global and every project.
     pub deployments: Vec<Deployment>,
     /// The project being added, until its result is dismissed.
     pub project_addition: Option<ProjectAddition>,

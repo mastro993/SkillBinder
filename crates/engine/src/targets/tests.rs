@@ -64,15 +64,15 @@ fn a_cancelled_addition_saves_nothing_and_a_finished_one_cannot_be_cancelled() -
 fn a_rescan_requested_while_one_runs_reruns_it_once() -> AppResult<()> {
     let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
     let state = State::isolated_test_state(root.path().join("data"));
-    let first = state.targets.begin_rescan(&DeploymentTarget::Root)?;
+    let first = state.targets.begin_rescan(&DeploymentTarget::Global)?;
     assert!(first.is_some());
     assert!(
         state
             .targets
-            .begin_rescan(&DeploymentTarget::Root)?
+            .begin_rescan(&DeploymentTarget::Global)?
             .is_none()
     );
-    assert_eq!(state.targets.current()?.1, [DeploymentTarget::Root]);
+    assert_eq!(state.targets.current()?.1, [DeploymentTarget::Global]);
     drop(first);
     assert!(state.targets.current()?.1.is_empty());
     Ok(())

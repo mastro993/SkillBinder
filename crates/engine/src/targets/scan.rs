@@ -20,7 +20,7 @@ use std::{
 /// Where a target scan looks.
 pub(crate) enum Scope {
     /// The registry's global agent locations under home.
-    Root,
+    Global,
     /// Agent skill directories anywhere inside a project folder, except inside nested projects.
     Project {
         /// Canonical project folder.
@@ -53,7 +53,7 @@ pub(crate) struct Control<'a> {
 pub(crate) fn scan(config: &EngineConfig, scope: &Scope, control: &Control) -> AppResult<Findings> {
     let none = BTreeSet::new();
     let (locations, agents, skip) = match scope {
-        Scope::Root => {
+        Scope::Global => {
             let locations: Vec<_> = registry::locations(config, &[], control.log)?
                 .into_iter()
                 .filter(|location| location.path.is_dir())

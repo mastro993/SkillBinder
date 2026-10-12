@@ -75,7 +75,7 @@ impl State {
             return Ok(None);
         }
         let DeploymentTarget::Project(id) = target else {
-            return Ok(Some(Scope::Root));
+            return Ok(Some(Scope::Global));
         };
         // A removed project has nothing to scan; an unreadable folder counts as missing.
         let Some(path) = self.project_path(id)? else {
@@ -228,8 +228,8 @@ impl State {
             let mut query = self
                 .database
                 .prepare(
-                    "SELECT COALESCE(p.name,'Root') FROM deployments d LEFT JOIN projects p ON p.id=d.target \
-                     WHERE d.skill_id=?1 ORDER BY d.target<>'root',p.position",
+                    "SELECT COALESCE(p.name,'Global') FROM deployments d LEFT JOIN projects p ON p.id=d.target \
+                     WHERE d.skill_id=?1 ORDER BY d.target<>'global',p.position",
                 )
                 .map_err(|_| AppError::storage())?;
             let targets = query

@@ -80,7 +80,7 @@ pub struct NativeView {
     /// Inline folder name editing in the sidebar.
     folder_edit: Option<FolderEdit>,
     folder_reorder: RowReorder<FolderId>,
-    /// Root or a project selected in the sidebar; cleared by navigating to a route.
+    /// Global or a project selected in the sidebar; cleared by navigating to a route.
     selected_target: Option<DeploymentTarget>,
     /// Inline project renaming in the sidebar.
     project_edit: Option<ProjectId>,

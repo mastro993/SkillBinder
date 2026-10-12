@@ -1,10 +1,11 @@
-//! The sidebar Projects section: the pinned Root row, user-ordered project rows with inline
-//! renaming, row menus, and drag reordering, the skeleton row of a project being added, and
-//! the background rescan that opening a target starts.
+//! The sidebar Projects section: user-ordered project rows with inline renaming, row menus,
+//! and drag reordering, the skeleton row of a project being added, and the background rescan
+//! that opening a target starts.
 
 use std::{cell::Cell, time::Instant};
 
 use super::controls::{Inactive, app_icon};
+use super::sidebar::GLOBAL;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{
@@ -26,8 +27,6 @@ use skillbinder_proto::{DeploymentTarget, Project, ProjectId, ScanStatus, SkillI
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, ICON_GAP, ICON_SIZE, INSET, RADIUS, ROW_GAP, ROW_HEIGHT, ROW_PADDING,
 };
-
-const ROOT: &str = "Root";
 
 impl NativeView {
     pub(super) fn render_projects(
@@ -81,7 +80,6 @@ impl NativeView {
                     .flex()
                     .flex_col()
                     .gap(px(ROW_GAP))
-                    .child(self.render_root_row(cx))
                     .child(
                         // Drag moves are measured from the first project slot.
                         div()
@@ -108,27 +106,6 @@ impl NativeView {
                     )
                     .when(adding, |list| list.child(skeleton_row())),
             )
-    }
-
-    fn render_root_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let target = DeploymentTarget::Root;
-        let selected = self.selected_target.as_ref() == Some(&target);
-        let trailing = self.target_trailing(&target, false, cx);
-        activate(
-            row(
-                "project-root",
-                app_icon("hard-drive"),
-                None,
-                ROOT,
-                selected,
-                cx,
-            ),
-            ROOT,
-            cx,
-            |view, _, cx| view.open_target(DeploymentTarget::Root, cx),
-        )
-        .child(trailing)
-        .into_any_element()
     }
 
     fn render_project_row(
@@ -261,7 +238,7 @@ impl NativeView {
     }
 
     /// Selects a target and rescans it in the background. Its page arrives in a later slice.
-    fn open_target(&mut self, target: DeploymentTarget, cx: &mut Context<Self>) {
+    pub(super) fn open_target(&mut self, target: DeploymentTarget, cx: &mut Context<Self>) {
         self.selected_target = Some(target.clone());
         self.client.spawn_rescan(target);
         cx.notify();
@@ -282,7 +259,7 @@ impl NativeView {
             .count()
     }
 
-    /// Names of the targets that hold `skill`: Root first, then projects in sidebar order.
+    /// Names of the targets that hold `skill`: Global first, then projects in sidebar order.
     pub(super) fn deployment_targets(&self, skill: &SkillId) -> Vec<String> {
         let holds = |target: DeploymentTarget| {
             self.snapshot
@@ -290,8 +267,9 @@ impl NativeView {
                 .iter()
                 .any(|deployment| &deployment.skill_id == skill && deployment.target == target)
         };
-        let root = holds(DeploymentTarget::Root).then(|| ROOT.to_owned());
-        root.into_iter()
+        let global = holds(DeploymentTarget::Global).then(|| GLOBAL.to_owned());
+        global
+            .into_iter()
             .chain(
                 self.snapshot
                     .projects

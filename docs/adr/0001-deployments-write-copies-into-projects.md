@@ -1,6 +1,6 @@
-# Deployments write skill copies into Root and projects
+# Deployments write skill copies into Global and projects
 
-Until now SkillBinder only read skills outside its library. Imports copied files in and never changed their sources. Deployments change that: adding a skill to Root or to a project copies it into that target's agent skill directories, and removing it deletes that copy. The library copy stays in the catalogue.
+Until now SkillBinder only read skills outside its library. Imports copied files in and never changed their sources. Deployments change that: adding a skill to Global or to a project copies it into that target's agent skill directories, and removing it deletes that copy. The library copy stays in the catalogue.
 
 We chose copies over symlinks. A symlink breaks when the library moves, and it does not survive a project's own Git history on another machine. Because the copies can drift from the library, each deployment records the digest it was written with. A rescan compares that digest with the library and with the project copy to tell which side changed. SkillBinder never resolves drift silently; the user picks the remedy.
 

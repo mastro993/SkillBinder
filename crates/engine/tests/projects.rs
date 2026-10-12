@@ -1,4 +1,4 @@
-//! Root and projects: registration, deployment recording, and target scans in isolated roots.
+//! Global and projects: registration, deployment recording, and target scans in isolated roots.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
@@ -10,7 +10,7 @@ use skillbinder_proto::{AppSnapshot, Deployment, DeploymentTarget, ErrorCategory
 use std::{fs, path::Path};
 use support::{Fixture, add_project, category, write_skill};
 
-/// Imports a skill from the fixture home's Claude Code directory, which Root also covers.
+/// Imports a skill from the fixture home's Claude Code directory, which Global also covers.
 async fn library_skill(fixture: &Fixture, engine: &Engine, slug: &str, body: &str) -> SkillId {
     write_skill(&fixture.home.join(".claude/skills"), slug, body);
     let scan = fixture.scan(engine).await;
@@ -73,14 +73,19 @@ async fn adding_a_project_records_library_copies_and_lists_importables() {
     assert_eq!(recorded[0].skill_id, alpha);
     assert_eq!(recorded[0].digest, library.library.skills[0].digest);
     assert_eq!(recorded[0].paths.len(), 2);
-    assert!(deployments_of(&snapshot, &DeploymentTarget::Root).is_empty());
+    assert!(deployments_of(&snapshot, &DeploymentTarget::Global).is_empty());
 
-    engine.rescan_target(DeploymentTarget::Root).await.unwrap();
+    engine
+        .rescan_target(DeploymentTarget::Global)
+        .await
+        .unwrap();
     let snapshot = engine.snapshot().await.unwrap();
-    assert!(snapshot.root_agents.iter().any(|id| id == "claude-code"));
-    let root = deployments_of(&snapshot, &DeploymentTarget::Root);
-    assert_eq!(root.len(), 1);
-    assert_eq!(root[0].skill_id, alpha);
+    assert!(snapshot.global_agents.iter().any(|id| id == "claude-code"));
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    assert_eq!(snapshot.home, home.display().to_string());
+    let global = deployments_of(&snapshot, &DeploymentTarget::Global);
+    assert_eq!(global.len(), 1);
+    assert_eq!(global[0].skill_id, alpha);
     engine.shutdown().await.unwrap();
 }
 
@@ -294,7 +299,10 @@ async fn a_deployed_skill_cannot_be_deleted_from_the_library() {
         .await
         .unwrap();
     let second = engine.apply_import(plan.id).await.unwrap().imported[0].clone();
-    engine.rescan_target(DeploymentTarget::Root).await.unwrap();
+    engine
+        .rescan_target(DeploymentTarget::Global)
+        .await
+        .unwrap();
 
     let library = engine.snapshot().await.unwrap().library.unwrap();
     let copies = vec![first.clone(), second.clone()];
@@ -309,7 +317,7 @@ async fn a_deployed_skill_cannot_be_deleted_from_the_library() {
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::Validation);
     assert!(
-        error.message.contains("shared is deployed to Root"),
+        error.message.contains("shared is deployed to Global"),
         "{}",
         error.message
     );
