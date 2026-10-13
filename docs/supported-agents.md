@@ -1,8 +1,8 @@
 # Supported agent registry
 
-The reviewed registry contains 79 agents. Runtime discovery is not implemented in the native foundation.
+The reviewed registry contains 79 agents. Global's target agents are its installed agents; entries are not runtime-tested.
 
-Source: `vercel-labs/skills` at `7407f3893ad4dceab546ac002c3ef806e4000c73`.
+Source: `vercel-labs/skills` at `13e4063a1cf913f5606d57d42ab83a86f5001e04`.
 
 | Agent | ID | Workspace skills directory |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ Source: `vercel-labs/skills` at `7407f3893ad4dceab546ac002c3ef806e4000c73`.
 | Eve | `eve` | `agent/skills` |
 | Firebender | `firebender` | `.agents/skills` |
 | ForgeCode | `forgecode` | `.forge/skills` |
-| fx | `fx` | `.fx/skills` |
+| fx | `fx` | `.agents/skills` |
 | Gemini CLI | `gemini-cli` | `.agents/skills` |
 | GitHub Copilot | `github-copilot` | `.agents/skills` |
 | Goose | `goose` | `.goose/skills` |
@@ -61,7 +61,7 @@ Source: `vercel-labs/skills` at `7407f3893ad4dceab546ac002c3ef806e4000c73`.
 | OpenClaw | `openclaw` | `skills` |
 | OpenCode | `opencode` | `.agents/skills` |
 | OpenHands | `openhands` | `.openhands/skills` |
-| Pi | `pi` | `.pi/skills` |
+| Pi | `pi` | `.agents/skills` |
 | Pochi | `pochi` | `.pochi/skills` |
 | Posit Assistant | `posit-assistant` | `.posit/assistant/skills` |
 | PromptScript | `promptscript` | `.agents/skills` |

@@ -16,6 +16,11 @@ pub(super) enum Route {
     Library(LibraryFilter),
     /// The page of Global or a workspace: `workspace/{id}`, or Global's own route.
     Target(DeploymentTarget),
+    /// An installed agent's page, by registry id: `agent/{id}`.
+    Agent(String),
+    /// The page of the universal agents together, which read `~/.agents/skills`:
+    /// `agents/universal`.
+    Universal,
     Sync,
     Settings,
 }

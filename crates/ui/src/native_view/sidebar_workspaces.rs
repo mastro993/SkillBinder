@@ -1,6 +1,6 @@
 //! The sidebar Workspaces section: user-ordered workspace rows with inline renaming, row menus,
-//! and drag reordering, the skeleton row of a workspace being added, and the background rescan
-//! that opening a target starts.
+//! and drag reordering, the skeleton row of a workspace being added, and each target's rescan
+//! spinner.
 
 use std::{cell::Cell, time::Instant};
 
@@ -8,7 +8,7 @@ use super::controls::{Inactive, app_icon};
 use super::sidebar::SYSTEM;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
-use super::sidebar_row::{activate, add_button, count, dot, icon_color, name_field, row, spinner};
+use super::sidebar_row::{activate, add_button, count, dot, icon_color, name_field, row};
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
@@ -78,7 +78,7 @@ impl NativeView {
         div()
             .flex()
             .flex_col()
-            .child(self.section_header(SidebarSection::Workspaces, "Workspaces", add, cx))
+            .child(self.section_header(SidebarSection::Workspaces, "Workspaces", Some(add), cx))
             .children(
                 self.section_rows(
                     SidebarSection::Workspaces,
@@ -210,17 +210,15 @@ impl NativeView {
         }
     }
 
-    /// A spinner while rescanning, a warning while the folder is missing, a warning dot while a
-    /// deployment drifted, else the target's number of deployments.
+    /// A warning while the folder is missing, a warning dot while a deployment drifted, else the
+    /// target's number of deployments. Rescans show nothing, so refreshes stay quiet.
     pub(super) fn target_trailing(
         &self,
         target: &DeploymentTarget,
         missing: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        if self.snapshot.rescanning.contains(target) {
-            spinner(cx)
-        } else if missing {
+        if missing {
             app_icon("alert-circle")
                 .size(px(ICON_SIZE))
                 .flex_shrink_0()
@@ -289,15 +287,13 @@ impl NativeView {
         }
     }
 
-    /// Opens a target's page and rescans it in the background.
     pub(super) fn open_target(
         &mut self,
         target: DeploymentTarget,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.navigate(Route::Target(target.clone()), window, cx);
-        self.client.spawn_rescan(target);
+        self.navigate(Route::Target(target), window, cx);
     }
 
     pub(super) fn adding_workspace(&self) -> bool {

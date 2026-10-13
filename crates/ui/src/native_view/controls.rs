@@ -13,6 +13,14 @@ pub(super) fn app_icon(name: &str) -> Icon {
     Icon::empty().path(format!("icons/{name}.svg"))
 }
 
+/// An agent's official logo, or the square terminal glyph for agents without bundled artwork.
+pub(super) fn agent_icon(id: &str) -> Icon {
+    crate::assets::agent_logo(id).map_or_else(
+        || app_icon("square-terminal"),
+        |path| Icon::empty().path(path),
+    )
+}
+
 pub(super) trait Inactive {
     /// Disables the button and restores the arrow cursor while it is disabled.
     fn inactive(self, inactive: bool) -> Self;

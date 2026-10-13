@@ -42,6 +42,31 @@ struct Glyph {
     usage_overrides: Vec<Glyph>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentLogos {
+    sources: Vec<LogoSource>,
+    logos: Vec<Logo>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LogoSource {
+    /// Absent for artwork supplied without a license file; `license` then states its terms.
+    license_file: Option<String>,
+    license_sha256: Option<String>,
+    disclaimer_file: Option<String>,
+    disclaimer_sha256: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Logo {
+    agent: String,
+    file: String,
+    svg_sha256: String,
+}
+
 fn read(base: &Path, relative: &str) -> anyhow::Result<Vec<u8>> {
     ensure!(
         Path::new(relative)
@@ -94,6 +119,32 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         for variant in glyph.usage_overrides {
             verify_hash(&assets, &variant.file, &variant.svg_sha256)?;
         }
+    }
+    verify_agent_logos(root)
+}
+
+/// Agent logo artwork keeps its source licenses and names only registry agents.
+fn verify_agent_logos(root: &Path) -> anyhow::Result<()> {
+    let assets = root.join("assets/agent-logos");
+    let inventory: AgentLogos = serde_json::from_slice(&read(&assets, "inventory.json")?)?;
+    for source in inventory.sources {
+        if let (Some(file), Some(sha256)) = (source.license_file, source.license_sha256) {
+            verify_hash(&assets, &file, &sha256)?;
+        }
+        if let (Some(file), Some(sha256)) = (source.disclaimer_file, source.disclaimer_sha256) {
+            verify_hash(&assets, &file, &sha256)?;
+        }
+    }
+    let registry: Value =
+        serde_json::from_slice(&read(&root.join("fixtures/contracts"), "registry-79.json")?)?;
+    let known = |id: &str| {
+        registry["agents"]
+            .as_array()
+            .is_some_and(|agents| agents.iter().any(|agent| agent["id"] == id))
+    };
+    for logo in inventory.logos {
+        ensure!(known(&logo.agent), "Logo for unknown agent {}", logo.agent);
+        verify_hash(&assets, &logo.file, &logo.svg_sha256)?;
     }
     Ok(())
 }

@@ -54,13 +54,13 @@ impl NativeView {
         }
     }
 
-    /// A section title that folds the section's rows, with a trailing add button centred on the
-    /// rows' trailing column.
+    /// A section title that folds the section's rows, with an optional trailing add button
+    /// centred on the rows' trailing column.
     pub(super) fn section_header(
         &self,
         section: SidebarSection,
         title: &'static str,
-        add: Button,
+        add: Option<Button>,
         cx: &mut Context<Self>,
     ) -> Div {
         let color = cx.theme().muted_foreground.opacity(0.8);
@@ -92,7 +92,7 @@ impl NativeView {
             .text_size(px(DETAIL_SIZE))
             .text_color(color)
             .child(toggle)
-            .child(add)
+            .children(add)
     }
 
     /// A chevron pointing down while the section is open, turning right as it folds.

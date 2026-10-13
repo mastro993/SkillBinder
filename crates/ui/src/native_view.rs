@@ -1,3 +1,5 @@
+mod agent_page;
+mod agent_skills;
 mod controls;
 mod dialogs;
 mod discovery;
@@ -9,10 +11,12 @@ mod route;
 mod settings;
 mod shell;
 mod sidebar;
+mod sidebar_agents;
 mod sidebar_fold;
 mod sidebar_folders;
 mod sidebar_reorder;
 mod sidebar_row;
+mod sidebar_scroll;
 mod sidebar_workspaces;
 mod status_bar;
 mod sync;
@@ -121,6 +125,12 @@ pub struct NativeView {
     section_motion: BTreeMap<SidebarSection, u64>,
     /// Sections whose rows are sliding open or shut.
     sections_moving: BTreeSet<SidebarSection>,
+    /// Scroll position of the sidebar's folder, workspace, and agent sections.
+    sidebar_scroll: gpui_kit::ScrollHandle,
+    /// The pointer is over the sidebar, which shows the sections' scrollbar.
+    sidebar_hovered: bool,
+    /// Sidebar hover change count, which keys the scrollbar's fade.
+    sidebar_hover_motion: u64,
     appearance: Appearance,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
     sidebar_motion: u64,
@@ -138,6 +148,8 @@ pub struct NativeView {
     _search_subscription: Subscription,
     _folder_name_subscription: Subscription,
     _workspace_name_subscription: Subscription,
+    /// The window lost focus since the app last refreshed.
+    left_focus: bool,
     _activation_subscription: Subscription,
     _subscription: Task<()>,
 }
@@ -151,9 +163,12 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         status_bar::apply_appearance(appearance, window, cx);
-        let activation_subscription = cx.observe_window_activation(window, |view, window, cx| {
-            if window.is_window_active() && view.snapshot.sync.remote.is_some() {
-                view.synchronize(SyncAction::Refresh, cx);
+        // Launch refreshes through the client; afterwards only regaining focus refreshes.
+        let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
+            if !window.is_window_active() {
+                view.left_focus = true;
+            } else if std::mem::take(&mut view.left_focus) {
+                view.client.refresh_app();
             }
         });
         let mut receiver = client.subscribe();
@@ -222,6 +237,9 @@ impl NativeView {
             folded_sections,
             section_motion: BTreeMap::new(),
             sections_moving: BTreeSet::new(),
+            sidebar_scroll: gpui_kit::ScrollHandle::new(),
+            sidebar_hovered: false,
+            sidebar_hover_motion: 0,
             appearance,
             sidebar_motion: 0,
             sidebar_closing: false,
@@ -237,6 +255,7 @@ impl NativeView {
             _search_subscription: search_subscription,
             _folder_name_subscription: folder_name_subscription,
             _workspace_name_subscription: workspace_name_subscription,
+            left_focus: false,
             _activation_subscription: activation_subscription,
             _subscription: subscription,
         }
@@ -275,6 +294,7 @@ impl NativeView {
             self.route = Route::Discovery;
             self.agent_edit = None;
         }
+        self.route = agent_page::agent_fallback(&latest, self.route.clone());
         if self
             .workspace_edit
             .as_ref()
@@ -356,8 +376,8 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted folder falls back to all skills, and
-    /// a removed workspace to Discovery.
+    /// Shows `route` without touching history; a deleted folder falls back to all skills, a
+    /// removed workspace to Discovery, and an agent Global no longer has to System.
     fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
         let folder_exists = |id: &FolderId| {
             self.snapshot
@@ -374,7 +394,7 @@ impl NativeView {
             Route::Target(DeploymentTarget::Workspace(id)) if !workspace_exists(&id) => {
                 Route::Discovery
             }
-            route => route,
+            route => agent_page::agent_fallback(&self.snapshot, route),
         };
         if self.route != route {
             self.candidate_page = 0;
@@ -387,12 +407,8 @@ impl NativeView {
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
         }
-        let sync = route == Route::Sync;
         self.route = route;
         self.error = None;
-        if sync {
-            self.synchronize(SyncAction::Refresh, cx);
-        }
         cx.notify();
     }
 
@@ -471,6 +487,8 @@ impl Render for NativeView {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library(_) => self.render_library(cx).into_any_element(),
                 Route::Target(target) => self.render_target(&target.clone(), cx),
+                Route::Agent(id) => self.render_agent(&id.clone(), cx),
+                Route::Universal => self.render_universal(cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),
                 Route::Settings => self.render_settings(cx).into_any_element(),
             };

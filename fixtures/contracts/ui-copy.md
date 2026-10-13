@@ -4,7 +4,7 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312`. Copy
 
 ## Shell
 
-- Brand: `SkillBinder`. Main navigation: `Discovery`, `Skills`; footer: `Sync`, `Settings`; folder group: `Folders`, with `New folder` control. Skills and folders show counts. Source: `apps/frontend/src/components/layout/app-shell.tsx`, `apps/frontend/src/features/library/components/sidebar-folder-list.tsx`.
+- Brand: `SkillBinder`. Main navigation: `Discovery`, `Skills`; footer: `Sync`, `Settings`; folder group: `Folders`, with `New folder` control; the native app labels it `Add folder`. Skills and folders show counts. Source: `apps/frontend/src/components/layout/app-shell.tsx`, `apps/frontend/src/features/library/components/sidebar-folder-list.tsx`.
 - Sidebar width defaults to 232px and persists after resize, clamped to 192–400px. Main content minimum is 320px. Narrow layout uses `Open navigation` drawer. Source: `apps/frontend/src/components/layout/app-shell.tsx`.
 
 ## Onboarding
@@ -65,7 +65,10 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312`. Copy
 
 These strings were added with Global and workspaces; they have no captured baseline.
 
-- Sidebar section `Workspaces` with add button label `Add workspace`. Its fixed first row `System` (the Global target) has its number of deployments as trailing detail and the home folder path as its tooltip. A workspace row's accessibility label is its name, or `<name>, folder missing` while its folder is missing; System's and a workspace's label append `, <n> deployment(s) drifted` while deployments drifted; the skeleton row reads `Adding workspace`.
+- Sidebar section `Workspaces` with add button label `Add workspace`. Add buttons show their label as a tooltip. Its fixed first row `System` (the Global target) has its number of deployments as trailing detail and the home folder path as its tooltip. A workspace row's accessibility label is its name, or `<name>, folder missing` while its folder is missing; System's and a workspace's label append `, <n> deployment(s) drifted` while deployments drifted; the skeleton row reads `Adding workspace`.
+- Sidebar section `Agents`, with no add button, lists `Universal` first for the installed agents that read `~/.agents/skills`, then the other installed agents by display name; the registry's Universal agent is named `Universal (<its directory>)`; each row's accessibility label is the display name and its trailing detail is its number of installed skills. Empty: `No agents`.
+- Universal page: `Universal` with the layers glyph; the `~/.agents/skills` path; `Used by <agents>`; then the installed skills as on an agent page.
+- Agent page: the display name with its logo; the global skill directory path, or `No global skill directory on this device.`; `Shared with <agents>` when other installed agents read the same directory; `<n> installed skill(s)`; each row's slug, status `In library`, `Changed`, `Missing`, `Importable`, `Invalid`, or `Blocked`, and `Show in Library` or `Show in System`.
 - Workspace row menu: `Rename`, `Move Up`, `Move Down`, `Remove…`. Inline rename placeholder `Workspace name`.
 - Directory picker prompt: `Add workspace`. Duplicate refusal: `This folder is already added as <name>.`
 - Add modal while scanning: title `Adding workspace`, `<name> · <path>`, progress `Scanning workspace`, `<count> folders checked`, action `Cancel`. Finished: title `Workspace added`, `<n> in library, <m> importable`, one `<slug> · importable` line per importable skill, action `Done`. Failed: title `Could not add workspace`, the safe error, action `Close`.

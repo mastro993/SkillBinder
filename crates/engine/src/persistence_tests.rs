@@ -351,3 +351,35 @@ fn rollback_accepts_reordered_record_maps() {
     assert!(state.commit(journal).is_err());
     assert_result(&state, false);
 }
+
+#[test]
+fn opening_an_older_database_counts_its_target_agents_as_detected() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("state.sqlite3");
+    let older = Connection::open(&path).unwrap();
+    older
+        .execute_batch(
+            "CREATE TABLE target_agents(target TEXT NOT NULL,agent TEXT NOT NULL,PRIMARY KEY(target,agent));
+             INSERT INTO target_agents VALUES('global','claude-code');",
+        )
+        .unwrap();
+    drop(older);
+    let detected = |connection: &Connection| -> Vec<String> {
+        let mut statement = connection
+            .prepare("SELECT target||':'||agent FROM detected_agents")
+            .unwrap();
+        statement
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    let connection = open(&path).unwrap();
+    assert_eq!(detected(&connection), ["global:claude-code"]);
+    connection
+        .execute("DELETE FROM detected_agents", [])
+        .unwrap();
+    drop(connection);
+    // Only the first open backfills; later opens keep what scans recorded.
+    assert!(detected(&open(&path).unwrap()).is_empty());
+}

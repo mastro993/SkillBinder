@@ -14,6 +14,7 @@ use std::{
 
 pub(crate) fn open(path: &Path) -> AppResult<Connection> {
     let connection = Connection::open(path).map_err(|_| AppError::storage())?;
+    let detection = table_exists(&connection, "detected_agents")?;
     connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
         CREATE TABLE IF NOT EXISTS device_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS operation_plans(id TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at INTEGER NOT NULL,consumed INTEGER NOT NULL DEFAULT 0);
@@ -24,6 +25,7 @@ pub(crate) fn open(path: &Path) -> AppResult<Connection> {
         DROP TABLE IF EXISTS projects;
         CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,canonical_path TEXT NOT NULL UNIQUE,name TEXT NOT NULL,position INTEGER NOT NULL,created_at INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS target_agents(target TEXT NOT NULL,agent TEXT NOT NULL,PRIMARY KEY(target,agent));
+        CREATE TABLE IF NOT EXISTS detected_agents(target TEXT NOT NULL,agent TEXT NOT NULL,PRIMARY KEY(target,agent));
         CREATE TABLE IF NOT EXISTS deployments(target TEXT NOT NULL,skill_id TEXT NOT NULL,digest TEXT NOT NULL,paths TEXT NOT NULL,recorded_at INTEGER NOT NULL,changes TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(target,skill_id));") .map_err(|_| AppError::storage())?;
     // Databases written before drift was recorded gain the column.
     let drift: bool = connection
@@ -41,7 +43,26 @@ pub(crate) fn open(path: &Path) -> AppResult<Connection> {
             )
             .map_err(|_| AppError::storage())?;
     }
+    // Databases written before detection was recorded count every target agent as detected, so
+    // agents the user removed earlier are not added back.
+    if !detection {
+        connection
+            .execute(
+                "INSERT OR IGNORE INTO detected_agents(target,agent) SELECT target,agent FROM target_agents",
+                [],
+            )
+            .map_err(|_| AppError::storage())?;
+    }
     Ok(connection)
+}
+fn table_exists(connection: &Connection, name: &str) -> AppResult<bool> {
+    connection
+        .query_row(
+            "SELECT COUNT(*)>0 FROM sqlite_master WHERE type='table' AND name=?1",
+            [name],
+            |row| row.get(0),
+        )
+        .map_err(|_| AppError::storage())
 }
 pub(crate) fn now() -> u64 {
     std::time::SystemTime::now()

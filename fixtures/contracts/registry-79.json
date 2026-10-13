@@ -2,12 +2,12 @@
   "registryVersion": 1,
   "upstream": {
     "repository": "vercel-labs/skills",
-    "commit": "7407f3893ad4dceab546ac002c3ef806e4000c73",
+    "commit": "13e4063a1cf913f5606d57d42ab83a86f5001e04",
     "files": {
-      "src/agents.ts": "8902f56a121ce4b1a800b3aa04d3f83b7baeaf32e1abf441c0b8eabb3f8f89a5",
+      "src/agents.ts": "9c64197246db1b61c0b2777114e2e01dd60f503129842ce7eeb78a3c3f2caa25",
       "src/types.ts": "0f444746b0ef0da541e23184f401eb0da81b3abad217c934e89cc54970c84d9c"
     },
-    "retrievedAt": "2026-09-20"
+    "retrievedAt": "2026-10-13"
   },
   "agents": [
     {
@@ -123,7 +123,7 @@
       "id": "codex",
       "displayName": "Codex",
       "projectSkillsDir": ".agents/skills",
-      "globalRoots": ["${CODEX_HOME:-~/.codex}/skills"],
+      "globalRoots": ["~/.agents/skills"],
       "status": "documented"
     },
     {
@@ -213,8 +213,8 @@
     {
       "id": "fx",
       "displayName": "fx",
-      "projectSkillsDir": ".fx/skills",
-      "globalRoots": ["~/.fx/skills"],
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
       "status": "documented"
     },
     {
@@ -395,8 +395,8 @@
     {
       "id": "pi",
       "displayName": "Pi",
-      "projectSkillsDir": ".pi/skills",
-      "globalRoots": ["~/.pi/agent/skills"],
+      "projectSkillsDir": ".agents/skills",
+      "globalRoots": ["~/.agents/skills"],
       "status": "documented"
     },
     {
