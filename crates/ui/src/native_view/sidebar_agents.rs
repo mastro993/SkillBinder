@@ -8,14 +8,14 @@ use super::agent_skills::{
     universal_dir,
 };
 use super::controls::{agent_icon, app_icon};
-use super::sidebar_row::{activate, count, row, spinner};
+use super::sidebar_row::{activate, count, row};
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Icon};
 use gpui_kit::{
-    AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, Window,
-    div, prelude::FluentBuilder, px,
+    AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div,
+    prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{AgentOption, DeploymentTarget, SidebarSection};
+use skillbinder_proto::{AgentOption, SidebarSection};
 use skillbinder_theme::sidebar::{LABEL_SIZE, ROW_GAP, ROW_HEIGHT, ROW_PADDING};
 
 impl NativeView {
@@ -89,26 +89,14 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let selected = self.route == route;
-        let trailing = if self.snapshot.rescanning.contains(&DeploymentTarget::Global) {
-            spinner(cx)
-        } else {
-            count(skills, cx)
-        };
         activate(
             row(id, icon, None, name.clone(), selected, cx),
             name,
             cx,
-            move |view, window, cx| view.open_agent(route.clone(), window, cx),
+            move |view, window, cx| view.navigate(route.clone(), window, cx),
         )
-        .child(trailing)
+        .child(count(skills, cx))
         .into_any_element()
-    }
-
-    /// Opens an agent's or Universal's page and rescans Global, which holds their skills, in the
-    /// background.
-    fn open_agent(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
-        self.navigate(route, window, cx);
-        self.client.spawn_rescan(DeploymentTarget::Global);
     }
 
     /// The skill folders in the agent's global skill directory.

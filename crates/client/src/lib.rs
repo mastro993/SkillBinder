@@ -24,7 +24,7 @@ pub struct Client {
     shared: Arc<Shared>,
 }
 impl Client {
-    /// Creates the first projection and starts scan and remote refresh coordination.
+    /// Creates the first projection, starts scan progress coordination, and refreshes the app.
     pub async fn new(engine: Engine, runtime: Handle) -> AppResult<Self> {
         let initial = engine.snapshot().await?;
         let (snapshots, _) = watch::channel(Arc::new(initial));
@@ -37,7 +37,7 @@ impl Client {
             }),
         };
         client.start_refresh();
-        client.rescan_on_launch();
+        client.refresh_app();
         Ok(client)
     }
     /// Returns the latest complete projection without blocking on storage.
@@ -69,22 +69,6 @@ impl Client {
                 };
                 if let Err(error) = shared.publish_progress() {
                     Self { shared }.background_error(error);
-                }
-            }
-        });
-        let weak = Arc::downgrade(&self.shared);
-        self.shared.runtime.spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(30));
-            loop {
-                interval.tick().await;
-                let Some(shared) = weak.upgrade() else {
-                    break;
-                };
-                let client = Self { shared };
-                if client.snapshot().sync.remote.is_some()
-                    && let Err(error) = client.synchronize(SyncAction::Refresh).await
-                {
-                    client.background_error(error);
                 }
             }
         });
@@ -225,8 +209,10 @@ impl Client {
             }
         });
     }
-    /// Rescans Global, then each workspace, one at a time.
-    fn rescan_on_launch(&self) {
+    /// Refreshes the app in the background, on launch and when the window regains focus: rescans
+    /// Global, then each workspace, one at a time, skipping targets already rescanning, then
+    /// refreshes the remote's Git status.
+    pub fn refresh_app(&self) {
         let snapshot = self.snapshot();
         if snapshot.library.is_none() {
             return;
@@ -238,13 +224,18 @@ impl Client {
                     .iter()
                     .map(|workspace| DeploymentTarget::Workspace(workspace.id.clone())),
             )
+            .filter(|target| !snapshot.rescanning.contains(target))
             .collect();
+        let remote = snapshot.sync.remote.is_some();
         let client = self.clone();
         self.shared.runtime.spawn(async move {
             for target in targets {
                 if let Err(error) = client.rescan_target(target).await {
                     client.background_error(error);
                 }
+            }
+            if remote && let Err(error) = client.synchronize(SyncAction::Refresh).await {
+                client.background_error(error);
             }
         });
     }

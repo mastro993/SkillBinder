@@ -148,6 +148,8 @@ pub struct NativeView {
     _search_subscription: Subscription,
     _folder_name_subscription: Subscription,
     _workspace_name_subscription: Subscription,
+    /// The window lost focus since the app last refreshed.
+    left_focus: bool,
     _activation_subscription: Subscription,
     _subscription: Task<()>,
 }
@@ -161,9 +163,12 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         status_bar::apply_appearance(appearance, window, cx);
-        let activation_subscription = cx.observe_window_activation(window, |view, window, cx| {
-            if window.is_window_active() && view.snapshot.sync.remote.is_some() {
-                view.synchronize(SyncAction::Refresh, cx);
+        // Launch refreshes through the client; afterwards only regaining focus refreshes.
+        let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
+            if !window.is_window_active() {
+                view.left_focus = true;
+            } else if std::mem::take(&mut view.left_focus) {
+                view.client.refresh_app();
             }
         });
         let mut receiver = client.subscribe();
@@ -250,6 +255,7 @@ impl NativeView {
             _search_subscription: search_subscription,
             _folder_name_subscription: folder_name_subscription,
             _workspace_name_subscription: workspace_name_subscription,
+            left_focus: false,
             _activation_subscription: activation_subscription,
             _subscription: subscription,
         }
@@ -401,12 +407,8 @@ impl NativeView {
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
         }
-        let sync = route == Route::Sync;
         self.route = route;
         self.error = None;
-        if sync {
-            self.synchronize(SyncAction::Refresh, cx);
-        }
         cx.notify();
     }
 
