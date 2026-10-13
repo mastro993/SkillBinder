@@ -70,7 +70,7 @@ These strings were added with System and workspaces; they have no captured basel
 - Universal page: `Universal` with the layers glyph; the `~/.agents/skills` path; `Used by <agents>`; then the installed skills as on an agent page.
 - Agent page: the display name with its logo; the global skill directory path, or `No global skill directory on this device.`; `Shared with <agents>` when other installed agents read the same directory; `<n> installed skill(s)`; each row's slug, status `In library`, `Not in library`, `Invalid`, or `Blocked`, and `Show in Library` on a library skill's row.
 - Workspace row menu: `Rename`, `Move Up`, `Move Down`, `Remove…`. Inline rename placeholder `Workspace name`.
-- Directory picker prompt: `Add workspace`. Duplicate refusal: `This folder is already added as <name>.`
+- Directory picker prompt: `Add workspace`. Duplicate refusals: `This folder is already added as <name>.` for a single folder, and `Every project in <folder> is already added.` for a folder of projects.
 - Remove confirmation: title `Remove workspace`, `Remove <name>?`, `Removes the workspace from SkillBinder. Files in the folder are not touched.`, actions `Cancel`, `Remove workspace`.
 - System page: `System`, `Agent skill locations under your home`, and the home folder path. Workspace page: the workspace name and path; missing folder `The workspace folder is missing.`
 - Import result: `Import finished: <n> copied, <n> already in library, <n> name conflicts`.

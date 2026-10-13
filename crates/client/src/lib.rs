@@ -112,13 +112,13 @@ impl Client {
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.shared.engine.grant_directory(path).await
     }
-    /// Saves a granted folder as a workspace, then scans again so it is covered.
-    pub async fn add_workspace(&self, grant: GrantId) -> AppResult<Workspace> {
-        let workspace = self
-            .refresh_preserving_outcome(self.shared.engine.add_workspace(grant).await)
+    /// Saves a granted folder's projects as workspaces, then scans again so they are covered.
+    pub async fn add_workspaces(&self, grant: GrantId) -> AppResult<Vec<Workspace>> {
+        let added = self
+            .refresh_preserving_outcome(self.shared.engine.add_workspaces(grant).await)
             .await?;
         self.spawn_scan();
-        Ok(workspace)
+        Ok(added)
     }
     /// Renames a workspace.
     pub async fn rename_workspace(&self, id: WorkspaceId, name: String) -> AppResult<()> {

@@ -88,9 +88,12 @@ pub fn write_skill(directory: &Path, slug: &str, body: &str) -> PathBuf {
     directory
 }
 
+/// Adds a folder that is a single project as one workspace.
 pub async fn add_workspace(engine: &Engine, path: &Path) -> Workspace {
     let grant = engine.grant_directory(path.to_owned()).await.unwrap();
-    engine.add_workspace(grant.id).await.unwrap()
+    let mut added = engine.add_workspaces(grant.id).await.unwrap();
+    assert_eq!(added.len(), 1, "{added:?}");
+    added.remove(0)
 }
 
 /// Scans System and every workspace and waits for the scan to complete.

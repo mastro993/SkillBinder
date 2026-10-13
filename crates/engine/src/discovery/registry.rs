@@ -58,6 +58,14 @@ pub(crate) fn locations(
     }
     Ok(combined.into_values().collect())
 }
+/// The distinct workspace skill directories of every registry agent, such as `.claude/skills`.
+pub(crate) fn workspace_skill_dirs() -> AppResult<BTreeSet<String>> {
+    Ok(registry()?
+        .agents
+        .into_iter()
+        .map(|agent| agent.workspace_skills_dir)
+        .collect())
+}
 /// Every registry agent, by display name, with the skill directories it reads and whether its
 /// global skill directory exists.
 pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>> {
@@ -192,6 +200,7 @@ mod tests {
             1
         );
         assert!(locations.iter().any(|location| location.readers.len() > 1));
+        assert!(workspace_skill_dirs()?.contains(".agents/skills"));
         assert_eq!(expand("${UNSET}/skills", &config), None);
         assert_eq!(
             expand("${UNSET:-~/.config}/skills", &config),

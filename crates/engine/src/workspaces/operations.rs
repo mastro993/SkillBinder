@@ -4,9 +4,11 @@ use crate::worker::Engine;
 use skillbinder_proto::*;
 
 impl Engine {
-    /// Saves a granted folder as a workspace. An expired grant or a duplicate folder is an error.
-    pub async fn add_workspace(&self, grant: GrantId) -> AppResult<Workspace> {
-        self.call(move |state| state.add_workspace(&grant)).await
+    /// Saves a granted folder's projects as workspaces: the folder itself and each direct child
+    /// that has an agent skill directory, or the folder alone when none has one. An expired grant,
+    /// or a folder whose projects are all added already, is an error.
+    pub async fn add_workspaces(&self, grant: GrantId) -> AppResult<Vec<Workspace>> {
+        self.call(move |state| state.add_workspaces(&grant)).await
     }
 
     /// Renames a workspace; names need not be unique.
