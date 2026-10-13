@@ -94,11 +94,13 @@ impl NativeView {
             sidebar_width: self.sidebar_width,
             sidebar_collapsed: self.sidebar_collapsed,
             appearance: self.appearance,
+            folded_sections: self.folded_sections.clone(),
         };
         let stored = &self.snapshot.preferences;
         if (preferences.sidebar_width - stored.sidebar_width).abs() < 0.5
             && preferences.sidebar_collapsed == stored.sidebar_collapsed
             && preferences.appearance == stored.appearance
+            && preferences.folded_sections == stored.folded_sections
         {
             self.preference_writes.finish();
             return;

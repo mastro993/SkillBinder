@@ -8,9 +8,7 @@ use super::controls::{Inactive, app_icon};
 use super::sidebar::SYSTEM;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
-use super::sidebar_row::{
-    activate, add_button, count, dot, icon_color, name_field, row, section_header, spinner,
-};
+use super::sidebar_row::{activate, add_button, count, dot, icon_color, name_field, row, spinner};
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
@@ -24,7 +22,9 @@ use gpui_kit::{
     MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{DeploymentTarget, ScanStatus, SkillId, Workspace, WorkspaceId};
+use skillbinder_proto::{
+    DeploymentTarget, ScanStatus, SidebarSection, SkillId, Workspace, WorkspaceId,
+};
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, ICON_GAP, ICON_SIZE, INSET, RADIUS, ROW_GAP, ROW_HEIGHT, ROW_PADDING,
 };
@@ -70,43 +70,54 @@ impl NativeView {
         let adding = self.adding_workspace();
         let add = add_button("workspace-add", "Add workspace", cx)
             .inactive(adding)
-            .on_click(cx.listener(|view, _, _, cx| view.choose_workspace_folder(cx)));
+            .on_click(cx.listener(|view, _, _, cx| {
+                view.unfold_section(SidebarSection::Workspaces, cx);
+                view.choose_workspace_folder(cx)
+            }));
+        let items = 1 + rows.len() + usize::from(adding);
         div()
             .flex()
             .flex_col()
-            .child(section_header("Workspaces", add, cx))
-            .child(
-                div()
-                    .id("sidebar-workspaces")
-                    .flex()
-                    .flex_col()
-                    .gap(px(ROW_GAP))
-                    .child(self.render_system_row(cx))
-                    .child(
-                        // Drag moves are measured from the first workspace slot.
-                        div()
-                            .id("sidebar-workspace-rows")
-                            .flex()
-                            .flex_col()
-                            .gap(px(ROW_GAP))
-                            .on_drag_move(cx.listener(
-                                |view, event: &DragMoveEvent<RowDrag<WorkspaceId>>, window, cx| {
-                                    let drag = event.drag(cx);
-                                    let top = drag.top(event.event.position, event.bounds);
-                                    view.drag_workspace(drag.id.clone(), top, window, cx)
-                                },
-                            ))
-                            .on_mouse_up(
-                                MouseButton::Left,
-                                cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
-                            )
-                            .on_mouse_up_out(
-                                MouseButton::Left,
-                                cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
-                            )
-                            .children(rows),
-                    )
-                    .when(adding, |list| list.child(skeleton_row())),
+            .child(self.section_header(SidebarSection::Workspaces, "Workspaces", add, cx))
+            .children(
+                self.section_rows(
+                    SidebarSection::Workspaces,
+                    items,
+                    div()
+                        .id("sidebar-workspaces")
+                        .flex()
+                        .flex_col()
+                        .gap(px(ROW_GAP))
+                        .child(self.render_system_row(cx))
+                        .child(
+                            // Drag moves are measured from the first workspace slot.
+                            div()
+                                .id("sidebar-workspace-rows")
+                                .flex()
+                                .flex_col()
+                                .gap(px(ROW_GAP))
+                                .on_drag_move(cx.listener(
+                                    |view,
+                                     event: &DragMoveEvent<RowDrag<WorkspaceId>>,
+                                     window,
+                                     cx| {
+                                        let drag = event.drag(cx);
+                                        let top = drag.top(event.event.position, event.bounds);
+                                        view.drag_workspace(drag.id.clone(), top, window, cx)
+                                    },
+                                ))
+                                .on_mouse_up(
+                                    MouseButton::Left,
+                                    cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
+                                )
+                                .on_mouse_up_out(
+                                    MouseButton::Left,
+                                    cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
+                                )
+                                .children(rows),
+                        )
+                        .when(adding, |list| list.child(skeleton_row())),
+                ),
             )
     }
 

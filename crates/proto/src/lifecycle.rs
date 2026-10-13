@@ -3,6 +3,7 @@ use crate::{
     Workspace, WorkspaceAddition,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
 /// Ordered, resumable onboarding steps.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -44,6 +45,18 @@ pub struct Preferences {
     /// Color scheme; preferences stored before it existed follow the system.
     #[serde(default)]
     pub appearance: Appearance,
+    /// Sidebar sections whose rows are hidden; preferences stored before it existed fold none.
+    #[serde(default)]
+    pub folded_sections: BTreeSet<SidebarSection>,
+}
+/// A foldable sidebar section.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SidebarSection {
+    /// User-ordered library folders.
+    Folders,
+    /// Global and the added workspaces.
+    Workspaces,
 }
 /// Color scheme preference.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,6 +98,7 @@ impl Default for Preferences {
             sidebar_width: 232.0,
             sidebar_collapsed: false,
             appearance: Appearance::System,
+            folded_sections: BTreeSet::new(),
         }
     }
 }
@@ -150,6 +164,7 @@ mod tests {
         let preferences: Preferences = serde_json::from_str(r#"{"sidebar_width":300.0}"#)?;
         assert_eq!(preferences.sidebar_width, 300.0);
         assert!(!preferences.sidebar_collapsed);
+        assert!(preferences.folded_sections.is_empty());
         Ok(())
     }
 }

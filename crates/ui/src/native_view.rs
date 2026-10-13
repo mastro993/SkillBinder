@@ -9,6 +9,7 @@ mod route;
 mod settings;
 mod shell;
 mod sidebar;
+mod sidebar_fold;
 mod sidebar_folders;
 mod sidebar_reorder;
 mod sidebar_row;
@@ -23,7 +24,12 @@ mod workspace_dialogs;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
-use std::{collections::BTreeSet, future::Future, path::PathBuf, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    future::Future,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use controls::{Inactive, button};
 use gpui_kit::component::{
@@ -110,6 +116,11 @@ pub struct NativeView {
     workspace_reorder: RowReorder<WorkspaceId>,
     sidebar_width: f32,
     sidebar_collapsed: bool,
+    folded_sections: BTreeSet<SidebarSection>,
+    /// Fold toggle count per section, which keys its slide.
+    section_motion: BTreeMap<SidebarSection, u64>,
+    /// Sections whose rows are sliding open or shut.
+    sections_moving: BTreeSet<SidebarSection>,
     appearance: Appearance,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
     sidebar_motion: u64,
@@ -137,6 +148,7 @@ impl NativeView {
         let snapshot = client.snapshot();
         let sidebar_width = sidebar::clamp_sidebar_width(snapshot.preferences.sidebar_width);
         let sidebar_collapsed = snapshot.preferences.sidebar_collapsed;
+        let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         status_bar::apply_appearance(appearance, window, cx);
         let activation_subscription = cx.observe_window_activation(window, |view, window, cx| {
@@ -207,6 +219,9 @@ impl NativeView {
             workspace_reorder: RowReorder::default(),
             sidebar_width,
             sidebar_collapsed,
+            folded_sections,
+            section_motion: BTreeMap::new(),
+            sections_moving: BTreeSet::new(),
             appearance,
             sidebar_motion: 0,
             sidebar_closing: false,

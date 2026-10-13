@@ -5,9 +5,7 @@ use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
 use super::controls::app_icon;
 use super::sidebar_reorder::{RowDrag, RowDragPreview};
-use super::sidebar_row::{
-    activate, add_button, count, icon_color, name_field, row, section_header,
-};
+use super::sidebar_row::{activate, add_button, count, icon_color, name_field, row};
 use super::{Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Icon, Side,
@@ -19,7 +17,9 @@ use gpui_kit::{
     InteractiveElement, IntoElement, MouseButton, ParentElement, SharedString,
     StatefulInteractiveElement, Styled, WeakEntity, Window, div, prelude::FluentBuilder, px, rgb,
 };
-use skillbinder_proto::{Folder, FolderColor, FolderId, LibrarySnapshot, OrganizationChange};
+use skillbinder_proto::{
+    Folder, FolderColor, FolderId, LibrarySnapshot, OrganizationChange, SidebarSection,
+};
 use skillbinder_theme::sidebar::{ICON_GAP, INSET, ROW_GAP};
 
 /// Which folder name the inline sidebar field edits.
@@ -84,52 +84,60 @@ impl NativeView {
             })
             .collect();
         let creating = self.folder_edit == Some(FolderEdit::Create);
+        let items = rows.len() + usize::from(creating);
         div()
             .flex()
             .flex_col()
             .child(self.render_folders_header(cx))
-            .child(
-                div()
-                    .id("sidebar-folders")
-                    .flex()
-                    .flex_col()
-                    .gap(px(ROW_GAP))
-                    .child(
-                        // Drag moves are measured from the first folder slot; releasing the
-                        // pointer anywhere keeps the order shown.
-                        div()
-                            .id("sidebar-folder-rows")
-                            .flex()
-                            .flex_col()
-                            .gap(px(ROW_GAP))
-                            .on_drag_move(cx.listener(
-                                |view, event: &DragMoveEvent<RowDrag<FolderId>>, window, cx| {
-                                    let drag = event.drag(cx);
-                                    let top = drag.top(event.event.position, event.bounds);
-                                    view.drag_folder(drag.id.clone(), top, window, cx)
-                                },
-                            ))
-                            .on_mouse_up(
-                                MouseButton::Left,
-                                cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
-                            )
-                            .on_mouse_up_out(
-                                MouseButton::Left,
-                                cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
-                            )
-                            .children(rows),
-                    )
-                    .when(creating, |list| {
-                        list.child(self.render_folder_name_field(None, cx))
-                    }),
+            .children(
+                self.section_rows(
+                    SidebarSection::Folders,
+                    items,
+                    div()
+                        .id("sidebar-folders")
+                        .flex()
+                        .flex_col()
+                        .gap(px(ROW_GAP))
+                        .child(
+                            // Drag moves are measured from the first folder slot; releasing the
+                            // pointer anywhere keeps the order shown.
+                            div()
+                                .id("sidebar-folder-rows")
+                                .flex()
+                                .flex_col()
+                                .gap(px(ROW_GAP))
+                                .on_drag_move(cx.listener(
+                                    |view, event: &DragMoveEvent<RowDrag<FolderId>>, window, cx| {
+                                        let drag = event.drag(cx);
+                                        let top = drag.top(event.event.position, event.bounds);
+                                        view.drag_folder(drag.id.clone(), top, window, cx)
+                                    },
+                                ))
+                                .on_mouse_up(
+                                    MouseButton::Left,
+                                    cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
+                                )
+                                .on_mouse_up_out(
+                                    MouseButton::Left,
+                                    cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
+                                )
+                                .children(rows),
+                        )
+                        .when(creating, |list| {
+                            list.child(self.render_folder_name_field(None, cx))
+                        }),
+                ),
             )
     }
 
     fn render_folders_header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let add = add_button("folder-create", "New folder", cx).on_click(cx.listener(
-            |view, _, window, cx| view.begin_folder_edit(FolderEdit::Create, window, cx),
+            |view, _, window, cx| {
+                view.unfold_section(SidebarSection::Folders, cx);
+                view.begin_folder_edit(FolderEdit::Create, window, cx)
+            },
         ));
-        section_header("Folders", add, cx)
+        self.section_header(SidebarSection::Folders, "Folders", add, cx)
     }
 
     fn render_folder_row(
