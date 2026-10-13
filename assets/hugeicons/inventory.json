@@ -426,6 +426,17 @@
       "elementCount": 3
     },
     {
+      "name": "SquareTerminalIcon",
+      "file": "SquareTerminalIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/controls.rs"
+      ],
+      "sourceModule": "dist/esm/SquareTerminalIcon.js",
+      "sourceModuleSha256": "54fb6c5f32bc1b8537c58105d72411e345e356bde239833cf691e9b0c1c83487",
+      "svgSha256": "391efa305193a8f2e1f886bfc108ea5f634dac1e28623f70bd753b3211c1410d",
+      "elementCount": 3
+    },
+    {
       "name": "Sun03Icon",
       "file": "Sun03Icon.svg",
       "usedBy": [

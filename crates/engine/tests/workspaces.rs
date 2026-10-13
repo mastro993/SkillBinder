@@ -93,6 +93,35 @@ async fn adding_a_workspace_records_library_copies_and_lists_importables() {
 }
 
 #[tokio::test]
+async fn scans_add_newly_found_agents_and_keep_removed_agents_removed() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let global_agents = || async { engine.snapshot().await.unwrap().global_agents };
+    fs::create_dir_all(fixture.home.join(".claude/skills")).unwrap();
+    engine
+        .rescan_target(DeploymentTarget::Global)
+        .await
+        .unwrap();
+    assert_eq!(global_agents().await, ["claude-code"]);
+
+    engine
+        .set_target_agents(DeploymentTarget::Global, Vec::new())
+        .await
+        .unwrap();
+    fs::create_dir_all(fixture.home.join(".agents/skills")).unwrap();
+    engine
+        .rescan_target(DeploymentTarget::Global)
+        .await
+        .unwrap();
+    let agents = global_agents().await;
+    assert!(!agents.iter().any(|id| id == "claude-code"));
+    for agent in ["cline", "fx", "pi", "zed"] {
+        assert!(agents.iter().any(|id| id == agent), "{agent}");
+    }
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn grants_are_single_use_and_duplicate_workspaces_are_refused() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;

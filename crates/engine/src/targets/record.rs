@@ -220,7 +220,7 @@ impl State {
             insert_workspace(&transaction, workspace)?;
         }
         replace_deployments(&transaction, target, &deployed, &found)?;
-        seed_agents(&transaction, target, &findings.agents)?;
+        add_detected_agents(&transaction, target, &findings.agents)?;
         transaction.commit().map_err(|_| AppError::storage())?;
         let importables = importables::group(target, unmatched);
         let summary = Summary {
@@ -415,29 +415,28 @@ fn replace_deployments(
     Ok(())
 }
 
-/// Target agents default to the agent skill directories found in the target.
-fn seed_agents(
+/// A scan adds each agent whose skill directory it finds in the target for the first time to the
+/// target agents. Agents found before stay as the user left them, so removing one keeps it removed.
+fn add_detected_agents(
     transaction: &Transaction,
     target: &DeploymentTarget,
     agents: &BTreeSet<String>,
 ) -> AppResult<()> {
-    let recorded: u32 = transaction
-        .query_row(
-            "SELECT COUNT(*) FROM target_agents WHERE target=?1",
-            [key(target)],
-            |row| row.get(0),
-        )
-        .map_err(|_| AppError::storage())?;
-    if recorded > 0 {
-        return Ok(());
-    }
     for agent in agents {
-        transaction
+        let first = transaction
             .execute(
-                "INSERT INTO target_agents(target,agent) VALUES(?1,?2)",
+                "INSERT OR IGNORE INTO detected_agents(target,agent) VALUES(?1,?2)",
                 params![key(target), agent],
             )
             .map_err(|_| AppError::storage())?;
+        if first > 0 {
+            transaction
+                .execute(
+                    "INSERT OR IGNORE INTO target_agents(target,agent) VALUES(?1,?2)",
+                    params![key(target), agent],
+                )
+                .map_err(|_| AppError::storage())?;
+        }
     }
     Ok(())
 }

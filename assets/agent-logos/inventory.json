@@ -1,0 +1,292 @@
+{
+  "note": "Monochrome agent logos copied byte-for-byte from the packages below. The artwork licenses cover the drawings only; each logo remains a trademark of its owner and identifies that owner's agent. Agents without an entry show the Hugeicons SquareTerminalIcon.",
+  "sources": [
+    {
+      "name": "lobe-icons",
+      "package": "@lobehub/icons-static-svg",
+      "version": "1.95.1",
+      "license": "MIT",
+      "licenseFile": "LICENSE-lobe-icons.md",
+      "licenseSha256": "add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a",
+      "licenseOrigin": "https://github.com/lobehub/lobe-icons/blob/05a9b8c41e4735a4a2b6d2f1e43574bd8ec6c8cb/LICENSE"
+    },
+    {
+      "name": "simple-icons",
+      "package": "simple-icons",
+      "version": "16.35.0",
+      "license": "CC0-1.0",
+      "licenseFile": "LICENSE-simple-icons.md",
+      "licenseSha256": "9046848b63a5c92bff14e4accca80bd987e0623b74adf9226ce5198d312b79d5",
+      "disclaimerFile": "DISCLAIMER-simple-icons.md",
+      "disclaimerSha256": "f921095158b73e61e675ff99b327930fa95ad6f4cf667d414ffe8ae585205724"
+    },
+    {
+      "name": "fx",
+      "package": "fx-logos.zip",
+      "version": "2026-10-13",
+      "license": "Not stated; brand artwork supplied by the maintainer",
+      "origin": "fx-logos.zip from the fx brand assets, added by the maintainer on 2026-10-13"
+    }
+  ],
+  "logos": [
+    {
+      "agent": "amp",
+      "file": "amp.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/amp.svg",
+      "svgSha256": "aa6d3fd2fed46e5bd3fdf0e80adab9ed22cbe48e8aa9cd6ea5f7a3ffffc606b1"
+    },
+    {
+      "agent": "antigravity",
+      "file": "antigravity.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/antigravity.svg",
+      "svgSha256": "43f551fd125c17fb54c8c74eb461924fb97f32bb64ac89f73bb73852753a6461"
+    },
+    {
+      "agent": "antigravity-cli",
+      "file": "antigravity-cli.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/antigravity.svg",
+      "svgSha256": "43f551fd125c17fb54c8c74eb461924fb97f32bb64ac89f73bb73852753a6461"
+    },
+    {
+      "agent": "claude-code",
+      "file": "claude-code.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/claudecode.svg",
+      "svgSha256": "d7eb2d876b49e51cc16291a42b681d7cf4906e60e0150776dbfb353ec4ca3746"
+    },
+    {
+      "agent": "cline",
+      "file": "cline.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/cline.svg",
+      "svgSha256": "9003d2cdce82b016147b732abb4def60af55c348ba2cea2ba0b69a3c7d159b19"
+    },
+    {
+      "agent": "codebuddy",
+      "file": "codebuddy.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/codebuddy.svg",
+      "svgSha256": "abe926f4acd9d56439bb5568a267d19d5a92201dbd69ad1cf179209b5ef79f91"
+    },
+    {
+      "agent": "codex",
+      "file": "codex.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/codex.svg",
+      "svgSha256": "d08b4e824cd6727e89617f59e4737273ff53e44c1da849d016dd64dfd08b33e1"
+    },
+    {
+      "agent": "command-code",
+      "file": "command-code.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/commandcode.svg",
+      "svgSha256": "0b3090f6e9194f32520e5b98ea43c5bc1a0f04644c94d1bade69fab7413e1531"
+    },
+    {
+      "agent": "cursor",
+      "file": "cursor.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/cursor.svg",
+      "svgSha256": "0cb51bddf264ae108926fd554c063ef40fc1aac3c5c921ddb39ad184e4e5d0ef"
+    },
+    {
+      "agent": "devin",
+      "file": "devin.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/devin.svg",
+      "svgSha256": "8d197b0c31522517ffa896cd4a1ee65719eb73bff9eb9bbf7edf64db6b1a573d"
+    },
+    {
+      "agent": "fx",
+      "file": "fx.svg",
+      "source": "fx",
+      "sourceFile": "fx-logo-black.svg",
+      "svgSha256": "f73a35de6c1f32f500a35cbc3da14a9f5276e87d83881430e7c4c020560cebc0"
+    },
+    {
+      "agent": "gemini-cli",
+      "file": "gemini-cli.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/geminicli.svg",
+      "svgSha256": "bc9b0199cb4c5deee25d6cf49d6e7d60a891171ccbc5520f657d3047b84e5d2e"
+    },
+    {
+      "agent": "github-copilot",
+      "file": "github-copilot.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/githubcopilot.svg",
+      "svgSha256": "bbc7fddc13448236e5edea8c399d2072dc40aa5da5bca07f7a2f412405c500a3"
+    },
+    {
+      "agent": "goose",
+      "file": "goose.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/goose.svg",
+      "svgSha256": "8779d9a61c5b0be78a3d36cab6843ba5af86218ba2ff1b18eb918c7a8d25bb99"
+    },
+    {
+      "agent": "grok",
+      "file": "grok.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/grok.svg",
+      "svgSha256": "9175fc90c22655160231976c849f25a03b888d7cc0e04c5f1b987b659bb07c95"
+    },
+    {
+      "agent": "hermes-agent",
+      "file": "hermes-agent.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/hermesagent.svg",
+      "svgSha256": "02d43c0a91fc2ee41f2684fc39613ff6687de29a4b079665bace5303671dd63b"
+    },
+    {
+      "agent": "junie",
+      "file": "junie.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/junie.svg",
+      "svgSha256": "dded0700186377523b7b10bbb204fd3f095d1ea52fe89722cd6cc319a154e208"
+    },
+    {
+      "agent": "kilo",
+      "file": "kilo.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/kilocode.svg",
+      "svgSha256": "a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22"
+    },
+    {
+      "agent": "kimi-code-cli",
+      "file": "kimi-code-cli.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/kimi.svg",
+      "svgSha256": "ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b"
+    },
+    {
+      "agent": "kiro-cli",
+      "file": "kiro-cli.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/kiro.svg",
+      "svgSha256": "1e56073e35799b0d7075d5376ca2d99c3d3bbf51a000a1ec3d4b0df7612c91d6"
+    },
+    {
+      "agent": "minimax-code",
+      "file": "minimax-code.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/minimax.svg",
+      "svgSha256": "bb96e2005081494716de6af5fd030701ae551ee68393ad61b325c07325607848"
+    },
+    {
+      "agent": "mistral-vibe",
+      "file": "mistral-vibe.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/mistral.svg",
+      "svgSha256": "a06cfa54e7deff7f7544175b006b7f8a03fbc5624c44f7d553a44d07ea96e629"
+    },
+    {
+      "agent": "openclaw",
+      "file": "openclaw.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/openclaw.svg",
+      "svgSha256": "1f0b18833ccb1c7c21ae998d237856975fc90eb8eafc14f8db05198628e8da4d"
+    },
+    {
+      "agent": "opencode",
+      "file": "opencode.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/opencode.svg",
+      "svgSha256": "7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302"
+    },
+    {
+      "agent": "openhands",
+      "file": "openhands.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/openhands.svg",
+      "svgSha256": "246a996b64ceb4e60fee29506a5f17b14f44042b2a17844c03b69c3447aebc2d"
+    },
+    {
+      "agent": "pi",
+      "file": "pi.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/pi-text.svg",
+      "svgSha256": "d82978781b824273c55473822c1f243a6ed34fc6e8c2dbfe1a90dfc66ae43ee8"
+    },
+    {
+      "agent": "qoder",
+      "file": "qoder.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/qoder.svg",
+      "svgSha256": "f8503aacc41a58e723430488d082f6730c8a6a9ffecdd0a00c522e6bcdb4abb9"
+    },
+    {
+      "agent": "qoder-cn",
+      "file": "qoder-cn.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/qoder.svg",
+      "svgSha256": "f8503aacc41a58e723430488d082f6730c8a6a9ffecdd0a00c522e6bcdb4abb9"
+    },
+    {
+      "agent": "qwen-code",
+      "file": "qwen-code.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/qwen.svg",
+      "svgSha256": "dcb3ba2f2b55ccbacbade0ca0bf98921fbaf8a07848972974b4a9bf8077376cf"
+    },
+    {
+      "agent": "replit",
+      "file": "replit.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/replit.svg",
+      "svgSha256": "1bb3665be60c5d155f73c4fbc3fcd71d3f7946bd6172724fdc6276f52b4c44fa"
+    },
+    {
+      "agent": "roo",
+      "file": "roo.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/roocode.svg",
+      "svgSha256": "34904d40bfd976b5c1c7495d2fdfdca1c137cb416bff2000184e0ee27bfb5161"
+    },
+    {
+      "agent": "trae",
+      "file": "trae.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/trae.svg",
+      "svgSha256": "59ef6255dfce52d4b1e77aff4e1b4ee3cda71cda735b4fb45575e9874a1c11f6"
+    },
+    {
+      "agent": "trae-cn",
+      "file": "trae-cn.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/trae.svg",
+      "svgSha256": "59ef6255dfce52d4b1e77aff4e1b4ee3cda71cda735b4fb45575e9874a1c11f6"
+    },
+    {
+      "agent": "warp",
+      "file": "warp.svg",
+      "source": "simple-icons",
+      "sourceFile": "icons/warp.svg",
+      "svgSha256": "dffc749e6bacd34f61e2349874bd3cef4971a20b04179db595cadb4bd4e188a3"
+    },
+    {
+      "agent": "windsurf",
+      "file": "windsurf.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/windsurf.svg",
+      "svgSha256": "e3c836aae05a3741e33d5c5a38d4167aacfbb69e480d098b8b94cad8c90e0d08"
+    },
+    {
+      "agent": "zed",
+      "file": "zed.svg",
+      "source": "simple-icons",
+      "sourceFile": "icons/zedindustries.svg",
+      "svgSha256": "90848d3e8d74d4fb3efc7137b8a5181139082e212566b025843379a7cb0550a0"
+    },
+    {
+      "agent": "zencoder",
+      "file": "zencoder.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/zencoder.svg",
+      "svgSha256": "713d57e07a58b229f6aff6fefdd22b979de3f8a56e761997646c91419266a9b3"
+    }
+  ]
+}

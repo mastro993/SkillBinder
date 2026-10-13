@@ -141,6 +141,7 @@ impl State {
         for statement in [
             "DELETE FROM deployments WHERE target=?1",
             "DELETE FROM target_agents WHERE target=?1",
+            "DELETE FROM detected_agents WHERE target=?1",
             "DELETE FROM workspaces WHERE id=?1",
         ] {
             transaction

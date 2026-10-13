@@ -4,12 +4,12 @@ use anyhow::{Context, ensure};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-const REGISTRY_SHA256: &str = "40a66c7e17208f84620c3abafc58f50d69ce95d914b7c2e0b67a26b24efc449d";
-const UPSTREAM_COMMIT: &str = "7407f3893ad4dceab546ac002c3ef806e4000c73";
+const REGISTRY_SHA256: &str = "eb1365a541f5e95f3adc6bb5f3c0a1a2fb2f84be0d82ec942f50b669b004c044";
+const UPSTREAM_COMMIT: &str = "13e4063a1cf913f5606d57d42ab83a86f5001e04";
 const UPSTREAM_FILES: [(&str, &str); 2] = [
     (
         "src/agents.ts",
-        "8902f56a121ce4b1a800b3aa04d3f83b7baeaf32e1abf441c0b8eabb3f8f89a5",
+        "9c64197246db1b61c0b2777114e2e01dd60f503129842ce7eeb78a3c3f2caa25",
     ),
     (
         "src/types.ts",
@@ -73,7 +73,7 @@ fn document(mut registry: Registry) -> anyhow::Result<String> {
     let mut text = String::from("# Supported agent registry\n\n");
     writeln!(
         text,
-        "The reviewed registry contains {} agents. Runtime discovery is not implemented in the native foundation.\n",
+        "The reviewed registry contains {} agents. Global's target agents are its installed agents; entries are not runtime-tested.\n",
         registry.agents.len()
     )?;
     writeln!(

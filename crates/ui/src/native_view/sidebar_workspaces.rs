@@ -78,7 +78,7 @@ impl NativeView {
         div()
             .flex()
             .flex_col()
-            .child(self.section_header(SidebarSection::Workspaces, "Workspaces", add, cx))
+            .child(self.section_header(SidebarSection::Workspaces, "Workspaces", Some(add), cx))
             .children(
                 self.section_rows(
                     SidebarSection::Workspaces,

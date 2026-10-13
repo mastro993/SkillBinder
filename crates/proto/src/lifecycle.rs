@@ -57,6 +57,8 @@ pub enum SidebarSection {
     Folders,
     /// Global and the added workspaces.
     Workspaces,
+    /// Installed agents: Global's agents, alphabetically.
+    Agents,
 }
 /// Color scheme preference.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

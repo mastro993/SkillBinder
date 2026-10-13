@@ -143,6 +143,7 @@ pub(super) fn add_button(id: &'static str, label: &'static str, cx: &App) -> But
                 .text_color(cx.theme().muted_foreground),
         )
         .accessibility_label(label)
+        .tooltip(label)
 }
 
 /// An inline name field drawn in place of a row; Escape runs `cancel`.

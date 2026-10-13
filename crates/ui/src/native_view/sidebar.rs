@@ -12,7 +12,7 @@ use gpui_kit::{
     Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{ScanStatus, SyncSnapshot, SyncState};
-use skillbinder_theme::sidebar::{INSET, ROW_GAP};
+use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
 /// The deployment target made of the global agent skill locations under home.
 pub(super) const SYSTEM: &str = "System";
@@ -115,6 +115,19 @@ impl NativeView {
             Some(scan) if !scan.candidates.is_empty() => Some(count(scan.candidates.len(), cx)),
             _ => None,
         };
+        // One device pixel: a hairline on Retina instead of 1pt's two pixels.
+        let hairline = px(1.0 / window.scale_factor());
+        let (above, below) = match snapshot.library {
+            Some(_) => super::sidebar_scroll::scrolled_edges(&self.sidebar_scroll),
+            None => (false, false),
+        };
+        let divider = |shown: bool| {
+            if shown {
+                border
+            } else {
+                gpui_kit::transparent_black()
+            }
+        };
         let sync = if self.syncing {
             Some(spinner(cx))
         } else {
@@ -133,15 +146,18 @@ impl NativeView {
             .pb(px(INSET))
             .bg(background)
             .text_color(foreground)
-            // One device pixel: a hairline on Retina instead of 1pt's two pixels.
-            .border_r(px(1.0 / window.scale_factor()))
+            .border_r(hairline)
             .border_color(border)
+            .on_hover(cx.listener(|view, hovered: &bool, _, cx| view.hover_sidebar(*hovered, cx)))
             .child(self.render_history_controls(cx))
             .child(
                 div()
                     .flex()
                     .flex_col()
                     .gap(px(ROW_GAP))
+                    .pb(px(SECTION_GAP / 2.0))
+                    .border_b(hairline)
+                    .border_color(divider(above))
                     .child(
                         self.nav_row(Route::Discovery, "compass", "Discovery", cx)
                             .children(discovery),
@@ -157,17 +173,7 @@ impl NativeView {
                     ),
             )
             .map(|sidebar| match &snapshot.library {
-                Some(library) => sidebar.child(
-                    div()
-                        .id("sidebar-sections")
-                        .flex()
-                        .flex_col()
-                        .flex_1()
-                        .min_h_0()
-                        .overflow_y_scroll()
-                        .child(self.render_folders(library, window, cx))
-                        .child(self.render_workspaces(window, cx)),
-                ),
+                Some(library) => sidebar.child(self.render_sections(library, window, cx)),
                 None => sidebar.child(div().flex_1()),
             })
             .child(
@@ -175,6 +181,9 @@ impl NativeView {
                     .flex()
                     .flex_col()
                     .gap(px(ROW_GAP))
+                    .pt(px(SECTION_GAP / 2.0))
+                    .border_t(hairline)
+                    .border_color(divider(below))
                     .child(
                         self.nav_row(Route::Sync, "git-branch", "Sync", cx)
                             .children(sync),

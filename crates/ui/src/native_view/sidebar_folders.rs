@@ -20,7 +20,7 @@ use gpui_kit::{
 use skillbinder_proto::{
     Folder, FolderColor, FolderId, LibrarySnapshot, OrganizationChange, SidebarSection,
 };
-use skillbinder_theme::sidebar::{ICON_GAP, INSET, ROW_GAP};
+use skillbinder_theme::sidebar::{ICON_GAP, INSET, ROW_GAP, SECTION_GAP};
 
 /// Which folder name the inline sidebar field edits.
 #[derive(Clone, PartialEq, Eq)]
@@ -131,13 +131,15 @@ impl NativeView {
     }
 
     fn render_folders_header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let add = add_button("folder-create", "New folder", cx).on_click(cx.listener(
+        let add = add_button("folder-create", "Add folder", cx).on_click(cx.listener(
             |view, _, window, cx| {
                 view.unfold_section(SidebarSection::Folders, cx);
                 view.begin_folder_edit(FolderEdit::Create, window, cx)
             },
         ));
-        self.section_header(SidebarSection::Folders, "Folders", add, cx)
+        // The first section splits its gap with the divider above it, which sits under Library.
+        self.section_header(SidebarSection::Folders, "Folders", Some(add), cx)
+            .mt(px(SECTION_GAP / 2.0))
     }
 
     fn render_folder_row(
