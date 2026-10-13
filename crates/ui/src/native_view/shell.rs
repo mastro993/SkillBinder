@@ -292,6 +292,7 @@ impl NativeView {
             Route::Library(_)
             | Route::Target(_)
             | Route::Agent(_)
+            | Route::Universal
             | Route::Sync
             | Route::Settings => Vec::new(),
         }

@@ -258,6 +258,17 @@
       "elementCount": 3
     },
     {
+      "name": "Layers01Icon",
+      "file": "Layers01Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/sidebar_agents.rs"
+      ],
+      "sourceModule": "dist/esm/Layers01Icon.js",
+      "sourceModuleSha256": "c01ab335820befd2eba53e296ecc0026c353d08125abce14f40bbc4b47a0aec8",
+      "svgSha256": "7c31ac13bd90c08892685d5678cc1eab849622ae275a422257a2be6c7ffc4b70",
+      "elementCount": 3
+    },
+    {
       "name": "LayoutAlignLeftIcon",
       "file": "LayoutAlignLeftIcon.svg",
       "usedBy": [

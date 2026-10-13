@@ -288,11 +288,7 @@ impl NativeView {
             self.route = Route::Discovery;
             self.agent_edit = None;
         }
-        if let Route::Agent(id) = &self.route
-            && !latest.global_agents.contains(id)
-        {
-            self.route = Route::Target(DeploymentTarget::Global);
-        }
+        self.route = agent_page::agent_fallback(&latest, self.route.clone());
         if self
             .workspace_edit
             .as_ref()
@@ -392,7 +388,7 @@ impl NativeView {
             Route::Target(DeploymentTarget::Workspace(id)) if !workspace_exists(&id) => {
                 Route::Discovery
             }
-            route => self.agent_fallback(route),
+            route => agent_page::agent_fallback(&self.snapshot, route),
         };
         if self.route != route {
             self.candidate_page = 0;
@@ -490,6 +486,7 @@ impl Render for NativeView {
                 Route::Library(_) => self.render_library(cx).into_any_element(),
                 Route::Target(target) => self.render_target(&target.clone(), cx),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
+                Route::Universal => self.render_universal(cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),
                 Route::Settings => self.render_settings(cx).into_any_element(),
             };

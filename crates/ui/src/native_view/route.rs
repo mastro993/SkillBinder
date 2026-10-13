@@ -18,6 +18,9 @@ pub(super) enum Route {
     Target(DeploymentTarget),
     /// An installed agent's page, by registry id: `agent/{id}`.
     Agent(String),
+    /// The page of the universal agents together, which read `~/.agents/skills`:
+    /// `agents/universal`.
+    Universal,
     Sync,
     Settings,
 }
