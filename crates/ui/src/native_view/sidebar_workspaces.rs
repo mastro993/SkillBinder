@@ -1,20 +1,18 @@
-//! The sidebar Workspaces section: user-ordered workspace rows with inline renaming, row menus,
-//! and drag reordering, the skeleton row of a workspace being added, and each target's rescan
-//! spinner.
+//! The sidebar Workspaces section: System, then user-ordered workspace rows with inline
+//! renaming, row menus, and drag reordering. Each row counts the skills the last scan found.
 
 use std::{cell::Cell, time::Instant};
 
-use super::controls::{Inactive, app_icon};
+use super::controls::app_icon;
 use super::sidebar::SYSTEM;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
-use super::sidebar_row::{activate, add_button, count, dot, icon_color, name_field, row};
+use super::sidebar_row::{activate, add_button, count, icon_color, name_field, row};
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
     input::{InputEvent, InputState},
     menu::{ContextMenuExt, PopupMenu, PopupMenuItem},
-    skeleton::Skeleton,
     tooltip::Tooltip,
 };
 use gpui_kit::{
@@ -22,12 +20,8 @@ use gpui_kit::{
     MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{
-    DeploymentTarget, ScanStatus, SidebarSection, SkillId, Workspace, WorkspaceId,
-};
-use skillbinder_theme::sidebar::{
-    DETAIL_SIZE, ICON_GAP, ICON_SIZE, INSET, RADIUS, ROW_GAP, ROW_HEIGHT, ROW_PADDING,
-};
+use skillbinder_proto::{SidebarSection, Workspace, WorkspaceId};
+use skillbinder_theme::sidebar::{ICON_SIZE, INSET, ROW_GAP};
 
 impl NativeView {
     pub(super) fn render_workspaces(
@@ -67,14 +61,13 @@ impl NativeView {
                 self.render_workspace_row(workspace, placement, cx)
             })
             .collect();
-        let adding = self.adding_workspace();
-        let add = add_button("workspace-add", "Add workspace", cx)
-            .inactive(adding)
-            .on_click(cx.listener(|view, _, _, cx| {
+        let add = add_button("workspace-add", "Add workspace", cx).on_click(cx.listener(
+            |view, _, _, cx| {
                 view.unfold_section(SidebarSection::Workspaces, cx);
                 view.choose_workspace_folder(cx)
-            }));
-        let items = 1 + rows.len() + usize::from(adding);
+            },
+        ));
+        let items = 1 + rows.len();
         div()
             .flex()
             .flex_col()
@@ -115,20 +108,17 @@ impl NativeView {
                                     cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
                                 )
                                 .children(rows),
-                        )
-                        .when(adding, |list| list.child(skeleton_row())),
+                        ),
                 ),
             )
     }
 
-    /// System is the Global deployment target: fixed first in Workspaces, so it cannot be
-    /// renamed, moved, or removed. Its count is the number of skills installed there, and its
-    /// tooltip shows the home folder its skills live under.
+    /// System is the built-in workspace: fixed first in Workspaces, so it cannot be renamed,
+    /// moved, or removed. Its count is the number of skills installed there, and its tooltip
+    /// shows the home folder its skills live under.
     fn render_system_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let target = DeploymentTarget::Global;
-        let selected = self.route == Route::Target(target.clone());
-        let trailing = self.target_trailing(&target, false, cx);
-        let accessible = self.target_label(SYSTEM.to_owned(), &target);
+        let selected = self.route == Route::System;
+        let found = self.found_in(&self.system_dirs()).len();
         let home: SharedString = self.snapshot.home.clone().into();
         activate(
             row(
@@ -139,11 +129,11 @@ impl NativeView {
                 selected,
                 cx,
             ),
-            accessible,
+            SYSTEM,
             cx,
-            |view, window, cx| view.open_target(DeploymentTarget::Global, window, cx),
+            |view, window, cx| view.navigate(Route::System, window, cx),
         )
-        .child(trailing)
+        .child(count(found, cx))
         .tooltip(move |window, cx| Tooltip::new(home.clone()).build(window, cx))
         .into_any_element()
     }
@@ -154,16 +144,24 @@ impl NativeView {
         placement: RowPlacement,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let target = DeploymentTarget::Workspace(workspace.id.clone());
-        let selected = self.route == Route::Target(target.clone());
+        let route = Route::Workspace(workspace.id.clone());
+        let selected = self.route == route;
         let label: SharedString = workspace.name.clone().into();
         let accessible = if workspace.missing {
             format!("{}, folder missing", workspace.name)
         } else {
-            self.target_label(workspace.name.clone(), &target)
+            workspace.name.clone()
         };
-        let trailing = self.target_trailing(&target, workspace.missing, cx);
-        let deployed = self.deployment_count(&target);
+        let found = self.found_in(&self.workspace_dirs(&workspace.path)).len();
+        let trailing = if workspace.missing {
+            app_icon("alert-circle")
+                .size(px(ICON_SIZE))
+                .flex_shrink_0()
+                .text_color(cx.theme().warning)
+                .into_any_element()
+        } else {
+            count(found, cx)
+        };
         let menu = self.workspace_menu(&workspace.id, placement.index, placement.len, cx);
         activate(
             row(
@@ -176,7 +174,7 @@ impl NativeView {
             ),
             accessible,
             cx,
-            move |view, window, cx| view.open_target(target.clone(), window, cx),
+            move |view, window, cx| view.navigate(route.clone(), window, cx),
         )
         .child(trailing)
         .relative()
@@ -188,7 +186,7 @@ impl NativeView {
                 icon: "code-folder",
                 label,
                 tint: None,
-                count: deployed,
+                count: found,
                 width: self.sidebar_width - 2.0 * INSET,
                 grab: Cell::new(0.0),
             },
@@ -199,36 +197,6 @@ impl NativeView {
         )
         .context_menu(menu)
         .into_any_element()
-    }
-
-    /// The row's accessible name, which reports drifted deployments.
-    pub(super) fn target_label(&self, name: String, target: &DeploymentTarget) -> String {
-        match self.drifted(target) {
-            0 => name,
-            1 => format!("{name}, 1 deployment drifted"),
-            drifted => format!("{name}, {drifted} deployments drifted"),
-        }
-    }
-
-    /// A warning while the folder is missing, a warning dot while a deployment drifted, else the
-    /// target's number of deployments. Rescans show nothing, so refreshes stay quiet.
-    pub(super) fn target_trailing(
-        &self,
-        target: &DeploymentTarget,
-        missing: bool,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        if missing {
-            app_icon("alert-circle")
-                .size(px(ICON_SIZE))
-                .flex_shrink_0()
-                .text_color(cx.theme().warning)
-                .into_any_element()
-        } else if self.drifted(target) > 0 {
-            dot(cx.theme().warning)
-        } else {
-            count(self.deployment_count(target), cx)
-        }
     }
 
     /// Rename, order, and remove actions for one workspace row.
@@ -285,51 +253,6 @@ impl NativeView {
                     })),
             )
         }
-    }
-
-    pub(super) fn open_target(
-        &mut self,
-        target: DeploymentTarget,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.navigate(Route::Target(target), window, cx);
-    }
-
-    pub(super) fn adding_workspace(&self) -> bool {
-        self.snapshot
-            .workspace_addition
-            .as_ref()
-            .is_some_and(|addition| addition.status == ScanStatus::Running)
-    }
-
-    pub(super) fn deployment_count(&self, target: &DeploymentTarget) -> usize {
-        self.snapshot
-            .deployments
-            .iter()
-            .filter(|deployment| &deployment.target == target)
-            .count()
-    }
-
-    /// Names of the targets that hold `skill`: System first, then workspaces in sidebar order.
-    pub(super) fn deployment_targets(&self, skill: &SkillId) -> Vec<String> {
-        let holds = |target: DeploymentTarget| {
-            self.snapshot
-                .deployments
-                .iter()
-                .any(|deployment| &deployment.skill_id == skill && deployment.target == target)
-        };
-        let system = holds(DeploymentTarget::Global).then(|| SYSTEM.to_owned());
-        system
-            .into_iter()
-            .chain(
-                self.snapshot
-                    .workspaces
-                    .iter()
-                    .filter(|workspace| holds(DeploymentTarget::Workspace(workspace.id.clone())))
-                    .map(|workspace| workspace.name.clone()),
-            )
-            .collect()
     }
 
     fn workspace_ids(&self) -> Vec<WorkspaceId> {
@@ -452,26 +375,4 @@ impl NativeView {
             cx.notify();
         }
     }
-}
-
-/// Placeholder row for the workspace being added.
-fn skeleton_row() -> AnyElement {
-    let bar = || Skeleton::new().h(px(DETAIL_SIZE)).rounded(px(RADIUS / 2.0));
-    div()
-        .id("workspace-skeleton")
-        .aria_label("Adding workspace")
-        .flex()
-        .flex_shrink_0()
-        .items_center()
-        .gap(px(ICON_GAP))
-        .h(px(ROW_HEIGHT))
-        .px(px(ROW_PADDING))
-        .child(
-            Skeleton::new()
-                .size(px(ICON_SIZE))
-                .rounded(px(RADIUS / 2.0)),
-        )
-        .child(bar().flex_1())
-        .child(bar().w(px(DETAIL_SIZE)))
-        .into_any_element()
 }

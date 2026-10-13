@@ -1,27 +1,22 @@
-//! Installed agents and their installed skills: the skill folders Global's last scan found in an
-//! agent's global skill directory, which agents sharing that directory share. The universal
-//! agents, which all read `~/.agents/skills`, are listed together as Universal.
+//! Installed agents and the skills found in skill directories: an installed agent's installed
+//! skills are the skill folders the last scan found in its global skill directory, which agents
+//! sharing that directory share. The universal agents, which all read `~/.agents/skills`, are
+//! listed together as Universal.
 
 use std::path::{Path, PathBuf};
 
-use skillbinder_proto::{
-    AgentOption, CopyChange, Deployment, DeploymentTarget, Importable, SkillId, ValidationStatus,
-};
+use skillbinder_proto::{AgentOption, Candidate, SkillId, ValidationStatus};
 
 /// The name of the universal agents together.
 pub(super) const UNIVERSAL: &str = "Universal";
 
-/// What one installed skill folder holds relative to the library.
+/// What one found skill folder holds relative to the library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum InstalledStatus {
-    /// A deployed copy that still matches its deployment.
+    /// Its content matches a library skill.
     InLibrary,
-    /// A deployed copy whose bytes changed.
-    Changed,
-    /// A deployed copy that is gone.
-    Missing,
     /// A skill the library does not hold.
-    Importable,
+    NotInLibrary,
     /// A skill the library does not hold whose payload fails validation.
     Invalid,
     /// A skill the library does not hold whose payload cannot safely be copied.
@@ -32,33 +27,26 @@ impl InstalledStatus {
     pub(super) fn label(self) -> &'static str {
         match self {
             Self::InLibrary => "In library",
-            Self::Changed => "Changed",
-            Self::Missing => "Missing",
-            Self::Importable => "Importable",
+            Self::NotInLibrary => "Not in library",
             Self::Invalid => "Invalid",
             Self::Blocked => "Blocked",
         }
     }
 }
 
-/// One skill folder in an agent's global skill directory.
+/// One skill folder found in a skill directory.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct InstalledSkill {
     pub slug: String,
     pub status: InstalledStatus,
-    /// The library skill a deployed copy belongs to.
+    /// The library skill with the same content.
     pub skill: Option<SkillId>,
 }
 
-/// Global's agents, alphabetically: the snapshot lists agents by lowercase display name.
-pub(super) fn installed_agents<'a>(
-    agents: &'a [AgentOption],
-    global_agents: &[String],
-) -> Vec<&'a AgentOption> {
-    agents
-        .iter()
-        .filter(|agent| global_agents.contains(&agent.id))
-        .collect()
+/// Agents whose global skill directory exists, alphabetically: the snapshot lists agents by
+/// lowercase display name.
+pub(super) fn installed_agents(agents: &[AgentOption]) -> Vec<&AgentOption> {
+    agents.iter().filter(|agent| agent.installed).collect()
 }
 
 /// The global skill directory the universal agents share: `~/.agents/skills`.
@@ -94,52 +82,33 @@ pub(super) fn agent_name(agent: &AgentOption, home: &str) -> String {
     }
 }
 
-/// Skill folders under `dir`, by slug, from Global's deployments and importables.
-pub(super) fn installed_skills(
-    dir: &Path,
-    deployments: &[Deployment],
-    importables: &[Importable],
-    slug: impl Fn(&SkillId) -> String,
-) -> Vec<InstalledSkill> {
-    let inside = |path: &String| Path::new(path).starts_with(dir);
-    let deployed = deployments
+/// Skill folders the scan found inside any of `dirs`, by slug.
+pub(super) fn found_in(dirs: &[PathBuf], candidates: &[Candidate]) -> Vec<InstalledSkill> {
+    let mut skills: Vec<_> = candidates
         .iter()
-        .filter(|deployment| deployment.target == DeploymentTarget::Global)
-        .flat_map(|deployment| {
-            deployment
-                .paths
-                .iter()
-                .filter(|path| inside(path))
-                .map(|path| InstalledSkill {
-                    slug: slug(&deployment.skill_id),
-                    status: match deployment.changes.get(path) {
-                        None => InstalledStatus::InLibrary,
-                        Some(CopyChange::Changed) => InstalledStatus::Changed,
-                        Some(CopyChange::Missing) => InstalledStatus::Missing,
-                    },
-                    skill: Some(deployment.skill_id.clone()),
-                })
-        });
-    let unmatched = importables
-        .iter()
-        .filter(|importable| importable.target == DeploymentTarget::Global)
-        .flat_map(|importable| {
-            let status = match importable.validation {
-                ValidationStatus::Invalid => InstalledStatus::Invalid,
-                ValidationStatus::Blocked => InstalledStatus::Blocked,
-                ValidationStatus::Valid | ValidationStatus::Warning => InstalledStatus::Importable,
+        .flat_map(|candidate| {
+            let status = match (&candidate.skill_id, candidate.validation) {
+                (Some(_), _) => InstalledStatus::InLibrary,
+                (None, ValidationStatus::Invalid) => InstalledStatus::Invalid,
+                (None, ValidationStatus::Blocked) => InstalledStatus::Blocked,
+                (None, ValidationStatus::Valid | ValidationStatus::Warning) => {
+                    InstalledStatus::NotInLibrary
+                }
             };
-            importable
-                .paths
+            candidate
+                .locations
                 .iter()
-                .filter(|path| inside(path))
-                .map(move |_| InstalledSkill {
-                    slug: importable.slug.clone(),
-                    status,
-                    skill: None,
+                .filter(|location| {
+                    let path = Path::new(&location.display_path);
+                    dirs.iter().any(|dir| path.starts_with(dir))
                 })
-        });
-    let mut skills: Vec<_> = deployed.chain(unmatched).collect();
+                .map(move |_| InstalledSkill {
+                    slug: candidate.slug.clone(),
+                    status,
+                    skill: candidate.skill_id.clone(),
+                })
+        })
+        .collect();
     skills.sort_by(|a, b| (&a.slug, a.status).cmp(&(&b.slug, b.status)));
     skills
 }
@@ -147,7 +116,7 @@ pub(super) fn installed_skills(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
+    use skillbinder_proto::{CandidateId, CandidateLocation};
 
     fn agent(id: &str) -> AgentOption {
         AgentOption {
@@ -155,14 +124,33 @@ mod tests {
             display_name: id.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
             global_skills_dir: Some("/home/.agents/skills".to_owned()),
+            installed: true,
+        }
+    }
+
+    fn candidate(slug: &str, skill: Option<SkillId>, validation: ValidationStatus) -> Candidate {
+        Candidate {
+            id: CandidateId::new(),
+            skill_id: skill,
+            slug: slug.to_owned(),
+            description: String::new(),
+            locations: vec![CandidateLocation {
+                display_path: format!("/home/.claude/skills/{slug}"),
+                readers: Vec::new(),
+            }],
+            validation,
+            messages: Vec::new(),
+            total_bytes: 0,
+            file_count: 0,
         }
     }
 
     #[test]
-    fn installed_agents_are_globals_agents_in_snapshot_order() {
-        let agents = [agent("cline"), agent("cursor"), agent("zed")];
-        let global = ["zed".to_owned(), "cline".to_owned()];
-        let ids: Vec<_> = installed_agents(&agents, &global)
+    fn installed_agents_are_the_agents_with_a_global_directory_in_snapshot_order() {
+        let mut missing = agent("cursor");
+        missing.installed = false;
+        let agents = [agent("cline"), missing, agent("zed")];
+        let ids: Vec<_> = installed_agents(&agents)
             .into_iter()
             .map(|agent| agent.id.as_str())
             .collect();
@@ -189,49 +177,17 @@ mod tests {
     }
 
     #[test]
-    fn installed_skills_list_every_global_folder_in_the_directory() {
-        let (kept, changed) = (SkillId::new(), SkillId::new());
-        let deployment = |skill: &SkillId, path: &str, change: Option<CopyChange>| Deployment {
-            target: DeploymentTarget::Global,
-            skill_id: skill.clone(),
-            digest: "digest".to_owned(),
-            paths: vec![path.to_owned(), "/home/.cursor/skills/other".to_owned()],
-            changes: change
-                .map(|change| BTreeMap::from([(path.to_owned(), change)]))
-                .unwrap_or_default(),
-        };
-        let importable = |target, slug: &str, validation| Importable {
-            target,
-            slug: slug.to_owned(),
-            digest: "digest".to_owned(),
-            validation,
-            paths: vec![format!("/home/.claude/skills/{slug}")],
-        };
-        let deployments = [
-            deployment(&kept, "/home/.claude/skills/kept", None),
-            deployment(
-                &changed,
-                "/home/.claude/skills/changed",
-                Some(CopyChange::Changed),
-            ),
+    fn found_skills_list_every_folder_in_the_directories() {
+        let kept = SkillId::new();
+        let mut elsewhere = candidate("elsewhere", None, ValidationStatus::Valid);
+        elsewhere.locations[0].display_path = "/work/.claude/skills/elsewhere".to_owned();
+        let candidates = [
+            candidate("kept", Some(kept.clone()), ValidationStatus::Valid),
+            candidate("broken", None, ValidationStatus::Invalid),
+            candidate("found", None, ValidationStatus::Warning),
+            elsewhere,
         ];
-        let workspace = DeploymentTarget::Workspace(skillbinder_proto::WorkspaceId::new());
-        let importables = [
-            importable(
-                DeploymentTarget::Global,
-                "broken",
-                ValidationStatus::Invalid,
-            ),
-            importable(DeploymentTarget::Global, "found", ValidationStatus::Warning),
-            importable(workspace, "elsewhere", ValidationStatus::Valid),
-        ];
-        let slug = |skill: &SkillId| if skill == &kept { "kept" } else { "changed" }.to_owned();
-        let skills = installed_skills(
-            Path::new("/home/.claude/skills"),
-            &deployments,
-            &importables,
-            slug,
-        );
+        let skills = found_in(&[PathBuf::from("/home/.claude/skills")], &candidates);
         let listed: Vec<_> = skills
             .iter()
             .map(|skill| (skill.slug.as_str(), skill.status))
@@ -240,29 +196,17 @@ mod tests {
             listed,
             [
                 ("broken", InstalledStatus::Invalid),
-                ("changed", InstalledStatus::Changed),
-                ("found", InstalledStatus::Importable),
+                ("found", InstalledStatus::NotInLibrary),
                 ("kept", InstalledStatus::InLibrary),
             ]
         );
-        assert_eq!(skills[3].skill, Some(kept));
+        assert_eq!(skills[2].skill, Some(kept));
     }
 
     #[test]
     fn a_sibling_directory_sharing_a_prefix_is_not_inside() {
-        let importable = Importable {
-            target: DeploymentTarget::Global,
-            slug: "skill".to_owned(),
-            digest: "digest".to_owned(),
-            validation: ValidationStatus::Valid,
-            paths: vec!["/home/.claude/skills-old/skill".to_owned()],
-        };
-        let skills = installed_skills(
-            Path::new("/home/.claude/skills"),
-            &[],
-            &[importable],
-            |skill| skill.to_string(),
-        );
-        assert!(skills.is_empty());
+        let mut skill = candidate("skill", None, ValidationStatus::Valid);
+        skill.locations[0].display_path = "/home/.claude/skills-old/skill".to_owned();
+        assert!(found_in(&[PathBuf::from("/home/.claude/skills")], &[skill]).is_empty());
     }
 }

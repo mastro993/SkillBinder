@@ -1,11 +1,11 @@
 use crate::{
     discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig, logging::Logger,
-    persistence, targets::progress::TargetScans,
+    persistence,
 };
 use fs2::FileExt;
 use skillbinder_proto::*;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     fs::{self, File, OpenOptions},
     path::PathBuf,
     sync::{Arc, Mutex, mpsc},
@@ -22,7 +22,6 @@ struct Owner {
     sender: mpsc::Sender<Message>,
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
-    targets: TargetScans,
 }
 /// Cloneable typed handle to the embedded engine worker.
 #[derive(Clone)]
@@ -35,11 +34,7 @@ pub(crate) struct State {
     pub git: Option<Git>,
     pub log: Logger,
     pub scans: Scans,
-    pub targets: TargetScans,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
-    /// What each target's last saved scan found that matched no library skill. Like Discovery
-    /// results, these are scan observations and are not durable.
-    pub importables: BTreeMap<DeploymentTarget, Vec<Importable>>,
     pub recovery_required: bool,
     lock: File,
 }
@@ -72,16 +67,13 @@ impl Engine {
             .map_err(|_| AppError::storage())?;
         let database = persistence::open(&config.data_dir.join("state.sqlite3"))?;
         let scans = Scans::default();
-        let targets = TargetScans::default();
         let mut state = State {
             config,
             database,
             git: Git::discover().ok(),
             log,
             scans: scans.clone(),
-            targets: targets.clone(),
             grants: BTreeMap::new(),
-            importables: BTreeMap::new(),
             recovery_required: true,
             lock,
         };
@@ -99,7 +91,6 @@ impl Engine {
                     match message {
                         Message::Execute(job) => job(&mut state),
                         Message::Shutdown(done) => {
-                            state.targets.stop();
                             state.scans.wait_for_shutdown();
                             state.log.flush();
                             let _ = done.send(());
@@ -118,12 +109,8 @@ impl Engine {
                 sender,
                 thread: Mutex::new(Some(thread)),
                 scans,
-                targets,
             }),
         })
-    }
-    pub(crate) fn targets(&self) -> &TargetScans {
-        &self.owner.targets
     }
     pub(crate) async fn call<T: Send + 'static>(
         &self,
@@ -148,7 +135,7 @@ impl Engine {
             })?;
         receiver.await.map_err(|_| AppError::storage())?
     }
-    /// Cancels discovery, drains committed mutations, flushes logs, and joins the worker.
+    /// Cancels scanning, drains committed mutations, flushes logs, and joins the worker.
     pub async fn shutdown(&self) -> AppResult<()> {
         let (sender, receiver) = oneshot::channel();
         self.owner
@@ -191,19 +178,11 @@ impl Engine {
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.call(move |state| state.grant_directory(path)).await
     }
-    /// Starts discovery or returns the existing active run.
-    pub async fn start_scan(&self) -> AppResult<ScanSnapshot> {
-        if let Some(run) = self
-            .owner
-            .scans
-            .current()?
-            .filter(|run| run.status == ScanStatus::Running)
-        {
-            return Ok(run);
-        }
+    /// Scans System and every workspace in the background. A running scan is replaced, so the
+    /// new one covers the current workspaces; the previous results stay until it completes.
+    pub async fn start_scan(&self) -> AppResult<()> {
         let (config, workspaces, managed, log) = self
             .call(|state| {
-                let library = state.read_library()?;
                 Ok((
                     state.config.clone(),
                     state
@@ -212,55 +191,25 @@ impl Engine {
                         .filter(|workspace| !workspace.missing)
                         .map(|workspace| PathBuf::from(workspace.path))
                         .collect(),
-                    library
-                        .skills
-                        .iter()
-                        .filter_map(|skill| {
-                            let path = state
-                                .library_dir()
-                                .join(crate::library::payload_relative(&library, skill));
-                            match state
-                                .contained_skill_path(&path)
-                                .and_then(|path| crate::payload::inspect(&path))
-                            {
-                                Ok(inspection)
-                                    if inspection.status != ValidationStatus::Blocked =>
-                                {
-                                    Some(inspection.manifest.digest)
-                                }
-                                Ok(_) => None,
-                                Err(error) => {
-                                    state.log.record(format!(
-                                        "Managed discovery inspection {}: {error}",
-                                        path.display()
-                                    ));
-                                    None
-                                }
-                            }
-                        })
-                        .collect::<BTreeSet<_>>(),
+                    state.managed_digests()?,
                     state.log.clone(),
                 ))
             })
             .await?;
         self.owner.scans.start(config, workspaces, managed, log)
     }
-    /// Requests cooperative cancellation while retaining partial findings.
-    pub async fn cancel_scan(&self) -> AppResult<ScanSnapshot> {
-        self.owner.scans.cancel()
-    }
-    /// Returns retained scan state without waiting for a durable mutation.
-    pub fn current_scan(&self) -> AppResult<Option<ScanSnapshot>> {
+    /// The last completed scan and whether another one is running, without waiting for a
+    /// durable mutation.
+    pub fn current_scan(&self) -> AppResult<(Option<ScanSnapshot>, bool)> {
         self.owner.scans.current()
     }
     /// Re-inspects selected opaque candidates into an immutable review plan.
     pub async fn prepare_import(
         &self,
-        scan: ScanId,
         ids: Vec<CandidateId>,
         acknowledge_invalid: bool,
     ) -> AppResult<ImportPlan> {
-        self.call(move |state| state.prepare_import(scan, ids, acknowledge_invalid))
+        self.call(move |state| state.prepare_import(ids, acknowledge_invalid))
             .await
     }
     /// Applies a reviewed plan, or returns its durable previous outcome.
@@ -333,6 +282,36 @@ impl Engine {
     }
 }
 impl State {
+    /// The digest of each library skill's current payload, which marks found skills as in the
+    /// library. Unreadable and blocked payloads mark nothing.
+    fn managed_digests(&self) -> AppResult<BTreeMap<String, SkillId>> {
+        let library = self.read_library()?;
+        Ok(library
+            .skills
+            .iter()
+            .filter_map(|skill| {
+                let path = self
+                    .library_dir()
+                    .join(crate::library::payload_relative(&library, skill));
+                match self
+                    .contained_skill_path(&path)
+                    .and_then(|path| crate::payload::inspect(&path))
+                {
+                    Ok(inspection) if inspection.status != ValidationStatus::Blocked => {
+                        Some((inspection.manifest.digest, skill.id.clone()))
+                    }
+                    Ok(_) => None,
+                    Err(error) => {
+                        self.log.record(format!(
+                            "Managed discovery inspection {}: {error}",
+                            path.display()
+                        ));
+                        None
+                    }
+                }
+            })
+            .collect())
+    }
     fn snapshot(&mut self) -> AppResult<AppSnapshot> {
         let bootstrap = self.bootstrap()?;
         if bootstrap.step == OnboardingStep::Complete {
@@ -352,11 +331,7 @@ impl State {
             current.refreshed_at = sync.refreshed_at;
             sync = current;
         }
-        let importables = library
-            .as_ref()
-            .map(|library| self.listed_importables(&library.library))
-            .unwrap_or_default();
-        let (workspace_addition, rescanning) = self.targets.current()?;
+        let (scan, scanning) = self.scans.current()?;
         Ok(AppSnapshot {
             generation: 0,
             background_error: None,
@@ -364,13 +339,9 @@ impl State {
             library,
             home: self.config.home.display().to_string(),
             agents: crate::discovery::registry::agent_options(&self.config)?,
-            global_agents: self.target_agents(&DeploymentTarget::Global)?,
             workspaces: self.workspaces()?,
-            deployments: self.deployments()?,
-            importables,
-            workspace_addition,
-            rescanning,
-            scan: self.scans.current()?,
+            scan,
+            scanning,
             sync,
             import_outcome: self.setting("import_outcome")?.flatten(),
             preferences: self.setting("preferences")?.unwrap_or_default(),
@@ -415,9 +386,7 @@ impl State {
             git: None,
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),
-            targets: TargetScans::default(),
             grants: BTreeMap::new(),
-            importables: BTreeMap::new(),
             recovery_required: false,
             lock: File::create(data_dir.join("test.lock")).unwrap(),
         }

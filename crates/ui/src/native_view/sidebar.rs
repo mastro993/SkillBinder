@@ -11,10 +11,10 @@ use gpui_kit::{
     InteractiveElement, IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled,
     Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{ScanStatus, SyncSnapshot, SyncState};
+use skillbinder_proto::{SyncSnapshot, SyncState};
 use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
-/// The deployment target made of the global agent skill locations under home.
+/// The built-in workspace made of the global agent skill directories under home.
 pub(super) const SYSTEM: &str = "System";
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
@@ -110,10 +110,10 @@ impl NativeView {
             .library
             .as_ref()
             .map(|library| library.library.skills.len());
-        let discovery = match &snapshot.scan {
-            Some(scan) if scan.status == ScanStatus::Running => Some(spinner(cx)),
-            Some(scan) if !scan.candidates.is_empty() => Some(count(scan.candidates.len(), cx)),
-            _ => None,
+        // Scans run on every refresh, so they show no loading state here.
+        let discovery = match self.not_in_library().len() {
+            0 => None,
+            found => Some(count(found, cx)),
         };
         // One device pixel: a hairline on Retina instead of 1pt's two pixels.
         let hairline = px(1.0 / window.scale_factor());

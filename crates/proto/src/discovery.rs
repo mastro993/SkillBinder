@@ -1,4 +1,4 @@
-use crate::{CandidateId, GrantId, PlanId, ScanId, SkillId, ValidationMessage, ValidationStatus};
+use crate::{CandidateId, GrantId, PlanId, SkillId, ValidationMessage, ValidationStatus};
 use serde::{Deserialize, Serialize};
 
 /// A single-use capability issued after native directory selection.
@@ -9,18 +9,6 @@ pub struct DirectoryGrant {
     /// Display path for confirmation.
     pub display_path: String,
 }
-/// State of one discovery run.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum ScanStatus {
-    /// A worker is still traversing locations.
-    Running,
-    /// Candidate identities can be used for import.
-    Finished,
-    /// Partial findings are visible but cannot be imported.
-    Cancelled,
-    /// An unrecoverable scan failure occurred.
-    Failed,
-}
 /// One physical place where a discovered skill was found. Orders by path.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct CandidateLocation {
@@ -29,12 +17,14 @@ pub struct CandidateLocation {
     /// All agent reader labels for this physical location.
     pub readers: Vec<String>,
 }
-/// A discovered skill: one slug and content digest with every location holding those bytes.
+/// A found skill: one slug and content digest with every location holding those bytes.
 /// Its paths are never import inputs; the engine keeps the reviewed source by opaque identity.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Candidate {
-    /// Opaque identity scoped to a scan.
+    /// Opaque identity derived from the content, so it is the same in every scan that finds it.
     pub id: CandidateId,
+    /// The library skill with the same content, if any.
+    pub skill_id: Option<SkillId>,
     /// Directory slug.
     pub slug: String,
     /// Frontmatter description.
@@ -50,20 +40,12 @@ pub struct Candidate {
     /// Materialized regular file count.
     pub file_count: u64,
 }
-/// Immutable discovery state retained across navigation.
+/// The skills the last completed scan found in System and every workspace.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ScanSnapshot {
-    /// Run identity.
-    pub id: ScanId,
-    /// Worker lifecycle.
-    pub status: ScanStatus,
-    /// Candidate findings, ordered by their first location's path.
+    /// Found skills, ordered by their first location's path.
     pub candidates: Vec<Candidate>,
-    /// Number of visited source locations.
-    pub locations_checked: usize,
-    /// Discovered skills whose content is already in the managed library.
-    pub identical_hidden: usize,
-    /// Safe terminal failure message.
+    /// Safe failure message; the candidates of a failed scan cannot be imported.
     pub error: Option<String>,
 }
 /// One reviewed import choice.
@@ -109,10 +91,6 @@ pub struct ImportPlan {
     pub revision: String,
     /// Immutable reviewed rows.
     pub items: Vec<ImportItem>,
-    /// Target whose existing copies become the imported skill's deployment, for an import
-    /// started from that target's page.
-    #[serde(default)]
-    pub deployment: Option<crate::DeploymentTarget>,
 }
 /// Durable terminal import outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]

@@ -13,7 +13,7 @@ SkillBinder is one bounded context with one product vocabulary. Keep domain term
 - `README.md` identifies what this checkout can run.
 - `docs/features/native.md` describes the implemented features. Add behavior documentation with new features rather than documenting an aspirational implementation as complete.
 
-The shipped scope contains four onboarding steps, Discovery, import review, Library, flat folders, shared-slug resolution, Sync, and Settings. Global, workspaces, and deployments extend that scope. Upstream binding screens, nested folders, and tag-management UI are outside it.
+The shipped scope contains four onboarding steps, Discovery, import review, Library, flat folders, shared-slug resolution, Sync, and Settings. Workspaces and Agents extend that scope. Upstream binding screens, nested folders, and tag-management UI are outside it.
 
 ## Update documentation with behavior
 
@@ -28,17 +28,15 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - An agent is a registered skill reader with documented global roots and a direct workspace skill directory.
 - A scan observes source candidates without changing their bytes.
 - An import plan records immutable reviewed candidates and expires after 300 seconds.
-- A library owns portable metadata in `.skillbinder.json` schema 2 and payloads under `skills/<slug>/`.
-- A folder is flat. Each skill has at most one folder assignment. Folder order and color are portable organization data.
-- Global is the set of global agent skill locations under the user's home folder, such as `~/.claude/skills`. It is always present and cannot be renamed or removed. The app labels it System and lists it as the fixed first row of the Workspaces section, but it is not a workspace: it cannot be renamed, moved, or removed. Avoid "Root" for it; "root" keeps its filesystem meanings.
-- A workspace is a folder on this device that the user added to SkillBinder. Its name starts as the folder's last path component and can be renamed. Workspaces replace the former project-search roots; avoid "workspace root" for either.
-- A deployment target is Global or a workspace. Each target has the agents whose skill directories it writes to.
-- An installed agent is one of Global's agents. Its installed skills are every skill folder in its global skill directory, whether or not the library holds it. Agents that share a global skill directory share their installed skills. Avoid "installed" for workspace copies.
+- A library owns portable metadata in `.skillbinder.json` schema 2 and payloads under `skills/<slug>/`. It holds the imported skills and syncs through Git. Library is the view of every library skill.
+- A folder is flat. Each skill has at most one folder assignment. Folder order and color are portable organization data. A folder is only logical organization: assigning a skill never moves its files.
+- A workspace is a location SkillBinder scans for skills. Workspaces are machine-local. A workspace scan only reads its agent skill directories and never changes their bytes. System's directories are the agents' global skill directories, checked directly.
+- System is the built-in workspace: the agents' global skill directories under the user's home folder, such as `~/.claude/skills` or `~/.agents/skills`. It is always present, listed first, and cannot be renamed or removed. Avoid "Global" and "Root" for it; "root" keeps its filesystem meanings.
+- An added workspace is one project folder on this device. Its scan reads only the agent workspace skill directories at its top level, such as `<project>/.claude/skills`. Adding a folder adds it and each direct child that has an agent skill directory as separate workspaces; the folder itself is not remembered. Its name starts as the folder's last path component and can be renamed. Avoid "workspace root".
+- A found skill is a skill folder that a workspace scan found. Found skills are not stored: the next scan replaces them. A found skill is in library when its content matches a library skill.
+- An installed agent is a registry agent whose global skill directory exists on this device. Its installed skills are the found skills of System in that directory, whether or not the library holds them. Agents that share a global skill directory share their installed skills. Agents is the view of installed skills by agent.
 - The universal agents are the installed agents whose global skill directory is `~/.agents/skills`. The app lists them together as Universal. The registry's agent named Universal is not necessarily one of them: its global skill directory is under the XDG config folder.
-- A deployment pairs one library skill with one deployment target that holds a copy of it. Adding a skill to a target copies it into the target's agent skill directories; removing it deletes those copies and leaves the library skill in place. Workspaces and deployments are machine-local.
-- A deployment drifts when its copies or its library skill no longer match the digest it was written with. A rescan records which copies changed or went missing. A deployment is workspace changed when a copy changed and the library skill did not, outdated when the library skill changed and the copies did not, in conflict when both changed, and missing when a copy is gone and none changed. Drift never drops a deployment, and SkillBinder never resolves it on its own: the user picks a remedy, which uses the library version (restore, update, or redeploy) or accepts the changed copy into the library, or removes the deployment.
-- An importable skill is a discovered skill whose content matches no library skill. Importing one from its target's page records the copies there as the new skill's deployment without writing them.
-- Discovery is read-only. It lists each discovered skill once with every location where it was found, and it never changes deployments.
+- Discovery is the view of every found skill across all workspaces. It lists each one once per slug and content, with every location where it was found. Discovery is read-only; importing a found skill copies it into the library and leaves its source untouched.
 - Sync and Push are explicit actions that may commit managed changes. Imports and organization changes remain uncommitted until those actions.
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.

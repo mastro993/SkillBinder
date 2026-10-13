@@ -20,11 +20,8 @@ mod sidebar_scroll;
 mod sidebar_workspaces;
 mod status_bar;
 mod sync;
-mod target_dialogs;
-mod target_drift;
-mod target_importables;
-mod target_page;
 mod workspace_dialogs;
+mod workspace_page;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
@@ -59,27 +56,7 @@ enum DialogState {
         revision: String,
         selected: Option<SkillId>,
     },
-    /// Scan progress and outcome of the workspace being added.
-    AddWorkspace,
     RemoveWorkspace(WorkspaceId),
-    /// Library skills, and agents when the target has none yet, chosen to add to a target.
-    AddSkills {
-        target: DeploymentTarget,
-        skills: BTreeSet<SkillId>,
-        agents: Option<BTreeSet<String>>,
-    },
-    /// Confirms discarding copies that changed since they were deployed.
-    RemoveChanged {
-        target: DeploymentTarget,
-        skill: SkillId,
-        paths: Vec<String>,
-    },
-    /// Confirms discarding the changed copies of the deployment as `shown` by writing the
-    /// library version over them.
-    DiscardChanges {
-        shown: Deployment,
-        drift: Drift,
-    },
     None,
 }
 
@@ -89,7 +66,6 @@ enum Effect {
     Plan(ImportPlan),
     Preview(SkillPreview),
     DeletePreview(DeletePreview),
-    Dialog(DialogState),
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -104,8 +80,6 @@ pub struct NativeView {
     syncing: bool,
     error: Option<AppError>,
     dialog: DialogState,
-    /// The addition whose modal the user closed, until the engine drops it.
-    dismissed_addition: Option<ScanId>,
     selected_candidates: BTreeSet<CandidateId>,
     candidate_page: usize,
     acknowledge_invalid: bool,
@@ -113,8 +87,6 @@ pub struct NativeView {
     /// Inline folder name editing in the sidebar.
     folder_edit: Option<FolderEdit>,
     folder_reorder: RowReorder<FolderId>,
-    /// Target agents being edited on the current target page.
-    agent_edit: Option<BTreeSet<String>>,
     /// Inline workspace renaming in the sidebar.
     workspace_edit: Option<WorkspaceId>,
     workspace_reorder: RowReorder<WorkspaceId>,
@@ -222,14 +194,12 @@ impl NativeView {
             syncing: false,
             error: None,
             dialog: DialogState::None,
-            dismissed_addition: None,
             selected_candidates: BTreeSet::new(),
             candidate_page: 0,
             acknowledge_invalid: false,
             selected_skills: BTreeSet::new(),
             folder_edit: None,
             folder_reorder: RowReorder::default(),
-            agent_edit: None,
             workspace_edit: None,
             workspace_reorder: RowReorder::default(),
             sidebar_width,
@@ -262,13 +232,16 @@ impl NativeView {
     }
 
     fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
-        let old_scan = self.snapshot.scan.as_ref().map(|scan| &scan.id);
-        let new_scan = latest.scan.as_ref().map(|scan| &scan.id);
-        if old_scan != new_scan {
-            self.selected_candidates.clear();
-            self.candidate_page = 0;
-            self.acknowledge_invalid = false;
-        }
+        // Candidate identities follow content, so a rescan keeps the choices it still finds.
+        let listed: BTreeSet<_> = latest
+            .scan
+            .iter()
+            .flat_map(|scan| &scan.candidates)
+            .filter(|candidate| candidate.skill_id.is_none())
+            .map(|candidate| &candidate.id)
+            .collect();
+        self.selected_candidates.retain(|id| listed.contains(id));
+        self.candidate_page = self.candidate_page.min(listed.len().saturating_sub(1) / 50);
         if let Some(library) = &latest.library {
             let exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
             if matches!(&self.route, Route::Library(LibraryFilter::Folder(id)) if !exists(id)) {
@@ -289,10 +262,8 @@ impl NativeView {
             }
         }
         let workspace_exists = |id: &WorkspaceId| latest.workspaces.iter().any(|p| &p.id == id);
-        if matches!(&self.route, Route::Target(DeploymentTarget::Workspace(id)) if !workspace_exists(id))
-        {
+        if matches!(&self.route, Route::Workspace(id) if !workspace_exists(id)) {
             self.route = Route::Discovery;
-            self.agent_edit = None;
         }
         self.route = agent_page::agent_fallback(&latest, self.route.clone());
         if self
@@ -303,7 +274,6 @@ impl NativeView {
             self.workspace_edit = None;
         }
         self.snapshot = latest;
-        self.sync_addition_dialog();
         if self.snapshot.preferences.sidebar_width != self.sidebar_width
             && !self.resizing_sidebar
             && !self.preference_writes.is_busy()
@@ -343,7 +313,6 @@ impl NativeView {
                             Effect::DeletePreview(preview) => {
                                 view.dialog = DialogState::DeleteFolder(preview)
                             }
-                            Effect::Dialog(dialog) => view.dialog = dialog,
                         }
                     }
                     Ok(Err(error)) => view.error = Some(error),
@@ -391,9 +360,7 @@ impl NativeView {
             Route::Library(LibraryFilter::Folder(id)) if !folder_exists(&id) => {
                 Route::Library(LibraryFilter::All)
             }
-            Route::Target(DeploymentTarget::Workspace(id)) if !workspace_exists(&id) => {
-                Route::Discovery
-            }
+            Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
             route => agent_page::agent_fallback(&self.snapshot, route),
         };
         if self.route != route {
@@ -403,7 +370,6 @@ impl NativeView {
             self.selected_skills.clear();
             self.selected_skill = None;
             self.preview = None;
-            self.agent_edit = None;
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
         }
@@ -486,7 +452,8 @@ impl Render for NativeView {
             let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library(_) => self.render_library(cx).into_any_element(),
-                Route::Target(target) => self.render_target(&target.clone(), cx),
+                Route::System => self.render_system(),
+                Route::Workspace(id) => self.render_workspace(&id.clone()),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
                 Route::Universal => self.render_universal(cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),

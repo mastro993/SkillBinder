@@ -49,8 +49,7 @@ identifier!(
     "A portable skill identity, independent of its slug."
 );
 identifier!(FolderId, "A flat folder identity.");
-identifier!(ScanId, "A discovery run identity.");
-identifier!(CandidateId, "An opaque discovery candidate identity.");
+identifier!(CandidateId, "An opaque found skill identity.");
 identifier!(PlanId, "An immutable import plan and replay key.");
 identifier!(
     WorkspaceId,

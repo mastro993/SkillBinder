@@ -9,14 +9,9 @@ mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep,
-    OrganizationChange, ScanStatus,
+    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep, OrganizationChange,
 };
-use std::{
-    fs,
-    path::Path,
-    time::{Duration, Instant},
-};
+use std::{fs, path::Path};
 use support::{Fixture, category};
 
 #[tokio::test]
@@ -88,38 +83,19 @@ async fn scan_deduplicates_shared_readers_and_stays_inside_known_workspace_locat
 }
 
 #[tokio::test]
-async fn cancelled_scan_cannot_prepare_and_a_new_scan_can() {
+async fn a_skill_the_last_scan_no_longer_finds_cannot_be_prepared() {
     let fixture = Fixture::new();
-    fixture.skill("alpha", "A");
+    let source = fixture.skill("alpha", "A");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
-    let started = engine.start_scan().await.unwrap();
-    engine.cancel_scan().await.unwrap();
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let terminal = loop {
-        let current = engine.current_scan().unwrap().unwrap();
-        if current.status != ScanStatus::Running {
-            break current;
-        }
-        assert!(Instant::now() < deadline);
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    };
-    assert_eq!(started.id, terminal.id);
-    assert_eq!(terminal.status, ScanStatus::Cancelled);
+    let scan = fixture.scan(&engine).await;
+    let found = scan.candidates[0].id.clone();
+    fs::remove_dir_all(&source).unwrap();
+    assert!(fixture.scan(&engine).await.candidates.is_empty());
     assert_eq!(
-        category(
-            engine
-                .prepare_import(
-                    terminal.id,
-                    vec![skillbinder_proto::CandidateId::new()],
-                    false
-                )
-                .await
-        ),
+        category(engine.prepare_import(vec![found], false).await),
         ErrorCategory::Stale
     );
-    let rescan = fixture.scan(&engine).await;
-    assert_eq!(rescan.candidates.len(), 1);
     engine.shutdown().await.unwrap();
 }
 
@@ -132,7 +108,7 @@ async fn import_preserves_source_bytes_and_replays_after_restart() {
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
     let plan = engine
-        .prepare_import(scan.id, vec![scan.candidates[0].id.clone()], false)
+        .prepare_import(vec![scan.candidates[0].id.clone()], false)
         .await
         .unwrap();
     assert_eq!(plan.items[0].decision, ImportDecision::NewSkill);
@@ -171,7 +147,7 @@ async fn changed_source_refuses_whole_prepared_import() {
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
     let plan = engine
-        .prepare_import(scan.id, vec![scan.candidates[0].id.clone()], false)
+        .prepare_import(vec![scan.candidates[0].id.clone()], false)
         .await
         .unwrap();
     fs::write(
@@ -204,9 +180,7 @@ async fn folders_casefold_assign_and_stale_delete_preview() {
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
-    let skill = fixture
-        .import_one(&engine, &scan.candidates[0], &scan)
-        .await;
+    let skill = fixture.import_one(&engine, &scan.candidates[0]).await;
     let library = engine
         .change_organization(OrganizationChange::CreateFolder {
             name: " Straße ".into(),
@@ -348,9 +322,7 @@ async fn preview_rejects_escape_and_bounds_binary_content() {
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
-    let skill = fixture
-        .import_one(&engine, &scan.candidates[0], &scan)
-        .await;
+    let skill = fixture.import_one(&engine, &scan.candidates[0]).await;
     assert_eq!(
         category(
             engine
@@ -379,9 +351,7 @@ async fn shared_slug_keeps_second_copy_until_reviewed_resolution_backs_up_loser(
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let first_scan = fixture.scan(&engine).await;
-    let first_id = fixture
-        .import_one(&engine, &first_scan.candidates[0], &first_scan)
-        .await;
+    let first_id = fixture.import_one(&engine, &first_scan.candidates[0]).await;
     fs::write(
         source.join("SKILL.md"),
         b"---\nname: shared\ndescription: Changed\n---\nSecond copy\n",
@@ -389,11 +359,7 @@ async fn shared_slug_keeps_second_copy_until_reviewed_resolution_backs_up_loser(
     .unwrap();
     let second_scan = fixture.scan(&engine).await;
     let plan = engine
-        .prepare_import(
-            second_scan.id,
-            vec![second_scan.candidates[0].id.clone()],
-            false,
-        )
+        .prepare_import(vec![second_scan.candidates[0].id.clone()], false)
         .await
         .unwrap();
     assert_eq!(plan.items[0].decision, ImportDecision::Conflict);

@@ -1,10 +1,10 @@
 //! The sidebar Agents section: Universal first, then the other installed agents alphabetically,
 //! each opening its own page.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::agent_skills::{
-    InstalledSkill, UNIVERSAL, agent_name, installed_agents, installed_skills, split_universal,
+    InstalledSkill, UNIVERSAL, agent_name, found_in, installed_agents, split_universal,
     universal_dir,
 };
 use super::controls::{agent_icon, app_icon};
@@ -21,10 +21,7 @@ use skillbinder_theme::sidebar::{LABEL_SIZE, ROW_GAP, ROW_HEIGHT, ROW_PADDING};
 impl NativeView {
     pub(super) fn render_agents(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let home = &self.snapshot.home;
-        let (universal, others) = split_universal(
-            installed_agents(&self.snapshot.agents, &self.snapshot.global_agents),
-            home,
-        );
+        let (universal, others) = split_universal(installed_agents(&self.snapshot.agents), home);
         let universal_row = (!universal.is_empty()).then(|| {
             let dir = universal_dir(home);
             self.render_agent_row(
@@ -109,11 +106,16 @@ impl NativeView {
 
     /// The skill folders in a global skill directory.
     pub(super) fn installed_in(&self, dir: &Path) -> Vec<InstalledSkill> {
-        installed_skills(
-            dir,
-            &self.snapshot.deployments,
-            &self.snapshot.importables,
-            |skill| self.skill_slug(skill),
-        )
+        self.found_in(&[dir.to_path_buf()])
+    }
+
+    /// The skill folders the last scan found inside any of `dirs`.
+    pub(super) fn found_in(&self, dirs: &[PathBuf]) -> Vec<InstalledSkill> {
+        let candidates = self
+            .snapshot
+            .scan
+            .as_ref()
+            .map_or(&[][..], |scan| &scan.candidates);
+        found_in(dirs, candidates)
     }
 }

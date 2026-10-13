@@ -1,6 +1,6 @@
 //! Navigable routes and the in-memory back/forward history between them.
 
-use skillbinder_proto::{DeploymentTarget, FolderId};
+use skillbinder_proto::{FolderId, WorkspaceId};
 
 /// Which skills the Library route lists.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -14,8 +14,10 @@ pub(super) enum LibraryFilter {
 pub(super) enum Route {
     Discovery,
     Library(LibraryFilter),
-    /// The page of Global or a workspace: `workspace/{id}`, or Global's own route.
-    Target(DeploymentTarget),
+    /// System's page.
+    System,
+    /// An added workspace's page: `workspace/{id}`.
+    Workspace(WorkspaceId),
     /// An installed agent's page, by registry id: `agent/{id}`.
     Agent(String),
     /// The page of the universal agents together, which read `~/.agents/skills`:
@@ -63,7 +65,7 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::{History, LibraryFilter, Route};
-    use skillbinder_proto::{DeploymentTarget, WorkspaceId};
+    use skillbinder_proto::WorkspaceId;
 
     #[test]
     fn back_and_forward_walk_the_visited_routes() {
@@ -80,19 +82,13 @@ mod tests {
     }
 
     #[test]
-    fn target_pages_join_the_history() {
+    fn workspace_pages_join_the_history() {
         let mut history = History::default();
-        let workspace = Route::Target(DeploymentTarget::Workspace(WorkspaceId::new()));
+        let workspace = Route::Workspace(WorkspaceId::new());
         history.push(Route::Discovery);
-        history.push(Route::Target(DeploymentTarget::Global));
-        assert_eq!(
-            history.back(workspace.clone()),
-            Some(Route::Target(DeploymentTarget::Global))
-        );
-        assert_eq!(
-            history.forward(Route::Target(DeploymentTarget::Global)),
-            Some(workspace)
-        );
+        history.push(Route::System);
+        assert_eq!(history.back(workspace.clone()), Some(Route::System));
+        assert_eq!(history.forward(Route::System), Some(workspace));
     }
 
     #[test]

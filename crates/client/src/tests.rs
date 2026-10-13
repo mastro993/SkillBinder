@@ -34,7 +34,10 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
         })
         .await?;
     let updated = engine.snapshot().await?;
-    let scan = engine.start_scan().await?;
+    engine.start_scan().await?;
+    while engine.current_scan()?.1 {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
     shared.publish_progress()?;
     shared.publish_full(2, updated)?;
     shared.publish_full(1, original)?;
@@ -46,7 +49,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
         current.preferences.folded_sections,
         [SidebarSection::Folders].into()
     );
-    assert_eq!(current.scan.as_ref().map(|scan| &scan.id), Some(&scan.id));
+    assert!(current.scan.is_some() && !current.scanning);
     assert_eq!(shared.requested.load(Ordering::Acquire), 2);
     assert!(current.generation >= 2);
     engine.shutdown().await?;

@@ -73,7 +73,7 @@ fn document(mut registry: Registry) -> anyhow::Result<String> {
     let mut text = String::from("# Supported agent registry\n\n");
     writeln!(
         text,
-        "The reviewed registry contains {} agents. Global's target agents are its installed agents; entries are not runtime-tested.\n",
+        "The reviewed registry contains {} agents. Installed agents are the agents whose global skill directory exists on this device; entries are not runtime-tested.\n",
         registry.agents.len()
     )?;
     writeln!(

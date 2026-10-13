@@ -1,55 +1,46 @@
 use super::{
-    ImportSource, Scans,
+    Found, ImportSource,
     registry::Location,
     walk::{Visit, Walk},
 };
 use crate::{logging::Logger, payload};
+use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
 
-/// Content identity of a discovered skill: its slug and manifest digest. The digest
-/// leaves out entries that inspection blocks or excludes, so copies with one content
-/// identity merge only when their validation reports also match.
-type Content = (String, String);
-
-/// Where a physical skill directory went: hidden as library content, or a candidate location.
-enum Seen {
-    Hidden,
-    Listed(CandidateId, usize),
-}
-
 struct Traversal<'a> {
-    scans: &'a Scans,
-    id: &'a ScanId,
-    managed: &'a BTreeSet<String>,
+    managed: &'a BTreeMap<String, SkillId>,
     log: &'a Logger,
-    physical: BTreeMap<PathBuf, Seen>,
-    contents: BTreeMap<Content, Vec<CandidateId>>,
-    hidden: BTreeSet<Content>,
+    found: Found,
+    /// Candidate and location index of each physical skill directory already listed.
+    physical: BTreeMap<PathBuf, (usize, usize)>,
+    /// Index of each candidate by identity.
+    listed: BTreeMap<CandidateId, usize>,
 }
 
 pub(super) fn scan(
-    scans: &Scans,
-    id: &ScanId,
     locations: Vec<Location>,
-    managed: &BTreeSet<String>,
+    managed: &BTreeMap<String, SkillId>,
     cancel: &AtomicBool,
     log: &Logger,
-) -> AppResult<()> {
+) -> AppResult<Found> {
     let mut traversal = Traversal {
-        scans,
-        id,
         managed,
         log,
+        found: Found {
+            snapshot: ScanSnapshot {
+                candidates: Vec::new(),
+                error: None,
+            },
+            sources: BTreeMap::new(),
+        },
         physical: BTreeMap::new(),
-        contents: BTreeMap::new(),
-        hidden: BTreeSet::new(),
+        listed: BTreeMap::new(),
     };
-    let skip = BTreeSet::new();
     for location in locations {
         if cancel.load(Ordering::Acquire) {
             break;
@@ -64,31 +55,51 @@ pub(super) fn scan(
         let walk = Walk {
             boundary: &location.boundary,
             workspace: location.workspace,
-            skip: &skip,
             cancel,
             log,
         };
         walk.run(&location.path, &mut |visit: Visit<'_>| {
             if visit.skill {
-                traversal.candidate(&location, visit.path, visit.canonical.to_path_buf())?;
+                traversal.candidate(&location, visit.path, visit.canonical.to_path_buf());
             }
             Ok(!visit.skill)
         })?;
-        let mut state = scans.0.lock().map_err(|_| AppError::storage())?;
-        if let Some(run) = state.as_mut() {
-            run.snapshot.locations_checked += 1;
-        }
     }
-    Ok(())
+    let mut found = traversal.found;
+    for candidate in &mut found.snapshot.candidates {
+        candidate.locations.sort();
+    }
+    found
+        .snapshot
+        .candidates
+        .sort_by_cached_key(|candidate| candidate.locations.first().cloned());
+    Ok(found)
+}
+
+/// A found skill's identity: copies merge only when their slug, manifest digest, and validation
+/// report all match. The digest leaves out entries that inspection blocks or excludes, so a
+/// blocked copy never hides an importable one.
+fn identity(inspection: &payload::Inspection) -> CandidateId {
+    let key = serde_json::to_vec(&(
+        &inspection.slug,
+        &inspection.manifest.digest,
+        inspection.status,
+        &inspection.messages,
+    ))
+    .unwrap_or_default();
+    CandidateId(format!("{:x}", Sha256::digest(key)))
 }
 
 impl Traversal<'_> {
-    fn candidate(&mut self, location: &Location, path: &Path, canonical: PathBuf) -> AppResult<()> {
-        if let Some(seen) = self.physical.get(&canonical) {
-            if let Seen::Listed(candidate, index) = seen {
-                self.merge_readers(candidate, *index, &location.readers)?;
+    fn candidate(&mut self, location: &Location, path: &Path, canonical: PathBuf) {
+        let candidates = &mut self.found.snapshot.candidates;
+        if let Some(&(candidate, index)) = self.physical.get(&canonical) {
+            if let Some(found) = candidates[candidate].locations.get_mut(index) {
+                found.readers.extend_from_slice(&location.readers);
+                found.readers.sort();
+                found.readers.dedup();
             }
-            return Ok(());
+            return;
         }
         let inspection = match payload::inspect(&canonical) {
             Ok(inspection) => inspection,
@@ -97,44 +108,25 @@ impl Traversal<'_> {
                     "Discovery inspection {}: {error}",
                     canonical.display()
                 ));
-                return Ok(());
+                return;
             }
         };
-        let content = (inspection.slug.clone(), inspection.manifest.digest.clone());
         let found = CandidateLocation {
             display_path: path.display().to_string(),
             readers: location.readers.clone(),
         };
-        let mut state = self.scans.0.lock().map_err(|_| AppError::storage())?;
-        let run = state
-            .as_mut()
-            .filter(|run| &run.snapshot.id == self.id)
-            .ok_or_else(|| AppError::stale("Scan was replaced."))?;
-        if self.managed.contains(&content.1) {
-            if self.hidden.insert(content) {
-                run.snapshot.identical_hidden += 1;
-            }
-            self.physical.insert(canonical, Seen::Hidden);
-            return Ok(());
+        let id = identity(&inspection);
+        if let Some(&candidate) = self.listed.get(&id) {
+            candidates[candidate].locations.push(found);
+            let index = candidates[candidate].locations.len() - 1;
+            self.physical.insert(canonical, (candidate, index));
+            return;
         }
-        let same = self.contents.entry(content).or_default();
-        if let Some(candidate) = run.snapshot.candidates.iter_mut().find(|candidate| {
-            same.contains(&candidate.id)
-                && candidate.validation == inspection.status
-                && candidate.messages == inspection.messages
-        }) {
-            candidate.locations.push(found);
-            let index = candidate.locations.len() - 1;
-            self.physical
-                .insert(canonical, Seen::Listed(candidate.id.clone(), index));
-            return Ok(());
-        }
-        let candidate_id = CandidateId::new();
-        self.physical
-            .insert(canonical, Seen::Listed(candidate_id.clone(), 0));
-        same.push(candidate_id.clone());
-        run.snapshot.candidates.push(Candidate {
-            id: candidate_id.clone(),
+        self.listed.insert(id.clone(), candidates.len());
+        self.physical.insert(canonical, (candidates.len(), 0));
+        candidates.push(Candidate {
+            id: id.clone(),
+            skill_id: self.managed.get(&inspection.manifest.digest).cloned(),
             slug: inspection.slug.clone(),
             description: inspection.description.clone(),
             locations: vec![found.clone()],
@@ -143,37 +135,12 @@ impl Traversal<'_> {
             total_bytes: inspection.manifest.total_bytes(),
             file_count: inspection.manifest.file_count(),
         });
-        run.sources.insert(
-            candidate_id,
+        self.found.sources.insert(
+            id,
             ImportSource {
                 display_path: found.display_path,
                 inspection,
             },
         );
-        Ok(())
-    }
-
-    fn merge_readers(
-        &self,
-        existing: &CandidateId,
-        index: usize,
-        readers: &[String],
-    ) -> AppResult<()> {
-        let mut state = self.scans.0.lock().map_err(|_| AppError::storage())?;
-        if let Some(location) = state
-            .as_mut()
-            .and_then(|run| {
-                run.snapshot
-                    .candidates
-                    .iter_mut()
-                    .find(|candidate| &candidate.id == existing)
-            })
-            .and_then(|candidate| candidate.locations.get_mut(index))
-        {
-            location.readers.extend_from_slice(readers);
-            location.readers.sort();
-            location.readers.dedup();
-        }
-        Ok(())
     }
 }

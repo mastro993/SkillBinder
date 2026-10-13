@@ -10,8 +10,8 @@ mod lifecycle;
 mod logging;
 mod payload;
 mod persistence;
-mod targets;
 mod worker;
+mod workspaces;
 
 pub use lifecycle::EngineConfig;
 pub use worker::Engine;

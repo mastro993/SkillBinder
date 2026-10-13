@@ -18,7 +18,7 @@ Use small, specialized modules. Model state with typed data and enums. Use `Resu
 
 Use GPUI Kit public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork, except agent logos, which use the artwork under `assets/agent-logos/` recorded in its `inventory.json`; agents without a logo use the Hugeicons square terminal glyph. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 
-Preserve captured behavior. The user has deferred UI fidelity and polish until after functional reconstruction. The approved scope contains onboarding, Discovery, Library, flat folders, Global and workspaces with their deployments, Sync, and Settings. It excludes upstream bindings, nested folders, and tag-management UI. Deployment writes follow `docs/adr/0001-deployments-write-copies-into-workspaces.md`.
+Preserve captured behavior. The user has deferred UI fidelity and polish until after functional reconstruction. The approved scope contains onboarding, Discovery, Library, flat folders, System and workspaces, Agents, Sync, and Settings. It excludes upstream bindings, nested folders, and tag-management UI. SkillBinder does not write into System or workspaces.
 
 Update affected behavior documents in `docs/`. Keep application code and documentation independent of external architecture examples. Preserve dependency and asset licenses.
 

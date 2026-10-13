@@ -27,11 +27,7 @@ impl NativeView {
                         .on_ok(|_, _, _| false)
                         .on_close(move |_, _, cx| {
                             let _ = close_view.update(cx, |view, cx| {
-                                if matches!(view.dialog, DialogState::AddWorkspace) {
-                                    view.close_addition(cx);
-                                } else {
-                                    view.dialog = DialogState::None;
-                                }
+                                view.dialog = DialogState::None;
                                 cx.notify();
                             });
                         })
@@ -73,7 +69,7 @@ impl NativeView {
             })
     }
 
-    /// Review of an import plan; an import started from a target page also names that target.
+    /// Review of an import plan.
     fn import_plan_dialog(
         &self,
         dialog: Dialog,
@@ -86,12 +82,6 @@ impl NativeView {
             "Review {} selected sources before copying them into the managed library.",
             plan.items.len()
         ));
-        if let Some(target) = &plan.deployment {
-            body = body.child(format!(
-                "Its copies in {} stay in place and become its deployment there.",
-                self.target_name(target)
-            ));
-        }
         for item in &plan.items {
             body = body.child(format!(
                 "{} — {:?} — {} → {} ({} bytes)",
@@ -353,11 +343,7 @@ impl NativeView {
                             }),
                     )
             }
-            DialogState::AddWorkspace => self.add_workspace_dialog(dialog, cx),
             DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
-            DialogState::AddSkills { .. } => self.add_skills_dialog(dialog, cx),
-            DialogState::RemoveChanged { .. } => self.remove_changed_dialog(dialog, cx),
-            DialogState::DiscardChanges { .. } => self.discard_changes_dialog(dialog, cx),
         }
     }
 }

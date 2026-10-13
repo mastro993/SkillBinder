@@ -1,6 +1,6 @@
 # Supported agent registry
 
-The reviewed registry contains 79 agents. Global's target agents are its installed agents; entries are not runtime-tested.
+The reviewed registry contains 79 agents. Installed agents are the agents whose global skill directory exists on this device; entries are not runtime-tested.
 
 Source: `vercel-labs/skills` at `13e4063a1cf913f5606d57d42ab83a86f5001e04`.
 

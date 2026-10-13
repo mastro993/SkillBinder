@@ -28,9 +28,7 @@ async fn expired_review_has_no_effect_and_completed_review_replays_after_expiry(
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
     let ids = vec![scan.candidates[0].id.clone()];
-    let expired = engine
-        .prepare_import(scan.id.clone(), ids.clone(), false)
-        .await?;
+    let expired = engine.prepare_import(ids.clone(), false).await?;
     let before = std::fs::read(fixture.data.join("library/.skillbinder.json"))?;
     expire(&fixture.data, &expired.id)?;
     assert!(
@@ -43,7 +41,7 @@ async fn expired_review_has_no_effect_and_completed_review_replays_after_expiry(
         std::fs::read(fixture.data.join("library/.skillbinder.json"))?,
         before
     );
-    let valid = engine.prepare_import(scan.id, ids, false).await?;
+    let valid = engine.prepare_import(ids, false).await?;
     let outcome = engine.apply_import(valid.id.clone()).await?;
     engine.shutdown().await?;
     expire(&fixture.data, &valid.id)?;

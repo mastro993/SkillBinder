@@ -8,16 +8,11 @@ use skillbinder_proto::*;
 
 impl NativeView {
     pub(super) fn discovery_header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        let running = self
-            .snapshot
-            .scan
-            .as_ref()
-            .is_some_and(|scan| scan.status == ScanStatus::Running);
-        let mut actions = vec![
+        vec![
             button("scan-start")
-                .label("Scan again")
+                .label("Rescan")
                 .small()
-                .inactive(self.busy || running)
+                .inactive(self.busy || self.snapshot.scanning)
                 .on_click(cx.listener(|view, _, _, cx| {
                     let client = view.client.clone();
                     view.run(
@@ -26,60 +21,52 @@ impl NativeView {
                     );
                 }))
                 .into_any_element(),
-        ];
-        if running {
-            actions.push(
-                button("scan-cancel")
-                    .label("Cancel scan")
-                    .small()
-                    .inactive(self.busy)
-                    .on_click(cx.listener(|view, _, _, cx| {
-                        let client = view.client.clone();
-                        view.run(
-                            async move { client.cancel_scan().await.map(|_| Effect::None) },
-                            cx,
-                        );
-                    }))
-                    .into_any_element(),
-            );
-        }
-        actions
+        ]
+    }
+
+    /// Found skills whose content the library does not hold, which Discovery lists.
+    pub(super) fn not_in_library(&self) -> Vec<&Candidate> {
+        self.snapshot.scan.as_ref().map_or_else(Vec::new, |scan| {
+            scan.candidates
+                .iter()
+                .filter(|candidate| candidate.skill_id.is_none())
+                .collect()
+        })
     }
 
     pub(super) fn render_discovery(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let scan = self.snapshot.scan.as_ref();
-        let finished = scan.is_some_and(|scan| scan.status == ScanStatus::Finished);
+        let finished = scan.is_some_and(|scan| scan.error.is_none());
+        let listed = self.not_in_library();
         let selected: Vec<_> = self.selected_candidates.iter().cloned().collect();
-        let has_invalid = scan.is_some_and(|scan| {
-            scan.candidates.iter().any(|candidate| {
-                selected.contains(&candidate.id)
-                    && candidate.validation == ValidationStatus::Invalid
-            })
+        let has_invalid = listed.iter().any(|candidate| {
+            selected.contains(&candidate.id) && candidate.validation == ValidationStatus::Invalid
         });
-        let blocked = scan.is_some_and(|scan| {
-            scan.candidates.iter().any(|candidate| {
-                selected.contains(&candidate.id)
-                    && candidate.validation == ValidationStatus::Blocked
-            })
+        let blocked = listed.iter().any(|candidate| {
+            selected.contains(&candidate.id) && candidate.validation == ValidationStatus::Blocked
         });
         let mut page = div()
             .flex()
             .flex_col()
             .gap_4()
             .child("Discovery")
-            .child("Find installed skills and skills in your workspaces.");
+            .child("Skills found in System and your workspaces that are not in your library.");
+        if self.snapshot.scanning {
+            page = page.child("Scanning…");
+        }
         if let Some(scan) = scan {
             page = page.child(format!(
-                "{:?} · {} locations checked · {} already in library",
-                scan.status, scan.locations_checked, scan.identical_hidden
+                "{} found · {} already in library",
+                listed.len(),
+                scan.candidates.len() - listed.len()
             ));
             if let Some(error) = &scan.error {
                 page = page.child(error.clone());
             }
             let start = self.candidate_page * 50;
-            let end = (start + 50).min(scan.candidates.len());
+            let end = (start + 50).min(listed.len());
             if finished && start < end {
-                let page_ids: Vec<_> = scan.candidates[start..end]
+                let page_ids: Vec<_> = listed[start..end]
                     .iter()
                     .filter(|item| item.validation != ValidationStatus::Blocked)
                     .map(|item| item.id.clone())
@@ -109,7 +96,7 @@ impl NativeView {
                         }),
                 );
             }
-            for candidate in scan.candidates.iter().skip(start).take(50) {
+            for candidate in listed.iter().skip(start).take(50) {
                 let id = candidate.id.clone();
                 let chosen = self.selected_candidates.contains(&id);
                 page = page.child(
@@ -158,7 +145,7 @@ impl NativeView {
                         })),
                 );
             }
-            let pages = scan.candidates.len().div_ceil(50);
+            let pages = listed.len().div_ceil(50);
             if pages > 1 {
                 page = page.child(
                     div()
@@ -201,7 +188,6 @@ impl NativeView {
                         }),
                 );
             }
-            let scan_id = scan.id.clone();
             let acknowledge = self.acknowledge_invalid;
             page = page.child(
                 button("prepare-import")
@@ -216,12 +202,11 @@ impl NativeView {
                     )
                     .on_click(cx.listener(move |view, _, _, cx| {
                         let client = view.client.clone();
-                        let scan_id = scan_id.clone();
                         let selected = selected.clone();
                         view.run(
                             async move {
                                 client
-                                    .prepare_import(scan_id, selected, acknowledge)
+                                    .prepare_import(selected, acknowledge)
                                     .await
                                     .map(Effect::Plan)
                             },
