@@ -17,7 +17,6 @@ use gpui_kit::{
 };
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
-    SECTION_GAP, SECTION_HEIGHT,
 };
 
 /// Unselected icons sit a step below their label, as in the reference design.
@@ -131,22 +130,6 @@ pub(super) fn spinner(cx: &App) -> AnyElement {
         .color(cx.theme().muted_foreground)
         .with_size(px(DETAIL_SIZE))
         .into_any_element()
-}
-
-/// A section title with a trailing add button centred on the rows' trailing column.
-pub(super) fn section_header(title: &'static str, add: Button, cx: &App) -> Div {
-    div()
-        .flex()
-        .flex_shrink_0()
-        .items_center()
-        .h(px(SECTION_HEIGHT))
-        .mt(px(SECTION_GAP))
-        .pl(px(ROW_PADDING))
-        .pr(px(ROW_PADDING - (ROW_HEIGHT - 8.0 - ICON_SIZE) / 2.0))
-        .text_size(px(DETAIL_SIZE))
-        .text_color(cx.theme().muted_foreground.opacity(0.8))
-        .child(div().flex_1().child(title))
-        .child(add)
 }
 
 /// The plus button of a section header.

@@ -30,6 +30,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
             sidebar_width: 320.0,
             sidebar_collapsed: true,
             appearance: Appearance::Dark,
+            folded_sections: [SidebarSection::Folders].into(),
         })
         .await?;
     let updated = engine.snapshot().await?;
@@ -41,6 +42,10 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
     assert_eq!(current.preferences.sidebar_width, 320.0);
     assert!(current.preferences.sidebar_collapsed);
     assert_eq!(current.preferences.appearance, Appearance::Dark);
+    assert_eq!(
+        current.preferences.folded_sections,
+        [SidebarSection::Folders].into()
+    );
     assert_eq!(current.scan.as_ref().map(|scan| &scan.id), Some(&scan.id));
     assert_eq!(shared.requested.load(Ordering::Acquire), 2);
     assert!(current.generation >= 2);
