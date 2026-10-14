@@ -20,8 +20,9 @@ pub struct CandidateLocation {
     pub readers: Vec<String>,
     /// Registry identities of the same agents, sorted.
     pub agents: Vec<String>,
-    /// Registry identities of the agents whose global skill directory holds this location, through
-    /// any link to it, sorted; empty for a location only workspaces read.
+    /// Registry identities of the agents whose own global skill directory, the one shown for them,
+    /// holds this location through any link to it, sorted; empty for a location only workspaces
+    /// or further registry roots read.
     pub global_agents: Vec<String>,
     /// The workspaces whose scan reads this location; empty for a global skill directory.
     pub workspaces: Vec<WorkspaceId>,

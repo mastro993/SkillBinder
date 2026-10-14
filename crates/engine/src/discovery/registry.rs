@@ -29,7 +29,8 @@ pub(crate) struct Location {
     pub readers: Vec<String>,
     /// Registry identities of the same agents.
     pub agents: Vec<String>,
-    /// Registry identities of the agents whose global skill directory this is.
+    /// Registry identities of the agents whose own global skill directory this is: the one the
+    /// app shows, not a further registry root.
     pub global_agents: Vec<String>,
     /// The workspaces whose scan reads this location; empty for a global skill directory.
     pub workspaces: Vec<WorkspaceId>,
@@ -54,14 +55,19 @@ pub(crate) fn locations(
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
     for agent in registry()?.agents {
+        let own = global_dir(&agent, config);
         for template in &agent.global_roots {
             if let Some(path) = expand(template, config) {
-                add(&mut combined, path, &config.home, &agent, None, log);
+                let reading = Reading::Global {
+                    own: own.as_ref() == Some(&path),
+                };
+                add(&mut combined, path, &config.home, &agent, reading, log);
             }
         }
         for (id, boundary) in workspaces {
             let path = boundary.join(&agent.workspace_skills_dir);
-            add(&mut combined, path, boundary, &agent, Some(id), log);
+            let reading = Reading::Workspace(id);
+            add(&mut combined, path, boundary, &agent, reading, log);
         }
     }
     Ok(combined.into_values().collect())
@@ -119,12 +125,20 @@ fn global_dir(agent: &Agent, config: &EngineConfig) -> Option<PathBuf> {
         .iter()
         .find_map(|template| expand(template, config))
 }
+/// How an agent reads a location.
+enum Reading<'a> {
+    /// As one of its global roots; `own` when it is the global skill directory the app shows for
+    /// the agent, its first root that expands.
+    Global { own: bool },
+    /// As its skill directory at the top of a workspace.
+    Workspace(&'a WorkspaceId),
+}
 fn add(
     locations: &mut BTreeMap<PathBuf, Location>,
     path: PathBuf,
     boundary: &Path,
     agent: &Agent,
-    workspace: Option<&WorkspaceId>,
+    reading: Reading<'_>,
     log: &Logger,
 ) {
     let place = match bounded(&path, boundary) {
@@ -141,9 +155,10 @@ fn add(
             global_agents: Vec::new(),
             workspaces: Vec::new(),
         });
-    match workspace {
-        Some(workspace) => insert(&mut location.workspaces, workspace),
-        None => insert(&mut location.global_agents, &agent.id),
+    match reading {
+        Reading::Workspace(workspace) => insert(&mut location.workspaces, workspace),
+        Reading::Global { own: true } => insert(&mut location.global_agents, &agent.id),
+        Reading::Global { own: false } => {}
     }
     insert(&mut location.readers, &agent.display_name);
     insert(&mut location.agents, &agent.id);

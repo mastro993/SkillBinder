@@ -111,6 +111,29 @@ async fn a_skill_linked_between_global_directories_records_every_global_reader()
 }
 
 #[tokio::test]
+async fn only_an_agents_own_global_directory_counts_as_its_global_reading() {
+    let fixture = Fixture::new();
+    write_skill(&fixture.home.join(".openclaw/skills"), "own", "Own");
+    write_skill(&fixture.home.join(".clawdbot/skills"), "legacy", "Legacy");
+    let engine = fixture.ready().await;
+    let scan = fixture.scan(&engine).await;
+    let readers = |slug: &str| {
+        let candidate = scan
+            .candidates
+            .iter()
+            .find(|candidate| candidate.slug == slug)
+            .unwrap();
+        candidate.locations[0].global_agents.clone()
+    };
+    assert!(readers("own").iter().any(|id| id == "openclaw"));
+    assert!(
+        !readers("legacy").iter().any(|id| id == "openclaw"),
+        "a further registry root is scanned but not shown as the agent's directory"
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn same_slug_with_different_content_stays_separate() {
     let fixture = Fixture::new();
     write_skill(
