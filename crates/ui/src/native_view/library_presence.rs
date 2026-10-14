@@ -1,13 +1,10 @@
 //! Library skill presence: the detected agents whose global skill directory held a copy of each
 //! library skill at the last scan. Workspace copies are not part of presence.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::Route;
-use super::agent_skills::{
-    UNIVERSAL, agent_name, detected_agents, found_where, read_globally, split_universal,
-    universal_dir,
-};
+use super::agent_skills::{UNIVERSAL, agent_name, detected_agents, split_universal, universal_dir};
 use skillbinder_proto::{AgentOption, ScanSnapshot, SkillId};
 
 /// Which Agents row holds a copy.
@@ -42,45 +39,53 @@ impl Holder {
 /// The Agents rows holding a copy of each library skill, in Agents section order: Universal
 /// first, then the other detected agents alphabetically. A copy counts as on the agent page:
 /// the row's agents read its location as their global skill directory. Library skills no row
-/// holds are left out.
+/// holds are left out. One pass over the scan, since Library renders it each frame.
 pub(super) fn presence(
     scan: &ScanSnapshot,
     agents: &[AgentOption],
     home: &str,
 ) -> BTreeMap<SkillId, Vec<Holder>> {
     let (universal, others) = split_universal(detected_agents(agents), home);
-    let shared = (!universal.is_empty()).then(|| {
-        let names = universal.iter().map(|agent| agent.display_name.clone());
-        let holder = Holder {
-            reader: Reader::Universal(names.collect()),
+    let mut rows = Vec::new();
+    let mut row_of: BTreeMap<&str, usize> = BTreeMap::new();
+    if !universal.is_empty() {
+        row_of.extend(universal.iter().map(|agent| (agent.id.as_str(), 0)));
+        rows.push(Holder {
+            reader: Reader::Universal(universal.iter().map(|a| a.display_name.clone()).collect()),
             name: UNIVERSAL.to_owned(),
             dir: universal_dir(home).display().to_string(),
-        };
-        (holder, universal)
-    });
-    let rows = shared
-        .into_iter()
-        .chain(others.into_iter().filter_map(|agent| {
-            let holder = Holder {
-                reader: Reader::Agent(agent.id.clone()),
-                name: agent_name(agent, home),
-                dir: agent.global_skills_dir.clone()?,
-            };
-            Some((holder, vec![agent]))
-        }));
-    let mut found: BTreeMap<SkillId, Vec<Holder>> = BTreeMap::new();
-    for (holder, readers) in rows {
-        let held = found_where(&scan.candidates, |location| {
-            read_globally(location, &readers)
         });
-        for skill in held.into_iter().filter_map(|skill| skill.skill) {
-            let holders = found.entry(skill).or_default();
-            if holders.last() != Some(&holder) {
-                holders.push(holder.clone());
-            }
-        }
     }
-    found
+    for agent in others {
+        let Some(dir) = agent.global_skills_dir.clone() else {
+            continue;
+        };
+        row_of.insert(agent.id.as_str(), rows.len());
+        rows.push(Holder {
+            reader: Reader::Agent(agent.id.clone()),
+            name: agent_name(agent, home),
+            dir,
+        });
+    }
+    let mut held: BTreeMap<&SkillId, BTreeSet<usize>> = BTreeMap::new();
+    for candidate in &scan.candidates {
+        let Some(skill) = &candidate.skill_id else {
+            continue;
+        };
+        let readers = candidate
+            .locations
+            .iter()
+            .flat_map(|location| &location.global_agents)
+            .filter_map(|id| row_of.get(id.as_str()).copied());
+        held.entry(skill).or_default().extend(readers);
+    }
+    held.into_iter()
+        .filter(|(_, indices)| !indices.is_empty())
+        .map(|(skill, indices)| {
+            let holders = indices.into_iter().map(|index| rows[index].clone());
+            (skill.clone(), holders.collect())
+        })
+        .collect()
 }
 
 #[cfg(test)]

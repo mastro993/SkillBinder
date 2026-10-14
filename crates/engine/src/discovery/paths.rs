@@ -49,6 +49,32 @@ pub(crate) fn resolve(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
     }
 }
 
+/// Like [`resolve`], but an absent path resolves to where it would be created: its deepest
+/// existing ancestor resolved, followed by the missing components. An absent directory under a
+/// linked parent therefore maps to the folder the link points to.
+pub(crate) fn resolve_absent(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
+    let mut existing = path.to_path_buf();
+    let mut missing = Vec::new();
+    loop {
+        match resolve(boundary, &existing) {
+            Ok(resolved) => {
+                return Ok(missing
+                    .iter()
+                    .rev()
+                    .fold(resolved, |at, name| at.join(name)));
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                let Some(name) = existing.file_name() else {
+                    return Ok(path.to_path_buf());
+                };
+                missing.push(name.to_owned());
+                existing.pop();
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
 fn refused() -> io::Error {
     io::Error::new(
         io::ErrorKind::PermissionDenied,

@@ -173,8 +173,8 @@ fn insert<T: Clone + Ord>(list: &mut Vec<T>, value: &T) {
         list.insert(index, value.clone());
     }
 }
-/// A location rebased onto its resolved boundary, and its resolved path, which is the same path
-/// while it does not exist yet.
+/// A location rebased onto its resolved boundary, and its resolved path; an absent location
+/// resolves to where it would be created.
 struct Place {
     boundary: PathBuf,
     path: PathBuf,
@@ -194,9 +194,8 @@ fn bounded(path: &Path, boundary: &Path) -> Result<Place, String> {
         ));
     };
     let path = canonical_boundary.join(relative);
-    let canonical = match paths::resolve(&canonical_boundary, &path) {
+    let canonical = match paths::resolve_absent(&canonical_boundary, &path) {
         Ok(canonical) => canonical,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => path.clone(),
         Err(error) => {
             return Err(format!(
                 "Unreadable discovery location {}: {error}",

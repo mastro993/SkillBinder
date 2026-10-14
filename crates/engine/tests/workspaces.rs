@@ -105,6 +105,24 @@ async fn detected_agents_are_those_whose_global_directory_exists() {
 
 #[cfg(unix)]
 #[tokio::test]
+async fn an_absent_global_directory_under_a_linked_folder_is_still_an_agent_folder() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    fs::create_dir_all(home.join("agent-data")).unwrap();
+    std::os::unix::fs::symlink(home.join("agent-data"), home.join(".claude")).unwrap();
+    let error = add_folder(&engine, &home.join("agent-data"))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.message, "Your home folder's skills are shown under Agents.",
+        "Claude Code would create its skills folder in the linked folder"
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
 async fn agents_whose_directories_are_one_folder_share_a_resolved_directory() {
     let fixture = Fixture::new();
     fs::create_dir_all(fixture.home.join(".agents/skills")).unwrap();
