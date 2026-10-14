@@ -104,6 +104,9 @@ pub struct Skill {
     pub file_count: u64,
     /// Total payload bytes.
     pub total_bytes: u64,
+    /// RFC 3339 time the skill was imported; absent for skills imported before it was recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imported_at: Option<String>,
 }
 /// Portable schema 2, committed only by explicit Git operations.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -150,6 +153,9 @@ pub struct LibrarySnapshot {
     pub revision: String,
     /// Machine-local details by skill identity.
     pub details: BTreeMap<SkillId, SkillDetails>,
+    /// When each skill's newest managed file last changed on this device, in Unix seconds;
+    /// absent when its payload could not be read.
+    pub modified: BTreeMap<SkillId, u64>,
 }
 /// A portable organization mutation.
 #[derive(Clone, Debug)]

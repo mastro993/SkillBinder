@@ -1,22 +1,13 @@
 //! The sidebar's scrolling sections and their scrollbar, which fades in while the pointer is
 //! over the sidebar.
 
-use std::time::Duration;
-
 use super::NativeView;
-use gpui_kit::component::scroll::{Scrollbar, ScrollbarMode};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, Context, ElementId, InteractiveElement, IntoElement,
-    ParentElement, ScrollHandle, StatefulInteractiveElement, Styled, Window, div, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, ScrollHandle,
+    StatefulInteractiveElement, Styled, Window, div, px,
 };
 use skillbinder_proto::LibrarySnapshot;
 use skillbinder_theme::sidebar::{INSET, SECTION_GAP};
-
-/// GPUI Kit's scrollbar fade timings.
-const SCROLLBAR_ENTER: Duration = Duration::from_millis(300);
-const SCROLLBAR_EXIT: Duration = Duration::from_millis(500);
-/// The shown scrollbar's opacity, which keeps it quieter than the rows beside it.
-const SCROLLBAR_OPACITY: f32 = 0.5;
 
 impl NativeView {
     /// Folders, Workspaces, and Agents, scrolling together between the top rows and Sync.
@@ -40,59 +31,24 @@ impl NativeView {
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
-                    .track_scroll(&self.sidebar_scroll)
+                    .track_scroll(&self.sidebar_scroll.handle)
                     // Scrolls with the sections, mirroring the Folders title's half gap.
                     .pb(px(SECTION_GAP / 2.0))
                     .child(self.render_folders(library, window, cx))
                     .child(self.render_workspaces(window, cx))
                     .child(self.render_agents(cx)),
             )
-            .child(self.render_sections_scrollbar(cx))
-            .into_any_element()
-    }
-
-    /// The scrollbar sits in the sidebar's trailing inset, visible only while the sidebar is
-    /// hovered.
-    fn render_sections_scrollbar(&self, cx: &Context<Self>) -> AnyElement {
-        let shown = self.sidebar_hovered;
-        let overlay = div()
-            .absolute()
-            .top_0()
-            .bottom_0()
-            .left_0()
-            .right(px(-INSET))
+            // In the sidebar's trailing inset.
             .child(
-                Scrollbar::vertical(&self.sidebar_scroll)
-                    .id("sidebar-scrollbar")
-                    .mode(ScrollbarMode::Always)
-                    .viewport_from_layout(),
-            );
-        if self.sidebar_hover_motion == 0 || cx.reduce_motion() {
-            return overlay
-                .opacity(if shown { SCROLLBAR_OPACITY } else { 0.0 })
-                .into_any_element();
-        }
-        // ponytail: each fade starts from its far end, so leaving mid-fade-in jumps to the shown
-        // opacity first; track the current opacity if quick passes over the sidebar look wrong.
-        let (from, to, duration) = if shown {
-            (0.0, SCROLLBAR_OPACITY, SCROLLBAR_ENTER)
-        } else {
-            (SCROLLBAR_OPACITY, 0.0, SCROLLBAR_EXIT)
-        };
-        overlay
-            .with_animation(
-                ElementId::NamedInteger("sidebar-scrollbar-fade".into(), self.sidebar_hover_motion),
-                Animation::new(duration).with_easing(gpui_kit::base::animation::ease_in_out_cubic),
-                move |overlay, delta| overlay.opacity(from + (to - from) * delta),
+                self.sidebar_scroll
+                    .scrollbar("sidebar-scrollbar", px(-INSET), cx),
             )
             .into_any_element()
     }
 
     /// Records whether the pointer is over the sidebar, which fades the scrollbar in or out.
     pub(super) fn hover_sidebar(&mut self, hovered: bool, cx: &mut Context<Self>) {
-        if self.sidebar_hovered != hovered {
-            self.sidebar_hovered = hovered;
-            self.sidebar_hover_motion += 1;
+        if self.sidebar_scroll.hover(hovered) {
             cx.notify();
         }
     }

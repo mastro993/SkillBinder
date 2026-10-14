@@ -235,6 +235,17 @@
       "elementCount": 2
     },
     {
+      "name": "GridViewIcon",
+      "file": "GridViewIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/library.rs"
+      ],
+      "sourceModule": "dist/esm/GridViewIcon.js",
+      "sourceModuleSha256": "5e1c735257308180ca23d77106b7fc32c5bb07b04224adb9d63c2787e5e0087f",
+      "svgSha256": "16dce2316de0122d784707b590069ee32990af15f4a856006aaa6f12bc63d294",
+      "elementCount": 4
+    },
+    {
       "name": "HardDriveIcon",
       "file": "HardDriveIcon.svg",
       "usedBy": [
@@ -289,6 +300,17 @@
       "sourceModuleSha256": "5ebae4a5cc00ee1fa45d4bf3ea04fac124921aed292b611531fa8bd395e3ca7c",
       "svgSha256": "2740cf8ea59a2808c7ec54d3be17701997616770c023ef9614186d70dd612495",
       "elementCount": 2
+    },
+    {
+      "name": "ListViewIcon",
+      "file": "ListViewIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/library.rs"
+      ],
+      "sourceModule": "dist/esm/ListViewIcon.js",
+      "sourceModuleSha256": "0b18f4c388cc58e2716571020fa12c24e7ac739b8e5424e72e3070dd12557ec6",
+      "svgSha256": "a66775c61fe04394b276cf1b4a6a5d0cdcbba640e72247cb9eaa9963bfaa2a60",
+      "elementCount": 3
     },
     {
       "name": "Loading03Icon",
@@ -370,6 +392,17 @@
       "sourceModuleSha256": "e3d01c2d958567182b44c96b62f4f9b164f3dfe7f54d65be059da1691d26ae54",
       "svgSha256": "d257ffdf65abb696f448c7864e6dbf58583135c46e3be832587d82ec04c6e857",
       "elementCount": 1
+    },
+    {
+      "name": "Search01Icon",
+      "file": "Search01Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/library.rs"
+      ],
+      "sourceModule": "dist/esm/Search01Icon.js",
+      "sourceModuleSha256": "5eb73819dbcc1b824c71da70ecfe45620ead6a442a265b41195960bb4e0748f8",
+      "svgSha256": "4cbacf2bce41852bd26f796ff0212fe63259f033c4d407fed502e7dd9f0d9a0e",
+      "elementCount": 2
     },
     {
       "name": "Settings01Icon",

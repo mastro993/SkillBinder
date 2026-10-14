@@ -29,6 +29,7 @@ unicode-casefold = "0.2"
 yaml-rust2 = "0.11"
 tempfile = "3"
 time = { version = "0.3", features = ["formatting"] }
+chrono = "0.4"
 url = "2.5.8"
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 skillbinder-proto = { path = "crates/proto" }

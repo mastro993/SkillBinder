@@ -1,4 +1,6 @@
-use crate::{CandidateId, GrantId, PlanId, SkillId, ValidationMessage, ValidationStatus};
+use crate::{
+    CandidateId, GrantId, PlanId, SkillId, ValidationMessage, ValidationStatus, WorkspaceRef,
+};
 use serde::{Deserialize, Serialize};
 
 /// A single-use capability issued after native directory selection.
@@ -16,6 +18,10 @@ pub struct CandidateLocation {
     pub display_path: String,
     /// All agent reader labels for this physical location.
     pub readers: Vec<String>,
+    /// Registry identities of the same agents, sorted.
+    pub agents: Vec<String>,
+    /// The workspaces whose scan reads this location, System first; never empty.
+    pub workspaces: Vec<WorkspaceRef>,
 }
 /// A found skill: one slug and content digest with every location holding those bytes.
 /// Its paths are never import inputs; the engine keeps the reviewed source by opaque identity.

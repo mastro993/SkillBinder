@@ -95,12 +95,14 @@ impl NativeView {
             sidebar_collapsed: self.sidebar_collapsed,
             appearance: self.appearance,
             folded_sections: self.folded_sections.clone(),
+            library_view: self.library_view,
         };
         let stored = &self.snapshot.preferences;
         if (preferences.sidebar_width - stored.sidebar_width).abs() < 0.5
             && preferences.sidebar_collapsed == stored.sidebar_collapsed
             && preferences.appearance == stored.appearance
             && preferences.folded_sections == stored.folded_sections
+            && preferences.library_view == stored.library_view
         {
             self.preference_writes.finish();
             return;
@@ -178,14 +180,30 @@ impl NativeView {
                     .child(self.render_header(true, window, cx))
                     .child(
                         div()
-                            .id("main-content")
+                            .id("main-scroll")
+                            .relative()
                             .flex_1()
                             .min_h_0()
-                            .overflow_y_scroll()
-                            .px_6()
-                            .pb_6()
-                            .child(self.render_import_outcome(cx))
-                            .child(page),
+                            .on_hover(cx.listener(|view, hovered: &bool, _, cx| {
+                                if view.content_scroll.hover(*hovered) {
+                                    cx.notify();
+                                }
+                            }))
+                            .child(
+                                div()
+                                    .id("main-content")
+                                    .size_full()
+                                    .overflow_y_scroll()
+                                    .track_scroll(&self.content_scroll.handle)
+                                    .px_6()
+                                    .pb_6()
+                                    .child(self.render_import_outcome(cx))
+                                    .child(page),
+                            )
+                            .child(
+                                self.content_scroll
+                                    .scrollbar("content-scrollbar", px(0.), cx),
+                            ),
                     ),
             )
             .child(self.render_sidebar_toggle(window, cx));
@@ -259,6 +277,10 @@ impl NativeView {
                 header_inset(left, visible_width(width, collapsed, delta))
             })
         });
+        // With the header's inset, the breadcrumb lines up with the page's 24-point padding.
+        let title = div().flex_1().min_w_0().pl_4().when(with_sidebar, |title| {
+            title.child(self.render_breadcrumb(cx))
+        });
         let reserves = reserves_traffic_lights(window);
         if cfg!(target_os = "macos") {
             TitleBar::new()
@@ -269,7 +291,7 @@ impl NativeView {
                 .when(with_sidebar, |bar| bar.pl_0())
                 .when(!with_sidebar && !reserves, |bar| bar.pl_2())
                 .children(inset)
-                .child(div().flex_1())
+                .child(title)
                 .child(actions)
                 .into_any_element()
         } else {
@@ -280,7 +302,7 @@ impl NativeView {
                 .pr_4()
                 .when(!with_sidebar, |row| row.pl_2())
                 .children(inset)
-                .child(div().flex_1())
+                .child(title)
                 .child(actions)
                 .into_any_element()
         }

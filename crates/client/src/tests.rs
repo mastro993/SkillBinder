@@ -31,6 +31,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
             sidebar_collapsed: true,
             appearance: Appearance::Dark,
             folded_sections: [SidebarSection::Folders].into(),
+            library_view: LibraryView::Grid,
         })
         .await?;
     let updated = engine.snapshot().await?;
@@ -49,6 +50,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
         current.preferences.folded_sections,
         [SidebarSection::Folders].into()
     );
+    assert_eq!(current.preferences.library_view, LibraryView::Grid);
     assert!(current.scan.is_some() && !current.scanning);
     assert_eq!(shared.requested.load(Ordering::Acquire), 2);
     assert!(current.generation >= 2);

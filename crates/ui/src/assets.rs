@@ -55,6 +55,14 @@ const ICONS: &[(&str, &[u8])] = &[
         include_bytes!("../../../assets/hugeicons/Delete02Icon.svg"),
     ),
     (
+        "icons/grid-view.svg",
+        include_bytes!("../../../assets/hugeicons/GridViewIcon.svg"),
+    ),
+    (
+        "icons/list-view.svg",
+        include_bytes!("../../../assets/hugeicons/ListViewIcon.svg"),
+    ),
+    (
         "icons/folder.svg",
         include_bytes!("../../../assets/hugeicons/Folder01Icon.svg"),
     ),
@@ -113,6 +121,10 @@ const ICONS: &[(&str, &[u8])] = &[
     (
         "icons/refresh.svg",
         include_bytes!("../../../assets/hugeicons/RefreshIcon.svg"),
+    ),
+    (
+        "icons/search.svg",
+        include_bytes!("../../../assets/hugeicons/Search01Icon.svg"),
     ),
     (
         "icons/settings.svg",
@@ -178,6 +190,53 @@ const AGENT_LOGOS: &[(&str, &[u8])] = &[
     agent_logo!("zencoder"),
 ];
 
+macro_rules! agent_color_logo {
+    ($id:literal) => {
+        (
+            concat!("agents/", $id, "-color.svg"),
+            include_bytes!(concat!("../../../assets/agent-logos/", $id, "-color.svg")),
+        )
+    };
+}
+
+/// Full-color variants of the official logos, for agents whose source package has one.
+const AGENT_COLOR_LOGOS: &[(&str, &[u8])] = &[
+    agent_color_logo!("amp"),
+    agent_color_logo!("antigravity-cli"),
+    agent_color_logo!("antigravity"),
+    agent_color_logo!("claude-code"),
+    agent_color_logo!("codebuddy"),
+    agent_color_logo!("codex"),
+    agent_color_logo!("devin"),
+    agent_color_logo!("gemini-cli"),
+    agent_color_logo!("junie"),
+    agent_color_logo!("kimi-code-cli"),
+    agent_color_logo!("kiro-cli"),
+    agent_color_logo!("minimax-code"),
+    agent_color_logo!("mistral-vibe"),
+    agent_color_logo!("openclaw"),
+    agent_color_logo!("openhands"),
+    agent_color_logo!("qoder-cn"),
+    agent_color_logo!("qoder"),
+    agent_color_logo!("qwen-code"),
+    agent_color_logo!("replit"),
+    agent_color_logo!("trae-cn"),
+    agent_color_logo!("trae"),
+    agent_color_logo!("zencoder"),
+];
+
+/// The asset path of an agent's full-color logo, or `None` when only the monochrome one exists.
+pub(crate) fn agent_color_logo(id: &str) -> Option<&'static str> {
+    AGENT_COLOR_LOGOS
+        .iter()
+        .map(|(path, _)| *path)
+        .find(|path| {
+            path.strip_prefix("agents/")
+                .and_then(|p| p.strip_suffix("-color.svg"))
+                == Some(id)
+        })
+}
+
 /// The asset path of an agent's logo, or `None` for agents shown with the fallback glyph.
 pub(crate) fn agent_logo(id: &str) -> Option<&'static str> {
     AGENT_LOGOS.iter().map(|(path, _)| *path).find(|path| {
@@ -192,6 +251,7 @@ impl AssetSource for Assets {
         if let Some((_, bytes)) = ICONS
             .iter()
             .chain(AGENT_LOGOS)
+            .chain(AGENT_COLOR_LOGOS)
             .find(|(name, _)| *name == path)
         {
             return Ok(Some(Cow::Borrowed(bytes)));
@@ -216,7 +276,7 @@ impl AssetSource for Assets {
 
 #[cfg(test)]
 mod tests {
-    use super::{Assets, agent_logo};
+    use super::{Assets, agent_color_logo, agent_logo};
     use gpui_kit::AssetSource;
 
     #[test]
@@ -225,5 +285,11 @@ mod tests {
         assert_eq!(agent_logo("loaf"), None);
         assert!(matches!(Assets.load("agents/zed.svg"), Ok(Some(_))));
         assert!(Assets.load("agents/loaf.svg").is_err());
+        assert_eq!(
+            agent_color_logo("claude-code"),
+            Some("agents/claude-code-color.svg")
+        );
+        assert_eq!(agent_color_logo("cursor"), None);
+        assert!(matches!(Assets.load("agents/codex-color.svg"), Ok(Some(_))));
     }
 }

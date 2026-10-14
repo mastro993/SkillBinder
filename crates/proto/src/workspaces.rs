@@ -16,6 +16,15 @@ pub struct Workspace {
     pub missing: bool,
 }
 
+/// System or one added workspace.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+pub enum WorkspaceRef {
+    /// The built-in workspace of the agents' global skill directories.
+    System,
+    /// An added workspace.
+    Added(WorkspaceId),
+}
+
 /// A registry agent and the skill directories it reads.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AgentOption {

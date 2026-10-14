@@ -45,6 +45,19 @@ pub struct Preferences {
     /// Sidebar sections whose rows are hidden; preferences stored before it existed fold none.
     #[serde(default)]
     pub folded_sections: BTreeSet<SidebarSection>,
+    /// How Library lays out skills; preferences stored before it existed show a list.
+    #[serde(default)]
+    pub library_view: LibraryView,
+}
+/// Library layout.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LibraryView {
+    /// One row per skill.
+    #[default]
+    List,
+    /// Cards in columns that follow the window width.
+    Grid,
 }
 /// A foldable sidebar section.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -98,6 +111,7 @@ impl Default for Preferences {
             sidebar_collapsed: false,
             appearance: Appearance::System,
             folded_sections: BTreeSet::new(),
+            library_view: LibraryView::List,
         }
     }
 }
@@ -156,6 +170,7 @@ mod tests {
         assert_eq!(preferences.sidebar_width, 300.0);
         assert!(!preferences.sidebar_collapsed);
         assert!(preferences.folded_sections.is_empty());
+        assert_eq!(preferences.library_view, super::LibraryView::List);
         Ok(())
     }
 }

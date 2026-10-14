@@ -1,9 +1,15 @@
 mod agent_page;
 mod agent_skills;
+mod breadcrumb;
 mod controls;
 mod dialogs;
 mod discovery;
+mod hover_scroll;
 mod library;
+mod library_conflicts;
+mod library_dates;
+mod library_items;
+mod library_presence;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod onboarding;
@@ -83,7 +89,6 @@ pub struct NativeView {
     selected_candidates: BTreeSet<CandidateId>,
     candidate_page: usize,
     acknowledge_invalid: bool,
-    selected_skills: BTreeSet<SkillId>,
     /// Inline folder name editing in the sidebar.
     folder_edit: Option<FolderEdit>,
     folder_reorder: RowReorder<FolderId>,
@@ -98,19 +103,17 @@ pub struct NativeView {
     /// Sections whose rows are sliding open or shut.
     sections_moving: BTreeSet<SidebarSection>,
     /// Scroll position of the sidebar's folder, workspace, and agent sections.
-    sidebar_scroll: gpui_kit::ScrollHandle,
-    /// The pointer is over the sidebar, which shows the sections' scrollbar.
-    sidebar_hovered: bool,
-    /// Sidebar hover change count, which keys the scrollbar's fade.
-    sidebar_hover_motion: u64,
+    sidebar_scroll: hover_scroll::HoverScroll,
+    /// Scroll position of the page, whose scrollbar shows while the pointer is over it.
+    content_scroll: hover_scroll::HoverScroll,
     appearance: Appearance,
+    library_view: LibraryView,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
     sidebar_motion: u64,
     /// Collapsed sidebar still mounted for its closing motion.
     sidebar_closing: bool,
     resizing_sidebar: bool,
     preference_writes: shell::PreferenceWrites,
-    selected_skill: Option<SkillId>,
     preview: Option<SkillPreview>,
     search: Entity<InputState>,
     folder_name: Entity<InputState>,
@@ -134,6 +137,7 @@ impl NativeView {
         let sidebar_collapsed = snapshot.preferences.sidebar_collapsed;
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
+        let library_view = snapshot.preferences.library_view;
         status_bar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
         let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
@@ -197,7 +201,6 @@ impl NativeView {
             selected_candidates: BTreeSet::new(),
             candidate_page: 0,
             acknowledge_invalid: false,
-            selected_skills: BTreeSet::new(),
             folder_edit: None,
             folder_reorder: RowReorder::default(),
             workspace_edit: None,
@@ -207,15 +210,14 @@ impl NativeView {
             folded_sections,
             section_motion: BTreeMap::new(),
             sections_moving: BTreeSet::new(),
-            sidebar_scroll: gpui_kit::ScrollHandle::new(),
-            sidebar_hovered: false,
-            sidebar_hover_motion: 0,
+            sidebar_scroll: hover_scroll::HoverScroll::default(),
+            content_scroll: hover_scroll::HoverScroll::default(),
             appearance,
+            library_view,
             sidebar_motion: 0,
             sidebar_closing: false,
             resizing_sidebar: false,
             preference_writes: shell::PreferenceWrites::default(),
-            selected_skill: None,
             preview: None,
             search,
             folder_name,
@@ -249,16 +251,6 @@ impl NativeView {
             }
             if matches!(&self.folder_edit, Some(FolderEdit::Rename(id)) if !exists(id)) {
                 self.folder_edit = None;
-            }
-            self.selected_skills
-                .retain(|id| library.library.skills.iter().any(|s| &s.id == id));
-            if self
-                .selected_skill
-                .as_ref()
-                .is_some_and(|id| !library.library.skills.iter().any(|s| &s.id == id))
-            {
-                self.selected_skill = None;
-                self.preview = None;
             }
         }
         let workspace_exists = |id: &WorkspaceId| latest.workspaces.iter().any(|p| &p.id == id);
@@ -367,8 +359,6 @@ impl NativeView {
             self.candidate_page = 0;
             self.selected_candidates.clear();
             self.acknowledge_invalid = false;
-            self.selected_skills.clear();
-            self.selected_skill = None;
             self.preview = None;
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
@@ -451,7 +441,7 @@ impl Render for NativeView {
         } else {
             let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
-                Route::Library(_) => self.render_library(cx).into_any_element(),
+                Route::Library(_) => self.render_library(window, cx),
                 Route::System => self.render_system(),
                 Route::Workspace(id) => self.render_workspace(&id.clone()),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
