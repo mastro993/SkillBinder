@@ -4,6 +4,18 @@ use std::{
 };
 
 pub(crate) fn resolve(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
+    walk(boundary, path, false)
+}
+
+/// Like [`resolve`], but an absent path resolves to where it would be created: links are
+/// followed as far as they exist, including a link whose target is missing, and the missing
+/// components are appended. An absent directory under a linked parent, or behind a dangling
+/// link, therefore maps to the folder it would be created in.
+pub(crate) fn resolve_absent(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
+    walk(boundary, path, true)
+}
+
+fn walk(boundary: &Path, path: &Path, absent: bool) -> io::Result<PathBuf> {
     let mut pending = path
         .strip_prefix(boundary)
         .map_err(|_| refused())?
@@ -26,7 +38,13 @@ pub(crate) fn resolve(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
             }
             _ => return Err(refused()),
         }
-        if fs::symlink_metadata(&current)?.file_type().is_symlink() {
+        let metadata = match fs::symlink_metadata(&current) {
+            Err(error) if absent && error.kind() == io::ErrorKind::NotFound => {
+                return Ok(current.join(rest));
+            }
+            metadata => metadata?,
+        };
+        if metadata.file_type().is_symlink() {
             hops += 1;
             if hops > 16 {
                 return Err(io::Error::other("Discovery links exceed 16 hops."));
@@ -45,32 +63,6 @@ pub(crate) fn resolve(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
             pending = target.join(rest);
         } else {
             pending = rest;
-        }
-    }
-}
-
-/// Like [`resolve`], but an absent path resolves to where it would be created: its deepest
-/// existing ancestor resolved, followed by the missing components. An absent directory under a
-/// linked parent therefore maps to the folder the link points to.
-pub(crate) fn resolve_absent(boundary: &Path, path: &Path) -> io::Result<PathBuf> {
-    let mut existing = path.to_path_buf();
-    let mut missing = Vec::new();
-    loop {
-        match resolve(boundary, &existing) {
-            Ok(resolved) => {
-                return Ok(missing
-                    .iter()
-                    .rev()
-                    .fold(resolved, |at, name| at.join(name)));
-            }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                let Some(name) = existing.file_name() else {
-                    return Ok(path.to_path_buf());
-                };
-                missing.push(name.to_owned());
-                existing.pop();
-            }
-            Err(error) => return Err(error),
         }
     }
 }

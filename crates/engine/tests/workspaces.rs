@@ -123,6 +123,45 @@ async fn an_absent_global_directory_under_a_linked_folder_is_still_an_agent_fold
 
 #[cfg(unix)]
 #[tokio::test]
+async fn a_dangling_global_directory_link_points_at_an_agent_folder() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    fs::create_dir_all(home.join("agent-data")).unwrap();
+    fs::create_dir_all(home.join(".claude")).unwrap();
+    std::os::unix::fs::symlink(home.join("agent-data/skills"), home.join(".claude/skills"))
+        .unwrap();
+    let error = add_folder(&engine, &home.join("agent-data"))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.message, "This folder's skills are shown under Agents.",
+        "the link's missing target is where Claude Code's skills will be"
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_project_whose_skill_directory_links_to_a_global_one_is_an_agent_folder() {
+    let fixture = Fixture::new();
+    write_skill(&fixture.home.join(".claude/skills"), "review", "Review");
+    let engine = fixture.ready().await;
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    let project = fs::canonicalize(&fixture.workspace).unwrap();
+    fs::create_dir_all(project.join(".claude")).unwrap();
+    std::os::unix::fs::symlink(home.join(".claude/skills"), project.join(".claude/skills"))
+        .unwrap();
+    let error = add_folder(&engine, &project).await.unwrap_err();
+    assert_eq!(
+        error.message,
+        "This folder's skills are shown under Agents."
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
 async fn agents_whose_directories_are_one_folder_share_a_resolved_directory() {
     let fixture = Fixture::new();
     fs::create_dir_all(fixture.home.join(".agents/skills")).unwrap();

@@ -60,17 +60,20 @@ pub(super) fn projects(
 }
 
 /// An agent folder is one whose agent workspace skill directories include a global skill
-/// directory, such as the home folder with `~/.claude/skills`, or one at or inside a global skill
-/// directory, such as `~/.claude/skills` itself. Its skills are shown under Agents.
+/// directory, such as the home folder with `~/.claude/skills` or a project whose `.claude/skills`
+/// links to it, or one at or inside a global skill directory, such as `~/.claude/skills` itself.
+/// Its skills are shown under Agents.
 pub(super) fn is_agent_folder(
     folder: &Path,
     skill_dirs: &BTreeSet<String>,
     global_dirs: &BTreeSet<PathBuf>,
 ) -> bool {
+    let global = |path: PathBuf| {
+        global_dirs.contains(&path)
+            || fs::canonicalize(&path).is_ok_and(|resolved| global_dirs.contains(&resolved))
+    };
     global_dirs.iter().any(|dir| folder.starts_with(dir))
-        || skill_dirs
-            .iter()
-            .any(|dir| global_dirs.contains(&folder.join(dir)))
+        || skill_dirs.iter().any(|dir| global(folder.join(dir)))
 }
 
 #[cfg(test)]
