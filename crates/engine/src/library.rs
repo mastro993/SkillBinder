@@ -131,6 +131,29 @@ pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
     }
     Ok(())
 }
+/// The newest modification time, in Unix seconds, of the regular files under `dir`; links are
+/// skipped because managed payloads materialize them.
+fn newest_modification(dir: &Path) -> Option<u64> {
+    let mut newest = None;
+    for entry in fs::read_dir(dir).ok()?.flatten() {
+        let Ok(metadata) = entry.path().symlink_metadata() else {
+            continue;
+        };
+        let time = if metadata.is_dir() {
+            newest_modification(&entry.path())
+        } else if metadata.is_file() {
+            metadata
+                .modified()
+                .ok()
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|age| age.as_secs())
+        } else {
+            None
+        };
+        newest = newest.max(time);
+    }
+    newest
+}
 pub(crate) fn payload_relative(library: &Library, skill: &Skill) -> String {
     let first = library
         .skills
@@ -262,7 +285,13 @@ impl State {
             Sha256::digest(serde_json::to_vec(&library).map_err(|_| AppError::storage())?)
         );
         let mut details = BTreeMap::new();
+        let mut modified = BTreeMap::new();
         for skill in &library.skills {
+            let payload = self
+                .contained_skill_path(&self.library_dir().join(payload_relative(&library, skill)));
+            if let Some(time) = payload.ok().and_then(|dir| newest_modification(&dir)) {
+                modified.insert(skill.id.clone(), time);
+            }
             let serialized = self
                 .database
                 .query_row(
@@ -283,6 +312,7 @@ impl State {
             library,
             revision,
             details,
+            modified,
         })
     }
     pub(crate) fn preview_delete(&self, id: FolderId) -> AppResult<DeletePreview> {

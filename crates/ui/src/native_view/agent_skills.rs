@@ -116,7 +116,7 @@ pub(super) fn found_in(dirs: &[PathBuf], candidates: &[Candidate]) -> Vec<Instal
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_proto::{CandidateId, CandidateLocation};
+    use skillbinder_proto::{CandidateId, CandidateLocation, WorkspaceRef};
 
     fn agent(id: &str) -> AgentOption {
         AgentOption {
@@ -137,6 +137,8 @@ mod tests {
             locations: vec![CandidateLocation {
                 display_path: format!("/home/.claude/skills/{slug}"),
                 readers: Vec::new(),
+                agents: Vec::new(),
+                workspaces: vec![WorkspaceRef::System],
             }],
             validation,
             messages: Vec::new(),

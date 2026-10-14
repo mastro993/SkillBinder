@@ -9,7 +9,8 @@ mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep, OrganizationChange,
+    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep,
+    OrganizationChange, WorkspaceRef,
 };
 use std::{fs, path::Path};
 use support::{Fixture, category};
@@ -73,12 +74,16 @@ async fn scan_deduplicates_shared_readers_and_stays_inside_known_workspace_locat
     )
     .unwrap();
     let engine = fixture.ready().await;
-    fixture.register(&engine).await;
+    let workspace = fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
     assert_eq!(scan.candidates.len(), 1);
     assert_eq!(scan.candidates[0].slug, "known");
     assert_eq!(scan.candidates[0].locations.len(), 1);
-    assert!(scan.candidates[0].locations[0].readers.len() > 1);
+    let location = &scan.candidates[0].locations[0];
+    assert!(location.readers.len() > 1);
+    assert_eq!(location.agents.len(), location.readers.len());
+    assert!(location.agents.iter().any(|agent| agent == "codex"));
+    assert_eq!(location.workspaces, [WorkspaceRef::Added(workspace.id)]);
     engine.shutdown().await.unwrap();
 }
 
@@ -122,17 +127,19 @@ async fn import_preserves_source_bytes_and_replays_after_restart() {
         engine.snapshot().await.unwrap().import_outcome,
         Some(first.clone())
     );
-    assert_eq!(
-        engine
-            .snapshot()
-            .await
-            .unwrap()
-            .library
-            .unwrap()
-            .library
-            .skills
-            .len(),
-        1
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(library.library.skills.len(), 1);
+    let skill = &library.library.skills[0];
+    assert!(
+        skill
+            .imported_at
+            .as_deref()
+            .is_some_and(|time| time.ends_with('Z')),
+        "imports record an RFC 3339 UTC time"
+    );
+    assert!(
+        library.modified[&skill.id] > 0,
+        "the managed payload's newest file time is reported"
     );
     engine.dismiss_import().await.unwrap();
     assert_eq!(engine.snapshot().await.unwrap().import_outcome, None);

@@ -104,7 +104,7 @@ impl Scans {
     pub(crate) fn start(
         &self,
         config: EngineConfig,
-        workspaces: Vec<PathBuf>,
+        workspaces: Vec<(WorkspaceId, PathBuf)>,
         managed: BTreeMap<String, SkillId>,
         log: Logger,
     ) -> AppResult<()> {
@@ -119,7 +119,7 @@ impl Scans {
     fn start_with(
         &self,
         config: EngineConfig,
-        workspaces: Vec<PathBuf>,
+        workspaces: Vec<(WorkspaceId, PathBuf)>,
         managed: BTreeMap<String, SkillId>,
         log: Logger,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,

@@ -11,6 +11,7 @@ native-test = []
 
 [dependencies]
 anyhow.workspace = true
+chrono.workspace = true
 skillbinder-client.workspace = true
 skillbinder-proto.workspace = true
 gpui-kit.workspace = true

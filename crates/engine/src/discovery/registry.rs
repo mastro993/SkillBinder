@@ -1,7 +1,7 @@
 use super::paths;
 use crate::{lifecycle::EngineConfig, logging::Logger};
 use serde::Deserialize;
-use skillbinder_proto::{AgentOption, AppError, AppResult};
+use skillbinder_proto::{AgentOption, AppError, AppResult, WorkspaceId, WorkspaceRef};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -29,7 +29,16 @@ pub(crate) struct Location {
     pub readers: Vec<String>,
     /// Registry identities of the same agents.
     pub agents: Vec<String>,
-    pub workspace: bool,
+    /// The workspaces whose scan reads this location, System first.
+    pub workspaces: Vec<WorkspaceRef>,
+}
+impl Location {
+    /// An added workspace reads this location, so the deeper workspace walk limits apply.
+    pub fn in_workspace(&self) -> bool {
+        self.workspaces
+            .iter()
+            .any(|workspace| matches!(workspace, WorkspaceRef::Added(_)))
+    }
 }
 fn registry() -> AppResult<Registry> {
     serde_json::from_str(include_str!(
@@ -41,19 +50,27 @@ fn registry() -> AppResult<Registry> {
 /// workspace.
 pub(crate) fn locations(
     config: &EngineConfig,
-    workspaces: &[PathBuf],
+    workspaces: &[(WorkspaceId, PathBuf)],
     log: &Logger,
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
     for agent in registry()?.agents {
         for template in &agent.global_roots {
             if let Some(path) = expand(template, config) {
-                add(&mut combined, path, &config.home, &agent, false, log);
+                add(
+                    &mut combined,
+                    path,
+                    &config.home,
+                    &agent,
+                    WorkspaceRef::System,
+                    log,
+                );
             }
         }
-        for boundary in workspaces {
+        for (id, boundary) in workspaces {
             let path = boundary.join(&agent.workspace_skills_dir);
-            add(&mut combined, path, boundary, &agent, true, log);
+            let workspace = WorkspaceRef::Added(id.clone());
+            add(&mut combined, path, boundary, &agent, workspace, log);
         }
     }
     Ok(combined.into_values().collect())
@@ -98,7 +115,7 @@ fn add(
     path: PathBuf,
     boundary: &Path,
     agent: &Agent,
-    workspace: bool,
+    workspace: WorkspaceRef,
     log: &Logger,
 ) {
     let canonical_boundary = fs::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
@@ -131,9 +148,12 @@ fn add(
             boundary: canonical_boundary,
             readers: Vec::new(),
             agents: Vec::new(),
-            workspace,
+            workspaces: Vec::new(),
         });
-    location.workspace |= workspace;
+    if !location.workspaces.contains(&workspace) {
+        location.workspaces.push(workspace);
+        location.workspaces.sort();
+    }
     for (list, value) in [
         (&mut location.readers, &agent.display_name),
         (&mut location.agents, &agent.id),
@@ -189,7 +209,7 @@ mod tests {
         assert_eq!(registry.agents.len(), 79);
         let temp = tempfile::tempdir()?;
         let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-        let workspaces = vec![temp.path().join("workspace")];
+        let workspaces = vec![(WorkspaceId::new(), temp.path().join("workspace"))];
         let log = Logger::start(temp.path().join("logs"), &config.home)?;
         let locations = locations(&config, &workspaces, &log)?;
         assert_eq!(

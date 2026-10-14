@@ -115,6 +115,7 @@ impl State {
                     digest: inspection.manifest.digest.clone(),
                     file_count: inspection.manifest.file_count(),
                     total_bytes: inspection.manifest.total_bytes(),
+                    imported_at: Some(crate::lifecycle::format_timestamp()),
                 });
                 catalog.insert(id.clone(), inspection.manifest.clone());
                 (

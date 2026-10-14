@@ -20,7 +20,7 @@ impl NativeView {
 
     pub(super) fn render_sync(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let sync = &self.snapshot.sync;
-        let mut page = div().flex().flex_col().gap_4().child("Sync").child(format!(
+        let mut page = div().flex().flex_col().gap_4().child(format!(
             "Status: {:?} · {} ahead · {} behind{}",
             sync.state,
             sync.ahead,

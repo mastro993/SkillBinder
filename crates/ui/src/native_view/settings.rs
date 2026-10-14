@@ -8,7 +8,6 @@ impl NativeView {
             .flex()
             .flex_col()
             .gap_4()
-            .child("Settings")
             .child("Application")
             .child(format!(
                 "Managed library: {}",

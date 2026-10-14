@@ -118,7 +118,7 @@ impl NativeView {
         // One device pixel: a hairline on Retina instead of 1pt's two pixels.
         let hairline = px(1.0 / window.scale_factor());
         let (above, below) = match snapshot.library {
-            Some(_) => super::sidebar_scroll::scrolled_edges(&self.sidebar_scroll),
+            Some(_) => super::sidebar_scroll::scrolled_edges(&self.sidebar_scroll.handle),
             None => (false, false),
         };
         let divider = |shown: bool| {

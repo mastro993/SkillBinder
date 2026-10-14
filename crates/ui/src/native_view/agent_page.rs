@@ -3,23 +3,20 @@
 
 use std::path::Path;
 
-use super::agent_skills::{
-    UNIVERSAL, agent_name, installed_agents, split_universal, universal_dir,
-};
-use super::controls::{agent_icon, app_icon, button};
-use super::{Effect, LibraryFilter, NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Icon};
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, px};
-use skillbinder_proto::{AppSnapshot, SkillId};
+use super::agent_skills::{installed_agents, split_universal, universal_dir};
+use super::controls::button;
+use super::{LibraryFilter, NativeView, Route};
+use gpui_kit::component::ActiveTheme;
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div};
+use skillbinder_proto::AppSnapshot;
 
 impl NativeView {
     pub(super) fn render_agent(&self, id: &str, cx: &mut Context<Self>) -> AnyElement {
         let Some(agent) = self.snapshot.agents.iter().find(|agent| agent.id == id) else {
             return div().into_any_element();
         };
-        let name = agent_name(agent, &self.snapshot.home);
         let Some(dir) = &agent.global_skills_dir else {
-            return page_title(agent_icon(&agent.id), name)
+            return page()
                 .child("No global skill directory on this device.")
                 .into_any_element();
         };
@@ -29,7 +26,7 @@ impl NativeView {
             .map(|other| other.display_name.as_str())
             .collect();
         let note = (!shared.is_empty()).then(|| format!("Shared with {}", shared.join(", ")));
-        self.render_installed(agent_icon(&agent.id), name, Path::new(dir), note, cx)
+        self.render_installed(Path::new(dir), note, cx)
     }
 
     /// Universal's page: the skills every universal agent reads, and which agents those are.
@@ -42,13 +39,11 @@ impl NativeView {
             .collect();
         let note = Some(format!("Used by {}", names.join(", ")));
         let dir = universal_dir(home);
-        self.render_installed(app_icon("layers"), UNIVERSAL.to_owned(), &dir, note, cx)
+        self.render_installed(&dir, note, cx)
     }
 
     fn render_installed(
         &self,
-        icon: Icon,
-        name: String,
         dir: &Path,
         note: Option<String>,
         cx: &mut Context<Self>,
@@ -60,12 +55,12 @@ impl NativeView {
             count => format!("{count} installed skills"),
         });
         for (index, skill) in skills.into_iter().enumerate() {
-            let link = skill.skill.map(|skill| {
+            let link = skill.skill.is_some().then(|| {
                 button(format!("agent-skill-{index}"))
                     .label("Show in Library")
-                    .on_click(cx.listener(move |view, _, window, cx| {
-                        view.open_library_skill(skill.clone(), window, cx)
-                    }))
+                    .on_click(
+                        cx.listener(|view, _, window, cx| view.open_library_skill(window, cx)),
+                    )
             });
             list = list.child(
                 div()
@@ -80,35 +75,22 @@ impl NativeView {
                     .children(link),
             );
         }
-        page_title(icon, name)
+        page()
             .child(dir.display().to_string())
             .children(note.map(|note| div().text_color(muted).child(note)))
             .child(list)
             .into_any_element()
     }
 
-    /// Opens Library on every skill with `skill` selected and previewed.
-    fn open_library_skill(&mut self, skill: SkillId, window: &mut Window, cx: &mut Context<Self>) {
+    /// Opens Library on every skill; skill details are not available yet.
+    fn open_library_skill(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.navigate(Route::Library(LibraryFilter::All), window, cx);
-        self.selected_skill = Some(skill.clone());
-        let client = self.client.clone();
-        self.run(
-            async move { client.preview_skill(skill, None).await.map(Effect::Preview) },
-            cx,
-        );
     }
 }
 
-/// The page column, starting with its logo and name.
-fn page_title(icon: Icon, name: String) -> gpui_kit::Div {
-    div().flex().flex_col().gap_4().child(
-        div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .child(icon.size(px(20.0)))
-            .child(name),
-    )
+/// The page column; the header breadcrumb names the agent.
+fn page() -> gpui_kit::Div {
+    div().flex().flex_col().gap_4()
 }
 
 /// Where an agent's or Universal's page goes once `snapshot` no longer lists it: a universal

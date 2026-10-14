@@ -54,7 +54,7 @@ pub(super) fn scan(
         }
         let walk = Walk {
             boundary: &location.boundary,
-            workspace: location.workspace,
+            workspace: location.in_workspace(),
             cancel,
             log,
         };
@@ -95,9 +95,9 @@ impl Traversal<'_> {
         let candidates = &mut self.found.snapshot.candidates;
         if let Some(&(candidate, index)) = self.physical.get(&canonical) {
             if let Some(found) = candidates[candidate].locations.get_mut(index) {
-                found.readers.extend_from_slice(&location.readers);
-                found.readers.sort();
-                found.readers.dedup();
+                merge(&mut found.readers, &location.readers);
+                merge(&mut found.agents, &location.agents);
+                merge(&mut found.workspaces, &location.workspaces);
             }
             return;
         }
@@ -114,6 +114,8 @@ impl Traversal<'_> {
         let found = CandidateLocation {
             display_path: path.display().to_string(),
             readers: location.readers.clone(),
+            agents: location.agents.clone(),
+            workspaces: location.workspaces.clone(),
         };
         let id = identity(&inspection);
         if let Some(&candidate) = self.listed.get(&id) {
@@ -143,4 +145,11 @@ impl Traversal<'_> {
             },
         );
     }
+}
+
+/// Adds `more` to a sorted list without duplicates.
+fn merge<T: Clone + Ord>(list: &mut Vec<T>, more: &[T]) {
+    list.extend_from_slice(more);
+    list.sort();
+    list.dedup();
 }

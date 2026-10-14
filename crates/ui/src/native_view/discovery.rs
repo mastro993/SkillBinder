@@ -1,8 +1,6 @@
-use super::controls::{Inactive, button};
+use super::controls::{Inactive, button, checkbox};
 use super::{Effect, NativeView};
-use gpui_kit::component::{
-    ActiveTheme, Disableable, Sizable, button::ButtonVariants, checkbox::Checkbox,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::*;
 
@@ -49,7 +47,6 @@ impl NativeView {
             .flex()
             .flex_col()
             .gap_4()
-            .child("Discovery")
             .child("Skills found in System and your workspaces that are not in your library.");
         if self.snapshot.scanning {
             page = page.child("Scanning…");
@@ -76,7 +73,7 @@ impl NativeView {
                         .iter()
                         .all(|id| self.selected_candidates.contains(id));
                 page = page.child(
-                    Checkbox::new("select-discovery-page")
+                    checkbox("select-discovery-page")
                         .checked(all_selected)
                         .label("Select this page")
                         .on_change({
@@ -108,10 +105,10 @@ impl NativeView {
                         .flex_col()
                         .gap_1()
                         .child(
-                            Checkbox::new(format!("candidate-{id}"))
+                            checkbox(format!("candidate-{id}"))
                                 .checked(chosen)
                                 .label(format!("{} · {:?}", candidate.slug, candidate.validation))
-                                .disabled(
+                                .inactive(
                                     !finished || candidate.validation == ValidationStatus::Blocked,
                                 )
                                 .on_change({
@@ -174,7 +171,7 @@ impl NativeView {
             }
             if has_invalid {
                 page = page.child(
-                    Checkbox::new("acknowledge-invalid")
+                    checkbox("acknowledge-invalid")
                         .checked(self.acknowledge_invalid)
                         .label("I understand the selected invalid skills may not work as expected")
                         .on_change({

@@ -1,5 +1,5 @@
 {
-  "note": "Monochrome agent logos copied byte-for-byte from the packages below. The artwork licenses cover the drawings only; each logo remains a trademark of its owner and identifies that owner's agent. Agents without an entry show the Hugeicons SquareTerminalIcon.",
+  "note": "Monochrome agent logos copied byte-for-byte from the packages below, plus full-color `<agent>-color.svg` variants from lobe-icons whose `1em` width and height are replaced with 64 so GPUI rasterizes them sharply. The artwork licenses cover the drawings only; each logo remains a trademark of its owner and identifies that owner's agent. Agents without an entry show the Hugeicons SquareTerminalIcon.",
   "sources": [
     {
       "name": "lobe-icons",
@@ -37,11 +37,25 @@
       "svgSha256": "aa6d3fd2fed46e5bd3fdf0e80adab9ed22cbe48e8aa9cd6ea5f7a3ffffc606b1"
     },
     {
+      "agent": "amp",
+      "file": "amp-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/amp-color.svg",
+      "svgSha256": "a5c3eee80c2428e37f2c06df1a90087d8838f20c2a2583ee19176d9cfae59402"
+    },
+    {
       "agent": "antigravity",
       "file": "antigravity.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/antigravity.svg",
       "svgSha256": "43f551fd125c17fb54c8c74eb461924fb97f32bb64ac89f73bb73852753a6461"
+    },
+    {
+      "agent": "antigravity",
+      "file": "antigravity-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/antigravity-color.svg",
+      "svgSha256": "0eaac63e029c122afd34bbd3ee13aeee4584e245bc2aadb8107fc79f22e1d158"
     },
     {
       "agent": "antigravity-cli",
@@ -51,11 +65,25 @@
       "svgSha256": "43f551fd125c17fb54c8c74eb461924fb97f32bb64ac89f73bb73852753a6461"
     },
     {
+      "agent": "antigravity-cli",
+      "file": "antigravity-cli-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/antigravity-color.svg",
+      "svgSha256": "0eaac63e029c122afd34bbd3ee13aeee4584e245bc2aadb8107fc79f22e1d158"
+    },
+    {
       "agent": "claude-code",
       "file": "claude-code.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/claudecode.svg",
       "svgSha256": "d7eb2d876b49e51cc16291a42b681d7cf4906e60e0150776dbfb353ec4ca3746"
+    },
+    {
+      "agent": "claude-code",
+      "file": "claude-code-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/claudecode-color.svg",
+      "svgSha256": "822cfb48ec51be9498dc69ce2d19766cdf85af5582f9bba3ca2b8c99fff486da"
     },
     {
       "agent": "cline",
@@ -72,11 +100,25 @@
       "svgSha256": "abe926f4acd9d56439bb5568a267d19d5a92201dbd69ad1cf179209b5ef79f91"
     },
     {
+      "agent": "codebuddy",
+      "file": "codebuddy-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/codebuddy-color.svg",
+      "svgSha256": "90e884257ccbb4f906d0eb3bc17a1671fbad533b48a8437cbacd99d3299485f6"
+    },
+    {
       "agent": "codex",
       "file": "codex.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/codex.svg",
       "svgSha256": "d08b4e824cd6727e89617f59e4737273ff53e44c1da849d016dd64dfd08b33e1"
+    },
+    {
+      "agent": "codex",
+      "file": "codex-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/codex-color.svg",
+      "svgSha256": "b33a891ec0b12d27029e5caa32faf60e92d2303b8c10243d5a03ab1b3899efcc"
     },
     {
       "agent": "command-code",
@@ -100,6 +142,13 @@
       "svgSha256": "8d197b0c31522517ffa896cd4a1ee65719eb73bff9eb9bbf7edf64db6b1a573d"
     },
     {
+      "agent": "devin",
+      "file": "devin-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/devin-color.svg",
+      "svgSha256": "707071f900d3371de7c9675ba062c7bde8e3b5e6b70839654951c7b83ed90941"
+    },
+    {
       "agent": "fx",
       "file": "fx.svg",
       "source": "fx",
@@ -112,6 +161,13 @@
       "source": "lobe-icons",
       "sourceFile": "icons/geminicli.svg",
       "svgSha256": "bc9b0199cb4c5deee25d6cf49d6e7d60a891171ccbc5520f657d3047b84e5d2e"
+    },
+    {
+      "agent": "gemini-cli",
+      "file": "gemini-cli-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/geminicli-color.svg",
+      "svgSha256": "5512ac47c75225d1d79670fb0fa0713e40d97bde0bbcbac605dda05250aff306"
     },
     {
       "agent": "github-copilot",
@@ -149,6 +205,13 @@
       "svgSha256": "dded0700186377523b7b10bbb204fd3f095d1ea52fe89722cd6cc319a154e208"
     },
     {
+      "agent": "junie",
+      "file": "junie-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/junie-color.svg",
+      "svgSha256": "a9f0b2717bc42a5828f2d796e9bb7660434d0893ddc34de24d6398170d32de99"
+    },
+    {
       "agent": "kilo",
       "file": "kilo.svg",
       "source": "lobe-icons",
@@ -163,11 +226,25 @@
       "svgSha256": "ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b"
     },
     {
+      "agent": "kimi-code-cli",
+      "file": "kimi-code-cli-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/kimi-color.svg",
+      "svgSha256": "cd371b75558641d819fd8a30e8ee96d9b7a0a15aa26edb4765ae1f310179a5b7"
+    },
+    {
       "agent": "kiro-cli",
       "file": "kiro-cli.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/kiro.svg",
       "svgSha256": "1e56073e35799b0d7075d5376ca2d99c3d3bbf51a000a1ec3d4b0df7612c91d6"
+    },
+    {
+      "agent": "kiro-cli",
+      "file": "kiro-cli-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/kiro-color.svg",
+      "svgSha256": "e0c02b8b151f06d07b1c1cfbe42c18eb011330fe29031b8309cc08bab84d9a20"
     },
     {
       "agent": "minimax-code",
@@ -177,6 +254,13 @@
       "svgSha256": "bb96e2005081494716de6af5fd030701ae551ee68393ad61b325c07325607848"
     },
     {
+      "agent": "minimax-code",
+      "file": "minimax-code-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/minimax-color.svg",
+      "svgSha256": "ae490a1894fc74100ea3bfbf28292076f38ba46ae5660ae1d8685390a8078572"
+    },
+    {
       "agent": "mistral-vibe",
       "file": "mistral-vibe.svg",
       "source": "lobe-icons",
@@ -184,11 +268,25 @@
       "svgSha256": "a06cfa54e7deff7f7544175b006b7f8a03fbc5624c44f7d553a44d07ea96e629"
     },
     {
+      "agent": "mistral-vibe",
+      "file": "mistral-vibe-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/mistral-color.svg",
+      "svgSha256": "696d756927bd16db6579b10325d08ad5dd928d174e9e450a18aeaa80c897519b"
+    },
+    {
       "agent": "openclaw",
       "file": "openclaw.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/openclaw.svg",
       "svgSha256": "1f0b18833ccb1c7c21ae998d237856975fc90eb8eafc14f8db05198628e8da4d"
+    },
+    {
+      "agent": "openclaw",
+      "file": "openclaw-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/openclaw-color.svg",
+      "svgSha256": "466920da168c3a7dfb9426cb562327038112bb579d0231c092668cd7e7e20619"
     },
     {
       "agent": "opencode",
@@ -205,6 +303,13 @@
       "svgSha256": "246a996b64ceb4e60fee29506a5f17b14f44042b2a17844c03b69c3447aebc2d"
     },
     {
+      "agent": "openhands",
+      "file": "openhands-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/openhands-color.svg",
+      "svgSha256": "65a8482420edb7b8b4f25b8d6ce4c46b1a29d3a95c2ef9ad48fd4f4fa7a349ef"
+    },
+    {
       "agent": "pi",
       "file": "pi.svg",
       "source": "lobe-icons",
@@ -219,11 +324,25 @@
       "svgSha256": "f8503aacc41a58e723430488d082f6730c8a6a9ffecdd0a00c522e6bcdb4abb9"
     },
     {
+      "agent": "qoder",
+      "file": "qoder-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/qoder-color.svg",
+      "svgSha256": "b34dc769ca9260ef1eeb15379f256b1d1f837265e9f923b7ec7bcb431327758b"
+    },
+    {
       "agent": "qoder-cn",
       "file": "qoder-cn.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/qoder.svg",
       "svgSha256": "f8503aacc41a58e723430488d082f6730c8a6a9ffecdd0a00c522e6bcdb4abb9"
+    },
+    {
+      "agent": "qoder-cn",
+      "file": "qoder-cn-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/qoder-color.svg",
+      "svgSha256": "b34dc769ca9260ef1eeb15379f256b1d1f837265e9f923b7ec7bcb431327758b"
     },
     {
       "agent": "qwen-code",
@@ -233,11 +352,25 @@
       "svgSha256": "dcb3ba2f2b55ccbacbade0ca0bf98921fbaf8a07848972974b4a9bf8077376cf"
     },
     {
+      "agent": "qwen-code",
+      "file": "qwen-code-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/qwen-color.svg",
+      "svgSha256": "38b8a0454f65dd09c728e5ec200b82d7ca0a588ad80f04229b2269a0a9386e0c"
+    },
+    {
       "agent": "replit",
       "file": "replit.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/replit.svg",
       "svgSha256": "1bb3665be60c5d155f73c4fbc3fcd71d3f7946bd6172724fdc6276f52b4c44fa"
+    },
+    {
+      "agent": "replit",
+      "file": "replit-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/replit-color.svg",
+      "svgSha256": "80a2e67d686a8abce0ce65dd0bcc7ae5f894619378fba2b9d7a653a9304f0590"
     },
     {
       "agent": "roo",
@@ -254,11 +387,25 @@
       "svgSha256": "59ef6255dfce52d4b1e77aff4e1b4ee3cda71cda735b4fb45575e9874a1c11f6"
     },
     {
+      "agent": "trae",
+      "file": "trae-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/trae-color.svg",
+      "svgSha256": "89f0efcd25399ad7fe0aa1158a47772bfea541d0be9b19d76f7cffd47a3f5c1f"
+    },
+    {
       "agent": "trae-cn",
       "file": "trae-cn.svg",
       "source": "lobe-icons",
       "sourceFile": "icons/trae.svg",
       "svgSha256": "59ef6255dfce52d4b1e77aff4e1b4ee3cda71cda735b4fb45575e9874a1c11f6"
+    },
+    {
+      "agent": "trae-cn",
+      "file": "trae-cn-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/trae-color.svg",
+      "svgSha256": "89f0efcd25399ad7fe0aa1158a47772bfea541d0be9b19d76f7cffd47a3f5c1f"
     },
     {
       "agent": "warp",
@@ -287,6 +434,13 @@
       "source": "lobe-icons",
       "sourceFile": "icons/zencoder.svg",
       "svgSha256": "713d57e07a58b229f6aff6fefdd22b979de3f8a56e761997646c91419266a9b3"
+    },
+    {
+      "agent": "zencoder",
+      "file": "zencoder-color.svg",
+      "source": "lobe-icons",
+      "sourceFile": "icons/zencoder-color.svg",
+      "svgSha256": "a11daf67abc1ba2b9c89f088fef1a6f82bbbd5f7b9765b72559a9fdb5f0a9c16"
     }
   ]
 }

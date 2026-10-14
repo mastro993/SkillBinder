@@ -189,7 +189,7 @@ impl Engine {
                         .workspaces()?
                         .into_iter()
                         .filter(|workspace| !workspace.missing)
-                        .map(|workspace| PathBuf::from(workspace.path))
+                        .map(|workspace| (workspace.id, PathBuf::from(workspace.path)))
                         .collect(),
                     state.managed_digests()?,
                     state.log.clone(),

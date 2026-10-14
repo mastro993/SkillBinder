@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 
 use super::NativeView;
 use super::agent_skills::installed_agents;
-use super::sidebar::SYSTEM;
 use gpui_kit::{AnyElement, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::WorkspaceId;
 
@@ -15,7 +14,6 @@ impl NativeView {
             .flex()
             .flex_col()
             .gap_4()
-            .child(SYSTEM)
             .child("Agent skill locations under your home")
             .child(self.snapshot.home.clone())
             .into_any_element()
@@ -29,7 +27,6 @@ impl NativeView {
             .flex()
             .flex_col()
             .gap_4()
-            .child(workspace.name.clone())
             .child(workspace.path.clone())
             .children(
                 workspace
