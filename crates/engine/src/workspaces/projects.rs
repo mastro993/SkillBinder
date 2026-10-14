@@ -2,6 +2,7 @@
 //! that has an agent skill directory, or the folder alone when none has one. An agent folder,
 //! such as the home folder, is never a workspace.
 
+use crate::discovery::paths::resolve_absent;
 use std::{
     collections::BTreeSet,
     fs,
@@ -68,9 +69,11 @@ pub(super) fn is_agent_folder(
     skill_dirs: &BTreeSet<String>,
     global_dirs: &BTreeSet<PathBuf>,
 ) -> bool {
+    // Links are followed as the global directories' own are, including to a missing target.
     let global = |path: PathBuf| {
+        let root = path.ancestors().last().unwrap_or(Path::new("/"));
         global_dirs.contains(&path)
-            || fs::canonicalize(&path).is_ok_and(|resolved| global_dirs.contains(&resolved))
+            || resolve_absent(root, &path).is_ok_and(|resolved| global_dirs.contains(&resolved))
     };
     global_dirs.iter().any(|dir| folder.starts_with(dir))
         || skill_dirs.iter().any(|dir| global(folder.join(dir)))

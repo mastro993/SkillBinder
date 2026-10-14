@@ -3,7 +3,9 @@
 
 use std::path::Path;
 
-use super::agent_skills::{FoundSkill, detected_agents, split_universal, universal_dir};
+use super::agent_skills::{
+    FoundSkill, agent_name, detected_agents, split_universal, universal_dir,
+};
 use super::controls::button;
 use super::{LibraryFilter, NativeView, Route};
 use gpui_kit::component::ActiveTheme;
@@ -22,7 +24,7 @@ impl NativeView {
         else {
             return div().into_any_element();
         };
-        let shared = shared_with(&self.snapshot.agents, agent);
+        let shared = shared_with(&self.snapshot.agents, agent, &self.snapshot.home);
         let note = (!shared.is_empty()).then(|| format!("Shared with {}", shared.join(", ")));
         self.render_found(Path::new(dir), note, self.agent_skills(agent), cx)
     }
@@ -92,15 +94,15 @@ fn page() -> gpui_kit::Div {
 }
 
 /// The other detected agents reading `agent`'s global skill directory, including through a link,
-/// by display name.
-fn shared_with<'a>(agents: &'a [AgentOption], agent: &AgentOption) -> Vec<&'a str> {
+/// by the names the Agents section shows.
+fn shared_with(agents: &[AgentOption], agent: &AgentOption, home: &str) -> Vec<String> {
     let Some(dir) = &agent.resolved_skills_dir else {
         return Vec::new();
     };
     detected_agents(agents)
         .into_iter()
         .filter(|other| other.id != agent.id && other.resolved_skills_dir.as_ref() == Some(dir))
-        .map(|other| other.display_name.as_str())
+        .map(|other| agent_name(other, home))
         .collect()
 }
 
@@ -119,6 +121,7 @@ pub(super) fn agent_fallback(agents: &[AgentOption], home: &str, route: Route) -
 
 #[cfg(test)]
 mod tests {
+    use super::super::agent_skills::UNIVERSAL;
     use super::*;
 
     fn agent(id: &str, global: &str, detected: bool) -> AgentOption {
@@ -162,8 +165,20 @@ mod tests {
             agent("cursor", "/home/.cursor/skills", true),
             agent("zed", "/home/.agents/skills", false),
         ];
-        assert_eq!(shared_with(&agents, &claude), ["codex"]);
-        assert_eq!(shared_with(&agents, &agents[0]), ["claude-code"]);
-        assert!(shared_with(&agents, &agents[2]).is_empty());
+        assert_eq!(shared_with(&agents, &claude, "/home"), ["codex"]);
+        assert_eq!(shared_with(&agents, &agents[0], "/home"), ["claude-code"]);
+        assert!(shared_with(&agents, &agents[2], "/home").is_empty());
+    }
+
+    #[test]
+    fn shared_agents_are_named_as_the_agents_section_names_them() {
+        let config = "/home/.config/agents/skills";
+        let mut registry_universal = agent("universal", config, true);
+        registry_universal.display_name = UNIVERSAL.to_owned();
+        let agents = [agent("amp", config, true), registry_universal];
+        assert_eq!(
+            shared_with(&agents, &agents[0], "/home"),
+            ["Universal (~/.config/agents/skills)"]
+        );
     }
 }

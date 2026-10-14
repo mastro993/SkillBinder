@@ -110,7 +110,10 @@ pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>
                 bounded(path, &config.home).map_or_else(|_| path.clone(), |place| place.canonical)
             });
             AgentOption {
-                detected: global.as_ref().is_some_and(|path| path.is_dir()),
+                // An agent counts only where the scan reads its directory: inside home.
+                detected: global
+                    .as_ref()
+                    .is_some_and(|path| path.is_dir() && bounded(path, &config.home).is_ok()),
                 global_skills_dir: global.map(|path| path.display().to_string()),
                 resolved_skills_dir: resolved.map(|path| path.display().to_string()),
                 id: agent.id,
@@ -184,10 +187,7 @@ struct Place {
 /// the boundary, through a link leaving it, or unreadable.
 fn bounded(path: &Path, boundary: &Path) -> Result<Place, String> {
     let canonical_boundary = fs::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
-    let Ok(relative) = path
-        .strip_prefix(boundary)
-        .or_else(|_| path.strip_prefix(&canonical_boundary))
-    else {
+    let Some(relative) = paths::inside(&canonical_boundary, path) else {
         return Err(format!(
             "Discovery location outside its boundary: {}",
             path.display()

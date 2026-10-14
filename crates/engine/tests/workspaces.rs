@@ -160,6 +160,134 @@ async fn a_project_whose_skill_directory_links_to_a_global_one_is_an_agent_folde
     engine.shutdown().await.unwrap();
 }
 
+/// Opens an engine on `home` with `environment` and completes onboarding.
+async fn ready_with(
+    fixture: &Fixture,
+    home: &std::path::Path,
+    environment: &[(&str, &std::path::Path)],
+) -> Engine {
+    let mut config =
+        skillbinder_engine::EngineConfig::isolated(fixture.data.clone(), home.to_owned());
+    for (key, value) in environment {
+        config
+            .environment
+            .insert((*key).to_owned(), value.display().to_string());
+    }
+    let engine = Engine::open(config).unwrap();
+    for step in [
+        skillbinder_proto::OnboardingStep::Boundaries,
+        skillbinder_proto::OnboardingStep::SyncChoice,
+        skillbinder_proto::OnboardingStep::Ready,
+    ] {
+        engine.set_onboarding(step).await.unwrap();
+    }
+    engine.complete_onboarding().await.unwrap();
+    engine
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn paths_spelled_through_a_linked_home_are_inside_home() {
+    let fixture = Fixture::new();
+    let real = fixture.home.with_file_name("real-home");
+    fs::create_dir_all(&real).unwrap();
+    std::os::unix::fs::symlink(&real, &fixture.home).unwrap();
+    let alias = fixture.home.clone();
+    write_skill(
+        &real.join(".config/opencode/skills"),
+        "configured",
+        "Configured",
+    );
+    write_skill(&real.join("dotfiles/claude-skills"), "linked", "Linked");
+    fs::create_dir_all(real.join(".claude")).unwrap();
+    std::os::unix::fs::symlink(
+        alias.join("dotfiles/claude-skills"),
+        real.join(".claude/skills"),
+    )
+    .unwrap();
+    let engine = ready_with(
+        &fixture,
+        &alias,
+        &[("XDG_CONFIG_HOME", &alias.join(".config"))],
+    )
+    .await;
+
+    let snapshot = engine.snapshot().await.unwrap();
+    let opencode = snapshot
+        .agents
+        .iter()
+        .find(|agent| agent.id == "opencode")
+        .unwrap();
+    assert!(opencode.detected);
+    let scan = fixture.scan(&engine).await;
+    let readers = |slug: &str| {
+        let candidate = scan
+            .candidates
+            .iter()
+            .find(|candidate| candidate.slug == slug);
+        candidate.map(|candidate| candidate.locations[0].global_agents.clone())
+    };
+    assert!(
+        readers("configured")
+            .unwrap()
+            .iter()
+            .any(|id| id == "opencode")
+    );
+    assert!(
+        readers("linked")
+            .unwrap()
+            .iter()
+            .any(|id| id == "claude-code")
+    );
+    let real = fs::canonicalize(&real).unwrap();
+    let error = add_folder(&engine, &real.join(".config/opencode"))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.message,
+        "This folder's skills are shown under Agents."
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn an_agent_whose_directory_is_outside_home_is_not_detected() {
+    let fixture = Fixture::new();
+    let outside = fixture.home.with_file_name("outside-claude");
+    write_skill(&outside.join("skills"), "elsewhere", "Elsewhere");
+    let engine = ready_with(&fixture, &fixture.home, &[("CLAUDE_CONFIG_DIR", &outside)]).await;
+    let snapshot = engine.snapshot().await.unwrap();
+    let claude = snapshot
+        .agents
+        .iter()
+        .find(|agent| agent.id == "claude-code")
+        .unwrap();
+    assert!(
+        !claude.detected,
+        "the scan never reads a directory outside home"
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_project_skill_link_to_an_absent_global_directory_is_an_agent_folder() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    fs::create_dir_all(home.join(".claude")).unwrap();
+    let project = fs::canonicalize(&fixture.workspace).unwrap();
+    fs::create_dir_all(project.join(".claude")).unwrap();
+    std::os::unix::fs::symlink(home.join(".claude/skills"), project.join(".claude/skills"))
+        .unwrap();
+    let error = add_folder(&engine, &project).await.unwrap_err();
+    assert_eq!(
+        error.message, "This folder's skills are shown under Agents.",
+        "picking and launching must agree before Claude Code creates its skills folder"
+    );
+    engine.shutdown().await.unwrap();
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn agents_whose_directories_are_one_folder_share_a_resolved_directory() {
