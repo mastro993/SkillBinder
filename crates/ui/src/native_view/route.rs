@@ -14,11 +14,9 @@ pub(super) enum LibraryFilter {
 pub(super) enum Route {
     Discovery,
     Library(LibraryFilter),
-    /// System's page.
-    System,
-    /// An added workspace's page: `workspace/{id}`.
+    /// A workspace's page: `workspace/{id}`.
     Workspace(WorkspaceId),
-    /// An installed agent's page, by registry id: `agent/{id}`.
+    /// A detected agent's page, by registry id: `agent/{id}`.
     Agent(String),
     /// The page of the universal agents together, which read `~/.agents/skills`:
     /// `agents/universal`.
@@ -86,9 +84,9 @@ mod tests {
         let mut history = History::default();
         let workspace = Route::Workspace(WorkspaceId::new());
         history.push(Route::Discovery);
-        history.push(Route::System);
-        assert_eq!(history.back(workspace.clone()), Some(Route::System));
-        assert_eq!(history.forward(Route::System), Some(workspace));
+        history.push(Route::Universal);
+        assert_eq!(history.back(workspace.clone()), Some(Route::Universal));
+        assert_eq!(history.forward(Route::Universal), Some(workspace));
     }
 
     #[test]

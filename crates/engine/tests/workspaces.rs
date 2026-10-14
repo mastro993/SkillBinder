@@ -1,5 +1,5 @@
-//! System and added workspaces: registration and the single scan of their agent skill
-//! directories, in isolated roots.
+//! Workspaces and the agents' global skill directories: registration and the single scan of
+//! their agent skill directories, in isolated roots.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
@@ -11,7 +11,7 @@ use skillbinder_proto::{ErrorCategory, ScanSnapshot, SkillId};
 use std::fs;
 use support::{Fixture, add_workspace, category, write_skill};
 
-/// Imports a skill from the fixture home's Claude Code directory, which System covers.
+/// Imports a skill from the fixture home's Claude Code global skill directory.
 async fn library_skill(fixture: &Fixture, engine: &Engine, slug: &str, body: &str) -> SkillId {
     write_skill(&fixture.home.join(".claude/skills"), slug, body);
     let scan = fixture.scan(engine).await;
@@ -85,21 +85,21 @@ async fn a_workspace_scan_reads_only_its_top_level_agent_skill_directories() {
 }
 
 #[tokio::test]
-async fn installed_agents_are_those_whose_global_directory_exists() {
+async fn detected_agents_are_those_whose_global_directory_exists() {
     let fixture = Fixture::new();
     fs::create_dir_all(fixture.home.join(".claude/skills")).unwrap();
     let engine = fixture.ready().await;
     let snapshot = engine.snapshot().await.unwrap();
-    let installed = |id: &str| {
+    let detected = |id: &str| {
         snapshot
             .agents
             .iter()
             .find(|agent| agent.id == id)
             .unwrap()
-            .installed
+            .detected
     };
-    assert!(installed("claude-code"));
-    assert!(!installed("cursor"));
+    assert!(detected("claude-code"));
+    assert!(!detected("cursor"));
     engine.shutdown().await.unwrap();
 }
 
@@ -185,6 +185,123 @@ async fn a_folder_without_projects_is_added_as_an_empty_workspace() {
         .map(|workspace| workspace.name.as_str())
         .collect();
     assert_eq!(names, ["empty"]);
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn the_home_folder_is_never_a_workspace() {
+    let fixture = Fixture::new();
+    fs::create_dir_all(fixture.home.join(".claude/skills")).unwrap();
+    let engine = fixture.ready().await;
+    let error = add_folder(&engine, &fixture.home).await.unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Validation);
+    assert_eq!(
+        error.message,
+        "Your home folder's skills are shown under Agents."
+    );
+
+    // Picking home still adds the projects in it, and picking a folder that holds home skips it.
+    fs::create_dir_all(fixture.home.join("api/.claude/skills")).unwrap();
+    fs::create_dir_all(fixture.workspace.join(".claude/skills")).unwrap();
+    let names = |added: Vec<skillbinder_proto::Workspace>| -> Vec<String> {
+        added.into_iter().map(|workspace| workspace.name).collect()
+    };
+    assert_eq!(
+        names(add_folder(&engine, &fixture.home).await.unwrap()),
+        ["api"]
+    );
+    let again = add_folder(&engine, &fixture.home).await.unwrap_err();
+    assert_eq!(
+        again.message, "Every project in home is already added.",
+        "picking home again does not name its project"
+    );
+    let parent = fixture.home.parent().unwrap();
+    assert_eq!(
+        names(add_folder(&engine, parent).await.unwrap()),
+        ["workspace"]
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_stored_home_workspace_is_forgotten_on_launch() {
+    let fixture = Fixture::new();
+    fs::create_dir_all(fixture.home.join(".claude/skills")).unwrap();
+    let engine = fixture.ready().await;
+    let kept = fixture.register(&engine).await;
+    engine.shutdown().await.unwrap();
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    let database = rusqlite::Connection::open(fixture.data.join("state.sqlite3")).unwrap();
+    database
+        .execute("UPDATE workspaces SET position=1", [])
+        .unwrap();
+    database
+        .execute(
+            "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES('home',?1,'home',0,0)",
+            [home.display().to_string()],
+        )
+        .unwrap();
+    drop(database);
+
+    let engine = fixture.open();
+    let workspaces = engine.snapshot().await.unwrap().workspaces;
+    assert_eq!(workspaces.len(), 1);
+    assert_eq!((&workspaces[0].id, workspaces[0].position), (&kept.id, 0));
+    assert!(
+        home.join(".claude/skills").is_dir(),
+        "files are not touched"
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn an_empty_home_folder_is_still_an_agent_folder() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let error = add_folder(&engine, &fixture.home).await.unwrap_err();
+    assert_eq!(
+        error.message,
+        "Your home folder's skills are shown under Agents."
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_linked_global_directory_is_an_agent_folder_only_inside_home() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let link = |target: &std::path::Path, agent: &str| {
+        fs::create_dir_all(target).unwrap();
+        fs::create_dir_all(fixture.home.join(agent)).unwrap();
+        std::os::unix::fs::symlink(target, fixture.home.join(agent).join("skills")).unwrap();
+    };
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    let shared = home.join("shared");
+    link(&shared.join("skills"), ".claude");
+    let outside = fs::canonicalize(&fixture.workspace)
+        .unwrap()
+        .join(".continue/skills");
+    link(&outside, ".continue");
+
+    let error = add_folder(&engine, &shared).await.unwrap_err();
+    assert_eq!(
+        error.message, "Your home folder's skills are shown under Agents.",
+        "the folder a global skill directory resolves to inside home is an agent folder"
+    );
+    let error = add_folder(&engine, &home.join(".claude"))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.message, "Your home folder's skills are shown under Agents.",
+        "so is the folder holding the link"
+    );
+    let added = add_folder(&engine, &fixture.workspace).await.unwrap();
+    assert_eq!(
+        added.len(),
+        1,
+        "a link leaving home is not scanned, so its target stays a project"
+    );
     engine.shutdown().await.unwrap();
 }
 

@@ -47,13 +47,13 @@ impl NativeView {
             .flex()
             .flex_col()
             .gap_4()
-            .child("Skills found in System and your workspaces that are not in your library.");
+            .child("Skills found in your agents and workspaces that are not installed.");
         if self.snapshot.scanning {
             page = page.child("Scanning…");
         }
         if let Some(scan) = scan {
             page = page.child(format!(
-                "{} found · {} already in library",
+                "{} found · {} already installed",
                 listed.len(),
                 scan.candidates.len() - listed.len()
             ));
@@ -188,7 +188,7 @@ impl NativeView {
             let acknowledge = self.acknowledge_invalid;
             page = page.child(
                 button("prepare-import")
-                    .label("Review import")
+                    .label("Review install")
                     .primary()
                     .inactive(
                         self.busy

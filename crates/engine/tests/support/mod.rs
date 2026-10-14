@@ -96,7 +96,7 @@ pub async fn add_workspace(engine: &Engine, path: &Path) -> Workspace {
     added.remove(0)
 }
 
-/// Scans System and every workspace and waits for the scan to complete.
+/// Scans the agents' global skill directories and every workspace and waits for the scan to complete.
 pub async fn scan(engine: &Engine) -> ScanSnapshot {
     engine.start_scan().await.unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);

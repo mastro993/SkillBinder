@@ -33,7 +33,7 @@ impl State {
             let inspection = payload::inspect(&path)?;
             if inspection.manifest.digest != skill.digest {
                 return Err(AppError::stale(
-                    "A managed payload changed outside SkillBinder. Review it before importing.",
+                    "A managed payload changed outside SkillBinder. Review it before installing.",
                 ));
             }
             manifests.insert(skill.id.clone(), inspection.manifest);
@@ -77,11 +77,13 @@ impl State {
                 return Err(AppError::stale("A selected source directory was replaced."));
             }
             if inspection.status == ValidationStatus::Blocked {
-                return Err(AppError::validation("Blocked payloads cannot be imported."));
+                return Err(AppError::validation(
+                    "Blocked payloads cannot be installed.",
+                ));
             }
             if inspection.status == ValidationStatus::Invalid && !acknowledge_invalid {
                 return Err(AppError::validation(
-                    "Acknowledge invalid skill metadata before preparing an import.",
+                    "Acknowledge invalid skill metadata before preparing an install.",
                 ));
             }
             if selected_slugs
@@ -89,7 +91,7 @@ impl State {
                 .is_some_and(|digest| digest != &inspection.manifest.digest)
             {
                 return Err(AppError::validation(
-                    "Select only one distinct payload per shared slug in an import batch.",
+                    "Select only one distinct payload per shared slug in an install batch.",
                 ));
             }
             selected_slugs.insert(inspection.slug.clone(), inspection.manifest.digest.clone());
@@ -196,17 +198,17 @@ impl State {
             )
             .optional()
             .map_err(|_| AppError::storage())?
-            .ok_or_else(|| AppError::stale("Import plan is unavailable. Prepare it again."))?;
+            .ok_or_else(|| AppError::stale("Install plan is unavailable. Prepare it again."))?;
         let prepared: Prepared =
             serde_json::from_str(&serialized).map_err(|_| AppError::storage())?;
         if persistence::now() >= prepared.review.expires_at {
-            return Err(AppError::stale("Import plan expired. Review it again."));
+            return Err(AppError::stale("Install plan expired. Review it again."));
         }
         let snapshot = self.library_snapshot()?;
         if snapshot.revision != prepared.review.revision
             || self.catalog(&snapshot.library)?.1 != prepared.catalog
         {
-            return Err(AppError::stale("The library changed after import review."));
+            return Err(AppError::stale("The library changed after install review."));
         }
         for (item, inspection) in prepared.review.items.iter().zip(&prepared.sources) {
             if fs::canonicalize(&item.source).map_err(|_| AppError::stale("SourceChanged"))?
@@ -244,7 +246,7 @@ impl State {
         {
             let _ = fs::remove_dir_all(&staging);
             return Err(AppError::stale(
-                "The library changed while the import was staged.",
+                "The library changed while the install was staged.",
             ));
         }
         let mut moves = Vec::new();

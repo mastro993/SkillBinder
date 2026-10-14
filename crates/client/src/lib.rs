@@ -147,7 +147,7 @@ impl Client {
         });
     }
     /// Refreshes the app in the background, on launch and when the window regains focus: scans
-    /// System and every workspace, then refreshes the remote's Git status.
+    /// the agents' global skill directories and every workspace, then refreshes the remote's Git status.
     pub fn refresh_app(&self) {
         let snapshot = self.snapshot();
         if snapshot.library.is_none() {
@@ -164,7 +164,7 @@ impl Client {
             }
         });
     }
-    /// Scans System and every workspace, replacing a running scan.
+    /// Scans the agents' global skill directories and every workspace, replacing a running scan.
     pub async fn start_scan(&self) -> AppResult<()> {
         self.refresh_preserving_outcome(self.shared.engine.start_scan().await)
             .await

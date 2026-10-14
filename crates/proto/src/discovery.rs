@@ -1,5 +1,5 @@
 use crate::{
-    CandidateId, GrantId, PlanId, SkillId, ValidationMessage, ValidationStatus, WorkspaceRef,
+    CandidateId, GrantId, PlanId, SkillId, ValidationMessage, ValidationStatus, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,8 +20,11 @@ pub struct CandidateLocation {
     pub readers: Vec<String>,
     /// Registry identities of the same agents, sorted.
     pub agents: Vec<String>,
-    /// The workspaces whose scan reads this location, System first; never empty.
-    pub workspaces: Vec<WorkspaceRef>,
+    /// Registry identities of the agents whose global skill directory holds this location, through
+    /// any link to it, sorted; empty for a location only workspaces read.
+    pub global_agents: Vec<String>,
+    /// The workspaces whose scan reads this location; empty for a global skill directory.
+    pub workspaces: Vec<WorkspaceId>,
 }
 /// A found skill: one slug and content digest with every location holding those bytes.
 /// Its paths are never import inputs; the engine keeps the reviewed source by opaque identity.
@@ -46,12 +49,13 @@ pub struct Candidate {
     /// Materialized regular file count.
     pub file_count: u64,
 }
-/// The skills the last completed scan found in System and every workspace.
+/// The skills the last completed scan found in the agents' global skill directories and every
+/// workspace.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ScanSnapshot {
     /// Found skills, ordered by their first location's path.
     pub candidates: Vec<Candidate>,
-    /// Safe failure message; the candidates of a failed scan cannot be imported.
+    /// Safe failure message; the candidates of a failed scan cannot be installed.
     pub error: Option<String>,
 }
 /// One reviewed import choice.

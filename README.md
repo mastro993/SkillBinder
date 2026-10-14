@@ -3,7 +3,7 @@
 [![Checks](https://github.com/mastro993/SkillBinder/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/mastro993/SkillBinder/actions/workflows/checks.yml?query=branch%3Amain)
 [![Native builds](https://github.com/mastro993/SkillBinder/actions/workflows/native.yml/badge.svg?branch=main)](https://github.com/mastro993/SkillBinder/actions/workflows/native.yml?query=branch%3Amain)
 
-SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover installed skills, review copies before importing them, organize a flat folder library, track which workspaces hold library skills, and synchronize its portable files through Git.
+SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover the skills in your agents and workspaces, review copies before installing them, organize a flat folder library, see which agents hold each library skill, and synchronize its portable files through Git.
 
 ## Run
 
@@ -15,7 +15,7 @@ cargo run -p skillbinder --locked
 
 SkillBinder requires macOS 26 or newer on Apple silicon or Intel Macs. Windows and Linux builds are also supported.
 
-First launch checks Git 2.39 or newer and storage access, then creates a local library through four setup steps. Synchronization is optional. The sidebar's Workspaces section starts with System, the global agent skill locations under your home folder with the number of skills installed there, followed by the project folders you add through the native directory picker. Picking a folder of projects, such as `~/Projects`, adds each project that has an agent skill directory as its own workspace. SkillBinder scans System and every workspace's agent skill directories on launch and whenever its window regains focus. Discovery lists the skills it found that are not in your library, and the Agents section lists each installed agent's skills. Imports copy files into the library; SkillBinder never modifies sources.
+First launch checks Git 2.39 or newer and storage access, then creates a local library through four setup steps. Synchronization is optional. The sidebar's Workspaces section lists the project folders you add through the native directory picker. Picking a folder of projects, such as `~/Projects`, adds each project that has an agent skill directory as its own workspace. Your home folder is never a workspace; its skills are shown under Agents. SkillBinder scans your agents' global skill directories, such as `~/.claude/skills`, and every workspace's agent skill directories on launch and whenever its window regains focus. Discovery lists the skills it found that are not installed, and the Agents section lists each detected agent's found skills. Installing copies files into the library; SkillBinder never modifies sources.
 
 The application uses a fresh `SkillBinder` directory beneath each operating system's local application-data directory. Existing `~/.skillbinder` data is left untouched. There is no migration or compatibility application.
 

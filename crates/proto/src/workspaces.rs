@@ -16,15 +16,6 @@ pub struct Workspace {
     pub missing: bool,
 }
 
-/// System or one added workspace.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum WorkspaceRef {
-    /// The built-in workspace of the agents' global skill directories.
-    System,
-    /// An added workspace.
-    Added(WorkspaceId),
-}
-
 /// A registry agent and the skill directories it reads.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AgentOption {
@@ -36,6 +27,6 @@ pub struct AgentOption {
     pub workspace_skills_dir: String,
     /// Global skill directory, or `None` when this device has none.
     pub global_skills_dir: Option<String>,
-    /// The global skill directory exists, so the agent is installed.
-    pub installed: bool,
+    /// The global skill directory exists, so the agent is detected.
+    pub detected: bool,
 }

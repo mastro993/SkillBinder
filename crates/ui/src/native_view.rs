@@ -257,7 +257,7 @@ impl NativeView {
         if matches!(&self.route, Route::Workspace(id) if !workspace_exists(id)) {
             self.route = Route::Discovery;
         }
-        self.route = agent_page::agent_fallback(&latest, self.route.clone());
+        self.route = agent_page::agent_fallback(&latest.agents, &latest.home, self.route.clone());
         if self
             .workspace_edit
             .as_ref()
@@ -337,8 +337,8 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted folder falls back to all skills, a
-    /// removed workspace to Discovery, and an agent Global no longer has to System.
+    /// Shows `route` without touching history; a deleted folder falls back to all skills, and a
+    /// removed workspace or an agent no longer detected to Discovery.
     fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
         let folder_exists = |id: &FolderId| {
             self.snapshot
@@ -353,7 +353,7 @@ impl NativeView {
                 Route::Library(LibraryFilter::All)
             }
             Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
-            route => agent_page::agent_fallback(&self.snapshot, route),
+            route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
         };
         if self.route != route {
             self.candidate_page = 0;
@@ -393,7 +393,7 @@ impl NativeView {
                 .flex_col()
                 .gap_2()
                 .child(format!(
-                    "Import finished: {} copied, {} already in library, {} name conflicts",
+                    "Install finished: {} copied, {} already installed, {} name conflicts",
                     outcome.imported.len(),
                     outcome.existing.len(),
                     outcome.conflicts.len()
@@ -442,7 +442,6 @@ impl Render for NativeView {
             let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library(_) => self.render_library(window, cx),
-                Route::System => self.render_system(),
                 Route::Workspace(id) => self.render_workspace(&id.clone()),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
                 Route::Universal => self.render_universal(cx),

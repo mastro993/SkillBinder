@@ -1,35 +1,31 @@
-//! The sidebar Agents section: Universal first, then the other installed agents alphabetically,
+//! The sidebar Agents section: Universal first, then the other detected agents alphabetically,
 //! each opening its own page.
 
-use std::path::{Path, PathBuf};
-
 use super::agent_skills::{
-    InstalledSkill, UNIVERSAL, agent_name, found_in, installed_agents, split_universal,
-    universal_dir,
+    FoundSkill, UNIVERSAL, agent_name, detected_agents, found_where, read_globally, split_universal,
 };
 use super::controls::{agent_icon, app_icon};
-use super::sidebar_row::{activate, count, row};
+use super::sidebar_row::{activate, count, empty_row, row};
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Icon};
+use gpui_kit::component::Icon;
 use gpui_kit::{
     AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{AgentOption, SidebarSection};
-use skillbinder_theme::sidebar::{LABEL_SIZE, ROW_GAP, ROW_HEIGHT, ROW_PADDING};
+use skillbinder_proto::{AgentOption, CandidateLocation, SidebarSection};
+use skillbinder_theme::sidebar::ROW_GAP;
 
 impl NativeView {
     pub(super) fn render_agents(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let home = &self.snapshot.home;
-        let (universal, others) = split_universal(installed_agents(&self.snapshot.agents), home);
+        let (universal, others) = split_universal(detected_agents(&self.snapshot.agents), home);
         let universal_row = (!universal.is_empty()).then(|| {
-            let dir = universal_dir(home);
             self.render_agent_row(
                 "agents-universal",
                 app_icon("layers"),
                 UNIVERSAL.to_owned(),
                 Route::Universal,
-                self.installed_in(&dir).len(),
+                self.found_for(&universal).len(),
                 cx,
             )
         });
@@ -47,16 +43,7 @@ impl NativeView {
             }))
             .collect();
         let items = rows.len().max(1);
-        let empty = rows.is_empty().then(|| {
-            div()
-                .flex()
-                .items_center()
-                .h(px(ROW_HEIGHT))
-                .px(px(ROW_PADDING))
-                .text_size(px(LABEL_SIZE))
-                .text_color(cx.theme().muted_foreground.opacity(0.65))
-                .child("No agents")
-        });
+        let empty = rows.is_empty().then(|| empty_row("No agents", cx));
         div()
             .flex()
             .flex_col()
@@ -97,25 +84,25 @@ impl NativeView {
     }
 
     /// The skill folders in the agent's global skill directory.
-    pub(super) fn agent_skills(&self, agent: &AgentOption) -> Vec<InstalledSkill> {
-        agent
-            .global_skills_dir
-            .as_deref()
-            .map_or_else(Vec::new, |dir| self.installed_in(Path::new(dir)))
+    pub(super) fn agent_skills(&self, agent: &AgentOption) -> Vec<FoundSkill> {
+        self.found_for(&[agent])
     }
 
-    /// The skill folders in a global skill directory.
-    pub(super) fn installed_in(&self, dir: &Path) -> Vec<InstalledSkill> {
-        self.found_in(&[dir.to_path_buf()])
+    /// The skill folders the last scan found in the global skill directory of any of `agents`.
+    pub(super) fn found_for(&self, agents: &[&AgentOption]) -> Vec<FoundSkill> {
+        self.found_where(|location| read_globally(location, agents))
     }
 
-    /// The skill folders the last scan found inside any of `dirs`.
-    pub(super) fn found_in(&self, dirs: &[PathBuf]) -> Vec<InstalledSkill> {
+    /// The skill folders the last scan found at the locations `holds` accepts.
+    pub(super) fn found_where(
+        &self,
+        holds: impl Fn(&CandidateLocation) -> bool,
+    ) -> Vec<FoundSkill> {
         let candidates = self
             .snapshot
             .scan
             .as_ref()
             .map_or(&[][..], |scan| &scan.candidates);
-        found_in(dirs, candidates)
+        found_where(candidates, holds)
     }
 }

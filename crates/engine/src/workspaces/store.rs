@@ -1,8 +1,10 @@
 //! Workspace rows in machine-local SQLite.
 
-use super::projects::projects;
+use super::projects::{is_agent_folder, projects};
 use crate::{
-    discovery::registry::workspace_skill_dirs, library::validate_name, persistence::now,
+    discovery::registry::{global_skill_dirs, workspace_skill_dirs},
+    library::validate_name,
+    persistence::now,
     worker::State,
 };
 use rusqlite::params;
@@ -12,8 +14,8 @@ use std::path::Path;
 impl State {
     /// Consumes a directory grant and saves the picked folder's projects as the last
     /// workspaces: the folder itself and each direct child that has an agent skill directory, or
-    /// the folder alone when none has one. Folders already added are skipped; when nothing is
-    /// left to add, the addition is refused.
+    /// the folder alone when none has one. Agent folders, such as the home folder, and folders
+    /// already added are skipped; when nothing is left to add, the addition is refused.
     pub(crate) fn add_workspaces(&mut self, grant: &GrantId) -> AppResult<Vec<Workspace>> {
         let step: OnboardingStep = self.setting("onboarding")?.unwrap_or_default();
         if step != OnboardingStep::Complete {
@@ -29,10 +31,16 @@ impl State {
             ));
         }
         let existing = self.workspaces()?;
-        let found: Vec<String> = projects(&picked, &workspace_skill_dirs()?)
+        let global_dirs = global_skill_dirs(&self.config)?;
+        let found: Vec<String> = projects(&picked, &workspace_skill_dirs()?, &global_dirs)
             .into_iter()
             .filter_map(|path| path.to_str().map(str::to_owned))
             .collect();
+        if found.is_empty() {
+            return Err(AppError::validation(
+                "Your home folder's skills are shown under Agents.",
+            ));
+        }
         let added: Vec<_> = found
             .iter()
             .filter(|path| !existing.iter().any(|workspace| &workspace.path == *path))
@@ -47,10 +55,10 @@ impl State {
             .collect();
         if added.is_empty() {
             return Err(AppError::validation(
-                match existing
-                    .iter()
-                    .find(|workspace| found == [workspace.path.clone()])
-                {
+                // Only the picked folder itself is named; its projects are not what was picked.
+                match existing.iter().find(|workspace| {
+                    found == [workspace.path.clone()] && Path::new(&workspace.path) == picked
+                }) {
                     Some(workspace) => {
                         format!("This folder is already added as {}.", workspace.name)
                     }
@@ -150,6 +158,25 @@ impl State {
                 .map_err(|_| AppError::storage())?;
         }
         transaction.commit().map_err(|_| AppError::storage())
+    }
+
+    /// Forgets every stored workspace that is an agent folder, such as the home folder, whose
+    /// skills are shown under Agents. Files in the folders are not touched.
+    pub(crate) fn forget_agent_folders(&mut self) -> AppResult<()> {
+        let (skill_dirs, global_dirs) = (workspace_skill_dirs()?, global_skill_dirs(&self.config)?);
+        let refused: Vec<_> = self
+            .workspaces()?
+            .into_iter()
+            .filter(|workspace| {
+                is_agent_folder(Path::new(&workspace.path), &skill_dirs, &global_dirs)
+            })
+            .collect();
+        for workspace in refused {
+            self.log
+                .record(format!("Forgot agent folder workspace {}", workspace.path));
+            self.remove_workspace(&workspace.id)?;
+        }
+        Ok(())
     }
 
     /// Forgets a workspace. Files in the folder are not touched.

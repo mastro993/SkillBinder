@@ -14,8 +14,6 @@ use gpui_kit::{
 use skillbinder_proto::{SyncSnapshot, SyncState};
 use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
-/// The built-in workspace made of the global agent skill directories under home.
-pub(super) const SYSTEM: &str = "System";
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
 const SIDEBAR_MOTION: Duration = Duration::from_millis(220);

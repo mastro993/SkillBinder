@@ -97,6 +97,7 @@ impl Traversal<'_> {
             if let Some(found) = candidates[candidate].locations.get_mut(index) {
                 merge(&mut found.readers, &location.readers);
                 merge(&mut found.agents, &location.agents);
+                merge(&mut found.global_agents, &location.global_agents);
                 merge(&mut found.workspaces, &location.workspaces);
             }
             return;
@@ -115,6 +116,7 @@ impl Traversal<'_> {
             display_path: path.display().to_string(),
             readers: location.readers.clone(),
             agents: location.agents.clone(),
+            global_agents: location.global_agents.clone(),
             workspaces: location.workspaces.clone(),
         };
         let id = identity(&inspection);

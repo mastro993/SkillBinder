@@ -94,7 +94,9 @@ pub fn materialize(expected: &Inspection, destination: &Path) -> AppResult<()> {
 /// Re-reads the source and checks that `destination` is absent and outside it.
 fn verified(expected: &Inspection, destination: &Path) -> AppResult<traversal::Snapshot> {
     if expected.status == ValidationStatus::Blocked {
-        return Err(AppError::validation("Blocked payloads cannot be imported."));
+        return Err(AppError::validation(
+            "Blocked payloads cannot be installed.",
+        ));
     }
     let snapshot = traversal::snapshot(&expected.canonical_source)?;
     if snapshot.inspection != *expected {
