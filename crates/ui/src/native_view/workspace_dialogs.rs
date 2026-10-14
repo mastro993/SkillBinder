@@ -7,7 +7,7 @@ use gpui_kit::{Context, ParentElement, PathPromptOptions, Styled, div};
 use skillbinder_proto::*;
 
 impl NativeView {
-    /// Picks a folder, grants it, and adds it as a workspace; a scan then covers it.
+    /// Picks a folder, grants it, and adds its projects as workspaces; a scan then covers them.
     pub(super) fn choose_workspace_folder(&mut self, cx: &mut Context<Self>) {
         let picker = cx.prompt_for_paths(PathPromptOptions {
             files: false,
@@ -26,7 +26,7 @@ impl NativeView {
                 return Ok(());
             };
             let grant = client.grant_directory(path).await?;
-            client.add_workspace(grant.id).await.map(|_| ())
+            client.add_workspaces(grant.id).await.map(|_| ())
         });
         cx.spawn(async move |this, cx| {
             let result = handle.await;

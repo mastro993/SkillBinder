@@ -44,7 +44,7 @@ async fn a_workspace_scan_reads_only_its_top_level_agent_skill_directories() {
     write_skill(&fixture.workspace.join(".claude/skills"), "beta", "Beta");
     write_skill(&fixture.workspace.join("docs"), "loose", "Outside");
     write_skill(
-        &fixture.workspace.join("nested/.claude/skills"),
+        &fixture.workspace.join("nested/inner/.claude/skills"),
         "deep",
         "Below the top",
     );
@@ -111,9 +111,13 @@ async fn grants_are_single_use_and_duplicate_workspaces_are_refused() {
         .grant_directory(fixture.workspace.clone())
         .await
         .unwrap();
-    let workspace = engine.add_workspace(grant.id.clone()).await.unwrap();
+    let workspace = engine
+        .add_workspaces(grant.id.clone())
+        .await
+        .unwrap()
+        .remove(0);
     assert_eq!(
-        category(engine.add_workspace(grant.id).await),
+        category(engine.add_workspaces(grant.id).await),
         ErrorCategory::Stale
     );
     engine
@@ -124,11 +128,72 @@ async fn grants_are_single_use_and_duplicate_workspaces_are_refused() {
         .grant_directory(fixture.workspace.join("."))
         .await
         .unwrap();
-    let error = engine.add_workspace(duplicate.id).await.unwrap_err();
+    let error = engine.add_workspaces(duplicate.id).await.unwrap_err();
     assert_eq!(error.category, ErrorCategory::Validation);
     assert!(error.message.contains("Renamed"), "{}", error.message);
     assert_eq!(engine.snapshot().await.unwrap().workspaces.len(), 1);
     engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_folder_of_projects_adds_each_project_once() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let projects = fixture.workspace.join("projects");
+    write_skill(&projects.join("api/.claude/skills"), "alpha", "Alpha");
+    fs::create_dir_all(projects.join("web/.agents/skills")).unwrap();
+    fs::create_dir_all(projects.join("docs")).unwrap();
+    let canonical = fs::canonicalize(&projects).unwrap();
+
+    let added = add_folder(&engine, &projects).await.unwrap();
+    let names: Vec<_> = added
+        .iter()
+        .map(|workspace| workspace.name.as_str())
+        .collect();
+    assert_eq!(names, ["api", "web"]);
+    assert_eq!(added[0].path, canonical.join("api").display().to_string());
+    assert_eq!(added[1].position, 1);
+    let slugs: Vec<_> = fixture
+        .scan(&engine)
+        .await
+        .candidates
+        .into_iter()
+        .map(|candidate| candidate.slug)
+        .collect();
+    assert_eq!(slugs, ["alpha"]);
+
+    // Picking the folder again adds only projects that appeared since.
+    fs::create_dir_all(projects.join("docs/.claude/skills")).unwrap();
+    let added = add_folder(&engine, &projects).await.unwrap();
+    assert_eq!(added.len(), 1);
+    assert_eq!((added[0].name.as_str(), added[0].position), ("docs", 2));
+    let error = add_folder(&engine, &projects).await.unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Validation);
+    assert_eq!(error.message, "Every project in projects is already added.");
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_folder_without_projects_is_added_as_an_empty_workspace() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let empty = fixture.workspace.join("empty");
+    fs::create_dir_all(empty.join("docs")).unwrap();
+    let added = add_folder(&engine, &empty).await.unwrap();
+    let names: Vec<_> = added
+        .iter()
+        .map(|workspace| workspace.name.as_str())
+        .collect();
+    assert_eq!(names, ["empty"]);
+    engine.shutdown().await.unwrap();
+}
+
+async fn add_folder(
+    engine: &Engine,
+    folder: &std::path::Path,
+) -> skillbinder_proto::AppResult<Vec<skillbinder_proto::Workspace>> {
+    let grant = engine.grant_directory(folder.to_owned()).await.unwrap();
+    engine.add_workspaces(grant.id).await
 }
 
 #[tokio::test]

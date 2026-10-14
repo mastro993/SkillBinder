@@ -41,7 +41,7 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312` on 20
 Added after the captured baseline; `docs/agents/domain.md` defines the terms.
 
 - System is the agents' global skill directories under home, always present, never renamed or removed. An added workspace is a picked canonical folder; its name starts as the last path component, is editable, and need not be unique.
-- Adding a workspace consumes a directory grant, refuses an exact duplicate path, allows nested workspaces, and saves the workspace at once. Removing a workspace forgets it without touching files.
+- Adding a workspace consumes a directory grant and saves, at once, the picked folder when it has an agent workspace skill directory and each direct, non-hidden, non-linked child that has one; a folder where none has one is saved alone. Folders already added are skipped, and an addition with nothing left to add is refused. Nested workspaces are allowed. Removing a workspace forgets it without touching files.
 - One scan covers System and every workspace whose folder exists. A workspace scan reads only the agent workspace skill directories at the top of its folder. Found skills are kept in memory, not stored; a found skill is in library when its content matches a library skill's current payload.
 - SkillBinder never writes into System or workspaces. Import and Discovery stay read-only.
 - Discovery lists the found skills not in the library. It lists each found skill once per slug and content digest, with every location holding those bytes and each location's readers. Same slug with different content, or with a different validation result, stays separate. Importing an aggregated entry copies one of its locations, which the import review names as the source.
@@ -64,6 +64,7 @@ Added after the captured baseline; `docs/agents/domain.md` defines the terms.
 | Remote has one new commit and local managed files are dirty | `needsSync`; automatic Pull or Push refused. |
 | Add a workspace whose `.claude/skills/x` matches library skill `x`, plus unknown `y` and `nested/.claude/skills/z` | The scan finds `x` in library and `y` not in library; `z` is not found. |
 | Add the same folder twice | Second addition refused, naming the existing workspace. |
+| Pick `projects` holding `api/.claude/skills`, `web/.agents/skills`, and `docs` | Workspaces `api` and `web`; picking `projects` again after `docs/.claude/skills` appears adds only `docs`. |
 
 ## Evidence and retention
 

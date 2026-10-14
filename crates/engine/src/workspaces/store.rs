@@ -1,62 +1,83 @@
 //! Workspace rows in machine-local SQLite.
 
-use crate::{library::validate_name, persistence::now, worker::State};
-use rusqlite::{OptionalExtension, params};
+use super::projects::projects;
+use crate::{
+    discovery::registry::workspace_skill_dirs, library::validate_name, persistence::now,
+    worker::State,
+};
+use rusqlite::params;
 use skillbinder_proto::*;
 use std::path::Path;
 
 impl State {
-    /// Consumes a directory grant and saves its folder as the last workspace; an exact duplicate
-    /// folder is refused.
-    pub(crate) fn add_workspace(&mut self, grant: &GrantId) -> AppResult<Workspace> {
+    /// Consumes a directory grant and saves the picked folder's projects as the last
+    /// workspaces: the folder itself and each direct child that has an agent skill directory, or
+    /// the folder alone when none has one. Folders already added are skipped; when nothing is
+    /// left to add, the addition is refused.
+    pub(crate) fn add_workspaces(&mut self, grant: &GrantId) -> AppResult<Vec<Workspace>> {
         let step: OnboardingStep = self.setting("onboarding")?.unwrap_or_default();
         if step != OnboardingStep::Complete {
             return Err(AppError::validation(
                 "Finish setup before adding workspaces.",
             ));
         }
-        let path = self.take_grant(grant)?;
-        let path = path
-            .to_str()
-            .ok_or_else(|| AppError::validation("Directory path must be valid Unicode."))?
-            .to_owned();
-        let existing = self
-            .database
-            .query_row(
-                "SELECT name FROM workspaces WHERE canonical_path=?1",
-                [&path],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()
-            .map_err(|_| AppError::storage())?;
-        if let Some(name) = existing {
-            return Err(AppError::validation(format!(
-                "This folder is already added as {name}."
-            )));
+        let picked = self.take_grant(grant)?;
+        let picked_name = name(&picked);
+        if picked.to_str().is_none() {
+            return Err(AppError::validation(
+                "Directory path must be valid Unicode.",
+            ));
         }
-        let workspace = Workspace {
-            id: WorkspaceId::new(),
-            name: Path::new(&path).file_name().map_or_else(
-                || "Workspace".to_owned(),
-                |name| name.to_string_lossy().into_owned(),
-            ),
-            position: self.workspaces()?.len() as u32,
-            missing: false,
-            path,
-        };
-        self.database
-            .execute(
-                "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES(?1,?2,?3,?4,?5)",
-                params![
-                    workspace.id.as_str(),
-                    workspace.path,
-                    workspace.name,
-                    workspace.position,
-                    now()
-                ],
-            )
+        let existing = self.workspaces()?;
+        let found: Vec<String> = projects(&picked, &workspace_skill_dirs()?)
+            .into_iter()
+            .filter_map(|path| path.to_str().map(str::to_owned))
+            .collect();
+        let added: Vec<_> = found
+            .iter()
+            .filter(|path| !existing.iter().any(|workspace| &workspace.path == *path))
+            .enumerate()
+            .map(|(index, path)| Workspace {
+                id: WorkspaceId::new(),
+                name: name(Path::new(path)),
+                path: path.clone(),
+                position: (existing.len() + index) as u32,
+                missing: false,
+            })
+            .collect();
+        if added.is_empty() {
+            return Err(AppError::validation(
+                match existing
+                    .iter()
+                    .find(|workspace| found == [workspace.path.clone()])
+                {
+                    Some(workspace) => {
+                        format!("This folder is already added as {}.", workspace.name)
+                    }
+                    None => format!("Every project in {picked_name} is already added."),
+                },
+            ));
+        }
+        let transaction = self
+            .database
+            .transaction()
             .map_err(|_| AppError::storage())?;
-        Ok(workspace)
+        for workspace in &added {
+            transaction
+                .execute(
+                    "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES(?1,?2,?3,?4,?5)",
+                    params![
+                        workspace.id.as_str(),
+                        workspace.path,
+                        workspace.name,
+                        workspace.position,
+                        now()
+                    ],
+                )
+                .map_err(|_| AppError::storage())?;
+        }
+        transaction.commit().map_err(|_| AppError::storage())?;
+        Ok(added)
     }
 
     pub(crate) fn workspaces(&self) -> AppResult<Vec<Workspace>> {
@@ -154,4 +175,12 @@ impl State {
         }
         transaction.commit().map_err(|_| AppError::storage())
     }
+}
+
+/// A new workspace's name: its folder's last path component.
+fn name(path: &Path) -> String {
+    path.file_name().map_or_else(
+        || "Workspace".to_owned(),
+        |name| name.to_string_lossy().into_owned(),
+    )
 }
