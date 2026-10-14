@@ -10,7 +10,7 @@ use skillbinder_proto::LibrarySnapshot;
 use skillbinder_theme::sidebar::{INSET, SECTION_GAP};
 
 impl NativeView {
-    /// Folders, Workspaces, and Agents, scrolling together between the top rows and Sync.
+    /// Presets, Workspaces, and Agents, scrolling together between the top rows and Sync.
     pub(super) fn render_sections(
         &self,
         library: &LibrarySnapshot,
@@ -32,9 +32,9 @@ impl NativeView {
                     .min_h_0()
                     .overflow_y_scroll()
                     .track_scroll(&self.sidebar_scroll.handle)
-                    // Scrolls with the sections, mirroring the Folders title's half gap.
+                    // Scrolls with the sections, mirroring the Presets title's half gap.
                     .pb(px(SECTION_GAP / 2.0))
-                    .child(self.render_folders(library, window, cx))
+                    .child(self.render_presets(library, window, cx))
                     .child(self.render_workspaces(window, cx))
                     .child(self.render_agents(cx)),
             )

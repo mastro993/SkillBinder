@@ -392,13 +392,17 @@ fn connection_reconciles_origin_and_disconnect_removes_it() {
 }
 
 #[test]
-fn adoption_refuses_local_folders_tags_and_unknown_metadata() {
+fn adoption_refuses_local_presets_tags_and_unknown_metadata() {
     let f = Fixture::new();
     f.push();
     for (name, extra) in [
         (
+            "presets",
+            serde_json::json!({"schemaVersion":3,"presets":{"preset":{"id":"preset","name":"Local"}}}),
+        ),
+        (
             "folders",
-            serde_json::json!({"folders":{"folder":{"name":"Local"}}}),
+            serde_json::json!({"folders":{"folder":{"id":"folder","name":"Local"}}}),
         ),
         ("tags", serde_json::json!({"tags":{"tag":{"name":"Local"}}})),
         ("unknown", serde_json::json!({"annotation":"retain me"})),

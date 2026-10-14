@@ -72,7 +72,7 @@ fn valid_id(value: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
-    if library.schema_version != 2
+    if library.schema_version != 3
         || library.content_policy_version != 1
         || !valid_id(&library.library_id)
     {
@@ -80,15 +80,15 @@ pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
             "The library metadata uses an unsupported schema or identity.",
         ));
     }
-    let mut folder_ids = BTreeSet::new();
-    let mut folder_names = BTreeSet::new();
-    for folder in &library.folders {
-        if !valid_id(folder.id.as_str())
-            || !folder_ids.insert(folder.id.clone())
-            || !folder_names.insert(normalized(&validate_name(&folder.name)?))
+    let mut preset_ids = BTreeSet::new();
+    let mut preset_names = BTreeSet::new();
+    for preset in &library.presets {
+        if !valid_id(preset.id.as_str())
+            || !preset_ids.insert(preset.id.clone())
+            || !preset_names.insert(normalized(&validate_name(&preset.name)?))
         {
             return Err(AppError::validation(
-                "Folder identities and names must be unique.",
+                "Preset identities and names must be unique.",
             ));
         }
     }
@@ -110,10 +110,7 @@ pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
         if !valid_id(skill.id.as_str())
             || !ids.insert(&skill.id)
             || !portable_component(&skill.slug)
-            || skill
-                .folder_id
-                .as_ref()
-                .is_some_and(|folder| !folder_ids.contains(folder))
+            || !known_presets(&skill.preset_ids, &preset_ids)
             || skill.tag_ids.iter().any(|id| !tag_ids.contains(id))
             || skill.digest.strip_prefix("sha256:").is_none_or(|digest| {
                 digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit())
@@ -130,6 +127,11 @@ pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
         }
     }
     Ok(())
+}
+/// Whether `ids` names distinct existing presets.
+fn known_presets(ids: &[PresetId], presets: &BTreeSet<PresetId>) -> bool {
+    let mut seen = BTreeSet::new();
+    ids.iter().all(|id| presets.contains(id) && seen.insert(id))
 }
 /// The newest modification time, in Unix seconds, of the regular files under `dir`; links are
 /// skipped because managed payloads materialize them.
@@ -170,10 +172,10 @@ pub(crate) fn payload_relative(library: &Library, skill: &Skill) -> String {
         )
     }
 }
-/// Orders folders by user position; duplicate positions from remote edits fall back to name.
-fn sort_folders(folders: &mut [Folder]) {
-    folders.sort_by_cached_key(|folder| {
-        (folder.position, normalized(&folder.name), folder.id.clone())
+/// Orders presets by user position; duplicate positions from remote edits fall back to name.
+fn sort_presets(presets: &mut [Preset]) {
+    presets.sort_by_cached_key(|preset| {
+        (preset.position, normalized(&preset.name), preset.id.clone())
     });
 }
 fn apply_organization(
@@ -182,56 +184,69 @@ fn apply_organization(
     revision: &str,
 ) -> AppResult<()> {
     match change {
-        OrganizationChange::CreateFolder { name } => {
+        OrganizationChange::CreatePreset { name } => {
             let position = library
-                .folders
+                .presets
                 .iter()
-                .map(|folder| folder.position.saturating_add(1))
+                .map(|preset| preset.position.saturating_add(1))
                 .max()
                 .unwrap_or(0);
-            library.folders.push(Folder {
-                id: FolderId::new(),
+            library.presets.push(Preset {
+                id: PresetId::new(),
                 name: validate_name(&name)?,
                 position,
                 color: None,
             });
         }
-        OrganizationChange::RenameFolder { id, name } => {
-            folder_mut(library, &id)?.name = validate_name(&name)?;
+        OrganizationChange::RenamePreset { id, name } => {
+            preset_mut(library, &id)?.name = validate_name(&name)?;
         }
-        OrganizationChange::Assign { skills, folder } => assign(library, &skills, folder)?,
-        OrganizationChange::ReorderFolders { order } => reorder_folders(library, &order)?,
-        OrganizationChange::SetFolderColor { id, color } => {
-            folder_mut(library, &id)?.color = color;
+        OrganizationChange::AddToPreset { id, skills } => {
+            for presets in memberships(library, &id, &skills)? {
+                if !presets.contains(&id) {
+                    presets.push(id.clone());
+                    presets.sort();
+                }
+            }
         }
-        OrganizationChange::DeleteFolder { id, revision: seen } => {
+        OrganizationChange::RemoveFromPreset { id, skills } => {
+            for presets in memberships(library, &id, &skills)? {
+                presets.retain(|preset| preset != &id);
+            }
+        }
+        OrganizationChange::ReorderPresets { order } => reorder_presets(library, &order)?,
+        OrganizationChange::SetPresetColor { id, color } => {
+            preset_mut(library, &id)?.color = color;
+        }
+        OrganizationChange::DeletePreset { id, revision: seen } => {
             if seen != revision {
                 return Err(AppError::stale(
                     "The library changed after the deletion preview.",
                 ));
             }
-            folder_mut(library, &id)?;
-            library.folders.retain(|folder| folder.id != id);
+            preset_mut(library, &id)?;
+            library.presets.retain(|preset| preset.id != id);
             for skill in &mut library.skills {
-                if skill.folder_id.as_ref() == Some(&id) {
-                    skill.folder_id = None;
-                }
+                skill.preset_ids.retain(|preset| preset != &id);
             }
         }
     }
     Ok(())
 }
-fn folder_mut<'a>(library: &'a mut Library, id: &FolderId) -> AppResult<&'a mut Folder> {
+fn preset_mut<'a>(library: &'a mut Library, id: &PresetId) -> AppResult<&'a mut Preset> {
     library
-        .folders
+        .presets
         .iter_mut()
-        .find(|folder| &folder.id == id)
-        .ok_or_else(|| AppError::not_found("Folder no longer exists."))
+        .find(|preset| &preset.id == id)
+        .ok_or_else(|| AppError::not_found("Preset no longer exists."))
 }
-fn assign(library: &mut Library, skills: &[SkillId], folder: Option<FolderId>) -> AppResult<()> {
-    if let Some(id) = &folder {
-        folder_mut(library, id)?;
-    }
+/// The preset lists of the selected skills, once the preset and every selected skill exist.
+fn memberships<'a>(
+    library: &'a mut Library,
+    id: &PresetId,
+    skills: &'a [SkillId],
+) -> AppResult<impl Iterator<Item = &'a mut Vec<PresetId>>> {
+    preset_mut(library, id)?;
     if skills.is_empty()
         || skills
             .iter()
@@ -239,25 +254,24 @@ fn assign(library: &mut Library, skills: &[SkillId], folder: Option<FolderId>) -
     {
         return Err(AppError::not_found("Select existing skills to organize."));
     }
-    for skill in &mut library.skills {
-        if skills.contains(&skill.id) {
-            skill.folder_id = folder.clone();
-        }
-    }
-    Ok(())
+    Ok(library
+        .skills
+        .iter_mut()
+        .filter(|skill| skills.contains(&skill.id))
+        .map(|skill| &mut skill.preset_ids))
 }
-fn reorder_folders(library: &mut Library, order: &[FolderId]) -> AppResult<()> {
+fn reorder_presets(library: &mut Library, order: &[PresetId]) -> AppResult<()> {
     let mut requested: Vec<_> = order.iter().collect();
     requested.sort();
-    let mut current: Vec<_> = library.folders.iter().map(|folder| &folder.id).collect();
+    let mut current: Vec<_> = library.presets.iter().map(|preset| &preset.id).collect();
     current.sort();
     if requested != current {
-        return Err(AppError::stale("The folders changed. Reorder them again."));
+        return Err(AppError::stale("The presets changed. Reorder them again."));
     }
-    for folder in &mut library.folders {
-        folder.position = order
+    for preset in &mut library.presets {
+        preset.position = order
             .iter()
-            .position(|id| id == &folder.id)
+            .position(|id| id == &preset.id)
             .unwrap_or_default() as u32;
     }
     Ok(())
@@ -275,7 +289,7 @@ impl State {
             serde_json::from_slice(&fs::read(path).map_err(|_| AppError::storage())?)
                 .map_err(|_| AppError::validation("Library metadata could not be read."))?;
         validate_library(&library)?;
-        sort_folders(&mut library.folders);
+        sort_presets(&mut library.presets);
         Ok(library)
     }
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
@@ -315,22 +329,22 @@ impl State {
             modified,
         })
     }
-    pub(crate) fn preview_delete(&self, id: FolderId) -> AppResult<DeletePreview> {
+    pub(crate) fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
         let snapshot = self.library_snapshot()?;
-        let folder = snapshot
+        let preset = snapshot
             .library
-            .folders
+            .presets
             .iter()
-            .find(|folder| folder.id == id)
+            .find(|preset| preset.id == id)
             .cloned()
-            .ok_or_else(|| AppError::not_found("Folder no longer exists."))?;
+            .ok_or_else(|| AppError::not_found("Preset no longer exists."))?;
         Ok(DeletePreview {
-            folder,
+            preset,
             affected_skills: snapshot
                 .library
                 .skills
                 .iter()
-                .filter(|skill| skill.folder_id.as_ref() == Some(&id))
+                .filter(|skill| skill.preset_ids.contains(&id))
                 .count(),
             revision: snapshot.revision,
         })
@@ -344,9 +358,9 @@ impl State {
         let mut after = before.library.clone();
         apply_organization(&mut after, change, &before.revision)?;
         validate_library(&after)?;
-        sort_folders(&mut after.folders);
-        for (position, folder) in after.folders.iter_mut().enumerate() {
-            folder.position = position as u32;
+        sort_presets(&mut after.presets);
+        for (position, preset) in after.presets.iter_mut().enumerate() {
+            preset.position = position as u32;
         }
         self.commit(Journal {
             id: uuid::Uuid::new_v4().to_string(),

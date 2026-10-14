@@ -7,11 +7,11 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
     let root = fs::canonicalize(directory.path()).unwrap();
     let state = State::isolated_test_state(root.clone());
     let before = Library {
-        schema_version: 2,
+        schema_version: 3,
         library_id: "original".into(),
         created_at: "today".into(),
         content_policy_version: 1,
-        folders: vec![],
+        presets: vec![],
         tags: vec![],
         skills: vec![],
     };
@@ -333,15 +333,15 @@ fn committed_journal_refuses_metadata_replaced_with_old_revision() {
 #[test]
 fn rollback_accepts_reordered_record_maps() {
     let (_directory, mut state, mut journal) = fixture();
-    journal.after.folders = vec![
-        skillbinder_proto::Folder {
-            id: skillbinder_proto::FolderId("z".into()),
+    journal.after.presets = vec![
+        skillbinder_proto::Preset {
+            id: skillbinder_proto::PresetId("z".into()),
             name: "Z".into(),
             position: 0,
             color: None,
         },
-        skillbinder_proto::Folder {
-            id: skillbinder_proto::FolderId("a".into()),
+        skillbinder_proto::Preset {
+            id: skillbinder_proto::PresetId("a".into()),
             name: "A".into(),
             position: 1,
             color: None,
@@ -350,4 +350,15 @@ fn rollback_accepts_reordered_record_maps() {
     inject(&[("after_metadata", false)]);
     assert!(state.commit(journal).is_err());
     assert_result(&state, false);
+}
+#[test]
+fn rollback_keeps_unchanged_schema_2_metadata_bytes() {
+    let (_directory, mut state, mut journal) = fixture();
+    let path = state.library_dir().join(".skillbinder.json");
+    let schema_2 = br#"{"schemaVersion":2,"libraryId":"original","createdAt":"today","folders":{},"tags":{},"skills":{}}"#;
+    fs::write(&path, schema_2).unwrap();
+    journal.before = state.read_library().unwrap();
+    inject(&[("after_rename", false)]);
+    assert!(state.commit(journal).is_err());
+    assert_eq!(fs::read(&path).unwrap(), schema_2);
 }

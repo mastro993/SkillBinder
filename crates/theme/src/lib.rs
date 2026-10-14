@@ -14,7 +14,7 @@ pub const TRAFFIC_LIGHTS_ORIGIN: (f32, f32) = (16.0, (HEADER_HEIGHT - 14.0) / 2.
 
 /// Sidebar metrics in points, measured from the reference design.
 pub mod sidebar {
-    /// Height of a navigation or folder row.
+    /// Height of a navigation or preset row.
     pub const ROW_HEIGHT: f32 = 32.0;
     /// Vertical space between rows.
     pub const ROW_GAP: f32 = 1.0;

@@ -190,7 +190,7 @@ impl NativeView {
             )
     }
 
-    /// Library is selected only while it lists every skill; folders select their own row.
+    /// Library is selected only while it lists every skill; presets select their own row.
     fn nav_row(
         &self,
         route: Route,

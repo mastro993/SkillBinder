@@ -203,10 +203,10 @@ impl Client {
         self.shared.engine.preview_skill(id, path).await
     }
     /// Reads revision-checked deletion consequences.
-    pub async fn preview_delete(&self, id: FolderId) -> AppResult<DeletePreview> {
+    pub async fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
         self.shared.engine.preview_delete(id).await
     }
-    /// Applies folder or assignment edits.
+    /// Applies preset or membership edits.
     pub async fn change_organization(
         &self,
         change: OrganizationChange,

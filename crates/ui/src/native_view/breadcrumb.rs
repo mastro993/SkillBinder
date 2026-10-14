@@ -26,7 +26,7 @@ impl Crumb {
 /// plain text.
 pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
     let section = match route {
-        Route::Library(LibraryFilter::Folder(_)) => Some(Crumb {
+        Route::Library(LibraryFilter::Preset(_)) => Some(Crumb {
             label: "Library".to_owned(),
             target: Some(Route::Library(LibraryFilter::All)),
         }),
@@ -44,11 +44,11 @@ fn title(route: &Route, snapshot: &AppSnapshot) -> String {
     match route {
         Route::Discovery => "Discovery".to_owned(),
         Route::Library(LibraryFilter::All) => "Library".to_owned(),
-        Route::Library(LibraryFilter::Folder(id)) => snapshot
+        Route::Library(LibraryFilter::Preset(id)) => snapshot
             .library
             .as_ref()
-            .and_then(|library| library.library.folders.iter().find(|f| &f.id == id))
-            .map(|folder| folder.name.clone())
+            .and_then(|library| library.library.presets.iter().find(|f| &f.id == id))
+            .map(|preset| preset.name.clone())
             .unwrap_or_default(),
         Route::Workspace(id) => snapshot
             .workspaces
@@ -89,7 +89,7 @@ impl NativeView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_proto::{FolderId, WorkspaceId};
+    use skillbinder_proto::{PresetId, WorkspaceId};
 
     fn labels(route: Route) -> Vec<String> {
         crumbs(&route, "Page".to_owned())
@@ -118,12 +118,12 @@ mod tests {
         );
         assert_eq!(labels(Route::Agent("codex".to_owned())), ["Agents", "Page"]);
         assert_eq!(labels(Route::Universal), ["Agents", "Page"]);
-        let folder = crumbs(
-            &Route::Library(LibraryFilter::Folder(FolderId::new())),
+        let preset = crumbs(
+            &Route::Library(LibraryFilter::Preset(PresetId::new())),
             "Research".to_owned(),
         );
-        assert_eq!(folder[0].target, Some(Route::Library(LibraryFilter::All)));
-        assert_eq!(folder[1], Crumb::text("Research"));
+        assert_eq!(preset[0].target, Some(Route::Library(LibraryFilter::All)));
+        assert_eq!(preset[1], Crumb::text("Research"));
         assert_eq!(
             crumbs(&Route::Workspace(WorkspaceId::new()), String::new())[0].target,
             None

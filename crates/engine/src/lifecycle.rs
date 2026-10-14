@@ -92,11 +92,11 @@ impl State {
                 .join(format!("initialize-{}", uuid::Uuid::new_v4()));
             std::fs::create_dir_all(staged.join("skills")).map_err(|_| AppError::storage())?;
             let library = Library {
-                schema_version: 2,
+                schema_version: 3,
                 library_id: uuid::Uuid::new_v4().to_string(),
                 created_at: format_timestamp(),
                 content_policy_version: 1,
-                folders: Vec::new(),
+                presets: Vec::new(),
                 tags: Vec::new(),
                 skills: Vec::new(),
             };
