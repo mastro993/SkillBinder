@@ -115,7 +115,7 @@ async fn an_absent_global_directory_under_a_linked_folder_is_still_an_agent_fold
         .await
         .unwrap_err();
     assert_eq!(
-        error.message, "Your home folder's skills are shown under Agents.",
+        error.message, "This folder's skills are shown under Agents.",
         "Claude Code would create its skills folder in the linked folder"
     );
     engine.shutdown().await.unwrap();
@@ -301,6 +301,22 @@ async fn a_stored_home_workspace_is_forgotten_on_launch() {
 }
 
 #[tokio::test]
+async fn a_folder_whose_only_project_is_the_home_folder_is_refused() {
+    let fixture = Fixture::new();
+    fs::create_dir_all(fixture.home.join(".claude/skills")).unwrap();
+    let engine = fixture.ready().await;
+    let error = add_folder(&engine, fixture.home.parent().unwrap())
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.message,
+        "Your home folder's skills are shown under Agents."
+    );
+    assert!(engine.snapshot().await.unwrap().workspaces.is_empty());
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn an_empty_home_folder_is_still_an_agent_folder() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
@@ -332,14 +348,14 @@ async fn a_linked_global_directory_is_an_agent_folder_only_inside_home() {
 
     let error = add_folder(&engine, &shared).await.unwrap_err();
     assert_eq!(
-        error.message, "Your home folder's skills are shown under Agents.",
+        error.message, "This folder's skills are shown under Agents.",
         "the folder a global skill directory resolves to inside home is an agent folder"
     );
     let error = add_folder(&engine, &home.join(".claude"))
         .await
         .unwrap_err();
     assert_eq!(
-        error.message, "Your home folder's skills are shown under Agents.",
+        error.message, "This folder's skills are shown under Agents.",
         "so is the folder holding the link"
     );
     let added = add_folder(&engine, &fixture.workspace).await.unwrap();

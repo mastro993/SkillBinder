@@ -15,7 +15,8 @@ impl State {
     /// Consumes a directory grant and saves the picked folder's projects as the last
     /// workspaces: the folder itself and each direct child that has an agent skill directory, or
     /// the folder alone when none has one. Agent folders, such as the home folder, and folders
-    /// already added are skipped; when nothing is left to add, the addition is refused.
+    /// already added are skipped; when nothing is left to add, the addition is refused, naming
+    /// the home folder when it is one of the skipped agent folders.
     pub(crate) fn add_workspaces(&mut self, grant: &GrantId) -> AppResult<Vec<Workspace>> {
         let step: OnboardingStep = self.setting("onboarding")?.unwrap_or_default();
         if step != OnboardingStep::Complete {
@@ -32,15 +33,21 @@ impl State {
         }
         let existing = self.workspaces()?;
         let global_dirs = global_skill_dirs(&self.config)?;
-        let found: Vec<String> = projects(&picked, &workspace_skill_dirs()?, &global_dirs)
+        let projects = projects(&picked, &workspace_skill_dirs()?, &global_dirs);
+        if projects.add.is_empty() {
+            return Err(AppError::validation(
+                if projects.skipped.contains(&self.config.home) {
+                    "Your home folder's skills are shown under Agents."
+                } else {
+                    "This folder's skills are shown under Agents."
+                },
+            ));
+        }
+        let found: Vec<String> = projects
+            .add
             .into_iter()
             .filter_map(|path| path.to_str().map(str::to_owned))
             .collect();
-        if found.is_empty() {
-            return Err(AppError::validation(
-                "Your home folder's skills are shown under Agents.",
-            ));
-        }
         let added: Vec<_> = found
             .iter()
             .filter(|path| !existing.iter().any(|workspace| &workspace.path == *path))

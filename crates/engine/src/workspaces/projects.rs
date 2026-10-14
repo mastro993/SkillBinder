@@ -8,16 +8,26 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// The folders `picked` adds, the picked folder first, then its children by name. Linked
-/// children are skipped, so every folder stays inside the picked one, and so are hidden ones,
-/// such as a project's own `.agents` folder, whose `skills` would otherwise match an agent that
-/// reads `skills`. Agent folders are skipped too, so a picked agent folder with no projects in
-/// it adds nothing.
+/// What picking a folder adds.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct Projects {
+    /// The folders to add, the picked folder first, then its children by name.
+    pub add: Vec<PathBuf>,
+    /// Agent folders left out: the picked folder itself, or children with agent skill
+    /// directories. When nothing is added, these explain the refusal.
+    pub skipped: Vec<PathBuf>,
+}
+
+/// The folders `picked` adds. Linked children are skipped, so every folder stays inside the
+/// picked one, and so are hidden ones, such as a project's own `.agents` folder, whose `skills`
+/// would otherwise match an agent that reads `skills`. Agent folders are skipped too, so a
+/// picked agent folder, or a folder whose only projects are agent folders, adds nothing; a
+/// folder with no projects at all adds itself.
 pub(super) fn projects(
     picked: &Path,
     skill_dirs: &BTreeSet<String>,
     global_dirs: &BTreeSet<PathBuf>,
-) -> Vec<PathBuf> {
+) -> Projects {
     let has_skills = |folder: &Path| skill_dirs.iter().any(|dir| folder.join(dir).is_dir());
     let agent_folder = |folder: &Path| is_agent_folder(folder, skill_dirs, global_dirs);
     let mut children: Vec<PathBuf> = fs::read_dir(picked)
@@ -27,22 +37,26 @@ pub(super) fn projects(
         .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
         .filter(|entry| !entry.file_name().to_string_lossy().starts_with('.'))
         .map(|entry| entry.path())
-        .filter(|child| has_skills(child) && !agent_folder(child))
+        .filter(|child| has_skills(child))
         .collect();
     children.sort();
-    if agent_folder(picked) {
-        return children;
-    }
-    let found: Vec<_> = has_skills(picked)
+    let (mut skipped, children): (Vec<_>, Vec<_>) =
+        children.into_iter().partition(|child| agent_folder(child));
+    let picked_is_project = if agent_folder(picked) {
+        skipped.insert(0, picked.to_owned());
+        false
+    } else {
+        has_skills(picked)
+    };
+    let mut add: Vec<_> = picked_is_project
         .then(|| picked.to_owned())
         .into_iter()
         .chain(children)
         .collect();
-    if found.is_empty() {
-        vec![picked.to_owned()]
-    } else {
-        found
+    if add.is_empty() && skipped.is_empty() {
+        add.push(picked.to_owned());
     }
+    Projects { add, skipped }
 }
 
 /// An agent folder is one whose agent workspace skill directories include a global skill
@@ -82,7 +96,7 @@ mod tests {
         fs::create_dir_all(picked.join("deep/nested/.claude/skills"))?;
         fs::write(picked.join("notes.txt"), "")?;
         assert_eq!(
-            projects(picked, &dirs(), &BTreeSet::new()),
+            projects(picked, &dirs(), &BTreeSet::new()).add,
             [picked.to_owned(), picked.join("api"), picked.join("web")]
         );
         Ok(())
@@ -93,7 +107,7 @@ mod tests {
         let root = tempfile::tempdir()?;
         fs::create_dir_all(root.path().join("docs"))?;
         assert_eq!(
-            projects(root.path(), &dirs(), &BTreeSet::new()),
+            projects(root.path(), &dirs(), &BTreeSet::new()).add,
             [root.path().to_owned()]
         );
         Ok(())
@@ -109,7 +123,7 @@ mod tests {
         fs::create_dir_all(picked.join("real/.claude/skills"))?;
         std::os::unix::fs::symlink(&outside, picked.join("linked"))?;
         assert_eq!(
-            projects(&picked, &dirs(), &BTreeSet::new()),
+            projects(&picked, &dirs(), &BTreeSet::new()).add,
             [picked.join("real")]
         );
         Ok(())
@@ -129,15 +143,30 @@ mod tests {
         let global: BTreeSet<PathBuf> = [home.join(".claude/skills")].into();
         assert_eq!(
             projects(&home, &dirs(), &global),
-            [home.join("api")],
+            Projects {
+                add: vec![home.join("api")],
+                skipped: vec![home.clone()],
+            },
             "a picked agent folder still adds its projects"
         );
-        fs::remove_dir_all(home.join("api"))?;
-        assert!(projects(&home, &dirs(), &global).is_empty());
         assert_eq!(
             projects(root.path(), &dirs(), &global),
-            [root.path().join("web")],
+            Projects {
+                add: vec![root.path().join("web")],
+                skipped: vec![home.clone()],
+            },
             "an agent folder among the children is skipped"
+        );
+        fs::remove_dir_all(home.join("api"))?;
+        assert!(projects(&home, &dirs(), &global).add.is_empty());
+        fs::remove_dir_all(root.path().join("web"))?;
+        assert_eq!(
+            projects(root.path(), &dirs(), &global),
+            Projects {
+                add: Vec::new(),
+                skipped: vec![home],
+            },
+            "a folder whose only project is an agent folder adds nothing"
         );
         Ok(())
     }
