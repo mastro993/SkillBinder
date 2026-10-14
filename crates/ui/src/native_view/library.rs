@@ -102,14 +102,11 @@ impl NativeView {
                 .child(format!("No skills match '{query}'"))
                 .into_any_element();
         }
-        let found = self.snapshot.scan.as_ref().map(|scan| {
-            presence(
-                scan,
-                &self.snapshot.agents,
-                &self.snapshot.workspaces,
-                &self.snapshot.home,
-            )
-        });
+        let found = self
+            .snapshot
+            .scan
+            .as_ref()
+            .map(|scan| presence(scan, &self.snapshot.agents, &self.snapshot.home));
         let items: Vec<SkillItem<'_>> = visible
             .iter()
             .map(|skill| SkillItem {
@@ -124,7 +121,7 @@ impl NativeView {
                     .get(&skill.id)
                     .copied()
                     .and_then(dates::from_unix),
-                places: found
+                holders: found
                     .as_ref()
                     .map(|found| found.get(&skill.id).map_or(&[][..], Vec::as_slice)),
             })

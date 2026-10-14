@@ -78,6 +78,7 @@ impl Engine {
             lock,
         };
         state.recover()?;
+        state.forget_agent_folders()?;
         if state.library_dir().join(".git").exists()
             && let Some(git) = &state.git
         {
@@ -178,7 +179,7 @@ impl Engine {
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.call(move |state| state.grant_directory(path)).await
     }
-    /// Scans System and every workspace in the background. A running scan is replaced, so the
+    /// Scans the agents' global skill directories and every workspace in the background. A running scan is replaced, so the
     /// new one covers the current workspaces; the previous results stay until it completes.
     pub async fn start_scan(&self) -> AppResult<()> {
         let (config, workspaces, managed, log) = self

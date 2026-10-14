@@ -249,8 +249,7 @@
       "name": "HardDriveIcon",
       "file": "HardDriveIcon.svg",
       "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx",
-        "crates/ui/src/native_view/sidebar_projects.rs"
+        "features/onboarding/components/onboarding-steps.tsx"
       ],
       "sourceModule": "dist/esm/HardDriveIcon.js",
       "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36",

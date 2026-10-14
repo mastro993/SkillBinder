@@ -1,40 +1,31 @@
-//! Library skills as list rows or grid cards, each showing when it was imported and changed and
-//! where the last scan found it.
+//! Library skills as list rows or grid cards, each showing when it was installed and changed and
+//! which agents hold a copy.
 
+use super::NativeView;
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
 use super::library_dates::{exact, relative};
-use super::library_presence::{Place, Reader};
-use super::{NativeView, Route};
+use super::library_presence::{Holder, Reader};
 use chrono::{DateTime, Utc};
-use gpui_kit::component::{
-    ActiveTheme, Sizable, Size,
-    avatar::{Avatar, AvatarGroup},
-    h_flex,
-    tag::Tag,
-    tooltip::Tooltip,
-    v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
 use gpui_kit::{
     AnyElement, App, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{Skill, WorkspaceRef};
+use skillbinder_proto::Skill;
 
-/// Workspace chips shown before the rest collapse into `+N`.
-const SHOWN_PLACES: usize = 3;
-/// Agent avatars shown in a chip before the rest collapse into `+N`.
-const SHOWN_READERS: usize = 3;
+/// Agent chips shown before the rest collapse into `+N`.
+const SHOWN_HOLDERS: usize = 3;
 
 /// One Library skill with its description, dates, and presence.
 pub(super) struct SkillItem<'a> {
     pub skill: &'a Skill,
     pub description: &'a str,
-    /// Absent for skills imported before import times were recorded.
+    /// Absent for skills installed before install times were recorded.
     pub imported: Option<DateTime<Utc>>,
     /// The newest managed file's change time; absent when the payload could not be read.
     pub modified: Option<DateTime<Utc>>,
-    /// `None` until the first scan completes.
-    pub places: Option<&'a [Place]>,
+    /// The Agents rows holding a copy; `None` until the first scan completes.
+    pub holders: Option<&'a [Holder]>,
 }
 
 impl SkillItem<'_> {
@@ -108,11 +99,11 @@ fn skill_frame(kind: &str, item: &SkillItem<'_>, cx: &App) -> gpui_kit::Stateful
         .border_color(cx.theme().colors.border)
 }
 
-/// "Imported 3 days ago · Modified 2 hours ago"; each part's tooltip shows the exact time.
+/// "Installed 3 days ago · Modified 2 hours ago"; each part's tooltip shows the exact time.
 fn dates(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
     let now = Utc::now();
     let parts = [
-        ("imported", "Imported", item.imported),
+        ("installed", "Installed", item.imported),
         ("modified", "Modified", item.modified),
     ];
     // Wraps so a narrow card keeps both dates inside it.
@@ -151,7 +142,7 @@ fn description(text: &str, lines: usize, cx: &App) -> impl IntoElement {
         .child(text.to_owned())
 }
 
-/// Workspace chips, each holding the avatars of the agents that read the copy there.
+/// Agent chips, Universal first, for the Agents rows whose global skill directory holds a copy.
 fn presence(item: &SkillItem<'_>, cx: &mut Context<NativeView>) -> AnyElement {
     let muted = |text: &'static str| {
         div()
@@ -160,30 +151,30 @@ fn presence(item: &SkillItem<'_>, cx: &mut Context<NativeView>) -> AnyElement {
             .child(text)
             .into_any_element()
     };
-    let places = match item.places {
+    let holders = match item.holders {
         None => return muted("Not scanned yet"),
-        Some([]) => return muted("Not in any workspace"),
-        Some(places) => places,
+        Some([]) => return muted("Not in any agent"),
+        Some(holders) => holders,
     };
-    let hidden = &places[places.len().min(SHOWN_PLACES)..];
+    let hidden = &holders[holders.len().min(SHOWN_HOLDERS)..];
     h_flex()
         .flex_wrap()
         .gap_1()
         .children(
-            places
+            holders
                 .iter()
-                .take(SHOWN_PLACES)
-                .map(|place| place_chip(item, place, cx)),
+                .take(SHOWN_HOLDERS)
+                .map(|holder| holder_chip(item, holder, cx)),
         )
         .when(!hidden.is_empty(), |row| {
             let names = hidden
                 .iter()
-                .map(|place| place.name.clone())
+                .map(|holder| holder.name.clone())
                 .collect::<Vec<_>>()
                 .join("\n");
             row.child(
                 div()
-                    .id(format!("places-more-{}", item.skill.id))
+                    .id(format!("holders-more-{}", item.skill.id))
                     .flex_shrink_0()
                     .tooltip(move |window, cx| Tooltip::new(names.clone()).build(window, cx))
                     .child(Tag::secondary().small().child(format!("+{}", hidden.len()))),
@@ -192,22 +183,24 @@ fn presence(item: &SkillItem<'_>, cx: &mut Context<NativeView>) -> AnyElement {
         .into_any_element()
 }
 
-fn place_chip(item: &SkillItem<'_>, place: &Place, cx: &mut Context<NativeView>) -> AnyElement {
-    let route = match &place.workspace {
-        WorkspaceRef::System => Route::System,
-        WorkspaceRef::Added(id) => Route::Workspace(id.clone()),
-    };
-    let path = place.path.clone();
-    let key = match &place.workspace {
-        WorkspaceRef::System => format!("{}-system", item.skill.id),
-        WorkspaceRef::Added(id) => format!("{}-{id}", item.skill.id),
+/// One agent's avatar and name; its tooltip shows the directory holding the copy, and for
+/// Universal the agents reading it. Clicking it opens the agent's page.
+fn holder_chip(item: &SkillItem<'_>, holder: &Holder, cx: &mut Context<NativeView>) -> AnyElement {
+    let route = holder.route();
+    let (tip, key, avatar) = match &holder.reader {
+        Reader::Universal(names) => (
+            format!("{}\nUsed by {}", holder.dir, names.join(", ")),
+            "universal",
+            glyph_avatar(app_icon("layers"), cx),
+        ),
+        Reader::Agent(id) => (holder.dir.clone(), id.as_str(), agent_avatar(id, cx)),
     };
     div()
-        .id(format!("place-{key}"))
+        .id(format!("holder-{}-{key}", item.skill.id))
         .flex_shrink_0()
         .whitespace_nowrap()
         .cursor_pointer()
-        .tooltip(move |window, cx| Tooltip::new(path.clone()).build(window, cx))
+        .tooltip(move |window, cx| Tooltip::new(tip.clone()).build(window, cx))
         .on_click(cx.listener(move |view, _, window, cx| {
             cx.stop_propagation();
             view.navigate(route.clone(), window, cx);
@@ -216,49 +209,8 @@ fn place_chip(item: &SkillItem<'_>, place: &Place, cx: &mut Context<NativeView>)
             Tag::secondary()
                 .small()
                 .gap_1()
-                .child(div().flex_shrink_0().child(place.name.clone()))
-                .child(readers(&key, place, cx)),
+                .child(avatar.with_size(Size::XSmall).flex_shrink_0())
+                .child(div().flex_shrink_0().child(holder.name.clone())),
         )
         .into_any_element()
-}
-
-/// Agent avatars, Universal first, with a tooltip naming every agent.
-fn readers(key: &str, place: &Place, cx: &App) -> impl IntoElement {
-    let names = place
-        .readers
-        .iter()
-        .map(|reader| match reader {
-            Reader::Universal(names) => format!("Universal: {}", names.join(", ")),
-            Reader::Agent { name, .. } => name.clone(),
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let extra = place.readers.len().saturating_sub(SHOWN_READERS);
-    h_flex()
-        .id(format!("readers-{key}"))
-        .gap_0p5()
-        .tooltip(move |window, cx| Tooltip::new(names.clone()).build(window, cx))
-        .child(
-            AvatarGroup::new()
-                .with_size(Size::XSmall)
-                .limit(SHOWN_READERS)
-                // The group lays out from its right edge; its own width leaves out the overlap.
-                .w(px(group_width(place.readers.len())))
-                .flex_shrink_0()
-                .children(place.readers.iter().map(|reader| avatar(reader, cx))),
-        )
-        .when(extra > 0, |row| row.child(format!("+{extra}")))
-}
-
-/// The width of up to `SHOWN_READERS` 16px avatars, each overlapping the previous by 30%.
-fn group_width(readers: usize) -> f32 {
-    let shown = readers.clamp(1, SHOWN_READERS) as f32;
-    16. + (shown - 1.) * 16. * 0.7
-}
-
-fn avatar(reader: &Reader, cx: &App) -> Avatar {
-    match reader {
-        Reader::Universal(_) => glyph_avatar(app_icon("layers"), cx),
-        Reader::Agent { id, .. } => agent_avatar(id, cx),
-    }
 }

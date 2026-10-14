@@ -9,8 +9,7 @@ mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep,
-    OrganizationChange, WorkspaceRef,
+    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep, OrganizationChange,
 };
 use std::{fs, path::Path};
 use support::{Fixture, category};
@@ -83,7 +82,7 @@ async fn scan_deduplicates_shared_readers_and_stays_inside_known_workspace_locat
     assert!(location.readers.len() > 1);
     assert_eq!(location.agents.len(), location.readers.len());
     assert!(location.agents.iter().any(|agent| agent == "codex"));
-    assert_eq!(location.workspaces, [WorkspaceRef::Added(workspace.id)]);
+    assert_eq!(location.workspaces, [workspace.id]);
     engine.shutdown().await.unwrap();
 }
 

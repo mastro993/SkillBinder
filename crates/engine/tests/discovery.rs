@@ -86,6 +86,53 @@ async fn identical_copies_in_global_and_a_workspace_are_one_candidate() {
     engine.shutdown().await.unwrap();
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn a_skill_linked_between_global_directories_records_every_global_reader() {
+    let fixture = Fixture::new();
+    let home = {
+        fs::create_dir_all(&fixture.home).unwrap();
+        fs::canonicalize(&fixture.home).unwrap()
+    };
+    let shared = write_skill(&home.join(".agents/skills"), "review", "Shared");
+    fs::create_dir_all(home.join(".claude/skills")).unwrap();
+    std::os::unix::fs::symlink(&shared, home.join(".claude/skills/review")).unwrap();
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    assert_eq!(scan.candidates.len(), 1);
+    let locations = &scan.candidates[0].locations;
+    assert_eq!(locations.len(), 1, "one physical folder");
+    let readers = &locations[0].global_agents;
+    assert!(readers.iter().any(|id| id == "claude-code"), "{readers:?}");
+    assert!(readers.iter().any(|id| id == "codex"), "{readers:?}");
+    assert!(locations[0].workspaces.is_empty());
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn only_an_agents_own_global_directory_counts_as_its_global_reading() {
+    let fixture = Fixture::new();
+    write_skill(&fixture.home.join(".openclaw/skills"), "own", "Own");
+    write_skill(&fixture.home.join(".clawdbot/skills"), "legacy", "Legacy");
+    let engine = fixture.ready().await;
+    let scan = fixture.scan(&engine).await;
+    let readers = |slug: &str| {
+        let candidate = scan
+            .candidates
+            .iter()
+            .find(|candidate| candidate.slug == slug)
+            .unwrap();
+        candidate.locations[0].global_agents.clone()
+    };
+    assert!(readers("own").iter().any(|id| id == "openclaw"));
+    assert!(
+        !readers("legacy").iter().any(|id| id == "openclaw"),
+        "a further registry root is scanned but not shown as the agent's directory"
+    );
+    engine.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn same_slug_with_different_content_stays_separate() {
     let fixture = Fixture::new();

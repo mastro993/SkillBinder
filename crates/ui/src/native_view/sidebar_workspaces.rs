@@ -1,19 +1,17 @@
-//! The sidebar Workspaces section: System, then user-ordered workspace rows with inline
-//! renaming, row menus, and drag reordering. Each row counts the skills the last scan found.
+//! The sidebar Workspaces section: user-ordered workspace rows with inline renaming, row menus,
+//! and drag reordering. Each row counts the skills the last scan found.
 
 use std::{cell::Cell, time::Instant};
 
 use super::controls::app_icon;
-use super::sidebar::SYSTEM;
 use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
-use super::sidebar_row::{activate, add_button, count, icon_color, name_field, row};
+use super::sidebar_row::{activate, add_button, count, empty_row, icon_color, name_field, row};
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
     input::{InputEvent, InputState},
     menu::{ContextMenuExt, PopupMenu, PopupMenuItem},
-    tooltip::Tooltip,
 };
 use gpui_kit::{
     AnyElement, AppContext, Context, DragMoveEvent, Entity, InteractiveElement, IntoElement,
@@ -67,7 +65,8 @@ impl NativeView {
                 view.choose_workspace_folder(cx)
             },
         ));
-        let items = 1 + rows.len();
+        let items = rows.len().max(1);
+        let empty = rows.is_empty().then(|| empty_row("No workspaces", cx));
         div()
             .flex()
             .flex_col()
@@ -76,66 +75,31 @@ impl NativeView {
                 self.section_rows(
                     SidebarSection::Workspaces,
                     items,
+                    // Drag moves are measured from the first workspace slot.
                     div()
                         .id("sidebar-workspaces")
                         .flex()
                         .flex_col()
                         .gap(px(ROW_GAP))
-                        .child(self.render_system_row(cx))
-                        .child(
-                            // Drag moves are measured from the first workspace slot.
-                            div()
-                                .id("sidebar-workspace-rows")
-                                .flex()
-                                .flex_col()
-                                .gap(px(ROW_GAP))
-                                .on_drag_move(cx.listener(
-                                    |view,
-                                     event: &DragMoveEvent<RowDrag<WorkspaceId>>,
-                                     window,
-                                     cx| {
-                                        let drag = event.drag(cx);
-                                        let top = drag.top(event.event.position, event.bounds);
-                                        view.drag_workspace(drag.id.clone(), top, window, cx)
-                                    },
-                                ))
-                                .on_mouse_up(
-                                    MouseButton::Left,
-                                    cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
-                                )
-                                .on_mouse_up_out(
-                                    MouseButton::Left,
-                                    cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
-                                )
-                                .children(rows),
-                        ),
+                        .on_drag_move(cx.listener(
+                            |view, event: &DragMoveEvent<RowDrag<WorkspaceId>>, window, cx| {
+                                let drag = event.drag(cx);
+                                let top = drag.top(event.event.position, event.bounds);
+                                view.drag_workspace(drag.id.clone(), top, window, cx)
+                            },
+                        ))
+                        .on_mouse_up(
+                            MouseButton::Left,
+                            cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
+                        )
+                        .on_mouse_up_out(
+                            MouseButton::Left,
+                            cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
+                        )
+                        .children(rows)
+                        .children(empty),
                 ),
             )
-    }
-
-    /// System is the built-in workspace: fixed first in Workspaces, so it cannot be renamed,
-    /// moved, or removed. Its count is the number of skills installed there, and its tooltip
-    /// shows the home folder its skills live under.
-    fn render_system_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let selected = self.route == Route::System;
-        let found = self.found_in(&self.system_dirs()).len();
-        let home: SharedString = self.snapshot.home.clone().into();
-        activate(
-            row(
-                "workspace-system",
-                app_icon("hard-drive"),
-                None,
-                SYSTEM,
-                selected,
-                cx,
-            ),
-            SYSTEM,
-            cx,
-            |view, window, cx| view.navigate(Route::System, window, cx),
-        )
-        .child(count(found, cx))
-        .tooltip(move |window, cx| Tooltip::new(home.clone()).build(window, cx))
-        .into_any_element()
     }
 
     fn render_workspace_row(
@@ -152,7 +116,9 @@ impl NativeView {
         } else {
             workspace.name.clone()
         };
-        let found = self.found_in(&self.workspace_dirs(&workspace.path)).len();
+        let found = self
+            .found_where(|location| location.workspaces.contains(&workspace.id))
+            .len();
         let trailing = if workspace.missing {
             app_icon("alert-circle")
                 .size(px(ICON_SIZE))

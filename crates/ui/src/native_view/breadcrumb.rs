@@ -1,7 +1,6 @@
 //! The header breadcrumb: the current page's title under its sidebar section.
 
 use super::agent_skills::{UNIVERSAL, agent_name};
-use super::sidebar::SYSTEM;
 use super::{LibraryFilter, NativeView, Route};
 use gpui_kit::component::breadcrumb::{Breadcrumb, BreadcrumbItem};
 use gpui_kit::{Context, IntoElement, Styled};
@@ -31,7 +30,7 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
             label: "Library".to_owned(),
             target: Some(Route::Library(LibraryFilter::All)),
         }),
-        Route::System | Route::Workspace(_) => Some(Crumb::text("Workspaces")),
+        Route::Workspace(_) => Some(Crumb::text("Workspaces")),
         Route::Agent(_) | Route::Universal => Some(Crumb::text("Agents")),
         Route::Discovery | Route::Library(LibraryFilter::All) | Route::Sync | Route::Settings => {
             None
@@ -51,7 +50,6 @@ fn title(route: &Route, snapshot: &AppSnapshot) -> String {
             .and_then(|library| library.library.folders.iter().find(|f| &f.id == id))
             .map(|folder| folder.name.clone())
             .unwrap_or_default(),
-        Route::System => SYSTEM.to_owned(),
         Route::Workspace(id) => snapshot
             .workspaces
             .iter()
@@ -114,7 +112,6 @@ mod tests {
 
     #[test]
     fn nested_pages_follow_their_section_and_only_library_links_back() {
-        assert_eq!(labels(Route::System), ["Workspaces", "Page"]);
         assert_eq!(
             labels(Route::Workspace(WorkspaceId::new())),
             ["Workspaces", "Page"]
@@ -127,6 +124,9 @@ mod tests {
         );
         assert_eq!(folder[0].target, Some(Route::Library(LibraryFilter::All)));
         assert_eq!(folder[1], Crumb::text("Research"));
-        assert_eq!(crumbs(&Route::System, String::new())[0].target, None);
+        assert_eq!(
+            crumbs(&Route::Workspace(WorkspaceId::new()), String::new())[0].target,
+            None
+        );
     }
 }

@@ -1,6 +1,6 @@
 # Native architecture
 
-The executable embeds one engine in its process. There is no daemon or network command transport. The native workspace implements every audited shipped journey: onboarding, Discovery and imports, Library and flat folders, Sync, and Settings. It also implements System and workspaces, which every scan reads, and the Agents view of installed skills.
+The executable embeds one engine in its process. There is no daemon or network command transport. The native workspace implements every audited shipped journey: onboarding, Discovery and installs, Library and flat folders, Sync, and Settings. It also implements workspaces and the agents' global skill directories, which every scan reads, and the Agents view of found skills by detected agent.
 
 ## Ownership
 
@@ -18,11 +18,11 @@ The UI invokes typed client operations. It never accesses SQLite, mutates filesy
 
 ## Execution and storage contract
 
-The engine keeps storage and system adapters private within feature modules. A single worker owns the bundled SQLite connection. Its typed job queue serializes changes to managed files, metadata, and the Git working tree. SkillBinder never writes outside application storage and the library. One scan of System and every workspace runs on its own thread: the worker prepares its inputs, and the scan publishes its found skills to a shared in-memory record that the client reads without waiting for the worker. Each found location records the agents that read it and the workspaces whose scan reads it, so the UI derives presence without matching paths. Found skills are scan observations and are never stored. Starting a scan replaces a running one, whose results are discarded. Bounded previews run on the engine worker and never block the GPUI event loop.
+The engine keeps storage and system adapters private within feature modules. A single worker owns the bundled SQLite connection. Its typed job queue serializes changes to managed files, metadata, and the Git working tree. SkillBinder never writes outside application storage and the library. One scan of every registry agent's global skill directories and every workspace runs on its own thread: the worker prepares its inputs, and the scan publishes its found skills to a shared in-memory record that the client reads without waiting for the worker. Each found location records the agents that read it, the agents whose own global skill directory, the one the app shows, holds it through any link, and the workspaces whose scan reads it; the workspace list is empty for a global skill directory. The UI derives agent pages, sidebar counts, and presence from those agent and workspace identities, never from display paths. Found skills are scan observations and are never stored. Starting a scan replaces a running one, whose results are discarded. Bounded previews run on the engine worker and never block the GPUI event loop.
 
 The application stores machine-local state beneath the operating system's local application-data directory in `SkillBinder`. The portable library uses `.skillbinder.json` schema 2 and `skills/<slug>/`. There is no old-database migration or compatibility layer.
 
-Navigation never cancels committed work. The engine retains terminal import outcomes, journals durable mutations, and replays completed imports idempotently. Recovery must reconcile interrupted operations before enabling further mutations. The last completed scan is retained until the next one completes.
+Navigation never cancels committed work. The engine retains terminal install outcomes, journals durable mutations, and replays completed installs idempotently. Recovery must reconcile interrupted operations before enabling further mutations. The last completed scan is retained until the next one completes.
 
 The client publishes immutable projections through coalescing subscriptions. Full refresh generations reject superseded reads; scan results are read while holding the publication lock, so older results cannot replace newer ones. On creation, and when the window regains focus, the client starts a scan in the background. Failed projection refreshes never turn a completed mutation into a failure. Detailed acceptance cases remain in `fixtures/contracts/domain-contract.md`.
 

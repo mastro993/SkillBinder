@@ -65,9 +65,9 @@ pub enum LibraryView {
 pub enum SidebarSection {
     /// User-ordered library folders.
     Folders,
-    /// System and the added workspaces.
+    /// The added workspaces.
     Workspaces,
-    /// Installed agents, alphabetically.
+    /// Detected agents, alphabetically.
     Agents,
 }
 /// Color scheme preference.
@@ -126,7 +126,7 @@ pub struct AppSnapshot {
     pub bootstrap: Bootstrap,
     /// Library if onboarding has completed.
     pub library: Option<LibrarySnapshot>,
-    /// Home folder that holds the global agent skill directories System reads.
+    /// Home folder that holds the agents' global skill directories.
     pub home: String,
     /// Registry agents, by display name.
     pub agents: Vec<crate::AgentOption>,

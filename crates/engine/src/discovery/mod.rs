@@ -54,7 +54,7 @@ struct ScanState {
     threads: usize,
 }
 
-/// The single scan of System and every workspace. Starting a scan replaces a running one, whose
+/// The single scan of the agents' global skill directories and every workspace. Starting a scan replaces a running one, whose
 /// results are discarded, so a scan always covers the workspaces as they were when it started.
 #[derive(Clone, Default)]
 pub(crate) struct Scans(Arc<Mutex<ScanState>>);
@@ -82,7 +82,7 @@ impl Scans {
             .last
             .as_ref()
             .filter(|found| found.snapshot.error.is_none())
-            .ok_or_else(|| AppError::stale("Run a complete scan before preparing imports."))?;
+            .ok_or_else(|| AppError::stale("Run a complete scan before preparing an install."))?;
         if ids.is_empty()
             || ids.len() > 500
             || ids.iter().collect::<BTreeSet<_>>().len() != ids.len()

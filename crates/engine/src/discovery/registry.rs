@@ -1,7 +1,7 @@
 use super::paths;
 use crate::{lifecycle::EngineConfig, logging::Logger};
 use serde::Deserialize;
-use skillbinder_proto::{AgentOption, AppError, AppResult, WorkspaceId, WorkspaceRef};
+use skillbinder_proto::{AgentOption, AppError, AppResult, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -29,15 +29,16 @@ pub(crate) struct Location {
     pub readers: Vec<String>,
     /// Registry identities of the same agents.
     pub agents: Vec<String>,
-    /// The workspaces whose scan reads this location, System first.
-    pub workspaces: Vec<WorkspaceRef>,
+    /// Registry identities of the agents whose own global skill directory this is: the one the
+    /// app shows, not a further registry root.
+    pub global_agents: Vec<String>,
+    /// The workspaces whose scan reads this location; empty for a global skill directory.
+    pub workspaces: Vec<WorkspaceId>,
 }
 impl Location {
-    /// An added workspace reads this location, so the deeper workspace walk limits apply.
+    /// A workspace reads this location, so the deeper workspace walk limits apply.
     pub fn in_workspace(&self) -> bool {
-        self.workspaces
-            .iter()
-            .any(|workspace| matches!(workspace, WorkspaceRef::Added(_)))
+        !self.workspaces.is_empty()
     }
 }
 fn registry() -> AppResult<Registry> {
@@ -46,8 +47,7 @@ fn registry() -> AppResult<Registry> {
     ))
     .map_err(|_| AppError::storage())
 }
-/// System's global agent locations under home, plus the direct skill directories of each
-/// workspace.
+/// The agents' global skill directories, plus the direct skill directories of each workspace.
 pub(crate) fn locations(
     config: &EngineConfig,
     workspaces: &[(WorkspaceId, PathBuf)],
@@ -55,22 +55,19 @@ pub(crate) fn locations(
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
     for agent in registry()?.agents {
+        let own = global_dir(&agent, config);
         for template in &agent.global_roots {
             if let Some(path) = expand(template, config) {
-                add(
-                    &mut combined,
-                    path,
-                    &config.home,
-                    &agent,
-                    WorkspaceRef::System,
-                    log,
-                );
+                let reading = Reading::Global {
+                    own: own.as_ref() == Some(&path),
+                };
+                add(&mut combined, path, &config.home, &agent, reading, log);
             }
         }
         for (id, boundary) in workspaces {
             let path = boundary.join(&agent.workspace_skills_dir);
-            let workspace = WorkspaceRef::Added(id.clone());
-            add(&mut combined, path, boundary, &agent, workspace, log);
+            let reading = Reading::Workspace(id);
+            add(&mut combined, path, boundary, &agent, reading, log);
         }
     }
     Ok(combined.into_values().collect())
@@ -83,6 +80,24 @@ pub(crate) fn workspace_skill_dirs() -> AppResult<BTreeSet<String>> {
         .map(|agent| agent.workspace_skills_dir)
         .collect())
 }
+/// The global skill directories the scan reads, as expanded and as resolved, under the same
+/// home boundary as the scan, so a directory the scan skips is not one.
+pub(crate) fn global_skill_dirs(config: &EngineConfig) -> AppResult<BTreeSet<PathBuf>> {
+    let mut dirs = BTreeSet::new();
+    for agent in registry()?.agents {
+        for path in agent
+            .global_roots
+            .iter()
+            .filter_map(|template| expand(template, config))
+        {
+            if let Ok(place) = bounded(&path, &config.home) {
+                dirs.insert(place.path);
+                dirs.insert(place.canonical);
+            }
+        }
+    }
+    Ok(dirs)
+}
 /// Every registry agent, by display name, with the skill directories it reads and whether its
 /// global skill directory exists.
 pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>> {
@@ -91,9 +106,16 @@ pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>
         .into_iter()
         .map(|agent| {
             let global = global_dir(&agent, config);
+            let resolved = global.as_ref().map(|path| {
+                bounded(path, &config.home).map_or_else(|_| path.clone(), |place| place.canonical)
+            });
             AgentOption {
-                installed: global.as_ref().is_some_and(|path| path.is_dir()),
+                // An agent counts only where the scan reads its directory: inside home.
+                detected: global
+                    .as_ref()
+                    .is_some_and(|path| path.is_dir() && bounded(path, &config.home).is_ok()),
                 global_skills_dir: global.map(|path| path.display().to_string()),
+                resolved_skills_dir: resolved.map(|path| path.display().to_string()),
                 id: agent.id,
                 display_name: agent.display_name,
                 workspace_skills_dir: agent.workspace_skills_dir,
@@ -110,62 +132,82 @@ fn global_dir(agent: &Agent, config: &EngineConfig) -> Option<PathBuf> {
         .iter()
         .find_map(|template| expand(template, config))
 }
+/// How an agent reads a location.
+enum Reading<'a> {
+    /// As one of its global roots; `own` when it is the global skill directory the app shows for
+    /// the agent, its first root that expands.
+    Global { own: bool },
+    /// As its skill directory at the top of a workspace.
+    Workspace(&'a WorkspaceId),
+}
 fn add(
     locations: &mut BTreeMap<PathBuf, Location>,
     path: PathBuf,
     boundary: &Path,
     agent: &Agent,
-    workspace: WorkspaceRef,
+    reading: Reading<'_>,
     log: &Logger,
 ) {
+    let place = match bounded(&path, boundary) {
+        Ok(place) => place,
+        Err(message) => return log.record(message),
+    };
+    let location = locations
+        .entry(place.canonical)
+        .or_insert_with(|| Location {
+            path: place.path,
+            boundary: place.boundary,
+            readers: Vec::new(),
+            agents: Vec::new(),
+            global_agents: Vec::new(),
+            workspaces: Vec::new(),
+        });
+    match reading {
+        Reading::Workspace(workspace) => insert(&mut location.workspaces, workspace),
+        Reading::Global { own: true } => insert(&mut location.global_agents, &agent.id),
+        Reading::Global { own: false } => {}
+    }
+    insert(&mut location.readers, &agent.display_name);
+    insert(&mut location.agents, &agent.id);
+}
+/// Adds `value` to a sorted list without duplicates.
+fn insert<T: Clone + Ord>(list: &mut Vec<T>, value: &T) {
+    if let Err(index) = list.binary_search(value) {
+        list.insert(index, value.clone());
+    }
+}
+/// A location rebased onto its resolved boundary, and its resolved path; an absent location
+/// resolves to where it would be created.
+struct Place {
+    boundary: PathBuf,
+    path: PathBuf,
+    canonical: PathBuf,
+}
+/// Where `path` lies inside `boundary`, or the log line explaining why it is skipped: outside
+/// the boundary, through a link leaving it, or unreadable.
+fn bounded(path: &Path, boundary: &Path) -> Result<Place, String> {
     let canonical_boundary = fs::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
-    let Ok(relative) = path
-        .strip_prefix(boundary)
-        .or_else(|_| path.strip_prefix(&canonical_boundary))
-    else {
-        log.record(format!(
+    let Some(relative) = paths::inside(&canonical_boundary, path) else {
+        return Err(format!(
             "Discovery location outside its boundary: {}",
             path.display()
         ));
-        return;
     };
     let path = canonical_boundary.join(relative);
-    let canonical = match paths::resolve(&canonical_boundary, &path) {
+    let canonical = match paths::resolve_absent(&canonical_boundary, &path) {
         Ok(canonical) => canonical,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => path.clone(),
         Err(error) => {
-            log.record(format!(
+            return Err(format!(
                 "Unreadable discovery location {}: {error}",
                 path.display()
             ));
-            return;
         }
     };
-    let location = locations
-        .entry(canonical.clone())
-        .or_insert_with(|| Location {
-            path,
-            boundary: canonical_boundary,
-            readers: Vec::new(),
-            agents: Vec::new(),
-            workspaces: Vec::new(),
-        });
-    if !location.workspaces.contains(&workspace) {
-        location.workspaces.push(workspace);
-        location.workspaces.sort();
-    }
-    for (list, value) in [
-        (&mut location.readers, &agent.display_name),
-        (&mut location.agents, &agent.id),
-    ] {
-        list.push(value.clone());
-        *list = list
-            .iter()
-            .cloned()
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect();
-    }
+    Ok(Place {
+        boundary: canonical_boundary,
+        path,
+        canonical,
+    })
 }
 fn expand(template: &str, config: &EngineConfig) -> Option<PathBuf> {
     let mut output = String::new();

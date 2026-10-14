@@ -1,162 +1,91 @@
-//! Library skill presence: the workspaces where the last scan found each library skill, and the
-//! agents reading each copy.
+//! Library skill presence: the detected agents whose global skill directory held a copy of each
+//! library skill at the last scan. Workspace copies are not part of presence.
 
-use super::agent_skills::{installed_agents, split_universal};
-use super::sidebar::SYSTEM;
-use skillbinder_proto::{AgentOption, ScanSnapshot, SkillId, Workspace, WorkspaceRef};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// An agent, or the universal agents together, reading a workspace's copy of a skill.
+use super::Route;
+use super::agent_skills::{UNIVERSAL, agent_name, detected_agents, split_universal, universal_dir};
+use skillbinder_proto::{AgentOption, ScanSnapshot, SkillId};
+
+/// Which Agents row holds a copy.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Reader {
-    /// Two or more universal agents, by display name.
+    /// The universal agents together, by display name.
     Universal(Vec<String>),
-    /// One agent by registry id.
-    Agent { id: String, name: String },
+    /// One other detected agent, by registry id.
+    Agent(String),
 }
 
-/// One workspace holding a library skill.
+/// An Agents row whose global skill directory holds a copy of a library skill.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct Place {
-    pub workspace: WorkspaceRef,
-    /// "System" or the workspace's name.
+pub(super) struct Holder {
+    pub reader: Reader,
+    /// The name the Agents section shows.
     pub name: String,
-    /// The folder the workspace reads under.
-    pub path: String,
-    /// Universal first, then agents by display name.
-    pub readers: Vec<Reader>,
+    /// The global skill directory holding the copy.
+    pub dir: String,
 }
 
-/// Where the last scan found each library skill, System first and then workspaces in sidebar
-/// order. Workspaces removed since the scan are left out.
+impl Holder {
+    /// The page the chip opens: the agent's, or Universal's.
+    pub(super) fn route(&self) -> Route {
+        match &self.reader {
+            Reader::Universal(_) => Route::Universal,
+            Reader::Agent(id) => Route::Agent(id.clone()),
+        }
+    }
+}
+
+/// The Agents rows holding a copy of each library skill, in Agents section order: Universal
+/// first, then the other detected agents alphabetically. A copy counts as on the agent page:
+/// the row's agents read its location as their global skill directory. Library skills no row
+/// holds are left out. One pass over the scan, since Library renders it each frame.
 pub(super) fn presence(
     scan: &ScanSnapshot,
     agents: &[AgentOption],
-    workspaces: &[Workspace],
     home: &str,
-) -> BTreeMap<SkillId, Vec<Place>> {
-    let mut found: BTreeMap<&SkillId, BTreeMap<&WorkspaceRef, BTreeSet<&str>>> = BTreeMap::new();
+) -> BTreeMap<SkillId, Vec<Holder>> {
+    let (universal, others) = split_universal(detected_agents(agents), home);
+    let mut rows = Vec::new();
+    let mut row_of: BTreeMap<&str, usize> = BTreeMap::new();
+    if !universal.is_empty() {
+        row_of.extend(universal.iter().map(|agent| (agent.id.as_str(), 0)));
+        rows.push(Holder {
+            reader: Reader::Universal(universal.iter().map(|a| a.display_name.clone()).collect()),
+            name: UNIVERSAL.to_owned(),
+            dir: universal_dir(home).display().to_string(),
+        });
+    }
+    for agent in others {
+        let Some(dir) = agent.global_skills_dir.clone() else {
+            continue;
+        };
+        row_of.insert(agent.id.as_str(), rows.len());
+        rows.push(Holder {
+            reader: Reader::Agent(agent.id.clone()),
+            name: agent_name(agent, home),
+            dir,
+        });
+    }
+    let mut held: BTreeMap<&SkillId, BTreeSet<usize>> = BTreeMap::new();
     for candidate in &scan.candidates {
         let Some(skill) = &candidate.skill_id else {
             continue;
         };
-        let places = found.entry(skill).or_default();
-        for location in &candidate.locations {
-            for workspace in &location.workspaces {
-                places
-                    .entry(workspace)
-                    .or_default()
-                    .extend(location.agents.iter().map(String::as_str));
-            }
-        }
-    }
-    // System's universal agents share `~/.agents/skills`; a workspace's share its `.agents/skills`.
-    let (system, _) = split_universal(installed_agents(agents), home);
-    let system: BTreeSet<&str> = system.iter().map(|agent| agent.id.as_str()).collect();
-    let shared: BTreeSet<&str> = agents
-        .iter()
-        .filter(|agent| agent.workspace_skills_dir == UNIVERSAL_WORKSPACE_DIR)
-        .map(|agent| agent.id.as_str())
-        .collect();
-    let name = |id: &str| {
-        agents
+        let readers = candidate
+            .locations
             .iter()
-            .find(|agent| agent.id == id)
-            .map_or_else(|| id.to_owned(), |agent| agent.display_name.clone())
-    };
-    found
-        .into_iter()
-        .map(|(skill, places)| {
-            let places = places
-                .into_iter()
-                .filter_map(|(workspace, ids)| {
-                    let (name_of, path) = describe(workspace, workspaces, home)?;
-                    Some(Place {
-                        workspace: workspace.clone(),
-                        name: name_of,
-                        path,
-                        readers: readers(&ids, universal(workspace, &system, &shared), &name),
-                    })
-                })
-                .collect::<Vec<_>>();
-            (skill.clone(), sorted(places, workspaces))
+            .flat_map(|location| &location.global_agents)
+            .filter_map(|id| row_of.get(id.as_str()).copied());
+        held.entry(skill).or_default().extend(readers);
+    }
+    held.into_iter()
+        .filter(|(_, indices)| !indices.is_empty())
+        .map(|(skill, indices)| {
+            let holders = indices.into_iter().map(|index| rows[index].clone());
+            (skill.clone(), holders.collect())
         })
         .collect()
-}
-
-/// The directory, relative to an added workspace, that its universal agents share.
-const UNIVERSAL_WORKSPACE_DIR: &str = ".agents/skills";
-
-fn universal<'a>(
-    workspace: &WorkspaceRef,
-    system: &'a BTreeSet<&'a str>,
-    shared: &'a BTreeSet<&'a str>,
-) -> &'a BTreeSet<&'a str> {
-    match workspace {
-        WorkspaceRef::System => system,
-        WorkspaceRef::Added(_) => shared,
-    }
-}
-
-/// A workspace's name and folder, or `None` when it was removed since the scan.
-fn describe(
-    workspace: &WorkspaceRef,
-    workspaces: &[Workspace],
-    home: &str,
-) -> Option<(String, String)> {
-    match workspace {
-        WorkspaceRef::System => Some((SYSTEM.to_owned(), home.to_owned())),
-        WorkspaceRef::Added(id) => workspaces
-            .iter()
-            .find(|workspace| &workspace.id == id)
-            .map(|workspace| (workspace.name.clone(), workspace.path.clone())),
-    }
-}
-
-/// System first, then workspaces by their sidebar position.
-fn sorted(mut places: Vec<Place>, workspaces: &[Workspace]) -> Vec<Place> {
-    places.sort_by_key(|place| match &place.workspace {
-        WorkspaceRef::System => None,
-        WorkspaceRef::Added(id) => workspaces
-            .iter()
-            .find(|workspace| &workspace.id == id)
-            .map(|workspace| workspace.position),
-    });
-    places
-}
-
-/// Two or more universal agents read the copy as one Universal reader.
-fn readers(
-    ids: &BTreeSet<&str>,
-    universal: &BTreeSet<&str>,
-    name: &impl Fn(&str) -> String,
-) -> Vec<Reader> {
-    let shared: Vec<&str> = ids.intersection(universal).copied().collect();
-    let grouped = shared.len() > 1;
-    let by_name = |ids: Vec<&str>| {
-        let mut named: Vec<(String, String)> = ids
-            .into_iter()
-            .map(|id| (name(id), id.to_owned()))
-            .collect();
-        named.sort_by_key(|(name, _)| name.to_lowercase());
-        named
-    };
-    let mut readers = Vec::new();
-    if grouped {
-        let names = by_name(shared).into_iter().map(|(name, _)| name).collect();
-        readers.push(Reader::Universal(names));
-    }
-    let own = ids
-        .iter()
-        .copied()
-        .filter(|id| !grouped || !universal.contains(id))
-        .collect();
-    readers.extend(
-        by_name(own)
-            .into_iter()
-            .map(|(name, id)| Reader::Agent { id, name }),
-    );
-    readers
 }
 
 #[cfg(test)]
@@ -172,15 +101,18 @@ mod tests {
             display_name: name.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
             global_skills_dir: Some(global.to_owned()),
-            installed: true,
+            resolved_skills_dir: Some(global.to_owned()),
+            detected: true,
         }
     }
 
-    fn location(agents: &[&str], workspaces: Vec<WorkspaceRef>) -> CandidateLocation {
+    /// A location the scan found, read globally by `global` and by the `workspaces`.
+    fn location(global: &[&str], workspaces: Vec<WorkspaceId>) -> CandidateLocation {
         CandidateLocation {
             display_path: String::new(),
             readers: Vec::new(),
-            agents: agents.iter().map(|id| (*id).to_owned()).collect(),
+            agents: Vec::new(),
+            global_agents: global.iter().map(|id| (*id).to_owned()).collect(),
             workspaces,
         }
     }
@@ -199,88 +131,84 @@ mod tests {
         }
     }
 
-    fn workspace(name: &str, position: u32) -> Workspace {
-        Workspace {
-            id: WorkspaceId::new(),
-            name: name.to_owned(),
-            path: format!("/work/{name}"),
-            position,
-            missing: false,
-        }
+    fn names(holders: &[Holder]) -> Vec<&str> {
+        holders.iter().map(|holder| holder.name.as_str()).collect()
     }
 
     #[test]
-    fn presence_maps_each_workspace_to_its_readers_with_universal_grouped() {
-        let mut claude = agent("claude-code", "Claude Code", "/home/.claude/skills");
-        claude.workspace_skills_dir = ".claude/skills".to_owned();
+    fn presence_lists_the_agents_rows_whose_global_directory_holds_a_copy() {
+        let mut missing = agent("cursor", "Cursor", "/home/.cursor/skills");
+        missing.detected = false;
         let agents = [
-            claude,
-            agent("codex", "Codex", "/home/.agents/skills"),
             agent("amp", "Amp", "/home/.agents/skills"),
-            agent("cursor", "Cursor", "/home/.cursor/skills"),
+            agent("claude-code", "Claude Code", "/home/.claude/skills"),
+            agent("codex", "Codex", "/home/.agents/skills"),
+            missing,
+            agent("zed", "Zed", "/home/.zed/skills"),
         ];
-        let (second, first, removed) = (
-            workspace("web", 1),
-            workspace("api", 0),
-            workspace("old", 2),
-        );
-        let [system, api, web, gone] = [
-            WorkspaceRef::System,
-            WorkspaceRef::Added(first.id.clone()),
-            WorkspaceRef::Added(second.id.clone()),
-            WorkspaceRef::Added(removed.id.clone()),
-        ];
-        let skill = SkillId::new();
+        let (both, workspace_only) = (SkillId::new(), SkillId::new());
         let scan = ScanSnapshot {
             candidates: vec![
                 found(
-                    Some(skill.clone()),
+                    Some(both.clone()),
                     vec![
-                        location(&["amp", "codex"], vec![system.clone()]),
-                        location(&["claude-code"], vec![system.clone(), web.clone()]),
-                        location(&["codex"], vec![api.clone(), gone]),
-                        location(&["codex", "cursor"], vec![web.clone()]),
+                        location(&["claude-code"], Vec::new()),
+                        location(&["amp", "codex"], Vec::new()),
+                        location(&["cursor"], Vec::new()),
+                        location(&[], vec![WorkspaceId::new()]),
                     ],
                 ),
-                found(None, vec![location(&["amp"], vec![system.clone()])]),
+                found(
+                    Some(workspace_only.clone()),
+                    vec![location(&[], vec![WorkspaceId::new()])],
+                ),
+                found(None, vec![location(&["zed"], Vec::new())]),
             ],
             error: None,
         };
-        let presence = presence(&scan, &agents, &[second, first], "/home");
-        assert_eq!(presence.len(), 1, "skills outside the library have none");
-        let places = &presence[&skill];
-        let names: Vec<_> = places.iter().map(|place| place.name.as_str()).collect();
-        assert_eq!(names, ["System", "api", "web"]);
+        let presence = presence(&scan, &agents, "/home");
         assert_eq!(
-            places[0].readers,
-            [
-                Reader::Universal(vec!["Amp".to_owned(), "Codex".to_owned()]),
-                Reader::Agent {
-                    id: "claude-code".to_owned(),
-                    name: "Claude Code".to_owned()
-                },
-            ]
+            presence.keys().collect::<Vec<_>>(),
+            [&both],
+            "skills outside the library or only in workspaces have none"
+        );
+        let holders = &presence[&both];
+        assert_eq!(
+            names(holders),
+            ["Universal", "Claude Code"],
+            "Universal first; undetected agents and workspace copies are left out"
         );
         assert_eq!(
-            places[1].readers,
-            [Reader::Agent {
-                id: "codex".to_owned(),
-                name: "Codex".to_owned()
-            }],
-            "one universal agent keeps its own name"
+            holders[0].reader,
+            Reader::Universal(vec!["Amp".to_owned(), "Codex".to_owned()])
+        );
+        assert_eq!(holders[0].route(), Route::Universal);
+        assert_eq!(holders[0].dir, "/home/.agents/skills");
+        assert_eq!(holders[1].route(), Route::Agent("claude-code".to_owned()));
+        assert_eq!(holders[1].dir, "/home/.claude/skills");
+    }
+
+    #[test]
+    fn a_copy_linked_into_several_global_directories_shows_every_agent() {
+        let agents = [
+            agent("claude-code", "Claude Code", "/home/.claude/skills"),
+            agent("codex", "Codex", "/home/.agents/skills"),
+        ];
+        let skill = SkillId::new();
+        let linked = location(&["claude-code", "codex"], Vec::new());
+        let scan = ScanSnapshot {
+            candidates: vec![found(Some(skill.clone()), vec![linked])],
+            error: None,
+        };
+        let holders = &presence(&scan, &agents, "/home")[&skill];
+        assert_eq!(
+            names(holders),
+            ["Universal", "Claude Code"],
+            "one universal agent is still the Universal row"
         );
         assert_eq!(
-            places[2].readers,
-            [
-                Reader::Universal(vec!["Codex".to_owned(), "Cursor".to_owned()]),
-                Reader::Agent {
-                    id: "claude-code".to_owned(),
-                    name: "Claude Code".to_owned()
-                },
-            ],
-            "a workspace's universal agents are the ones sharing its .agents/skills"
+            holders[0].reader,
+            Reader::Universal(vec!["Codex".to_owned()])
         );
-        assert_eq!(places[0].path, "/home");
-        assert_eq!(places[2].path, "/work/web");
     }
 }

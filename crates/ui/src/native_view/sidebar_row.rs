@@ -132,6 +132,19 @@ pub(super) fn spinner(cx: &App) -> AnyElement {
         .into_any_element()
 }
 
+/// The muted placeholder row of an empty section, such as "No agents".
+pub(super) fn empty_row(text: &'static str, cx: &App) -> AnyElement {
+    div()
+        .flex()
+        .items_center()
+        .h(px(ROW_HEIGHT))
+        .px(px(ROW_PADDING))
+        .text_size(px(LABEL_SIZE))
+        .text_color(cx.theme().muted_foreground.opacity(ICON_OPACITY))
+        .child(text)
+        .into_any_element()
+}
+
 /// The plus button of a section header.
 pub(super) fn add_button(id: &'static str, label: &'static str, cx: &App) -> Button {
     button(id)
