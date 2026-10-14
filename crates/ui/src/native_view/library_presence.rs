@@ -96,6 +96,7 @@ mod tests {
             display_name: name.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
             global_skills_dir: Some(global.to_owned()),
+            resolved_skills_dir: Some(global.to_owned()),
             detected: true,
         }
     }

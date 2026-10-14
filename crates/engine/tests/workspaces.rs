@@ -103,6 +103,34 @@ async fn detected_agents_are_those_whose_global_directory_exists() {
     engine.shutdown().await.unwrap();
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn agents_whose_directories_are_one_folder_share_a_resolved_directory() {
+    let fixture = Fixture::new();
+    fs::create_dir_all(fixture.home.join(".agents/skills")).unwrap();
+    fs::create_dir_all(fixture.home.join(".claude")).unwrap();
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    std::os::unix::fs::symlink(home.join(".agents/skills"), home.join(".claude/skills")).unwrap();
+    let engine = fixture.ready().await;
+    let snapshot = engine.snapshot().await.unwrap();
+    let agent = |id: &str| {
+        snapshot
+            .agents
+            .iter()
+            .find(|agent| agent.id == id)
+            .unwrap()
+            .clone()
+    };
+    let (claude, codex) = (agent("claude-code"), agent("codex"));
+    assert_ne!(claude.global_skills_dir, codex.global_skills_dir);
+    assert_eq!(claude.resolved_skills_dir, codex.resolved_skills_dir);
+    assert_eq!(
+        codex.resolved_skills_dir,
+        Some(home.join(".agents/skills").display().to_string())
+    );
+    engine.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn grants_are_single_use_and_duplicate_workspaces_are_refused() {
     let fixture = Fixture::new();

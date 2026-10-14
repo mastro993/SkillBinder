@@ -131,6 +131,7 @@ mod tests {
             display_name: id.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
             global_skills_dir: Some("/home/.agents/skills".to_owned()),
+            resolved_skills_dir: Some("/home/.agents/skills".to_owned()),
             detected: true,
         }
     }

@@ -27,6 +27,9 @@ pub struct AgentOption {
     pub workspace_skills_dir: String,
     /// Global skill directory, or `None` when this device has none.
     pub global_skills_dir: Option<String>,
+    /// The same directory with links inside home resolved, so agents whose directories are one
+    /// folder have the same value.
+    pub resolved_skills_dir: Option<String>,
     /// The global skill directory exists, so the agent is detected.
     pub detected: bool,
 }

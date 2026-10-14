@@ -106,9 +106,13 @@ pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>
         .into_iter()
         .map(|agent| {
             let global = global_dir(&agent, config);
+            let resolved = global.as_ref().map(|path| {
+                bounded(path, &config.home).map_or_else(|_| path.clone(), |place| place.canonical)
+            });
             AgentOption {
                 detected: global.as_ref().is_some_and(|path| path.is_dir()),
                 global_skills_dir: global.map(|path| path.display().to_string()),
+                resolved_skills_dir: resolved.map(|path| path.display().to_string()),
                 id: agent.id,
                 display_name: agent.display_name,
                 workspace_skills_dir: agent.workspace_skills_dir,

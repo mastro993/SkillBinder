@@ -22,11 +22,7 @@ impl NativeView {
         else {
             return div().into_any_element();
         };
-        let shared: Vec<_> = detected_agents(&self.snapshot.agents)
-            .into_iter()
-            .filter(|other| other.id != agent.id && other.global_skills_dir.as_ref() == Some(dir))
-            .map(|other| other.display_name.as_str())
-            .collect();
+        let shared = shared_with(&self.snapshot.agents, agent);
         let note = (!shared.is_empty()).then(|| format!("Shared with {}", shared.join(", ")));
         self.render_found(Path::new(dir), note, self.agent_skills(agent), cx)
     }
@@ -95,6 +91,19 @@ fn page() -> gpui_kit::Div {
     div().flex().flex_col().gap_4()
 }
 
+/// The other detected agents reading `agent`'s global skill directory, including through a link,
+/// by display name.
+fn shared_with<'a>(agents: &'a [AgentOption], agent: &AgentOption) -> Vec<&'a str> {
+    let Some(dir) = &agent.resolved_skills_dir else {
+        return Vec::new();
+    };
+    detected_agents(agents)
+        .into_iter()
+        .filter(|other| other.id != agent.id && other.resolved_skills_dir.as_ref() == Some(dir))
+        .map(|other| other.display_name.as_str())
+        .collect()
+}
+
 /// Where an agent's or Universal's page goes once `agents` no longer lists it: a universal
 /// agent's page becomes Universal's, and the page of an agent that is no longer detected opens
 /// Discovery, as a removed workspace's does.
@@ -118,6 +127,7 @@ mod tests {
             display_name: id.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
             global_skills_dir: Some(global.to_owned()),
+            resolved_skills_dir: Some(global.to_owned()),
             detected,
         }
     }
@@ -140,5 +150,20 @@ mod tests {
             agent_fallback(&undetected, "/home", Route::Universal),
             Route::Discovery
         );
+    }
+
+    #[test]
+    fn agents_reading_one_folder_through_a_link_share_it() {
+        let mut claude = agent("claude-code", "/home/.claude/skills", true);
+        claude.resolved_skills_dir = Some("/home/.agents/skills".to_owned());
+        let agents = [
+            agent("codex", "/home/.agents/skills", true),
+            claude.clone(),
+            agent("cursor", "/home/.cursor/skills", true),
+            agent("zed", "/home/.agents/skills", false),
+        ];
+        assert_eq!(shared_with(&agents, &claude), ["codex"]);
+        assert_eq!(shared_with(&agents, &agents[0]), ["claude-code"]);
+        assert!(shared_with(&agents, &agents[2]).is_empty());
     }
 }
