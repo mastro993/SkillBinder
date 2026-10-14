@@ -60,15 +60,17 @@ pub(super) fn projects(
 }
 
 /// An agent folder is one whose agent workspace skill directories include a global skill
-/// directory, such as the home folder with `~/.claude/skills`. Its skills are shown under Agents.
+/// directory, such as the home folder with `~/.claude/skills`, or one at or inside a global skill
+/// directory, such as `~/.claude/skills` itself. Its skills are shown under Agents.
 pub(super) fn is_agent_folder(
     folder: &Path,
     skill_dirs: &BTreeSet<String>,
     global_dirs: &BTreeSet<PathBuf>,
 ) -> bool {
-    skill_dirs
-        .iter()
-        .any(|dir| global_dirs.contains(&folder.join(dir)))
+    global_dirs.iter().any(|dir| folder.starts_with(dir))
+        || skill_dirs
+            .iter()
+            .any(|dir| global_dirs.contains(&folder.join(dir)))
 }
 
 #[cfg(test)]
@@ -167,6 +169,32 @@ mod tests {
                 skipped: vec![home],
             },
             "a folder whose only project is an agent folder adds nothing"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_global_skill_directory_and_its_contents_are_agent_folders() -> std::io::Result<()> {
+        let root = tempfile::tempdir()?;
+        let global = root.path().join("home/.claude/skills");
+        fs::create_dir_all(global.join("review"))?;
+        let globals: BTreeSet<PathBuf> = [global.clone()].into();
+        for picked in [global.clone(), global.join("review")] {
+            assert_eq!(
+                projects(&picked, &dirs(), &globals),
+                Projects {
+                    add: Vec::new(),
+                    skipped: vec![picked.clone()],
+                },
+                "{}",
+                picked.display()
+            );
+        }
+        let sibling = root.path().join("home/.claude/skills-old");
+        fs::create_dir_all(&sibling)?;
+        assert!(
+            !is_agent_folder(&sibling, &dirs(), &globals),
+            "a sibling sharing a prefix is not inside"
         );
         Ok(())
     }

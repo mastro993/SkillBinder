@@ -317,6 +317,26 @@ async fn a_folder_whose_only_project_is_the_home_folder_is_refused() {
 }
 
 #[tokio::test]
+async fn a_global_skill_directory_itself_is_not_a_workspace() {
+    let fixture = Fixture::new();
+    let skills = fixture.home.join(".claude/skills");
+    write_skill(&skills, "review", "Review");
+    let engine = fixture.ready().await;
+    let skills = fs::canonicalize(skills).unwrap();
+    for picked in [skills.clone(), skills.join("review")] {
+        let error = add_folder(&engine, &picked).await.unwrap_err();
+        assert_eq!(
+            error.message,
+            "This folder's skills are shown under Agents.",
+            "{}",
+            picked.display()
+        );
+    }
+    assert!(engine.snapshot().await.unwrap().workspaces.is_empty());
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn an_empty_home_folder_is_still_an_agent_folder() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
