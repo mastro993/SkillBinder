@@ -115,8 +115,10 @@ fn dates(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
         ("imported", "Imported", item.imported),
         ("modified", "Modified", item.modified),
     ];
+    // Wraps so a narrow card keeps both dates inside it.
     let mut row = h_flex()
-        .gap_1()
+        .flex_wrap()
+        .gap_x_1()
         .text_xs()
         .text_color(cx.theme().muted_foreground);
     for (index, (key, label, time)) in parts
