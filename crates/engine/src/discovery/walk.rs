@@ -1,4 +1,4 @@
-//! Bounded depth-first directory walk shared by Discovery and deployment target scans.
+//! Bounded depth-first directory walk of one scan location.
 
 use super::paths;
 use crate::logging::Logger;
@@ -55,8 +55,6 @@ pub(crate) struct Visit<'a> {
 pub(crate) struct Walk<'a> {
     pub boundary: &'a Path,
     pub workspace: bool,
-    /// Canonical directories never entered, such as nested workspaces.
-    pub skip: &'a BTreeSet<PathBuf>,
     pub cancel: &'a AtomicBool,
     pub log: &'a Logger,
 }
@@ -106,7 +104,6 @@ impl Walk<'_> {
             };
             if !canonical.starts_with(self.boundary)
                 || !same_mount(self.boundary, &canonical, self.workspace)
-                || self.skip.contains(&canonical)
                 || !seen.insert(canonical.clone())
             {
                 continue;

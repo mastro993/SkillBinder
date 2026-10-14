@@ -178,12 +178,6 @@ impl NativeView {
                             .map(|message| div().child(message.message.clone())),
                     );
             }
-            let targets = self.deployment_targets(skill_id);
-            detail = detail.child(if targets.is_empty() {
-                "Not deployed".to_owned()
-            } else {
-                format!("Deployed to {}", targets.join(", "))
-            });
             if let Some(preview) = &self.preview
                 && &preview.skill_id == skill_id
             {

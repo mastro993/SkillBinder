@@ -4,6 +4,8 @@
 )]
 use super::*;
 
+type Work = Box<dyn FnOnce() + Send>;
+
 fn fixture() -> (tempfile::TempDir, EngineConfig, Logger) {
     let directory = tempfile::tempdir().unwrap();
     let config =
@@ -13,16 +15,14 @@ fn fixture() -> (tempfile::TempDir, EngineConfig, Logger) {
     (directory, config, log)
 }
 
-#[test]
-fn active_scans_never_expire_or_launch_a_duplicate() {
-    let (_directory, config, log) = fixture();
-    let scans = Scans::default();
+/// Starts a scan whose work runs only when the returned closure is called.
+fn deferred(scans: &Scans, config: &EngineConfig, log: &Logger) -> Work {
     let mut pending = None;
-    let started = scans
+    scans
         .start_with(
             config.clone(),
             Vec::new(),
-            BTreeSet::new(),
+            BTreeMap::new(),
             log.clone(),
             |work| {
                 pending = Some(work);
@@ -30,137 +30,56 @@ fn active_scans_never_expire_or_launch_a_duplicate() {
             },
         )
         .unwrap();
-    let later = Instant::now() + Duration::from_secs(10_000);
-    assert_eq!(scans.current_at(later).unwrap().unwrap().id, started.id);
-    let duplicate = scans
-        .start_with(config, Vec::new(), BTreeSet::new(), log, |_| {
-            panic!("active scan launched a duplicate")
-        })
-        .unwrap();
-    assert_eq!(duplicate.id, started.id);
-    pending.unwrap()();
-    assert_eq!(
-        scans.current().unwrap().unwrap().status,
-        ScanStatus::Finished
-    );
-    let finished = scans
-        .0
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .terminal_at
-        .unwrap();
-    assert!(
-        scans
-            .current_at(finished + Duration::from_secs(599))
-            .unwrap()
-            .is_some()
-    );
-    assert!(
-        scans
-            .current_at(finished + Duration::from_secs(600))
-            .unwrap()
-            .is_none()
-    );
+    pending.unwrap()
 }
 
 #[test]
-fn cancellation_retains_the_run_for_600_seconds_after_worker_finishes() {
+fn a_new_scan_replaces_the_running_one_and_keeps_the_last_results_meanwhile() {
     let (_directory, config, log) = fixture();
     let scans = Scans::default();
-    let mut pending = None;
-    scans
-        .start_with(config, Vec::new(), BTreeSet::new(), log, |work| {
-            pending = Some(work);
-            Ok(())
-        })
-        .unwrap();
-    scans.cancel().unwrap();
+    let replaced = deferred(&scans, &config, &log);
+    assert_eq!(scans.current().unwrap(), (None, true));
+    let current = deferred(&scans, &config, &log);
+    replaced();
     assert_eq!(
-        scans.current().unwrap().unwrap().status,
-        ScanStatus::Running
+        scans.current().unwrap(),
+        (None, true),
+        "a replaced scan publishes nothing"
     );
-    assert!(
-        scans
-            .current_at(Instant::now() + Duration::from_secs(600))
-            .unwrap()
-            .is_some()
-    );
-    pending.unwrap()();
-    assert_eq!(
-        scans.current().unwrap().unwrap().status,
-        ScanStatus::Cancelled
-    );
-    let terminal = scans
-        .0
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .terminal_at
-        .unwrap();
-    assert!(
-        scans
-            .current_at(terminal + Duration::from_secs(599))
-            .unwrap()
-            .is_some()
-    );
-    assert!(
-        scans
-            .current_at(terminal + Duration::from_secs(600))
-            .unwrap()
-            .is_none()
-    );
+    current();
+    let (found, running) = scans.current().unwrap();
+    assert!(!running);
+    let found = found.unwrap();
+    assert_eq!(found.error, None);
+    let next = deferred(&scans, &config, &log);
+    assert_eq!(scans.current().unwrap(), (Some(found), true));
+    next();
+    assert_eq!(scans.0.lock().unwrap().threads, 0);
 }
 
 #[test]
-fn launch_failure_is_terminal_and_retryable_without_hanging_shutdown() {
+fn launch_failure_is_a_failed_scan_and_retryable_without_hanging_shutdown() {
     let (_directory, config, log) = fixture();
     let scans = Scans::default();
     let result = scans.start_with(
         config.clone(),
         Vec::new(),
-        BTreeSet::new(),
+        BTreeMap::new(),
         log.clone(),
         |_| Err(std::io::Error::other("injected spawn refusal")),
     );
     assert!(result.is_err());
-    let failed = scans.current().unwrap().unwrap();
-    assert_eq!(failed.status, ScanStatus::Failed);
-    assert!(failed.error.unwrap().contains("Try scanning again"));
+    let (failed, running) = scans.current().unwrap();
+    assert!(!running);
+    assert!(
+        failed
+            .unwrap()
+            .error
+            .unwrap()
+            .contains("Try scanning again")
+    );
+    assert!(scans.selected(&[CandidateId::new()]).is_err());
     scans.wait_for_shutdown();
-    let terminal = scans
-        .0
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .terminal_at
-        .unwrap();
-    assert!(
-        scans
-            .current_at(terminal + Duration::from_secs(599))
-            .unwrap()
-            .is_some()
-    );
-    assert!(
-        scans
-            .current_at(terminal + Duration::from_secs(600))
-            .unwrap()
-            .is_none()
-    );
-    let mut pending = None;
-    let retry = scans
-        .start_with(config, Vec::new(), BTreeSet::new(), log, |work| {
-            pending = Some(work);
-            Ok(())
-        })
-        .unwrap();
-    assert_ne!(failed.id, retry.id);
-    pending.unwrap()();
-    assert_eq!(
-        scans.current().unwrap().unwrap().status,
-        ScanStatus::Finished
-    );
+    deferred(&scans, &config, &log)();
+    assert_eq!(scans.current().unwrap().0.unwrap().error, None);
 }

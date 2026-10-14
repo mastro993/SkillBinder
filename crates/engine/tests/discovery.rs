@@ -5,9 +5,22 @@
 )]
 mod support;
 
-use skillbinder_proto::{ErrorCategory, ImportDecision, ValidationStatus};
+use skillbinder_proto::{Candidate, ErrorCategory, ImportDecision, ScanSnapshot, ValidationStatus};
 use std::fs;
 use support::{Fixture, category, write_skill};
+
+/// Found skills the library does not hold.
+fn not_in_library(scan: &ScanSnapshot) -> Vec<&Candidate> {
+    scan.candidates
+        .iter()
+        .filter(|candidate| candidate.skill_id.is_none())
+        .collect()
+}
+
+/// Found skills whose content the library holds.
+fn in_library(scan: &ScanSnapshot) -> usize {
+    scan.candidates.len() - not_in_library(scan).len()
+}
 
 #[tokio::test]
 async fn external_managed_changes_do_not_hide_the_original_source() {
@@ -17,12 +30,10 @@ async fn external_managed_changes_do_not_hide_the_original_source() {
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
-    fixture
-        .import_one(&engine, &scan.candidates[0], &scan)
-        .await;
+    fixture.import_one(&engine, &scan.candidates[0]).await;
     let unchanged = fixture.scan(&engine).await;
-    assert!(unchanged.candidates.is_empty());
-    assert_eq!(unchanged.identical_hidden, 1);
+    assert!(not_in_library(&unchanged).is_empty());
+    assert_eq!(in_library(&unchanged), 1);
     let managed = fixture.data.join("library/skills/review/SKILL.md");
     fs::write(
         &managed,
@@ -30,12 +41,12 @@ async fn external_managed_changes_do_not_hide_the_original_source() {
     )
     .unwrap();
     let changed = fixture.scan(&engine).await;
-    assert_eq!(changed.candidates.len(), 1);
-    assert_eq!(changed.identical_hidden, 0);
+    assert_eq!(not_in_library(&changed).len(), 1);
+    assert_eq!(in_library(&changed), 0);
     assert_eq!(
         category(
             engine
-                .prepare_import(changed.id, vec![changed.candidates[0].id.clone()], false)
+                .prepare_import(vec![changed.candidates[0].id.clone()], false)
                 .await
         ),
         ErrorCategory::Stale
@@ -43,8 +54,8 @@ async fn external_managed_changes_do_not_hide_the_original_source() {
     assert_eq!(fs::read(source.join("SKILL.md")).unwrap(), original);
     fs::write(source.join("SKILL.md"), fs::read(&managed).unwrap()).unwrap();
     let matching_current_bytes = fixture.scan(&engine).await;
-    assert!(matching_current_bytes.candidates.is_empty());
-    assert_eq!(matching_current_bytes.identical_hidden, 1);
+    assert!(not_in_library(&matching_current_bytes).is_empty());
+    assert_eq!(in_library(&matching_current_bytes), 1);
     engine.shutdown().await.unwrap();
 }
 
@@ -107,7 +118,7 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
     let scan = fixture.scan(&engine).await;
     let candidate = &scan.candidates[0];
     let plan = engine
-        .prepare_import(scan.id.clone(), vec![candidate.id.clone()], false)
+        .prepare_import(vec![candidate.id.clone()], false)
         .await
         .unwrap();
     assert_eq!(plan.items.len(), 1);
@@ -121,11 +132,13 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
     let outcome = engine.apply_import(plan.id).await.unwrap();
     assert_eq!(outcome.imported.len(), 1);
 
-    let deployments = engine.snapshot().await.unwrap().deployments;
     let rescan = fixture.scan(&engine).await;
-    assert!(rescan.candidates.is_empty());
-    assert_eq!(rescan.identical_hidden, 1);
-    assert_eq!(engine.snapshot().await.unwrap().deployments, deployments);
+    assert!(not_in_library(&rescan).is_empty());
+    assert_eq!(
+        rescan.candidates[0].skill_id,
+        Some(outcome.imported[0].clone())
+    );
+    assert_eq!(rescan.candidates[0].id, candidate.id);
     assert_eq!(
         engine
             .snapshot()
@@ -167,7 +180,7 @@ async fn a_blocked_copy_does_not_absorb_an_importable_copy_with_the_same_digest(
             .display_path
             .ends_with(".agents/skills/review")
     );
-    fixture.import_one(&engine, importable, &scan).await;
+    fixture.import_one(&engine, importable).await;
     engine.shutdown().await.unwrap();
 }
 
@@ -251,7 +264,7 @@ async fn traversal_refuses_17_links_and_accepts_16_with_original_source_path() {
                     .display_path
                     .ends_with(".agents/skills/review")
             );
-            fixture.import_one(&engine, candidate, &scan).await;
+            fixture.import_one(&engine, candidate).await;
         }
         engine.shutdown().await.unwrap();
     }

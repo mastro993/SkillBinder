@@ -290,7 +290,8 @@ impl NativeView {
         match self.route {
             Route::Discovery => self.discovery_header_actions(cx),
             Route::Library(_)
-            | Route::Target(_)
+            | Route::System
+            | Route::Workspace(_)
             | Route::Agent(_)
             | Route::Universal
             | Route::Sync

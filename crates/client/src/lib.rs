@@ -112,25 +112,13 @@ impl Client {
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.shared.engine.grant_directory(path).await
     }
-    /// Scans a granted folder and saves it as a workspace; progress is published while it runs.
-    pub async fn add_workspace(&self, grant: GrantId) -> AppResult<Option<WorkspaceAddition>> {
-        self.refresh_preserving_outcome(self.shared.engine.add_workspace(grant).await)
-            .await
-    }
-    /// Discards the workspace being added; `false` when its scan had already been saved.
-    pub async fn cancel_workspace_addition(&self) -> AppResult<bool> {
-        self.refresh_preserving_outcome(self.shared.engine.cancel_workspace_addition())
-            .await
-    }
-    /// Clears a finished or failed workspace addition.
-    pub async fn dismiss_workspace_addition(&self) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.dismiss_workspace_addition())
-            .await
-    }
-    /// Rescans Global or a workspace in the background and records its deployments.
-    pub async fn rescan_target(&self, target: DeploymentTarget) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.rescan_target(target).await)
-            .await
+    /// Saves a granted folder as a workspace, then scans again so it is covered.
+    pub async fn add_workspace(&self, grant: GrantId) -> AppResult<Workspace> {
+        let workspace = self
+            .refresh_preserving_outcome(self.shared.engine.add_workspace(grant).await)
+            .await?;
+        self.spawn_scan();
+        Ok(workspace)
     }
     /// Renames a workspace.
     pub async fn rename_workspace(&self, id: WorkspaceId, name: String) -> AppResult<()> {
@@ -142,140 +130,64 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.reorder_workspaces(order).await)
             .await
     }
-    /// Forgets a workspace and its deployments, then rescans the workspaces that contain it.
+    /// Forgets a workspace, then scans again so its skills are no longer listed.
     pub async fn remove_workspace(&self, id: WorkspaceId) -> AppResult<()> {
-        let containing = self
-            .refresh_preserving_outcome(self.shared.engine.remove_workspace(id).await)
+        self.refresh_preserving_outcome(self.shared.engine.remove_workspace(id).await)
             .await?;
-        for id in containing {
-            self.spawn_rescan(DeploymentTarget::Workspace(id));
-        }
+        self.spawn_scan();
         Ok(())
     }
-    /// Replaces the agents whose skill directories a target writes to.
-    pub async fn set_target_agents(
-        &self,
-        target: DeploymentTarget,
-        agents: Vec<String>,
-    ) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.set_target_agents(target, agents).await)
-            .await
-    }
-    /// Copies library skills into a target and records the deployments.
-    pub async fn add_deployments(
-        &self,
-        target: DeploymentTarget,
-        skills: Vec<SkillId>,
-    ) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.add_deployments(target, skills).await)
-            .await
-    }
-    /// Deletes a deployment's copies; a changed copy is kept unless `discard` lists it.
-    pub async fn remove_deployment(
-        &self,
-        target: DeploymentTarget,
-        skill: SkillId,
-        discard: Vec<String>,
-    ) -> AppResult<Removal> {
-        self.refresh_preserving_outcome(
-            self.shared
-                .engine
-                .remove_deployment(target, skill, discard)
-                .await,
-        )
-        .await
-    }
-    /// Resolves a drifted deployment with the remedy the user picked.
-    pub async fn resolve_drift(
-        &self,
-        shown: Deployment,
-        expected: Drift,
-        remedy: Remedy,
-    ) -> AppResult<()> {
-        self.refresh_preserving_outcome(
-            self.shared
-                .engine
-                .resolve_drift(shown, expected, remedy)
-                .await,
-        )
-        .await
-    }
-    /// Rescans in the background; failures surface as the background error.
-    pub fn spawn_rescan(&self, target: DeploymentTarget) {
+    /// Scans in the background; failures surface as the background error.
+    pub fn spawn_scan(&self) {
         let client = self.clone();
         self.shared.runtime.spawn(async move {
-            if let Err(error) = client.rescan_target(target).await {
+            if let Err(error) = client.start_scan().await {
                 client.background_error(error);
             }
         });
     }
-    /// Refreshes the app in the background, on launch and when the window regains focus: rescans
-    /// Global, then each workspace, one at a time, skipping targets already rescanning, then
-    /// refreshes the remote's Git status.
+    /// Refreshes the app in the background, on launch and when the window regains focus: scans
+    /// System and every workspace, then refreshes the remote's Git status.
     pub fn refresh_app(&self) {
         let snapshot = self.snapshot();
         if snapshot.library.is_none() {
             return;
         }
-        let targets: Vec<_> = std::iter::once(DeploymentTarget::Global)
-            .chain(
-                snapshot
-                    .workspaces
-                    .iter()
-                    .map(|workspace| DeploymentTarget::Workspace(workspace.id.clone())),
-            )
-            .filter(|target| !snapshot.rescanning.contains(target))
-            .collect();
         let remote = snapshot.sync.remote.is_some();
         let client = self.clone();
         self.shared.runtime.spawn(async move {
-            for target in targets {
-                if let Err(error) = client.rescan_target(target).await {
-                    client.background_error(error);
-                }
+            if let Err(error) = client.start_scan().await {
+                client.background_error(error);
             }
             if remote && let Err(error) = client.synchronize(SyncAction::Refresh).await {
                 client.background_error(error);
             }
         });
     }
-    /// Starts or resumes one scan worker.
-    pub async fn start_scan(&self) -> AppResult<ScanSnapshot> {
+    /// Scans System and every workspace, replacing a running scan.
+    pub async fn start_scan(&self) -> AppResult<()> {
         self.refresh_preserving_outcome(self.shared.engine.start_scan().await)
-            .await
-    }
-    /// Requests scan cancellation without losing findings.
-    pub async fn cancel_scan(&self) -> AppResult<ScanSnapshot> {
-        self.refresh_preserving_outcome(self.shared.engine.cancel_scan().await)
             .await
     }
     /// Prepares selected candidate identities for review.
     pub async fn prepare_import(
         &self,
-        scan: ScanId,
         ids: Vec<CandidateId>,
         acknowledge_invalid: bool,
     ) -> AppResult<ImportPlan> {
         self.shared
             .engine
-            .prepare_import(scan, ids, acknowledge_invalid)
+            .prepare_import(ids, acknowledge_invalid)
             .await
     }
-    /// Prepares the reviewed import of an importable skill shown on its target's page.
-    pub async fn prepare_target_import(
-        &self,
-        shown: Importable,
-        acknowledge_invalid: bool,
-    ) -> AppResult<ImportPlan> {
-        self.shared
-            .engine
-            .prepare_target_import(shown, acknowledge_invalid)
-            .await
-    }
-    /// Applies a plan with durable replay and outcome retention.
+    /// Applies a plan with durable replay and outcome retention, then scans again so the
+    /// imported skills are found in the library.
     pub async fn apply_import(&self, plan: PlanId) -> AppResult<ImportOutcome> {
-        self.refresh_preserving_outcome(self.shared.engine.apply_import(plan).await)
-            .await
+        let outcome = self
+            .refresh_preserving_outcome(self.shared.engine.apply_import(plan).await)
+            .await?;
+        self.spawn_scan();
+        Ok(outcome)
     }
     /// Dismisses the last retained import result.
     pub async fn dismiss_import(&self) -> AppResult<()> {
@@ -342,13 +254,12 @@ impl Shared {
             if generation != self.requested.load(Ordering::Acquire) {
                 return false;
             }
-            match (self.engine.current_scan(), self.engine.target_progress()) {
-                (Ok(scan), Ok((addition, rescanning))) => {
+            match self.engine.current_scan() {
+                Ok((scan, scanning)) => {
                     snapshot.scan = scan;
-                    snapshot.workspace_addition = addition;
-                    snapshot.rescanning = rescanning;
+                    snapshot.scanning = scanning;
                 }
-                (Err(error), _) | (_, Err(error)) => {
+                Err(error) => {
                     result = Err(error);
                     return false;
                 }
@@ -359,28 +270,23 @@ impl Shared {
         });
         result
     }
-    /// Publishes Discovery and target scan progress without waiting on the worker.
+    /// Publishes scan progress without waiting on the worker.
     fn publish_progress(&self) -> AppResult<()> {
         let mut result = Ok(());
         self.snapshots.send_if_modified(|current| {
-            let (scan, (addition, rescanning)) =
-                match (self.engine.current_scan(), self.engine.target_progress()) {
-                    (Ok(scan), Ok(targets)) => (scan, targets),
-                    (Err(error), _) | (_, Err(error)) => {
-                        result = Err(error);
-                        return false;
-                    }
-                };
-            if current.scan == scan
-                && current.workspace_addition == addition
-                && current.rescanning == rescanning
-            {
+            let (scan, scanning) = match self.engine.current_scan() {
+                Ok(scan) => scan,
+                Err(error) => {
+                    result = Err(error);
+                    return false;
+                }
+            };
+            if current.scan == scan && current.scanning == scanning {
                 return false;
             }
             let mut next = (**current).clone();
             next.scan = scan;
-            next.workspace_addition = addition;
-            next.rescanning = rescanning;
+            next.scanning = scanning;
             next.generation = current.generation + 1;
             *current = Arc::new(next);
             true

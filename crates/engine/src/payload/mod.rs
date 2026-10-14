@@ -91,18 +91,6 @@ pub fn materialize(expected: &Inspection, destination: &Path) -> AppResult<()> {
     sync(parent)
 }
 
-/// Writes a verified copy into the absent directory `staging`, which the caller names so it
-/// can find the copy after a crash. A failed copy removes `staging`.
-pub fn stage(expected: &Inspection, staging: &Path) -> AppResult<()> {
-    let snapshot = verified(expected, staging)?;
-    fs::create_dir(staging).map_err(|_| AppError::storage())?;
-    let written = write(&snapshot, staging).and_then(|()| confirm(expected, staging));
-    if written.is_err() {
-        let _ = fs::remove_dir_all(staging);
-    }
-    written
-}
-
 /// Re-reads the source and checks that `destination` is absent and outside it.
 fn verified(expected: &Inspection, destination: &Path) -> AppResult<traversal::Snapshot> {
     if expected.status == ValidationStatus::Blocked {

@@ -1,7 +1,4 @@
-use crate::{
-    Deployment, DeploymentTarget, ImportOutcome, LibrarySnapshot, ScanSnapshot, SyncSnapshot,
-    Workspace, WorkspaceAddition,
-};
+use crate::{ImportOutcome, LibrarySnapshot, ScanSnapshot, SyncSnapshot, Workspace};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -55,9 +52,9 @@ pub struct Preferences {
 pub enum SidebarSection {
     /// User-ordered library folders.
     Folders,
-    /// Global and the added workspaces.
+    /// System and the added workspaces.
     Workspaces,
-    /// Installed agents: Global's agents, alphabetically.
+    /// Installed agents, alphabetically.
     Agents,
 }
 /// Color scheme preference.
@@ -115,24 +112,16 @@ pub struct AppSnapshot {
     pub bootstrap: Bootstrap,
     /// Library if onboarding has completed.
     pub library: Option<LibrarySnapshot>,
-    /// Home folder that holds Global's agent skill locations.
+    /// Home folder that holds the global agent skill directories System reads.
     pub home: String,
-    /// Registry agents a target can write to, by display name.
+    /// Registry agents, by display name.
     pub agents: Vec<crate::AgentOption>,
-    /// Registry agent identities Global writes to.
-    pub global_agents: Vec<String>,
     /// Added workspaces in user order.
     pub workspaces: Vec<Workspace>,
-    /// Recorded deployments across Global and every workspace.
-    pub deployments: Vec<Deployment>,
-    /// Skills each target's last scan found that match no library skill, by target and slug.
-    pub importables: Vec<crate::Importable>,
-    /// The workspace being added, until its result is dismissed.
-    pub workspace_addition: Option<WorkspaceAddition>,
-    /// Targets whose background rescan is running.
-    pub rescanning: Vec<DeploymentTarget>,
-    /// Current retained scan.
+    /// Skills the last completed scan found.
     pub scan: Option<ScanSnapshot>,
+    /// A scan is running; `scan` keeps the previous results until it completes.
+    pub scanning: bool,
     /// Git connection and status.
     pub sync: SyncSnapshot,
     /// Last durable import result, until dismissed.

@@ -11,10 +11,10 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, MutexGuard,
         atomic::{AtomicBool, Ordering},
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 /// The location a candidate imports from, inspected during the scan. Every location of
@@ -24,46 +24,64 @@ pub(crate) struct ImportSource {
     pub display_path: String,
     pub inspection: Inspection,
 }
-pub(crate) struct ScanRun {
+
+/// What one completed scan found.
+pub(crate) struct Found {
     pub snapshot: ScanSnapshot,
     pub sources: BTreeMap<CandidateId, ImportSource>,
-    pub cancel: Arc<AtomicBool>,
-    pub terminal_at: Option<Instant>,
 }
-#[derive(Clone, Default)]
-pub(crate) struct Scans(pub Arc<Mutex<Option<ScanRun>>>);
-impl Scans {
-    pub(crate) fn current(&self) -> AppResult<Option<ScanSnapshot>> {
-        self.current_at(Instant::now())
-    }
-    fn current_at(&self, now: Instant) -> AppResult<Option<ScanSnapshot>> {
-        let mut state = self.0.lock().map_err(|_| AppError::storage())?;
-        if state.as_ref().is_some_and(|run| {
-            run.terminal_at
-                .is_some_and(|time| now.saturating_duration_since(time) >= Duration::from_secs(600))
-        }) {
-            *state = None;
+
+impl Found {
+    fn failed(message: String) -> Self {
+        Self {
+            snapshot: ScanSnapshot {
+                candidates: Vec::new(),
+                error: Some(message),
+            },
+            sources: BTreeMap::new(),
         }
-        Ok(state.as_ref().map(|run| run.snapshot.clone()))
     }
-    pub(crate) fn cancel(&self) -> AppResult<ScanSnapshot> {
-        let state = self.0.lock().map_err(|_| AppError::storage())?;
-        let run = state
-            .as_ref()
-            .ok_or_else(|| AppError::not_found("There is no active scan."))?;
-        run.cancel.store(true, Ordering::Release);
-        Ok(run.snapshot.clone())
+}
+
+#[derive(Default)]
+struct ScanState {
+    /// The last completed scan, kept while the next one runs.
+    last: Option<Found>,
+    /// Generation and cancellation flag of the running scan.
+    running: Option<(u64, Arc<AtomicBool>)>,
+    generations: u64,
+    /// Scan threads still running, including replaced ones.
+    threads: usize,
+}
+
+/// The single scan of System and every workspace. Starting a scan replaces a running one, whose
+/// results are discarded, so a scan always covers the workspaces as they were when it started.
+#[derive(Clone, Default)]
+pub(crate) struct Scans(Arc<Mutex<ScanState>>);
+
+impl Scans {
+    fn lock(&self) -> AppResult<MutexGuard<'_, ScanState>> {
+        self.0.lock().map_err(|_| AppError::storage())
     }
+
+    /// The last completed scan, and whether another one is running.
+    pub(crate) fn current(&self) -> AppResult<(Option<ScanSnapshot>, bool)> {
+        let state = self.lock()?;
+        Ok((
+            state.last.as_ref().map(|found| found.snapshot.clone()),
+            state.running.is_some(),
+        ))
+    }
+
     pub(crate) fn selected(
         &self,
-        scan: &ScanId,
         ids: &[CandidateId],
     ) -> AppResult<Vec<(CandidateId, ImportSource)>> {
-        self.current()?;
-        let state = self.0.lock().map_err(|_| AppError::storage())?;
-        let run = state
+        let state = self.lock()?;
+        let found = state
+            .last
             .as_ref()
-            .filter(|run| &run.snapshot.id == scan && run.snapshot.status == ScanStatus::Finished)
+            .filter(|found| found.snapshot.error.is_none())
             .ok_or_else(|| AppError::stale("Run a complete scan before preparing imports."))?;
         if ids.is_empty()
             || ids.len() > 500
@@ -75,20 +93,21 @@ impl Scans {
         }
         ids.iter()
             .map(|id| {
-                let source = run.sources.get(id).ok_or_else(|| {
-                    AppError::stale("A selected candidate no longer belongs to this scan.")
+                let source = found.sources.get(id).ok_or_else(|| {
+                    AppError::stale("A selected skill is no longer found. Choose again.")
                 })?;
                 Ok((id.clone(), source.clone()))
             })
             .collect()
     }
+
     pub(crate) fn start(
         &self,
         config: EngineConfig,
         workspaces: Vec<PathBuf>,
-        managed: BTreeSet<String>,
+        managed: BTreeMap<String, SkillId>,
         log: Logger,
-    ) -> AppResult<ScanSnapshot> {
+    ) -> AppResult<()> {
         self.start_with(config, workspaces, managed, log, |work| {
             std::thread::Builder::new()
                 .name("skillbinder-discovery".into())
@@ -96,89 +115,79 @@ impl Scans {
                 .map(|_| ())
         })
     }
+
     fn start_with(
         &self,
         config: EngineConfig,
         workspaces: Vec<PathBuf>,
-        managed: BTreeSet<String>,
+        managed: BTreeMap<String, SkillId>,
         log: Logger,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
-    ) -> AppResult<ScanSnapshot> {
-        let mut state = self.0.lock().map_err(|_| AppError::storage())?;
-        if let Some(run) = state
-            .as_ref()
-            .filter(|run| run.snapshot.status == ScanStatus::Running)
-        {
-            return Ok(run.snapshot.clone());
-        }
-        let snapshot = ScanSnapshot {
-            id: ScanId::new(),
-            status: ScanStatus::Running,
-            candidates: Vec::new(),
-            locations_checked: 0,
-            identical_hidden: 0,
-            error: None,
+    ) -> AppResult<()> {
+        let (generation, cancel) = {
+            let mut state = self.lock()?;
+            if let Some((_, replaced)) = state.running.take() {
+                replaced.store(true, Ordering::Release);
+            }
+            state.generations += 1;
+            let cancel = Arc::new(AtomicBool::new(false));
+            state.running = Some((state.generations, cancel.clone()));
+            state.threads += 1;
+            (state.generations, cancel)
         };
-        let cancel = Arc::new(AtomicBool::new(false));
-        *state = Some(ScanRun {
-            snapshot: snapshot.clone(),
-            sources: BTreeMap::new(),
-            cancel: cancel.clone(),
-            terminal_at: None,
-        });
         let scans = self.clone();
-        let id = snapshot.id.clone();
         let failure_log = log.clone();
-        if let Err(error) = launch(Box::new(move || {
-            let result = registry::locations(&config, &workspaces, &log).and_then(|locations| {
-                traversal::scan(&scans, &id, locations, &managed, &cancel, &log)
-            });
-            if let Ok(mut state) = scans.0.lock()
-                && let Some(run) = state.as_mut().filter(|run| run.snapshot.id == id)
-            {
-                run.snapshot.status = if cancel.load(Ordering::Acquire) {
-                    ScanStatus::Cancelled
-                } else if result.is_err() {
-                    ScanStatus::Failed
-                } else {
-                    ScanStatus::Finished
-                };
-                run.snapshot.error = result.err().map(|error| {
-                    log.record(error.to_string());
-                    error.message
-                });
-                for candidate in &mut run.snapshot.candidates {
-                    candidate.locations.sort();
-                }
-                run.snapshot
-                    .candidates
-                    .sort_by_cached_key(|candidate| candidate.locations.first().cloned());
-                run.terminal_at = Some(Instant::now());
-            }
-        })) {
+        let launched = launch(Box::new(move || {
+            let result = registry::locations(&config, &workspaces, &log)
+                .and_then(|locations| traversal::scan(locations, &managed, &cancel, &log));
+            scans.finish(generation, result, &log);
+        }));
+        if let Err(error) = launched {
             failure_log.record(format!("Discovery worker could not start: {error}"));
-            if let Some(run) = state.as_mut() {
-                run.snapshot.status = ScanStatus::Failed;
-                run.snapshot.error = Some("Discovery could not start. Try scanning again.".into());
-                run.terminal_at = Some(Instant::now());
-            }
+            self.finish(
+                generation,
+                Err(AppError::new(
+                    ErrorCategory::Storage,
+                    "Scanning could not start. Try scanning again.",
+                    "Try scanning again.",
+                )),
+                &failure_log,
+            );
             return Err(AppError::storage());
         }
-        Ok(snapshot)
+        Ok(())
     }
-    pub(crate) fn wait_for_shutdown(&self) {
-        if let Ok(Some(scan)) = self.current()
-            && scan.status == ScanStatus::Running
-        {
-            let _ = self.cancel();
+
+    /// Publishes a scan's result unless it was replaced or cancelled meanwhile.
+    fn finish(&self, generation: u64, result: AppResult<Found>, log: &Logger) {
+        let Ok(mut state) = self.0.lock() else {
+            return;
+        };
+        state.threads -= 1;
+        if !matches!(&state.running, Some((current, _)) if *current == generation) {
+            return;
         }
-        loop {
-            match self.current() {
-                Ok(Some(scan)) if scan.status == ScanStatus::Running => {
-                    std::thread::sleep(Duration::from_millis(10))
-                }
-                _ => break,
-            }
+        let Some((_, cancel)) = state.running.take() else {
+            return;
+        };
+        if cancel.load(Ordering::Acquire) {
+            return;
+        }
+        state.last = Some(result.unwrap_or_else(|error| {
+            log.record(error.to_string());
+            Found::failed(error.message)
+        }));
+    }
+
+    /// Cancels the running scan and waits for every scan thread to stop.
+    pub(crate) fn wait_for_shutdown(&self) {
+        if let Ok(state) = self.0.lock()
+            && let Some((_, cancel)) = &state.running
+        {
+            cancel.store(true, Ordering::Release);
+        }
+        while self.0.lock().is_ok_and(|state| state.threads > 0) {
+            std::thread::sleep(Duration::from_millis(10));
         }
     }
 }

@@ -37,7 +37,8 @@ fn registry() -> AppResult<Registry> {
     ))
     .map_err(|_| AppError::storage())
 }
-/// Global agent locations under home, plus the direct skill directories of each workspace.
+/// System's global agent locations under home, plus the direct skill directories of each
+/// workspace.
 pub(crate) fn locations(
     config: &EngineConfig,
     workspaces: &[PathBuf],
@@ -57,70 +58,27 @@ pub(crate) fn locations(
     }
     Ok(combined.into_values().collect())
 }
-/// Relative workspace skill directories, each with the identities of the agents that read it.
-pub(crate) fn workspace_skill_dirs() -> AppResult<BTreeMap<String, Vec<String>>> {
-    let mut directories: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for agent in registry()?.agents {
-        directories
-            .entry(agent.workspace_skills_dir)
-            .or_default()
-            .push(agent.id);
-    }
-    Ok(directories)
-}
-/// Every registry agent, by display name, with the skill directories it reads.
+/// Every registry agent, by display name, with the skill directories it reads and whether its
+/// global skill directory exists.
 pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>> {
     let mut options: Vec<_> = registry()?
         .agents
         .into_iter()
-        .map(|agent| AgentOption {
-            global_skills_dir: global_dir(&agent, config).map(|path| path.display().to_string()),
-            id: agent.id,
-            display_name: agent.display_name,
-            workspace_skills_dir: agent.workspace_skills_dir,
+        .map(|agent| {
+            let global = global_dir(&agent, config);
+            AgentOption {
+                installed: global.as_ref().is_some_and(|path| path.is_dir()),
+                global_skills_dir: global.map(|path| path.display().to_string()),
+                id: agent.id,
+                display_name: agent.display_name,
+                workspace_skills_dir: agent.workspace_skills_dir,
+            }
         })
         .collect();
     options.sort_by_cached_key(|option| (option.display_name.to_lowercase(), option.id.clone()));
     Ok(options)
 }
-/// The skill directories `agents` read in a target: each agent's workspace skill directory in
-/// `workspace`, or its global skill directory for Global. Agents sharing a directory share it.
-pub(crate) fn skill_dirs(
-    config: &EngineConfig,
-    workspace: Option<&Path>,
-    agents: &[String],
-) -> AppResult<BTreeSet<PathBuf>> {
-    let registry = registry()?;
-    let mut directories = BTreeSet::new();
-    for id in agents {
-        let agent = registry
-            .agents
-            .iter()
-            .find(|agent| &agent.id == id)
-            .ok_or_else(|| AppError::validation("Choose agents from the supported list."))?;
-        let directory = match workspace {
-            Some(workspace) => Some(workspace.join(&agent.workspace_skills_dir)),
-            None => global_dir(agent, config),
-        };
-        directories.insert(directory.ok_or_else(|| {
-            AppError::validation(format!(
-                "{} has no global skill directory on this device.",
-                agent.display_name
-            ))
-        })?);
-    }
-    Ok(directories)
-}
-/// Every global skill directory on this device: the places Global may write to.
-pub(crate) fn global_dirs(config: &EngineConfig) -> AppResult<Vec<PathBuf>> {
-    Ok(registry()?
-        .agents
-        .iter()
-        .flat_map(|agent| agent.global_roots.iter())
-        .filter_map(|template| expand(template, config))
-        .collect())
-}
-/// Global writes to an agent's first global root that expands on this device.
+/// An agent's global skill directory: its first global root that expands on this device.
 fn global_dir(agent: &Agent, config: &EngineConfig) -> Option<PathBuf> {
     agent
         .global_roots
@@ -234,7 +192,6 @@ mod tests {
             1
         );
         assert!(locations.iter().any(|location| location.readers.len() > 1));
-        assert!(workspace_skill_dirs()?[".agents/skills"].len() > 1);
         assert_eq!(expand("${UNSET}/skills", &config), None);
         assert_eq!(
             expand("${UNSET:-~/.config}/skills", &config),
