@@ -112,6 +112,7 @@ impl State {
                     slug: inspection.slug.clone(),
                     display_name: None,
                     preset_ids: Vec::new(),
+                    folder_id: None,
                     tag_ids: Vec::new(),
                     upstream_bindings: Vec::new(),
                     digest: inspection.manifest.digest.clone(),

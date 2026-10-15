@@ -268,7 +268,7 @@ impl NativeView {
             PresetEdit::Create => OrganizationChange::CreatePreset { name },
             PresetEdit::Rename(id) => OrganizationChange::RenamePreset { id, name },
         };
-        self.change_presets(change, cx);
+        self.change_organization(change, cx);
     }
 
     /// Closes the inline field and returns keyboard focus to the window's shortcuts.
@@ -279,7 +279,11 @@ impl NativeView {
         }
     }
 
-    pub(super) fn change_presets(&mut self, change: OrganizationChange, cx: &mut Context<Self>) {
+    pub(super) fn change_organization(
+        &mut self,
+        change: OrganizationChange,
+        cx: &mut Context<Self>,
+    ) {
         let client = self.client.clone();
         self.run(
             async move {
@@ -323,7 +327,7 @@ fn preset_menu(
             let (view, id) = &picked;
             let _ = view.update(cx, |view, cx| {
                 let id = id.clone();
-                view.change_presets(OrganizationChange::SetPresetIcon { id, icon }, cx);
+                view.change_organization(OrganizationChange::SetPresetIcon { id, icon }, cx);
                 if let Some(menu) = view.menu.as_ref() {
                     menu.close(window, cx);
                 }

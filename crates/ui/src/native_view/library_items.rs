@@ -4,7 +4,7 @@
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
 use super::library_dates::{exact, relative};
 use super::library_presence::{Holder, Reader};
-use super::sidebar_row::activate;
+use super::sidebar_row::{activate, with_menu};
 use super::{NativeView, Route};
 use chrono::{DateTime, Utc};
 use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
@@ -25,6 +25,8 @@ pub(super) struct SkillItem<'a> {
     pub imported: Option<DateTime<Utc>>,
     /// The newest managed file's change time; absent when the payload could not be read.
     pub modified: Option<DateTime<Utc>>,
+    /// The skill's folder, shown while Library lists every skill.
+    pub folder: Option<&'a str>,
     /// The Agents rows holding a copy; `None` until the first scan completes.
     pub holders: Option<&'a [Holder]>,
 }
@@ -41,7 +43,7 @@ impl SkillItem<'_> {
 impl NativeView {
     /// A full-width row: name, one description line, and dates, then presence.
     pub(super) fn skill_row(&self, item: &SkillItem<'_>, cx: &mut Context<Self>) -> AnyElement {
-        skill_frame("skill-row", item, cx)
+        self.skill_frame("skill-row", item, cx)
             .items_center()
             .gap_3()
             .px_3()
@@ -70,7 +72,7 @@ impl NativeView {
 
     /// A card: name, two description lines, dates, then presence.
     pub(super) fn skill_card(&self, item: &SkillItem<'_>, cx: &mut Context<Self>) -> AnyElement {
-        skill_frame("skill-card", item, cx)
+        self.skill_frame("skill-card", item, cx)
             .flex_col()
             .gap_2()
             .p_3()
@@ -87,10 +89,24 @@ impl NativeView {
             .child(presence(item, cx))
             .into_any_element()
     }
+
+    /// The bordered frame of a row or card; clicking it, or Enter or Space while it is focused,
+    /// opens the skill's page, and right-clicking it opens its menu.
+    fn skill_frame(
+        &self,
+        kind: &str,
+        item: &SkillItem<'_>,
+        cx: &mut Context<NativeView>,
+    ) -> gpui_kit::Stateful<gpui_kit::Div> {
+        let id = item.skill.id.clone();
+        let owner = format!("{kind}-{id}");
+        let frame = skill_frame(kind, item, cx);
+        with_menu(frame, owner, true, self, cx, move |view, _, cx| {
+            view.skill_menu(&id, cx)
+        })
+    }
 }
 
-/// The bordered frame of a row or card; clicking it, or Enter or Space while it is focused,
-/// opens the skill's page.
 fn skill_frame(
     kind: &str,
     item: &SkillItem<'_>,
@@ -111,7 +127,8 @@ fn skill_frame(
     })
 }
 
-/// "Installed 3 days ago · Modified 2 hours ago"; each part's tooltip shows the exact time.
+/// "Folder · Installed 3 days ago · Modified 2 hours ago"; each date's tooltip shows the exact
+/// time.
 fn dates(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
     let now = Utc::now();
     let parts = [
@@ -124,13 +141,22 @@ fn dates(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
         .gap_x_1()
         .text_xs()
         .text_color(cx.theme().muted_foreground);
+    let filed = item.folder.is_some();
+    if let Some(folder) = item.folder {
+        row = row.child(
+            h_flex()
+                .gap_1()
+                .child(app_icon("folder").xsmall())
+                .child(folder.to_owned()),
+        );
+    }
     for (index, (key, label, time)) in parts
         .into_iter()
         .filter_map(|(key, label, time)| Some((key, label, time?)))
         .enumerate()
     {
         let tooltip = exact(time);
-        row = row.when(index > 0, |row| row.child("·")).child(
+        row = row.when(filed || index > 0, |row| row.child("·")).child(
             div()
                 .id(format!("{key}-{}", item.skill.id))
                 .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))

@@ -1,4 +1,4 @@
-use crate::{PresetId, SkillId};
+use crate::{FolderId, PresetId, SkillId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -197,6 +197,17 @@ pub struct Preset {
     #[serde(default)]
     pub icon: PresetIcon,
 }
+/// A library folder: a named grouping of library skills for browsing only.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Folder {
+    /// Stable folder identity.
+    pub id: FolderId,
+    /// Unique normalized display name.
+    pub name: String,
+    /// Creation order; the engine keeps positions dense from zero.
+    #[serde(default)]
+    pub position: u32,
+}
 /// A retained portable tag; no tag editor is exposed in the application.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Tag {
@@ -219,6 +230,14 @@ pub struct Skill {
     /// reads as one.
     #[serde(default, alias = "folderId", deserialize_with = "schema2::preset_ids")]
     pub preset_ids: Vec<PresetId>,
+    /// The library folder holding the skill, if any. Not `folderId`, which schema 2 used for
+    /// what are now presets.
+    #[serde(
+        default,
+        rename = "libraryFolderId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub folder_id: Option<FolderId>,
     /// Sorted portable tag identities.
     #[serde(default)]
     pub tag_ids: Vec<String>,
@@ -253,6 +272,10 @@ pub struct Library {
     /// Flat presets, ordered by position after reads.
     #[serde(default, alias = "folders", with = "preset_map")]
     pub presets: Vec<Preset>,
+    /// Library folders, ordered by position after reads. Not `folders`, which schema 2 used for
+    /// what are now presets.
+    #[serde(default, rename = "libraryFolders", with = "folder_map")]
+    pub folders: Vec<Folder>,
     /// Tags preserved in portable state.
     #[serde(default, with = "tag_map")]
     pub tags: Vec<Tag>,
@@ -334,6 +357,32 @@ pub enum OrganizationChange {
         /// Replacement icon.
         icon: PresetIcon,
     },
+    /// Create a library folder after the existing ones.
+    CreateFolder {
+        /// New unique folder name.
+        name: String,
+    },
+    /// Rename an existing library folder.
+    RenameFolder {
+        /// Folder being renamed.
+        id: FolderId,
+        /// Replacement unique name.
+        name: String,
+    },
+    /// Delete a library folder; its skills stay in the library, unfiled.
+    DeleteFolder {
+        /// Folder being removed.
+        id: FolderId,
+        /// Revision the confirmation was shown for.
+        revision: String,
+    },
+    /// Move a skill into a library folder, out of any other, or into none.
+    MoveToFolder {
+        /// Skill being moved.
+        skill: SkillId,
+        /// Destination folder, or none to leave it unfiled.
+        folder: Option<FolderId>,
+    },
     /// Delete a previewed preset; its skills stay in the library.
     DeletePreset {
         /// Previewed preset identity.
@@ -407,6 +456,7 @@ macro_rules! record_map {
     };
 }
 record_map!(preset_map, Preset);
+record_map!(folder_map, Folder);
 record_map!(tag_map, Tag);
 record_map!(skill_map, Skill);
 
@@ -490,6 +540,31 @@ mod tests {
                 "{invalid}"
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn folders_use_keys_apart_from_schema_2_folders() -> serde_json::Result<()> {
+        let library: Library = serde_json::from_str(&format!(
+            r#"{{"schemaVersion":3,"libraryId":"l","createdAt":"now","presets":{{}},"libraryFolders":{{"f":{{"id":"f","name":"Writing","position":0}}}},"tags":{{}},"skills":{{{},{}}}}}"#,
+            skill("filed", r#""libraryFolderId":"f","#),
+            skill("unfiled", ""),
+        ))?;
+        assert_eq!(library.folders[0].name, "Writing");
+        assert!(library.presets.is_empty());
+        assert_eq!(
+            library.skills[0].folder_id,
+            Some(super::FolderId("f".into()))
+        );
+        assert!(library.skills[0].preset_ids.is_empty());
+        let written = serde_json::to_value(&library)?;
+        assert_eq!(written["libraryFolders"]["f"]["name"], "Writing");
+        assert_eq!(written["skills"]["filed"]["libraryFolderId"], "f");
+        assert!(
+            written["skills"]["unfiled"]
+                .get("libraryFolderId")
+                .is_none()
+        );
         Ok(())
     }
 

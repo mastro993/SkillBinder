@@ -12,6 +12,7 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         created_at: "today".into(),
         content_policy_version: 1,
         presets: vec![],
+        folders: vec![],
         tags: vec![],
         skills: vec![],
     };

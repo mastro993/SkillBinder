@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use super::controls::button;
 use super::{
-    NativeView, Route,
+    LibraryFilter, NativeView, Route,
     sidebar::{SidebarDrag, clamp_sidebar_width, hairline, visible_width},
 };
 use gpui_kit::component::{
@@ -274,7 +274,11 @@ impl NativeView {
         });
         // With the header's inset, the breadcrumb lines up with the page's 24-point padding.
         let title = div().flex_1().min_w_0().pl_4().when(with_sidebar, |title| {
-            title.child(self.render_breadcrumb(cx))
+            if self.route == Route::Library(LibraryFilter::All) {
+                title.child(self.render_folder_tabs(cx))
+            } else {
+                title.child(self.render_breadcrumb(cx).into_any_element())
+            }
         });
         let reserves = reserves_traffic_lights(window);
         // A page's header ends in the sidebar's hairline; onboarding's has no line.
