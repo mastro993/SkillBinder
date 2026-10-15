@@ -18,6 +18,7 @@ use gpui_kit::{
     ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
+use skillbinder_theme::FOLDER_TAB_SIZE;
 
 /// Which folder name the inline header field edits.
 #[derive(Clone, PartialEq, Eq)]
@@ -88,7 +89,8 @@ impl NativeView {
                     .small()
                     .flex_shrink_0()
                     .icon(app_icon("plus"))
-                    .label("Add folder")
+                    .accessibility_label("Add folder")
+                    .child(tab_label("Add folder"))
                     .text_color(cx.theme().muted_foreground)
                     .on_click(cx.listener(|view, _, window, cx| {
                         cx.stop_propagation();
@@ -116,7 +118,8 @@ impl NativeView {
             .ghost()
             .small()
             .flex_shrink_0()
-            .label(name.to_owned())
+            .accessibility_label(name.to_owned())
+            .child(tab_label(name))
             .selected(selected)
             // Unchosen tabs are muted; hovering brightens them to the ghost button's text color.
             .when(!selected, |tab| tab.text_color(cx.theme().muted_foreground))
@@ -226,7 +229,11 @@ impl NativeView {
             .id("folder-name-field")
             .flex_shrink_0()
             .w(px(160.))
-            .child(Input::new(&self.folder_name).small())
+            .child(
+                Input::new(&self.folder_name)
+                    .small()
+                    .text_size(px(FOLDER_TAB_SIZE)),
+            )
             .capture_key_down(cx.listener(|view, event: &KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape" {
                     view.end_folder_edit(window, cx);
@@ -350,4 +357,12 @@ impl NativeView {
                     ),
             )
     }
+}
+
+/// A tab's text; a button's own label keeps the kit's size for its button size.
+fn tab_label(text: &str) -> impl IntoElement {
+    div()
+        .text_size(px(FOLDER_TAB_SIZE))
+        .whitespace_nowrap()
+        .child(text.to_owned())
 }
