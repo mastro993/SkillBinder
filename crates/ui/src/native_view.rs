@@ -2,6 +2,7 @@ mod agent_page;
 mod agent_skills;
 mod breadcrumb;
 mod controls;
+mod custom_color;
 mod dialogs;
 mod discovery;
 mod hover_scroll;
@@ -10,9 +11,12 @@ mod library_conflicts;
 mod library_dates;
 mod library_items;
 mod library_presence;
+mod menu;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod onboarding;
+mod preset_colors;
+mod preset_icons;
 mod route;
 mod settings;
 mod shell;
@@ -89,6 +93,8 @@ pub struct NativeView {
     selected_candidates: BTreeSet<CandidateId>,
     candidate_page: usize,
     acknowledge_invalid: bool,
+    /// The open context menu.
+    menu: Option<menu::OpenMenu>,
     /// Inline preset name editing in the sidebar.
     preset_edit: Option<PresetEdit>,
     preset_reorder: RowReorder<PresetId>,
@@ -201,6 +207,7 @@ impl NativeView {
             selected_candidates: BTreeSet::new(),
             candidate_page: 0,
             acknowledge_invalid: false,
+            menu: None,
             preset_edit: None,
             preset_reorder: RowReorder::default(),
             workspace_edit: None,
@@ -492,5 +499,6 @@ impl Render for NativeView {
                         )),
                 )
             })
+            .children(self.menu.as_ref().map(menu::OpenMenu::render))
     }
 }

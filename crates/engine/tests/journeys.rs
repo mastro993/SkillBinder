@@ -10,7 +10,7 @@ mod support;
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
     ErrorCategory, ImportDecision, LibrarySnapshot, OnboardingStep, OrganizationChange,
-    PresetColor, PresetId, SkillId,
+    PresetColor, PresetIcon, PresetId, Rgb, SkillId,
 };
 use std::{fs, path::Path};
 use support::{Fixture, category};
@@ -302,6 +302,7 @@ async fn schema_2_folders_upgrade_to_presets_on_the_next_write() {
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(library.library.presets[0].name, "Research");
     assert_eq!(library.library.presets[0].color, Some(PresetColor::Green));
+    assert_eq!(library.library.presets[0].icon, PresetIcon::Folder);
     assert_eq!(library.library.skills[0].preset_ids, [PresetId("f".into())]);
     assert_eq!(read(), metadata, "reading leaves schema 2 on disk");
 
@@ -373,6 +374,20 @@ async fn presets_keep_user_order_and_colors() {
         })
         .await
         .unwrap();
+    engine
+        .change_organization(OrganizationChange::SetPresetColor {
+            id: ids[0].clone(),
+            color: Some(PresetColor::Custom(Rgb(0x3366ff))),
+        })
+        .await
+        .unwrap();
+    engine
+        .change_organization(OrganizationChange::SetPresetIcon {
+            id: ids[0].clone(),
+            icon: PresetIcon::Rocket,
+        })
+        .await
+        .unwrap();
     let preview = engine.preview_delete(ids[2].clone()).await.unwrap();
     engine
         .change_organization(OrganizationChange::DeletePreset {
@@ -383,8 +398,13 @@ async fn presets_keep_user_order_and_colors() {
         .unwrap();
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(names(&library), [("Beta".into(), 0), ("Alpha".into(), 1)]);
-    assert_eq!(library.library.presets[0].color, Some(PresetColor::Green));
+    assert_eq!(
+        library.library.presets[0].color,
+        Some(PresetColor::Custom(Rgb(0x3366ff)))
+    );
     assert_eq!(library.library.presets[1].color, None);
+    assert_eq!(library.library.presets[0].icon, PresetIcon::Rocket);
+    assert_eq!(library.library.presets[1].icon, PresetIcon::Folder);
     engine.shutdown().await.unwrap();
 }
 

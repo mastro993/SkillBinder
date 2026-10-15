@@ -4,14 +4,14 @@
 use std::{cell::Cell, time::Instant};
 
 use super::controls::app_icon;
-use super::sidebar_presets::{RowPlacement, menu_action, menu_icon};
+use super::menu::MenuItem;
+use super::sidebar_presets::{RowPlacement, menu_action};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
-use super::sidebar_row::{activate, add_button, count, empty_row, icon_color, name_field, row};
+use super::sidebar_row::{activate, add_button, count, empty_row, name_field, row, with_menu};
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
     input::{InputEvent, InputState},
-    menu::{ContextMenuExt, PopupMenu, PopupMenuItem},
 };
 use gpui_kit::{
     AnyElement, AppContext, Context, DragMoveEvent, Entity, InteractiveElement, IntoElement,
@@ -128,8 +128,8 @@ impl NativeView {
         } else {
             count(found, cx)
         };
-        let menu = self.workspace_menu(&workspace.id, placement.index, placement.len, cx);
-        activate(
+        let (menu_id, index, len) = (workspace.id.clone(), placement.index, placement.len);
+        let row = activate(
             row(
                 format!("workspace-{}", workspace.id),
                 app_icon("code-folder"),
@@ -141,7 +141,11 @@ impl NativeView {
             accessible,
             cx,
             move |view, window, cx| view.navigate(route.clone(), window, cx),
-        )
+        );
+        let owner = format!("workspace-{}", workspace.id);
+        with_menu(row, owner, selected, self, cx, move |_, _, cx| {
+            workspace_menu(&menu_id, index, len, cx)
+        })
         .child(trailing)
         .relative()
         .top(px(placement.offset))
@@ -161,64 +165,7 @@ impl NativeView {
                 cx.new(|_| RowDragPreview::new(drag))
             },
         )
-        .context_menu(menu)
         .into_any_element()
-    }
-
-    /// Rename, order, and remove actions for one workspace row.
-    fn workspace_menu(
-        &self,
-        id: &WorkspaceId,
-        index: usize,
-        len: usize,
-        cx: &mut Context<Self>,
-    ) -> impl Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu + 'static {
-        let view = cx.entity().downgrade();
-        let id = id.clone();
-        move |menu, _, cx| {
-            let danger = cx.theme().danger;
-            let plain = icon_color(cx);
-            menu.item(
-                PopupMenuItem::new("Rename")
-                    .icon(menu_icon("pencil-edit", plain))
-                    .on_click(menu_action(
-                        view.clone(),
-                        id.clone(),
-                        |view, id, window, cx| view.begin_workspace_rename(id, window, cx),
-                    )),
-            )
-            .separator()
-            .item(
-                PopupMenuItem::new("Move Up")
-                    .icon(menu_icon("arrow-up", plain))
-                    .disabled(index == 0)
-                    .on_click(menu_action(
-                        view.clone(),
-                        id.clone(),
-                        move |view, id, _, cx| view.move_workspace(id, index.saturating_sub(1), cx),
-                    )),
-            )
-            .item(
-                PopupMenuItem::new("Move Down")
-                    .icon(menu_icon("arrow-down", plain))
-                    .disabled(index + 1 >= len)
-                    .on_click(menu_action(
-                        view.clone(),
-                        id.clone(),
-                        move |view, id, _, cx| view.move_workspace(id, index + 1, cx),
-                    )),
-            )
-            .separator()
-            .item(
-                // A custom element, because plain items draw their label in the menu color.
-                PopupMenuItem::element(move |_, _| div().text_color(danger).child("Remove…"))
-                    .icon(menu_icon("delete", danger))
-                    .on_click(menu_action(view.clone(), id.clone(), |view, id, _, cx| {
-                        view.dialog = DialogState::RemoveWorkspace(id.clone());
-                        cx.notify();
-                    })),
-            )
-        }
     }
 
     fn workspace_ids(&self) -> Vec<WorkspaceId> {
@@ -341,4 +288,49 @@ impl NativeView {
             cx.notify();
         }
     }
+}
+
+/// Rename, order, and remove actions for the workspace at `index` of `len`.
+fn workspace_menu(
+    id: &WorkspaceId,
+    index: usize,
+    len: usize,
+    cx: &mut Context<NativeView>,
+) -> Vec<MenuItem> {
+    let view = cx.entity().downgrade();
+    let on = |action: fn(&mut NativeView, &WorkspaceId, &mut Window, &mut Context<NativeView>)| {
+        menu_action(view.clone(), id.clone(), action)
+    };
+    vec![
+        MenuItem::new("rename", "Rename")
+            .icon("pencil-edit")
+            .on_select(on(|view, id, window, cx| {
+                view.begin_workspace_rename(id, window, cx)
+            })),
+        MenuItem::separator(),
+        MenuItem::new("move-up", "Move Up")
+            .icon("arrow-up")
+            .disabled(index == 0)
+            .on_select(menu_action(
+                view.clone(),
+                id.clone(),
+                move |view, id, _, cx| view.move_workspace(id, index.saturating_sub(1), cx),
+            )),
+        MenuItem::new("move-down", "Move Down")
+            .icon("arrow-down")
+            .disabled(index + 1 >= len)
+            .on_select(menu_action(
+                view.clone(),
+                id.clone(),
+                move |view, id, _, cx| view.move_workspace(id, index + 1, cx),
+            )),
+        MenuItem::separator(),
+        MenuItem::new("remove", "Remove…")
+            .icon("delete")
+            .danger()
+            .on_select(on(|view, id, _, cx| {
+                view.dialog = DialogState::RemoveWorkspace(id.clone());
+                cx.notify();
+            })),
+    ]
 }

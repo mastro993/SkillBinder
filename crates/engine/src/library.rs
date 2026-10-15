@@ -202,6 +202,7 @@ fn apply_organization(
                 name: validate_name(&name)?,
                 position,
                 color: None,
+                icon: PresetIcon::default(),
             });
         }
         OrganizationChange::RenamePreset { id, name } => {
@@ -223,6 +224,9 @@ fn apply_organization(
         OrganizationChange::ReorderPresets { order } => reorder_presets(library, &order)?,
         OrganizationChange::SetPresetColor { id, color } => {
             preset_mut(library, &id)?.color = color;
+        }
+        OrganizationChange::SetPresetIcon { id, icon } => {
+            preset_mut(library, &id)?.icon = icon;
         }
         OrganizationChange::DeletePreset { id, revision: seen } => {
             if seen != revision {
