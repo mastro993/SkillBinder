@@ -210,7 +210,8 @@ impl NativeView {
         vec![
             MenuItem::new("move-to-folder", "Move to folder")
                 .icon("folder")
-                .disabled(folders.is_empty())
+                // Another operation would refuse the move, so it is unavailable meanwhile.
+                .disabled(folders.is_empty() || self.busy)
                 .submenu(choices),
         ]
     }
