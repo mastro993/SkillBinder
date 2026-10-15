@@ -143,17 +143,6 @@
       "elementCount": 1
     },
     {
-      "name": "BoxIcon",
-      "file": "BoxIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/status_bar.rs"
-      ],
-      "sourceModule": "dist/esm/BoxIcon.js",
-      "sourceModuleSha256": "48ae66d62cfbb23ed01529924c04cc2df98a50b8a2ad4f71db50d9fa0236588a",
-      "svgSha256": "232b53965939b51918df90d39354b84d332571d2c2d259f449039ea13413b367",
-      "elementCount": 1
-    },
-    {
       "name": "Briefcase01Icon",
       "file": "Briefcase01Icon.svg",
       "usedBy": [
@@ -372,7 +361,7 @@
         "components/layout/app-shell.tsx",
         "features/git-sync/screens/git-sync-view.tsx",
         "features/onboarding/components/onboarding-steps.tsx",
-        "crates/ui/src/native_view/status_bar.rs"
+        "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/GitBranchIcon.js",
       "sourceModuleSha256": "4d521561a4bde7d13bc45f38cf0b1f0983b817527792a2b1c36999e4d90aecc2",
@@ -380,21 +369,10 @@
       "elementCount": 5
     },
     {
-      "name": "GitCommitIcon",
-      "file": "GitCommitIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/status_bar.rs"
-      ],
-      "sourceModule": "dist/esm/GitCommitIcon.js",
-      "sourceModuleSha256": "87a61e661062415ecf684793eb3ebd8234a8cf09e620f8e2dda53b27385151e8",
-      "svgSha256": "43cacb5ad63da0151b7638ac13f3451ec523942f1017aaa38bd199aed8f437b9",
-      "elementCount": 2
-    },
-    {
       "name": "GithubIcon",
       "file": "GithubIcon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/status_bar.rs"
+        "crates/ui/src/assets.rs"
       ],
       "sourceModule": "dist/esm/GithubIcon.js",
       "sourceModuleSha256": "7d1797839ee0115a0ce7b19ad730d78c679d01daf01b4f900df1bf84ec38e4cd",
@@ -432,17 +410,6 @@
       "sourceModule": "dist/esm/HardDriveIcon.js",
       "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36",
       "svgSha256": "bd935ffcbbd5911e5b862166645d72fa560e059b5b9e09191f33101da764f6f1",
-      "elementCount": 3
-    },
-    {
-      "name": "HistoryIcon",
-      "file": "HistoryIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/status_bar.rs"
-      ],
-      "sourceModule": "dist/esm/HistoryIcon.js",
-      "sourceModuleSha256": "65b13d46d66403b7ba78343194c639d198e255fcbfab1fd79dd9810c226e3ac1",
-      "svgSha256": "ea9b868bffa7c6ba31ad2a3f78ab3ef7cc8611c4ea66b9967e355f5ee80fc494",
       "elementCount": 3
     },
     {
@@ -537,7 +504,7 @@
       "name": "Moon02Icon",
       "file": "Moon02Icon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/status_bar.rs"
+        "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/Moon02Icon.js",
       "sourceModuleSha256": "4668e1c4c1066c198ae809e31996cf693dc5ddd8785c411bcb45c4857ab31ec6",
@@ -649,7 +616,7 @@
       "name": "Refresh03Icon",
       "file": "Refresh03Icon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/status_bar.rs"
+        "crates/ui/src/native_view/sidebar_row.rs"
       ],
       "sourceModule": "dist/esm/Refresh03Icon.js",
       "sourceModuleSha256": "721f4168013230d87fe4ddd1caa6b4aa0b195f667d4246c416cb6398948ebfef",
@@ -718,7 +685,6 @@
       "file": "Settings01Icon.svg",
       "usedBy": [
         "components/layout/app-shell.tsx",
-        "crates/ui/src/native_view/status_bar.rs",
         "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/Settings01Icon.js",
@@ -827,7 +793,7 @@
       "name": "Sun03Icon",
       "file": "Sun03Icon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/status_bar.rs"
+        "crates/ui/src/native_view/sidebar.rs"
       ],
       "sourceModule": "dist/esm/Sun03Icon.js",
       "sourceModuleSha256": "55da814690d01d88ea8dddc1bccb42a4b09a43cd3cb10af44916830dfee7bbce",

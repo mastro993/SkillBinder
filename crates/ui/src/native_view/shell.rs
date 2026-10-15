@@ -1,4 +1,4 @@
-//! Application chrome: sidebar, borderless header, fixed sidebar toggle, and status bar.
+//! Application chrome: sidebar, borderless header, and fixed sidebar toggle.
 
 use std::rc::Rc;
 
@@ -137,12 +137,10 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let collapsed = self.sidebar_collapsed;
-        let shell = div()
+        div()
             .id("product-shell")
             .relative()
-            .flex_1()
-            .min_h_0()
-            .w_full()
+            .size_full()
             .flex()
             .on_drag_move(
                 cx.listener(|view, event: &DragMoveEvent<Rc<SidebarDrag>>, _, cx| {
@@ -206,13 +204,7 @@ impl NativeView {
                             ),
                     ),
             )
-            .child(self.render_sidebar_toggle(window, cx));
-        div()
-            .size_full()
-            .flex()
-            .flex_col()
-            .child(shell)
-            .child(self.render_status_bar(window, cx))
+            .child(self.render_sidebar_toggle(window, cx))
             .into_any_element()
     }
 
