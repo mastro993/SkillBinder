@@ -113,8 +113,7 @@ impl NativeView {
             0 => None,
             found => Some(count(found, cx)),
         };
-        // One device pixel: a hairline on Retina instead of 1pt's two pixels.
-        let hairline = px(1.0 / window.scale_factor());
+        let hairline = hairline(window);
         let (above, below) = match snapshot.library {
             Some(_) => super::sidebar_scroll::scrolled_edges(&self.sidebar_scroll.handle),
             None => (false, false),
@@ -139,7 +138,7 @@ impl NativeView {
             .flex_shrink_0()
             .w(px(self.sidebar_width))
             .h_full()
-            .pt(px(skillbinder_theme::HEADER_HEIGHT))
+            .pt(px(skillbinder_theme::HEADER_HEIGHT + INSET))
             .px(px(INSET))
             .pb(px(INSET))
             .bg(background)
@@ -163,7 +162,7 @@ impl NativeView {
                     .child(
                         self.nav_row(
                             Route::Library(LibraryFilter::All),
-                            "book-copy",
+                            "libraries",
                             "Library",
                             cx,
                         )
@@ -206,7 +205,8 @@ impl NativeView {
         self.persist_preferences(cx);
     }
 
-    /// Library is selected only while it lists every skill; presets select their own row.
+    /// Library is selected while it lists every skill and on a skill's page; presets select their
+    /// own row.
     fn nav_row(
         &self,
         route: Route,
@@ -214,7 +214,11 @@ impl NativeView {
         label: &'static str,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let selected = self.route == route;
+        let selected = self.route == route
+            || matches!(
+                (&self.route, &route),
+                (Route::Skill(_), Route::Library(LibraryFilter::All))
+            );
         activate(
             row(
                 format!("nav-{}", label.to_lowercase()),
@@ -319,6 +323,11 @@ impl NativeView {
                     }),
             )
     }
+}
+
+/// One device pixel: a hairline on Retina instead of 1pt's two pixels.
+pub(super) fn hairline(window: &Window) -> gpui_kit::Pixels {
+    px(1.0 / window.scale_factor())
 }
 
 /// Row-height square after Settings; its icon shows the current theme.

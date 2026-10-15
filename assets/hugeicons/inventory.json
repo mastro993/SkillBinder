@@ -123,8 +123,7 @@
       "name": "BookCopyIcon",
       "file": "BookCopyIcon.svg",
       "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx",
-        "crates/ui/src/native_view/sidebar.rs"
+        "features/onboarding/components/onboarding-steps.tsx"
       ],
       "sourceModule": "dist/esm/BookCopyIcon.js",
       "sourceModuleSha256": "a3bec601ac1230d0eb21dd84cd76434e4466cbaa541e892f273163579e2a44b9",
@@ -466,6 +465,17 @@
       "sourceModuleSha256": "5ebae4a5cc00ee1fa45d4bf3ea04fac124921aed292b611531fa8bd395e3ca7c",
       "svgSha256": "2740cf8ea59a2808c7ec54d3be17701997616770c023ef9614186d70dd612495",
       "elementCount": 2
+    },
+    {
+      "name": "LibrariesIcon",
+      "file": "LibrariesIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/sidebar.rs"
+      ],
+      "sourceModule": "dist/esm/LibrariesIcon.js",
+      "sourceModuleSha256": "9ec418a357e060af73e83beb82b9291e3d51865615915fccdd7c089a4cb59bcc",
+      "svgSha256": "8bc391df5495a41ad710def3633795ea1f3714ef996139508946e7fd826b80c5",
+      "elementCount": 3
     },
     {
       "name": "ListViewIcon",

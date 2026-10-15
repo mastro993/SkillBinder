@@ -5,9 +5,11 @@ use std::rc::Rc;
 use super::controls::button;
 use super::{
     NativeView, Route,
-    sidebar::{SidebarDrag, clamp_sidebar_width, visible_width},
+    sidebar::{SidebarDrag, clamp_sidebar_width, hairline, visible_width},
 };
-use gpui_kit::component::{Icon, IconName, Sizable, TitleBar, button::ButtonVariants, h_flex};
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable, TitleBar, button::ButtonVariants, h_flex,
+};
 use gpui_kit::{
     AnyElement, Context, DragMoveEvent, InteractiveElement, IntoElement, MouseButton,
     ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
@@ -194,6 +196,7 @@ impl NativeView {
                                     .overflow_y_scroll()
                                     .track_scroll(&self.content_scroll.handle)
                                     .px_6()
+                                    .pt_4()
                                     .pb_6()
                                     .child(self.render_import_outcome(cx))
                                     .child(page),
@@ -274,9 +277,17 @@ impl NativeView {
             title.child(self.render_breadcrumb(cx))
         });
         let reserves = reserves_traffic_lights(window);
+        // A page's header ends in the sidebar's hairline; onboarding's has no line.
+        let (line, line_color) = if with_sidebar {
+            (hairline(window), cx.theme().sidebar_border)
+        } else {
+            (px(0.), gpui_kit::transparent_black())
+        };
         if cfg!(target_os = "macos") {
             TitleBar::new()
                 .border_0()
+                .border_b(line)
+                .border_color(line_color)
                 .bg(gpui_kit::transparent_black())
                 .h(px(HEADER_HEIGHT))
                 .pr_4()
@@ -291,6 +302,8 @@ impl NativeView {
                 .id("header")
                 .flex_shrink_0()
                 .h(px(HEADER_HEIGHT))
+                .border_b(line)
+                .border_color(line_color)
                 .pr_4()
                 .when(!with_sidebar, |row| row.pl_2())
                 .children(inset)
@@ -304,6 +317,7 @@ impl NativeView {
         match self.route {
             Route::Discovery => self.discovery_header_actions(cx),
             Route::Library(_)
+            | Route::Skill(_)
             | Route::Workspace(_)
             | Route::Agent(_)
             | Route::Universal

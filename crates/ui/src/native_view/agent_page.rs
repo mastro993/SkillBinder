@@ -7,9 +7,9 @@ use super::agent_skills::{
     FoundSkill, agent_name, detected_agents, split_universal, universal_dir,
 };
 use super::controls::button;
-use super::{LibraryFilter, NativeView, Route};
+use super::{NativeView, Route};
 use gpui_kit::component::ActiveTheme;
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::AgentOption;
 
 impl NativeView {
@@ -55,12 +55,13 @@ impl NativeView {
             count => format!("{count} found skills"),
         });
         for (index, skill) in skills.into_iter().enumerate() {
-            let link = skill.skill.is_some().then(|| {
+            let link = skill.skill.map(|id| {
+                let route = Route::Skill(id);
                 button(format!("agent-skill-{index}"))
                     .label("Show in Library")
-                    .on_click(
-                        cx.listener(|view, _, window, cx| view.open_library_skill(window, cx)),
-                    )
+                    .on_click(cx.listener(move |view, _, window, cx| {
+                        view.navigate(route.clone(), window, cx);
+                    }))
             });
             list = list.child(
                 div()
@@ -80,11 +81,6 @@ impl NativeView {
             .children(note.map(|note| div().text_color(muted).child(note)))
             .child(list)
             .into_any_element()
-    }
-
-    /// Opens Library on every skill; skill details are not available yet.
-    fn open_library_skill(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.navigate(Route::Library(LibraryFilter::All), window, cx);
     }
 }
 

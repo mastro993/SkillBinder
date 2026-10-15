@@ -4,7 +4,7 @@ use gpui_kit::component::{Theme, ThemeMode};
 use gpui_kit::{App, Global, Window};
 
 /// Height of the window header row.
-pub const HEADER_HEIGHT: f32 = 50.0;
+pub const HEADER_HEIGHT: f32 = 44.0;
 
 /// Top-left of the 14 pt macOS traffic lights, vertically centred in the header row.
 pub const TRAFFIC_LIGHTS_ORIGIN: (f32, f32) = (16.0, (HEADER_HEIGHT - 14.0) / 2.0);
