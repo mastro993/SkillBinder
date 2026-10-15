@@ -63,8 +63,9 @@ pub enum LibraryView {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SidebarSection {
-    /// User-ordered library folders.
-    Folders,
+    /// User-ordered presets; preferences saved before presets fold them as `folders`.
+    #[serde(alias = "folders")]
+    Presets,
     /// The added workspaces.
     Workspaces,
     /// Detected agents, alphabetically.
@@ -171,6 +172,17 @@ mod tests {
         assert!(!preferences.sidebar_collapsed);
         assert!(preferences.folded_sections.is_empty());
         assert_eq!(preferences.library_view, super::LibraryView::List);
+        Ok(())
+    }
+
+    #[test]
+    fn sections_folded_as_folders_stay_folded_as_presets() -> serde_json::Result<()> {
+        let preferences: Preferences =
+            serde_json::from_str(r#"{"sidebar_width":300.0,"folded_sections":["folders"]}"#)?;
+        assert_eq!(
+            preferences.folded_sections,
+            [super::SidebarSection::Presets].into()
+        );
         Ok(())
     }
 }

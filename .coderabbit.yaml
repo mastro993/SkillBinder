@@ -11,7 +11,7 @@ reviews:
   high_level_summary: true
   high_level_summary_instructions: |
     Summarize user-visible behavior first, then internal changes. Name the affected journey
-    (onboarding, Discovery, imports, Library, folders, Sync, Settings) and crate. State which
+    (onboarding, Discovery, imports, Library, presets, Sync, Settings) and crate. State which
     verification categories the PR claims: compilation, domain tests, native interaction,
     visual parity, or packaged-app smoke tests.
   review_status: true
@@ -26,7 +26,7 @@ reviews:
     - label: "bug"
       instructions: "Fixes behavior that diverges from fixtures/contracts/domain-contract.md, docs/features/native.md, or a reported defect."
     - label: "enhancement"
-      instructions: "Adds or improves a feature within the approved scope: onboarding, Discovery, imports, Library, flat folders, Sync, or Settings."
+      instructions: "Adds or improves a feature within the approved scope: onboarding, Discovery, imports, Library, presets, Sync, or Settings."
     - label: "documentation"
       instructions: "Changes only documentation under docs/, README.md, CONTRIBUTING.md, or AGENTS.md."
   auto_review:
@@ -56,8 +56,8 @@ reviews:
         mode: "warning"
         instructions: |
           Pass when the change stays inside the approved scope: four onboarding steps, Discovery,
-          reviewed imports, Library, flat folders, shared-slug resolution, Sync, and Settings.
-          Fail when it adds bindings or deployment screens, nested folders, tag-management UI,
+          reviewed imports, Library, presets, shared-slug resolution, Sync, and Settings.
+          Fail when it adds bindings or deployment screens, nested presets, tag-management UI,
           migration from `~/.skillbinder` or an old database, a daemon or network command
           transport, or a production debug server. Fail when it implements UI styling or visual
           polish without the PR description stating the user authorized that work.

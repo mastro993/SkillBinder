@@ -1,4 +1,4 @@
-//! Sidebar row drag reordering, shared by folders and workspaces: the floating row, the live drop
+//! Sidebar row drag reordering, shared by presets and workspaces: the floating row, the live drop
 //! order, and the rows' slide motion.
 
 use std::{
@@ -16,7 +16,7 @@ use gpui_kit::{
     App, Bounds, Context, CursorStyle, Hsla, IntoElement, ParentElement, Pixels, Point, Render,
     SharedString, Styled, Window, px,
 };
-use skillbinder_proto::{FolderId, OrganizationChange};
+use skillbinder_proto::{OrganizationChange, PresetId};
 use skillbinder_theme::sidebar::{ROW_GAP, ROW_HEIGHT};
 
 /// How long a row takes to slide into its new slot.
@@ -268,26 +268,26 @@ impl<Id: Clone + Eq + Hash> RowReorder<Id> {
 }
 
 impl NativeView {
-    pub(super) fn folder_ids(&self) -> Vec<FolderId> {
+    pub(super) fn preset_ids(&self) -> Vec<PresetId> {
         self.snapshot
             .library
             .iter()
-            .flat_map(|library| &library.library.folders)
-            .map(|folder| folder.id.clone())
+            .flat_map(|library| &library.library.presets)
+            .map(|preset| preset.id.clone())
             .collect()
     }
 
-    pub(super) fn drag_folder(
+    pub(super) fn drag_preset(
         &mut self,
-        id: FolderId,
+        id: PresetId,
         top: f32,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         grab_cursor(window, cx);
-        let stored = self.folder_ids();
+        let stored = self.preset_ids();
         if self
-            .folder_reorder
+            .preset_reorder
             .drag(&stored, &id, top, !cx.reduce_motion())
         {
             cx.notify();
@@ -295,27 +295,27 @@ impl NativeView {
     }
 
     /// Saves the order shown when the pointer is released.
-    pub(super) fn finish_folder_drag(&mut self, cx: &mut Context<Self>) {
-        let stored = self.folder_ids();
+    pub(super) fn finish_preset_drag(&mut self, cx: &mut Context<Self>) {
+        let stored = self.preset_ids();
         let (released, animate) = (cx.has_active_drag(), !cx.reduce_motion());
         if let Some(order) = self
-            .folder_reorder
+            .preset_reorder
             .finish(&stored, released, self.busy, animate)
         {
-            self.change_folders(OrganizationChange::ReorderFolders { order }, cx);
+            self.change_presets(OrganizationChange::ReorderPresets { order }, cx);
         }
         cx.notify();
     }
 
     /// Moves `id` to `target`, sliding the rows it passes.
-    pub(super) fn move_folder(&mut self, id: &FolderId, target: usize, cx: &mut Context<Self>) {
-        let stored = self.folder_ids();
+    pub(super) fn move_preset(&mut self, id: &PresetId, target: usize, cx: &mut Context<Self>) {
+        let stored = self.preset_ids();
         let animate = !cx.reduce_motion();
         if let Some(order) = self
-            .folder_reorder
+            .preset_reorder
             .move_to(&stored, id, target, self.busy, animate)
         {
-            self.change_folders(OrganizationChange::ReorderFolders { order }, cx);
+            self.change_presets(OrganizationChange::ReorderPresets { order }, cx);
         }
         cx.notify();
     }
@@ -336,30 +336,30 @@ fn moved<Id: Eq>(mut order: Vec<Id>, id: &Id, target: usize) -> Option<Vec<Id>> 
 #[cfg(test)]
 mod tests {
     use super::{PITCH, RowReorder, SHIFT, moved};
-    use skillbinder_proto::FolderId;
+    use skillbinder_proto::PresetId;
     use std::time::Instant;
 
-    fn ids(names: &[&str]) -> Vec<FolderId> {
-        names.iter().map(|name| FolderId((*name).into())).collect()
+    fn ids(names: &[&str]) -> Vec<PresetId> {
+        names.iter().map(|name| PresetId((*name).into())).collect()
     }
 
     #[test]
     fn dropping_on_a_row_takes_its_place() {
         let order = ids(&["a", "b", "c", "d"]);
         assert_eq!(
-            moved(order.clone(), &FolderId("a".into()), 2),
+            moved(order.clone(), &PresetId("a".into()), 2),
             Some(ids(&["b", "c", "a", "d"]))
         );
         assert_eq!(
-            moved(order.clone(), &FolderId("d".into()), 1),
+            moved(order.clone(), &PresetId("d".into()), 1),
             Some(ids(&["a", "d", "b", "c"]))
         );
         assert_eq!(
-            moved(order.clone(), &FolderId("b".into()), 9),
+            moved(order.clone(), &PresetId("b".into()), 9),
             Some(ids(&["a", "c", "d", "b"]))
         );
-        assert_eq!(moved(order.clone(), &FolderId("c".into()), 2), None);
-        assert_eq!(moved(order, &FolderId("x".into()), 0), None);
+        assert_eq!(moved(order.clone(), &PresetId("c".into()), 2), None);
+        assert_eq!(moved(order, &PresetId("x".into()), 0), None);
     }
 
     #[test]
@@ -368,9 +368,9 @@ mod tests {
         let start = Instant::now();
         reorder.shift(&ids(&["a", "b", "c"]), &ids(&["b", "a", "c"]), start, true);
         let (a, b, c) = (
-            FolderId("a".into()),
-            FolderId("b".into()),
-            FolderId("c".into()),
+            PresetId("a".into()),
+            PresetId("b".into()),
+            PresetId("c".into()),
         );
         assert_eq!(reorder.offset(&a, start), -PITCH);
         assert_eq!(reorder.offset(&b, start), PITCH);
@@ -390,7 +390,7 @@ mod tests {
     fn a_dropped_order_is_shown_until_its_save_settles() {
         let mut reorder = RowReorder::default();
         let stored = ids(&["a", "b", "c"]);
-        let c = FolderId("c".into());
+        let c = PresetId("c".into());
         assert!(reorder.drag(&stored, &c, 0.0, false));
         assert_eq!(reorder.displayed(&stored, true).0, ids(&["c", "a", "b"]));
         let saved = reorder.finish(&stored, true, false, false);

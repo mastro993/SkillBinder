@@ -4,7 +4,7 @@
 use std::{cell::Cell, time::Instant};
 
 use super::controls::app_icon;
-use super::sidebar_folders::{RowPlacement, menu_action, menu_icon};
+use super::sidebar_presets::{RowPlacement, menu_action, menu_icon};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{activate, add_button, count, empty_row, icon_color, name_field, row};
 use super::{DialogState, Effect, NativeView, Route};

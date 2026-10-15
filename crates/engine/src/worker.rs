@@ -230,8 +230,8 @@ impl Engine {
     ) -> AppResult<SkillPreview> {
         self.call(move |state| state.preview_skill(id, path)).await
     }
-    /// Captures folder deletion consequences and the required revision.
-    pub async fn preview_delete(&self, id: FolderId) -> AppResult<DeletePreview> {
+    /// Captures preset deletion consequences and the required revision.
+    pub async fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
         self.call(move |state| state.preview_delete(id)).await
     }
     /// Applies a validated, journaled organization change.

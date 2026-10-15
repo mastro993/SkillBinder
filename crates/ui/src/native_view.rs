@@ -19,7 +19,7 @@ mod shell;
 mod sidebar;
 mod sidebar_agents;
 mod sidebar_fold;
-mod sidebar_folders;
+mod sidebar_presets;
 mod sidebar_reorder;
 mod sidebar_row;
 mod sidebar_scroll;
@@ -48,14 +48,14 @@ use gpui_kit::{
     ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder,
 };
 use route::{History, LibraryFilter, Route};
-use sidebar_folders::FolderEdit;
+use sidebar_presets::PresetEdit;
 use sidebar_reorder::RowReorder;
 use skillbinder_client::Client;
 use skillbinder_proto::*;
 
 enum DialogState {
     ImportPlan(ImportPlan),
-    DeleteFolder(DeletePreview),
+    DeletePreset(DeletePreview),
     Conflict {
         slug: String,
         ids: Vec<SkillId>,
@@ -89,9 +89,9 @@ pub struct NativeView {
     selected_candidates: BTreeSet<CandidateId>,
     candidate_page: usize,
     acknowledge_invalid: bool,
-    /// Inline folder name editing in the sidebar.
-    folder_edit: Option<FolderEdit>,
-    folder_reorder: RowReorder<FolderId>,
+    /// Inline preset name editing in the sidebar.
+    preset_edit: Option<PresetEdit>,
+    preset_reorder: RowReorder<PresetId>,
     /// Inline workspace renaming in the sidebar.
     workspace_edit: Option<WorkspaceId>,
     workspace_reorder: RowReorder<WorkspaceId>,
@@ -102,7 +102,7 @@ pub struct NativeView {
     section_motion: BTreeMap<SidebarSection, u64>,
     /// Sections whose rows are sliding open or shut.
     sections_moving: BTreeSet<SidebarSection>,
-    /// Scroll position of the sidebar's folder, workspace, and agent sections.
+    /// Scroll position of the sidebar's preset, workspace, and agent sections.
     sidebar_scroll: hover_scroll::HoverScroll,
     /// Scroll position of the page, whose scrollbar shows while the pointer is over it.
     content_scroll: hover_scroll::HoverScroll,
@@ -116,12 +116,12 @@ pub struct NativeView {
     preference_writes: shell::PreferenceWrites,
     preview: Option<SkillPreview>,
     search: Entity<InputState>,
-    folder_name: Entity<InputState>,
+    preset_name: Entity<InputState>,
     workspace_name: Entity<InputState>,
     remote_url: Entity<InputState>,
     remote_branch: Entity<InputState>,
     _search_subscription: Subscription,
-    _folder_name_subscription: Subscription,
+    _preset_name_subscription: Subscription,
     _workspace_name_subscription: Subscription,
     /// The window lost focus since the app last refreshed.
     left_focus: bool,
@@ -165,9 +165,9 @@ impl NativeView {
                 cx.notify();
             }
         });
-        let folder_name = cx.new(|cx| InputState::new(window, cx).placeholder("Folder name"));
-        let folder_name_subscription =
-            cx.subscribe_in(&folder_name, window, Self::folder_name_event);
+        let preset_name = cx.new(|cx| InputState::new(window, cx).placeholder("Preset name"));
+        let preset_name_subscription =
+            cx.subscribe_in(&preset_name, window, Self::preset_name_event);
         let workspace_name = cx.new(|cx| InputState::new(window, cx).placeholder("Workspace name"));
         let workspace_name_subscription =
             cx.subscribe_in(&workspace_name, window, Self::workspace_name_event);
@@ -201,8 +201,8 @@ impl NativeView {
             selected_candidates: BTreeSet::new(),
             candidate_page: 0,
             acknowledge_invalid: false,
-            folder_edit: None,
-            folder_reorder: RowReorder::default(),
+            preset_edit: None,
+            preset_reorder: RowReorder::default(),
             workspace_edit: None,
             workspace_reorder: RowReorder::default(),
             sidebar_width,
@@ -220,12 +220,12 @@ impl NativeView {
             preference_writes: shell::PreferenceWrites::default(),
             preview: None,
             search,
-            folder_name,
+            preset_name,
             workspace_name,
             remote_url,
             remote_branch,
             _search_subscription: search_subscription,
-            _folder_name_subscription: folder_name_subscription,
+            _preset_name_subscription: preset_name_subscription,
             _workspace_name_subscription: workspace_name_subscription,
             left_focus: false,
             _activation_subscription: activation_subscription,
@@ -245,12 +245,12 @@ impl NativeView {
         self.selected_candidates.retain(|id| listed.contains(id));
         self.candidate_page = self.candidate_page.min(listed.len().saturating_sub(1) / 50);
         if let Some(library) = &latest.library {
-            let exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
-            if matches!(&self.route, Route::Library(LibraryFilter::Folder(id)) if !exists(id)) {
+            let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);
+            if matches!(&self.route, Route::Library(LibraryFilter::Preset(id)) if !exists(id)) {
                 self.route = Route::Library(LibraryFilter::All);
             }
-            if matches!(&self.folder_edit, Some(FolderEdit::Rename(id)) if !exists(id)) {
-                self.folder_edit = None;
+            if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
+                self.preset_edit = None;
             }
         }
         let workspace_exists = |id: &WorkspaceId| latest.workspaces.iter().any(|p| &p.id == id);
@@ -292,7 +292,7 @@ impl NativeView {
             let _ = this.update(cx, |view, cx| {
                 view.busy = false;
                 view.syncing = false;
-                view.folder_reorder.settle();
+                view.preset_reorder.settle();
                 view.workspace_reorder.settle();
                 match result {
                     Ok(Ok(effect)) => {
@@ -303,7 +303,7 @@ impl NativeView {
                             Effect::Plan(plan) => view.dialog = DialogState::ImportPlan(plan),
                             Effect::Preview(preview) => view.preview = Some(preview),
                             Effect::DeletePreview(preview) => {
-                                view.dialog = DialogState::DeleteFolder(preview)
+                                view.dialog = DialogState::DeletePreset(preview)
                             }
                         }
                     }
@@ -337,19 +337,19 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted folder falls back to all skills, and a
+    /// Shows `route` without touching history; a deleted preset falls back to all skills, and a
     /// removed workspace or an agent no longer detected to Discovery.
     fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
-        let folder_exists = |id: &FolderId| {
+        let preset_exists = |id: &PresetId| {
             self.snapshot
                 .library
                 .as_ref()
-                .is_some_and(|library| library.library.folders.iter().any(|f| &f.id == id))
+                .is_some_and(|library| library.library.presets.iter().any(|f| &f.id == id))
         };
         let workspace_exists =
             |id: &WorkspaceId| self.snapshot.workspaces.iter().any(|p| &p.id == id);
         let route = match route {
-            Route::Library(LibraryFilter::Folder(id)) if !folder_exists(&id) => {
+            Route::Library(LibraryFilter::Preset(id)) if !preset_exists(&id) => {
                 Route::Library(LibraryFilter::All)
             }
             Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,

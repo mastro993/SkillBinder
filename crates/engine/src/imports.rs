@@ -111,7 +111,7 @@ impl State {
                     id: id.clone(),
                     slug: inspection.slug.clone(),
                     display_name: None,
-                    folder_id: None,
+                    preset_ids: Vec::new(),
                     tag_ids: Vec::new(),
                     upstream_bindings: Vec::new(),
                     digest: inspection.manifest.digest.clone(),
@@ -297,6 +297,7 @@ impl State {
         let result = self.commit(Journal {
             id: id.to_string(),
             before: snapshot.library,
+            before_metadata: None,
             after: prepared.after,
             moves,
             completed_moves: 0,

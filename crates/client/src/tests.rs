@@ -30,7 +30,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
             sidebar_width: 320.0,
             sidebar_collapsed: true,
             appearance: Appearance::Dark,
-            folded_sections: [SidebarSection::Folders].into(),
+            folded_sections: [SidebarSection::Presets].into(),
             library_view: LibraryView::Grid,
         })
         .await?;
@@ -48,7 +48,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
     assert_eq!(current.preferences.appearance, Appearance::Dark);
     assert_eq!(
         current.preferences.folded_sections,
-        [SidebarSection::Folders].into()
+        [SidebarSection::Presets].into()
     );
     assert_eq!(current.preferences.library_view, LibraryView::Grid);
     assert!(current.scan.is_some() && !current.scanning);

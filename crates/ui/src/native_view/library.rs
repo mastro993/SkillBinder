@@ -1,4 +1,4 @@
-//! The Library page: every library skill, or one folder's, as a searchable list or grid.
+//! The Library page: every library skill, or one preset's, as a searchable list or grid.
 
 use super::controls::app_icon;
 use super::library_dates as dates;
@@ -154,7 +154,7 @@ impl NativeView {
 fn in_filter(skill: &Skill, filter: &LibraryFilter) -> bool {
     match filter {
         LibraryFilter::All => true,
-        LibraryFilter::Folder(id) => skill.folder_id.as_ref() == Some(id),
+        LibraryFilter::Preset(id) => skill.preset_ids.contains(id),
     }
 }
 
@@ -212,7 +212,7 @@ mod tests {
             id: skillbinder_proto::SkillId::new(),
             slug: slug.to_owned(),
             display_name: display_name.map(str::to_owned),
-            folder_id: None,
+            preset_ids: Vec::new(),
             tag_ids: Vec::new(),
             upstream_bindings: Vec::new(),
             digest: String::new(),

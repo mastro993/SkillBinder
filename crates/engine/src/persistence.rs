@@ -1,4 +1,4 @@
-use crate::worker::State;
+use crate::{library::parse_library, worker::State};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Serialize, de::DeserializeOwned};
 use skillbinder_proto::{
@@ -112,6 +112,10 @@ pub(crate) struct Move {
 pub(crate) struct Journal {
     pub id: String,
     pub before: Library,
+    /// The metadata file `before` was read from, recorded by `commit` so rollback restores it
+    /// byte for byte; absent in journals saved before it was recorded.
+    #[serde(default)]
+    pub before_metadata: Option<String>,
     pub after: Library,
     pub moves: Vec<Move>,
     #[serde(default)]
@@ -236,11 +240,14 @@ impl State {
                 ExpectedPayload::capture(&movement.from)
             })
             .collect::<AppResult<_>>()?;
-        if self.read_library()? != journal.before {
+        let metadata = self.read_metadata()?;
+        if parse_library(&metadata)? != journal.before {
             return Err(AppError::stale(
                 "The library changed before the mutation could commit.",
             ));
         }
+        journal.before_metadata =
+            Some(String::from_utf8(metadata).map_err(|_| AppError::storage())?);
         // Atomic replacement may succeed before its directory sync reports an error.
         self.recovery_required = true;
         self.save_journal(&journal)?;
@@ -403,11 +410,15 @@ impl State {
             journal.progress.active_move = None;
             self.save_journal(journal)?;
         }
-        self.require_journal_metadata(journal)?;
-        write_json(
-            &self.library_dir().join(".skillbinder.json"),
-            &journal.before,
-        )
+        // The recorded bytes, not `before`, keep a schema 2 file schema 2, even when the schema 3
+        // write left `before` and `after` equal.
+        let unchanged = self.require_journal_metadata(journal)?;
+        let path = self.library_dir().join(".skillbinder.json");
+        match &journal.before_metadata {
+            Some(metadata) => atomic_write(&path, metadata.as_bytes()),
+            None if !unchanged => write_json(&path, &journal.before),
+            None => Ok(()),
+        }
     }
     fn rollback_unrecorded_move(&self, journal: &mut Journal) -> AppResult<()> {
         if journal.progress.active_move == Some(journal.completed_moves) {
@@ -417,7 +428,9 @@ impl State {
         }
         Ok(())
     }
-    fn require_journal_metadata(&self, journal: &Journal) -> AppResult<()> {
+    /// Refuses metadata that matches neither side of the journal; returns whether it matches
+    /// `before`.
+    fn require_journal_metadata(&self, journal: &Journal) -> AppResult<bool> {
         let unexpected = || {
             AppError::new(
                 ErrorCategory::Recovery,
@@ -427,12 +440,11 @@ impl State {
         };
         let encode = |library: &Library| serde_json::to_value(library).map_err(|_| unexpected());
         let current = encode(&self.read_library().map_err(|_| unexpected())?)?;
-        if current != encode(&journal.after)?
-            && (self.journal_committed(journal)? || current != encode(&journal.before)?)
-        {
+        let unchanged = current == encode(&journal.before)?;
+        if current != encode(&journal.after)? && (self.journal_committed(journal)? || !unchanged) {
             return Err(unexpected());
         }
-        Ok(())
+        Ok(unchanged)
     }
     fn validate_move(&self, movement: &Move) -> AppResult<()> {
         for path in [&movement.from, &movement.to] {

@@ -1,4 +1,4 @@
-use crate::{FolderId, SkillId};
+use crate::{PresetId, SkillId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -24,10 +24,10 @@ pub struct ValidationMessage {
     /// Safe explanation.
     pub message: String,
 }
-/// A named folder color, resolved against the active theme when rendered.
+/// A named preset color, resolved against the active theme when rendered.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum FolderColor {
+pub enum PresetColor {
     /// Neutral gray.
     Gray,
     /// Red.
@@ -45,7 +45,7 @@ pub enum FolderColor {
     /// Pink.
     Pink,
 }
-impl FolderColor {
+impl PresetColor {
     /// Every color in menu order.
     pub const ALL: [Self; 8] = [
         Self::Gray,
@@ -58,11 +58,11 @@ impl FolderColor {
         Self::Pink,
     ];
 }
-/// A flat portable folder.
+/// A flat portable preset: a named set of library skills.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Folder {
-    /// Stable folder identity.
-    pub id: FolderId,
+pub struct Preset {
+    /// Stable preset identity.
+    pub id: PresetId,
     /// Unique normalized display name.
     pub name: String,
     /// User-defined order; the engine keeps positions dense from zero.
@@ -70,7 +70,7 @@ pub struct Folder {
     pub position: u32,
     /// Optional quick-scan color.
     #[serde(default)]
-    pub color: Option<FolderColor>,
+    pub color: Option<PresetColor>,
 }
 /// A retained portable tag; no tag editor is exposed in the application.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -80,7 +80,7 @@ pub struct Tag {
     /// Unique normalized display name.
     pub name: String,
 }
-/// A managed skill record in portable schema 2.
+/// A managed skill record in portable schema 3.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Skill {
@@ -90,8 +90,10 @@ pub struct Skill {
     pub slug: String,
     /// Optional user-facing title.
     pub display_name: Option<String>,
-    /// The single assigned folder, if any.
-    pub folder_id: Option<FolderId>,
+    /// Sorted identities of the presets that hold the skill; schema 2's single `folderId`
+    /// reads as one.
+    #[serde(default, alias = "folderId", deserialize_with = "schema2::preset_ids")]
+    pub preset_ids: Vec<PresetId>,
     /// Sorted portable tag identities.
     #[serde(default)]
     pub tag_ids: Vec<String>,
@@ -108,11 +110,13 @@ pub struct Skill {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub imported_at: Option<String>,
 }
-/// Portable schema 2, committed only by explicit Git operations.
+/// Portable schema 3, committed only by explicit Git operations.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Library {
-    /// Currently 2.
+    /// Currently 3. Reads upgrade schema 2, which called presets folders and allowed one per
+    /// skill, so the next write saves schema 3.
+    #[serde(deserialize_with = "schema2::version")]
     pub schema_version: u32,
     /// Stable library identity.
     pub library_id: String,
@@ -121,9 +125,9 @@ pub struct Library {
     /// Payload policy version, currently 1.
     #[serde(default = "policy_version")]
     pub content_policy_version: u32,
-    /// Flat folders, ordered by position after reads.
-    #[serde(default, with = "folder_map")]
-    pub folders: Vec<Folder>,
+    /// Flat presets, ordered by position after reads.
+    #[serde(default, alias = "folders", with = "preset_map")]
+    pub presets: Vec<Preset>,
     /// Tags preserved in portable state.
     #[serde(default, with = "tag_map")]
     pub tags: Vec<Tag>,
@@ -160,51 +164,58 @@ pub struct LibrarySnapshot {
 /// A portable organization mutation.
 #[derive(Clone, Debug)]
 pub enum OrganizationChange {
-    /// Create a flat folder.
-    CreateFolder {
-        /// New unique folder name.
+    /// Create a flat preset.
+    CreatePreset {
+        /// New unique preset name.
         name: String,
     },
-    /// Rename an existing folder.
-    RenameFolder {
-        /// Folder being renamed.
-        id: FolderId,
+    /// Rename an existing preset.
+    RenamePreset {
+        /// Preset being renamed.
+        id: PresetId,
         /// Replacement unique name.
         name: String,
     },
-    /// Assign selected skills to a folder, or remove them from their folder.
-    Assign {
+    /// Add selected skills to a preset; skills already in it stay.
+    AddToPreset {
+        /// Preset receiving the skills.
+        id: PresetId,
         /// Selected existing skill identities.
         skills: Vec<SkillId>,
-        /// Destination, or no folder when absent.
-        folder: Option<FolderId>,
     },
-    /// Replace the folder order with a permutation of every existing folder.
-    ReorderFolders {
-        /// Every folder identity in its new order.
-        order: Vec<FolderId>,
+    /// Remove selected skills from a preset; they stay in the library and in other presets.
+    RemoveFromPreset {
+        /// Preset losing the skills.
+        id: PresetId,
+        /// Selected existing skill identities.
+        skills: Vec<SkillId>,
     },
-    /// Set or clear a folder color.
-    SetFolderColor {
-        /// Folder being colored.
-        id: FolderId,
+    /// Replace the preset order with a permutation of every existing preset.
+    ReorderPresets {
+        /// Every preset identity in its new order.
+        order: Vec<PresetId>,
+    },
+    /// Set or clear a preset color.
+    SetPresetColor {
+        /// Preset being colored.
+        id: PresetId,
         /// Replacement color, or none.
-        color: Option<FolderColor>,
+        color: Option<PresetColor>,
     },
-    /// Delete a previewed folder and unfile its skills.
-    DeleteFolder {
-        /// Previewed folder identity.
-        id: FolderId,
+    /// Delete a previewed preset; its skills stay in the library.
+    DeletePreset {
+        /// Previewed preset identity.
+        id: PresetId,
         /// Revision captured by the deletion preview.
         revision: String,
     },
 }
-/// Consequences of deleting a flat folder.
+/// Consequences of deleting a preset.
 #[derive(Clone, Debug)]
 pub struct DeletePreview {
-    /// Folder being removed.
-    pub folder: Folder,
-    /// Skills that will be left without a folder.
+    /// Preset being removed.
+    pub preset: Preset,
+    /// Skills the preset holds; they stay in the library.
     pub affected_skills: usize,
     /// Required revision for confirmation.
     pub revision: String,
@@ -263,6 +274,81 @@ macro_rules! record_map {
         }
     };
 }
-record_map!(folder_map, Folder);
+record_map!(preset_map, Preset);
 record_map!(tag_map, Tag);
 record_map!(skill_map, Skill);
+
+/// Reads schema 2 metadata as schema 3.
+mod schema2 {
+    use super::*;
+    use serde::Deserializer;
+
+    pub fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+        let version = u32::deserialize(deserializer)?;
+        Ok(if version == 2 { 3 } else { version })
+    }
+
+    /// Schema 3's `presetIds` list, or schema 2's nullable single `folderId`.
+    pub fn preset_ids<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Vec<PresetId>, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Ids {
+            Folder(PresetId),
+            Presets(Vec<PresetId>),
+        }
+        Ok(match Option::<Ids>::deserialize(deserializer)? {
+            None => Vec::new(),
+            Some(Ids::Folder(id)) => vec![id],
+            Some(Ids::Presets(ids)) => ids,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Library, PresetId};
+
+    fn skill(id: &str, assignment: &str) -> String {
+        format!(
+            r#""{id}":{{"id":"{id}","slug":"{id}","displayName":null,{assignment}"tagIds":[],"upstreamBindings":[],"digest":"sha256:0","fileCount":1,"totalBytes":1}}"#
+        )
+    }
+
+    #[test]
+    fn schema_2_folders_read_as_presets() -> serde_json::Result<()> {
+        let skills = [
+            skill("filed", r#""folderId":"f","#),
+            skill("unfiled", r#""folderId":null,"#),
+        ];
+        let library: Library = serde_json::from_str(&format!(
+            r#"{{"schemaVersion":2,"libraryId":"l","createdAt":"now","folders":{{"f":{{"id":"f","name":"Research","position":0,"color":"green"}}}},"tags":{{}},"skills":{{{}}}}}"#,
+            skills.join(",")
+        ))?;
+        assert_eq!(library.schema_version, 3);
+        assert_eq!(library.presets[0].name, "Research");
+        assert_eq!(library.skills[0].preset_ids, [PresetId("f".into())]);
+        assert!(library.skills[1].preset_ids.is_empty());
+        let written = serde_json::to_value(&library)?;
+        assert_eq!(written["schemaVersion"], 3);
+        assert!(written.get("folders").is_none());
+        assert_eq!(written["presets"]["f"]["name"], "Research");
+        assert!(written["skills"]["filed"].get("folderId").is_none());
+        assert_eq!(written["skills"]["filed"]["presetIds"][0], "f");
+        Ok(())
+    }
+
+    #[test]
+    fn schema_3_keeps_every_preset_of_a_skill() -> serde_json::Result<()> {
+        let library: Library = serde_json::from_str(&format!(
+            r#"{{"schemaVersion":3,"libraryId":"l","createdAt":"now","presets":{{}},"tags":{{}},"skills":{{{},{}}}}}"#,
+            skill("both", r#""presetIds":["a","b"],"#),
+            skill("none", ""),
+        ))?;
+        assert_eq!(library.schema_version, 3);
+        assert_eq!(library.skills[0].preset_ids.len(), 2);
+        assert!(library.skills[1].preset_ids.is_empty());
+        Ok(())
+    }
+}

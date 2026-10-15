@@ -9,7 +9,8 @@ mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    ErrorCategory, FolderColor, ImportDecision, LibrarySnapshot, OnboardingStep, OrganizationChange,
+    ErrorCategory, ImportDecision, LibrarySnapshot, OnboardingStep, OrganizationChange,
+    PresetColor, PresetId, SkillId,
 };
 use std::{fs, path::Path};
 use support::{Fixture, category};
@@ -180,94 +181,162 @@ async fn changed_source_refuses_whole_prepared_import() {
 }
 
 #[tokio::test]
-async fn folders_casefold_assign_and_stale_delete_preview() {
+async fn presets_casefold_share_skills_and_refuse_stale_delete_preview() {
     let fixture = Fixture::new();
     fixture.skill("alpha", "Content");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
     let skill = fixture.import_one(&engine, &scan.candidates[0]).await;
+    let create = |name: &str| OrganizationChange::CreatePreset { name: name.into() };
     let library = engine
-        .change_organization(OrganizationChange::CreateFolder {
-            name: " Straße ".into(),
+        .change_organization(create(" Straße "))
+        .await
+        .unwrap();
+    assert_eq!(library.library.presets[0].name, "Straße");
+    assert_eq!(
+        category(engine.change_organization(create("STRASSE")).await),
+        ErrorCategory::Validation
+    );
+    let preset = library.library.presets[0].id.clone();
+    let library = engine.change_organization(create("Other")).await.unwrap();
+    let other = library.library.presets[1].id.clone();
+    let presets_of = |library: &LibrarySnapshot| library.library.skills[0].preset_ids.clone();
+    // Adding the greater identity first proves additions keep the list sorted.
+    let (low, high) = if preset < other {
+        (&preset, &other)
+    } else {
+        (&other, &preset)
+    };
+    for id in [high, low, high] {
+        engine
+            .change_organization(OrganizationChange::AddToPreset {
+                id: id.clone(),
+                skills: vec![skill.clone()],
+            })
+            .await
+            .unwrap();
+    }
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    let mut both = vec![preset.clone(), other.clone()];
+    both.sort();
+    assert_eq!(presets_of(&library), both, "a skill joins each preset once");
+    let library = engine
+        .change_organization(OrganizationChange::RemoveFromPreset {
+            id: other.clone(),
+            skills: vec![skill.clone()],
         })
         .await
         .unwrap();
-    assert_eq!(library.library.folders[0].name, "Straße");
+    assert_eq!(presets_of(&library), std::slice::from_ref(&preset));
     assert_eq!(
         category(
             engine
-                .change_organization(OrganizationChange::CreateFolder {
-                    name: "STRASSE".into()
+                .change_organization(OrganizationChange::AddToPreset {
+                    id: other.clone(),
+                    skills: vec![SkillId("missing".into())],
                 })
                 .await
         ),
-        ErrorCategory::Validation
+        ErrorCategory::NotFound
     );
-    let folder = library.library.folders[0].id.clone();
     engine
-        .change_organization(OrganizationChange::Assign {
+        .change_organization(OrganizationChange::AddToPreset {
+            id: other.clone(),
             skills: vec![skill.clone()],
-            folder: Some(folder.clone()),
         })
         .await
         .unwrap();
-    let preview = engine.preview_delete(folder.clone()).await.unwrap();
+    let preview = engine.preview_delete(preset.clone()).await.unwrap();
     assert_eq!(preview.affected_skills, 1);
-    engine
-        .change_organization(OrganizationChange::CreateFolder {
-            name: "Other".into(),
-        })
-        .await
-        .unwrap();
+    engine.change_organization(create("Third")).await.unwrap();
     assert_eq!(
         category(
             engine
-                .change_organization(OrganizationChange::DeleteFolder {
-                    id: folder.clone(),
+                .change_organization(OrganizationChange::DeletePreset {
+                    id: preset.clone(),
                     revision: preview.revision
                 })
                 .await
         ),
         ErrorCategory::Stale
     );
-    let fresh = engine.preview_delete(folder.clone()).await.unwrap();
+    let fresh = engine.preview_delete(preset.clone()).await.unwrap();
     let after = engine
-        .change_organization(OrganizationChange::DeleteFolder {
-            id: folder,
+        .change_organization(OrganizationChange::DeletePreset {
+            id: preset,
             revision: fresh.revision,
         })
         .await
         .unwrap();
     assert_eq!(
-        after
-            .library
-            .skills
-            .iter()
-            .find(|item| item.id == skill)
-            .unwrap()
-            .folder_id,
-        None
+        after.library.skills.len(),
+        1,
+        "the skill stays in the library"
     );
+    assert_eq!(presets_of(&after), [other], "and in its other presets");
     engine.shutdown().await.unwrap();
 }
 
 #[tokio::test]
-async fn folders_keep_user_order_and_colors() {
+async fn schema_2_folders_upgrade_to_presets_on_the_next_write() {
+    let fixture = Fixture::new();
+    fixture.skill("alpha", "Content");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    let skill = fixture.import_one(&engine, &scan.candidates[0]).await;
+    let path = Path::new(&engine.bootstrap().await.unwrap().library_path).join(".skillbinder.json");
+    let read =
+        || -> serde_json::Value { serde_json::from_slice(&fs::read(&path).unwrap()).unwrap() };
+    let mut metadata = read();
+    metadata["schemaVersion"] = 2.into();
+    metadata.as_object_mut().unwrap().remove("presets");
+    metadata["folders"] =
+        serde_json::json!({"f": {"id": "f", "name": "Research", "position": 0, "color": "green"}});
+    let record = metadata["skills"][skill.as_str()].as_object_mut().unwrap();
+    record.remove("presetIds");
+    record.insert("folderId".into(), "f".into());
+    fs::write(&path, serde_json::to_vec(&metadata).unwrap()).unwrap();
+
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(library.library.presets[0].name, "Research");
+    assert_eq!(library.library.presets[0].color, Some(PresetColor::Green));
+    assert_eq!(library.library.skills[0].preset_ids, [PresetId("f".into())]);
+    assert_eq!(read(), metadata, "reading leaves schema 2 on disk");
+
+    engine
+        .change_organization(OrganizationChange::CreatePreset {
+            name: "Review".into(),
+        })
+        .await
+        .unwrap();
+    let written = read();
+    assert_eq!(written["schemaVersion"], 3);
+    assert!(written.get("folders").is_none());
+    assert_eq!(written["presets"]["f"]["name"], "Research");
+    let record = &written["skills"][skill.as_str()];
+    assert!(record.get("folderId").is_none());
+    assert_eq!(record["presetIds"], serde_json::json!(["f"]));
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn presets_keep_user_order_and_colors() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
     for name in ["Beta", "Alpha", "Gamma"] {
         engine
-            .change_organization(OrganizationChange::CreateFolder { name: name.into() })
+            .change_organization(OrganizationChange::CreatePreset { name: name.into() })
             .await
             .unwrap();
     }
     let names = |library: &LibrarySnapshot| -> Vec<(String, u32)> {
         library
             .library
-            .folders
+            .presets
             .iter()
-            .map(|folder| (folder.name.clone(), folder.position))
+            .map(|preset| (preset.name.clone(), preset.position))
             .collect()
     };
     let library = engine.snapshot().await.unwrap().library.unwrap();
@@ -277,14 +346,14 @@ async fn folders_keep_user_order_and_colors() {
     );
     let ids: Vec<_> = library
         .library
-        .folders
+        .presets
         .iter()
         .map(|f| f.id.clone())
         .collect();
     assert_eq!(
         category(
             engine
-                .change_organization(OrganizationChange::ReorderFolders {
+                .change_organization(OrganizationChange::ReorderPresets {
                     order: vec![ids[0].clone(), ids[0].clone(), ids[1].clone()],
                 })
                 .await
@@ -292,21 +361,21 @@ async fn folders_keep_user_order_and_colors() {
         ErrorCategory::Stale
     );
     engine
-        .change_organization(OrganizationChange::ReorderFolders {
+        .change_organization(OrganizationChange::ReorderPresets {
             order: vec![ids[2].clone(), ids[0].clone(), ids[1].clone()],
         })
         .await
         .unwrap();
     engine
-        .change_organization(OrganizationChange::SetFolderColor {
+        .change_organization(OrganizationChange::SetPresetColor {
             id: ids[0].clone(),
-            color: Some(FolderColor::Green),
+            color: Some(PresetColor::Green),
         })
         .await
         .unwrap();
     let preview = engine.preview_delete(ids[2].clone()).await.unwrap();
     engine
-        .change_organization(OrganizationChange::DeleteFolder {
+        .change_organization(OrganizationChange::DeletePreset {
             id: ids[2].clone(),
             revision: preview.revision,
         })
@@ -314,8 +383,8 @@ async fn folders_keep_user_order_and_colors() {
         .unwrap();
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(names(&library), [("Beta".into(), 0), ("Alpha".into(), 1)]);
-    assert_eq!(library.library.folders[0].color, Some(FolderColor::Green));
-    assert_eq!(library.library.folders[1].color, None);
+    assert_eq!(library.library.presets[0].color, Some(PresetColor::Green));
+    assert_eq!(library.library.presets[1].color, None);
     engine.shutdown().await.unwrap();
 }
 

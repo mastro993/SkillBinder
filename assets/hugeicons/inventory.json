@@ -34,7 +34,7 @@
       "file": "ArrowDown01Icon.svg",
       "usedBy": [
         "features/git-sync/components/git-sync-nav-status.tsx",
-        "crates/ui/src/native_view/sidebar_folders.rs"
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/ArrowDown01Icon.js",
       "sourceModuleSha256": "3e880ddfd6491df41ca3e7261b7862c4224d99a10aaa52a832156d3b0f50fcb8",
@@ -68,7 +68,7 @@
       "file": "ArrowUp01Icon.svg",
       "usedBy": [
         "features/git-sync/components/git-sync-nav-status.tsx",
-        "crates/ui/src/native_view/sidebar_folders.rs"
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/ArrowUp01Icon.js",
       "sourceModuleSha256": "a565814bb81874b47d660d80d02f1b86a8d9cf394be5119fc3b25cf0ab719c49",
@@ -168,7 +168,7 @@
       "name": "Delete02Icon",
       "file": "Delete02Icon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/sidebar_folders.rs"
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/Delete02Icon.js",
       "sourceModuleSha256": "9fde6c34c05b3600f954118ebc9d19184a610df8e992354c48e7fbb6e9cfc902",
@@ -180,7 +180,7 @@
       "file": "Folder01Icon.svg",
       "usedBy": [
         "features/library/components/sidebar-folder-list.tsx",
-        "crates/ui/src/native_view/sidebar_folders.rs"
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/Folder01Icon.js",
       "sourceModuleSha256": "ee58c2dc8a6c7001ddf6147bbe4b39a55b1a40123f31418337373c6ec34b40c1",
@@ -337,7 +337,7 @@
       "name": "PaintBoardIcon",
       "file": "PaintBoardIcon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/sidebar_folders.rs"
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/PaintBoardIcon.js",
       "sourceModuleSha256": "efff541a68a5d9ef417dbe3411cd564de37d8f3d229999b1c0cf6e99de53a198",
@@ -348,7 +348,7 @@
       "name": "PencilEdit02Icon",
       "file": "PencilEdit02Icon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/sidebar_folders.rs"
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/PencilEdit02Icon.js",
       "sourceModuleSha256": "0e1edcf185036bff82eab91e0e39c3030fc99c38c57b9fb7b166fd51b10626cc",
@@ -361,7 +361,7 @@
       "usedBy": [
         "features/discovery/components/discovery-roots-panel.tsx",
         "features/library/components/sidebar-folder-list.tsx",
-        "crates/ui/src/native_view/sidebar_folders.rs"
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/PlusSignIcon.js",
       "sourceModuleSha256": "6569be537715da9149e59593c46665caff88a04a26f495ed54c6203c6691df88",

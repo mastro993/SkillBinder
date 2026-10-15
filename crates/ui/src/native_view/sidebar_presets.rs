@@ -1,4 +1,4 @@
-//! The sidebar Folders section: user-ordered folders, inline naming, row menus,
+//! The sidebar Presets section: user-ordered presets, inline naming, row menus,
 //! colors, and the reorder menu actions.
 
 use std::{cell::Cell, collections::BTreeMap, time::Instant};
@@ -18,15 +18,15 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, WeakEntity, Window, div, prelude::FluentBuilder, px, rgb,
 };
 use skillbinder_proto::{
-    Folder, FolderColor, FolderId, LibrarySnapshot, OrganizationChange, SidebarSection,
+    LibrarySnapshot, OrganizationChange, Preset, PresetColor, PresetId, SidebarSection,
 };
 use skillbinder_theme::sidebar::{ICON_GAP, INSET, ROW_GAP, SECTION_GAP};
 
-/// Which folder name the inline sidebar field edits.
+/// Which preset name the inline sidebar field edits.
 #[derive(Clone, PartialEq, Eq)]
-pub(super) enum FolderEdit {
+pub(super) enum PresetEdit {
     Create,
-    Rename(FolderId),
+    Rename(PresetId),
 }
 
 /// How a reorderable row is drawn this frame.
@@ -40,125 +40,125 @@ pub(super) struct RowPlacement {
 }
 
 impl NativeView {
-    pub(super) fn render_folders(
+    pub(super) fn render_presets(
         &self,
         library: &LibrarySnapshot,
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
-        let mut counts = BTreeMap::<&FolderId, usize>::new();
-        for folder in library
+        let mut counts = BTreeMap::<&PresetId, usize>::new();
+        for preset in library
             .library
             .skills
             .iter()
-            .filter_map(|skill| skill.folder_id.as_ref())
+            .flat_map(|skill| &skill.preset_ids)
         {
-            *counts.entry(folder).or_default() += 1;
+            *counts.entry(preset).or_default() += 1;
         }
         let (order, floating) = self
-            .folder_reorder
-            .displayed(&self.folder_ids(), cx.has_active_drag());
+            .preset_reorder
+            .displayed(&self.preset_ids(), cx.has_active_drag());
         let now = Instant::now();
-        if self.folder_reorder.moving(now) {
+        if self.preset_reorder.moving(now) {
             window.request_animation_frame();
         }
         let selected = |candidate: LibraryFilter| self.route == Route::Library(candidate);
-        let folders = &library.library.folders;
+        let presets = &library.library.presets;
         let rows: Vec<AnyElement> = order
             .iter()
-            .filter_map(|id| folders.iter().find(|folder| &folder.id == id))
+            .filter_map(|id| presets.iter().find(|preset| &preset.id == id))
             .enumerate()
-            .map(|(index, folder)| {
-                if self.folder_edit == Some(FolderEdit::Rename(folder.id.clone())) {
-                    return self.render_folder_name_field(folder.color, cx);
+            .map(|(index, preset)| {
+                if self.preset_edit == Some(PresetEdit::Rename(preset.id.clone())) {
+                    return self.render_preset_name_field(preset.color, cx);
                 }
-                let skills = counts.get(&folder.id).copied().unwrap_or(0);
-                let selected = selected(LibraryFilter::Folder(folder.id.clone()));
+                let skills = counts.get(&preset.id).copied().unwrap_or(0);
+                let selected = selected(LibraryFilter::Preset(preset.id.clone()));
                 let placement = RowPlacement {
                     index,
                     len: order.len(),
-                    offset: self.folder_reorder.offset(&folder.id, now),
-                    floating: floating.as_ref() == Some(&folder.id),
+                    offset: self.preset_reorder.offset(&preset.id, now),
+                    floating: floating.as_ref() == Some(&preset.id),
                 };
-                self.render_folder_row(folder, placement, skills, selected, cx)
+                self.render_preset_row(preset, placement, skills, selected, cx)
             })
             .collect();
-        let creating = self.folder_edit == Some(FolderEdit::Create);
+        let creating = self.preset_edit == Some(PresetEdit::Create);
         let items = rows.len() + usize::from(creating);
         div()
             .flex()
             .flex_col()
-            .child(self.render_folders_header(cx))
+            .child(self.render_presets_header(cx))
             .children(
                 self.section_rows(
-                    SidebarSection::Folders,
+                    SidebarSection::Presets,
                     items,
                     div()
-                        .id("sidebar-folders")
+                        .id("sidebar-presets")
                         .flex()
                         .flex_col()
                         .gap(px(ROW_GAP))
                         .child(
-                            // Drag moves are measured from the first folder slot; releasing the
+                            // Drag moves are measured from the first preset slot; releasing the
                             // pointer anywhere keeps the order shown.
                             div()
-                                .id("sidebar-folder-rows")
+                                .id("sidebar-preset-rows")
                                 .flex()
                                 .flex_col()
                                 .gap(px(ROW_GAP))
                                 .on_drag_move(cx.listener(
-                                    |view, event: &DragMoveEvent<RowDrag<FolderId>>, window, cx| {
+                                    |view, event: &DragMoveEvent<RowDrag<PresetId>>, window, cx| {
                                         let drag = event.drag(cx);
                                         let top = drag.top(event.event.position, event.bounds);
-                                        view.drag_folder(drag.id.clone(), top, window, cx)
+                                        view.drag_preset(drag.id.clone(), top, window, cx)
                                     },
                                 ))
                                 .on_mouse_up(
                                     MouseButton::Left,
-                                    cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
+                                    cx.listener(|view, _, _, cx| view.finish_preset_drag(cx)),
                                 )
                                 .on_mouse_up_out(
                                     MouseButton::Left,
-                                    cx.listener(|view, _, _, cx| view.finish_folder_drag(cx)),
+                                    cx.listener(|view, _, _, cx| view.finish_preset_drag(cx)),
                                 )
                                 .children(rows),
                         )
                         .when(creating, |list| {
-                            list.child(self.render_folder_name_field(None, cx))
+                            list.child(self.render_preset_name_field(None, cx))
                         }),
                 ),
             )
     }
 
-    fn render_folders_header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let add = add_button("folder-create", "Add folder", cx).on_click(cx.listener(
+    fn render_presets_header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let add = add_button("preset-create", "Add preset", cx).on_click(cx.listener(
             |view, _, window, cx| {
-                view.unfold_section(SidebarSection::Folders, cx);
-                view.begin_folder_edit(FolderEdit::Create, window, cx)
+                view.unfold_section(SidebarSection::Presets, cx);
+                view.begin_preset_edit(PresetEdit::Create, window, cx)
             },
         ));
         // The first section splits its gap with the divider above it, which sits under Library.
-        self.section_header(SidebarSection::Folders, "Folders", Some(add), cx)
+        self.section_header(SidebarSection::Presets, "Presets", Some(add), cx)
             .mt(px(SECTION_GAP / 2.0))
     }
 
-    fn render_folder_row(
+    fn render_preset_row(
         &self,
-        folder: &Folder,
+        preset: &Preset,
         placement: RowPlacement,
         skills: usize,
         selected: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let dark = cx.theme().mode.is_dark();
-        let id = folder.id.clone();
-        let label: SharedString = folder.name.clone().into();
-        let route = Route::Library(LibraryFilter::Folder(id.clone()));
-        let tint = folder.color.map(|color| folder_tint(color, dark));
-        let menu = self.folder_menu(folder, placement.index, placement.len, cx);
+        let id = preset.id.clone();
+        let label: SharedString = preset.name.clone().into();
+        let route = Route::Library(LibraryFilter::Preset(id.clone()));
+        let tint = preset.color.map(|color| preset_tint(color, dark));
+        let menu = self.preset_menu(preset, placement.index, placement.len, cx);
         activate(
             row(
-                format!("folder-{id}"),
+                format!("preset-{id}"),
                 app_icon("folder"),
                 tint,
                 label.clone(),
@@ -192,10 +192,10 @@ impl NativeView {
         .into_any_element()
     }
 
-    /// Rename, color, order, and delete actions for one folder row.
-    fn folder_menu(
+    /// Rename, color, order, and delete actions for one preset row.
+    fn preset_menu(
         &self,
-        folder: &Folder,
+        preset: &Preset,
         index: usize,
         len: usize,
         cx: &mut Context<Self>,
@@ -206,7 +206,7 @@ impl NativeView {
     ) -> gpui_kit::component::menu::PopupMenu
     + 'static {
         let view = cx.entity().downgrade();
-        let (id, current) = (folder.id.clone(), folder.color);
+        let (id, current) = (preset.id.clone(), preset.color);
         move |menu, window, cx| {
             let (color_view, color_id) = (view.clone(), id.clone());
             let danger = cx.theme().danger;
@@ -218,7 +218,7 @@ impl NativeView {
                         view.clone(),
                         id.clone(),
                         |view, id, window, cx| {
-                            view.begin_folder_edit(FolderEdit::Rename(id.clone()), window, cx)
+                            view.begin_preset_edit(PresetEdit::Rename(id.clone()), window, cx)
                         },
                     )),
             )
@@ -230,12 +230,12 @@ impl NativeView {
                 move |menu, _, cx| {
                     let dark = cx.theme().mode.is_dark();
                     let plain = icon_color(cx);
-                    let choices = std::iter::once(None).chain(FolderColor::ALL.map(Some));
-                    // Each choice shows its tinted folder, so the check moves to the right.
+                    let choices = std::iter::once(None).chain(PresetColor::ALL.map(Some));
+                    // Each choice shows its tinted glyph, so the check moves to the right.
                     choices.fold(menu.check_side(Side::Right), |menu, color| {
                         let (view, id) = (color_view.clone(), color_id.clone());
                         let swatch = match color {
-                            Some(color) => menu_icon("folder", folder_tint(color, dark)),
+                            Some(color) => menu_icon("folder", preset_tint(color, dark)),
                             None => menu_icon("folder", plain),
                         };
                         menu.item(
@@ -244,7 +244,7 @@ impl NativeView {
                                 .checked(current == color)
                                 .on_click(move |_, _, cx| {
                                     let _ = view.update(cx, |view, cx| {
-                                        view.set_folder_color(id.clone(), color, cx)
+                                        view.set_preset_color(id.clone(), color, cx)
                                     });
                                 }),
                         )
@@ -259,7 +259,7 @@ impl NativeView {
                     .on_click(menu_action(
                         view.clone(),
                         id.clone(),
-                        move |view, id, _, cx| view.move_folder(id, index.saturating_sub(1), cx),
+                        move |view, id, _, cx| view.move_preset(id, index.saturating_sub(1), cx),
                     )),
             )
             .item(
@@ -269,7 +269,7 @@ impl NativeView {
                     .on_click(menu_action(
                         view.clone(),
                         id.clone(),
-                        move |view, id, _, cx| view.move_folder(id, index + 1, cx),
+                        move |view, id, _, cx| view.move_preset(id, index + 1, cx),
                     )),
             )
             .separator()
@@ -290,25 +290,25 @@ impl NativeView {
         }
     }
 
-    /// The inline name field shown in place of a folder row, or below the list when creating.
-    fn render_folder_name_field(
+    /// The inline name field shown in place of a preset row, or below the list when creating.
+    fn render_preset_name_field(
         &self,
-        color: Option<FolderColor>,
+        color: Option<PresetColor>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let tint = color.map(|color| folder_tint(color, theme.mode.is_dark()));
+        let tint = color.map(|color| preset_tint(color, theme.mode.is_dark()));
         let icon = app_icon("folder").text_color(tint.unwrap_or(theme.muted_foreground));
         name_field(
-            "folder-name-field",
+            "preset-name-field",
             icon,
-            &self.folder_name,
+            &self.preset_name,
             cx,
-            Self::end_folder_edit,
+            Self::end_preset_edit,
         )
     }
 
-    pub(super) fn folder_name_event(
+    pub(super) fn preset_name_event(
         &mut self,
         _: &Entity<InputState>,
         event: &InputEvent,
@@ -316,64 +316,64 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) {
         match event {
-            InputEvent::PressEnter { .. } => self.submit_folder_edit(window, cx),
-            InputEvent::Blur => self.end_folder_edit(window, cx),
+            InputEvent::PressEnter { .. } => self.submit_preset_edit(window, cx),
+            InputEvent::Blur => self.end_preset_edit(window, cx),
             InputEvent::Change | InputEvent::Focus => {}
         }
     }
 
-    fn begin_folder_edit(&mut self, edit: FolderEdit, window: &mut Window, cx: &mut Context<Self>) {
+    fn begin_preset_edit(&mut self, edit: PresetEdit, window: &mut Window, cx: &mut Context<Self>) {
         let name = match &edit {
-            FolderEdit::Create => String::new(),
-            FolderEdit::Rename(id) => self
+            PresetEdit::Create => String::new(),
+            PresetEdit::Rename(id) => self
                 .snapshot
                 .library
                 .iter()
-                .flat_map(|library| &library.library.folders)
-                .find(|folder| &folder.id == id)
-                .map(|folder| folder.name.clone())
+                .flat_map(|library| &library.library.presets)
+                .find(|preset| &preset.id == id)
+                .map(|preset| preset.name.clone())
                 .unwrap_or_default(),
         };
-        self.folder_edit = Some(edit);
-        self.folder_name.update(cx, |input, cx| {
+        self.preset_edit = Some(edit);
+        self.preset_name.update(cx, |input, cx| {
             input.set_value(name, window, cx);
             input.focus(window, cx);
         });
         cx.notify();
     }
 
-    fn submit_folder_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let name = Self::input_text(&self.folder_name, cx);
-        let Some(edit) = self.folder_edit.clone() else {
+    fn submit_preset_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let name = Self::input_text(&self.preset_name, cx);
+        let Some(edit) = self.preset_edit.clone() else {
             return;
         };
-        self.end_folder_edit(window, cx);
+        self.end_preset_edit(window, cx);
         let change = match edit {
             _ if name.is_empty() => return,
-            FolderEdit::Create => OrganizationChange::CreateFolder { name },
-            FolderEdit::Rename(id) => OrganizationChange::RenameFolder { id, name },
+            PresetEdit::Create => OrganizationChange::CreatePreset { name },
+            PresetEdit::Rename(id) => OrganizationChange::RenamePreset { id, name },
         };
-        self.change_folders(change, cx);
+        self.change_presets(change, cx);
     }
 
     /// Closes the inline field and returns keyboard focus to the window's shortcuts.
-    pub(super) fn end_folder_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.folder_edit.take().is_some() {
+    pub(super) fn end_preset_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.preset_edit.take().is_some() {
             window.focus(&self.focus, cx);
             cx.notify();
         }
     }
 
-    fn set_folder_color(
+    fn set_preset_color(
         &mut self,
-        id: FolderId,
-        color: Option<FolderColor>,
+        id: PresetId,
+        color: Option<PresetColor>,
         cx: &mut Context<Self>,
     ) {
-        self.change_folders(OrganizationChange::SetFolderColor { id, color }, cx);
+        self.change_presets(OrganizationChange::SetPresetColor { id, color }, cx);
     }
 
-    pub(super) fn change_folders(&mut self, change: OrganizationChange, cx: &mut Context<Self>) {
+    pub(super) fn change_presets(&mut self, change: OrganizationChange, cx: &mut Context<Self>) {
         let client = self.client.clone();
         self.run(
             async move {
@@ -404,30 +404,30 @@ pub(super) fn menu_action<Id: 'static>(
     }
 }
 
-fn color_name(color: FolderColor) -> &'static str {
+fn color_name(color: PresetColor) -> &'static str {
     match color {
-        FolderColor::Gray => "Gray",
-        FolderColor::Red => "Red",
-        FolderColor::Orange => "Orange",
-        FolderColor::Yellow => "Yellow",
-        FolderColor::Green => "Green",
-        FolderColor::Blue => "Blue",
-        FolderColor::Purple => "Purple",
-        FolderColor::Pink => "Pink",
+        PresetColor::Gray => "Gray",
+        PresetColor::Red => "Red",
+        PresetColor::Orange => "Orange",
+        PresetColor::Yellow => "Yellow",
+        PresetColor::Green => "Green",
+        PresetColor::Blue => "Blue",
+        PresetColor::Purple => "Purple",
+        PresetColor::Pink => "Pink",
     }
 }
 
 /// Palette tones that keep contrast on the dark and light sidebar surfaces.
-fn folder_tint(color: FolderColor, dark: bool) -> Hsla {
+fn preset_tint(color: PresetColor, dark: bool) -> Hsla {
     let (dark_tone, light_tone) = match color {
-        FolderColor::Gray => (0xa3a3a3, 0x737373),
-        FolderColor::Red => (0xf87171, 0xdc2626),
-        FolderColor::Orange => (0xfb923c, 0xea580c),
-        FolderColor::Yellow => (0xfacc15, 0xca8a04),
-        FolderColor::Green => (0x4ade80, 0x16a34a),
-        FolderColor::Blue => (0x60a5fa, 0x2563eb),
-        FolderColor::Purple => (0xc084fc, 0x9333ea),
-        FolderColor::Pink => (0xf472b6, 0xdb2777),
+        PresetColor::Gray => (0xa3a3a3, 0x737373),
+        PresetColor::Red => (0xf87171, 0xdc2626),
+        PresetColor::Orange => (0xfb923c, 0xea580c),
+        PresetColor::Yellow => (0xfacc15, 0xca8a04),
+        PresetColor::Green => (0x4ade80, 0x16a34a),
+        PresetColor::Blue => (0x60a5fa, 0x2563eb),
+        PresetColor::Purple => (0xc084fc, 0x9333ea),
+        PresetColor::Pink => (0xf472b6, 0xdb2777),
     };
     rgb(if dark { dark_tone } else { light_tone }).into()
 }

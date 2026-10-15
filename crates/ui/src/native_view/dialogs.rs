@@ -136,14 +136,14 @@ impl NativeView {
         match &self.dialog {
             DialogState::None => dialog,
             DialogState::ImportPlan(plan) => self.import_plan_dialog(dialog, plan, cx),
-            DialogState::DeleteFolder(preview) => {
-                let id = preview.folder.id.clone();
+            DialogState::DeletePreset(preview) => {
+                let id = preview.preset.id.clone();
                 let revision = preview.revision.clone();
                 dialog
-                    .title(self.dialog_title("Delete folder", cx))
+                    .title(self.dialog_title("Delete preset", cx))
                     .child(div().child(format!(
-                        "Delete {}? Its {} skills stay in the library without a folder.",
-                        preview.folder.name, preview.affected_skills
+                        "Delete {}? Its {} skills stay in the library.",
+                        preview.preset.name, preview.affected_skills
                     )))
                     .footer(
                         div()
@@ -160,7 +160,7 @@ impl NativeView {
                             .child({
                                 let weak = cx.entity().downgrade();
                                 button("delete-confirm")
-                                    .label("Delete folder")
+                                    .label("Delete preset")
                                     .inactive(busy)
                                     .on_click(move |_, _, cx| {
                                         let _ = weak.update(cx, |view, cx| {
@@ -171,7 +171,7 @@ impl NativeView {
                                                 async move {
                                                     client
                                                         .change_organization(
-                                                            OrganizationChange::DeleteFolder {
+                                                            OrganizationChange::DeletePreset {
                                                                 id,
                                                                 revision,
                                                             },
