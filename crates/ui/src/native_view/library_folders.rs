@@ -12,6 +12,7 @@ use gpui_kit::component::{
     dialog::Dialog,
     h_flex,
     input::{Input, InputEvent, InputState},
+    skeleton::Skeleton,
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, Entity, InteractiveElement, IntoElement, KeyDownEvent,
@@ -79,6 +80,15 @@ impl NativeView {
             } else {
                 strip.child(self.folder_tab(Some(folder), &folder.name, cx))
             };
+        }
+        if self.creating_folder {
+            strip = strip.child(
+                Skeleton::new()
+                    .flex_shrink_0()
+                    .w(px(64.))
+                    .h(px(24.))
+                    .rounded(cx.theme().radius),
+            );
         }
         if self.folder_edit == Some(FolderEdit::Create) {
             strip = strip.child(self.folder_name_field(cx));
@@ -299,7 +309,10 @@ impl NativeView {
         self.end_folder_edit(window, cx);
         let change = match edit {
             _ if name.is_empty() => return,
-            FolderEdit::Create => OrganizationChange::CreateFolder { name },
+            FolderEdit::Create => {
+                self.creating_folder = true;
+                OrganizationChange::CreateFolder { name }
+            }
             FolderEdit::Rename(id) => OrganizationChange::RenameFolder { id, name },
         };
         self.change_organization(change, cx);

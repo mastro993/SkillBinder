@@ -108,6 +108,8 @@ pub struct NativeView {
     library_folder: Option<FolderId>,
     /// Inline folder naming in the header.
     folder_edit: Option<FolderEdit>,
+    /// A created folder is being saved; its tab shows as a skeleton until then.
+    creating_folder: bool,
     /// Inline workspace renaming in the sidebar.
     workspace_edit: Option<WorkspaceId>,
     workspace_reorder: RowReorder<WorkspaceId>,
@@ -229,6 +231,7 @@ impl NativeView {
             preset_reorder: RowReorder::default(),
             library_folder: None,
             folder_edit: None,
+            creating_folder: false,
             workspace_edit: None,
             workspace_reorder: RowReorder::default(),
             sidebar_width,
@@ -341,6 +344,7 @@ impl NativeView {
                 view.syncing = false;
                 view.preset_reorder.settle();
                 view.workspace_reorder.settle();
+                view.creating_folder = false;
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);
