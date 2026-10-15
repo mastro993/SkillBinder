@@ -56,7 +56,7 @@ impl NativeView {
             .map(|folder| folder.name.as_str())
     }
 
-    /// All skills, a separator, each folder, then Add folder, scrolling sideways when they
+    /// All skills, a separator, each folder, then the Add folder plus, scrolling sideways when they
     /// overflow the header.
     pub(super) fn render_folder_tabs(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut strip = h_flex()
@@ -91,7 +91,7 @@ impl NativeView {
                     .flex_shrink_0()
                     .icon(app_icon("plus"))
                     .accessibility_label("Add folder")
-                    .child(tab_label("Add folder"))
+                    .tooltip("Add folder")
                     .text_color(cx.theme().muted_foreground)
                     .on_click(cx.listener(|view, _, window, cx| {
                         cx.stop_propagation();
