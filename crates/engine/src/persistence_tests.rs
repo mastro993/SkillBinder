@@ -354,15 +354,27 @@ fn rollback_accepts_reordered_record_maps() {
 }
 #[test]
 fn rollback_restores_schema_2_metadata_bytes() {
-    // Before the metadata write, and after it has saved schema 3.
-    for point in ["after_rename", "before_database"] {
+    // Before the metadata write, after it has saved schema 3, and after it has saved schema 3
+    // for a change that left the library equal.
+    for (point, idempotent) in [
+        ("after_rename", false),
+        ("before_database", false),
+        ("before_database", true),
+    ] {
         let (_directory, mut state, mut journal) = fixture();
         let path = state.library_dir().join(".skillbinder.json");
         let schema_2 = br#"{"schemaVersion":2,"libraryId":"original","createdAt":"today","folders":{},"tags":{},"skills":{}}"#;
         fs::write(&path, schema_2).unwrap();
         journal.before = state.read_library().unwrap();
+        if idempotent {
+            journal.after = journal.before.clone();
+        }
         inject(&[(point, false)]);
         assert!(state.commit(journal).is_err());
-        assert_eq!(fs::read(&path).unwrap(), schema_2, "{point}");
+        assert_eq!(
+            fs::read(&path).unwrap(),
+            schema_2,
+            "{point}, idempotent: {idempotent}"
+        );
     }
 }

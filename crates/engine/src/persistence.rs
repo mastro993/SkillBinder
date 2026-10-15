@@ -410,15 +410,15 @@ impl State {
             journal.progress.active_move = None;
             self.save_journal(journal)?;
         }
-        // Restoring the recorded bytes, not `before`, keeps a schema 2 file schema 2.
-        if !self.require_journal_metadata(journal)? {
-            let path = self.library_dir().join(".skillbinder.json");
-            match &journal.before_metadata {
-                Some(metadata) => atomic_write(&path, metadata.as_bytes())?,
-                None => write_json(&path, &journal.before)?,
-            }
+        // The recorded bytes, not `before`, keep a schema 2 file schema 2, even when the schema 3
+        // write left `before` and `after` equal.
+        let unchanged = self.require_journal_metadata(journal)?;
+        let path = self.library_dir().join(".skillbinder.json");
+        match &journal.before_metadata {
+            Some(metadata) => atomic_write(&path, metadata.as_bytes()),
+            None if !unchanged => write_json(&path, &journal.before),
+            None => Ok(()),
         }
-        Ok(())
     }
     fn rollback_unrecorded_move(&self, journal: &mut Journal) -> AppResult<()> {
         if journal.progress.active_move == Some(journal.completed_moves) {
