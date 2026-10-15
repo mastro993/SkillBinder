@@ -127,9 +127,14 @@ impl CustomColor {
         .hover(move |style| style.border_color(color.darken(0.3)))
         .cursor_pointer()
         .on_hover(move |color, entered, window, cx| {
-            if entered {
-                preview.update(cx, |picker, cx| picker.preview_color(color, window, cx));
-            }
+            preview.update(cx, |picker, cx| {
+                if entered {
+                    picker.preview_color(color, window, cx);
+                } else if picker.preview() == Some(color) {
+                    // Leaving a shade for anything but another shade restores the color held.
+                    picker.clear_preview(window, cx);
+                }
+            });
         })
         .on_click(move |color, _, window, cx| {
             select.update(cx, |picker, cx| picker.select_color(color, window, cx));

@@ -534,6 +534,29 @@ fn a_submenu_row_opens_a_third_level_panel_and_a_shade_picks_it(cx: &mut TestApp
 }
 
 #[gpui_kit::test]
+fn leaving_a_shade_restores_the_held_color(cx: &mut TestAppContext) {
+    let harness = Harness::new(cx);
+    harness.open(cx);
+    harness.step(cx, |window, cx| window.hover("menu-item-color", cx));
+    harness.step(cx, |window, cx| window.hover("menu-item-color-custom", cx));
+    let mut panel = Bounds::default();
+    harness.check(cx, |window| panel = window.find("menu-panel").bounds());
+    let swatch = px(PADDING + 5. * 24. + 10.);
+    harness.step(cx, |window, cx| {
+        window.simulate_mouse_move(panel.origin + point(swatch, swatch), cx)
+    });
+    // Off the shades, onto the panel's padding.
+    harness.step(cx, |window, cx| {
+        window.simulate_mouse_move(panel.origin + point(px(2.), px(2.)), cx)
+    });
+    // Entering the hex field now keeps the held color, which picks nothing.
+    harness.press(cx, &["right", "enter"]);
+
+    harness.assert_closed(cx);
+    assert!(harness.log(cx).is_empty());
+}
+
+#[gpui_kit::test]
 fn the_keyboard_opens_the_third_level_and_a_hex_value_picks_it(cx: &mut TestAppContext) {
     let harness = Harness::new(cx);
     harness.open(cx);
