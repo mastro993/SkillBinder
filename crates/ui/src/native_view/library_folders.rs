@@ -224,14 +224,24 @@ impl NativeView {
         self.change_organization(OrganizationChange::MoveToFolder { skill, folder }, cx);
     }
 
+    /// A borderless field in a tab-shaped fill: an input's own focus ring would draw outside it
+    /// and be clipped by the scrolling strip.
     fn folder_name_field(&self, cx: &mut Context<Self>) -> AnyElement {
         div()
             .id("folder-name-field")
+            .flex()
             .flex_shrink_0()
+            .items_center()
             .w(px(160.))
+            .h(px(24.))
+            .px_2()
+            .rounded(cx.theme().radius)
+            .bg(cx.theme().secondary)
             .child(
                 Input::new(&self.folder_name)
+                    .appearance(false)
                     .small()
+                    .px_0()
                     .text_size(px(FOLDER_TAB_SIZE)),
             )
             .capture_key_down(cx.listener(|view, event: &KeyDownEvent, window, cx| {
