@@ -4,6 +4,7 @@
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
 use super::library_dates::{exact, relative};
 use super::library_presence::{Holder, Reader};
+use super::sidebar_row::activate;
 use super::{NativeView, Route};
 use chrono::{DateTime, Utc};
 use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
@@ -88,14 +89,15 @@ impl NativeView {
     }
 }
 
-/// The bordered frame of a row or card; clicking it opens the skill's page.
+/// The bordered frame of a row or card; clicking it, or Enter or Space while it is focused,
+/// opens the skill's page.
 fn skill_frame(
     kind: &str,
     item: &SkillItem<'_>,
     cx: &mut Context<NativeView>,
 ) -> gpui_kit::Stateful<gpui_kit::Div> {
     let route = Route::Skill(item.skill.id.clone());
-    div()
+    let frame = div()
         .id(format!("{kind}-{}", item.skill.id))
         .flex()
         .min_w_0()
@@ -103,10 +105,10 @@ fn skill_frame(
         .rounded(cx.theme().radius)
         .border_color(cx.theme().colors.border)
         .cursor_pointer()
-        .hover(|frame| frame.bg(cx.theme().secondary))
-        .on_click(cx.listener(move |view, _, window, cx| {
-            view.navigate(route.clone(), window, cx);
-        }))
+        .hover(|frame| frame.bg(cx.theme().secondary));
+    activate(frame, item.name(), cx, move |view, window, cx| {
+        view.navigate(route.clone(), window, cx);
+    })
 }
 
 /// "Installed 3 days ago · Modified 2 hours ago"; each part's tooltip shows the exact time.
@@ -186,6 +188,8 @@ fn presence(item: &SkillItem<'_>, cx: &mut Context<NativeView>) -> AnyElement {
                 div()
                     .id(format!("holders-more-{}", item.skill.id))
                     .flex_shrink_0()
+                    // The chip opens nothing, and the click must not open the skill either.
+                    .on_click(|_, _, cx| cx.stop_propagation())
                     .tooltip(move |window, cx| Tooltip::new(names.clone()).build(window, cx))
                     .child(Tag::secondary().small().child(format!("+{}", hidden.len()))),
             )

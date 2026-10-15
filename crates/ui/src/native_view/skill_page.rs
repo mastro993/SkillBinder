@@ -12,7 +12,8 @@ use skillbinder_proto::{AppError, SkillId};
 const SKILL_FILE: &str = "SKILL.md";
 
 impl NativeView {
-    /// Reads skill `id`'s `SKILL.md` off the GPUI thread; leaving the page cancels the read.
+    /// Reads skill `id`'s `SKILL.md` off the GPUI thread. Leaving the page discards the result; the
+    /// engine still finishes the read, which the preview limits bound.
     pub(super) fn load_skill(&mut self, id: SkillId, cx: &mut Context<Self>) {
         let client = self.client.clone();
         let handle = client

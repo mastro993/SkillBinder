@@ -121,7 +121,7 @@ pub struct NativeView {
     resizing_sidebar: bool,
     preference_writes: shell::PreferenceWrites,
     preview: Option<SkillPreview>,
-    /// The skill page's file read in flight; dropping it cancels the read.
+    /// The skill page's file read in flight; dropping it discards the read's result.
     skill_load: Option<Task<()>>,
     search: Entity<InputState>,
     preset_name: Entity<InputState>,
@@ -381,6 +381,7 @@ impl NativeView {
             self.acknowledge_invalid = false;
             self.preview = None;
             self.skill_load = None;
+            self.content_scroll.handle.set_offset(Default::default());
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
             if let Route::Skill(id) = &route {
