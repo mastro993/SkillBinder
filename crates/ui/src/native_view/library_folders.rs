@@ -85,6 +85,7 @@ impl NativeView {
         } else {
             strip = strip.child(
                 button("folder-create")
+                    .inactive(self.busy)
                     .ghost()
                     .small()
                     .flex_shrink_0()
@@ -286,6 +287,10 @@ impl NativeView {
     }
 
     fn submit_folder_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Another operation would refuse the change, so the field stays open with its name.
+        if self.busy {
+            return;
+        }
         let name = Self::input_text(&self.folder_name, cx);
         let Some(edit) = self.folder_edit.clone() else {
             return;
