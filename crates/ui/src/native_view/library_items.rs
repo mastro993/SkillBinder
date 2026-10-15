@@ -1,10 +1,10 @@
 //! Library skills as list rows or grid cards, each showing when it was installed and changed and
 //! which agents hold a copy.
 
-use super::NativeView;
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
 use super::library_dates::{exact, relative};
 use super::library_presence::{Holder, Reader};
+use super::{NativeView, Route};
 use chrono::{DateTime, Utc};
 use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
 use gpui_kit::{
@@ -88,8 +88,13 @@ impl NativeView {
     }
 }
 
-/// The bordered frame of a row or card; skill details are not available yet, so it has no action.
-fn skill_frame(kind: &str, item: &SkillItem<'_>, cx: &App) -> gpui_kit::Stateful<gpui_kit::Div> {
+/// The bordered frame of a row or card; clicking it opens the skill's page.
+fn skill_frame(
+    kind: &str,
+    item: &SkillItem<'_>,
+    cx: &mut Context<NativeView>,
+) -> gpui_kit::Stateful<gpui_kit::Div> {
+    let route = Route::Skill(item.skill.id.clone());
     div()
         .id(format!("{kind}-{}", item.skill.id))
         .flex()
@@ -97,6 +102,11 @@ fn skill_frame(kind: &str, item: &SkillItem<'_>, cx: &App) -> gpui_kit::Stateful
         .border_1()
         .rounded(cx.theme().radius)
         .border_color(cx.theme().colors.border)
+        .cursor_pointer()
+        .hover(|frame| frame.bg(cx.theme().secondary))
+        .on_click(cx.listener(move |view, _, window, cx| {
+            view.navigate(route.clone(), window, cx);
+        }))
 }
 
 /// "Installed 3 days ago · Modified 2 hours ago"; each part's tooltip shows the exact time.

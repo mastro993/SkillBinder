@@ -1,6 +1,6 @@
 //! Navigable routes and the in-memory back/forward history between them.
 
-use skillbinder_proto::{PresetId, WorkspaceId};
+use skillbinder_proto::{PresetId, SkillId, WorkspaceId};
 
 /// Which skills the Library route lists.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -9,11 +9,13 @@ pub(super) enum LibraryFilter {
     Preset(PresetId),
 }
 
-/// A sidebar destination; Library carries its preset as a sub-route.
+/// A navigable page; Library carries its preset as a sub-route.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Route {
     Discovery,
     Library(LibraryFilter),
+    /// A library skill's page, with its files: `skill/{id}`.
+    Skill(SkillId),
     /// A workspace's page: `workspace/{id}`.
     Workspace(WorkspaceId),
     /// A detected agent's page, by registry id: `agent/{id}`.

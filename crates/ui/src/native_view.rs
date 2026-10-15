@@ -28,6 +28,7 @@ mod sidebar_reorder;
 mod sidebar_row;
 mod sidebar_scroll;
 mod sidebar_workspaces;
+mod skill_page;
 mod sync;
 mod workspace_dialogs;
 mod workspace_page;
@@ -120,6 +121,8 @@ pub struct NativeView {
     resizing_sidebar: bool,
     preference_writes: shell::PreferenceWrites,
     preview: Option<SkillPreview>,
+    /// The skill page's file read in flight; dropping it cancels the read.
+    skill_load: Option<Task<()>>,
     search: Entity<InputState>,
     preset_name: Entity<InputState>,
     workspace_name: Entity<InputState>,
@@ -225,6 +228,7 @@ impl NativeView {
             resizing_sidebar: false,
             preference_writes: shell::PreferenceWrites::default(),
             preview: None,
+            skill_load: None,
             search,
             preset_name,
             workspace_name,
@@ -252,7 +256,10 @@ impl NativeView {
         self.candidate_page = self.candidate_page.min(listed.len().saturating_sub(1) / 50);
         if let Some(library) = &latest.library {
             let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);
-            if matches!(&self.route, Route::Library(LibraryFilter::Preset(id)) if !exists(id)) {
+            let skill_exists = |id: &SkillId| library.library.skills.iter().any(|s| &s.id == id);
+            if matches!(&self.route, Route::Library(LibraryFilter::Preset(id)) if !exists(id))
+                || matches!(&self.route, Route::Skill(id) if !skill_exists(id))
+            {
                 self.route = Route::Library(LibraryFilter::All);
             }
             if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
@@ -343,8 +350,8 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted preset falls back to all skills, and a
-    /// removed workspace or an agent no longer detected to Discovery.
+    /// Shows `route` without touching history; a deleted preset or skill falls back to all skills,
+    /// and a removed workspace or an agent no longer detected to Discovery.
     fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
         let preset_exists = |id: &PresetId| {
             self.snapshot
@@ -352,12 +359,19 @@ impl NativeView {
                 .as_ref()
                 .is_some_and(|library| library.library.presets.iter().any(|f| &f.id == id))
         };
+        let skill_exists = |id: &SkillId| {
+            self.snapshot
+                .library
+                .as_ref()
+                .is_some_and(|library| library.library.skills.iter().any(|s| &s.id == id))
+        };
         let workspace_exists =
             |id: &WorkspaceId| self.snapshot.workspaces.iter().any(|p| &p.id == id);
         let route = match route {
             Route::Library(LibraryFilter::Preset(id)) if !preset_exists(&id) => {
                 Route::Library(LibraryFilter::All)
             }
+            Route::Skill(id) if !skill_exists(&id) => Route::Library(LibraryFilter::All),
             Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
             route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
         };
@@ -366,8 +380,12 @@ impl NativeView {
             self.selected_candidates.clear();
             self.acknowledge_invalid = false;
             self.preview = None;
+            self.skill_load = None;
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
+            if let Route::Skill(id) = &route {
+                self.load_skill(id.clone(), cx);
+            }
         }
         self.route = route;
         self.error = None;
@@ -448,6 +466,7 @@ impl Render for NativeView {
             let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library(_) => self.render_library(window, cx),
+                Route::Skill(id) => self.render_skill(&id.clone(), cx),
                 Route::Workspace(id) => self.render_workspace(&id.clone()),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
                 Route::Universal => self.render_universal(cx),
