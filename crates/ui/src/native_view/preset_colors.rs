@@ -67,7 +67,7 @@ pub(super) fn color_menu(
                 id: id.clone(),
                 color,
             };
-            view.change_presets(change, cx)
+            view.change_organization(change, cx)
         })
     };
     let mut items: Vec<MenuItem> = std::iter::once(None)
@@ -96,7 +96,7 @@ pub(super) fn color_menu(
                     id: id.clone(),
                     color,
                 };
-                view.change_presets(change, cx);
+                view.change_organization(change, cx);
             }
             if done && let Some(menu) = view.menu.as_ref() {
                 menu.close(window, cx);

@@ -272,8 +272,8 @@ fn fresh_library_connect_is_fetch_only_then_sync_adopts_remote() {
     f.peer_commit("unrelated.txt", "remote-only bytes");
     let fresh = f._root.path().join("fresh");
     f.git.initialize(&fresh).unwrap();
-    let metadata =
-        r#"{"schemaVersion":2,"libraryId":"fresh","createdAt":"2026-10-04","skills":{}}"#;
+    // The empty maps a newly created library writes.
+    let metadata = r#"{"schemaVersion":3,"libraryId":"fresh","createdAt":"2026-10-04","contentPolicyVersion":1,"presets":{},"libraryFolders":{},"tags":{},"skills":{}}"#;
     fs::write(fresh.join(".skillbinder.json"), metadata).unwrap();
     fs::write(fresh.join("notes.txt"), "local-only bytes").unwrap();
     let status = f.git.connect(&fresh, &f.remote).unwrap();
@@ -392,7 +392,7 @@ fn connection_reconciles_origin_and_disconnect_removes_it() {
 }
 
 #[test]
-fn adoption_refuses_local_presets_tags_and_unknown_metadata() {
+fn adoption_refuses_local_presets_folders_tags_and_unknown_metadata() {
     let f = Fixture::new();
     f.push();
     for (name, extra) in [
@@ -403,6 +403,10 @@ fn adoption_refuses_local_presets_tags_and_unknown_metadata() {
         (
             "folders",
             serde_json::json!({"folders":{"folder":{"id":"folder","name":"Local"}}}),
+        ),
+        (
+            "library-folders",
+            serde_json::json!({"schemaVersion":3,"libraryFolders":{"folder":{"id":"folder","name":"Local"}}}),
         ),
         ("tags", serde_json::json!({"tags":{"tag":{"name":"Local"}}})),
         ("unknown", serde_json::json!({"annotation":"retain me"})),

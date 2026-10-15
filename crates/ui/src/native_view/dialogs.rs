@@ -344,6 +344,9 @@ impl NativeView {
                     )
             }
             DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
+            DialogState::DeleteFolder { id, revision } => {
+                self.delete_folder_dialog(dialog, id, revision, cx)
+            }
         }
     }
 }

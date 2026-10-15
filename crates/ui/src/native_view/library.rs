@@ -1,4 +1,5 @@
-//! The Library page: every library skill, or one preset's, as a searchable list or grid.
+//! The Library page: every library skill, one folder's, or one preset's, as a searchable list
+//! or grid.
 
 use super::controls::app_icon;
 use super::library_dates as dates;
@@ -30,12 +31,15 @@ impl NativeView {
         };
         let typed = self.search.read(cx).value().trim().to_owned();
         let query = typed.to_lowercase();
+        let folder = self.shown_folder().map(|folder| &folder.id);
         let mut visible: Vec<&Skill> = library
             .library
             .skills
             .iter()
             .filter(|skill| {
-                in_filter(skill, self.library_filter()) && matches(skill, library, &query)
+                in_filter(skill, self.library_filter())
+                    && folder.is_none_or(|id| skill.folder_id.as_ref() == Some(id))
+                    && matches(skill, library, &query)
             })
             .collect();
         visible.sort_by_cached_key(|skill| name_order(skill));
@@ -47,7 +51,8 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Search and the skill count, then the list/grid control; the title is in the breadcrumb.
+    /// Search and the skill count, then the list/grid control; the title or folders are in the
+    /// header.
     fn library_header(&self, count: usize, cx: &mut Context<Self>) -> impl IntoElement {
         let view = self.library_view;
         let weak = cx.entity().downgrade();
@@ -102,6 +107,16 @@ impl NativeView {
                 .child(format!("No skills match '{query}'"))
                 .into_any_element();
         }
+        if let Some(folder) = self.shown_folder()
+            && visible.is_empty()
+        {
+            return div()
+                .py_8()
+                .text_center()
+                .text_color(cx.theme().muted_foreground)
+                .child(format!("No skills in {}", folder.name))
+                .into_any_element();
+        }
         let found = self
             .snapshot
             .scan
@@ -121,6 +136,7 @@ impl NativeView {
                     .get(&skill.id)
                     .copied()
                     .and_then(dates::from_unix),
+                folder: self.folder_label(skill),
                 holders: found
                     .as_ref()
                     .map(|found| found.get(&skill.id).map_or(&[][..], Vec::as_slice)),
@@ -213,6 +229,7 @@ mod tests {
             slug: slug.to_owned(),
             display_name: display_name.map(str::to_owned),
             preset_ids: Vec::new(),
+            folder_id: None,
             tag_ids: Vec::new(),
             upstream_bindings: Vec::new(),
             digest: String::new(),

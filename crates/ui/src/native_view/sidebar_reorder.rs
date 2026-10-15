@@ -302,7 +302,7 @@ impl NativeView {
             .preset_reorder
             .finish(&stored, released, self.busy, animate)
         {
-            self.change_presets(OrganizationChange::ReorderPresets { order }, cx);
+            self.change_organization(OrganizationChange::ReorderPresets { order }, cx);
         }
         cx.notify();
     }
@@ -315,7 +315,7 @@ impl NativeView {
             .preset_reorder
             .move_to(&stored, id, target, self.busy, animate)
         {
-            self.change_presets(OrganizationChange::ReorderPresets { order }, cx);
+            self.change_organization(OrganizationChange::ReorderPresets { order }, cx);
         }
         cx.notify();
     }

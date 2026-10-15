@@ -1,4 +1,8 @@
 use crate::{
+    folders::{
+        create_folder, delete_folder, move_to_folder, order_folders, rename_folder,
+        validate_folders,
+    },
     persistence::{Journal, Move},
     worker::State,
 };
@@ -64,7 +68,7 @@ fn portable_component(value: &str) -> bool {
                 | "LPT9"
         )
 }
-fn valid_id(value: &str) -> bool {
+pub(crate) fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 100
         && value
@@ -92,6 +96,7 @@ pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
             ));
         }
     }
+    let folder_ids = validate_folders(library)?;
     let mut tag_ids = BTreeSet::new();
     let mut tag_names = BTreeSet::new();
     for tag in &library.tags {
@@ -111,6 +116,10 @@ pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
             || !ids.insert(&skill.id)
             || !portable_component(&skill.slug)
             || !known_presets(&skill.preset_ids, &preset_ids)
+            || skill
+                .folder_id
+                .as_ref()
+                .is_some_and(|id| !folder_ids.contains(id))
             || skill.tag_ids.iter().any(|id| !tag_ids.contains(id))
             || skill.digest.strip_prefix("sha256:").is_none_or(|digest| {
                 digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit())
@@ -137,6 +146,7 @@ pub(crate) fn parse_library(metadata: &[u8]) -> AppResult<Library> {
         .map_err(|_| AppError::validation("Library metadata could not be read."))?;
     validate_library(&library)?;
     sort_presets(&mut library.presets);
+    order_folders(&mut library.folders);
     Ok(library)
 }
 /// The newest modification time, in Unix seconds, of the regular files under `dir`; links are
@@ -234,6 +244,14 @@ fn apply_organization(
         }
         OrganizationChange::SetPresetIcon { id, icon } => {
             preset_mut(library, &id)?.icon = icon;
+        }
+        OrganizationChange::CreateFolder { name } => create_folder(library, &name)?,
+        OrganizationChange::RenameFolder { id, name } => rename_folder(library, &id, &name)?,
+        OrganizationChange::DeleteFolder { id, revision: seen } => {
+            delete_folder(library, &id, &seen, revision)?;
+        }
+        OrganizationChange::MoveToFolder { skill, folder } => {
+            move_to_folder(library, &skill, folder)?;
         }
         OrganizationChange::DeletePreset { id, revision: seen } => {
             if seen != revision {
@@ -378,6 +396,7 @@ impl State {
         for (position, preset) in after.presets.iter_mut().enumerate() {
             preset.position = position as u32;
         }
+        order_folders(&mut after.folders);
         self.commit(Journal {
             id: uuid::Uuid::new_v4().to_string(),
             before: before.library,

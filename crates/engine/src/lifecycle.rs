@@ -97,6 +97,7 @@ impl State {
                 created_at: format_timestamp(),
                 content_policy_version: 1,
                 presets: Vec::new(),
+                folders: Vec::new(),
                 tags: Vec::new(),
                 skills: Vec::new(),
             };

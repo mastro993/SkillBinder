@@ -1,6 +1,7 @@
 //! Embedded operations. A single worker owns SQLite and serializes durable mutations.
 
 mod discovery;
+mod folders;
 mod git;
 mod grants;
 mod imports;

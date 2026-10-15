@@ -9,6 +9,7 @@ mod hover_scroll;
 mod library;
 mod library_conflicts;
 mod library_dates;
+mod library_folders;
 mod library_items;
 mod library_presence;
 mod menu;
@@ -51,6 +52,7 @@ use gpui_kit::{
     AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement,
     ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder,
 };
+use library_folders::FolderEdit;
 use route::{History, LibraryFilter, Route};
 use sidebar_presets::PresetEdit;
 use sidebar_reorder::RowReorder;
@@ -60,6 +62,10 @@ use skillbinder_proto::*;
 enum DialogState {
     ImportPlan(ImportPlan),
     DeletePreset(DeletePreview),
+    DeleteFolder {
+        id: FolderId,
+        revision: String,
+    },
     Conflict {
         slug: String,
         ids: Vec<SkillId>,
@@ -98,6 +104,12 @@ pub struct NativeView {
     /// Inline preset name editing in the sidebar.
     preset_edit: Option<PresetEdit>,
     preset_reorder: RowReorder<PresetId>,
+    /// The library folder chosen in the header; none is All skills. Not kept across restarts.
+    library_folder: Option<FolderId>,
+    /// Inline folder naming in the header.
+    folder_edit: Option<FolderEdit>,
+    /// A created folder is being saved; its tab shows as a skeleton until then.
+    creating_folder: bool,
     /// Inline workspace renaming in the sidebar.
     workspace_edit: Option<WorkspaceId>,
     workspace_reorder: RowReorder<WorkspaceId>,
@@ -125,11 +137,13 @@ pub struct NativeView {
     skill_load: Option<Task<()>>,
     search: Entity<InputState>,
     preset_name: Entity<InputState>,
+    folder_name: Entity<InputState>,
     workspace_name: Entity<InputState>,
     remote_url: Entity<InputState>,
     remote_branch: Entity<InputState>,
     _search_subscription: Subscription,
     _preset_name_subscription: Subscription,
+    _folder_name_subscription: Subscription,
     _workspace_name_subscription: Subscription,
     /// The window lost focus since the app last refreshed.
     left_focus: bool,
@@ -176,6 +190,9 @@ impl NativeView {
         let preset_name = cx.new(|cx| InputState::new(window, cx).placeholder("Preset name"));
         let preset_name_subscription =
             cx.subscribe_in(&preset_name, window, Self::preset_name_event);
+        let folder_name = cx.new(|cx| InputState::new(window, cx).placeholder("Folder name"));
+        let folder_name_subscription =
+            cx.subscribe_in(&folder_name, window, Self::folder_name_event);
         let workspace_name = cx.new(|cx| InputState::new(window, cx).placeholder("Workspace name"));
         let workspace_name_subscription =
             cx.subscribe_in(&workspace_name, window, Self::workspace_name_event);
@@ -212,6 +229,9 @@ impl NativeView {
             menu: None,
             preset_edit: None,
             preset_reorder: RowReorder::default(),
+            library_folder: None,
+            folder_edit: None,
+            creating_folder: false,
             workspace_edit: None,
             workspace_reorder: RowReorder::default(),
             sidebar_width,
@@ -231,11 +251,13 @@ impl NativeView {
             skill_load: None,
             search,
             preset_name,
+            folder_name,
             workspace_name,
             remote_url,
             remote_branch,
             _search_subscription: search_subscription,
             _preset_name_subscription: preset_name_subscription,
+            _folder_name_subscription: folder_name_subscription,
             _workspace_name_subscription: workspace_name_subscription,
             left_focus: false,
             _activation_subscription: activation_subscription,
@@ -265,6 +287,17 @@ impl NativeView {
             }
             if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
                 self.preset_edit = None;
+            }
+            let folder_exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
+            if self
+                .library_folder
+                .as_ref()
+                .is_some_and(|id| !folder_exists(id))
+            {
+                self.library_folder = None;
+            }
+            if matches!(&self.folder_edit, Some(FolderEdit::Rename(id)) if !folder_exists(id)) {
+                self.folder_edit = None;
             }
         }
         let workspace_exists = |id: &WorkspaceId| latest.workspaces.iter().any(|p| &p.id == id);
@@ -311,6 +344,7 @@ impl NativeView {
                 view.syncing = false;
                 view.preset_reorder.settle();
                 view.workspace_reorder.settle();
+                view.creating_folder = false;
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);
