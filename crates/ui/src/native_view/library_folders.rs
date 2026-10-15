@@ -15,7 +15,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, Entity, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, StatefulInteractiveElement, Styled, Window, div, px,
+    ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
 
@@ -89,6 +89,7 @@ impl NativeView {
                     .flex_shrink_0()
                     .icon(app_icon("plus"))
                     .label("Add folder")
+                    .text_color(cx.theme().muted_foreground)
                     .on_click(cx.listener(|view, _, window, cx| {
                         cx.stop_propagation();
                         view.begin_folder_edit(FolderEdit::Create, window, cx);
@@ -110,12 +111,15 @@ impl NativeView {
             .as_ref()
             .map_or_else(|| "folder-all".to_owned(), |id| format!("folder-{id}"));
         let chosen = id.clone();
+        let selected = self.library_folder == id;
         let tab = button(element.clone())
             .ghost()
             .small()
             .flex_shrink_0()
             .label(name.to_owned())
-            .selected(self.library_folder == id)
+            .selected(selected)
+            // Unchosen tabs are muted; hovering brightens them to the ghost button's text color.
+            .when(!selected, |tab| tab.text_color(cx.theme().muted_foreground))
             .on_click(cx.listener(move |view, event: &ClickEvent, window, cx| {
                 // The header is the window's title bar, whose double click zooms the window.
                 cx.stop_propagation();
