@@ -534,7 +534,7 @@ fn a_submenu_row_opens_a_third_level_panel_and_a_shade_picks_it(cx: &mut TestApp
 }
 
 #[gpui_kit::test]
-fn leaving_a_shade_restores_the_held_color(cx: &mut TestAppContext) {
+fn leaving_a_shade_restores_the_held_color_and_enter_picks_it(cx: &mut TestAppContext) {
     let harness = Harness::new(cx);
     harness.open(cx);
     harness.step(cx, |window, cx| window.hover("menu-item-color", cx));
@@ -549,11 +549,13 @@ fn leaving_a_shade_restores_the_held_color(cx: &mut TestAppContext) {
     harness.step(cx, |window, cx| {
         window.simulate_mouse_move(panel.origin + point(px(2.), px(2.)), cx)
     });
-    // Entering the hex field now keeps the held color, which picks nothing.
+    // Entering the hex field now picks the held color, not the shade, even though it is the
+    // color the picker started from.
     harness.press(cx, &["right", "enter"]);
 
     harness.assert_closed(cx);
-    assert!(harness.log(cx).is_empty());
+    let held = Hsla::from(rgb(0x2563eb)).to_hex();
+    assert_eq!(harness.log(cx), [format!("custom {held}")]);
 }
 
 #[gpui_kit::test]

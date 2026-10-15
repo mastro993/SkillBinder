@@ -90,8 +90,8 @@ pub(super) fn color_menu(
         window,
         cx,
         move |view: &mut NativeView, picked, done, window, cx| {
-            if let Some(picked) = picked {
-                let color = Some(PresetColor::Custom(srgb(picked)));
+            let color = picked.map(|picked| PresetColor::Custom(srgb(picked)));
+            if color.is_some() && color != current {
                 let change = OrganizationChange::SetPresetColor {
                     id: id.clone(),
                     color,

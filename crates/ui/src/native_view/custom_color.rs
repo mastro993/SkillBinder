@@ -37,9 +37,10 @@ pub(super) struct CustomColor {
 }
 
 impl CustomColor {
-    /// Holds `current` for a view `V`. `pick` runs with the color the user picked, `None` when
-    /// it is still `current`, and `done` set once the pick should end the menu, as choosing a
-    /// swatch or entering a hex value does.
+    /// Holds `current` for a view `V`. `pick` runs with the color the user picked, and `done`
+    /// set once the pick should end the menu, as choosing a swatch or entering a hex value does.
+    /// The color is `None` while it is still `current`, except in a pick that ends the menu: a
+    /// palette color drawn as `current` can still be picked as a fixed custom color.
     pub(super) fn new<V: 'static>(
         current: Hsla,
         window: &mut Window,
@@ -55,10 +56,8 @@ impl CustomColor {
         let focus = picker.read(cx).hex_input().focus_handle(cx);
         let changes = cx.observe_in(&picker, window, move |view, picker, window, cx| {
             let picker = picker.read(cx);
-            let (picked, done) = (
-                picker.value().filter(|&color| color != current),
-                !picker.is_open(),
-            );
+            let done = !picker.is_open();
+            let picked = picker.value().filter(|&color| done || color != current);
             if picked.is_some() || done {
                 pick(view, picked, done, window, cx);
             }
