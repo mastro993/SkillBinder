@@ -215,7 +215,7 @@ fn exercise_ui(rpc: &mut Rpc) -> anyhow::Result<()> {
     })
     .context("Onboarding did not complete")?;
     exercise_sidebar(rpc)?;
-    exercise_status_bar(rpc)?;
+    exercise_appearance_and_settings(rpc)?;
     rpc.tool("click_element", json!({"id":"nav-sync"}))?;
     let tree =
         wait_tree(rpc, |tree| remote_input(tree).is_some()).context("Sync input did not appear")?;
@@ -249,39 +249,40 @@ fn exercise_sidebar(rpc: &mut Rpc) -> anyhow::Result<()> {
         "drag_coordinates",
         json!({"from_x":x,"from_y":y,"to_x":x + 60.0,"to_y":y}),
     )?;
-    wait_tree(rpc, |tree| {
+    let tree = wait_tree(rpc, |tree| {
         handle_x(tree).is_some_and(|moved| moved > start + 30.0)
     })
     .context("Dragging the handle did not resize the sidebar")?;
+    let widened = handle_x(&tree);
     rpc.tool("click_element", json!({"id":"collapse"}))?;
     wait_tree(rpc, |tree| tree["nodes"]["nav-sync"].is_null())
         .context("Sidebar did not collapse")?;
     rpc.tool("click_element", json!({"id":"collapse"}))?;
-    wait_tree(rpc, |tree| !tree["nodes"]["nav-sync"].is_null())
-        .context("Sidebar did not expand")?;
+    // The sidebar slides in; its controls only settle once the handle is back at full width.
+    wait_tree(rpc, |tree| handle_x(tree) == widened).context("Sidebar did not expand")?;
     Ok(())
 }
 
-fn exercise_status_bar(rpc: &mut Rpc) -> anyhow::Result<()> {
+fn exercise_appearance_and_settings(rpc: &mut Rpc) -> anyhow::Result<()> {
     let appearance = |tree: &Value| {
-        tree["nodes"]["status-appearance"]["label"]
+        tree["nodes"]["sidebar-appearance"]["label"]
             .as_str()
             .map(str::to_owned)
     };
     let tree = wait_tree(rpc, |tree| appearance(tree).is_some())
-        .context("Status bar appearance toggle missing")?;
-    let initial = appearance(&tree).context("Status bar appearance toggle missing")?;
-    rpc.tool("click_element", json!({"id":"status-appearance"}))?;
+        .context("Sidebar appearance toggle missing")?;
+    let initial = appearance(&tree).context("Sidebar appearance toggle missing")?;
+    rpc.tool("click_element", json!({"id":"sidebar-appearance"}))?;
     wait_tree(rpc, |tree| {
         appearance(tree).is_some_and(|label| label != initial)
     })
     .context("Appearance toggle did not switch the theme")?;
-    rpc.tool("click_element", json!({"id":"status-appearance"}))?;
+    rpc.tool("click_element", json!({"id":"sidebar-appearance"}))?;
     wait_tree(rpc, |tree| appearance(tree).as_ref() == Some(&initial))
         .context("Appearance toggle did not switch back")?;
-    rpc.tool("click_element", json!({"id":"status-settings"}))?;
-    wait_tree(rpc, |tree| !tree["nodes"]["choose-root"].is_null())
-        .context("Status bar gear did not open Settings")?;
+    rpc.tool("click_element", json!({"id":"nav-settings"}))?;
+    wait_tree(rpc, |tree| !tree["nodes"]["reveal-logs"].is_null())
+        .context("Settings row did not open Settings")?;
     Ok(())
 }
 

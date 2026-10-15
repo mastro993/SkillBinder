@@ -28,7 +28,6 @@ mod sidebar_reorder;
 mod sidebar_row;
 mod sidebar_scroll;
 mod sidebar_workspaces;
-mod status_bar;
 mod sync;
 mod workspace_dialogs;
 mod workspace_page;
@@ -144,7 +143,7 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         let library_view = snapshot.preferences.library_view;
-        status_bar::apply_appearance(appearance, window, cx);
+        sidebar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
         let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
             if !window.is_window_active() {
@@ -481,12 +480,7 @@ impl Render for NativeView {
                 root.child(
                     div()
                         .absolute()
-                        // Clears the status bar, which only the product shell shows.
-                        .bottom(gpui_kit::px(if onboarding {
-                            16.0
-                        } else {
-                            skillbinder_theme::STATUS_BAR_HEIGHT + 16.0
-                        }))
+                        .bottom_4()
                         .right_4()
                         .max_w_96()
                         .p_4()

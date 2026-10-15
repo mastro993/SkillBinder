@@ -3,22 +3,22 @@
 use std::{rc::Rc, time::Duration};
 
 use super::controls::{Inactive, app_icon, button};
-use super::sidebar_row::{activate, count, dot, row, spinner};
+use super::sidebar_row::{activate, count, dot, icon_color, row, spinner};
 use super::{LibraryFilter, NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, h_flex};
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable, ThemeMode, TitleBar, button::ButtonVariants, h_flex,
+};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, AppContext, Axis, Context, Div, ElementId, EmptyView,
     InteractiveElement, IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled,
     Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{SyncSnapshot, SyncState};
-use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
+use skillbinder_proto::{Appearance, SyncSnapshot, SyncState};
+use skillbinder_theme::sidebar::{ICON_SIZE, INSET, ROW_GAP, ROW_HEIGHT, SECTION_GAP};
 
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
 const SIDEBAR_MOTION: Duration = Duration::from_millis(220);
-/// Small ghost button size for the back and forward controls.
-const CONTROL_SIZE: f32 = 24.0;
 
 /// Drag payload; the resize handle hands it to GPUI wrapped in an `Rc`.
 pub(super) struct SidebarDrag(pub(super) gpui_kit::EntityId);
@@ -147,7 +147,7 @@ impl NativeView {
             .border_r(hairline)
             .border_color(border)
             .on_hover(cx.listener(|view, hovered: &bool, _, cx| view.hover_sidebar(*hovered, cx)))
-            .child(self.render_history_controls(cx))
+            .child(self.render_sidebar_header(cx))
             .child(
                 div()
                     .flex()
@@ -186,8 +186,24 @@ impl NativeView {
                         self.nav_row(Route::Sync, "git-branch", "Sync", cx)
                             .children(sync),
                     )
-                    .child(self.nav_row(Route::Settings, "settings", "Settings", cx)),
+                    .child(
+                        h_flex()
+                            .gap(px(ROW_GAP))
+                            .child(
+                                self.nav_row(Route::Settings, "settings", "Settings", cx)
+                                    .flex_1()
+                                    .min_w_0(),
+                            )
+                            .child(appearance_toggle(cx)),
+                    ),
             )
+    }
+
+    fn toggle_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let system_dark = ThemeMode::from(window.appearance()).is_dark();
+        self.appearance = self.appearance.toggled(system_dark);
+        apply_appearance(self.appearance, window, cx);
+        self.persist_preferences(cx);
     }
 
     /// Library is selected only while it lists every skill; presets select their own row.
@@ -214,6 +230,36 @@ impl NativeView {
         )
     }
 
+    /// The sidebar's share of the header row; on macOS it drags the window like the page header.
+    fn render_sidebar_header(&self, cx: &mut Context<Self>) -> AnyElement {
+        let controls = h_flex()
+            .flex_1()
+            .h_full()
+            .justify_end()
+            .pr(px(INSET))
+            .child(self.render_history_controls(cx));
+        let header = div()
+            .absolute()
+            .top_0()
+            .left_0()
+            .right_0()
+            .h(px(skillbinder_theme::HEADER_HEIGHT));
+        if cfg!(target_os = "macos") {
+            header
+                .child(
+                    TitleBar::new()
+                        .border_0()
+                        .bg(gpui_kit::transparent_black())
+                        .h(px(skillbinder_theme::HEADER_HEIGHT))
+                        .pl_0()
+                        .child(controls),
+                )
+                .into_any_element()
+        } else {
+            header.flex().child(controls).into_any_element()
+        }
+    }
+
     /// Back and forward, right-aligned in the sidebar's header row.
     fn render_history_controls(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let control = |id: &'static str, icon: &str, label: &'static str, enabled: bool| {
@@ -225,9 +271,6 @@ impl NativeView {
                 .inactive(!enabled)
         };
         h_flex()
-            .absolute()
-            .top(px((skillbinder_theme::HEADER_HEIGHT - CONTROL_SIZE) / 2.0))
-            .right(px(INSET))
             .child(
                 control(
                     "go-back",
@@ -276,6 +319,47 @@ impl NativeView {
                     }),
             )
     }
+}
+
+/// Row-height square after Settings; its icon shows the current theme.
+fn appearance_toggle(cx: &mut Context<NativeView>) -> impl IntoElement + use<> {
+    let (icon, label) = if cx.theme().is_dark() {
+        (IconName::Moon, "Switch to light theme")
+    } else {
+        (IconName::Sun, "Switch to dark theme")
+    };
+    button("sidebar-appearance")
+        .ghost()
+        .flex_shrink_0()
+        .size(px(ROW_HEIGHT))
+        // The default horizontal padding would leave the glyph too little width and clip it.
+        .px_0()
+        .justify_center()
+        // A child, not `.icon()`: the kit resizes button icons to the button's size.
+        .child(
+            Icon::new(icon)
+                .size(px(ICON_SIZE))
+                .text_color(icon_color(cx)),
+        )
+        .accessibility_label(label)
+        .tooltip(label)
+        .on_click(cx.listener(|view, _, window, cx| view.toggle_appearance(window, cx)))
+}
+
+pub(super) fn apply_appearance(
+    appearance: Appearance,
+    window: &mut Window,
+    cx: &mut gpui_kit::App,
+) {
+    skillbinder_theme::set_mode(
+        match appearance {
+            Appearance::System => None,
+            Appearance::Light => Some(ThemeMode::Light),
+            Appearance::Dark => Some(ThemeMode::Dark),
+        },
+        window,
+        cx,
+    );
 }
 
 /// Local or remote changes are waiting for Push, Pull, or Sync.
