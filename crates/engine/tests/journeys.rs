@@ -381,6 +381,16 @@ async fn presets_keep_user_order_and_colors() {
         })
         .await
         .unwrap();
+    // A color wider than 24 bits is refused instead of being truncated on write.
+    assert!(
+        engine
+            .change_organization(OrganizationChange::SetPresetColor {
+                id: ids[0].clone(),
+                color: Some(PresetColor::Custom(Rgb(0x100_0000))),
+            })
+            .await
+            .is_err()
+    );
     engine
         .change_organization(OrganizationChange::SetPresetIcon {
             id: ids[0].clone(),

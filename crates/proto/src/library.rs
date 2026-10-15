@@ -62,12 +62,19 @@ impl PresetColor {
         Self::Pink,
     ];
 }
-/// An opaque sRGB color as `0xRRGGBB`, stored as a `"#rrggbb"` string.
+/// An opaque sRGB color as `0xRRGGBB`, stored as a `"#rrggbb"` string. A value above
+/// `0xffffff` fails to serialize instead of being truncated.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Rgb(pub u32);
 impl Serialize for Rgb {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&format!("#{:06x}", self.0 & 0xff_ffff))
+        if self.0 > 0xff_ffff {
+            return Err(serde::ser::Error::custom(format!(
+                "preset color {:#x} is not 24-bit",
+                self.0
+            )));
+        }
+        serializer.serialize_str(&format!("#{:06x}", self.0))
     }
 }
 impl<'de> Deserialize<'de> for Rgb {
@@ -471,6 +478,7 @@ mod tests {
         assert_eq!(serde_json::to_string(&colors)?, r##"["green","#3366ff"]"##);
         let read: Vec<PresetColor> = serde_json::from_str(r##"["green","#3366FF"]"##)?;
         assert_eq!(read, colors);
+        assert!(serde_json::to_string(&PresetColor::Custom(Rgb(0x100_0000))).is_err());
         for invalid in [
             r#""teal""#,
             r##""#3366f""##,
