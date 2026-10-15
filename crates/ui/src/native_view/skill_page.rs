@@ -48,6 +48,8 @@ impl NativeView {
                 .child(preview.unavailable.clone().unwrap_or_default())
                 .into_any_element();
         };
+        // Skill content is untrusted. Remote images never load because the app installs no HTTP
+        // client, so GPUI's null client refuses every request; keep it that way or filter images.
         TextView::markdown(format!("skill-{id}"), text.clone())
             .markdown_extensions(
                 MarkdownExtensions::default()

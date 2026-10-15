@@ -254,6 +254,7 @@ impl NativeView {
             .collect();
         self.selected_candidates.retain(|id| listed.contains(id));
         self.candidate_page = self.candidate_page.min(listed.len().saturating_sub(1) / 50);
+        let shown = self.route.clone();
         if let Some(library) = &latest.library {
             let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);
             let skill_exists = |id: &SkillId| library.library.skills.iter().any(|s| &s.id == id);
@@ -271,6 +272,9 @@ impl NativeView {
             self.route = Route::Discovery;
         }
         self.route = agent_page::agent_fallback(&latest.agents, &latest.home, self.route.clone());
+        if self.route != shown {
+            self.leave_page();
+        }
         if self
             .workspace_edit
             .as_ref()
@@ -376,12 +380,7 @@ impl NativeView {
             route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
         };
         if self.route != route {
-            self.candidate_page = 0;
-            self.selected_candidates.clear();
-            self.acknowledge_invalid = false;
-            self.preview = None;
-            self.skill_load = None;
-            self.content_scroll.handle.set_offset(Default::default());
+            self.leave_page();
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
             if let Route::Skill(id) = &route {
@@ -391,6 +390,16 @@ impl NativeView {
         self.route = route;
         self.error = None;
         cx.notify();
+    }
+
+    /// Drops the shown page's transient state and scrolls the next page to its top.
+    fn leave_page(&mut self) {
+        self.candidate_page = 0;
+        self.selected_candidates.clear();
+        self.acknowledge_invalid = false;
+        self.preview = None;
+        self.skill_load = None;
+        self.content_scroll.handle.set_offset(Default::default());
     }
 
     /// Library filter of the current route; other routes behave as all skills.
