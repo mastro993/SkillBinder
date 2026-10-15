@@ -17,5 +17,8 @@ skillbinder-proto.workspace = true
 gpui-kit.workspace = true
 skillbinder-theme.workspace = true
 
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }
+
 [lints]
 workspace = true

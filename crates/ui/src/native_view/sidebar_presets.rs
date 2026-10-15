@@ -1,26 +1,28 @@
 //! The sidebar Presets section: user-ordered presets, inline naming, row menus,
-//! colors, and the reorder menu actions.
+//! colors, icons, and the reorder menu actions.
 
 use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
 use super::controls::app_icon;
+use super::menu::MenuItem;
+use super::preset_colors::{color_menu, preset_tint};
+use super::preset_icons::{IconGrid, icon_glyph, menu_glyph};
 use super::sidebar_reorder::{RowDrag, RowDragPreview};
-use super::sidebar_row::{activate, add_button, count, icon_color, name_field, row};
+use super::sidebar_row::{activate, add_button, count, icon_color, name_field, row, with_menu};
 use super::{Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
-    ActiveTheme, Icon, Side,
+    ActiveTheme,
     input::{InputEvent, InputState},
-    menu::{ContextMenuExt, PopupMenuItem},
 };
 use gpui_kit::{
-    AnyElement, App, AppContext, ClickEvent, Context, DragMoveEvent, Entity, Hsla,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, WeakEntity, Window, div, prelude::FluentBuilder, px, rgb,
+    AnyElement, App, AppContext, Context, DragMoveEvent, Entity, InteractiveElement, IntoElement,
+    MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, WeakEntity,
+    Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{
-    LibrarySnapshot, OrganizationChange, Preset, PresetColor, PresetId, SidebarSection,
+    LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
 };
-use skillbinder_theme::sidebar::{ICON_GAP, INSET, ROW_GAP, SECTION_GAP};
+use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
 /// Which preset name the inline sidebar field edits.
 #[derive(Clone, PartialEq, Eq)]
@@ -70,7 +72,7 @@ impl NativeView {
             .enumerate()
             .map(|(index, preset)| {
                 if self.preset_edit == Some(PresetEdit::Rename(preset.id.clone())) {
-                    return self.render_preset_name_field(preset.color, cx);
+                    return self.render_preset_name_field(Some(preset), cx);
                 }
                 let skills = counts.get(&preset.id).copied().unwrap_or(0);
                 let selected = selected(LibraryFilter::Preset(preset.id.clone()));
@@ -155,11 +157,12 @@ impl NativeView {
         let label: SharedString = preset.name.clone().into();
         let route = Route::Library(LibraryFilter::Preset(id.clone()));
         let tint = preset.color.map(|color| preset_tint(color, dark));
-        let menu = self.preset_menu(preset, placement.index, placement.len, cx);
-        activate(
+        let glyph = icon_glyph(preset.icon);
+        let (menu_preset, index, len) = (preset.clone(), placement.index, placement.len);
+        let row = activate(
             row(
                 format!("preset-{id}"),
-                app_icon("folder"),
+                app_icon(glyph),
                 tint,
                 label.clone(),
                 selected,
@@ -168,6 +171,14 @@ impl NativeView {
             label.clone(),
             cx,
             move |view, window, cx| view.navigate(route.clone(), window, cx),
+        );
+        with_menu(
+            row,
+            format!("preset-{id}"),
+            selected,
+            self,
+            cx,
+            move |_, window, cx| preset_menu(&menu_preset, index, len, window, cx),
         )
         .child(count(skills, cx))
         .relative()
@@ -176,7 +187,7 @@ impl NativeView {
         .on_drag(
             RowDrag {
                 id,
-                icon: "folder",
+                icon: glyph,
                 label,
                 tint,
                 count: skills,
@@ -188,117 +199,21 @@ impl NativeView {
                 cx.new(|_| RowDragPreview::new(drag))
             },
         )
-        .context_menu(menu)
         .into_any_element()
-    }
-
-    /// Rename, color, order, and delete actions for one preset row.
-    fn preset_menu(
-        &self,
-        preset: &Preset,
-        index: usize,
-        len: usize,
-        cx: &mut Context<Self>,
-    ) -> impl Fn(
-        gpui_kit::component::menu::PopupMenu,
-        &mut Window,
-        &mut Context<gpui_kit::component::menu::PopupMenu>,
-    ) -> gpui_kit::component::menu::PopupMenu
-    + 'static {
-        let view = cx.entity().downgrade();
-        let (id, current) = (preset.id.clone(), preset.color);
-        move |menu, window, cx| {
-            let (color_view, color_id) = (view.clone(), id.clone());
-            let danger = cx.theme().danger;
-            let plain = icon_color(cx);
-            menu.item(
-                PopupMenuItem::new("Rename")
-                    .icon(menu_icon("pencil-edit", plain))
-                    .on_click(menu_action(
-                        view.clone(),
-                        id.clone(),
-                        |view, id, window, cx| {
-                            view.begin_preset_edit(PresetEdit::Rename(id.clone()), window, cx)
-                        },
-                    )),
-            )
-            .submenu_with_icon(
-                Some(menu_icon("paint-board", plain)),
-                "Color",
-                window,
-                cx,
-                move |menu, _, cx| {
-                    let dark = cx.theme().mode.is_dark();
-                    let plain = icon_color(cx);
-                    let choices = std::iter::once(None).chain(PresetColor::ALL.map(Some));
-                    // Each choice shows its tinted glyph, so the check moves to the right.
-                    choices.fold(menu.check_side(Side::Right), |menu, color| {
-                        let (view, id) = (color_view.clone(), color_id.clone());
-                        let swatch = match color {
-                            Some(color) => menu_icon("folder", preset_tint(color, dark)),
-                            None => menu_icon("folder", plain),
-                        };
-                        menu.item(
-                            PopupMenuItem::new(color.map_or("None", color_name))
-                                .icon(swatch)
-                                .checked(current == color)
-                                .on_click(move |_, _, cx| {
-                                    let _ = view.update(cx, |view, cx| {
-                                        view.set_preset_color(id.clone(), color, cx)
-                                    });
-                                }),
-                        )
-                    })
-                },
-            )
-            .separator()
-            .item(
-                PopupMenuItem::new("Move Up")
-                    .icon(menu_icon("arrow-up", plain))
-                    .disabled(index == 0)
-                    .on_click(menu_action(
-                        view.clone(),
-                        id.clone(),
-                        move |view, id, _, cx| view.move_preset(id, index.saturating_sub(1), cx),
-                    )),
-            )
-            .item(
-                PopupMenuItem::new("Move Down")
-                    .icon(menu_icon("arrow-down", plain))
-                    .disabled(index + 1 >= len)
-                    .on_click(menu_action(
-                        view.clone(),
-                        id.clone(),
-                        move |view, id, _, cx| view.move_preset(id, index + 1, cx),
-                    )),
-            )
-            .separator()
-            .item(
-                // A custom element, because plain items draw their label in the menu color.
-                PopupMenuItem::element(move |_, _| div().text_color(danger).child("Delete…"))
-                    .icon(menu_icon("delete", danger))
-                    .on_click(menu_action(view.clone(), id.clone(), |view, id, _, cx| {
-                        let (client, id) = (view.client.clone(), id.clone());
-                        view.run(
-                                async move {
-                                    client.preview_delete(id).await.map(Effect::DeletePreview)
-                                },
-                                cx,
-                            );
-                    })),
-            )
-        }
     }
 
     /// The inline name field shown in place of a preset row, or below the list when creating.
     fn render_preset_name_field(
         &self,
-        color: Option<PresetColor>,
+        preset: Option<&Preset>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let tint = color.map(|color| preset_tint(color, theme.mode.is_dark()));
-        let icon = app_icon("folder").text_color(tint.unwrap_or(theme.muted_foreground));
+        let tint = preset
+            .and_then(|preset| preset.color)
+            .map(|color| preset_tint(color, theme.mode.is_dark()));
+        let glyph = icon_glyph(preset.map_or(PresetIcon::Folder, |preset| preset.icon));
+        let icon = app_icon(glyph).text_color(tint.unwrap_or(theme.muted_foreground));
         name_field(
             "preset-name-field",
             icon,
@@ -364,15 +279,6 @@ impl NativeView {
         }
     }
 
-    fn set_preset_color(
-        &mut self,
-        id: PresetId,
-        color: Option<PresetColor>,
-        cx: &mut Context<Self>,
-    ) {
-        self.change_presets(OrganizationChange::SetPresetColor { id, color }, cx);
-    }
-
     pub(super) fn change_presets(&mut self, change: OrganizationChange, cx: &mut Context<Self>) {
         let client = self.client.clone();
         self.run(
@@ -387,47 +293,83 @@ impl NativeView {
     }
 }
 
-/// A menu glyph spaced from its label like a sidebar row's: kit menus leave 4 points
-/// between icon and label, so the icon tops that up to the row gap.
-pub(super) fn menu_icon(name: &str, color: Hsla) -> Icon {
-    app_icon(name).text_color(color).mr(px(ICON_GAP - 4.0))
-}
-
-/// A menu click handler that runs `action` on the view for one row.
+/// A menu handler that runs `action` on the view for one row.
 pub(super) fn menu_action<Id: 'static>(
     view: WeakEntity<NativeView>,
     id: Id,
     action: impl Fn(&mut NativeView, &Id, &mut Window, &mut Context<NativeView>) + 'static,
-) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
-    move |_, window, cx| {
+) -> impl Fn(&mut Window, &mut App) + 'static {
+    move |window, cx| {
         let _ = view.update(cx, |view, cx| action(view, &id, window, cx));
     }
 }
 
-fn color_name(color: PresetColor) -> &'static str {
-    match color {
-        PresetColor::Gray => "Gray",
-        PresetColor::Red => "Red",
-        PresetColor::Orange => "Orange",
-        PresetColor::Yellow => "Yellow",
-        PresetColor::Green => "Green",
-        PresetColor::Blue => "Blue",
-        PresetColor::Purple => "Purple",
-        PresetColor::Pink => "Pink",
-    }
-}
-
-/// Palette tones that keep contrast on the dark and light sidebar surfaces.
-fn preset_tint(color: PresetColor, dark: bool) -> Hsla {
-    let (dark_tone, light_tone) = match color {
-        PresetColor::Gray => (0xa3a3a3, 0x737373),
-        PresetColor::Red => (0xf87171, 0xdc2626),
-        PresetColor::Orange => (0xfb923c, 0xea580c),
-        PresetColor::Yellow => (0xfacc15, 0xca8a04),
-        PresetColor::Green => (0x4ade80, 0x16a34a),
-        PresetColor::Blue => (0x60a5fa, 0x2563eb),
-        PresetColor::Purple => (0xc084fc, 0x9333ea),
-        PresetColor::Pink => (0xf472b6, 0xdb2777),
+/// Rename, Color, Icon, order, and delete actions for the preset at `index` of `len`.
+fn preset_menu(
+    preset: &Preset,
+    index: usize,
+    len: usize,
+    window: &mut Window,
+    cx: &mut Context<NativeView>,
+) -> Vec<MenuItem> {
+    let view = cx.entity().downgrade();
+    let (id, color, icon) = (preset.id.clone(), preset.color, preset.icon);
+    let on = |action: fn(&mut NativeView, &PresetId, &mut Window, &mut Context<NativeView>)| {
+        menu_action(view.clone(), id.clone(), action)
     };
-    rgb(if dark { dark_tone } else { light_tone }).into()
+    let picked = (view.clone(), id.clone());
+    let grid = cx.new(|cx| {
+        IconGrid::new(icon, color, cx, move |icon, window, cx| {
+            let (view, id) = &picked;
+            let _ = view.update(cx, |view, cx| {
+                let id = id.clone();
+                view.change_presets(OrganizationChange::SetPresetIcon { id, icon }, cx);
+                if let Some(menu) = view.menu.as_ref() {
+                    menu.close(window, cx);
+                }
+            });
+        })
+    });
+    let focus = grid.read(cx).focus().clone();
+    vec![
+        MenuItem::new("rename", "Rename")
+            .icon("pencil-edit")
+            .on_select(on(|view, id, window, cx| {
+                view.begin_preset_edit(PresetEdit::Rename(id.clone()), window, cx)
+            })),
+        MenuItem::new("color", "Color")
+            .icon("paint-board")
+            .submenu(color_menu(&view, &id, color, window, cx)),
+        MenuItem::new("icon", "Icon")
+            .leading(move |cx| menu_glyph(icon, icon_color(cx)))
+            .panel(focus, move |_, _| grid.clone().into_any_element()),
+        MenuItem::separator(),
+        MenuItem::new("move-up", "Move Up")
+            .icon("arrow-up")
+            .disabled(index == 0)
+            .on_select(menu_action(
+                view.clone(),
+                id.clone(),
+                move |view, id, _, cx| view.move_preset(id, index.saturating_sub(1), cx),
+            )),
+        MenuItem::new("move-down", "Move Down")
+            .icon("arrow-down")
+            .disabled(index + 1 >= len)
+            .on_select(menu_action(
+                view.clone(),
+                id.clone(),
+                move |view, id, _, cx| view.move_preset(id, index + 1, cx),
+            )),
+        MenuItem::separator(),
+        MenuItem::new("delete", "Delete…")
+            .icon("delete")
+            .danger()
+            .on_select(on(|view, id, _, cx| {
+                let (client, id) = (view.client.clone(), id.clone());
+                view.run(
+                    async move { client.preview_delete(id).await.map(Effect::DeletePreview) },
+                    cx,
+                );
+            })),
+    ]
 }

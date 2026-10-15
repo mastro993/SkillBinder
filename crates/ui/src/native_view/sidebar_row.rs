@@ -4,6 +4,7 @@ use std::{rc::Rc, sync::Arc};
 
 use super::NativeView;
 use super::controls::{app_icon, button};
+use super::menu::{MenuItem, OpenMenu};
 use gpui_kit::component::{
     ActiveTheme, Icon, Sizable,
     button::{Button, ButtonVariants},
@@ -12,8 +13,9 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, Entity, FontFeatures, FontWeight, Hsla,
-    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, ParentElement, SharedString,
-    Stateful, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
+    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ParentElement,
+    SharedString, Stateful, StatefulInteractiveElement, Styled, Window, div,
+    prelude::FluentBuilder, px,
 };
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
@@ -38,7 +40,7 @@ pub(super) fn row(
         theme.muted_foreground
     };
     let icon_color = tint.unwrap_or(if selected { text } else { icon_color(cx) });
-    let hover = theme.sidebar_accent.opacity(0.5);
+    let hover = hover_fill(cx);
     div()
         .id(id.into())
         .flex()
@@ -62,6 +64,11 @@ pub(super) fn row(
         .child(div().flex_1().min_w_0().truncate().child(label.into()))
 }
 
+/// The fill of an unselected row under the pointer, or whose context menu is open.
+fn hover_fill(cx: &App) -> Hsla {
+    cx.theme().sidebar_accent.opacity(0.5)
+}
+
 /// Icon color of unselected rows, shared by the row menus.
 pub(super) fn icon_color(cx: &App) -> Hsla {
     cx.theme().muted_foreground.opacity(ICON_OPACITY)
@@ -79,14 +86,15 @@ pub(super) fn activate(
     row.tab_index(0)
         .aria_label(label)
         .on_click(cx.listener(move |view, _, window, cx| click(view, window, cx)))
-        // A row menu takes focus while the frame is drawn. A row that kept focus would report
-        // a second focused accessibility node in that frame, so right-click leaves focus on the
-        // view root, which has no accessibility node and receives focus back when the menu closes.
+        // Right-click never focuses the row: a row with a menu hands focus to the menu, which
+        // already prevented the default, and other rows leave it on the view root.
         .on_mouse_down(
             MouseButton::Right,
             cx.listener(|view, _, window, cx| {
-                window.prevent_default();
-                window.focus(&view.focus, cx);
+                if !window.default_prevented() {
+                    window.prevent_default();
+                    window.focus(&view.focus, cx);
+                }
             }),
         )
         .on_key_down(cx.listener(move |view, event: &KeyDownEvent, window, cx| {
@@ -95,6 +103,36 @@ pub(super) fn activate(
                 cx.stop_propagation();
             }
         }))
+}
+
+/// Opens the context menu `items` builds when the row is right-clicked; the row keeps its hover
+/// fill while its menu is open. Apply it after [`activate`], so the menu takes focus first.
+pub(super) fn with_menu(
+    row: Stateful<Div>,
+    owner: impl Into<SharedString>,
+    selected: bool,
+    view: &NativeView,
+    cx: &mut Context<NativeView>,
+    items: impl Fn(&mut NativeView, &mut Window, &mut Context<NativeView>) -> Vec<MenuItem> + 'static,
+) -> Stateful<Div> {
+    let owner = owner.into();
+    let open = view.menu.as_ref().is_some_and(|menu| menu.is_for(&owner));
+    row.when(open && !selected, |row| row.bg(hover_fill(cx)))
+        .on_mouse_down(
+            MouseButton::Right,
+            cx.listener(move |view, event: &MouseDownEvent, window, cx| {
+                let items = items(view, window, cx);
+                view.menu = Some(OpenMenu::new(
+                    owner.clone(),
+                    items,
+                    event.position,
+                    view.focus.clone(),
+                    window,
+                    cx,
+                    |view: &mut NativeView| &mut view.menu,
+                ));
+            }),
+        )
 }
 
 /// A trailing count with tabular figures and thousands separators.

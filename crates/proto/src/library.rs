@@ -24,7 +24,8 @@ pub struct ValidationMessage {
     /// Safe explanation.
     pub message: String,
 }
-/// A named preset color, resolved against the active theme when rendered.
+/// A preset color: a named palette color, resolved against the active theme when rendered, or
+/// any custom color, drawn the same in every theme.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PresetColor {
@@ -44,9 +45,12 @@ pub enum PresetColor {
     Purple,
     /// Pink.
     Pink,
+    /// A custom color, stored as `"#rrggbb"`.
+    #[serde(untagged)]
+    Custom(Rgb),
 }
 impl PresetColor {
-    /// Every color in menu order.
+    /// Every palette color in menu order.
     pub const ALL: [Self; 8] = [
         Self::Gray,
         Self::Red,
@@ -56,6 +60,124 @@ impl PresetColor {
         Self::Blue,
         Self::Purple,
         Self::Pink,
+    ];
+}
+/// An opaque sRGB color as `0xRRGGBB`, stored as a `"#rrggbb"` string. A value above
+/// `0xffffff` fails to serialize instead of being truncated.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Rgb(pub u32);
+impl Serialize for Rgb {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if self.0 > 0xff_ffff {
+            return Err(serde::ser::Error::custom(format!(
+                "preset color {:#x} is not 24-bit",
+                self.0
+            )));
+        }
+        serializer.serialize_str(&format!("#{:06x}", self.0))
+    }
+}
+impl<'de> Deserialize<'de> for Rgb {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.strip_prefix('#')
+            .filter(|hex| hex.len() == 6 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+            .map(Rgb)
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown preset color {text:?}")))
+    }
+}
+/// A preset glyph from a curated set, resolved to bundled artwork when rendered.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[expect(missing_docs, reason = "Each variant names its glyph.")]
+pub enum PresetIcon {
+    /// The folder glyph presets show unless another is chosen.
+    #[default]
+    Folder,
+    Star,
+    Heart,
+    Bookmark,
+    Flag,
+    Tag,
+    Target,
+    Fire,
+    Rocket,
+    Globe,
+    Code,
+    Terminal,
+    Bug,
+    Database,
+    Server,
+    Cloud,
+    Api,
+    Chip,
+    Package,
+    Puzzle,
+    Wrench,
+    Shield,
+    Sparkles,
+    Brain,
+    Robot,
+    MagicWand,
+    Idea,
+    Book,
+    Note,
+    Quill,
+    Translate,
+    Brush,
+    Image,
+    Video,
+    Music,
+    Chart,
+    Calendar,
+    Chat,
+    People,
+    Briefcase,
+}
+impl PresetIcon {
+    /// Every icon in menu order.
+    pub const ALL: [Self; 40] = [
+        Self::Folder,
+        Self::Star,
+        Self::Heart,
+        Self::Bookmark,
+        Self::Flag,
+        Self::Tag,
+        Self::Target,
+        Self::Fire,
+        Self::Rocket,
+        Self::Globe,
+        Self::Code,
+        Self::Terminal,
+        Self::Bug,
+        Self::Database,
+        Self::Server,
+        Self::Cloud,
+        Self::Api,
+        Self::Chip,
+        Self::Package,
+        Self::Puzzle,
+        Self::Wrench,
+        Self::Shield,
+        Self::Sparkles,
+        Self::Brain,
+        Self::Robot,
+        Self::MagicWand,
+        Self::Idea,
+        Self::Book,
+        Self::Note,
+        Self::Quill,
+        Self::Translate,
+        Self::Brush,
+        Self::Image,
+        Self::Video,
+        Self::Music,
+        Self::Chart,
+        Self::Calendar,
+        Self::Chat,
+        Self::People,
+        Self::Briefcase,
     ];
 }
 /// A flat portable preset: a named set of library skills.
@@ -71,6 +193,9 @@ pub struct Preset {
     /// Optional quick-scan color.
     #[serde(default)]
     pub color: Option<PresetColor>,
+    /// Quick-scan glyph; presets stored before icons existed read as the folder.
+    #[serde(default)]
+    pub icon: PresetIcon,
 }
 /// A retained portable tag; no tag editor is exposed in the application.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -201,6 +326,13 @@ pub enum OrganizationChange {
         id: PresetId,
         /// Replacement color, or none.
         color: Option<PresetColor>,
+    },
+    /// Set a preset icon.
+    SetPresetIcon {
+        /// Preset being changed.
+        id: PresetId,
+        /// Replacement icon.
+        icon: PresetIcon,
     },
     /// Delete a previewed preset; its skills stay in the library.
     DeletePreset {
@@ -336,6 +468,28 @@ mod tests {
         assert_eq!(written["presets"]["f"]["name"], "Research");
         assert!(written["skills"]["filed"].get("folderId").is_none());
         assert_eq!(written["skills"]["filed"]["presetIds"][0], "f");
+        Ok(())
+    }
+
+    #[test]
+    fn preset_colors_store_palette_names_and_custom_hex() -> serde_json::Result<()> {
+        use super::{PresetColor, Rgb};
+        let colors = [PresetColor::Green, PresetColor::Custom(Rgb(0x3366ff))];
+        assert_eq!(serde_json::to_string(&colors)?, r##"["green","#3366ff"]"##);
+        let read: Vec<PresetColor> = serde_json::from_str(r##"["green","#3366FF"]"##)?;
+        assert_eq!(read, colors);
+        assert!(serde_json::to_string(&PresetColor::Custom(Rgb(0x100_0000))).is_err());
+        for invalid in [
+            r#""teal""#,
+            r##""#3366f""##,
+            r##""#33g6ff""##,
+            r#""3366ff""#,
+        ] {
+            assert!(
+                serde_json::from_str::<PresetColor>(invalid).is_err(),
+                "{invalid}"
+            );
+        }
         Ok(())
     }
 

@@ -340,12 +340,14 @@ fn rollback_accepts_reordered_record_maps() {
             name: "Z".into(),
             position: 0,
             color: None,
+            icon: skillbinder_proto::PresetIcon::Folder,
         },
         skillbinder_proto::Preset {
             id: skillbinder_proto::PresetId("a".into()),
             name: "A".into(),
             position: 1,
             color: None,
+            icon: skillbinder_proto::PresetIcon::Folder,
         },
     ];
     inject(&[("after_metadata", false)]);

@@ -5,135 +5,87 @@ use gpui_kit::{AssetSource, SharedString};
 /// Embedded application artwork with explicit component icon replacements.
 pub struct Assets;
 
+macro_rules! icon {
+    ($name:literal, $file:literal) => {
+        (
+            concat!("icons/", $name, ".svg"),
+            include_bytes!(concat!("../../../assets/hugeicons/", $file, ".svg")),
+        )
+    };
+}
+
 const ICONS: &[(&str, &[u8])] = &[
-    (
-        "icons/arrow-down.svg",
-        include_bytes!("../../../assets/hugeicons/ArrowDown01Icon.svg"),
-    ),
-    (
-        "icons/arrow-up.svg",
-        include_bytes!("../../../assets/hugeicons/ArrowUp01Icon.svg"),
-    ),
-    (
-        "icons/book-copy.svg",
-        include_bytes!("../../../assets/hugeicons/BookCopyIcon.svg"),
-    ),
-    (
-        "icons/box.svg",
-        include_bytes!("../../../assets/hugeicons/BoxIcon.svg"),
-    ),
-    (
-        "icons/check.svg",
-        include_bytes!("../../../assets/hugeicons/Tick02Icon.svg"),
-    ),
-    (
-        "icons/chevron-left.svg",
-        include_bytes!("../../../assets/hugeicons/ArrowLeft01Icon.svg"),
-    ),
-    (
-        "icons/chevron-right.svg",
-        include_bytes!("../../../assets/hugeicons/ArrowRight01Icon.svg"),
-    ),
-    (
-        "icons/close.svg",
-        include_bytes!("../../../assets/hugeicons/Cancel01Icon.svg"),
-    ),
-    (
-        "icons/alert-circle.svg",
-        include_bytes!("../../../assets/hugeicons/AlertCircleIcon.svg"),
-    ),
-    (
-        "icons/code-folder.svg",
-        include_bytes!("../../../assets/hugeicons/CodeFolderIcon.svg"),
-    ),
-    (
-        "icons/compass.svg",
-        include_bytes!("../../../assets/hugeicons/Compass01Icon.svg"),
-    ),
-    (
-        "icons/delete.svg",
-        include_bytes!("../../../assets/hugeicons/Delete02Icon.svg"),
-    ),
-    (
-        "icons/grid-view.svg",
-        include_bytes!("../../../assets/hugeicons/GridViewIcon.svg"),
-    ),
-    (
-        "icons/list-view.svg",
-        include_bytes!("../../../assets/hugeicons/ListViewIcon.svg"),
-    ),
-    (
-        "icons/folder.svg",
-        include_bytes!("../../../assets/hugeicons/Folder01Icon.svg"),
-    ),
-    (
-        "icons/git-branch.svg",
-        include_bytes!("../../../assets/hugeicons/GitBranchIcon.svg"),
-    ),
-    (
-        "icons/git-commit.svg",
-        include_bytes!("../../../assets/hugeicons/GitCommitIcon.svg"),
-    ),
-    (
-        "icons/github.svg",
-        include_bytes!("../../../assets/hugeicons/GithubIcon.svg"),
-    ),
-    (
-        "icons/history.svg",
-        include_bytes!("../../../assets/hugeicons/HistoryIcon.svg"),
-    ),
-    (
-        "icons/layers.svg",
-        include_bytes!("../../../assets/hugeicons/Layers01Icon.svg"),
-    ),
-    (
-        "icons/moon.svg",
-        include_bytes!("../../../assets/hugeicons/Moon02Icon.svg"),
-    ),
-    (
-        "icons/paint-board.svg",
-        include_bytes!("../../../assets/hugeicons/PaintBoardIcon.svg"),
-    ),
-    (
-        "icons/panel-left-close.svg",
-        include_bytes!("../../../assets/hugeicons/LayoutLeftIcon.svg"),
-    ),
-    (
-        "icons/panel-left-open.svg",
-        include_bytes!("../../../assets/hugeicons/LayoutAlignLeftIcon.svg"),
-    ),
-    (
-        "icons/pencil-edit.svg",
-        include_bytes!("../../../assets/hugeicons/PencilEdit02Icon.svg"),
-    ),
-    (
-        "icons/plus.svg",
-        include_bytes!("../../../assets/hugeicons/PlusSignIcon.svg"),
-    ),
-    (
-        "icons/refresh-03.svg",
-        include_bytes!("../../../assets/hugeicons/Refresh03Icon.svg"),
-    ),
-    (
-        "icons/refresh.svg",
-        include_bytes!("../../../assets/hugeicons/RefreshIcon.svg"),
-    ),
-    (
-        "icons/search.svg",
-        include_bytes!("../../../assets/hugeicons/Search01Icon.svg"),
-    ),
-    (
-        "icons/settings.svg",
-        include_bytes!("../../../assets/hugeicons/Settings01Icon.svg"),
-    ),
-    (
-        "icons/square-terminal.svg",
-        include_bytes!("../../../assets/hugeicons/SquareTerminalIcon.svg"),
-    ),
-    (
-        "icons/sun.svg",
-        include_bytes!("../../../assets/hugeicons/Sun03Icon.svg"),
-    ),
+    icon!("alert-circle", "AlertCircleIcon"),
+    icon!("api", "ApiIcon"),
+    icon!("arrow-down", "ArrowDown01Icon"),
+    icon!("arrow-up", "ArrowUp01Icon"),
+    icon!("book", "Book02Icon"),
+    icon!("book-copy", "BookCopyIcon"),
+    icon!("bookmark", "Bookmark02Icon"),
+    icon!("box", "BoxIcon"),
+    icon!("brain", "AiBrain01Icon"),
+    icon!("briefcase", "Briefcase01Icon"),
+    icon!("brush", "PaintBrush01Icon"),
+    icon!("bug", "Bug01Icon"),
+    icon!("calendar", "Calendar03Icon"),
+    icon!("chart", "Analytics01Icon"),
+    icon!("chat", "BubbleChatIcon"),
+    icon!("check", "Tick02Icon"),
+    icon!("chevron-left", "ArrowLeft01Icon"),
+    icon!("chevron-right", "ArrowRight01Icon"),
+    icon!("chip", "ChipIcon"),
+    icon!("close", "Cancel01Icon"),
+    icon!("cloud", "CloudIcon"),
+    icon!("code", "SourceCodeIcon"),
+    icon!("code-folder", "CodeFolderIcon"),
+    icon!("command-line", "CommandLineIcon"),
+    icon!("compass", "Compass01Icon"),
+    icon!("database", "Database01Icon"),
+    icon!("delete", "Delete02Icon"),
+    icon!("fire", "FireIcon"),
+    icon!("flag", "Flag02Icon"),
+    icon!("folder", "Folder01Icon"),
+    icon!("git-branch", "GitBranchIcon"),
+    icon!("git-commit", "GitCommitIcon"),
+    icon!("github", "GithubIcon"),
+    icon!("globe", "Globe02Icon"),
+    icon!("grid-view", "GridViewIcon"),
+    icon!("heart", "FavouriteIcon"),
+    icon!("history", "HistoryIcon"),
+    icon!("idea", "Idea01Icon"),
+    icon!("image", "Image01Icon"),
+    icon!("layers", "Layers01Icon"),
+    icon!("list-view", "ListViewIcon"),
+    icon!("magic-wand", "MagicWand01Icon"),
+    icon!("moon", "Moon02Icon"),
+    icon!("music", "MusicNote01Icon"),
+    icon!("note", "Note01Icon"),
+    icon!("package", "PackageIcon"),
+    icon!("paint-board", "PaintBoardIcon"),
+    icon!("panel-left-close", "LayoutLeftIcon"),
+    icon!("panel-left-open", "LayoutAlignLeftIcon"),
+    icon!("pencil-edit", "PencilEdit02Icon"),
+    icon!("people", "UserGroupIcon"),
+    icon!("plus", "PlusSignIcon"),
+    icon!("puzzle", "PuzzleIcon"),
+    icon!("quill", "QuillWrite01Icon"),
+    icon!("refresh", "RefreshIcon"),
+    icon!("refresh-03", "Refresh03Icon"),
+    icon!("robot", "Robot01Icon"),
+    icon!("rocket", "Rocket01Icon"),
+    icon!("search", "Search01Icon"),
+    icon!("server", "ServerStack01Icon"),
+    icon!("settings", "Settings01Icon"),
+    icon!("shield", "Shield01Icon"),
+    icon!("sparkles", "SparklesIcon"),
+    icon!("square-terminal", "SquareTerminalIcon"),
+    icon!("star", "StarIcon"),
+    icon!("sun", "Sun03Icon"),
+    icon!("tag", "Tag01Icon"),
+    icon!("target", "Target01Icon"),
+    icon!("translate", "TranslateIcon"),
+    icon!("video", "Video01Icon"),
+    icon!("wrench", "Wrench01Icon"),
 ];
 
 macro_rules! agent_logo {
