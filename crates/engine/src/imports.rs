@@ -297,6 +297,7 @@ impl State {
         let result = self.commit(Journal {
             id: id.to_string(),
             before: snapshot.library,
+            before_metadata: None,
             after: prepared.after,
             moves,
             completed_moves: 0,

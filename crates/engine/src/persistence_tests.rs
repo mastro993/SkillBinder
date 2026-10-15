@@ -44,6 +44,7 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
     let journal = Journal {
         id: "recovery-test".into(),
         before,
+        before_metadata: None,
         after,
         moves,
         completed_moves: 0,
@@ -352,13 +353,16 @@ fn rollback_accepts_reordered_record_maps() {
     assert_result(&state, false);
 }
 #[test]
-fn rollback_keeps_unchanged_schema_2_metadata_bytes() {
-    let (_directory, mut state, mut journal) = fixture();
-    let path = state.library_dir().join(".skillbinder.json");
-    let schema_2 = br#"{"schemaVersion":2,"libraryId":"original","createdAt":"today","folders":{},"tags":{},"skills":{}}"#;
-    fs::write(&path, schema_2).unwrap();
-    journal.before = state.read_library().unwrap();
-    inject(&[("after_rename", false)]);
-    assert!(state.commit(journal).is_err());
-    assert_eq!(fs::read(&path).unwrap(), schema_2);
+fn rollback_restores_schema_2_metadata_bytes() {
+    // Before the metadata write, and after it has saved schema 3.
+    for point in ["after_rename", "before_database"] {
+        let (_directory, mut state, mut journal) = fixture();
+        let path = state.library_dir().join(".skillbinder.json");
+        let schema_2 = br#"{"schemaVersion":2,"libraryId":"original","createdAt":"today","folders":{},"tags":{},"skills":{}}"#;
+        fs::write(&path, schema_2).unwrap();
+        journal.before = state.read_library().unwrap();
+        inject(&[(point, false)]);
+        assert!(state.commit(journal).is_err());
+        assert_eq!(fs::read(&path).unwrap(), schema_2, "{point}");
+    }
 }

@@ -128,10 +128,16 @@ pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
     }
     Ok(())
 }
-/// Whether `ids` names distinct existing presets.
+/// Whether `ids` names existing presets in strictly ascending order, as schema 3 stores them.
 fn known_presets(ids: &[PresetId], presets: &BTreeSet<PresetId>) -> bool {
-    let mut seen = BTreeSet::new();
-    ids.iter().all(|id| presets.contains(id) && seen.insert(id))
+    ids.is_sorted_by(|a, b| a < b) && ids.iter().all(|id| presets.contains(id))
+}
+pub(crate) fn parse_library(metadata: &[u8]) -> AppResult<Library> {
+    let mut library: Library = serde_json::from_slice(metadata)
+        .map_err(|_| AppError::validation("Library metadata could not be read."))?;
+    validate_library(&library)?;
+    sort_presets(&mut library.presets);
+    Ok(library)
 }
 /// The newest modification time, in Unix seconds, of the regular files under `dir`; links are
 /// skipped because managed payloads materialize them.
@@ -278,6 +284,10 @@ fn reorder_presets(library: &mut Library, order: &[PresetId]) -> AppResult<()> {
 }
 impl State {
     pub(crate) fn read_library(&self) -> AppResult<Library> {
+        parse_library(&self.read_metadata()?)
+    }
+    /// The raw bytes of `.skillbinder.json`.
+    pub(crate) fn read_metadata(&self) -> AppResult<Vec<u8>> {
         let path = self.library_dir().join(".skillbinder.json");
         let metadata = fs::symlink_metadata(&path).map_err(|_| AppError::storage())?;
         if !metadata.is_file() || metadata.len() > 10 * 1024 * 1024 {
@@ -285,12 +295,7 @@ impl State {
                 "Library metadata is not a bounded regular file.",
             ));
         }
-        let mut library: Library =
-            serde_json::from_slice(&fs::read(path).map_err(|_| AppError::storage())?)
-                .map_err(|_| AppError::validation("Library metadata could not be read."))?;
-        validate_library(&library)?;
-        sort_presets(&mut library.presets);
-        Ok(library)
+        fs::read(path).map_err(|_| AppError::storage())
     }
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
         let library = self.read_library()?;
@@ -365,6 +370,7 @@ impl State {
         self.commit(Journal {
             id: uuid::Uuid::new_v4().to_string(),
             before: before.library,
+            before_metadata: None,
             after,
             moves: Vec::new(),
             completed_moves: 0,
@@ -439,6 +445,7 @@ impl State {
         self.commit(Journal {
             id: operation,
             before: before.library,
+            before_metadata: None,
             after,
             moves,
             completed_moves: 0,
@@ -559,5 +566,20 @@ impl State {
             text,
             unavailable,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preset_memberships_are_known_and_strictly_sorted() {
+        let id = |id: &str| PresetId(id.into());
+        let presets = BTreeSet::from([id("a"), id("b")]);
+        assert!(known_presets(&[id("a"), id("b")], &presets));
+        assert!(!known_presets(&[id("b"), id("a")], &presets));
+        assert!(!known_presets(&[id("a"), id("a")], &presets));
+        assert!(!known_presets(&[id("c")], &presets));
     }
 }
