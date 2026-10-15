@@ -542,7 +542,7 @@ fn the_keyboard_opens_the_third_level_and_a_hex_value_picks_it(cx: &mut TestAppC
     harness.press(cx, &["down", "down", "right", "up", "right"]);
     assert!(harness.shows(cx, "menu-panel"));
     // The field's own keys stay in it, and editing does not close the menu.
-    harness.press(cx, &["cmd-a", "backspace", "left", "up"]);
+    harness.press(cx, &["secondary-a", "backspace", "left", "up"]);
     harness.step(cx, |window, cx| window.input("#3366FF", cx));
     assert!(harness.shows(cx, "menu-panel"));
     harness.press(cx, &["enter"]);
