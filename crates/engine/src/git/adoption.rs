@@ -151,13 +151,17 @@ fn empty_metadata(bytes: &[u8]) -> AppResult<bool> {
                 | "skills"
                 | "presets"
                 | "folders"
+                | "libraryFolders"
                 | "tags"
         )
     }) {
         return Ok(false);
     }
     let library: Library = serde_json::from_slice(bytes).map_err(|_| AppError::storage())?;
-    Ok(library.skills.is_empty() && library.presets.is_empty() && library.tags.is_empty())
+    Ok(library.skills.is_empty()
+        && library.presets.is_empty()
+        && library.folders.is_empty()
+        && library.tags.is_empty())
 }
 
 fn empty_payload(repo: &Path) -> AppResult<bool> {
