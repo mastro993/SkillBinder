@@ -42,6 +42,8 @@ async fn expired_review_has_no_effect_and_completed_review_replays_after_expiry(
             .is_err_and(|error| error.category == ErrorCategory::Stale)
     );
     assert!(!fixture.data.join("library/skills/review").exists());
+    let library = engine.snapshot().await?.library.ok_or("library missing")?;
+    assert!(library.library.skills.is_empty(), "nothing is recorded");
     let valid = engine.prepare_import(ids, false).await?;
     let outcome = engine.apply_import(valid.id.clone()).await?;
     engine.shutdown().await?;
