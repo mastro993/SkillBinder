@@ -41,6 +41,11 @@ impl State {
             names.insert(normalized(skill.id.as_str()), skill.id.clone());
             digests.insert(skill.digest, skill.id);
         }
+        // A directory not yet reconciled still holds its name.
+        for slug in self.skill_dirs()? {
+            names.entry(normalized(&slug)).or_insert(SkillId(slug));
+        }
+        let mut batch = std::collections::BTreeSet::new();
         let mut items = Vec::new();
         let mut sources = Vec::new();
         for (candidate_id, source) in selected {
@@ -61,11 +66,15 @@ impl State {
                 Some(id) => (id.clone(), ImportDecision::Existing),
                 None => {
                     if let Some(held) = names.get(&name) {
-                        return Err(AppError::validation(format!(
-                            "The library already holds a different skill named {held}."
-                        )));
+                        return Err(AppError::validation(if batch.contains(&name) {
+                            "Select only one distinct payload per shared slug in an install batch."
+                                .to_owned()
+                        } else {
+                            format!("The library already holds a different skill named {held}.")
+                        }));
                     }
                     let id = SkillId(inspection.slug.clone());
+                    batch.insert(name.clone());
                     names.insert(name, id.clone());
                     digests.insert(digest.clone(), id.clone());
                     (id, ImportDecision::NewSkill)
@@ -138,6 +147,13 @@ impl State {
             {
                 return Err(AppError::stale("SourceChanged"));
             }
+        }
+        // The worker serializes library changes, but a directory may still appear outside it.
+        if prepared.review.items.iter().any(|item| {
+            item.decision == ImportDecision::NewSkill
+                && fs::symlink_metadata(self.library_dir().join(&item.destination)).is_ok()
+        }) {
+            return Err(AppError::stale("The library changed after install review."));
         }
         let staging = self
             .config

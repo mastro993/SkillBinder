@@ -52,13 +52,14 @@ impl State {
 
     /// The exact names of the directories under `skills/`, which case-insensitive file systems
     /// would otherwise also match under other spellings.
-    fn skill_dirs(&self) -> AppResult<BTreeSet<String>> {
+    pub(crate) fn skill_dirs(&self) -> AppResult<BTreeSet<String>> {
         let root = self.library_dir().join("skills");
         fs::create_dir_all(&root).map_err(|_| AppError::storage())?;
         let mut listed = BTreeSet::new();
         for entry in fs::read_dir(&root).map_err(|_| AppError::storage())? {
             let entry = entry.map_err(|_| AppError::storage())?;
-            let directory = entry.file_type().is_ok_and(|kind| kind.is_dir());
+            // An unknown entry fails the reconcile rather than reading as a removed skill.
+            let directory = entry.file_type().map_err(|_| AppError::storage())?.is_dir();
             if let (true, Some(slug)) = (directory, entry.file_name().to_str()) {
                 listed.insert(slug.to_owned());
             }
@@ -155,6 +156,10 @@ mod tests {
         }
         let locked = skills.join("locked/SKILL.md");
         fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read(&locked).is_ok() {
+            // Permissions don't bind this user, such as root in a container.
+            return;
+        }
         let first = state.reconcile_library();
         fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
         assert!(first.is_err());

@@ -510,6 +510,36 @@ async fn a_different_skill_with_a_held_slug_is_refused() {
 }
 
 #[tokio::test]
+async fn an_unreconciled_skill_directory_blocks_an_install_of_its_slug() {
+    let fixture = Fixture::new();
+    fixture.skill("alpha", "Workspace copy");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    let ids = vec![scan.candidates[0].id.clone()];
+    let plan = engine.prepare_import(ids.clone(), false).await.unwrap();
+    let skills = fixture.data.join("library/skills");
+    support::write_skill(&skills, "alpha", "Appeared outside the app");
+    assert_eq!(
+        category(engine.apply_import(plan.id).await),
+        ErrorCategory::Stale
+    );
+    assert_eq!(
+        category(engine.prepare_import(ids, false).await),
+        ErrorCategory::Validation
+    );
+    engine.shutdown().await.unwrap();
+    let engine = fixture.open();
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(
+        library.library.skills.len(),
+        1,
+        "no install journal is left"
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn two_engine_instances_cannot_own_one_library() {
     let fixture = Fixture::new();
     let engine = fixture.open();

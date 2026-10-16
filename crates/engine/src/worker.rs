@@ -82,13 +82,14 @@ impl Engine {
         };
         state.recover()?;
         state.forget_agent_folders()?;
-        if state.library_dir().exists() {
-            state.catch_up();
-        }
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("skillbinder-engine".into())
             .spawn(move || {
+                // The first job, so the window opens without waiting for it.
+                if state.library_dir().exists() {
+                    state.catch_up();
+                }
                 for message in receiver {
                     match message {
                         Message::Execute(job) => job(&mut state),
@@ -338,7 +339,8 @@ impl State {
             .ok_or_else(|| AppError::validation("Git is unavailable."))?;
         let repo = self.library_dir();
         let reconciled: Option<String> = self.setting(RECONCILED_HEAD)?.flatten();
-        let current = git.revision(&repo, "HEAD")? == reconciled;
+        // Only Push uses this; an unreadable HEAD must not stop Refresh or Disconnect.
+        let current = git.revision(&repo, "HEAD").ok() == Some(reconciled);
         let result = git.perform(&repo, remote.as_ref(), action);
         // A Push only commits what the database already holds. Anything else, including a Sync
         // that fast-forwarded before its push failed, reconciles what moved.
