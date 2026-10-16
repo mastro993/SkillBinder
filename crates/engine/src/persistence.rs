@@ -4,7 +4,7 @@ use crate::{
     schema::{device_settings, idempotency_records, operation_plans, skill_metadata},
     worker::State,
 };
-use diesel::prelude::*;
+use diesel::{prelude::*, upsert::excluded};
 use serde::{Serialize, de::DeserializeOwned};
 use skillbinder_proto::{
     AppError, AppResult, ErrorCategory, ImportOutcome, Library, SkillDetails, SkillId,
@@ -77,7 +77,7 @@ impl State {
     }
     pub(crate) fn set_setting(&self, key: &str, value: &impl Serialize) -> AppResult<()> {
         let value = serde_json::to_string(value).map_err(|_| AppError::storage())?;
-        database::put_setting(&mut self.database.borrow_mut(), key, &value)
+        put_setting(&mut self.database.borrow_mut(), key, &value)
     }
     pub(crate) fn library_dir(&self) -> PathBuf {
         self.config.data_dir.join("library")
@@ -365,7 +365,7 @@ impl State {
             if let Some(outcome) = &journal.outcome {
                 record_outcome(connection, outcome)?;
             }
-            database::put_setting(connection, &format!("journal:{}", journal.id), "true")?;
+            put_setting(connection, &format!("journal:{}", journal.id), "true")?;
             checkpoint("before_database")
         })?;
         checkpoint("after_database")
@@ -457,6 +457,21 @@ impl State {
     }
 }
 
+/// Inserts or replaces a device setting holding serialized JSON.
+fn put_setting(connection: &mut SqliteConnection, key: &str, value: &str) -> AppResult<()> {
+    diesel::insert_into(device_settings::table)
+        .values((
+            device_settings::key.eq(key),
+            device_settings::value.eq(value),
+        ))
+        .on_conflict(device_settings::key)
+        .do_update()
+        .set(device_settings::value.eq(excluded(device_settings::value)))
+        .execute(connection)
+        .map(drop)
+        .map_err(|_| AppError::storage())
+}
+
 /// Stores a completed import's outcome for replay and consumes its plan.
 fn record_outcome(connection: &mut SqliteConnection, outcome: &ImportOutcome) -> AppResult<()> {
     let serialized = serde_json::to_string(outcome).map_err(|_| AppError::storage())?;
@@ -473,7 +488,7 @@ fn record_outcome(connection: &mut SqliteConnection, outcome: &ImportOutcome) ->
         .set(operation_plans::consumed.eq(1))
         .execute(connection)
         .map_err(|_| AppError::storage())?;
-    database::put_setting(connection, "import_outcome", &serialized)
+    put_setting(connection, "import_outcome", &serialized)
 }
 
 #[cfg(not(test))]

@@ -1,9 +1,6 @@
 //! Machine-local SQLite through Diesel. The engine worker owns the only connection.
 
-use crate::{
-    persistence::now,
-    schema::{device_settings, skill_metadata},
-};
+use crate::{persistence::now, schema::skill_metadata};
 use diesel::{connection::SimpleConnection, prelude::*, upsert::excluded};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use skillbinder_proto::{AppError, AppResult, SkillDetails, SkillId};
@@ -16,31 +13,14 @@ pub(crate) fn open(path: &Path) -> AppResult<SqliteConnection> {
     let path = path.to_str().ok_or_else(AppError::storage)?;
     let mut connection = SqliteConnection::establish(path).map_err(|_| AppError::storage())?;
     connection
-        .batch_execute("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;")
+        .batch_execute(
+            "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;",
+        )
         .map_err(|_| AppError::storage())?;
     connection
         .run_pending_migrations(MIGRATIONS)
         .map_err(|_| AppError::storage())?;
     Ok(connection)
-}
-
-/// Inserts or replaces a device setting holding serialized JSON.
-pub(crate) fn put_setting(
-    connection: &mut SqliteConnection,
-    key: &str,
-    value: &str,
-) -> AppResult<()> {
-    diesel::insert_into(device_settings::table)
-        .values((
-            device_settings::key.eq(key),
-            device_settings::value.eq(value),
-        ))
-        .on_conflict(device_settings::key)
-        .do_update()
-        .set(device_settings::value.eq(excluded(device_settings::value)))
-        .execute(connection)
-        .map(drop)
-        .map_err(|_| AppError::storage())
 }
 
 /// The cached details of a library skill, if any.
