@@ -6,6 +6,7 @@
 )]
 mod support;
 
+use diesel::{prelude::*, sql_types::Text};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{ErrorCategory, ScanSnapshot, SkillId};
 use std::fs;
@@ -444,16 +445,17 @@ async fn a_stored_home_workspace_is_forgotten_on_launch() {
     let kept = fixture.register(&engine).await;
     engine.shutdown().await.unwrap();
     let home = fs::canonicalize(&fixture.home).unwrap();
-    let database = rusqlite::Connection::open(fixture.data.join("state.sqlite3")).unwrap();
-    database
-        .execute("UPDATE workspaces SET position=1", [])
+    let path = fixture.data.join("skillbinder.db");
+    let mut database = SqliteConnection::establish(path.to_str().unwrap()).unwrap();
+    diesel::sql_query("UPDATE workspaces SET position=1")
+        .execute(&mut database)
         .unwrap();
-    database
-        .execute(
-            "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES('home',?1,'home',0,0)",
-            [home.display().to_string()],
-        )
-        .unwrap();
+    diesel::sql_query(
+        "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES('home',?,'home',0,0)",
+    )
+    .bind::<Text, _>(home.display().to_string())
+    .execute(&mut database)
+    .unwrap();
     drop(database);
 
     let engine = fixture.open();

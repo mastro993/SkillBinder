@@ -35,12 +35,13 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         })
         .collect();
     let plan_id = skillbinder_proto::PlanId::new();
-    state
-        .database
-        .execute(
-            "INSERT INTO operation_plans(id,payload,expires_at) VALUES(?1,'{}',0)",
-            [plan_id.as_str()],
-        )
+    diesel::insert_into(operation_plans::table)
+        .values((
+            operation_plans::id.eq(plan_id.as_str()),
+            operation_plans::payload.eq("{}"),
+            operation_plans::expires_at.eq(0),
+        ))
+        .execute(&mut *state.database.borrow_mut())
         .unwrap();
     let journal = Journal {
         id: "recovery-test".into(),
@@ -91,33 +92,30 @@ fn assert_result(state: &State, applied: bool) {
         let actual = fs::read_to_string(if applied { to } else { from }.join("SKILL.md")).unwrap();
         assert!(actual.contains(&format!("body-{index}")));
     }
-    let details: i64 = state
-        .database
-        .query_row("SELECT count(*) FROM skill_metadata", [], |row| row.get(0))
-        .unwrap();
+    let (details, outcomes, consumed): (i64, i64, i64) = {
+        let database = &mut *state.database.borrow_mut();
+        (
+            skill_metadata::table.count().get_result(database).unwrap(),
+            idempotency_records::table
+                .count()
+                .get_result(database)
+                .unwrap(),
+            operation_plans::table
+                .select(operation_plans::consumed)
+                .first(database)
+                .unwrap(),
+        )
+    };
     assert_eq!(details, i64::from(applied));
-    let outcomes: i64 = state
-        .database
-        .query_row("SELECT count(*) FROM idempotency_records", [], |row| {
-            row.get(0)
-        })
-        .unwrap();
     assert_eq!(outcomes, i64::from(applied));
-    let consumed: i64 = state
-        .database
-        .query_row("SELECT consumed FROM operation_plans", [], |row| row.get(0))
-        .unwrap();
     assert_eq!(consumed, i64::from(applied));
     let outcome = state.setting::<ImportOutcome>("import_outcome").unwrap();
     assert_eq!(outcome.is_some(), applied);
     if let Some(outcome) = outcome {
-        let stored: String = state
-            .database
-            .query_row(
-                "SELECT result FROM idempotency_records WHERE operation_id=?1",
-                [outcome.plan_id.as_str()],
-                |row| row.get(0),
-            )
+        let stored: String = idempotency_records::table
+            .find(outcome.plan_id.as_str())
+            .select(idempotency_records::result)
+            .first(&mut *state.database.borrow_mut())
             .unwrap();
         assert_eq!(serde_json::to_string(&outcome).unwrap(), stored);
     }
