@@ -29,6 +29,11 @@ pub(crate) fn validate_name(value: &str) -> AppResult<String> {
     }
     Ok(name.to_owned())
 }
+/// A hash of the library, which previewed confirmations check.
+fn revision(library: &Library) -> AppResult<String> {
+    let bytes = serde_json::to_vec(library).map_err(|_| AppError::storage())?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
 /// Refuses duplicate preset or folder names after normalization.
 fn validate_organization(library: &Library) -> AppResult<()> {
     let mut names = BTreeSet::new();
@@ -190,12 +195,15 @@ impl State {
     pub(crate) fn read_library(&self) -> AppResult<Library> {
         Ok(library_store::load(&mut self.database.borrow_mut())?.0)
     }
+    /// The library and its revision, without reading payload directories.
+    pub(crate) fn revised_library(&self) -> AppResult<(Library, String)> {
+        let library = self.read_library()?;
+        let revision = revision(&library)?;
+        Ok((library, revision))
+    }
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
         let (library, details) = library_store::load(&mut self.database.borrow_mut())?;
-        let revision = format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(&library).map_err(|_| AppError::storage())?)
-        );
+        let revision = revision(&library)?;
         let modified = library
             .skills
             .iter()
@@ -212,9 +220,8 @@ impl State {
         })
     }
     pub(crate) fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
-        let snapshot = self.library_snapshot()?;
-        let preset = snapshot
-            .library
+        let (library, revision) = self.revised_library()?;
+        let preset = library
             .presets
             .iter()
             .find(|preset| preset.id == id)
@@ -222,13 +229,12 @@ impl State {
             .ok_or_else(|| AppError::not_found("Preset no longer exists."))?;
         Ok(DeletePreview {
             preset,
-            affected_skills: snapshot
-                .library
+            affected_skills: library
                 .skills
                 .iter()
                 .filter(|skill| skill.preset_ids.contains(&id))
                 .count(),
-            revision: snapshot.revision,
+            revision,
         })
     }
     pub(crate) fn change_organization(
@@ -236,9 +242,8 @@ impl State {
         change: OrganizationChange,
     ) -> AppResult<LibrarySnapshot> {
         self.require_recovered()?;
-        let before = self.library_snapshot()?;
-        let mut after = before.library.clone();
-        apply_organization(&mut after, change, &before.revision)?;
+        let (mut after, revision) = self.revised_library()?;
+        apply_organization(&mut after, change, &revision)?;
         validate_organization(&after)?;
         sort_presets(&mut after.presets);
         order_folders(&mut after.folders);

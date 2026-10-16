@@ -296,10 +296,6 @@ impl Git {
         }
         Ok(())
     }
-    /// The current commit, if any.
-    pub fn head(&self, repo: &Path) -> AppResult<Option<String>> {
-        self.revision(repo, "HEAD")
-    }
     /// The slugs whose skill directories differ between `from` and `to`; every slug in `to`
     /// when there is no `from`.
     pub fn changed_skills(
@@ -332,7 +328,8 @@ impl Git {
             .map(|(slug, _)| slug.to_owned())
             .collect())
     }
-    fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {
+    /// The commit `name` resolves to, if any.
+    pub fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {
         let out = process::run(
             &self.executable,
             Some(repo),
@@ -401,9 +398,11 @@ impl Git {
         {
             self.output(repo, &["add", "-f", "-A", "--", MANAGED])?;
         }
-        if !self
-            .output(repo, &["diff", "--cached", "--name-only", "-z"])?
-            .is_empty()
+        // A library without skills still publishes a first, empty commit.
+        if self.revision(repo, "HEAD")?.is_none()
+            || !self
+                .output(repo, &["diff", "--cached", "--name-only", "-z"])?
+                .is_empty()
         {
             self.output(
                 repo,
@@ -413,6 +412,7 @@ impl Git {
                     "-c",
                     "user.email=local@skillbinder.invalid",
                     "commit",
+                    "--allow-empty",
                     "-m",
                     "chore(skills): synchronize library",
                 ],

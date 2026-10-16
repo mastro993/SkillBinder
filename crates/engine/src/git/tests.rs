@@ -93,6 +93,17 @@ fn empty_remote_connect_never_commits_then_push_and_pull_work() {
     );
 }
 #[test]
+fn a_library_without_skills_publishes_an_empty_first_commit() {
+    let f = Fixture::new();
+    fs::remove_dir_all(f.repo.join("skills/demo")).unwrap();
+    let pushed = f
+        .git
+        .perform(&f.repo, Some(&f.remote), SyncAction::Push)
+        .unwrap();
+    assert_eq!(pushed.state, SyncState::Synced);
+    assert!(f.git.revision(&f.repo, "HEAD").unwrap().is_some());
+}
+#[test]
 fn foreign_staged_file_refuses_without_changing_index_or_worktree() {
     let f = Fixture::new();
     f.push();

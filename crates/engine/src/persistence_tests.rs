@@ -43,11 +43,11 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         completed_moves: 0,
         progress: Default::default(),
         skills,
-        outcome: Some(ImportOutcome {
+        outcome: ImportOutcome {
             plan_id,
             imported: vec![],
             existing: vec![],
-        }),
+        },
     };
     (directory, state, journal)
 }

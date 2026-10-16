@@ -87,7 +87,7 @@ pub(crate) struct Journal {
     pub progress: JournalProgress,
     /// Skills the commit saves.
     pub skills: Vec<SkillRecord>,
-    pub outcome: Option<ImportOutcome>,
+    pub outcome: ImportOutcome,
 }
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct JournalProgress {
@@ -299,9 +299,7 @@ impl State {
             for record in &journal.skills {
                 save_skill(connection, record)?;
             }
-            if let Some(outcome) = &journal.outcome {
-                record_outcome(connection, outcome)?;
-            }
+            record_outcome(connection, &journal.outcome)?;
             diesel::delete(journals::table.find(&journal.id))
                 .execute(connection)
                 .map_err(|_| AppError::storage())?;

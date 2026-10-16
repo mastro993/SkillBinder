@@ -82,7 +82,9 @@ impl State {
             .as_ref()
             .ok_or_else(|| AppError::validation("Install Git 2.39 or newer, then recheck."))?;
         let target = self.library_dir();
-        if !target.exists() {
+        if target.exists() {
+            git.initialize(&target)?;
+        } else {
             let staged = self
                 .config
                 .data_dir

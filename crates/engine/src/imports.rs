@@ -33,17 +33,14 @@ impl State {
         selected: Vec<(CandidateId, ImportSource)>,
         acknowledge_invalid: bool,
     ) -> AppResult<ImportPlan> {
-        let snapshot = self.library_snapshot()?;
-        // Each slug's digest by normalized name, so names that differ only in case collide.
-        let mut names: BTreeMap<String, (SkillId, String)> = snapshot
-            .library
-            .skills
-            .iter()
-            .map(|skill| {
-                let name = normalized(skill.id.as_str());
-                (name, (skill.id.clone(), skill.digest.clone()))
-            })
-            .collect();
+        let (library, revision) = self.revised_library()?;
+        // Slugs by normalized name, so names that differ only in case collide, and by digest.
+        let mut names: BTreeMap<String, SkillId> = BTreeMap::new();
+        let mut digests: BTreeMap<String, SkillId> = BTreeMap::new();
+        for skill in library.skills {
+            names.insert(normalized(skill.id.as_str()), skill.id.clone());
+            digests.insert(skill.digest, skill.id);
+        }
         let mut items = Vec::new();
         let mut sources = Vec::new();
         for (candidate_id, source) in selected {
@@ -60,20 +57,17 @@ impl State {
             }
             let digest = &inspection.manifest.digest;
             let name = normalized(&inspection.slug);
-            let existing = names
-                .values()
-                .find(|(_, held)| held == digest)
-                .map(|(id, _)| id.clone());
-            let (skill_id, decision) = match existing {
-                Some(id) => (id, ImportDecision::Existing),
+            let (skill_id, decision) = match digests.get(digest) {
+                Some(id) => (id.clone(), ImportDecision::Existing),
                 None => {
-                    if let Some((held, _)) = names.get(&name) {
+                    if let Some(held) = names.get(&name) {
                         return Err(AppError::validation(format!(
                             "The library already holds a different skill named {held}."
                         )));
                     }
                     let id = SkillId(inspection.slug.clone());
-                    names.insert(name, (id.clone(), digest.clone()));
+                    names.insert(name, id.clone());
+                    digests.insert(digest.clone(), id.clone());
                     (id, ImportDecision::NewSkill)
                 }
             };
@@ -92,7 +86,7 @@ impl State {
         let review = ImportPlan {
             id: PlanId::new(),
             expires_at: persistence::now() + 300,
-            revision: snapshot.revision,
+            revision,
             items,
         };
         let prepared = Prepared {
@@ -134,7 +128,7 @@ impl State {
         if persistence::now() >= prepared.review.expires_at {
             return Err(AppError::stale("Install plan expired. Review it again."));
         }
-        if self.library_snapshot()?.revision != prepared.review.revision {
+        if self.revised_library()?.1 != prepared.review.revision {
             return Err(AppError::stale("The library changed after install review."));
         }
         for (item, inspection) in prepared.review.items.iter().zip(&prepared.sources) {
@@ -202,7 +196,7 @@ impl State {
             completed_moves: 0,
             progress: Default::default(),
             skills,
-            outcome: Some(outcome.clone()),
+            outcome: outcome.clone(),
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);

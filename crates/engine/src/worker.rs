@@ -83,8 +83,8 @@ impl Engine {
         state.recover()?;
         state.forget_agent_folders()?;
         if state.library_dir().exists() {
-            state.reconcile_library()?;
             state.reconcile_head()?;
+            state.reconcile_library()?;
         }
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
@@ -339,12 +339,12 @@ impl State {
             .ok_or_else(|| AppError::validation("Git is unavailable."))?;
         let repo = self.library_dir();
         let reconciled: Option<String> = self.setting(RECONCILED_HEAD)?.flatten();
-        let current = git.head(&repo)? == reconciled;
+        let current = git.revision(&repo, "HEAD")? == reconciled;
         let result = git.perform(&repo, remote.as_ref(), action);
         // A Push only commits what the database already holds. Anything else, including a Sync
         // that fast-forwarded before its push failed, reconciles what moved.
         let caught_up = if matches!(action, SyncAction::Push) && current {
-            git.head(&repo)
+            git.revision(&repo, "HEAD")
                 .and_then(|head| self.set_setting(RECONCILED_HEAD, &head))
         } else {
             self.reconcile_head()
