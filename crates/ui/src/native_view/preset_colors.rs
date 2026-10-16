@@ -151,7 +151,6 @@ fn ring(cx: &App) -> AnyElement {
 mod tests {
     use super::srgb;
     use gpui_kit::{Hsla, hsla, rgb};
-    use skillbinder_proto::Rgb;
 
     #[test]
     fn a_picked_color_converts_back_to_the_srgb_it_came_from() {
