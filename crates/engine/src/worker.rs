@@ -1,6 +1,6 @@
 use crate::{
     database, discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig,
-    logging::Logger,
+    logging::Logger, reconcile::RECONCILED_HEAD,
 };
 use diesel::SqliteConnection;
 use fs2::FileExt;
@@ -84,6 +84,7 @@ impl Engine {
         state.forget_agent_folders()?;
         if state.library_dir().exists() {
             state.reconcile_library()?;
+            state.reconcile_head()?;
         }
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
@@ -337,17 +338,23 @@ impl State {
             .as_ref()
             .ok_or_else(|| AppError::validation("Git is unavailable."))?;
         let repo = self.library_dir();
-        let before = git.head(&repo)?;
+        let reconciled: Option<String> = self.setting(RECONCILED_HEAD)?.flatten();
+        let current = git.head(&repo)? == reconciled;
         let result = git.perform(&repo, remote.as_ref(), action);
-        // A Sync can fast-forward before its push fails, so the merged skills reconcile anyway.
-        if let Some(after) = git.head(&repo)?
-            && matches!(action, SyncAction::Pull | SyncAction::Sync)
-            && before.as_ref() != Some(&after)
-        {
-            let changed = git.changed_skills(&repo, before.as_deref(), &after)?;
-            self.reconcile_slugs(changed)?;
+        // A Push only commits what the database already holds. Anything else, including a Sync
+        // that fast-forwarded before its push failed, reconciles what moved.
+        let caught_up = if matches!(action, SyncAction::Push) && current {
+            git.head(&repo)
+                .and_then(|head| self.set_setting(RECONCILED_HEAD, &head))
+        } else {
+            self.reconcile_head()
+        };
+        if let (Err(_), Err(error)) = (&result, &caught_up) {
+            self.log
+                .record(format!("Reconciliation after a failed sync: {error}"));
         }
         let snapshot = result?;
+        caught_up?;
         if matches!(action, SyncAction::Disconnect) {
             self.set_setting("remote", &Option::<RemoteConfig>::None)?;
         }

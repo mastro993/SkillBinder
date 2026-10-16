@@ -165,6 +165,10 @@ pub(crate) fn save_organization(
     diesel::delete(presets::table)
         .execute(connection)
         .map_err(storage)?;
+    diesel::update(skills::table)
+        .set(skills::folder_id.eq(None::<String>))
+        .execute(connection)
+        .map_err(storage)?;
     diesel::delete(library_folders::table)
         .execute(connection)
         .map_err(storage)?;

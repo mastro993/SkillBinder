@@ -50,12 +50,7 @@ fn title(route: &Route, snapshot: &AppSnapshot) -> String {
             .and_then(|library| library.library.presets.iter().find(|f| &f.id == id))
             .map(|preset| preset.name.clone())
             .unwrap_or_default(),
-        Route::Skill(id) => snapshot
-            .library
-            .as_ref()
-            .and_then(|library| library.library.skills.iter().find(|skill| &skill.id == id))
-            .map(|skill| skill.id.to_string())
-            .unwrap_or_default(),
+        Route::Skill(id) => id.to_string(),
         Route::Workspace(id) => snapshot
             .workspaces
             .iter()

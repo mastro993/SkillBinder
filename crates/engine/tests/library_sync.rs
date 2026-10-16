@@ -356,3 +356,25 @@ async fn organization_changes_never_dirty_or_commit_the_library() {
     );
     device.engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn launch_catches_up_on_a_pull_interrupted_before_its_reconcile() {
+    let mut device = Device::published(&["alpha"]).await;
+    let before = snapshot(&device.engine).await;
+    device.peer_push(|skills| {
+        write_skill(skills, "alpha", "Second version");
+        write_skill(skills, "beta", "Pulled");
+    });
+    device.engine.shutdown().await.unwrap();
+    // The fast-forward a Pull performs, without the engine reconciling afterwards.
+    git(&device.library(), &["fetch", &device.remote.url, "main"]);
+    git(&device.library(), &["merge", "--ff-only", "FETCH_HEAD"]);
+    device.engine = device.fixture.open();
+    let after = snapshot(&device.engine).await;
+    assert_eq!(slugs(&after), ["alpha", "beta"]);
+    assert_ne!(
+        skill(&after, "alpha").digest,
+        skill(&before, "alpha").digest
+    );
+    device.engine.shutdown().await.unwrap();
+}

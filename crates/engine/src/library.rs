@@ -66,7 +66,7 @@ fn newest_modification(dir: &Path) -> Option<u64> {
 fn sort_presets(presets: &mut [Preset]) {
     presets.sort_by_key(|preset| preset.position);
     for (position, preset) in presets.iter_mut().enumerate() {
-        preset.position = position as u32;
+        preset.position = u32::try_from(position).unwrap_or(u32::MAX);
     }
 }
 fn apply_organization(
