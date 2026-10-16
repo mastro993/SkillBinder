@@ -85,7 +85,7 @@ impl NativeView {
         for item in &plan.items {
             body = body.child(format!(
                 "{} — {:?} — {} → {} ({} bytes)",
-                item.skill_id, item.decision, item.source, item.destination, item.total_bytes
+                item.slug, item.decision, item.source, item.destination, item.total_bytes
             ));
             for message in &item.messages {
                 body = body.child(format!("{:?}: {}", message.status, message.message));

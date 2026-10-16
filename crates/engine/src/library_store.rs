@@ -70,6 +70,16 @@ pub(crate) fn delete_skill(connection: &mut SqliteConnection, slug: &str) -> App
         .map_err(|_| AppError::storage())
 }
 
+/// Whether the library holds `slug`.
+pub(crate) fn holds(connection: &mut SqliteConnection, slug: &str) -> AppResult<bool> {
+    skills::table
+        .find(slug)
+        .count()
+        .get_result::<i64>(connection)
+        .map(|rows| rows > 0)
+        .map_err(|_| AppError::storage())
+}
+
 /// The slugs of every library skill.
 pub(crate) fn slugs(connection: &mut SqliteConnection) -> AppResult<BTreeSet<String>> {
     skills::table

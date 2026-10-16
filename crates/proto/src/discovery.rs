@@ -74,6 +74,8 @@ pub struct ImportItem {
     pub candidate_id: CandidateId,
     /// The library skill the row installs or matches.
     pub skill_id: SkillId,
+    /// The found skill's directory slug, which an identical library skill may name differently.
+    pub slug: String,
     /// Source shown during review.
     pub source: String,
     /// Planned managed relative directory.

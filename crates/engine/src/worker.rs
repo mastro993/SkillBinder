@@ -338,17 +338,18 @@ impl State {
             .as_ref()
             .ok_or_else(|| AppError::validation("Git is unavailable."))?;
         let repo = self.library_dir();
-        let reconciled: Option<String> = self.setting(RECONCILED_HEAD)?.flatten();
-        // Only Push uses this; an unreadable HEAD must not stop Refresh or Disconnect.
-        let current = git.revision(&repo, "HEAD").ok() == Some(reconciled);
+        let current = matches!(action, SyncAction::Push)
+            && git.revision(&repo, "HEAD").ok()
+                == Some(self.setting::<Option<String>>(RECONCILED_HEAD)?.flatten());
         let result = git.perform(&repo, remote.as_ref(), action);
-        // A Push only commits what the database already holds. Anything else, including a Sync
+        // A Push only commits what the database already holds. A Pull or Sync, including one
         // that fast-forwarded before its push failed, reconciles what moved.
-        let caught_up = if matches!(action, SyncAction::Push) && current {
-            git.revision(&repo, "HEAD")
-                .and_then(|head| self.set_setting(RECONCILED_HEAD, &head))
-        } else {
-            self.reconcile_head()
+        let caught_up = match action {
+            SyncAction::Push if current => git
+                .revision(&repo, "HEAD")
+                .and_then(|head| self.set_setting(RECONCILED_HEAD, &head)),
+            SyncAction::Pull | SyncAction::Sync => self.reconcile_head(),
+            _ => Ok(()),
         };
         // The recorded commit stays behind on failure, so the next launch retries; the Git
         // result, success or failure, is what the user sees.

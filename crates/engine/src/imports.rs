@@ -84,6 +84,7 @@ impl State {
                 candidate_id,
                 destination: format!("skills/{skill_id}"),
                 skill_id,
+                slug: inspection.slug.clone(),
                 source: source.display_path,
                 decision,
                 validation: inspection.status,

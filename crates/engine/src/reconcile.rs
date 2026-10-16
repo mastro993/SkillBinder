@@ -107,15 +107,14 @@ impl State {
         failure.map_or(Ok(()), Err)
     }
 
-    /// Reconciles after launch: failures are logged and retried at the next launch, since the
-    /// recorded commit only advances once every changed skill was inspected.
+    /// Reconciles after launch or onboarding: failures are logged and retried at the next launch,
+    /// since the recorded commit only advances once every changed skill was inspected.
     pub(crate) fn catch_up(&self) {
-        if let Err(error) = self
-            .reconcile_head()
-            .and_then(|()| self.reconcile_library())
-        {
-            self.log
-                .record(format!("Library reconciliation will retry: {error}"));
+        for result in [self.reconcile_head(), self.reconcile_library()] {
+            if let Err(error) = result {
+                self.log
+                    .record(format!("Library reconciliation will retry: {error}"));
+            }
         }
     }
 }
