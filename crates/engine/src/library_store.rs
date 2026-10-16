@@ -37,28 +37,6 @@ impl SkillRecord {
     }
 }
 
-impl SkillRecord {
-    /// A directory that could not be inspected: still a library skill, reported as blocked.
-    pub(crate) fn unreadable(slug: String) -> Self {
-        let message = ValidationMessage {
-            status: ValidationStatus::Blocked,
-            message: "SkillBinder could not read this skill directory.".to_owned(),
-        };
-        Self {
-            slug,
-            digest: String::new(),
-            file_count: 0,
-            total_bytes: 0,
-            details: SkillDetails {
-                description: String::new(),
-                validation: ValidationStatus::Blocked,
-                messages: vec![message],
-            },
-            imported_at: None,
-        }
-    }
-}
-
 /// Inserts a skill, or refreshes the payload facts of an existing one while keeping its install
 /// time, folder, and presets.
 pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SkillRecord) -> AppResult<()> {

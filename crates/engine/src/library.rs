@@ -272,12 +272,7 @@ impl State {
         id: SkillId,
         relative: Option<String>,
     ) -> AppResult<SkillPreview> {
-        if !self
-            .read_library()?
-            .skills
-            .iter()
-            .any(|skill| skill.id == id)
-        {
+        if !library_store::slugs(&mut self.database.borrow_mut())?.contains(id.as_str()) {
             return Err(AppError::not_found("Skill no longer exists."));
         }
         let root = self.skill_dir(&id)?;

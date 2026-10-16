@@ -83,8 +83,7 @@ impl Engine {
         state.recover()?;
         state.forget_agent_folders()?;
         if state.library_dir().exists() {
-            state.reconcile_head()?;
-            state.reconcile_library()?;
+            state.catch_up();
         }
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
@@ -349,12 +348,13 @@ impl State {
         } else {
             self.reconcile_head()
         };
-        if let (Err(_), Err(error)) = (&result, &caught_up) {
+        // The recorded commit stays behind on failure, so the next launch retries; the Git
+        // result, success or failure, is what the user sees.
+        if let Err(error) = caught_up {
             self.log
-                .record(format!("Reconciliation after a failed sync: {error}"));
+                .record(format!("Library reconciliation will retry: {error}"));
         }
         let snapshot = result?;
-        caught_up?;
         if matches!(action, SyncAction::Disconnect) {
             self.set_setting("remote", &Option::<RemoteConfig>::None)?;
         }

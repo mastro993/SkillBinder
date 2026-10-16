@@ -67,31 +67,32 @@ impl State {
     }
 
     /// Reinspects each slug's directory, saving those that exist and dropping the rest. A new
-    /// skill is unfiled, in no preset, and has no install time.
+    /// skill is unfiled, in no preset, and has no install time. A directory that cannot be
+    /// inspected keeps its previous row, and the first such failure is returned after the rest
+    /// are saved, so the caller retries it.
     fn reconcile_slugs(&self, slugs: impl IntoIterator<Item = String>) -> AppResult<()> {
         let root = self.library_dir().join("skills");
         let listed = self.skill_dirs()?;
         let mut saved = Vec::new();
         let mut gone = Vec::new();
+        let mut failure = None;
         for slug in slugs {
-            if listed.contains(&slug) {
-                let inspected = self
-                    .contained_skill_path(&root.join(&slug))
-                    .and_then(|path| payload::inspect(&path));
-                saved.push(match inspected {
-                    Ok(inspection) => SkillRecord::new(slug, &inspection, None),
-                    Err(error) => {
-                        self.log
-                            .record(format!("Library skill {slug} is unreadable: {error}"));
-                        SkillRecord::unreadable(slug)
-                    }
-                });
-            } else {
+            if !listed.contains(&slug) {
                 gone.push(slug);
+                continue;
             }
-        }
-        if saved.is_empty() && gone.is_empty() {
-            return Ok(());
+            match self
+                .contained_skill_path(&root.join(&slug))
+                .and_then(|path| payload::inspect(&path))
+            {
+                Ok(inspection) => saved.push(SkillRecord::new(slug, &inspection, None)),
+                Err(error) => {
+                    self.log.record(format!(
+                        "Library skill {slug} could not be inspected: {error}"
+                    ));
+                    failure.get_or_insert(error);
+                }
+            }
         }
         database::transaction(&mut self.database.borrow_mut(), |connection| {
             for record in &saved {
@@ -101,7 +102,20 @@ impl State {
                 library_store::delete_skill(connection, slug)?;
             }
             Ok(())
-        })
+        })?;
+        failure.map_or(Ok(()), Err)
+    }
+
+    /// Reconciles after launch: failures are logged and retried at the next launch, since the
+    /// recorded commit only advances once every changed skill was inspected.
+    pub(crate) fn catch_up(&self) {
+        if let Err(error) = self
+            .reconcile_head()
+            .and_then(|()| self.reconcile_library())
+        {
+            self.log
+                .record(format!("Library reconciliation will retry: {error}"));
+        }
     }
 }
 
@@ -130,22 +144,26 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn an_unreadable_skill_is_listed_as_blocked() {
+    fn an_unreadable_skill_is_retried_without_holding_back_the_others() {
         use std::os::unix::fs::PermissionsExt;
         let directory = tempfile::tempdir().unwrap();
         let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
-        let locked = state.library_dir().join("skills/locked");
-        fs::create_dir(&locked).unwrap();
-        fs::write(locked.join("SKILL.md"), "---\nname: locked\n---\n").unwrap();
-        fs::set_permissions(locked.join("SKILL.md"), fs::Permissions::from_mode(0o000)).unwrap();
-        let reconciled = state.reconcile_library();
-        fs::set_permissions(locked.join("SKILL.md"), fs::Permissions::from_mode(0o644)).unwrap();
-        reconciled.unwrap();
-        let (_, details) = library_store::load(&mut state.database.borrow_mut()).unwrap();
-        let locked = &details[&skillbinder_proto::SkillId("locked".into())];
+        let skills = state.library_dir().join("skills");
+        for slug in ["locked", "open"] {
+            fs::create_dir(skills.join(slug)).unwrap();
+            fs::write(skills.join(slug).join("SKILL.md"), "---\nname: x\n---\n").unwrap();
+        }
+        let locked = skills.join("locked/SKILL.md");
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+        let first = state.reconcile_library();
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(first.is_err());
+        let slugs = || library_store::slugs(&mut state.database.borrow_mut()).unwrap();
+        assert_eq!(slugs(), BTreeSet::from(["open".to_owned()]));
+        state.reconcile_library().unwrap();
         assert_eq!(
-            locked.validation,
-            skillbinder_proto::ValidationStatus::Blocked
+            slugs(),
+            BTreeSet::from(["locked".to_owned(), "open".to_owned()])
         );
     }
 }

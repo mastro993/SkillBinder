@@ -1,4 +1,4 @@
-use crate::{persistence, worker::State};
+use crate::{persistence, reconcile::RECONCILED_HEAD, worker::State};
 use skillbinder_proto::{AppError, AppResult, Bootstrap, ErrorCategory, OnboardingStep};
 use std::{collections::BTreeMap, path::PathBuf};
 
@@ -95,7 +95,13 @@ impl State {
             std::fs::rename(&staged, &target).map_err(|_| AppError::storage())?;
             persistence::sync_directory(&self.config.data_dir)?;
         }
-        self.reconcile_library()?;
+        // A new library has no skills yet, so reconciling the listing covers its current commit.
+        match self.reconcile_library() {
+            Ok(()) => self.set_setting(RECONCILED_HEAD, &git.revision(&target, "HEAD")?)?,
+            Err(error) => self
+                .log
+                .record(format!("Library reconciliation will retry: {error}")),
+        }
         self.set_setting("onboarding", &OnboardingStep::Complete)?;
         self.bootstrap()
     }
