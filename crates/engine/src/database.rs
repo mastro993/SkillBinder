@@ -14,7 +14,7 @@ pub(crate) fn open(path: &Path) -> AppResult<SqliteConnection> {
     let mut connection = SqliteConnection::establish(path).map_err(|_| AppError::storage())?;
     connection
         .batch_execute(
-            "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;",
+            "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;",
         )
         .map_err(|_| AppError::storage())?;
     connection
