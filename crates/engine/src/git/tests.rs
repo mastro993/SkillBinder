@@ -194,6 +194,20 @@ fn non_portable_remote_skill_names_do_not_reach_worktree() {
 }
 
 #[test]
+fn remote_files_outside_skill_directories_do_not_reach_worktree() {
+    let f = Fixture::new();
+    f.push();
+    f.peer();
+    f.peer_commit("skills/notes", "a file, not a skill directory");
+    assert!(
+        f.git
+            .perform(&f.repo, Some(&f.remote), SyncAction::Pull)
+            .is_err()
+    );
+    assert!(!f.repo.join("skills/notes").exists());
+}
+
+#[test]
 fn branches_follow_git_grammar_and_refresh_preserves_index() {
     let f = Fixture::new();
     f.push();

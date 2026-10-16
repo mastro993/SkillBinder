@@ -38,6 +38,6 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - A detected agent is a registry agent whose global skill directory exists on this device, inside home where the scan reads it. Its found skills are the found skills in that directory, installed or not. Agents that share a global skill directory share their found skills. Agents is the view of found skills by detected agent. Avoid "installed agent".
 - The universal agents are the detected agents whose global skill directory is `~/.agents/skills`. The app lists them together as Universal. The registry's agent named Universal is not necessarily one of them: its global skill directory is under the XDG config folder.
 - Discovery is the view of every found skill across the global skill directories and all workspaces. It lists each one once per slug and content, with every location where it was found. Discovery is read-only; installing a found skill leaves its source untouched.
-- Sync and Push are explicit actions that may commit managed changes. Installs and removals remain uncommitted until those actions. Organization changes are never committed.
+- Sync and Push are explicit actions that may commit managed changes. Installs remain uncommitted until those actions. Organization changes are never committed.
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.

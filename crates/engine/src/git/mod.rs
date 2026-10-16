@@ -280,10 +280,9 @@ impl Git {
                     "Remote managed content contains unsupported entries.",
                 ));
             }
-            let Some((slug, _)) = path.strip_prefix("skills/").and_then(|p| p.split_once('/'))
-            else {
-                continue;
-            };
+            let slug = skill_of(path).ok_or_else(|| {
+                failure("Remote managed files must sit inside skill directories.")
+            })?;
             let unique = *names
                 .entry(crate::library::normalized(slug))
                 .or_insert(slug)
@@ -324,8 +323,8 @@ impl Git {
         Ok(self
             .output(repo, args)?
             .split('\0')
-            .filter_map(|path| path.strip_prefix("skills/")?.split_once('/'))
-            .map(|(slug, _)| slug.to_owned())
+            .filter_map(skill_of)
+            .map(str::to_owned)
             .collect())
     }
     /// The commit `name` resolves to, if any.
@@ -429,6 +428,10 @@ impl Git {
         }
         String::from_utf8(output.stdout).map_err(|_| failure("Git output is unreadable."))
     }
+}
+/// The slug of the skill directory holding a managed path, `skills/<slug>/...`.
+fn skill_of(path: &str) -> Option<&str> {
+    Some(path.strip_prefix("skills/")?.split_once('/')?.0)
 }
 fn managed(path: &str) -> bool {
     path.starts_with("skills/")

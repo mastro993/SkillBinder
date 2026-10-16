@@ -86,7 +86,7 @@ impl Engine {
         let thread = std::thread::Builder::new()
             .name("skillbinder-engine".into())
             .spawn(move || {
-                // The first job, so the window opens without waiting for it.
+                // Engine::open returns before this runs; queued requests wait for it.
                 if state.library_dir().exists() {
                     state.catch_up();
                 }

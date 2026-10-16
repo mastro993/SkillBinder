@@ -10,7 +10,10 @@ use crate::{
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::*;
-use std::{collections::BTreeMap, fs};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+};
 
 #[derive(Serialize, Deserialize)]
 struct Prepared {
@@ -45,7 +48,7 @@ impl State {
         for slug in self.skill_dirs()? {
             names.entry(normalized(&slug)).or_insert(SkillId(slug));
         }
-        let mut batch = std::collections::BTreeSet::new();
+        let mut batch = BTreeSet::new();
         let mut items = Vec::new();
         let mut sources = Vec::new();
         for (candidate_id, source) in selected {
@@ -149,10 +152,12 @@ impl State {
                 return Err(AppError::stale("SourceChanged"));
             }
         }
-        // The worker serializes library changes, but a directory may still appear outside it.
+        // A directory that a failed reconcile left out of the database may have appeared since
+        // review; names that differ only in case collide on some file systems.
+        let taken: BTreeSet<_> = self.skill_dirs()?.iter().map(|s| normalized(s)).collect();
         if prepared.review.items.iter().any(|item| {
             item.decision == ImportDecision::NewSkill
-                && fs::symlink_metadata(self.library_dir().join(&item.destination)).is_ok()
+                && taken.contains(&normalized(item.skill_id.as_str()))
         }) {
             return Err(AppError::stale("The library changed after install review."));
         }
@@ -162,17 +167,15 @@ impl State {
             .join("staging")
             .join(format!("import-{id}-{}", uuid::Uuid::new_v4()));
         fs::create_dir(&staging).map_err(|_| AppError::storage())?;
-        let new_items = || {
-            prepared
-                .review
-                .items
-                .iter()
-                .zip(&prepared.sources)
-                .filter(|(item, _)| item.decision == ImportDecision::NewSkill)
-        };
-        let staged = new_items().try_for_each(|(item, source)| {
-            payload::materialize(source, &staging.join(item.skill_id.as_str()))
-        });
+        let staged = prepared
+            .review
+            .items
+            .iter()
+            .zip(&prepared.sources)
+            .filter(|(item, _)| item.decision == ImportDecision::NewSkill)
+            .try_for_each(|(item, source)| {
+                payload::materialize(source, &staging.join(item.skill_id.as_str()))
+            });
         if let Err(error) = staged {
             let _ = fs::remove_dir_all(&staging);
             return Err(error);
@@ -180,7 +183,16 @@ impl State {
         let imported_at = crate::lifecycle::format_timestamp();
         let mut moves = Vec::new();
         let mut skills = Vec::new();
-        for (item, source) in new_items() {
+        let mut outcome = ImportOutcome {
+            plan_id: id.clone(),
+            imported: Vec::new(),
+            existing: Vec::new(),
+        };
+        for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
+            if item.decision == ImportDecision::Existing {
+                outcome.existing.push(item.skill_id.clone());
+                continue;
+            }
             moves.push(Move {
                 from: staging.join(item.skill_id.as_str()),
                 to: self.library_dir().join(&item.destination),
@@ -190,23 +202,8 @@ impl State {
                 source,
                 Some(imported_at.clone()),
             ));
+            outcome.imported.push(item.skill_id.clone());
         }
-        let (imported, existing) = prepared
-            .review
-            .items
-            .iter()
-            .partition::<Vec<_>, _>(|item| item.decision == ImportDecision::NewSkill);
-        let outcome = ImportOutcome {
-            plan_id: id.clone(),
-            imported: imported
-                .into_iter()
-                .map(|item| item.skill_id.clone())
-                .collect(),
-            existing: existing
-                .into_iter()
-                .map(|item| item.skill_id.clone())
-                .collect(),
-        };
         let result = self.commit(Journal {
             id: id.to_string(),
             moves,
