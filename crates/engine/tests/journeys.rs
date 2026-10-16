@@ -10,7 +10,7 @@ mod support;
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
     ErrorCategory, FolderId, ImportDecision, LibrarySnapshot, OnboardingStep, OrganizationChange,
-    PresetColor, PresetIcon, PresetId, Rgb, SkillId,
+    PresetColor, PresetIcon, Rgb, SkillId,
 };
 use std::{fs, path::Path};
 use support::{Fixture, category};
@@ -48,11 +48,7 @@ async fn onboarding_requires_each_step_and_survives_restart() {
         engine.complete_onboarding().await.unwrap().library_path,
         complete.library_path
     );
-    assert!(
-        Path::new(&complete.library_path)
-            .join(".skillbinder.json")
-            .is_file()
-    );
+    assert!(Path::new(&complete.library_path).join("skills").is_dir());
     engine.shutdown().await.unwrap();
     let engine = fixture.open();
     assert_eq!(
@@ -356,50 +352,6 @@ async fn folders_hold_a_skill_once_and_unfile_it_when_deleted() {
 }
 
 #[tokio::test]
-async fn schema_2_folders_upgrade_to_presets_on_the_next_write() {
-    let fixture = Fixture::new();
-    fixture.skill("alpha", "Content");
-    let engine = fixture.ready().await;
-    fixture.register(&engine).await;
-    let scan = fixture.scan(&engine).await;
-    let skill = fixture.import_one(&engine, &scan.candidates[0]).await;
-    let path = Path::new(&engine.bootstrap().await.unwrap().library_path).join(".skillbinder.json");
-    let read =
-        || -> serde_json::Value { serde_json::from_slice(&fs::read(&path).unwrap()).unwrap() };
-    let mut metadata = read();
-    metadata["schemaVersion"] = 2.into();
-    metadata.as_object_mut().unwrap().remove("presets");
-    metadata["folders"] =
-        serde_json::json!({"f": {"id": "f", "name": "Research", "position": 0, "color": "green"}});
-    let record = metadata["skills"][skill.as_str()].as_object_mut().unwrap();
-    record.remove("presetIds");
-    record.insert("folderId".into(), "f".into());
-    fs::write(&path, serde_json::to_vec(&metadata).unwrap()).unwrap();
-
-    let library = engine.snapshot().await.unwrap().library.unwrap();
-    assert_eq!(library.library.presets[0].name, "Research");
-    assert_eq!(library.library.presets[0].color, Some(PresetColor::Green));
-    assert_eq!(library.library.presets[0].icon, PresetIcon::Folder);
-    assert_eq!(library.library.skills[0].preset_ids, [PresetId("f".into())]);
-    assert_eq!(read(), metadata, "reading leaves schema 2 on disk");
-
-    engine
-        .change_organization(OrganizationChange::CreatePreset {
-            name: "Review".into(),
-        })
-        .await
-        .unwrap();
-    let written = read();
-    assert_eq!(written["schemaVersion"], 3);
-    assert!(written.get("folders").is_none());
-    assert_eq!(written["presets"]["f"]["name"], "Research");
-    let record = &written["skills"][skill.as_str()];
-    assert!(record.get("folderId").is_none());
-    assert_eq!(record["presetIds"], serde_json::json!(["f"]));
-    engine.shutdown().await.unwrap();
-}
-
-#[tokio::test]
 async fn presets_keep_user_order_and_colors() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
@@ -508,7 +460,7 @@ async fn preview_rejects_escape_and_bounds_binary_content() {
     assert_eq!(
         category(
             engine
-                .preview_skill(skill.clone(), Some("../.skillbinder.json".into()))
+                .preview_skill(skill.clone(), Some("../../skillbinder.db".into()))
                 .await
         ),
         ErrorCategory::Validation
@@ -527,67 +479,33 @@ async fn preview_rejects_escape_and_bounds_binary_content() {
 }
 
 #[tokio::test]
-async fn shared_slug_keeps_second_copy_until_reviewed_resolution_backs_up_loser() {
+async fn a_different_skill_with_a_held_slug_is_refused() {
     let fixture = Fixture::new();
     let source = fixture.skill("shared", "First copy");
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let first_scan = fixture.scan(&engine).await;
-    let first_id = fixture.import_one(&engine, &first_scan.candidates[0]).await;
+    let first = fixture.import_one(&engine, &first_scan.candidates[0]).await;
+    assert_eq!(first, SkillId("shared".into()));
     fs::write(
         source.join("SKILL.md"),
         b"---\nname: shared\ndescription: Changed\n---\nSecond copy\n",
     )
     .unwrap();
     let second_scan = fixture.scan(&engine).await;
-    let plan = engine
-        .prepare_import(vec![second_scan.candidates[0].id.clone()], false)
-        .await
-        .unwrap();
-    assert_eq!(plan.items[0].decision, ImportDecision::Conflict);
-    let second = engine.apply_import(plan.id).await.unwrap();
-    assert_eq!(second.conflicts, ["shared"]);
-    let keep = second.imported[0].clone();
-    let before = engine.snapshot().await.unwrap().library.unwrap();
-    let copies: Vec<_> = before
-        .library
-        .skills
-        .iter()
-        .filter(|skill| skill.slug == "shared")
-        .map(|skill| skill.id.clone())
-        .collect();
-    assert_eq!(copies.len(), 2);
-    assert!(copies.contains(&first_id) && copies.contains(&keep));
-    let stale = "wrong revision".to_owned();
     assert_eq!(
         category(
             engine
-                .resolve_conflict("shared".into(), keep.clone(), copies.clone(), stale)
+                .prepare_import(vec![second_scan.candidates[0].id.clone()], false)
                 .await
         ),
-        ErrorCategory::Stale
+        ErrorCategory::Validation
     );
-    let after = engine
-        .resolve_conflict("shared".into(), keep.clone(), copies, before.revision)
-        .await
-        .unwrap();
-    assert_eq!(after.library.skills.len(), 1);
-    assert_eq!(after.library.skills[0].id, keep);
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(library.library.skills.len(), 1);
     let managed =
         Path::new(&engine.bootstrap().await.unwrap().library_path).join("skills/shared/SKILL.md");
-    assert!(fs::read_to_string(managed).unwrap().contains("Second copy"));
-    let backups = fixture.data.join("backups/resolutions");
-    let operation = fs::read_dir(backups)
-        .unwrap()
-        .next()
-        .unwrap()
-        .unwrap()
-        .path();
-    assert!(
-        fs::read_to_string(operation.join(first_id.as_str()).join("SKILL.md"))
-            .unwrap()
-            .contains("First copy")
-    );
+    assert!(fs::read_to_string(managed).unwrap().contains("First copy"));
     engine.shutdown().await.unwrap();
 }
 

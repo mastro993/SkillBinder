@@ -1,5 +1,9 @@
 CREATE TABLE device_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
 CREATE TABLE operation_plans(id TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at INTEGER NOT NULL,consumed INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE idempotency_records(operation_id TEXT PRIMARY KEY,request_hash TEXT NOT NULL,result TEXT NOT NULL);
-CREATE TABLE skill_metadata(skill_id TEXT PRIMARY KEY,description TEXT NOT NULL,validation TEXT NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE workspaces(id TEXT PRIMARY KEY,canonical_path TEXT NOT NULL UNIQUE,name TEXT NOT NULL,position INTEGER NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE library_folders(id TEXT PRIMARY KEY,name TEXT NOT NULL,position INTEGER NOT NULL);
+CREATE TABLE skills(slug TEXT PRIMARY KEY,digest TEXT NOT NULL,file_count INTEGER NOT NULL,total_bytes INTEGER NOT NULL,details TEXT NOT NULL,imported_at TEXT,folder_id TEXT REFERENCES library_folders(id) ON DELETE SET NULL);
+CREATE TABLE presets(id TEXT PRIMARY KEY,name TEXT NOT NULL,position INTEGER NOT NULL,color TEXT,icon TEXT NOT NULL);
+CREATE TABLE preset_skills(preset_id TEXT NOT NULL REFERENCES presets(id) ON DELETE CASCADE,slug TEXT NOT NULL REFERENCES skills(slug) ON DELETE CASCADE,PRIMARY KEY(preset_id,slug));
+CREATE TABLE journals(id TEXT PRIMARY KEY,body TEXT NOT NULL);

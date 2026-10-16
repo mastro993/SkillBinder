@@ -1,5 +1,5 @@
 use crate::{persistence, worker::State};
-use skillbinder_proto::{AppError, AppResult, Bootstrap, ErrorCategory, Library, OnboardingStep};
+use skillbinder_proto::{AppError, AppResult, Bootstrap, ErrorCategory, OnboardingStep};
 use std::{collections::BTreeMap, path::PathBuf};
 
 /// Filesystem boundaries captured once at application startup.
@@ -82,35 +82,23 @@ impl State {
             .as_ref()
             .ok_or_else(|| AppError::validation("Install Git 2.39 or newer, then recheck."))?;
         let target = self.library_dir();
-        if target.exists() {
-            self.read_library()?;
-        } else {
+        if !target.exists() {
             let staged = self
                 .config
                 .data_dir
                 .join("staging")
                 .join(format!("initialize-{}", uuid::Uuid::new_v4()));
             std::fs::create_dir_all(staged.join("skills")).map_err(|_| AppError::storage())?;
-            let library = Library {
-                schema_version: 3,
-                library_id: uuid::Uuid::new_v4().to_string(),
-                created_at: format_timestamp(),
-                content_policy_version: 1,
-                presets: Vec::new(),
-                folders: Vec::new(),
-                tags: Vec::new(),
-                skills: Vec::new(),
-            };
-            persistence::write_json(&staged.join(".skillbinder.json"), &library)?;
             git.initialize(&staged)?;
             std::fs::rename(&staged, &target).map_err(|_| AppError::storage())?;
             persistence::sync_directory(&self.config.data_dir)?;
         }
+        self.reconcile_library()?;
         self.set_setting("onboarding", &OnboardingStep::Complete)?;
         self.bootstrap()
     }
 }
-/// The current UTC time in RFC 3339, as portable metadata records it.
+/// The current UTC time in RFC 3339, as install times record it.
 pub(crate) fn format_timestamp() -> String {
     time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)

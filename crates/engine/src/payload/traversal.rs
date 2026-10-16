@@ -236,7 +236,8 @@ impl Walk {
     }
 }
 
-fn portable(name: &str) -> bool {
+/// Whether `name` can name a file or directory on every supported platform.
+pub(crate) fn portable(name: &str) -> bool {
     let stem = name.split('.').next().unwrap_or_default().to_uppercase();
     !name.is_empty()
         && !name.ends_with([' ', '.'])

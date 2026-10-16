@@ -22,11 +22,6 @@ impl Fixture {
             .unwrap();
         git.initialize(&repo).unwrap();
         fs::create_dir_all(repo.join("skills/demo")).unwrap();
-        fs::write(
-            repo.join(".skillbinder.json"),
-            r#"{"schemaVersion":2,"libraryId":"test","createdAt":"2026-10-04","skills":{}}"#,
-        )
-        .unwrap();
         fs::write(repo.join("skills/demo/SKILL.md"), "initial").unwrap();
         let remote = RemoteConfig {
             url: url::Url::from_file_path(&bare).unwrap().into(),
@@ -51,7 +46,9 @@ impl Fixture {
             .unwrap();
     }
     fn peer_commit(&self, file: &str, value: &str) {
-        fs::write(self.peer.join(file), value).unwrap();
+        let path = self.peer.join(file);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, value).unwrap();
         self.git.output(&self.peer, &["add", "."]).unwrap();
         self.git
             .output(
@@ -172,18 +169,17 @@ fn dirty_behind_and_diverged_histories_are_refused() {
     );
 }
 #[test]
-fn malformed_remote_metadata_does_not_reach_worktree() {
+fn non_portable_remote_skill_names_do_not_reach_worktree() {
     let f = Fixture::new();
     f.push();
     f.peer();
-    let before = fs::read(f.repo.join(".skillbinder.json")).unwrap();
-    f.peer_commit(".skillbinder.json", "{bad}");
+    f.peer_commit("skills/aux/SKILL.md", "reserved on Windows");
     assert!(
         f.git
             .perform(&f.repo, Some(&f.remote), SyncAction::Pull)
             .is_err()
     );
-    assert_eq!(before, fs::read(f.repo.join(".skillbinder.json")).unwrap());
+    assert!(!f.repo.join("skills/aux").exists());
 }
 
 #[test]
@@ -272,17 +268,11 @@ fn fresh_library_connect_is_fetch_only_then_sync_adopts_remote() {
     f.peer_commit("unrelated.txt", "remote-only bytes");
     let fresh = f._root.path().join("fresh");
     f.git.initialize(&fresh).unwrap();
-    // The empty maps a newly created library writes.
-    let metadata = r#"{"schemaVersion":3,"libraryId":"fresh","createdAt":"2026-10-04","contentPolicyVersion":1,"presets":{},"libraryFolders":{},"tags":{},"skills":{}}"#;
-    fs::write(fresh.join(".skillbinder.json"), metadata).unwrap();
+    fs::create_dir(fresh.join("skills")).unwrap();
     fs::write(fresh.join("notes.txt"), "local-only bytes").unwrap();
     let status = f.git.connect(&fresh, &f.remote).unwrap();
     assert_eq!(status.behind, 1);
     assert!(f.git.revision(&fresh, "HEAD").unwrap().is_none());
-    assert_eq!(
-        fs::read_to_string(fresh.join(".skillbinder.json")).unwrap(),
-        metadata
-    );
     f.git
         .perform(&fresh, Some(&f.remote), SyncAction::Sync)
         .unwrap();
@@ -303,11 +293,6 @@ fn fresh_library_with_managed_payload_refuses_adoption() {
     f.push();
     let fresh = f._root.path().join("fresh");
     f.git.initialize(&fresh).unwrap();
-    fs::copy(
-        f.repo.join(".skillbinder.json"),
-        fresh.join(".skillbinder.json"),
-    )
-    .unwrap();
     fs::create_dir_all(fresh.join("skills/local")).unwrap();
     fs::write(fresh.join("skills/local/SKILL.md"), "local").unwrap();
     assert!(
@@ -319,50 +304,6 @@ fn fresh_library_with_managed_payload_refuses_adoption() {
         fs::read_to_string(fresh.join("skills/local/SKILL.md")).unwrap(),
         "local"
     );
-}
-
-#[test]
-fn adoption_journal_recovers_before_removal_after_removal_and_after_merge() {
-    for phase in 0..3 {
-        let f = Fixture::new();
-        f.push();
-        let fresh = f._root.path().join("fresh");
-        f.git.initialize(&fresh).unwrap();
-        let metadata =
-            r#"{"schemaVersion":2,"libraryId":"fresh","createdAt":"2026-10-04","skills":{}}"#;
-        fs::write(fresh.join(".skillbinder.json"), metadata).unwrap();
-        f.git.connect(&fresh, &f.remote).unwrap();
-        let target = f.git.revision(&fresh, REMOTE_REF).unwrap().unwrap();
-        let journal = fresh.join(".git/skillbinder-initial-adoption.json");
-        fs::write(
-            &journal,
-            serde_json::to_vec(&serde_json::json!({"metadata": metadata, "target": target}))
-                .unwrap(),
-        )
-        .unwrap();
-        if phase > 0 {
-            fs::remove_file(fresh.join(".skillbinder.json")).unwrap();
-        }
-        if phase > 1 {
-            f.git
-                .output(&fresh, &["merge", "--ff-only", "--no-edit", &target])
-                .unwrap();
-        }
-        Git::discover().unwrap().recover(&fresh).unwrap();
-        assert!(!journal.exists());
-        if phase < 2 {
-            assert_eq!(
-                fs::read_to_string(fresh.join(".skillbinder.json")).unwrap(),
-                metadata
-            );
-            assert!(f.git.revision(&fresh, "HEAD").unwrap().is_none());
-        } else {
-            assert_eq!(
-                fs::read_to_string(fresh.join("skills/demo/SKILL.md")).unwrap(),
-                "initial"
-            );
-        }
-    }
 }
 
 #[test]
@@ -388,66 +329,6 @@ fn connection_reconciles_origin_and_disconnect_removes_it() {
             .unwrap()
             .lines()
             .any(|name| name == "origin")
-    );
-}
-
-#[test]
-fn adoption_refuses_local_presets_folders_tags_and_unknown_metadata() {
-    let f = Fixture::new();
-    f.push();
-    for (name, extra) in [
-        (
-            "presets",
-            serde_json::json!({"schemaVersion":3,"presets":{"preset":{"id":"preset","name":"Local"}}}),
-        ),
-        (
-            "folders",
-            serde_json::json!({"folders":{"folder":{"id":"folder","name":"Local"}}}),
-        ),
-        (
-            "library-folders",
-            serde_json::json!({"schemaVersion":3,"libraryFolders":{"folder":{"id":"folder","name":"Local"}}}),
-        ),
-        ("tags", serde_json::json!({"tags":{"tag":{"name":"Local"}}})),
-        ("unknown", serde_json::json!({"annotation":"retain me"})),
-    ] {
-        let fresh = f._root.path().join(name);
-        f.git.initialize(&fresh).unwrap();
-        let mut metadata = serde_json::json!({"schemaVersion":2,"libraryId":"fresh","createdAt":"2026-10-04","skills":{}});
-        metadata
-            .as_object_mut()
-            .unwrap()
-            .extend(extra.as_object().unwrap().clone());
-        let bytes = serde_json::to_vec(&metadata).unwrap();
-        fs::write(fresh.join(".skillbinder.json"), &bytes).unwrap();
-        assert!(
-            f.git
-                .perform(&fresh, Some(&f.remote), SyncAction::Pull)
-                .is_err()
-        );
-        assert_eq!(fs::read(fresh.join(".skillbinder.json")).unwrap(), bytes);
-        assert!(f.git.revision(&fresh, "HEAD").unwrap().is_none());
-    }
-}
-
-#[test]
-fn adoption_recovery_blocks_modified_metadata_without_overwriting_it() {
-    let f = Fixture::new();
-    let original = fs::read_to_string(f.repo.join(".skillbinder.json")).unwrap();
-    let journal = f.repo.join(".git/skillbinder-initial-adoption.json");
-    fs::write(
-        &journal,
-        serde_json::to_vec(&serde_json::json!({"metadata":original,"target":"a".repeat(40)}))
-            .unwrap(),
-    )
-    .unwrap();
-    fs::remove_dir_all(f.repo.join("skills")).unwrap();
-    fs::write(f.repo.join(".skillbinder.json"), "changed externally").unwrap();
-    assert!(f.git.recover(&f.repo).is_err());
-    assert!(journal.exists());
-    assert_eq!(
-        fs::read_to_string(f.repo.join(".skillbinder.json")).unwrap(),
-        "changed externally"
     );
 }
 

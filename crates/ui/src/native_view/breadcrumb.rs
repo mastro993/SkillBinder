@@ -54,12 +54,7 @@ fn title(route: &Route, snapshot: &AppSnapshot) -> String {
             .library
             .as_ref()
             .and_then(|library| library.library.skills.iter().find(|skill| &skill.id == id))
-            .map(|skill| {
-                skill
-                    .display_name
-                    .clone()
-                    .unwrap_or_else(|| skill.slug.clone())
-            })
+            .map(|skill| skill.id.to_string())
             .unwrap_or_default(),
         Route::Workspace(id) => snapshot
             .workspaces
@@ -134,7 +129,7 @@ mod tests {
             "Research".to_owned(),
         );
         assert_eq!(preset[0].target, Some(Route::Library(LibraryFilter::All)));
-        let skill = crumbs(&Route::Skill(SkillId::new()), "pdf".to_owned());
+        let skill = crumbs(&Route::Skill(SkillId("pdf".into())), "pdf".to_owned());
         assert_eq!(skill[0].target, Some(Route::Library(LibraryFilter::All)));
         assert_eq!(preset[1], Crumb::text("Research"));
         assert_eq!(

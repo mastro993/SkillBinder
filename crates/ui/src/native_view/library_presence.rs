@@ -146,7 +146,7 @@ mod tests {
             missing,
             agent("zed", "Zed", "/home/.zed/skills"),
         ];
-        let (both, workspace_only) = (SkillId::new(), SkillId::new());
+        let (both, workspace_only) = (SkillId("both".into()), SkillId("workspace-only".into()));
         let scan = ScanSnapshot {
             candidates: vec![
                 found(
@@ -194,7 +194,7 @@ mod tests {
             agent("claude-code", "Claude Code", "/home/.claude/skills"),
             agent("codex", "Codex", "/home/.agents/skills"),
         ];
-        let skill = SkillId::new();
+        let skill = SkillId("skill".into());
         let linked = location(&["claude-code", "codex"], Vec::new());
         let scan = ScanSnapshot {
             candidates: vec![found(Some(skill.clone()), vec![linked])],

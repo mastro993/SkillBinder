@@ -7,7 +7,6 @@ mod dialogs;
 mod discovery;
 mod hover_scroll;
 mod library;
-mod library_conflicts;
 mod library_dates;
 mod library_folders;
 mod library_items;
@@ -62,16 +61,7 @@ use skillbinder_proto::*;
 enum DialogState {
     ImportPlan(ImportPlan),
     DeletePreset(DeletePreview),
-    DeleteFolder {
-        id: FolderId,
-        revision: String,
-    },
-    Conflict {
-        slug: String,
-        ids: Vec<SkillId>,
-        revision: String,
-        selected: Option<SkillId>,
-    },
+    DeleteFolder { id: FolderId, revision: String },
     RemoveWorkspace(WorkspaceId),
     None,
 }
@@ -80,7 +70,6 @@ enum Effect {
     None,
     CloseDialog,
     Plan(ImportPlan),
-    Preview(SkillPreview),
     DeletePreview(DeletePreview),
 }
 
@@ -352,7 +341,6 @@ impl NativeView {
                             Effect::None => {}
                             Effect::CloseDialog => view.dialog = DialogState::None,
                             Effect::Plan(plan) => view.dialog = DialogState::ImportPlan(plan),
-                            Effect::Preview(preview) => view.preview = Some(preview),
                             Effect::DeletePreview(preview) => {
                                 view.dialog = DialogState::DeletePreset(preview)
                             }
@@ -461,17 +449,10 @@ impl NativeView {
                 .flex_col()
                 .gap_2()
                 .child(format!(
-                    "Install finished: {} copied, {} already installed, {} name conflicts",
+                    "Install finished: {} copied, {} already installed",
                     outcome.imported.len(),
                     outcome.existing.len(),
-                    outcome.conflicts.len()
                 ))
-                .children(
-                    outcome
-                        .conflicts
-                        .iter()
-                        .map(|slug| div().child(format!("Resolve shared name: {slug} in Library"))),
-                )
                 .child(
                     button("dismiss-import")
                         .label("Dismiss result")

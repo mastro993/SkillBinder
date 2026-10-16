@@ -66,18 +66,14 @@ pub enum ImportDecision {
     NewSkill,
     /// An identical payload is already in the library; nothing is copied.
     Existing,
-    /// Another distinct payload already has this slug.
-    Conflict,
 }
 /// A reviewed row in an immutable import plan.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImportItem {
     /// Discovery identity.
     pub candidate_id: CandidateId,
-    /// Chosen portable skill identity.
+    /// The library skill the row installs or matches.
     pub skill_id: SkillId,
-    /// User-visible directory slug.
-    pub slug: String,
     /// Source shown during review.
     pub source: String,
     /// Planned managed relative directory.
@@ -112,6 +108,4 @@ pub struct ImportOutcome {
     pub imported: Vec<SkillId>,
     /// Selected payloads already present in the library.
     pub existing: Vec<SkillId>,
-    /// Slugs requiring a user choice between distinct copies.
-    pub conflicts: Vec<String>,
 }
