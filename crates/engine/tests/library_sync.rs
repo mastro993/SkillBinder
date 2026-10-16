@@ -124,9 +124,8 @@ fn slugs(library: &LibrarySnapshot) -> Vec<&str> {
 }
 
 /// Overwrites a skill's cached digest while the engine is closed, so a rehash would show.
-fn cache_digest(data: &Path, slug: &str, digest: &str) {
-    let path = data.join("skillbinder.db");
-    let mut database = SqliteConnection::establish(path.to_str().unwrap()).unwrap();
+fn cache_digest(fixture: &Fixture, slug: &str, digest: &str) {
+    let mut database = fixture.database();
     diesel::sql_query("UPDATE skills SET digest=? WHERE slug=?")
         .bind::<Text, _>(digest)
         .bind::<Text, _>(slug)
@@ -139,7 +138,7 @@ async fn pull_reconciles_changed_skills_and_rehashes_only_those() {
     let mut device = Device::published(&["alpha", "beta", "gamma"]).await;
     let before = snapshot(&device.engine).await;
     device.engine.shutdown().await.unwrap();
-    cache_digest(&device.fixture.data, "gamma", "sha256:cached");
+    cache_digest(&device.fixture, "gamma", "sha256:cached");
     device.engine = device.fixture.open();
     device.peer_push(|skills| {
         write_skill(skills, "alpha", "Second version");
