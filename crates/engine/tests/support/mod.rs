@@ -2,6 +2,7 @@
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
+use diesel::{connection::SimpleConnection, prelude::*};
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
     AppResult, Candidate, ErrorCategory, OnboardingStep, ScanSnapshot, SkillId, Workspace,
@@ -37,6 +38,18 @@ impl Fixture {
 
     pub fn open(&self) -> Engine {
         Engine::open(EngineConfig::isolated(self.data.clone(), self.home.clone())).unwrap()
+    }
+
+    /// A second connection to the engine's database, with the engine's busy timeout.
+    #[allow(
+        dead_code,
+        reason = "Not every test crate edits the database directly."
+    )]
+    pub fn database(&self) -> SqliteConnection {
+        let path = self.data.join("skillbinder.db");
+        let mut database = SqliteConnection::establish(path.to_str().unwrap()).unwrap();
+        database.batch_execute("PRAGMA busy_timeout=5000;").unwrap();
+        database
     }
 
     pub fn skill(&self, slug: &str, body: &str) -> PathBuf {

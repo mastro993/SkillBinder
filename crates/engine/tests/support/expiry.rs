@@ -9,9 +9,8 @@ struct Plan {
     payload: String,
 }
 
-fn expire(data: &std::path::Path, plan: &PlanId) -> Result<(), Box<dyn std::error::Error>> {
-    let path = data.join("skillbinder.db");
-    let mut database = SqliteConnection::establish(path.to_str().ok_or("non-UTF-8 path")?)?;
+fn expire(fixture: &Fixture, plan: &PlanId) -> Result<(), Box<dyn std::error::Error>> {
+    let mut database = fixture.database();
     let Plan { payload } = diesel::sql_query("SELECT payload FROM operation_plans WHERE id=?")
         .bind::<Text, _>(plan.as_str())
         .get_result(&mut database)?;
@@ -36,7 +35,7 @@ async fn expired_review_has_no_effect_and_completed_review_replays_after_expiry(
     let ids = vec![scan.candidates[0].id.clone()];
     let expired = engine.prepare_import(ids.clone(), false).await?;
     let before = std::fs::read(fixture.data.join("library/.skillbinder.json"))?;
-    expire(&fixture.data, &expired.id)?;
+    expire(&fixture, &expired.id)?;
     assert!(
         engine
             .apply_import(expired.id)
@@ -50,7 +49,7 @@ async fn expired_review_has_no_effect_and_completed_review_replays_after_expiry(
     let valid = engine.prepare_import(ids, false).await?;
     let outcome = engine.apply_import(valid.id.clone()).await?;
     engine.shutdown().await?;
-    expire(&fixture.data, &valid.id)?;
+    expire(&fixture, &valid.id)?;
     let engine = fixture.open();
     assert_eq!(engine.apply_import(valid.id).await?, outcome);
     assert_eq!(std::fs::read(source.join("SKILL.md"))?, source_bytes);

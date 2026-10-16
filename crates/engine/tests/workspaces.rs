@@ -445,8 +445,7 @@ async fn a_stored_home_workspace_is_forgotten_on_launch() {
     let kept = fixture.register(&engine).await;
     engine.shutdown().await.unwrap();
     let home = fs::canonicalize(&fixture.home).unwrap();
-    let path = fixture.data.join("skillbinder.db");
-    let mut database = SqliteConnection::establish(path.to_str().unwrap()).unwrap();
+    let mut database = fixture.database();
     diesel::sql_query("UPDATE workspaces SET position=1")
         .execute(&mut database)
         .unwrap();
