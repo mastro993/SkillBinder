@@ -175,9 +175,10 @@ reviews:
         documentation independent of external architecture examples.
     - path: ".github/**"
       instructions: |
-        CI runs fmt, xtask verify, Clippy with warnings denied, workspace tests, and native smoke
-        tests on macOS, Windows, and Linux. Flag removed checks, widened permissions, unpinned
-        third-party actions with write access, and secrets exposed to pull-request jobs.
+        CI runs fmt, cccc complexity limits, xtask verify (including the crate graph), Clippy with
+        warnings denied, workspace tests, and native smoke tests on macOS, Windows, and Linux.
+        Flag removed checks, widened permissions, unpinned third-party actions with write access,
+        and secrets exposed to pull-request jobs.
 
   tools:
     # CI already runs Clippy with warnings denied on every platform.

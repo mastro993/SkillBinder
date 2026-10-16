@@ -8,7 +8,7 @@
 4. Run the README verification commands, including the locked release build.
 5. Update affected behavior documentation in `docs/`.
 
-Keep modules focused on one feature or responsibility. Centralize dependencies and lint policy in the root manifest. Preserve the exact GPUI Kit and GPUI backend versions unless a separate dependency decision changes them.
+Keep modules focused on one feature or responsibility. Centralize dependencies and lint policy in the root manifest. New workspace members or crate dependencies must update `xtask/src/graph.rs` in the same change. Preserve the exact GPUI Kit and GPUI backend versions unless a separate dependency decision changes them.
 
 ## Native UI
 

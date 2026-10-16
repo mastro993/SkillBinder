@@ -1,6 +1,8 @@
 //! Repository verification and registry documentation.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 
 mod evidence;
+mod graph;
 mod mcp_smoke;
 mod package;
 mod registry;
@@ -15,7 +17,10 @@ fn main() -> anyhow::Result<()> {
         Some("verify") => {
             registry::verify(root)?;
             evidence::verify(root)?;
-            println!("Verified registry, licensed artwork, and preserved baseline integrity.");
+            graph::verify(root)?;
+            println!(
+                "Verified registry, licensed artwork, preserved baseline integrity, and crate boundaries."
+            );
             println!("This command does not establish native behavior or visual parity.");
             Ok(())
         }

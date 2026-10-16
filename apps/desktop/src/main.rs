@@ -1,4 +1,5 @@
 //! Native desktop lifecycle with one embedded engine and an executable-owned runtime.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 
 mod instance;
 #[cfg(feature = "native-test")]

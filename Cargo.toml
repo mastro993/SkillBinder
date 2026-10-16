@@ -46,6 +46,11 @@ missing_docs = "warn"
 all = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 expect_used = "warn"
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
 
 [profile.dev]
 debug = 0

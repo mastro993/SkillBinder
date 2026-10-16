@@ -33,7 +33,7 @@ cargo build -p skillbinder --release --locked
 cargo run -p xtask --locked -- package
 ```
 
-Packaging writes a macOS app and DMG, Windows ZIP, or Linux tarball beneath `dist/`. Signing and publication are separate. `xtask verify` checks retained registry and baseline evidence; it does not claim native interaction or visual parity.
+Packaging writes a macOS app and DMG, Windows ZIP, or Linux tarball beneath `dist/`. Signing and publication are separate. `xtask verify` checks retained registry and baseline evidence and the workspace crate graph; it does not claim native interaction or visual parity.
 
 For isolated native testing:
 

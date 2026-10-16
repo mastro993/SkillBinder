@@ -62,18 +62,32 @@ impl PresetColor {
         Self::Pink,
     ];
 }
-/// An opaque sRGB color as `0xRRGGBB`, stored as a `"#rrggbb"` string. A value above
-/// `0xffffff` fails to serialize instead of being truncated.
+/// An opaque sRGB color as `0xRRGGBB`, stored as a `"#rrggbb"` string.
+/// Values wider than 24 bits cannot be constructed.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Rgb(pub u32);
+pub struct Rgb(u32);
+impl Rgb {
+    /// 24-bit sRGB, or `None` when `value` is wider than `0xffffff`.
+    pub const fn from_u24(value: u32) -> Option<Self> {
+        if value > 0xff_ffff {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+
+    /// An opaque color from 8-bit channels.
+    pub const fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
+        Self((red as u32) << 16 | (green as u32) << 8 | blue as u32)
+    }
+
+    /// The 24-bit sRGB value.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
 impl Serialize for Rgb {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if self.0 > 0xff_ffff {
-            return Err(serde::ser::Error::custom(format!(
-                "preset color {:#x} is not 24-bit",
-                self.0
-            )));
-        }
         serializer.serialize_str(&format!("#{:06x}", self.0))
     }
 }
@@ -83,7 +97,7 @@ impl<'de> Deserialize<'de> for Rgb {
         text.strip_prefix('#')
             .filter(|hex| hex.len() == 6 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
             .and_then(|hex| u32::from_str_radix(hex, 16).ok())
-            .map(Rgb)
+            .and_then(Rgb::from_u24)
             .ok_or_else(|| serde::de::Error::custom(format!("unknown preset color {text:?}")))
     }
 }
@@ -282,6 +296,24 @@ pub struct Library {
     /// Managed skill records.
     #[serde(default, with = "skill_map")]
     pub skills: Vec<Skill>,
+}
+impl Library {
+    /// True when the library holds no skills, presets, library folders, or tags.
+    /// Identity and schema fields are ignored. A new content-bearing field must be
+    /// included here, or this destructure fails to compile.
+    pub fn is_vacant(&self) -> bool {
+        let Self {
+            schema_version: _,
+            library_id: _,
+            created_at: _,
+            content_policy_version: _,
+            presets,
+            folders,
+            tags,
+            skills,
+        } = self;
+        presets.is_empty() && folders.is_empty() && tags.is_empty() && skills.is_empty()
+    }
 }
 fn policy_version() -> u32 {
     1
@@ -524,11 +556,13 @@ mod tests {
     #[test]
     fn preset_colors_store_palette_names_and_custom_hex() -> serde_json::Result<()> {
         use super::{PresetColor, Rgb};
-        let colors = [PresetColor::Green, PresetColor::Custom(Rgb(0x3366ff))];
+        let custom = Rgb::from_rgb(0x33, 0x66, 0xff);
+        assert_eq!(custom.get(), 0x3366ff);
+        let colors = [PresetColor::Green, PresetColor::Custom(custom)];
         assert_eq!(serde_json::to_string(&colors)?, r##"["green","#3366ff"]"##);
         let read: Vec<PresetColor> = serde_json::from_str(r##"["green","#3366FF"]"##)?;
         assert_eq!(read, colors);
-        assert!(serde_json::to_string(&PresetColor::Custom(Rgb(0x100_0000))).is_err());
+        assert!(Rgb::from_u24(0x100_0000).is_none());
         for invalid in [
             r#""teal""#,
             r##""#3366f""##,
@@ -551,6 +585,7 @@ mod tests {
             skill("unfiled", ""),
         ))?;
         assert_eq!(library.folders[0].name, "Writing");
+        assert!(!library.is_vacant());
         assert!(library.presets.is_empty());
         assert_eq!(
             library.skills[0].folder_id,
@@ -565,6 +600,22 @@ mod tests {
                 .get("libraryFolderId")
                 .is_none()
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_library_with_no_records_is_vacant() -> serde_json::Result<()> {
+        let library: Library = serde_json::from_str(
+            r#"{"schemaVersion":3,"libraryId":"l","createdAt":"now","presets":{},"libraryFolders":{},"tags":{},"skills":{}}"#,
+        )?;
+        assert!(library.is_vacant());
+        let written = serde_json::to_value(&library)?;
+        assert!(
+            written["libraryFolders"]
+                .as_object()
+                .is_some_and(|m| m.is_empty())
+        );
+        assert!(written["presets"].as_object().is_some_and(|m| m.is_empty()));
         Ok(())
     }
 

@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 use super::*;
+use skillbinder_proto::Library;
 use std::fs;
 use tempfile::TempDir;
 
@@ -294,6 +295,38 @@ fn fresh_library_connect_is_fetch_only_then_sync_adopts_remote() {
     assert_eq!(
         fs::read_to_string(fresh.join("notes.txt")).unwrap(),
         "local-only bytes"
+    );
+}
+
+#[test]
+fn a_serialized_vacant_library_adopts_a_remote() {
+    let f = Fixture::new();
+    f.push();
+    let fresh = f._root.path().join("typed-vacant");
+    f.git.initialize(&fresh).unwrap();
+    let library = Library {
+        schema_version: 3,
+        library_id: "fresh".into(),
+        created_at: "2026-10-04".into(),
+        content_policy_version: 1,
+        presets: Vec::new(),
+        folders: Vec::new(),
+        tags: Vec::new(),
+        skills: Vec::new(),
+    };
+    fs::write(
+        fresh.join(".skillbinder.json"),
+        serde_json::to_vec(&library).unwrap(),
+    )
+    .unwrap();
+    let status = f.git.connect(&fresh, &f.remote).unwrap();
+    assert_eq!(status.behind, 1);
+    f.git
+        .perform(&fresh, Some(&f.remote), SyncAction::Sync)
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(fresh.join("skills/demo/SKILL.md")).unwrap(),
+        "initial"
     );
 }
 

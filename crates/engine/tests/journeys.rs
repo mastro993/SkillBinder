@@ -454,20 +454,10 @@ async fn presets_keep_user_order_and_colors() {
     engine
         .change_organization(OrganizationChange::SetPresetColor {
             id: ids[0].clone(),
-            color: Some(PresetColor::Custom(Rgb(0x3366ff))),
+            color: Some(PresetColor::Custom(Rgb::from_rgb(0x33, 0x66, 0xff))),
         })
         .await
         .unwrap();
-    // A color wider than 24 bits is refused instead of being truncated on write.
-    assert!(
-        engine
-            .change_organization(OrganizationChange::SetPresetColor {
-                id: ids[0].clone(),
-                color: Some(PresetColor::Custom(Rgb(0x100_0000))),
-            })
-            .await
-            .is_err()
-    );
     engine
         .change_organization(OrganizationChange::SetPresetIcon {
             id: ids[0].clone(),
@@ -487,7 +477,7 @@ async fn presets_keep_user_order_and_colors() {
     assert_eq!(names(&library), [("Beta".into(), 0), ("Alpha".into(), 1)]);
     assert_eq!(
         library.library.presets[0].color,
-        Some(PresetColor::Custom(Rgb(0x3366ff)))
+        Some(PresetColor::Custom(Rgb::from_rgb(0x33, 0x66, 0xff)))
     );
     assert_eq!(library.library.presets[1].color, None);
     assert_eq!(library.library.presets[0].icon, PresetIcon::Rocket);

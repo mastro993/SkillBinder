@@ -2,6 +2,7 @@ use super::{AppError, AppResult, Git, REMOTE_REF, failure, validation};
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::Library;
 use std::{
+    collections::BTreeSet,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -141,27 +142,35 @@ fn empty_metadata(bytes: &[u8]) -> AppResult<bool> {
     let Some(object) = value.as_object() else {
         return Ok(false);
     };
-    if object.keys().any(|key| {
-        !matches!(
-            key.as_str(),
-            "schemaVersion"
-                | "libraryId"
-                | "createdAt"
-                | "contentPolicyVersion"
-                | "skills"
-                | "presets"
-                | "folders"
-                | "libraryFolders"
-                | "tags"
-        )
-    }) {
+    let allowed = vacant_schema3_keys()?;
+    if object
+        .keys()
+        .any(|key| key != "folders" && !allowed.contains(key))
+    {
         return Ok(false);
     }
-    let library: Library = serde_json::from_slice(bytes).map_err(|_| AppError::storage())?;
-    Ok(library.skills.is_empty()
-        && library.presets.is_empty()
-        && library.folders.is_empty()
-        && library.tags.is_empty())
+    let library: Library = serde_json::from_value(value).map_err(|_| AppError::storage())?;
+    Ok(library.is_vacant())
+}
+
+/// Keys a vacant schema-3 library writes. Schema 2's `folders` alias is accepted separately.
+/// Adding a `Library` field updates this set through serialization, so adoption stays aligned
+/// with what a new library actually writes.
+fn vacant_schema3_keys() -> AppResult<BTreeSet<String>> {
+    let vacant = Library {
+        schema_version: 3,
+        library_id: String::new(),
+        created_at: String::new(),
+        content_policy_version: 1,
+        presets: Vec::new(),
+        folders: Vec::new(),
+        tags: Vec::new(),
+        skills: Vec::new(),
+    };
+    match serde_json::to_value(&vacant) {
+        Ok(serde_json::Value::Object(map)) => Ok(map.into_iter().map(|(key, _)| key).collect()),
+        _ => Err(AppError::storage()),
+    }
 }
 
 fn empty_payload(repo: &Path) -> AppResult<bool> {
