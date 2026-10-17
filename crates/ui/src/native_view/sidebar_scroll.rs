@@ -36,7 +36,7 @@ impl NativeView {
                     .pb(px(SECTION_GAP / 2.0))
                     .child(self.render_presets(library, window, cx))
                     .child(self.render_workspaces(window, cx))
-                    .child(self.render_agents(cx)),
+                    .children(self.render_agents(cx)),
             )
             // In the sidebar's trailing inset.
             .child(

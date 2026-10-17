@@ -132,8 +132,15 @@ impl NativeView {
             .accessibility_label(name.to_owned())
             .child(tab_label(name))
             .selected(selected)
-            // Unchosen tabs are muted; hovering brightens them to the ghost button's text color.
-            .when(!selected, |tab| tab.text_color(cx.theme().muted_foreground))
+            // The chosen tab sits on a soft muted fill rather than the kit's darker selected
+            // fill. Unchosen tabs are muted; hovering brightens them to the ghost text color.
+            .map(|tab| {
+                if selected {
+                    tab.bg(cx.theme().muted).text_color(cx.theme().foreground)
+                } else {
+                    tab.text_color(cx.theme().muted_foreground)
+                }
+            })
             .on_click(cx.listener(move |view, event: &ClickEvent, window, cx| {
                 // The header is the window's title bar, whose double click zooms the window.
                 cx.stop_propagation();
@@ -248,7 +255,7 @@ impl NativeView {
             .h(px(24.))
             .px_2()
             .rounded(cx.theme().radius)
-            .bg(cx.theme().secondary)
+            .bg(cx.theme().muted)
             .child(
                 Input::new(&self.folder_name)
                     .appearance(false)

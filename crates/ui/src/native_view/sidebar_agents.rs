@@ -5,18 +5,17 @@ use super::agent_skills::{
     FoundSkill, UNIVERSAL, agent_name, detected_agents, found_where, read_globally, split_universal,
 };
 use super::controls::{agent_icon, app_icon};
-use super::sidebar_row::{activate, count, empty_row, row};
+use super::sidebar_row::{activate, count, row};
 use super::{NativeView, Route};
 use gpui_kit::component::Icon;
 use gpui_kit::{
-    AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div,
-    prelude::FluentBuilder, px,
+    AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
 use skillbinder_proto::{AgentOption, CandidateLocation, SidebarSection};
 use skillbinder_theme::sidebar::ROW_GAP;
 
 impl NativeView {
-    pub(super) fn render_agents(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    pub(super) fn render_agents(&self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
         let home = &self.snapshot.home;
         let (universal, others) = split_universal(detected_agents(&self.snapshot.agents), home);
         let universal_row = (!universal.is_empty()).then(|| {
@@ -42,12 +41,15 @@ impl NativeView {
                 )
             }))
             .collect();
-        let items = rows.len().max(1);
-        let empty = rows.is_empty().then(|| empty_row("No agents", cx));
-        div()
+        // The section is hidden while no agent is detected.
+        if rows.is_empty() {
+            return None;
+        }
+        let items = rows.len();
+        let section = div()
             .flex()
             .flex_col()
-            .child(self.section_header(SidebarSection::Agents, "Agents", None, cx))
+            .child(self.section_header(SidebarSection::Agents, "Agents", None, false, cx))
             .children(
                 self.section_rows(
                     SidebarSection::Agents,
@@ -57,10 +59,10 @@ impl NativeView {
                         .flex()
                         .flex_col()
                         .gap(px(ROW_GAP))
-                        .children(rows)
-                        .when_some(empty, |list, empty| list.child(empty)),
+                        .children(rows),
                 ),
-            )
+            );
+        Some(section)
     }
 
     fn render_agent_row(
