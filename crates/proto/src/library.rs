@@ -323,6 +323,11 @@ pub enum OrganizationChange {
         /// Revision the confirmation was shown for.
         revision: String,
     },
+    /// Replace the folder order with a permutation of every existing folder.
+    ReorderFolders {
+        /// Every folder identity in its new order.
+        order: Vec<FolderId>,
+    },
     /// Move a skill into a library folder, out of any other, or into none.
     MoveToFolder {
         /// Skill being moved.
