@@ -27,7 +27,10 @@ fn use_tree_imports(source: &str, needle: &str) -> bool {
 }
 
 fn path_appears(source: &str, needle: &str) -> bool {
-    compact_paths(source).contains(&format!("{needle}::"))
+    let compact = compact_paths(source);
+    compact
+        .match_indices(&format!("{needle}::"))
+        .any(|(start, _)| !compact[..start].ends_with(is_ident_char))
 }
 
 fn needle_segments(needle: &str) -> Vec<String> {
@@ -293,6 +296,9 @@ mod tests {
         assert!(!hit("let s = \"use std::fs\";", "std::fs"));
         assert!(!hit("let s = r#\"std::fs::read\"#;", "std::fs"));
         assert!(!hit("use std::path::Path;", "std::fs"));
+        assert!(!hit("fn f() { mystd::fs::read(p); }", "std::fs"));
+        assert!(!hit("fn f() { not_diesel::query(); }", "diesel"));
+        assert!(hit("fn f() { ::std::fs::read(p); }", "std::fs"));
     }
 
     #[test]
