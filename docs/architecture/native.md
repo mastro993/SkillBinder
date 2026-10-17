@@ -32,6 +32,8 @@ The executable drains the engine in GPUI’s quit hook before native termination
 
 ## Dependency boundary
 
+`xtask verify` records each crate's allowed dependencies, so a crate can reach SQLite, GPUI, or the engine only where this document assigns it. The standard library is always in reach, so the workspace `clippy.toml` denies its filesystem, process, network, and environment APIs (and tokio's) everywhere except `crates/engine`, `apps/desktop`, and `xtask`, which replace it with their own. Clippy resolves names after macro expansion, so aliases, glob imports, and included files cannot hide a call.
+
 The application depends on GPUI Kit 0.7.0. Kit re-exports the matching GPUI Pre 0.3.7 types, platform bootstrap, Base infrastructure, and styled components. Application crates import these APIs through `gpui_kit`; there is no separate component or platform dependency.
 
 The Cargo `gpui-pre` patch selects the backend supplied by `gpui-mcp` revision `9dda8e5cb49990261e3fdaa26abe38112d30dafb`. The optional bridge selects its supported `gpui-pre` backend with default features disabled. Kit, its platform, and the bridge therefore share one GPUI type graph. The backend patch also applies to ordinary builds, while the bridge itself is present only with `native-test`. No dependency source is modified.
