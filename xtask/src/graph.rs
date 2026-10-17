@@ -1,5 +1,5 @@
 //! Workspace crate graph and source-boundary checks.
-use crate::imports::imports;
+use crate::imports::{code_text, imports};
 use anyhow::{Context, ensure};
 use serde::Deserialize;
 use std::{
@@ -30,6 +30,7 @@ struct Package {
     name: String,
     id: String,
     dependencies: Vec<Dependency>,
+    features: BTreeMap<String, BTreeSet<String>>,
 }
 
 #[derive(Deserialize)]
@@ -60,17 +61,8 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         check_normal_deps(name, package)?;
         check_dev_deps(name, package)?;
         check_build_deps(name, package)?;
+        check_features(name, package)?;
     }
-    let skillbinder = packages
-        .get("skillbinder")
-        .context("Missing skillbinder package")?;
-    ensure!(
-        skillbinder
-            .dependencies
-            .iter()
-            .any(|dep| dep.name == "gpui-mcp" && dep.optional),
-        "gpui-mcp must remain an optional skillbinder dependency"
-    );
     check_sources(root)?;
     Ok(())
 }
@@ -130,6 +122,28 @@ fn check_build_deps(name: &str, package: &Package) -> anyhow::Result<()> {
         "{name} build-dependencies changed: expected none, found {actual:?}"
     );
     Ok(())
+}
+
+fn check_features(name: &str, package: &Package) -> anyhow::Result<()> {
+    let allowed = allowed_features(name);
+    ensure!(
+        package.features == allowed,
+        "{name} features changed: expected {allowed:?}, found {:?}; native test controls must stay behind non-default native-test",
+        package.features
+    );
+    Ok(())
+}
+
+fn allowed_features(name: &str) -> BTreeMap<String, BTreeSet<String>> {
+    let enabled: &[&str] = match name {
+        "skillbinder" => &["skillbinder-ui/native-test", "dep:log", "dep:gpui-mcp"],
+        "skillbinder-ui" => &[],
+        _ => return BTreeMap::new(),
+    };
+    BTreeMap::from([(
+        "native-test".to_owned(),
+        enabled.iter().copied().map(str::to_owned).collect(),
+    )])
 }
 
 fn check_normal_deps(name: &str, package: &Package) -> anyhow::Result<()> {
@@ -369,6 +383,10 @@ fn allowed_normal(name: &str) -> Option<BTreeSet<(String, bool)>> {
                     optional: false,
                 },
                 Dep {
+                    name: "proc-macro2",
+                    optional: false,
+                },
+                Dep {
                     name: "serde",
                     optional: false,
                 },
@@ -455,9 +473,10 @@ const IO_AND_UI: &[&str] = &[
 const UI_ONLY: &[&str] = &["gpui", "gpui_kit", "skillbinder_ui", "skillbinder_client"];
 
 fn deny_imports(path: &Path, text: &str, forbidden: &[&str]) -> anyhow::Result<()> {
+    let source = code_text(text).with_context(|| format!("Could not check {}", path.display()))?;
     for needle in forbidden {
         ensure!(
-            !imports(text, needle),
+            !imports(&source, needle),
             "{} imports {needle}; keep that work in the owning crate",
             path.display()
         );
@@ -491,8 +510,7 @@ mod tests {
         clippy::expect_used,
         reason = "Test assertions report fixture failures."
     )]
-    use super::allowed_normal;
-    use crate::imports::imports;
+    use super::{allowed_features, allowed_normal};
     use std::path::Path;
 
     #[test]
@@ -526,18 +544,18 @@ mod tests {
     }
 
     #[test]
-    fn comments_do_not_count_as_imports() {
-        assert!(!imports("// use std::fs::read;\nfn f() {}", "std::fs"));
-        assert!(imports("use std::fs::File;\nfn f() {}", "std::fs"));
-        assert!(imports("let _ = std::fs::read(path);", "std::fs"));
-        assert!(imports("use std::{fs, path::Path};", "std::fs"));
-    }
-
-    #[test]
     fn gpui_mcp_is_optional_on_the_executable() {
         let deps = allowed_normal("skillbinder").unwrap();
         assert!(deps.contains(&("gpui-mcp".into(), true)));
         assert!(deps.contains(&("log".into(), true)));
+    }
+
+    #[test]
+    fn only_native_test_enables_the_test_bridge() {
+        let features = allowed_features("skillbinder");
+        assert!(!features.contains_key("default"));
+        assert!(features["native-test"].contains("dep:gpui-mcp"));
+        assert!(!allowed_features("skillbinder-ui").contains_key("default"));
     }
 
     #[test]

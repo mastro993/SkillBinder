@@ -1,8 +1,20 @@
 //! Detect crate-boundary-violating paths, including grouped and aliased `use` trees.
+use anyhow::ensure;
+use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
 
-pub fn imports(text: &str, needle: &str) -> bool {
-    let source = strip_noise(text);
-    use_tree_imports(&source, needle) || path_appears(&source, needle)
+/// Lexes Rust source and renders only its code tokens, dropping comments and literals.
+pub fn code_text(text: &str) -> anyhow::Result<String> {
+    let tokens: TokenStream = text
+        .parse()
+        .map_err(|error| anyhow::anyhow!("Could not lex Rust source: {error}"))?;
+    let mut out = String::with_capacity(text.len());
+    render(tokens, &mut out)?;
+    Ok(out)
+}
+
+/// Reports whether code rendered by [`code_text`] names `needle` as a path.
+pub fn imports(source: &str, needle: &str) -> bool {
+    use_tree_imports(source, needle) || path_appears(source, needle)
 }
 
 fn use_tree_imports(source: &str, needle: &str) -> bool {
@@ -15,9 +27,7 @@ fn use_tree_imports(source: &str, needle: &str) -> bool {
 }
 
 fn path_appears(source: &str, needle: &str) -> bool {
-    let compact = compact_paths(source);
-    let token = format!("{needle}::");
-    compact.contains(&token) || compact.contains(&format!("use {needle};"))
+    compact_paths(source).contains(&format!("{needle}::"))
 }
 
 fn needle_segments(needle: &str) -> Vec<String> {
@@ -211,133 +221,92 @@ fn skip_ws_bytes(bytes: &[u8], i: &mut usize) {
     }
 }
 
-fn strip_noise(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '/' if chars.peek() == Some(&'/') => skip_line(&mut chars),
-            '/' if chars.peek() == Some(&'*') => skip_block(&mut chars),
-            '"' => skip_quoted(&mut chars, '"'),
-            '\'' => skip_quoted(&mut chars, '\''),
-            'b' | 'c' | 'r' => push_or_skip_prefixed(&mut out, &mut chars, ch),
-            _ => out.push(ch),
-        }
-    }
-    out
-}
-
-fn skip_line(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) {
-    chars.next();
-    for ch in chars.by_ref() {
-        if ch == '\n' {
-            break;
-        }
-    }
-}
-
-fn skip_block(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) {
-    chars.next();
-    while let Some(ch) = chars.next() {
-        if ch == '*' && chars.peek() == Some(&'/') {
-            chars.next();
-            break;
-        }
-    }
-}
-
-fn skip_quoted(chars: &mut std::iter::Peekable<std::str::Chars<'_>>, quote: char) {
-    let mut escaped = false;
-    for ch in chars.by_ref() {
-        if escaped {
-            escaped = false;
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-            continue;
-        }
-        if ch == quote {
-            break;
-        }
-    }
-}
-
-fn push_or_skip_prefixed(
-    out: &mut String,
-    chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
-    first: char,
-) {
-    if first == 'r' && skip_raw(chars) {
-        return;
-    }
-    if matches!(first, 'b' | 'c') {
-        if chars.peek() == Some(&'r') {
-            chars.next();
-            if skip_raw(chars) {
-                return;
+fn render(tokens: TokenStream, out: &mut String) -> anyhow::Result<()> {
+    let mut after_include = false;
+    for token in tokens {
+        match token {
+            TokenTree::Ident(ident) => {
+                let name = ident.to_string();
+                out.push_str(name.trim_start_matches("r#"));
+                out.push(' ');
+                after_include = name == "include";
+                continue;
             }
-            out.push(first);
-            out.push('r');
-            return;
+            TokenTree::Punct(punct) => {
+                ensure!(
+                    !(after_include && punct.as_char() == '!'),
+                    "include! hides source from boundary checks"
+                );
+                out.push(punct.as_char());
+                if punct.spacing() == Spacing::Alone {
+                    out.push(' ');
+                }
+            }
+            TokenTree::Group(group) => {
+                let (open, close) = delimiters(group.delimiter());
+                out.push_str(open);
+                render(group.stream(), out)?;
+                out.push_str(close);
+            }
+            TokenTree::Literal(_) => {}
         }
-        if chars.peek() == Some(&'"') {
-            chars.next();
-            skip_quoted(chars, '"');
-            return;
-        }
+        after_include = false;
     }
-    out.push(first);
+    Ok(())
 }
 
-fn skip_raw(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) -> bool {
-    let mut hashes = 0usize;
-    while chars.peek() == Some(&'#') {
-        chars.next();
-        hashes += 1;
+fn delimiters(delimiter: Delimiter) -> (&'static str, &'static str) {
+    match delimiter {
+        Delimiter::Parenthesis => ("(", ") "),
+        Delimiter::Brace => ("{", "} "),
+        Delimiter::Bracket => ("[", "] "),
+        Delimiter::None => ("", ""),
     }
-    if chars.peek() != Some(&'"') {
-        return false;
-    }
-    chars.next();
-    while let Some(ch) = chars.next() {
-        if ch != '"' {
-            continue;
-        }
-        let mut seen = 0usize;
-        while seen < hashes && chars.peek() == Some(&'#') {
-            chars.next();
-            seen += 1;
-        }
-        if seen == hashes {
-            return true;
-        }
-    }
-    true
 }
 
 #[cfg(test)]
 mod tests {
-    use super::imports;
+    #![expect(clippy::expect_used, reason = "Test fixtures are valid Rust.")]
+    use super::{code_text, imports};
+
+    fn hit(text: &str, needle: &str) -> bool {
+        imports(&code_text(text).expect("fixture lexes"), needle)
+    }
 
     #[test]
     fn grouped_and_aliased_uses_count() {
-        assert!(imports("use std::{fs, path::Path};", "std::fs"));
-        assert!(imports("use std::fs as foo;", "std::fs"));
-        assert!(imports(
-            "use std::{\n    fs,\n    path::Path,\n};",
-            "std::fs"
-        ));
-        assert!(imports("use std::fs::{self, File};", "std::fs"));
-        assert!(imports("let _ = std :: fs::read(path);", "std::fs"));
-        assert!(imports("use diesel::prelude::*;", "diesel"));
+        assert!(hit("use std::{fs, path::Path};", "std::fs"));
+        assert!(hit("use std::fs as foo;", "std::fs"));
+        assert!(hit("use std::{\n    fs,\n    path::Path,\n};", "std::fs"));
+        assert!(hit("use std::fs::{self, File};", "std::fs"));
+        assert!(hit("use std::r#fs;", "std::fs"));
+        assert!(hit("let _ = std :: fs::read(path);", "std::fs"));
+        assert!(hit("use diesel::prelude::*;", "diesel"));
+        assert!(hit("use diesel;", "diesel"));
     }
 
     #[test]
     fn comments_strings_and_neighbors_do_not_count() {
-        assert!(!imports("// use std::fs::read;\nfn f() {}", "std::fs"));
-        assert!(!imports("let s = \"use std::fs\";", "std::fs"));
-        assert!(!imports("use std::path::Path;", "std::fs"));
-        assert!(imports("use std::fs::File;\nfn f() {}", "std::fs"));
+        assert!(!hit("// use std::fs::read;\nfn f() {}", "std::fs"));
+        assert!(!hit("/* a /* b */ use std::fs::File; */", "std::fs"));
+        assert!(!hit("/// std::fs::read\nfn f() {}", "std::fs"));
+        assert!(!hit("let s = \"use std::fs\";", "std::fs"));
+        assert!(!hit("let s = r#\"std::fs::read\"#;", "std::fs"));
+        assert!(!hit("use std::path::Path;", "std::fs"));
+    }
+
+    #[test]
+    fn labels_and_char_literals_do_not_hide_code() {
+        assert!(hit(
+            "fn f() { 'outer: loop { std::fs::read(p); break 'outer; } }",
+            "std::fs"
+        ));
+        assert!(hit("fn f() { let q = '\"'; std::fs::read(p); }", "std::fs"));
+    }
+
+    #[test]
+    fn include_is_rejected() {
+        assert!(code_text("include!(\"io.in\");").is_err());
+        assert!(code_text("const S: &str = include_str!(\"a.txt\");").is_ok());
     }
 }
