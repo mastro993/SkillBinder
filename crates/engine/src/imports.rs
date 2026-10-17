@@ -167,15 +167,20 @@ impl State {
             .join("staging")
             .join(format!("import-{id}-{}", uuid::Uuid::new_v4()));
         fs::create_dir(&staging).map_err(|_| AppError::storage())?;
-        let staged = prepared
-            .review
-            .items
-            .iter()
-            .zip(&prepared.sources)
-            .filter(|(item, _)| item.decision == ImportDecision::NewSkill)
-            .try_for_each(|(item, source)| {
-                payload::materialize(source, &staging.join(item.skill_id.as_str()))
-            });
+        let staged = (|| {
+            for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
+                if item.decision == ImportDecision::NewSkill {
+                    payload::materialize(source, &staging.join(item.skill_id.as_str()))?;
+                }
+            }
+            // A source staged early may have changed while later ones were copied.
+            for source in &prepared.sources {
+                if payload::inspect(&source.canonical_source)? != *source {
+                    return Err(AppError::stale("SourceChanged"));
+                }
+            }
+            Ok(())
+        })();
         if let Err(error) = staged {
             let _ = fs::remove_dir_all(&staging);
             return Err(error);
