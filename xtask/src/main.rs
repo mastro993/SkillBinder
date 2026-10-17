@@ -3,6 +3,7 @@
 
 mod evidence;
 mod graph;
+mod imports;
 mod mcp_smoke;
 mod package;
 mod registry;

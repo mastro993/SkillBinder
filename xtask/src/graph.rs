@@ -1,4 +1,5 @@
 //! Workspace crate graph and source-boundary checks.
+use crate::imports::imports;
 use anyhow::{Context, ensure};
 use serde::Deserialize;
 use std::{
@@ -55,8 +56,10 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         "Workspace members changed; update xtask graph policy if the crate is intentional"
     );
     for (name, package) in &packages {
+        check_dep_kinds(name, package)?;
         check_normal_deps(name, package)?;
         check_dev_deps(name, package)?;
+        check_build_deps(name, package)?;
     }
     let skillbinder = packages
         .get("skillbinder")
@@ -107,6 +110,26 @@ fn workspace_packages(metadata: &Metadata) -> anyhow::Result<BTreeMap<String, &P
         }
     }
     Ok(packages)
+}
+
+fn check_dep_kinds(name: &str, package: &Package) -> anyhow::Result<()> {
+    for dep in &package.dependencies {
+        ensure!(
+            matches!(dep.kind.as_deref(), None | Some("dev") | Some("build")),
+            "{name} has unsupported dependency kind {:?}; update xtask graph policy",
+            dep.kind
+        );
+    }
+    Ok(())
+}
+
+fn check_build_deps(name: &str, package: &Package) -> anyhow::Result<()> {
+    let actual = named_deps(&package.dependencies, Some("build"));
+    ensure!(
+        actual.is_empty(),
+        "{name} build-dependencies changed: expected none, found {actual:?}"
+    );
+    Ok(())
 }
 
 fn check_normal_deps(name: &str, package: &Package) -> anyhow::Result<()> {
@@ -174,11 +197,19 @@ fn allowed_normal(name: &str) -> Option<BTreeSet<(String, bool)>> {
                     optional: false,
                 },
                 Dep {
-                    name: "regex",
+                    name: "diesel",
                     optional: false,
                 },
                 Dep {
-                    name: "rusqlite",
+                    name: "diesel_migrations",
+                    optional: false,
+                },
+                Dep {
+                    name: "libsqlite3-sys",
+                    optional: false,
+                },
+                Dep {
+                    name: "regex",
                     optional: false,
                 },
                 Dep {
@@ -391,12 +422,30 @@ fn check_sources(root: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-const IO_ONLY: &[&str] = &["std::fs", "std::process", "rusqlite"];
-const IO_AND_ENGINE: &[&str] = &["std::fs", "std::process", "rusqlite", "skillbinder_engine"];
+const IO_ONLY: &[&str] = &[
+    "std::fs",
+    "std::process",
+    "rusqlite",
+    "diesel",
+    "diesel_migrations",
+    "libsqlite3_sys",
+];
+const IO_AND_ENGINE: &[&str] = &[
+    "std::fs",
+    "std::process",
+    "rusqlite",
+    "diesel",
+    "diesel_migrations",
+    "libsqlite3_sys",
+    "skillbinder_engine",
+];
 const IO_AND_UI: &[&str] = &[
     "std::fs",
     "std::process",
     "rusqlite",
+    "diesel",
+    "diesel_migrations",
+    "libsqlite3_sys",
     "gpui",
     "gpui_kit",
     "skillbinder_engine",
@@ -414,19 +463,6 @@ fn deny_imports(path: &Path, text: &str, forbidden: &[&str]) -> anyhow::Result<(
         );
     }
     Ok(())
-}
-
-fn imports(text: &str, needle: &str) -> bool {
-    text.lines().any(|line| {
-        let line = line.trim();
-        if line.starts_with("//") {
-            return false;
-        }
-        let use_path = format!("use {needle}");
-        line.starts_with(&use_path)
-            || line.contains(&format!("{needle}::"))
-            || line.contains(&format!("{needle}::{{"))
-    })
 }
 
 fn rust_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
@@ -455,7 +491,8 @@ mod tests {
         clippy::expect_used,
         reason = "Test assertions report fixture failures."
     )]
-    use super::{allowed_normal, imports};
+    use super::allowed_normal;
+    use crate::imports::imports;
     use std::path::Path;
 
     #[test]
@@ -463,12 +500,27 @@ mod tests {
         let deps = allowed_normal("skillbinder-ui").unwrap();
         assert!(!deps.contains(&("skillbinder-engine".into(), false)));
         assert!(!deps.contains(&("rusqlite".into(), false)));
+        assert!(!deps.contains(&("diesel".into(), false)));
+    }
+
+    #[test]
+    fn engine_owns_sqlite_through_diesel() {
+        let deps = allowed_normal("skillbinder-engine").unwrap();
+        assert!(deps.contains(&("diesel".into(), false)));
+        assert!(deps.contains(&("diesel_migrations".into(), false)));
+        assert!(!deps.contains(&("rusqlite".into(), false)));
     }
 
     #[test]
     fn proto_stays_free_of_io_and_gpui() {
         let deps = allowed_normal("skillbinder-proto").unwrap();
-        for banned in ["rusqlite", "gpui-kit", "skillbinder-engine", "std"] {
+        for banned in [
+            "rusqlite",
+            "diesel",
+            "gpui-kit",
+            "skillbinder-engine",
+            "std",
+        ] {
             assert!(!deps.iter().any(|(name, _)| name == banned), "{banned}");
         }
     }
@@ -478,6 +530,7 @@ mod tests {
         assert!(!imports("// use std::fs::read;\nfn f() {}", "std::fs"));
         assert!(imports("use std::fs::File;\nfn f() {}", "std::fs"));
         assert!(imports("let _ = std::fs::read(path);", "std::fs"));
+        assert!(imports("use std::{fs, path::Path};", "std::fs"));
     }
 
     #[test]
