@@ -1,17 +1,97 @@
-//! Workspace crate graph and source-boundary checks.
-use crate::imports::{code_text, imports};
-use crate::policy::{
-    ENGINE, IO, MEMBERS, UI, allowed_dep_features, allowed_dep_source, allowed_dep_target,
-    allowed_dev, allowed_features, allowed_normal,
-};
+//! Workspace crate graph: members, dependencies, features, and Clippy I/O policy scope.
 use anyhow::{Context, ensure};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs, io,
     path::{Path, PathBuf},
     process::Command,
 };
+
+/// Allowed normal and dev dependencies per workspace member. Build dependencies are not allowed.
+const POLICY: &[(&str, &[&str], &[&str])] = &[
+    (
+        "skillbinder",
+        &[
+            "anyhow",
+            "fs2",
+            "gpui-kit",
+            "gpui-mcp",
+            "log",
+            "skillbinder-client",
+            "skillbinder-engine",
+            "skillbinder-proto",
+            "skillbinder-theme",
+            "skillbinder-ui",
+            "tokio",
+        ],
+        &[],
+    ),
+    (
+        "skillbinder-client",
+        &["skillbinder-engine", "skillbinder-proto", "tokio"],
+        &["tempfile"],
+    ),
+    (
+        "skillbinder-engine",
+        &[
+            "diesel",
+            "diesel_migrations",
+            "directories",
+            "fs2",
+            "libsqlite3-sys",
+            "regex",
+            "rustix",
+            "serde",
+            "serde_json",
+            "sha2",
+            "skillbinder-proto",
+            "tempfile",
+            "time",
+            "tokio",
+            "unicode-casefold",
+            "unicode-normalization",
+            "url",
+            "uuid",
+            "yaml-rust2",
+        ],
+        &[],
+    ),
+    ("skillbinder-proto", &["serde", "serde_json", "uuid"], &[]),
+    ("skillbinder-theme", &["gpui-kit"], &[]),
+    (
+        "skillbinder-ui",
+        &[
+            "anyhow",
+            "chrono",
+            "gpui-kit",
+            "skillbinder-client",
+            "skillbinder-proto",
+            "skillbinder-theme",
+        ],
+        &["gpui-kit"],
+    ),
+    (
+        "xtask",
+        &["anyhow", "serde", "serde_json", "sha2", "tempfile"],
+        &[],
+    ),
+];
+
+/// The native test bridge is the only optional code, and only `native-test` enables it.
+const NATIVE_TEST: &[(&str, &[&str])] = &[
+    (
+        "skillbinder",
+        &["dep:gpui-mcp", "dep:log", "skillbinder-ui/native-test"],
+    ),
+    ("skillbinder-ui", &[]),
+];
+
+/// Members that own I/O and may replace the workspace `clippy.toml` with their own.
+const OWNS_IO: &[&str] = &["skillbinder", "skillbinder-engine", "xtask"];
+
+const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
+const GPUI_MCP: &str =
+    "git+https://github.com/themixednuts/gpui-mcp?rev=9dda8e5cb49990261e3fdaa26abe38112d30dafb";
 
 #[derive(Deserialize)]
 struct Metadata {
@@ -23,6 +103,7 @@ struct Metadata {
 struct Package {
     name: String,
     id: String,
+    manifest_path: PathBuf,
     dependencies: Vec<Dependency>,
     features: BTreeMap<String, BTreeSet<String>>,
 }
@@ -30,52 +111,41 @@ struct Package {
 #[derive(Deserialize)]
 struct Dependency {
     name: String,
-    #[serde(default)]
     kind: Option<String>,
-    #[serde(default)]
     optional: bool,
-    uses_default_features: bool,
-    features: BTreeSet<String>,
-    #[serde(default)]
-    target: Option<String>,
-    #[serde(default)]
-    rename: Option<String>,
-    #[serde(default)]
     source: Option<String>,
+    path: Option<PathBuf>,
 }
 
 pub fn verify(root: &Path) -> anyhow::Result<()> {
     let metadata = cargo_metadata(root)?;
-    let packages = workspace_packages(&metadata)?;
+    let members = workspace_packages(&metadata);
+    let names: BTreeSet<&str> = members
+        .iter()
+        .map(|package| package.name.as_str())
+        .collect();
+    let expected: BTreeSet<&str> = POLICY.iter().map(|(name, _, _)| *name).collect();
     ensure!(
-        packages.keys().cloned().collect::<BTreeSet<_>>()
-            == MEMBERS.iter().copied().map(str::to_owned).collect(),
-        "Workspace members changed; update xtask graph policy if the crate is intentional"
+        names == expected,
+        "Workspace members changed: expected {expected:?}, found {names:?}; update xtask graph policy if the crate is intentional"
     );
-    for (name, package) in &packages {
-        check_dep_kinds(name, package)?;
-        check_normal_deps(name, package)?;
-        check_dev_deps(name, package)?;
-        check_build_deps(name, package)?;
-        check_features(name, package)?;
-        check_dep_declarations(name, package)?;
-        check_dep_features(name, package)?;
+    let dirs: BTreeSet<&Path> = members
+        .iter()
+        .filter_map(|package| package.manifest_path.parent())
+        .collect();
+    for package in &members {
+        check_dependencies(package, &dirs)?;
+        check_features(package)?;
+        check_clippy_scope(root, package)?;
     }
-    check_sources(root)?;
     Ok(())
 }
 
 fn cargo_metadata(root: &Path) -> anyhow::Result<Metadata> {
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let output = Command::new(cargo)
-        .args([
-            "metadata",
-            "--format-version",
-            "1",
-            "--no-deps",
-            "--locked",
-            "--manifest-path",
-        ])
+        .args(["metadata", "--format-version", "1", "--no-deps", "--locked"])
+        .arg("--manifest-path")
         .arg(root.join("Cargo.toml"))
         .output()
         .context("Could not run cargo metadata")?;
@@ -87,186 +157,168 @@ fn cargo_metadata(root: &Path) -> anyhow::Result<Metadata> {
     serde_json::from_slice(&output.stdout).context("Invalid cargo metadata")
 }
 
-fn workspace_packages(metadata: &Metadata) -> anyhow::Result<BTreeMap<String, &Package>> {
-    let ids: BTreeSet<&str> = metadata
-        .workspace_members
+fn workspace_packages(metadata: &Metadata) -> Vec<&Package> {
+    metadata
+        .packages
         .iter()
-        .map(String::as_str)
-        .collect();
-    let mut packages = BTreeMap::new();
-    for package in &metadata.packages {
-        if ids.contains(package.id.as_str()) {
-            packages.insert(package.name.clone(), package);
-        }
-    }
-    Ok(packages)
+        .filter(|package| metadata.workspace_members.contains(&package.id))
+        .collect()
 }
 
-fn check_dep_kinds(name: &str, package: &Package) -> anyhow::Result<()> {
+fn check_dependencies(package: &Package, members: &BTreeSet<&Path>) -> anyhow::Result<()> {
+    let name = package.name.as_str();
+    let (_, normal, dev) = POLICY
+        .iter()
+        .find(|(member, _, _)| *member == name)
+        .context(format!("Unknown workspace package {name}"))?;
+    for (kind, allowed) in [
+        (None, *normal),
+        (Some("dev"), *dev),
+        (Some("build"), &[][..]),
+    ] {
+        let allowed: BTreeSet<&str> = allowed.iter().copied().collect();
+        let actual: BTreeSet<&str> = package
+            .dependencies
+            .iter()
+            .filter(|dep| dep.kind.as_deref() == kind)
+            .map(|dep| dep.name.as_str())
+            .collect();
+        ensure!(
+            actual == allowed,
+            "{name} {} dependencies changed: expected {allowed:?}, found {actual:?}",
+            kind.unwrap_or("normal")
+        );
+    }
     for dep in &package.dependencies {
         ensure!(
-            matches!(dep.kind.as_deref(), None | Some("dev") | Some("build")),
-            "{name} has unsupported dependency kind {:?}; update xtask graph policy",
+            matches!(dep.kind.as_deref(), None | Some("dev" | "build")),
+            "{name} has unsupported dependency kind {:?}",
             dep.kind
         );
+        let optional = name == "skillbinder" && matches!(dep.name.as_str(), "gpui-mcp" | "log");
+        ensure!(
+            dep.optional == optional,
+            "{name} dependency {} must{} be optional",
+            dep.name,
+            if optional { "" } else { " not" }
+        );
+        check_origin(name, dep, members)?;
     }
     Ok(())
 }
 
-fn check_build_deps(name: &str, package: &Package) -> anyhow::Result<()> {
-    let actual = named_deps(&package.dependencies, Some("build"));
+/// Local dependencies must be workspace members, so Clippy lints them; others come from
+/// crates.io or the pinned gpui-mcp revision.
+fn check_origin(name: &str, dep: &Dependency, members: &BTreeSet<&Path>) -> anyhow::Result<()> {
+    match (&dep.path, dep.source.as_deref()) {
+        (Some(path), None) => ensure!(
+            members.contains(path.as_path()),
+            "{name} dependency {} points at {}, which is not a workspace member",
+            dep.name,
+            path.display()
+        ),
+        (None, Some(source)) => {
+            let expected = if dep.name == "gpui-mcp" {
+                GPUI_MCP
+            } else {
+                CRATES_IO
+            };
+            ensure!(
+                source == expected,
+                "{name} dependency {} comes from {source}; expected {expected}",
+                dep.name
+            );
+        }
+        _ => anyhow::bail!("{name} dependency {} has an unrecognized origin", dep.name),
+    }
+    Ok(())
+}
+
+fn check_features(package: &Package) -> anyhow::Result<()> {
+    let expected: BTreeMap<String, BTreeSet<String>> = NATIVE_TEST
+        .iter()
+        .filter(|(member, _)| *member == package.name)
+        .map(|(_, enables)| {
+            let enables = enables.iter().copied().map(str::to_owned).collect();
+            ("native-test".to_owned(), enables)
+        })
+        .collect();
     ensure!(
-        actual.is_empty(),
-        "{name} build-dependencies changed: expected none, found {actual:?}"
-    );
-    Ok(())
-}
-
-fn check_dep_declarations(name: &str, package: &Package) -> anyhow::Result<()> {
-    let mut seen = BTreeSet::new();
-    for dep in &package.dependencies {
-        let kind = dep.kind.as_deref().unwrap_or("normal");
-        ensure!(
-            seen.insert((kind, dep.name.as_str())),
-            "{name} declares {kind} dependency {} more than once",
-            dep.name
-        );
-        ensure!(
-            dep.rename.is_none(),
-            "{name} renames dependency {}; import it under its own name",
-            dep.name
-        );
-        let source = allowed_dep_source(&dep.name);
-        ensure!(
-            dep.source.as_deref() == source,
-            "{name} dependency {} source changed: expected {source:?}, found {:?}",
-            dep.name,
-            dep.source
-        );
-    }
-    Ok(())
-}
-
-fn check_dep_features(name: &str, package: &Package) -> anyhow::Result<()> {
-    for dep in &package.dependencies {
-        let kind = dep.kind.as_deref().unwrap_or("normal");
-        let (default, features) = allowed_dep_features(name, kind, &dep.name);
-        let features: BTreeSet<String> = features.iter().copied().map(str::to_owned).collect();
-        ensure!(
-            dep.uses_default_features == default && dep.features == features,
-            "{name} {kind} dependency {} features changed: expected default={default} {features:?}, found default={} {:?}",
-            dep.name,
-            dep.uses_default_features,
-            dep.features
-        );
-        let target = allowed_dep_target(name, &dep.name);
-        ensure!(
-            dep.target.as_deref() == target,
-            "{name} {kind} dependency {} target changed: expected {target:?}, found {:?}",
-            dep.name,
-            dep.target
-        );
-    }
-    Ok(())
-}
-
-fn check_features(name: &str, package: &Package) -> anyhow::Result<()> {
-    let allowed = allowed_features(name);
-    ensure!(
-        package.features == allowed,
-        "{name} features changed: expected {allowed:?}, found {:?}; native test controls must stay behind non-default native-test",
+        package.features == expected,
+        "{} features changed: expected {expected:?}, found {:?}; native test controls must stay behind non-default native-test",
+        package.name,
         package.features
     );
     Ok(())
 }
 
-fn check_normal_deps(name: &str, package: &Package) -> anyhow::Result<()> {
-    let allowed = allowed_normal(name).context(format!("Unknown workspace package {name}"))?;
-    let actual = named_deps(&package.dependencies, None);
-    ensure!(
-        actual == allowed,
-        "{name} normal dependencies changed: expected {allowed:?}, found {actual:?}"
-    );
-    Ok(())
-}
-
-fn check_dev_deps(name: &str, package: &Package) -> anyhow::Result<()> {
-    let allowed = allowed_dev(name);
-    let actual = named_deps(&package.dependencies, Some("dev"));
-    ensure!(
-        actual == allowed,
-        "{name} dev-dependencies changed: expected {allowed:?}, found {actual:?}"
-    );
-    Ok(())
-}
-
-fn named_deps(deps: &[Dependency], kind: Option<&str>) -> BTreeSet<(String, bool)> {
-    deps.iter()
-        .filter(|dep| dep.kind.as_deref() == kind)
-        .map(|dep| (dep.name.clone(), dep.optional))
-        .collect()
-}
-
-fn check_sources(root: &Path) -> anyhow::Result<()> {
-    for (dir, forbidden) in [
-        ("crates/proto/src", &[IO, ENGINE, UI][..]),
-        ("crates/theme/src", &[IO, ENGINE]),
-        ("crates/ui/src", &[IO, ENGINE]),
-        ("crates/client/src", &[IO]),
-        ("crates/engine/src", &[UI]),
-    ] {
-        for path in rust_files(&root.join(dir))? {
-            let text = fs::read_to_string(&path)
-                .with_context(|| format!("Could not read {}", path.display()))?;
-            deny_imports(&path, &text, forbidden)?;
+/// Clippy reads the nearest `clippy.toml` at or above a crate, so only crates that own I/O may
+/// shadow the workspace policy, and only from their own directory.
+fn check_clippy_scope(root: &Path, package: &Package) -> anyhow::Result<()> {
+    let manifest_dir = package
+        .manifest_path
+        .parent()
+        .context("Manifest has no directory")?;
+    let owns_io = OWNS_IO.contains(&package.name.as_str());
+    for dir in manifest_dir.ancestors().take_while(|dir| *dir != root) {
+        for file in ["clippy.toml", ".clippy.toml"] {
+            let config = dir.join(file);
+            ensure!(
+                !config.is_file() || (owns_io && dir == manifest_dir),
+                "{} shadows the workspace clippy.toml for {}; only {OWNS_IO:?} may own I/O",
+                config.display(),
+                package.name
+            );
         }
     }
     Ok(())
-}
-
-fn deny_imports(path: &Path, text: &str, forbidden: &[&[&str]]) -> anyhow::Result<()> {
-    let source = code_text(text).with_context(|| format!("Could not check {}", path.display()))?;
-    for needle in forbidden.iter().copied().flatten() {
-        ensure!(
-            !imports(&source, needle),
-            "{} imports {needle}; keep that work in the owning crate",
-            path.display()
-        );
-    }
-    Ok(())
-}
-
-fn rust_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
-    let mut files = Vec::new();
-    let mut stack = vec![dir.to_path_buf()];
-    while let Some(path) = stack.pop() {
-        for entry in fs::read_dir(&path).map_err(|error| match error.kind() {
-            io::ErrorKind::NotFound => anyhow::anyhow!("Missing {}", path.display()),
-            _ => anyhow::Error::from(error),
-        })? {
-            let path = entry?.path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.extension().is_some_and(|ext| ext == "rs") {
-                files.push(path);
-            }
-        }
-    }
-    Ok(files)
 }
 
 #[cfg(test)]
 mod tests {
     #![expect(
-        clippy::unwrap_used,
         clippy::expect_used,
         reason = "Test assertions report fixture failures."
     )]
+    use super::{OWNS_IO, POLICY};
     use std::path::Path;
+
+    fn normal(name: &str) -> &'static [&'static str] {
+        POLICY
+            .iter()
+            .find(|(member, _, _)| *member == name)
+            .map(|(_, normal, _)| *normal)
+            .expect("member is in policy")
+    }
+
+    #[test]
+    fn only_the_engine_reaches_sqlite() {
+        for (member, deps, _) in POLICY {
+            let sqlite = deps
+                .iter()
+                .any(|dep| dep.starts_with("diesel") || *dep == "libsqlite3-sys");
+            assert_eq!(sqlite, *member == "skillbinder-engine", "{member}");
+        }
+    }
+
+    #[test]
+    fn contracts_and_ui_stay_off_the_engine() {
+        let proto = normal("skillbinder-proto");
+        assert!(
+            !proto
+                .iter()
+                .any(|dep| dep.starts_with("skillbinder") || dep.starts_with("gpui"))
+        );
+        assert!(!normal("skillbinder-ui").contains(&"skillbinder-engine"));
+        assert!(!normal("skillbinder-theme").contains(&"skillbinder-engine"));
+        assert!(!OWNS_IO.contains(&"skillbinder-ui"));
+    }
 
     #[test]
     fn workspace_graph_matches_policy() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root");
         super::verify(root).expect("workspace graph matches the recorded crate boundaries");
     }
 }

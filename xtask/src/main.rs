@@ -3,10 +3,8 @@
 
 mod evidence;
 mod graph;
-mod imports;
 mod mcp_smoke;
 mod package;
-mod policy;
 mod registry;
 
 use std::path::Path;
