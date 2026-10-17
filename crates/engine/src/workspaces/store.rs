@@ -2,12 +2,14 @@
 
 use super::projects::{is_agent_folder, projects};
 use crate::{
+    database,
     discovery::registry::{global_skill_dirs, workspace_skill_dirs},
     library::validate_name,
     persistence::now,
+    schema::workspaces,
     worker::State,
 };
-use rusqlite::params;
+use diesel::prelude::*;
 use skillbinder_proto::*;
 use std::path::Path;
 
@@ -73,53 +75,45 @@ impl State {
                 },
             ));
         }
-        let transaction = self
-            .database
-            .transaction()
-            .map_err(|_| AppError::storage())?;
-        for workspace in &added {
-            transaction
-                .execute(
-                    "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES(?1,?2,?3,?4,?5)",
-                    params![
-                        workspace.id.as_str(),
-                        workspace.path,
-                        workspace.name,
-                        workspace.position,
-                        now()
-                    ],
-                )
-                .map_err(|_| AppError::storage())?;
-        }
-        transaction.commit().map_err(|_| AppError::storage())?;
+        // One row per statement: a single multi-row insert would exceed SQLite's bound-parameter
+        // limit when a picked folder holds thousands of projects.
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            for workspace in &added {
+                diesel::insert_into(workspaces::table)
+                    .values((
+                        workspaces::id.eq(workspace.id.as_str()),
+                        workspaces::canonical_path.eq(&workspace.path),
+                        workspaces::name.eq(&workspace.name),
+                        workspaces::position.eq(i64::from(workspace.position)),
+                        workspaces::created_at.eq(now() as i64),
+                    ))
+                    .execute(connection)
+                    .map_err(|_| AppError::storage())?;
+            }
+            Ok(())
+        })?;
         Ok(added)
     }
 
     pub(crate) fn workspaces(&self) -> AppResult<Vec<Workspace>> {
-        let mut query = self
-            .database
-            .prepare("SELECT id,canonical_path,name,position FROM workspaces ORDER BY position,id")
-            .map_err(|_| AppError::storage())?;
-        let rows = query
-            .query_map([], |row| {
-                Ok((
-                    WorkspaceId(row.get(0)?),
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, u32>(3)?,
-                ))
-            })
-            .map_err(|_| AppError::storage())?
-            .collect::<Result<Vec<_>, _>>()
+        let rows = workspaces::table
+            .select((
+                workspaces::id,
+                workspaces::canonical_path,
+                workspaces::name,
+                workspaces::position,
+            ))
+            .order((workspaces::position, workspaces::id))
+            .load::<(String, String, String, i64)>(&mut *self.database.borrow_mut())
             .map_err(|_| AppError::storage())?;
         rows.into_iter()
             .map(|(id, path, name, position)| {
                 Ok(Workspace {
                     missing: !Path::new(&path).is_dir(),
-                    id,
+                    id: WorkspaceId(id),
                     name,
                     path,
-                    position,
+                    position: u32::try_from(position).map_err(|_| AppError::storage())?,
                 })
             })
             .collect()
@@ -127,12 +121,9 @@ impl State {
 
     pub(crate) fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> AppResult<()> {
         let name = validate_name(name)?;
-        let changed = self
-            .database
-            .execute(
-                "UPDATE workspaces SET name=?1 WHERE id=?2",
-                params![name, id.as_str()],
-            )
+        let changed = diesel::update(workspaces::table.find(id.as_str()))
+            .set(workspaces::name.eq(name))
+            .execute(&mut *self.database.borrow_mut())
             .map_err(|_| AppError::storage())?;
         if changed == 0 {
             return Err(AppError::not_found("Workspace no longer exists."));
@@ -152,19 +143,12 @@ impl State {
                 "The workspaces changed. Reorder them again.",
             ));
         }
-        let transaction = self
-            .database
-            .transaction()
-            .map_err(|_| AppError::storage())?;
-        for (position, id) in order.iter().enumerate() {
-            transaction
-                .execute(
-                    "UPDATE workspaces SET position=?1 WHERE id=?2",
-                    params![position as u32, id.as_str()],
-                )
-                .map_err(|_| AppError::storage())?;
-        }
-        transaction.commit().map_err(|_| AppError::storage())
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            order
+                .iter()
+                .enumerate()
+                .try_for_each(|(position, id)| set_position(connection, id, position))
+        })
     }
 
     /// Forgets every stored workspace that is an agent folder, such as the home folder, whose
@@ -192,23 +176,31 @@ impl State {
         if !workspaces.iter().any(|workspace| &workspace.id == id) {
             return Err(AppError::not_found("Workspace no longer exists."));
         }
-        let transaction = self
-            .database
-            .transaction()
-            .map_err(|_| AppError::storage())?;
-        transaction
-            .execute("DELETE FROM workspaces WHERE id=?1", [id.as_str()])
-            .map_err(|_| AppError::storage())?;
-        for (position, workspace) in workspaces.iter().filter(|p| &p.id != id).enumerate() {
-            transaction
-                .execute(
-                    "UPDATE workspaces SET position=?1 WHERE id=?2",
-                    params![position as u32, workspace.id.as_str()],
-                )
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            diesel::delete(workspaces::table.find(id.as_str()))
+                .execute(connection)
                 .map_err(|_| AppError::storage())?;
-        }
-        transaction.commit().map_err(|_| AppError::storage())
+            workspaces
+                .iter()
+                .filter(|p| &p.id != id)
+                .enumerate()
+                .try_for_each(|(position, workspace)| {
+                    set_position(connection, &workspace.id, position)
+                })
+        })
     }
+}
+
+fn set_position(
+    connection: &mut SqliteConnection,
+    id: &WorkspaceId,
+    position: usize,
+) -> AppResult<()> {
+    diesel::update(workspaces::table.find(id.as_str()))
+        .set(workspaces::position.eq(position as i64))
+        .execute(connection)
+        .map(drop)
+        .map_err(|_| AppError::storage())
 }
 
 /// A new workspace's name: its folder's last path component.

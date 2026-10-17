@@ -1,4 +1,5 @@
 use crate::{
+    database,
     folders::{
         create_folder, delete_folder, move_to_folder, order_folders, rename_folder,
         validate_folders,
@@ -6,7 +7,6 @@ use crate::{
     persistence::{Journal, Move},
     worker::State,
 };
-use rusqlite::OptionalExtension;
 use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
 use std::{
@@ -340,20 +340,8 @@ impl State {
             if let Some(time) = payload.ok().and_then(|dir| newest_modification(&dir)) {
                 modified.insert(skill.id.clone(), time);
             }
-            let serialized = self
-                .database
-                .query_row(
-                    "SELECT validation FROM skill_metadata WHERE skill_id=?1",
-                    [skill.id.as_str()],
-                    |row| row.get::<_, String>(0),
-                )
-                .optional()
-                .map_err(|_| AppError::storage())?;
-            if let Some(serialized) = serialized {
-                details.insert(
-                    skill.id.clone(),
-                    serde_json::from_str(&serialized).map_err(|_| AppError::storage())?,
-                );
+            if let Some(found) = database::details(&mut self.database.borrow_mut(), &skill.id)? {
+                details.insert(skill.id.clone(), found);
             }
         }
         Ok(LibrarySnapshot {

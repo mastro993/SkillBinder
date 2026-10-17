@@ -1,5 +1,10 @@
-use crate::{library::parse_library, worker::State};
-use rusqlite::{Connection, OptionalExtension, params};
+use crate::{
+    database,
+    library::parse_library,
+    schema::{device_settings, idempotency_records, operation_plans, skill_metadata},
+    worker::State,
+};
+use diesel::{prelude::*, upsert::excluded};
 use serde::{Serialize, de::DeserializeOwned};
 use skillbinder_proto::{
     AppError, AppResult, ErrorCategory, ImportOutcome, Library, SkillDetails, SkillId,
@@ -12,17 +17,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub(crate) fn open(path: &Path) -> AppResult<Connection> {
-    let connection = Connection::open(path).map_err(|_| AppError::storage())?;
-    connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
-        CREATE TABLE IF NOT EXISTS device_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS operation_plans(id TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at INTEGER NOT NULL,consumed INTEGER NOT NULL DEFAULT 0);
-        CREATE TABLE IF NOT EXISTS idempotency_records(operation_id TEXT PRIMARY KEY,request_hash TEXT NOT NULL,result TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS skill_metadata(skill_id TEXT PRIMARY KEY,description TEXT NOT NULL,validation TEXT NOT NULL,updated_at INTEGER NOT NULL);
-        CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,canonical_path TEXT NOT NULL UNIQUE,name TEXT NOT NULL,position INTEGER NOT NULL,created_at INTEGER NOT NULL);")
-        .map_err(|_| AppError::storage())?;
-    Ok(connection)
-}
 pub(crate) fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -72,20 +66,18 @@ pub(crate) fn sync_directory(path: &Path) -> AppResult<()> {
 }
 impl State {
     pub(crate) fn setting<T: DeserializeOwned>(&self, key: &str) -> AppResult<Option<T>> {
-        self.database
-            .query_row(
-                "SELECT value FROM device_settings WHERE key=?1",
-                [key],
-                |row| row.get::<_, String>(0),
-            )
+        device_settings::table
+            .find(key)
+            .select(device_settings::value)
+            .first::<String>(&mut *self.database.borrow_mut())
             .optional()
             .map_err(|_| AppError::storage())?
             .map(|json| serde_json::from_str(&json).map_err(|_| AppError::storage()))
             .transpose()
     }
     pub(crate) fn set_setting(&self, key: &str, value: &impl Serialize) -> AppResult<()> {
-        self.database.execute("INSERT INTO device_settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value", params![key, serde_json::to_string(value).map_err(|_| AppError::storage())?]).map_err(|_| AppError::storage())?;
-        Ok(())
+        let value = serde_json::to_string(value).map_err(|_| AppError::storage())?;
+        put_setting(&mut self.database.borrow_mut(), key, &value)
     }
     pub(crate) fn library_dir(&self) -> PathBuf {
         self.config.data_dir.join("library")
@@ -356,40 +348,26 @@ impl State {
             &journal.after,
         )?;
         checkpoint("after_metadata")?;
-        let transaction = self
-            .database
-            .transaction()
-            .map_err(|_| AppError::storage())?;
-        for (id, details) in &journal.details {
-            transaction.execute("INSERT INTO skill_metadata(skill_id,description,validation,updated_at) VALUES(?1,?2,?3,?4) ON CONFLICT(skill_id) DO UPDATE SET description=excluded.description,validation=excluded.validation,updated_at=excluded.updated_at", params![id.as_str(), details.description, serde_json::to_string(details).map_err(|_| AppError::storage())?, now()]).map_err(|_| AppError::storage())?;
-        }
-        for removed in journal
-            .before
-            .skills
-            .iter()
-            .filter(|old| !journal.after.skills.iter().any(|new| new.id == old.id))
-        {
-            transaction
-                .execute(
-                    "DELETE FROM skill_metadata WHERE skill_id=?1",
-                    [removed.id.as_str()],
-                )
-                .map_err(|_| AppError::storage())?;
-        }
-        if let Some(outcome) = &journal.outcome {
-            let serialized = serde_json::to_string(outcome).map_err(|_| AppError::storage())?;
-            transaction.execute("INSERT OR IGNORE INTO idempotency_records(operation_id,request_hash,result) VALUES(?1,?1,?2)", params![outcome.plan_id.as_str(), serialized]).map_err(|_| AppError::storage())?;
-            transaction
-                .execute(
-                    "UPDATE operation_plans SET consumed=1 WHERE id=?1",
-                    [outcome.plan_id.as_str()],
-                )
-                .map_err(|_| AppError::storage())?;
-            transaction.execute("INSERT INTO device_settings(key,value) VALUES('import_outcome',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [serialized]).map_err(|_| AppError::storage())?;
-        }
-        transaction.execute("INSERT INTO device_settings(key,value) VALUES(?1,'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", [format!("journal:{}", journal.id)]).map_err(|_| AppError::storage())?;
-        checkpoint("before_database")?;
-        transaction.commit().map_err(|_| AppError::storage())?;
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            for (id, details) in &journal.details {
+                database::save_details(connection, id, details)?;
+            }
+            for removed in journal
+                .before
+                .skills
+                .iter()
+                .filter(|old| !journal.after.skills.iter().any(|new| new.id == old.id))
+            {
+                diesel::delete(skill_metadata::table.find(removed.id.as_str()))
+                    .execute(connection)
+                    .map_err(|_| AppError::storage())?;
+            }
+            if let Some(outcome) = &journal.outcome {
+                record_outcome(connection, outcome)?;
+            }
+            put_setting(connection, &format!("journal:{}", journal.id), "true")?;
+            checkpoint("before_database")
+        })?;
         checkpoint("after_database")
     }
     fn rollback_journal(&self, journal: &mut Journal) -> AppResult<()> {
@@ -477,6 +455,40 @@ impl State {
         }
         Ok(())
     }
+}
+
+/// Inserts or replaces a device setting holding serialized JSON.
+fn put_setting(connection: &mut SqliteConnection, key: &str, value: &str) -> AppResult<()> {
+    diesel::insert_into(device_settings::table)
+        .values((
+            device_settings::key.eq(key),
+            device_settings::value.eq(value),
+        ))
+        .on_conflict(device_settings::key)
+        .do_update()
+        .set(device_settings::value.eq(excluded(device_settings::value)))
+        .execute(connection)
+        .map(drop)
+        .map_err(|_| AppError::storage())
+}
+
+/// Stores a completed import's outcome for replay and consumes its plan.
+fn record_outcome(connection: &mut SqliteConnection, outcome: &ImportOutcome) -> AppResult<()> {
+    let serialized = serde_json::to_string(outcome).map_err(|_| AppError::storage())?;
+    let plan = outcome.plan_id.as_str();
+    diesel::insert_or_ignore_into(idempotency_records::table)
+        .values((
+            idempotency_records::operation_id.eq(plan),
+            idempotency_records::request_hash.eq(plan),
+            idempotency_records::result.eq(&serialized),
+        ))
+        .execute(connection)
+        .map_err(|_| AppError::storage())?;
+    diesel::update(operation_plans::table.find(plan))
+        .set(operation_plans::consumed.eq(1))
+        .execute(connection)
+        .map_err(|_| AppError::storage())?;
+    put_setting(connection, "import_outcome", &serialized)
 }
 
 #[cfg(not(test))]

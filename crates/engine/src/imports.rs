@@ -3,9 +3,10 @@ use crate::{
     library::{payload_relative, validate_library},
     payload::{self, Inspection, Manifest},
     persistence::{self, Journal, Move},
+    schema::{idempotency_records, operation_plans},
     worker::State,
 };
-use rusqlite::{OptionalExtension, params};
+use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
@@ -164,39 +165,33 @@ impl State {
             sources,
             catalog: fingerprint,
         };
-        self.database
-            .execute(
-                "INSERT INTO operation_plans(id,payload,expires_at,consumed) VALUES(?1,?2,?3,0)",
-                params![
-                    review.id.as_str(),
-                    serde_json::to_string(&prepared).map_err(|_| AppError::storage())?,
-                    review.expires_at
-                ],
-            )
+        diesel::insert_into(operation_plans::table)
+            .values((
+                operation_plans::id.eq(review.id.as_str()),
+                operation_plans::payload
+                    .eq(serde_json::to_string(&prepared).map_err(|_| AppError::storage())?),
+                operation_plans::expires_at.eq(review.expires_at as i64),
+                operation_plans::consumed.eq(0),
+            ))
+            .execute(&mut *self.database.borrow_mut())
             .map_err(|_| AppError::storage())?;
         Ok(review)
     }
     pub(crate) fn apply_import(&mut self, id: PlanId) -> AppResult<ImportOutcome> {
         self.require_recovered()?;
-        if let Some(result) = self
-            .database
-            .query_row(
-                "SELECT result FROM idempotency_records WHERE operation_id=?1",
-                [id.as_str()],
-                |row| row.get::<_, String>(0),
-            )
+        if let Some(result) = idempotency_records::table
+            .find(id.as_str())
+            .select(idempotency_records::result)
+            .first::<String>(&mut *self.database.borrow_mut())
             .optional()
             .map_err(|_| AppError::storage())?
         {
             return serde_json::from_str(&result).map_err(|_| AppError::storage());
         }
-        let serialized = self
-            .database
-            .query_row(
-                "SELECT payload FROM operation_plans WHERE id=?1",
-                [id.as_str()],
-                |row| row.get::<_, String>(0),
-            )
+        let serialized = operation_plans::table
+            .find(id.as_str())
+            .select(operation_plans::payload)
+            .first::<String>(&mut *self.database.borrow_mut())
             .optional()
             .map_err(|_| AppError::storage())?
             .ok_or_else(|| AppError::stale("Install plan is unavailable. Prepare it again."))?;

@@ -1,10 +1,12 @@
 use crate::{
-    discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig, logging::Logger,
-    persistence,
+    database, discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig,
+    logging::Logger,
 };
+use diesel::SqliteConnection;
 use fs2::FileExt;
 use skillbinder_proto::*;
 use std::{
+    cell::RefCell,
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     path::PathBuf,
@@ -13,6 +15,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 
+const DATABASE: &str = "skillbinder.db";
 type Job = Box<dyn FnOnce(&mut State) + Send>;
 enum Message {
     Execute(Job),
@@ -30,7 +33,7 @@ pub struct Engine {
 }
 pub(crate) struct State {
     pub config: EngineConfig,
-    pub database: rusqlite::Connection,
+    pub database: RefCell<SqliteConnection>,
     pub git: Option<Git>,
     pub log: Logger,
     pub scans: Scans,
@@ -65,7 +68,7 @@ impl Engine {
         })?;
         let log = Logger::start(config.data_dir.join("logs"), &config.home)
             .map_err(|_| AppError::storage())?;
-        let database = persistence::open(&config.data_dir.join("state.sqlite3"))?;
+        let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
         let mut state = State {
             config,
@@ -393,7 +396,7 @@ impl State {
         }
         Self {
             config: EngineConfig::isolated(data_dir.clone(), home.clone()),
-            database: persistence::open(&data_dir.join("state.sqlite3")).unwrap(),
+            database: RefCell::new(database::open(&data_dir.join(DATABASE)).unwrap()),
             git: None,
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),
