@@ -1,16 +1,16 @@
 use crate::{
+    database,
     folders::{
         create_folder, delete_folder, move_to_folder, order_folders, rename_folder,
         validate_folders,
     },
-    persistence::{Journal, Move},
+    library_store,
     worker::State,
 };
-use rusqlite::OptionalExtension;
 use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fs,
     path::{Component, Path, PathBuf},
 };
@@ -29,125 +29,20 @@ pub(crate) fn validate_name(value: &str) -> AppResult<String> {
     }
     Ok(name.to_owned())
 }
-fn portable_component(value: &str) -> bool {
-    !value.is_empty()
-        && value != "."
-        && value != ".."
-        && !value.ends_with([' ', '.'])
-        && !value
-            .chars()
-            .any(|c| c.is_control() || "/\\<>:\"|?*".contains(c))
-        && !matches!(
-            value
-                .split('.')
-                .next()
-                .unwrap_or("")
-                .to_ascii_uppercase()
-                .as_str(),
-            "CON"
-                | "PRN"
-                | "AUX"
-                | "NUL"
-                | "COM1"
-                | "COM2"
-                | "COM3"
-                | "COM4"
-                | "COM5"
-                | "COM6"
-                | "COM7"
-                | "COM8"
-                | "COM9"
-                | "LPT1"
-                | "LPT2"
-                | "LPT3"
-                | "LPT4"
-                | "LPT5"
-                | "LPT6"
-                | "LPT7"
-                | "LPT8"
-                | "LPT9"
-        )
+/// A hash of the library, which previewed confirmations check.
+fn revision(library: &Library) -> AppResult<String> {
+    let bytes = serde_json::to_vec(library).map_err(|_| AppError::storage())?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
 }
-pub(crate) fn valid_id(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 100
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-}
-pub(crate) fn validate_library(library: &Library) -> AppResult<()> {
-    if library.schema_version != 3
-        || library.content_policy_version != 1
-        || !valid_id(&library.library_id)
-    {
-        return Err(AppError::validation(
-            "The library metadata uses an unsupported schema or identity.",
-        ));
-    }
-    let mut preset_ids = BTreeSet::new();
-    let mut preset_names = BTreeSet::new();
+/// Refuses duplicate preset or folder names after normalization.
+fn validate_organization(library: &Library) -> AppResult<()> {
+    let mut names = BTreeSet::new();
     for preset in &library.presets {
-        if !valid_id(preset.id.as_str())
-            || !preset_ids.insert(preset.id.clone())
-            || !preset_names.insert(normalized(&validate_name(&preset.name)?))
-        {
-            return Err(AppError::validation(
-                "Preset identities and names must be unique.",
-            ));
+        if !names.insert(normalized(&validate_name(&preset.name)?)) {
+            return Err(AppError::validation("Preset names must be unique."));
         }
     }
-    let folder_ids = validate_folders(library)?;
-    let mut tag_ids = BTreeSet::new();
-    let mut tag_names = BTreeSet::new();
-    for tag in &library.tags {
-        if !valid_id(&tag.id)
-            || !tag_ids.insert(tag.id.clone())
-            || !tag_names.insert(normalized(&validate_name(&tag.name)?))
-        {
-            return Err(AppError::validation(
-                "Tag identities and names must be unique.",
-            ));
-        }
-    }
-    let mut ids = BTreeSet::new();
-    let mut paths = BTreeSet::new();
-    for skill in &library.skills {
-        if !valid_id(skill.id.as_str())
-            || !ids.insert(&skill.id)
-            || !portable_component(&skill.slug)
-            || !known_presets(&skill.preset_ids, &preset_ids)
-            || skill
-                .folder_id
-                .as_ref()
-                .is_some_and(|id| !folder_ids.contains(id))
-            || skill.tag_ids.iter().any(|id| !tag_ids.contains(id))
-            || skill.digest.strip_prefix("sha256:").is_none_or(|digest| {
-                digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit())
-            })
-        {
-            return Err(AppError::validation(
-                "A skill record contains invalid names, assignments, or payload metadata.",
-            ));
-        }
-        if !paths.insert(normalized(&payload_relative(library, skill))) {
-            return Err(AppError::validation(
-                "Skill directories collide after portable name normalization.",
-            ));
-        }
-    }
-    Ok(())
-}
-/// Whether `ids` names existing presets in strictly ascending order, as schema 3 stores them.
-fn known_presets(ids: &[PresetId], presets: &BTreeSet<PresetId>) -> bool {
-    ids.is_sorted_by(|a, b| a < b) && ids.iter().all(|id| presets.contains(id))
-}
-pub(crate) fn parse_library(metadata: &[u8]) -> AppResult<Library> {
-    let mut library: Library = serde_json::from_slice(metadata)
-        .map_err(|_| AppError::validation("Library metadata could not be read."))?;
-    validate_library(&library)?;
-    sort_presets(&mut library.presets);
-    order_folders(&mut library.folders);
-    Ok(library)
+    validate_folders(library)
 }
 /// The newest modification time, in Unix seconds, of the regular files under `dir`; links are
 /// skipped because managed payloads materialize them.
@@ -172,27 +67,12 @@ fn newest_modification(dir: &Path) -> Option<u64> {
     }
     newest
 }
-pub(crate) fn payload_relative(library: &Library, skill: &Skill) -> String {
-    let first = library
-        .skills
-        .iter()
-        .filter(|other| other.slug == skill.slug)
-        .min_by_key(|other| &other.id);
-    if first.is_none_or(|first| first.id == skill.id) {
-        format!("skills/{}", skill.slug)
-    } else {
-        format!(
-            "skills/{}-{}",
-            skill.slug,
-            skill.id.as_str().chars().take(8).collect::<String>()
-        )
-    }
-}
-/// Orders presets by user position; duplicate positions from remote edits fall back to name.
+/// Orders presets by user position and renumbers them densely.
 fn sort_presets(presets: &mut [Preset]) {
-    presets.sort_by_cached_key(|preset| {
-        (preset.position, normalized(&preset.name), preset.id.clone())
-    });
+    presets.sort_by_key(|preset| preset.position);
+    for (position, preset) in presets.iter_mut().enumerate() {
+        preset.position = u32::try_from(position).unwrap_or(u32::MAX);
+    }
 }
 fn apply_organization(
     library: &mut Library,
@@ -306,49 +186,25 @@ fn reorder_presets(library: &mut Library, order: &[PresetId]) -> AppResult<()> {
 }
 impl State {
     pub(crate) fn read_library(&self) -> AppResult<Library> {
-        parse_library(&self.read_metadata()?)
+        Ok(library_store::load(&mut self.database.borrow_mut())?.0)
     }
-    /// The raw bytes of `.skillbinder.json`.
-    pub(crate) fn read_metadata(&self) -> AppResult<Vec<u8>> {
-        let path = self.library_dir().join(".skillbinder.json");
-        let metadata = fs::symlink_metadata(&path).map_err(|_| AppError::storage())?;
-        if !metadata.is_file() || metadata.len() > 10 * 1024 * 1024 {
-            return Err(AppError::validation(
-                "Library metadata is not a bounded regular file.",
-            ));
-        }
-        fs::read(path).map_err(|_| AppError::storage())
+    /// The library and its revision, without reading payload directories.
+    pub(crate) fn revised_library(&self) -> AppResult<(Library, String)> {
+        let library = self.read_library()?;
+        let revision = revision(&library)?;
+        Ok((library, revision))
     }
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
-        let library = self.read_library()?;
-        let revision = format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(&library).map_err(|_| AppError::storage())?)
-        );
-        let mut details = BTreeMap::new();
-        let mut modified = BTreeMap::new();
-        for skill in &library.skills {
-            let payload = self
-                .contained_skill_path(&self.library_dir().join(payload_relative(&library, skill)));
-            if let Some(time) = payload.ok().and_then(|dir| newest_modification(&dir)) {
-                modified.insert(skill.id.clone(), time);
-            }
-            let serialized = self
-                .database
-                .query_row(
-                    "SELECT validation FROM skill_metadata WHERE skill_id=?1",
-                    [skill.id.as_str()],
-                    |row| row.get::<_, String>(0),
-                )
-                .optional()
-                .map_err(|_| AppError::storage())?;
-            if let Some(serialized) = serialized {
-                details.insert(
-                    skill.id.clone(),
-                    serde_json::from_str(&serialized).map_err(|_| AppError::storage())?,
-                );
-            }
-        }
+        let (library, details) = library_store::load(&mut self.database.borrow_mut())?;
+        let revision = revision(&library)?;
+        let modified = library
+            .skills
+            .iter()
+            .filter_map(|skill| {
+                let time = newest_modification(&self.skill_dir(&skill.id).ok()?)?;
+                Some((skill.id.clone(), time))
+            })
+            .collect();
         Ok(LibrarySnapshot {
             library,
             revision,
@@ -357,9 +213,8 @@ impl State {
         })
     }
     pub(crate) fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
-        let snapshot = self.library_snapshot()?;
-        let preset = snapshot
-            .library
+        let (library, revision) = self.revised_library()?;
+        let preset = library
             .presets
             .iter()
             .find(|preset| preset.id == id)
@@ -367,13 +222,12 @@ impl State {
             .ok_or_else(|| AppError::not_found("Preset no longer exists."))?;
         Ok(DeletePreview {
             preset,
-            affected_skills: snapshot
-                .library
+            affected_skills: library
                 .skills
                 .iter()
                 .filter(|skill| skill.preset_ids.contains(&id))
                 .count(),
-            revision: snapshot.revision,
+            revision,
         })
     }
     pub(crate) fn change_organization(
@@ -381,100 +235,13 @@ impl State {
         change: OrganizationChange,
     ) -> AppResult<LibrarySnapshot> {
         self.require_recovered()?;
-        let before = self.library_snapshot()?;
-        let mut after = before.library.clone();
-        apply_organization(&mut after, change, &before.revision)?;
-        validate_library(&after)?;
+        let (mut after, revision) = self.revised_library()?;
+        apply_organization(&mut after, change, &revision)?;
+        validate_organization(&after)?;
         sort_presets(&mut after.presets);
-        for (position, preset) in after.presets.iter_mut().enumerate() {
-            preset.position = position as u32;
-        }
         order_folders(&mut after.folders);
-        self.commit(Journal {
-            id: uuid::Uuid::new_v4().to_string(),
-            before: before.library,
-            before_metadata: None,
-            after,
-            moves: Vec::new(),
-            completed_moves: 0,
-            progress: Default::default(),
-            details: Vec::new(),
-            outcome: None,
-        })?;
-        self.library_snapshot()
-    }
-    pub(crate) fn resolve_conflict(
-        &mut self,
-        slug: String,
-        keep: SkillId,
-        mut expected: Vec<SkillId>,
-        revision: String,
-    ) -> AppResult<LibrarySnapshot> {
-        self.require_recovered()?;
-        let before = self.library_snapshot()?;
-        if before.revision != revision {
-            return Err(AppError::stale(
-                "The library changed after the resolution preview.",
-            ));
-        }
-        let copies: Vec<_> = before
-            .library
-            .skills
-            .iter()
-            .filter(|skill| skill.slug == slug)
-            .cloned()
-            .collect();
-        let mut ids: Vec<_> = copies.iter().map(|skill| skill.id.clone()).collect();
-        ids.sort();
-        expected.sort();
-        if copies.len() < 2 || ids != expected || !ids.contains(&keep) {
-            return Err(AppError::stale(
-                "The shared copies changed. Review them again.",
-            ));
-        }
-        let operation = uuid::Uuid::new_v4().to_string();
-        let backup = self
-            .config
-            .data_dir
-            .join("backups/resolutions")
-            .join(&operation);
-        let mut moves = Vec::new();
-        for skill in copies.iter().filter(|skill| skill.id != keep) {
-            let path = self
-                .library_dir()
-                .join(payload_relative(&before.library, skill));
-            self.contained_skill_path(&path)?;
-            moves.push(Move {
-                from: path,
-                to: backup.join(skill.id.as_str()),
-            });
-        }
-        let winner = copies
-            .iter()
-            .find(|skill| skill.id == keep)
-            .ok_or_else(|| AppError::not_found("Chosen skill no longer exists."))?;
-        let from = self
-            .library_dir()
-            .join(payload_relative(&before.library, winner));
-        self.contained_skill_path(&from)?;
-        let to = self.library_dir().join("skills").join(&slug);
-        if from != to {
-            moves.push(Move { from, to });
-        }
-        let mut after = before.library.clone();
-        after
-            .skills
-            .retain(|skill| skill.slug != slug || skill.id == keep);
-        self.commit(Journal {
-            id: operation,
-            before: before.library,
-            before_metadata: None,
-            after,
-            moves,
-            completed_moves: 0,
-            progress: Default::default(),
-            details: Vec::new(),
-            outcome: None,
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            library_store::save_organization(connection, &after)
         })?;
         self.library_snapshot()
     }
@@ -489,19 +256,19 @@ impl State {
         }
         Ok(canonical)
     }
+    /// The contained payload directory of a library skill.
+    pub(crate) fn skill_dir(&self, id: &SkillId) -> AppResult<PathBuf> {
+        self.contained_skill_path(&self.library_dir().join("skills").join(id.as_str()))
+    }
     pub(crate) fn preview_skill(
         &self,
         id: SkillId,
         relative: Option<String>,
     ) -> AppResult<SkillPreview> {
-        let library = self.read_library()?;
-        let skill = library
-            .skills
-            .iter()
-            .find(|skill| skill.id == id)
-            .ok_or_else(|| AppError::not_found("Skill no longer exists."))?;
-        let root =
-            self.contained_skill_path(&self.library_dir().join(payload_relative(&library, skill)))?;
+        if !library_store::holds(&mut self.database.borrow_mut(), id.as_str())? {
+            return Err(AppError::not_found("Skill no longer exists."));
+        }
+        let root = self.skill_dir(&id)?;
         let mut entries = Vec::new();
         let mut queue = vec![(root.clone(), 0)];
         while let Some((directory, depth)) = queue.pop() {
@@ -589,20 +356,5 @@ impl State {
             text,
             unavailable,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn preset_memberships_are_known_and_strictly_sorted() {
-        let id = |id: &str| PresetId(id.into());
-        let presets = BTreeSet::from([id("a"), id("b")]);
-        assert!(known_presets(&[id("a"), id("b")], &presets));
-        assert!(!known_presets(&[id("b"), id("a")], &presets));
-        assert!(!known_presets(&[id("a"), id("a")], &presets));
-        assert!(!known_presets(&[id("c")], &presets));
     }
 }

@@ -1,28 +1,19 @@
-use crate::{library::parse_library, worker::State};
-use rusqlite::{Connection, OptionalExtension, params};
-use serde::{Serialize, de::DeserializeOwned};
-use skillbinder_proto::{
-    AppError, AppResult, ErrorCategory, ImportOutcome, Library, SkillDetails, SkillId,
+use crate::{
+    database,
+    library_store::{SkillRecord, save_skill},
+    schema::{device_settings, idempotency_records, journals, operation_plans},
+    worker::State,
 };
+use diesel::{prelude::*, upsert::excluded};
+use serde::{Serialize, de::DeserializeOwned};
+use skillbinder_proto::{AppError, AppResult, ErrorCategory, ImportOutcome};
 #[cfg(unix)]
 use std::fs::File;
 use std::{
     fs::{self, OpenOptions},
-    io::Write,
     path::{Path, PathBuf},
 };
 
-pub(crate) fn open(path: &Path) -> AppResult<Connection> {
-    let connection = Connection::open(path).map_err(|_| AppError::storage())?;
-    connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
-        CREATE TABLE IF NOT EXISTS device_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS operation_plans(id TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at INTEGER NOT NULL,consumed INTEGER NOT NULL DEFAULT 0);
-        CREATE TABLE IF NOT EXISTS idempotency_records(operation_id TEXT PRIMARY KEY,request_hash TEXT NOT NULL,result TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS skill_metadata(skill_id TEXT PRIMARY KEY,description TEXT NOT NULL,validation TEXT NOT NULL,updated_at INTEGER NOT NULL);
-        CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,canonical_path TEXT NOT NULL UNIQUE,name TEXT NOT NULL,position INTEGER NOT NULL,created_at INTEGER NOT NULL);")
-        .map_err(|_| AppError::storage())?;
-    Ok(connection)
-}
 pub(crate) fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -41,26 +32,6 @@ pub(crate) fn writable(path: &Path) -> bool {
             success
         })
 }
-pub(crate) fn write_json(path: &Path, value: &impl Serialize) -> AppResult<()> {
-    let bytes = serde_json::to_vec_pretty(value).map_err(|_| AppError::storage())?;
-    atomic_write(path, &bytes)
-}
-pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> AppResult<()> {
-    let parent = path.parent().ok_or_else(AppError::storage)?;
-    fs::create_dir_all(parent).map_err(|_| AppError::storage())?;
-    let temp = parent.join(format!(".write-{}", uuid::Uuid::new_v4()));
-    let mut file = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&temp)
-        .map_err(|_| AppError::storage())?;
-    file.write_all(bytes)
-        .and_then(|()| file.sync_all())
-        .map_err(|_| AppError::storage())?;
-    drop(file);
-    fs::rename(&temp, path).map_err(|_| AppError::storage())?;
-    sync_directory(parent)
-}
 pub(crate) fn sync_directory(path: &Path) -> AppResult<()> {
     #[cfg(unix)]
     File::open(path)
@@ -72,20 +43,18 @@ pub(crate) fn sync_directory(path: &Path) -> AppResult<()> {
 }
 impl State {
     pub(crate) fn setting<T: DeserializeOwned>(&self, key: &str) -> AppResult<Option<T>> {
-        self.database
-            .query_row(
-                "SELECT value FROM device_settings WHERE key=?1",
-                [key],
-                |row| row.get::<_, String>(0),
-            )
+        device_settings::table
+            .find(key)
+            .select(device_settings::value)
+            .first::<String>(&mut *self.database.borrow_mut())
             .optional()
             .map_err(|_| AppError::storage())?
             .map(|json| serde_json::from_str(&json).map_err(|_| AppError::storage()))
             .transpose()
     }
     pub(crate) fn set_setting(&self, key: &str, value: &impl Serialize) -> AppResult<()> {
-        self.database.execute("INSERT INTO device_settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value", params![key, serde_json::to_string(value).map_err(|_| AppError::storage())?]).map_err(|_| AppError::storage())?;
-        Ok(())
+        let value = serde_json::to_string(value).map_err(|_| AppError::storage())?;
+        put_setting(&mut self.database.borrow_mut(), key, &value)
     }
     pub(crate) fn library_dir(&self) -> PathBuf {
         self.config.data_dir.join("library")
@@ -108,22 +77,17 @@ pub(crate) struct Move {
     pub from: PathBuf,
     pub to: PathBuf,
 }
+/// A payload operation recorded in the database until its database change commits. Deleting
+/// the row is the commit marker, in the same transaction as the change it describes.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct Journal {
     pub id: String,
-    pub before: Library,
-    /// The metadata file `before` was read from, recorded by `commit` so rollback restores it
-    /// byte for byte; absent in journals saved before it was recorded.
-    #[serde(default)]
-    pub before_metadata: Option<String>,
-    pub after: Library,
     pub moves: Vec<Move>,
-    #[serde(default)]
     pub completed_moves: usize,
-    #[serde(default)]
     pub progress: JournalProgress,
-    pub details: Vec<(SkillId, SkillDetails)>,
-    pub outcome: Option<ImportOutcome>,
+    /// Skills the commit saves.
+    pub skills: Vec<SkillRecord>,
+    pub outcome: ImportOutcome,
 }
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct JournalProgress {
@@ -171,61 +135,54 @@ fn uncertain_payload() -> AppError {
     )
 }
 impl State {
-    fn journal_path(&self, journal: &Journal) -> AppResult<PathBuf> {
-        if journal.id.is_empty()
-            || !journal
-                .id
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-        {
-            return Err(uncertain_payload());
-        }
-        Ok(self
-            .config
-            .data_dir
-            .join("journals")
-            .join(format!("{}.json", journal.id)))
-    }
     fn save_journal(&self, journal: &Journal) -> AppResult<()> {
-        write_json(&self.journal_path(journal)?, journal)
+        let body = serde_json::to_string(journal).map_err(|_| AppError::storage())?;
+        diesel::insert_into(journals::table)
+            .values((journals::id.eq(&journal.id), journals::body.eq(&body)))
+            .on_conflict(journals::id)
+            .do_update()
+            .set(journals::body.eq(excluded(journals::body)))
+            .execute(&mut *self.database.borrow_mut())
+            .map(drop)
+            .map_err(|_| AppError::storage())
     }
     fn remove_journal(&self, journal: &Journal) -> AppResult<()> {
-        fs::remove_file(self.journal_path(journal)?).map_err(|_| AppError::storage())?;
-        sync_directory(&self.config.data_dir.join("journals"))
+        diesel::delete(journals::table.find(&journal.id))
+            .execute(&mut *self.database.borrow_mut())
+            .map(drop)
+            .map_err(|_| AppError::storage())
     }
+    /// Whether the journal's database change has committed, which removed its row.
     fn journal_committed(&self, journal: &Journal) -> AppResult<bool> {
-        Ok(self
-            .setting::<bool>(&format!("journal:{}", journal.id))?
-            .unwrap_or(false))
+        journals::table
+            .find(&journal.id)
+            .count()
+            .get_result::<i64>(&mut *self.database.borrow_mut())
+            .map(|rows| rows == 0)
+            .map_err(|_| AppError::storage())
     }
     pub(crate) fn recover(&mut self) -> AppResult<()> {
         self.recovery_required = true;
-        let directory = self.config.data_dir.join("journals");
-        for entry in fs::read_dir(directory).map_err(|_| AppError::storage())? {
-            let path = entry.map_err(|_| AppError::storage())?.path();
-            if path.extension().is_none_or(|extension| extension != "json") {
-                continue;
-            }
+        let bodies = journals::table
+            .order(journals::id)
+            .select(journals::body)
+            .load::<String>(&mut *self.database.borrow_mut())
+            .map_err(|_| AppError::storage())?;
+        for body in bodies {
             let mut journal: Journal =
-                serde_json::from_slice(&fs::read(&path).map_err(|_| AppError::storage())?)
-                    .map_err(|_| AppError::storage())?;
-            if self.journal_path(&journal)? != path {
-                return Err(uncertain_payload());
-            }
+                serde_json::from_str(&body).map_err(|_| AppError::storage())?;
             self.validate_progress(&journal)?;
             if journal.progress.phase == Phase::RollingBack {
                 self.rollback_journal(&mut journal)?;
             } else {
                 self.finish_journal(&mut journal)?;
             }
-            self.remove_journal(&journal)?;
         }
         self.recovery_required = false;
         Ok(())
     }
     pub(crate) fn commit(&mut self, mut journal: Journal) -> AppResult<()> {
         self.require_recovered()?;
-        self.journal_path(&journal)?;
         if journal.completed_moves != 0
             || journal.progress.active_move.is_some()
             || journal.progress.phase != Phase::Applying
@@ -240,15 +197,7 @@ impl State {
                 ExpectedPayload::capture(&movement.from)
             })
             .collect::<AppResult<_>>()?;
-        let metadata = self.read_metadata()?;
-        if parse_library(&metadata)? != journal.before {
-            return Err(AppError::stale(
-                "The library changed before the mutation could commit.",
-            ));
-        }
-        journal.before_metadata =
-            Some(String::from_utf8(metadata).map_err(|_| AppError::storage())?);
-        // Atomic replacement may succeed before its directory sync reports an error.
+        // A write may succeed before its sync reports an error.
         self.recovery_required = true;
         self.save_journal(&journal)?;
         if let Err(error) = self.finish_journal(&mut journal) {
@@ -261,13 +210,11 @@ impl State {
                 if self.save_journal(&journal).is_ok()
                     && self.rollback_journal(&mut journal).is_ok()
                 {
-                    self.remove_journal(&journal)?;
                     self.recovery_required = false;
                 }
             }
             return Err(error);
         }
-        self.remove_journal(&journal)?;
         self.recovery_required = false;
         Ok(())
     }
@@ -332,7 +279,6 @@ impl State {
     }
     fn finish_journal(&mut self, journal: &mut Journal) -> AppResult<()> {
         self.validate_progress(journal)?;
-        self.require_journal_metadata(journal)?;
         while journal.completed_moves < journal.moves.len() {
             let index = journal.completed_moves;
             journal.progress.active_move = Some(index);
@@ -349,47 +295,16 @@ impl State {
                 return Err(uncertain_payload());
             }
         }
-        checkpoint("before_metadata")?;
-        self.require_journal_metadata(journal)?;
-        write_json(
-            &self.library_dir().join(".skillbinder.json"),
-            &journal.after,
-        )?;
-        checkpoint("after_metadata")?;
-        let transaction = self
-            .database
-            .transaction()
-            .map_err(|_| AppError::storage())?;
-        for (id, details) in &journal.details {
-            transaction.execute("INSERT INTO skill_metadata(skill_id,description,validation,updated_at) VALUES(?1,?2,?3,?4) ON CONFLICT(skill_id) DO UPDATE SET description=excluded.description,validation=excluded.validation,updated_at=excluded.updated_at", params![id.as_str(), details.description, serde_json::to_string(details).map_err(|_| AppError::storage())?, now()]).map_err(|_| AppError::storage())?;
-        }
-        for removed in journal
-            .before
-            .skills
-            .iter()
-            .filter(|old| !journal.after.skills.iter().any(|new| new.id == old.id))
-        {
-            transaction
-                .execute(
-                    "DELETE FROM skill_metadata WHERE skill_id=?1",
-                    [removed.id.as_str()],
-                )
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            for record in &journal.skills {
+                save_skill(connection, record)?;
+            }
+            record_outcome(connection, &journal.outcome)?;
+            diesel::delete(journals::table.find(&journal.id))
+                .execute(connection)
                 .map_err(|_| AppError::storage())?;
-        }
-        if let Some(outcome) = &journal.outcome {
-            let serialized = serde_json::to_string(outcome).map_err(|_| AppError::storage())?;
-            transaction.execute("INSERT OR IGNORE INTO idempotency_records(operation_id,request_hash,result) VALUES(?1,?1,?2)", params![outcome.plan_id.as_str(), serialized]).map_err(|_| AppError::storage())?;
-            transaction
-                .execute(
-                    "UPDATE operation_plans SET consumed=1 WHERE id=?1",
-                    [outcome.plan_id.as_str()],
-                )
-                .map_err(|_| AppError::storage())?;
-            transaction.execute("INSERT INTO device_settings(key,value) VALUES('import_outcome',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [serialized]).map_err(|_| AppError::storage())?;
-        }
-        transaction.execute("INSERT INTO device_settings(key,value) VALUES(?1,'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", [format!("journal:{}", journal.id)]).map_err(|_| AppError::storage())?;
-        checkpoint("before_database")?;
-        transaction.commit().map_err(|_| AppError::storage())?;
+            checkpoint("before_database")
+        })?;
         checkpoint("after_database")
     }
     fn rollback_journal(&self, journal: &mut Journal) -> AppResult<()> {
@@ -397,7 +312,6 @@ impl State {
             return Err(uncertain_payload());
         }
         self.validate_progress(journal)?;
-        self.require_journal_metadata(journal)?;
         self.rollback_unrecorded_move(journal)?;
         while journal.completed_moves > 0 {
             let index = journal.completed_moves - 1;
@@ -410,15 +324,7 @@ impl State {
             journal.progress.active_move = None;
             self.save_journal(journal)?;
         }
-        // The recorded bytes, not `before`, keep a schema 2 file schema 2, even when the schema 3
-        // write left `before` and `after` equal.
-        let unchanged = self.require_journal_metadata(journal)?;
-        let path = self.library_dir().join(".skillbinder.json");
-        match &journal.before_metadata {
-            Some(metadata) => atomic_write(&path, metadata.as_bytes()),
-            None if !unchanged => write_json(&path, &journal.before),
-            None => Ok(()),
-        }
+        self.remove_journal(journal)
     }
     fn rollback_unrecorded_move(&self, journal: &mut Journal) -> AppResult<()> {
         if journal.progress.active_move == Some(journal.completed_moves) {
@@ -428,30 +334,11 @@ impl State {
         }
         Ok(())
     }
-    /// Refuses metadata that matches neither side of the journal; returns whether it matches
-    /// `before`.
-    fn require_journal_metadata(&self, journal: &Journal) -> AppResult<bool> {
-        let unexpected = || {
-            AppError::new(
-                ErrorCategory::Recovery,
-                "Library metadata changed outside the interrupted operation.",
-                "Preserve the library and operation journal for recovery before making changes.",
-            )
-        };
-        let encode = |library: &Library| serde_json::to_value(library).map_err(|_| unexpected());
-        let current = encode(&self.read_library().map_err(|_| unexpected())?)?;
-        let unchanged = current == encode(&journal.before)?;
-        if current != encode(&journal.after)? && (self.journal_committed(journal)? || !unchanged) {
-            return Err(unexpected());
-        }
-        Ok(unchanged)
-    }
     fn validate_move(&self, movement: &Move) -> AppResult<()> {
         for path in [&movement.from, &movement.to] {
             let owned = [
                 self.config.data_dir.join("staging"),
                 self.library_dir().join("skills"),
-                self.config.data_dir.join("backups"),
             ];
             if !owned
                 .iter()
@@ -477,6 +364,40 @@ impl State {
         }
         Ok(())
     }
+}
+
+/// Inserts or replaces a device setting holding serialized JSON.
+fn put_setting(connection: &mut SqliteConnection, key: &str, value: &str) -> AppResult<()> {
+    diesel::insert_into(device_settings::table)
+        .values((
+            device_settings::key.eq(key),
+            device_settings::value.eq(value),
+        ))
+        .on_conflict(device_settings::key)
+        .do_update()
+        .set(device_settings::value.eq(excluded(device_settings::value)))
+        .execute(connection)
+        .map(drop)
+        .map_err(|_| AppError::storage())
+}
+
+/// Stores a completed import's outcome for replay and consumes its plan.
+fn record_outcome(connection: &mut SqliteConnection, outcome: &ImportOutcome) -> AppResult<()> {
+    let serialized = serde_json::to_string(outcome).map_err(|_| AppError::storage())?;
+    let plan = outcome.plan_id.as_str();
+    diesel::insert_or_ignore_into(idempotency_records::table)
+        .values((
+            idempotency_records::operation_id.eq(plan),
+            idempotency_records::request_hash.eq(plan),
+            idempotency_records::result.eq(&serialized),
+        ))
+        .execute(connection)
+        .map_err(|_| AppError::storage())?;
+    diesel::update(operation_plans::table.find(plan))
+        .set(operation_plans::consumed.eq(1))
+        .execute(connection)
+        .map_err(|_| AppError::storage())?;
+    put_setting(connection, "import_outcome", &serialized)
 }
 
 #[cfg(not(test))]

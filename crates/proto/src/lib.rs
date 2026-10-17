@@ -44,10 +44,6 @@ macro_rules! identifier {
         }
     };
 }
-identifier!(
-    SkillId,
-    "A portable skill identity, independent of its slug."
-);
 identifier!(PresetId, "A preset identity.");
 identifier!(FolderId, "A library folder identity.");
 identifier!(CandidateId, "An opaque found skill identity.");
@@ -57,3 +53,19 @@ identifier!(
     "A workspace identity, independent of its folder path."
 );
 identifier!(GrantId, "A short-lived, single-use native directory grant.");
+
+/// A library skill's slug: its directory name under `skills/`, the same on every device.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SkillId(pub String);
+impl SkillId {
+    /// Returns the slug.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+impl std::fmt::Display for SkillId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}

@@ -82,10 +82,6 @@ impl Manifest {
     pub fn total_bytes(&self) -> u64 {
         self.entries.iter().map(|e| e.bytes).sum()
     }
-    /// Compares digest and complete manifest contents.
-    pub fn equivalent(&self, other: &Self) -> bool {
-        self == other
-    }
 }
 fn kind_byte(kind: ManifestKind) -> u8 {
     match kind {

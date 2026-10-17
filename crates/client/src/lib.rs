@@ -148,6 +148,8 @@ impl Client {
     }
     /// Refreshes the app in the background, on launch and when the window regains focus: scans
     /// the agents' global skill directories and every workspace, then refreshes the remote's Git status.
+    /// A running scan is kept rather than replaced, so frequent focus changes cannot keep a slow
+    /// scan from completing.
     pub fn refresh_app(&self) {
         let snapshot = self.snapshot();
         if snapshot.library.is_none() {
@@ -156,7 +158,8 @@ impl Client {
         let remote = snapshot.sync.remote.is_some();
         let client = self.clone();
         self.shared.runtime.spawn(async move {
-            if let Err(error) = client.start_scan().await {
+            let scanned = client.shared.engine.refresh_scan().await;
+            if let Err(error) = client.refresh_preserving_outcome(scanned).await {
                 client.background_error(error);
             }
             if remote && let Err(error) = client.synchronize(SyncAction::Refresh).await {
@@ -213,22 +216,6 @@ impl Client {
     ) -> AppResult<LibrarySnapshot> {
         self.refresh_preserving_outcome(self.shared.engine.change_organization(change).await)
             .await
-    }
-    /// Keeps one reviewed shared-slug copy, backing up the others.
-    pub async fn resolve_conflict(
-        &self,
-        slug: String,
-        keep: SkillId,
-        expected: Vec<SkillId>,
-        revision: String,
-    ) -> AppResult<LibrarySnapshot> {
-        self.refresh_preserving_outcome(
-            self.shared
-                .engine
-                .resolve_conflict(slug, keep, expected, revision)
-                .await,
-        )
-        .await
     }
     /// Connects and fetches a remote without implicit commits.
     pub async fn connect_remote(&self, remote: RemoteConfig) -> AppResult<SyncSnapshot> {

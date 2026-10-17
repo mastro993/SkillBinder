@@ -1,10 +1,12 @@
 use crate::{
-    discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig, logging::Logger,
-    persistence,
+    database, discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig,
+    logging::Logger, reconcile::RECONCILED_HEAD,
 };
+use diesel::SqliteConnection;
 use fs2::FileExt;
 use skillbinder_proto::*;
 use std::{
+    cell::RefCell,
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     path::PathBuf,
@@ -13,6 +15,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 
+const DATABASE: &str = "skillbinder.db";
 type Job = Box<dyn FnOnce(&mut State) + Send>;
 enum Message {
     Execute(Job),
@@ -30,7 +33,7 @@ pub struct Engine {
 }
 pub(crate) struct State {
     pub config: EngineConfig,
-    pub database: rusqlite::Connection,
+    pub database: RefCell<SqliteConnection>,
     pub git: Option<Git>,
     pub log: Logger,
     pub scans: Scans,
@@ -46,7 +49,7 @@ impl Engine {
         config.data_dir = fs::canonicalize(&config.data_dir).map_err(|_| AppError::storage())?;
         fs::create_dir_all(&config.home).map_err(|_| AppError::storage())?;
         config.home = fs::canonicalize(&config.home).map_err(|_| AppError::storage())?;
-        for name in ["staging", "journals", "backups", "logs"] {
+        for name in ["staging", "logs"] {
             fs::create_dir_all(config.data_dir.join(name)).map_err(|_| AppError::storage())?;
         }
         let lock = OpenOptions::new()
@@ -65,7 +68,7 @@ impl Engine {
         })?;
         let log = Logger::start(config.data_dir.join("logs"), &config.home)
             .map_err(|_| AppError::storage())?;
-        let database = persistence::open(&config.data_dir.join("state.sqlite3"))?;
+        let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
         let mut state = State {
             config,
@@ -79,15 +82,14 @@ impl Engine {
         };
         state.recover()?;
         state.forget_agent_folders()?;
-        if state.library_dir().join(".git").exists()
-            && let Some(git) = &state.git
-        {
-            git.recover(&state.library_dir())?;
-        }
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("skillbinder-engine".into())
             .spawn(move || {
+                // Engine::open returns before this runs; queued requests wait for it.
+                if state.library_dir().exists() {
+                    state.catch_up();
+                }
                 for message in receiver {
                     match message {
                         Message::Execute(job) => job(&mut state),
@@ -182,6 +184,14 @@ impl Engine {
     /// Scans the agents' global skill directories and every workspace in the background. A running scan is replaced, so the
     /// new one covers the current workspaces; the previous results stay until it completes.
     pub async fn start_scan(&self) -> AppResult<()> {
+        self.scan(true).await
+    }
+    /// Like [`Self::start_scan`], but keeps a running scan instead of replacing it, so repeated
+    /// refreshes cannot keep a slow scan from completing.
+    pub async fn refresh_scan(&self) -> AppResult<()> {
+        self.scan(false).await
+    }
+    async fn scan(&self, replace: bool) -> AppResult<()> {
         let (config, workspaces, managed, log) = self
             .call(|state| {
                 Ok((
@@ -197,7 +207,9 @@ impl Engine {
                 ))
             })
             .await?;
-        self.owner.scans.start(config, workspaces, managed, log)
+        self.owner
+            .scans
+            .start(config, workspaces, managed, log, replace)
     }
     /// The last completed scan and whether another one is running, without waiting for a
     /// durable mutation.
@@ -242,17 +254,6 @@ impl Engine {
         self.call(move |state| state.change_organization(change))
             .await
     }
-    /// Backs up losing copies and keeps the reviewed shared-slug winner.
-    pub async fn resolve_conflict(
-        &self,
-        slug: String,
-        keep: SkillId,
-        expected: Vec<SkillId>,
-        revision: String,
-    ) -> AppResult<LibrarySnapshot> {
-        self.call(move |state| state.resolve_conflict(slug, keep, expected, revision))
-            .await
-    }
     /// Validates and fetches a remote before saving its configuration.
     pub async fn connect_remote(&self, remote: RemoteConfig) -> AppResult<SyncSnapshot> {
         self.call(move |state| {
@@ -283,41 +284,22 @@ impl Engine {
     }
 }
 impl State {
-    /// The digest of each library skill's current payload, which marks found skills as in the
-    /// library. Unreadable and blocked payloads mark nothing.
+    /// The digest of each library skill, which marks found skills as in the library. Blocked
+    /// payloads mark nothing.
     fn managed_digests(&self) -> AppResult<BTreeMap<String, SkillId>> {
-        let library = self.read_library()?;
+        let (library, details) = crate::library_store::load(&mut self.database.borrow_mut())?;
         Ok(library
             .skills
-            .iter()
-            .filter_map(|skill| {
-                let path = self
-                    .library_dir()
-                    .join(crate::library::payload_relative(&library, skill));
-                match self
-                    .contained_skill_path(&path)
-                    .and_then(|path| crate::payload::inspect(&path))
-                {
-                    Ok(inspection) if inspection.status != ValidationStatus::Blocked => {
-                        Some((inspection.manifest.digest, skill.id.clone()))
-                    }
-                    Ok(_) => None,
-                    Err(error) => {
-                        self.log.record(format!(
-                            "Managed discovery inspection {}: {error}",
-                            path.display()
-                        ));
-                        None
-                    }
-                }
+            .into_iter()
+            .filter(|skill| {
+                details.get(&skill.id).map(|details| details.validation)
+                    != Some(ValidationStatus::Blocked)
             })
+            .map(|skill| (skill.digest, skill.id))
             .collect())
     }
     fn snapshot(&mut self) -> AppResult<AppSnapshot> {
         let bootstrap = self.bootstrap()?;
-        if bootstrap.step == OnboardingStep::Complete {
-            self.refresh_index()?;
-        }
         let library = if bootstrap.step == OnboardingStep::Complete {
             Some(self.library_snapshot()?)
         } else {
@@ -355,7 +337,27 @@ impl State {
             .git
             .as_ref()
             .ok_or_else(|| AppError::validation("Git is unavailable."))?;
-        let snapshot = git.perform(&self.library_dir(), remote.as_ref(), action)?;
+        let repo = self.library_dir();
+        let current = matches!(action, SyncAction::Push)
+            && git.revision(&repo, "HEAD").ok()
+                == Some(self.setting::<Option<String>>(RECONCILED_HEAD)?.flatten());
+        let result = git.perform(&repo, remote.as_ref(), action);
+        // A Push only commits what the database already holds. A Pull or Sync, including one
+        // that fast-forwarded before its push failed, reconciles what moved.
+        let caught_up = match action {
+            SyncAction::Push if current => git
+                .revision(&repo, "HEAD")
+                .and_then(|head| self.set_setting(RECONCILED_HEAD, &head)),
+            SyncAction::Pull | SyncAction::Sync => self.reconcile_head(),
+            _ => Ok(()),
+        };
+        // The recorded commit stays behind on failure, so the next launch retries; the Git
+        // result, success or failure, is what the user sees.
+        if let Err(error) = caught_up {
+            self.log
+                .record(format!("Library reconciliation will retry: {error}"));
+        }
+        let snapshot = result?;
         if matches!(action, SyncAction::Disconnect) {
             self.set_setting("remote", &Option::<RemoteConfig>::None)?;
         }
@@ -373,17 +375,15 @@ impl State {
         let home = data_dir.join("home");
         for path in [
             home.clone(),
-            data_dir.join("journals"),
             data_dir.join("staging"),
             data_dir.join("library/skills"),
-            data_dir.join("backups"),
             data_dir.join("logs"),
         ] {
             fs::create_dir_all(path).unwrap();
         }
         Self {
             config: EngineConfig::isolated(data_dir.clone(), home.clone()),
-            database: persistence::open(&data_dir.join("state.sqlite3")).unwrap(),
+            database: RefCell::new(database::open(&data_dir.join(DATABASE)).unwrap()),
             git: None,
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),

@@ -194,7 +194,7 @@ impl PresetIcon {
         Self::Briefcase,
     ];
 }
-/// A flat portable preset: a named set of library skills.
+/// A flat machine-local preset: a named set of library skills.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Preset {
     /// Stable preset identity.
@@ -202,16 +202,13 @@ pub struct Preset {
     /// Unique normalized display name.
     pub name: String,
     /// User-defined order; the engine keeps positions dense from zero.
-    #[serde(default)]
     pub position: u32,
     /// Optional quick-scan color.
-    #[serde(default)]
     pub color: Option<PresetColor>,
-    /// Quick-scan glyph; presets stored before icons existed read as the folder.
-    #[serde(default)]
+    /// Quick-scan glyph.
     pub icon: PresetIcon,
 }
-/// A library folder: a named grouping of library skills for browsing only.
+/// A machine-local library folder: a named grouping of library skills for browsing only.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Folder {
     /// Stable folder identity.
@@ -219,104 +216,49 @@ pub struct Folder {
     /// Unique normalized display name.
     pub name: String,
     /// Creation order; the engine keeps positions dense from zero.
-    #[serde(default)]
     pub position: u32,
 }
-/// A retained portable tag; no tag editor is exposed in the application.
+/// A library skill: a directory under `skills/` and its machine-local organization.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Tag {
-    /// Stable portable identifier.
-    pub id: String,
-    /// Unique normalized display name.
-    pub name: String,
-}
-/// A managed skill record in portable schema 3.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Skill {
-    /// Portable record identity.
+    /// The skill's slug, its directory name, which identifies it on every device.
     pub id: SkillId,
-    /// Skill directory name independent of conflict suffixes.
-    pub slug: String,
-    /// Optional user-facing title.
-    pub display_name: Option<String>,
-    /// Sorted identities of the presets that hold the skill; schema 2's single `folderId`
-    /// reads as one.
-    #[serde(default, alias = "folderId", deserialize_with = "schema2::preset_ids")]
+    /// Sorted identities of the presets that hold the skill.
     pub preset_ids: Vec<PresetId>,
-    /// The library folder holding the skill, if any. Not `folderId`, which schema 2 used for
-    /// what are now presets.
-    #[serde(
-        default,
-        rename = "libraryFolderId",
-        skip_serializing_if = "Option::is_none"
-    )]
+    /// The library folder holding the skill, if any.
     pub folder_id: Option<FolderId>,
-    /// Sorted portable tag identities.
-    #[serde(default)]
-    pub tag_ids: Vec<String>,
-    /// Portable upstream annotations retained without a binding UI.
-    #[serde(default)]
-    pub upstream_bindings: Vec<serde_json::Value>,
-    /// Manifest SHA-256.
+    /// Manifest SHA-256 cached when the payload was last inspected.
     pub digest: String,
     /// Number of regular files after link materialization.
     pub file_count: u64,
     /// Total payload bytes.
     pub total_bytes: u64,
-    /// RFC 3339 time the skill was imported; absent for skills imported before it was recorded.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// RFC 3339 time the skill was installed on this device; absent for a skill that arrived
+    /// through Pull.
     pub imported_at: Option<String>,
 }
-/// Portable schema 3, committed only by explicit Git operations.
+/// The library: its skill directories and this device's organization of them.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Library {
-    /// Currently 3. Reads upgrade schema 2, which called presets folders and allowed one per
-    /// skill, so the next write saves schema 3.
-    #[serde(deserialize_with = "schema2::version")]
-    pub schema_version: u32,
-    /// Stable library identity.
-    pub library_id: String,
-    /// Creation timestamp in RFC 3339 format.
-    pub created_at: String,
-    /// Payload policy version, currently 1.
-    #[serde(default = "policy_version")]
-    pub content_policy_version: u32,
-    /// Flat presets, ordered by position after reads.
-    #[serde(default, alias = "folders", with = "preset_map")]
+    /// Flat presets in user order.
     pub presets: Vec<Preset>,
-    /// Library folders, ordered by position after reads. Not `folders`, which schema 2 used for
-    /// what are now presets.
-    #[serde(default, rename = "libraryFolders", with = "folder_map")]
+    /// Library folders in creation order.
     pub folders: Vec<Folder>,
-    /// Tags preserved in portable state.
-    #[serde(default, with = "tag_map")]
-    pub tags: Vec<Tag>,
-    /// Managed skill records.
-    #[serde(default, with = "skill_map")]
+    /// Library skills in slug order.
     pub skills: Vec<Skill>,
 }
 impl Library {
-    /// True when the library holds no skills, presets, library folders, or tags.
-    /// Identity and schema fields are ignored. A new content-bearing field must be
-    /// included here, or this destructure fails to compile.
+    /// True when the library holds no skills, presets, or library folders.
+    /// A new content-bearing field must be included here, or this destructure
+    /// fails to compile.
     pub fn is_vacant(&self) -> bool {
         let Self {
-            schema_version: _,
-            library_id: _,
-            created_at: _,
-            content_policy_version: _,
             presets,
             folders,
-            tags,
             skills,
         } = self;
-        presets.is_empty() && folders.is_empty() && tags.is_empty() && skills.is_empty()
+        presets.is_empty() && folders.is_empty() && skills.is_empty()
     }
-}
-fn policy_version() -> u32 {
-    1
 }
 /// Local skill details derived during inspection.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -331,9 +273,9 @@ pub struct SkillDetails {
 /// A revision-checked immutable library projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LibrarySnapshot {
-    /// Portable content.
+    /// Skills and organization.
     pub library: Library,
-    /// Hash of portable metadata and current payload catalog.
+    /// Hash of `library`, checked by previewed confirmations.
     pub revision: String,
     /// Machine-local details by skill identity.
     pub details: BTreeMap<SkillId, SkillDetails>,
@@ -341,7 +283,7 @@ pub struct LibrarySnapshot {
     /// absent when its payload could not be read.
     pub modified: BTreeMap<SkillId, u64>,
 }
-/// A portable organization mutation.
+/// A machine-local organization mutation.
 #[derive(Clone, Debug)]
 pub enum OrganizationChange {
     /// Create a flat preset.
@@ -456,103 +398,8 @@ pub struct PreviewEntry {
     pub bytes: u64,
 }
 
-macro_rules! record_map {
-    ($module:ident, $record:ty) => {
-        mod $module {
-            use super::*;
-            pub fn serialize<S: serde::Serializer>(
-                records: &[$record],
-                serializer: S,
-            ) -> Result<S::Ok, S::Error> {
-                records
-                    .iter()
-                    .map(|record| (record.id.to_string(), record))
-                    .collect::<BTreeMap<_, _>>()
-                    .serialize(serializer)
-            }
-            pub fn deserialize<'de, D: serde::Deserializer<'de>>(
-                deserializer: D,
-            ) -> Result<Vec<$record>, D::Error> {
-                let records = BTreeMap::<String, $record>::deserialize(deserializer)?;
-                if records
-                    .iter()
-                    .any(|(key, record)| key != &record.id.to_string())
-                {
-                    return Err(serde::de::Error::custom(
-                        "record identity does not match its map key",
-                    ));
-                }
-                Ok(records.into_values().collect())
-            }
-        }
-    };
-}
-record_map!(preset_map, Preset);
-record_map!(folder_map, Folder);
-record_map!(tag_map, Tag);
-record_map!(skill_map, Skill);
-
-/// Reads schema 2 metadata as schema 3.
-mod schema2 {
-    use super::*;
-    use serde::Deserializer;
-
-    pub fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
-        let version = u32::deserialize(deserializer)?;
-        Ok(if version == 2 { 3 } else { version })
-    }
-
-    /// Schema 3's `presetIds` list, or schema 2's nullable single `folderId`.
-    pub fn preset_ids<'de, D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Vec<PresetId>, D::Error> {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Ids {
-            Folder(PresetId),
-            Presets(Vec<PresetId>),
-        }
-        Ok(match Option::<Ids>::deserialize(deserializer)? {
-            None => Vec::new(),
-            Some(Ids::Folder(id)) => vec![id],
-            Some(Ids::Presets(ids)) => ids,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{Library, PresetId};
-
-    fn skill(id: &str, assignment: &str) -> String {
-        format!(
-            r#""{id}":{{"id":"{id}","slug":"{id}","displayName":null,{assignment}"tagIds":[],"upstreamBindings":[],"digest":"sha256:0","fileCount":1,"totalBytes":1}}"#
-        )
-    }
-
-    #[test]
-    fn schema_2_folders_read_as_presets() -> serde_json::Result<()> {
-        let skills = [
-            skill("filed", r#""folderId":"f","#),
-            skill("unfiled", r#""folderId":null,"#),
-        ];
-        let library: Library = serde_json::from_str(&format!(
-            r#"{{"schemaVersion":2,"libraryId":"l","createdAt":"now","folders":{{"f":{{"id":"f","name":"Research","position":0,"color":"green"}}}},"tags":{{}},"skills":{{{}}}}}"#,
-            skills.join(",")
-        ))?;
-        assert_eq!(library.schema_version, 3);
-        assert_eq!(library.presets[0].name, "Research");
-        assert_eq!(library.skills[0].preset_ids, [PresetId("f".into())]);
-        assert!(library.skills[1].preset_ids.is_empty());
-        let written = serde_json::to_value(&library)?;
-        assert_eq!(written["schemaVersion"], 3);
-        assert!(written.get("folders").is_none());
-        assert_eq!(written["presets"]["f"]["name"], "Research");
-        assert!(written["skills"]["filed"].get("folderId").is_none());
-        assert_eq!(written["skills"]["filed"]["presetIds"][0], "f");
-        Ok(())
-    }
-
     #[test]
     fn preset_colors_store_palette_names_and_custom_hex() -> serde_json::Result<()> {
         use super::{PresetColor, Rgb};
@@ -578,57 +425,13 @@ mod tests {
     }
 
     #[test]
-    fn folders_use_keys_apart_from_schema_2_folders() -> serde_json::Result<()> {
-        let library: Library = serde_json::from_str(&format!(
-            r#"{{"schemaVersion":3,"libraryId":"l","createdAt":"now","presets":{{}},"libraryFolders":{{"f":{{"id":"f","name":"Writing","position":0}}}},"tags":{{}},"skills":{{{},{}}}}}"#,
-            skill("filed", r#""libraryFolderId":"f","#),
-            skill("unfiled", ""),
-        ))?;
-        assert_eq!(library.folders[0].name, "Writing");
-        assert!(!library.is_vacant());
-        assert!(library.presets.is_empty());
-        assert_eq!(
-            library.skills[0].folder_id,
-            Some(super::FolderId("f".into()))
-        );
-        assert!(library.skills[0].preset_ids.is_empty());
-        let written = serde_json::to_value(&library)?;
-        assert_eq!(written["libraryFolders"]["f"]["name"], "Writing");
-        assert_eq!(written["skills"]["filed"]["libraryFolderId"], "f");
-        assert!(
-            written["skills"]["unfiled"]
-                .get("libraryFolderId")
-                .is_none()
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn a_library_with_no_records_is_vacant() -> serde_json::Result<()> {
-        let library: Library = serde_json::from_str(
-            r#"{"schemaVersion":3,"libraryId":"l","createdAt":"now","presets":{},"libraryFolders":{},"tags":{},"skills":{}}"#,
-        )?;
+    fn a_library_with_no_records_is_vacant() {
+        use super::Library;
+        let library = Library {
+            presets: Vec::new(),
+            folders: Vec::new(),
+            skills: Vec::new(),
+        };
         assert!(library.is_vacant());
-        let written = serde_json::to_value(&library)?;
-        assert!(
-            written["libraryFolders"]
-                .as_object()
-                .is_some_and(|m| m.is_empty())
-        );
-        assert!(written["presets"].as_object().is_some_and(|m| m.is_empty()));
-        Ok(())
-    }
-
-    #[test]
-    fn schema_3_keeps_every_preset_of_a_skill() -> serde_json::Result<()> {
-        let library: Library = serde_json::from_str(&format!(
-            r#"{{"schemaVersion":3,"libraryId":"l","createdAt":"now","presets":{{}},"tags":{{}},"skills":{{{},{}}}}}"#,
-            skill("both", r#""presetIds":["a","b"],"#),
-            skill("none", ""),
-        ))?;
-        assert_eq!(library.schema_version, 3);
-        assert_eq!(library.skills[0].preset_ids.len(), 2);
-        assert!(library.skills[1].preset_ids.is_empty());
-        Ok(())
     }
 }

@@ -47,7 +47,6 @@ impl NativeView {
             .gap_4()
             .child(self.library_header(visible.len(), cx))
             .child(self.library_results(library, &visible, &typed, window, cx))
-            .children(self.render_shared_names(library, cx))
             .into_any_element()
     }
 
@@ -174,20 +173,16 @@ fn in_filter(skill: &Skill, filter: &LibraryFilter) -> bool {
     }
 }
 
-/// Alphabetical by shown name ignoring case, then by slug so equal names keep a stable order.
+/// Alphabetical by slug ignoring case, then by slug so equal names keep a stable order.
 fn name_order(skill: &Skill) -> (String, String) {
-    let name = skill.display_name.as_deref().unwrap_or(&skill.slug);
-    (name.to_lowercase(), skill.slug.clone())
+    let slug = skill.id.as_str();
+    (slug.to_lowercase(), slug.to_owned())
 }
 
-/// Search matches the slug, display name, or description, ignoring case.
+/// Search matches the slug or description, ignoring case.
 fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
     query.is_empty()
-        || skill.slug.to_lowercase().contains(query)
-        || skill
-            .display_name
-            .as_ref()
-            .is_some_and(|name| name.to_lowercase().contains(query))
+        || skill.id.as_str().to_lowercase().contains(query)
         || library
             .details
             .get(&skill.id)
@@ -223,15 +218,11 @@ fn grid_columns(width: f32) -> u16 {
 mod tests {
     use super::*;
 
-    fn skill(slug: &str, display_name: Option<&str>) -> Skill {
+    fn skill(slug: &str) -> Skill {
         Skill {
-            id: skillbinder_proto::SkillId::new(),
-            slug: slug.to_owned(),
-            display_name: display_name.map(str::to_owned),
+            id: skillbinder_proto::SkillId(slug.to_owned()),
             preset_ids: Vec::new(),
             folder_id: None,
-            tag_ids: Vec::new(),
-            upstream_bindings: Vec::new(),
             digest: String::new(),
             file_count: 0,
             total_bytes: 0,
@@ -240,17 +231,12 @@ mod tests {
     }
 
     #[test]
-    fn skills_sort_by_shown_name_ignoring_case() {
-        let skills = [
-            skill("pdf", None),
-            skill("zeta", Some("Alpha")),
-            skill("Docx", None),
-            skill("beta", None),
-        ];
+    fn skills_sort_by_slug_ignoring_case() {
+        let skills = [skill("pdf"), skill("zeta"), skill("Docx"), skill("beta")];
         let mut sorted: Vec<&Skill> = skills.iter().collect();
         sorted.sort_by_cached_key(|skill| name_order(skill));
-        let slugs: Vec<_> = sorted.iter().map(|skill| skill.slug.as_str()).collect();
-        assert_eq!(slugs, ["zeta", "beta", "Docx", "pdf"]);
+        let slugs: Vec<_> = sorted.iter().map(|skill| skill.id.as_str()).collect();
+        assert_eq!(slugs, ["beta", "Docx", "pdf", "zeta"]);
     }
 
     #[test]

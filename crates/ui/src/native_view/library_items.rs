@@ -33,10 +33,7 @@ pub(super) struct SkillItem<'a> {
 
 impl SkillItem<'_> {
     fn name(&self) -> String {
-        self.skill
-            .display_name
-            .clone()
-            .unwrap_or_else(|| self.skill.slug.clone())
+        self.skill.id.to_string()
     }
 }
 

@@ -56,7 +56,7 @@ reviews:
         mode: "warning"
         instructions: |
           Pass when the change stays inside the approved scope: four onboarding steps, Discovery,
-          reviewed imports, Library, presets, shared-slug resolution, Sync, and Settings.
+          reviewed imports, Library, presets, Sync, and Settings.
           Fail when it adds bindings or deployment screens, nested presets, tag-management UI,
           migration from `~/.skillbinder` or an old database, a daemon or network command
           transport, or a production debug server. Fail when it implements UI styling or visual
@@ -109,7 +109,7 @@ reviews:
       instructions: |
         Owns domain operations and durable state. Review against fixtures/contracts/domain-contract.md
         and docs/features/native.md; a divergence is a defect, not a contract change.
-        - One worker owns the SQLite connection and serializes library, metadata, and Git mutations.
+        - One worker owns the SQLite connection and serializes library, database, and Git mutations.
           Discovery stays independent.
         - Sources must remain byte-identical. Flag any path that writes to, moves, or deletes
           discovered source directories or user project files.
@@ -119,7 +119,7 @@ reviews:
         - Check path containment, link hop limits, traversal and preview bounds, and portable-name
           rules against the documented limits.
         - Git runs through the verified absolute executable with timeouts and disabled prompts.
-          Commits cover only `.skillbinder.json` and `skills/`. Unrelated files are preserved.
+          Commits cover only `skills/`. Unrelated files are preserved.
         - Logs redact home paths and credential formats.
         - Tests use isolated data roots and local bare Git remotes. Flag tests that could touch a
           real user library, home directory, or network remote.

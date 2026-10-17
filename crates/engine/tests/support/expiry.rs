@@ -1,20 +1,25 @@
 //! Reviewed plans expire, but completed import outcomes remain replayable.
 use super::support::Fixture;
+use diesel::{prelude::*, sql_types::Text};
 use skillbinder_proto::{ErrorCategory, PlanId};
 
-fn expire(data: &std::path::Path, plan: &PlanId) -> Result<(), Box<dyn std::error::Error>> {
-    let database = rusqlite::Connection::open(data.join("state.sqlite3"))?;
-    let payload: String = database.query_row(
-        "SELECT payload FROM operation_plans WHERE id=?1",
-        [plan.as_str()],
-        |row| row.get(0),
-    )?;
+#[derive(diesel::QueryableByName)]
+struct Plan {
+    #[diesel(sql_type = Text)]
+    payload: String,
+}
+
+fn expire(fixture: &Fixture, plan: &PlanId) -> Result<(), Box<dyn std::error::Error>> {
+    let mut database = fixture.database();
+    let Plan { payload } = diesel::sql_query("SELECT payload FROM operation_plans WHERE id=?")
+        .bind::<Text, _>(plan.as_str())
+        .get_result(&mut database)?;
     let mut payload: serde_json::Value = serde_json::from_str(&payload)?;
     payload["review"]["expires_at"] = 0.into();
-    database.execute(
-        "UPDATE operation_plans SET payload=?1,expires_at=0 WHERE id=?2",
-        rusqlite::params![serde_json::to_string(&payload)?, plan.as_str()],
-    )?;
+    diesel::sql_query("UPDATE operation_plans SET payload=?,expires_at=0 WHERE id=?")
+        .bind::<Text, _>(serde_json::to_string(&payload)?)
+        .bind::<Text, _>(plan.as_str())
+        .execute(&mut database)?;
     Ok(())
 }
 
@@ -29,22 +34,20 @@ async fn expired_review_has_no_effect_and_completed_review_replays_after_expiry(
     let scan = fixture.scan(&engine).await;
     let ids = vec![scan.candidates[0].id.clone()];
     let expired = engine.prepare_import(ids.clone(), false).await?;
-    let before = std::fs::read(fixture.data.join("library/.skillbinder.json"))?;
-    expire(&fixture.data, &expired.id)?;
+    expire(&fixture, &expired.id)?;
     assert!(
         engine
             .apply_import(expired.id)
             .await
             .is_err_and(|error| error.category == ErrorCategory::Stale)
     );
-    assert_eq!(
-        std::fs::read(fixture.data.join("library/.skillbinder.json"))?,
-        before
-    );
+    assert!(!fixture.data.join("library/skills/review").exists());
+    let library = engine.snapshot().await?.library.ok_or("library missing")?;
+    assert!(library.library.skills.is_empty(), "nothing is recorded");
     let valid = engine.prepare_import(ids, false).await?;
     let outcome = engine.apply_import(valid.id.clone()).await?;
     engine.shutdown().await?;
-    expire(&fixture.data, &valid.id)?;
+    expire(&fixture, &valid.id)?;
     let engine = fixture.open();
     assert_eq!(engine.apply_import(valid.id).await?, outcome);
     assert_eq!(std::fs::read(source.join("SKILL.md"))?, source_bytes);

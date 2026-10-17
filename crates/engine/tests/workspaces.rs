@@ -6,6 +6,7 @@
 )]
 mod support;
 
+use diesel::{prelude::*, sql_types::Text};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{ErrorCategory, ScanSnapshot, SkillId};
 use std::fs;
@@ -387,6 +388,21 @@ async fn a_folder_of_projects_adds_each_project_once() {
 }
 
 #[tokio::test]
+async fn a_folder_of_thousands_of_projects_is_added() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let projects = fixture.workspace.join("projects");
+    // More rows than one SQLite statement can bind at five values each.
+    for index in 0..7000 {
+        fs::create_dir_all(projects.join(format!("{index}/.agents/skills"))).unwrap();
+    }
+    let added = add_folder(&engine, &projects).await.unwrap();
+    assert_eq!(added.len(), 7000);
+    assert_eq!(engine.snapshot().await.unwrap().workspaces.len(), 7000);
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn a_folder_without_projects_is_added_as_an_empty_workspace() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
@@ -444,16 +460,16 @@ async fn a_stored_home_workspace_is_forgotten_on_launch() {
     let kept = fixture.register(&engine).await;
     engine.shutdown().await.unwrap();
     let home = fs::canonicalize(&fixture.home).unwrap();
-    let database = rusqlite::Connection::open(fixture.data.join("state.sqlite3")).unwrap();
-    database
-        .execute("UPDATE workspaces SET position=1", [])
+    let mut database = fixture.database();
+    diesel::sql_query("UPDATE workspaces SET position=1")
+        .execute(&mut database)
         .unwrap();
-    database
-        .execute(
-            "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES('home',?1,'home',0,0)",
-            [home.display().to_string()],
-        )
-        .unwrap();
+    diesel::sql_query(
+        "INSERT INTO workspaces(id,canonical_path,name,position,created_at) VALUES('home',?,'home',0,0)",
+    )
+    .bind::<Text, _>(home.display().to_string())
+    .execute(&mut database)
+    .unwrap();
     drop(database);
 
     let engine = fixture.open();

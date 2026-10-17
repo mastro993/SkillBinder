@@ -1,5 +1,4 @@
 use super::{AppError, AppResult, RemoteConfig, failure};
-use skillbinder_proto::Library;
 
 pub(super) fn version(raw: &str) -> AppResult<String> {
     let value = raw
@@ -62,11 +61,6 @@ pub(super) fn remote(remote: &RemoteConfig) -> AppResult<()> {
         }
     }
     Ok(())
-}
-pub(super) fn metadata(bytes: &[u8]) -> AppResult<()> {
-    let library: Library = serde_json::from_slice(bytes)
-        .map_err(|_| failure("Remote or local library metadata is invalid."))?;
-    crate::library::validate_library(&library)
 }
 
 #[cfg(test)]
