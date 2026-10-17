@@ -1,0 +1,3 @@
+# apps/desktop owns native lifecycle (single-instance lock, test startup
+# arguments), so it replaces the workspace clippy.toml that forbids I/O in
+# application crates.

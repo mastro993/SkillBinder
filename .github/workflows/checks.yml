@@ -34,6 +34,19 @@ jobs:
           cache-on-failure: true
       - name: Check formatting
         run: cargo fmt --all --check
+      - name: Cache cccc
+        id: cccc-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cccc
+          key: cccc-cli-1.8.3-rust-1.99.1-${{ runner.os }}
+      - name: Install cccc
+        if: steps.cccc-cache.outputs.cache-hit != 'true'
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          cargo +1.99.1 install cccc-cli --version 1.8.3 --locked --root ~/.cccc
+      - name: Check complexity
+        run: ~/.cccc/bin/cccc .
       - name: Verify retained evidence
         run: cargo run -p xtask --locked -- verify
       - name: Check native graph

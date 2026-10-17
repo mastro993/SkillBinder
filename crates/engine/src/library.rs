@@ -118,13 +118,6 @@ fn apply_organization(
             "The presets changed. Reorder them again.",
         )?,
         OrganizationChange::SetPresetColor { id, color } => {
-            if let Some(PresetColor::Custom(Rgb(value))) = color
-                && value > 0xff_ffff
-            {
-                return Err(AppError::validation(
-                    "A custom preset color must be 24-bit.",
-                ));
-            }
             preset_mut(library, &id)?.color = color;
         }
         OrganizationChange::SetPresetIcon { id, icon } => {

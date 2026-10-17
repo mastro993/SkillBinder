@@ -40,7 +40,10 @@ pub(super) fn preset_tint(color: PresetColor, dark: bool) -> Hsla {
         PresetColor::Blue => (0x60a5fa, 0x2563eb),
         PresetColor::Purple => (0xc084fc, 0x9333ea),
         PresetColor::Pink => (0xf472b6, 0xdb2777),
-        PresetColor::Custom(Rgb(srgb)) => (srgb, srgb),
+        PresetColor::Custom(rgb) => {
+            let srgb = rgb.get();
+            (srgb, srgb)
+        }
     };
     rgb(if dark { dark_tone } else { light_tone }).into()
 }
@@ -48,8 +51,8 @@ pub(super) fn preset_tint(color: PresetColor, dark: bool) -> Hsla {
 /// `color` as an opaque sRGB color; any transparency is dropped.
 fn srgb(color: Hsla) -> Rgb {
     let Rgba { r, g, b, .. } = color.into();
-    let channel = |value: f32| (value.clamp(0.0, 1.0) * 255.0).round() as u32;
-    Rgb(channel(r) << 16 | channel(g) << 8 | channel(b))
+    let channel = |value: f32| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Rgb::from_rgb(channel(r), channel(g), channel(b))
 }
 
 /// None and the palette colors, each leading with the folder glyph in that color, then Custom,
@@ -148,14 +151,13 @@ fn ring(cx: &App) -> AnyElement {
 mod tests {
     use super::srgb;
     use gpui_kit::{Hsla, hsla, rgb};
-    use skillbinder_proto::Rgb;
 
     #[test]
     fn a_picked_color_converts_back_to_the_srgb_it_came_from() {
         for value in [0x000000, 0xffffff, 0x3366ff, 0xdc2626, 0x0a0b0c] {
-            assert_eq!(srgb(Hsla::from(rgb(value))), Rgb(value));
+            assert_eq!(srgb(Hsla::from(rgb(value))).get(), value);
         }
         // Transparency is dropped.
-        assert_eq!(srgb(hsla(0.0, 1.0, 0.5, 0.2)), Rgb(0xff0000));
+        assert_eq!(srgb(hsla(0.0, 1.0, 0.5, 0.2)).get(), 0xff0000);
     }
 }

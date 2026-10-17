@@ -1,6 +1,6 @@
 use std::path::{Component, Path};
 
-use anyhow::{Context, ensure};
+use anyhow::{Context, bail, ensure};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -128,10 +128,16 @@ fn verify_agent_logos(root: &Path) -> anyhow::Result<()> {
     let assets = root.join("assets/agent-logos");
     let inventory: AgentLogos = serde_json::from_slice(&read(&assets, "inventory.json")?)?;
     for source in inventory.sources {
-        if let (Some(file), Some(sha256)) = (source.license_file, source.license_sha256) {
+        if let Some((file, sha256)) =
+            evidence_pair(source.license_file, source.license_sha256, "license")?
+        {
             verify_hash(&assets, &file, &sha256)?;
         }
-        if let (Some(file), Some(sha256)) = (source.disclaimer_file, source.disclaimer_sha256) {
+        if let Some((file, sha256)) = evidence_pair(
+            source.disclaimer_file,
+            source.disclaimer_sha256,
+            "disclaimer",
+        )? {
             verify_hash(&assets, &file, &sha256)?;
         }
     }
@@ -147,4 +153,34 @@ fn verify_agent_logos(root: &Path) -> anyhow::Result<()> {
         verify_hash(&assets, &logo.file, &logo.svg_sha256)?;
     }
     Ok(())
+}
+
+/// A license or disclaimer must name both the file and its hash, or neither.
+fn evidence_pair(
+    file: Option<String>,
+    sha256: Option<String>,
+    label: &str,
+) -> anyhow::Result<Option<(String, String)>> {
+    match (file, sha256) {
+        (None, None) => Ok(None),
+        (Some(file), Some(sha256)) => Ok(Some((file, sha256))),
+        (None, Some(_)) => bail!("{label} hash is present without a file"),
+        (Some(_), None) => bail!("{label} file is present without a hash"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::evidence_pair;
+
+    #[test]
+    fn incomplete_evidence_pairs_are_rejected() {
+        assert!(matches!(evidence_pair(None, None, "license"), Ok(None)));
+        assert!(matches!(
+            evidence_pair(Some("LICENSE".into()), Some("abc".into()), "license"),
+            Ok(Some(_))
+        ));
+        assert!(evidence_pair(Some("LICENSE".into()), None, "license").is_err());
+        assert!(evidence_pair(None, Some("abc".into()), "license").is_err());
+    }
 }

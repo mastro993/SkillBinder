@@ -1,0 +1,2 @@
+# crates/engine owns filesystem, process, and Git work, so it replaces the
+# workspace clippy.toml that forbids those items elsewhere.

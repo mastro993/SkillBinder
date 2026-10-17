@@ -1,0 +1,2 @@
+# xtask is a developer tool that reads and writes repository files, so it
+# replaces the workspace clippy.toml that forbids I/O in application crates.
