@@ -1,8 +1,8 @@
 //! Workspace crate graph and source-boundary checks.
 use crate::imports::{code_text, imports};
 use crate::policy::{
-    ENGINE, IO, MEMBERS, UI, allowed_dep_features, allowed_dep_target, allowed_dev,
-    allowed_features, allowed_normal,
+    ENGINE, IO, MEMBERS, UI, allowed_dep_features, allowed_dep_source, allowed_dep_target,
+    allowed_dev, allowed_features, allowed_normal,
 };
 use anyhow::{Context, ensure};
 use serde::Deserialize;
@@ -38,6 +38,10 @@ struct Dependency {
     features: BTreeSet<String>,
     #[serde(default)]
     target: Option<String>,
+    #[serde(default)]
+    rename: Option<String>,
+    #[serde(default)]
+    source: Option<String>,
 }
 
 pub fn verify(root: &Path) -> anyhow::Result<()> {
@@ -54,6 +58,7 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         check_dev_deps(name, package)?;
         check_build_deps(name, package)?;
         check_features(name, package)?;
+        check_dep_declarations(name, package)?;
         check_dep_features(name, package)?;
     }
     check_sources(root)?;
@@ -114,6 +119,31 @@ fn check_build_deps(name: &str, package: &Package) -> anyhow::Result<()> {
         actual.is_empty(),
         "{name} build-dependencies changed: expected none, found {actual:?}"
     );
+    Ok(())
+}
+
+fn check_dep_declarations(name: &str, package: &Package) -> anyhow::Result<()> {
+    let mut seen = BTreeSet::new();
+    for dep in &package.dependencies {
+        let kind = dep.kind.as_deref().unwrap_or("normal");
+        ensure!(
+            seen.insert((kind, dep.name.as_str())),
+            "{name} declares {kind} dependency {} more than once",
+            dep.name
+        );
+        ensure!(
+            dep.rename.is_none(),
+            "{name} renames dependency {}; import it under its own name",
+            dep.name
+        );
+        let source = allowed_dep_source(&dep.name);
+        ensure!(
+            dep.source.as_deref() == source,
+            "{name} dependency {} source changed: expected {source:?}, found {:?}",
+            dep.name,
+            dep.source
+        );
+    }
     Ok(())
 }
 

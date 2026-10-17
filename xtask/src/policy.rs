@@ -73,6 +73,17 @@ pub(crate) const DEP_FEATURES: &[(&str, &str, &str, bool, &[&str])] = &[
 ];
 pub(crate) const TOKIO: &[&str] = &["rt-multi-thread", "sync", "time", "macros"];
 
+/// Where each dependency comes from: workspace path, the pinned gpui-mcp revision, or crates.io.
+pub(crate) fn allowed_dep_source(dep: &str) -> Option<&'static str> {
+    match dep {
+        "gpui-mcp" => Some(
+            "git+https://github.com/themixednuts/gpui-mcp?rev=9dda8e5cb49990261e3fdaa26abe38112d30dafb",
+        ),
+        _ if dep.starts_with("skillbinder-") => None,
+        _ => Some("registry+https://github.com/rust-lang/crates.io-index"),
+    }
+}
+
 /// Platform predicates of target-specific dependencies; all others are unconditional.
 pub(crate) fn allowed_dep_target(package: &str, dep: &str) -> Option<&'static str> {
     match (package, dep) {

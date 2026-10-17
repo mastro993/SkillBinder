@@ -35,14 +35,10 @@ fn needle_segments(needle: &str) -> Vec<String> {
     needle.split("::").map(str::to_string).collect()
 }
 
-/// A glob import exposes every child of its parent, so it hits needles below it too.
+/// Importing an ancestor of `needle` (by name, alias, or glob) exposes it too.
 fn exposes(path: &[String], needle: &[String]) -> bool {
-    match path.split_last() {
-        Some((last, parent)) if last == "*" => {
-            !parent.is_empty() && (needle.starts_with(parent) || parent.starts_with(needle))
-        }
-        _ => path.starts_with(needle),
-    }
+    let path = path.strip_suffix(&["*".to_owned()]).unwrap_or(path);
+    !path.is_empty() && (path.starts_with(needle) || needle.starts_with(path))
 }
 
 fn compact_paths(source: &str) -> String {
@@ -236,8 +232,9 @@ fn render(tokens: TokenStream, out: &mut String) -> anyhow::Result<()> {
     for token in tokens {
         match token {
             TokenTree::Ident(ident) => {
-                let name = ident.to_string();
-                out.push_str(name.trim_start_matches("r#"));
+                let raw = ident.to_string();
+                let name = raw.trim_start_matches("r#");
+                out.push_str(name);
                 out.push(' ');
                 after_include = name == "include";
                 continue;
@@ -277,7 +274,7 @@ fn check_path_attribute(tokens: TokenStream) -> anyhow::Result<()> {
             TokenTree::Punct(eq),
             TokenTree::Literal(file),
         ] = window
-            && name == "path"
+            && name.to_string().trim_start_matches("r#") == "path"
             && eq.as_char() == '='
         {
             let file = file.to_string();
@@ -335,6 +332,8 @@ mod tests {
         assert!(hit("use ::std::fs;", "std::fs"));
         assert!(hit("use std::*;", "std::fs"));
         assert!(!hit("use super::*;", "std::fs"));
+        assert!(hit("use std as system;", "std::fs"));
+        assert!(hit("use std::{self as system};", "std::fs"));
     }
 
     #[test]
@@ -363,12 +362,14 @@ mod tests {
     #[test]
     fn include_is_rejected() {
         assert!(code_text("include!(\"io.in\");").is_err());
+        assert!(code_text("r#include!(\"io.in\");").is_err());
         assert!(code_text("const S: &str = include_str!(\"a.txt\");").is_ok());
     }
 
     #[test]
     fn path_attributes_must_stay_in_the_scanned_tree() {
         assert!(code_text("#[path = \"io.in\"] mod io;").is_err());
+        assert!(code_text("#[r#path = \"io.in\"] mod io;").is_err());
         assert!(code_text("#[path = \"../other/io.rs\"] mod io;").is_err());
         assert!(code_text("#[cfg_attr(test, path = \"io.in\")] mod io;").is_err());
         assert!(code_text("#[path = \"io_tests.rs\"] mod io;").is_ok());
