@@ -388,6 +388,21 @@ async fn a_folder_of_projects_adds_each_project_once() {
 }
 
 #[tokio::test]
+async fn a_folder_of_thousands_of_projects_is_added() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let projects = fixture.workspace.join("projects");
+    // More rows than one SQLite statement can bind at five values each.
+    for index in 0..7000 {
+        fs::create_dir_all(projects.join(format!("{index}/.agents/skills"))).unwrap();
+    }
+    let added = add_folder(&engine, &projects).await.unwrap();
+    assert_eq!(added.len(), 7000);
+    assert_eq!(engine.snapshot().await.unwrap().workspaces.len(), 7000);
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn a_folder_without_projects_is_added_as_an_empty_workspace() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;

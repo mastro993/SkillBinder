@@ -75,22 +75,23 @@ impl State {
                 },
             ));
         }
-        let rows: Vec<_> = added
-            .iter()
-            .map(|workspace| {
-                (
-                    workspaces::id.eq(workspace.id.as_str()),
-                    workspaces::canonical_path.eq(&workspace.path),
-                    workspaces::name.eq(&workspace.name),
-                    workspaces::position.eq(i64::from(workspace.position)),
-                    workspaces::created_at.eq(now() as i64),
-                )
-            })
-            .collect();
-        diesel::insert_into(workspaces::table)
-            .values(&rows)
-            .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+        // One row per statement: a single multi-row insert would exceed SQLite's bound-parameter
+        // limit when a picked folder holds thousands of projects.
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            for workspace in &added {
+                diesel::insert_into(workspaces::table)
+                    .values((
+                        workspaces::id.eq(workspace.id.as_str()),
+                        workspaces::canonical_path.eq(&workspace.path),
+                        workspaces::name.eq(&workspace.name),
+                        workspaces::position.eq(i64::from(workspace.position)),
+                        workspaces::created_at.eq(now() as i64),
+                    ))
+                    .execute(connection)
+                    .map_err(|_| AppError::storage())?;
+            }
+            Ok(())
+        })?;
         Ok(added)
     }
 
