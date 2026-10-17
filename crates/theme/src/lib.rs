@@ -136,7 +136,8 @@ fn effective_mode(window: &Window, cx: &App) -> ThemeMode {
 
 /// Loads the mode's colors, then applies the sidebar surfaces of the reference design.
 ///
-/// The light sidebar stays slightly darker than the main surface.
+/// The light sidebar stays slightly darker than the main surface, with a soft `#ebebeb`
+/// selection fill.
 fn apply_mode(mode: ThemeMode, cx: &mut App) {
     Theme::change(mode, None, cx);
     Theme::update(cx, |theme| {
@@ -150,6 +151,7 @@ fn apply_mode(mode: ThemeMode, cx: &mut App) {
                 l: (background.l - 0.02).max(0.0),
                 ..background
             };
+            theme.sidebar_accent = gpui_kit::rgb(0xebebeb).into();
         }
     });
 }
