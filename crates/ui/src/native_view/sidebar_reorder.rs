@@ -1,10 +1,11 @@
-//! Sidebar row drag reordering, shared by presets and workspaces: the floating row, the live drop
-//! order, and the rows' slide motion.
+//! Drag reordering, shared by the sidebar's presets and workspaces and the header's folder tabs:
+//! the floating row, the live drop order, and the slide motion of the rows or tabs.
 
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     hash::Hash,
+    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -21,8 +22,6 @@ use skillbinder_theme::sidebar::{ROW_GAP, ROW_HEIGHT};
 
 /// How long a row takes to slide into its new slot.
 const SHIFT: Duration = Duration::from_millis(180);
-/// Distance between the tops of neighbouring rows.
-const PITCH: f32 = ROW_HEIGHT + ROW_GAP;
 
 /// Drag payload for reordering rows; also what the floating row shows.
 pub(super) struct RowDrag<Id> {
@@ -89,32 +88,98 @@ pub(super) fn grab_cursor(window: &mut Window, cx: &mut App) {
     }
 }
 
-/// Drag, save, and motion state for one list of rows.
+/// Drag, save, and motion state for one list laid out along one axis: down for sidebar rows,
+/// across for folder tabs.
 pub(super) struct RowReorder<Id> {
     /// The dragged row and the index it takes if dropped now.
     dragging: Option<(Id, usize)>,
-    /// Top of the floating row, relative to the first slot.
-    floating_top: f32,
+    /// Leading edge of the floating row, relative to the first slot.
+    floating: f32,
     /// The order shown while its save runs.
     pending: Option<Vec<Id>>,
     /// Each moving row's displacement when the current motion started.
     shifts: HashMap<Id, f32>,
     started: Option<Instant>,
+    /// Lengths along the axis from the last layout; rows not in it are `length` long.
+    measured: Rc<RefCell<HashMap<Id, f32>>>,
+    length: f32,
+    gap: f32,
 }
 
+/// Sidebar rows, all one height apart.
 impl<Id> Default for RowReorder<Id> {
     fn default() -> Self {
+        Self::new(ROW_HEIGHT, ROW_GAP)
+    }
+}
+
+impl<Id> RowReorder<Id> {
+    fn new(length: f32, gap: f32) -> Self {
         Self {
             dragging: None,
-            floating_top: 0.0,
+            floating: 0.0,
             pending: None,
             shifts: HashMap::new(),
             started: None,
+            measured: Rc::default(),
+            length,
+            gap,
+        }
+    }
+
+    /// A list whose items differ in length, measured with [`Self::measure_widths`].
+    pub(super) fn measured(gap: f32) -> Self {
+        Self::new(0.0, gap)
+    }
+}
+
+impl<Id: Clone + Eq + Hash + 'static> RowReorder<Id> {
+    /// Records the widths of the children laid out for `order`, for `on_children_prepainted`.
+    pub(super) fn measure_widths(
+        &self,
+        order: Vec<Id>,
+    ) -> impl Fn(Vec<Bounds<Pixels>>, &mut Window, &mut App) + 'static {
+        let measured = self.measured.clone();
+        move |bounds, _, _| {
+            let mut measured = measured.borrow_mut();
+            for (id, bounds) in order.iter().zip(bounds) {
+                measured.insert(id.clone(), f32::from(bounds.size.width));
+            }
         }
     }
 }
 
 impl<Id: Clone + Eq + Hash> RowReorder<Id> {
+    fn length_of(&self, id: &Id) -> f32 {
+        self.measured
+            .borrow()
+            .get(id)
+            .copied()
+            .unwrap_or(self.length)
+    }
+
+    /// Distance from the first slot to the leading edge of `slot` in `order`.
+    fn start(&self, order: &[Id], slot: usize) -> f32 {
+        order[..slot]
+            .iter()
+            .map(|id| self.length_of(id) + self.gap)
+            .sum()
+    }
+
+    /// The slot the floating row takes: past each row it would displace once its leading edge
+    /// passes that row's middle and the gap after it.
+    fn slot(&self, saved: &[Id], id: &Id, floating: f32) -> usize {
+        let others: Vec<_> = saved.iter().filter(|other| *other != id).cloned().collect();
+        (1..=others.len())
+            .take_while(|&slot| {
+                let passed = &others[slot - 1];
+                let boundary =
+                    self.start(&others, slot - 1) + self.length_of(passed) / 2.0 + self.gap;
+                floating >= boundary
+            })
+            .count()
+    }
+
     /// The order being saved, or the stored order.
     fn saved(&self, stored: &[Id]) -> Vec<Id> {
         match &self.pending {
@@ -150,7 +215,7 @@ impl<Id: Clone + Eq + Hash> RowReorder<Id> {
     fn shift(&mut self, from: &[Id], to: &[Id], now: Instant, animate: bool) {
         let shifts = to.iter().enumerate().filter_map(|(slot, id)| {
             let old = from.iter().position(|candidate| candidate == id)?;
-            let shift = (old as f32 - slot as f32) * PITCH + self.offset(id, now);
+            let shift = self.start(from, old) - self.start(to, slot) + self.offset(id, now);
             (shift != 0.0).then(|| (id.clone(), shift))
         });
         self.shifts = if animate {
@@ -187,15 +252,10 @@ impl<Id: Clone + Eq + Hash> RowReorder<Id> {
 
     /// Follows the floating row, moving the other rows aside when it crosses a slot. Returns
     /// whether the drop slot changed.
-    pub(super) fn drag(&mut self, stored: &[Id], id: &Id, top: f32, animate: bool) -> bool {
-        let len = stored.len();
-        let slot = ((top + ROW_HEIGHT / 2.0) / PITCH).floor();
-        let dragging = Some((
-            id.clone(),
-            slot.clamp(0.0, len.saturating_sub(1) as f32) as usize,
-        ));
-        self.floating_top = top;
-        if len == 0 || self.dragging == dragging {
+    pub(super) fn drag(&mut self, stored: &[Id], id: &Id, leading: f32, animate: bool) -> bool {
+        let dragging = Some((id.clone(), self.slot(&self.saved(stored), id, leading)));
+        self.floating = leading;
+        if stored.is_empty() || self.dragging == dragging {
             return false;
         }
         let before = self.shown(stored);
@@ -221,14 +281,15 @@ impl<Id: Clone + Eq + Hash> RowReorder<Id> {
         } else {
             self.saved(stored)
         };
-        let floating_top = self.floating_top;
+        let floating = self.floating;
         let save = self.reorder(stored, order, busy, animate);
         let saved = self.saved(stored);
         if released
             && animate
             && let Some(slot) = saved.iter().position(|other| other == &id)
         {
-            self.shifts.insert(id, floating_top - slot as f32 * PITCH);
+            let shift = floating - self.start(&saved, slot);
+            self.shifts.insert(id, shift);
         }
         save
     }
@@ -335,9 +396,12 @@ fn moved<Id: Eq>(mut order: Vec<Id>, id: &Id, target: usize) -> Option<Vec<Id>> 
 
 #[cfg(test)]
 mod tests {
-    use super::{PITCH, RowReorder, SHIFT, moved};
+    use super::{RowReorder, SHIFT, moved};
     use skillbinder_proto::PresetId;
+    use skillbinder_theme::sidebar::{ROW_GAP, ROW_HEIGHT};
     use std::time::Instant;
+
+    const PITCH: f32 = ROW_HEIGHT + ROW_GAP;
 
     fn ids(names: &[&str]) -> Vec<PresetId> {
         names.iter().map(|name| PresetId((*name).into())).collect()
@@ -384,6 +448,42 @@ mod tests {
         let drawn = reorder.offset(&a, midway);
         reorder.shift(&ids(&["b", "a", "c"]), &ids(&["a", "b", "c"]), midway, true);
         assert_eq!(reorder.offset(&a, midway), PITCH + drawn);
+    }
+
+    #[test]
+    fn a_row_takes_the_next_slot_once_it_is_half_a_row_into_it() {
+        let mut reorder = RowReorder::default();
+        let stored = ids(&["a", "b", "c"]);
+        let a = PresetId("a".into());
+        reorder.drag(&stored, &a, PITCH - ROW_HEIGHT / 2.0 - 0.5, false);
+        assert_eq!(reorder.displayed(&stored, true).0, stored);
+        reorder.drag(&stored, &a, PITCH - ROW_HEIGHT / 2.0, false);
+        assert_eq!(reorder.displayed(&stored, true).0, ids(&["b", "a", "c"]));
+        reorder.drag(&stored, &a, 9.0 * PITCH, false);
+        assert_eq!(reorder.displayed(&stored, true).0, ids(&["b", "c", "a"]));
+        reorder.drag(&stored, &a, -PITCH, false);
+        assert_eq!(reorder.displayed(&stored, true).0, stored);
+    }
+
+    #[test]
+    fn tabs_of_different_widths_swap_past_the_middle_of_the_one_they_pass() {
+        let mut reorder = RowReorder::measured(4.0);
+        let stored = ids(&["a", "b"]);
+        let widths = [("a", 50.0), ("b", 150.0)];
+        for (name, width) in widths {
+            reorder
+                .measured
+                .borrow_mut()
+                .insert(PresetId(name.into()), width);
+        }
+        let a = PresetId("a".into());
+        // Narrow a passes wide b once its leading edge is past b's middle and the gap.
+        reorder.drag(&stored, &a, 78.0, false);
+        assert_eq!(reorder.displayed(&stored, true).0, stored);
+        reorder.drag(&stored, &a, 79.0, true);
+        assert_eq!(reorder.displayed(&stored, true).0, ids(&["b", "a"]));
+        // b slides back by a's width and the gap.
+        assert_eq!(reorder.shifts.get(&PresetId("b".into())), Some(&54.0));
     }
 
     #[test]

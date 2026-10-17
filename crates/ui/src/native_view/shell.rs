@@ -275,7 +275,7 @@ impl NativeView {
         // With the header's inset, the breadcrumb lines up with the page's 24-point padding.
         let title = div().flex_1().min_w_0().pl_4().when(with_sidebar, |title| {
             if self.route == Route::Library(LibraryFilter::All) {
-                title.child(self.render_folder_tabs(cx))
+                title.child(self.render_folder_tabs(window, cx))
             } else {
                 title.child(self.render_breadcrumb(cx).into_any_element())
             }

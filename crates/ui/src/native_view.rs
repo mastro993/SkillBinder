@@ -5,6 +5,7 @@ mod controls;
 mod custom_color;
 mod dialogs;
 mod discovery;
+mod folder_reorder;
 mod hover_scroll;
 mod library;
 mod library_dates;
@@ -97,8 +98,9 @@ pub struct NativeView {
     library_folder: Option<FolderId>,
     /// Inline folder naming in the header.
     folder_edit: Option<FolderEdit>,
-    /// A created folder is being saved; its tab shows as a skeleton until then.
-    creating_folder: bool,
+    folder_reorder: RowReorder<FolderId>,
+    /// The name of a created folder being saved, shown as its tab until then.
+    creating_folder: Option<String>,
     /// Inline workspace renaming in the sidebar.
     workspace_edit: Option<WorkspaceId>,
     workspace_reorder: RowReorder<WorkspaceId>,
@@ -220,9 +222,10 @@ impl NativeView {
             preset_reorder: RowReorder::default(),
             library_folder: None,
             folder_edit: None,
-            creating_folder: false,
+            creating_folder: None,
             workspace_edit: None,
             workspace_reorder: RowReorder::default(),
+            folder_reorder: RowReorder::measured(folder_reorder::TAB_GAP),
             sidebar_width,
             sidebar_collapsed,
             folded_sections,
@@ -333,7 +336,8 @@ impl NativeView {
                 view.syncing = false;
                 view.preset_reorder.settle();
                 view.workspace_reorder.settle();
-                view.creating_folder = false;
+                view.folder_reorder.settle();
+                view.creating_folder = None;
                 match result {
                     Ok(Ok(effect)) => {
                         view.receive(view.client.snapshot(), cx);
