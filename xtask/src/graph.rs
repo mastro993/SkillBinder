@@ -1,6 +1,7 @@
 //! Workspace crate graph: members, dependencies, features, and Clippy I/O policy scope.
+use crate::clippy_policy;
 use crate::manifests::{
-    GPUI_MCP_GIT, GPUI_MCP_REV, check_clippy_policy, check_overrides, check_workspace_lints,
+    GPUI_MCP_GIT, GPUI_MCP_REV, check_overrides, check_workspace_lint_levels, check_workspace_lints,
 };
 use anyhow::{Context, ensure};
 use serde::Deserialize;
@@ -98,6 +99,7 @@ const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
 struct Metadata {
     packages: Vec<Package>,
     workspace_members: Vec<String>,
+    workspace_root: PathBuf,
 }
 
 #[derive(Deserialize)]
@@ -134,13 +136,14 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         .iter()
         .filter_map(|package| Some((package.name.as_str(), package.manifest_path.parent()?)))
         .collect();
-    check_clippy_policy(root)?;
+    clippy_policy::verify(root)?;
     check_overrides(root)?;
+    check_workspace_lint_levels(root)?;
     for package in &members {
         check_dependencies(package, &dirs)?;
         check_features(package)?;
         check_workspace_lints(&package.manifest_path)?;
-        check_clippy_scope(root, package)?;
+        check_clippy_scope(&metadata.workspace_root, package)?;
     }
     Ok(())
 }
@@ -199,7 +202,10 @@ fn check_dependencies(package: &Package, members: &BTreeMap<&str, &Path>) -> any
             "{name} has unsupported dependency kind {:?}",
             dep.kind
         );
-        let optional = name == "skillbinder" && matches!(dep.name.as_str(), "gpui-mcp" | "log");
+        let enabler = format!("dep:{}", dep.name);
+        let optional = NATIVE_TEST
+            .iter()
+            .any(|(member, enables)| *member == name && enables.contains(&enabler.as_str()));
         ensure!(
             dep.optional == optional,
             "{name} dependency {} must{} be optional",
@@ -267,12 +273,23 @@ fn check_clippy_scope(root: &Path, package: &Package) -> anyhow::Result<()> {
         .manifest_path
         .parent()
         .context("Manifest has no directory")?;
+    let relative = manifest_dir.strip_prefix(root).with_context(|| {
+        format!(
+            "{} is outside the workspace root {}",
+            manifest_dir.display(),
+            root.display()
+        )
+    })?;
     let owns_io = OWNS_IO.contains(&package.name.as_str());
-    for dir in manifest_dir.ancestors().take_while(|dir| *dir != root) {
+    // The root's own clippy.toml is the policy itself; clippy_policy checks it and `.clippy.toml`.
+    let in_tree = relative
+        .ancestors()
+        .filter(|dir| !dir.as_os_str().is_empty());
+    for dir in in_tree.map(|dir| root.join(dir)) {
         for file in ["clippy.toml", ".clippy.toml"] {
             let config = dir.join(file);
             ensure!(
-                !config.is_file() || (owns_io && dir == manifest_dir),
+                !config.is_file() || (owns_io && dir == manifest_dir && file == "clippy.toml"),
                 "{} shadows the workspace clippy.toml for {}; only {OWNS_IO:?} may own I/O",
                 config.display(),
                 package.name

@@ -3,16 +3,6 @@ use anyhow::{Context, ensure};
 use std::{fs, path::Path};
 use toml::{Table, Value};
 
-/// Entries proving the workspace `clippy.toml` still carries the I/O policy.
-const CLIPPY_POLICY: &[&str] = &[
-    "std::env::var",
-    "std::fs::File",
-    "std::fs::write",
-    "std::net::TcpStream",
-    "std::path::Path::exists",
-    "std::process::Command",
-];
-
 pub const GPUI_MCP_GIT: &str = "https://github.com/themixednuts/gpui-mcp";
 pub const GPUI_MCP_REV: &str = "9dda8e5cb49990261e3fdaa26abe38112d30dafb";
 
@@ -21,30 +11,6 @@ fn read_table(path: &Path) -> anyhow::Result<Table> {
         fs::read_to_string(path).with_context(|| format!("Could not read {}", path.display()))?;
     text.parse()
         .with_context(|| format!("Invalid TOML in {}", path.display()))
-}
-
-/// The workspace `clippy.toml` must still disallow the sentinel I/O items.
-pub fn check_clippy_policy(root: &Path) -> anyhow::Result<()> {
-    let path = root.join("clippy.toml");
-    let config = read_table(&path)?;
-    let active: Vec<&str> = ["disallowed-methods", "disallowed-types"]
-        .into_iter()
-        .filter_map(|key| config.get(key).and_then(Value::as_array))
-        .flatten()
-        .filter_map(|entry| match entry {
-            Value::String(path) => Some(path.as_str()),
-            Value::Table(entry) => entry.get("path").and_then(Value::as_str),
-            _ => None,
-        })
-        .collect();
-    for item in CLIPPY_POLICY {
-        ensure!(
-            active.contains(item),
-            "{} no longer disallows {item}",
-            path.display()
-        );
-    }
-    Ok(())
 }
 
 /// Every member inherits `[workspace.lints]`, which forbids unsafe code and suppressing the I/O
@@ -60,6 +26,31 @@ pub fn check_workspace_lints(manifest_path: &Path) -> anyhow::Result<()> {
         "{} must declare `[lints] workspace = true`",
         manifest_path.display()
     );
+    Ok(())
+}
+
+/// The workspace lints forbid unsafe code and allowing the I/O policy's disallowed APIs back.
+pub fn check_workspace_lint_levels(root: &Path) -> anyhow::Result<()> {
+    let manifest = read_table(&root.join("Cargo.toml"))?;
+    let lints = manifest
+        .get("workspace")
+        .and_then(|workspace| workspace.get("lints"));
+    for (group, lint) in [
+        ("rust", "unsafe_code"),
+        ("clippy", "disallowed_methods"),
+        ("clippy", "disallowed_types"),
+    ] {
+        let level = lints
+            .and_then(|lints| lints.get(group))
+            .and_then(|group| group.get(lint));
+        let level = level
+            .and_then(Value::as_str)
+            .or_else(|| level?.get("level")?.as_str());
+        ensure!(
+            level == Some("forbid"),
+            "Cargo.toml [workspace.lints.{group}] must set {lint} = \"forbid\", found {level:?}"
+        );
+    }
     Ok(())
 }
 
@@ -90,12 +81,13 @@ pub fn check_overrides(root: &Path) -> anyhow::Result<()> {
 }
 
 /// Repository Cargo configuration may not override dependencies, pass compiler flags that cap or
-/// allow the boundary lints, wrap the compiler, or point Clippy at another configuration.
+/// allow the boundary lints, wrap the compiler, alias the `clippy` or `fmt` subcommands, replace
+/// the test runner, or point Clippy at another configuration.
 fn check_cargo_config(path: &Path, config: &Table) -> anyhow::Result<()> {
     let build = config.get("build").and_then(Value::as_table);
     let targets = config.get("target").and_then(Value::as_table);
     let env = config.get("env").and_then(Value::as_table);
-    let rejected = ["patch", "source", "paths"]
+    let rejected = ["alias", "patch", "source", "paths"]
         .into_iter()
         .filter(|key| config.contains_key(*key))
         .map(|key| format!("[{key}]"))
@@ -105,10 +97,11 @@ fn check_cargo_config(path: &Path, config: &Table) -> anyhow::Result<()> {
                 .filter(|key| build.contains_key(*key))
                 .map(|key| format!("build.{key}"))
         }))
-        .chain(targets.into_iter().flatten().filter_map(|(target, table)| {
-            table
-                .get("rustflags")
-                .map(|_| format!("target.{target}.rustflags"))
+        .chain(targets.into_iter().flatten().flat_map(|(target, table)| {
+            ["rustflags", "runner"]
+                .into_iter()
+                .filter(|key| table.get(*key).is_some())
+                .map(move |key| format!("target.{target}.{key}"))
         }))
         .chain(env.into_iter().flat_map(Table::keys).filter_map(|key| {
             let upper = key.to_ascii_uppercase();
@@ -131,27 +124,29 @@ mod tests {
         reason = "Test assertions report fixture failures."
     )]
     use super::{
-        GPUI_MCP_GIT, GPUI_MCP_REV, check_clippy_policy, check_overrides, check_workspace_lints,
+        GPUI_MCP_GIT, GPUI_MCP_REV, check_overrides, check_workspace_lint_levels,
+        check_workspace_lints,
     };
     use std::fs;
 
     #[test]
-    fn commented_policy_entries_do_not_count() {
+    fn workspace_lints_must_forbid_the_policy_lints() {
         let dir = tempfile::tempdir().expect("temp dir");
-        let entries = super::CLIPPY_POLICY
-            .iter()
-            .map(|item| format!("    {{ path = \"{item}\" }},\n"))
-            .collect::<String>();
-        let active = format!("disallowed-methods = [\n{entries}]\n");
-        fs::write(dir.path().join("clippy.toml"), &active).expect("write");
-        assert!(check_clippy_policy(dir.path()).is_ok());
-        let commented = active.replacen(
-            "    { path = \"std::fs::write\" }",
-            "    # { path = \"std::fs::write\" }",
-            1,
-        );
-        fs::write(dir.path().join("clippy.toml"), commented).expect("write");
-        assert!(check_clippy_policy(dir.path()).is_err());
+        let manifest = |methods: &str| {
+            format!(
+                "[workspace.lints.rust]\nunsafe_code = \"forbid\"\n[workspace.lints.clippy]\ndisallowed_methods = {methods}\ndisallowed_types = \"forbid\"\n"
+            )
+        };
+        fs::write(dir.path().join("Cargo.toml"), manifest("\"forbid\"")).expect("write");
+        assert!(check_workspace_lint_levels(dir.path()).is_ok());
+        fs::write(
+            dir.path().join("Cargo.toml"),
+            manifest("{ level = \"forbid\" }"),
+        )
+        .expect("write");
+        assert!(check_workspace_lint_levels(dir.path()).is_ok());
+        fs::write(dir.path().join("Cargo.toml"), manifest("\"allow\"")).expect("write");
+        assert!(check_workspace_lint_levels(dir.path()).is_err());
     }
 
     #[test]
@@ -183,6 +178,8 @@ mod tests {
             "[build]\nrustflags = [\"--cap-lints\", \"allow\"]\n",
             "[target.'cfg(unix)']\nrustflags = [\"-A\", \"clippy::disallowed_methods\"]\n",
             "[env]\nCLIPPY_CONF_DIR = \"elsewhere\"\n",
+            "[alias]\nclippy = \"check\"\n",
+            "[target.x86_64-unknown-linux-gnu]\nrunner = \"true\"\n",
         ] {
             fs::write(dir.path().join(".cargo/config.toml"), config).expect("write");
             assert!(check_overrides(dir.path()).is_err(), "{config}");
