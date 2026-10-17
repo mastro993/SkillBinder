@@ -101,14 +101,17 @@ impl Scans {
             .collect()
     }
 
+    /// Starts a scan. With `replace`, a running scan is cancelled and replaced; without it, a
+    /// running scan is kept and nothing starts.
     pub(crate) fn start(
         &self,
         config: EngineConfig,
         workspaces: Vec<(WorkspaceId, PathBuf)>,
         managed: BTreeMap<String, SkillId>,
         log: Logger,
+        replace: bool,
     ) -> AppResult<()> {
-        self.start_with(config, workspaces, managed, log, |work| {
+        self.start_with(config, workspaces, managed, log, replace, |work| {
             std::thread::Builder::new()
                 .name("skillbinder-discovery".into())
                 .spawn(work)
@@ -122,10 +125,14 @@ impl Scans {
         workspaces: Vec<(WorkspaceId, PathBuf)>,
         managed: BTreeMap<String, SkillId>,
         log: Logger,
+        replace: bool,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
     ) -> AppResult<()> {
         let (generation, cancel) = {
             let mut state = self.lock()?;
+            if !replace && state.running.is_some() {
+                return Ok(());
+            }
             if let Some((_, replaced)) = state.running.take() {
                 replaced.store(true, Ordering::Release);
             }

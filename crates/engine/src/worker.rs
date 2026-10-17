@@ -182,6 +182,14 @@ impl Engine {
     /// Scans the agents' global skill directories and every workspace in the background. A running scan is replaced, so the
     /// new one covers the current workspaces; the previous results stay until it completes.
     pub async fn start_scan(&self) -> AppResult<()> {
+        self.scan(true).await
+    }
+    /// Like [`Self::start_scan`], but keeps a running scan instead of replacing it, so repeated
+    /// refreshes cannot keep a slow scan from completing.
+    pub async fn refresh_scan(&self) -> AppResult<()> {
+        self.scan(false).await
+    }
+    async fn scan(&self, replace: bool) -> AppResult<()> {
         let (config, workspaces, managed, log) = self
             .call(|state| {
                 Ok((
@@ -197,7 +205,9 @@ impl Engine {
                 ))
             })
             .await?;
-        self.owner.scans.start(config, workspaces, managed, log)
+        self.owner
+            .scans
+            .start(config, workspaces, managed, log, replace)
     }
     /// The last completed scan and whether another one is running, without waiting for a
     /// durable mutation.

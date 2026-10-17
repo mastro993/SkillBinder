@@ -158,12 +158,8 @@ impl Client {
         let remote = snapshot.sync.remote.is_some();
         let client = self.clone();
         self.shared.runtime.spawn(async move {
-            let scanning = client
-                .shared
-                .engine
-                .current_scan()
-                .is_ok_and(|(_, scanning)| scanning);
-            if !scanning && let Err(error) = client.start_scan().await {
+            let scanned = client.shared.engine.refresh_scan().await;
+            if let Err(error) = client.refresh_preserving_outcome(scanned).await {
                 client.background_error(error);
             }
             if remote && let Err(error) = client.synchronize(SyncAction::Refresh).await {
