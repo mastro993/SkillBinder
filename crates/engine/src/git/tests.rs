@@ -104,6 +104,27 @@ fn a_library_without_skills_publishes_an_empty_first_commit() {
     assert!(f.git.revision(&f.repo, "HEAD").unwrap().is_some());
 }
 #[test]
+fn a_stray_local_file_in_skills_is_never_committed_or_pushed() {
+    let f = Fixture::new();
+    f.push();
+    let head = f.git.revision(&f.repo, "HEAD").unwrap();
+    let remote = || {
+        f.git
+            .output(&f.repo, &["ls-remote", "--", &f.remote.url])
+            .unwrap()
+    };
+    let published = remote();
+    fs::write(f.repo.join("skills/.DS_Store"), "finder").unwrap();
+    fs::write(f.repo.join("skills/demo/SKILL.md"), "local").unwrap();
+    assert!(
+        f.git
+            .perform(&f.repo, Some(&f.remote), SyncAction::Push)
+            .is_err()
+    );
+    assert_eq!(f.git.revision(&f.repo, "HEAD").unwrap(), head);
+    assert_eq!(remote(), published);
+}
+#[test]
 fn foreign_staged_file_refuses_without_changing_index_or_worktree() {
     let f = Fixture::new();
     f.push();

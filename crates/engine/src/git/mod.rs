@@ -264,8 +264,8 @@ impl Git {
         self.output(repo, &["update-ref", REMOTE_REF, expected])?;
         Ok(())
     }
-    /// Refuses a tree whose managed entries are not regular files or whose skill directories
-    /// can't be checked out on every platform.
+    /// Refuses a fetched or about-to-be-committed tree whose managed entries are not regular
+    /// files or whose skill directories can't be checked out on every platform.
     fn validate_tree(&self, repo: &Path, revision: &str) -> AppResult<()> {
         let entries = self.output(repo, &["ls-tree", "-rz", revision, "--", MANAGED])?;
         let mut names = BTreeMap::new();
@@ -274,22 +274,19 @@ impl Git {
                 .split_once(' ')
                 .zip(entry.split_once('\t'))
                 .map(|((mode, _), (_, path))| (mode, path))
-                .ok_or_else(|| failure("Remote tree is invalid."))?;
+                .ok_or_else(|| failure("Managed tree is invalid."))?;
             if mode != "100644" && mode != "100755" {
-                return Err(failure(
-                    "Remote managed content contains unsupported entries.",
-                ));
+                return Err(failure("Managed content contains unsupported entries."));
             }
-            let slug = skill_of(path).ok_or_else(|| {
-                failure("Remote managed files must sit inside skill directories.")
-            })?;
+            let slug = skill_of(path)
+                .ok_or_else(|| failure("Managed files must sit inside skill directories."))?;
             let unique = *names
                 .entry(crate::library::normalized(slug))
                 .or_insert(slug)
                 == slug;
             if !crate::payload::portable(slug) || !unique {
                 return Err(failure(
-                    "Remote skill directory names collide or are not portable.",
+                    "Skill directory names collide or are not portable.",
                 ));
             }
         }
@@ -397,6 +394,9 @@ impl Git {
         {
             self.output(repo, &["add", "-f", "-A", "--", MANAGED])?;
         }
+        // Publish only what a fetch would accept, so a pushed commit never blocks later fetches.
+        let staged = self.output(repo, &["write-tree"])?;
+        self.validate_tree(repo, staged.trim())?;
         // A library without skills still publishes a first, empty commit.
         if self.revision(repo, "HEAD")?.is_none()
             || !self
