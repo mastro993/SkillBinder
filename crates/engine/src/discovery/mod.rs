@@ -23,6 +23,16 @@ use std::{
 pub(crate) struct ImportSource {
     pub display_path: String,
     pub inspection: Inspection,
+    /// The `skills` CLI lock file that would record where this copy was published.
+    pub lock: PathBuf,
+}
+
+/// The library skills a scan marks found skills with: by content, which blocked payloads never
+/// match, and by normalized slug, whatever the content.
+#[derive(Default)]
+pub(crate) struct Managed {
+    pub digests: BTreeMap<String, SkillId>,
+    pub slugs: BTreeMap<String, SkillId>,
 }
 
 /// What one completed scan found.
@@ -107,7 +117,7 @@ impl Scans {
         &self,
         config: EngineConfig,
         workspaces: Vec<(WorkspaceId, PathBuf)>,
-        managed: BTreeMap<String, SkillId>,
+        managed: Managed,
         log: Logger,
         replace: bool,
     ) -> AppResult<()> {
@@ -123,7 +133,7 @@ impl Scans {
         &self,
         config: EngineConfig,
         workspaces: Vec<(WorkspaceId, PathBuf)>,
-        managed: BTreeMap<String, SkillId>,
+        managed: Managed,
         log: Logger,
         replace: bool,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
@@ -145,8 +155,10 @@ impl Scans {
         let scans = self.clone();
         let failure_log = log.clone();
         let launched = launch(Box::new(move || {
-            let result = registry::locations(&config, &workspaces, &log)
-                .and_then(|locations| traversal::scan(locations, &managed, &cancel, &log));
+            let global_lock = crate::sources::lock::global_lock(&config);
+            let result = registry::locations(&config, &workspaces, &log).and_then(|locations| {
+                traversal::scan(locations, &managed, &global_lock, &cancel, &log)
+            });
             scans.finish(generation, result, &log);
         }));
         if let Err(error) = launched {

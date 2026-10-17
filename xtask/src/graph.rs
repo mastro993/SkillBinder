@@ -52,6 +52,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "tempfile",
             "time",
             "tokio",
+            "toml",
             "unicode-casefold",
             "unicode-normalization",
             "url",

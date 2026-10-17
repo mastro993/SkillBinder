@@ -1,6 +1,8 @@
-use crate::{ImportOutcome, LibrarySnapshot, ScanSnapshot, SyncSnapshot, Workspace};
+use crate::{
+    ImportOutcome, LibrarySnapshot, ScanSnapshot, SkillId, SkillUpdate, SyncSnapshot, Workspace,
+};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Ordered, resumable onboarding steps.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -137,6 +139,8 @@ pub struct AppSnapshot {
     pub scan: Option<ScanSnapshot>,
     /// A scan is running; `scan` keeps the previous results until it completes.
     pub scanning: bool,
+    /// Update state of the library skills whose source was checked for their current content.
+    pub updates: BTreeMap<SkillId, SkillUpdate>,
     /// Git connection and status.
     pub sync: SyncSnapshot,
     /// Last durable import result, until dismissed.

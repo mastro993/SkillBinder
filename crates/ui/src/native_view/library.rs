@@ -46,6 +46,7 @@ impl NativeView {
         v_flex()
             .gap_4()
             .child(self.library_header(visible.len(), cx))
+            .children(self.render_update_outcome(cx))
             .child(self.library_results(library, &visible, &typed, window, cx))
             .into_any_element()
     }
@@ -136,6 +137,7 @@ impl NativeView {
                     .copied()
                     .and_then(dates::from_unix),
                 folder: self.folder_label(skill),
+                update: self.has_update(&skill.id),
                 holders: found
                     .as_ref()
                     .map(|found| found.get(&skill.id).map_or(&[][..], Vec::as_slice)),
@@ -227,6 +229,7 @@ mod tests {
             file_count: 0,
             total_bytes: 0,
             imported_at: None,
+            source: None,
         }
     }
 

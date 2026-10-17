@@ -21,6 +21,7 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
                 format!("skill-{index}"),
                 &inspection,
                 None,
+                None,
             ));
             Move {
                 from,
@@ -43,11 +44,11 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         completed_moves: 0,
         progress: Default::default(),
         skills,
-        outcome: ImportOutcome {
+        outcome: Some(ImportOutcome {
             plan_id,
             imported: vec![],
             existing: vec![],
-        },
+        }),
     };
     (directory, state, journal)
 }

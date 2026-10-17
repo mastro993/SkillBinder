@@ -377,3 +377,31 @@ async fn launch_catches_up_on_a_pull_interrupted_before_its_reconcile() {
     );
     device.engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn sources_sync_beside_their_skills() {
+    let device = Device::published(&["alpha"]).await;
+    device.peer_push(|skills| {
+        write_skill(skills, "alpha", "Second version");
+        let sources = skills.with_file_name("sources");
+        fs::create_dir_all(&sources).unwrap();
+        fs::write(
+            sources.join("alpha.toml"),
+            "url = \"https://example.invalid/o/r.git\"\npath = \"skills/alpha\"\n",
+        )
+        .unwrap();
+    });
+    device.engine.synchronize(SyncAction::Pull).await.unwrap();
+    let pulled = snapshot(&device.engine).await;
+    let source = skill(&pulled, "alpha").source.clone().unwrap();
+    assert_eq!(
+        (source.url.as_str(), source.path.as_str()),
+        ("https://example.invalid/o/r.git", "skills/alpha")
+    );
+    device.peer_push(|skills| {
+        fs::remove_file(skills.with_file_name("sources").join("alpha.toml")).unwrap();
+    });
+    device.engine.synchronize(SyncAction::Pull).await.unwrap();
+    assert_eq!(skill(&snapshot(&device.engine).await, "alpha").source, None);
+    device.engine.shutdown().await.unwrap();
+}

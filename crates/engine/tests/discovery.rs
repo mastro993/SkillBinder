@@ -9,11 +9,11 @@ use skillbinder_proto::{Candidate, ErrorCategory, ImportDecision, ScanSnapshot, 
 use std::fs;
 use support::{Fixture, category, write_skill};
 
-/// Found skills the library does not hold.
+/// Found skills that are not installed.
 fn not_in_library(scan: &ScanSnapshot) -> Vec<&Candidate> {
     scan.candidates
         .iter()
-        .filter(|candidate| candidate.skill_id.is_none())
+        .filter(|candidate| candidate.installed().is_none())
         .collect()
 }
 

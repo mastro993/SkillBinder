@@ -14,6 +14,7 @@ mod payload;
 mod persistence;
 mod reconcile;
 mod schema;
+mod sources;
 mod worker;
 mod workspaces;
 

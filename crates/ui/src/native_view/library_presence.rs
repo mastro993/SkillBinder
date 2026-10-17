@@ -121,6 +121,7 @@ mod tests {
         Candidate {
             id: CandidateId::new(),
             skill_id: skill,
+            held: None,
             slug: "pdf".to_owned(),
             description: String::new(),
             locations,

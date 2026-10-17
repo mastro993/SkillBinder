@@ -1,5 +1,5 @@
 use super::{
-    Found, ImportSource,
+    Found, ImportSource, Managed,
     registry::Location,
     walk::{Visit, Walk},
 };
@@ -13,7 +13,8 @@ use std::{
 };
 
 struct Traversal<'a> {
-    managed: &'a BTreeMap<String, SkillId>,
+    managed: &'a Managed,
+    global_lock: &'a Path,
     log: &'a Logger,
     found: Found,
     /// Candidate and location index of each physical skill directory already listed.
@@ -24,12 +25,14 @@ struct Traversal<'a> {
 
 pub(super) fn scan(
     locations: Vec<Location>,
-    managed: &BTreeMap<String, SkillId>,
+    managed: &Managed,
+    global_lock: &Path,
     cancel: &AtomicBool,
     log: &Logger,
 ) -> AppResult<Found> {
     let mut traversal = Traversal {
         managed,
+        global_lock,
         log,
         found: Found {
             snapshot: ScanSnapshot {
@@ -130,7 +133,16 @@ impl Traversal<'_> {
         self.physical.insert(canonical, (candidates.len(), 0));
         candidates.push(Candidate {
             id: id.clone(),
-            skill_id: self.managed.get(&inspection.manifest.digest).cloned(),
+            skill_id: self
+                .managed
+                .digests
+                .get(&inspection.manifest.digest)
+                .cloned(),
+            held: self
+                .managed
+                .slugs
+                .get(&crate::library::normalized(&inspection.slug))
+                .cloned(),
             slug: inspection.slug.clone(),
             description: inspection.description.clone(),
             locations: vec![found.clone()],
@@ -144,6 +156,11 @@ impl Traversal<'_> {
             ImportSource {
                 display_path: found.display_path,
                 inspection,
+                lock: if location.in_workspace() {
+                    crate::sources::lock::project_lock(&location.boundary)
+                } else {
+                    self.global_lock.to_owned()
+                },
             },
         );
     }

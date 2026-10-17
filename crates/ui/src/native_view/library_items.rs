@@ -27,6 +27,8 @@ pub(super) struct SkillItem<'a> {
     pub modified: Option<DateTime<Utc>>,
     /// The skill's folder, shown while Library lists every skill.
     pub folder: Option<&'a str>,
+    /// The skill has an update, so it shows an Update button.
+    pub update: bool,
     /// The Agents rows holding a copy; `None` until the first scan completes.
     pub holders: Option<&'a [Holder]>,
 }
@@ -64,6 +66,9 @@ impl NativeView {
                     .max_w(px(420.))
                     .child(presence(item, cx)),
             )
+            .when(item.update, |row| {
+                row.child(self.update_button("row", &item.skill.id, cx))
+            })
             .into_any_element()
     }
 
@@ -75,11 +80,19 @@ impl NativeView {
             .p_3()
             .min_h(px(132.))
             .child(
-                div()
-                    .min_w_0()
-                    .font_weight(FontWeight::MEDIUM)
-                    .truncate()
-                    .child(item.name()),
+                h_flex()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .font_weight(FontWeight::MEDIUM)
+                            .truncate()
+                            .child(item.name()),
+                    )
+                    .when(item.update, |line| {
+                        line.child(self.update_button("card", &item.skill.id, cx))
+                    }),
             )
             .child(div().flex_1().child(description(item.description, 2, cx)))
             .child(dates(item, cx))
