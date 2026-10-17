@@ -83,16 +83,44 @@ pub fn check_overrides(root: &Path) -> anyhow::Result<()> {
     for name in ["config.toml", "config"] {
         let path = root.join(".cargo").join(name);
         if path.is_file() {
-            let config = read_table(&path)?;
-            for key in ["patch", "source", "paths"] {
-                ensure!(
-                    !config.contains_key(key),
-                    "{} must not override dependencies with [{key}]",
-                    path.display()
-                );
-            }
+            check_cargo_config(&path, &read_table(&path)?)?;
         }
     }
+    Ok(())
+}
+
+/// Repository Cargo configuration may not override dependencies, pass compiler flags that cap or
+/// allow the boundary lints, wrap the compiler, or point Clippy at another configuration.
+fn check_cargo_config(path: &Path, config: &Table) -> anyhow::Result<()> {
+    let build = config.get("build").and_then(Value::as_table);
+    let targets = config.get("target").and_then(Value::as_table);
+    let env = config.get("env").and_then(Value::as_table);
+    let rejected = ["patch", "source", "paths"]
+        .into_iter()
+        .filter(|key| config.contains_key(*key))
+        .map(|key| format!("[{key}]"))
+        .chain(build.into_iter().flat_map(|build| {
+            ["rustflags", "rustc-wrapper", "rustc-workspace-wrapper"]
+                .into_iter()
+                .filter(|key| build.contains_key(*key))
+                .map(|key| format!("build.{key}"))
+        }))
+        .chain(targets.into_iter().flatten().filter_map(|(target, table)| {
+            table
+                .get("rustflags")
+                .map(|_| format!("target.{target}.rustflags"))
+        }))
+        .chain(env.into_iter().flat_map(Table::keys).filter_map(|key| {
+            let upper = key.to_ascii_uppercase();
+            (upper.contains("CLIPPY") || upper.contains("RUSTFLAGS")).then(|| format!("env.{key}"))
+        }))
+        .collect::<Vec<_>>();
+    ensure!(
+        rejected.is_empty(),
+        "{} must not set {}; it would bypass dependency or lint policy",
+        path.display(),
+        rejected.join(", ")
+    );
     Ok(())
 }
 
@@ -150,7 +178,17 @@ mod tests {
         assert!(check_overrides(dir.path()).is_err());
         fs::write(dir.path().join("Cargo.toml"), manifest(GPUI_MCP_REV)).expect("write");
         fs::create_dir(dir.path().join(".cargo")).expect("mkdir");
-        fs::write(dir.path().join(".cargo/config.toml"), "[patch.crates-io]\n").expect("write");
-        assert!(check_overrides(dir.path()).is_err());
+        for config in [
+            "[patch.crates-io]\n",
+            "[build]\nrustflags = [\"--cap-lints\", \"allow\"]\n",
+            "[target.'cfg(unix)']\nrustflags = [\"-A\", \"clippy::disallowed_methods\"]\n",
+            "[env]\nCLIPPY_CONF_DIR = \"elsewhere\"\n",
+        ] {
+            fs::write(dir.path().join(".cargo/config.toml"), config).expect("write");
+            assert!(check_overrides(dir.path()).is_err(), "{config}");
+        }
+        let allowed = "[env]\nMACOSX_DEPLOYMENT_TARGET = \"26.0\"\n";
+        fs::write(dir.path().join(".cargo/config.toml"), allowed).expect("write");
+        assert!(check_overrides(dir.path()).is_ok());
     }
 }
