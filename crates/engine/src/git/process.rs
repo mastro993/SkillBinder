@@ -247,19 +247,17 @@ fn permits_user_credential_helper_configuration() {
     .unwrap();
     std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o700)).unwrap();
     // Exec'ing a just-written script fails with "Text file busy" on Linux while another test's
-    // forked child still holds its write descriptor, so retry the spawn briefly.
-    let attempt = || {
-        let args = ["config", "--global", "--get", "credential.helper"];
-        run(&wrapper, None, &args, Duration::from_secs(30))
-    };
-    let output = (1..20)
-        .fold(attempt(), |result, _| {
-            result.or_else(|_| {
-                std::thread::sleep(Duration::from_millis(50));
-                attempt()
-            })
-        })
-        .unwrap();
+    // forked child still holds its write descriptor, so retry the spawn for at most a second.
+    let args = ["config", "--global", "--get", "credential.helper"];
+    let started = std::time::Instant::now();
+    let output = loop {
+        let result = run(&wrapper, None, &args, Duration::from_secs(30));
+        if result.is_ok() || started.elapsed() >= Duration::from_secs(1) {
+            break result;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    .unwrap();
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap().trim(),
