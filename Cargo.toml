@@ -17,6 +17,7 @@ gpui-kit = "=0.7.0"
 gpui-mcp = { git = "https://github.com/themixednuts/gpui-mcp", rev = "9dda8e5cb49990261e3fdaa26abe38112d30dafb", default-features = false, features = ["gpui-pre"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+toml = "1.1"
 sha2 = "0.10"
 tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time", "macros"] }
 diesel = { version = "2.3", default-features = false, features = ["sqlite"] }

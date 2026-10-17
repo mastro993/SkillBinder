@@ -1,9 +1,11 @@
 //! Workspace crate graph: members, dependencies, features, and Clippy I/O policy scope.
+use crate::manifests::{
+    GPUI_MCP_GIT, GPUI_MCP_REV, check_clippy_policy, check_overrides, check_workspace_lints,
+};
 use anyhow::{Context, ensure};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -73,7 +75,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
     ),
     (
         "xtask",
-        &["anyhow", "serde", "serde_json", "sha2", "tempfile"],
+        &["anyhow", "serde", "serde_json", "sha2", "tempfile", "toml"],
         &[],
     ),
 ];
@@ -90,19 +92,7 @@ const NATIVE_TEST: &[(&str, &[&str])] = &[
 /// Members that own I/O and may replace the workspace `clippy.toml` with their own.
 const OWNS_IO: &[&str] = &["skillbinder", "skillbinder-engine", "xtask"];
 
-/// Sentinel entries proving the workspace `clippy.toml` still carries the I/O policy.
-const CLIPPY_POLICY: &[&str] = &[
-    "std::env::var",
-    "std::fs::File",
-    "std::fs::write",
-    "std::net::TcpStream",
-    "std::path::Path::exists",
-    "std::process::Command",
-];
-
 const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
-const GPUI_MCP: &str =
-    "git+https://github.com/themixednuts/gpui-mcp?rev=9dda8e5cb49990261e3fdaa26abe38112d30dafb";
 
 #[derive(Deserialize)]
 struct Metadata {
@@ -145,10 +135,11 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         .filter_map(|package| Some((package.name.as_str(), package.manifest_path.parent()?)))
         .collect();
     check_clippy_policy(root)?;
+    check_overrides(root)?;
     for package in &members {
         check_dependencies(package, &dirs)?;
         check_features(package)?;
-        check_workspace_lints(package)?;
+        check_workspace_lints(&package.manifest_path)?;
         check_clippy_scope(root, package)?;
     }
     Ok(())
@@ -237,46 +228,17 @@ fn check_origin(
         return Ok(());
     }
     let expected = if dep.name == "gpui-mcp" {
-        GPUI_MCP
+        format!("git+{GPUI_MCP_GIT}?rev={GPUI_MCP_REV}")
     } else {
-        CRATES_IO
+        CRATES_IO.to_owned()
     };
     ensure!(
-        dep.path.is_none() && dep.source.as_deref() == Some(expected),
+        dep.path.is_none() && dep.source.as_deref() == Some(expected.as_str()),
         "{name} dependency {} must come from {expected}, found path {:?} source {:?}",
         dep.name,
         dep.path,
         dep.source
     );
-    Ok(())
-}
-
-/// Every member inherits `[workspace.lints]`, which forbids unsafe code and suppressing the I/O policy.
-fn check_workspace_lints(package: &Package) -> anyhow::Result<()> {
-    let manifest = fs::read_to_string(&package.manifest_path)
-        .with_context(|| format!("Could not read {}", package.manifest_path.display()))?;
-    let mut lines = manifest.lines().map(str::trim);
-    let inherits = lines.any(|line| line == "[lints]")
-        && lines.find(|line| !line.is_empty()) == Some("workspace = true");
-    ensure!(
-        inherits,
-        "{} must declare `[lints] workspace = true`",
-        package.manifest_path.display()
-    );
-    Ok(())
-}
-
-fn check_clippy_policy(root: &Path) -> anyhow::Result<()> {
-    let path = root.join("clippy.toml");
-    let policy = fs::read_to_string(&path)
-        .with_context(|| format!("Missing workspace I/O policy {}", path.display()))?;
-    for item in CLIPPY_POLICY {
-        ensure!(
-            policy.contains(&format!("path = \"{item}\"")),
-            "{} no longer disallows {item}",
-            path.display()
-        );
-    }
     Ok(())
 }
 
