@@ -247,19 +247,6 @@ pub struct Library {
     /// Library skills in slug order.
     pub skills: Vec<Skill>,
 }
-impl Library {
-    /// True when the library holds no skills, presets, or library folders.
-    /// A new content-bearing field must be included here, or this destructure
-    /// fails to compile.
-    pub fn is_vacant(&self) -> bool {
-        let Self {
-            presets,
-            folders,
-            skills,
-        } = self;
-        presets.is_empty() && folders.is_empty() && skills.is_empty()
-    }
-}
 /// Local skill details derived during inspection.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SkillDetails {
@@ -427,16 +414,5 @@ mod tests {
             );
         }
         Ok(())
-    }
-
-    #[test]
-    fn a_library_with_no_records_is_vacant() {
-        use super::Library;
-        let library = Library {
-            presets: Vec::new(),
-            folders: Vec::new(),
-            skills: Vec::new(),
-        };
-        assert!(library.is_vacant());
     }
 }
