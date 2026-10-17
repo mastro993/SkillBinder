@@ -1,14 +1,14 @@
 use crate::{
     discovery::ImportSource,
-    library::{payload_relative, validate_library},
-    payload::{self, Inspection, Manifest},
+    library::normalized,
+    library_store::SkillRecord,
+    payload::{self, Inspection},
     persistence::{self, Journal, Move},
     schema::{idempotency_records, operation_plans},
     worker::State,
 };
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -18,33 +18,9 @@ use std::{
 #[derive(Serialize, Deserialize)]
 struct Prepared {
     review: ImportPlan,
-    after: Library,
     sources: Vec<Inspection>,
-    catalog: String,
 }
 impl State {
-    pub(crate) fn catalog(
-        &self,
-        library: &Library,
-    ) -> AppResult<(BTreeMap<SkillId, Manifest>, String)> {
-        let mut manifests = BTreeMap::new();
-        for skill in &library.skills {
-            let path = self
-                .contained_skill_path(&self.library_dir().join(payload_relative(library, skill)))?;
-            let inspection = payload::inspect(&path)?;
-            if inspection.manifest.digest != skill.digest {
-                return Err(AppError::stale(
-                    "A managed payload changed outside SkillBinder. Review it before installing.",
-                ));
-            }
-            manifests.insert(skill.id.clone(), inspection.manifest);
-        }
-        let fingerprint = format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(&manifests).map_err(|_| AppError::storage())?)
-        );
-        Ok((manifests, fingerprint))
-    }
     pub(crate) fn prepare_import(
         &mut self,
         ids: Vec<CandidateId>,
@@ -60,26 +36,32 @@ impl State {
         selected: Vec<(CandidateId, ImportSource)>,
         acknowledge_invalid: bool,
     ) -> AppResult<ImportPlan> {
-        let snapshot = self.library_snapshot()?;
-        let (mut catalog, fingerprint) = self.catalog(&snapshot.library)?;
-        let mut after = snapshot.library.clone();
+        let (library, revision) = self.revised_library()?;
+        // Slugs by normalized name, so names that differ only in case collide, and by digest.
+        let mut names: BTreeMap<String, SkillId> = BTreeMap::new();
+        let mut digests: BTreeMap<String, SkillId> = BTreeMap::new();
+        for skill in library.skills {
+            names.insert(normalized(skill.id.as_str()), skill.id.clone());
+            digests.insert(skill.digest, skill.id);
+        }
+        // A directory not yet reconciled still holds its name.
+        for slug in self.skill_dirs()? {
+            names.entry(normalized(&slug)).or_insert(SkillId(slug));
+        }
+        let mut batch = BTreeSet::new();
         let mut items = Vec::new();
         let mut sources = Vec::new();
-        let mut selected_slugs = BTreeMap::new();
         for (candidate_id, source) in selected {
-            let previous = source.inspection;
-            let resolved = fs::canonicalize(&source.display_path)
-                .map_err(|_| AppError::stale("Selected source path no longer exists."))?;
-            if resolved != previous.canonical_source {
-                return Err(AppError::stale("Selected source path changed."));
-            }
-            let inspection = payload::inspect(&previous.canonical_source)?;
-            if inspection.identity != previous.identity {
-                return Err(AppError::stale("A selected source directory was replaced."));
-            }
+            let inspection = reinspect(&source)?;
             if inspection.status == ValidationStatus::Blocked {
                 return Err(AppError::validation(
                     "Blocked payloads cannot be installed.",
+                ));
+            }
+            // Git tracks files, not directories, so a skill without files would never sync.
+            if inspection.manifest.file_count() == 0 {
+                return Err(AppError::validation(
+                    "A skill without files cannot be installed.",
                 ));
             }
             if inspection.status == ValidationStatus::Invalid && !acknowledge_invalid {
@@ -87,56 +69,32 @@ impl State {
                     "Acknowledge invalid skill metadata before preparing an install.",
                 ));
             }
-            if selected_slugs
-                .get(&inspection.slug)
-                .is_some_and(|digest| digest != &inspection.manifest.digest)
-            {
-                return Err(AppError::validation(
-                    "Select only one distinct payload per shared slug in an install batch.",
-                ));
-            }
-            selected_slugs.insert(inspection.slug.clone(), inspection.manifest.digest.clone());
-            let existing = catalog
-                .iter()
-                .find(|(_, manifest)| manifest.equivalent(&inspection.manifest))
-                .map(|(id, _)| id.clone());
-            let (skill_id, decision) = if let Some(id) = existing {
-                (id, ImportDecision::Existing)
-            } else {
-                let id = SkillId::new();
-                let conflict = after
-                    .skills
-                    .iter()
-                    .any(|skill| skill.slug == inspection.slug);
-                after.skills.push(Skill {
-                    id: id.clone(),
-                    slug: inspection.slug.clone(),
-                    display_name: None,
-                    preset_ids: Vec::new(),
-                    folder_id: None,
-                    tag_ids: Vec::new(),
-                    upstream_bindings: Vec::new(),
-                    digest: inspection.manifest.digest.clone(),
-                    file_count: inspection.manifest.file_count(),
-                    total_bytes: inspection.manifest.total_bytes(),
-                    imported_at: Some(crate::lifecycle::format_timestamp()),
-                });
-                catalog.insert(id.clone(), inspection.manifest.clone());
-                (
-                    id,
-                    if conflict {
-                        ImportDecision::Conflict
-                    } else {
-                        ImportDecision::NewSkill
-                    },
-                )
+            let digest = &inspection.manifest.digest;
+            let name = normalized(&inspection.slug);
+            let (skill_id, decision) = match digests.get(digest) {
+                Some(id) => (id.clone(), ImportDecision::Existing),
+                None => {
+                    if let Some(held) = names.get(&name) {
+                        return Err(AppError::validation(if batch.contains(&name) {
+                            "Select only one distinct payload per shared slug in an install batch."
+                                .to_owned()
+                        } else {
+                            format!("The library already holds a different skill named {held}.")
+                        }));
+                    }
+                    let id = SkillId(inspection.slug.clone());
+                    batch.insert(name.clone());
+                    names.insert(name, id.clone());
+                    digests.insert(digest.clone(), id.clone());
+                    (id, ImportDecision::NewSkill)
+                }
             };
             items.push(ImportItem {
                 candidate_id,
+                destination: format!("skills/{skill_id}"),
                 skill_id,
                 slug: inspection.slug.clone(),
                 source: source.display_path,
-                destination: String::new(),
                 decision,
                 validation: inspection.status,
                 messages: inspection.messages.clone(),
@@ -144,26 +102,15 @@ impl State {
             });
             sources.push(inspection);
         }
-        validate_library(&after)?;
-        for item in &mut items {
-            let skill = after
-                .skills
-                .iter()
-                .find(|skill| skill.id == item.skill_id)
-                .ok_or_else(AppError::storage)?;
-            item.destination = payload_relative(&after, skill);
-        }
         let review = ImportPlan {
             id: PlanId::new(),
             expires_at: persistence::now() + 300,
-            revision: snapshot.revision,
+            revision,
             items,
         };
         let prepared = Prepared {
             review: review.clone(),
-            after,
             sources,
-            catalog: fingerprint,
         };
         diesel::insert_into(operation_plans::table)
             .values((
@@ -200,10 +147,7 @@ impl State {
         if persistence::now() >= prepared.review.expires_at {
             return Err(AppError::stale("Install plan expired. Review it again."));
         }
-        let snapshot = self.library_snapshot()?;
-        if snapshot.revision != prepared.review.revision
-            || self.catalog(&snapshot.library)?.1 != prepared.catalog
-        {
+        if self.revised_library()?.1 != prepared.review.revision {
             return Err(AppError::stale("The library changed after install review."));
         }
         for (item, inspection) in prepared.review.items.iter().zip(&prepared.sources) {
@@ -214,6 +158,15 @@ impl State {
                 return Err(AppError::stale("SourceChanged"));
             }
         }
+        // A directory that a failed reconcile left out of the database may have appeared since
+        // review; names that differ only in case collide on some file systems.
+        let taken: BTreeSet<_> = self.skill_dirs()?.iter().map(|s| normalized(s)).collect();
+        if prepared.review.items.iter().any(|item| {
+            item.decision == ImportDecision::NewSkill
+                && taken.contains(&normalized(item.skill_id.as_str()))
+        }) {
+            return Err(AppError::stale("The library changed after install review."));
+        }
         let staging = self
             .config
             .data_dir
@@ -222,12 +175,13 @@ impl State {
         fs::create_dir(&staging).map_err(|_| AppError::storage())?;
         let staged = (|| {
             for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
-                if item.decision != ImportDecision::Existing {
+                if item.decision == ImportDecision::NewSkill {
                     payload::materialize(source, &staging.join(item.skill_id.as_str()))?;
                 }
             }
-            for inspection in &prepared.sources {
-                if payload::inspect(&inspection.canonical_source)? != *inspection {
+            // A source staged early may have changed while later ones were copied.
+            for source in &prepared.sources {
+                if payload::inspect(&source.canonical_source)? != *source {
                     return Err(AppError::stale("SourceChanged"));
                 }
             }
@@ -237,72 +191,37 @@ impl State {
             let _ = fs::remove_dir_all(&staging);
             return Err(error);
         }
-        if self.library_snapshot()?.revision != prepared.review.revision
-            || self.catalog(&snapshot.library)?.1 != prepared.catalog
-        {
-            let _ = fs::remove_dir_all(&staging);
-            return Err(AppError::stale(
-                "The library changed while the install was staged.",
-            ));
-        }
+        let imported_at = crate::lifecycle::format_timestamp();
         let mut moves = Vec::new();
-        for before in &snapshot.library.skills {
-            let after = prepared
-                .after
-                .skills
-                .iter()
-                .find(|skill| skill.id == before.id)
-                .ok_or_else(AppError::storage)?;
-            let from = self
-                .library_dir()
-                .join(payload_relative(&snapshot.library, before));
-            let to = self
-                .library_dir()
-                .join(payload_relative(&prepared.after, after));
-            if from != to {
-                moves.push(Move { from, to });
-            }
-        }
-        let mut details = snapshot.details;
+        let mut skills = Vec::new();
         let mut outcome = ImportOutcome {
             plan_id: id.clone(),
             imported: Vec::new(),
             existing: Vec::new(),
-            conflicts: Vec::new(),
         };
-        let mut touched = BTreeSet::new();
         for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
             if item.decision == ImportDecision::Existing {
                 outcome.existing.push(item.skill_id.clone());
-            } else {
-                moves.push(Move {
-                    from: staging.join(item.skill_id.as_str()),
-                    to: self.library_dir().join(&item.destination),
-                });
-                outcome.imported.push(item.skill_id.clone());
-                if item.decision == ImportDecision::Conflict {
-                    outcome.conflicts.push(item.slug.clone());
-                }
+                continue;
             }
-            let local = details.entry(item.skill_id.clone()).or_default();
-            local.description = source.description.clone();
-            local.validation = source.status;
-            local.messages = source.messages.clone();
-            touched.insert(item.skill_id.clone());
+            moves.push(Move {
+                from: staging.join(item.skill_id.as_str()),
+                to: self.library_dir().join(&item.destination),
+            });
+            skills.push(SkillRecord::new(
+                item.skill_id.to_string(),
+                source,
+                Some(imported_at.clone()),
+            ));
+            outcome.imported.push(item.skill_id.clone());
         }
         let result = self.commit(Journal {
             id: id.to_string(),
-            before: snapshot.library,
-            before_metadata: None,
-            after: prepared.after,
             moves,
             completed_moves: 0,
             progress: Default::default(),
-            details: details
-                .into_iter()
-                .filter(|(id, _)| touched.contains(id))
-                .collect(),
-            outcome: Some(outcome.clone()),
+            skills,
+            outcome: outcome.clone(),
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);
@@ -310,4 +229,19 @@ impl State {
         result?;
         Ok(outcome)
     }
+}
+
+/// Re-inspects a reviewed source, refusing one whose path or directory changed since the scan.
+fn reinspect(source: &ImportSource) -> AppResult<Inspection> {
+    let previous = &source.inspection;
+    let resolved = fs::canonicalize(&source.display_path)
+        .map_err(|_| AppError::stale("Selected source path no longer exists."))?;
+    if resolved != previous.canonical_source {
+        return Err(AppError::stale("Selected source path changed."));
+    }
+    let inspection = payload::inspect(&previous.canonical_source)?;
+    if inspection.identity != previous.identity {
+        return Err(AppError::stale("A selected source directory was replaced."));
+    }
+    Ok(inspection)
 }

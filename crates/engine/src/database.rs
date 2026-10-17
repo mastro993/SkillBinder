@@ -1,9 +1,8 @@
 //! Machine-local SQLite through Diesel. The engine worker owns the only connection.
 
-use crate::{persistence::now, schema::skill_metadata};
-use diesel::{connection::SimpleConnection, prelude::*, upsert::excluded};
+use diesel::{connection::SimpleConnection, prelude::*};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use skillbinder_proto::{AppError, AppResult, SkillDetails, SkillId};
+use skillbinder_proto::{AppError, AppResult};
 use std::path::Path;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
@@ -17,54 +16,14 @@ pub(crate) fn open(path: &Path) -> AppResult<SqliteConnection> {
         SqliteConnection::establish(uri.as_str()).map_err(|_| AppError::storage())?;
     connection
         .batch_execute(
-            "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;",
+            "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; \
+             PRAGMA foreign_keys=ON;",
         )
         .map_err(|_| AppError::storage())?;
     connection
         .run_pending_migrations(MIGRATIONS)
         .map_err(|_| AppError::storage())?;
     Ok(connection)
-}
-
-/// The cached details of a library skill, if any.
-pub(crate) fn details(
-    connection: &mut SqliteConnection,
-    id: &SkillId,
-) -> AppResult<Option<SkillDetails>> {
-    skill_metadata::table
-        .find(id.as_str())
-        .select(skill_metadata::validation)
-        .first::<String>(connection)
-        .optional()
-        .map_err(|_| AppError::storage())?
-        .map(|json| serde_json::from_str(&json).map_err(|_| AppError::storage()))
-        .transpose()
-}
-
-/// Inserts or replaces the cached details of a library skill.
-pub(crate) fn save_details(
-    connection: &mut SqliteConnection,
-    id: &SkillId,
-    details: &SkillDetails,
-) -> AppResult<()> {
-    let validation = serde_json::to_string(details).map_err(|_| AppError::storage())?;
-    diesel::insert_into(skill_metadata::table)
-        .values((
-            skill_metadata::skill_id.eq(id.as_str()),
-            skill_metadata::description.eq(&details.description),
-            skill_metadata::validation.eq(validation),
-            skill_metadata::updated_at.eq(now() as i64),
-        ))
-        .on_conflict(skill_metadata::skill_id)
-        .do_update()
-        .set((
-            skill_metadata::description.eq(excluded(skill_metadata::description)),
-            skill_metadata::validation.eq(excluded(skill_metadata::validation)),
-            skill_metadata::updated_at.eq(excluded(skill_metadata::updated_at)),
-        ))
-        .execute(connection)
-        .map(drop)
-        .map_err(|_| AppError::storage())
 }
 
 /// Runs `body` in a transaction that commits only when `body` succeeds.
@@ -103,6 +62,40 @@ mod tests {
     fn opens_paths_with_uri_delimiters() -> AppResult<()> {
         let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
         opens_at(&root.path().join("a %20?b#c.db"))
+    }
+
+    /// Databases that already applied the initial migration, as released builds left them,
+    /// must upgrade in place, so applied migrations are never edited.
+    #[test]
+    fn upgrades_a_database_from_the_initial_schema() -> AppResult<()> {
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let path = root.path().join("state.db");
+        let mut initial = SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
+            .map_err(|_| AppError::storage())?;
+        initial
+            .run_next_migration(MIGRATIONS)
+            .map_err(|_| AppError::storage())?;
+        initial
+            .batch_execute(
+                "INSERT INTO device_settings(key, value) VALUES('kept', '1'); \
+                 INSERT INTO skill_metadata VALUES('old', '', 'Valid', 0);",
+            )
+            .map_err(|_| AppError::storage())?;
+        drop(initial);
+        let mut upgraded = open(&path)?;
+        let kept = crate::schema::device_settings::table
+            .count()
+            .get_result::<i64>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        let skills = crate::schema::skills::table
+            .count()
+            .get_result::<i64>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        if (kept, skills) == (1, 0) {
+            Ok(())
+        } else {
+            Err(AppError::storage())
+        }
     }
 
     #[cfg(target_os = "linux")]

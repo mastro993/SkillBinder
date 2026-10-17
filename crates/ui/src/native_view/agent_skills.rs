@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn found_skills_list_every_folder_an_agent_reads_globally() {
-        let kept = SkillId::new();
+        let kept = SkillId("kept".into());
         let mut elsewhere = candidate("elsewhere", None, ValidationStatus::Valid);
         elsewhere.locations[0].global_agents.clear();
         let mut linked = candidate("linked", None, ValidationStatus::Valid);

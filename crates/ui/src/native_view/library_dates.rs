@@ -25,7 +25,7 @@ pub(super) fn exact(time: DateTime<Utc>) -> String {
         .to_string()
 }
 
-/// A portable RFC 3339 import time.
+/// An RFC 3339 install time.
 pub(super) fn parse(time: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(time)
         .ok()
@@ -60,7 +60,7 @@ mod tests {
     }
 
     #[test]
-    fn portable_and_engine_times_parse() {
+    fn install_and_engine_times_parse() {
         assert_eq!(
             parse("2026-10-14T12:00:00Z"),
             from_unix(1_791_979_200),

@@ -217,22 +217,6 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.change_organization(change).await)
             .await
     }
-    /// Keeps one reviewed shared-slug copy, backing up the others.
-    pub async fn resolve_conflict(
-        &self,
-        slug: String,
-        keep: SkillId,
-        expected: Vec<SkillId>,
-        revision: String,
-    ) -> AppResult<LibrarySnapshot> {
-        self.refresh_preserving_outcome(
-            self.shared
-                .engine
-                .resolve_conflict(slug, keep, expected, revision)
-                .await,
-        )
-        .await
-    }
     /// Connects and fetches a remote without implicit commits.
     pub async fn connect_remote(&self, remote: RemoteConfig) -> AppResult<SyncSnapshot> {
         self.refresh_preserving_outcome(self.shared.engine.connect_remote(remote).await)

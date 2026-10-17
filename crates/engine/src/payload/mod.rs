@@ -3,6 +3,7 @@ mod frontmatter;
 mod manifest;
 mod traversal;
 pub use manifest::{Manifest, ManifestEntry, ManifestKind};
+pub(crate) use traversal::portable;
 
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{AppError, AppResult, ValidationMessage, ValidationStatus};

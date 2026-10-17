@@ -25,20 +25,55 @@ diesel::table! {
 }
 
 diesel::table! {
-    skill_metadata (skill_id) {
-        skill_id -> Text,
-        description -> Text,
-        validation -> Text,
-        updated_at -> BigInt,
-    }
-}
-
-diesel::table! {
     workspaces (id) {
         id -> Text,
         canonical_path -> Text,
         name -> Text,
         position -> BigInt,
         created_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    library_folders (id) {
+        id -> Text,
+        name -> Text,
+        position -> BigInt,
+    }
+}
+
+diesel::table! {
+    skills (slug) {
+        slug -> Text,
+        digest -> Text,
+        file_count -> BigInt,
+        total_bytes -> BigInt,
+        details -> Text,
+        imported_at -> Nullable<Text>,
+        folder_id -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    presets (id) {
+        id -> Text,
+        name -> Text,
+        position -> BigInt,
+        color -> Nullable<Text>,
+        icon -> Text,
+    }
+}
+
+diesel::table! {
+    preset_skills (preset_id, slug) {
+        preset_id -> Text,
+        slug -> Text,
+    }
+}
+
+diesel::table! {
+    journals (id) {
+        id -> Text,
+        body -> Text,
     }
 }

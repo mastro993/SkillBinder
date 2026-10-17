@@ -17,48 +17,6 @@ fn not_in_library(scan: &ScanSnapshot) -> Vec<&Candidate> {
         .collect()
 }
 
-/// Found skills whose content the library holds.
-fn in_library(scan: &ScanSnapshot) -> usize {
-    scan.candidates.len() - not_in_library(scan).len()
-}
-
-#[tokio::test]
-async fn external_managed_changes_do_not_hide_the_original_source() {
-    let fixture = Fixture::new();
-    let source = fixture.skill("review", "Source content");
-    let original = fs::read(source.join("SKILL.md")).unwrap();
-    let engine = fixture.ready().await;
-    fixture.register(&engine).await;
-    let scan = fixture.scan(&engine).await;
-    fixture.import_one(&engine, &scan.candidates[0]).await;
-    let unchanged = fixture.scan(&engine).await;
-    assert!(not_in_library(&unchanged).is_empty());
-    assert_eq!(in_library(&unchanged), 1);
-    let managed = fixture.data.join("library/skills/review/SKILL.md");
-    fs::write(
-        &managed,
-        b"---\nname: review\ndescription: Managed edit\n---\nChanged managed bytes\n",
-    )
-    .unwrap();
-    let changed = fixture.scan(&engine).await;
-    assert_eq!(not_in_library(&changed).len(), 1);
-    assert_eq!(in_library(&changed), 0);
-    assert_eq!(
-        category(
-            engine
-                .prepare_import(vec![changed.candidates[0].id.clone()], false)
-                .await
-        ),
-        ErrorCategory::Stale
-    );
-    assert_eq!(fs::read(source.join("SKILL.md")).unwrap(), original);
-    fs::write(source.join("SKILL.md"), fs::read(&managed).unwrap()).unwrap();
-    let matching_current_bytes = fixture.scan(&engine).await;
-    assert!(not_in_library(&matching_current_bytes).is_empty());
-    assert_eq!(in_library(&matching_current_bytes), 1);
-    engine.shutdown().await.unwrap();
-}
-
 #[tokio::test]
 async fn identical_copies_in_global_and_a_workspace_are_one_candidate() {
     let fixture = Fixture::new();
@@ -150,6 +108,12 @@ async fn same_slug_with_different_content_stays_separate() {
         scan.candidates
             .iter()
             .all(|candidate| { candidate.slug == "review" && candidate.locations.len() == 1 })
+    );
+    let both = scan.candidates.iter().map(|c| c.id.clone()).collect();
+    assert_eq!(
+        category(engine.prepare_import(both, false).await),
+        ErrorCategory::Validation,
+        "one library cannot hold two skills with the same slug"
     );
     engine.shutdown().await.unwrap();
 }

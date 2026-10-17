@@ -1,0 +1,173 @@
+//! Keeps the database's skills in step with the directories under `skills/`. Changes made there
+//! outside SkillBinder are unsupported, so only directories that appear, disappear, or Git reports
+//! as changed are inspected; every other skill keeps its cached facts.
+
+use crate::{
+    database,
+    library_store::{self, SkillRecord},
+    payload,
+    worker::State,
+};
+use skillbinder_proto::{AppError, AppResult};
+use std::{collections::BTreeSet, fs};
+
+/// The device setting holding the last commit whose skills the database reflects.
+pub(crate) const RECONCILED_HEAD: &str = "reconciled_head";
+
+impl State {
+    /// Adds the skill directories the database lacks and drops the skills whose directory is
+    /// gone.
+    pub(crate) fn reconcile_library(&self) -> AppResult<()> {
+        let listed = self.skill_dirs()?;
+        let known = library_store::slugs(&mut self.database.borrow_mut())?;
+        self.reconcile_slugs(listed.symmetric_difference(&known).cloned())
+    }
+
+    /// Rehashes the skills Git changed since the last reconciled commit, then records the current
+    /// one, so a Pull interrupted before its reconcile still catches up at the next launch.
+    pub(crate) fn reconcile_head(&self) -> AppResult<()> {
+        let repo = self.library_dir();
+        let Some(git) = self.git.as_ref().filter(|_| repo.join(".git").exists()) else {
+            return Ok(());
+        };
+        let head = git.revision(&repo, "HEAD")?;
+        let reconciled: Option<String> = self.setting(RECONCILED_HEAD)?.flatten();
+        if head == reconciled {
+            return Ok(());
+        }
+        if let Some(head) = &head {
+            let known = match &reconciled {
+                Some(commit) => git.revision(&repo, commit)?,
+                None => None,
+            };
+            let mut changed = git.changed_skills(&repo, known.as_deref(), head)?;
+            if known.is_none() {
+                // Without a known starting commit, every skill is checked, so missing ones drop.
+                changed.extend(library_store::slugs(&mut self.database.borrow_mut())?);
+            }
+            self.reconcile_slugs(changed)?;
+        }
+        self.set_setting(RECONCILED_HEAD, &head)
+    }
+
+    /// The exact names of the directories under `skills/`, which case-insensitive file systems
+    /// would otherwise also match under other spellings.
+    pub(crate) fn skill_dirs(&self) -> AppResult<BTreeSet<String>> {
+        let root = self.library_dir().join("skills");
+        fs::create_dir_all(&root).map_err(|_| AppError::storage())?;
+        let mut listed = BTreeSet::new();
+        for entry in fs::read_dir(&root).map_err(|_| AppError::storage())? {
+            let entry = entry.map_err(|_| AppError::storage())?;
+            // An unknown entry fails the reconcile rather than reading as a removed skill.
+            let directory = entry.file_type().map_err(|_| AppError::storage())?.is_dir();
+            if let (true, Some(slug)) = (directory, entry.file_name().to_str()) {
+                listed.insert(slug.to_owned());
+            }
+        }
+        Ok(listed)
+    }
+
+    /// Reinspects each slug's directory, saving those that exist and dropping the rest. A new
+    /// skill is unfiled, in no preset, and has no install time. A directory that cannot be
+    /// inspected keeps its previous row, and the first such failure is returned after the rest
+    /// are saved, so the caller retries it.
+    fn reconcile_slugs(&self, slugs: impl IntoIterator<Item = String>) -> AppResult<()> {
+        let root = self.library_dir().join("skills");
+        let listed = self.skill_dirs()?;
+        let mut saved = Vec::new();
+        let mut gone = Vec::new();
+        let mut failure = None;
+        for slug in slugs {
+            if !listed.contains(&slug) {
+                gone.push(slug);
+                continue;
+            }
+            match self
+                .contained_skill_path(&root.join(&slug))
+                .and_then(|path| payload::inspect(&path))
+            {
+                Ok(inspection) => saved.push(SkillRecord::new(slug, &inspection, None)),
+                Err(error) => {
+                    self.log.record(format!(
+                        "Library skill {slug} could not be inspected: {error}"
+                    ));
+                    failure.get_or_insert(error);
+                }
+            }
+        }
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            for record in &saved {
+                library_store::save_skill(connection, record)?;
+            }
+            for slug in &gone {
+                library_store::delete_skill(connection, slug)?;
+            }
+            Ok(())
+        })?;
+        failure.map_or(Ok(()), Err)
+    }
+
+    /// Reconciles after launch or onboarding: failures are logged and retried at the next launch,
+    /// since the recorded commit only advances once every changed skill was inspected.
+    pub(crate) fn catch_up(&self) {
+        for result in [self.reconcile_head(), self.reconcile_library()] {
+            if let Err(error) = result {
+                self.log
+                    .record(format!("Library reconciliation will retry: {error}"));
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn a_slug_spelled_differently_from_its_directory_is_dropped() {
+        let directory = tempfile::tempdir().unwrap();
+        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let skills = state.library_dir().join("skills");
+        fs::create_dir(skills.join("foo")).unwrap();
+        fs::write(
+            skills.join("foo/SKILL.md"),
+            "---\nname: foo\ndescription: test\n---\n",
+        )
+        .unwrap();
+        state
+            .reconcile_slugs(["Foo".to_owned(), "foo".to_owned()])
+            .unwrap();
+        let slugs = library_store::slugs(&mut state.database.borrow_mut()).unwrap();
+        assert_eq!(slugs, BTreeSet::from(["foo".to_owned()]));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_unreadable_skill_is_retried_without_holding_back_the_others() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let skills = state.library_dir().join("skills");
+        for slug in ["locked", "open"] {
+            fs::create_dir(skills.join(slug)).unwrap();
+            fs::write(skills.join(slug).join("SKILL.md"), "---\nname: x\n---\n").unwrap();
+        }
+        let locked = skills.join("locked/SKILL.md");
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read(&locked).is_ok() {
+            // Permissions don't bind this user, such as root in a container.
+            return;
+        }
+        let first = state.reconcile_library();
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(first.is_err());
+        let slugs = || library_store::slugs(&mut state.database.borrow_mut()).unwrap();
+        assert_eq!(slugs(), BTreeSet::from(["open".to_owned()]));
+        state.reconcile_library().unwrap();
+        assert_eq!(
+            slugs(),
+            BTreeSet::from(["locked".to_owned(), "open".to_owned()])
+        );
+    }
+}

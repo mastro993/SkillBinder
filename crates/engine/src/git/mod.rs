@@ -1,4 +1,4 @@
-//! Bounded Git operations for the portable library.
+//! Bounded Git operations for the library's skill directories.
 mod adoption;
 mod process;
 #[cfg(test)]
@@ -9,12 +9,14 @@ use skillbinder_proto::{
     AppError, AppResult, ErrorCategory, RemoteConfig, SyncAction, SyncSnapshot, SyncState,
 };
 use std::{
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 const REMOTE_REF: &str = "refs/skillbinder/incoming";
-const MANAGED: &[&str] = &[".skillbinder.json", "skills"];
+/// The only managed path: Sync and Push commit nothing else.
+const MANAGED: &str = "skills";
 
 /// A verified executable whose identity is fixed for this engine session.
 #[derive(Clone, Debug)]
@@ -100,7 +102,6 @@ impl Git {
             return self.status(repo, remote, true);
         }
         let remote = remote.ok_or_else(|| AppError::validation("Connect a remote first."))?;
-        self.recover(repo)?;
         self.preflight(repo)?;
         let before = self.status(repo, Some(remote), true)?;
         let adopt = before.behind > 0
@@ -155,8 +156,7 @@ impl Git {
                 "--untracked-files=all",
                 "--ignored=matching",
                 "--",
-                MANAGED[0],
-                MANAGED[1],
+                MANAGED,
             ],
         )?);
         let dirty = changed_files > 0;
@@ -264,26 +264,68 @@ impl Git {
         self.output(repo, &["update-ref", REMOTE_REF, expected])?;
         Ok(())
     }
+    /// Refuses a fetched or about-to-be-committed tree whose managed entries are not regular
+    /// files or whose skill directories can't be checked out on every platform.
     fn validate_tree(&self, repo: &Path, revision: &str) -> AppResult<()> {
-        let metadata = self.output(repo, &["show", &format!("{revision}:.skillbinder.json")])?;
-        validation::metadata(metadata.as_bytes())?;
-        let entries = self.output(
-            repo,
-            &["ls-tree", "-rz", revision, "--", MANAGED[0], MANAGED[1]],
-        )?;
+        let entries = self.output(repo, &["ls-tree", "-rz", revision, "--", MANAGED])?;
+        let mut names = BTreeMap::new();
         for entry in entries.split('\0').filter(|p| !p.is_empty()) {
-            let (mode, _) = entry
+            let (mode, path) = entry
                 .split_once(' ')
-                .ok_or_else(|| failure("Remote tree is invalid."))?;
+                .zip(entry.split_once('\t'))
+                .map(|((mode, _), (_, path))| (mode, path))
+                .ok_or_else(|| failure("Managed tree is invalid."))?;
             if mode != "100644" && mode != "100755" {
+                return Err(failure("Managed content contains unsupported entries."));
+            }
+            let slug = skill_of(path)
+                .ok_or_else(|| failure("Managed files must sit inside skill directories."))?;
+            let unique = *names
+                .entry(crate::library::normalized(slug))
+                .or_insert(slug)
+                == slug;
+            if !crate::payload::portable(slug) || !unique {
                 return Err(failure(
-                    "Remote managed content contains unsupported entries.",
+                    "Skill directory names collide or are not portable.",
                 ));
             }
         }
         Ok(())
     }
-    fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {
+    /// The slugs whose skill directories differ between `from` and `to`; every slug in `to`
+    /// when there is no `from`.
+    pub fn changed_skills(
+        &self,
+        repo: &Path,
+        from: Option<&str>,
+        to: &str,
+    ) -> AppResult<BTreeSet<String>> {
+        let range;
+        let args: &[&str] = match from {
+            Some(from) => {
+                range = format!("{from}..{to}");
+                &[
+                    "diff",
+                    "--no-ext-diff",
+                    "--no-renames",
+                    "--name-only",
+                    "-z",
+                    &range,
+                    "--",
+                    MANAGED,
+                ]
+            }
+            None => &["ls-tree", "-r", "--name-only", "-z", to, "--", MANAGED],
+        };
+        Ok(self
+            .output(repo, args)?
+            .split('\0')
+            .filter_map(skill_of)
+            .map(str::to_owned)
+            .collect())
+    }
+    /// The commit `name` resolves to, if any.
+    pub fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {
         let out = process::run(
             &self.executable,
             Some(repo),
@@ -340,26 +382,26 @@ impl Git {
                 "--no-cone",
                 "--no-sparse-index",
                 "--",
-                "/.skillbinder.json",
                 "/skills/",
             ],
         )?;
         Ok(())
     }
     fn commit(&self, repo: &Path) -> AppResult<()> {
-        let metadata =
-            std::fs::read(repo.join(".skillbinder.json")).map_err(|_| AppError::storage())?;
-        validation::metadata(&metadata)?;
-        // Pathspecs which are absent both from HEAD and disk are not passed to `add`.
-        for path in MANAGED {
-            if repo.join(path).exists() || !self.output(repo, &["ls-files", "--", path])?.is_empty()
-            {
-                self.output(repo, &["add", "-f", "-A", "--", path])?;
-            }
+        // A pathspec absent both from HEAD and disk is not passed to `add`.
+        if repo.join(MANAGED).exists()
+            || !self.output(repo, &["ls-files", "--", MANAGED])?.is_empty()
+        {
+            self.output(repo, &["add", "-f", "-A", "--", MANAGED])?;
         }
-        if !self
-            .output(repo, &["diff", "--cached", "--name-only", "-z"])?
-            .is_empty()
+        // Publish only what a fetch would accept, so a pushed commit never blocks later fetches.
+        let staged = self.output(repo, &["write-tree"])?;
+        self.validate_tree(repo, staged.trim())?;
+        // A library without skills still publishes a first, empty commit.
+        if self.revision(repo, "HEAD")?.is_none()
+            || !self
+                .output(repo, &["diff", "--cached", "--name-only", "-z"])?
+                .is_empty()
         {
             self.output(
                 repo,
@@ -369,6 +411,7 @@ impl Git {
                     "-c",
                     "user.email=local@skillbinder.invalid",
                     "commit",
+                    "--allow-empty",
                     "-m",
                     "chore(skills): synchronize library",
                 ],
@@ -386,8 +429,12 @@ impl Git {
         String::from_utf8(output.stdout).map_err(|_| failure("Git output is unreadable."))
     }
 }
+/// The slug of the skill directory holding a managed path, `skills/<slug>/...`.
+fn skill_of(path: &str) -> Option<&str> {
+    Some(path.strip_prefix("skills/")?.split_once('/')?.0)
+}
 fn managed(path: &str) -> bool {
-    path == ".skillbinder.json" || path.starts_with("skills/")
+    path.starts_with("skills/")
 }
 /// Counts `git status --porcelain=v1 -z` entries; renames and copies carry a second path.
 fn changed_files(status: &str) -> u64 {

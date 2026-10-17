@@ -1,24 +1,18 @@
 //! Library folders: browse-only groupings that hold each skill at most once.
 
-use crate::library::{normalized, valid_id, validate_name};
+use crate::library::{normalized, validate_name};
 use skillbinder_proto::{AppError, AppResult, Folder, FolderId, Library, SkillId};
 use std::collections::BTreeSet;
 
-/// The folder identities, once every folder has a valid identity and a unique name.
-pub(crate) fn validate_folders(library: &Library) -> AppResult<BTreeSet<&FolderId>> {
-    let mut ids = BTreeSet::new();
+/// Refuses folder names that repeat after normalization.
+pub(crate) fn validate_folders(library: &Library) -> AppResult<()> {
     let mut names = BTreeSet::new();
     for folder in &library.folders {
-        if !valid_id(folder.id.as_str())
-            || !ids.insert(&folder.id)
-            || !names.insert(normalized(&validate_name(&folder.name)?))
-        {
-            return Err(AppError::validation(
-                "Folder identities and names must be unique.",
-            ));
+        if !names.insert(normalized(&validate_name(&folder.name)?)) {
+            return Err(AppError::validation("Folder names must be unique."));
         }
     }
-    Ok(ids)
+    Ok(())
 }
 
 pub(crate) fn create_folder(library: &mut Library, name: &str) -> AppResult<()> {
@@ -75,12 +69,9 @@ pub(crate) fn move_to_folder(
     Ok(())
 }
 
-/// Orders folders by position, falling back to name for duplicates from separate edits, and
-/// renumbers them densely.
+/// Orders folders by position and renumbers them densely.
 pub(crate) fn order_folders(folders: &mut [Folder]) {
-    folders.sort_by_cached_key(|folder| {
-        (folder.position, normalized(&folder.name), folder.id.clone())
-    });
+    folders.sort_by_key(|folder| folder.position);
     for (position, folder) in folders.iter_mut().enumerate() {
         folder.position = u32::try_from(position).unwrap_or(u32::MAX);
     }

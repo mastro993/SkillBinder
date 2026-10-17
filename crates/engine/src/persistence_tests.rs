@@ -6,19 +6,7 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
     let directory = tempfile::tempdir().unwrap();
     let root = fs::canonicalize(directory.path()).unwrap();
     let state = State::isolated_test_state(root.clone());
-    let before = Library {
-        schema_version: 3,
-        library_id: "original".into(),
-        created_at: "today".into(),
-        content_policy_version: 1,
-        presets: vec![],
-        folders: vec![],
-        tags: vec![],
-        skills: vec![],
-    };
-    let mut after = before.clone();
-    after.library_id = "applied".into();
-    write_json(&state.library_dir().join(".skillbinder.json"), &before).unwrap();
+    let mut skills = Vec::new();
     let moves = (0..2)
         .map(|index| {
             let from = root.join(format!("staging/source-{index}"));
@@ -28,6 +16,12 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
                 format!("---\nname: skill-{index}\ndescription: test\n---\nbody-{index}\n"),
             )
             .unwrap();
+            let inspection = crate::payload::inspect(&from).unwrap();
+            skills.push(SkillRecord::new(
+                format!("skill-{index}"),
+                &inspection,
+                None,
+            ));
             Move {
                 from,
                 to: root.join(format!("library/skills/skill-{index}")),
@@ -45,39 +39,28 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         .unwrap();
     let journal = Journal {
         id: "recovery-test".into(),
-        before,
-        before_metadata: None,
-        after,
         moves,
         completed_moves: 0,
         progress: Default::default(),
-        details: vec![(
-            SkillId::new(),
-            SkillDetails {
-                description: "durable".into(),
-                ..Default::default()
-            },
-        )],
-        outcome: Some(ImportOutcome {
+        skills,
+        outcome: ImportOutcome {
             plan_id,
             imported: vec![],
             existing: vec![],
-            conflicts: vec![],
-        }),
+        },
     };
     (directory, state, journal)
 }
 fn inject(points: &[(&'static str, bool)]) {
     FAULTS.with(|faults| *faults.borrow_mut() = points.iter().copied().collect());
 }
+fn journals_kept(state: &State) -> i64 {
+    journals::table
+        .count()
+        .get_result(&mut *state.database.borrow_mut())
+        .unwrap()
+}
 fn assert_result(state: &State, applied: bool) {
-    let library: Library =
-        serde_json::from_slice(&fs::read(state.library_dir().join(".skillbinder.json")).unwrap())
-            .unwrap();
-    assert_eq!(
-        library.library_id,
-        if applied { "applied" } else { "original" }
-    );
     for index in 0..2 {
         let from = state
             .config
@@ -95,7 +78,10 @@ fn assert_result(state: &State, applied: bool) {
     let (details, outcomes, consumed): (i64, i64, i64) = {
         let database = &mut *state.database.borrow_mut();
         (
-            skill_metadata::table.count().get_result(database).unwrap(),
+            crate::schema::skills::table
+                .count()
+                .get_result(database)
+                .unwrap(),
             idempotency_records::table
                 .count()
                 .get_result(database)
@@ -106,7 +92,7 @@ fn assert_result(state: &State, applied: bool) {
                 .unwrap(),
         )
     };
-    assert_eq!(details, i64::from(applied));
+    assert_eq!(details, 2 * i64::from(applied));
     assert_eq!(outcomes, i64::from(applied));
     assert_eq!(consumed, i64::from(applied));
     let outcome = state.setting::<ImportOutcome>("import_outcome").unwrap();
@@ -119,12 +105,7 @@ fn assert_result(state: &State, applied: bool) {
             .unwrap();
         assert_eq!(serde_json::to_string(&outcome).unwrap(), stored);
     }
-    assert_eq!(
-        fs::read_dir(state.config.data_dir.join("journals"))
-            .unwrap()
-            .count(),
-        0
-    );
+    assert_eq!(journals_kept(state), 0);
     assert!(!state.recovery_required);
 }
 #[test]
@@ -134,8 +115,6 @@ fn crashes_at_apply_boundaries_roll_forward_after_reopen() {
         "after_rename",
         "before_progress",
         "after_progress",
-        "before_metadata",
-        "after_metadata",
         "before_database",
         "after_database",
     ] {
@@ -155,14 +134,12 @@ fn crashes_at_apply_boundaries_roll_forward_after_reopen() {
     }
 }
 #[test]
-fn failures_before_database_commit_restore_payload_and_metadata() {
+fn failures_before_database_commit_restore_payload() {
     for point in [
         "before_rename",
         "after_rename",
         "before_progress",
         "after_progress",
-        "before_metadata",
-        "after_metadata",
         "before_database",
     ] {
         let (_directory, mut state, journal) = fixture();
@@ -184,7 +161,7 @@ fn crash_during_rollback_resumes_rollback() {
         "after_rollback",
     ] {
         let (_directory, mut state, journal) = fixture();
-        inject(&[("after_metadata", false), (point, true)]);
+        inject(&[("before_database", false), (point, true)]);
         assert!(
             catch_unwind(AssertUnwindSafe(|| state.commit(journal))).is_err(),
             "{point}"
@@ -222,13 +199,7 @@ fn replacement_with_identical_bytes_cannot_impersonate_renamed_payload() {
     .unwrap();
     assert!(state.recover().is_err());
     assert!(state.require_recovered().is_err());
-    assert!(
-        state
-            .config
-            .data_dir
-            .join("journals/recovery-test.json")
-            .exists()
-    );
+    assert_eq!(journals_kept(&state), 1);
     assert!(destination.with_file_name("original-kept").exists());
 }
 #[test]
@@ -240,142 +211,19 @@ fn modified_bytes_cannot_impersonate_renamed_payload() {
     fs::write(destination.join("SKILL.md"), "changed bytes").unwrap();
     assert!(state.recover().is_err());
     assert!(state.require_recovered().is_err());
-    assert!(
-        state
-            .config
-            .data_dir
-            .join("journals/recovery-test.json")
-            .exists()
-    );
+    assert_eq!(journals_kept(&state), 1);
 }
 
 #[test]
 fn rollback_io_failure_keeps_journal_and_blocks_writes_until_reopen() {
     let (_directory, mut state, journal) = fixture();
-    inject(&[("after_metadata", false), ("after_rollback", false)]);
+    inject(&[("before_database", false), ("after_rollback", false)]);
     assert!(state.commit(journal).is_err());
     assert!(state.require_recovered().is_err());
-    assert!(
-        state
-            .config
-            .data_dir
-            .join("journals/recovery-test.json")
-            .exists()
-    );
+    assert_eq!(journals_kept(&state), 1);
     let root = state.config.data_dir.clone();
     drop(state);
     let mut reopened = State::isolated_test_state(root);
     reopened.recover().unwrap();
     assert_result(&reopened, false);
-}
-
-#[test]
-fn review_recovery_preserves_external_metadata_changes() {
-    let (_directory, mut state, journal) = fixture();
-    inject(&[("after_progress", true)]);
-    assert!(catch_unwind(AssertUnwindSafe(|| state.commit(journal))).is_err());
-    let metadata_path = state.library_dir().join(".skillbinder.json");
-    let mut changed = state.read_library().unwrap();
-    changed.library_id = "external-change".into();
-    write_json(&metadata_path, &changed).unwrap();
-    let bytes = fs::read(&metadata_path).unwrap();
-    assert!(
-        state.recover().is_err(),
-        "recovery must refuse externally modified metadata"
-    );
-    assert_eq!(fs::read(metadata_path).unwrap(), bytes);
-}
-
-#[test]
-fn rollback_preserves_external_metadata_and_remaining_moves() {
-    let (_directory, mut state, journal) = fixture();
-    inject(&[("after_metadata", false), ("after_rollback", true)]);
-    assert!(catch_unwind(AssertUnwindSafe(|| state.commit(journal))).is_err());
-    let metadata_path = state.library_dir().join(".skillbinder.json");
-    let mut changed = state.read_library().unwrap();
-    changed.library_id = "external-change".into();
-    write_json(&metadata_path, &changed).unwrap();
-    let bytes = fs::read(&metadata_path).unwrap();
-    let destination = state.library_dir().join("skills/skill-0");
-    assert!(destination.exists());
-    assert!(state.recover().is_err());
-    assert_eq!(fs::read(metadata_path).unwrap(), bytes);
-    assert!(destination.exists());
-    assert!(
-        state
-            .config
-            .data_dir
-            .join("journals/recovery-test.json")
-            .exists()
-    );
-}
-
-#[test]
-fn committed_journal_refuses_metadata_replaced_with_old_revision() {
-    let (_directory, mut state, journal) = fixture();
-    let before = journal.before.clone();
-    inject(&[("after_database", true)]);
-    assert!(catch_unwind(AssertUnwindSafe(|| state.commit(journal))).is_err());
-    let metadata_path = state.library_dir().join(".skillbinder.json");
-    write_json(&metadata_path, &before).unwrap();
-    let bytes = fs::read(&metadata_path).unwrap();
-    assert!(state.recover().is_err());
-    assert_eq!(fs::read(metadata_path).unwrap(), bytes);
-    assert!(
-        state
-            .config
-            .data_dir
-            .join("journals/recovery-test.json")
-            .exists()
-    );
-}
-
-#[test]
-fn rollback_accepts_reordered_record_maps() {
-    let (_directory, mut state, mut journal) = fixture();
-    journal.after.presets = vec![
-        skillbinder_proto::Preset {
-            id: skillbinder_proto::PresetId("z".into()),
-            name: "Z".into(),
-            position: 0,
-            color: None,
-            icon: skillbinder_proto::PresetIcon::Folder,
-        },
-        skillbinder_proto::Preset {
-            id: skillbinder_proto::PresetId("a".into()),
-            name: "A".into(),
-            position: 1,
-            color: None,
-            icon: skillbinder_proto::PresetIcon::Folder,
-        },
-    ];
-    inject(&[("after_metadata", false)]);
-    assert!(state.commit(journal).is_err());
-    assert_result(&state, false);
-}
-#[test]
-fn rollback_restores_schema_2_metadata_bytes() {
-    // Before the metadata write, after it has saved schema 3, and after it has saved schema 3
-    // for a change that left the library equal.
-    for (point, idempotent) in [
-        ("after_rename", false),
-        ("before_database", false),
-        ("before_database", true),
-    ] {
-        let (_directory, mut state, mut journal) = fixture();
-        let path = state.library_dir().join(".skillbinder.json");
-        let schema_2 = br#"{"schemaVersion":2,"libraryId":"original","createdAt":"today","folders":{},"tags":{},"skills":{}}"#;
-        fs::write(&path, schema_2).unwrap();
-        journal.before = state.read_library().unwrap();
-        if idempotent {
-            journal.after = journal.before.clone();
-        }
-        inject(&[(point, false)]);
-        assert!(state.commit(journal).is_err());
-        assert_eq!(
-            fs::read(&path).unwrap(),
-            schema_2,
-            "{point}, idempotent: {idempotent}"
-        );
-    }
 }
