@@ -8,7 +8,7 @@
 4. Run the README verification commands, including the locked release build.
 5. Update affected behavior documentation in `docs/`.
 
-Keep modules focused on one feature or responsibility. Centralize dependencies and lint policy in the root manifest. New workspace members or crate dependencies must update `xtask/src/graph.rs` in the same change. Filesystem, process, network, and environment work belongs in the engine; the workspace `clippy.toml` enforces it. Preserve the exact GPUI Kit and GPUI backend versions unless a separate dependency decision changes them.
+Keep modules focused on one feature or responsibility. Centralize dependencies and lint policy in the root manifest. New workspace members or crate dependencies must update `xtask/src/graph.rs` in the same change. Filesystem, process, network, environment, and terminal work belongs in the engine; the workspace `clippy.toml`, generated from `xtask/src/clippy_policy.rs`, enforces it. Preserve the exact GPUI Kit and GPUI backend versions unless a separate dependency decision changes them.
 
 ## Native UI
 
