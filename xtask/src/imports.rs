@@ -88,9 +88,9 @@ fn is_use_keyword(source: &str, i: usize) -> bool {
     if i + 3 > bytes.len() || &bytes[i..i + 3] != b"use" {
         return false;
     }
-    let before = i
-        .checked_sub(1)
-        .and_then(|idx| source[idx..].chars().next())
+    let before = source[..i]
+        .chars()
+        .next_back()
         .is_none_or(|ch| !is_ident_char(ch));
     let after = source[i + 3..]
         .chars()
@@ -298,6 +298,7 @@ mod tests {
         assert!(!hit("use std::path::Path;", "std::fs"));
         assert!(!hit("fn f() { mystd::fs::read(p); }", "std::fs"));
         assert!(!hit("fn f() { not_diesel::query(); }", "diesel"));
+        assert!(!hit("fn λuse() {}", "std::fs"));
         assert!(hit("fn f() { ::std::fs::read(p); }", "std::fs"));
     }
 

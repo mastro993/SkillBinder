@@ -20,7 +20,7 @@ Do not add workspace members or new crate dependencies without updating the grap
 
 Use small, specialized modules. Model state with typed data and enums. Use `Result`, `Option`, and `?`. Encode invariants in constructors and destructuring matches so new fields fail to compile until handled.
 
-Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The UI crate must not import `std::fs`, `std::process`, `rusqlite`, or `diesel`; xtask verify rejects grouped and aliased forms of those imports as well.
+Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The UI crate must not import `std::fs`, `std::net`, `std::process`, `rusqlite`, or `diesel`; xtask verify rejects grouped and aliased forms of those imports as well.
 
 Use GPUI Kit public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork, except agent logos under `assets/agent-logos/` recorded in its `inventory.json`; agents without a logo use the Hugeicons square terminal glyph. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 
@@ -36,7 +36,7 @@ CI and local verification:
 
 - `cargo fmt --all --check`
 - workspace Clippy with warnings denied (`dbg!`, `todo!`, `unimplemented!`, and library stdout prints are denied)
-- `cccc .` (limits in `cccc.toml`; install `cccc-cli` 1.8.3 with a toolchain that can build it — 1.96 cannot). Do not raise the limits; refactor instead.
+- `cccc .` (limits in `cccc.toml`; install `cccc-cli` 1.8.3 with Rust 1.99.1, as CI does — 1.96 cannot build it). Do not raise the limits; refactor instead.
 - workspace tests
 - `cargo run -p xtask -- verify` (registry, licensed artwork, baseline integrity, crate graph)
 - locked release build

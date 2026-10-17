@@ -1,5 +1,8 @@
 //! Workspace crate graph and source-boundary checks.
 use crate::imports::{code_text, imports};
+use crate::policy::{
+    ENGINE, IO, MEMBERS, UI, allowed_dep_features, allowed_dev, allowed_features, allowed_normal,
+};
 use anyhow::{Context, ensure};
 use serde::Deserialize;
 use std::{
@@ -8,16 +11,6 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
-
-const MEMBERS: [&str; 7] = [
-    "skillbinder",
-    "skillbinder-client",
-    "skillbinder-engine",
-    "skillbinder-proto",
-    "skillbinder-theme",
-    "skillbinder-ui",
-    "xtask",
-];
 
 #[derive(Deserialize)]
 struct Metadata {
@@ -40,12 +33,8 @@ struct Dependency {
     kind: Option<String>,
     #[serde(default)]
     optional: bool,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct Dep {
-    name: &'static str,
-    optional: bool,
+    uses_default_features: bool,
+    features: BTreeSet<String>,
 }
 
 pub fn verify(root: &Path) -> anyhow::Result<()> {
@@ -62,6 +51,7 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         check_dev_deps(name, package)?;
         check_build_deps(name, package)?;
         check_features(name, package)?;
+        check_dep_features(name, package)?;
     }
     check_sources(root)?;
     Ok(())
@@ -124,6 +114,22 @@ fn check_build_deps(name: &str, package: &Package) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn check_dep_features(name: &str, package: &Package) -> anyhow::Result<()> {
+    for dep in &package.dependencies {
+        let kind = dep.kind.as_deref().unwrap_or("normal");
+        let (default, features) = allowed_dep_features(name, kind, &dep.name);
+        let features: BTreeSet<String> = features.iter().copied().map(str::to_owned).collect();
+        ensure!(
+            dep.uses_default_features == default && dep.features == features,
+            "{name} {kind} dependency {} features changed: expected default={default} {features:?}, found default={} {:?}",
+            dep.name,
+            dep.uses_default_features,
+            dep.features
+        );
+    }
+    Ok(())
+}
+
 fn check_features(name: &str, package: &Package) -> anyhow::Result<()> {
     let allowed = allowed_features(name);
     ensure!(
@@ -132,18 +138,6 @@ fn check_features(name: &str, package: &Package) -> anyhow::Result<()> {
         package.features
     );
     Ok(())
-}
-
-fn allowed_features(name: &str) -> BTreeMap<String, BTreeSet<String>> {
-    let enabled: &[&str] = match name {
-        "skillbinder" => &["skillbinder-ui/native-test", "dep:log", "dep:gpui-mcp"],
-        "skillbinder-ui" => &[],
-        _ => return BTreeMap::new(),
-    };
-    BTreeMap::from([(
-        "native-test".to_owned(),
-        enabled.iter().copied().map(str::to_owned).collect(),
-    )])
 }
 
 fn check_normal_deps(name: &str, package: &Package) -> anyhow::Result<()> {
@@ -173,263 +167,13 @@ fn named_deps(deps: &[Dependency], kind: Option<&str>) -> BTreeSet<(String, bool
         .collect()
 }
 
-fn allowed_normal(name: &str) -> Option<BTreeSet<(String, bool)>> {
-    const TABLE: &[(&str, &[Dep])] = &[
-        (
-            "skillbinder-proto",
-            &[
-                Dep {
-                    name: "serde",
-                    optional: false,
-                },
-                Dep {
-                    name: "serde_json",
-                    optional: false,
-                },
-                Dep {
-                    name: "uuid",
-                    optional: false,
-                },
-            ],
-        ),
-        (
-            "skillbinder-theme",
-            &[Dep {
-                name: "gpui-kit",
-                optional: false,
-            }],
-        ),
-        (
-            "skillbinder-engine",
-            &[
-                Dep {
-                    name: "directories",
-                    optional: false,
-                },
-                Dep {
-                    name: "fs2",
-                    optional: false,
-                },
-                Dep {
-                    name: "diesel",
-                    optional: false,
-                },
-                Dep {
-                    name: "diesel_migrations",
-                    optional: false,
-                },
-                Dep {
-                    name: "libsqlite3-sys",
-                    optional: false,
-                },
-                Dep {
-                    name: "regex",
-                    optional: false,
-                },
-                Dep {
-                    name: "rustix",
-                    optional: false,
-                },
-                Dep {
-                    name: "serde",
-                    optional: false,
-                },
-                Dep {
-                    name: "serde_json",
-                    optional: false,
-                },
-                Dep {
-                    name: "sha2",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-proto",
-                    optional: false,
-                },
-                Dep {
-                    name: "tempfile",
-                    optional: false,
-                },
-                Dep {
-                    name: "time",
-                    optional: false,
-                },
-                Dep {
-                    name: "tokio",
-                    optional: false,
-                },
-                Dep {
-                    name: "unicode-casefold",
-                    optional: false,
-                },
-                Dep {
-                    name: "unicode-normalization",
-                    optional: false,
-                },
-                Dep {
-                    name: "url",
-                    optional: false,
-                },
-                Dep {
-                    name: "uuid",
-                    optional: false,
-                },
-                Dep {
-                    name: "yaml-rust2",
-                    optional: false,
-                },
-            ],
-        ),
-        (
-            "skillbinder-client",
-            &[
-                Dep {
-                    name: "skillbinder-engine",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-proto",
-                    optional: false,
-                },
-                Dep {
-                    name: "tokio",
-                    optional: false,
-                },
-            ],
-        ),
-        (
-            "skillbinder-ui",
-            &[
-                Dep {
-                    name: "anyhow",
-                    optional: false,
-                },
-                Dep {
-                    name: "chrono",
-                    optional: false,
-                },
-                Dep {
-                    name: "gpui-kit",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-client",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-proto",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-theme",
-                    optional: false,
-                },
-            ],
-        ),
-        (
-            "skillbinder",
-            &[
-                Dep {
-                    name: "anyhow",
-                    optional: false,
-                },
-                Dep {
-                    name: "fs2",
-                    optional: false,
-                },
-                Dep {
-                    name: "gpui-kit",
-                    optional: false,
-                },
-                Dep {
-                    name: "gpui-mcp",
-                    optional: true,
-                },
-                Dep {
-                    name: "log",
-                    optional: true,
-                },
-                Dep {
-                    name: "skillbinder-client",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-engine",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-proto",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-theme",
-                    optional: false,
-                },
-                Dep {
-                    name: "skillbinder-ui",
-                    optional: false,
-                },
-                Dep {
-                    name: "tokio",
-                    optional: false,
-                },
-            ],
-        ),
-        (
-            "xtask",
-            &[
-                Dep {
-                    name: "anyhow",
-                    optional: false,
-                },
-                Dep {
-                    name: "proc-macro2",
-                    optional: false,
-                },
-                Dep {
-                    name: "serde",
-                    optional: false,
-                },
-                Dep {
-                    name: "serde_json",
-                    optional: false,
-                },
-                Dep {
-                    name: "sha2",
-                    optional: false,
-                },
-                Dep {
-                    name: "tempfile",
-                    optional: false,
-                },
-            ],
-        ),
-    ];
-    TABLE
-        .iter()
-        .find(|(package, _)| *package == name)
-        .map(|(_, deps)| {
-            deps.iter()
-                .map(|dep| (dep.name.to_string(), dep.optional))
-                .collect()
-        })
-}
-
-fn allowed_dev(name: &str) -> BTreeSet<(String, bool)> {
-    match name {
-        "skillbinder-client" => BTreeSet::from([("tempfile".into(), false)]),
-        "skillbinder-ui" => BTreeSet::from([("gpui-kit".into(), false)]),
-        _ => BTreeSet::new(),
-    }
-}
-
 fn check_sources(root: &Path) -> anyhow::Result<()> {
     for (dir, forbidden) in [
-        ("crates/proto/src", IO_AND_UI),
-        ("crates/theme/src", IO_AND_ENGINE),
-        ("crates/ui/src", IO_AND_ENGINE),
-        ("crates/client/src", IO_ONLY),
-        ("crates/engine/src", UI_ONLY),
+        ("crates/proto/src", &[IO, ENGINE, UI][..]),
+        ("crates/theme/src", &[IO, ENGINE]),
+        ("crates/ui/src", &[IO, ENGINE]),
+        ("crates/client/src", &[IO]),
+        ("crates/engine/src", &[UI]),
     ] {
         for path in rust_files(&root.join(dir))? {
             let text = fs::read_to_string(&path)
@@ -440,41 +184,9 @@ fn check_sources(root: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-const IO_ONLY: &[&str] = &[
-    "std::fs",
-    "std::process",
-    "rusqlite",
-    "diesel",
-    "diesel_migrations",
-    "libsqlite3_sys",
-];
-const IO_AND_ENGINE: &[&str] = &[
-    "std::fs",
-    "std::process",
-    "rusqlite",
-    "diesel",
-    "diesel_migrations",
-    "libsqlite3_sys",
-    "skillbinder_engine",
-];
-const IO_AND_UI: &[&str] = &[
-    "std::fs",
-    "std::process",
-    "rusqlite",
-    "diesel",
-    "diesel_migrations",
-    "libsqlite3_sys",
-    "gpui",
-    "gpui_kit",
-    "skillbinder_engine",
-    "skillbinder_client",
-    "skillbinder_ui",
-];
-const UI_ONLY: &[&str] = &["gpui", "gpui_kit", "skillbinder_ui", "skillbinder_client"];
-
-fn deny_imports(path: &Path, text: &str, forbidden: &[&str]) -> anyhow::Result<()> {
+fn deny_imports(path: &Path, text: &str, forbidden: &[&[&str]]) -> anyhow::Result<()> {
     let source = code_text(text).with_context(|| format!("Could not check {}", path.display()))?;
-    for needle in forbidden {
+    for needle in forbidden.iter().copied().flatten() {
         ensure!(
             !imports(&source, needle),
             "{} imports {needle}; keep that work in the owning crate",
@@ -510,53 +222,7 @@ mod tests {
         clippy::expect_used,
         reason = "Test assertions report fixture failures."
     )]
-    use super::{allowed_features, allowed_normal};
     use std::path::Path;
-
-    #[test]
-    fn ui_may_not_depend_on_the_engine() {
-        let deps = allowed_normal("skillbinder-ui").unwrap();
-        assert!(!deps.contains(&("skillbinder-engine".into(), false)));
-        assert!(!deps.contains(&("rusqlite".into(), false)));
-        assert!(!deps.contains(&("diesel".into(), false)));
-    }
-
-    #[test]
-    fn engine_owns_sqlite_through_diesel() {
-        let deps = allowed_normal("skillbinder-engine").unwrap();
-        assert!(deps.contains(&("diesel".into(), false)));
-        assert!(deps.contains(&("diesel_migrations".into(), false)));
-        assert!(!deps.contains(&("rusqlite".into(), false)));
-    }
-
-    #[test]
-    fn proto_stays_free_of_io_and_gpui() {
-        let deps = allowed_normal("skillbinder-proto").unwrap();
-        for banned in [
-            "rusqlite",
-            "diesel",
-            "gpui-kit",
-            "skillbinder-engine",
-            "std",
-        ] {
-            assert!(!deps.iter().any(|(name, _)| name == banned), "{banned}");
-        }
-    }
-
-    #[test]
-    fn gpui_mcp_is_optional_on_the_executable() {
-        let deps = allowed_normal("skillbinder").unwrap();
-        assert!(deps.contains(&("gpui-mcp".into(), true)));
-        assert!(deps.contains(&("log".into(), true)));
-    }
-
-    #[test]
-    fn only_native_test_enables_the_test_bridge() {
-        let features = allowed_features("skillbinder");
-        assert!(!features.contains_key("default"));
-        assert!(features["native-test"].contains("dep:gpui-mcp"));
-        assert!(!allowed_features("skillbinder-ui").contains_key("default"));
-    }
 
     #[test]
     fn workspace_graph_matches_policy() {

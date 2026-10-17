@@ -36,8 +36,8 @@ jobs:
         run: cargo fmt --all --check
       - name: Install cccc
         run: |
-          rustup toolchain install stable --profile minimal
-          cargo +stable install cccc-cli --version 1.8.3 --locked
+          rustup toolchain install 1.99.1 --profile minimal
+          cargo +1.99.1 install cccc-cli --version 1.8.3 --locked
       - name: Check complexity
         run: cccc .
       - name: Verify retained evidence
