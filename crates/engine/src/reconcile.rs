@@ -1,6 +1,7 @@
-//! Keeps the database's skills in step with the directories under `skills/`. Changes made there
-//! outside SkillBinder are unsupported, so only directories that appear, disappear, or Git reports
-//! as changed are inspected; every other skill keeps its cached facts.
+//! Keeps the database's skills in step with the directories under `skills/` and their sources
+//! under `sources/`. Changes made there outside SkillBinder are unsupported, so only skills that
+//! appear, disappear, or Git reports as changed are inspected; every other skill keeps its cached
+//! facts.
 
 use crate::{
     database,
@@ -20,6 +21,7 @@ impl State {
     pub(crate) fn reconcile_library(&self) -> AppResult<()> {
         let listed = self.skill_dirs()?;
         let known = library_store::slugs(&mut self.database.borrow_mut())?;
+        self.remove_orphan_sources(&listed)?;
         self.reconcile_slugs(listed.symmetric_difference(&known).cloned())
     }
 
@@ -67,8 +69,8 @@ impl State {
         Ok(listed)
     }
 
-    /// Reinspects each slug's directory, saving those that exist and dropping the rest. A new
-    /// skill is unfiled, in no preset, and has no install time. A directory that cannot be
+    /// Reinspects each slug's directory and reads its source, saving those that exist and
+    /// dropping the rest. A new skill is unfiled, in no preset, and has no install time. A directory that cannot be
     /// inspected keeps its previous row, and the first such failure is returned after the rest
     /// are saved, so the caller retries it.
     fn reconcile_slugs(&self, slugs: impl IntoIterator<Item = String>) -> AppResult<()> {
@@ -86,7 +88,10 @@ impl State {
                 .contained_skill_path(&root.join(&slug))
                 .and_then(|path| payload::inspect(&path))
             {
-                Ok(inspection) => saved.push(SkillRecord::new(slug, &inspection, None)),
+                Ok(inspection) => {
+                    let source = self.read_source(&slug);
+                    saved.push(SkillRecord::new(slug, &inspection, None, source));
+                }
                 Err(error) => {
                     self.log.record(format!(
                         "Library skill {slug} could not be inspected: {error}"

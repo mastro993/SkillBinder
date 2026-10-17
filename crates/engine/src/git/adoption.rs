@@ -7,7 +7,8 @@ impl Git {
     pub(super) fn can_adopt(&self, repo: &Path) -> AppResult<bool> {
         Ok(self.revision(repo, "HEAD")?.is_none()
             && self.output(repo, &["ls-files", "-z"])?.is_empty()
-            && empty_payload(repo)?)
+            && empty_payload(&repo.join("skills"))?
+            && empty_payload(&repo.join("sources"))?)
     }
 
     pub(super) fn adopt(&self, repo: &Path) -> AppResult<()> {
@@ -21,9 +22,9 @@ impl Git {
     }
 }
 
-fn empty_payload(repo: &Path) -> AppResult<bool> {
-    let path = repo.join("skills");
-    match fs::symlink_metadata(&path) {
+/// Whether the managed directory `path` is absent or empty.
+fn empty_payload(path: &Path) -> AppResult<bool> {
+    match fs::symlink_metadata(path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
         Ok(metadata) if metadata.file_type().is_dir() => Ok(fs::read_dir(path)
             .map_err(|_| AppError::storage())?

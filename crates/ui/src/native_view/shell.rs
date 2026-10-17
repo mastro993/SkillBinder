@@ -320,8 +320,9 @@ impl NativeView {
     fn header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         match self.route {
             Route::Discovery => self.discovery_header_actions(cx),
-            Route::Library(_)
-            | Route::Skill(_)
+            Route::Library(LibraryFilter::All) => self.library_header_actions(cx),
+            Route::Skill(ref id) => self.skill_header_actions(&id.clone(), cx),
+            Route::Library(LibraryFilter::Preset(_))
             | Route::Workspace(_)
             | Route::Agent(_)
             | Route::Universal

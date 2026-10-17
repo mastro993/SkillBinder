@@ -19,6 +19,9 @@ use std::{
 struct Prepared {
     review: ImportPlan,
     sources: Vec<Inspection>,
+    /// Where each row's skill was published, as its lock file recorded at review.
+    #[serde(default)]
+    origins: Vec<Option<SkillSource>>,
 }
 impl State {
     pub(crate) fn prepare_import(
@@ -51,6 +54,7 @@ impl State {
         let mut batch = BTreeSet::new();
         let mut items = Vec::new();
         let mut sources = Vec::new();
+        let mut origins = Vec::new();
         for (candidate_id, source) in selected {
             let inspection = reinspect(&source)?;
             if inspection.status == ValidationStatus::Blocked {
@@ -100,6 +104,7 @@ impl State {
                 messages: inspection.messages.clone(),
                 total_bytes: inspection.manifest.total_bytes(),
             });
+            origins.push(crate::sources::lock::source(&source.lock, &inspection.slug));
             sources.push(inspection);
         }
         let review = ImportPlan {
@@ -111,6 +116,7 @@ impl State {
         let prepared = Prepared {
             review: review.clone(),
             sources,
+            origins,
         };
         diesel::insert_into(operation_plans::table)
             .values((
@@ -199,10 +205,24 @@ impl State {
             imported: Vec::new(),
             existing: Vec::new(),
         };
+        let mut origins = prepared.origins.iter();
+        let mut written = Vec::new();
         for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
+            let origin = origins.next().cloned().flatten();
             if item.decision == ImportDecision::Existing {
                 outcome.existing.push(item.skill_id.clone());
                 continue;
+            }
+            // Written before the skill arrives; one an interrupted install leaves is removed when
+            // the engine next opens.
+            if let Some(origin) = &origin {
+                let saved = self.write_source(item.skill_id.as_str(), origin);
+                if let Err(error) = saved {
+                    self.remove_sources(&written);
+                    let _ = fs::remove_dir_all(&staging);
+                    return Err(error);
+                }
+                written.push(item.skill_id.clone());
             }
             moves.push(Move {
                 from: staging.join(item.skill_id.as_str()),
@@ -212,6 +232,7 @@ impl State {
                 item.skill_id.to_string(),
                 source,
                 Some(imported_at.clone()),
+                origin,
             ));
             outcome.imported.push(item.skill_id.clone());
         }
@@ -221,13 +242,27 @@ impl State {
             completed_moves: 0,
             progress: Default::default(),
             skills,
-            outcome: outcome.clone(),
+            outcome: Some(outcome.clone()),
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);
+            if result.is_err() {
+                self.remove_sources(&written);
+            }
         }
         result?;
         Ok(outcome)
+    }
+
+    /// Removes the source files of skills an install failed to add; the next launch removes any
+    /// that remain.
+    fn remove_sources(&self, slugs: &[SkillId]) {
+        for slug in slugs {
+            if let Err(error) = self.remove_source(slug.as_str()) {
+                self.log
+                    .record(format!("Source of {slug} could not be removed: {error}"));
+            }
+        }
     }
 }
 

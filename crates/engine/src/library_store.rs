@@ -19,9 +19,16 @@ pub(crate) struct SkillRecord {
     pub total_bytes: u64,
     pub details: SkillDetails,
     pub imported_at: Option<String>,
+    #[serde(default)]
+    pub source: Option<SkillSource>,
 }
 impl SkillRecord {
-    pub(crate) fn new(slug: String, inspection: &Inspection, imported_at: Option<String>) -> Self {
+    pub(crate) fn new(
+        slug: String,
+        inspection: &Inspection,
+        imported_at: Option<String>,
+        source: Option<SkillSource>,
+    ) -> Self {
         Self {
             slug,
             digest: inspection.manifest.digest.clone(),
@@ -33,12 +40,13 @@ impl SkillRecord {
                 messages: inspection.messages.clone(),
             },
             imported_at,
+            source,
         }
     }
 }
 
-/// Inserts a skill, or refreshes the payload facts of an existing one while keeping its install
-/// time, folder, and presets.
+/// Inserts a skill, or refreshes the payload facts and source of an existing one while keeping its
+/// install time, folder, and presets.
 pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SkillRecord) -> AppResult<()> {
     diesel::insert_into(skills::table)
         .values((
@@ -48,6 +56,7 @@ pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SkillRecord
             skills::total_bytes.eq(record.total_bytes as i64),
             skills::details.eq(to_json(&record.details)?),
             skills::imported_at.eq(&record.imported_at),
+            skills::source.eq(record.source.as_ref().map(to_json).transpose()?),
         ))
         .on_conflict(skills::slug)
         .do_update()
@@ -56,6 +65,7 @@ pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SkillRecord
             skills::file_count.eq(excluded(skills::file_count)),
             skills::total_bytes.eq(excluded(skills::total_bytes)),
             skills::details.eq(excluded(skills::details)),
+            skills::source.eq(excluded(skills::source)),
         ))
         .execute(connection)
         .map(drop)
@@ -97,6 +107,7 @@ type SkillRow = (
     String,
     Option<String>,
     Option<String>,
+    Option<String>,
 );
 
 /// The library and each skill's cached details.
@@ -114,10 +125,11 @@ pub(crate) fn load(
     }
     let mut details = BTreeMap::new();
     let mut skills = Vec::new();
-    for (slug, digest, file_count, total_bytes, detail, imported_at, folder) in skills::table
-        .order(skills::slug)
-        .load::<SkillRow>(connection)
-        .map_err(storage)?
+    for (slug, digest, file_count, total_bytes, detail, imported_at, folder, source) in
+        skills::table
+            .order(skills::slug)
+            .load::<SkillRow>(connection)
+            .map_err(storage)?
     {
         let id = SkillId(slug);
         details.insert(id.clone(), from_json(&detail)?);
@@ -129,6 +141,7 @@ pub(crate) fn load(
             file_count: file_count as u64,
             total_bytes: total_bytes as u64,
             imported_at,
+            source: source.as_deref().map(from_json).transpose()?,
         });
     }
     let presets = presets::table

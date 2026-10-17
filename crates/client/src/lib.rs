@@ -10,6 +10,9 @@ use std::{
     },
     time::Duration,
 };
+
+/// How long a source check holds before the next refresh checks the skill again.
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
 use tokio::{runtime::Handle, sync::watch};
 
 struct Shared {
@@ -147,7 +150,8 @@ impl Client {
         });
     }
     /// Refreshes the app in the background, on launch and when the window regains focus: scans
-    /// the agents' global skill directories and every workspace, then refreshes the remote's Git status.
+    /// the agents' global skill directories and every workspace, then refreshes the remote's Git status,
+    /// then checks the sources not checked within the hour.
     /// A running scan is kept rather than replaced, so frequent focus changes cannot keep a slow
     /// scan from completing.
     pub fn refresh_app(&self) {
@@ -165,7 +169,28 @@ impl Client {
             if remote && let Err(error) = client.synchronize(SyncAction::Refresh).await {
                 client.background_error(error);
             }
+            client.check_updates().await;
         });
+    }
+    /// Checks the sources not checked within the hour, then publishes their update states.
+    async fn check_updates(&self) {
+        let checked = self
+            .shared
+            .engine
+            .check_updates(UPDATE_CHECK_INTERVAL)
+            .await;
+        if let Err(error) = self.refresh_preserving_outcome(checked).await {
+            self.background_error(error);
+        }
+    }
+    /// Replaces the selected skills' content with their sources' current content, then scans
+    /// again, since the agents' copies no longer match the updated skills.
+    pub async fn update_skills(&self, ids: Vec<SkillId>) -> AppResult<UpdateOutcome> {
+        let outcome = self
+            .refresh_preserving_outcome(self.shared.engine.update_skills(ids).await)
+            .await?;
+        self.spawn_scan();
+        Ok(outcome)
     }
     /// Scans the agents' global skill directories and every workspace, replacing a running scan.
     pub async fn start_scan(&self) -> AppResult<()> {
@@ -184,12 +209,16 @@ impl Client {
             .await
     }
     /// Applies a plan with durable replay and outcome retention, then scans again so the
-    /// imported skills are found in the library.
+    /// imported skills are found in the library, and checks the new skills' sources.
     pub async fn apply_import(&self, plan: PlanId) -> AppResult<ImportOutcome> {
         let outcome = self
             .refresh_preserving_outcome(self.shared.engine.apply_import(plan).await)
             .await?;
         self.spawn_scan();
+        let client = self.clone();
+        self.shared
+            .runtime
+            .spawn(async move { client.check_updates().await });
         Ok(outcome)
     }
     /// Dismisses the last retained import result.

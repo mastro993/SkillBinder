@@ -12,6 +12,7 @@ mod library_dates;
 mod library_folders;
 mod library_items;
 mod library_presence;
+mod library_updates;
 mod menu;
 #[cfg(feature = "native-test")]
 mod native_test;
@@ -72,6 +73,7 @@ enum Effect {
     CloseDialog,
     Plan(ImportPlan),
     DeletePreview(DeletePreview),
+    Updated(UpdateOutcome),
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -124,6 +126,8 @@ pub struct NativeView {
     resizing_sidebar: bool,
     preference_writes: shell::PreferenceWrites,
     preview: Option<SkillPreview>,
+    /// The last Update or Update all result, shown until the page changes.
+    update_outcome: Option<UpdateOutcome>,
     /// The skill page's file read in flight; dropping it discards the read's result.
     skill_load: Option<Task<()>>,
     search: Entity<InputState>,
@@ -240,6 +244,7 @@ impl NativeView {
             resizing_sidebar: false,
             preference_writes: shell::PreferenceWrites::default(),
             preview: None,
+            update_outcome: None,
             skill_load: None,
             search,
             preset_name,
@@ -263,7 +268,7 @@ impl NativeView {
             .scan
             .iter()
             .flat_map(|scan| &scan.candidates)
-            .filter(|candidate| candidate.skill_id.is_none())
+            .filter(|candidate| candidate.installed().is_none())
             .map(|candidate| &candidate.id)
             .collect();
         self.selected_candidates.retain(|id| listed.contains(id));
@@ -348,6 +353,15 @@ impl NativeView {
                             Effect::DeletePreview(preview) => {
                                 view.dialog = DialogState::DeletePreset(preview)
                             }
+                            Effect::Updated(outcome) => {
+                                // An updated skill's page shows its new content.
+                                if let Route::Skill(id) = &view.route
+                                    && outcome.updated.contains(id)
+                                {
+                                    view.load_skill(id.clone(), cx);
+                                }
+                                view.update_outcome = Some(outcome);
+                            }
                         }
                     }
                     Ok(Err(error)) => view.error = Some(error),
@@ -424,6 +438,7 @@ impl NativeView {
         self.selected_candidates.clear();
         self.acknowledge_invalid = false;
         self.preview = None;
+        self.update_outcome = None;
         self.skill_load = None;
         self.content_scroll.handle.set_offset(Default::default());
     }

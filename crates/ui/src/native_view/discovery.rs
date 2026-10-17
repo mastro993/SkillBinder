@@ -22,12 +22,12 @@ impl NativeView {
         ]
     }
 
-    /// Found skills whose content the library does not hold, which Discovery lists.
+    /// Found skills that are not installed, which Discovery lists.
     pub(super) fn not_in_library(&self) -> Vec<&Candidate> {
         self.snapshot.scan.as_ref().map_or_else(Vec::new, |scan| {
             scan.candidates
                 .iter()
-                .filter(|candidate| candidate.skill_id.is_none())
+                .filter(|candidate| candidate.installed().is_none())
                 .collect()
         })
     }

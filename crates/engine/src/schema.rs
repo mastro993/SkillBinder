@@ -51,6 +51,7 @@ diesel::table! {
         details -> Text,
         imported_at -> Nullable<Text>,
         folder_id -> Nullable<Text>,
+        source -> Nullable<Text>,
     }
 }
 

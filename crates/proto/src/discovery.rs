@@ -35,6 +35,8 @@ pub struct Candidate {
     pub id: CandidateId,
     /// The library skill with the same content, if any.
     pub skill_id: Option<SkillId>,
+    /// The library skill holding this slug, whatever its content, if any.
+    pub held: Option<SkillId>,
     /// Directory slug.
     pub slug: String,
     /// Frontmatter description.
@@ -49,6 +51,13 @@ pub struct Candidate {
     pub total_bytes: u64,
     /// Materialized regular file count.
     pub file_count: u64,
+}
+impl Candidate {
+    /// The library skill that makes this found skill installed: one with the same content, or
+    /// else one holding its slug, since the library is a skill's source of truth once installed.
+    pub fn installed(&self) -> Option<&SkillId> {
+        self.skill_id.as_ref().or(self.held.as_ref())
+    }
 }
 /// The skills the last completed scan found in the agents' global skill directories and every
 /// workspace.

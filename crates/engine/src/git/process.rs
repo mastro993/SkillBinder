@@ -125,13 +125,24 @@ pub(super) fn run(
 
 const RAW_ATTRIBUTES: &[u8] = b"* -filter -text -eol -ident -working-tree-encoding\n";
 
+/// Keeps Git from filtering or converting content: in the repository's own `.git`, or in `repo`
+/// itself when it is a bare repository, such as a source cache.
 fn require_raw_attributes(repo: &Path) -> AppResult<()> {
     let git = repo.join(".git");
     match std::fs::symlink_metadata(&git) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Ok(metadata) if metadata.file_type().is_dir() => {}
-        _ => return Err(failure("Git requires a dedicated library repository.")),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if repo.join("HEAD").is_file() && repo.join("objects").is_dir() {
+                raw_attributes(repo)
+            } else {
+                Ok(())
+            }
+        }
+        Ok(metadata) if metadata.file_type().is_dir() => raw_attributes(&git),
+        _ => Err(failure("Git requires a dedicated library repository.")),
     }
+}
+
+fn raw_attributes(git: &Path) -> AppResult<()> {
     let directory = git.join("info");
     match std::fs::symlink_metadata(&directory) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {

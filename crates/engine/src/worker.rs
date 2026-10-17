@@ -1,6 +1,12 @@
 use crate::{
-    database, discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig,
-    logging::Logger, reconcile::RECONCILED_HEAD,
+    database,
+    discovery::{Managed, Scans},
+    git::Git,
+    grants::GrantedDirectory,
+    lifecycle::EngineConfig,
+    logging::Logger,
+    reconcile::RECONCILED_HEAD,
+    sources::Updates,
 };
 use diesel::SqliteConnection;
 use fs2::FileExt;
@@ -25,6 +31,7 @@ struct Owner {
     sender: mpsc::Sender<Message>,
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
+    updates: Updates,
 }
 /// Cloneable typed handle to the embedded engine worker.
 #[derive(Clone)]
@@ -37,6 +44,7 @@ pub(crate) struct State {
     pub git: Option<Git>,
     pub log: Logger,
     pub scans: Scans,
+    pub updates: Updates,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
     pub recovery_required: bool,
     lock: File,
@@ -70,12 +78,14 @@ impl Engine {
             .map_err(|_| AppError::storage())?;
         let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
+        let updates = Updates::default();
         let mut state = State {
             config,
             database,
             git: Git::discover().ok(),
             log,
             scans: scans.clone(),
+            updates: updates.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
             lock,
@@ -112,6 +122,7 @@ impl Engine {
                 sender,
                 thread: Mutex::new(Some(thread)),
                 scans,
+                updates,
             }),
         })
     }
@@ -202,7 +213,7 @@ impl Engine {
                         .filter(|workspace| !workspace.missing)
                         .map(|workspace| (workspace.id, PathBuf::from(workspace.path)))
                         .collect(),
-                    state.managed_digests()?,
+                    state.managed()?,
                     state.log.clone(),
                 ))
             })
@@ -215,6 +226,52 @@ impl Engine {
     /// durable mutation.
     pub fn current_scan(&self) -> AppResult<(Option<ScanSnapshot>, bool)> {
         self.owner.scans.current()
+    }
+    /// Checks the sources of the library skills not checked for their current content within
+    /// `max_age`, on a thread of its own, and waits for the results. Does nothing while another
+    /// check runs.
+    pub async fn check_updates(&self, max_age: std::time::Duration) -> AppResult<()> {
+        let Some((git, data_dir, due, log)) = self
+            .call(move |state| {
+                let (Some(git), OnboardingStep::Complete) =
+                    (state.git.clone(), state.bootstrap()?.step)
+                else {
+                    return Ok(None);
+                };
+                let skills = state.read_library()?.skills;
+                Ok(state
+                    .updates
+                    .begin(&skills, max_age.as_secs())?
+                    .map(|due| (git, state.config.data_dir.clone(), due, state.log.clone())))
+            })
+            .await?
+        else {
+            return Ok(());
+        };
+        let updates = self.owner.updates.clone();
+        let (done, finished) = oneshot::channel();
+        let spawned = std::thread::Builder::new()
+            .name("skillbinder-updates".into())
+            .spawn({
+                let updates = updates.clone();
+                move || {
+                    // A check that panics still ends, so later checks can start.
+                    let results = std::panic::catch_unwind(|| {
+                        crate::sources::check(&git, &data_dir, due, &log)
+                    });
+                    updates.finish(results.unwrap_or_default());
+                    let _ = done.send(());
+                }
+            });
+        if spawned.is_err() {
+            updates.finish(Vec::new());
+            return Err(AppError::storage());
+        }
+        finished.await.map_err(|_| AppError::storage())
+    }
+    /// Replaces each selected library skill's content with its source's current content.
+    pub async fn update_skills(&self, ids: Vec<SkillId>) -> AppResult<UpdateOutcome> {
+        self.call(move |state| state.update_skills(ids)).await
     }
     /// Re-inspects selected opaque candidates into an immutable review plan.
     pub async fn prepare_import(
@@ -284,19 +341,21 @@ impl Engine {
     }
 }
 impl State {
-    /// The digest of each library skill, which marks found skills as in the library. Blocked
-    /// payloads mark nothing.
-    fn managed_digests(&self) -> AppResult<BTreeMap<String, SkillId>> {
+    /// The digest and slug of each library skill, which mark found skills as installed. Blocked
+    /// payloads mark nothing by content.
+    fn managed(&self) -> AppResult<Managed> {
         let (library, details) = crate::library_store::load(&mut self.database.borrow_mut())?;
-        Ok(library
-            .skills
-            .into_iter()
-            .filter(|skill| {
-                details.get(&skill.id).map(|details| details.validation)
-                    != Some(ValidationStatus::Blocked)
-            })
-            .map(|skill| (skill.digest, skill.id))
-            .collect())
+        let mut managed = Managed::default();
+        for skill in library.skills {
+            let normalized = crate::library::normalized(skill.id.as_str());
+            managed.slugs.insert(normalized, skill.id.clone());
+            if details.get(&skill.id).map(|details| details.validation)
+                != Some(ValidationStatus::Blocked)
+            {
+                managed.digests.insert(skill.digest, skill.id);
+            }
+        }
+        Ok(managed)
     }
     fn snapshot(&mut self) -> AppResult<AppSnapshot> {
         let bootstrap = self.bootstrap()?;
@@ -315,6 +374,10 @@ impl State {
             sync = current;
         }
         let (scan, scanning) = self.scans.current()?;
+        let updates = match &library {
+            Some(library) => self.updates.current(&library.library.skills)?,
+            None => BTreeMap::new(),
+        };
         Ok(AppSnapshot {
             generation: 0,
             background_error: None,
@@ -325,6 +388,7 @@ impl State {
             workspaces: self.workspaces()?,
             scan,
             scanning,
+            updates,
             sync,
             import_outcome: self.setting("import_outcome")?.flatten(),
             preferences: self.setting("preferences")?.unwrap_or_default(),
@@ -387,6 +451,7 @@ impl State {
             git: None,
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),
+            updates: Updates::default(),
             grants: BTreeMap::new(),
             recovery_required: false,
             lock: File::create(data_dir.join("test.lock")).unwrap(),

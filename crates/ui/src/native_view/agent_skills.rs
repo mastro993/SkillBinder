@@ -97,7 +97,7 @@ pub(super) fn found_where(
     let mut skills: Vec<_> = candidates
         .iter()
         .flat_map(|candidate| {
-            let status = match (&candidate.skill_id, candidate.validation) {
+            let status = match (candidate.installed(), candidate.validation) {
                 (Some(_), _) => FoundStatus::Installed,
                 (None, ValidationStatus::Invalid) => FoundStatus::Invalid,
                 (None, ValidationStatus::Blocked) => FoundStatus::Blocked,
@@ -112,7 +112,7 @@ pub(super) fn found_where(
                 .map(move |_| FoundSkill {
                     slug: candidate.slug.clone(),
                     status,
-                    skill: candidate.skill_id.clone(),
+                    skill: candidate.installed().cloned(),
                 })
         })
         .collect();
@@ -140,6 +140,7 @@ mod tests {
         Candidate {
             id: CandidateId::new(),
             skill_id: skill,
+            held: None,
             slug: slug.to_owned(),
             description: String::new(),
             locations: vec![CandidateLocation {

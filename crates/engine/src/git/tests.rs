@@ -544,3 +544,29 @@ fn changed_files_counts_renames_once() {
         3
     );
 }
+#[test]
+fn sources_publish_beside_skills_and_nothing_else_under_them() {
+    let f = Fixture::new();
+    fs::create_dir_all(f.repo.join("sources")).unwrap();
+    fs::write(f.repo.join("sources/demo.toml"), "url = \"x\"\n").unwrap();
+    f.push();
+    let published = f
+        .git
+        .output(&f.repo, &["ls-tree", "-r", "--name-only", "HEAD"])
+        .unwrap();
+    assert_eq!(published, "skills/demo/SKILL.md\nsources/demo.toml\n");
+    let head = f.git.revision(&f.repo, "HEAD").unwrap();
+    for stray in ["sources/nested/demo.toml", "sources/notes.txt"] {
+        let path = f.repo.join(stray);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "stray").unwrap();
+        assert!(
+            f.git
+                .perform(&f.repo, Some(&f.remote), SyncAction::Push)
+                .is_err(),
+            "{stray}"
+        );
+        assert_eq!(f.git.revision(&f.repo, "HEAD").unwrap(), head);
+        fs::remove_file(&path).unwrap();
+    }
+}

@@ -128,6 +128,7 @@ pub async fn scan(engine: &Engine) -> ScanSnapshot {
     }
 }
 
+#[allow(dead_code, reason = "Not every test crate checks error categories.")]
 pub fn category<T>(result: AppResult<T>) -> ErrorCategory {
     match result {
         Ok(_) => panic!("operation unexpectedly succeeded"),
