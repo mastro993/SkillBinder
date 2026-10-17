@@ -58,6 +58,12 @@ impl State {
                     "Blocked payloads cannot be installed.",
                 ));
             }
+            // Git tracks files, not directories, so a skill without files would never sync.
+            if inspection.manifest.file_count() == 0 {
+                return Err(AppError::validation(
+                    "A skill without files cannot be installed.",
+                ));
+            }
             if inspection.status == ValidationStatus::Invalid && !acknowledge_invalid {
                 return Err(AppError::validation(
                     "Acknowledge invalid skill metadata before preparing an install.",

@@ -510,6 +510,25 @@ async fn a_different_skill_with_a_held_slug_is_refused() {
 }
 
 #[tokio::test]
+async fn a_skill_without_files_is_refused_even_when_acknowledged() {
+    let fixture = Fixture::new();
+    let source = fixture.skill("empty", "Soon gone");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    fs::remove_file(source.join("SKILL.md")).unwrap();
+    assert_eq!(
+        category(
+            engine
+                .prepare_import(vec![scan.candidates[0].id.clone()], true)
+                .await
+        ),
+        ErrorCategory::Validation
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn an_unreconciled_skill_directory_blocks_an_install_of_its_slug() {
     let fixture = Fixture::new();
     fixture.skill("alpha", "Workspace copy");
