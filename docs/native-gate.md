@@ -26,7 +26,7 @@ cargo run -p xtask --locked -- package
 
 Domain and integration tests use isolated storage and local bare Git remotes. They cover payload policy, source preservation, expiring grants and plans, scan retention, agent-folder refusal, install replay, organization revisions, organization staying machine-local, same-slug install refusal, concurrent writers, interruption recovery, reconciliation of skill directories after launch and Pull, remote adoption, divergence, unrelated-file protection, Git attribute and ignore rules, log redaction, and client publication ordering.
 
-`xtask verify` checks the retained 79-agent registry, licensed assets, generated registry documentation, 88 canonical baseline images, and the workspace crate graph (members, allowed dependencies and their feature selections, feature maps that keep native test controls behind non-default `native-test`, and source imports that would skip crate ownership; checked sources may not use `include!`). It does not establish native interaction or visual parity.
+`xtask verify` checks the retained 79-agent registry, licensed assets, generated registry documentation, 88 canonical baseline images, and the workspace crate graph (members, allowed dependencies with their feature selections and target predicates, feature maps that keep native test controls behind non-default `native-test`, and source imports that would skip crate ownership; checked sources may not use `include!`, and `#[path]` may only name a sibling `.rs` file). It does not establish native interaction or visual parity.
 
 CI `checks.yml` runs formatting, `cccc .` with `cccc-cli` 1.8.3 built by Rust 1.99.1, Clippy with warnings denied, workspace tests, and `xtask verify`. Complexity limits stay in `cccc.toml`; do not raise them.
 

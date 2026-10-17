@@ -73,6 +73,14 @@ pub(crate) const DEP_FEATURES: &[(&str, &str, &str, bool, &[&str])] = &[
 ];
 pub(crate) const TOKIO: &[&str] = &["rt-multi-thread", "sync", "time", "macros"];
 
+/// Platform predicates of target-specific dependencies; all others are unconditional.
+pub(crate) fn allowed_dep_target(package: &str, dep: &str) -> Option<&'static str> {
+    match (package, dep) {
+        ("skillbinder-engine", "rustix") => Some("cfg(unix)"),
+        _ => None,
+    }
+}
+
 pub(crate) fn allowed_dep_features(
     package: &str,
     kind: &str,
@@ -349,8 +357,11 @@ pub(crate) fn allowed_dev(name: &str) -> BTreeSet<(String, bool)> {
 }
 
 pub(crate) const IO: &[&str] = &[
+    "std::env",
     "std::fs",
+    "std::io",
     "std::net",
+    "std::os",
     "std::process",
     "rusqlite",
     "diesel",

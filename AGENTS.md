@@ -20,7 +20,7 @@ Do not add workspace members or new crate dependencies without updating the grap
 
 Use small, specialized modules. Model state with typed data and enums. Use `Result`, `Option`, and `?`. Encode invariants in constructors and destructuring matches so new fields fail to compile until handled.
 
-Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The UI crate must not import `std::fs`, `std::net`, `std::process`, `rusqlite`, or `diesel`; xtask verify rejects grouped and aliased forms of those imports as well.
+Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The UI crate must not import `std::env`, `std::fs`, `std::io`, `std::net`, `std::os`, `std::process`, `rusqlite`, or `diesel`; xtask verify rejects grouped, aliased, absolute, and glob forms of those imports as well.
 
 Use GPUI Kit public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork, except agent logos under `assets/agent-logos/` recorded in its `inventory.json`; agents without a logo use the Hugeicons square terminal glyph. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 

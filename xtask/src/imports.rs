@@ -19,11 +19,9 @@ pub fn imports(source: &str, needle: &str) -> bool {
 
 fn use_tree_imports(source: &str, needle: &str) -> bool {
     let needle = needle_segments(needle);
-    use_items(source).into_iter().any(|item| {
-        expand_use(&item)
-            .iter()
-            .any(|path| starts_with(path, &needle))
-    })
+    use_items(source)
+        .into_iter()
+        .any(|item| expand_use(&item).iter().any(|path| exposes(path, &needle)))
 }
 
 fn path_appears(source: &str, needle: &str) -> bool {
@@ -37,8 +35,14 @@ fn needle_segments(needle: &str) -> Vec<String> {
     needle.split("::").map(str::to_string).collect()
 }
 
-fn starts_with(path: &[String], needle: &[String]) -> bool {
-    path.starts_with(needle)
+/// A glob import exposes every child of its parent, so it hits needles below it too.
+fn exposes(path: &[String], needle: &[String]) -> bool {
+    match path.split_last() {
+        Some((last, parent)) if last == "*" => {
+            !parent.is_empty() && (needle.starts_with(parent) || parent.starts_with(needle))
+        }
+        _ => path.starts_with(needle),
+    }
 }
 
 fn compact_paths(source: &str) -> String {
@@ -118,12 +122,15 @@ fn expand_use(item: &str) -> Vec<Vec<String>> {
 }
 
 fn expand(prefix: &[String], cursor: &mut Cursor<'_>) -> Option<Vec<Vec<String>>> {
+    if prefix.is_empty() {
+        cursor.eat_path_sep();
+    }
     cursor.skip_ws();
     if cursor.eat('{') {
         return expand_group(prefix, cursor);
     }
     if cursor.eat('*') {
-        return Some(vec![prefix.to_vec()]);
+        return Some(vec![with_segment(prefix, "*")]);
     }
     let ident = cursor.ident()?;
     let path = with_segment(prefix, &ident);
@@ -246,6 +253,9 @@ fn render(tokens: TokenStream, out: &mut String) -> anyhow::Result<()> {
                 }
             }
             TokenTree::Group(group) => {
+                if group.delimiter() == Delimiter::Bracket {
+                    check_path_attribute(group.stream())?;
+                }
                 let (open, close) = delimiters(group.delimiter());
                 out.push_str(open);
                 render(group.stream(), out)?;
@@ -256,6 +266,42 @@ fn render(tokens: TokenStream, out: &mut String) -> anyhow::Result<()> {
         after_include = false;
     }
     Ok(())
+}
+
+/// `#[path]` may only name a sibling `.rs` file, which the source scan already covers.
+fn check_path_attribute(tokens: TokenStream) -> anyhow::Result<()> {
+    let tokens: Vec<TokenTree> = tokens.into_iter().collect();
+    for window in tokens.windows(3) {
+        if let [
+            TokenTree::Ident(name),
+            TokenTree::Punct(eq),
+            TokenTree::Literal(file),
+        ] = window
+            && name == "path"
+            && eq.as_char() == '='
+        {
+            let file = file.to_string();
+            ensure!(
+                is_sibling_rs(&file),
+                "#[path = {file}] must name a sibling .rs file so boundary checks scan it"
+            );
+        }
+    }
+    for token in tokens {
+        if let TokenTree::Group(group) = token
+            && group.delimiter() == Delimiter::Parenthesis
+        {
+            check_path_attribute(group.stream())?;
+        }
+    }
+    Ok(())
+}
+
+fn is_sibling_rs(literal: &str) -> bool {
+    literal
+        .strip_prefix('"')
+        .and_then(|name| name.strip_suffix(".rs\""))
+        .is_some_and(|stem| !stem.is_empty() && stem.chars().all(is_ident_char))
 }
 
 fn delimiters(delimiter: Delimiter) -> (&'static str, &'static str) {
@@ -286,6 +332,9 @@ mod tests {
         assert!(hit("let _ = std :: fs::read(path);", "std::fs"));
         assert!(hit("use diesel::prelude::*;", "diesel"));
         assert!(hit("use diesel;", "diesel"));
+        assert!(hit("use ::std::fs;", "std::fs"));
+        assert!(hit("use std::*;", "std::fs"));
+        assert!(!hit("use super::*;", "std::fs"));
     }
 
     #[test]
@@ -315,5 +364,13 @@ mod tests {
     fn include_is_rejected() {
         assert!(code_text("include!(\"io.in\");").is_err());
         assert!(code_text("const S: &str = include_str!(\"a.txt\");").is_ok());
+    }
+
+    #[test]
+    fn path_attributes_must_stay_in_the_scanned_tree() {
+        assert!(code_text("#[path = \"io.in\"] mod io;").is_err());
+        assert!(code_text("#[path = \"../other/io.rs\"] mod io;").is_err());
+        assert!(code_text("#[cfg_attr(test, path = \"io.in\")] mod io;").is_err());
+        assert!(code_text("#[path = \"io_tests.rs\"] mod io;").is_ok());
     }
 }

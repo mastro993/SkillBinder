@@ -1,7 +1,8 @@
 //! Workspace crate graph and source-boundary checks.
 use crate::imports::{code_text, imports};
 use crate::policy::{
-    ENGINE, IO, MEMBERS, UI, allowed_dep_features, allowed_dev, allowed_features, allowed_normal,
+    ENGINE, IO, MEMBERS, UI, allowed_dep_features, allowed_dep_target, allowed_dev,
+    allowed_features, allowed_normal,
 };
 use anyhow::{Context, ensure};
 use serde::Deserialize;
@@ -35,6 +36,8 @@ struct Dependency {
     optional: bool,
     uses_default_features: bool,
     features: BTreeSet<String>,
+    #[serde(default)]
+    target: Option<String>,
 }
 
 pub fn verify(root: &Path) -> anyhow::Result<()> {
@@ -125,6 +128,13 @@ fn check_dep_features(name: &str, package: &Package) -> anyhow::Result<()> {
             dep.name,
             dep.uses_default_features,
             dep.features
+        );
+        let target = allowed_dep_target(name, &dep.name);
+        ensure!(
+            dep.target.as_deref() == target,
+            "{name} {kind} dependency {} target changed: expected {target:?}, found {:?}",
+            dep.name,
+            dep.target
         );
     }
     Ok(())
