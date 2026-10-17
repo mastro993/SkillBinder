@@ -55,32 +55,35 @@ impl NativeView {
     }
 
     /// A section title that folds the section's rows, with an optional trailing add button
-    /// centred on the rows' trailing column.
+    /// centred on the rows' trailing column. An empty section has nothing to fold, so its title
+    /// is plain text without a chevron.
     pub(super) fn section_header(
         &self,
         section: SidebarSection,
         title: &'static str,
         add: Option<Button>,
+        empty: bool,
         cx: &mut Context<Self>,
     ) -> Div {
         let color = cx.theme().muted_foreground.opacity(0.8);
         let folded = self.folded_sections.contains(&section);
-        let toggle = activate(
-            div()
-                .id(format!("section-{title}"))
-                .flex()
-                .flex_1()
-                .items_center()
-                .gap(px(4.0))
-                .h_full()
-                .cursor_pointer()
-                .aria_expanded(!folded)
-                .child(title)
-                .child(self.section_chevron(section, cx)),
-            title,
-            cx,
-            move |view, _, cx| view.toggle_section(section, cx),
-        );
+        let label = div().flex().flex_1().items_center().gap(px(4.0)).h_full();
+        let title_row = if empty {
+            label.child(title).into_any_element()
+        } else {
+            activate(
+                label
+                    .id(format!("section-{title}"))
+                    .cursor_pointer()
+                    .aria_expanded(!folded)
+                    .child(title)
+                    .child(self.section_chevron(section, cx)),
+                title,
+                cx,
+                move |view, _, cx| view.toggle_section(section, cx),
+            )
+            .into_any_element()
+        };
         div()
             .flex()
             .flex_shrink_0()
@@ -91,7 +94,7 @@ impl NativeView {
             .pr(px(ROW_PADDING - (ROW_HEIGHT - 8.0 - ICON_SIZE) / 2.0))
             .text_size(px(DETAIL_SIZE))
             .text_color(color)
-            .child(toggle)
+            .child(title_row)
             .children(add)
     }
 
@@ -117,13 +120,17 @@ impl NativeView {
     }
 
     /// A section's rows, sliding open or shut while a toggle is in motion; `items` is the number
-    /// of rows.
+    /// of rows. An empty section cannot fold, so its rows, such as an inline name field, always
+    /// show.
     pub(super) fn section_rows(
         &self,
         section: SidebarSection,
         items: usize,
         rows: impl IntoElement + 'static,
     ) -> Option<AnyElement> {
+        if items == 0 {
+            return Some(rows.into_any_element());
+        }
         let folded = self.folded_sections.contains(&section);
         let Some(motion) = self.motion(section) else {
             return (!folded).then(|| rows.into_any_element());

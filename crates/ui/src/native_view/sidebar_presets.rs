@@ -90,7 +90,7 @@ impl NativeView {
         div()
             .flex()
             .flex_col()
-            .child(self.render_presets_header(cx))
+            .child(self.render_presets_header(items == 0, cx))
             .children(
                 self.section_rows(
                     SidebarSection::Presets,
@@ -132,7 +132,11 @@ impl NativeView {
             )
     }
 
-    fn render_presets_header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    fn render_presets_header(
+        &self,
+        empty: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
         let add = add_button("preset-create", "Add preset", cx).on_click(cx.listener(
             |view, _, window, cx| {
                 view.unfold_section(SidebarSection::Presets, cx);
@@ -140,7 +144,7 @@ impl NativeView {
             },
         ));
         // The first section splits its gap with the divider above it, which sits under Library.
-        self.section_header(SidebarSection::Presets, "Presets", Some(add), cx)
+        self.section_header(SidebarSection::Presets, "Presets", Some(add), empty, cx)
             .mt(px(SECTION_GAP / 2.0))
     }
 

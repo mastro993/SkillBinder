@@ -7,7 +7,7 @@ use super::controls::app_icon;
 use super::menu::MenuItem;
 use super::sidebar_presets::{RowPlacement, menu_action};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
-use super::sidebar_row::{activate, add_button, count, empty_row, name_field, row, with_menu};
+use super::sidebar_row::{activate, add_button, count, name_field, row, with_menu};
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
@@ -65,12 +65,17 @@ impl NativeView {
                 view.choose_workspace_folder(cx)
             },
         ));
-        let items = rows.len().max(1);
-        let empty = rows.is_empty().then(|| empty_row("No workspaces", cx));
+        let items = rows.len();
         div()
             .flex()
             .flex_col()
-            .child(self.section_header(SidebarSection::Workspaces, "Workspaces", Some(add), cx))
+            .child(self.section_header(
+                SidebarSection::Workspaces,
+                "Workspaces",
+                Some(add),
+                items == 0,
+                cx,
+            ))
             .children(
                 self.section_rows(
                     SidebarSection::Workspaces,
@@ -96,8 +101,7 @@ impl NativeView {
                             MouseButton::Left,
                             cx.listener(|view, _, _, cx| view.finish_workspace_drag(cx)),
                         )
-                        .children(rows)
-                        .children(empty),
+                        .children(rows),
                 ),
             )
     }

@@ -111,7 +111,12 @@ fn apply_organization(
                 presets.retain(|preset| preset != &id);
             }
         }
-        OrganizationChange::ReorderPresets { order } => reorder_presets(library, &order)?,
+        OrganizationChange::ReorderPresets { order } => reorder(
+            &mut library.presets,
+            &order,
+            |preset| (&preset.id, &mut preset.position),
+            "The presets changed. Reorder them again.",
+        )?,
         OrganizationChange::SetPresetColor { id, color } => {
             preset_mut(library, &id)?.color = color;
         }
@@ -123,6 +128,12 @@ fn apply_organization(
         OrganizationChange::DeleteFolder { id, revision: seen } => {
             delete_folder(library, &id, &seen, revision)?;
         }
+        OrganizationChange::ReorderFolders { order } => reorder(
+            &mut library.folders,
+            &order,
+            |folder| (&folder.id, &mut folder.position),
+            "The folders changed. Reorder them again.",
+        )?,
         OrganizationChange::MoveToFolder { skill, folder } => {
             move_to_folder(library, &skill, folder)?;
         }
@@ -168,19 +179,26 @@ fn memberships<'a>(
         .filter(|skill| skills.contains(&skill.id))
         .map(|skill| &mut skill.preset_ids))
 }
-fn reorder_presets(library: &mut Library, order: &[PresetId]) -> AppResult<()> {
+/// Renumbers `items` to follow `order`, which must name each of them exactly once.
+fn reorder<T, Id: Ord>(
+    items: &mut [T],
+    order: &[Id],
+    slot: impl Fn(&mut T) -> (&Id, &mut u32),
+    stale: &'static str,
+) -> AppResult<()> {
     let mut requested: Vec<_> = order.iter().collect();
     requested.sort();
-    let mut current: Vec<_> = library.presets.iter().map(|preset| &preset.id).collect();
-    current.sort();
-    if requested != current {
-        return Err(AppError::stale("The presets changed. Reorder them again."));
+    requested.dedup();
+    if requested.len() != order.len() || requested.len() != items.len() {
+        return Err(AppError::stale(stale));
     }
-    for preset in &mut library.presets {
-        preset.position = order
+    for item in items.iter_mut() {
+        let (id, position) = slot(item);
+        *position = order
             .iter()
-            .position(|id| id == &preset.id)
-            .unwrap_or_default() as u32;
+            .position(|candidate| candidate == id)
+            .and_then(|index| u32::try_from(index).ok())
+            .ok_or_else(|| AppError::stale(stale))?;
     }
     Ok(())
 }

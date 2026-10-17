@@ -2,24 +2,26 @@
 //! skill menu that moves a skill between folders.
 
 use super::controls::{Inactive, app_icon, button};
+use super::folder_reorder::{FolderDrag, draggable};
 use super::menu::MenuItem;
 use super::sidebar_presets::menu_action;
 use super::sidebar_row::with_menu;
 use super::{DialogState, Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Selectable, Sizable,
-    button::ButtonVariants,
+    button::{Button, ButtonVariants},
     dialog::Dialog,
     h_flex,
     input::{Input, InputEvent, InputState},
-    skeleton::Skeleton,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, Entity, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
+    AnyElement, ClickEvent, Context, Div, Entity, InteractiveElement, IntoElement, KeyDownEvent,
+    ParentElement, Stateful, StatefulInteractiveElement, Styled, Window, div,
+    prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
 use skillbinder_theme::FOLDER_TAB_SIZE;
+use std::cell::Cell;
 
 /// Which folder name the inline header field edits.
 #[derive(Clone, PartialEq, Eq)]
@@ -29,7 +31,7 @@ pub(super) enum FolderEdit {
 }
 
 impl NativeView {
-    fn folders(&self) -> &[Folder] {
+    pub(super) fn folders(&self) -> &[Folder] {
         self.snapshot
             .library
             .as_ref()
@@ -59,13 +61,13 @@ impl NativeView {
 
     /// All skills, a separator, each folder, then the Add folder plus, scrolling sideways when they
     /// overflow the header.
-    pub(super) fn render_folder_tabs(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_folder_tabs(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let mut strip = h_flex()
             .id("folder-tabs")
             .min_w_0()
             .overflow_x_scroll()
             .gap_1()
-            .child(self.folder_tab(None, "All skills", cx))
+            .child(self.tab_button(None, "All skills", cx))
             .child(
                 div()
                     .flex_shrink_0()
@@ -74,20 +76,19 @@ impl NativeView {
                     .mx_1()
                     .bg(cx.theme().border),
             );
-        for folder in self.folders() {
-            strip = if self.folder_edit == Some(FolderEdit::Rename(folder.id.clone())) {
-                strip.child(self.folder_name_field(cx))
-            } else {
-                strip.child(self.folder_tab(Some(folder), &folder.name, cx))
-            };
+        if let Some(folders) = self.render_folder_run(window, cx) {
+            strip = strip.child(folders);
         }
-        if self.creating_folder {
+        // A created folder shows at once; a refused one disappears with its error.
+        if let Some(name) = &self.creating_folder {
             strip = strip.child(
-                Skeleton::new()
+                button("folder-creating")
+                    .ghost()
+                    .small()
                     .flex_shrink_0()
-                    .w(px(64.))
-                    .h(px(24.))
-                    .rounded(cx.theme().radius),
+                    .accessibility_label(name.clone())
+                    .child(tab_label(name))
+                    .text_color(cx.theme().muted_foreground),
             );
         }
         if self.folder_edit == Some(FolderEdit::Create) {
@@ -113,30 +114,35 @@ impl NativeView {
     }
 
     /// One tab; clicking chooses it, and double-clicking a folder renames it.
-    fn folder_tab(
-        &self,
-        folder: Option<&Folder>,
-        name: &str,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let id = folder.map(|folder| folder.id.clone());
+    fn tab_button(&self, id: Option<FolderId>, name: &str, cx: &mut Context<Self>) -> Button {
         let element = id
             .as_ref()
             .map_or_else(|| "folder-all".to_owned(), |id| format!("folder-{id}"));
         let chosen = id.clone();
         let selected = self.library_folder == id;
-        let tab = button(element.clone())
+        button(element)
             .ghost()
             .small()
             .flex_shrink_0()
             .accessibility_label(name.to_owned())
             .child(tab_label(name))
             .selected(selected)
-            // Unchosen tabs are muted; hovering brightens them to the ghost button's text color.
-            .when(!selected, |tab| tab.text_color(cx.theme().muted_foreground))
+            // The chosen tab sits on a soft muted fill rather than the kit's darker selected
+            // fill. Unchosen tabs are muted; hovering brightens them to the ghost text color.
+            .map(|tab| {
+                if selected {
+                    tab.bg(cx.theme().muted).text_color(cx.theme().foreground)
+                } else {
+                    tab.text_color(cx.theme().muted_foreground)
+                }
+            })
             .on_click(cx.listener(move |view, event: &ClickEvent, window, cx| {
                 // The header is the window's title bar, whose double click zooms the window.
                 cx.stop_propagation();
+                // Releasing a dragged tab over itself is not a click.
+                if cx.has_active_drag() {
+                    return;
+                }
                 view.library_folder = chosen.clone();
                 if let Some(id) = &chosen
                     && event.click_count() > 1
@@ -144,18 +150,23 @@ impl NativeView {
                     view.begin_folder_edit(FolderEdit::Rename(id.clone()), window, cx);
                 }
                 cx.notify();
-            }));
-        let Some(id) = id else {
-            return tab.into_any_element();
+            }))
+    }
+
+    /// A folder's tab, which drags to reorder and opens the folder menu on right-click.
+    pub(super) fn folder_tab(&self, folder: &Folder, cx: &mut Context<Self>) -> Stateful<Div> {
+        let id = folder.id.clone();
+        let element = format!("folder-{id}");
+        let tab = self.tab_button(Some(id.clone()), &folder.name, cx);
+        let drag = FolderDrag {
+            id: id.clone(),
+            name: folder.name.clone().into(),
+            grab: Cell::new(0.0),
         };
-        let wrapper = div()
-            .id(format!("{element}-menu"))
-            .flex_shrink_0()
-            .child(tab);
+        let wrapper = draggable(div().id(format!("{element}-menu")).child(tab), drag);
         with_menu(wrapper, element, true, self, cx, move |view, _, cx| {
             view.folder_menu(&id, cx)
         })
-        .into_any_element()
     }
 
     fn folder_menu(&self, id: &FolderId, cx: &mut Context<Self>) -> Vec<MenuItem> {
@@ -238,7 +249,7 @@ impl NativeView {
 
     /// A borderless field in a tab-shaped fill: an input's own focus ring would draw outside it
     /// and be clipped by the scrolling strip.
-    fn folder_name_field(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn folder_name_field(&self, cx: &mut Context<Self>) -> AnyElement {
         div()
             .id("folder-name-field")
             .flex()
@@ -248,7 +259,7 @@ impl NativeView {
             .h(px(24.))
             .px_2()
             .rounded(cx.theme().radius)
-            .bg(cx.theme().secondary)
+            .bg(cx.theme().muted)
             .child(
                 Input::new(&self.folder_name)
                     .appearance(false)
@@ -310,7 +321,7 @@ impl NativeView {
         let change = match edit {
             _ if name.is_empty() => return,
             FolderEdit::Create => {
-                self.creating_folder = true;
+                self.creating_folder = Some(name.clone());
                 OrganizationChange::CreateFolder { name }
             }
             FolderEdit::Rename(id) => OrganizationChange::RenameFolder { id, name },
@@ -389,7 +400,7 @@ impl NativeView {
 }
 
 /// A tab's text; a button's own label keeps the kit's size for its button size.
-fn tab_label(text: &str) -> impl IntoElement {
+pub(super) fn tab_label(text: &str) -> impl IntoElement {
     div()
         .text_size(px(FOLDER_TAB_SIZE))
         .whitespace_nowrap()

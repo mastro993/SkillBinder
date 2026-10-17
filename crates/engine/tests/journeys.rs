@@ -348,6 +348,23 @@ async fn folders_hold_a_skill_once_and_unfile_it_when_deleted() {
     assert_eq!(after.library.skills[0].folder_id, None, "unfiled");
     let positions: Vec<_> = after.library.folders.iter().map(|f| f.position).collect();
     assert_eq!(positions, [0, 1], "positions stay dense");
+    let third = after.library.folders[1].id.clone();
+    let reorder = |order: Vec<FolderId>| OrganizationChange::ReorderFolders { order };
+    assert_eq!(
+        category(
+            engine
+                .change_organization(reorder(vec![third.clone(), third.clone()]))
+                .await
+        ),
+        ErrorCategory::Stale,
+        "an order must name every folder once"
+    );
+    let after = engine
+        .change_organization(reorder(vec![third.clone(), writing.clone()]))
+        .await
+        .unwrap();
+    let order: Vec<_> = after.library.folders.iter().map(|f| &f.id).collect();
+    assert_eq!(order, [&third, &writing]);
     engine.shutdown().await.unwrap();
 }
 
