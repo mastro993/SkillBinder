@@ -3,6 +3,7 @@ use anyhow::{Context, ensure};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fs,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -89,6 +90,16 @@ const NATIVE_TEST: &[(&str, &[&str])] = &[
 /// Members that own I/O and may replace the workspace `clippy.toml` with their own.
 const OWNS_IO: &[&str] = &["skillbinder", "skillbinder-engine", "xtask"];
 
+/// Sentinel entries proving the workspace `clippy.toml` still carries the I/O policy.
+const CLIPPY_POLICY: &[&str] = &[
+    "std::env::var",
+    "std::fs::File",
+    "std::fs::write",
+    "std::net::TcpStream",
+    "std::path::Path::exists",
+    "std::process::Command",
+];
+
 const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
 const GPUI_MCP: &str =
     "git+https://github.com/themixednuts/gpui-mcp?rev=9dda8e5cb49990261e3fdaa26abe38112d30dafb";
@@ -129,13 +140,15 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         names == expected,
         "Workspace members changed: expected {expected:?}, found {names:?}; update xtask graph policy if the crate is intentional"
     );
-    let dirs: BTreeSet<&Path> = members
+    let dirs: BTreeMap<&str, &Path> = members
         .iter()
-        .filter_map(|package| package.manifest_path.parent())
+        .filter_map(|package| Some((package.name.as_str(), package.manifest_path.parent()?)))
         .collect();
+    check_clippy_policy(root)?;
     for package in &members {
         check_dependencies(package, &dirs)?;
         check_features(package)?;
+        check_workspace_lints(package)?;
         check_clippy_scope(root, package)?;
     }
     Ok(())
@@ -165,7 +178,7 @@ fn workspace_packages(metadata: &Metadata) -> Vec<&Package> {
         .collect()
 }
 
-fn check_dependencies(package: &Package, members: &BTreeSet<&Path>) -> anyhow::Result<()> {
+fn check_dependencies(package: &Package, members: &BTreeMap<&str, &Path>) -> anyhow::Result<()> {
     let name = package.name.as_str();
     let (_, normal, dev) = POLICY
         .iter()
@@ -207,29 +220,62 @@ fn check_dependencies(package: &Package, members: &BTreeSet<&Path>) -> anyhow::R
     Ok(())
 }
 
-/// Local dependencies must be workspace members, so Clippy lints them; others come from
-/// crates.io or the pinned gpui-mcp revision.
-fn check_origin(name: &str, dep: &Dependency, members: &BTreeSet<&Path>) -> anyhow::Result<()> {
-    match (&dep.path, dep.source.as_deref()) {
-        (Some(path), None) => ensure!(
-            members.contains(path.as_path()),
-            "{name} dependency {} points at {}, which is not a workspace member",
+/// Workspace crates must resolve to their member directories, so Clippy lints them; others come
+/// from crates.io or the pinned gpui-mcp revision.
+fn check_origin(
+    name: &str,
+    dep: &Dependency,
+    members: &BTreeMap<&str, &Path>,
+) -> anyhow::Result<()> {
+    if let Some(dir) = members.get(dep.name.as_str()) {
+        ensure!(
+            dep.path.as_deref() == Some(*dir) && dep.source.is_none(),
+            "{name} dependency {} must be the workspace member at {}",
             dep.name,
+            dir.display()
+        );
+        return Ok(());
+    }
+    let expected = if dep.name == "gpui-mcp" {
+        GPUI_MCP
+    } else {
+        CRATES_IO
+    };
+    ensure!(
+        dep.path.is_none() && dep.source.as_deref() == Some(expected),
+        "{name} dependency {} must come from {expected}, found path {:?} source {:?}",
+        dep.name,
+        dep.path,
+        dep.source
+    );
+    Ok(())
+}
+
+/// Every member inherits `[workspace.lints]`, which forbids unsafe code and suppressing the I/O policy.
+fn check_workspace_lints(package: &Package) -> anyhow::Result<()> {
+    let manifest = fs::read_to_string(&package.manifest_path)
+        .with_context(|| format!("Could not read {}", package.manifest_path.display()))?;
+    let mut lines = manifest.lines().map(str::trim);
+    let inherits = lines.any(|line| line == "[lints]")
+        && lines.find(|line| !line.is_empty()) == Some("workspace = true");
+    ensure!(
+        inherits,
+        "{} must declare `[lints] workspace = true`",
+        package.manifest_path.display()
+    );
+    Ok(())
+}
+
+fn check_clippy_policy(root: &Path) -> anyhow::Result<()> {
+    let path = root.join("clippy.toml");
+    let policy = fs::read_to_string(&path)
+        .with_context(|| format!("Missing workspace I/O policy {}", path.display()))?;
+    for item in CLIPPY_POLICY {
+        ensure!(
+            policy.contains(&format!("path = \"{item}\"")),
+            "{} no longer disallows {item}",
             path.display()
-        ),
-        (None, Some(source)) => {
-            let expected = if dep.name == "gpui-mcp" {
-                GPUI_MCP
-            } else {
-                CRATES_IO
-            };
-            ensure!(
-                source == expected,
-                "{name} dependency {} comes from {source}; expected {expected}",
-                dep.name
-            );
-        }
-        _ => anyhow::bail!("{name} dependency {} has an unrecognized origin", dep.name),
+        );
     }
     Ok(())
 }
