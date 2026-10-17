@@ -64,6 +64,40 @@ mod tests {
         opens_at(&root.path().join("a %20?b#c.db"))
     }
 
+    /// Databases that already applied the initial migration, as released builds left them,
+    /// must upgrade in place, so applied migrations are never edited.
+    #[test]
+    fn upgrades_a_database_from_the_initial_schema() -> AppResult<()> {
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let path = root.path().join("state.db");
+        let mut initial = SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
+            .map_err(|_| AppError::storage())?;
+        initial
+            .run_next_migration(MIGRATIONS)
+            .map_err(|_| AppError::storage())?;
+        initial
+            .batch_execute(
+                "INSERT INTO device_settings(key, value) VALUES('kept', '1'); \
+                 INSERT INTO skill_metadata VALUES('old', '', 'Valid', 0);",
+            )
+            .map_err(|_| AppError::storage())?;
+        drop(initial);
+        let mut upgraded = open(&path)?;
+        let kept = crate::schema::device_settings::table
+            .count()
+            .get_result::<i64>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        let skills = crate::schema::skills::table
+            .count()
+            .get_result::<i64>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        if (kept, skills) == (1, 0) {
+            Ok(())
+        } else {
+            Err(AppError::storage())
+        }
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn opens_paths_that_are_not_utf8() -> AppResult<()> {
