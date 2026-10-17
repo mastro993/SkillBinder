@@ -24,6 +24,7 @@ fn deferred(scans: &Scans, config: &EngineConfig, log: &Logger) -> Work {
             Vec::new(),
             BTreeMap::new(),
             log.clone(),
+            true,
             |work| {
                 pending = Some(work);
                 Ok(())
@@ -66,6 +67,7 @@ fn launch_failure_is_a_failed_scan_and_retryable_without_hanging_shutdown() {
         Vec::new(),
         BTreeMap::new(),
         log.clone(),
+        true,
         |_| Err(std::io::Error::other("injected spawn refusal")),
     );
     assert!(result.is_err());
@@ -82,4 +84,25 @@ fn launch_failure_is_a_failed_scan_and_retryable_without_hanging_shutdown() {
     scans.wait_for_shutdown();
     deferred(&scans, &config, &log)();
     assert_eq!(scans.current().unwrap().0.unwrap().error, None);
+}
+
+#[test]
+fn a_refresh_keeps_the_running_scan() {
+    let (_directory, config, log) = fixture();
+    let scans = Scans::default();
+    let running = deferred(&scans, &config, &log);
+    scans
+        .start_with(
+            config.clone(),
+            Vec::new(),
+            BTreeMap::new(),
+            log.clone(),
+            false,
+            |_| panic!("a refresh must not start a second scan"),
+        )
+        .unwrap();
+    running();
+    let (found, running) = scans.current().unwrap();
+    assert!(!running);
+    assert_eq!(found.unwrap().error, None);
 }
