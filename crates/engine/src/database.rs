@@ -8,10 +8,13 @@ use std::path::Path;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
-/// Opens the database at `path`, creating it when absent, and applies pending migrations.
+/// Opens the database at the absolute `path`, creating it when absent, and applies pending
+/// migrations. The path reaches SQLite as a percent-encoded `file:` URI, so its bytes arrive
+/// unchanged even when they are not UTF-8.
 pub(crate) fn open(path: &Path) -> AppResult<SqliteConnection> {
-    let path = path.to_str().ok_or_else(AppError::storage)?;
-    let mut connection = SqliteConnection::establish(path).map_err(|_| AppError::storage())?;
+    let uri = url::Url::from_file_path(path).map_err(|()| AppError::storage())?;
+    let mut connection =
+        SqliteConnection::establish(uri.as_str()).map_err(|_| AppError::storage())?;
     connection
         .batch_execute(
             "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;",
@@ -78,4 +81,39 @@ pub(crate) fn transaction<T>(
     connection
         .transaction(|connection| body(connection).map_err(Failure))
         .map_err(|Failure(error)| error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn opens_at(path: &Path) -> AppResult<()> {
+        let mut connection = open(path)?;
+        connection
+            .batch_execute("INSERT INTO device_settings(key, value) VALUES('probe', '1');")
+            .map_err(|_| AppError::storage())?;
+        if path.is_file() {
+            Ok(())
+        } else {
+            Err(AppError::storage())
+        }
+    }
+
+    #[test]
+    fn opens_paths_with_uri_delimiters() -> AppResult<()> {
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        opens_at(&root.path().join("a %20?b#c.db"))
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn opens_paths_that_are_not_utf8() -> AppResult<()> {
+        use std::os::unix::ffi::OsStrExt;
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        opens_at(
+            &root
+                .path()
+                .join(std::ffi::OsStr::from_bytes(b"data-\xff.db")),
+        )
+    }
 }
