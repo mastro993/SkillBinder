@@ -8,8 +8,9 @@ export max_bytes=20000
 # xargs -0 passes each NUL-terminated path whole, even one holding a newline. T covers a
 # symlink replaced by a regular file; submodules are not files. Like Git, a staged blob with a
 # NUL byte in its first 8,000 bytes is binary; unstaged .gitattributes edits cannot change that.
-# ":0:" names the staged entry even when the path itself starts with "1:".
-too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT -z |
+# ":0:" names the staged entry even when the path itself starts with "1:". CI passes the empty
+# tree as $1 to check every tracked file, which also covers cherry-picks and rebases.
+too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT -z ${1:+"$1"} |
 	xargs -0 sh -c '
 		for path; do
 			git --literal-pathspecs ls-files --stage -- "$path" | grep -q "^160000" && continue
