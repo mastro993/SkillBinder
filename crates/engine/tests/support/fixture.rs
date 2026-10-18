@@ -52,6 +52,7 @@ impl Fixture {
         database
     }
 
+    #[allow(dead_code, reason = "Not every test crate writes a workspace skill.")]
     pub fn skill(&self, slug: &str, body: &str) -> PathBuf {
         write_skill(&self.workspace.join(".agents/skills"), slug, body)
     }
@@ -78,6 +79,7 @@ impl Fixture {
         scan(engine).await
     }
 
+    #[allow(dead_code, reason = "Not every test crate installs a skill.")]
     pub async fn import_one(&self, engine: &Engine, candidate: &Candidate) -> SkillId {
         let plan = engine
             .prepare_import(vec![candidate.id.clone()], false)
@@ -128,6 +130,10 @@ pub async fn scan(engine: &Engine) -> ScanSnapshot {
     }
 }
 
+#[allow(
+    dead_code,
+    reason = "Not every test crate expects an operation to fail."
+)]
 pub fn category<T>(result: AppResult<T>) -> ErrorCategory {
     match result {
         Ok(_) => panic!("operation unexpectedly succeeded"),
