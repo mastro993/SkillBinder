@@ -6,17 +6,18 @@
 export max_bytes=20000
 
 # xargs -0 passes each NUL-terminated path whole, even one holding a newline. T covers a
-# symlink replaced by a regular file; submodules are not files. Binary files show "-" for their
-# line counts in numstat.
+# symlink replaced by a regular file; submodules are not files. Like Git, a staged blob with a
+# NUL byte in its first 8,000 bytes is binary; unstaged .gitattributes edits cannot change that.
 too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT --ignore-submodules=all -z |
 	xargs -0 sh -c '
 		for path; do
-			git --literal-pathspecs diff --cached --numstat -- "$path" | grep -q "^-" &&
+			bytes=$(git cat-file -s ":$path") || exit 255
+			[ "$bytes" -gt "$max_bytes" ] || continue
+			git cat-file blob ":$path" | head -c 8000 | od -An -v -tx1 | grep -q " 00" &&
 				continue
 			git check-attr --cached linguist-generated linguist-vendored -- "$path" |
 				grep -Eq ": (set|true)$" && continue
-			bytes=$(git cat-file -s ":$path") || exit 255
-			[ "$bytes" -gt "$max_bytes" ] && printf "  %s: %s bytes\n" "$path" "$bytes"
+			printf "  %s: %s bytes\n" "$path" "$bytes"
 		done
 		exit 0
 	' sh) || exit 1
