@@ -127,9 +127,9 @@ impl State {
         inspection: &payload::Inspection,
     ) -> AppResult<(Record, Option<Drift>)> {
         let Some(record) = self.read_record(slug) else {
-            let record = Record::of(inspection, None);
-            self.write_record(slug, &record)?;
-            return Ok((record, None));
+            // Its file is written at the next Push or Sync, which commits it: written now, it
+            // would dirty the library and block a Pull of what other devices pushed meanwhile.
+            return Ok((Record::of(inspection, None), None));
         };
         if record.tree == inspection.tree {
             return Ok((record, None));
@@ -185,7 +185,7 @@ mod tests {
     }
 
     #[test]
-    fn a_skill_without_a_record_gets_one_without_any_commit() {
+    fn a_skill_without_a_record_gets_one_at_the_next_push() {
         let directory = tempfile::tempdir().unwrap();
         let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
         let skill = state.library_dir().join("skills/foo");
@@ -207,9 +207,12 @@ mod tests {
         saved.recorded.clear();
         library_store::save_skill(&mut state.database.borrow_mut(), &saved).unwrap();
         state.reconcile_library().unwrap();
-        assert_eq!(state.read_record("foo").unwrap().tree, inspection.tree);
         let unrecorded = library_store::unrecorded(&mut state.database.borrow_mut()).unwrap();
         assert!(unrecorded.is_empty());
+        // The file waits for the next Push or Sync, so a Pull is never blocked by it.
+        assert!(state.read_record("foo").is_none());
+        state.write_missing_records().unwrap();
+        assert_eq!(state.read_record("foo").unwrap().tree, inspection.tree);
     }
 
     #[cfg(unix)]

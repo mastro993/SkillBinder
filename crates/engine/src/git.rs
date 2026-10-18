@@ -66,7 +66,11 @@ impl Git {
             return Ok(());
         }
         std::fs::create_dir_all(repo).map_err(|_| AppError::storage())?;
-        self.output(repo, &["init", "--initial-branch=main"])?;
+        // Records hold SHA-1 tree ids, whatever the user's default object format.
+        self.output(
+            repo,
+            &["init", "--object-format=sha1", "--initial-branch=main"],
+        )?;
         self.scope(repo)
     }
     /// Validates remote syntax and the complete Git branch grammar.
@@ -373,7 +377,14 @@ impl Git {
         process::run(
             &self.executable,
             None,
-            &["init", "--bare", "--quiet", "--", path],
+            &[
+                "init",
+                "--bare",
+                "--quiet",
+                "--object-format=sha1",
+                "--",
+                path,
+            ],
             Duration::from_secs(30),
         )
         .ok()

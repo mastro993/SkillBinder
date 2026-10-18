@@ -136,6 +136,23 @@ impl State {
         }
     }
 
+    /// Writes the record of each library skill that has none on disk from the one the database
+    /// caches, before a Push or Sync commits the library.
+    pub(crate) fn write_missing_records(&self) -> AppResult<()> {
+        for skill in self.read_library()?.skills {
+            let slug = skill.id.as_str();
+            if skill.recorded.is_empty() || self.read_record(slug).is_some() {
+                continue;
+            }
+            let record = Record {
+                tree: skill.recorded,
+                source: skill.source,
+            };
+            self.write_record(slug, &record)?;
+        }
+        Ok(())
+    }
+
     /// Removes the records whose skill directory is not among `listed`, such as one an import
     /// interrupted before its skill arrived left behind.
     pub(crate) fn remove_orphan_records(&self, listed: &BTreeSet<String>) -> AppResult<()> {

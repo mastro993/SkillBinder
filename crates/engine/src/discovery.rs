@@ -91,7 +91,8 @@ impl Scans {
         Ok(self.lock()?.completed)
     }
 
-    /// The found copies the last complete scan matched to a library skill by content.
+    /// The found copies the last complete scan matched to a library skill, by content or by
+    /// slug.
     pub(crate) fn library_copies(&self) -> AppResult<Vec<(SkillId, ImportSource)>> {
         let state = self.lock()?;
         let Some(found) = state
@@ -107,7 +108,7 @@ impl Scans {
             .iter()
             .filter_map(|candidate| {
                 let source = found.sources.get(&candidate.id)?;
-                Some((candidate.skill_id.clone()?, source.clone()))
+                Some((candidate.in_library()?.clone(), source.clone()))
             })
             .collect())
     }

@@ -100,6 +100,19 @@ pub(crate) fn set_source(
         .map_err(|_| AppError::storage())
 }
 
+/// Records whether skill `slug` drifted from its record.
+pub(crate) fn set_drift(
+    connection: &mut SqliteConnection,
+    slug: &str,
+    drift: Option<Drift>,
+) -> AppResult<()> {
+    diesel::update(skills::table.find(slug))
+        .set(skills::drift.eq(drift.as_ref().map(to_text).transpose()?))
+        .execute(connection)
+        .map(drop)
+        .map_err(|_| AppError::storage())
+}
+
 /// Removes a skill; its preset memberships cascade away with it.
 pub(crate) fn delete_skill(connection: &mut SqliteConnection, slug: &str) -> AppResult<()> {
     diesel::delete(skills::table.find(slug))

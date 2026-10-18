@@ -459,3 +459,24 @@ async fn a_skill_whose_recorded_content_is_nowhere_cannot_reinstall() {
     );
     device.engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn a_skill_without_a_record_never_blocks_a_pull_and_gets_one_at_push() {
+    let device = Device::published(&["alpha"]).await;
+    // A peer's older build publishes the skill without its record.
+    device.peer_push(|skills| {
+        fs::remove_file(skills.with_file_name("records").join("alpha.toml")).unwrap();
+    });
+    device.engine.synchronize(SyncAction::Pull).await.unwrap();
+    assert!(!device.engine.snapshot().await.unwrap().sync.uncommitted);
+    device.peer_push(|skills| {
+        write_skill(skills, "alpha", "Second version");
+    });
+    device.engine.synchronize(SyncAction::Pull).await.unwrap();
+    assert!(!device.library().join("records/alpha.toml").exists());
+    device.engine.synchronize(SyncAction::Push).await.unwrap();
+    let published = git(&device.library(), &["ls-tree", "-r", "--name-only", "HEAD"]);
+    assert!(published.contains("records/alpha.toml"), "{published}");
+    assert_eq!(skill(&snapshot(&device.engine).await, "alpha").drift, None);
+    device.engine.shutdown().await.unwrap();
+}

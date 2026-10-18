@@ -9,7 +9,7 @@ pub(crate) use checks::{Updates, check};
 
 use crate::{git::Git, payload, payload::Inspection, records::Record, worker::State};
 use sha2::{Digest, Sha256};
-use skillbinder_proto::{AppError, AppResult, SkillSource, ValidationStatus};
+use skillbinder_proto::{AppError, AppResult, Drift, SkillSource, ValidationStatus};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -49,6 +49,14 @@ impl State {
                 // The cache would never learn the file's source again, so the file goes back.
                 self.restore_record(slug, previous.as_ref());
                 return Err(error);
+            }
+            if skill.drift == Some(Drift::Lost) {
+                // The source may still publish the recorded content.
+                crate::library_store::set_drift(
+                    &mut self.database.borrow_mut(),
+                    slug,
+                    Some(Drift::Restorable),
+                )?;
             }
             self.log.record(format!("Learned the source of {slug}"));
         }
