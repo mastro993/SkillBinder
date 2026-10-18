@@ -100,6 +100,23 @@ pub(crate) fn set_source(
         .map_err(|_| AppError::storage())
 }
 
+/// The source the database caches for skill `slug`, if any.
+pub(crate) fn cached_source(
+    connection: &mut SqliteConnection,
+    slug: &str,
+) -> AppResult<Option<SkillSource>> {
+    skills::table
+        .find(slug)
+        .select(skills::source)
+        .first::<Option<String>>(connection)
+        .optional()
+        .map_err(|_| AppError::storage())?
+        .flatten()
+        .as_deref()
+        .map(from_json)
+        .transpose()
+}
+
 /// Records whether skill `slug` drifted from its record.
 pub(crate) fn set_drift(
     connection: &mut SqliteConnection,

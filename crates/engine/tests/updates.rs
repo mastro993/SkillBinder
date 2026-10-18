@@ -202,13 +202,9 @@ async fn a_skill_imported_without_a_source_learns_it_from_a_matching_copy() {
     let snapshot = engine.snapshot().await.unwrap();
     let skill = &snapshot.library.unwrap().library.skills[0];
     assert_eq!(skill.source.as_ref().unwrap().path, "skills/review");
-    assert!(
-        published
-            .fixture
-            .data
-            .join("library/records/review.toml")
-            .exists()
-    );
+    // Learning leaves the library clean; the next Push or Sync writes the source into the record.
+    let record = published.fixture.data.join("library/records/review.toml");
+    assert!(!fs::read_to_string(record).unwrap().contains("[source]"));
     engine.shutdown().await.unwrap();
 }
 

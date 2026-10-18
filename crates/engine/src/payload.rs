@@ -69,8 +69,13 @@ pub struct Inspection {
     pub messages: Vec<ValidationMessage>,
     /// Materialized content fingerprint and entries.
     pub manifest: Manifest,
-    /// The Git tree id of the materialized content.
+    /// The Git tree id of the materialized content. Plans saved before it existed read an empty
+    /// one, which no inspection matches, so applying them reports the source as changed.
+    #[serde(default)]
     pub tree: String,
+    /// Unix seconds of the newest file's modification, if any was read.
+    #[serde(default)]
+    pub modified: Option<u64>,
 }
 
 /// Inspects a source without writing it. Unsafe payloads return a blocked report;

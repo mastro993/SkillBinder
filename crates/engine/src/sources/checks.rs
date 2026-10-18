@@ -204,6 +204,15 @@ fn check_group(git: &Git, data_dir: &Path, skills: &[Due], log: &Logger) -> Vec<
     skills
         .iter()
         .map(|skill| {
+            // Records hold the tree id Git stores, so an unchanged folder is known from its tree
+            // object alone, without fetching or writing its files. A folder whose files only
+            // materialize differently, such as one with links, falls through to the checkout.
+            match git.source_tree(&cache, &skill.source.path) {
+                Ok(Some(tree)) if tree == skill.recorded => return UpdateCheck::UpToDate,
+                Ok(None) => return UpdateCheck::Failed(GONE.to_owned()),
+                Ok(Some(_)) => {}
+                Err(error) => return failed(error),
+            }
             let staging = data_dir
                 .join("staging")
                 .join(format!("check-{}", uuid::Uuid::new_v4()));

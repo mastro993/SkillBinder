@@ -1,5 +1,6 @@
 //! Bounded Git operations for the library's skill directories and their records.
 mod adoption;
+mod objects;
 mod process;
 mod source;
 #[cfg(test)]
@@ -95,11 +96,24 @@ impl Git {
         self.status(repo, Some(remote), true)
     }
     /// Executes an explicit operation. The engine owns persistence of remote selection.
+    #[cfg(test)]
     pub fn perform(
         &self,
         repo: &Path,
         remote: Option<&RemoteConfig>,
         action: SyncAction,
+    ) -> AppResult<SyncSnapshot> {
+        self.perform_with(repo, remote, action, &|| Ok(()))
+    }
+    /// Executes an explicit operation, running `before_commit` right before a Push or Sync
+    /// commits when nothing was pulled, so files it writes join that commit and never dirty the
+    /// library ahead of a Pull.
+    pub fn perform_with(
+        &self,
+        repo: &Path,
+        remote: Option<&RemoteConfig>,
+        action: SyncAction,
+        before_commit: &dyn Fn() -> AppResult<()>,
     ) -> AppResult<SyncSnapshot> {
         if matches!(action, SyncAction::Disconnect) {
             self.disconnect_origin(repo)?;
@@ -132,6 +146,9 @@ impl Git {
             self.output(repo, &["merge", "--ff-only", "--no-edit", REMOTE_REF])?;
         }
         if matches!(action, SyncAction::Push | SyncAction::Sync) {
+            if before.behind == 0 {
+                before_commit()?;
+            }
             self.commit(repo)?;
             if self.revision(repo, "HEAD")?.is_some() {
                 self.output(
@@ -352,53 +369,6 @@ impl Git {
             .filter_map(|path| skill_of(path).or_else(|| record_of(path)))
             .map(str::to_owned)
             .collect())
-    }
-    /// Whether the library's object database holds the tree `tree`.
-    pub fn has_tree(&self, repo: &Path, tree: &str) -> AppResult<bool> {
-        let out = process::run(
-            &self.executable,
-            Some(repo),
-            &["cat-file", "-t", "--end-of-options", tree],
-            Duration::from_secs(30),
-        )?;
-        Ok(out.status.success() && out.stdout.trim_ascii() == b"tree")
-    }
-    /// Writes the files of the library's tree `tree` into the empty directory `into`, through a
-    /// scratch repository at `scratch` that borrows the library's objects, so the library's index
-    /// and working tree are never touched.
-    pub fn restore_tree(
-        &self,
-        repo: &Path,
-        tree: &str,
-        scratch: &Path,
-        into: &Path,
-    ) -> AppResult<()> {
-        let path = scratch.to_str().ok_or_else(AppError::storage)?;
-        process::run(
-            &self.executable,
-            None,
-            &[
-                "init",
-                "--bare",
-                "--quiet",
-                "--object-format=sha1",
-                "--",
-                path,
-            ],
-            Duration::from_secs(30),
-        )
-        .ok()
-        .filter(|out| out.status.success())
-        .ok_or_else(|| failure("Git could not prepare the restore."))?;
-        let objects =
-            std::fs::canonicalize(repo.join(".git/objects")).map_err(|_| AppError::storage())?;
-        let objects = objects.to_str().ok_or_else(AppError::storage)?;
-        std::fs::write(
-            scratch.join("objects/info/alternates"),
-            format!("{objects}\n"),
-        )
-        .map_err(|_| AppError::storage())?;
-        self.checkout_tree(scratch, tree, into)
     }
     /// The commit `name` resolves to, if any.
     pub fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {

@@ -126,12 +126,18 @@ impl State {
         slug: &str,
         inspection: &payload::Inspection,
     ) -> AppResult<(Record, Option<Drift>)> {
+        // A source learned on this device waits in the database for the next Push or Sync to
+        // write it into the record, so a record without one keeps it.
+        let cached = library_store::cached_source(&mut self.database.borrow_mut(), slug)?;
         // An unreadable record fails the skill's reconcile, which keeps its row and retries.
-        let Some(record) = self.stored_record(slug)? else {
+        let Some(mut record) = self.stored_record(slug)? else {
             // Its file is written at the next Push or Sync, which commits it: written now, it
             // would dirty the library and block a Pull of what other devices pushed meanwhile.
-            return Ok((Record::of(inspection, None), None));
+            return Ok((Record::of(inspection, cached), None));
         };
+        if record.source.is_none() {
+            record.source = cached;
+        }
         if record.tree == inspection.tree {
             return Ok((record, None));
         }
@@ -217,8 +223,20 @@ mod tests {
         assert!(unrecorded.is_empty());
         // The file waits for the next Push or Sync, so a Pull is never blocked by it.
         assert!(state.read_record("foo").is_none());
-        state.write_missing_records().unwrap();
+        state.write_pending_records().unwrap();
         assert_eq!(state.read_record("foo").unwrap().tree, inspection.tree);
+        // A source learned later waits in the database, survives a reconcile, and is written by
+        // the next Push or Sync.
+        let source = skillbinder_proto::SkillSource {
+            url: "https://example.invalid/o/r.git".into(),
+            reference: None,
+            path: "foo".into(),
+        };
+        library_store::set_source(&mut state.database.borrow_mut(), "foo", &source).unwrap();
+        state.reconcile_slugs(["foo".to_owned()]).unwrap();
+        assert_eq!(state.read_record("foo").unwrap().source, None);
+        state.write_pending_records().unwrap();
+        assert_eq!(state.read_record("foo").unwrap().source, Some(source));
     }
 
     #[cfg(unix)]

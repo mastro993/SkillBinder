@@ -170,7 +170,7 @@ impl Traversal<'_> {
             key: normalized(&inspection.slug),
             preferred: false,
             matches_source: false,
-            modified: crate::library::newest_modification(&canonical),
+            modified: inspection.modified,
             skill_id: self
                 .managed
                 .digests

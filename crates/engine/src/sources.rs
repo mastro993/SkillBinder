@@ -7,10 +7,11 @@ pub(crate) mod lock;
 
 pub(crate) use checks::{Updates, check};
 
-use crate::{git::Git, payload, payload::Inspection, records::Record, worker::State};
+use crate::{git::Git, payload, payload::Inspection, worker::State};
 use sha2::{Digest, Sha256};
 use skillbinder_proto::{AppError, AppResult, Drift, SkillSource, ValidationStatus};
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -19,12 +20,15 @@ impl State {
     /// Gives each library skill without a source the one a `skills` lock file records for a found
     /// copy with exactly its recorded content, as importing that copy would have, so skills
     /// imported before sources were kept, or that arrived by Pull, can update. A learned source
-    /// is never dropped when the copy goes away.
+    /// is never dropped when the copy goes away. Only the database learns it here: the record
+    /// file follows at the next Push or Sync, so learning never dirties the library before a
+    /// Pull.
     pub(crate) fn learn_sources(&self) -> AppResult<()> {
         let copies = self.scans.library_copies()?;
         let library = self.read_library()?;
+        // Each lock file is read once per learning pass.
+        let mut locks: BTreeMap<PathBuf, Option<lock::Lock>> = BTreeMap::new();
         for skill in library.skills.iter().filter(|skill| skill.source.is_none()) {
-            // ponytail: reads the locks once per skill; learning happens once per skill.
             let Some(source) = copies
                 .iter()
                 .filter(|(id, copy)| {
@@ -32,24 +36,20 @@ impl State {
                         && copy.inspection.status != ValidationStatus::Blocked
                         && copy.inspection.tree == skill.recorded
                 })
-                .find_map(|(_, copy)| lock::source(&copy.locks, &copy.inspection.slug))
+                .find_map(|(_, copy)| {
+                    copy.locks.iter().find_map(|path| {
+                        locks
+                            .entry(path.clone())
+                            .or_insert_with(|| lock::read(path))
+                            .as_ref()?
+                            .source(&copy.inspection.slug)
+                    })
+                })
             else {
                 continue;
             };
             let slug = skill.id.as_str();
-            let previous = self.read_record(slug);
-            let record = Record {
-                tree: skill.recorded.clone(),
-                source: Some(source.clone()),
-            };
-            self.write_record(slug, &record)?;
-            let cached =
-                crate::library_store::set_source(&mut self.database.borrow_mut(), slug, &source);
-            if let Err(error) = cached {
-                // The cache would never learn the file's source again, so the file goes back.
-                self.restore_record(slug, previous.as_ref());
-                return Err(error);
-            }
+            crate::library_store::set_source(&mut self.database.borrow_mut(), slug, &source)?;
             if skill.drift == Some(Drift::Lost) {
                 // The source may still publish the recorded content.
                 crate::library_store::set_drift(
@@ -117,8 +117,11 @@ fn cache_dir(data_dir: &Path, user: CacheUser, source: &SkillSource) -> PathBuf 
 
 /// Why fetched source content cannot replace a library skill, if it cannot.
 fn refusal(fetched: &Inspection) -> Option<&'static str> {
-    if fetched.status == skillbinder_proto::ValidationStatus::Blocked {
+    if fetched.status == ValidationStatus::Blocked {
         Some("The source's current version is blocked and cannot be imported.")
+    } else if fetched.status == ValidationStatus::Invalid {
+        // Importing it would need an acknowledgement, which an update cannot ask for.
+        Some("The source's current version has invalid skill metadata.")
     } else if fetched.manifest.file_count() == 0 {
         // Git tracks files, not directories, so a skill without files would never sync.
         Some("The source's current version has no files.")

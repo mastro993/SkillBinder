@@ -4,7 +4,7 @@ The library has to know what each skill should contain and where it was publishe
 
 The source is learned at import from the `skills` lock entry beside the imported version, and the recorded hash is the imported content's own tree hash, even when the lock recorded a different one. Importing, updating, and reinstalling write the record; the user never edits a library skill. A skill whose content differs from its record has drifted. Reinstalling restores the recorded tree, from the library's own Git objects when they hold it, which works for skills without a source, or else from the source. A skill without a record, imported before records existed or pulled from an older build, gets one from its current content at reconciliation; its file is written by the next Push or Sync that has nothing to pull, so creating it never blocks a Pull.
 
-The engine checks a source with the `git` CLI it already runs. It does a shallow, blobless fetch of the repository at its ref, then compares the tree of the skill's folder with the recorded tree hash. A Git tree hash is also what the `skills` lock stores as `skillFolderHash` for GitHub sources, so the two can be compared directly. Only Git-hosted sources are supported.
+The engine checks a source with the `git` CLI it already runs. It does a shallow, blobless fetch of the repository at its ref, then compares the tree of the skill's folder with the recorded tree hash, which needs no file content when they are equal. A Git tree hash is also what the `skills` lock stores as `skillFolderHash` for GitHub sources, so the two can be compared directly. Only Git-hosted sources are supported.
 
 ## Considered Options
 

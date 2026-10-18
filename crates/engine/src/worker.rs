@@ -361,16 +361,11 @@ impl State {
         let current = matches!(action, SyncAction::Push)
             && git.revision(&repo, "HEAD").ok()
                 == Some(self.setting::<Option<String>>(RECONCILED_HEAD)?.flatten());
-        // Missing records are committed once nothing waits to be pulled: written while the
-        // remote is ahead, they would dirty the library and block the Pull.
-        if matches!(action, SyncAction::Push | SyncAction::Sync)
-            && git
-                .status(&repo, remote.as_ref(), true)
-                .is_ok_and(|status| status.behind == 0)
-        {
-            self.write_missing_records()?;
-        }
-        let result = git.perform(&repo, remote.as_ref(), action);
+        // Pending records are committed only when nothing was pulled: written after a pull, they
+        // would replace pulled records with this device's older ones before reconciling.
+        let result = git.perform_with(&repo, remote.as_ref(), action, &|| {
+            self.write_pending_records()
+        });
         // A Push only commits what the database already holds. A Pull or Sync, including one
         // that fast-forwarded before its push failed, reconciles what moved.
         let caught_up = match action {

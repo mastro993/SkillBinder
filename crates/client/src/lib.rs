@@ -10,10 +10,10 @@ use std::{
     },
     time::Duration,
 };
+use tokio::{runtime::Handle, sync::watch};
 
 /// How long a source check holds before the next refresh checks the skill again.
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
-use tokio::{runtime::Handle, sync::watch};
 
 struct Shared {
     engine: Engine,
@@ -198,8 +198,8 @@ impl Client {
             }
         });
     }
-    /// Checks the sources not checked within the hour, then publishes their update states.
-    /// Checks the sources due for a check; `false` when another check was running.
+    /// Checks the sources due for a check, then publishes their update states; `false` when
+    /// another check was running.
     async fn check_updates(&self) -> bool {
         let checked = self
             .shared

@@ -141,27 +141,21 @@ impl State {
         }
     }
 
-    /// Puts back `slug`'s previous record after a change failed, logging instead of failing.
-    pub(crate) fn restore_record(&self, slug: &str, record: Option<&Record>) {
-        if let Err(error) = self.put_record(slug, record) {
-            self.log
-                .record(format!("Record of {slug} could not be restored: {error}"));
-        }
-    }
-
-    /// Writes the record of each library skill that has none on disk from the one the database
-    /// caches, before a Push or Sync commits the library.
-    pub(crate) fn write_missing_records(&self) -> AppResult<()> {
+    /// Writes each library skill's record whose file is missing or lacks what the database
+    /// caches, such as a learned source, before a Push or Sync commits the library.
+    pub(crate) fn write_pending_records(&self) -> AppResult<()> {
         for skill in self.read_library()?.skills {
-            let slug = skill.id.as_str();
-            if skill.recorded.is_empty() || self.read_record(slug).is_some() {
+            if skill.recorded.is_empty() {
                 continue;
             }
+            let slug = skill.id.as_str();
             let record = Record {
                 tree: skill.recorded,
                 source: skill.source,
             };
-            self.write_record(slug, &record)?;
+            if self.read_record(slug).as_ref() != Some(&record) {
+                self.write_record(slug, &record)?;
+            }
         }
         Ok(())
     }
@@ -175,14 +169,25 @@ impl State {
             Err(_) => return Err(AppError::storage()),
         };
         for entry in entries {
-            let name = entry.map_err(|_| AppError::storage())?.file_name();
-            if let Some(slug) = name.to_str().and_then(|name| name.strip_suffix(".toml"))
-                && !listed.contains(slug)
-            {
-                self.log
-                    .record(format!("Removing the orphan record of {slug}"));
-                self.remove_record(slug)?;
+            let entry = entry.map_err(|_| AppError::storage())?;
+            let name = entry.file_name();
+            let Some(slug) = name.to_str().and_then(|name| name.strip_suffix(".toml")) else {
+                continue;
+            };
+            if listed.contains(slug) {
+                continue;
             }
+            // Something no import wrote, such as a folder or a name no skill can have, is left
+            // for the user rather than failing every reconcile.
+            if !payload::portable(slug) || !entry.file_type().is_ok_and(|kind| kind.is_file()) {
+                self.log.record(format!(
+                    "Leaving an unexpected entry in records: {slug}.toml"
+                ));
+                continue;
+            }
+            self.log
+                .record(format!("Removing the orphan record of {slug}"));
+            self.remove_record(slug)?;
         }
         Ok(())
     }
