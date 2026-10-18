@@ -4,6 +4,7 @@
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
+#[path = "support/fixture.rs"]
 mod support;
 
 use diesel::{prelude::*, sql_types::Text};

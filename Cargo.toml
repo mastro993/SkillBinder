@@ -54,6 +54,7 @@ todo = "deny"
 unimplemented = "deny"
 print_stdout = "deny"
 print_stderr = "deny"
+mod_module_files = "warn"
 # clippy.toml lists the I/O APIs; forbid stops a crate from allowing them back.
 disallowed_methods = "forbid"
 disallowed_types = "forbid"

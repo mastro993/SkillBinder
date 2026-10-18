@@ -18,7 +18,7 @@ Do not add workspace members or new crate dependencies without updating the grap
 
 ## Implementation
 
-Use small, specialized modules. Model state with typed data and enums. Use `Result`, `Option`, and `?`. Encode invariants in constructors and destructuring matches so new fields fail to compile until handled.
+Use small, specialized modules. A module with submodules is `foo.rs` plus a `foo/` folder, never `foo/mod.rs`; clippy's `mod_module_files` rejects `mod.rs`. Model state with typed data and enums. Use `Result`, `Option`, and `?`. Encode invariants in constructors and destructuring matches so new fields fail to compile until handled.
 
 Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The workspace `clippy.toml` denies filesystem, process, network, environment, and terminal APIs; only `crates/engine`, `apps/desktop`, and `xtask` replace it with their own. It is generated from `xtask/src/clippy_policy.rs` (`cargo run -p xtask -- clippy-policy`). Workspace lints forbid allowing those APIs back, and xtask verify rejects any other `clippy.toml`; move the work into the engine instead.
 

@@ -5,6 +5,7 @@
 )]
 #[path = "support/expiry.rs"]
 mod expiry;
+#[path = "support/fixture.rs"]
 mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
