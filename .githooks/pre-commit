@@ -1,6 +1,6 @@
 #!/bin/sh
-# Rejects a commit that stages a file over 5,000 tokens, counted as bytes / 4, so every file stays
-# small enough for an agent to read whole. Binary files and paths .gitattributes marks
+# Rejects a commit that stages a file over 5,000 tokens, counted as bytes / 4 rounded up, so every
+# file stays small enough for an agent to read whole. Binary files and paths .gitattributes marks
 # linguist-generated or linguist-vendored are skipped: agents do not write them.
 
 export max_tokens=5000
@@ -15,7 +15,7 @@ too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT -z ${1:+
 		for path; do
 			git --literal-pathspecs ls-files --stage -- "$path" | grep -q "^160000" && continue
 			bytes=$(git cat-file -s ":0:$path") || exit 255
-			tokens=$((bytes / 4))
+			tokens=$(((bytes + 3) / 4))
 			[ "$tokens" -gt "$max_tokens" ] || continue
 			git cat-file blob ":0:$path" | head -c 8000 | od -An -v -tx1 | grep -q " 00" &&
 				continue
