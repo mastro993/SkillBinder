@@ -7,7 +7,7 @@ SkillBinder manages a local library of agent skills with native GPUI screens and
 
 ## Run
 
-Install Rust 1.96 through `rustup` and the [platform prerequisites](docs/native-gate.md). Then run:
+Install Rust 1.96 through `rustup` and the [platform prerequisites](docs/native-gate/checks.md#prerequisites). Then run:
 
 ```sh
 cargo run -p skillbinder --locked
@@ -43,6 +43,6 @@ For isolated native testing:
 cargo run -p skillbinder --features native-test --locked -- --data-dir /tmp/skillbinder-test --home /tmp/skillbinder-test-home
 ```
 
-Add `--smoke-test` to exercise native rendering, text, focus, overlays, and orderly exit automatically against the isolated data directory. The `native-test` build also accepts `--mcp --data-dir <isolated-path>` for opt-in UI automation through the [GPUI MCP bridge](docs/native-gate.md#run-the-opt-in-mcp-bridge). Ordinary builds contain no bridge or test flags.
+Add `--smoke-test` to exercise native rendering, text, focus, overlays, and orderly exit automatically against the isolated data directory. The `native-test` build also accepts `--mcp --data-dir <isolated-path>` for opt-in UI automation through the [GPUI MCP bridge](docs/native-gate/checks.md#run-the-opt-in-mcp-bridge). Ordinary builds contain no bridge or test flags.
 
 See [architecture](docs/architecture/native.md), [baseline evidence](fixtures/baseline/README.md), and [contributing](CONTRIBUTING.md).
