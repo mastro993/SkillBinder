@@ -9,5 +9,7 @@ skills-lock.json linguist-generated
 /clippy.toml linguist-generated
 fixtures/** linguist-generated
 assets/** linguist-vendored
+# Agents update the asset inventories, so the size check covers them.
+assets/**/*.json -linguist-vendored
 .agents/skills/** linguist-vendored
 LICENSE linguist-vendored

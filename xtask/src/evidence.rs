@@ -113,8 +113,9 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
     }
     let assets = root.join("assets/hugeicons");
     let artwork: Artwork = serde_json::from_slice(&read(&assets, "inventory.json")?)?;
+    let preset_glyphs: Vec<Glyph> = serde_json::from_slice(&read(&assets, "preset-glyphs.json")?)?;
     verify_hash(&assets, &artwork.license_file, &artwork.license_sha256)?;
-    for glyph in artwork.glyphs {
+    for glyph in artwork.glyphs.into_iter().chain(preset_glyphs) {
         verify_hash(&assets, &glyph.file, &glyph.svg_sha256)?;
         for variant in glyph.usage_overrides {
             verify_hash(&assets, &variant.file, &variant.svg_sha256)?;
