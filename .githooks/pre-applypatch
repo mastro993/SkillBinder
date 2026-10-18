@@ -1,0 +1,3 @@
+#!/bin/sh
+# git am runs this hook, not pre-commit, before it commits a patch; apply the same check.
+exec "$(dirname "$0")/pre-commit"

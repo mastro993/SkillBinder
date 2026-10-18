@@ -1,3 +1,15 @@
 * text=auto eol=lf
 fixtures/** -text
 assets/** -text
+
+# Files agents do not write. The pre-commit hook skips them in its size check, and GitHub
+# collapses them in diffs.
+Cargo.lock linguist-generated
+skills-lock.json linguist-generated
+/clippy.toml linguist-generated
+fixtures/baseline/** linguist-generated
+assets/** linguist-vendored
+# Agents update the asset inventories, so the size check covers them.
+assets/**/*.json -linguist-vendored
+.agents/skills/** linguist-vendored
+LICENSE linguist-vendored

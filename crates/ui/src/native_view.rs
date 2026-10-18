@@ -15,6 +15,7 @@ mod library_presence;
 mod menu;
 #[cfg(feature = "native-test")]
 mod native_test;
+mod navigation;
 mod onboarding;
 mod preset_colors;
 mod preset_icons;
@@ -31,6 +32,7 @@ mod sidebar_scroll;
 mod sidebar_workspaces;
 mod skill_page;
 mod sync;
+mod updates;
 mod workspace_dialogs;
 mod workspace_page;
 
@@ -38,7 +40,6 @@ pub use shell::{GoBack, GoForward, ToggleSidebar};
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    future::Future,
     path::PathBuf,
     sync::Arc,
 };
@@ -254,185 +255,6 @@ impl NativeView {
             left_focus: false,
             _activation_subscription: activation_subscription,
             _subscription: subscription,
-        }
-    }
-
-    fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
-        // Candidate identities follow content, so a rescan keeps the choices it still finds.
-        let listed: BTreeSet<_> = latest
-            .scan
-            .iter()
-            .flat_map(|scan| &scan.candidates)
-            .filter(|candidate| candidate.skill_id.is_none())
-            .map(|candidate| &candidate.id)
-            .collect();
-        self.selected_candidates.retain(|id| listed.contains(id));
-        self.candidate_page = self.candidate_page.min(listed.len().saturating_sub(1) / 50);
-        let shown = self.route.clone();
-        if let Some(library) = &latest.library {
-            let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);
-            let skill_exists = |id: &SkillId| library.library.skills.iter().any(|s| &s.id == id);
-            if matches!(&self.route, Route::Library(LibraryFilter::Preset(id)) if !exists(id))
-                || matches!(&self.route, Route::Skill(id) if !skill_exists(id))
-            {
-                self.route = Route::Library(LibraryFilter::All);
-            }
-            if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
-                self.preset_edit = None;
-            }
-            let folder_exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
-            if self
-                .library_folder
-                .as_ref()
-                .is_some_and(|id| !folder_exists(id))
-            {
-                self.library_folder = None;
-            }
-            if matches!(&self.folder_edit, Some(FolderEdit::Rename(id)) if !folder_exists(id)) {
-                self.folder_edit = None;
-            }
-        }
-        let workspace_exists = |id: &WorkspaceId| latest.workspaces.iter().any(|p| &p.id == id);
-        if matches!(&self.route, Route::Workspace(id) if !workspace_exists(id)) {
-            self.route = Route::Discovery;
-        }
-        self.route = agent_page::agent_fallback(&latest.agents, &latest.home, self.route.clone());
-        if self.route != shown {
-            self.leave_page();
-        }
-        if self
-            .workspace_edit
-            .as_ref()
-            .is_some_and(|id| !workspace_exists(id))
-        {
-            self.workspace_edit = None;
-        }
-        self.snapshot = latest;
-        if self.snapshot.preferences.sidebar_width != self.sidebar_width
-            && !self.resizing_sidebar
-            && !self.preference_writes.is_busy()
-        {
-            self.sidebar_width =
-                sidebar::clamp_sidebar_width(self.snapshot.preferences.sidebar_width);
-        }
-        cx.notify();
-    }
-
-    fn run<F>(&mut self, operation: F, cx: &mut Context<Self>)
-    where
-        F: Future<Output = AppResult<Effect>> + Send + 'static,
-    {
-        if self.busy {
-            return;
-        }
-        self.busy = true;
-        self.error = None;
-        let client = self.client.clone();
-        let handle = client.runtime().spawn(operation);
-        cx.spawn(async move |this, cx| {
-            let result = handle.await;
-            let _ = this.update(cx, |view, cx| {
-                view.busy = false;
-                view.syncing = false;
-                view.preset_reorder.settle();
-                view.workspace_reorder.settle();
-                view.folder_reorder.settle();
-                view.creating_folder = None;
-                match result {
-                    Ok(Ok(effect)) => {
-                        view.receive(view.client.snapshot(), cx);
-                        match effect {
-                            Effect::None => {}
-                            Effect::CloseDialog => view.dialog = DialogState::None,
-                            Effect::Plan(plan) => view.dialog = DialogState::ImportPlan(plan),
-                            Effect::DeletePreview(preview) => {
-                                view.dialog = DialogState::DeletePreset(preview)
-                            }
-                        }
-                    }
-                    Ok(Err(error)) => view.error = Some(error),
-                    Err(_) => view.error = Some(AppError::storage()),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-        cx.notify();
-    }
-
-    /// Opens `route` and records the current one for Back.
-    fn navigate(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
-        if self.route != route {
-            self.history.push(self.route.clone());
-        }
-        self.show(route, window, cx);
-    }
-
-    fn go_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(route) = self.history.back(self.route.clone()) {
-            self.show(route, window, cx);
-        }
-    }
-
-    fn go_forward(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(route) = self.history.forward(self.route.clone()) {
-            self.show(route, window, cx);
-        }
-    }
-
-    /// Shows `route` without touching history; a deleted preset or skill falls back to all skills,
-    /// and a removed workspace or an agent no longer detected to Discovery.
-    fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
-        let preset_exists = |id: &PresetId| {
-            self.snapshot
-                .library
-                .as_ref()
-                .is_some_and(|library| library.library.presets.iter().any(|f| &f.id == id))
-        };
-        let skill_exists = |id: &SkillId| {
-            self.snapshot
-                .library
-                .as_ref()
-                .is_some_and(|library| library.library.skills.iter().any(|s| &s.id == id))
-        };
-        let workspace_exists =
-            |id: &WorkspaceId| self.snapshot.workspaces.iter().any(|p| &p.id == id);
-        let route = match route {
-            Route::Library(LibraryFilter::Preset(id)) if !preset_exists(&id) => {
-                Route::Library(LibraryFilter::All)
-            }
-            Route::Skill(id) if !skill_exists(&id) => Route::Library(LibraryFilter::All),
-            Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
-            route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
-        };
-        if self.route != route {
-            self.leave_page();
-            self.search
-                .update(cx, |input, cx| input.set_value("", window, cx));
-            if let Route::Skill(id) = &route {
-                self.load_skill(id.clone(), cx);
-            }
-        }
-        self.route = route;
-        self.error = None;
-        cx.notify();
-    }
-
-    /// Drops the shown page's transient state and scrolls the next page to its top.
-    fn leave_page(&mut self) {
-        self.candidate_page = 0;
-        self.selected_candidates.clear();
-        self.acknowledge_invalid = false;
-        self.preview = None;
-        self.skill_load = None;
-        self.content_scroll.handle.set_offset(Default::default());
-    }
-
-    /// Library filter of the current route; other routes behave as all skills.
-    fn library_filter(&self) -> &LibraryFilter {
-        match &self.route {
-            Route::Library(filter) => filter,
-            _ => &LibraryFilter::All,
         }
     }
 

@@ -3,6 +3,7 @@
     clippy::unwrap_used,
     reason = "Assertions describe isolated fixture failures."
 )]
+#[path = "support/fixture.rs"]
 mod support;
 
 use skillbinder_proto::{Candidate, ErrorCategory, ImportDecision, ScanSnapshot, ValidationStatus};
