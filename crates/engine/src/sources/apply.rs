@@ -61,7 +61,16 @@ impl State {
             .iter()
             .find(|skill| skill.id == id)
             .ok_or_else(|| AppError::not_found("This skill is no longer in the library."))?;
-        self.staged(|state, staging| state.restore_skill(&git, skill, staging))
+        let restored = self.staged(|state, staging| state.restore_skill(&git, skill, staging));
+        if restored.as_ref().is_err_and(|error| error.message == LOST) {
+            // The source moved past the recorded content, so Reinstall is no longer offered.
+            crate::library_store::set_drift(
+                &mut self.database.borrow_mut(),
+                id.as_str(),
+                Some(Drift::Lost),
+            )?;
+        }
+        restored
     }
 
     fn require_git(&self) -> AppResult<Git> {

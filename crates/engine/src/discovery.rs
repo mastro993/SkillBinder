@@ -124,7 +124,7 @@ impl Scans {
             .filter(|found| found.snapshot.error.is_none())
             .ok_or_else(|| AppError::stale("Run a complete scan before preparing an import."))?;
         if ids.is_empty()
-            || ids.len() > 500
+            || ids.len() > MAX_IMPORT
             || ids.iter().collect::<BTreeSet<_>>().len() != ids.len()
         {
             return Err(AppError::validation(

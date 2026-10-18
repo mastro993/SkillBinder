@@ -126,7 +126,8 @@ impl State {
         slug: &str,
         inspection: &payload::Inspection,
     ) -> AppResult<(Record, Option<Drift>)> {
-        let Some(record) = self.read_record(slug) else {
+        // An unreadable record fails the skill's reconcile, which keeps its row and retries.
+        let Some(record) = self.stored_record(slug)? else {
             // Its file is written at the next Push or Sync, which commits it: written now, it
             // would dirty the library and block a Pull of what other devices pushed meanwhile.
             return Ok((Record::of(inspection, None), None));
@@ -157,6 +158,11 @@ impl State {
                 self.log
                     .record(format!("Library reconciliation will retry: {error}"));
             }
+        }
+        if let Err(error) = self.prune_source_caches() {
+            self.log.record(format!(
+                "Unused source caches will be removed later: {error}"
+            ));
         }
     }
 }

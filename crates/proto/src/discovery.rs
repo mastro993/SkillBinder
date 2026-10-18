@@ -11,6 +11,8 @@ pub struct DirectoryGrant {
     /// Display path for confirmation.
     pub display_path: String,
 }
+/// The most found skills one import plan takes.
+pub const MAX_IMPORT: usize = 500;
 /// One physical place where a discovered skill was found. Orders by path.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct CandidateLocation {

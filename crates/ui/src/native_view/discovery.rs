@@ -127,11 +127,24 @@ impl NativeView {
         }
         let acknowledge = self.acknowledge_invalid;
         let ids: Vec<CandidateId> = chosen.iter().map(|version| version.id.clone()).collect();
+        let too_many = ids.len() > MAX_IMPORT;
+        if too_many {
+            page = page.child(format!(
+                "{} skills selected. Import at most {MAX_IMPORT} at a time.",
+                ids.len()
+            ));
+        }
         page.child(
             button("prepare-import")
                 .label("Review import")
                 .primary()
-                .inactive(self.busy || !finished || ids.is_empty() || (has_invalid && !acknowledge))
+                .inactive(
+                    self.busy
+                        || !finished
+                        || ids.is_empty()
+                        || too_many
+                        || (has_invalid && !acknowledge),
+                )
                 .on_click(cx.listener(move |view, _, _, cx| {
                     let client = view.client.clone();
                     let ids = ids.clone();

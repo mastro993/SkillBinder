@@ -72,6 +72,39 @@ enum CacheUser {
     Update,
 }
 
+impl State {
+    /// Removes the source caches no library skill's source uses any more, such as those of
+    /// skills a Pull removed. Run before any check or update starts.
+    pub(crate) fn prune_source_caches(&self) -> AppResult<()> {
+        let used: std::collections::BTreeSet<_> = self
+            .read_library()?
+            .skills
+            .iter()
+            .filter_map(|skill| skill.source.as_ref())
+            .flat_map(|source| {
+                [CacheUser::Check, CacheUser::Update]
+                    .map(|user| cache_dir(&self.config.data_dir, user, source))
+            })
+            .collect();
+        for user in ["check", "update"] {
+            let Ok(entries) = fs::read_dir(self.config.data_dir.join("source-cache").join(user))
+            else {
+                continue;
+            };
+            for path in entries.flatten().map(|entry| entry.path()) {
+                if !used.contains(&path) {
+                    self.log.record(format!(
+                        "Removing an unused source cache {}",
+                        path.display()
+                    ));
+                    fs::remove_dir_all(&path).map_err(|_| AppError::storage())?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 /// The cache repository of a source's repository under the application data folder.
 fn cache_dir(data_dir: &Path, user: CacheUser, source: &SkillSource) -> PathBuf {
     let key = format!("{:x}", Sha256::digest(source.url.as_bytes()));
@@ -127,3 +160,19 @@ fn checkout(
 
 /// Why an update cannot happen: the source's folder is gone.
 const GONE: &str = "Its source no longer has this skill.";
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn caches_no_skill_uses_are_pruned() {
+        let directory = tempfile::tempdir().unwrap();
+        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let unused = state.config.data_dir.join("source-cache/check/unused");
+        fs::create_dir_all(unused.join("objects")).unwrap();
+        state.prune_source_caches().unwrap();
+        assert!(!unused.exists());
+    }
+}

@@ -29,16 +29,16 @@ impl Record {
 /// A record holds a tree id and a source; anything larger is not one.
 const MAX_RECORD_BYTES: u64 = 64 * 1024;
 
-/// The text of the record file at `path`, refusing one larger than `MAX_RECORD_BYTES`.
-fn read_bounded(path: &std::path::Path) -> std::io::Result<String> {
+/// The text of the record file at `path`; `None` when it is larger than `MAX_RECORD_BYTES`.
+fn read_bounded(path: &std::path::Path) -> std::io::Result<Option<String>> {
     use std::io::Read;
     let file = fs::File::open(path)?;
     if file.metadata()?.len() > MAX_RECORD_BYTES {
-        return Err(std::io::Error::other("the record is too large"));
+        return Ok(None);
     }
     let mut text = String::new();
     file.take(MAX_RECORD_BYTES).read_to_string(&mut text)?;
-    Ok(text)
+    Ok(Some(text))
 }
 
 fn valid(record: &Record) -> Result<(), String> {
@@ -72,24 +72,37 @@ impl State {
     /// The record stored for `slug`, if any. An unreadable or invalid file reads as none, and the
     /// reason is logged.
     pub(crate) fn read_record(&self, slug: &str) -> Option<Record> {
-        let text = match read_bounded(&self.record_file(slug).ok()?) {
-            Ok(text) => text,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        match self.stored_record(slug) {
+            Ok(record) => record,
             Err(error) => {
                 self.log
                     .record(format!("Record of {slug} is unreadable: {error}"));
-                return None;
+                None
             }
+        }
+    }
+
+    /// The record stored for `slug`: `None` when there is none or it is invalid, which is logged,
+    /// and an error when the file cannot be read now, so a caller can retry.
+    pub(crate) fn stored_record(&self, slug: &str) -> AppResult<Option<Record>> {
+        let text = match read_bounded(&self.record_file(slug)?) {
+            Ok(Some(text)) => text,
+            Ok(None) => {
+                self.log.record(format!("Record of {slug} is too large"));
+                return Ok(None);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(AppError::storage()),
         };
         match toml::from_str::<Record>(&text)
             .map_err(|error| error.to_string())
             .and_then(|record| valid(&record).map(|()| record))
         {
-            Ok(record) => Some(record),
+            Ok(record) => Ok(Some(record)),
             Err(error) => {
                 self.log
                     .record(format!("Record of {slug} is invalid: {error}"));
-                None
+                Ok(None)
             }
         }
     }
