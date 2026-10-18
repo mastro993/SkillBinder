@@ -1,0 +1,3 @@
+#!/bin/sh
+# A merge that commits without conflicts runs this hook, not pre-commit; apply the same check.
+exec "$(dirname "$0")/pre-commit"

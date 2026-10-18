@@ -9,9 +9,10 @@ export max_bytes=20000
 # symlink replaced by a regular file; submodules are not files. Like Git, a staged blob with a
 # NUL byte in its first 8,000 bytes is binary; unstaged .gitattributes edits cannot change that.
 # ":0:" names the staged entry even when the path itself starts with "1:".
-too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT --ignore-submodules=all -z |
+too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT -z |
 	xargs -0 sh -c '
 		for path; do
+			git --literal-pathspecs ls-files --stage -- "$path" | grep -q "^160000" && continue
 			bytes=$(git cat-file -s ":0:$path") || exit 255
 			[ "$bytes" -gt "$max_bytes" ] || continue
 			git cat-file blob ":0:$path" | head -c 8000 | od -An -v -tx1 | grep -q " 00" &&
