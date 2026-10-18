@@ -33,7 +33,7 @@ cargo build -p skillbinder --release --locked
 cargo run -p xtask --locked -- package
 ```
 
-Run `git config core.hooksPath .githooks` once per clone to turn on the pre-commit hook. It rejects a commit that stages a file over 20,000 bytes and explains how to split it; CI runs the same check over every tracked file. Lockfiles, generated files, vendored skills and text, captured baseline fixtures, artwork, and other binary files are exempt; `.gitattributes` lists the exempt text paths as `linguist-generated` or `linguist-vendored`.
+Run `git config core.hooksPath .githooks` once per clone to turn on the pre-commit hook. It rejects a commit that stages a file over 5,000 tokens (bytes / 4) and explains how to split it; CI runs the same check over every tracked file. Lockfiles, generated files, vendored skills and text, captured baseline fixtures, artwork, and other binary files are exempt; `.gitattributes` lists the exempt text paths as `linguist-generated` or `linguist-vendored`.
 
 Packaging writes a macOS app and DMG, Windows ZIP, or Linux tarball beneath `dist/`. Signing and publication are separate. `xtask verify` checks retained registry and baseline evidence and the workspace crate graph; it does not claim native interaction or visual parity.
 

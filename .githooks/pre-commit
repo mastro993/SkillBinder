@@ -1,9 +1,9 @@
 #!/bin/sh
-# Rejects a commit that stages a file over 20,000 bytes, so every file stays small enough for an
-# agent to read whole. Binary files and paths .gitattributes marks linguist-generated or
-# linguist-vendored are skipped: agents do not write them.
+# Rejects a commit that stages a file over 5,000 tokens, counted as bytes / 4, so every file stays
+# small enough for an agent to read whole. Binary files and paths .gitattributes marks
+# linguist-generated or linguist-vendored are skipped: agents do not write them.
 
-export max_bytes=20000
+export max_tokens=5000
 
 # xargs -0 passes each NUL-terminated path whole, even one holding a newline. T covers a
 # symlink replaced by a regular file; submodules are not files. Like Git, a staged blob with a
@@ -15,12 +15,13 @@ too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT -z ${1:+
 		for path; do
 			git --literal-pathspecs ls-files --stage -- "$path" | grep -q "^160000" && continue
 			bytes=$(git cat-file -s ":0:$path") || exit 255
-			[ "$bytes" -gt "$max_bytes" ] || continue
+			tokens=$((bytes / 4))
+			[ "$tokens" -gt "$max_tokens" ] || continue
 			git cat-file blob ":0:$path" | head -c 8000 | od -An -v -tx1 | grep -q " 00" &&
 				continue
 			git check-attr --cached linguist-generated linguist-vendored -- "$path" |
 				grep -Eq ": (set|true)$" && continue
-			printf "  %s: %s bytes\n" "$path" "$bytes"
+			printf "  %s: %s tokens\n" "$path" "$tokens"
 		done
 		exit 0
 	' sh) || exit 1
@@ -28,7 +29,7 @@ too_big=$(git diff --cached --name-only --no-renames --diff-filter=ACMT -z ${1:+
 [ -z "$too_big" ] && exit 0
 
 cat >&2 <<MESSAGE
-pre-commit: these staged files are over $max_bytes bytes:
+pre-commit: these staged files are over $max_tokens tokens (bytes / 4):
 $too_big
 
 Split each one, then stage the result and commit again:
@@ -43,7 +44,7 @@ Split each one, then stage the result and commit again:
    share helpers through tests/support/, loaded with #[path = "support/<file>.rs"].
 4. Markdown: move each large section into its own file beside the original and link to it.
 5. Move code as is. Do not rewrite, rename, minify, or drop comments or tests while splitting.
-6. Leave each new file well under the limit, near 12,000 bytes, so the next change fits.
+6. Leave each new file well under the limit, near 3,000 tokens, so the next change fits.
 7. Run cargo fmt --all, cargo clippy --workspace --all-targets --all-features --locked
    -- -D warnings, and cargo test --workspace --all-targets --all-features --locked.
 8. Stage the new files and the shortened original: git add <files>.
