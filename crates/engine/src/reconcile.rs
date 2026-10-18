@@ -1,14 +1,16 @@
-//! Keeps the database's skills in step with the directories under `skills/`. Changes made there
-//! outside SkillBinder are unsupported, so only directories that appear, disappear, or Git reports
-//! as changed are inspected; every other skill keeps its cached facts.
+//! Keeps the database's skills in step with the directories under `skills/` and their records
+//! under `records/`. Changes made there outside SkillBinder are unsupported, so only skills that
+//! appear, disappear, or Git reports as changed are inspected; every other skill keeps its cached
+//! facts. An inspected skill whose content differs from its record has drifted.
 
 use crate::{
     database,
-    library_store::{self, SkillRecord},
+    library_store::{self, SavedSkill},
     payload,
+    records::Record,
     worker::State,
 };
-use skillbinder_proto::{AppError, AppResult};
+use skillbinder_proto::{AppError, AppResult, Drift};
 use std::{collections::BTreeSet, fs};
 
 /// The device setting holding the last commit whose skills the database reflects.
@@ -20,6 +22,7 @@ impl State {
     pub(crate) fn reconcile_library(&self) -> AppResult<()> {
         let listed = self.skill_dirs()?;
         let known = library_store::slugs(&mut self.database.borrow_mut())?;
+        self.remove_orphan_records(&listed)?;
         self.reconcile_slugs(listed.symmetric_difference(&known).cloned())
     }
 
@@ -67,8 +70,8 @@ impl State {
         Ok(listed)
     }
 
-    /// Reinspects each slug's directory, saving those that exist and dropping the rest. A new
-    /// skill is unfiled, in no preset, and has no install time. A directory that cannot be
+    /// Reinspects each slug's directory and reads its record, saving those that exist and
+    /// dropping the rest. A new skill is unfiled, in no preset, and has no import time. A directory that cannot be
     /// inspected keeps its previous row, and the first such failure is returned after the rest
     /// are saved, so the caller retries it.
     fn reconcile_slugs(&self, slugs: impl IntoIterator<Item = String>) -> AppResult<()> {
@@ -86,7 +89,14 @@ impl State {
                 .contained_skill_path(&root.join(&slug))
                 .and_then(|path| payload::inspect(&path))
             {
-                Ok(inspection) => saved.push(SkillRecord::new(slug, &inspection, None)),
+                Ok(inspection) => match self.recorded(&slug, &inspection) {
+                    Ok((record, drift)) => {
+                        saved.push(SavedSkill::new(slug, &inspection, None, record, drift));
+                    }
+                    Err(error) => {
+                        failure.get_or_insert(error);
+                    }
+                },
                 Err(error) => {
                     self.log.record(format!(
                         "Library skill {slug} could not be inspected: {error}"
@@ -105,6 +115,36 @@ impl State {
             Ok(())
         })?;
         failure.map_or(Ok(()), Err)
+    }
+
+    /// `slug`'s record, written from `inspection` when it has none, and whether its content
+    /// drifted from it.
+    fn recorded(
+        &self,
+        slug: &str,
+        inspection: &payload::Inspection,
+    ) -> AppResult<(Record, Option<Drift>)> {
+        let Some(record) = self.read_record(slug) else {
+            let record = Record::of(inspection, None);
+            self.write_record(slug, &record)?;
+            return Ok((record, None));
+        };
+        if record.tree == inspection.tree {
+            return Ok((record, None));
+        }
+        self.log
+            .record(format!("Library skill {slug} differs from its record"));
+        let repo = self.library_dir();
+        let in_history = match &self.git {
+            Some(git) if repo.join(".git").exists() => git.has_tree(&repo, &record.tree)?,
+            _ => false,
+        };
+        let drift = if in_history || record.source.is_some() {
+            Drift::Restorable
+        } else {
+            Drift::Lost
+        };
+        Ok((record, Some(drift)))
     }
 
     /// Reconciles after launch or onboarding: failures are logged and retried at the next launch,

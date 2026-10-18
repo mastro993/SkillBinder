@@ -233,9 +233,79 @@ pub struct Skill {
     pub file_count: u64,
     /// Total payload bytes.
     pub total_bytes: u64,
-    /// RFC 3339 time the skill was installed on this device; absent for a skill that arrived
+    /// RFC 3339 time the skill was imported on this device; absent for a skill that arrived
     /// through Pull.
     pub imported_at: Option<String>,
+    /// Where the skill was published, if it was imported from a known Git source.
+    pub source: Option<SkillSource>,
+    /// The Git tree id of the content the skill's record says it should have.
+    pub recorded: String,
+    /// Whether the skill's content differs from its record, and whether it can be reinstalled.
+    pub drift: Option<Drift>,
+}
+/// A library skill whose content differs from its record, such as after an edit made outside
+/// SkillBinder or a Pull of different content.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Drift {
+    /// Reinstall can restore the recorded content, from the library's Git history or its source.
+    Restorable,
+    /// Neither the library's Git history nor a source holds the recorded content.
+    Lost,
+}
+/// A library skill's source: the Git repository it was published from, an optional pinned ref,
+/// and the skill's folder in that repository. It syncs with the library.
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct SkillSource {
+    /// HTTPS, SSH, SCP-style SSH, or file repository URL without credentials.
+    pub url: String,
+    /// The branch, tag, or commit the source follows; the repository's default branch when
+    /// absent.
+    #[serde(default, rename = "ref", skip_serializing_if = "Option::is_none")]
+    pub reference: Option<String>,
+    /// The skill's folder, relative to the repository root with slash separators; empty for the
+    /// root itself.
+    #[serde(default)]
+    pub path: String,
+}
+impl SkillSource {
+    /// Whether the source is pinned to a commit, so it never has an update.
+    pub fn pinned(&self) -> bool {
+        self.reference.as_deref().is_some_and(|reference| {
+            matches!(reference.len(), 40 | 64) && reference.bytes().all(|b| b.is_ascii_hexdigit())
+        })
+    }
+}
+/// What the last check of a library skill's source found.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum UpdateCheck {
+    /// The source holds the skill's recorded content.
+    UpToDate,
+    /// The source's content differs from the skill's recorded content.
+    Available,
+    /// The check failed; a safe sentence explaining why.
+    Failed(String),
+}
+/// A library skill's update state on this device, kept in memory until the next check.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SkillUpdate {
+    /// The last check's result.
+    pub check: UpdateCheck,
+    /// Why the last Update of the skill failed, until it succeeds or the skill is checked again.
+    pub failure: Option<String>,
+}
+impl SkillUpdate {
+    /// Whether the skill has an update.
+    pub fn available(&self) -> bool {
+        self.check == UpdateCheck::Available
+    }
+}
+/// The result of updating library skills; each skill updates on its own.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct UpdateOutcome {
+    /// Skills whose library content now matches their source.
+    pub updated: Vec<SkillId>,
+    /// Skills that could not be updated; their update state records why.
+    pub failed: Vec<SkillId>,
 }
 /// The library: its skill directories and this device's organization of them.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

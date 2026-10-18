@@ -1,5 +1,5 @@
 //! A detected agent's page, or Universal's: the skill folders in a global skill directory,
-//! read-only. An installed row leads to its library skill.
+//! read-only. An in-library row leads to its library skill.
 
 use std::path::Path;
 

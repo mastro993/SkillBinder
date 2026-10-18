@@ -10,8 +10,8 @@ mod support;
 use diesel::{prelude::*, sql_types::Text};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, PresetId, RemoteConfig, Skill,
-    SkillId, SyncAction, SyncState, ValidationStatus,
+    Drift, ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, PresetId, RemoteConfig,
+    Skill, SkillId, SyncAction, SyncState, ValidationStatus,
 };
 use std::{
     fs,
@@ -48,7 +48,7 @@ impl Device {
     async fn published(slugs: &[&str]) -> Self {
         let fixture = Fixture::new();
         let engine = fixture.ready().await;
-        install(&fixture, &engine, slugs).await;
+        import(&fixture, &engine, slugs).await;
         let bare = fixture.workspace.with_file_name("remote.git");
         fs::create_dir(&bare).unwrap();
         git(&bare, &["init", "--bare", "--initial-branch=main"]);
@@ -86,8 +86,8 @@ impl Device {
     }
 }
 
-/// Installs one workspace skill per slug.
-async fn install(fixture: &Fixture, engine: &Engine, slugs: &[&str]) {
+/// Imports one workspace skill per slug.
+async fn import(fixture: &Fixture, engine: &Engine, slugs: &[&str]) {
     for slug in slugs {
         fixture.skill(slug, "First version");
     }
@@ -159,7 +159,7 @@ async fn pull_reconciles_changed_skills_and_rehashes_only_those() {
     assert_eq!(
         skill(&after, "alpha").imported_at,
         skill(&before, "alpha").imported_at,
-        "a changed skill keeps its install time"
+        "a changed skill keeps its import time"
     );
     assert_eq!(
         skill(&after, "gamma").digest,
@@ -265,7 +265,7 @@ async fn local_organization_does_not_block_adoption_but_a_local_skill_does() {
 
     let occupied = Fixture::new();
     let engine = occupied.ready().await;
-    install(&occupied, &engine, &["local"]).await;
+    import(&occupied, &engine, &["local"]).await;
     engine
         .connect_remote(published.remote.clone())
         .await
@@ -352,7 +352,7 @@ async fn organization_changes_never_dirty_or_commit_the_library() {
     assert!(
         git(&device.library(), &["ls-files"])
             .lines()
-            .all(|path| path.starts_with("skills/"))
+            .all(|path| path.starts_with("skills/") || path.starts_with("records/"))
     );
     device.engine.shutdown().await.unwrap();
 }
@@ -375,6 +375,87 @@ async fn launch_catches_up_on_a_pull_interrupted_before_its_reconcile() {
     assert_ne!(
         skill(&after, "alpha").digest,
         skill(&before, "alpha").digest
+    );
+    device.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn records_sync_beside_their_skills() {
+    let device = Device::published(&["alpha"]).await;
+    device.peer_push(|skills| {
+        write_skill(skills, "alpha", "Second version");
+    });
+    // The peer then records the new content with its source, as an update there would.
+    device.peer_push(|skills| {
+        let tree = git(skills.parent().unwrap(), &["rev-parse", "HEAD:skills/alpha"]);
+        fs::write(
+            skills.with_file_name("records").join("alpha.toml"),
+            format!(
+                "tree = \"{}\"\n[source]\nurl = \"https://example.invalid/o/r.git\"\npath = \"skills/alpha\"\n",
+                tree.trim()
+            ),
+        )
+        .unwrap();
+    });
+    device.engine.synchronize(SyncAction::Pull).await.unwrap();
+    let pulled = snapshot(&device.engine).await;
+    let alpha = skill(&pulled, "alpha");
+    let source = alpha.source.clone().unwrap();
+    assert_eq!(
+        (source.url.as_str(), source.path.as_str()),
+        ("https://example.invalid/o/r.git", "skills/alpha")
+    );
+    assert_eq!(alpha.drift, None);
+    device.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_pulled_skill_that_differs_from_its_record_drifts_and_reinstalls() {
+    let device = Device::published(&["alpha"]).await;
+    let first = skill(&snapshot(&device.engine).await, "alpha").clone();
+    assert_eq!(first.drift, None);
+    // A peer edits the content without changing its record.
+    device.peer_push(|skills| {
+        write_skill(skills, "alpha", "Edited elsewhere");
+    });
+    device.engine.synchronize(SyncAction::Pull).await.unwrap();
+    let pulled = skill(&snapshot(&device.engine).await, "alpha").clone();
+    assert_eq!(pulled.drift, Some(Drift::Restorable));
+    assert_eq!(pulled.recorded, first.recorded);
+    assert_ne!(pulled.digest, first.digest);
+    device
+        .engine
+        .reinstall_skill(SkillId("alpha".into()))
+        .await
+        .unwrap();
+    let restored = skill(&snapshot(&device.engine).await, "alpha").clone();
+    assert_eq!((restored.digest, restored.drift), (first.digest, None));
+    device.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_skill_whose_recorded_content_is_nowhere_cannot_reinstall() {
+    let device = Device::published(&["alpha"]).await;
+    // The record names content no history or source holds.
+    device.peer_push(|skills| {
+        fs::write(
+            skills.with_file_name("records").join("alpha.toml"),
+            format!("tree = \"{}\"\n", "1".repeat(40)),
+        )
+        .unwrap();
+    });
+    device.engine.synchronize(SyncAction::Pull).await.unwrap();
+    let pulled = skill(&snapshot(&device.engine).await, "alpha").clone();
+    assert_eq!(pulled.drift, Some(Drift::Lost));
+    let refused = device
+        .engine
+        .reinstall_skill(SkillId("alpha".into()))
+        .await
+        .unwrap_err();
+    assert_eq!(refused.category, ErrorCategory::NotFound);
+    assert_eq!(
+        skill(&snapshot(&device.engine).await, "alpha").digest,
+        pulled.digest
     );
     device.engine.shutdown().await.unwrap();
 }

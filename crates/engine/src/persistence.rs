@@ -1,6 +1,6 @@
 use crate::{
     database,
-    library_store::{SkillRecord, save_skill},
+    library_store::{SavedSkill, save_skill},
     schema::{device_settings, idempotency_records, journals, operation_plans},
     worker::State,
 };
@@ -86,8 +86,10 @@ pub(crate) struct Journal {
     pub completed_moves: usize,
     pub progress: JournalProgress,
     /// Skills the commit saves.
-    pub skills: Vec<SkillRecord>,
-    pub outcome: ImportOutcome,
+    pub skills: Vec<SavedSkill>,
+    /// The import outcome the commit records; updates and reinstalls record none.
+    #[serde(default)]
+    pub outcome: Option<ImportOutcome>,
 }
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct JournalProgress {
@@ -299,7 +301,9 @@ impl State {
             for record in &journal.skills {
                 save_skill(connection, record)?;
             }
-            record_outcome(connection, &journal.outcome)?;
+            if let Some(outcome) = &journal.outcome {
+                record_outcome(connection, outcome)?;
+            }
             diesel::delete(journals::table.find(&journal.id))
                 .execute(connection)
                 .map_err(|_| AppError::storage())?;

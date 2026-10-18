@@ -17,9 +17,11 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
             )
             .unwrap();
             let inspection = crate::payload::inspect(&from).unwrap();
-            skills.push(SkillRecord::new(
+            skills.push(SavedSkill::new(
                 format!("skill-{index}"),
                 &inspection,
+                None,
+                crate::records::Record::of(&inspection, None),
                 None,
             ));
             Move {
@@ -43,11 +45,11 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         completed_moves: 0,
         progress: Default::default(),
         skills,
-        outcome: ImportOutcome {
+        outcome: Some(ImportOutcome {
             plan_id,
             imported: vec![],
             existing: vec![],
-        },
+        }),
     };
     (directory, state, journal)
 }

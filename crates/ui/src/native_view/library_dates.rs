@@ -25,7 +25,7 @@ pub(super) fn exact(time: DateTime<Utc>) -> String {
         .to_string()
 }
 
-/// An RFC 3339 install time.
+/// An RFC 3339 import time.
 pub(super) fn parse(time: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(time)
         .ok()

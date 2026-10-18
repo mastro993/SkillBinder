@@ -92,7 +92,7 @@ impl NativeView {
             }
         }
         dialog
-            .title(self.dialog_title("Review install", cx))
+            .title(self.dialog_title("Review import", cx))
             .child(body)
             .footer(
                 div()
@@ -109,7 +109,7 @@ impl NativeView {
                     .child({
                         let weak = cx.entity().downgrade();
                         button("import-apply")
-                            .label("Install")
+                            .label("Import")
                             .primary()
                             .inactive(busy)
                             .on_click(move |_, _, cx| {

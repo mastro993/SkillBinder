@@ -13,7 +13,9 @@ mod logging;
 mod payload;
 mod persistence;
 mod reconcile;
+mod records;
 mod schema;
+mod sources;
 mod worker;
 mod workspaces;
 

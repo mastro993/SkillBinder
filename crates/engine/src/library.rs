@@ -46,7 +46,7 @@ fn validate_organization(library: &Library) -> AppResult<()> {
 }
 /// The newest modification time, in Unix seconds, of the regular files under `dir`; links are
 /// skipped because managed payloads materialize them.
-fn newest_modification(dir: &Path) -> Option<u64> {
+pub(crate) fn newest_modification(dir: &Path) -> Option<u64> {
     let mut newest = None;
     for entry in fs::read_dir(dir).ok()?.flatten() {
         let Ok(metadata) = entry.path().symlink_metadata() else {

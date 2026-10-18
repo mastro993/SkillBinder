@@ -64,6 +64,8 @@ pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
         .map(|m| m.status)
         .max()
         .unwrap_or_default();
+    let manifest = Manifest::from_entries(walk.entries)?;
+    let tree = super::tree::tree(&manifest.entries, &walk.files)?;
     Ok(Snapshot {
         inspection: Inspection {
             canonical_source: root,
@@ -72,7 +74,8 @@ pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
             description,
             status,
             messages: walk.messages,
-            manifest: Manifest::from_entries(walk.entries)?,
+            manifest,
+            tree,
         },
         files: walk.files,
     })

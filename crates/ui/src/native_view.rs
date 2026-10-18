@@ -5,13 +5,16 @@ mod controls;
 mod custom_color;
 mod dialogs;
 mod discovery;
+mod discovery_versions;
 mod folder_reorder;
 mod hover_scroll;
 mod library;
 mod library_dates;
+mod library_drift;
 mod library_folders;
 mod library_items;
 mod library_presence;
+mod library_updates;
 mod menu;
 #[cfg(feature = "native-test")]
 mod native_test;
@@ -73,6 +76,9 @@ enum Effect {
     CloseDialog,
     Plan(ImportPlan),
     DeletePreview(DeletePreview),
+    Updated(UpdateOutcome),
+    /// A skill was reinstalled, so its page shows its restored content.
+    Reinstalled(SkillId),
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -87,8 +93,12 @@ pub struct NativeView {
     syncing: bool,
     error: Option<AppError>,
     dialog: DialogState,
-    selected_candidates: BTreeSet<CandidateId>,
-    candidate_page: usize,
+    /// The keys of the found skills chosen for import.
+    selected_skills: BTreeSet<String>,
+    /// The version the user chose for a found skill, by key, instead of its preferred one.
+    version_choices: BTreeMap<String, CandidateId>,
+    /// The keys of the found skills whose versions Discovery lists.
+    expanded_skills: BTreeSet<String>,
     acknowledge_invalid: bool,
     /// The open context menu.
     menu: Option<menu::OpenMenu>,
@@ -118,6 +128,8 @@ pub struct NativeView {
     content_scroll: hover_scroll::HoverScroll,
     appearance: Appearance,
     library_view: LibraryView,
+    /// Whether Library lists only skills with an update; reset with search when the route changes.
+    needs_update_only: bool,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
     sidebar_motion: u64,
     /// Collapsed sidebar still mounted for its closing motion.
@@ -125,6 +137,8 @@ pub struct NativeView {
     resizing_sidebar: bool,
     preference_writes: shell::PreferenceWrites,
     preview: Option<SkillPreview>,
+    /// The last Update or Update all result, shown until the page changes.
+    update_outcome: Option<UpdateOutcome>,
     /// The skill page's file read in flight; dropping it discards the read's result.
     skill_load: Option<Task<()>>,
     search: Entity<InputState>,
@@ -215,8 +229,9 @@ impl NativeView {
             syncing: false,
             error: None,
             dialog: DialogState::None,
-            selected_candidates: BTreeSet::new(),
-            candidate_page: 0,
+            selected_skills: BTreeSet::new(),
+            version_choices: BTreeMap::new(),
+            expanded_skills: BTreeSet::new(),
             acknowledge_invalid: false,
             menu: None,
             preset_edit: None,
@@ -236,11 +251,13 @@ impl NativeView {
             content_scroll: hover_scroll::HoverScroll::default(),
             appearance,
             library_view,
+            needs_update_only: false,
             sidebar_motion: 0,
             sidebar_closing: false,
             resizing_sidebar: false,
             preference_writes: shell::PreferenceWrites::default(),
             preview: None,
+            update_outcome: None,
             skill_load: None,
             search,
             preset_name,
@@ -275,7 +292,7 @@ impl NativeView {
                 .flex_col()
                 .gap_2()
                 .child(format!(
-                    "Install finished: {} copied, {} already installed",
+                    "Import finished: {} copied, {} already in library",
                     outcome.imported.len(),
                     outcome.existing.len(),
                 ))

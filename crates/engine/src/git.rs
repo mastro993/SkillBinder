@@ -1,9 +1,12 @@
-//! Bounded Git operations for the library's skill directories.
+//! Bounded Git operations for the library's skill directories and their records.
 mod adoption;
 mod process;
+mod source;
 #[cfg(test)]
 mod tests;
 mod validation;
+
+pub(crate) use source::validate as validate_source;
 
 use skillbinder_proto::{
     AppError, AppResult, ErrorCategory, RemoteConfig, SyncAction, SyncSnapshot, SyncState,
@@ -15,8 +18,8 @@ use std::{
 };
 
 const REMOTE_REF: &str = "refs/skillbinder/incoming";
-/// The only managed path: Sync and Push commit nothing else.
-const MANAGED: &str = "skills";
+/// The managed paths, skill directories and their records: Sync and Push commit nothing else.
+const MANAGED: [&str; 2] = ["skills", "records"];
 
 /// A verified executable whose identity is fixed for this engine session.
 #[derive(Clone, Debug)]
@@ -156,7 +159,8 @@ impl Git {
                 "--untracked-files=all",
                 "--ignored=matching",
                 "--",
-                MANAGED,
+                MANAGED[0],
+                MANAGED[1],
             ],
         )?);
         let dirty = changed_files > 0;
@@ -265,10 +269,14 @@ impl Git {
         Ok(())
     }
     /// Refuses a fetched or about-to-be-committed tree whose managed entries are not regular
-    /// files or whose skill directories can't be checked out on every platform.
+    /// files or whose skill directories and records can't be checked out on every platform.
     fn validate_tree(&self, repo: &Path, revision: &str) -> AppResult<()> {
-        let entries = self.output(repo, &["ls-tree", "-rz", revision, "--", MANAGED])?;
+        let entries = self.output(
+            repo,
+            &["ls-tree", "-rz", revision, "--", MANAGED[0], MANAGED[1]],
+        )?;
         let mut names = BTreeMap::new();
+        let mut records = BTreeMap::new();
         for entry in entries.split('\0').filter(|p| !p.is_empty()) {
             let (mode, path) = entry
                 .split_once(' ')
@@ -278,8 +286,15 @@ impl Git {
             if mode != "100644" && mode != "100755" {
                 return Err(failure("Managed content contains unsupported entries."));
             }
-            let slug = skill_of(path)
-                .ok_or_else(|| failure("Managed files must sit inside skill directories."))?;
+            let (slug, names) = match (skill_of(path), record_of(path)) {
+                (Some(slug), _) => (slug, &mut names),
+                (None, Some(slug)) if mode == "100644" => (slug, &mut records),
+                _ => {
+                    return Err(failure(
+                        "Managed files must be skill directories or their records.",
+                    ));
+                }
+            };
             let unique = *names
                 .entry(crate::library::normalized(slug))
                 .or_insert(slug)
@@ -292,8 +307,8 @@ impl Git {
         }
         Ok(())
     }
-    /// The slugs whose skill directories differ between `from` and `to`; every slug in `to`
-    /// when there is no `from`.
+    /// The slugs whose skill directories or records differ between `from` and `to`; every slug
+    /// in `to` when there is no `from`.
     pub fn changed_skills(
         &self,
         repo: &Path,
@@ -312,17 +327,67 @@ impl Git {
                     "-z",
                     &range,
                     "--",
-                    MANAGED,
+                    MANAGED[0],
+                    MANAGED[1],
                 ]
             }
-            None => &["ls-tree", "-r", "--name-only", "-z", to, "--", MANAGED],
+            None => &[
+                "ls-tree",
+                "-r",
+                "--name-only",
+                "-z",
+                to,
+                "--",
+                MANAGED[0],
+                MANAGED[1],
+            ],
         };
         Ok(self
             .output(repo, args)?
             .split('\0')
-            .filter_map(skill_of)
+            .filter_map(|path| skill_of(path).or_else(|| record_of(path)))
             .map(str::to_owned)
             .collect())
+    }
+    /// Whether the library's object database holds the tree `tree`.
+    pub fn has_tree(&self, repo: &Path, tree: &str) -> AppResult<bool> {
+        let out = process::run(
+            &self.executable,
+            Some(repo),
+            &["cat-file", "-t", "--end-of-options", tree],
+            Duration::from_secs(30),
+        )?;
+        Ok(out.status.success() && out.stdout.trim_ascii() == b"tree")
+    }
+    /// Writes the files of the library's tree `tree` into the empty directory `into`, through a
+    /// scratch repository at `scratch` that borrows the library's objects, so the library's index
+    /// and working tree are never touched.
+    pub fn restore_tree(
+        &self,
+        repo: &Path,
+        tree: &str,
+        scratch: &Path,
+        into: &Path,
+    ) -> AppResult<()> {
+        let path = scratch.to_str().ok_or_else(AppError::storage)?;
+        process::run(
+            &self.executable,
+            None,
+            &["init", "--bare", "--quiet", "--", path],
+            Duration::from_secs(30),
+        )
+        .ok()
+        .filter(|out| out.status.success())
+        .ok_or_else(|| failure("Git could not prepare the restore."))?;
+        let objects =
+            std::fs::canonicalize(repo.join(".git/objects")).map_err(|_| AppError::storage())?;
+        let objects = objects.to_str().ok_or_else(AppError::storage)?;
+        std::fs::write(
+            scratch.join("objects/info/alternates"),
+            format!("{objects}\n"),
+        )
+        .map_err(|_| AppError::storage())?;
+        self.checkout_tree(scratch, tree, into)
     }
     /// The commit `name` resolves to, if any.
     pub fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {
@@ -383,16 +448,18 @@ impl Git {
                 "--no-sparse-index",
                 "--",
                 "/skills/",
+                "/records/",
             ],
         )?;
         Ok(())
     }
     fn commit(&self, repo: &Path) -> AppResult<()> {
         // A pathspec absent both from HEAD and disk is not passed to `add`.
-        if repo.join(MANAGED).exists()
-            || !self.output(repo, &["ls-files", "--", MANAGED])?.is_empty()
-        {
-            self.output(repo, &["add", "-f", "-A", "--", MANAGED])?;
+        for path in MANAGED {
+            if repo.join(path).exists() || !self.output(repo, &["ls-files", "--", path])?.is_empty()
+            {
+                self.output(repo, &["add", "-f", "-A", "--", path])?;
+            }
         }
         // Publish only what a fetch would accept, so a pushed commit never blocks later fetches.
         let staged = self.output(repo, &["write-tree"])?;
@@ -433,8 +500,17 @@ impl Git {
 fn skill_of(path: &str) -> Option<&str> {
     Some(path.strip_prefix("skills/")?.split_once('/')?.0)
 }
+/// The slug a record describes, `records/<slug>.toml`.
+fn record_of(path: &str) -> Option<&str> {
+    path.strip_prefix("records/")?
+        .strip_suffix(".toml")
+        .filter(|slug| !slug.is_empty() && !slug.contains('/'))
+}
 fn managed(path: &str) -> bool {
-    path.starts_with("skills/")
+    MANAGED.iter().any(|root| {
+        path.strip_prefix(root)
+            .is_some_and(|rest| rest.starts_with('/'))
+    })
 }
 /// Counts `git status --porcelain=v1 -z` entries; renames and copies carry a second path.
 fn changed_files(status: &str) -> u64 {

@@ -23,6 +23,16 @@ use std::{
 pub(crate) struct ImportSource {
     pub display_path: String,
     pub inspection: Inspection,
+    /// The `skills` CLI lock file that would record where this copy was published.
+    pub lock: PathBuf,
+}
+
+/// The library skills a scan marks found skills with: by content, which blocked payloads never
+/// match, and by normalized slug, whatever the content.
+#[derive(Default)]
+pub(crate) struct Managed {
+    pub digests: BTreeMap<String, SkillId>,
+    pub slugs: BTreeMap<String, SkillId>,
 }
 
 /// What one completed scan found.
@@ -50,6 +60,8 @@ struct ScanState {
     /// Generation and cancellation flag of the running scan.
     running: Option<(u64, Arc<AtomicBool>)>,
     generations: u64,
+    /// Scans completed since launch.
+    completed: u64,
     /// Scan threads still running, including replaced ones.
     threads: usize,
 }
@@ -73,6 +85,32 @@ impl Scans {
         ))
     }
 
+    /// How many scans completed since launch.
+    pub(crate) fn completed(&self) -> AppResult<u64> {
+        Ok(self.lock()?.completed)
+    }
+
+    /// The found copies the last complete scan matched to a library skill by content.
+    pub(crate) fn library_copies(&self) -> AppResult<Vec<(SkillId, ImportSource)>> {
+        let state = self.lock()?;
+        let Some(found) = state
+            .last
+            .as_ref()
+            .filter(|found| found.snapshot.error.is_none())
+        else {
+            return Ok(Vec::new());
+        };
+        Ok(found
+            .snapshot
+            .candidates
+            .iter()
+            .filter_map(|candidate| {
+                let source = found.sources.get(&candidate.id)?;
+                Some((candidate.skill_id.clone()?, source.clone()))
+            })
+            .collect())
+    }
+
     pub(crate) fn selected(
         &self,
         ids: &[CandidateId],
@@ -82,7 +120,7 @@ impl Scans {
             .last
             .as_ref()
             .filter(|found| found.snapshot.error.is_none())
-            .ok_or_else(|| AppError::stale("Run a complete scan before preparing an install."))?;
+            .ok_or_else(|| AppError::stale("Run a complete scan before preparing an import."))?;
         if ids.is_empty()
             || ids.len() > 500
             || ids.iter().collect::<BTreeSet<_>>().len() != ids.len()
@@ -107,7 +145,7 @@ impl Scans {
         &self,
         config: EngineConfig,
         workspaces: Vec<(WorkspaceId, PathBuf)>,
-        managed: BTreeMap<String, SkillId>,
+        managed: Managed,
         log: Logger,
         replace: bool,
     ) -> AppResult<()> {
@@ -123,7 +161,7 @@ impl Scans {
         &self,
         config: EngineConfig,
         workspaces: Vec<(WorkspaceId, PathBuf)>,
-        managed: BTreeMap<String, SkillId>,
+        managed: Managed,
         log: Logger,
         replace: bool,
         launch: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
@@ -145,8 +183,10 @@ impl Scans {
         let scans = self.clone();
         let failure_log = log.clone();
         let launched = launch(Box::new(move || {
-            let result = registry::locations(&config, &workspaces, &log)
-                .and_then(|locations| traversal::scan(locations, &managed, &cancel, &log));
+            let global_lock = crate::sources::lock::global_lock(&config);
+            let result = registry::locations(&config, &workspaces, &log).and_then(|locations| {
+                traversal::scan(locations, &managed, &global_lock, &cancel, &log)
+            });
             scans.finish(generation, result, &log);
         }));
         if let Err(error) = launched {
@@ -180,6 +220,7 @@ impl Scans {
         if cancel.load(Ordering::Acquire) {
             return;
         }
+        state.completed += 1;
         state.last = Some(result.unwrap_or_else(|error| {
             log.record(error.to_string());
             Found::failed(error.message)

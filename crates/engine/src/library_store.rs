@@ -3,6 +3,7 @@
 
 use crate::{
     payload::Inspection,
+    records::Record,
     schema::{library_folders, preset_skills, presets, skills},
 };
 use diesel::{prelude::*, upsert::excluded};
@@ -10,18 +11,33 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The inspected payload facts of a skill directory, as installs and reconciliation save them.
+/// The inspected payload facts of a skill directory and its record, as imports, updates, and
+/// reconciliation save them.
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct SkillRecord {
+pub(crate) struct SavedSkill {
     pub slug: String,
     pub digest: String,
     pub file_count: u64,
     pub total_bytes: u64,
     pub details: SkillDetails,
     pub imported_at: Option<String>,
+    #[serde(default)]
+    pub source: Option<SkillSource>,
+    /// The Git tree id the skill's record holds.
+    #[serde(default)]
+    pub recorded: String,
+    #[serde(default)]
+    pub drift: Option<Drift>,
 }
-impl SkillRecord {
-    pub(crate) fn new(slug: String, inspection: &Inspection, imported_at: Option<String>) -> Self {
+impl SavedSkill {
+    /// A skill whose content is `inspection` and whose record is `record`.
+    pub(crate) fn new(
+        slug: String,
+        inspection: &Inspection,
+        imported_at: Option<String>,
+        record: Record,
+        drift: Option<Drift>,
+    ) -> Self {
         Self {
             slug,
             digest: inspection.manifest.digest.clone(),
@@ -33,13 +49,16 @@ impl SkillRecord {
                 messages: inspection.messages.clone(),
             },
             imported_at,
+            source: record.source,
+            recorded: record.tree,
+            drift,
         }
     }
 }
 
-/// Inserts a skill, or refreshes the payload facts of an existing one while keeping its install
-/// time, folder, and presets.
-pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SkillRecord) -> AppResult<()> {
+/// Inserts a skill, or refreshes the payload facts and record of an existing one while keeping its
+/// import time, folder, and presets.
+pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SavedSkill) -> AppResult<()> {
     diesel::insert_into(skills::table)
         .values((
             skills::slug.eq(&record.slug),
@@ -48,6 +67,9 @@ pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SkillRecord
             skills::total_bytes.eq(record.total_bytes as i64),
             skills::details.eq(to_json(&record.details)?),
             skills::imported_at.eq(&record.imported_at),
+            skills::source.eq(record.source.as_ref().map(to_json).transpose()?),
+            skills::recorded_tree.eq(&record.recorded),
+            skills::drift.eq(record.drift.as_ref().map(to_text).transpose()?),
         ))
         .on_conflict(skills::slug)
         .do_update()
@@ -56,7 +78,23 @@ pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SkillRecord
             skills::file_count.eq(excluded(skills::file_count)),
             skills::total_bytes.eq(excluded(skills::total_bytes)),
             skills::details.eq(excluded(skills::details)),
+            skills::source.eq(excluded(skills::source)),
+            skills::recorded_tree.eq(excluded(skills::recorded_tree)),
+            skills::drift.eq(excluded(skills::drift)),
         ))
+        .execute(connection)
+        .map(drop)
+        .map_err(|_| AppError::storage())
+}
+
+/// Records the source of skill `slug`.
+pub(crate) fn set_source(
+    connection: &mut SqliteConnection,
+    slug: &str,
+    source: &SkillSource,
+) -> AppResult<()> {
+    diesel::update(skills::table.find(slug))
+        .set(skills::source.eq(to_json(source)?))
         .execute(connection)
         .map(drop)
         .map_err(|_| AppError::storage())
@@ -97,6 +135,9 @@ type SkillRow = (
     String,
     Option<String>,
     Option<String>,
+    Option<String>,
+    String,
+    Option<String>,
 );
 
 /// The library and each skill's cached details.
@@ -114,7 +155,18 @@ pub(crate) fn load(
     }
     let mut details = BTreeMap::new();
     let mut skills = Vec::new();
-    for (slug, digest, file_count, total_bytes, detail, imported_at, folder) in skills::table
+    for (
+        slug,
+        digest,
+        file_count,
+        total_bytes,
+        detail,
+        imported_at,
+        folder,
+        source,
+        recorded,
+        drift,
+    ) in skills::table
         .order(skills::slug)
         .load::<SkillRow>(connection)
         .map_err(storage)?
@@ -129,6 +181,9 @@ pub(crate) fn load(
             file_count: file_count as u64,
             total_bytes: total_bytes as u64,
             imported_at,
+            source: source.as_deref().map(from_json).transpose()?,
+            recorded,
+            drift: drift.as_deref().map(from_text).transpose()?,
         });
     }
     let presets = presets::table

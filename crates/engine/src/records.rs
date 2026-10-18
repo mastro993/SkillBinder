@@ -1,0 +1,132 @@
+//! Library skills' records, `records/<slug>.toml` beside the skill directories so they sync with
+//! them: the Git tree id of the content each skill should have, and its source when known.
+
+use crate::{payload, persistence, worker::State};
+use serde::{Deserialize, Serialize};
+use skillbinder_proto::{AppError, AppResult, SkillSource};
+use std::{collections::BTreeSet, fs, io::Write, path::PathBuf};
+
+/// What a library skill should contain and where it was published.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub(crate) struct Record {
+    /// The Git tree id of the skill's content.
+    pub tree: String,
+    /// Where the skill was published, if known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<SkillSource>,
+}
+
+impl Record {
+    /// A record of `inspection`'s content.
+    pub(crate) fn of(inspection: &payload::Inspection, source: Option<SkillSource>) -> Self {
+        Self {
+            tree: inspection.tree.clone(),
+            source,
+        }
+    }
+}
+
+fn valid(record: &Record) -> Result<(), String> {
+    if record.tree.len() != 40 || !record.tree.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("its tree id is malformed".to_owned());
+    }
+    match &record.source {
+        Some(source) => crate::git::validate_source(source).map_err(|error| error.message),
+        None => Ok(()),
+    }
+}
+
+impl State {
+    fn records_dir(&self) -> PathBuf {
+        self.library_dir().join("records")
+    }
+
+    fn record_file(&self, slug: &str) -> AppResult<PathBuf> {
+        if !payload::portable(slug) {
+            return Err(AppError::storage());
+        }
+        Ok(self.records_dir().join(format!("{slug}.toml")))
+    }
+
+    /// The record stored for `slug`, if any. An unreadable or invalid file reads as none, and the
+    /// reason is logged.
+    pub(crate) fn read_record(&self, slug: &str) -> Option<Record> {
+        let text = match fs::read_to_string(self.record_file(slug).ok()?) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+            Err(error) => {
+                self.log
+                    .record(format!("Record of {slug} is unreadable: {error}"));
+                return None;
+            }
+        };
+        match toml::from_str::<Record>(&text)
+            .map_err(|error| error.to_string())
+            .and_then(|record| valid(&record).map(|()| record))
+        {
+            Ok(record) => Some(record),
+            Err(error) => {
+                self.log
+                    .record(format!("Record of {slug} is invalid: {error}"));
+                None
+            }
+        }
+    }
+
+    /// Durably writes `slug`'s record, replacing any previous one.
+    pub(crate) fn write_record(&self, slug: &str, record: &Record) -> AppResult<()> {
+        let path = self.record_file(slug)?;
+        let directory = self.records_dir();
+        fs::create_dir_all(&directory).map_err(|_| AppError::storage())?;
+        let text = toml::to_string(record).map_err(|_| AppError::storage())?;
+        let mut file =
+            tempfile::NamedTempFile::new_in(&directory).map_err(|_| AppError::storage())?;
+        file.write_all(text.as_bytes())
+            .and_then(|()| file.as_file().sync_all())
+            .map_err(|_| AppError::storage())?;
+        file.persist(&path).map_err(|_| AppError::storage())?;
+        persistence::sync_directory(&directory)
+    }
+
+    /// Removes `slug`'s record, if any.
+    pub(crate) fn remove_record(&self, slug: &str) -> AppResult<()> {
+        match fs::remove_file(self.record_file(slug)?) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(AppError::storage()),
+            _ => Ok(()),
+        }
+    }
+
+    /// Writes `record` for `slug`, logging instead of failing, for a caller that restores a
+    /// previous record after its change failed.
+    pub(crate) fn restore_record(&self, slug: &str, record: Option<&Record>) {
+        let restored = match record {
+            Some(record) => self.write_record(slug, record),
+            None => self.remove_record(slug),
+        };
+        if let Err(error) = restored {
+            self.log
+                .record(format!("Record of {slug} could not be restored: {error}"));
+        }
+    }
+
+    /// Removes the records whose skill directory is not among `listed`, such as one an import
+    /// interrupted before its skill arrived left behind.
+    pub(crate) fn remove_orphan_records(&self, listed: &BTreeSet<String>) -> AppResult<()> {
+        let entries = match fs::read_dir(self.records_dir()) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(_) => return Err(AppError::storage()),
+        };
+        for entry in entries {
+            let name = entry.map_err(|_| AppError::storage())?.file_name();
+            if let Some(slug) = name.to_str().and_then(|name| name.strip_suffix(".toml"))
+                && !listed.contains(slug)
+            {
+                self.log
+                    .record(format!("Removing the orphan record of {slug}"));
+                self.remove_record(slug)?;
+            }
+        }
+        Ok(())
+    }
+}

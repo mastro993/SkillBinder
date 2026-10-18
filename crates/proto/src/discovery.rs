@@ -27,14 +27,29 @@ pub struct CandidateLocation {
     /// The workspaces whose scan reads this location; empty for a global skill directory.
     pub workspaces: Vec<WorkspaceId>,
 }
-/// A found skill: one slug and content digest with every location holding those bytes.
-/// Its paths are never import inputs; the engine keeps the reviewed source by opaque identity.
+/// One version of a found skill: one slug and content digest with every location holding those
+/// bytes. The versions of a skill share its `key`. Its paths are never import inputs; the engine
+/// keeps the reviewed source by opaque identity.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Candidate {
     /// Opaque identity derived from the content, so it is the same in every scan that finds it.
     pub id: CandidateId,
+    /// The slug compared under NFKC and full case folding, shared by every version of the skill:
+    /// the library holds one skill per key.
+    pub key: String,
+    /// Whether this is the version an import picks unless the user chooses another: the one
+    /// matching its `skills` lock entry, else the newest, else the one found in most locations.
+    /// Exactly one importable version of each key is preferred; a key whose versions are all
+    /// blocked has none.
+    pub preferred: bool,
+    /// Whether the content is exactly what its `skills` lock entry recorded as published.
+    pub matches_source: bool,
+    /// Unix seconds of the newest file's modification in the first location, if known.
+    pub modified: Option<u64>,
     /// The library skill with the same content, if any.
     pub skill_id: Option<SkillId>,
+    /// The library skill holding this slug, whatever its content, if any.
+    pub held: Option<SkillId>,
     /// Directory slug.
     pub slug: String,
     /// Frontmatter description.
@@ -50,13 +65,20 @@ pub struct Candidate {
     /// Materialized regular file count.
     pub file_count: u64,
 }
+impl Candidate {
+    /// The library skill that puts this found skill in library: one with the same content, or
+    /// else one holding its slug, since the library is a skill's source of truth once imported.
+    pub fn in_library(&self) -> Option<&SkillId> {
+        self.skill_id.as_ref().or(self.held.as_ref())
+    }
+}
 /// The skills the last completed scan found in the agents' global skill directories and every
 /// workspace.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ScanSnapshot {
     /// Found skills, ordered by their first location's path.
     pub candidates: Vec<Candidate>,
-    /// Safe failure message; the candidates of a failed scan cannot be installed.
+    /// Safe failure message; the candidates of a failed scan cannot be imported.
     pub error: Option<String>,
 }
 /// One reviewed import choice.
@@ -72,7 +94,7 @@ pub enum ImportDecision {
 pub struct ImportItem {
     /// Discovery identity.
     pub candidate_id: CandidateId,
-    /// The library skill the row installs or matches.
+    /// The library skill the row imports or matches.
     pub skill_id: SkillId,
     /// The found skill's directory slug, which an identical library skill may name differently.
     pub slug: String,
