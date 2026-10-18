@@ -1,0 +1,83 @@
+use gpui_kit::{Context, Window};
+use skillbinder_proto::*;
+
+use super::route::{LibraryFilter, Route};
+use super::{NativeView, agent_page};
+
+impl NativeView {
+    /// Opens `route` and records the current one for Back.
+    pub(super) fn navigate(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
+        if self.route != route {
+            self.history.push(self.route.clone());
+        }
+        self.show(route, window, cx);
+    }
+
+    pub(super) fn go_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(route) = self.history.back(self.route.clone()) {
+            self.show(route, window, cx);
+        }
+    }
+
+    pub(super) fn go_forward(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(route) = self.history.forward(self.route.clone()) {
+            self.show(route, window, cx);
+        }
+    }
+
+    /// Shows `route` without touching history; a deleted preset or skill falls back to all skills,
+    /// and a removed workspace or an agent no longer detected to Discovery.
+    pub(super) fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
+        let preset_exists = |id: &PresetId| {
+            self.snapshot
+                .library
+                .as_ref()
+                .is_some_and(|library| library.library.presets.iter().any(|f| &f.id == id))
+        };
+        let skill_exists = |id: &SkillId| {
+            self.snapshot
+                .library
+                .as_ref()
+                .is_some_and(|library| library.library.skills.iter().any(|s| &s.id == id))
+        };
+        let workspace_exists =
+            |id: &WorkspaceId| self.snapshot.workspaces.iter().any(|p| &p.id == id);
+        let route = match route {
+            Route::Library(LibraryFilter::Preset(id)) if !preset_exists(&id) => {
+                Route::Library(LibraryFilter::All)
+            }
+            Route::Skill(id) if !skill_exists(&id) => Route::Library(LibraryFilter::All),
+            Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
+            route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
+        };
+        if self.route != route {
+            self.leave_page();
+            self.search
+                .update(cx, |input, cx| input.set_value("", window, cx));
+            if let Route::Skill(id) = &route {
+                self.load_skill(id.clone(), cx);
+            }
+        }
+        self.route = route;
+        self.error = None;
+        cx.notify();
+    }
+
+    /// Drops the shown page's transient state and scrolls the next page to its top.
+    pub(super) fn leave_page(&mut self) {
+        self.candidate_page = 0;
+        self.selected_candidates.clear();
+        self.acknowledge_invalid = false;
+        self.preview = None;
+        self.skill_load = None;
+        self.content_scroll.handle.set_offset(Default::default());
+    }
+
+    /// Library filter of the current route; other routes behave as all skills.
+    pub(super) fn library_filter(&self) -> &LibraryFilter {
+        match &self.route {
+            Route::Library(filter) => filter,
+            _ => &LibraryFilter::All,
+        }
+    }
+}
