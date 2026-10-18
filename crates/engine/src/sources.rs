@@ -99,9 +99,16 @@ fn checkout(
         return Ok(None);
     };
     // Bounded before any file is fetched or written; inspection bounds the bytes afterwards.
-    if git.tree_entries(cache, &tree)? > payload::MAX_ENTRIES {
+    let modes = git.tree_modes(cache, &tree)?;
+    if modes.len() > payload::MAX_ENTRIES {
         return Err(AppError::validation(
             "The source's folder has too many files to check.",
+        ));
+    }
+    // A submodule would check out as an empty folder, so its content could never match.
+    if modes.iter().any(|mode| mode == "160000") {
+        return Err(AppError::validation(
+            "The source's folder holds a Git submodule, which SkillBinder cannot check out.",
         ));
     }
     let directory = into.join(slug);

@@ -257,3 +257,23 @@ async fn a_source_whose_new_version_is_blocked_offers_no_update() {
     assert!(published.library_text().contains("first"));
     engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn a_source_folder_with_a_submodule_fails_its_check() {
+    let published = Published::new();
+    let engine = published.imported().await;
+    // A gitlink, as a submodule commits it; the cache never has the submodule's content.
+    let gitlink = format!("160000,{},skills/review/vendored", "1".repeat(40));
+    git(
+        &published.publisher,
+        &["update-index", "--add", "--cacheinfo", &gitlink],
+    );
+    git(&published.publisher, &["commit", "-m", "submodule"]);
+    assert_eq!(
+        update_state(&engine).await.unwrap().check,
+        UpdateCheck::Failed(
+            "Couldn't check for updates: The source's folder holds a Git submodule, which SkillBinder cannot check out.".into()
+        )
+    );
+    engine.shutdown().await.unwrap();
+}

@@ -26,6 +26,21 @@ impl Record {
     }
 }
 
+/// A record holds a tree id and a source; anything larger is not one.
+const MAX_RECORD_BYTES: u64 = 64 * 1024;
+
+/// The text of the record file at `path`, refusing one larger than `MAX_RECORD_BYTES`.
+fn read_bounded(path: &std::path::Path) -> std::io::Result<String> {
+    use std::io::Read;
+    let file = fs::File::open(path)?;
+    if file.metadata()?.len() > MAX_RECORD_BYTES {
+        return Err(std::io::Error::other("the record is too large"));
+    }
+    let mut text = String::new();
+    file.take(MAX_RECORD_BYTES).read_to_string(&mut text)?;
+    Ok(text)
+}
+
 fn valid(record: &Record) -> Result<(), String> {
     // Lowercase only, as computed tree ids are, so equal trees compare equal.
     if record.tree.len() != 40
@@ -57,7 +72,7 @@ impl State {
     /// The record stored for `slug`, if any. An unreadable or invalid file reads as none, and the
     /// reason is logged.
     pub(crate) fn read_record(&self, slug: &str) -> Option<Record> {
-        let text = match fs::read_to_string(self.record_file(slug).ok()?) {
+        let text = match read_bounded(&self.record_file(slug).ok()?) {
             Ok(text) => text,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
             Err(error) => {
@@ -98,8 +113,10 @@ impl State {
     /// Removes `slug`'s record, if any.
     pub(crate) fn remove_record(&self, slug: &str) -> AppResult<()> {
         match fs::remove_file(self.record_file(slug)?) {
-            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(AppError::storage()),
-            _ => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err(AppError::storage()),
+            // Durable before a journal that removed it is deleted.
+            Ok(()) => persistence::sync_directory(&self.records_dir()),
         }
     }
 

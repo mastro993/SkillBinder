@@ -83,11 +83,15 @@ impl Git {
         }))
     }
 
-    /// How many files and folders `tree` holds, read from tree objects alone, so no blob is
-    /// fetched to count them.
-    pub fn tree_entries(&self, cache: &Path, tree: &str) -> AppResult<usize> {
-        let listed = self.output(cache, &["ls-tree", "-r", "-t", "-z", "--name-only", tree])?;
-        Ok(listed.split_terminator('\0').count())
+    /// The mode of each file and folder `tree` holds, read from tree objects alone, so no blob
+    /// is fetched to list them.
+    pub fn tree_modes(&self, cache: &Path, tree: &str) -> AppResult<Vec<String>> {
+        let listed = self.output(cache, &["ls-tree", "-r", "-t", "-z", tree])?;
+        // `<mode> <type> <object>\t<path>`
+        Ok(listed
+            .split_terminator('\0')
+            .filter_map(|entry| entry.split(' ').next().map(str::to_owned))
+            .collect())
     }
 
     /// Writes the files of `tree` into the empty directory `into`, fetching missing blobs.
