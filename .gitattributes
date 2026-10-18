@@ -7,7 +7,7 @@ assets/** -text
 Cargo.lock linguist-generated
 skills-lock.json linguist-generated
 /clippy.toml linguist-generated
-fixtures/** linguist-generated
+fixtures/baseline/** linguist-generated
 assets/** linguist-vendored
 # Agents update the asset inventories, so the size check covers them.
 assets/**/*.json -linguist-vendored
