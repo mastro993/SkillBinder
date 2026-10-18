@@ -41,6 +41,8 @@ CI and local verification:
 - `cargo run -p xtask -- verify` (registry, licensed artwork, baseline integrity, crate graph)
 - locked release build
 
+The pre-commit hook in `.githooks/` rejects a staged file over 20,000 bytes. Split the file as its message says; do not bypass it with `--no-verify`. Mark only files no agent writes `linguist-generated` or `linguist-vendored` in `.gitattributes`.
+
 Verification must distinguish compilation, native interaction, visual parity, and packaged-app smoke tests.
 
 Native test controls exist only behind `native-test`. Do not add a production debug server. Use isolated test roots and local bare remotes for domain tests.
