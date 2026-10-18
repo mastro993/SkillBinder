@@ -14,7 +14,6 @@ use std::{
 
 struct Traversal<'a> {
     managed: &'a Managed,
-    global_lock: &'a Path,
     log: &'a Logger,
     found: Found,
     /// Candidate and location index of each physical skill directory already listed.
@@ -28,13 +27,11 @@ struct Traversal<'a> {
 pub(super) fn scan(
     locations: Vec<Location>,
     managed: &Managed,
-    global_lock: &Path,
     cancel: &AtomicBool,
     log: &Logger,
 ) -> AppResult<Found> {
     let mut traversal = Traversal {
         managed,
-        global_lock,
         log,
         found: Found {
             snapshot: ScanSnapshot {
@@ -126,14 +123,15 @@ fn identity(inspection: &payload::Inspection) -> CandidateId {
 
 impl Traversal<'_> {
     fn candidate(&mut self, location: &Location, path: &Path, canonical: PathBuf) {
-        let candidates = &mut self.found.snapshot.candidates;
         if let Some(&(candidate, index)) = self.physical.get(&canonical) {
+            let candidates = &mut self.found.snapshot.candidates;
             if let Some(found) = candidates[candidate].locations.get_mut(index) {
                 merge(&mut found.readers, &location.readers);
                 merge(&mut found.agents, &location.agents);
                 merge(&mut found.global_agents, &location.global_agents);
                 merge(&mut found.workspaces, &location.workspaces);
             }
+            self.add_locks(candidate, &location.locks);
             return;
         }
         let inspection = match payload::inspect(&canonical) {
@@ -155,24 +153,15 @@ impl Traversal<'_> {
         };
         let id = identity(&inspection);
         if let Some(&candidate) = self.listed.get(&id) {
+            let candidates = &mut self.found.snapshot.candidates;
             candidates[candidate].locations.push(found);
             let index = candidates[candidate].locations.len() - 1;
             self.physical.insert(canonical, (candidate, index));
+            self.add_locks(candidate, &location.locks);
             return;
         }
-        let lock = if location.in_workspace() {
-            lock::project_lock(&location.boundary)
-        } else {
-            self.global_lock.to_owned()
-        };
-        let matches_source = self
-            .locks
-            .entry(lock.clone())
-            .or_insert_with(|| lock::read(&lock))
-            .as_ref()
-            .and_then(|read| read.tree(&inspection.slug))
-            .is_some_and(|tree| tree == inspection.tree);
         let candidates = &mut self.found.snapshot.candidates;
+        let index = candidates.len();
         self.listed.insert(id.clone(), candidates.len());
         self.physical
             .insert(canonical.clone(), (candidates.len(), 0));
@@ -180,7 +169,7 @@ impl Traversal<'_> {
             id: id.clone(),
             key: normalized(&inspection.slug),
             preferred: false,
-            matches_source,
+            matches_source: false,
             modified: crate::library::newest_modification(&canonical),
             skill_id: self
                 .managed
@@ -205,9 +194,29 @@ impl Traversal<'_> {
             ImportSource {
                 display_path: found.display_path,
                 inspection,
-                lock,
+                locks: Vec::new(),
             },
         );
+        self.add_locks(index, &location.locks);
+    }
+
+    /// Adds `locks` to the lock files that may trace candidate `index`'s copies, and marks it as
+    /// matching its source when one of them records its content as published.
+    fn add_locks(&mut self, index: usize, locks: &[PathBuf]) {
+        let candidate = &mut self.found.snapshot.candidates[index];
+        let Some(source) = self.found.sources.get_mut(&candidate.id) else {
+            return;
+        };
+        merge(&mut source.locks, locks);
+        let (slug, tree) = (&source.inspection.slug, &source.inspection.tree);
+        candidate.matches_source |= locks.iter().any(|path| {
+            self.locks
+                .entry(path.clone())
+                .or_insert_with(|| lock::read(path))
+                .as_ref()
+                .and_then(|read| read.tree(slug))
+                .is_some_and(|recorded| recorded == tree)
+        });
     }
 }
 

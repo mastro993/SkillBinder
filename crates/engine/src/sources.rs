@@ -9,7 +9,7 @@ pub(crate) use checks::{Updates, check};
 
 use crate::{git::Git, payload, payload::Inspection, records::Record, worker::State};
 use sha2::{Digest, Sha256};
-use skillbinder_proto::{AppError, AppResult, SkillSource};
+use skillbinder_proto::{AppError, AppResult, SkillSource, ValidationStatus};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -24,26 +24,33 @@ impl State {
         let copies = self.scans.library_copies()?;
         let library = self.read_library()?;
         for skill in library.skills.iter().filter(|skill| skill.source.is_none()) {
-            // ponytail: reads the lock once per skill; learning happens once per skill.
+            // ponytail: reads the locks once per skill; learning happens once per skill.
             let Some(source) = copies
                 .iter()
-                .filter(|(id, copy)| id == &skill.id && copy.inspection.tree == skill.recorded)
-                .find_map(|(_, copy)| lock::source(&copy.lock, &copy.inspection.slug))
+                .filter(|(id, copy)| {
+                    id == &skill.id
+                        && copy.inspection.status != ValidationStatus::Blocked
+                        && copy.inspection.tree == skill.recorded
+                })
+                .find_map(|(_, copy)| lock::source(&copy.locks, &copy.inspection.slug))
             else {
                 continue;
             };
+            let slug = skill.id.as_str();
+            let previous = self.read_record(slug);
             let record = Record {
                 tree: skill.recorded.clone(),
                 source: Some(source.clone()),
             };
-            self.write_record(skill.id.as_str(), &record)?;
-            crate::library_store::set_source(
-                &mut self.database.borrow_mut(),
-                skill.id.as_str(),
-                &source,
-            )?;
-            self.log
-                .record(format!("Learned the source of {}", skill.id.as_str()));
+            self.write_record(slug, &record)?;
+            let cached =
+                crate::library_store::set_source(&mut self.database.borrow_mut(), slug, &source);
+            if let Err(error) = cached {
+                // The cache would never learn the file's source again, so the file goes back.
+                self.restore_record(slug, previous.as_ref());
+                return Err(error);
+            }
+            self.log.record(format!("Learned the source of {slug}"));
         }
         Ok(())
     }
@@ -91,6 +98,12 @@ fn checkout(
     let Some(tree) = git.source_tree(cache, &source.path)? else {
         return Ok(None);
     };
+    // Bounded before any file is fetched or written; inspection bounds the bytes afterwards.
+    if git.tree_entries(cache, &tree)? > payload::MAX_ENTRIES {
+        return Err(AppError::validation(
+            "The source's folder has too many files to check.",
+        ));
+    }
     let directory = into.join(slug);
     fs::create_dir_all(&directory).map_err(|_| AppError::storage())?;
     git.checkout_tree(cache, &tree, &directory)?;

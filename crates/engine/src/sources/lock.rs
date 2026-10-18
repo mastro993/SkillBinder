@@ -6,7 +6,12 @@
 use crate::lifecycle::EngineConfig;
 use serde::Deserialize;
 use skillbinder_proto::SkillSource;
-use std::{collections::BTreeMap, fs, path::Path, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 /// The lock file of a project at `root`.
 pub(crate) fn project_lock(root: &Path) -> PathBuf {
@@ -42,15 +47,25 @@ struct Entry {
     skill_folder_hash: Option<String>,
 }
 
-/// The lock file at `path`; `None` when it is absent or unreadable.
+/// Lock files are not the app's; a larger one is refused rather than read into memory.
+const MAX_LOCK_BYTES: u64 = 8 * 1024 * 1024;
+
+/// The lock file at `path`; `None` when it is absent, unreadable, or larger than
+/// `MAX_LOCK_BYTES`.
 pub(crate) fn read(path: &Path) -> Option<Lock> {
-    serde_json::from_slice(&fs::read(path).ok()?).ok()
+    let file = fs::File::open(path).ok()?;
+    if file.metadata().ok()?.len() > MAX_LOCK_BYTES {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_LOCK_BYTES + 1).read_to_end(&mut bytes).ok()?;
+    serde_json::from_slice(&bytes).ok()
 }
 
-/// The Git source the lock file at `path` records for `slug`; `None` when the lock is absent or
-/// unreadable, has no entry for it, or records a source that is not a Git repository.
-pub(crate) fn source(path: &Path, slug: &str) -> Option<SkillSource> {
-    read(path)?.source(slug)
+/// The Git source the first of `paths` that records one gives `slug`; `None` when no lock is
+/// readable, has an entry for it, or records a Git repository.
+pub(crate) fn source(paths: &[PathBuf], slug: &str) -> Option<SkillSource> {
+    paths.iter().find_map(|path| read(path)?.source(slug))
 }
 
 impl Lock {
@@ -99,7 +114,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("lock.json");
         fs::write(&path, json).unwrap();
-        source(&path, slug)
+        source(&[path], slug)
     }
 
     #[test]

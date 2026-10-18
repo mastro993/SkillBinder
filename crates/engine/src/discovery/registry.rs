@@ -34,6 +34,9 @@ pub(crate) struct Location {
     pub global_agents: Vec<String>,
     /// The workspaces whose scan reads this location; empty for a global skill directory.
     pub workspaces: Vec<WorkspaceId>,
+    /// The `skills` lock files that may trace a skill here, sorted: the global lock where an
+    /// agent reads it as a global root, and the project lock of each workspace that reads it.
+    pub locks: Vec<PathBuf>,
 }
 impl Location {
     /// A workspace reads this location, so the deeper workspace walk limits apply.
@@ -54,6 +57,7 @@ pub(crate) fn locations(
     log: &Logger,
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
+    let global_lock = crate::sources::lock::global_lock(config);
     for agent in registry()?.agents {
         let own = global_dir(&agent, config);
         for template in &agent.global_roots {
@@ -61,13 +65,22 @@ pub(crate) fn locations(
                 let reading = Reading::Global {
                     own: own.as_ref() == Some(&path),
                 };
-                add(&mut combined, path, &config.home, &agent, reading, log);
+                let lock = global_lock.clone();
+                add(
+                    &mut combined,
+                    path,
+                    &config.home,
+                    &agent,
+                    (reading, lock),
+                    log,
+                );
             }
         }
         for (id, boundary) in workspaces {
             let path = boundary.join(&agent.workspace_skills_dir);
             let reading = Reading::Workspace(id);
-            add(&mut combined, path, boundary, &agent, reading, log);
+            let lock = crate::sources::lock::project_lock(boundary);
+            add(&mut combined, path, boundary, &agent, (reading, lock), log);
         }
     }
     Ok(combined.into_values().collect())
@@ -145,7 +158,7 @@ fn add(
     path: PathBuf,
     boundary: &Path,
     agent: &Agent,
-    reading: Reading<'_>,
+    (reading, lock): (Reading<'_>, PathBuf),
     log: &Logger,
 ) {
     let place = match bounded(&path, boundary) {
@@ -161,7 +174,9 @@ fn add(
             agents: Vec::new(),
             global_agents: Vec::new(),
             workspaces: Vec::new(),
+            locks: Vec::new(),
         });
+    insert(&mut location.locks, &lock);
     match reading {
         Reading::Workspace(workspace) => insert(&mut location.workspaces, workspace),
         Reading::Global { own: true } => insert(&mut location.global_agents, &agent.id),

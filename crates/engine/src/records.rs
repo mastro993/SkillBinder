@@ -27,7 +27,13 @@ impl Record {
 }
 
 fn valid(record: &Record) -> Result<(), String> {
-    if record.tree.len() != 40 || !record.tree.bytes().all(|b| b.is_ascii_hexdigit()) {
+    // Lowercase only, as computed tree ids are, so equal trees compare equal.
+    if record.tree.len() != 40
+        || !record
+            .tree
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
         return Err("its tree id is malformed".to_owned());
     }
     match &record.source {
@@ -79,8 +85,9 @@ impl State {
         let directory = self.records_dir();
         fs::create_dir_all(&directory).map_err(|_| AppError::storage())?;
         let text = toml::to_string(record).map_err(|_| AppError::storage())?;
-        let mut file =
-            tempfile::NamedTempFile::new_in(&directory).map_err(|_| AppError::storage())?;
+        // Staged outside the synced folder, so an interrupted write never leaves a file there.
+        let mut file = tempfile::NamedTempFile::new_in(self.config.data_dir.join("staging"))
+            .map_err(|_| AppError::storage())?;
         file.write_all(text.as_bytes())
             .and_then(|()| file.as_file().sync_all())
             .map_err(|_| AppError::storage())?;
@@ -96,14 +103,17 @@ impl State {
         }
     }
 
-    /// Writes `record` for `slug`, logging instead of failing, for a caller that restores a
-    /// previous record after its change failed.
-    pub(crate) fn restore_record(&self, slug: &str, record: Option<&Record>) {
-        let restored = match record {
+    /// Writes `record` as `slug`'s record, or removes it when there is none.
+    pub(crate) fn put_record(&self, slug: &str, record: Option<&Record>) -> AppResult<()> {
+        match record {
             Some(record) => self.write_record(slug, record),
             None => self.remove_record(slug),
-        };
-        if let Err(error) = restored {
+        }
+    }
+
+    /// Puts back `slug`'s previous record after a change failed, logging instead of failing.
+    pub(crate) fn restore_record(&self, slug: &str, record: Option<&Record>) {
+        if let Err(error) = self.put_record(slug, record) {
             self.log
                 .record(format!("Record of {slug} could not be restored: {error}"));
         }

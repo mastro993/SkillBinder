@@ -33,7 +33,6 @@ struct Owner {
     sender: mpsc::Sender<Message>,
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
-    updates: Updates,
 }
 /// Cloneable typed handle to the embedded engine worker.
 #[derive(Clone)]
@@ -80,14 +79,13 @@ impl Engine {
             .map_err(|_| AppError::storage())?;
         let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
-        let updates = Updates::default();
         let mut state = State {
             config,
             database,
             git: Git::discover().ok(),
             log,
             scans: scans.clone(),
-            updates: updates.clone(),
+            updates: Updates::default(),
             grants: BTreeMap::new(),
             recovery_required: true,
             lock,
@@ -107,6 +105,7 @@ impl Engine {
                         Message::Execute(job) => job(&mut state),
                         Message::Shutdown(done) => {
                             state.scans.wait_for_shutdown();
+                            state.updates.wait_for_shutdown();
                             state.log.flush();
                             let _ = done.send(());
                             break;
@@ -114,6 +113,7 @@ impl Engine {
                     }
                 }
                 state.scans.wait_for_shutdown();
+                state.updates.wait_for_shutdown();
                 state.log.flush();
                 drop(state.database);
                 FileExt::unlock(&state.lock).map_err(|_| AppError::storage())
@@ -124,7 +124,6 @@ impl Engine {
                 sender,
                 thread: Mutex::new(Some(thread)),
                 scans,
-                updates,
             }),
         })
     }
@@ -297,19 +296,20 @@ impl Engine {
     }
 }
 impl State {
-    /// The digest and slug of each library skill, which put found skills in library. Blocked
-    /// payloads mark nothing by content.
+    /// The digest and slug of each library skill, which put found skills in library. A blocked
+    /// library skill marks nothing.
     fn managed(&self) -> AppResult<Managed> {
         let (library, details) = crate::library_store::load(&mut self.database.borrow_mut())?;
         let mut managed = Managed::default();
         for skill in library.skills {
+            if details.get(&skill.id).map(|details| details.validation)
+                == Some(ValidationStatus::Blocked)
+            {
+                continue;
+            }
             let normalized = crate::library::normalized(skill.id.as_str());
             managed.slugs.insert(normalized, skill.id.clone());
-            if details.get(&skill.id).map(|details| details.validation)
-                != Some(ValidationStatus::Blocked)
-            {
-                managed.digests.insert(skill.digest, skill.id);
-            }
+            managed.digests.insert(skill.digest, skill.id);
         }
         Ok(managed)
     }

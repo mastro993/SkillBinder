@@ -17,13 +17,15 @@ use std::{collections::BTreeSet, fs};
 pub(crate) const RECONCILED_HEAD: &str = "reconciled_head";
 
 impl State {
-    /// Adds the skill directories the database lacks and drops the skills whose directory is
-    /// gone.
+    /// Adds the skill directories the database lacks, drops the skills whose directory is gone,
+    /// and records the skills that have no record yet.
     pub(crate) fn reconcile_library(&self) -> AppResult<()> {
         let listed = self.skill_dirs()?;
         let known = library_store::slugs(&mut self.database.borrow_mut())?;
+        let unrecorded = library_store::unrecorded(&mut self.database.borrow_mut())?;
         self.remove_orphan_records(&listed)?;
-        self.reconcile_slugs(listed.symmetric_difference(&known).cloned())
+        let changed: BTreeSet<_> = listed.symmetric_difference(&known).cloned().collect();
+        self.reconcile_slugs(changed.into_iter().chain(unrecorded))
     }
 
     /// Rehashes the skills Git changed since the last reconciled commit, then records the current
@@ -180,6 +182,34 @@ mod tests {
             .unwrap();
         let slugs = library_store::slugs(&mut state.database.borrow_mut()).unwrap();
         assert_eq!(slugs, BTreeSet::from(["foo".to_owned()]));
+    }
+
+    #[test]
+    fn a_skill_without_a_record_gets_one_without_any_commit() {
+        let directory = tempfile::tempdir().unwrap();
+        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let skill = state.library_dir().join("skills/foo");
+        fs::create_dir(&skill).unwrap();
+        fs::write(
+            skill.join("SKILL.md"),
+            "---\nname: foo\ndescription: test\n---\n",
+        )
+        .unwrap();
+        // Saved as a build before records would have: known, but with no recorded tree.
+        let inspection = payload::inspect(&skill).unwrap();
+        let mut saved = SavedSkill::new(
+            "foo".into(),
+            &inspection,
+            None,
+            Record::of(&inspection, None),
+            None,
+        );
+        saved.recorded.clear();
+        library_store::save_skill(&mut state.database.borrow_mut(), &saved).unwrap();
+        state.reconcile_library().unwrap();
+        assert_eq!(state.read_record("foo").unwrap().tree, inspection.tree);
+        let unrecorded = library_store::unrecorded(&mut state.database.borrow_mut()).unwrap();
+        assert!(unrecorded.is_empty());
     }
 
     #[cfg(unix)]

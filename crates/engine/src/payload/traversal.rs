@@ -12,7 +12,7 @@ use std::{
 use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
 
-const MAX_ENTRIES: usize = 5000;
+pub(crate) const MAX_ENTRIES: usize = 5000;
 const MAX_TOTAL: u64 = 25 * 1024 * 1024;
 
 pub(super) struct Snapshot {

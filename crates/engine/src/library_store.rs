@@ -118,6 +118,17 @@ pub(crate) fn holds(connection: &mut SqliteConnection, slug: &str) -> AppResult<
         .map_err(|_| AppError::storage())
 }
 
+/// The slugs of the library skills whose record is not cached yet, such as skills imported
+/// before records existed.
+pub(crate) fn unrecorded(connection: &mut SqliteConnection) -> AppResult<BTreeSet<String>> {
+    skills::table
+        .filter(skills::recorded_tree.eq(""))
+        .select(skills::slug)
+        .load::<String>(connection)
+        .map(BTreeSet::from_iter)
+        .map_err(|_| AppError::storage())
+}
+
 /// The slugs of every library skill.
 pub(crate) fn slugs(connection: &mut SqliteConnection) -> AppResult<BTreeSet<String>> {
     skills::table

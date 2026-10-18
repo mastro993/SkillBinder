@@ -87,6 +87,19 @@ impl Updates {
         Ok(state.running.then_some(due))
     }
 
+    /// Whether a check is running.
+    pub(crate) fn running(&self) -> AppResult<bool> {
+        Ok(self.lock()?.running)
+    }
+
+    /// Waits for the running check's thread to end, so its Git child stops writing the cache
+    /// before the library lock is released. Git's timeouts bound the wait.
+    pub(crate) fn wait_for_shutdown(&self) {
+        while self.state.lock().is_ok_and(|state| state.running) {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
     /// Ends the running check, keeping each result.
     pub(crate) fn finish(&self, results: Vec<(Due, UpdateCheck)>) {
         let Ok(mut state) = self.state.lock() else {

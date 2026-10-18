@@ -83,6 +83,13 @@ impl Git {
         }))
     }
 
+    /// How many files and folders `tree` holds, read from tree objects alone, so no blob is
+    /// fetched to count them.
+    pub fn tree_entries(&self, cache: &Path, tree: &str) -> AppResult<usize> {
+        let listed = self.output(cache, &["ls-tree", "-r", "-t", "-z", "--name-only", tree])?;
+        Ok(listed.split_terminator('\0').count())
+    }
+
     /// Writes the files of `tree` into the empty directory `into`, fetching missing blobs.
     pub fn checkout_tree(&self, cache: &Path, tree: &str, into: &Path) -> AppResult<()> {
         // The cache's index only ever describes the last checkout; start from an empty one.

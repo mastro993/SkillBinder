@@ -4,7 +4,7 @@ mod manifest;
 mod traversal;
 mod tree;
 pub use manifest::{Manifest, ManifestEntry, ManifestKind};
-pub(crate) use traversal::portable;
+pub(crate) use traversal::{MAX_ENTRIES, portable};
 
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{AppError, AppResult, ValidationMessage, ValidationStatus};

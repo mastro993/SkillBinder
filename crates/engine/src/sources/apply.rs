@@ -7,7 +7,7 @@ use crate::{
     git::Git,
     library_store::SavedSkill,
     payload::{self, Inspection},
-    persistence::{Journal, Move},
+    persistence::{Journal, Move, RecordChange},
     records::Record,
     worker::State,
 };
@@ -139,8 +139,8 @@ impl State {
         self.replace(skill, &restored, record, staging)
     }
 
-    /// Replaces `skill`'s content with `content` and its record with `record`. The record is
-    /// written first and restored when the replacement fails.
+    /// Replaces `skill`'s content with `content` and its record with `record`, in one journaled
+    /// change; content already in place moves nothing.
     fn replace(
         &mut self,
         skill: &Skill,
@@ -149,38 +149,14 @@ impl State {
         staging: &Path,
     ) -> AppResult<()> {
         let slug = skill.id.as_str();
-        let previous = self.read_record(slug);
-        if previous.as_ref() != Some(&record) {
-            self.write_record(slug, &record)?;
-        }
-        let replaced = if content.manifest.digest == skill.digest {
-            // The content is already in place; only the record and drift change.
-            let saved = SavedSkill::new(slug.to_owned(), content, None, record, None);
-            crate::library_store::save_skill(&mut self.database.borrow_mut(), &saved)
-        } else {
-            self.move_in(skill, content, record, staging)
-        };
-        if replaced.is_err() && !self.recovery_required {
-            self.restore_record(slug, previous.as_ref());
-        }
-        replaced
-    }
-
-    fn move_in(
-        &mut self,
-        skill: &Skill,
-        content: &Inspection,
-        record: Record,
-        staging: &Path,
-    ) -> AppResult<()> {
-        let slug = skill.id.as_str();
-        let replacement = staging.join("new").join(slug);
-        fs::create_dir_all(staging.join("new")).map_err(|_| AppError::storage())?;
-        payload::materialize(content, &replacement)?;
-        let replaced = payload::inspect(&replacement)?;
-        self.commit(Journal {
-            id: format!("replace-{}", uuid::Uuid::new_v4()),
-            moves: vec![
+        let mut moves = Vec::new();
+        let mut saved = content.clone();
+        if content.manifest.digest != skill.digest {
+            let replacement = staging.join("new").join(slug);
+            fs::create_dir_all(staging.join("new")).map_err(|_| AppError::storage())?;
+            payload::materialize(content, &replacement)?;
+            saved = payload::inspect(&replacement)?;
+            moves = vec![
                 Move {
                     from: self.skill_dir(&skill.id)?,
                     to: staging.join("old").join(slug),
@@ -189,17 +165,21 @@ impl State {
                     from: replacement,
                     to: self.library_dir().join("skills").join(slug),
                 },
-            ],
+            ];
+        }
+        let records = vec![RecordChange {
+            slug: slug.to_owned(),
+            record: Some(record.clone()),
+            previous: self.read_record(slug),
+        }];
+        self.commit(Journal {
+            id: format!("replace-{}", uuid::Uuid::new_v4()),
+            moves,
             completed_moves: 0,
             progress: Default::default(),
-            skills: vec![SavedSkill::new(
-                slug.to_owned(),
-                &replaced,
-                None,
-                record,
-                None,
-            )],
+            skills: vec![SavedSkill::new(slug.to_owned(), &saved, None, record, None)],
             outcome: None,
+            records,
         })
     }
 }

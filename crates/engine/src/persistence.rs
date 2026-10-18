@@ -1,6 +1,7 @@
 use crate::{
     database,
     library_store::{SavedSkill, save_skill},
+    records::Record,
     schema::{device_settings, idempotency_records, journals, operation_plans},
     worker::State,
 };
@@ -90,6 +91,17 @@ pub(crate) struct Journal {
     /// The import outcome the commit records; updates and reinstalls record none.
     #[serde(default)]
     pub outcome: Option<ImportOutcome>,
+    /// Records the commit writes once its moves are done; rolling back restores the previous
+    /// ones.
+    #[serde(default)]
+    pub records: Vec<RecordChange>,
+}
+/// One skill's record before and after a journaled change; `None` is no record.
+#[derive(serde::Serialize, serde::Deserialize)]
+pub(crate) struct RecordChange {
+    pub slug: String,
+    pub record: Option<Record>,
+    pub previous: Option<Record>,
 }
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct JournalProgress {
@@ -297,6 +309,10 @@ impl State {
                 return Err(uncertain_payload());
             }
         }
+        // Rewriting a record is idempotent, so recovery can finish an interrupted write.
+        for change in &journal.records {
+            self.put_record(&change.slug, change.record.as_ref())?;
+        }
         database::transaction(&mut self.database.borrow_mut(), |connection| {
             for record in &journal.skills {
                 save_skill(connection, record)?;
@@ -327,6 +343,9 @@ impl State {
             journal.completed_moves -= 1;
             journal.progress.active_move = None;
             self.save_journal(journal)?;
+        }
+        for change in &journal.records {
+            self.put_record(&change.slug, change.previous.as_ref())?;
         }
         self.remove_journal(journal)
     }

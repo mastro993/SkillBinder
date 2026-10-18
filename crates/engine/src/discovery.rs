@@ -23,8 +23,9 @@ use std::{
 pub(crate) struct ImportSource {
     pub display_path: String,
     pub inspection: Inspection,
-    /// The `skills` CLI lock file that would record where this copy was published.
-    pub lock: PathBuf,
+    /// The `skills` lock files that may record where the candidate's copies were published,
+    /// sorted.
+    pub locks: Vec<PathBuf>,
 }
 
 /// The library skills a scan marks found skills with: by content, which blocked payloads never
@@ -183,10 +184,8 @@ impl Scans {
         let scans = self.clone();
         let failure_log = log.clone();
         let launched = launch(Box::new(move || {
-            let global_lock = crate::sources::lock::global_lock(&config);
-            let result = registry::locations(&config, &workspaces, &log).and_then(|locations| {
-                traversal::scan(locations, &managed, &global_lock, &cancel, &log)
-            });
+            let result = registry::locations(&config, &workspaces, &log)
+                .and_then(|locations| traversal::scan(locations, &managed, &cancel, &log));
             scans.finish(generation, result, &log);
         }));
         if let Err(error) = launched {

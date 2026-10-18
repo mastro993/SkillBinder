@@ -3,7 +3,7 @@ use crate::{
     library::normalized,
     library_store::SavedSkill,
     payload::{self, Inspection},
-    persistence::{self, Journal, Move},
+    persistence::{self, Journal, Move, RecordChange},
     records::Record,
     schema::{idempotency_records, operation_plans},
     worker::State,
@@ -102,7 +102,10 @@ impl State {
                 messages: inspection.messages.clone(),
                 total_bytes: inspection.manifest.total_bytes(),
             });
-            origins.push(crate::sources::lock::source(&source.lock, &inspection.slug));
+            origins.push(crate::sources::lock::source(
+                &source.locks,
+                &inspection.slug,
+            ));
             sources.push(inspection);
         }
         let review = ImportPlan {
@@ -204,22 +207,19 @@ impl State {
             existing: Vec::new(),
         };
         let mut origins = prepared.origins.iter();
-        let mut written = Vec::new();
+        let mut records = Vec::new();
         for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
             let origin = origins.next().cloned().flatten();
             if item.decision == ImportDecision::Existing {
                 outcome.existing.push(item.skill_id.clone());
                 continue;
             }
-            // Written before the skill arrives; one an interrupted import leaves is removed when
-            // the engine next opens.
             let record = Record::of(source, origin);
-            if let Err(error) = self.write_record(item.skill_id.as_str(), &record) {
-                self.remove_records(&written);
-                let _ = fs::remove_dir_all(&staging);
-                return Err(error);
-            }
-            written.push(item.skill_id.clone());
+            records.push(RecordChange {
+                slug: item.skill_id.to_string(),
+                record: Some(record.clone()),
+                previous: None,
+            });
             moves.push(Move {
                 from: staging.join(item.skill_id.as_str()),
                 to: self.library_dir().join(&item.destination),
@@ -240,23 +240,13 @@ impl State {
             progress: Default::default(),
             skills,
             outcome: Some(outcome.clone()),
+            records,
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);
-            if result.is_err() {
-                self.remove_records(&written);
-            }
         }
         result?;
         Ok(outcome)
-    }
-
-    /// Removes the records of skills an import failed to add; the next launch removes any that
-    /// remain.
-    fn remove_records(&self, slugs: &[SkillId]) {
-        for slug in slugs {
-            self.restore_record(slug.as_str(), None);
-        }
     }
 }
 

@@ -86,11 +86,21 @@ impl Client {
         let Ok(completed) = self.shared.engine.completed_scans() else {
             return;
         };
-        if self.shared.checked_scans.swap(completed, Ordering::AcqRel) != completed {
+        let previous = self.shared.checked_scans.swap(completed, Ordering::AcqRel);
+        if previous != completed {
             let client = self.clone();
-            self.shared
-                .runtime
-                .spawn(async move { client.check_updates().await });
+            self.shared.runtime.spawn(async move {
+                if !client.check_updates().await {
+                    // Another check was running and saw the library before this scan; marking
+                    // the scan unchecked again retries it at the next poll.
+                    let _ = client.shared.checked_scans.compare_exchange(
+                        completed,
+                        previous,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    );
+                }
+            });
         }
     }
     fn background_error(&self, error: AppError) {
@@ -189,14 +199,19 @@ impl Client {
         });
     }
     /// Checks the sources not checked within the hour, then publishes their update states.
-    async fn check_updates(&self) {
+    /// Checks the sources due for a check; `false` when another check was running.
+    async fn check_updates(&self) -> bool {
         let checked = self
             .shared
             .engine
             .check_updates(UPDATE_CHECK_INTERVAL)
             .await;
-        if let Err(error) = self.refresh_preserving_outcome(checked).await {
-            self.background_error(error);
+        match self.refresh_preserving_outcome(checked).await {
+            Ok(ran) => ran,
+            Err(error) => {
+                self.background_error(error);
+                true
+            }
         }
     }
     /// Replaces the selected skills' content with their sources' current content, then scans
