@@ -1,49 +1,46 @@
 name: Claude Code Review
 
-# pull_request_target runs the base branch's workflow with secrets, so fork PRs
-# can be reviewed. It never checks out the PR head; Claude reads the diff via gh.
-# No synchronize: the code-review plugin stops once Claude has commented on a PR,
-# so later pushes would only spend a run (and an approval). Re-review with @claude.
+# The owner's PRs are reviewed when opened or marked ready. A PR from anyone
+# else is reviewed only when the owner adds the `claude-review` label. The
+# code-review plugin reviews a PR once: it stops if Claude already commented.
 on:
+  pull_request:
+    types: [opened, ready_for_review]
   pull_request_target:
-    types: [opened, ready_for_review, reopened]
+    types: [labeled]
 
 jobs:
-  # PRs from anyone but the repository owner wait here until the owner approves
-  # the external-pr-review environment (required reviewer) for each run.
-  approve-external:
-    if: github.event.pull_request.user.login != github.repository_owner
-    runs-on: ubuntu-latest
-    environment: external-pr-review
-    steps:
-      - run: echo "Review approved"
-
   claude-review:
-    needs: approve-external
-    # Runs after approval, or directly when the approval job was skipped.
-    if: ${{ !failure() && !cancelled() }}
+    if: |
+      (github.event_name == 'pull_request' &&
+        github.event.pull_request.author_association == 'OWNER') ||
+      (github.event_name == 'pull_request_target' &&
+        github.event.label.name == 'claude-review' &&
+        github.event.pull_request.author_association != 'OWNER')
+
     runs-on: ubuntu-latest
+    # Read-only on purpose: Claude comments and pushes with the Claude GitHub
+    # App token it gets through OIDC (id-token), not with this GITHUB_TOKEN.
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: read
       issues: read
+      id-token: write
 
     steps:
+      # Under pull_request_target this checks out the base branch. Never check
+      # out the PR head here: the job runs with the repository's secrets.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1.0.256
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # The job token is required for the non-write bypass below; the
-          # environment approval is the gate for external authors.
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          allowed_non_write_users: ${{ github.event.pull_request.user.login != github.repository_owner && github.event.pull_request.user.login || '' }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
