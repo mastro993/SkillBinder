@@ -6,6 +6,10 @@ Issues live in GitHub Issues on `origin`, `https://github.com/mastro993/SkillBin
 
 The native application implements the shipped product journeys. `docs/native-gate.md` records verified checks and remaining platform evidence. `fixtures/contracts/domain-contract.md` preserves the shipped behavior, while `docs/features/native.md` describes its current implementation. Retired MVP plans do not expand the approved scope.
 
+## Automated review
+
+Claude Code Review runs once on the owner's pull requests, when they are opened or marked ready. A pull request from anyone else is reviewed only after the owner adds the `claude-review` label to it, so apply the label once the pull request is ready for review, not while it is a draft. The review does not repeat after new pushes or a second label; ask for another one with an owner `@claude` comment. Only the owner's `@claude` mentions start Claude. Fork pull request checks wait for the owner's approval in the Actions tab.
+
 ## Describe a work item
 
 Read root `AGENTS.md`, `CONTRIBUTING.md`, the native gate status, and the affected architecture or feature documentation. State the observable problem, the operating system and screen where it occurs, and the command or interaction that reproduces it. Separate an observed defect from a proposed implementation.

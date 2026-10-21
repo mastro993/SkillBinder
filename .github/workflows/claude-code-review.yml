@@ -16,16 +16,17 @@ jobs:
         github.event.pull_request.author_association == 'OWNER') ||
       (github.event_name == 'pull_request_target' &&
         github.event.label.name == 'claude-review' &&
+        github.actor == github.repository_owner &&
         github.event.pull_request.author_association != 'OWNER')
 
     runs-on: ubuntu-latest
-    # Read-only on purpose: Claude comments and pushes with the Claude GitHub
-    # App token it gets through OIDC (id-token), not with this GITHUB_TOKEN.
+    # Claude comments with this job's GITHUB_TOKEN. The Claude GitHub App token
+    # exchange rejects pull_request_target OIDC tokens
+    # (anthropics/claude-code-action#713), so both paths use the job token.
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
-      id-token: write
 
     steps:
       # Under pull_request_target this checks out the base branch. Never check
@@ -41,6 +42,7 @@ jobs:
         uses: anthropics/claude-code-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1.0.256
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
