@@ -1,8 +1,10 @@
 name: Claude Code Review
 
 # The owner's PRs are reviewed when opened or marked ready. A PR from anyone
-# else is reviewed only when the owner adds the `claude-review` label. The
-# code-review plugin reviews a PR once: it stops if Claude already commented.
+# else is reviewed only when the owner adds the `claude-review` label. Pushes
+# do not trigger a review. Re-adding the label or marking a PR ready again can:
+# comments come from github-actions[bot], which the plugin's "Claude already
+# commented" check may not recognize.
 on:
   pull_request:
     types: [opened, ready_for_review]

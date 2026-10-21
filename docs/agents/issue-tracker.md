@@ -8,7 +8,7 @@ The native application implements the shipped product journeys. `docs/native-gat
 
 ## Automated review
 
-Claude Code Review runs once on the owner's pull requests, when they are opened or marked ready. A pull request from anyone else is reviewed only after the owner adds the `claude-review` label to it, so apply the label once the pull request is ready for review, not while it is a draft. The review does not repeat after new pushes or a second label; ask for another one with an owner `@claude` comment. Only the owner's `@claude` mentions start Claude. Fork pull request checks wait for the owner's approval in the Actions tab.
+Claude Code Review runs on the owner's pull requests when they are opened or marked ready. A pull request from anyone else is reviewed only after the owner adds the `claude-review` label to it, so apply the label once the pull request is ready for review, not while it is a draft. New pushes do not start a review. Removing and re-adding the label, or marking a pull request ready again, can start another full review; for a follow-up on later commits, use an owner `@claude` comment instead. Only the owner's `@claude` mentions start Claude. Fork pull request checks wait for the owner's approval in the Actions tab.
 
 ## Describe a work item
 
