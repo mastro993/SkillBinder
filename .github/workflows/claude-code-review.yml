@@ -2,13 +2,11 @@ name: Claude Code Review
 
 # pull_request_target runs the base branch's workflow with secrets, so fork PRs
 # can be reviewed. It never checks out the PR head; Claude reads the diff via gh.
+# No synchronize: the code-review plugin stops once Claude has commented on a PR,
+# so later pushes would only spend a run (and an approval). Re-review with @claude.
 on:
   pull_request_target:
-    types: [opened, synchronize, ready_for_review, reopened]
-
-concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+    types: [opened, ready_for_review, reopened]
 
 jobs:
   # PRs from anyone but the repository owner wait here until the owner approves
