@@ -100,7 +100,7 @@ impl State {
         self.bootstrap()
     }
 }
-/// The current UTC time in RFC 3339, as install times record it.
+/// The current UTC time in RFC 3339, as import times record it.
 pub(crate) fn format_timestamp() -> String {
     time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)

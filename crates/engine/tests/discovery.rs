@@ -10,11 +10,11 @@ use skillbinder_proto::{Candidate, ErrorCategory, ImportDecision, ScanSnapshot, 
 use std::fs;
 use support::{Fixture, category, write_skill};
 
-/// Found skills the library does not hold.
+/// Found skills that are not in library.
 fn not_in_library(scan: &ScanSnapshot) -> Vec<&Candidate> {
     scan.candidates
         .iter()
-        .filter(|candidate| candidate.skill_id.is_none())
+        .filter(|candidate| candidate.in_library().is_none())
         .collect()
 }
 
@@ -280,4 +280,92 @@ async fn traversal_refuses_17_links_and_accepts_16_with_original_source_path() {
         }
         engine.shutdown().await.unwrap();
     }
+}
+
+/// Makes the skill at `path` look edited long ago.
+fn age(path: &std::path::Path) {
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000);
+    fs::File::options()
+        .write(true)
+        .open(path.join("SKILL.md"))
+        .unwrap()
+        .set_modified(old)
+        .unwrap();
+}
+
+/// The Git tree id of the folder `path`, as `git write-tree` stores it.
+fn tree_of(path: &std::path::Path) -> String {
+    let git = |args: &[&str]| {
+        let output = std::process::Command::new("git")
+            .current_dir(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "git {args:?}");
+        String::from_utf8(output.stdout).unwrap().trim().to_owned()
+    };
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    let tree = git(&["write-tree"]);
+    fs::remove_dir_all(path.join(".git")).unwrap();
+    tree
+}
+
+#[tokio::test]
+async fn versions_of_a_slug_prefer_the_one_its_lock_published() {
+    let fixture = Fixture::new();
+    let agents = fixture.home.join(".agents");
+    let published = write_skill(&agents.join("skills"), "review", "Published");
+    let tree = tree_of(&published);
+    fs::write(
+        agents.join(".skill-lock.json"),
+        format!(
+            r#"{{"version":3,"skills":{{"review":{{"source":"o/r","sourceType":"github",
+            "skillPath":"review/SKILL.md","skillFolderHash":"{tree}"}}}}}}"#
+        ),
+    )
+    .unwrap();
+    age(&published);
+    // A newer, edited copy in a workspace would win without the lock.
+    fixture.skill("review", "Edited later");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    let [first, second] = &scan.candidates[..] else {
+        panic!("two versions: {:?}", scan.candidates);
+    };
+    assert_eq!(first.key, second.key);
+    let preferred: Vec<_> = scan.candidates.iter().filter(|c| c.preferred).collect();
+    assert_eq!(preferred.len(), 1);
+    assert!(preferred[0].matches_source);
+    assert_eq!(
+        preferred[0].locations[0].display_path,
+        fs::canonicalize(&published).unwrap().display().to_string()
+    );
+    let both = vec![first.id.clone(), second.id.clone()];
+    let refused = engine.prepare_import(both, false).await.unwrap_err();
+    assert_eq!(refused.message, "Choose one version of review to import.");
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn without_a_lock_the_newest_version_is_preferred() {
+    let fixture = Fixture::new();
+    age(&write_skill(
+        &fixture.home.join(".claude/skills"),
+        "review",
+        "Older",
+    ));
+    let newer = fixture.skill("review", "Newer");
+    let engine = fixture.ready().await;
+    fixture.register(&engine).await;
+    let scan = fixture.scan(&engine).await;
+    let preferred: Vec<_> = scan.candidates.iter().filter(|c| c.preferred).collect();
+    assert_eq!((scan.candidates.len(), preferred.len()), (2, 1));
+    assert!(!preferred[0].matches_source);
+    assert_eq!(
+        preferred[0].locations[0].display_path,
+        fs::canonicalize(&newer).unwrap().display().to_string()
+    );
+    engine.shutdown().await.unwrap();
 }

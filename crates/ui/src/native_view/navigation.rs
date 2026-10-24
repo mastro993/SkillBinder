@@ -52,6 +52,7 @@ impl NativeView {
         };
         if self.route != route {
             self.leave_page();
+            self.needs_update_only = false;
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
             if let Route::Skill(id) = &route {
@@ -65,10 +66,12 @@ impl NativeView {
 
     /// Drops the shown page's transient state and scrolls the next page to its top.
     pub(super) fn leave_page(&mut self) {
-        self.candidate_page = 0;
-        self.selected_candidates.clear();
+        self.selected_skills.clear();
+        self.version_choices.clear();
+        self.expanded_skills.clear();
         self.acknowledge_invalid = false;
         self.preview = None;
+        self.update_outcome = None;
         self.skill_load = None;
         self.content_scroll.handle.set_offset(Default::default());
     }

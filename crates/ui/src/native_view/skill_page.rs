@@ -4,6 +4,7 @@ use super::NativeView;
 use gpui_kit::component::{
     ActiveTheme,
     text::{FrontmatterPlugin, MarkdownExtensions, TextView},
+    v_flex,
 };
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::{AppError, SkillId};
@@ -32,8 +33,19 @@ impl NativeView {
         }));
     }
 
-    /// The skill's `SKILL.md` with its frontmatter as a table, or why it cannot be shown.
+    /// The last update's result and why the skill's check or update failed, then its `SKILL.md`.
     pub(super) fn render_skill(&self, id: &SkillId, cx: &mut Context<Self>) -> AnyElement {
+        v_flex()
+            .gap_4()
+            .children(self.render_update_outcome(cx))
+            .children(self.render_drift_note(id, cx))
+            .children(self.render_update_notes(id, cx))
+            .child(self.render_skill_file(id, cx))
+            .into_any_element()
+    }
+
+    /// The skill's `SKILL.md` with its frontmatter as a table, or why it cannot be shown.
+    fn render_skill_file(&self, id: &SkillId, cx: &mut Context<Self>) -> AnyElement {
         // Empty until this skill's file arrives.
         let Some(preview) = self
             .preview

@@ -340,3 +340,32 @@ fn malformed_manifest_hash_is_rejected_without_panicking() {
         );
     }
 }
+#[test]
+fn the_tree_id_is_the_one_git_stores() {
+    let (_root, path) = source();
+    fs::create_dir_all(path.join("references/deep")).unwrap();
+    fs::create_dir(path.join("empty")).unwrap();
+    fs::write(path.join("references/deep/notes.md"), b"notes").unwrap();
+    // `references.md` sorts between the `references` folder and its contents in Git's order.
+    fs::write(path.join("references.md"), b"top").unwrap();
+    fs::write(path.join("run.sh"), b"#!/bin/sh\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path.join("run.sh"), fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let git = |args: &[&str]| {
+        let output = std::process::Command::new("git")
+            .current_dir(&path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        String::from_utf8(output.stdout).unwrap().trim().to_owned()
+    };
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    let expected = git(&["write-tree"]);
+    fs::remove_dir_all(path.join(".git")).unwrap();
+    assert_eq!(inspect(&path).unwrap().tree, expected);
+}

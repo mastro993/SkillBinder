@@ -1,8 +1,9 @@
-//! Library skills as list rows or grid cards, each showing when it was installed and changed and
-//! which agents hold a copy.
+//! Library skills as list rows or grid cards, each showing when it was imported and changed,
+//! which agents hold a copy, and whether it changed outside SkillBinder.
 
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
 use super::library_dates::{exact, relative};
+use super::library_drift::drift_glyph;
 use super::library_presence::{Holder, Reader};
 use super::sidebar_row::{activate, with_menu};
 use super::{NativeView, Route};
@@ -21,12 +22,16 @@ const SHOWN_HOLDERS: usize = 3;
 pub(super) struct SkillItem<'a> {
     pub skill: &'a Skill,
     pub description: &'a str,
-    /// Absent for skills installed before install times were recorded.
+    /// Absent for skills imported before import times were recorded, or that arrived by Pull.
     pub imported: Option<DateTime<Utc>>,
     /// The newest managed file's change time; absent when the payload could not be read.
     pub modified: Option<DateTime<Utc>>,
     /// The skill's folder, shown while Library lists every skill.
     pub folder: Option<&'a str>,
+    /// The skill has an update, so it shows an Update button.
+    pub update: bool,
+    /// The skill's content differs from its record, so it shows a warning glyph.
+    pub drifted: bool,
     /// The Agents rows holding a copy; `None` until the first scan completes.
     pub holders: Option<&'a [Holder]>,
 }
@@ -50,10 +55,18 @@ impl NativeView {
                     .flex_1()
                     .min_w_0()
                     .child(
-                        div()
-                            .font_weight(FontWeight::MEDIUM)
-                            .truncate()
-                            .child(item.name()),
+                        h_flex()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .truncate()
+                                    .child(item.name()),
+                            )
+                            .when(item.drifted, |line| {
+                                line.child(drift_glyph(&item.skill.id, cx))
+                            }),
                     )
                     .child(description(item.description, 1, cx))
                     .child(dates(item, cx)),
@@ -64,6 +77,9 @@ impl NativeView {
                     .max_w(px(420.))
                     .child(presence(item, cx)),
             )
+            .when(item.update, |row| {
+                row.child(self.update_button("row", &item.skill.id, cx))
+            })
             .into_any_element()
     }
 
@@ -75,11 +91,22 @@ impl NativeView {
             .p_3()
             .min_h(px(132.))
             .child(
-                div()
-                    .min_w_0()
-                    .font_weight(FontWeight::MEDIUM)
-                    .truncate()
-                    .child(item.name()),
+                h_flex()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .font_weight(FontWeight::MEDIUM)
+                            .truncate()
+                            .child(item.name()),
+                    )
+                    .when(item.drifted, |line| {
+                        line.child(drift_glyph(&item.skill.id, cx))
+                    })
+                    .when(item.update, |line| {
+                        line.child(self.update_button("card", &item.skill.id, cx))
+                    }),
             )
             .child(div().flex_1().child(description(item.description, 2, cx)))
             .child(dates(item, cx))
@@ -124,12 +151,12 @@ fn skill_frame(
     })
 }
 
-/// "Folder · Installed 3 days ago · Modified 2 hours ago"; each date's tooltip shows the exact
+/// "Folder · Imported 3 days ago · Modified 2 hours ago"; each date's tooltip shows the exact
 /// time.
 fn dates(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
     let now = Utc::now();
     let parts = [
-        ("installed", "Installed", item.imported),
+        ("imported", "Imported", item.imported),
         ("modified", "Modified", item.modified),
     ];
     // Wraps so a narrow card keeps both dates inside it.

@@ -23,14 +23,24 @@ pub(super) fn remote(remote: &RemoteConfig) -> AppResult<()> {
     let invalid = || {
         AppError::validation("Use an HTTPS, SSH, SCP-style SSH, or file remote and a valid branch.")
     };
-    if [&remote.url, &remote.branch].iter().any(|s| {
-        s.is_empty() || s.starts_with('-') || s.chars().any(|c| c.is_control() || c.is_whitespace())
-    }) || remote.branch.starts_with('@')
-    {
+    if unsafe_argument(&remote.branch) || remote.branch.starts_with('@') {
         return Err(invalid());
     }
-    if remote.url.contains("://") {
-        let parsed = url::Url::parse(&remote.url).map_err(|_| invalid())?;
+    url(&remote.url).map_err(|_| invalid())
+}
+fn unsafe_argument(value: &str) -> bool {
+    value.is_empty()
+        || value.starts_with('-')
+        || value.chars().any(|c| c.is_control() || c.is_whitespace())
+}
+/// Accepts HTTPS, SSH, SCP-style SSH, and file repository URLs without credentials.
+pub(super) fn url(url: &str) -> AppResult<()> {
+    let invalid = || AppError::validation("Use an HTTPS, SSH, SCP-style SSH, or file URL.");
+    if unsafe_argument(url) {
+        return Err(invalid());
+    }
+    if url.contains("://") {
+        let parsed = url::Url::parse(url).map_err(|_| invalid())?;
         if parsed.host_str().is_some_and(|host| host.starts_with('-'))
             || parsed.username().starts_with('-')
             || parsed.query().is_some()
@@ -46,7 +56,7 @@ pub(super) fn remote(remote: &RemoteConfig) -> AppResult<()> {
             _ => return Err(invalid()),
         }
     } else {
-        let (host, path) = remote.url.split_once(':').ok_or_else(invalid)?;
+        let (host, path) = url.split_once(':').ok_or_else(invalid)?;
         let host = host.rsplit('@').next().ok_or_else(invalid)?;
         if host.is_empty()
             || host.starts_with('-')

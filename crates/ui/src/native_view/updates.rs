@@ -10,16 +10,24 @@ use super::{DialogState, Effect, NativeView, agent_page, sidebar};
 
 impl NativeView {
     pub(super) fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
-        // Candidate identities follow content, so a rescan keeps the choices it still finds.
-        let listed: BTreeSet<_> = latest
+        // Keys and candidate identities follow slugs and content, so a rescan keeps the choices
+        // it still finds.
+        let listed: Vec<_> = latest
             .scan
             .iter()
             .flat_map(|scan| &scan.candidates)
-            .filter(|candidate| candidate.skill_id.is_none())
-            .map(|candidate| &candidate.id)
+            .filter(|candidate| candidate.in_library().is_none())
             .collect();
-        self.selected_candidates.retain(|id| listed.contains(id));
-        self.candidate_page = self.candidate_page.min(listed.len().saturating_sub(1) / 50);
+        let keys: BTreeSet<_> = listed
+            .iter()
+            .map(|candidate| candidate.key.as_str())
+            .collect();
+        self.selected_skills
+            .retain(|key| keys.contains(key.as_str()));
+        self.expanded_skills
+            .retain(|key| keys.contains(key.as_str()));
+        self.version_choices
+            .retain(|_, id| listed.iter().any(|candidate| &candidate.id == id));
         let shown = self.route.clone();
         if let Some(library) = &latest.library {
             let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);
@@ -99,6 +107,20 @@ impl NativeView {
                             Effect::Plan(plan) => view.dialog = DialogState::ImportPlan(plan),
                             Effect::DeletePreview(preview) => {
                                 view.dialog = DialogState::DeletePreset(preview)
+                            }
+                            Effect::Updated(outcome) => {
+                                // An updated skill's page shows its new content.
+                                if let Route::Skill(id) = &view.route
+                                    && outcome.updated.contains(id)
+                                {
+                                    view.load_skill(id.clone(), cx);
+                                }
+                                view.update_outcome = Some(outcome);
+                            }
+                            Effect::Reinstalled(id) => {
+                                if view.route == Route::Skill(id.clone()) {
+                                    view.load_skill(id, cx);
+                                }
                             }
                         }
                     }

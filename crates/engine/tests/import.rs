@@ -278,11 +278,7 @@ async fn an_unreconciled_skill_directory_blocks_an_install_of_its_slug() {
     engine.shutdown().await.unwrap();
     let engine = fixture.open();
     let library = engine.snapshot().await.unwrap().library.unwrap();
-    assert_eq!(
-        library.library.skills.len(),
-        1,
-        "no install journal is left"
-    );
+    assert_eq!(library.library.skills.len(), 1, "no import journal is left");
     engine.shutdown().await.unwrap();
 }
 

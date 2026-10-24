@@ -12,7 +12,7 @@ use std::{
 use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
 
-const MAX_ENTRIES: usize = 5000;
+pub(crate) const MAX_ENTRIES: usize = 5000;
 const MAX_TOTAL: u64 = 25 * 1024 * 1024;
 
 pub(super) struct Snapshot {
@@ -27,6 +27,8 @@ struct Walk {
     names: HashSet<String>,
     visited: usize,
     total: u64,
+    /// Unix seconds of the newest file modification read.
+    modified: Option<u64>,
 }
 
 pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
@@ -45,6 +47,7 @@ pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
         names: HashSet::new(),
         visited: 0,
         total: 0,
+        modified: None,
     };
     if !portable(&slug) {
         walk.block("The skill directory name is not portable.");
@@ -64,6 +67,8 @@ pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
         .map(|m| m.status)
         .max()
         .unwrap_or_default();
+    let manifest = Manifest::from_entries(walk.entries)?;
+    let tree = super::tree::tree(&manifest.entries, &walk.files)?;
     Ok(Snapshot {
         inspection: Inspection {
             canonical_source: root,
@@ -72,7 +77,9 @@ pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
             description,
             status,
             messages: walk.messages,
-            manifest: Manifest::from_entries(walk.entries)?,
+            manifest,
+            tree,
+            modified: walk.modified,
         },
         files: walk.files,
     })
@@ -224,6 +231,12 @@ impl Walk {
             return Err(AppError::stale("SourceChanged"));
         }
         self.total += bytes.len() as u64;
+        let modified = before
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|age| age.as_secs());
+        self.modified = self.modified.max(modified);
         self.entries.push(ManifestEntry {
             kind: ManifestKind::File,
             path: key.clone(),

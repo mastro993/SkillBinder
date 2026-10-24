@@ -7,6 +7,7 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
     let root = fs::canonicalize(directory.path()).unwrap();
     let state = State::isolated_test_state(root.clone());
     let mut skills = Vec::new();
+    let mut records = Vec::new();
     let moves = (0..2)
         .map(|index| {
             let from = root.join(format!("staging/source-{index}"));
@@ -17,9 +18,17 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
             )
             .unwrap();
             let inspection = crate::payload::inspect(&from).unwrap();
-            skills.push(SkillRecord::new(
+            let record = crate::records::Record::of(&inspection, None);
+            records.push(RecordChange {
+                slug: format!("skill-{index}"),
+                record: Some(record.clone()),
+                previous: None,
+            });
+            skills.push(SavedSkill::new(
                 format!("skill-{index}"),
                 &inspection,
+                None,
+                record,
                 None,
             ));
             Move {
@@ -43,11 +52,12 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         completed_moves: 0,
         progress: Default::default(),
         skills,
-        outcome: ImportOutcome {
+        outcome: Some(ImportOutcome {
             plan_id,
             imported: vec![],
             existing: vec![],
-        },
+        }),
+        records,
     };
     (directory, state, journal)
 }
@@ -72,6 +82,8 @@ fn assert_result(state: &State, applied: bool) {
             .join(format!("library/skills/skill-{index}"));
         assert_eq!(from.exists(), !applied);
         assert_eq!(to.exists(), applied);
+        let record = state.read_record(&format!("skill-{index}"));
+        assert_eq!(record.is_some(), applied, "record of skill-{index}");
         let actual = fs::read_to_string(if applied { to } else { from }.join("SKILL.md")).unwrap();
         assert!(actual.contains(&format!("body-{index}")));
     }

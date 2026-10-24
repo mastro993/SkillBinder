@@ -1,6 +1,12 @@
 use crate::{
-    database, discovery::Scans, git::Git, grants::GrantedDirectory, lifecycle::EngineConfig,
-    logging::Logger, reconcile::RECONCILED_HEAD,
+    database,
+    discovery::{Managed, Scans},
+    git::Git,
+    grants::GrantedDirectory,
+    lifecycle::EngineConfig,
+    logging::Logger,
+    reconcile::RECONCILED_HEAD,
+    sources::Updates,
 };
 use diesel::SqliteConnection;
 use fs2::FileExt;
@@ -14,6 +20,8 @@ use std::{
     thread::JoinHandle,
 };
 use tokio::sync::oneshot;
+
+mod sources;
 
 const DATABASE: &str = "skillbinder.db";
 type Job = Box<dyn FnOnce(&mut State) + Send>;
@@ -37,6 +45,7 @@ pub(crate) struct State {
     pub git: Option<Git>,
     pub log: Logger,
     pub scans: Scans,
+    pub updates: Updates,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
     pub recovery_required: bool,
     lock: File,
@@ -76,6 +85,7 @@ impl Engine {
             git: Git::discover().ok(),
             log,
             scans: scans.clone(),
+            updates: Updates::default(),
             grants: BTreeMap::new(),
             recovery_required: true,
             lock,
@@ -95,6 +105,7 @@ impl Engine {
                         Message::Execute(job) => job(&mut state),
                         Message::Shutdown(done) => {
                             state.scans.wait_for_shutdown();
+                            state.updates.wait_for_shutdown();
                             state.log.flush();
                             let _ = done.send(());
                             break;
@@ -102,6 +113,7 @@ impl Engine {
                     }
                 }
                 state.scans.wait_for_shutdown();
+                state.updates.wait_for_shutdown();
                 state.log.flush();
                 drop(state.database);
                 FileExt::unlock(&state.lock).map_err(|_| AppError::storage())
@@ -202,7 +214,7 @@ impl Engine {
                         .filter(|workspace| !workspace.missing)
                         .map(|workspace| (workspace.id, PathBuf::from(workspace.path)))
                         .collect(),
-                    state.managed_digests()?,
+                    state.managed()?,
                     state.log.clone(),
                 ))
             })
@@ -284,19 +296,22 @@ impl Engine {
     }
 }
 impl State {
-    /// The digest of each library skill, which marks found skills as in the library. Blocked
-    /// payloads mark nothing.
-    fn managed_digests(&self) -> AppResult<BTreeMap<String, SkillId>> {
+    /// The digest and slug of each library skill, which put found skills in library. A blocked
+    /// library skill marks nothing.
+    fn managed(&self) -> AppResult<Managed> {
         let (library, details) = crate::library_store::load(&mut self.database.borrow_mut())?;
-        Ok(library
-            .skills
-            .into_iter()
-            .filter(|skill| {
-                details.get(&skill.id).map(|details| details.validation)
-                    != Some(ValidationStatus::Blocked)
-            })
-            .map(|skill| (skill.digest, skill.id))
-            .collect())
+        let mut managed = Managed::default();
+        for skill in library.skills {
+            if details.get(&skill.id).map(|details| details.validation)
+                == Some(ValidationStatus::Blocked)
+            {
+                continue;
+            }
+            let normalized = crate::library::normalized(skill.id.as_str());
+            managed.slugs.insert(normalized, skill.id.clone());
+            managed.digests.insert(skill.digest, skill.id);
+        }
+        Ok(managed)
     }
     fn snapshot(&mut self) -> AppResult<AppSnapshot> {
         let bootstrap = self.bootstrap()?;
@@ -315,6 +330,10 @@ impl State {
             sync = current;
         }
         let (scan, scanning) = self.scans.current()?;
+        let updates = match &library {
+            Some(library) => self.updates.current(&library.library.skills)?,
+            None => BTreeMap::new(),
+        };
         Ok(AppSnapshot {
             generation: 0,
             background_error: None,
@@ -325,6 +344,7 @@ impl State {
             workspaces: self.workspaces()?,
             scan,
             scanning,
+            updates,
             sync,
             import_outcome: self.setting("import_outcome")?.flatten(),
             preferences: self.setting("preferences")?.unwrap_or_default(),
@@ -341,7 +361,11 @@ impl State {
         let current = matches!(action, SyncAction::Push)
             && git.revision(&repo, "HEAD").ok()
                 == Some(self.setting::<Option<String>>(RECONCILED_HEAD)?.flatten());
-        let result = git.perform(&repo, remote.as_ref(), action);
+        // Pending records are committed only when nothing was pulled: written after a pull, they
+        // would replace pulled records with this device's older ones before reconciling.
+        let result = git.perform_with(&repo, remote.as_ref(), action, &|| {
+            self.write_pending_records()
+        });
         // A Push only commits what the database already holds. A Pull or Sync, including one
         // that fast-forwarded before its push failed, reconciles what moved.
         let caught_up = match action {
@@ -387,6 +411,7 @@ impl State {
             git: None,
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),
+            updates: Updates::default(),
             grants: BTreeMap::new(),
             recovery_required: false,
             lock: File::create(data_dir.join("test.lock")).unwrap(),

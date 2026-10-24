@@ -24,6 +24,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
         runtime: Handle::current(),
         snapshots,
         requested: AtomicU64::new(2),
+        checked_scans: AtomicU64::new(0),
     };
     engine
         .save_preferences(Preferences {

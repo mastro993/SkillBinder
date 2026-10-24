@@ -32,7 +32,7 @@ impl NativeView {
         let typed = self.search.read(cx).value().trim().to_owned();
         let query = typed.to_lowercase();
         let folder = self.shown_folder().map(|folder| &folder.id);
-        let mut visible: Vec<&Skill> = library
+        let mut matching: Vec<&Skill> = library
             .library
             .skills
             .iter()
@@ -42,17 +42,28 @@ impl NativeView {
                     && matches(skill, library, &query)
             })
             .collect();
-        visible.sort_by_cached_key(|skill| name_order(skill));
+        matching.sort_by_cached_key(|skill| name_order(skill));
+        let visible: Vec<&Skill> = matching
+            .iter()
+            .copied()
+            .filter(|skill| !self.needs_update_only || self.has_update(&skill.id))
+            .collect();
         v_flex()
             .gap_4()
-            .child(self.library_header(visible.len(), cx))
+            .child(self.library_header(&matching, visible.len(), cx))
+            .children(self.render_update_outcome(cx))
             .child(self.library_results(library, &visible, &typed, window, cx))
             .into_any_element()
     }
 
-    /// Search and the skill count, then the list/grid control; the title or folders are in the
-    /// header.
-    fn library_header(&self, count: usize, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Search, the Needs update filter over the `matching` skills, and the shown skill count,
+    /// then the list/grid control; the title or folders are in the header.
+    fn library_header(
+        &self,
+        matching: &[&Skill],
+        count: usize,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let view = self.library_view;
         let weak = cx.entity().downgrade();
         h_flex()
@@ -64,6 +75,7 @@ impl NativeView {
                         .cleanable(true),
                 ),
             )
+            .child(self.update_filter_tabs(matching, cx))
             .child(
                 div()
                     .flex_1()
@@ -106,6 +118,14 @@ impl NativeView {
                 .child(format!("No skills match '{query}'"))
                 .into_any_element();
         }
+        if visible.is_empty() && self.needs_update_only {
+            return div()
+                .py_8()
+                .text_center()
+                .text_color(cx.theme().muted_foreground)
+                .child("No skills need an update")
+                .into_any_element();
+        }
         if let Some(folder) = self.shown_folder()
             && visible.is_empty()
         {
@@ -136,6 +156,8 @@ impl NativeView {
                     .copied()
                     .and_then(dates::from_unix),
                 folder: self.folder_label(skill),
+                update: self.has_update(&skill.id),
+                drifted: skill.drift.is_some(),
                 holders: found
                     .as_ref()
                     .map(|found| found.get(&skill.id).map_or(&[][..], Vec::as_slice)),
@@ -227,6 +249,9 @@ mod tests {
             file_count: 0,
             total_bytes: 0,
             imported_at: None,
+            source: None,
+            recorded: String::new(),
+            drift: None,
         }
     }
 

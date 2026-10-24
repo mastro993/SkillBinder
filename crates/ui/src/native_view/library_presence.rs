@@ -120,7 +120,12 @@ mod tests {
     fn found(skill: Option<SkillId>, locations: Vec<CandidateLocation>) -> Candidate {
         Candidate {
             id: CandidateId::new(),
+            key: "pdf".to_owned(),
+            preferred: true,
+            matches_source: false,
+            modified: None,
             skill_id: skill,
+            held: None,
             slug: "pdf".to_owned(),
             description: String::new(),
             locations,

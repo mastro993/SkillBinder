@@ -1,9 +1,10 @@
 use crate::{
     discovery::ImportSource,
     library::normalized,
-    library_store::SkillRecord,
+    library_store::SavedSkill,
     payload::{self, Inspection},
-    persistence::{self, Journal, Move},
+    persistence::{self, Journal, Move, RecordChange},
+    records::Record,
     schema::{idempotency_records, operation_plans},
     worker::State,
 };
@@ -19,6 +20,9 @@ use std::{
 struct Prepared {
     review: ImportPlan,
     sources: Vec<Inspection>,
+    /// Where each row's skill was published, as its lock file recorded at review.
+    #[serde(default)]
+    origins: Vec<Option<SkillSource>>,
 }
 impl State {
     pub(crate) fn prepare_import(
@@ -51,22 +55,21 @@ impl State {
         let mut batch = BTreeSet::new();
         let mut items = Vec::new();
         let mut sources = Vec::new();
+        let mut origins = Vec::new();
         for (candidate_id, source) in selected {
             let inspection = reinspect(&source)?;
             if inspection.status == ValidationStatus::Blocked {
-                return Err(AppError::validation(
-                    "Blocked payloads cannot be installed.",
-                ));
+                return Err(AppError::validation("Blocked payloads cannot be imported."));
             }
             // Git tracks files, not directories, so a skill without files would never sync.
             if inspection.manifest.file_count() == 0 {
                 return Err(AppError::validation(
-                    "A skill without files cannot be installed.",
+                    "A skill without files cannot be imported.",
                 ));
             }
             if inspection.status == ValidationStatus::Invalid && !acknowledge_invalid {
                 return Err(AppError::validation(
-                    "Acknowledge invalid skill metadata before preparing an install.",
+                    "Acknowledge invalid skill metadata before preparing an import.",
                 ));
             }
             let digest = &inspection.manifest.digest;
@@ -76,8 +79,7 @@ impl State {
                 None => {
                     if let Some(held) = names.get(&name) {
                         return Err(AppError::validation(if batch.contains(&name) {
-                            "Select only one distinct payload per shared slug in an install batch."
-                                .to_owned()
+                            format!("Choose one version of {held} to import.")
                         } else {
                             format!("The library already holds a different skill named {held}.")
                         }));
@@ -100,6 +102,10 @@ impl State {
                 messages: inspection.messages.clone(),
                 total_bytes: inspection.manifest.total_bytes(),
             });
+            origins.push(crate::sources::lock::source(
+                &source.locks,
+                &inspection.slug,
+            ));
             sources.push(inspection);
         }
         let review = ImportPlan {
@@ -111,6 +117,7 @@ impl State {
         let prepared = Prepared {
             review: review.clone(),
             sources,
+            origins,
         };
         diesel::insert_into(operation_plans::table)
             .values((
@@ -141,14 +148,14 @@ impl State {
             .first::<String>(&mut *self.database.borrow_mut())
             .optional()
             .map_err(|_| AppError::storage())?
-            .ok_or_else(|| AppError::stale("Install plan is unavailable. Prepare it again."))?;
+            .ok_or_else(|| AppError::stale("Import plan is unavailable. Prepare it again."))?;
         let prepared: Prepared =
             serde_json::from_str(&serialized).map_err(|_| AppError::storage())?;
         if persistence::now() >= prepared.review.expires_at {
-            return Err(AppError::stale("Install plan expired. Review it again."));
+            return Err(AppError::stale("Import plan expired. Review it again."));
         }
         if self.revised_library()?.1 != prepared.review.revision {
-            return Err(AppError::stale("The library changed after install review."));
+            return Err(AppError::stale("The library changed after import review."));
         }
         for (item, inspection) in prepared.review.items.iter().zip(&prepared.sources) {
             if fs::canonicalize(&item.source).map_err(|_| AppError::stale("SourceChanged"))?
@@ -165,7 +172,7 @@ impl State {
             item.decision == ImportDecision::NewSkill
                 && taken.contains(&normalized(item.skill_id.as_str()))
         }) {
-            return Err(AppError::stale("The library changed after install review."));
+            return Err(AppError::stale("The library changed after import review."));
         }
         let staging = self
             .config
@@ -199,19 +206,30 @@ impl State {
             imported: Vec::new(),
             existing: Vec::new(),
         };
+        let mut origins = prepared.origins.iter();
+        let mut records = Vec::new();
         for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
+            let origin = origins.next().cloned().flatten();
             if item.decision == ImportDecision::Existing {
                 outcome.existing.push(item.skill_id.clone());
                 continue;
             }
+            let record = Record::of(source, origin);
+            records.push(RecordChange {
+                slug: item.skill_id.to_string(),
+                record: Some(record.clone()),
+                previous: None,
+            });
             moves.push(Move {
                 from: staging.join(item.skill_id.as_str()),
                 to: self.library_dir().join(&item.destination),
             });
-            skills.push(SkillRecord::new(
+            skills.push(SavedSkill::new(
                 item.skill_id.to_string(),
                 source,
                 Some(imported_at.clone()),
+                record,
+                None,
             ));
             outcome.imported.push(item.skill_id.clone());
         }
@@ -221,7 +239,8 @@ impl State {
             completed_moves: 0,
             progress: Default::default(),
             skills,
-            outcome: outcome.clone(),
+            outcome: Some(outcome.clone()),
+            records,
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);

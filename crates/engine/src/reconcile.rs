@@ -1,26 +1,31 @@
-//! Keeps the database's skills in step with the directories under `skills/`. Changes made there
-//! outside SkillBinder are unsupported, so only directories that appear, disappear, or Git reports
-//! as changed are inspected; every other skill keeps its cached facts.
+//! Keeps the database's skills in step with the directories under `skills/` and their records
+//! under `records/`. Changes made there outside SkillBinder are unsupported, so only skills that
+//! appear, disappear, or Git reports as changed are inspected; every other skill keeps its cached
+//! facts. An inspected skill whose content differs from its record has drifted.
 
 use crate::{
     database,
-    library_store::{self, SkillRecord},
+    library_store::{self, SavedSkill},
     payload,
+    records::Record,
     worker::State,
 };
-use skillbinder_proto::{AppError, AppResult};
+use skillbinder_proto::{AppError, AppResult, Drift};
 use std::{collections::BTreeSet, fs};
 
 /// The device setting holding the last commit whose skills the database reflects.
 pub(crate) const RECONCILED_HEAD: &str = "reconciled_head";
 
 impl State {
-    /// Adds the skill directories the database lacks and drops the skills whose directory is
-    /// gone.
+    /// Adds the skill directories the database lacks, drops the skills whose directory is gone,
+    /// and records the skills that have no record yet.
     pub(crate) fn reconcile_library(&self) -> AppResult<()> {
         let listed = self.skill_dirs()?;
         let known = library_store::slugs(&mut self.database.borrow_mut())?;
-        self.reconcile_slugs(listed.symmetric_difference(&known).cloned())
+        let unrecorded = library_store::unrecorded(&mut self.database.borrow_mut())?;
+        self.remove_orphan_records(&listed)?;
+        let changed: BTreeSet<_> = listed.symmetric_difference(&known).cloned().collect();
+        self.reconcile_slugs(changed.into_iter().chain(unrecorded))
     }
 
     /// Rehashes the skills Git changed since the last reconciled commit, then records the current
@@ -67,8 +72,8 @@ impl State {
         Ok(listed)
     }
 
-    /// Reinspects each slug's directory, saving those that exist and dropping the rest. A new
-    /// skill is unfiled, in no preset, and has no install time. A directory that cannot be
+    /// Reinspects each slug's directory and reads its record, saving those that exist and
+    /// dropping the rest. A new skill is unfiled, in no preset, and has no import time. A directory that cannot be
     /// inspected keeps its previous row, and the first such failure is returned after the rest
     /// are saved, so the caller retries it.
     fn reconcile_slugs(&self, slugs: impl IntoIterator<Item = String>) -> AppResult<()> {
@@ -86,7 +91,14 @@ impl State {
                 .contained_skill_path(&root.join(&slug))
                 .and_then(|path| payload::inspect(&path))
             {
-                Ok(inspection) => saved.push(SkillRecord::new(slug, &inspection, None)),
+                Ok(inspection) => match self.recorded(&slug, &inspection) {
+                    Ok((record, drift)) => {
+                        saved.push(SavedSkill::new(slug, &inspection, None, record, drift));
+                    }
+                    Err(error) => {
+                        failure.get_or_insert(error);
+                    }
+                },
                 Err(error) => {
                     self.log.record(format!(
                         "Library skill {slug} could not be inspected: {error}"
@@ -107,6 +119,43 @@ impl State {
         failure.map_or(Ok(()), Err)
     }
 
+    /// `slug`'s record, written from `inspection` when it has none, and whether its content
+    /// drifted from it.
+    fn recorded(
+        &self,
+        slug: &str,
+        inspection: &payload::Inspection,
+    ) -> AppResult<(Record, Option<Drift>)> {
+        // A source learned on this device waits in the database for the next Push or Sync to
+        // write it into the record, so a record without one keeps it.
+        let cached = library_store::cached_source(&mut self.database.borrow_mut(), slug)?;
+        // An unreadable record fails the skill's reconcile, which keeps its row and retries.
+        let Some(mut record) = self.stored_record(slug)? else {
+            // Its file is written at the next Push or Sync, which commits it: written now, it
+            // would dirty the library and block a Pull of what other devices pushed meanwhile.
+            return Ok((Record::of(inspection, cached), None));
+        };
+        if record.source.is_none() {
+            record.source = cached;
+        }
+        if record.tree == inspection.tree {
+            return Ok((record, None));
+        }
+        self.log
+            .record(format!("Library skill {slug} differs from its record"));
+        let repo = self.library_dir();
+        let in_history = match &self.git {
+            Some(git) if repo.join(".git").exists() => git.has_tree(&repo, &record.tree)?,
+            _ => false,
+        };
+        let drift = if in_history || record.source.is_some() {
+            Drift::Restorable
+        } else {
+            Drift::Lost
+        };
+        Ok((record, Some(drift)))
+    }
+
     /// Reconciles after launch or onboarding: failures are logged and retried at the next launch,
     /// since the recorded commit only advances once every changed skill was inspected.
     pub(crate) fn catch_up(&self) {
@@ -115,6 +164,11 @@ impl State {
                 self.log
                     .record(format!("Library reconciliation will retry: {error}"));
             }
+        }
+        if let Err(error) = self.prune_source_caches() {
+            self.log.record(format!(
+                "Unused source caches will be removed later: {error}"
+            ));
         }
     }
 }
@@ -140,6 +194,49 @@ mod tests {
             .unwrap();
         let slugs = library_store::slugs(&mut state.database.borrow_mut()).unwrap();
         assert_eq!(slugs, BTreeSet::from(["foo".to_owned()]));
+    }
+
+    #[test]
+    fn a_skill_without_a_record_gets_one_at_the_next_push() {
+        let directory = tempfile::tempdir().unwrap();
+        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let skill = state.library_dir().join("skills/foo");
+        fs::create_dir(&skill).unwrap();
+        fs::write(
+            skill.join("SKILL.md"),
+            "---\nname: foo\ndescription: test\n---\n",
+        )
+        .unwrap();
+        // Saved as a build before records would have: known, but with no recorded tree.
+        let inspection = payload::inspect(&skill).unwrap();
+        let mut saved = SavedSkill::new(
+            "foo".into(),
+            &inspection,
+            None,
+            Record::of(&inspection, None),
+            None,
+        );
+        saved.recorded.clear();
+        library_store::save_skill(&mut state.database.borrow_mut(), &saved).unwrap();
+        state.reconcile_library().unwrap();
+        let unrecorded = library_store::unrecorded(&mut state.database.borrow_mut()).unwrap();
+        assert!(unrecorded.is_empty());
+        // The file waits for the next Push or Sync, so a Pull is never blocked by it.
+        assert!(state.read_record("foo").is_none());
+        state.write_pending_records().unwrap();
+        assert_eq!(state.read_record("foo").unwrap().tree, inspection.tree);
+        // A source learned later waits in the database, survives a reconcile, and is written by
+        // the next Push or Sync.
+        let source = skillbinder_proto::SkillSource {
+            url: "https://example.invalid/o/r.git".into(),
+            reference: None,
+            path: "foo".into(),
+        };
+        library_store::set_source(&mut state.database.borrow_mut(), "foo", &source).unwrap();
+        state.reconcile_slugs(["foo".to_owned()]).unwrap();
+        assert_eq!(state.read_record("foo").unwrap().source, None);
+        state.write_pending_records().unwrap();
+        assert_eq!(state.read_record("foo").unwrap().source, Some(source));
     }
 
     #[cfg(unix)]

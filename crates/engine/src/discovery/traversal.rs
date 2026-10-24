@@ -1,9 +1,9 @@
 use super::{
-    Found, ImportSource,
+    Found, ImportSource, Managed,
     registry::Location,
     walk::{Visit, Walk},
 };
-use crate::{logging::Logger, payload};
+use crate::{library::normalized, logging::Logger, payload, sources::lock};
 use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
 use std::{
@@ -13,18 +13,20 @@ use std::{
 };
 
 struct Traversal<'a> {
-    managed: &'a BTreeMap<String, SkillId>,
+    managed: &'a Managed,
     log: &'a Logger,
     found: Found,
     /// Candidate and location index of each physical skill directory already listed.
     physical: BTreeMap<PathBuf, (usize, usize)>,
     /// Index of each candidate by identity.
     listed: BTreeMap<CandidateId, usize>,
+    /// Each lock file read so far; `None` when it is absent or unreadable.
+    locks: BTreeMap<PathBuf, Option<lock::Lock>>,
 }
 
 pub(super) fn scan(
     locations: Vec<Location>,
-    managed: &BTreeMap<String, SkillId>,
+    managed: &Managed,
     cancel: &AtomicBool,
     log: &Logger,
 ) -> AppResult<Found> {
@@ -40,6 +42,7 @@ pub(super) fn scan(
         },
         physical: BTreeMap::new(),
         listed: BTreeMap::new(),
+        locks: BTreeMap::new(),
     };
     for location in locations {
         if cancel.load(Ordering::Acquire) {
@@ -73,7 +76,35 @@ pub(super) fn scan(
         .snapshot
         .candidates
         .sort_by_cached_key(|candidate| candidate.locations.first().cloned());
+    prefer(&mut found.snapshot.candidates);
     Ok(found)
+}
+
+/// Marks the version each skill imports by default among its importable versions: the one whose
+/// content its lock recorded as published, else the newest, else the one found in most locations.
+fn prefer(candidates: &mut [Candidate]) {
+    let mut best: BTreeMap<&str, usize> = BTreeMap::new();
+    let rank = |candidate: &Candidate| {
+        (
+            candidate.matches_source,
+            candidate.modified,
+            candidate.locations.len(),
+        )
+    };
+    for (index, candidate) in candidates.iter().enumerate() {
+        if candidate.validation == ValidationStatus::Blocked || candidate.file_count == 0 {
+            continue;
+        }
+        let current = best.entry(&candidate.key).or_insert(index);
+        // Ties keep the first in location order, so the choice is stable across scans.
+        if rank(candidate) > rank(&candidates[*current]) {
+            *current = index;
+        }
+    }
+    let preferred: Vec<usize> = best.into_values().collect();
+    for index in preferred {
+        candidates[index].preferred = true;
+    }
 }
 
 /// A found skill's identity: copies merge only when their slug, manifest digest, and validation
@@ -92,14 +123,15 @@ fn identity(inspection: &payload::Inspection) -> CandidateId {
 
 impl Traversal<'_> {
     fn candidate(&mut self, location: &Location, path: &Path, canonical: PathBuf) {
-        let candidates = &mut self.found.snapshot.candidates;
         if let Some(&(candidate, index)) = self.physical.get(&canonical) {
+            let candidates = &mut self.found.snapshot.candidates;
             if let Some(found) = candidates[candidate].locations.get_mut(index) {
                 merge(&mut found.readers, &location.readers);
                 merge(&mut found.agents, &location.agents);
                 merge(&mut found.global_agents, &location.global_agents);
                 merge(&mut found.workspaces, &location.workspaces);
             }
+            self.add_locks(candidate, &location.locks);
             return;
         }
         let inspection = match payload::inspect(&canonical) {
@@ -121,16 +153,34 @@ impl Traversal<'_> {
         };
         let id = identity(&inspection);
         if let Some(&candidate) = self.listed.get(&id) {
+            let candidates = &mut self.found.snapshot.candidates;
             candidates[candidate].locations.push(found);
             let index = candidates[candidate].locations.len() - 1;
             self.physical.insert(canonical, (candidate, index));
+            self.add_locks(candidate, &location.locks);
             return;
         }
+        let candidates = &mut self.found.snapshot.candidates;
+        let index = candidates.len();
         self.listed.insert(id.clone(), candidates.len());
-        self.physical.insert(canonical, (candidates.len(), 0));
+        self.physical
+            .insert(canonical.clone(), (candidates.len(), 0));
         candidates.push(Candidate {
             id: id.clone(),
-            skill_id: self.managed.get(&inspection.manifest.digest).cloned(),
+            key: normalized(&inspection.slug),
+            preferred: false,
+            matches_source: false,
+            modified: inspection.modified,
+            skill_id: self
+                .managed
+                .digests
+                .get(&inspection.manifest.digest)
+                .cloned(),
+            held: self
+                .managed
+                .slugs
+                .get(&normalized(&inspection.slug))
+                .cloned(),
             slug: inspection.slug.clone(),
             description: inspection.description.clone(),
             locations: vec![found.clone()],
@@ -144,8 +194,29 @@ impl Traversal<'_> {
             ImportSource {
                 display_path: found.display_path,
                 inspection,
+                locks: Vec::new(),
             },
         );
+        self.add_locks(index, &location.locks);
+    }
+
+    /// Adds `locks` to the lock files that may trace candidate `index`'s copies, and marks it as
+    /// matching its source when one of them records its content as published.
+    fn add_locks(&mut self, index: usize, locks: &[PathBuf]) {
+        let candidate = &mut self.found.snapshot.candidates[index];
+        let Some(source) = self.found.sources.get_mut(&candidate.id) else {
+            return;
+        };
+        merge(&mut source.locks, locks);
+        let (slug, tree) = (&source.inspection.slug, &source.inspection.tree);
+        candidate.matches_source |= locks.iter().any(|path| {
+            self.locks
+                .entry(path.clone())
+                .or_insert_with(|| lock::read(path))
+                .as_ref()
+                .and_then(|read| read.tree(slug))
+                .is_some_and(|recorded| recorded == tree)
+        });
     }
 }
 

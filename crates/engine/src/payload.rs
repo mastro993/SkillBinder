@@ -2,8 +2,9 @@
 mod frontmatter;
 mod manifest;
 mod traversal;
+mod tree;
 pub use manifest::{Manifest, ManifestEntry, ManifestKind};
-pub(crate) use traversal::portable;
+pub(crate) use traversal::{MAX_ENTRIES, portable};
 
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{AppError, AppResult, ValidationMessage, ValidationStatus};
@@ -68,6 +69,13 @@ pub struct Inspection {
     pub messages: Vec<ValidationMessage>,
     /// Materialized content fingerprint and entries.
     pub manifest: Manifest,
+    /// The Git tree id of the materialized content. Plans saved before it existed read an empty
+    /// one, which no inspection matches, so applying them reports the source as changed.
+    #[serde(default)]
+    pub tree: String,
+    /// Unix seconds of the newest file's modification, if any was read.
+    #[serde(default)]
+    pub modified: Option<u64>,
 }
 
 /// Inspects a source without writing it. Unsafe payloads return a blocked report;
@@ -95,9 +103,7 @@ pub fn materialize(expected: &Inspection, destination: &Path) -> AppResult<()> {
 /// Re-reads the source and checks that `destination` is absent and outside it.
 fn verified(expected: &Inspection, destination: &Path) -> AppResult<traversal::Snapshot> {
     if expected.status == ValidationStatus::Blocked {
-        return Err(AppError::validation(
-            "Blocked payloads cannot be installed.",
-        ));
+        return Err(AppError::validation("Blocked payloads cannot be imported."));
     }
     let snapshot = traversal::snapshot(&expected.canonical_source)?;
     if snapshot.inspection != *expected {

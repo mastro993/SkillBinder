@@ -12,11 +12,16 @@ use std::{
 };
 use tokio::{runtime::Handle, sync::watch};
 
+/// How long a source check holds before the next refresh checks the skill again.
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
+
 struct Shared {
     engine: Engine,
     runtime: Handle,
     snapshots: watch::Sender<Arc<AppSnapshot>>,
     requested: AtomicU64,
+    /// Completed scans whose found copies sources were already learned from and checked after.
+    checked_scans: AtomicU64,
 }
 /// Cloneable in-process client. Navigation never owns or cancels engine mutations.
 #[derive(Clone)]
@@ -34,6 +39,7 @@ impl Client {
                 runtime,
                 snapshots,
                 requested: AtomicU64::new(0),
+                checked_scans: AtomicU64::new(0),
             }),
         };
         client.start_refresh();
@@ -67,11 +73,35 @@ impl Client {
                 let Some(shared) = weak.upgrade() else {
                     break;
                 };
-                if let Err(error) = shared.publish_progress() {
-                    Self { shared }.background_error(error);
+                let client = Self { shared };
+                if let Err(error) = client.shared.publish_progress() {
+                    client.background_error(error);
                 }
+                client.check_after_scan();
             }
         });
+    }
+    /// Once a scan completes, learns sources from its found copies and checks for updates.
+    fn check_after_scan(&self) {
+        let Ok(completed) = self.shared.engine.completed_scans() else {
+            return;
+        };
+        let previous = self.shared.checked_scans.swap(completed, Ordering::AcqRel);
+        if previous != completed {
+            let client = self.clone();
+            self.shared.runtime.spawn(async move {
+                if !client.check_updates().await {
+                    // Another check was running and saw the library before this scan; marking
+                    // the scan unchecked again retries it at the next poll.
+                    let _ = client.shared.checked_scans.compare_exchange(
+                        completed,
+                        previous,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    );
+                }
+            });
+        }
     }
     fn background_error(&self, error: AppError) {
         self.shared.snapshots.send_modify(|current| {
@@ -148,6 +178,7 @@ impl Client {
     }
     /// Refreshes the app in the background, on launch and when the window regains focus: scans
     /// the agents' global skill directories and every workspace, then refreshes the remote's Git status.
+    /// The scan's completion checks the sources not checked within the hour.
     /// A running scan is kept rather than replaced, so frequent focus changes cannot keep a slow
     /// scan from completing.
     pub fn refresh_app(&self) {
@@ -167,6 +198,43 @@ impl Client {
             }
         });
     }
+    /// Checks the sources due for a check, then publishes their update states. `false` only
+    /// when another check was running, which leaves nothing new to publish; a library with no
+    /// source due counts as checked.
+    async fn check_updates(&self) -> bool {
+        let checked = self
+            .shared
+            .engine
+            .check_updates(UPDATE_CHECK_INTERVAL)
+            .await;
+        if matches!(checked, Ok(false)) {
+            return false;
+        }
+        match self.refresh_preserving_outcome(checked).await {
+            Ok(ran) => ran,
+            Err(error) => {
+                self.background_error(error);
+                true
+            }
+        }
+    }
+    /// Replaces the selected skills' content with their sources' current content, then scans
+    /// again, since the agents' copies no longer match the updated skills.
+    pub async fn update_skills(&self, ids: Vec<SkillId>) -> AppResult<UpdateOutcome> {
+        let outcome = self
+            .refresh_preserving_outcome(self.shared.engine.update_skills(ids).await)
+            .await?;
+        self.spawn_scan();
+        Ok(outcome)
+    }
+    /// Restores a drifted skill's recorded content, then scans again, since the agents' copies
+    /// may match it again.
+    pub async fn reinstall_skill(&self, id: SkillId) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.reinstall_skill(id).await)
+            .await?;
+        self.spawn_scan();
+        Ok(())
+    }
     /// Scans the agents' global skill directories and every workspace, replacing a running scan.
     pub async fn start_scan(&self) -> AppResult<()> {
         self.refresh_preserving_outcome(self.shared.engine.start_scan().await)
@@ -184,7 +252,7 @@ impl Client {
             .await
     }
     /// Applies a plan with durable replay and outcome retention, then scans again so the
-    /// imported skills are found in the library.
+    /// imported skills are found in the library; that scan's completion checks their sources.
     pub async fn apply_import(&self, plan: PlanId) -> AppResult<ImportOutcome> {
         let outcome = self
             .refresh_preserving_outcome(self.shared.engine.apply_import(plan).await)

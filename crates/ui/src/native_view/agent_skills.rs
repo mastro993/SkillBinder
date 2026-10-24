@@ -13,10 +13,10 @@ pub(super) const UNIVERSAL: &str = "Universal";
 /// What one found skill folder holds relative to the library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum FoundStatus {
-    /// Its content matches a library skill, so it is installed.
-    Installed,
+    /// Its content matches a library skill, or the library holds its slug, so it is in library.
+    InLibrary,
     /// A skill the library does not hold.
-    NotInstalled,
+    NotInLibrary,
     /// A skill the library does not hold whose payload fails validation.
     Invalid,
     /// A skill the library does not hold whose payload cannot safely be copied.
@@ -26,8 +26,8 @@ pub(super) enum FoundStatus {
 impl FoundStatus {
     pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Installed => "Installed",
-            Self::NotInstalled => "Not installed",
+            Self::InLibrary => "In library",
+            Self::NotInLibrary => "Not in library",
             Self::Invalid => "Invalid",
             Self::Blocked => "Blocked",
         }
@@ -97,12 +97,12 @@ pub(super) fn found_where(
     let mut skills: Vec<_> = candidates
         .iter()
         .flat_map(|candidate| {
-            let status = match (&candidate.skill_id, candidate.validation) {
-                (Some(_), _) => FoundStatus::Installed,
+            let status = match (candidate.in_library(), candidate.validation) {
+                (Some(_), _) => FoundStatus::InLibrary,
                 (None, ValidationStatus::Invalid) => FoundStatus::Invalid,
                 (None, ValidationStatus::Blocked) => FoundStatus::Blocked,
                 (None, ValidationStatus::Valid | ValidationStatus::Warning) => {
-                    FoundStatus::NotInstalled
+                    FoundStatus::NotInLibrary
                 }
             };
             candidate
@@ -112,7 +112,7 @@ pub(super) fn found_where(
                 .map(move |_| FoundSkill {
                     slug: candidate.slug.clone(),
                     status,
-                    skill: candidate.skill_id.clone(),
+                    skill: candidate.in_library().cloned(),
                 })
         })
         .collect();
@@ -139,7 +139,12 @@ mod tests {
     fn candidate(slug: &str, skill: Option<SkillId>, validation: ValidationStatus) -> Candidate {
         Candidate {
             id: CandidateId::new(),
+            key: slug.to_owned(),
+            preferred: true,
+            matches_source: false,
+            modified: None,
             skill_id: skill,
+            held: None,
             slug: slug.to_owned(),
             description: String::new(),
             locations: vec![CandidateLocation {
@@ -212,8 +217,8 @@ mod tests {
             listed,
             [
                 ("broken", FoundStatus::Invalid),
-                ("found", FoundStatus::NotInstalled),
-                ("kept", FoundStatus::Installed),
+                ("found", FoundStatus::NotInLibrary),
+                ("kept", FoundStatus::InLibrary),
             ]
         );
         assert_eq!(skills[2].skill, Some(kept));
