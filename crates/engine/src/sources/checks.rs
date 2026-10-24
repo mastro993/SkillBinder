@@ -39,6 +39,29 @@ pub(crate) struct Updates {
     state: Arc<Mutex<State>>,
 }
 
+/// A running check. Finishing it keeps its results; dropping it unfinished, as a panicking
+/// check thread or one that never started does, ends the check without any, so later checks
+/// and shutdown never wait on it.
+#[must_use]
+pub(crate) struct Running(Option<Updates>);
+
+impl Running {
+    /// Ends the check, keeping each result.
+    pub(crate) fn finish(mut self, results: Vec<(Due, UpdateCheck)>) {
+        if let Some(updates) = self.0.take() {
+            updates.finish(results);
+        }
+    }
+}
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        if let Some(updates) = self.0.take() {
+            updates.finish(Vec::new());
+        }
+    }
+}
+
 impl Updates {
     fn lock(&self) -> AppResult<MutexGuard<'_, State>> {
         self.state.lock().map_err(|_| AppError::storage())
@@ -60,8 +83,13 @@ impl Updates {
     }
 
     /// Starts a check of the skills with a source not checked for their current record within
-    /// `max_age` seconds. `None` while another check runs or when no skill is due.
-    pub(crate) fn begin(&self, skills: &[Skill], max_age: u64) -> AppResult<Option<Vec<Due>>> {
+    /// `max_age` seconds, returning them with the guard that ends the check. `None` while another
+    /// check runs or when no skill is due.
+    pub(crate) fn begin(
+        &self,
+        skills: &[Skill],
+        max_age: u64,
+    ) -> AppResult<Option<(Vec<Due>, Running)>> {
         let mut state = self.lock()?;
         if state.running {
             return Ok(None);
@@ -84,7 +112,7 @@ impl Updates {
             })
             .collect();
         state.running = !due.is_empty();
-        Ok(state.running.then_some(due))
+        Ok(state.running.then(|| (due, Running(Some(self.clone())))))
     }
 
     /// Whether a check is running.
@@ -93,7 +121,8 @@ impl Updates {
     }
 
     /// Waits for the running check's thread to end, so its Git child stops writing the cache
-    /// before the library lock is released. Git's timeouts bound the wait.
+    /// before the library lock is released. Git's timeouts bound the wait, and the check's
+    /// `Running` guard ends it however its thread exits.
     pub(crate) fn wait_for_shutdown(&self) {
         while self.state.lock().is_ok_and(|state| state.running) {
             std::thread::sleep(std::time::Duration::from_millis(10));
@@ -101,7 +130,7 @@ impl Updates {
     }
 
     /// Ends the running check, keeping each result.
-    pub(crate) fn finish(&self, results: Vec<(Due, UpdateCheck)>) {
+    fn finish(&self, results: Vec<(Due, UpdateCheck)>) {
         let Ok(mut state) = self.state.lock() else {
             return;
         };
@@ -230,4 +259,51 @@ fn check_group(git: &Git, data_dir: &Path, skills: &[Due], log: &Logger) -> Vec<
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn a_check_ends_however_its_thread_exits() {
+        let skill = Skill {
+            id: SkillId("sourced".to_owned()),
+            preset_ids: Vec::new(),
+            folder_id: None,
+            digest: String::new(),
+            file_count: 1,
+            total_bytes: 1,
+            imported_at: None,
+            source: Some(SkillSource {
+                url: "https://example.com/skills.git".to_owned(),
+                reference: None,
+                path: "sourced".to_owned(),
+            }),
+            recorded: "0".repeat(40),
+            drift: None,
+        };
+        let updates = Updates::default();
+        let (due, running) = updates
+            .begin(std::slice::from_ref(&skill), 0)
+            .unwrap()
+            .unwrap();
+        assert_eq!(due.len(), 1);
+        assert!(
+            updates
+                .begin(std::slice::from_ref(&skill), 0)
+                .unwrap()
+                .is_none()
+        );
+        // A thread that panics drops its guard unfinished.
+        let _ = std::thread::spawn(move || {
+            let _running = running;
+            panic!("check failed");
+        })
+        .join();
+        assert!(!updates.running().unwrap());
+        updates.wait_for_shutdown();
+        assert!(updates.begin(&[skill], 0).unwrap().is_some());
+    }
 }

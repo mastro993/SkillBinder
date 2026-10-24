@@ -34,30 +34,21 @@ impl Engine {
                         .record(format!("Learning sources failed: {error}"));
                 }
                 let skills = state.read_library()?.skills;
-                let Some(due) = state.updates.begin(&skills, max_age.as_secs())? else {
+                let Some((due, running)) = state.updates.begin(&skills, max_age.as_secs())? else {
                     return Ok(Ok(None));
                 };
                 // Started on the worker, so no check is ever marked running without a thread.
-                let (updates, log) = (state.updates.clone(), state.log.clone());
+                // The thread owns `running`, which ends the check however the thread exits.
+                let log = state.log.clone();
                 let data_dir = state.config.data_dir.clone();
                 let (done, finished) = oneshot::channel();
-                let spawned = std::thread::Builder::new()
+                std::thread::Builder::new()
                     .name("skillbinder-updates".into())
-                    .spawn({
-                        let updates = updates.clone();
-                        move || {
-                            // A check that panics still ends, so later checks can start.
-                            let results = std::panic::catch_unwind(|| {
-                                crate::sources::check(&git, &data_dir, due, &log)
-                            });
-                            updates.finish(results.unwrap_or_default());
-                            let _ = done.send(());
-                        }
-                    });
-                if spawned.is_err() {
-                    updates.finish(Vec::new());
-                    return Err(AppError::storage());
-                }
+                    .spawn(move || {
+                        running.finish(crate::sources::check(&git, &data_dir, due, &log));
+                        let _ = done.send(());
+                    })
+                    .map_err(|_| AppError::storage())?;
                 Ok(Ok(Some(finished)))
             })
             .await?;

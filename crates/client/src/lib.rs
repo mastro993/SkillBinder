@@ -198,14 +198,18 @@ impl Client {
             }
         });
     }
-    /// Checks the sources due for a check, then publishes their update states; `false` when
-    /// another check was running.
+    /// Checks the sources due for a check, then publishes their update states. `false` only
+    /// when another check was running, which leaves nothing new to publish; a library with no
+    /// source due counts as checked.
     async fn check_updates(&self) -> bool {
         let checked = self
             .shared
             .engine
             .check_updates(UPDATE_CHECK_INTERVAL)
             .await;
+        if matches!(checked, Ok(false)) {
+            return false;
+        }
         match self.refresh_preserving_outcome(checked).await {
             Ok(ran) => ran,
             Err(error) => {
