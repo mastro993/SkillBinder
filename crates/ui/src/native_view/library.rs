@@ -1,11 +1,11 @@
-//! The Library page: every library skill, one folder's, or one preset's, as a searchable list
-//! or grid.
+//! The Library page: every library skill, one folder's, as a searchable list or grid. Presets
+//! activate skills in place instead of opening a page.
 
+use super::NativeView;
 use super::controls::app_icon;
 use super::library_dates as dates;
 use super::library_items::SkillItem;
 use super::library_presence::presence;
-use super::{LibraryFilter, NativeView};
 use gpui_kit::component::{
     ActiveTheme, Sizable, h_flex,
     input::Input,
@@ -37,8 +37,7 @@ impl NativeView {
             .skills
             .iter()
             .filter(|skill| {
-                in_filter(skill, self.library_filter())
-                    && folder.is_none_or(|id| skill.folder_id.as_ref() == Some(id))
+                folder.is_none_or(|id| skill.folder_id.as_ref() == Some(id))
                     && matches(skill, library, &query)
             })
             .collect();
@@ -51,9 +50,34 @@ impl NativeView {
         v_flex()
             .gap_4()
             .child(self.library_header(&matching, visible.len(), cx))
+            .children(self.active_preset_empty_note(library, cx))
             .children(self.render_update_outcome(cx))
             .child(self.library_results(library, &visible, &typed, window, cx))
             .into_any_element()
+    }
+
+    /// A notice under the header while the active preset holds no skills.
+    fn active_preset_empty_note(
+        &self,
+        library: &LibrarySnapshot,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let active = self.active_preset_id()?;
+        if library
+            .library
+            .skills
+            .iter()
+            .any(|skill| skill.preset_ids.contains(&active))
+        {
+            return None;
+        }
+        Some(
+            div()
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child(format!("No skills active in {}", self.active_preset_name()))
+                .into_any_element(),
+        )
     }
 
     /// Search, the Needs update filter over the `matching` skills, and the shown skill count,
@@ -76,6 +100,12 @@ impl NativeView {
                 ),
             )
             .child(self.update_filter_tabs(matching, cx))
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(format!("Active: {}", self.active_preset_name())),
+            )
             .child(
                 div()
                     .flex_1()
@@ -185,13 +215,6 @@ impl NativeView {
             self.sidebar_width
         };
         f32::from(window.viewport_size().width) - sidebar - PAGE_PADDING
-    }
-}
-
-fn in_filter(skill: &Skill, filter: &LibraryFilter) -> bool {
-    match filter {
-        LibraryFilter::All => true,
-        LibraryFilter::Preset(id) => skill.preset_ids.contains(id),
     }
 }
 

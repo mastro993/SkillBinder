@@ -3,7 +3,7 @@
 [![Checks](https://github.com/mastro993/SkillBinder/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/mastro993/SkillBinder/actions/workflows/checks.yml?query=branch%3Amain)
 [![Native builds](https://github.com/mastro993/SkillBinder/actions/workflows/native.yml/badge.svg?branch=main)](https://github.com/mastro993/SkillBinder/actions/workflows/native.yml?query=branch%3Amain)
 
-SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover the skills in your agents and workspaces, review copies before installing them, organize library skills into presets, see which agents hold each library skill, and synchronize its skill directories through Git. Presets and library folders stay on each device.
+SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover the skills in your agents and workspaces, review copies before installing them, organize library skills into active presets, switch configurations at once, clone a preset, see which agents hold each library skill, and synchronize its skill directories through Git. Presets and library folders stay on each device.
 
 ## Run
 

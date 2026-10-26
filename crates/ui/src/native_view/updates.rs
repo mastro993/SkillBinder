@@ -4,7 +4,7 @@ use gpui_kit::Context;
 use skillbinder_proto::*;
 
 use super::library_folders::FolderEdit;
-use super::route::{LibraryFilter, Route};
+use super::route::Route;
 use super::sidebar_presets::PresetEdit;
 use super::{DialogState, Effect, NativeView, agent_page, sidebar};
 
@@ -32,13 +32,14 @@ impl NativeView {
         if let Some(library) = &latest.library {
             let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);
             let skill_exists = |id: &SkillId| library.library.skills.iter().any(|s| &s.id == id);
-            if matches!(&self.route, Route::Library(LibraryFilter::Preset(id)) if !exists(id))
-                || matches!(&self.route, Route::Skill(id) if !skill_exists(id))
-            {
-                self.route = Route::Library(LibraryFilter::All);
+            if matches!(&self.route, Route::Skill(id) if !skill_exists(id)) {
+                self.route = Route::Library;
             }
             if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
                 self.preset_edit = None;
+            }
+            if self.active_preset.as_ref().is_some_and(|id| !exists(id)) {
+                self.active_preset = None;
             }
             let folder_exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
             if self

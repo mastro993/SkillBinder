@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use super::controls::button;
 use super::{
-    LibraryFilter, NativeView, Route,
+    NativeView, Route,
     sidebar::{SidebarDrag, clamp_sidebar_width, hairline, visible_width},
 };
 use gpui_kit::component::{
@@ -98,6 +98,7 @@ impl NativeView {
             appearance: self.appearance,
             folded_sections: self.folded_sections.clone(),
             library_view: self.library_view,
+            active_preset: self.active_preset.clone(),
         };
         let stored = &self.snapshot.preferences;
         if (preferences.sidebar_width - stored.sidebar_width).abs() < 0.5
@@ -105,6 +106,7 @@ impl NativeView {
             && preferences.appearance == stored.appearance
             && preferences.folded_sections == stored.folded_sections
             && preferences.library_view == stored.library_view
+            && preferences.active_preset == stored.active_preset
         {
             self.preference_writes.finish();
             return;
@@ -274,7 +276,7 @@ impl NativeView {
         });
         // With the header's inset, the breadcrumb lines up with the page's 24-point padding.
         let title = div().flex_1().min_w_0().pl_4().when(with_sidebar, |title| {
-            if self.route == Route::Library(LibraryFilter::All) {
+            if self.route == Route::Library {
                 title.child(self.render_folder_tabs(window, cx))
             } else {
                 title.child(self.render_breadcrumb(cx).into_any_element())
@@ -320,10 +322,9 @@ impl NativeView {
     fn header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         match self.route {
             Route::Discovery => self.discovery_header_actions(cx),
-            Route::Library(LibraryFilter::All) => self.library_header_actions(cx),
+            Route::Library => self.library_header_actions(cx),
             Route::Skill(ref id) => self.skill_header_actions(&id.clone(), cx),
-            Route::Library(LibraryFilter::Preset(_))
-            | Route::Workspace(_)
+            Route::Workspace(_)
             | Route::Agent(_)
             | Route::Universal
             | Route::Sync

@@ -33,6 +33,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
             appearance: Appearance::Dark,
             folded_sections: [SidebarSection::Presets].into(),
             library_view: LibraryView::Grid,
+            active_preset: None,
         })
         .await?;
     let updated = engine.snapshot().await?;

@@ -1,7 +1,7 @@
 //! The header breadcrumb: the current page's title under its sidebar section.
 
 use super::agent_skills::{UNIVERSAL, agent_name};
-use super::{LibraryFilter, NativeView, Route};
+use super::{NativeView, Route};
 use gpui_kit::component::breadcrumb::{Breadcrumb, BreadcrumbItem};
 use gpui_kit::{Context, IntoElement, Styled};
 use skillbinder_proto::AppSnapshot;
@@ -26,15 +26,13 @@ impl Crumb {
 /// plain text.
 pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
     let section = match route {
-        Route::Library(LibraryFilter::Preset(_)) | Route::Skill(_) => Some(Crumb {
+        Route::Skill(_) => Some(Crumb {
             label: "Library".to_owned(),
-            target: Some(Route::Library(LibraryFilter::All)),
+            target: Some(Route::Library),
         }),
         Route::Workspace(_) => Some(Crumb::text("Workspaces")),
         Route::Agent(_) | Route::Universal => Some(Crumb::text("Agents")),
-        Route::Discovery | Route::Library(LibraryFilter::All) | Route::Sync | Route::Settings => {
-            None
-        }
+        Route::Discovery | Route::Library | Route::Sync | Route::Settings => None,
     };
     section.into_iter().chain([Crumb::text(title)]).collect()
 }
@@ -43,13 +41,7 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
 fn title(route: &Route, snapshot: &AppSnapshot) -> String {
     match route {
         Route::Discovery => "Discovery".to_owned(),
-        Route::Library(LibraryFilter::All) => "Library".to_owned(),
-        Route::Library(LibraryFilter::Preset(id)) => snapshot
-            .library
-            .as_ref()
-            .and_then(|library| library.library.presets.iter().find(|f| &f.id == id))
-            .map(|preset| preset.name.clone())
-            .unwrap_or_default(),
+        Route::Library => "Library".to_owned(),
         Route::Skill(id) => id.to_string(),
         Route::Workspace(id) => snapshot
             .workspaces
@@ -90,7 +82,7 @@ impl NativeView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_proto::{PresetId, SkillId, WorkspaceId};
+    use skillbinder_proto::{SkillId, WorkspaceId};
 
     fn labels(route: Route) -> Vec<String> {
         crumbs(&route, "Page".to_owned())
@@ -103,7 +95,7 @@ mod tests {
     fn top_level_pages_are_their_title_alone() {
         for route in [
             Route::Discovery,
-            Route::Library(LibraryFilter::All),
+            Route::Library,
             Route::Sync,
             Route::Settings,
         ] {
@@ -119,14 +111,8 @@ mod tests {
         );
         assert_eq!(labels(Route::Agent("codex".to_owned())), ["Agents", "Page"]);
         assert_eq!(labels(Route::Universal), ["Agents", "Page"]);
-        let preset = crumbs(
-            &Route::Library(LibraryFilter::Preset(PresetId::new())),
-            "Research".to_owned(),
-        );
-        assert_eq!(preset[0].target, Some(Route::Library(LibraryFilter::All)));
         let skill = crumbs(&Route::Skill(SkillId("pdf".into())), "pdf".to_owned());
-        assert_eq!(skill[0].target, Some(Route::Library(LibraryFilter::All)));
-        assert_eq!(preset[1], Crumb::text("Research"));
+        assert_eq!(skill[0].target, Some(Route::Library));
         assert_eq!(
             crumbs(&Route::Workspace(WorkspaceId::new()), String::new())[0].target,
             None

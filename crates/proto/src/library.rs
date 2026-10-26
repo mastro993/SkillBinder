@@ -194,10 +194,11 @@ impl PresetIcon {
         Self::Briefcase,
     ];
 }
-/// A flat machine-local preset: a named set of library skills.
+/// A flat machine-local preset: a named configuration of library skills.
 ///
 /// Every library has the default preset, whose [`Preset::DEFAULT_ID`] the app seeds once. The app
 /// never deletes it, renames it, changes its icon or color, or moves it; it always comes first.
+/// A skill is active in a preset when the preset holds it, and one preset is active at a time.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Preset {
     /// Stable preset identity.
@@ -365,6 +366,13 @@ pub enum OrganizationChange {
         id: PresetId,
         /// Replacement unique name.
         name: String,
+    },
+    /// Copy a preset, its appearance, and its skills into a new preset named after it.
+    ///
+    /// The Default preset may be cloned; the copy is an ordinary editable preset.
+    ClonePreset {
+        /// Preset being copied.
+        id: PresetId,
     },
     /// Add selected skills to a preset; skills already in it stay.
     AddToPreset {

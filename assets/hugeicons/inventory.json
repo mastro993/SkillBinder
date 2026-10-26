@@ -79,7 +79,8 @@
       "name": "BookCopyIcon",
       "file": "BookCopyIcon.svg",
       "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx"
+        "features/onboarding/components/onboarding-steps.tsx",
+        "crates/ui/src/native_view/sidebar_presets.rs"
       ],
       "sourceModule": "dist/esm/BookCopyIcon.js",
       "sourceModuleSha256": "a3bec601ac1230d0eb21dd84cd76434e4466cbaa541e892f273163579e2a44b9",

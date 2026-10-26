@@ -20,6 +20,7 @@ mod menu;
 mod native_test;
 mod navigation;
 mod onboarding;
+mod preset_activation;
 mod preset_colors;
 mod preset_icons;
 mod route;
@@ -57,7 +58,7 @@ use gpui_kit::{
     ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder,
 };
 use library_folders::FolderEdit;
-use route::{History, LibraryFilter, Route};
+use route::{History, Route};
 use sidebar_presets::PresetEdit;
 use sidebar_reorder::RowReorder;
 use skillbinder_client::Client;
@@ -128,6 +129,12 @@ pub struct NativeView {
     content_scroll: hover_scroll::HoverScroll,
     appearance: Appearance,
     library_view: LibraryView,
+    /// The preset whose skills activation toggles edit; absent starts with Default.
+    active_preset: Option<PresetId>,
+    /// A preset name shown while its rename is being saved; cleared on success or failure.
+    optimistic_preset_name: Option<(PresetId, String)>,
+    /// Created or cloned presets shown before the engine's snapshot arrives.
+    optimistic_presets: Vec<sidebar_presets::OptimisticPreset>,
     /// Whether Library lists only skills with an update; reset with search when the route changes.
     needs_update_only: bool,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
@@ -166,6 +173,7 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         let library_view = snapshot.preferences.library_view;
+        let active_preset = snapshot.preferences.active_preset.clone();
         sidebar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
         let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
@@ -251,6 +259,9 @@ impl NativeView {
             content_scroll: hover_scroll::HoverScroll::default(),
             appearance,
             library_view,
+            active_preset,
+            optimistic_preset_name: None,
+            optimistic_presets: Vec::new(),
             needs_update_only: false,
             sidebar_motion: 0,
             sidebar_closing: false,
@@ -333,7 +344,7 @@ impl Render for NativeView {
         } else {
             let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
-                Route::Library(_) => self.render_library(window, cx),
+                Route::Library => self.render_library(window, cx),
                 Route::Skill(id) => self.render_skill(&id.clone(), cx),
                 Route::Workspace(id) => self.render_workspace(&id.clone()),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
