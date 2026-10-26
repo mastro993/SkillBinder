@@ -21,9 +21,9 @@ use gpui_kit::component::{
     input::{InputEvent, InputState},
 };
 use gpui_kit::{
-    AnyElement, App, AppContext, Context, DragMoveEvent, Entity, InteractiveElement, IntoElement,
-    MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, WeakEntity,
-    Window, div, prelude::FluentBuilder, px,
+    AnyElement, App, AppContext, Context, DragMoveEvent, Entity, Hsla, InteractiveElement,
+    IntoElement, MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled,
+    WeakEntity, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{
     AppError, LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
@@ -192,7 +192,7 @@ impl NativeView {
                 app_icon(glyph),
                 tint,
                 label.clone(),
-                false,
+                active,
                 cx,
             ),
             label.clone(),
@@ -203,13 +203,16 @@ impl NativeView {
         let row = with_menu(
             row,
             format!("preset-{id}"),
-            false,
+            active,
             self,
             cx,
             move |_, window, cx| preset_menu(&menu_preset, index, len, busy, window, cx),
         );
         let row = row
-            .when(active, |row| row.child(active_marker(id.as_str(), cx)))
+            .when(active, |row| row.bg(active_preset_fill(tint, cx)))
+            .when(active, |row| {
+                row.child(active_marker(id.as_str(), tint, cx))
+            })
             .when(skills > 0, |row| row.child(count(skills, cx)))
             .relative()
             .top(px(placement.offset))
@@ -402,6 +405,12 @@ fn shown_preset_name<'a>(
     optimistic
         .filter(|(id, _)| id == &preset.id)
         .map_or(preset.name.as_str(), |(_, name)| name.as_str())
+}
+
+/// The active preset's row fill: its color at a low opacity, or the sidebar selection fill when
+/// it has no color.
+fn active_preset_fill(tint: Option<Hsla>, cx: &App) -> Hsla {
+    tint.map_or_else(|| cx.theme().sidebar_accent, |color| color.opacity(0.22))
 }
 
 /// A menu handler that runs `action` on the view for one row.

@@ -140,17 +140,14 @@ pub(super) fn count(value: usize, cx: &App) -> AnyElement {
     detail(format_count(value), cx)
 }
 
-/// A trailing check on the preset whose configuration is active.
-pub(super) fn active_marker(id: &str, cx: &App) -> AnyElement {
+/// A trailing check on the preset whose configuration is active, in its icon color.
+pub(super) fn active_marker(id: &str, tint: Option<Hsla>, cx: &App) -> AnyElement {
+    let color = tint.unwrap_or_else(|| cx.theme().sidebar_accent_foreground);
     div()
         .id(format!("preset-active-{id}"))
         .flex_shrink_0()
         .aria_label("Active preset")
-        .child(
-            app_icon("check")
-                .size(px(DETAIL_SIZE))
-                .text_color(cx.theme().foreground.opacity(0.75)),
-        )
+        .child(app_icon("check").size(px(DETAIL_SIZE)).text_color(color))
         .into_any_element()
 }
 
