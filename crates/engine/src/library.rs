@@ -204,7 +204,7 @@ fn reorder<T, Id: Ord>(
 }
 impl State {
     pub(crate) fn read_library(&self) -> AppResult<Library> {
-        Ok(library_store::load(&mut self.database.borrow_mut())?.0)
+        Ok(library_store::load(&mut self.database.borrow_mut(), &self.log)?.0)
     }
     /// The library and its revision, without reading payload directories.
     pub(crate) fn revised_library(&self) -> AppResult<(Library, String)> {
@@ -213,7 +213,7 @@ impl State {
         Ok((library, revision))
     }
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
-        let (library, details) = library_store::load(&mut self.database.borrow_mut())?;
+        let (library, details) = library_store::load(&mut self.database.borrow_mut(), &self.log)?;
         let revision = revision(&library)?;
         let modified = library
             .skills

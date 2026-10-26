@@ -313,7 +313,8 @@ impl State {
     /// The digest and slug of each library skill, which put found skills in library. A blocked
     /// library skill marks nothing.
     fn managed(&self) -> AppResult<Managed> {
-        let (library, details) = crate::library_store::load(&mut self.database.borrow_mut())?;
+        let (library, details) =
+            crate::library_store::load(&mut self.database.borrow_mut(), &self.log)?;
         let mut managed = Managed::default();
         for skill in library.skills {
             if details.get(&skill.id).map(|details| details.validation)
