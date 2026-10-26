@@ -121,7 +121,13 @@ impl Git {
     }
 
     fn network(&self, repo: Option<&Path>, args: &[&str]) -> AppResult<String> {
-        let output = process::run(&self.executable, repo, args, NETWORK_TIMEOUT)?;
+        let output = process::run(
+            &self.executable,
+            repo,
+            args,
+            NETWORK_TIMEOUT,
+            Some(&self.shutdown),
+        )?;
         if !output.status.success() {
             return Err(failure(
                 "Git could not read the source. Check access and the repository.",

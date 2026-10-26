@@ -6,6 +6,7 @@ use crate::{
     lifecycle::EngineConfig,
     logging::Logger,
     reconcile::RECONCILED_HEAD,
+    shutdown::Shutdown,
     sources::Updates,
 };
 use diesel::SqliteConnection;
@@ -33,6 +34,8 @@ struct Owner {
     sender: mpsc::Sender<Message>,
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
+    /// Stops in-flight commands when the application quits.
+    shutdown: Shutdown,
 }
 /// Cloneable typed handle to the embedded engine worker.
 #[derive(Clone)]
@@ -48,6 +51,8 @@ pub(crate) struct State {
     pub updates: Updates,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
     pub recovery_required: bool,
+    /// Stops the work a quit would otherwise wait for.
+    pub shutdown: Shutdown,
     lock: File,
 }
 impl Engine {
@@ -79,15 +84,17 @@ impl Engine {
             .map_err(|_| AppError::storage())?;
         let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
+        let shutdown = Shutdown::default();
         let mut state = State {
             config,
             database,
-            git: Git::discover().ok(),
+            git: Git::discover(shutdown.clone()).ok(),
             log,
             scans: scans.clone(),
             updates: Updates::default(),
             grants: BTreeMap::new(),
             recovery_required: true,
+            shutdown: shutdown.clone(),
             lock,
         };
         state.recover()?;
@@ -124,6 +131,7 @@ impl Engine {
                 sender,
                 thread: Mutex::new(Some(thread)),
                 scans,
+                shutdown,
             }),
         })
     }
@@ -136,7 +144,9 @@ impl Engine {
             .sender
             .send(Message::Execute(Box::new(move |state| {
                 let result = operation(state);
-                if let Err(error) = &result {
+                if let Err(error) = &result
+                    && error.category != ErrorCategory::Cancelled
+                {
                     state.log.record(error.to_string());
                 }
                 let _ = sender.send(result);
@@ -150,8 +160,12 @@ impl Engine {
             })?;
         receiver.await.map_err(|_| AppError::storage())?
     }
-    /// Cancels scanning, drains committed mutations, flushes logs, and joins the worker.
+    /// Cancels scanning and in-flight Git commands, drains committed mutations, flushes logs,
+    /// and joins the worker.
     pub async fn shutdown(&self) -> AppResult<()> {
+        // A command waiting on the network stops now, instead of holding the quit for its
+        // timeout: the native quit path drains the engine on the main thread.
+        self.owner.shutdown.cancel();
         let (sender, receiver) = oneshot::channel();
         self.owner
             .sender
@@ -172,7 +186,7 @@ impl Engine {
     /// Rechecks prerequisites and persisted onboarding progress.
     pub async fn bootstrap(&self) -> AppResult<Bootstrap> {
         self.call(|state| {
-            state.git = Git::discover().ok();
+            state.git = Git::discover(state.shutdown.clone()).ok();
             state.bootstrap()
         })
         .await
@@ -414,6 +428,7 @@ impl State {
             updates: Updates::default(),
             grants: BTreeMap::new(),
             recovery_required: false,
+            shutdown: Shutdown::default(),
             lock: File::create(data_dir.join("test.lock")).unwrap(),
         }
     }

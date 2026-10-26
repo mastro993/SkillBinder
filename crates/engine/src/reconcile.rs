@@ -8,9 +8,10 @@ use crate::{
     library_store::{self, SavedSkill},
     payload,
     records::Record,
+    shutdown::Shutdown,
     worker::State,
 };
-use skillbinder_proto::{AppError, AppResult, Drift};
+use skillbinder_proto::{AppError, AppResult, Drift, ErrorCategory};
 use std::{collections::BTreeSet, fs};
 
 /// The device setting holding the last commit whose skills the database reflects.
@@ -83,6 +84,11 @@ impl State {
         let mut gone = Vec::new();
         let mut failure = None;
         for slug in slugs {
+            // A quit stops inspecting the rest; the recorded commit stays behind, so the next
+            // launch retries them.
+            if self.shutdown.cancelled() {
+                return Err(Shutdown::error());
+            }
             if !listed.contains(&slug) {
                 gone.push(slug);
                 continue;
@@ -157,10 +163,13 @@ impl State {
     }
 
     /// Reconciles after launch or onboarding: failures are logged and retried at the next launch,
-    /// since the recorded commit only advances once every changed skill was inspected.
+    /// since the recorded commit only advances once every changed skill was inspected. A quit
+    /// stops the pass without reporting it as a failure.
     pub(crate) fn catch_up(&self) {
         for result in [self.reconcile_head(), self.reconcile_library()] {
-            if let Err(error) = result {
+            if let Err(error) = result
+                && error.category != ErrorCategory::Cancelled
+            {
                 self.log
                     .record(format!("Library reconciliation will retry: {error}"));
             }

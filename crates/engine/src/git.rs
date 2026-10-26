@@ -9,6 +9,7 @@ mod validation;
 
 pub(crate) use source::validate as validate_source;
 
+use crate::shutdown::Shutdown;
 use skillbinder_proto::{
     AppError, AppResult, ErrorCategory, RemoteConfig, SyncAction, SyncSnapshot, SyncState,
 };
@@ -27,11 +28,13 @@ const MANAGED: [&str; 2] = ["skills", "records"];
 pub struct Git {
     executable: PathBuf,
     version: String,
+    /// Stops a running command when the application quits, instead of waiting for its timeout.
+    shutdown: Shutdown,
 }
 
 impl Git {
     /// Finds Git only in absolute PATH entries and requires version 2.39 or newer.
-    pub fn discover() -> AppResult<Self> {
+    pub(crate) fn discover(shutdown: Shutdown) -> AppResult<Self> {
         let path = std::env::var_os("PATH").ok_or_else(|| failure("Git was not found."))?;
         for directory in std::env::split_paths(&path).filter(|p| p.is_absolute()) {
             let executable = directory.join(if cfg!(windows) { "git.exe" } else { "git" });
@@ -41,7 +44,13 @@ impl Git {
             let executable = executable
                 .canonicalize()
                 .map_err(|_| failure("Git could not be resolved."))?;
-            let output = process::run(&executable, None, &["--version"], Duration::from_secs(30))?;
+            let output = process::run(
+                &executable,
+                None,
+                &["--version"],
+                Duration::from_secs(30),
+                None,
+            )?;
             let raw = String::from_utf8(output.stdout)
                 .map_err(|_| failure("Git version is unreadable."))?;
             let version = validation::version(&raw)?;
@@ -51,6 +60,7 @@ impl Git {
             return Ok(Self {
                 executable,
                 version,
+                shutdown,
             });
         }
         Err(failure(
@@ -82,6 +92,7 @@ impl Git {
             None,
             &["check-ref-format", "--branch", &remote.branch],
             Duration::from_secs(30),
+            None,
         )?;
         if result.status.success() {
             Ok(())
@@ -151,7 +162,7 @@ impl Git {
             }
             self.commit(repo)?;
             if self.revision(repo, "HEAD")?.is_some() {
-                self.output(
+                self.network_output(
                     repo,
                     &[
                         "push",
@@ -263,12 +274,13 @@ impl Git {
     }
     fn fetch(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<()> {
         let branch = format!("refs/heads/{}", remote.branch);
-        let refs = self.output(repo, &["ls-remote", "--heads", "--", &remote.url, &branch])?;
+        let refs =
+            self.network_output(repo, &["ls-remote", "--heads", "--", &remote.url, &branch])?;
         if refs.trim().is_empty() {
             self.output(repo, &["update-ref", "-d", REMOTE_REF])?;
             return Ok(());
         }
-        self.output(
+        self.network_output(
             repo,
             &[
                 "fetch",
@@ -382,6 +394,7 @@ impl Git {
                 &format!("{name}^{{commit}}"),
             ],
             Duration::from_secs(30),
+            None,
         )?;
         if out.status.success() {
             return String::from_utf8(out.stdout)
@@ -467,8 +480,23 @@ impl Git {
         }
         Ok(())
     }
+    /// Runs a local command. Quitting waits for it to finish, since it changes the library.
     fn output(&self, repo: &Path, args: &[&str]) -> AppResult<String> {
-        let output = process::run(&self.executable, Some(repo), args, Duration::from_secs(30))?;
+        self.run(repo, args, Duration::from_secs(30), None)
+    }
+    /// Runs a command that crosses the network. Quitting stops it instead of waiting for its
+    /// timeout.
+    fn network_output(&self, repo: &Path, args: &[&str]) -> AppResult<String> {
+        self.run(repo, args, Duration::from_secs(30), Some(&self.shutdown))
+    }
+    fn run(
+        &self,
+        repo: &Path,
+        args: &[&str],
+        timeout: Duration,
+        stop: Option<&Shutdown>,
+    ) -> AppResult<String> {
+        let output = process::run(&self.executable, Some(repo), args, timeout, stop)?;
         if !output.status.success() {
             return Err(failure(
                 "Git operation failed. Check access and repository state.",
