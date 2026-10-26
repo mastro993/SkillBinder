@@ -208,10 +208,10 @@ impl NativeView {
         );
         let row = row
             .when(active, |row| row.bg(active_preset_fill(tint, cx)))
+            .when(skills > 0, |row| row.child(count(skills, cx)))
             .when(active, |row| {
                 row.child(active_marker(id.as_str(), tint, cx))
             })
-            .when(skills > 0, |row| row.child(count(skills, cx)))
             .relative()
             .top(px(placement.offset))
             .when(placement.floating, |row| row.opacity(0.0));
