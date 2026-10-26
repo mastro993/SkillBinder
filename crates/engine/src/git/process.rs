@@ -89,15 +89,17 @@ pub(super) fn run(
     );
     let started = Instant::now();
     let status = loop {
-        if shutdown.is_some_and(Shutdown::cancelled) {
-            stop_child(&mut child);
-            return Err(Shutdown::error());
-        }
+        // A command that already finished keeps its result: quitting must not report work that
+        // happened, such as a push, as cancelled.
         if let Some(status) = child
             .try_wait()
             .map_err(|_| failure("Git process failed."))?
         {
             break status;
+        }
+        if shutdown.is_some_and(Shutdown::cancelled) {
+            stop_child(&mut child);
+            return Err(Shutdown::error());
         }
         if started.elapsed() >= timeout {
             stop_child(&mut child);
