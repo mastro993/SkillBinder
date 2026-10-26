@@ -235,7 +235,7 @@ impl NativeView {
             acknowledge_invalid: false,
             menu: None,
             preset_edit: None,
-            preset_reorder: RowReorder::default(),
+            preset_reorder: RowReorder::default().pinned(1),
             library_folder: None,
             folder_edit: None,
             creating_folder: None,

@@ -9,10 +9,19 @@ mod support;
 
 use diesel::{prelude::*, sql_types::Text};
 use skillbinder_proto::{
-    ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, PresetColor, PresetIcon, Rgb,
-    SkillId,
+    ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, Preset, PresetColor, PresetIcon,
+    Rgb, SkillId,
 };
 use support::{Fixture, category};
+
+fn preset_named<'a>(library: &'a LibrarySnapshot, name: &str) -> &'a Preset {
+    library
+        .library
+        .presets
+        .iter()
+        .find(|preset| preset.name == name)
+        .unwrap()
+}
 
 #[tokio::test]
 async fn presets_casefold_share_skills_and_refuse_stale_delete_preview() {
@@ -27,14 +36,14 @@ async fn presets_casefold_share_skills_and_refuse_stale_delete_preview() {
         .change_organization(create(" Straße "))
         .await
         .unwrap();
-    assert_eq!(library.library.presets[0].name, "Straße");
+    assert_eq!(preset_named(&library, "Straße").name, "Straße");
     assert_eq!(
         category(engine.change_organization(create("STRASSE")).await),
         ErrorCategory::Validation
     );
-    let preset = library.library.presets[0].id.clone();
+    let preset = preset_named(&library, "Straße").id.clone();
     let library = engine.change_organization(create("Other")).await.unwrap();
-    let other = library.library.presets[1].id.clone();
+    let other = preset_named(&library, "Other").id.clone();
     let presets_of = |library: &LibrarySnapshot| library.library.skills[0].preset_ids.clone();
     // Adding the greater identity first proves additions keep the list sorted.
     let (low, high) = if preset < other {
@@ -207,6 +216,167 @@ async fn folders_hold_a_skill_once_and_unfile_it_when_deleted() {
 }
 
 #[tokio::test]
+async fn the_default_preset_cannot_be_renamed_recolored_moved_or_deleted() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    let default = preset_named(&library, "Default").clone();
+    assert_eq!(default.id.as_str(), Preset::DEFAULT_ID);
+    assert_eq!(default.position, 0, "the default preset starts the list");
+    assert_eq!(default.icon, PresetIcon::Layers);
+    assert!(default.is_default());
+    assert_eq!(
+        category(
+            engine
+                .change_organization(OrganizationChange::RenamePreset {
+                    id: default.id.clone(),
+                    name: "Mine".into(),
+                })
+                .await
+        ),
+        ErrorCategory::Validation
+    );
+    assert_eq!(
+        category(
+            engine
+                .change_organization(OrganizationChange::SetPresetIcon {
+                    id: default.id.clone(),
+                    icon: PresetIcon::Rocket,
+                })
+                .await
+        ),
+        ErrorCategory::Validation
+    );
+    assert_eq!(
+        category(
+            engine
+                .change_organization(OrganizationChange::SetPresetColor {
+                    id: default.id.clone(),
+                    color: Some(PresetColor::Blue),
+                })
+                .await
+        ),
+        ErrorCategory::Validation
+    );
+    assert_eq!(
+        category(engine.preview_delete(default.id.clone()).await),
+        ErrorCategory::Validation,
+        "the deletion preview refuses the default preset"
+    );
+    let library = engine
+        .change_organization(OrganizationChange::CreatePreset {
+            name: "Review".into(),
+        })
+        .await
+        .unwrap();
+    let names: Vec<_> = library
+        .library
+        .presets
+        .iter()
+        .map(|preset| preset.name.as_str())
+        .collect();
+    assert_eq!(names, ["Default", "Review"]);
+    let review = preset_named(&library, "Review").id.clone();
+    assert_eq!(
+        category(
+            engine
+                .change_organization(OrganizationChange::ReorderPresets {
+                    order: vec![review.clone(), default.id.clone()],
+                })
+                .await
+        ),
+        ErrorCategory::Validation,
+        "the default preset stays first"
+    );
+    assert_eq!(preset_named(&library, "Default").icon, PresetIcon::Layers);
+    assert_eq!(preset_named(&library, "Default").color, None);
+    assert_eq!(
+        preset_named(&library, "Review").icon,
+        PresetIcon::Layers,
+        "new presets show the default glyph"
+    );
+    assert_eq!(
+        category(
+            engine
+                .change_organization(OrganizationChange::CreatePreset {
+                    name: "default".into(),
+                })
+                .await
+        ),
+        ErrorCategory::Validation,
+        "the default name is taken under case folding"
+    );
+    let preview = engine.preview_delete(review).await.unwrap();
+    let library = engine
+        .change_organization(OrganizationChange::DeletePreset {
+            id: preview.preset.id.clone(),
+            revision: preview.revision,
+        })
+        .await
+        .unwrap();
+    assert!(
+        library.library.presets.iter().any(Preset::is_default),
+        "deleting another preset keeps the default one"
+    );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn the_default_preset_stays_first_after_a_stored_move() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    engine
+        .change_organization(OrganizationChange::CreatePreset {
+            name: "Review".into(),
+        })
+        .await
+        .unwrap();
+    // An older build could store the default preset after another one.
+    {
+        let mut database = fixture.database();
+        diesel::sql_query("UPDATE presets SET position = 1 WHERE id = 'default'")
+            .execute(&mut database)
+            .unwrap();
+        diesel::sql_query("UPDATE presets SET position = 0 WHERE name = 'Review'")
+            .execute(&mut database)
+            .unwrap();
+    }
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    let names: Vec<_> = library
+        .library
+        .presets
+        .iter()
+        .map(|preset| preset.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        ["Default", "Review"],
+        "the default preset always reads first"
+    );
+    let library = engine
+        .change_organization(OrganizationChange::CreatePreset {
+            name: "Third".into(),
+        })
+        .await
+        .unwrap();
+    let names: Vec<_> = library
+        .library
+        .presets
+        .iter()
+        .map(|preset| preset.name.as_str())
+        .collect();
+    assert_eq!(names, ["Default", "Review", "Third"]);
+    let positions: Vec<_> = library
+        .library
+        .presets
+        .iter()
+        .map(|preset| preset.position)
+        .collect();
+    assert_eq!(positions, [0, 1, 2]);
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn presets_keep_user_order_and_colors() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
@@ -227,68 +397,79 @@ async fn presets_keep_user_order_and_colors() {
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(
         names(&library),
-        [("Beta".into(), 0), ("Alpha".into(), 1), ("Gamma".into(), 2)]
+        [
+            ("Default".into(), 0),
+            ("Beta".into(), 1),
+            ("Alpha".into(), 2),
+            ("Gamma".into(), 3),
+        ]
     );
-    let ids: Vec<_> = library
-        .library
-        .presets
-        .iter()
-        .map(|f| f.id.clone())
-        .collect();
+    let default = preset_named(&library, "Default").id.clone();
+    let beta = preset_named(&library, "Beta").id.clone();
+    let alpha = preset_named(&library, "Alpha").id.clone();
+    let gamma = preset_named(&library, "Gamma").id.clone();
     assert_eq!(
         category(
             engine
                 .change_organization(OrganizationChange::ReorderPresets {
-                    order: vec![ids[0].clone(), ids[0].clone(), ids[1].clone()],
+                    order: vec![default.clone(), beta.clone(), beta.clone(), gamma.clone()],
                 })
                 .await
         ),
-        ErrorCategory::Stale
+        ErrorCategory::Stale,
+        "an order must name every preset once"
     );
     engine
         .change_organization(OrganizationChange::ReorderPresets {
-            order: vec![ids[2].clone(), ids[0].clone(), ids[1].clone()],
+            order: vec![default, gamma.clone(), beta.clone(), alpha.clone()],
         })
         .await
         .unwrap();
     engine
         .change_organization(OrganizationChange::SetPresetColor {
-            id: ids[0].clone(),
+            id: beta.clone(),
             color: Some(PresetColor::Green),
         })
         .await
         .unwrap();
     engine
         .change_organization(OrganizationChange::SetPresetColor {
-            id: ids[0].clone(),
+            id: beta.clone(),
             color: Some(PresetColor::Custom(Rgb::from_rgb(0x33, 0x66, 0xff))),
         })
         .await
         .unwrap();
     engine
         .change_organization(OrganizationChange::SetPresetIcon {
-            id: ids[0].clone(),
+            id: beta.clone(),
             icon: PresetIcon::Rocket,
         })
         .await
         .unwrap();
-    let preview = engine.preview_delete(ids[2].clone()).await.unwrap();
+    let preview = engine.preview_delete(gamma).await.unwrap();
     engine
         .change_organization(OrganizationChange::DeletePreset {
-            id: ids[2].clone(),
+            id: preview.preset.id.clone(),
             revision: preview.revision,
         })
         .await
         .unwrap();
     let library = engine.snapshot().await.unwrap().library.unwrap();
-    assert_eq!(names(&library), [("Beta".into(), 0), ("Alpha".into(), 1)]);
     assert_eq!(
-        library.library.presets[0].color,
+        names(&library),
+        [
+            ("Default".into(), 0),
+            ("Beta".into(), 1),
+            ("Alpha".into(), 2),
+        ]
+    );
+    assert_eq!(
+        preset_named(&library, "Beta").color,
         Some(PresetColor::Custom(Rgb::from_rgb(0x33, 0x66, 0xff)))
     );
-    assert_eq!(library.library.presets[1].color, None);
-    assert_eq!(library.library.presets[0].icon, PresetIcon::Rocket);
-    assert_eq!(library.library.presets[1].icon, PresetIcon::Folder);
+    assert_eq!(preset_named(&library, "Alpha").color, None);
+    assert_eq!(preset_named(&library, "Beta").icon, PresetIcon::Rocket);
+    assert_eq!(preset_named(&library, "Alpha").icon, PresetIcon::Layers);
     engine.shutdown().await.unwrap();
 }
 
@@ -304,15 +485,16 @@ async fn a_preset_value_from_another_version_still_opens_the_library() {
         })
         .await
         .unwrap();
-    let id = library.library.presets[0].id.as_str().to_owned();
+    let id = preset_named(&library, "Styled").id.as_str().to_owned();
     engine.shutdown().await.unwrap();
-    diesel::sql_query("UPDATE presets SET icon = 'layers', color = 'ultraviolet' WHERE id = ?")
+    diesel::sql_query("UPDATE presets SET icon = 'folder', color = 'ultraviolet' WHERE id = ?")
         .bind::<Text, _>(id)
         .execute(&mut fixture.database())
         .unwrap();
     let reopened = fixture.open();
     let library = reopened.snapshot().await.unwrap().library.unwrap();
-    assert_eq!(library.library.presets[0].icon, PresetIcon::Folder);
-    assert_eq!(library.library.presets[0].color, None);
+    let styled = preset_named(&library, "Styled");
+    assert_eq!(styled.icon, PresetIcon::Layers);
+    assert_eq!(styled.color, None);
     reopened.shutdown().await.unwrap();
 }

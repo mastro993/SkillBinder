@@ -231,7 +231,7 @@ pub(crate) fn load(
             drift: drift.as_deref().map(from_text).transpose()?,
         });
     }
-    let presets = presets::table
+    let mut presets = presets::table
         .order(presets::position)
         .load::<(String, String, i64, Option<String>, String)>(connection)
         .map_err(storage)?
@@ -247,7 +247,9 @@ pub(crate) fn load(
                 icon,
             })
         })
-        .collect::<AppResult<_>>()?;
+        .collect::<AppResult<Vec<_>>>()?;
+    // The default preset always comes first, whatever position an older build stored.
+    presets.sort_by_key(|preset| !preset.is_default());
     let folders = library_folders::table
         .order(library_folders::position)
         .load::<(String, String, i64)>(connection)
