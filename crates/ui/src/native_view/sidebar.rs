@@ -3,7 +3,7 @@
 use std::{rc::Rc, time::Duration};
 
 use super::controls::{Inactive, app_icon, button};
-use super::sidebar_row::{activate, count, dot, icon_color, row, spinner};
+use super::sidebar_row::{RowIcon, activate, count, dot, icon_color, row, spinner};
 use super::{NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable, ThemeMode, TitleBar, button::ButtonVariants, h_flex,
@@ -215,7 +215,7 @@ impl NativeView {
         activate(
             row(
                 format!("nav-{}", label.to_lowercase()),
-                app_icon(icon),
+                RowIcon::Glyph(Box::new(app_icon(icon))),
                 None,
                 label,
                 selected,

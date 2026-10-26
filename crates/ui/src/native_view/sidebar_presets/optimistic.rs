@@ -4,7 +4,7 @@
 use super::super::controls::app_icon;
 use super::super::preset_colors::preset_tint;
 use super::super::preset_icons::icon_glyph;
-use super::super::sidebar_row::{count, row};
+use super::super::sidebar_row::{RowIcon, count, row};
 use super::{NativeView, OptimisticPreset};
 use gpui_kit::component::{
     ActiveTheme, WindowExt,
@@ -158,7 +158,7 @@ impl NativeView {
             .map(|color| preset_tint(color, cx.theme().mode.is_dark()));
         row(
             format!("preset-optimistic-{}", preset.id),
-            app_icon(icon_glyph(preset.icon)),
+            RowIcon::Glyph(Box::new(app_icon(icon_glyph(preset.icon)))),
             tint,
             preset.name.clone(),
             false,

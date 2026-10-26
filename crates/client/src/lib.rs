@@ -155,6 +155,29 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.rename_workspace(id, name).await)
             .await
     }
+    /// Sets or clears a workspace glyph's color.
+    pub async fn set_workspace_color(
+        &self,
+        id: WorkspaceId,
+        color: Option<PresetColor>,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.set_workspace_color(id, color).await)
+            .await
+    }
+    /// Sets a workspace glyph, or restores the default folder glyph, and removes its image icon.
+    pub async fn set_workspace_icon(
+        &self,
+        id: WorkspaceId,
+        icon: Option<PresetIcon>,
+    ) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.set_workspace_icon(id, icon).await)
+            .await
+    }
+    /// Copies a picked image into application storage and makes it the workspace icon.
+    pub async fn set_workspace_image(&self, id: WorkspaceId, image: PathBuf) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.set_workspace_image(id, image).await)
+            .await
+    }
     /// Saves a new workspace order.
     pub async fn reorder_workspaces(&self, order: Vec<WorkspaceId>) -> AppResult<()> {
         self.refresh_preserving_outcome(self.shared.engine.reorder_workspaces(order).await)

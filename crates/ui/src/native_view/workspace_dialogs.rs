@@ -42,6 +42,40 @@ impl NativeView {
         .detach();
     }
 
+    /// Picks an image, copies it into application storage, and makes it the workspace icon.
+    pub(super) fn choose_workspace_image(&mut self, id: WorkspaceId, cx: &mut Context<Self>) {
+        let picker = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: Some("Choose workspace icon".into()),
+        });
+        let client = self.client.clone();
+        let handle = client.runtime().spawn(async move {
+            let path = match picker.await {
+                Ok(Ok(Some(paths))) => paths.into_iter().next(),
+                Ok(Ok(None)) => None,
+                _ => return Err(AppError::storage()),
+            };
+            let Some(path) = path else {
+                return Ok(());
+            };
+            client.set_workspace_image(id, path).await
+        });
+        cx.spawn(async move |this, cx| {
+            let result = handle.await;
+            let _ = this.update(cx, |view, cx| {
+                match result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => view.error = Some(error),
+                    Err(_) => view.error = Some(AppError::storage()),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     pub(super) fn remove_workspace_dialog(
         &self,
         dialog: Dialog,

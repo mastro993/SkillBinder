@@ -10,8 +10,7 @@ use std::{
 };
 
 use super::NativeView;
-use super::controls::app_icon;
-use super::sidebar_row::{count, row};
+use super::sidebar_row::{RowIcon, count, row};
 use gpui_kit::base::animation::ease_out_cubic;
 use gpui_kit::{
     App, Bounds, Context, CursorStyle, Hsla, IntoElement, ParentElement, Pixels, Point, Render,
@@ -26,7 +25,7 @@ const SHIFT: Duration = Duration::from_millis(180);
 /// Drag payload for reordering rows; also what the floating row shows.
 pub(super) struct RowDrag<Id> {
     pub(super) id: Id,
-    pub(super) icon: &'static str,
+    pub(super) icon: RowIcon,
     pub(super) label: SharedString,
     pub(super) tint: Option<Hsla>,
     /// The trailing count to show while dragging, if the row shows one.
@@ -45,7 +44,7 @@ impl<Id> RowDrag<Id> {
 
 /// The dragged row, floating under the pointer with a shadow.
 pub(super) struct RowDragPreview {
-    icon: &'static str,
+    icon: RowIcon,
     label: SharedString,
     tint: Option<Hsla>,
     count: Option<usize>,
@@ -55,7 +54,7 @@ pub(super) struct RowDragPreview {
 impl RowDragPreview {
     pub(super) fn new<Id>(drag: &RowDrag<Id>) -> Self {
         Self {
-            icon: drag.icon,
+            icon: drag.icon.clone(),
             label: drag.label.clone(),
             tint: drag.tint,
             count: drag.count,
@@ -68,7 +67,7 @@ impl Render for RowDragPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut item = row(
             "row-drag-preview",
-            app_icon(self.icon),
+            self.icon.clone(),
             self.tint,
             self.label.clone(),
             true,

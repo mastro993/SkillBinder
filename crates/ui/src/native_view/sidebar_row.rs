@@ -1,6 +1,6 @@
 //! The sidebar row: icon, truncated label, optional trailing detail, and a selection fill.
 
-use std::{rc::Rc, sync::Arc};
+use std::{path::PathBuf, rc::Rc, sync::Arc};
 
 use super::NativeView;
 use super::controls::{app_icon, button};
@@ -13,9 +13,9 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, Entity, FontFeatures, FontWeight, Hsla,
-    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ParentElement,
-    SharedString, Stateful, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder, px,
+    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit,
+    ParentElement, SharedString, Stateful, StatefulInteractiveElement, Styled, StyledImage, Window,
+    black, div, img, prelude::FluentBuilder, px, white,
 };
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
@@ -23,11 +23,68 @@ use skillbinder_theme::sidebar::{
 
 /// Unselected icons sit a step below their label, as in the reference design.
 const ICON_OPACITY: f32 = 0.65;
+/// How far an image icon's corners are rounded inside the row icon slot.
+const IMAGE_RADIUS: f32 = 4.0;
+
+/// What a row shows in its icon slot: a tinted glyph or a stored image.
+#[derive(Clone)]
+pub(super) enum RowIcon {
+    Glyph(Box<Icon>),
+    /// Absolute path to an image under application storage, with the glyph shown if it cannot
+    /// be decoded.
+    Image {
+        path: PathBuf,
+        glyph: Box<Icon>,
+    },
+}
+
+impl RowIcon {
+    pub(super) fn element(self, tint: Option<Hsla>, fallback: Hsla) -> AnyElement {
+        let color = tint.unwrap_or(fallback);
+        match self {
+            Self::Glyph(icon) => glyph_element(*icon, color),
+            Self::Image { path, glyph } => div()
+                .size(px(ICON_SIZE))
+                .flex_shrink_0()
+                .rounded(px(IMAGE_RADIUS))
+                .overflow_hidden()
+                .when_some(tint, |tile, color| tile.bg(color))
+                .child(
+                    img(path)
+                        .size(px(ICON_SIZE))
+                        .object_fit(ObjectFit::Cover)
+                        .with_fallback(move || {
+                            glyph_element((*glyph).clone(), image_ink(tint, fallback))
+                        }),
+                )
+                .into_any_element(),
+        }
+    }
+}
+
+/// The glyph shown when a stored image cannot be decoded: the neutral row color without a tint,
+/// or black or white against the tinted tile, whichever contrasts with it.
+fn image_ink(tint: Option<Hsla>, fallback: Hsla) -> Hsla {
+    tint.map_or(
+        fallback,
+        |color| {
+            if color.l > 0.5 { black() } else { white() }
+        },
+    )
+}
+
+/// A glyph sized and tinted for a row's icon slot.
+fn glyph_element(icon: Icon, color: Hsla) -> AnyElement {
+    icon.size(px(ICON_SIZE))
+        .flex_shrink_0()
+        .text_color(color)
+        .into_any_element()
+}
 
 /// A row whose icon uses the label color, or `tint` when given.
 pub(super) fn row(
     id: impl Into<ElementId>,
-    icon: Icon,
+    icon: RowIcon,
     tint: Option<Hsla>,
     label: impl Into<SharedString>,
     selected: bool,
@@ -39,7 +96,7 @@ pub(super) fn row(
     } else {
         theme.muted_foreground
     };
-    let icon_color = tint.unwrap_or(if selected { text } else { icon_color(cx) });
+    let neutral = if selected { text } else { icon_color(cx) };
     let hover = hover_fill(cx);
     div()
         .id(id.into())
@@ -56,11 +113,7 @@ pub(super) fn row(
         .text_color(text)
         .when(selected, |row| row.bg(theme.sidebar_accent))
         .when(!selected, |row| row.hover(move |style| style.bg(hover)))
-        .child(
-            icon.size(px(ICON_SIZE))
-                .flex_shrink_0()
-                .text_color(icon_color),
-        )
+        .child(icon.element(tint, neutral))
         .child(div().flex_1().min_w_0().truncate().child(label.into()))
 }
 
@@ -198,7 +251,8 @@ pub(super) fn add_button(id: &'static str, label: &'static str, cx: &App) -> But
 /// An inline name field drawn in place of a row; Escape runs `cancel`.
 pub(super) fn name_field(
     id: &'static str,
-    icon: Icon,
+    icon: RowIcon,
+    tint: Option<Hsla>,
     input: &Entity<InputState>,
     cx: &mut Context<NativeView>,
     cancel: fn(&mut NativeView, &mut Window, &mut Context<NativeView>),
@@ -213,7 +267,7 @@ pub(super) fn name_field(
         .px(px(ROW_PADDING))
         .rounded(px(RADIUS))
         .bg(cx.theme().sidebar_accent)
-        .child(icon.size(px(ICON_SIZE)))
+        .child(icon.element(tint, cx.theme().muted_foreground))
         .child(
             div().flex_1().min_w_0().child(
                 // Unpadded, so the edited name stays aligned with row labels.
@@ -247,7 +301,8 @@ fn format_count(value: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::format_count;
+    use super::{format_count, image_ink};
+    use gpui_kit::{black, hsla, white};
 
     #[test]
     fn counts_group_thousands() {
@@ -255,5 +310,13 @@ mod tests {
         assert_eq!(format_count(999), "999");
         assert_eq!(format_count(5423), "5,423");
         assert_eq!(format_count(1_234_567), "1,234,567");
+    }
+
+    #[test]
+    fn image_fallbacks_contrast_with_their_tinted_tile() {
+        let neutral = hsla(0., 0., 0.5, 0.65);
+        assert_eq!(image_ink(None, neutral), neutral);
+        assert_eq!(image_ink(Some(hsla(0.6, 1., 0.7, 1.)), neutral), black());
+        assert_eq!(image_ink(Some(hsla(0.6, 1., 0.4, 1.)), neutral), white());
     }
 }

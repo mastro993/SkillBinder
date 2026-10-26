@@ -335,13 +335,13 @@ fn from_json<T: DeserializeOwned>(json: &str) -> AppResult<T> {
     serde_json::from_str(json).map_err(|_| AppError::storage())
 }
 /// A unit-variant or string-valued enum, such as a preset color or icon, as its bare name.
-fn to_text(value: &impl Serialize) -> AppResult<String> {
+pub(crate) fn to_text(value: &impl Serialize) -> AppResult<String> {
     match serde_json::to_value(value) {
         Ok(serde_json::Value::String(text)) => Ok(text),
         _ => Err(AppError::storage()),
     }
 }
-fn from_text<T: DeserializeOwned>(text: &str) -> AppResult<T> {
+pub(crate) fn from_text<T: DeserializeOwned>(text: &str) -> AppResult<T> {
     serde_json::from_value(serde_json::Value::String(text.to_owned()))
         .map_err(|_| AppError::storage())
 }

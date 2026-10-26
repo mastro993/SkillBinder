@@ -5,7 +5,7 @@ use super::agent_skills::{
     FoundSkill, UNIVERSAL, agent_name, detected_agents, found_where, read_globally, split_universal,
 };
 use super::controls::{agent_icon, app_icon};
-use super::sidebar_row::{activate, count, row};
+use super::sidebar_row::{RowIcon, activate, count, row};
 use super::{NativeView, Route};
 use gpui_kit::component::Icon;
 use gpui_kit::{
@@ -76,7 +76,14 @@ impl NativeView {
     ) -> AnyElement {
         let selected = self.route == route;
         activate(
-            row(id, icon, None, name.clone(), selected, cx),
+            row(
+                id,
+                RowIcon::Glyph(Box::new(icon)),
+                None,
+                name.clone(),
+                selected,
+                cx,
+            ),
             name,
             cx,
             move |view, window, cx| view.navigate(route.clone(), window, cx),

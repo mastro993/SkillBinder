@@ -1,4 +1,4 @@
-use crate::WorkspaceId;
+use crate::{PresetColor, PresetIcon, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
 /// A project folder on this device that the user added. Its canonical path is its identity.
@@ -14,6 +14,13 @@ pub struct Workspace {
     pub position: u32,
     /// The folder was missing when this snapshot was taken.
     pub missing: bool,
+    /// Palette or custom color for the workspace's glyph, or none.
+    pub color: Option<PresetColor>,
+    /// Curated glyph, or none for the default folder glyph.
+    pub icon: Option<PresetIcon>,
+    /// Absolute path to an image icon copied under application storage, when one is set. It
+    /// overrides the glyph.
+    pub image: Option<String>,
 }
 
 /// A registry agent and the skill directories it reads.

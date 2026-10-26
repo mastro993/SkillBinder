@@ -11,7 +11,7 @@ use super::preset_colors::{color_menu, preset_tint};
 use super::preset_icons::{IconGrid, icon_glyph, menu_glyph};
 use super::sidebar_reorder::{RowDrag, RowDragPreview};
 use super::sidebar_row::{
-    activate, active_marker, add_button, count, icon_color, name_field, row, with_menu,
+    RowIcon, activate, active_marker, add_button, count, icon_color, name_field, row, with_menu,
 };
 use super::{Effect, NativeView};
 use gpui_kit::component::{
@@ -24,7 +24,7 @@ use gpui_kit::{
     WeakEntity, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{
-    LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
+    LibrarySnapshot, OrganizationChange, Preset, PresetColor, PresetIcon, PresetId, SidebarSection,
 };
 use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
@@ -187,7 +187,7 @@ impl NativeView {
         let row = activate(
             row(
                 format!("preset-{id}"),
-                app_icon(glyph),
+                RowIcon::Glyph(Box::new(app_icon(glyph))),
                 tint,
                 label.clone(),
                 active,
@@ -221,7 +221,7 @@ impl NativeView {
         row.on_drag(
             RowDrag {
                 id,
-                icon: glyph,
+                icon: RowIcon::Glyph(Box::new(app_icon(glyph))),
                 label,
                 tint,
                 count: (skills > 0).then_some(skills),
@@ -252,10 +252,10 @@ impl NativeView {
             .and_then(|preset| preset.color)
             .map(|color| preset_tint(color, theme.mode.is_dark()));
         let glyph = icon_glyph(preset.map_or_else(PresetIcon::default, |preset| preset.icon));
-        let icon = app_icon(glyph).text_color(tint.unwrap_or(theme.muted_foreground));
         name_field(
             "preset-name-field",
-            icon,
+            RowIcon::Glyph(Box::new(app_icon(glyph))),
+            tint,
             &self.preset_name,
             cx,
             Self::end_preset_edit,
@@ -401,6 +401,20 @@ pub(super) fn menu_action<Id: 'static>(
     }
 }
 
+/// Sets the color of preset `id` from its menu.
+fn set_preset_color(
+    view: &mut NativeView,
+    id: &PresetId,
+    color: Option<PresetColor>,
+    cx: &mut Context<NativeView>,
+) {
+    let change = OrganizationChange::SetPresetColor {
+        id: id.clone(),
+        color,
+    };
+    view.change_organization(change, cx);
+}
+
 /// Rename, Clone, Color, Icon, order, and delete actions for a preset at `index` of `len`. The
 /// Default preset's menu holds only Clone: the app never renames it, recolors it, re-icons it,
 /// moves it, or removes it.
@@ -432,16 +446,25 @@ fn preset_menu(
     }
     let picked = (view.clone(), id.clone());
     let grid = cx.new(|cx| {
-        IconGrid::new(icon, color, cx, move |icon, window, cx| {
-            let (view, id) = &picked;
-            let _ = view.update(cx, |view, cx| {
-                let id = id.clone();
-                view.change_organization(OrganizationChange::SetPresetIcon { id, icon }, cx);
-                if let Some(menu) = view.menu.as_ref() {
-                    menu.close(window, cx);
-                }
-            });
-        })
+        IconGrid::new(
+            Some(icon),
+            PresetIcon::ALL.into_iter().map(Some),
+            color,
+            cx,
+            move |choice, window, cx| {
+                let Some(icon) = choice else {
+                    return;
+                };
+                let (view, id) = &picked;
+                let _ = view.update(cx, |view, cx| {
+                    let id = id.clone();
+                    view.change_organization(OrganizationChange::SetPresetIcon { id, icon }, cx);
+                    if let Some(menu) = view.menu.as_ref() {
+                        menu.close(window, cx);
+                    }
+                });
+            },
+        )
     });
     let focus = grid.read(cx).focus().clone();
     vec![
@@ -454,7 +477,14 @@ fn preset_menu(
         clone,
         MenuItem::new("color", "Color")
             .icon("paint-board")
-            .submenu(color_menu(&view, &id, color, window, cx)),
+            .submenu(color_menu(
+                &view,
+                id.clone(),
+                color,
+                set_preset_color,
+                window,
+                cx,
+            )),
         MenuItem::new("icon", "Icon")
             .leading(move |cx| menu_glyph(icon, icon_color(cx)))
             .panel(focus, move |_, _| grid.clone().into_any_element()),

@@ -31,6 +31,9 @@ diesel::table! {
         name -> Text,
         position -> BigInt,
         created_at -> BigInt,
+        color -> Nullable<Text>,
+        icon -> Text,
+        icon_image -> Nullable<Text>,
     }
 }
 

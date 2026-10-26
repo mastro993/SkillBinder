@@ -18,6 +18,36 @@ impl Engine {
             .await
     }
 
+    /// Sets or clears a workspace glyph's color.
+    pub async fn set_workspace_color(
+        &self,
+        id: WorkspaceId,
+        color: Option<PresetColor>,
+    ) -> AppResult<()> {
+        self.call(move |state| state.set_workspace_color(&id, color))
+            .await
+    }
+
+    /// Sets a workspace glyph, or restores the default folder glyph, and removes its image icon.
+    pub async fn set_workspace_icon(
+        &self,
+        id: WorkspaceId,
+        icon: Option<PresetIcon>,
+    ) -> AppResult<()> {
+        self.call(move |state| state.set_workspace_icon(&id, icon))
+            .await
+    }
+
+    /// Copies a picked image into application storage and makes it the workspace icon.
+    pub async fn set_workspace_image(
+        &self,
+        id: WorkspaceId,
+        image: std::path::PathBuf,
+    ) -> AppResult<()> {
+        self.call(move |state| state.set_workspace_image(&id, &image))
+            .await
+    }
+
     /// Replaces the workspace order with a permutation of every workspace.
     pub async fn reorder_workspaces(&self, order: Vec<WorkspaceId>) -> AppResult<()> {
         self.call(move |state| state.reorder_workspaces(&order))
