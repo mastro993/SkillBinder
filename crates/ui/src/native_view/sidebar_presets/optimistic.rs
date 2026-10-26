@@ -4,13 +4,13 @@
 use super::super::controls::app_icon;
 use super::super::preset_colors::preset_tint;
 use super::super::preset_icons::icon_glyph;
-use super::super::sidebar_row::{RowIcon, count, row};
+use super::super::sidebar_row::{RowIcon, row};
 use super::{NativeView, OptimisticPreset};
 use gpui_kit::component::{
     ActiveTheme, WindowExt,
     notification::{Notification, NotificationType},
 };
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Window, prelude::FluentBuilder};
+use gpui_kit::{AnyElement, Context, IntoElement, Window};
 use skillbinder_proto::{AppError, OrganizationChange, Preset, PresetIcon, PresetId};
 use std::collections::BTreeSet;
 
@@ -45,7 +45,6 @@ impl NativeView {
         self.optimistic_presets = vec![OptimisticPreset {
             preset,
             after: None,
-            skills: 0,
         }];
         self.save_optimistically(
             OrganizationChange::CreatePreset { name },
@@ -66,20 +65,13 @@ impl NativeView {
         if self.busy {
             return;
         }
-        let Some((source, skills)) = self.snapshot.library.as_ref().and_then(|library| {
-            let source = library
+        let Some(source) = self.snapshot.library.as_ref().and_then(|library| {
+            library
                 .library
                 .presets
                 .iter()
-                .find(|preset| preset.id == id)?
-                .clone();
-            let skills = library
-                .library
-                .skills
-                .iter()
-                .filter(|skill| skill.preset_ids.contains(&source.id))
-                .count();
-            Some((source, skills))
+                .find(|preset| preset.id == id)
+                .cloned()
         }) else {
             return;
         };
@@ -102,7 +94,6 @@ impl NativeView {
         self.optimistic_presets = vec![OptimisticPreset {
             preset,
             after: Some(source.id.clone()),
-            skills,
         }];
         self.save_optimistically(
             OrganizationChange::ClonePreset { id: source.id },
@@ -164,9 +155,6 @@ impl NativeView {
             false,
             cx,
         )
-        .when(optimistic.skills > 0, |row| {
-            row.child(count(optimistic.skills, cx))
-        })
         .into_any_element()
     }
 }

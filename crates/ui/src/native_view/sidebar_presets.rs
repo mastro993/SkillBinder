@@ -3,7 +3,7 @@
 
 mod optimistic;
 
-use std::{cell::Cell, collections::BTreeMap, time::Instant};
+use std::{cell::Cell, time::Instant};
 
 use super::controls::app_icon;
 use super::menu::MenuItem;
@@ -11,7 +11,7 @@ use super::preset_colors::{color_menu, preset_tint};
 use super::preset_icons::{IconGrid, icon_glyph, menu_glyph};
 use super::sidebar_reorder::{RowDrag, RowDragPreview};
 use super::sidebar_row::{
-    RowIcon, activate, active_marker, add_button, count, icon_color, name_field, row, with_menu,
+    RowIcon, activate, active_marker, add_button, icon_color, name_field, row, with_menu,
 };
 use super::{Effect, NativeView};
 use gpui_kit::component::{
@@ -33,7 +33,6 @@ pub(super) struct OptimisticPreset {
     pub(super) preset: Preset,
     /// The source of a clone, so its row sits directly after it; `None` appends a new preset.
     pub(super) after: Option<PresetId>,
-    pub(super) skills: usize,
 }
 
 /// Which preset name the inline sidebar field edits.
@@ -60,15 +59,6 @@ impl NativeView {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
-        let mut counts = BTreeMap::<&PresetId, usize>::new();
-        for preset in library
-            .library
-            .skills
-            .iter()
-            .flat_map(|skill| &skill.preset_ids)
-        {
-            *counts.entry(preset).or_default() += 1;
-        }
         let (order, floating) = self
             .preset_reorder
             .displayed(&self.preset_ids(), cx.has_active_drag());
@@ -86,7 +76,6 @@ impl NativeView {
                 if self.preset_edit == Some(PresetEdit::Rename(preset.id.clone())) {
                     return self.render_preset_name_field(Some(preset), cx);
                 }
-                let skills = counts.get(&preset.id).copied().unwrap_or(0);
                 let active = active.as_ref() == Some(&preset.id);
                 let placement = RowPlacement {
                     index,
@@ -94,7 +83,7 @@ impl NativeView {
                     offset: self.preset_reorder.offset(&preset.id, now),
                     floating: floating.as_ref() == Some(&preset.id),
                 };
-                self.render_preset_row(preset, active, placement, skills, cx)
+                self.render_preset_row(preset, active, placement, cx)
             })
             .collect();
         for optimistic in &self.optimistic_presets {
@@ -173,7 +162,6 @@ impl NativeView {
         preset: &Preset,
         active: bool,
         placement: RowPlacement,
-        skills: usize,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let dark = cx.theme().mode.is_dark();
@@ -208,7 +196,6 @@ impl NativeView {
         );
         let row = row
             .when(active, |row| row.bg(active_preset_fill(tint, cx)))
-            .when(skills > 0, |row| row.child(count(skills, cx)))
             .when(active, |row| {
                 row.child(active_marker(id.as_str(), tint, cx))
             })
@@ -224,7 +211,7 @@ impl NativeView {
                 icon: RowIcon::Glyph(Box::new(app_icon(glyph))),
                 label,
                 tint,
-                count: (skills > 0).then_some(skills),
+                count: None,
                 width: self.sidebar_width - 2.0 * INSET,
                 grab: Cell::new(0.0),
             },
