@@ -19,9 +19,13 @@ pub(super) type ChooseImage = Rc<dyn Fn(&mut Window, &mut App)>;
 
 /// The workspace's row icon: its stored image when it has one, otherwise its glyph.
 pub(super) fn row_icon(workspace: &Workspace) -> RowIcon {
+    let glyph = Box::new(app_icon(option_glyph(workspace.icon)));
     match &workspace.image {
-        Some(path) => RowIcon::Image(PathBuf::from(path)),
-        None => RowIcon::Glyph(Box::new(app_icon(option_glyph(workspace.icon)))),
+        Some(path) => RowIcon::Image {
+            path: PathBuf::from(path),
+            glyph,
+        },
+        None => RowIcon::Glyph(glyph),
     }
 }
 
@@ -30,14 +34,7 @@ pub(super) fn menu_icon(workspace: &Workspace, cx: &App) -> AnyElement {
     let tint = workspace
         .color
         .map(|color| preset_tint(color, cx.theme().is_dark()));
-    match &workspace.image {
-        Some(path) => RowIcon::Image(PathBuf::from(path)).element(tint, icon_color(cx)),
-        None => app_icon(option_glyph(workspace.icon))
-            .size(px(ICON_SIZE))
-            .flex_shrink_0()
-            .text_color(tint.unwrap_or(icon_color(cx)))
-            .into_any_element(),
-    }
+    row_icon(workspace).element(tint, icon_color(cx))
 }
 
 /// The icon grid with the image choice below it, separated by a divider.
