@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use super::controls::button;
 use super::{
-    LibraryFilter, NativeView, Route,
+    NativeView, Route,
     sidebar::{SidebarDrag, clamp_sidebar_width, hairline, visible_width},
 };
 use gpui_kit::component::{
@@ -276,7 +276,7 @@ impl NativeView {
         });
         // With the header's inset, the breadcrumb lines up with the page's 24-point padding.
         let title = div().flex_1().min_w_0().pl_4().when(with_sidebar, |title| {
-            if self.route == Route::Library(LibraryFilter::All) {
+            if self.route == Route::Library {
                 title.child(self.render_folder_tabs(window, cx))
             } else {
                 title.child(self.render_breadcrumb(cx).into_any_element())
@@ -322,10 +322,9 @@ impl NativeView {
     fn header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         match self.route {
             Route::Discovery => self.discovery_header_actions(cx),
-            Route::Library(LibraryFilter::All) => self.library_header_actions(cx),
+            Route::Library => self.library_header_actions(cx),
             Route::Skill(ref id) => self.skill_header_actions(&id.clone(), cx),
-            Route::Library(LibraryFilter::Preset(_))
-            | Route::Workspace(_)
+            Route::Workspace(_)
             | Route::Agent(_)
             | Route::Universal
             | Route::Sync

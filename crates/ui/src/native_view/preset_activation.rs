@@ -1,12 +1,12 @@
 //! The active preset and the skills it configures: selecting a preset loads it, and each
 //! activation toggle changes the active preset's skills and saves at once.
 
+use super::NativeView;
 use super::controls::{Inactive, checkbox};
-use super::{NativeView, Route};
 use gpui_kit::component::Sizable;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div,
+    StatefulInteractiveElement, Styled, div,
 };
 use skillbinder_proto::{LibrarySnapshot, OrganizationChange, Preset, PresetId, SkillId};
 
@@ -42,16 +42,6 @@ impl NativeView {
             self.persist_preferences(cx);
             cx.notify();
         }
-    }
-
-    /// Opens a preset and makes it active, which loads its configuration at once.
-    pub(super) fn activate_preset(
-        &mut self,
-        id: PresetId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.navigate(Route::Library(super::LibraryFilter::Preset(id)), window, cx);
     }
 
     /// Whether `skill` is active in the active preset.

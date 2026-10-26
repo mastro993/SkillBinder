@@ -1,7 +1,7 @@
 use gpui_kit::{Context, Window};
 use skillbinder_proto::*;
 
-use super::route::{LibraryFilter, Route};
+use super::route::Route;
 use super::{NativeView, agent_page};
 
 impl NativeView {
@@ -25,15 +25,9 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted preset or skill falls back to all skills,
-    /// and a removed workspace or an agent no longer detected to Discovery.
+    /// Shows `route` without touching history; a deleted skill falls back to Library, and a
+    /// removed workspace or an agent no longer detected to Discovery.
     pub(super) fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
-        let preset_exists = |id: &PresetId| {
-            self.snapshot
-                .library
-                .as_ref()
-                .is_some_and(|library| library.library.presets.iter().any(|f| &f.id == id))
-        };
         let skill_exists = |id: &SkillId| {
             self.snapshot
                 .library
@@ -43,17 +37,10 @@ impl NativeView {
         let workspace_exists =
             |id: &WorkspaceId| self.snapshot.workspaces.iter().any(|p| &p.id == id);
         let route = match route {
-            Route::Library(LibraryFilter::Preset(id)) if !preset_exists(&id) => {
-                Route::Library(LibraryFilter::All)
-            }
-            Route::Skill(id) if !skill_exists(&id) => Route::Library(LibraryFilter::All),
+            Route::Skill(id) if !skill_exists(&id) => Route::Library,
             Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
             route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
         };
-        if let Route::Library(LibraryFilter::Preset(id)) = &route {
-            let id = id.clone();
-            self.set_active_preset(Some(id), cx);
-        }
         if self.route != route {
             self.leave_page();
             self.needs_update_only = false;
@@ -78,13 +65,5 @@ impl NativeView {
         self.update_outcome = None;
         self.skill_load = None;
         self.content_scroll.handle.set_offset(Default::default());
-    }
-
-    /// Library filter of the current route; other routes behave as all skills.
-    pub(super) fn library_filter(&self) -> &LibraryFilter {
-        match &self.route {
-            Route::Library(filter) => filter,
-            _ => &LibraryFilter::All,
-        }
     }
 }

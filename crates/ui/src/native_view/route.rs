@@ -1,19 +1,12 @@
 //! Navigable routes and the in-memory back/forward history between them.
 
-use skillbinder_proto::{PresetId, SkillId, WorkspaceId};
+use skillbinder_proto::{SkillId, WorkspaceId};
 
-/// Which skills the Library route lists.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum LibraryFilter {
-    All,
-    Preset(PresetId),
-}
-
-/// A navigable page; Library carries its preset as a sub-route.
+/// A navigable page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Route {
     Discovery,
-    Library(LibraryFilter),
+    Library,
     /// A library skill's page, with its files: `skill/{id}`.
     Skill(SkillId),
     /// A workspace's page: `workspace/{id}`.
@@ -64,13 +57,13 @@ impl History {
 
 #[cfg(test)]
 mod tests {
-    use super::{History, LibraryFilter, Route};
+    use super::{History, Route};
     use skillbinder_proto::WorkspaceId;
 
     #[test]
     fn back_and_forward_walk_the_visited_routes() {
         let mut history = History::default();
-        let library = Route::Library(LibraryFilter::All);
+        let library = Route::Library;
         history.push(Route::Discovery);
         history.push(library.clone());
         assert_eq!(history.back(Route::Settings), Some(library.clone()));

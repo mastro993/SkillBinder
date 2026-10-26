@@ -4,7 +4,7 @@ use std::{rc::Rc, time::Duration};
 
 use super::controls::{Inactive, app_icon, button};
 use super::sidebar_row::{activate, count, dot, icon_color, row, spinner};
-use super::{LibraryFilter, NativeView, Route};
+use super::{NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable, ThemeMode, TitleBar, button::ButtonVariants, h_flex,
 };
@@ -161,13 +161,8 @@ impl NativeView {
                             .children(discovery),
                     )
                     .child(
-                        self.nav_row(
-                            Route::Library(LibraryFilter::All),
-                            "libraries",
-                            "Library",
-                            cx,
-                        )
-                        .when_some(skills, |row, skills| row.child(count(skills, cx))),
+                        self.nav_row(Route::Library, "libraries", "Library", cx)
+                            .when_some(skills, |row, skills| row.child(count(skills, cx))),
                     ),
             )
             .map(|sidebar| match &snapshot.library {
@@ -206,8 +201,8 @@ impl NativeView {
         self.persist_preferences(cx);
     }
 
-    /// Library is selected while it lists every skill and on a skill's page; presets select their
-    /// own row.
+    /// Library is selected while it lists every skill and on a skill's page. Presets are
+    /// activated in place and never select a route.
     fn nav_row(
         &self,
         route: Route,
@@ -216,10 +211,7 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let selected = self.route == route
-            || matches!(
-                (&self.route, &route),
-                (Route::Skill(_), Route::Library(LibraryFilter::All))
-            );
+            || matches!((&self.route, &route), (Route::Skill(_), Route::Library));
         activate(
             row(
                 format!("nav-{}", label.to_lowercase()),

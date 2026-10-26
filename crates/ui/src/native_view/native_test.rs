@@ -1,4 +1,4 @@
-use super::{DialogState, LibraryFilter, NativeView, Route};
+use super::{DialogState, NativeView, Route};
 use gpui_kit::component::WindowExt;
 use gpui_kit::{Context, Focusable, Window};
 use skillbinder_proto::WorkspaceId;
@@ -30,7 +30,7 @@ impl NativeView {
                 }
                 self.navigate(Route::Settings, window, cx);
             }
-            2 => self.navigate(Route::Library(LibraryFilter::All), window, cx),
+            2 => self.navigate(Route::Library, window, cx),
             3 => self.navigate(Route::Discovery, window, cx),
             4 => {
                 window.focus(&self.focus, cx);

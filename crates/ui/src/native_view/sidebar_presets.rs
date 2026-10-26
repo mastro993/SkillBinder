@@ -11,7 +11,7 @@ use super::sidebar_reorder::{RowDrag, RowDragPreview};
 use super::sidebar_row::{
     activate, active_marker, add_button, count, icon_color, name_field, row, with_menu,
 };
-use super::{Effect, LibraryFilter, NativeView, Route};
+use super::{Effect, NativeView};
 use gpui_kit::component::{
     ActiveTheme,
     input::{InputEvent, InputState},
@@ -66,7 +66,6 @@ impl NativeView {
         if self.preset_reorder.moving(now) {
             window.request_animation_frame();
         }
-        let selected = |candidate: LibraryFilter| self.route == Route::Library(candidate);
         let active = self.active_preset_id();
         let presets = &library.library.presets;
         let rows: Vec<AnyElement> = order
@@ -78,7 +77,6 @@ impl NativeView {
                     return self.render_preset_name_field(Some(preset), cx);
                 }
                 let skills = counts.get(&preset.id).copied().unwrap_or(0);
-                let selected = selected(LibraryFilter::Preset(preset.id.clone()));
                 let active = active.as_ref() == Some(&preset.id);
                 let placement = RowPlacement {
                     index,
@@ -86,7 +84,7 @@ impl NativeView {
                     offset: self.preset_reorder.offset(&preset.id, now),
                     floating: floating.as_ref() == Some(&preset.id),
                 };
-                self.render_preset_row(preset, active, placement, skills, selected, cx)
+                self.render_preset_row(preset, active, placement, skills, cx)
             })
             .collect();
         let creating = self.preset_edit == Some(PresetEdit::Create);
@@ -158,7 +156,6 @@ impl NativeView {
         active: bool,
         placement: RowPlacement,
         skills: usize,
-        selected: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let dark = cx.theme().mode.is_dark();
@@ -175,18 +172,18 @@ impl NativeView {
                 app_icon(glyph),
                 tint,
                 label.clone(),
-                selected,
+                false,
                 cx,
             ),
             label.clone(),
             cx,
-            move |view, window, cx| view.activate_preset(open.clone(), window, cx),
+            move |view, _, cx| view.set_active_preset(Some(open.clone()), cx),
         );
         let protected = preset.is_default();
         let row = with_menu(
             row,
             format!("preset-{id}"),
-            selected,
+            false,
             self,
             cx,
             move |_, window, cx| preset_menu(&menu_preset, index, len, busy, window, cx),

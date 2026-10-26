@@ -6,7 +6,7 @@ use super::folder_reorder::{FolderDrag, draggable};
 use super::menu::MenuItem;
 use super::sidebar_presets::menu_action;
 use super::sidebar_row::with_menu;
-use super::{DialogState, Effect, LibraryFilter, NativeView, Route};
+use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Selectable, Sizable,
     button::{Button, ButtonVariants},
@@ -40,7 +40,7 @@ impl NativeView {
 
     /// The chosen folder, while Library lists every skill; otherwise none applies.
     pub(super) fn shown_folder(&self) -> Option<&Folder> {
-        if self.route != Route::Library(LibraryFilter::All) {
+        if self.route != Route::Library {
             return None;
         }
         let id = self.library_folder.as_ref()?;
@@ -49,7 +49,7 @@ impl NativeView {
 
     /// The name of `skill`'s folder, shown on its item while Library lists all skills.
     pub(super) fn folder_label(&self, skill: &Skill) -> Option<&str> {
-        if self.route != Route::Library(LibraryFilter::All) || self.shown_folder().is_some() {
+        if self.route != Route::Library || self.shown_folder().is_some() {
             return None;
         }
         let id = skill.folder_id.as_ref()?;

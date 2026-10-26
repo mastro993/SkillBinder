@@ -58,7 +58,7 @@ use gpui_kit::{
     ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder,
 };
 use library_folders::FolderEdit;
-use route::{History, LibraryFilter, Route};
+use route::{History, Route};
 use sidebar_presets::PresetEdit;
 use sidebar_reorder::RowReorder;
 use skillbinder_client::Client;
@@ -338,7 +338,7 @@ impl Render for NativeView {
         } else {
             let page = match &self.route {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
-                Route::Library(_) => self.render_library(window, cx),
+                Route::Library => self.render_library(window, cx),
                 Route::Skill(id) => self.render_skill(&id.clone(), cx),
                 Route::Workspace(id) => self.render_workspace(&id.clone()),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
