@@ -1,8 +1,9 @@
 use super::{AppResult, failure};
+use crate::shutdown::Shutdown;
 use std::{
     io::{Read, Write},
     path::Path,
-    process::{Command, Output, Stdio},
+    process::{Child, Command, Output, Stdio},
     sync::mpsc,
     thread,
     time::{Duration, Instant},
@@ -15,6 +16,7 @@ pub(super) fn run(
     repo: Option<&Path>,
     args: &[&str],
     timeout: Duration,
+    shutdown: Option<&Shutdown>,
 ) -> AppResult<Output> {
     if let Some(repo) = repo {
         require_raw_attributes(repo)?;
@@ -87,19 +89,20 @@ pub(super) fn run(
     );
     let started = Instant::now();
     let status = loop {
+        // A command that already finished keeps its result: quitting must not report work that
+        // happened, such as a push, as cancelled.
         if let Some(status) = child
             .try_wait()
             .map_err(|_| failure("Git process failed."))?
         {
             break status;
         }
+        if shutdown.is_some_and(Shutdown::cancelled) {
+            stop_child(&mut child);
+            return Err(Shutdown::error());
+        }
         if started.elapsed() >= timeout {
-            #[cfg(unix)]
-            if let Some(pid) = rustix::process::Pid::from_raw(child.id() as i32) {
-                let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
-            }
-            let _ = child.kill();
-            let _ = child.wait();
+            stop_child(&mut child);
             return Err(failure("Git timed out. Check the remote and try again."));
         }
         thread::sleep(Duration::from_millis(5));
@@ -108,10 +111,7 @@ pub(super) fn run(
         channel
             .recv_timeout(timeout.saturating_sub(started.elapsed()))
             .map_err(|_| {
-                #[cfg(unix)]
-                if let Some(pid) = rustix::process::Pid::from_raw(child.id() as i32) {
-                    let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
-                }
+                kill_group(&child);
                 failure("Git output timed out.")
             })?
             .map_err(|_| failure("Git output could not be read."))
@@ -122,6 +122,23 @@ pub(super) fn run(
         stderr: receive(stderr)?,
     })
 }
+
+/// Kills `child` and waits for it, so its output readers reach the end of their pipes.
+fn stop_child(child: &mut Child) {
+    kill_group(child);
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Kills the process group `child` leads, so a command's own children stop too.
+#[cfg(unix)]
+fn kill_group(child: &Child) {
+    if let Some(pid) = rustix::process::Pid::from_raw(child.id() as i32) {
+        let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
+    }
+}
+#[cfg(not(unix))]
+fn kill_group(_: &Child) {}
 
 const RAW_ATTRIBUTES: &[u8] = b"* -filter -text -eol -ident -working-tree-encoding\n";
 
@@ -224,9 +241,37 @@ mod tests {
         std::fs::write(&script, "#!/bin/sh\nsleep 60\n").unwrap();
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
         let start = std::time::Instant::now();
-        let result = super::run(&script, None, &[], std::time::Duration::from_millis(40));
+        let result = super::run(
+            &script,
+            None,
+            &[],
+            std::time::Duration::from_millis(40),
+            Some(&super::Shutdown::default()),
+        );
         assert!(result.is_err());
         assert!(start.elapsed() < std::time::Duration::from_secs(2));
+    }
+
+    #[test]
+    fn stops_a_running_command_when_shutdown_is_cancelled() {
+        use std::{os::unix::fs::PermissionsExt, time::Duration};
+        let root = tempfile::tempdir().unwrap();
+        let script = root.path().join("helper");
+        std::fs::write(&script, "#!/bin/sh\nsleep 60\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let shutdown = super::Shutdown::default();
+        let cancelled = shutdown.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            cancelled.cancel();
+        });
+        let start = std::time::Instant::now();
+        let result = super::run(&script, None, &[], Duration::from_secs(30), Some(&shutdown));
+        assert_eq!(
+            result.unwrap_err().category,
+            skillbinder_proto::ErrorCategory::Cancelled
+        );
+        assert!(start.elapsed() < Duration::from_secs(2));
     }
 }
 
@@ -244,7 +289,7 @@ fn permits_user_credential_helper_configuration() {
         "[credential]\n\thelper = harmless-fixture\n",
     )
     .unwrap();
-    let git = super::Git::discover().unwrap();
+    let git = super::Git::discover(super::Shutdown::default()).unwrap();
     let wrapper = root.path().join("git-wrapper");
     std::fs::write(
         &wrapper,
@@ -262,7 +307,7 @@ fn permits_user_credential_helper_configuration() {
     let args = ["config", "--global", "--get", "credential.helper"];
     let started = std::time::Instant::now();
     let output = loop {
-        let result = run(&wrapper, None, &args, Duration::from_secs(30));
+        let result = run(&wrapper, None, &args, Duration::from_secs(30), None);
         if result.is_ok() || started.elapsed() >= Duration::from_secs(1) {
             break result;
         }

@@ -15,6 +15,7 @@ mod persistence;
 mod reconcile;
 mod records;
 mod schema;
+mod shutdown;
 mod sources;
 mod worker;
 mod workspaces;

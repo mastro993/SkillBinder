@@ -17,7 +17,7 @@ impl Fixture {
         let bare = root.path().join("remote.git");
         let peer = root.path().join("peer");
         fs::create_dir(&bare).unwrap();
-        let git = Git::discover().unwrap();
+        let git = Git::discover(Shutdown::default()).unwrap();
         git.output(&bare, &["init", "--bare", "--initial-branch=main"])
             .unwrap();
         git.initialize(&repo).unwrap();

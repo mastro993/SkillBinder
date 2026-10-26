@@ -7,6 +7,7 @@
 #[path = "support/fixture.rs"]
 mod support;
 
+use diesel::{prelude::*, sql_types::Text};
 use skillbinder_proto::{
     ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, PresetColor, PresetIcon, Rgb,
     SkillId,
@@ -289,4 +290,29 @@ async fn presets_keep_user_order_and_colors() {
     assert_eq!(library.library.presets[0].icon, PresetIcon::Rocket);
     assert_eq!(library.library.presets[1].icon, PresetIcon::Folder);
     engine.shutdown().await.unwrap();
+}
+
+/// Another version can leave a preset icon or color this one does not know; it must not keep the
+/// library, and with it the whole app, from opening.
+#[tokio::test]
+async fn a_preset_value_from_another_version_still_opens_the_library() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let library = engine
+        .change_organization(OrganizationChange::CreatePreset {
+            name: "Styled".into(),
+        })
+        .await
+        .unwrap();
+    let id = library.library.presets[0].id.as_str().to_owned();
+    engine.shutdown().await.unwrap();
+    diesel::sql_query("UPDATE presets SET icon = 'layers', color = 'ultraviolet' WHERE id = ?")
+        .bind::<Text, _>(id)
+        .execute(&mut fixture.database())
+        .unwrap();
+    let reopened = fixture.open();
+    let library = reopened.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(library.library.presets[0].icon, PresetIcon::Folder);
+    assert_eq!(library.library.presets[0].color, None);
+    reopened.shutdown().await.unwrap();
 }

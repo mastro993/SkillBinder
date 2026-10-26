@@ -2,6 +2,7 @@
 //! their memberships, and library folders.
 
 use crate::{
+    logging::Logger,
     payload::Inspection,
     records::Record,
     schema::{library_folders, preset_skills, presets, skills},
@@ -181,9 +182,12 @@ type SkillRow = (
     Option<String>,
 );
 
-/// The library and each skill's cached details.
+/// The library and each skill's cached details. A preset icon or color this version does not
+/// know, such as one another version wrote, shows its default and is reported in the log instead
+/// of making the library unreadable.
 pub(crate) fn load(
     connection: &mut SqliteConnection,
+    log: &Logger,
 ) -> AppResult<(Library, BTreeMap<SkillId, SkillDetails>)> {
     let storage = |_| AppError::storage();
     let mut memberships = BTreeMap::<String, Vec<PresetId>>::new();
@@ -233,12 +237,14 @@ pub(crate) fn load(
         .map_err(storage)?
         .into_iter()
         .map(|(id, name, position, color, icon)| {
+            let color = stored_color(color.as_deref(), &name, log);
+            let icon = stored_icon(&icon, &name, log);
             Ok(Preset {
                 id: PresetId(id),
                 name,
                 position: position as u32,
-                color: color.as_deref().map(from_text).transpose()?,
-                icon: from_text(&icon)?,
+                color,
+                icon,
             })
         })
         .collect::<AppResult<_>>()?;
@@ -336,4 +342,27 @@ fn to_text(value: &impl Serialize) -> AppResult<String> {
 fn from_text<T: DeserializeOwned>(text: &str) -> AppResult<T> {
     serde_json::from_value(serde_json::Value::String(text.to_owned()))
         .map_err(|_| AppError::storage())
+}
+/// A preset's stored icon, or the default glyph when this version does not know it, so an icon
+/// another version wrote never makes the library unreadable.
+fn stored_icon(text: &str, preset: &str, log: &Logger) -> PresetIcon {
+    from_text(text).unwrap_or_else(|_| {
+        log.record(format!(
+            "Preset {preset} has an icon this version does not know; showing the default."
+        ));
+        PresetIcon::default()
+    })
+}
+/// A preset's stored color, or none when this version does not know it.
+fn stored_color(text: Option<&str>, preset: &str, log: &Logger) -> Option<PresetColor> {
+    let text = text?;
+    match from_text(text) {
+        Ok(color) => Some(color),
+        Err(_) => {
+            log.record(format!(
+                "Preset {preset} has a color this version does not know; showing none."
+            ));
+            None
+        }
+    }
 }

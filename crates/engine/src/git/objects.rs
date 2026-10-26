@@ -13,6 +13,7 @@ impl Git {
             Some(repo),
             &["cat-file", "-t", "--end-of-options", tree],
             Duration::from_secs(30),
+            None,
         )?;
         Ok(out.status.success() && out.stdout.trim_ascii() == b"tree")
     }
@@ -39,6 +40,7 @@ impl Git {
                 path,
             ],
             Duration::from_secs(30),
+            None,
         )
         .ok()
         .filter(|out| out.status.success())
