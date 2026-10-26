@@ -13,8 +13,9 @@ use super::sidebar_row::{
 };
 use super::{Effect, NativeView};
 use gpui_kit::component::{
-    ActiveTheme,
+    ActiveTheme, WindowExt,
     input::{InputEvent, InputState},
+    notification::{Notification, NotificationType},
 };
 use gpui_kit::{
     AnyElement, App, AppContext, Context, DragMoveEvent, Entity, InteractiveElement, IntoElement,
@@ -22,7 +23,7 @@ use gpui_kit::{
     Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{
-    LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
+    AppError, LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
 };
 use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
@@ -160,7 +161,7 @@ impl NativeView {
     ) -> AnyElement {
         let dark = cx.theme().mode.is_dark();
         let id = preset.id.clone();
-        let label: SharedString = preset.name.clone().into();
+        let label: SharedString = self.preset_display_name(preset).to_owned().into();
         let tint = preset.color.map(|color| preset_tint(color, dark));
         let glyph = icon_glyph(preset.icon);
         let (menu_preset, index, len) = (preset.clone(), placement.index, placement.len);
@@ -213,6 +214,11 @@ impl NativeView {
             },
         )
         .into_any_element()
+    }
+
+    /// The name shown for a preset, including one whose rename is still being saved.
+    fn preset_display_name<'a>(&'a self, preset: &'a Preset) -> &'a str {
+        shown_preset_name(preset, self.optimistic_preset_name.as_ref())
     }
 
     /// The inline name field shown in place of a preset row, or below the list when creating.
@@ -276,12 +282,71 @@ impl NativeView {
             return;
         };
         self.end_preset_edit(window, cx);
-        let change = match edit {
-            _ if name.is_empty() => return,
-            PresetEdit::Create => OrganizationChange::CreatePreset { name },
-            PresetEdit::Rename(id) => OrganizationChange::RenamePreset { id, name },
+        match edit {
+            _ if name.is_empty() => {}
+            PresetEdit::Create => {
+                self.change_organization(OrganizationChange::CreatePreset { name }, cx);
+            }
+            PresetEdit::Rename(id) => self.rename_preset(id, name, window, cx),
+        }
+    }
+
+    /// Renames a preset optimistically: the row shows `name` at once, and a refused rename
+    /// restores the stored name and reports the reason in an error toast.
+    fn rename_preset(
+        &mut self,
+        id: PresetId,
+        name: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.busy {
+            return;
+        }
+        let Some(stored) = self
+            .snapshot
+            .library
+            .as_ref()
+            .and_then(|library| {
+                library
+                    .library
+                    .presets
+                    .iter()
+                    .find(|preset| preset.id == id)
+            })
+            .map(|preset| preset.name.clone())
+        else {
+            return;
         };
-        self.change_organization(change, cx);
+        if stored == name {
+            return;
+        }
+        self.busy = true;
+        self.error = None;
+        self.optimistic_preset_name = Some((id.clone(), name.clone()));
+        cx.notify();
+        let client = self.client.clone();
+        let handle = client.runtime().spawn(async move {
+            client
+                .change_organization(OrganizationChange::RenamePreset { id, name })
+                .await
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let result = handle.await;
+            let _ = this.update_in(cx, |view, window, cx| {
+                view.busy = false;
+                view.optimistic_preset_name = None;
+                match result {
+                    Ok(Ok(_)) => view.receive(view.client.snapshot(), cx),
+                    Ok(Err(error)) => {
+                        error_toast(window, &error, cx);
+                    }
+                    Err(_) => error_toast(window, &AppError::storage(), cx),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// Closes the inline field and returns keyboard focus to the window's shortcuts.
@@ -308,6 +373,27 @@ impl NativeView {
             cx,
         );
     }
+}
+
+/// The preset's stored name, or the optimistic name while its rename is in flight.
+fn shown_preset_name<'a>(
+    preset: &'a Preset,
+    optimistic: Option<&'a (PresetId, String)>,
+) -> &'a str {
+    optimistic
+        .filter(|(id, _)| id == &preset.id)
+        .map_or(preset.name.as_str(), |(_, name)| name.as_str())
+}
+
+/// An error-style toast for a refused preset rename.
+fn error_toast(window: &mut Window, error: &AppError, cx: &mut Context<NativeView>) {
+    window.push_notification(
+        Notification::new()
+            .title("Preset rename failed")
+            .message(error.message.clone())
+            .with_type(NotificationType::Error),
+        cx,
+    );
 }
 
 /// A menu handler that runs `action` on the view for one row.
@@ -364,6 +450,7 @@ fn preset_menu(
     vec![
         MenuItem::new("rename", "Rename")
             .icon("pencil-edit")
+            .disabled(busy)
             .on_select(on(|view, id, window, cx| {
                 view.begin_preset_edit(PresetEdit::Rename(id.clone()), window, cx)
             })),
@@ -404,4 +491,29 @@ fn preset_menu(
                 );
             })),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn preset(id: &str, name: &str) -> Preset {
+        Preset {
+            id: PresetId(id.to_owned()),
+            name: name.to_owned(),
+            position: 0,
+            color: None,
+            icon: PresetIcon::Layers,
+        }
+    }
+
+    #[test]
+    fn a_pending_rename_shows_only_on_its_preset() {
+        let review = preset("review", "Review");
+        let other = preset("other", "Other");
+        let pending = Some((PresetId("review".to_owned()), "Reviewed".to_owned()));
+        assert_eq!(shown_preset_name(&review, pending.as_ref()), "Reviewed");
+        assert_eq!(shown_preset_name(&other, pending.as_ref()), "Other");
+        assert_eq!(shown_preset_name(&review, None), "Review");
+    }
 }

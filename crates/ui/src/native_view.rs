@@ -131,6 +131,8 @@ pub struct NativeView {
     library_view: LibraryView,
     /// The preset whose skills activation toggles edit; absent starts with Default.
     active_preset: Option<PresetId>,
+    /// A preset name shown while its rename is being saved; cleared on success or failure.
+    optimistic_preset_name: Option<(PresetId, String)>,
     /// Whether Library lists only skills with an update; reset with search when the route changes.
     needs_update_only: bool,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
@@ -256,6 +258,7 @@ impl NativeView {
             appearance,
             library_view,
             active_preset,
+            optimistic_preset_name: None,
             needs_update_only: false,
             sidebar_motion: 0,
             sidebar_closing: false,
