@@ -176,25 +176,34 @@ impl NativeView {
             cx,
             move |view, window, cx| view.navigate(route.clone(), window, cx),
         );
-        with_menu(
-            row,
-            format!("preset-{id}"),
-            selected,
-            self,
-            cx,
-            move |_, window, cx| preset_menu(&menu_preset, index, len, window, cx),
-        )
-        .child(count(skills, cx))
-        .relative()
-        .top(px(placement.offset))
-        .when(placement.floating, |row| row.opacity(0.0))
-        .on_drag(
+        let protected = preset.is_default();
+        let row = if protected {
+            row
+        } else {
+            with_menu(
+                row,
+                format!("preset-{id}"),
+                selected,
+                self,
+                cx,
+                move |_, window, cx| preset_menu(&menu_preset, index, len, window, cx),
+            )
+        };
+        let row = row
+            .when(skills > 0, |row| row.child(count(skills, cx)))
+            .relative()
+            .top(px(placement.offset))
+            .when(placement.floating, |row| row.opacity(0.0));
+        if protected {
+            return row.into_any_element();
+        }
+        row.on_drag(
             RowDrag {
                 id,
                 icon: glyph,
                 label,
                 tint,
-                count: skills,
+                count: (skills > 0).then_some(skills),
                 width: self.sidebar_width - 2.0 * INSET,
                 grab: Cell::new(0.0),
             },
@@ -216,7 +225,7 @@ impl NativeView {
         let tint = preset
             .and_then(|preset| preset.color)
             .map(|color| preset_tint(color, theme.mode.is_dark()));
-        let glyph = icon_glyph(preset.map_or(PresetIcon::Folder, |preset| preset.icon));
+        let glyph = icon_glyph(preset.map_or_else(PresetIcon::default, |preset| preset.icon));
         let icon = app_icon(glyph).text_color(tint.unwrap_or(theme.muted_foreground));
         name_field(
             "preset-name-field",
@@ -312,7 +321,9 @@ pub(super) fn menu_action<Id: 'static>(
     }
 }
 
-/// Rename, Color, Icon, order, and delete actions for the preset at `index` of `len`.
+/// Rename, Color, Icon, order, and delete actions for an editable preset at `index` of `len`. The
+/// default preset has no menu: the app never renames it, recolors it, re-icons it, moves it, or
+/// removes it.
 fn preset_menu(
     preset: &Preset,
     index: usize,
@@ -352,9 +363,10 @@ fn preset_menu(
             .leading(move |cx| menu_glyph(icon, icon_color(cx)))
             .panel(focus, move |_, _| grid.clone().into_any_element()),
         MenuItem::separator(),
+        // The default preset holds the first slot, so the next one cannot move up.
         MenuItem::new("move-up", "Move Up")
             .icon("arrow-up")
-            .disabled(index == 0)
+            .disabled(index <= 1)
             .on_select(menu_action(
                 view.clone(),
                 id.clone(),

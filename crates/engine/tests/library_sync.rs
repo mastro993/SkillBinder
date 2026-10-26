@@ -10,8 +10,8 @@ mod support;
 use diesel::{prelude::*, sql_types::Text};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    Drift, ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, PresetId, RemoteConfig,
-    Skill, SkillId, SyncAction, SyncState, ValidationStatus,
+    Drift, ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, Preset, PresetId,
+    RemoteConfig, Skill, SkillId, SyncAction, SyncState, ValidationStatus,
 };
 use std::{
     fs,
@@ -124,6 +124,15 @@ fn slugs(library: &LibrarySnapshot) -> Vec<&str> {
         .collect()
 }
 
+fn preset_named<'a>(library: &'a LibrarySnapshot, name: &str) -> &'a Preset {
+    library
+        .library
+        .presets
+        .iter()
+        .find(|preset| preset.name == name)
+        .unwrap()
+}
+
 /// Overwrites a skill's cached digest while the engine is closed, so a rehash would show.
 fn cache_digest(fixture: &Fixture, slug: &str, digest: &str) {
     let mut database = fixture.database();
@@ -187,7 +196,7 @@ async fn a_skill_removed_by_pull_leaves_its_presets_and_folder() {
             name: "Review".into(),
         })
         .await;
-    let preset = library.library.presets[0].id.clone();
+    let preset = preset_named(&library, "Review").id.clone();
     let library = device
         .organize(OrganizationChange::CreateFolder {
             name: "Writing".into(),
@@ -217,7 +226,7 @@ async fn a_skill_removed_by_pull_leaves_its_presets_and_folder() {
 
     let after = snapshot(&device.engine).await;
     assert_eq!(slugs(&after), ["alpha"]);
-    assert_eq!(after.library.presets[0].id, preset);
+    assert!(after.library.presets.iter().any(|p| p.id == preset));
     assert_eq!(after.library.folders[0].id, folder);
     let alpha = skill(&after, "alpha");
     assert_eq!(
@@ -256,7 +265,17 @@ async fn local_organization_does_not_block_adoption_but_a_local_skill_does() {
     engine.synchronize(SyncAction::Sync).await.unwrap();
     let adopted = snapshot(&engine).await;
     assert_eq!(slugs(&adopted), ["alpha"]);
-    assert_eq!(adopted.library.presets[0].name, "Local");
+    let names: Vec<_> = adopted
+        .library
+        .presets
+        .iter()
+        .map(|preset| preset.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        ["Default", "Local"],
+        "local presets survive adoption"
+    );
     assert_eq!(adopted.library.folders[0].name, "Local");
     let alpha = skill(&adopted, "alpha");
     assert!(alpha.preset_ids.is_empty() && alpha.folder_id.is_none());
@@ -313,15 +332,12 @@ async fn launch_reconciles_skill_directories_changed_while_closed() {
 async fn organization_changes_never_dirty_or_commit_the_library() {
     let device = Device::published(&["alpha"]).await;
     let head = git(&device.library(), &["rev-parse", "HEAD"]);
-    let preset: PresetId = device
+    let created = device
         .organize(OrganizationChange::CreatePreset {
             name: "Review".into(),
         })
-        .await
-        .library
-        .presets[0]
-        .id
-        .clone();
+        .await;
+    let preset: PresetId = preset_named(&created, "Review").id.clone();
     let folder: FolderId = device
         .organize(OrganizationChange::CreateFolder {
             name: "Writing".into(),

@@ -98,6 +98,51 @@ mod tests {
         }
     }
 
+    /// A library that already had a preset named Default adopts it, with its color and skills,
+    /// rather than gaining a second preset with that name.
+    #[test]
+    fn an_existing_default_preset_becomes_the_built_in_one() -> AppResult<()> {
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let path = root.path().join("state.db");
+        let mut connection =
+            SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
+                .map_err(|_| AppError::storage())?;
+        for _ in 0..4 {
+            connection
+                .run_next_migration(MIGRATIONS)
+                .map_err(|_| AppError::storage())?;
+        }
+        connection
+            .batch_execute(
+                "INSERT INTO skills(slug, digest, file_count, total_bytes, details) \
+                     VALUES('review', '', 0, 0, '{}'); \
+                 INSERT INTO presets(id, name, position, color, icon) \
+                     VALUES('old', ' Default ', 0, 'blue', 'folder'); \
+                 INSERT INTO preset_skills(preset_id, slug) VALUES('old', 'review');",
+            )
+            .map_err(|_| AppError::storage())?;
+        drop(connection);
+        let mut upgraded = open(&path)?;
+        let stored = crate::schema::presets::table
+            .load::<(String, String, i64, Option<String>, String)>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        let members = crate::schema::preset_skills::table
+            .load::<(String, String)>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        let expected = [(
+            "default".to_owned(),
+            "Default".to_owned(),
+            0,
+            Some("blue".to_owned()),
+            "layers".to_owned(),
+        )];
+        if stored == expected && members == [("default".to_owned(), "review".to_owned())] {
+            Ok(())
+        } else {
+            Err(AppError::storage())
+        }
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn opens_paths_that_are_not_utf8() -> AppResult<()> {

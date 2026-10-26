@@ -160,7 +160,7 @@ impl NativeView {
                 icon: "code-folder",
                 label,
                 tint: None,
-                count: found,
+                count: Some(found),
                 width: self.sidebar_width - 2.0 * INSET,
                 grab: Cell::new(0.0),
             },

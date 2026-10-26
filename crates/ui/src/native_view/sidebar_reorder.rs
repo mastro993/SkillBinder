@@ -29,7 +29,8 @@ pub(super) struct RowDrag<Id> {
     pub(super) icon: &'static str,
     pub(super) label: SharedString,
     pub(super) tint: Option<Hsla>,
-    pub(super) count: usize,
+    /// The trailing count to show while dragging, if the row shows one.
+    pub(super) count: Option<usize>,
     pub(super) width: f32,
     /// Pointer distance below the row's top edge when the drag began.
     pub(super) grab: Cell<f32>,
@@ -47,7 +48,7 @@ pub(super) struct RowDragPreview {
     icon: &'static str,
     label: SharedString,
     tint: Option<Hsla>,
-    count: usize,
+    count: Option<usize>,
     width: f32,
 }
 
@@ -65,8 +66,7 @@ impl RowDragPreview {
 
 impl Render for RowDragPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let count = count(self.count, cx);
-        row(
+        let mut item = row(
             "row-drag-preview",
             app_icon(self.icon),
             self.tint,
@@ -75,8 +75,11 @@ impl Render for RowDragPreview {
             cx,
         )
         .w(px(self.width))
-        .shadow_lg()
-        .child(count)
+        .shadow_lg();
+        if let Some(trailing) = self.count {
+            item = item.child(count(trailing, cx));
+        }
+        item
     }
 }
 
@@ -104,6 +107,8 @@ pub(super) struct RowReorder<Id> {
     measured: Rc<RefCell<HashMap<Id, f32>>>,
     length: f32,
     gap: f32,
+    /// Leading slots no dragged row may take, such as the pinned default preset.
+    pinned: usize,
 }
 
 /// Sidebar rows, all one height apart.
@@ -124,7 +129,14 @@ impl<Id> RowReorder<Id> {
             measured: Rc::default(),
             length,
             gap,
+            pinned: 0,
         }
+    }
+
+    /// A list whose first `pinned` slots never move, as the default preset's does.
+    pub(super) fn pinned(mut self, pinned: usize) -> Self {
+        self.pinned = pinned;
+        self
     }
 
     /// A list whose items differ in length, measured with [`Self::measure_widths`].
@@ -170,14 +182,16 @@ impl<Id: Clone + Eq + Hash> RowReorder<Id> {
     /// passes that row's middle and the gap after it.
     fn slot(&self, saved: &[Id], id: &Id, floating: f32) -> usize {
         let others: Vec<_> = saved.iter().filter(|other| *other != id).cloned().collect();
-        (1..=others.len())
+        let passed = (1..=others.len())
             .take_while(|&slot| {
                 let passed = &others[slot - 1];
                 let boundary =
                     self.start(&others, slot - 1) + self.length_of(passed) / 2.0 + self.gap;
                 floating >= boundary
             })
-            .count()
+            .count();
+        // Pinned leading rows keep their slots, so a drag stops below them.
+        passed.max(self.pinned).min(others.len())
     }
 
     /// The order being saved, or the stored order.
@@ -303,7 +317,7 @@ impl<Id: Clone + Eq + Hash> RowReorder<Id> {
         busy: bool,
         animate: bool,
     ) -> Option<Vec<Id>> {
-        let order = moved(self.saved(stored), id, target)?;
+        let order = moved(self.saved(stored), id, target.max(self.pinned))?;
         self.reorder(stored, order, busy, animate)
     }
 
@@ -484,6 +498,29 @@ mod tests {
         assert_eq!(reorder.displayed(&stored, true).0, ids(&["b", "a"]));
         // b slides back by a's width and the gap.
         assert_eq!(reorder.shifts.get(&PresetId("b".into())), Some(&54.0));
+    }
+
+    #[test]
+    fn a_pinned_leading_row_keeps_its_slot() {
+        let mut reorder = RowReorder::default().pinned(1);
+        let stored = ids(&["a", "b", "c"]);
+        let c = PresetId("c".into());
+        reorder.drag(&stored, &c, -PITCH, false);
+        assert_eq!(
+            reorder.displayed(&stored, true).0,
+            ids(&["a", "c", "b"]),
+            "a drag stops below the pinned row"
+        );
+        assert_eq!(
+            reorder.move_to(&stored, &PresetId("b".into()), 0, false, false),
+            None,
+            "Move Up cannot cross the pinned row"
+        );
+        assert_eq!(
+            reorder.move_to(&stored, &c, 0, false, false),
+            Some(ids(&["a", "c", "b"])),
+            "a row can still take the first movable slot"
+        );
     }
 
     #[test]

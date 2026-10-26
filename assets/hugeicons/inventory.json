@@ -169,8 +169,8 @@
       "file": "Folder01Icon.svg",
       "usedBy": [
         "features/library/components/sidebar-folder-list.tsx",
-        "crates/ui/src/native_view/sidebar_presets.rs",
-        "crates/ui/src/native_view/preset_icons.rs"
+        "crates/ui/src/native_view/library_folders.rs",
+        "crates/ui/src/native_view/library_items.rs"
       ],
       "sourceModule": "dist/esm/Folder01Icon.js",
       "sourceModuleSha256": "ee58c2dc8a6c7001ddf6147bbe4b39a55b1a40123f31418337373c6ec34b40c1",
@@ -239,7 +239,8 @@
       "name": "Layers01Icon",
       "file": "Layers01Icon.svg",
       "usedBy": [
-        "crates/ui/src/native_view/sidebar_agents.rs"
+        "crates/ui/src/native_view/sidebar_agents.rs",
+        "crates/ui/src/native_view/preset_icons.rs"
       ],
       "sourceModule": "dist/esm/Layers01Icon.js",
       "sourceModuleSha256": "c01ab335820befd2eba53e296ecc0026c353d08125abce14f40bbc4b47a0aec8",

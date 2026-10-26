@@ -106,9 +106,9 @@ impl<'de> Deserialize<'de> for Rgb {
 #[serde(rename_all = "camelCase")]
 #[expect(missing_docs, reason = "Each variant names its glyph.")]
 pub enum PresetIcon {
-    /// The folder glyph presets show unless another is chosen.
+    /// The layers glyph presets show unless another is chosen.
     #[default]
-    Folder,
+    Layers,
     Star,
     Heart,
     Bookmark,
@@ -152,7 +152,7 @@ pub enum PresetIcon {
 impl PresetIcon {
     /// Every icon in menu order.
     pub const ALL: [Self; 40] = [
-        Self::Folder,
+        Self::Layers,
         Self::Star,
         Self::Heart,
         Self::Bookmark,
@@ -195,6 +195,9 @@ impl PresetIcon {
     ];
 }
 /// A flat machine-local preset: a named set of library skills.
+///
+/// Every library has the default preset, whose [`Preset::DEFAULT_ID`] the app seeds once. The app
+/// never deletes it, renames it, changes its icon or color, or moves it; it always comes first.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Preset {
     /// Stable preset identity.
@@ -207,6 +210,14 @@ pub struct Preset {
     pub color: Option<PresetColor>,
     /// Quick-scan glyph.
     pub icon: PresetIcon,
+}
+impl Preset {
+    /// The stable identity of the preset every library starts with.
+    pub const DEFAULT_ID: &'static str = "default";
+    /// Whether this is the preset every library starts with.
+    pub fn is_default(&self) -> bool {
+        self.id.as_str() == Self::DEFAULT_ID
+    }
 }
 /// A machine-local library folder: a named grouping of library skills for browsing only.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

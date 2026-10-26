@@ -22,7 +22,7 @@ const CELL_SIZE: f32 = 28.0;
 
 /// Every preset icon in declaration order with its label and `icons/{glyph}.svg` asset name.
 const PRESET_ICONS: [(PresetIcon, &str, &str); 40] = [
-    (PresetIcon::Folder, "Folder", "folder"),
+    (PresetIcon::Layers, "Layers", "layers"),
     (PresetIcon::Star, "Star", "star"),
     (PresetIcon::Heart, "Heart", "heart"),
     (PresetIcon::Bookmark, "Bookmark", "bookmark"),

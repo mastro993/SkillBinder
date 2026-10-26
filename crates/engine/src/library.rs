@@ -67,9 +67,9 @@ fn newest_modification(dir: &Path) -> Option<u64> {
     }
     newest
 }
-/// Orders presets by user position and renumbers them densely.
+/// Orders presets by user position, with the default preset first, and renumbers them densely.
 fn sort_presets(presets: &mut [Preset]) {
-    presets.sort_by_key(|preset| preset.position);
+    presets.sort_by_key(|preset| (!preset.is_default(), preset.position));
     for (position, preset) in presets.iter_mut().enumerate() {
         preset.position = u32::try_from(position).unwrap_or(u32::MAX);
     }
@@ -96,7 +96,7 @@ fn apply_organization(
             });
         }
         OrganizationChange::RenamePreset { id, name } => {
-            preset_mut(library, &id)?.name = validate_name(&name)?;
+            editable_preset_mut(library, &id, "renamed")?.name = validate_name(&name)?;
         }
         OrganizationChange::AddToPreset { id, skills } => {
             for presets in memberships(library, &id, &skills)? {
@@ -111,17 +111,20 @@ fn apply_organization(
                 presets.retain(|preset| preset != &id);
             }
         }
-        OrganizationChange::ReorderPresets { order } => reorder(
-            &mut library.presets,
-            &order,
-            |preset| (&preset.id, &mut preset.position),
-            "The presets changed. Reorder them again.",
-        )?,
+        OrganizationChange::ReorderPresets { order } => {
+            require_default_first(library, &order)?;
+            reorder(
+                &mut library.presets,
+                &order,
+                |preset| (&preset.id, &mut preset.position),
+                "The presets changed. Reorder them again.",
+            )?;
+        }
         OrganizationChange::SetPresetColor { id, color } => {
-            preset_mut(library, &id)?.color = color;
+            editable_preset_mut(library, &id, "given another color")?.color = color;
         }
         OrganizationChange::SetPresetIcon { id, icon } => {
-            preset_mut(library, &id)?.icon = icon;
+            editable_preset_mut(library, &id, "given another icon")?.icon = icon;
         }
         OrganizationChange::CreateFolder { name } => create_folder(library, &name)?,
         OrganizationChange::RenameFolder { id, name } => rename_folder(library, &id, &name)?,
@@ -143,7 +146,7 @@ fn apply_organization(
                     "The library changed after the deletion preview.",
                 ));
             }
-            preset_mut(library, &id)?;
+            editable_preset_mut(library, &id, "deleted")?;
             library.presets.retain(|preset| preset.id != id);
             for skill in &mut library.skills {
                 skill.preset_ids.retain(|preset| preset != &id);
@@ -158,6 +161,31 @@ fn preset_mut<'a>(library: &'a mut Library, id: &PresetId) -> AppResult<&'a mut 
         .iter_mut()
         .find(|preset| &preset.id == id)
         .ok_or_else(|| AppError::not_found("Preset no longer exists."))
+}
+/// Refuses a change the default preset never allows, naming it as the user would.
+fn editable_preset_mut<'a>(
+    library: &'a mut Library,
+    id: &PresetId,
+    action: &str,
+) -> AppResult<&'a mut Preset> {
+    let preset = preset_mut(library, id)?;
+    if preset.is_default() {
+        return Err(AppError::validation(format!(
+            "The Default preset cannot be {action}."
+        )));
+    }
+    Ok(preset)
+}
+/// Refuses a preset order that moves the default preset from the front.
+fn require_default_first(library: &Library, order: &[PresetId]) -> AppResult<()> {
+    if !library.presets.iter().any(Preset::is_default)
+        || order
+            .first()
+            .is_some_and(|id| id.as_str() == Preset::DEFAULT_ID)
+    {
+        return Ok(());
+    }
+    Err(AppError::validation("The Default preset stays first."))
 }
 /// The preset lists of the selected skills, once the preset and every selected skill exist.
 fn memberships<'a>(
@@ -238,6 +266,11 @@ impl State {
             .find(|preset| preset.id == id)
             .cloned()
             .ok_or_else(|| AppError::not_found("Preset no longer exists."))?;
+        if preset.is_default() {
+            return Err(AppError::validation(
+                "The Default preset cannot be deleted.",
+            ));
+        }
         Ok(DeletePreview {
             preset,
             affected_skills: library

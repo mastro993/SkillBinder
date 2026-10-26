@@ -55,7 +55,7 @@ fn srgb(color: Hsla) -> Rgb {
     Rgb::from_rgb(channel(r), channel(g), channel(b))
 }
 
-/// None and the palette colors, each leading with the folder glyph in that color, then Custom,
+/// None and the palette colors, each leading with the default glyph in that color, then Custom,
 /// which opens GPUI Kit's color picker beside it. The current color is checked.
 pub(super) fn color_menu(
     view: &WeakEntity<NativeView>,
@@ -78,7 +78,7 @@ pub(super) fn color_menu(
         .map(|color| {
             let name = color.map_or("None", color_name);
             MenuItem::new(format!("color-{}", name.to_lowercase()), name)
-                .leading(move |cx| menu_glyph(PresetIcon::Folder, tint(color, cx)))
+                .leading(move |cx| menu_glyph(PresetIcon::default(), tint(color, cx)))
                 .checked(current == color)
                 .on_select(set(color))
         })
@@ -111,7 +111,7 @@ pub(super) fn color_menu(
         // Leads with an empty ring until a custom color is picked.
         MenuItem::new("color-custom", "Custom")
             .leading(move |cx| match custom {
-                Some(color) => menu_glyph(PresetIcon::Folder, tint(Some(color), cx)),
+                Some(color) => menu_glyph(PresetIcon::default(), tint(Some(color), cx)),
                 None => ring(cx),
             })
             .checked(custom.is_some())
