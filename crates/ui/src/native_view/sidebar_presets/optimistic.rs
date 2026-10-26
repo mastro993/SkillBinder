@@ -12,6 +12,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Window, prelude::FluentBuilder};
 use skillbinder_proto::{AppError, OrganizationChange, Preset, PresetIcon, PresetId};
+use std::collections::BTreeSet;
 
 impl NativeView {
     /// Creates a preset optimistically: an empty row appears at once, and a refused creation
@@ -41,13 +42,13 @@ impl NativeView {
             color: None,
             icon: PresetIcon::default(),
         };
-        self.save_optimistic_preset(
+        self.optimistic_presets = vec![OptimisticPreset {
+            preset,
+            after: None,
+            skills: 0,
+        }];
+        self.save_optimistically(
             OrganizationChange::CreatePreset { name },
-            OptimisticPreset {
-                preset,
-                after: None,
-                skills: 0,
-            },
             "Preset creation failed",
             window,
             cx,
@@ -82,41 +83,46 @@ impl NativeView {
         }) else {
             return;
         };
+        let name = optimistic_copy_name(
+            &source.name,
+            self.snapshot
+                .library
+                .as_ref()
+                .into_iter()
+                .flat_map(|library| &library.library.presets)
+                .map(|preset| preset.name.as_str()),
+        );
         let preset = Preset {
             id: PresetId::new(),
-            name: format!("Copy of {}", source.name),
+            name,
             position: source.position.saturating_add(1),
             color: source.color,
             icon: source.icon,
         };
-        self.save_optimistic_preset(
-            OrganizationChange::ClonePreset {
-                id: source.id.clone(),
-            },
-            OptimisticPreset {
-                preset,
-                after: Some(source.id),
-                skills,
-            },
+        self.optimistic_presets = vec![OptimisticPreset {
+            preset,
+            after: Some(source.id.clone()),
+            skills,
+        }];
+        self.save_optimistically(
+            OrganizationChange::ClonePreset { id: source.id },
             "Preset clone failed",
             window,
             cx,
         );
     }
 
-    /// Shows `optimistic` while `change` saves, then replaces it with the snapshot or removes it
-    /// and reports the failure in an error toast.
-    fn save_optimistic_preset(
+    /// Shows whichever optimistic row or name the caller set, then replaces it with the snapshot
+    /// or removes it and reports the failure in an error toast.
+    pub(super) fn save_optimistically(
         &mut self,
         change: OrganizationChange,
-        optimistic: OptimisticPreset,
         failure_title: &'static str,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.busy = true;
         self.error = None;
-        self.optimistic_presets = vec![optimistic];
         cx.notify();
         let client = self.client.clone();
         let handle = client
@@ -126,6 +132,7 @@ impl NativeView {
             let result = handle.await;
             let _ = this.update_in(cx, |view, window, cx| {
                 view.busy = false;
+                view.optimistic_preset_name = None;
                 view.optimistic_presets.clear();
                 match result {
                     Ok(Ok(_)) => view.receive(view.client.snapshot(), cx),
@@ -164,6 +171,30 @@ impl NativeView {
     }
 }
 
+/// The name the engine will save for a clone, matching its `Copy of <name>` rule for the common
+/// case and adding the same numeric suffix when that name is taken. The engine also normalizes
+/// names under NFKC; this provisional name compares case-insensitively and is replaced by the
+/// engine's name on success.
+fn optimistic_copy_name<'a>(source: &str, existing: impl Iterator<Item = &'a str>) -> String {
+    let taken: BTreeSet<_> = existing.map(|name| name.trim().to_lowercase()).collect();
+    let base = format!("Copy of {}", source.trim());
+    let mut suffix = 1u32;
+    loop {
+        let tail = if suffix == 1 {
+            String::new()
+        } else {
+            format!(" {suffix}")
+        };
+        let room = 100usize.saturating_sub(tail.chars().count());
+        let stem: String = base.chars().take(room).collect();
+        let candidate = format!("{}{tail}", stem.trim_end());
+        if !taken.contains(&candidate.to_lowercase()) {
+            return candidate;
+        }
+        suffix = suffix.saturating_add(1);
+    }
+}
+
 /// An error-style toast for a refused preset creation, clone, or rename.
 pub(super) fn error_toast(
     window: &mut Window,
@@ -178,4 +209,28 @@ pub(super) fn error_toast(
             .with_type(NotificationType::Error),
         cx,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::optimistic_copy_name;
+
+    #[test]
+    fn an_optimistic_clone_name_takes_the_next_suffix() {
+        assert_eq!(
+            optimistic_copy_name("Review", ["Copy of Review"].into_iter()),
+            "Copy of Review 2"
+        );
+        assert_eq!(
+            optimistic_copy_name("Review", ["Copy of Review", "copy of review 2"].into_iter()),
+            "Copy of Review 3"
+        );
+    }
+
+    #[test]
+    fn an_optimistic_clone_name_stays_within_the_name_limit() {
+        let source = "x".repeat(100);
+        let name = optimistic_copy_name(&source, std::iter::empty());
+        assert_eq!(name.chars().count(), 100);
+    }
 }

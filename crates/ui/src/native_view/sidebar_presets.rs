@@ -3,8 +3,6 @@
 
 mod optimistic;
 
-use optimistic::error_toast;
-
 use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
 use super::controls::app_icon;
@@ -26,7 +24,7 @@ use gpui_kit::{
     WeakEntity, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{
-    AppError, LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
+    LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
 };
 use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
@@ -341,34 +339,13 @@ impl NativeView {
         if stored == name {
             return;
         }
-        self.busy = true;
-        self.error = None;
         self.optimistic_preset_name = Some((id.clone(), name.clone()));
-        cx.notify();
-        let client = self.client.clone();
-        let handle = client.runtime().spawn(async move {
-            client
-                .change_organization(OrganizationChange::RenamePreset { id, name })
-                .await
-        });
-        cx.spawn_in(window, async move |this, cx| {
-            let result = handle.await;
-            let _ = this.update_in(cx, |view, window, cx| {
-                view.busy = false;
-                view.optimistic_preset_name = None;
-                match result {
-                    Ok(Ok(_)) => view.receive(view.client.snapshot(), cx),
-                    Ok(Err(error)) => {
-                        error_toast(window, "Preset rename failed", &error, cx);
-                    }
-                    Err(_) => {
-                        error_toast(window, "Preset rename failed", &AppError::storage(), cx);
-                    }
-                }
-                cx.notify();
-            });
-        })
-        .detach();
+        self.save_optimistically(
+            OrganizationChange::RenamePreset { id, name },
+            "Preset rename failed",
+            window,
+            cx,
+        );
     }
 
     /// Closes the inline field and returns keyboard focus to the window's shortcuts.
