@@ -20,7 +20,17 @@ fn preset_named<'a>(library: &'a LibrarySnapshot, name: &str) -> &'a Preset {
         .presets
         .iter()
         .find(|preset| preset.name == name)
-        .unwrap()
+        .unwrap_or_else(|| {
+            panic!(
+                "no preset {name:?}; have {:?}",
+                library
+                    .library
+                    .presets
+                    .iter()
+                    .map(|preset| &preset.name)
+                    .collect::<Vec<_>>()
+            )
+        })
 }
 
 #[tokio::test]

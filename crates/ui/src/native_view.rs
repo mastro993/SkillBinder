@@ -20,6 +20,7 @@ mod menu;
 mod native_test;
 mod navigation;
 mod onboarding;
+mod preset_activation;
 mod preset_colors;
 mod preset_icons;
 mod route;
@@ -128,6 +129,8 @@ pub struct NativeView {
     content_scroll: hover_scroll::HoverScroll,
     appearance: Appearance,
     library_view: LibraryView,
+    /// The preset whose skills activation toggles edit; absent starts with Default.
+    active_preset: Option<PresetId>,
     /// Whether Library lists only skills with an update; reset with search when the route changes.
     needs_update_only: bool,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
@@ -166,6 +169,7 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         let library_view = snapshot.preferences.library_view;
+        let active_preset = snapshot.preferences.active_preset.clone();
         sidebar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
         let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
@@ -251,6 +255,7 @@ impl NativeView {
             content_scroll: hover_scroll::HoverScroll::default(),
             appearance,
             library_view,
+            active_preset,
             needs_update_only: false,
             sidebar_motion: 0,
             sidebar_closing: false,

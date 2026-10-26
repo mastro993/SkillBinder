@@ -98,6 +98,7 @@ fn apply_organization(
         OrganizationChange::RenamePreset { id, name } => {
             editable_preset_mut(library, &id, "renamed")?.name = validate_name(&name)?;
         }
+        OrganizationChange::ClonePreset { id } => clone_preset(library, &id)?,
         OrganizationChange::AddToPreset { id, skills } => {
             for presets in memberships(library, &id, &skills)? {
                 if !presets.contains(&id) {
@@ -206,6 +207,67 @@ fn memberships<'a>(
         .iter_mut()
         .filter(|skill| skills.contains(&skill.id))
         .map(|skill| &mut skill.preset_ids))
+}
+
+/// Copies a preset's appearance and skills into a new editable preset directly after it.
+///
+/// The copy's name is `Copy of <name>`, made unique with a numeric suffix and trimmed to the
+/// 100-character limit when needed. Default may be copied; the copy never becomes Default.
+fn clone_preset(library: &mut Library, id: &PresetId) -> AppResult<()> {
+    let source = library
+        .presets
+        .iter()
+        .find(|preset| &preset.id == id)
+        .cloned()
+        .ok_or_else(|| AppError::not_found("Preset no longer exists."))?;
+    let name = copy_name(library, &source.name)?;
+    let position = source.position.saturating_add(1);
+    for preset in &mut library.presets {
+        if preset.position >= position {
+            preset.position = preset.position.saturating_add(1);
+        }
+    }
+    let copy = Preset {
+        id: PresetId::new(),
+        name,
+        position,
+        color: source.color,
+        icon: source.icon,
+    };
+    for skill in &mut library.skills {
+        if skill.preset_ids.contains(&source.id) {
+            skill.preset_ids.push(copy.id.clone());
+            skill.preset_ids.sort();
+        }
+    }
+    library.presets.push(copy);
+    Ok(())
+}
+
+/// `Copy of <name>`, made unique under the same normalization as every preset name, and kept
+/// within the name length limit by trimming the inherited name before adding a numeric suffix.
+fn copy_name(library: &Library, source: &str) -> AppResult<String> {
+    let taken: BTreeSet<_> = library
+        .presets
+        .iter()
+        .map(|preset| normalized(&preset.name))
+        .collect();
+    let base = format!("Copy of {}", source.trim());
+    let mut suffix = 1u32;
+    loop {
+        let tail = if suffix == 1 {
+            String::new()
+        } else {
+            format!(" {suffix}")
+        };
+        let room = 100usize.saturating_sub(tail.chars().count());
+        let stem: String = base.chars().take(room).collect();
+        let candidate = format!("{}{tail}", stem.trim_end());
+        if !taken.contains(&normalized(&candidate)) {
+            return validate_name(&candidate);
+        }
+        suffix = suffix.saturating_add(1);
+    }
 }
 /// Renumbers `items` to follow `order`, which must name each of them exactly once.
 fn reorder<T, Id: Ord>(

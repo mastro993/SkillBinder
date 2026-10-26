@@ -8,7 +8,9 @@ use super::menu::MenuItem;
 use super::preset_colors::{color_menu, preset_tint};
 use super::preset_icons::{IconGrid, icon_glyph, menu_glyph};
 use super::sidebar_reorder::{RowDrag, RowDragPreview};
-use super::sidebar_row::{activate, add_button, count, icon_color, name_field, row, with_menu};
+use super::sidebar_row::{
+    activate, active_marker, add_button, count, icon_color, name_field, row, with_menu,
+};
 use super::{Effect, LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme,
@@ -65,6 +67,7 @@ impl NativeView {
             window.request_animation_frame();
         }
         let selected = |candidate: LibraryFilter| self.route == Route::Library(candidate);
+        let active = self.active_preset_id();
         let presets = &library.library.presets;
         let rows: Vec<AnyElement> = order
             .iter()
@@ -76,13 +79,14 @@ impl NativeView {
                 }
                 let skills = counts.get(&preset.id).copied().unwrap_or(0);
                 let selected = selected(LibraryFilter::Preset(preset.id.clone()));
+                let active = active.as_ref() == Some(&preset.id);
                 let placement = RowPlacement {
                     index,
                     len: order.len(),
                     offset: self.preset_reorder.offset(&preset.id, now),
                     floating: floating.as_ref() == Some(&preset.id),
                 };
-                self.render_preset_row(preset, placement, skills, selected, cx)
+                self.render_preset_row(preset, active, placement, skills, selected, cx)
             })
             .collect();
         let creating = self.preset_edit == Some(PresetEdit::Create);
@@ -151,6 +155,7 @@ impl NativeView {
     fn render_preset_row(
         &self,
         preset: &Preset,
+        active: bool,
         placement: RowPlacement,
         skills: usize,
         selected: bool,
@@ -159,10 +164,11 @@ impl NativeView {
         let dark = cx.theme().mode.is_dark();
         let id = preset.id.clone();
         let label: SharedString = preset.name.clone().into();
-        let route = Route::Library(LibraryFilter::Preset(id.clone()));
         let tint = preset.color.map(|color| preset_tint(color, dark));
         let glyph = icon_glyph(preset.icon);
         let (menu_preset, index, len) = (preset.clone(), placement.index, placement.len);
+        let busy = self.busy;
+        let open = id.clone();
         let row = activate(
             row(
                 format!("preset-{id}"),
@@ -174,22 +180,19 @@ impl NativeView {
             ),
             label.clone(),
             cx,
-            move |view, window, cx| view.navigate(route.clone(), window, cx),
+            move |view, window, cx| view.activate_preset(open.clone(), window, cx),
         );
         let protected = preset.is_default();
-        let row = if protected {
-            row
-        } else {
-            with_menu(
-                row,
-                format!("preset-{id}"),
-                selected,
-                self,
-                cx,
-                move |_, window, cx| preset_menu(&menu_preset, index, len, window, cx),
-            )
-        };
+        let row = with_menu(
+            row,
+            format!("preset-{id}"),
+            selected,
+            self,
+            cx,
+            move |_, window, cx| preset_menu(&menu_preset, index, len, busy, window, cx),
+        );
         let row = row
+            .when(active, |row| row.child(active_marker(id.as_str(), cx)))
             .when(skills > 0, |row| row.child(count(skills, cx)))
             .relative()
             .top(px(placement.offset))
@@ -321,13 +324,14 @@ pub(super) fn menu_action<Id: 'static>(
     }
 }
 
-/// Rename, Color, Icon, order, and delete actions for an editable preset at `index` of `len`. The
-/// default preset has no menu: the app never renames it, recolors it, re-icons it, moves it, or
-/// removes it.
+/// Rename, Clone, Color, Icon, order, and delete actions for a preset at `index` of `len`. The
+/// Default preset's menu holds only Clone: the app never renames it, recolors it, re-icons it,
+/// moves it, or removes it.
 fn preset_menu(
     preset: &Preset,
     index: usize,
     len: usize,
+    busy: bool,
     window: &mut Window,
     cx: &mut Context<NativeView>,
 ) -> Vec<MenuItem> {
@@ -336,6 +340,16 @@ fn preset_menu(
     let on = |action: fn(&mut NativeView, &PresetId, &mut Window, &mut Context<NativeView>)| {
         menu_action(view.clone(), id.clone(), action)
     };
+    let clone = MenuItem::new("clone", "Clone")
+        .icon("book-copy")
+        .disabled(busy)
+        .on_select(menu_action(view.clone(), id.clone(), |view, id, _, cx| {
+            let id = id.clone();
+            view.change_organization(OrganizationChange::ClonePreset { id }, cx);
+        }));
+    if preset.is_default() {
+        return vec![clone];
+    }
     let picked = (view.clone(), id.clone());
     let grid = cx.new(|cx| {
         IconGrid::new(icon, color, cx, move |icon, window, cx| {
@@ -356,6 +370,7 @@ fn preset_menu(
             .on_select(on(|view, id, window, cx| {
                 view.begin_preset_edit(PresetEdit::Rename(id.clone()), window, cx)
             })),
+        clone,
         MenuItem::new("color", "Color")
             .icon("paint-board")
             .submenu(color_menu(&view, &id, color, window, cx)),

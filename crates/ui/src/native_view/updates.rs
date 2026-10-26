@@ -40,6 +40,9 @@ impl NativeView {
             if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
                 self.preset_edit = None;
             }
+            if self.active_preset.as_ref().is_some_and(|id| !exists(id)) {
+                self.active_preset = None;
+            }
             let folder_exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
             if self
                 .library_folder

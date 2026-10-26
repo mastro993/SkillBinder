@@ -50,6 +50,10 @@ impl NativeView {
             Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
             route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
         };
+        if let Route::Library(LibraryFilter::Preset(id)) = &route {
+            let id = id.clone();
+            self.set_active_preset(Some(id), cx);
+        }
         if self.route != route {
             self.leave_page();
             self.needs_update_only = false;

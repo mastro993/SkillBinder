@@ -20,6 +20,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("arrow-down", "ArrowDown01Icon"),
     icon!("arrow-up", "ArrowUp01Icon"),
     icon!("book", "Book02Icon"),
+    icon!("book-copy", "BookCopyIcon"),
     icon!("bookmark", "Bookmark02Icon"),
     icon!("brain", "AiBrain01Icon"),
     icon!("briefcase", "Briefcase01Icon"),

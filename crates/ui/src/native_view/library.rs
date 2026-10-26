@@ -5,7 +5,7 @@ use super::controls::app_icon;
 use super::library_dates as dates;
 use super::library_items::SkillItem;
 use super::library_presence::presence;
-use super::{LibraryFilter, NativeView};
+use super::{LibraryFilter, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Sizable, h_flex,
     input::Input,
@@ -78,6 +78,12 @@ impl NativeView {
             .child(self.update_filter_tabs(matching, cx))
             .child(
                 div()
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(format!("Active: {}", self.active_preset_name())),
+            )
+            .child(
+                div()
                     .flex_1()
                     .text_sm()
                     .text_color(cx.theme().muted_foreground)
@@ -134,6 +140,28 @@ impl NativeView {
                 .text_center()
                 .text_color(cx.theme().muted_foreground)
                 .child(format!("No skills in {}", folder.name))
+                .into_any_element();
+        }
+        if let Route::Library(LibraryFilter::Preset(id)) = &self.route
+            && visible.is_empty()
+        {
+            let name = self
+                .snapshot
+                .library
+                .as_ref()
+                .and_then(|library| {
+                    library
+                        .library
+                        .presets
+                        .iter()
+                        .find(|preset| &preset.id == id)
+                })
+                .map_or_else(|| "this preset".to_owned(), |preset| preset.name.clone());
+            return div()
+                .py_8()
+                .text_center()
+                .text_color(cx.theme().muted_foreground)
+                .child(format!("No skills active in {name}"))
                 .into_any_element();
         }
         let found = self

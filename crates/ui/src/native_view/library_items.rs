@@ -50,6 +50,7 @@ impl NativeView {
             .gap_3()
             .px_3()
             .py_2()
+            .child(self.activation_toggle(&item.skill.id, cx))
             .child(
                 v_flex()
                     .flex_1()
@@ -93,6 +94,7 @@ impl NativeView {
             .child(
                 h_flex()
                     .gap_2()
+                    .child(self.activation_toggle(&item.skill.id, cx))
                     .child(
                         div()
                             .flex_1()
