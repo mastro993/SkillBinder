@@ -38,6 +38,7 @@ mod skill_page;
 mod sync;
 mod updates;
 mod workspace_dialogs;
+mod workspace_icons;
 mod workspace_page;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};

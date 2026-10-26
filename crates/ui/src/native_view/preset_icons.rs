@@ -65,8 +65,13 @@ const PRESET_ICONS: [(PresetIcon, &str, &str); 40] = [
 ];
 
 // The table follows declaration order, so an icon's discriminant is its index.
-fn icon_label(icon: PresetIcon) -> &'static str {
+pub(super) fn icon_label(icon: PresetIcon) -> &'static str {
     PRESET_ICONS[icon as usize].1
+}
+
+/// The label of a curated glyph, or `Folder` for a workspace's default.
+pub(super) fn option_label(icon: Option<PresetIcon>) -> &'static str {
+    icon.map_or("Folder", icon_label)
 }
 
 /// A preset glyph sized for a menu row's icon slot.
@@ -83,32 +88,45 @@ pub(super) fn icon_glyph(icon: PresetIcon) -> &'static str {
     PRESET_ICONS[icon as usize].2
 }
 
-type Pick = Rc<dyn Fn(PresetIcon, &mut Window, &mut App)>;
+/// The glyph name of a curated glyph, or the default folder glyph.
+pub(super) fn option_glyph(icon: Option<PresetIcon>) -> &'static str {
+    icon.map_or("code-folder", icon_glyph)
+}
 
-/// The icon grid a preset's menu opens beside its Icon row: every icon in the preset's color,
-/// the current one outlined. The pointer or the arrow keys highlight an icon, and clicking it,
-/// Enter, or Space picks it.
+type Pick = Rc<dyn Fn(Option<PresetIcon>, &mut Window, &mut App)>;
+
+/// The icon grid a menu opens beside its Icon row: every choice in the row's color, the current
+/// one outlined. The pointer or the arrow keys highlight an icon, and clicking it, Enter, or
+/// Space picks it. A workspace's choices begin with its default folder.
 pub(super) struct IconGrid {
     focus: FocusHandle,
-    current: PresetIcon,
+    current: Option<PresetIcon>,
+    choices: Vec<Option<PresetIcon>>,
     color: Option<PresetColor>,
-    /// Index of the highlighted icon in `PresetIcon::ALL`.
+    /// Index of the highlighted icon in `choices`.
     highlight: usize,
     pick: Pick,
 }
 
 impl IconGrid {
     pub(super) fn new(
-        current: PresetIcon,
+        current: Option<PresetIcon>,
+        choices: impl IntoIterator<Item = Option<PresetIcon>>,
         color: Option<PresetColor>,
         cx: &mut Context<Self>,
-        pick: impl Fn(PresetIcon, &mut Window, &mut App) + 'static,
+        pick: impl Fn(Option<PresetIcon>, &mut Window, &mut App) + 'static,
     ) -> Self {
+        let choices: Vec<_> = choices.into_iter().collect();
+        let highlight = choices
+            .iter()
+            .position(|choice| *choice == current)
+            .unwrap_or_default();
         Self {
             focus: cx.focus_handle(),
             current,
+            choices,
             color,
-            highlight: current as usize,
+            highlight,
             pick: Rc::new(pick),
         }
     }
@@ -124,8 +142,12 @@ impl IconGrid {
         }
         let key = event.keystroke.key.as_str();
         if matches!(key, "enter" | "space") {
-            (self.pick)(PresetIcon::ALL[self.highlight], window, cx);
-        } else if let Some(next) = moved(self.highlight, key) {
+            (self.pick)(
+                self.choices.get(self.highlight).copied().flatten(),
+                window,
+                cx,
+            );
+        } else if let Some(next) = moved(self.highlight, key, self.choices.len()) {
             self.highlight = next;
         } else {
             return;
@@ -135,10 +157,10 @@ impl IconGrid {
     }
 }
 
-/// Where an arrow `key` moves the highlight from `index`, staying inside the grid; `None` for
+/// Where an arrow `key` moves the highlight from `index` in a grid of `len` cells; `None` for
 /// other keys.
-fn moved(index: usize, key: &str) -> Option<usize> {
-    let last = PresetIcon::ALL.len() - 1;
+fn moved(index: usize, key: &str, len: usize) -> Option<usize> {
+    let last = len.checked_sub(1)?;
     Some(match key {
         "left" => index.saturating_sub(1),
         "right" => (index + 1).min(last),
@@ -161,17 +183,17 @@ impl Render for IconGrid {
             theme.ring,
             theme.radius,
         );
-        let cells = PresetIcon::ALL
-            .into_iter()
+        let cells = self
+            .choices
+            .iter()
+            .copied()
             .enumerate()
             .map(|(index, icon)| {
-                let label = SharedString::from(icon_label(icon));
+                let label = SharedString::from(option_label(icon));
+                let glyph = option_glyph(icon);
                 let current = icon == self.current;
                 div()
-                    .id(SharedString::from(format!(
-                        "preset-icon-{}",
-                        icon_glyph(icon)
-                    )))
+                    .id(SharedString::from(format!("preset-icon-{glyph}")))
                     .role(Role::MenuItemRadio)
                     .aria_label(label.clone())
                     .aria_toggled(if current {
@@ -197,11 +219,7 @@ impl Render for IconGrid {
                         }
                     }))
                     .on_click(cx.listener(move |grid, _, window, cx| (grid.pick)(icon, window, cx)))
-                    .child(
-                        app_icon(icon_glyph(icon))
-                            .size(px(ICON_SIZE))
-                            .text_color(tint),
-                    )
+                    .child(app_icon(glyph).size(px(ICON_SIZE)).text_color(tint))
             });
         div()
             .id("preset-icon-grid")
@@ -233,13 +251,16 @@ mod tests {
 
     #[test]
     fn the_arrow_keys_move_through_the_grid_without_leaving_it() {
-        assert_eq!(moved(0, "left"), Some(0));
-        assert_eq!(moved(0, "right"), Some(1));
-        assert_eq!(moved(0, "up"), Some(0));
-        assert_eq!(moved(0, "down"), Some(8));
-        assert_eq!(moved(39, "right"), Some(39));
-        assert_eq!(moved(35, "down"), Some(35));
-        assert_eq!(moved(35, "up"), Some(27));
-        assert_eq!(moved(5, "enter"), None);
+        assert_eq!(moved(0, "left", 40), Some(0));
+        assert_eq!(moved(0, "right", 40), Some(1));
+        assert_eq!(moved(0, "up", 40), Some(0));
+        assert_eq!(moved(0, "down", 40), Some(8));
+        assert_eq!(moved(39, "right", 40), Some(39));
+        assert_eq!(moved(35, "down", 40), Some(35));
+        assert_eq!(moved(35, "up", 40), Some(27));
+        assert_eq!(moved(5, "enter", 40), None);
+        assert_eq!(moved(40, "down", 41), Some(40));
+        assert_eq!(moved(0, "left", 41), Some(0));
+        assert_eq!(moved(0, "right", 0), None);
     }
 }

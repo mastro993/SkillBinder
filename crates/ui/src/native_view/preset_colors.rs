@@ -11,7 +11,7 @@ use gpui_kit::{
     AnyElement, App, Context, Hsla, IntoElement, ParentElement, Rgba, Styled, WeakEntity, Window,
     div, px, rgb,
 };
-use skillbinder_proto::{OrganizationChange, PresetColor, PresetIcon, PresetId, Rgb};
+use skillbinder_proto::{PresetColor, PresetIcon, Rgb};
 use skillbinder_theme::sidebar::{DOT_SIZE, ICON_SIZE};
 
 fn color_name(color: PresetColor) -> &'static str {
@@ -56,21 +56,19 @@ fn srgb(color: Hsla) -> Rgb {
 }
 
 /// None and the palette colors, each leading with the default glyph in that color, then Custom,
-/// which opens GPUI Kit's color picker beside it. The current color is checked.
-pub(super) fn color_menu(
+/// which opens GPUI Kit's color picker beside it. The current color is checked. `apply` saves
+/// the picked color for `target`.
+pub(super) fn color_menu<T: Clone + 'static>(
     view: &WeakEntity<NativeView>,
-    id: &PresetId,
+    target: T,
     current: Option<PresetColor>,
+    apply: fn(&mut NativeView, &T, Option<PresetColor>, &mut Context<NativeView>),
     window: &mut Window,
     cx: &mut Context<NativeView>,
 ) -> Vec<MenuItem> {
     let set = |color: Option<PresetColor>| {
-        menu_action(view.clone(), id.clone(), move |view, id, _, cx| {
-            let change = OrganizationChange::SetPresetColor {
-                id: id.clone(),
-                color,
-            };
-            view.change_organization(change, cx)
+        menu_action(view.clone(), target.clone(), move |view, target, _, cx| {
+            apply(view, target, color, cx)
         })
     };
     let mut items: Vec<MenuItem> = std::iter::once(None)
@@ -87,7 +85,7 @@ pub(super) fn color_menu(
         Some(PresetColor::Custom(rgb)) => Some(PresetColor::Custom(rgb)),
         _ => None,
     };
-    let id = id.clone();
+    let picker_target = target.clone();
     let picker = CustomColor::new(
         tint(current, cx),
         window,
@@ -95,11 +93,7 @@ pub(super) fn color_menu(
         move |view: &mut NativeView, picked, done, window, cx| {
             let color = picked.map(|picked| PresetColor::Custom(srgb(picked)));
             if color.is_some() && color != current {
-                let change = OrganizationChange::SetPresetColor {
-                    id: id.clone(),
-                    color,
-                };
-                view.change_organization(change, cx);
+                apply(view, &picker_target, color, cx);
             }
             if done && let Some(menu) = view.menu.as_ref() {
                 menu.close(window, cx);

@@ -11,8 +11,8 @@ mod support;
 
 use folders::add_folder;
 use skillbinder_engine::Engine;
-use skillbinder_proto::{ErrorCategory, ScanSnapshot, SkillId};
-use std::fs;
+use skillbinder_proto::{ErrorCategory, PresetColor, PresetIcon, ScanSnapshot, SkillId};
+use std::{fs, path::Path};
 use support::{Fixture, add_workspace, category, write_skill};
 
 /// Imports a skill from the fixture home's Claude Code global skill directory.
@@ -264,5 +264,108 @@ async fn a_missing_workspace_folder_is_reported_and_skipped() {
     fs::rename(&moved, &fixture.workspace).unwrap();
     assert!(!engine.snapshot().await.unwrap().workspaces[0].missing);
     assert_eq!(fixture.scan(&engine).await.candidates.len(), 1);
+    engine.shutdown().await.unwrap();
+}
+
+/// A valid 1×1 PNG, small enough to keep in the test.
+const PNG: &[u8] = &[
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00, 0x00, 0xb5, 0x1c, 0x0c,
+    0x02, 0x00, 0x00, 0x00, 0x0b, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0x64, 0xf8, 0x0f, 0x00,
+    0x01, 0x05, 0x01, 0x01, 0x27, 0x18, 0xe3, 0x66, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+    0xae, 0x42, 0x60, 0x82,
+];
+
+#[tokio::test]
+async fn workspace_appearance_persists_and_images_are_stored_copies() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let workspace = fixture.register(&engine).await;
+    let picked = fixture.workspace.join("app-icon.png");
+    fs::write(&picked, PNG).unwrap();
+
+    assert_eq!(
+        (workspace.color, workspace.icon, workspace.image),
+        (None, None, None)
+    );
+    engine
+        .set_workspace_color(workspace.id.clone(), Some(PresetColor::Blue))
+        .await
+        .unwrap();
+    engine
+        .set_workspace_icon(workspace.id.clone(), Some(PresetIcon::Rocket))
+        .await
+        .unwrap();
+    engine
+        .set_workspace_image(workspace.id.clone(), picked.clone())
+        .await
+        .unwrap();
+    let shown = engine.snapshot().await.unwrap().workspaces.remove(0);
+    assert_eq!(shown.color, Some(PresetColor::Blue));
+    assert_eq!(shown.icon, Some(PresetIcon::Rocket));
+    let stored = Path::new(shown.image.as_ref().unwrap());
+    assert_eq!(
+        fs::canonicalize(stored.parent().unwrap()).unwrap(),
+        fs::canonicalize(fixture.data.join("icons")).unwrap()
+    );
+    assert_ne!(stored, picked);
+    assert_eq!(fs::read(stored).unwrap(), PNG);
+    assert!(picked.exists(), "the picked file is left alone");
+
+    // Appearance survives a restart, and the stored copy is still referenced.
+    engine.shutdown().await.unwrap();
+    let engine = fixture.open();
+    let shown = engine.snapshot().await.unwrap().workspaces.remove(0);
+    assert_eq!(shown.color, Some(PresetColor::Blue));
+    assert_eq!(shown.icon, Some(PresetIcon::Rocket));
+    let stored = Path::new(shown.image.as_ref().unwrap());
+    assert_eq!(fs::read(stored).unwrap(), PNG);
+
+    // A stored copy that has disappeared falls back to the glyph.
+    fs::remove_file(stored).unwrap();
+    let shown = engine.snapshot().await.unwrap().workspaces.remove(0);
+    assert_eq!((shown.icon, shown.image), (Some(PresetIcon::Rocket), None));
+    engine
+        .set_workspace_image(workspace.id.clone(), picked.clone())
+        .await
+        .unwrap();
+    let stored = engine.snapshot().await.unwrap().workspaces[0]
+        .image
+        .clone()
+        .unwrap();
+
+    // Choosing the folder glyph removes the image and its stored copy.
+    engine
+        .set_workspace_icon(workspace.id.clone(), None)
+        .await
+        .unwrap();
+    let shown = engine.snapshot().await.unwrap().workspaces.remove(0);
+    assert_eq!((shown.icon, shown.image), (None, None));
+    assert!(!Path::new(&stored).exists());
+
+    // Invalid image files are refused without changing the workspace.
+    fs::write(fixture.workspace.join("notes.txt"), "not an image").unwrap();
+    let error = engine
+        .set_workspace_image(workspace.id.clone(), fixture.workspace.join("notes.txt"))
+        .await
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Validation);
+    assert!(
+        engine.snapshot().await.unwrap().workspaces[0]
+            .image
+            .is_none()
+    );
+
+    // Removing a workspace with an image removes the stored copy too.
+    engine
+        .set_workspace_image(workspace.id.clone(), picked.clone())
+        .await
+        .unwrap();
+    let stored = engine.snapshot().await.unwrap().workspaces[0]
+        .image
+        .clone()
+        .unwrap();
+    engine.remove_workspace(workspace.id).await.unwrap();
+    assert!(!Path::new(&stored).exists());
     engine.shutdown().await.unwrap();
 }

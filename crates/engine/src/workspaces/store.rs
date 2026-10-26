@@ -1,17 +1,26 @@
 //! Workspace rows in machine-local SQLite.
 
-use super::projects::{is_agent_folder, projects};
+use super::{
+    icons,
+    projects::{is_agent_folder, projects},
+};
 use crate::{
     database,
     discovery::registry::{global_skill_dirs, workspace_skill_dirs},
     library::validate_name,
-    persistence::now,
+    library_store::{from_text, to_text},
+    logging::Logger,
+    persistence::{now, sync_directory},
     schema::workspaces,
     worker::State,
 };
 use diesel::prelude::*;
 use skillbinder_proto::*;
-use std::path::Path;
+use std::{
+    fs,
+    io::Write,
+    path::{Component, Path, PathBuf},
+};
 
 impl State {
     /// Consumes a directory grant and saves the picked folder's projects as the last
@@ -60,6 +69,9 @@ impl State {
                 path: path.clone(),
                 position: (existing.len() + index) as u32,
                 missing: false,
+                color: None,
+                icon: None,
+                image: None,
             })
             .collect();
         if added.is_empty() {
@@ -102,21 +114,119 @@ impl State {
                 workspaces::canonical_path,
                 workspaces::name,
                 workspaces::position,
+                workspaces::color,
+                workspaces::icon,
+                workspaces::icon_image,
             ))
             .order((workspaces::position, workspaces::id))
-            .load::<(String, String, String, i64)>(&mut *self.database.borrow_mut())
+            .load::<(
+                String,
+                String,
+                String,
+                i64,
+                Option<String>,
+                String,
+                Option<String>,
+            )>(&mut *self.database.borrow_mut())
             .map_err(|_| AppError::storage())?;
         rows.into_iter()
-            .map(|(id, path, name, position)| {
+            .map(|(id, path, name, position, color, icon, image)| {
+                let color = stored_color(color.as_deref(), &name, &self.log);
+                let icon = stored_icon(&icon, &name, &self.log);
+                let image = image.and_then(|file| self.stored_image(&file));
                 Ok(Workspace {
                     missing: !Path::new(&path).is_dir(),
                     id: WorkspaceId(id),
                     name,
                     path,
                     position: u32::try_from(position).map_err(|_| AppError::storage())?,
+                    color,
+                    icon,
+                    image,
                 })
             })
             .collect()
+    }
+
+    /// Sets or clears the workspace glyph's color.
+    pub(crate) fn set_workspace_color(
+        &self,
+        id: &WorkspaceId,
+        color: Option<PresetColor>,
+    ) -> AppResult<()> {
+        let color = color.as_ref().map(to_text).transpose()?;
+        let changed = diesel::update(workspaces::table.find(id.as_str()))
+            .set(workspaces::color.eq(color))
+            .execute(&mut *self.database.borrow_mut())
+            .map_err(|_| AppError::storage())?;
+        if changed == 0 {
+            return Err(AppError::not_found("Workspace no longer exists."));
+        }
+        Ok(())
+    }
+
+    /// Sets the workspace glyph, or restores the default folder glyph, and removes any image
+    /// icon it had.
+    pub(crate) fn set_workspace_icon(
+        &mut self,
+        id: &WorkspaceId,
+        icon: Option<PresetIcon>,
+    ) -> AppResult<()> {
+        let previous = self.workspace_icon_file(id)?;
+        let changed = diesel::update(workspaces::table.find(id.as_str()))
+            .set((
+                workspaces::icon.eq(icon_text(icon)?),
+                workspaces::icon_image.eq(None::<String>),
+            ))
+            .execute(&mut *self.database.borrow_mut())
+            .map_err(|_| AppError::storage())?;
+        if changed == 0 {
+            return Err(AppError::not_found("Workspace no longer exists."));
+        }
+        self.discard_icon(previous);
+        Ok(())
+    }
+
+    /// Copies the picked image into application storage and makes it the workspace icon. The
+    /// picked file is never referenced after this call.
+    pub(crate) fn set_workspace_image(&mut self, id: &WorkspaceId, source: &Path) -> AppResult<()> {
+        let previous = self.workspace_icon_file(id)?;
+        let (bytes, extension) = icons::read(source)?;
+        let icons = self.icons_dir();
+        fs::create_dir_all(&icons).map_err(|_| AppError::storage())?;
+        let name = format!("workspace-{}.{}", uuid::Uuid::new_v4(), extension);
+        let target = icons.join(&name);
+        let mut temporary = tempfile::NamedTempFile::new_in(self.config.data_dir.join("staging"))
+            .map_err(|_| AppError::storage())?;
+        temporary
+            .write_all(&bytes)
+            .and_then(|()| temporary.as_file().sync_all())
+            .map_err(|_| AppError::storage())?;
+        temporary
+            .persist(&target)
+            .map_err(|_| AppError::storage())?;
+        if let Err(error) = sync_directory(&icons) {
+            let _ = fs::remove_file(&target);
+            return Err(error);
+        }
+        let changed = diesel::update(workspaces::table.find(id.as_str()))
+            .set(workspaces::icon_image.eq(Some(name.clone())))
+            .execute(&mut *self.database.borrow_mut())
+            .map_err(|_| AppError::storage());
+        match changed {
+            Ok(0) => {
+                let _ = fs::remove_file(&target);
+                Err(AppError::not_found("Workspace no longer exists."))
+            }
+            Ok(_) => {
+                self.discard_icon(previous);
+                Ok(())
+            }
+            Err(error) => {
+                let _ = fs::remove_file(&target);
+                Err(error)
+            }
+        }
     }
 
     pub(crate) fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> AppResult<()> {
@@ -172,10 +282,8 @@ impl State {
 
     /// Forgets a workspace. Files in the folder are not touched.
     pub(crate) fn remove_workspace(&mut self, id: &WorkspaceId) -> AppResult<()> {
+        let image = self.workspace_icon_file(id)?;
         let workspaces = self.workspaces()?;
-        if !workspaces.iter().any(|workspace| &workspace.id == id) {
-            return Err(AppError::not_found("Workspace no longer exists."));
-        }
         database::transaction(&mut self.database.borrow_mut(), |connection| {
             diesel::delete(workspaces::table.find(id.as_str()))
                 .execute(connection)
@@ -187,7 +295,61 @@ impl State {
                 .try_for_each(|(position, workspace)| {
                     set_position(connection, &workspace.id, position)
                 })
-        })
+        })?;
+        self.discard_icon(image);
+        Ok(())
+    }
+
+    /// The stored image file name of workspace `id`, or `None` when it has no image.
+    fn workspace_icon_file(&self, id: &WorkspaceId) -> AppResult<Option<String>> {
+        workspaces::table
+            .find(id.as_str())
+            .select(workspaces::icon_image)
+            .first::<Option<String>>(&mut *self.database.borrow_mut())
+            .optional()
+            .map_err(|_| AppError::storage())?
+            .ok_or_else(|| AppError::not_found("Workspace no longer exists."))
+    }
+
+    /// The absolute path of a stored image, when `file` is a plain file name naming a regular
+    /// file.
+    fn stored_image(&self, file: &str) -> Option<String> {
+        let path = self.icon_path(file)?;
+        fs::symlink_metadata(&path)
+            .is_ok_and(|metadata| metadata.file_type().is_file())
+            .then(|| path.to_string_lossy().into_owned())
+    }
+
+    /// The path of `file` under the icons directory, or `None` unless it is a plain file name.
+    fn icon_path(&self, file: &str) -> Option<PathBuf> {
+        let mut components = Path::new(file).components();
+        let Some(Component::Normal(_)) = components.next() else {
+            return None;
+        };
+        components
+            .next()
+            .is_none()
+            .then(|| self.icons_dir().join(file))
+    }
+
+    fn icons_dir(&self) -> PathBuf {
+        self.config.data_dir.join("icons")
+    }
+
+    /// Removes a stored image file. A missing file needs no removal; a failure is logged, since
+    /// the workspace change it belongs to has already been saved.
+    fn discard_icon(&self, file: Option<String>) {
+        let Some(path) = file.and_then(|file| self.icon_path(&file)) else {
+            return;
+        };
+        if let Err(error) = fs::remove_file(&path)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            self.log.record(format!(
+                "Could not remove workspace icon {}: {error}",
+                path.display()
+            ));
+        }
     }
 }
 
@@ -201,6 +363,44 @@ fn set_position(
         .execute(connection)
         .map(drop)
         .map_err(|_| AppError::storage())
+}
+
+/// A stored glyph, `"folder"` for the default, or `None` when this version does not know it.
+fn stored_icon(text: &str, workspace: &str, log: &Logger) -> Option<PresetIcon> {
+    if text == "folder" {
+        return None;
+    }
+    match from_text(text) {
+        Ok(icon) => Some(icon),
+        Err(_) => {
+            log.record(format!(
+                "Workspace {workspace} has an icon this version does not know; showing the folder."
+            ));
+            None
+        }
+    }
+}
+
+/// A stored color, or `None` when there is none or this version does not know it.
+fn stored_color(text: Option<&str>, workspace: &str, log: &Logger) -> Option<PresetColor> {
+    let text = text?;
+    match from_text(text) {
+        Ok(color) => Some(color),
+        Err(_) => {
+            log.record(format!(
+                "Workspace {workspace} has a color this version does not know; showing none."
+            ));
+            None
+        }
+    }
+}
+
+/// A glyph's stored text, with `"folder"` for the default.
+fn icon_text(icon: Option<PresetIcon>) -> AppResult<String> {
+    match icon {
+        Some(icon) => to_text(&icon),
+        None => Ok("folder".to_owned()),
+    }
 }
 
 /// A new workspace's name: its folder's last path component.
