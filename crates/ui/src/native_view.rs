@@ -133,6 +133,8 @@ pub struct NativeView {
     active_preset: Option<PresetId>,
     /// A preset name shown while its rename is being saved; cleared on success or failure.
     optimistic_preset_name: Option<(PresetId, String)>,
+    /// Created or cloned presets shown before the engine's snapshot arrives.
+    optimistic_presets: Vec<sidebar_presets::OptimisticPreset>,
     /// Whether Library lists only skills with an update; reset with search when the route changes.
     needs_update_only: bool,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
@@ -259,6 +261,7 @@ impl NativeView {
             library_view,
             active_preset,
             optimistic_preset_name: None,
+            optimistic_presets: Vec::new(),
             needs_update_only: false,
             sidebar_motion: 0,
             sidebar_closing: false,

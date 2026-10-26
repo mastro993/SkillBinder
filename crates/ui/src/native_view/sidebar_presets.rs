@@ -1,6 +1,10 @@
 //! The sidebar Presets section: user-ordered presets, inline naming, row menus,
 //! colors, icons, and the reorder menu actions.
 
+mod optimistic;
+
+use optimistic::error_toast;
+
 use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
 use super::controls::app_icon;
@@ -13,9 +17,8 @@ use super::sidebar_row::{
 };
 use super::{Effect, NativeView};
 use gpui_kit::component::{
-    ActiveTheme, WindowExt,
+    ActiveTheme,
     input::{InputEvent, InputState},
-    notification::{Notification, NotificationType},
 };
 use gpui_kit::{
     AnyElement, App, AppContext, Context, DragMoveEvent, Entity, InteractiveElement, IntoElement,
@@ -26,6 +29,14 @@ use skillbinder_proto::{
     AppError, LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
 };
 use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
+
+/// A preset shown while its creation or clone is being saved.
+pub(super) struct OptimisticPreset {
+    pub(super) preset: Preset,
+    /// The source of a clone, so its row sits directly after it; `None` appends a new preset.
+    pub(super) after: Option<PresetId>,
+    pub(super) skills: usize,
+}
 
 /// Which preset name the inline sidebar field edits.
 #[derive(Clone, PartialEq, Eq)]
@@ -69,7 +80,7 @@ impl NativeView {
         }
         let active = self.active_preset_id();
         let presets = &library.library.presets;
-        let rows: Vec<AnyElement> = order
+        let mut rows: Vec<AnyElement> = order
             .iter()
             .filter_map(|id| presets.iter().find(|preset| &preset.id == id))
             .enumerate()
@@ -88,6 +99,14 @@ impl NativeView {
                 self.render_preset_row(preset, active, placement, skills, cx)
             })
             .collect();
+        for optimistic in &self.optimistic_presets {
+            let index = optimistic
+                .after
+                .as_ref()
+                .and_then(|source| order.iter().position(|id| id == source))
+                .map_or(rows.len(), |index| index + 1);
+            rows.insert(index, self.render_optimistic_preset_row(optimistic, cx));
+        }
         let creating = self.preset_edit == Some(PresetEdit::Create);
         let items = rows.len() + usize::from(creating);
         div()
@@ -195,7 +214,7 @@ impl NativeView {
             .relative()
             .top(px(placement.offset))
             .when(placement.floating, |row| row.opacity(0.0));
-        if protected {
+        if protected || self.busy {
             return row.into_any_element();
         }
         row.on_drag(
@@ -284,9 +303,7 @@ impl NativeView {
         self.end_preset_edit(window, cx);
         match edit {
             _ if name.is_empty() => {}
-            PresetEdit::Create => {
-                self.change_organization(OrganizationChange::CreatePreset { name }, cx);
-            }
+            PresetEdit::Create => self.create_preset_optimistically(name, window, cx),
             PresetEdit::Rename(id) => self.rename_preset(id, name, window, cx),
         }
     }
@@ -339,9 +356,11 @@ impl NativeView {
                 match result {
                     Ok(Ok(_)) => view.receive(view.client.snapshot(), cx),
                     Ok(Err(error)) => {
-                        error_toast(window, &error, cx);
+                        error_toast(window, "Preset rename failed", &error, cx);
                     }
-                    Err(_) => error_toast(window, &AppError::storage(), cx),
+                    Err(_) => {
+                        error_toast(window, "Preset rename failed", &AppError::storage(), cx);
+                    }
                 }
                 cx.notify();
             });
@@ -385,17 +404,6 @@ fn shown_preset_name<'a>(
         .map_or(preset.name.as_str(), |(_, name)| name.as_str())
 }
 
-/// An error-style toast for a refused preset rename.
-fn error_toast(window: &mut Window, error: &AppError, cx: &mut Context<NativeView>) {
-    window.push_notification(
-        Notification::new()
-            .title("Preset rename failed")
-            .message(error.message.clone())
-            .with_type(NotificationType::Error),
-        cx,
-    );
-}
-
 /// A menu handler that runs `action` on the view for one row.
 pub(super) fn menu_action<Id: 'static>(
     view: WeakEntity<NativeView>,
@@ -426,10 +434,13 @@ fn preset_menu(
     let clone = MenuItem::new("clone", "Clone")
         .icon("book-copy")
         .disabled(busy)
-        .on_select(menu_action(view.clone(), id.clone(), |view, id, _, cx| {
-            let id = id.clone();
-            view.change_organization(OrganizationChange::ClonePreset { id }, cx);
-        }));
+        .on_select(menu_action(
+            view.clone(),
+            id.clone(),
+            |view, id, window, cx| {
+                view.clone_preset_optimistically(id.clone(), window, cx);
+            },
+        ));
     if preset.is_default() {
         return vec![clone];
     }
