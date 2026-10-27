@@ -3,8 +3,14 @@
 
 use super::controls::{Inactive, app_icon, button};
 use super::{Effect, NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, v_flex};
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
+use gpui_kit::component::{
+    ActiveTheme, Sizable, Size, button::ButtonVariants, progress::ProgressCircle, tooltip::Tooltip,
+    v_flex,
+};
+use gpui_kit::{
+    Animation, AnimationExt, AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, div, px,
+};
 use skillbinder_proto::{AppSnapshot, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
@@ -79,24 +85,150 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Library's "Update all (N)" while N is at least one, then Import.
+    /// Library's header update control, then Import.
     pub(super) fn library_header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        let mut actions = Vec::new();
-        let ids = available(&self.snapshot);
-        if !ids.is_empty() {
-            actions.push(
-                button("update-all")
-                    .icon(app_icon("upload-circle"))
-                    .label("Update all")
-                    .small()
-                    .primary()
-                    .inactive(self.busy)
-                    .on_click(cx.listener(move |view, _, _, cx| view.update(ids.clone(), cx)))
-                    .into_any_element(),
-            );
+        vec![self.library_update_button(cx), self.import_button(cx)]
+    }
+
+    /// The header's update control. It checks when nothing is known, updates when a skill has an
+    /// update, and shows the run's progress while either is in flight.
+    fn library_update_button(&self, cx: &mut Context<Self>) -> AnyElement {
+        if let Some((done, total)) = self.updating {
+            return div()
+                .id("library-update-progress")
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(24.))
+                .tooltip(move |window, cx| {
+                    Tooltip::new(format!("Updating {done} of {total} skills")).build(window, cx)
+                })
+                .child(
+                    ProgressCircle::new("library-update-circle")
+                        .value(Self::percent(done, total))
+                        .with_size(Size::Size(px(24.))),
+                )
+                .into_any_element();
         }
-        actions.push(self.import_button(cx));
-        actions
+        if self.checking {
+            return div()
+                .id("library-checking")
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(24.))
+                .tooltip(|window, cx| Tooltip::new("Checking skill updates").build(window, cx))
+                .child(Self::spinning_refresh())
+                .into_any_element();
+        }
+        if available(&self.snapshot).is_empty() {
+            button("library-check-updates")
+                .small()
+                .ghost()
+                .icon(app_icon("refresh-04"))
+                .inactive(self.busy)
+                .tooltip("Check for skill updates")
+                .on_click(cx.listener(|view, _, _, cx| view.check_for_updates(cx)))
+                .into_any_element()
+        } else {
+            button("library-update-skills")
+                .small()
+                .ghost()
+                .icon(app_icon("upload-circle"))
+                .inactive(self.busy)
+                .tooltip("Update skills")
+                .on_click(cx.listener(|view, _, _, cx| view.update_available(cx)))
+                .into_any_element()
+        }
+    }
+
+    /// Checks every source now and shows the results as the snapshot they publish.
+    fn check_for_updates(&mut self, cx: &mut Context<Self>) {
+        if self.busy || self.checking {
+            return;
+        }
+        self.checking = true;
+        self.error = None;
+        let client = self.client.clone();
+        cx.spawn(async move |this, cx| {
+            let result = client.check_now().await;
+            let _ = this.update(cx, |view, cx| {
+                view.checking = false;
+                if let Err(error) = result {
+                    view.error = Some(error);
+                }
+                view.receive(view.client.snapshot(), cx);
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Updates every skill with an update, one at a time, so the header can count them.
+    fn update_available(&mut self, cx: &mut Context<Self>) {
+        let ids = available(&self.snapshot);
+        if ids.is_empty() || self.busy || self.updating.is_some() {
+            return;
+        }
+        let total = ids.len();
+        self.busy = true;
+        self.error = None;
+        self.updating = Some((0, total));
+        let client = self.client.clone();
+        cx.spawn(async move |this, cx| {
+            let mut outcome = UpdateOutcome::default();
+            for (index, id) in ids.into_iter().enumerate() {
+                match client.update_skill(id).await {
+                    Ok(one) => {
+                        outcome.updated.extend(one.updated);
+                        outcome.failed.extend(one.failed);
+                    }
+                    Err(error) => {
+                        let _ = this.update(cx, |view, _| view.error = Some(error));
+                        break;
+                    }
+                }
+                let _ = this.update(cx, |view, cx| {
+                    view.updating = Some((index + 1, total));
+                    view.receive(view.client.snapshot(), cx);
+                    cx.notify();
+                });
+            }
+            // The agents' copies no longer match what was updated, so scan once at the end.
+            client.spawn_scan();
+            let _ = this.update(cx, |view, cx| {
+                view.busy = false;
+                view.updating = None;
+                if let Route::Skill(id) = &view.route
+                    && outcome.updated.contains(id)
+                {
+                    view.load_skill(id.clone(), cx);
+                }
+                view.update_outcome = Some(outcome);
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// `done` of `total` as a percentage.
+    fn percent(done: usize, total: usize) -> f32 {
+        if total == 0 {
+            100.
+        } else {
+            done as f32 / total as f32 * 100.
+        }
+    }
+
+    /// The check glyph turning once a second while a check runs.
+    fn spinning_refresh() -> impl IntoElement {
+        app_icon("refresh-04").with_animation(
+            "library-check-spin",
+            Animation::new(std::time::Duration::from_secs(1)).repeat(),
+            |icon, delta| icon.rotate(gpui_kit::radians(delta * std::f32::consts::TAU)),
+        )
     }
 
     /// A skill page's Reinstall button, while it can restore the skill's recorded content, and

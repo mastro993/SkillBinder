@@ -136,6 +136,10 @@ pub struct NativeView {
     optimistic_preset_name: Option<(PresetId, String)>,
     /// Created or cloned presets shown before the engine's snapshot arrives.
     optimistic_presets: Vec<sidebar_presets::OptimisticPreset>,
+    /// A source check is in flight, so the header's update button spins.
+    checking: bool,
+    /// How many skills an update run has finished of its total, while it runs.
+    updating: Option<(usize, usize)>,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
     sidebar_motion: u64,
     /// Collapsed sidebar still mounted for its closing motion.
@@ -261,6 +265,8 @@ impl NativeView {
             active_preset,
             optimistic_preset_name: None,
             optimistic_presets: Vec::new(),
+            checking: false,
+            updating: None,
             sidebar_motion: 0,
             sidebar_closing: false,
             resizing_sidebar: false,

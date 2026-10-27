@@ -7,86 +7,16 @@
   "renderer": {
     "package": "@hugeicons/react",
     "version": "1.1.10",
-    "defaults": {
-      "width": 24,
-      "height": 24,
-      "viewBox": "0 0 24 24",
-      "fill": "none",
-      "color": "currentColor"
-    },
+    "defaults": {"width": 24, "height": 24, "viewBox": "0 0 24 24", "fill": "none", "color": "currentColor"},
     "note": "Children use package geometry and renderer ordering for opacity-bearing elements. No application-specific size or color overrides are baked into these assets."
   },
   "glyphs": [
-    {
-      "name": "AlertCircleIcon",
-      "file": "AlertCircleIcon.svg",
-      "usedBy": [
-        "components/feedback/status-card.tsx",
-        "crates/ui/src/native_view/sidebar_projects.rs"
-      ],
-      "sourceModule": "dist/esm/AlertCircleIcon.js",
-      "sourceModuleSha256": "ae9ba6fdd8f7d4519c2e39c45b3ff77e497d827490da81cdb4500124cf91ce68",
-      "svgSha256": "8eecc9622c32204e594230b584db5e8f26384c6f097dd629deda721ba4988898",
-      "elementCount": 3
-    },
-    {
-      "name": "ArrowDown01Icon",
-      "file": "ArrowDown01Icon.svg",
-      "usedBy": [
-        "features/git-sync/components/git-sync-nav-status.tsx",
-        "crates/ui/src/native_view/sidebar_presets.rs"
-      ],
-      "sourceModule": "dist/esm/ArrowDown01Icon.js",
-      "sourceModuleSha256": "3e880ddfd6491df41ca3e7261b7862c4224d99a10aaa52a832156d3b0f50fcb8",
-      "svgSha256": "6bf96206d60962769a75ec4e33cd000cd76b2a7198fb2472ebfb3b425b159e96",
-      "elementCount": 1
-    },
-    {
-      "name": "ArrowLeft01Icon",
-      "file": "ArrowLeft01Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/ArrowLeft01Icon.js",
-      "sourceModuleSha256": "7fe0f420f68e9d8b94753a3a917f5cc4286281fe5f2ae7d7fc1b9c3bb7e9206e",
-      "svgSha256": "1bd27b544390c06f5fa44f20ab6b64ad50929c51e7adc0976e546beb8a347f7f",
-      "elementCount": 1
-    },
-    {
-      "name": "ArrowRight01Icon",
-      "file": "ArrowRight01Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/ArrowRight01Icon.js",
-      "sourceModuleSha256": "8929116230c031a6a4e756486528d31f8b8b495ae5b94e885fa3434d6a2709e8",
-      "svgSha256": "1e01eb8423d2782cc0b640adf151571dcabdab12d12f8cb2815465eb84b3d6e0",
-      "elementCount": 1
-    },
-    {
-      "name": "ArrowUp01Icon",
-      "file": "ArrowUp01Icon.svg",
-      "usedBy": [
-        "features/git-sync/components/git-sync-nav-status.tsx",
-        "crates/ui/src/native_view/sidebar_presets.rs"
-      ],
-      "sourceModule": "dist/esm/ArrowUp01Icon.js",
-      "sourceModuleSha256": "a565814bb81874b47d660d80d02f1b86a8d9cf394be5119fc3b25cf0ab719c49",
-      "svgSha256": "cf94ab62737fd202bd3486ce6b7a7cce07428b2194a3f74b43bccf28f83a76ac",
-      "elementCount": 1
-    },
-    {
-      "name": "BookCopyIcon",
-      "file": "BookCopyIcon.svg",
-      "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx",
-        "crates/ui/src/native_view/sidebar_presets.rs"
-      ],
-      "sourceModule": "dist/esm/BookCopyIcon.js",
-      "sourceModuleSha256": "a3bec601ac1230d0eb21dd84cd76434e4466cbaa541e892f273163579e2a44b9",
-      "svgSha256": "90cce0ce7e306b9165881f0dd8c1c64970641a8be48650cd3a21de65eb19954c",
-      "elementCount": 4
-    },
+    {"name": "AlertCircleIcon", "file": "AlertCircleIcon.svg", "usedBy": ["components/feedback/status-card.tsx", "crates/ui/src/native_view/sidebar_projects.rs"], "sourceModule": "dist/esm/AlertCircleIcon.js", "sourceModuleSha256": "ae9ba6fdd8f7d4519c2e39c45b3ff77e497d827490da81cdb4500124cf91ce68", "svgSha256": "8eecc9622c32204e594230b584db5e8f26384c6f097dd629deda721ba4988898", "elementCount": 3},
+    {"name": "ArrowDown01Icon", "file": "ArrowDown01Icon.svg", "usedBy": ["features/git-sync/components/git-sync-nav-status.tsx", "crates/ui/src/native_view/sidebar_presets.rs"], "sourceModule": "dist/esm/ArrowDown01Icon.js", "sourceModuleSha256": "3e880ddfd6491df41ca3e7261b7862c4224d99a10aaa52a832156d3b0f50fcb8", "svgSha256": "6bf96206d60962769a75ec4e33cd000cd76b2a7198fb2472ebfb3b425b159e96", "elementCount": 1},
+    {"name": "ArrowLeft01Icon", "file": "ArrowLeft01Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/ArrowLeft01Icon.js", "sourceModuleSha256": "7fe0f420f68e9d8b94753a3a917f5cc4286281fe5f2ae7d7fc1b9c3bb7e9206e", "svgSha256": "1bd27b544390c06f5fa44f20ab6b64ad50929c51e7adc0976e546beb8a347f7f", "elementCount": 1},
+    {"name": "ArrowRight01Icon", "file": "ArrowRight01Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/ArrowRight01Icon.js", "sourceModuleSha256": "8929116230c031a6a4e756486528d31f8b8b495ae5b94e885fa3434d6a2709e8", "svgSha256": "1e01eb8423d2782cc0b640adf151571dcabdab12d12f8cb2815465eb84b3d6e0", "elementCount": 1},
+    {"name": "ArrowUp01Icon", "file": "ArrowUp01Icon.svg", "usedBy": ["features/git-sync/components/git-sync-nav-status.tsx", "crates/ui/src/native_view/sidebar_presets.rs"], "sourceModule": "dist/esm/ArrowUp01Icon.js", "sourceModuleSha256": "a565814bb81874b47d660d80d02f1b86a8d9cf394be5119fc3b25cf0ab719c49", "svgSha256": "cf94ab62737fd202bd3486ce6b7a7cce07428b2194a3f74b43bccf28f83a76ac", "elementCount": 1},
+    {"name": "BookCopyIcon", "file": "BookCopyIcon.svg", "usedBy": ["features/onboarding/components/onboarding-steps.tsx", "crates/ui/src/native_view/sidebar_presets.rs"], "sourceModule": "dist/esm/BookCopyIcon.js", "sourceModuleSha256": "a3bec601ac1230d0eb21dd84cd76434e4466cbaa541e892f273163579e2a44b9", "svgSha256": "90cce0ce7e306b9165881f0dd8c1c64970641a8be48650cd3a21de65eb19954c", "elementCount": 4},
     {
       "name": "Cancel01Icon",
       "file": "Cancel01Icon.svg",
@@ -100,313 +30,36 @@
       "svgSha256": "0a70b4c71abe68b2b8c141223a14eb2a479c6bc320c6b44ba9da4bfeae405a40",
       "elementCount": 1,
       "usageOverrides": [
-        {
-          "usedBy": "components/ui/sheet.tsx",
-          "strokeWidth": 2,
-          "file": "Cancel01Icon-stroke-2.svg",
-          "svgSha256": "91eb53d8437d7bd1289203edb466be2457f74146c37890ec3bc0c23bb35e105e"
-        }
+        {"usedBy": "components/ui/sheet.tsx", "strokeWidth": 2, "file": "Cancel01Icon-stroke-2.svg", "svgSha256": "91eb53d8437d7bd1289203edb466be2457f74146c37890ec3bc0c23bb35e105e"}
       ]
     },
-    {
-      "name": "CheckmarkCircle02Icon",
-      "file": "CheckmarkCircle02Icon.svg",
-      "usedBy": [
-        "components/feedback/status-card.tsx"
-      ],
-      "sourceModule": "dist/esm/CheckmarkCircle02Icon.js",
-      "sourceModuleSha256": "596376acecdf28ee8e24a1932226baf9fa9e8315cba213a366c0318a485d5ccb",
-      "svgSha256": "245d75593b851ce0d286e99e3a7fce47eb2d9c9aeeeacc68b7a3889f31d3df98",
-      "elementCount": 2
-    },
-    {
-      "name": "CloudIcon",
-      "file": "CloudIcon.svg",
-      "usedBy": [
-        "features/git-sync/screens/git-sync-view.tsx",
-        "crates/ui/src/native_view/preset_icons.rs"
-      ],
-      "sourceModule": "dist/esm/CloudIcon.js",
-      "sourceModuleSha256": "6ce093446915c2fc77a8922ebfd8dc496d234bc6f36c681dad52a35f0f24f7fc",
-      "svgSha256": "5e0d3642f9fc1020983e587c7f434cd1ff651c1ef4df3956fb17fffa737b9cec",
-      "elementCount": 1
-    },
-    {
-      "name": "CodeFolderIcon",
-      "file": "CodeFolderIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar_projects.rs"
-      ],
-      "sourceModule": "dist/esm/CodeFolderIcon.js",
-      "sourceModuleSha256": "0563e708f2796b75e1c92e52263023f193df045fe1c98888e1b62796140db0ab",
-      "svgSha256": "edc2e20c414db47dbcd078f0f9aadb3ab3dc9591f7c79ac5adcd780d1040ee1e",
-      "elementCount": 4
-    },
-    {
-      "name": "Compass01Icon",
-      "file": "Compass01Icon.svg",
-      "usedBy": [
-        "components/layout/app-shell.tsx",
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/Compass01Icon.js",
-      "sourceModuleSha256": "8a8c10bd254890eb17ca555ac975b2dc1180609b4e72bad2136cd229ca493886",
-      "svgSha256": "1ca7b07a22792eab36402f11a943f84fb3d015b2f0b2d360384327eb8f6ce09c",
-      "elementCount": 5
-    },
-    {
-      "name": "Delete02Icon",
-      "file": "Delete02Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar_presets.rs"
-      ],
-      "sourceModule": "dist/esm/Delete02Icon.js",
-      "sourceModuleSha256": "9fde6c34c05b3600f954118ebc9d19184a610df8e992354c48e7fbb6e9cfc902",
-      "svgSha256": "179cf3901b034db2abd9f70b89aa386727c2159dbefe2851d27afee60e557c55",
-      "elementCount": 4
-    },
-    {
-      "name": "Folder01Icon",
-      "file": "Folder01Icon.svg",
-      "usedBy": [
-        "features/library/components/sidebar-folder-list.tsx",
-        "crates/ui/src/native_view/library_folders.rs",
-        "crates/ui/src/native_view/library_items.rs"
-      ],
-      "sourceModule": "dist/esm/Folder01Icon.js",
-      "sourceModuleSha256": "ee58c2dc8a6c7001ddf6147bbe4b39a55b1a40123f31418337373c6ec34b40c1",
-      "svgSha256": "b62de3453be2c540b91bb2d9212b3c77c0aebfd48c62c35bbc8e4f1b8e735386",
-      "elementCount": 1
-    },
-    {
-      "name": "FolderSearchIcon",
-      "file": "FolderSearchIcon.svg",
-      "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx"
-      ],
-      "sourceModule": "dist/esm/FolderSearchIcon.js",
-      "sourceModuleSha256": "e8922136acc16820076685d2f620fb03c73d53ac87dd8cafa83143df321c48d2",
-      "svgSha256": "a04b958cccf89959b1ede59308ab6532cfa78faede44686b1dfc96fd76ea37b0",
-      "elementCount": 2
-    },
-    {
-      "name": "GitBranchIcon",
-      "file": "GitBranchIcon.svg",
-      "usedBy": [
-        "components/layout/app-shell.tsx",
-        "features/git-sync/screens/git-sync-view.tsx",
-        "features/onboarding/components/onboarding-steps.tsx",
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/GitBranchIcon.js",
-      "sourceModuleSha256": "4d521561a4bde7d13bc45f38cf0b1f0983b817527792a2b1c36999e4d90aecc2",
-      "svgSha256": "e3ffcf9046b9182940273006255d149ea670ab584e537e1d68bf09a7823e4623",
-      "elementCount": 5
-    },
-    {
-      "name": "GithubIcon",
-      "file": "GithubIcon.svg",
-      "usedBy": [
-        "crates/ui/src/assets.rs"
-      ],
-      "sourceModule": "dist/esm/GithubIcon.js",
-      "sourceModuleSha256": "7d1797839ee0115a0ce7b19ad730d78c679d01daf01b4f900df1bf84ec38e4cd",
-      "svgSha256": "788846f2d0300212ae55196734ff6ac85bfd824cd1600025e1b32893e4706aae",
-      "elementCount": 2
-    },
-    {
-      "name": "GridViewIcon",
-      "file": "GridViewIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/library.rs"
-      ],
-      "sourceModule": "dist/esm/GridViewIcon.js",
-      "sourceModuleSha256": "5e1c735257308180ca23d77106b7fc32c5bb07b04224adb9d63c2787e5e0087f",
-      "svgSha256": "16dce2316de0122d784707b590069ee32990af15f4a856006aaa6f12bc63d294",
-      "elementCount": 4
-    },
-    {
-      "name": "HardDriveIcon",
-      "file": "HardDriveIcon.svg",
-      "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx"
-      ],
-      "sourceModule": "dist/esm/HardDriveIcon.js",
-      "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36",
-      "svgSha256": "bd935ffcbbd5911e5b862166645d72fa560e059b5b9e09191f33101da764f6f1",
-      "elementCount": 3
-    },
-    {
-      "name": "ImportIcon",
-      "file": "ImportIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/library_updates.rs"
-      ],
-      "sourceModule": "dist/esm/ImportIcon.js",
-      "sourceModuleSha256": "62adfabdf6496d18ec05d0bb5481f2895a8ad5a5813ea0d565475214fe688880",
-      "svgSha256": "dae3f9ce26af21304cc1bbff158b6bd701ddd3dc940fed518fda789c0386c954",
-      "elementCount": 3
-    },
-    {
-      "name": "Layers01Icon",
-      "file": "Layers01Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar_agents.rs",
-        "crates/ui/src/native_view/preset_icons.rs"
-      ],
-      "sourceModule": "dist/esm/Layers01Icon.js",
-      "sourceModuleSha256": "c01ab335820befd2eba53e296ecc0026c353d08125abce14f40bbc4b47a0aec8",
-      "svgSha256": "7c31ac13bd90c08892685d5678cc1eab849622ae275a422257a2be6c7ffc4b70",
-      "elementCount": 3
-    },
-    {
-      "name": "LayoutAlignLeftIcon",
-      "file": "LayoutAlignLeftIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/shell.rs"
-      ],
-      "sourceModule": "dist/esm/LayoutAlignLeftIcon.js",
-      "sourceModuleSha256": "7809c75865486a0eddca152a2da607a5e21347e6d94be79c936fc2567ee52632",
-      "svgSha256": "a8479524ef24c3ee0860f6e446208291edd94fc9fb267e966c94a18bb8486a02",
-      "elementCount": 2
-    },
-    {
-      "name": "LayoutLeftIcon",
-      "file": "LayoutLeftIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/shell.rs"
-      ],
-      "sourceModule": "dist/esm/LayoutLeftIcon.js",
-      "sourceModuleSha256": "5ebae4a5cc00ee1fa45d4bf3ea04fac124921aed292b611531fa8bd395e3ca7c",
-      "svgSha256": "2740cf8ea59a2808c7ec54d3be17701997616770c023ef9614186d70dd612495",
-      "elementCount": 2
-    },
-    {
-      "name": "LibrariesIcon",
-      "file": "LibrariesIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/LibrariesIcon.js",
-      "sourceModuleSha256": "9ec418a357e060af73e83beb82b9291e3d51865615915fccdd7c089a4cb59bcc",
-      "svgSha256": "8bc391df5495a41ad710def3633795ea1f3714ef996139508946e7fd826b80c5",
-      "elementCount": 3
-    },
-    {
-      "name": "ListViewIcon",
-      "file": "ListViewIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/library.rs"
-      ],
-      "sourceModule": "dist/esm/ListViewIcon.js",
-      "sourceModuleSha256": "0b18f4c388cc58e2716571020fa12c24e7ac739b8e5424e72e3070dd12557ec6",
-      "svgSha256": "a66775c61fe04394b276cf1b4a6a5d0cdcbba640e72247cb9eaa9963bfaa2a60",
-      "elementCount": 3
-    },
-    {
-      "name": "Loading03Icon",
-      "file": "Loading03Icon.svg",
-      "usedBy": [
-        "components/ui/spinner.tsx"
-      ],
-      "sourceModule": "dist/esm/Loading03Icon.js",
-      "sourceModuleSha256": "c15c7f78d53ee23e3d9e5e57c0d36959d031536eb545a9d6479c8cb44c2d1bc4",
-      "svgSha256": "f7ae406659f9069feb8b0967890cfd24b41c3e44fa3b57a97fcf410c92a86ba2",
-      "elementCount": 8
-    },
-    {
-      "name": "Moon02Icon",
-      "file": "Moon02Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/Moon02Icon.js",
-      "sourceModuleSha256": "4668e1c4c1066c198ae809e31996cf693dc5ddd8785c411bcb45c4857ab31ec6",
-      "svgSha256": "ac6e3e471b416dc8f99332476511d89ec67d2311bda276174ff18810e5599fd1",
-      "elementCount": 1
-    },
-    {
-      "name": "PaintBoardIcon",
-      "file": "PaintBoardIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar_presets.rs"
-      ],
-      "sourceModule": "dist/esm/PaintBoardIcon.js",
-      "sourceModuleSha256": "efff541a68a5d9ef417dbe3411cd564de37d8f3d229999b1c0cf6e99de53a198",
-      "svgSha256": "b40b0681b4f1365cadcf08d8a648ea1d9bfb955de0f938e1c60416324e8cc881",
-      "elementCount": 4
-    },
-    {
-      "name": "PencilEdit02Icon",
-      "file": "PencilEdit02Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar_presets.rs"
-      ],
-      "sourceModule": "dist/esm/PencilEdit02Icon.js",
-      "sourceModuleSha256": "0e1edcf185036bff82eab91e0e39c3030fc99c38c57b9fb7b166fd51b10626cc",
-      "svgSha256": "7d0c2f20046eeef1d94263dc97bd025b6343e220d7bcf9305d58581d90c6c1bd",
-      "elementCount": 2
-    },
-    {
-      "name": "PlusSignIcon",
-      "file": "PlusSignIcon.svg",
-      "usedBy": [
-        "features/discovery/components/discovery-roots-panel.tsx",
-        "features/library/components/sidebar-folder-list.tsx",
-        "crates/ui/src/native_view/sidebar_presets.rs"
-      ],
-      "sourceModule": "dist/esm/PlusSignIcon.js",
-      "sourceModuleSha256": "6569be537715da9149e59593c46665caff88a04a26f495ed54c6203c6691df88",
-      "svgSha256": "55afede25d5295e4ca51250240c826e33853175b206002af910e127a468f8290",
-      "elementCount": 1
-    },
-    {
-      "name": "Refresh03Icon",
-      "file": "Refresh03Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar_row.rs"
-      ],
-      "sourceModule": "dist/esm/Refresh03Icon.js",
-      "sourceModuleSha256": "721f4168013230d87fe4ddd1caa6b4aa0b195f667d4246c416cb6398948ebfef",
-      "svgSha256": "ff9a296c769aeac60e2d7f84c8815e5f291472e88c7be029c48e3de46d2630f2",
-      "elementCount": 3
-    },
-    {
-      "name": "RefreshIcon",
-      "file": "RefreshIcon.svg",
-      "usedBy": [
-        "features/git-sync/screens/git-sync-view.tsx",
-        "features/onboarding/components/onboarding-steps.tsx",
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/RefreshIcon.js",
-      "sourceModuleSha256": "e3d01c2d958567182b44c96b62f4f9b164f3dfe7f54d65be059da1691d26ae54",
-      "svgSha256": "d257ffdf65abb696f448c7864e6dbf58583135c46e3be832587d82ec04c6e857",
-      "elementCount": 1
-    },
-    {
-      "name": "Search01Icon",
-      "file": "Search01Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/library.rs"
-      ],
-      "sourceModule": "dist/esm/Search01Icon.js",
-      "sourceModuleSha256": "5eb73819dbcc1b824c71da70ecfe45620ead6a442a265b41195960bb4e0748f8",
-      "svgSha256": "4cbacf2bce41852bd26f796ff0212fe63259f033c4d407fed502e7dd9f0d9a0e",
-      "elementCount": 2
-    },
-    {
-      "name": "Settings01Icon",
-      "file": "Settings01Icon.svg",
-      "usedBy": [
-        "components/layout/app-shell.tsx",
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/Settings01Icon.js",
-      "sourceModuleSha256": "2a786adfc5785d70757a7d86faea37ba6d731e159668b57736113a829eb2901f",
-      "svgSha256": "d2eb8f072d1604b721fb78b524a8868fe96bf08cd697047e3a41b689bfee5cd1",
-      "elementCount": 2
-    },
+    {"name": "CheckmarkCircle02Icon", "file": "CheckmarkCircle02Icon.svg", "usedBy": ["components/feedback/status-card.tsx"], "sourceModule": "dist/esm/CheckmarkCircle02Icon.js", "sourceModuleSha256": "596376acecdf28ee8e24a1932226baf9fa9e8315cba213a366c0318a485d5ccb", "svgSha256": "245d75593b851ce0d286e99e3a7fce47eb2d9c9aeeeacc68b7a3889f31d3df98", "elementCount": 2},
+    {"name": "CloudIcon", "file": "CloudIcon.svg", "usedBy": ["features/git-sync/screens/git-sync-view.tsx", "crates/ui/src/native_view/preset_icons.rs"], "sourceModule": "dist/esm/CloudIcon.js", "sourceModuleSha256": "6ce093446915c2fc77a8922ebfd8dc496d234bc6f36c681dad52a35f0f24f7fc", "svgSha256": "5e0d3642f9fc1020983e587c7f434cd1ff651c1ef4df3956fb17fffa737b9cec", "elementCount": 1},
+    {"name": "CodeFolderIcon", "file": "CodeFolderIcon.svg", "usedBy": ["crates/ui/src/native_view/sidebar_projects.rs"], "sourceModule": "dist/esm/CodeFolderIcon.js", "sourceModuleSha256": "0563e708f2796b75e1c92e52263023f193df045fe1c98888e1b62796140db0ab", "svgSha256": "edc2e20c414db47dbcd078f0f9aadb3ab3dc9591f7c79ac5adcd780d1040ee1e", "elementCount": 4},
+    {"name": "Compass01Icon", "file": "Compass01Icon.svg", "usedBy": ["components/layout/app-shell.tsx", "crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/Compass01Icon.js", "sourceModuleSha256": "8a8c10bd254890eb17ca555ac975b2dc1180609b4e72bad2136cd229ca493886", "svgSha256": "1ca7b07a22792eab36402f11a943f84fb3d015b2f0b2d360384327eb8f6ce09c", "elementCount": 5},
+    {"name": "Delete02Icon", "file": "Delete02Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar_presets.rs"], "sourceModule": "dist/esm/Delete02Icon.js", "sourceModuleSha256": "9fde6c34c05b3600f954118ebc9d19184a610df8e992354c48e7fbb6e9cfc902", "svgSha256": "179cf3901b034db2abd9f70b89aa386727c2159dbefe2851d27afee60e557c55", "elementCount": 4},
+    {"name": "Folder01Icon", "file": "Folder01Icon.svg", "usedBy": ["features/library/components/sidebar-folder-list.tsx", "crates/ui/src/native_view/library_folders.rs", "crates/ui/src/native_view/library_items.rs"], "sourceModule": "dist/esm/Folder01Icon.js", "sourceModuleSha256": "ee58c2dc8a6c7001ddf6147bbe4b39a55b1a40123f31418337373c6ec34b40c1", "svgSha256": "b62de3453be2c540b91bb2d9212b3c77c0aebfd48c62c35bbc8e4f1b8e735386", "elementCount": 1},
+    {"name": "FolderSearchIcon", "file": "FolderSearchIcon.svg", "usedBy": ["features/onboarding/components/onboarding-steps.tsx"], "sourceModule": "dist/esm/FolderSearchIcon.js", "sourceModuleSha256": "e8922136acc16820076685d2f620fb03c73d53ac87dd8cafa83143df321c48d2", "svgSha256": "a04b958cccf89959b1ede59308ab6532cfa78faede44686b1dfc96fd76ea37b0", "elementCount": 2},
+    {"name": "GitBranchIcon", "file": "GitBranchIcon.svg", "usedBy": ["components/layout/app-shell.tsx", "features/git-sync/screens/git-sync-view.tsx", "features/onboarding/components/onboarding-steps.tsx", "crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/GitBranchIcon.js", "sourceModuleSha256": "4d521561a4bde7d13bc45f38cf0b1f0983b817527792a2b1c36999e4d90aecc2", "svgSha256": "e3ffcf9046b9182940273006255d149ea670ab584e537e1d68bf09a7823e4623", "elementCount": 5},
+    {"name": "GithubIcon", "file": "GithubIcon.svg", "usedBy": ["crates/ui/src/assets.rs"], "sourceModule": "dist/esm/GithubIcon.js", "sourceModuleSha256": "7d1797839ee0115a0ce7b19ad730d78c679d01daf01b4f900df1bf84ec38e4cd", "svgSha256": "788846f2d0300212ae55196734ff6ac85bfd824cd1600025e1b32893e4706aae", "elementCount": 2},
+    {"name": "GridViewIcon", "file": "GridViewIcon.svg", "usedBy": ["crates/ui/src/native_view/library.rs"], "sourceModule": "dist/esm/GridViewIcon.js", "sourceModuleSha256": "5e1c735257308180ca23d77106b7fc32c5bb07b04224adb9d63c2787e5e0087f", "svgSha256": "16dce2316de0122d784707b590069ee32990af15f4a856006aaa6f12bc63d294", "elementCount": 4},
+    {"name": "HardDriveIcon", "file": "HardDriveIcon.svg", "usedBy": ["features/onboarding/components/onboarding-steps.tsx"], "sourceModule": "dist/esm/HardDriveIcon.js", "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36", "svgSha256": "bd935ffcbbd5911e5b862166645d72fa560e059b5b9e09191f33101da764f6f1", "elementCount": 3},
+    {"name": "ImportIcon", "file": "ImportIcon.svg", "usedBy": ["crates/ui/src/native_view/library_updates.rs"], "sourceModule": "dist/esm/ImportIcon.js", "sourceModuleSha256": "62adfabdf6496d18ec05d0bb5481f2895a8ad5a5813ea0d565475214fe688880", "svgSha256": "dae3f9ce26af21304cc1bbff158b6bd701ddd3dc940fed518fda789c0386c954", "elementCount": 3},
+    {"name": "Layers01Icon", "file": "Layers01Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar_agents.rs", "crates/ui/src/native_view/preset_icons.rs"], "sourceModule": "dist/esm/Layers01Icon.js", "sourceModuleSha256": "c01ab335820befd2eba53e296ecc0026c353d08125abce14f40bbc4b47a0aec8", "svgSha256": "7c31ac13bd90c08892685d5678cc1eab849622ae275a422257a2be6c7ffc4b70", "elementCount": 3},
+    {"name": "LayoutAlignLeftIcon", "file": "LayoutAlignLeftIcon.svg", "usedBy": ["crates/ui/src/native_view/shell.rs"], "sourceModule": "dist/esm/LayoutAlignLeftIcon.js", "sourceModuleSha256": "7809c75865486a0eddca152a2da607a5e21347e6d94be79c936fc2567ee52632", "svgSha256": "a8479524ef24c3ee0860f6e446208291edd94fc9fb267e966c94a18bb8486a02", "elementCount": 2},
+    {"name": "LayoutLeftIcon", "file": "LayoutLeftIcon.svg", "usedBy": ["crates/ui/src/native_view/shell.rs"], "sourceModule": "dist/esm/LayoutLeftIcon.js", "sourceModuleSha256": "5ebae4a5cc00ee1fa45d4bf3ea04fac124921aed292b611531fa8bd395e3ca7c", "svgSha256": "2740cf8ea59a2808c7ec54d3be17701997616770c023ef9614186d70dd612495", "elementCount": 2},
+    {"name": "LibrariesIcon", "file": "LibrariesIcon.svg", "usedBy": ["crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/LibrariesIcon.js", "sourceModuleSha256": "9ec418a357e060af73e83beb82b9291e3d51865615915fccdd7c089a4cb59bcc", "svgSha256": "8bc391df5495a41ad710def3633795ea1f3714ef996139508946e7fd826b80c5", "elementCount": 3},
+    {"name": "ListViewIcon", "file": "ListViewIcon.svg", "usedBy": ["crates/ui/src/native_view/library.rs"], "sourceModule": "dist/esm/ListViewIcon.js", "sourceModuleSha256": "0b18f4c388cc58e2716571020fa12c24e7ac739b8e5424e72e3070dd12557ec6", "svgSha256": "a66775c61fe04394b276cf1b4a6a5d0cdcbba640e72247cb9eaa9963bfaa2a60", "elementCount": 3},
+    {"name": "Loading03Icon", "file": "Loading03Icon.svg", "usedBy": ["components/ui/spinner.tsx"], "sourceModule": "dist/esm/Loading03Icon.js", "sourceModuleSha256": "c15c7f78d53ee23e3d9e5e57c0d36959d031536eb545a9d6479c8cb44c2d1bc4", "svgSha256": "f7ae406659f9069feb8b0967890cfd24b41c3e44fa3b57a97fcf410c92a86ba2", "elementCount": 8},
+    {"name": "Moon02Icon", "file": "Moon02Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/Moon02Icon.js", "sourceModuleSha256": "4668e1c4c1066c198ae809e31996cf693dc5ddd8785c411bcb45c4857ab31ec6", "svgSha256": "ac6e3e471b416dc8f99332476511d89ec67d2311bda276174ff18810e5599fd1", "elementCount": 1},
+    {"name": "PaintBoardIcon", "file": "PaintBoardIcon.svg", "usedBy": ["crates/ui/src/native_view/sidebar_presets.rs"], "sourceModule": "dist/esm/PaintBoardIcon.js", "sourceModuleSha256": "efff541a68a5d9ef417dbe3411cd564de37d8f3d229999b1c0cf6e99de53a198", "svgSha256": "b40b0681b4f1365cadcf08d8a648ea1d9bfb955de0f938e1c60416324e8cc881", "elementCount": 4},
+    {"name": "PencilEdit02Icon", "file": "PencilEdit02Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar_presets.rs"], "sourceModule": "dist/esm/PencilEdit02Icon.js", "sourceModuleSha256": "0e1edcf185036bff82eab91e0e39c3030fc99c38c57b9fb7b166fd51b10626cc", "svgSha256": "7d0c2f20046eeef1d94263dc97bd025b6343e220d7bcf9305d58581d90c6c1bd", "elementCount": 2},
+    {"name": "PlusSignIcon", "file": "PlusSignIcon.svg", "usedBy": ["features/discovery/components/discovery-roots-panel.tsx", "features/library/components/sidebar-folder-list.tsx", "crates/ui/src/native_view/sidebar_presets.rs"], "sourceModule": "dist/esm/PlusSignIcon.js", "sourceModuleSha256": "6569be537715da9149e59593c46665caff88a04a26f495ed54c6203c6691df88", "svgSha256": "55afede25d5295e4ca51250240c826e33853175b206002af910e127a468f8290", "elementCount": 1},
+    {"name": "Refresh03Icon", "file": "Refresh03Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar_row.rs"], "sourceModule": "dist/esm/Refresh03Icon.js", "sourceModuleSha256": "721f4168013230d87fe4ddd1caa6b4aa0b195f667d4246c416cb6398948ebfef", "svgSha256": "ff9a296c769aeac60e2d7f84c8815e5f291472e88c7be029c48e3de46d2630f2", "elementCount": 3},
+    {"name": "Refresh04Icon", "file": "Refresh04Icon.svg", "usedBy": ["crates/ui/src/native_view/library_updates.rs"], "sourceModule": "dist/esm/Refresh04Icon.js", "sourceModuleSha256": "6a700bd2bf8ea9c5a9377341209f11137668815966ce951b116cc4f526271296", "svgSha256": "0b619226b0af5e1fba8b2e38ef89dab4a22604864762beeb1a012d97cbaa7bd4", "elementCount": 3},
+    {"name": "RefreshIcon", "file": "RefreshIcon.svg", "usedBy": ["features/git-sync/screens/git-sync-view.tsx", "features/onboarding/components/onboarding-steps.tsx", "crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/RefreshIcon.js", "sourceModuleSha256": "e3d01c2d958567182b44c96b62f4f9b164f3dfe7f54d65be059da1691d26ae54", "svgSha256": "d257ffdf65abb696f448c7864e6dbf58583135c46e3be832587d82ec04c6e857", "elementCount": 1},
+    {"name": "Search01Icon", "file": "Search01Icon.svg", "usedBy": ["crates/ui/src/native_view/library.rs"], "sourceModule": "dist/esm/Search01Icon.js", "sourceModuleSha256": "5eb73819dbcc1b824c71da70ecfe45620ead6a442a265b41195960bb4e0748f8", "svgSha256": "4cbacf2bce41852bd26f796ff0212fe63259f033c4d407fed502e7dd9f0d9a0e", "elementCount": 2},
+    {"name": "Settings01Icon", "file": "Settings01Icon.svg", "usedBy": ["components/layout/app-shell.tsx", "crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/Settings01Icon.js", "sourceModuleSha256": "2a786adfc5785d70757a7d86faea37ba6d731e159668b57736113a829eb2901f", "svgSha256": "d2eb8f072d1604b721fb78b524a8868fe96bf08cd697047e3a41b689bfee5cd1", "elementCount": 2},
     {
       "name": "SidebarLeftIcon",
       "file": "SidebarLeftIcon.svg",
@@ -418,70 +71,14 @@
       "svgSha256": "f0b3b83252e597b4a4f4eed8ba794267b96eaa62db61c2da01b870524d4df87c",
       "elementCount": 3,
       "usageOverrides": [
-        {
-          "usedBy": "components/ui/sidebar.tsx",
-          "strokeWidth": 2,
-          "file": "SidebarLeftIcon-stroke-2.svg",
-          "svgSha256": "149f1ac66f48e73054fd7bf6da60bc72b459fc945882c00eb5078b99bc24ec49"
-        }
+        {"usedBy": "components/ui/sidebar.tsx", "strokeWidth": 2, "file": "SidebarLeftIcon-stroke-2.svg", "svgSha256": "149f1ac66f48e73054fd7bf6da60bc72b459fc945882c00eb5078b99bc24ec49"}
       ]
     },
-    {
-      "name": "SparkleIcon",
-      "file": "SparkleIcon.svg",
-      "usedBy": [
-        "components/layout/app-shell.tsx"
-      ],
-      "sourceModule": "dist/esm/SparkleIcon.js",
-      "sourceModuleSha256": "3ec3bd8711b8a9f14a5b125d687d47308bd99c2940b773d04f619cfab3a0477b",
-      "svgSha256": "c600d8736286c964d065c83c5682b66c70c6a3e172c28849f8acf89d5057d1d4",
-      "elementCount": 1
-    },
-    {
-      "name": "SparklesIcon",
-      "file": "SparklesIcon.svg",
-      "usedBy": [
-        "components/layout/app-shell.tsx",
-        "crates/ui/src/native_view/preset_icons.rs"
-      ],
-      "sourceModule": "dist/esm/SparklesIcon.js",
-      "sourceModuleSha256": "0b08fb0697a72ca06c721ab2a98a63ea5858b1ed0544977e9d133bfde34ff3ee",
-      "svgSha256": "c5cab67bc0fe74dabe3ce01b71bcc9d61ed05979cb3b32640df9e75f7aac1086",
-      "elementCount": 2
-    },
-    {
-      "name": "SquareLock02Icon",
-      "file": "SquareLock02Icon.svg",
-      "usedBy": [
-        "features/onboarding/components/onboarding-steps.tsx"
-      ],
-      "sourceModule": "dist/esm/SquareLock02Icon.js",
-      "sourceModuleSha256": "7c3ca044758757e925775b73557c9d4b07561b2e5990264cc20b6a8d76430148",
-      "svgSha256": "561e979df3a7d522562410362be020371b707c5e28ca0cc1d13ffaa6e4da0ff2",
-      "elementCount": 3
-    },
-    {
-      "name": "SquareTerminalIcon",
-      "file": "SquareTerminalIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/controls.rs"
-      ],
-      "sourceModule": "dist/esm/SquareTerminalIcon.js",
-      "sourceModuleSha256": "54fb6c5f32bc1b8537c58105d72411e345e356bde239833cf691e9b0c1c83487",
-      "svgSha256": "391efa305193a8f2e1f886bfc108ea5f634dac1e28623f70bd753b3211c1410d",
-      "elementCount": 3
-    },
-    {
-      "name": "Sun03Icon",
-      "file": "Sun03Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/sidebar.rs"
-      ],
-      "sourceModule": "dist/esm/Sun03Icon.js",
-      "sourceModuleSha256": "55da814690d01d88ea8dddc1bccb42a4b09a43cd3cb10af44916830dfee7bbce",
-      "svgSha256": "e208c5fcdf7c04900f52d0f23412963f73e369b1aa72c28a1d63d834de243c3b",
-      "elementCount": 2
-    },
+    {"name": "SparkleIcon", "file": "SparkleIcon.svg", "usedBy": ["components/layout/app-shell.tsx"], "sourceModule": "dist/esm/SparkleIcon.js", "sourceModuleSha256": "3ec3bd8711b8a9f14a5b125d687d47308bd99c2940b773d04f619cfab3a0477b", "svgSha256": "c600d8736286c964d065c83c5682b66c70c6a3e172c28849f8acf89d5057d1d4", "elementCount": 1},
+    {"name": "SparklesIcon", "file": "SparklesIcon.svg", "usedBy": ["components/layout/app-shell.tsx", "crates/ui/src/native_view/preset_icons.rs"], "sourceModule": "dist/esm/SparklesIcon.js", "sourceModuleSha256": "0b08fb0697a72ca06c721ab2a98a63ea5858b1ed0544977e9d133bfde34ff3ee", "svgSha256": "c5cab67bc0fe74dabe3ce01b71bcc9d61ed05979cb3b32640df9e75f7aac1086", "elementCount": 2},
+    {"name": "SquareLock02Icon", "file": "SquareLock02Icon.svg", "usedBy": ["features/onboarding/components/onboarding-steps.tsx"], "sourceModule": "dist/esm/SquareLock02Icon.js", "sourceModuleSha256": "7c3ca044758757e925775b73557c9d4b07561b2e5990264cc20b6a8d76430148", "svgSha256": "561e979df3a7d522562410362be020371b707c5e28ca0cc1d13ffaa6e4da0ff2", "elementCount": 3},
+    {"name": "SquareTerminalIcon", "file": "SquareTerminalIcon.svg", "usedBy": ["crates/ui/src/native_view/controls.rs"], "sourceModule": "dist/esm/SquareTerminalIcon.js", "sourceModuleSha256": "54fb6c5f32bc1b8537c58105d72411e345e356bde239833cf691e9b0c1c83487", "svgSha256": "391efa305193a8f2e1f886bfc108ea5f634dac1e28623f70bd753b3211c1410d", "elementCount": 3},
+    {"name": "Sun03Icon", "file": "Sun03Icon.svg", "usedBy": ["crates/ui/src/native_view/sidebar.rs"], "sourceModule": "dist/esm/Sun03Icon.js", "sourceModuleSha256": "55da814690d01d88ea8dddc1bccb42a4b09a43cd3cb10af44916830dfee7bbce", "svgSha256": "e208c5fcdf7c04900f52d0f23412963f73e369b1aa72c28a1d63d834de243c3b", "elementCount": 2},
     {
       "name": "Tick02Icon",
       "file": "Tick02Icon.svg",
@@ -493,35 +90,10 @@
       "svgSha256": "b194213dd33124f022d08ceb8337edc222a33499ea78732d1e9ac65f07f44d36",
       "elementCount": 1,
       "usageOverrides": [
-        {
-          "usedBy": "crates/ui/src/native_view/sidebar_row.rs",
-          "strokeWidth": 2,
-          "file": "Tick02Icon-stroke-2.svg",
-          "svgSha256": "892a0fc7b4d27ddba3fa12daacee198f005ada9d7c1805f9dd91f555ef1a1e93"
-        }
+        {"usedBy": "crates/ui/src/native_view/sidebar_row.rs", "strokeWidth": 2, "file": "Tick02Icon-stroke-2.svg", "svgSha256": "892a0fc7b4d27ddba3fa12daacee198f005ada9d7c1805f9dd91f555ef1a1e93"}
       ]
     },
-    {
-      "name": "UnplugIcon",
-      "file": "UnplugIcon.svg",
-      "usedBy": [
-        "features/git-sync/screens/git-sync-view.tsx"
-      ],
-      "sourceModule": "dist/esm/UnplugIcon.js",
-      "sourceModuleSha256": "875b151bca0b2998972f3cfecc5e2b19f2360af470c557bdd893f12110c35a39",
-      "svgSha256": "f8b79c6c9c1b6bfe985c8713b049530d983930791f2a3a3d19c40661571d7714",
-      "elementCount": 5
-    },
-    {
-      "name": "UploadCircle01Icon",
-      "file": "UploadCircle01Icon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/library_updates.rs"
-      ],
-      "sourceModule": "dist/esm/UploadCircle01Icon.js",
-      "sourceModuleSha256": "a3a3be4ab47242c35d68de25d3a2c257c25929c938641f3db365534f7da52843",
-      "svgSha256": "3afe58cbcc7a052b94aa47fe6a64bd7a8fc92fa0825ab0ce9634fb9ad01a602d",
-      "elementCount": 2
-    }
+    {"name": "UnplugIcon", "file": "UnplugIcon.svg", "usedBy": ["features/git-sync/screens/git-sync-view.tsx"], "sourceModule": "dist/esm/UnplugIcon.js", "sourceModuleSha256": "875b151bca0b2998972f3cfecc5e2b19f2360af470c557bdd893f12110c35a39", "svgSha256": "f8b79c6c9c1b6bfe985c8713b049530d983930791f2a3a3d19c40661571d7714", "elementCount": 5},
+    {"name": "UploadCircle01Icon", "file": "UploadCircle01Icon.svg", "usedBy": ["crates/ui/src/native_view/library_updates.rs"], "sourceModule": "dist/esm/UploadCircle01Icon.js", "sourceModuleSha256": "a3a3be4ab47242c35d68de25d3a2c257c25929c938641f3db365534f7da52843", "svgSha256": "3afe58cbcc7a052b94aa47fe6a64bd7a8fc92fa0825ab0ce9634fb9ad01a602d", "elementCount": 2}
   ]
 }

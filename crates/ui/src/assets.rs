@@ -70,6 +70,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("puzzle", "PuzzleIcon"),
     icon!("quill", "QuillWrite01Icon"),
     icon!("refresh", "RefreshIcon"),
+    icon!("refresh-04", "Refresh04Icon"),
     icon!("refresh-03", "Refresh03Icon"),
     icon!("robot", "Robot01Icon"),
     icon!("rocket", "Rocket01Icon"),

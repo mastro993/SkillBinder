@@ -241,6 +241,24 @@ impl Client {
             }
         }
     }
+    /// Checks every source now, whatever the interval since its last check, and publishes the
+    /// results. A check already running leaves this with nothing to publish.
+    pub async fn check_now(&self) -> AppResult<()> {
+        let checked = self
+            .shared
+            .engine
+            .check_updates(std::time::Duration::ZERO)
+            .await;
+        self.refresh_preserving_outcome(checked).await.map(|_| ())
+    }
+
+    /// Updates one library skill from its source, without the rescan a whole batch ends with, so a
+    /// caller updating several skills can report each one as it lands.
+    pub async fn update_skill(&self, id: SkillId) -> AppResult<UpdateOutcome> {
+        self.refresh_preserving_outcome(self.shared.engine.update_skills(vec![id]).await)
+            .await
+    }
+
     /// Replaces the selected skills' content with their sources' current content, then scans
     /// again, since the agents' copies no longer match the updated skills.
     pub async fn update_skills(&self, ids: Vec<SkillId>) -> AppResult<UpdateOutcome> {
