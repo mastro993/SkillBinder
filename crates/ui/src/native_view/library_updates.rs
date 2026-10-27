@@ -70,8 +70,9 @@ impl NativeView {
         button("library-import")
             .small()
             .ghost()
-            .icon(app_icon("arrow-down-to-line"))
-            .label("Import")
+            .icon(app_icon("import"))
+            .accessibility_label("Import")
+            .tooltip("Import")
             .on_click(cx.listener(|view, _, window, cx| {
                 view.navigate(Route::Discovery, window, cx);
             }))

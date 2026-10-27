@@ -42,17 +42,6 @@
       "elementCount": 1
     },
     {
-      "name": "ArrowDownToLineIcon",
-      "file": "ArrowDownToLineIcon.svg",
-      "usedBy": [
-        "crates/ui/src/native_view/library_updates.rs"
-      ],
-      "sourceModule": "dist/esm/ArrowDownToLineIcon.js",
-      "sourceModuleSha256": "18d63a2e67849bca11ad1591e933ab134f5714aaefadac4fb1773d7b4b5c8bd9",
-      "svgSha256": "ca34ab7b794412d28d03ec13ba98242b156957307303e0cc90c63c3d7b686956",
-      "elementCount": 3
-    },
-    {
       "name": "ArrowLeft01Icon",
       "file": "ArrowLeft01Icon.svg",
       "usedBy": [
@@ -245,6 +234,17 @@
       "sourceModule": "dist/esm/HardDriveIcon.js",
       "sourceModuleSha256": "31407cd140bff2ffff763a81c44806f6cbf6ff8bf0a860fd25b34d7b1233ab36",
       "svgSha256": "bd935ffcbbd5911e5b862166645d72fa560e059b5b9e09191f33101da764f6f1",
+      "elementCount": 3
+    },
+    {
+      "name": "ImportIcon",
+      "file": "ImportIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/library_updates.rs"
+      ],
+      "sourceModule": "dist/esm/ImportIcon.js",
+      "sourceModuleSha256": "62adfabdf6496d18ec05d0bb5481f2895a8ad5a5813ea0d565475214fe688880",
+      "svgSha256": "dae3f9ce26af21304cc1bbff158b6bd701ddd3dc940fed518fda789c0386c954",
       "elementCount": 3
     },
     {
