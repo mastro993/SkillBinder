@@ -127,7 +127,6 @@ impl NativeView {
                 button("update-all")
                     .icon(app_icon("upload-circle"))
                     .label("Update all")
-                    .child(count_kbd(ids.len()))
                     .small()
                     .primary()
                     .inactive(self.busy)
