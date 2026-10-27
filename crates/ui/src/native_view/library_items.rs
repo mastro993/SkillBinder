@@ -112,8 +112,8 @@ impl NativeView {
                                 line.child(drift_glyph(&item.skill.id, cx))
                             }),
                     )
-                    .child(description(item.description, 1, cx))
-                    .child(meta_line(item, cx)),
+                    .child(meta_line(item, cx))
+                    .child(description(item.description, 1, cx)),
             )
             .child(h_flex().flex_shrink_0().child(presence(item, ring, cx)))
             .when(!last, |row| row.child(divider(cx)));
@@ -171,20 +171,14 @@ impl NativeView {
                         line.child(self.update_button("card", &item.skill.id, cx))
                     }),
             )
+            .child(meta_line(item, cx))
             .child(
                 div()
                     .flex_1()
                     .min_w_0()
                     .child(description(item.description, 2, cx)),
             )
-            .child(
-                h_flex()
-                    .items_center()
-                    .gap_2()
-                    .child(presence(item, ring, cx))
-                    .child(div().flex_1())
-                    .child(dates_inline(item, cx)),
-            );
+            .child(h_flex().items_center().child(presence(item, ring, cx)));
         frame(self, card, &id, owner, item, cx)
     }
 }
@@ -244,7 +238,7 @@ fn meta_line(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
     div()
         .id(format!("meta-{}", item.skill.id))
         .text_size(px(11.5))
-        .text_color(cx.theme().muted_foreground)
+        .text_color(cx.theme().muted_foreground.opacity(0.8))
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
         .child(parts.join(" · "))
 }
@@ -261,19 +255,6 @@ fn update_glyph(id: &SkillId, cx: &App) -> AnyElement {
         )
         .tooltip(|window, cx| Tooltip::new("Update available").build(window, cx))
         .into_any_element()
-}
-
-/// "320 files · 2 hours ago", for a grid tile's single footer line.
-fn dates_inline(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
-    let detail = match item.modified {
-        Some(modified) => format!("{} · {}", item.files(), relative(modified, Utc::now())),
-        None => item.files(),
-    };
-    div()
-        .flex_shrink_0()
-        .text_size(px(11.5))
-        .text_color(cx.theme().muted_foreground)
-        .child(detail)
 }
 
 /// The exact local times behind a row's relative date.
