@@ -6,10 +6,11 @@ use super::{Effect, NativeView, Route};
 use gpui_kit::component::{
     ActiveTheme, Sizable,
     button::ButtonVariants,
+    kbd::Kbd,
     tab::{Tab, TabBar},
     v_flex,
 };
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
+use gpui_kit::{AnyElement, Context, IntoElement, Keystroke, ParentElement, Styled, div};
 use skillbinder_proto::{AppSnapshot, Skill, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
@@ -29,6 +30,14 @@ fn summary(outcome: &UpdateOutcome) -> String {
         outcome.updated.len(),
         outcome.failed.len()
     )
+}
+
+/// `count` drawn in a keycap, which the filter and Update all show instead of parentheses.
+fn count_kbd(count: usize) -> Kbd {
+    Kbd::new(Keystroke {
+        key: count.to_string(),
+        ..Keystroke::default()
+    })
 }
 
 impl NativeView {
@@ -83,7 +92,8 @@ impl NativeView {
             .child(Tab::new().label("All").cursor_pointer())
             .child(
                 Tab::new()
-                    .label(format!("Needs update {count}"))
+                    .label("Needs update")
+                    .suffix(count_kbd(count))
                     .cursor_pointer(),
             )
             .on_click(move |index, _, cx| {
@@ -116,7 +126,8 @@ impl NativeView {
             actions.push(
                 button("update-all")
                     .icon(app_icon("upload-circle"))
-                    .label(format!("Update all ({})", ids.len()))
+                    .label("Update all")
+                    .child(count_kbd(ids.len()))
                     .small()
                     .primary()
                     .inactive(self.busy)
