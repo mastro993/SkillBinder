@@ -103,6 +103,19 @@ impl Client {
             });
         }
     }
+    /// Publishes whether a source check is running, which the header reads to show it.
+    fn publish_checking(&self, checking: bool) {
+        self.shared.snapshots.send_if_modified(|current| {
+            if current.checking == checking {
+                return false;
+            }
+            let mut next = (**current).clone();
+            next.checking = checking;
+            next.generation = current.generation + 1;
+            *current = Arc::new(next);
+            true
+        });
+    }
     fn background_error(&self, error: AppError) {
         self.shared.snapshots.send_modify(|current| {
             let mut next = (**current).clone();
@@ -225,11 +238,22 @@ impl Client {
     /// when another check was running, which leaves nothing new to publish; a library with no
     /// source due counts as checked.
     async fn check_updates(&self) -> bool {
-        let checked = self
+        // Publish the check while it runs, so the header can show it. The engine reports the
+        // truth, including a check another caller started.
+        let engine = self.shared.engine.clone();
+        let mut check = self
             .shared
-            .engine
-            .check_updates(UPDATE_CHECK_INTERVAL)
-            .await;
+            .runtime
+            .spawn(async move { engine.check_updates(UPDATE_CHECK_INTERVAL).await });
+        while !check.is_finished() {
+            self.publish_checking(true);
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+        let checked = match (&mut check).await {
+            Ok(result) => result,
+            Err(_) => Err(AppError::storage()),
+        };
+        self.publish_checking(false);
         if matches!(checked, Ok(false)) {
             return false;
         }
@@ -242,7 +266,8 @@ impl Client {
         }
     }
     /// Checks every source now, whatever the interval since its last check, and publishes the
-    /// results. A check already running leaves this with nothing to publish.
+    /// results. A check already running keeps the header showing it, and this one then finds
+    /// nothing left to start.
     pub async fn check_now(&self) -> AppResult<()> {
         let checked = self
             .shared

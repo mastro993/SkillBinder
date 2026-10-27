@@ -110,7 +110,7 @@ impl NativeView {
                 )
                 .into_any_element();
         }
-        if self.checking {
+        if self.snapshot.checking {
             return div()
                 .id("library-checking")
                 .flex()
@@ -144,16 +144,14 @@ impl NativeView {
 
     /// Checks every source now and shows the results as the snapshot they publish.
     fn check_for_updates(&mut self, cx: &mut Context<Self>) {
-        if self.busy || self.checking {
+        if self.busy || self.snapshot.checking {
             return;
         }
-        self.checking = true;
         self.error = None;
         let client = self.client.clone();
         cx.spawn(async move |this, cx| {
             let result = client.check_now().await;
             let _ = this.update(cx, |view, cx| {
-                view.checking = false;
                 if let Err(error) = result {
                     view.error = Some(error);
                 }

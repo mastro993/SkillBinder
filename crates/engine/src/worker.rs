@@ -350,6 +350,7 @@ impl State {
             None => BTreeMap::new(),
         };
         Ok(AppSnapshot {
+            checking: self.updates.running()?,
             generation: 0,
             background_error: None,
             bootstrap,
