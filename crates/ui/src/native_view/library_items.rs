@@ -15,7 +15,7 @@ use gpui_kit::{
 };
 use skillbinder_proto::{Skill, SkillId};
 use skillbinder_theme::library::{
-    AVATAR_OVERLAP, CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_PADDING_X, ROW_PADDING_Y, TILE_RADIUS,
+    AVATAR_OVERLAP, CARD_RADIUS, DIVIDER_INSET, ROW_PADDING_X, ROW_PADDING_Y, TILE_RADIUS,
 };
 
 /// Agent avatars shown before the rest collapse into `+N`.
@@ -84,15 +84,15 @@ impl NativeView {
             .id(owner.clone())
             .relative()
             .flex()
-            .items_center()
-            .gap(px(ROW_GAP))
+            .flex_col()
+            .w_full()
             .px(px(ROW_PADDING_X))
             .py(px(ROW_PADDING_Y))
             .cursor_pointer()
             .hover(move |row| row.bg(hover))
             .child(
                 v_flex()
-                    .flex_1()
+                    .w_full()
                     .min_w_0()
                     .child(
                         h_flex()
@@ -115,7 +115,7 @@ impl NativeView {
                     .child(meta_line(item, cx))
                     .child(description(item.description, 1, cx)),
             )
-            .child(h_flex().flex_shrink_0().child(presence(item, ring, cx)))
+            .child(div().pt(px(6.)).child(presence(item, ring, cx)))
             .when(!last, |row| row.child(divider(cx)));
         frame(self, row, &id, owner, item, cx)
     }

@@ -113,8 +113,6 @@ pub mod library {
     pub const ROW_PADDING_Y: f32 = 11.0;
     /// How far a row's divider is inset from the card's edges, so it starts at the name.
     pub const DIVIDER_INSET: f32 = 14.0;
-    /// Space between a row's text and its presence and dates.
-    pub const ROW_GAP: f32 = 16.0;
     /// How far an avatar overlaps the one before it in a presence stack.
     pub const AVATAR_OVERLAP: f32 = 5.0;
 
