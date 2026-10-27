@@ -44,29 +44,6 @@ fn validate_organization(library: &Library) -> AppResult<()> {
     }
     validate_folders(library)
 }
-/// The newest modification time, in Unix seconds, of the regular files under `dir`; links are
-/// skipped because managed payloads materialize them.
-fn newest_modification(dir: &Path) -> Option<u64> {
-    let mut newest = None;
-    for entry in fs::read_dir(dir).ok()?.flatten() {
-        let Ok(metadata) = entry.path().symlink_metadata() else {
-            continue;
-        };
-        let time = if metadata.is_dir() {
-            newest_modification(&entry.path())
-        } else if metadata.is_file() {
-            metadata
-                .modified()
-                .ok()
-                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|age| age.as_secs())
-        } else {
-            None
-        };
-        newest = newest.max(time);
-    }
-    newest
-}
 /// Orders presets by user position, with the default preset first, and renumbers them densely.
 fn sort_presets(presets: &mut [Preset]) {
     presets.sort_by_key(|preset| (!preset.is_default(), preset.position));
@@ -305,19 +282,10 @@ impl State {
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
         let (library, details) = library_store::load(&mut self.database.borrow_mut(), &self.log)?;
         let revision = revision(&library)?;
-        let modified = library
-            .skills
-            .iter()
-            .filter_map(|skill| {
-                let time = newest_modification(&self.skill_dir(&skill.id).ok()?)?;
-                Some((skill.id.clone(), time))
-            })
-            .collect();
         Ok(LibrarySnapshot {
             library,
             revision,
             details,
-            modified,
         })
     }
     pub(crate) fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {

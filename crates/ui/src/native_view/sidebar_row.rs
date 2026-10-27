@@ -218,14 +218,19 @@ pub(super) fn count(value: usize, cx: &App) -> AnyElement {
     detail(format_count(value), cx)
 }
 
-/// A check after the name of the preset whose configuration is active, in its icon color.
+/// A check after the name of the preset whose configuration is active, in its icon color, at a
+/// heavier stroke than the sidebar glyphs so it holds its own beside the count.
 pub(super) fn active_marker(id: &str, tint: Option<Hsla>, cx: &App) -> AnyElement {
     let color = tint.unwrap_or_else(|| cx.theme().sidebar_accent_foreground);
     div()
         .id(format!("preset-active-{id}"))
         .flex_shrink_0()
         .aria_label("Active preset")
-        .child(app_icon("check").size(px(DETAIL_SIZE)).text_color(color))
+        .child(
+            app_icon("check-bold")
+                .size(px(DETAIL_SIZE))
+                .text_color(color),
+        )
         .into_any_element()
 }
 

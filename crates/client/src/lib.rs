@@ -103,6 +103,19 @@ impl Client {
             });
         }
     }
+    /// Publishes whether a source check is running, which the header reads to show it.
+    fn publish_checking(&self, checking: bool) {
+        self.shared.snapshots.send_if_modified(|current| {
+            if current.checking == checking {
+                return false;
+            }
+            let mut next = (**current).clone();
+            next.checking = checking;
+            next.generation = current.generation + 1;
+            *current = Arc::new(next);
+            true
+        });
+    }
     fn background_error(&self, error: AppError) {
         self.shared.snapshots.send_modify(|current| {
             let mut next = (**current).clone();
@@ -225,11 +238,7 @@ impl Client {
     /// when another check was running, which leaves nothing new to publish; a library with no
     /// source due counts as checked.
     async fn check_updates(&self) -> bool {
-        let checked = self
-            .shared
-            .engine
-            .check_updates(UPDATE_CHECK_INTERVAL)
-            .await;
+        let checked = self.run_check(UPDATE_CHECK_INTERVAL).await;
         if matches!(checked, Ok(false)) {
             return false;
         }
@@ -241,6 +250,59 @@ impl Client {
             }
         }
     }
+    /// Runs a source check, publishing that one is running for as long as this caller waits on
+    /// it, so the header shows a manual check as well as the one after a scan. A check another
+    /// caller started finishes this one at once; the engine still reports it, so publishing
+    /// what the engine holds leaves that caller's spinner up.
+    async fn run_check(&self, max_age: std::time::Duration) -> AppResult<bool> {
+        let engine = self.shared.engine.clone();
+        let mut check = self
+            .shared
+            .runtime
+            .spawn(async move { engine.check_updates(max_age).await });
+        let mut announced = false;
+        while !check.is_finished() {
+            self.publish_checking(true);
+            announced = true;
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+        let checked = match (&mut check).await {
+            Ok(result) => result,
+            Err(_) => Err(AppError::storage()),
+        };
+        if announced {
+            // Our task may have been refused because another caller's check was running, and
+            // polling can announce before that answer arrives, so publish the engine's truth
+            // rather than clearing a check we do not own.
+            let running = self.shared.engine.check_running().unwrap_or(false);
+            self.publish_checking(running);
+        }
+        checked
+    }
+    /// Checks every source now, whatever the interval since its last check, and publishes the
+    /// results. A check already running keeps the header showing it, and this one then finds
+    /// nothing left to start.
+    pub async fn check_now(&self) -> AppResult<()> {
+        // The caller runs on the UI's executor, so the check and its publishing loop move to the
+        // runtime that owns the engine.
+        let client = self.clone();
+        self.shared
+            .runtime
+            .spawn(async move {
+                let checked = client.run_check(std::time::Duration::ZERO).await;
+                client.refresh_preserving_outcome(checked).await.map(|_| ())
+            })
+            .await
+            .map_err(|_| AppError::storage())?
+    }
+
+    /// Updates one library skill from its source, without the rescan a whole batch ends with, so a
+    /// caller updating several skills can report each one as it lands.
+    pub async fn update_skill(&self, id: SkillId) -> AppResult<UpdateOutcome> {
+        self.refresh_preserving_outcome(self.shared.engine.update_skills(vec![id]).await)
+            .await
+    }
+
     /// Replaces the selected skills' content with their sources' current content, then scans
     /// again, since the agents' copies no longer match the updated skills.
     pub async fn update_skills(&self, ids: Vec<SkillId>) -> AppResult<UpdateOutcome> {

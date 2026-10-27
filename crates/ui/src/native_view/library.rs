@@ -3,7 +3,6 @@
 
 use super::NativeView;
 use super::controls::app_icon;
-use super::library_dates as dates;
 use super::library_items::SkillItem;
 use super::library_presence::presence;
 use gpui_kit::component::{
@@ -32,7 +31,7 @@ impl NativeView {
         let typed = self.search.read(cx).value().trim().to_owned();
         let query = typed.to_lowercase();
         let folder = self.shown_folder().map(|folder| &folder.id);
-        let mut matching: Vec<&Skill> = library
+        let mut shown: Vec<&Skill> = library
             .library
             .skills
             .iter()
@@ -41,18 +40,13 @@ impl NativeView {
                     && matches(skill, library, &query)
             })
             .collect();
-        matching.sort_by_cached_key(|skill| name_order(skill));
-        let visible: Vec<&Skill> = matching
-            .iter()
-            .copied()
-            .filter(|skill| !self.needs_update_only || self.has_update(&skill.id))
-            .collect();
+        shown.sort_by_cached_key(|skill| name_order(skill));
         v_flex()
             .gap_4()
-            .child(self.library_header(&matching, visible.len(), cx))
+            .child(self.library_header(cx))
             .children(self.active_preset_empty_note(library, cx))
             .children(self.render_update_outcome(cx))
-            .child(self.library_results(library, &visible, &typed, window, cx))
+            .child(self.library_results(library, &shown, &typed, window, cx))
             .into_any_element()
     }
 
@@ -80,14 +74,9 @@ impl NativeView {
         )
     }
 
-    /// Search, the Needs update filter over the `matching` skills, and the shown skill count,
-    /// then the list/grid control; the title or folders are in the header.
-    fn library_header(
-        &self,
-        matching: &[&Skill],
-        count: usize,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    /// The search field, then the list/grid control at the trailing edge; the title or folders are
+    /// in the header.
+    fn library_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let view = self.library_view;
         let weak = cx.entity().downgrade();
         h_flex()
@@ -99,20 +88,7 @@ impl NativeView {
                         .cleanable(true),
                 ),
             )
-            .child(self.update_filter_tabs(matching, cx))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(format!("Active: {}", self.active_preset_name())),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(format!("{count} skills")),
-            )
+            .child(div().flex_1())
             .child(
                 TabBar::new("library-view")
                     .segmented()
@@ -148,14 +124,6 @@ impl NativeView {
                 .child(format!("No skills match '{query}'"))
                 .into_any_element();
         }
-        if visible.is_empty() && self.needs_update_only {
-            return div()
-                .py_8()
-                .text_center()
-                .text_color(cx.theme().muted_foreground)
-                .child("No skills need an update")
-                .into_any_element();
-        }
         if let Some(folder) = self.shown_folder()
             && visible.is_empty()
         {
@@ -179,12 +147,6 @@ impl NativeView {
                     .details
                     .get(&skill.id)
                     .map_or("", |details| details.description.as_str()),
-                imported: skill.imported_at.as_deref().and_then(dates::parse),
-                modified: library
-                    .modified
-                    .get(&skill.id)
-                    .copied()
-                    .and_then(dates::from_unix),
                 folder: self.folder_label(skill),
                 update: self.has_update(&skill.id),
                 drifted: skill.drift.is_some(),
@@ -194,10 +156,7 @@ impl NativeView {
             })
             .collect();
         match self.library_view {
-            LibraryView::List => v_flex()
-                .gap_2()
-                .children(items.iter().map(|item| self.skill_row(item, cx)))
-                .into_any_element(),
+            LibraryView::List => self.skill_list(&items, cx),
             LibraryView::Grid => div()
                 .grid()
                 .grid_cols(grid_columns(self.content_width(window)))

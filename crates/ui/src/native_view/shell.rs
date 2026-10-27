@@ -296,7 +296,8 @@ impl NativeView {
                 .border_color(line_color)
                 .bg(gpui_kit::transparent_black())
                 .h(px(HEADER_HEIGHT))
-                .pr_4()
+                // Trailing actions line up with the page's own 24-point padding.
+                .pr_6()
                 .when(with_sidebar, |bar| bar.pl_0())
                 .when(!with_sidebar && !reserves, |bar| bar.pl_2())
                 .children(inset)
@@ -310,7 +311,7 @@ impl NativeView {
                 .h(px(HEADER_HEIGHT))
                 .border_b(line)
                 .border_color(line_color)
-                .pr_4()
+                .pr_6()
                 .when(!with_sidebar, |row| row.pl_2())
                 .children(inset)
                 .child(title)

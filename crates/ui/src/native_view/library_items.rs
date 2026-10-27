@@ -1,31 +1,31 @@
-//! Library skills as list rows or grid cards, each showing when it was imported and changed,
-//! which agents hold a copy, and whether it changed outside SkillBinder.
+//! Library skills as rows inside one card, or as grid tiles on their own surfaces. Each shows its
+//! description, its folder while Library lists every skill, and which agents hold a copy.
 
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
-use super::library_dates::{exact, relative};
 use super::library_drift::drift_glyph;
 use super::library_presence::{Holder, Reader};
 use super::sidebar_row::{activate, with_menu};
 use super::{NativeView, Route};
-use chrono::{DateTime, Utc};
-use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tooltip::Tooltip, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
+    AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::Skill;
+use skillbinder_proto::{Skill, SkillId};
+use skillbinder_theme::library::{
+    AVATAR_OVERLAP, CARD_RADIUS, DIVIDER_INSET, ROW_PADDING_X, ROW_PADDING_Y, TILE_RADIUS,
+};
 
-/// Agent chips shown before the rest collapse into `+N`.
-const SHOWN_HOLDERS: usize = 3;
+/// Agent avatars shown before the rest collapse into `+N`.
+const SHOWN_HOLDERS: usize = 4;
+/// Diameter of a presence avatar, a step above the kit's extra-small avatar so the agent logos
+/// read at a glance.
+const AVATAR_SIZE: f32 = 20.;
 
-/// One Library skill with its description, dates, and presence.
+/// One Library skill with its description, folder, and presence.
 pub(super) struct SkillItem<'a> {
     pub skill: &'a Skill,
     pub description: &'a str,
-    /// Absent for skills imported before import times were recorded, or that arrived by Pull.
-    pub imported: Option<DateTime<Utc>>,
-    /// The newest managed file's change time; absent when the payload could not be read.
-    pub modified: Option<DateTime<Utc>>,
     /// The skill's folder, shown while Library lists every skill.
     pub folder: Option<&'a str>,
     /// The skill has an update, so it shows an Update button.
@@ -43,17 +43,43 @@ impl SkillItem<'_> {
 }
 
 impl NativeView {
-    /// A full-width row: name, one description line, and dates, then presence.
-    pub(super) fn skill_row(&self, item: &SkillItem<'_>, cx: &mut Context<Self>) -> AnyElement {
-        self.skill_frame("skill-row", item, cx)
-            .items_center()
-            .gap_3()
-            .px_3()
-            .py_2()
-            .child(self.activation_toggle(&item.skill.id, cx))
+    /// The list's card: one bordered surface holding every row, divided by inset hairlines.
+    pub(super) fn skill_list(&self, items: &[SkillItem<'_>], cx: &mut Context<Self>) -> AnyElement {
+        let last = items.len().saturating_sub(1);
+        v_flex()
+            .border_1()
+            .rounded(px(CARD_RADIUS))
+            .border_color(cx.theme().border)
+            .bg(surface(cx))
+            .overflow_hidden()
+            .children(
+                items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| self.skill_row(item, index == last, cx)),
+            )
+            .into_any_element()
+    }
+
+    /// A row of the list card: name, one description line, then presence and dates.
+    fn skill_row(&self, item: &SkillItem<'_>, last: bool, cx: &mut Context<Self>) -> AnyElement {
+        let id = item.skill.id.clone();
+        let owner = format!("skill-row-{id}");
+        let hover = cx.theme().muted;
+        let ring = surface(cx);
+        let row = div()
+            .id(owner.clone())
+            .relative()
+            .flex()
+            .flex_col()
+            .w_full()
+            .px(px(ROW_PADDING_X))
+            .py(px(ROW_PADDING_Y))
+            .cursor_pointer()
+            .hover(move |row| row.bg(hover))
             .child(
                 v_flex()
-                    .flex_1()
+                    .w_full()
                     .min_w_0()
                     .child(
                         h_flex()
@@ -61,156 +87,176 @@ impl NativeView {
                             .child(
                                 div()
                                     .min_w_0()
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .text_size(px(14.))
+                                    .font_weight(FontWeight::SEMIBOLD)
                                     .truncate()
                                     .child(item.name()),
                             )
+                            .when(item.update, |line| {
+                                line.child(update_glyph(&item.skill.id, cx))
+                            })
                             .when(item.drifted, |line| {
                                 line.child(drift_glyph(&item.skill.id, cx))
                             }),
                     )
-                    .child(description(item.description, 1, cx))
-                    .child(dates(item, cx)),
+                    .when_some(item.folder, |lines, folder| {
+                        lines.child(folder_line(item, folder, cx))
+                    })
+                    .child(description(item.description, 1, cx)),
             )
-            .child(
-                div()
-                    .flex_shrink_0()
-                    .max_w(px(420.))
-                    .child(presence(item, cx)),
-            )
-            .when(item.update, |row| {
-                row.child(self.update_button("row", &item.skill.id, cx))
-            })
-            .into_any_element()
+            .child(div().pt(px(6.)).child(presence(item, ring, cx)))
+            .when(!last, |row| row.child(divider(cx)));
+        frame(self, row, &id, owner, item, cx)
     }
 
-    /// A card: name, two description lines, dates, then presence.
+    /// A grid tile: name with its Update button, two description lines, then presence and dates.
     pub(super) fn skill_card(&self, item: &SkillItem<'_>, cx: &mut Context<Self>) -> AnyElement {
-        self.skill_frame("skill-card", item, cx)
+        let id = item.skill.id.clone();
+        let owner = format!("skill-card-{id}");
+        // A tile wears the list card's surface and hairline; only the hover fill differs.
+        let (rest, hover, border) = (surface(cx), cx.theme().muted, cx.theme().border);
+        let ring = rest;
+        let card = div()
+            .id(owner.clone())
+            .flex()
             .flex_col()
-            .gap_2()
-            .p_3()
-            .min_h(px(132.))
+            .w_full()
+            .min_w_0()
+            .gap(px(9.))
+            .min_h(px(152.))
+            .rounded(px(TILE_RADIUS))
+            .bg(rest)
+            .border_1()
+            .border_color(border)
+            .p(px(16.))
+            .cursor_pointer()
+            .hover(move |card| card.bg(hover))
             .child(
                 h_flex()
+                    .items_center()
                     .gap_2()
-                    .child(self.activation_toggle(&item.skill.id, cx))
                     .child(
-                        div()
+                        h_flex()
                             .flex_1()
                             .min_w_0()
-                            .font_weight(FontWeight::MEDIUM)
-                            .truncate()
-                            .child(item.name()),
+                            .items_center()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .text_size(px(14.5))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .truncate()
+                                    .child(item.name()),
+                            )
+                            .when(item.update, |line| {
+                                line.child(update_glyph(&item.skill.id, cx))
+                            })
+                            .when(item.drifted, |line| {
+                                line.child(drift_glyph(&item.skill.id, cx))
+                            }),
                     )
-                    .when(item.drifted, |line| {
-                        line.child(drift_glyph(&item.skill.id, cx))
-                    })
                     .when(item.update, |line| {
                         line.child(self.update_button("card", &item.skill.id, cx))
                     }),
             )
-            .child(div().flex_1().child(description(item.description, 2, cx)))
-            .child(dates(item, cx))
-            .child(presence(item, cx))
-            .into_any_element()
-    }
-
-    /// The bordered frame of a row or card; clicking it, or Enter or Space while it is focused,
-    /// opens the skill's page, and right-clicking it opens its menu.
-    fn skill_frame(
-        &self,
-        kind: &str,
-        item: &SkillItem<'_>,
-        cx: &mut Context<NativeView>,
-    ) -> gpui_kit::Stateful<gpui_kit::Div> {
-        let id = item.skill.id.clone();
-        let owner = format!("{kind}-{id}");
-        let frame = skill_frame(kind, item, cx);
-        with_menu(frame, owner, true, self, cx, move |view, _, cx| {
-            view.skill_menu(&id, cx)
-        })
+            .when_some(item.folder, |card, folder| {
+                card.child(folder_line(item, folder, cx))
+            })
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .child(description(item.description, 2, cx)),
+            )
+            .child(h_flex().items_center().child(presence(item, ring, cx)));
+        frame(self, card, &id, owner, item, cx)
     }
 }
 
-fn skill_frame(
-    kind: &str,
+/// Opens the skill's page on click or Enter, and its menu on right-click.
+fn frame(
+    view: &NativeView,
+    element: gpui_kit::Stateful<gpui_kit::Div>,
+    id: &skillbinder_proto::SkillId,
+    owner: String,
     item: &SkillItem<'_>,
     cx: &mut Context<NativeView>,
-) -> gpui_kit::Stateful<gpui_kit::Div> {
-    let route = Route::Skill(item.skill.id.clone());
-    let frame = div()
-        .id(format!("{kind}-{}", item.skill.id))
-        .flex()
-        .min_w_0()
-        .border_1()
-        .rounded(cx.theme().radius)
-        .border_color(cx.theme().colors.border)
-        .cursor_pointer()
-        .hover(|frame| frame.bg(cx.theme().secondary));
-    activate(frame, item.name(), cx, move |view, window, cx| {
+) -> AnyElement {
+    let route = Route::Skill(id.clone());
+    let menu_id = id.clone();
+    let element = activate(element, item.name(), cx, move |view, window, cx| {
         view.navigate(route.clone(), window, cx);
+    });
+    with_menu(element, owner, true, view, cx, move |view, _, cx| {
+        view.skill_menu(&menu_id, cx)
     })
+    // The wrapper is the grid item, so it must take the column's width rather than the text's.
+    .w_full()
+    .min_w_0()
+    .into_any_element()
 }
 
-/// "Folder · Imported 3 days ago · Modified 2 hours ago"; each date's tooltip shows the exact
-/// time.
-fn dates(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
-    let now = Utc::now();
-    let parts = [
-        ("imported", "Imported", item.imported),
-        ("modified", "Modified", item.modified),
-    ];
-    // Wraps so a narrow card keeps both dates inside it.
-    let mut row = h_flex()
-        .flex_wrap()
-        .gap_x_1()
-        .text_xs()
-        .text_color(cx.theme().muted_foreground);
-    let filed = item.folder.is_some();
-    if let Some(folder) = item.folder {
-        row = row.child(
-            h_flex()
-                .gap_1()
-                .child(app_icon("folder").xsmall())
-                .child(folder.to_owned()),
-        );
-    }
-    for (index, (key, label, time)) in parts
-        .into_iter()
-        .filter_map(|(key, label, time)| Some((key, label, time?)))
-        .enumerate()
-    {
-        let tooltip = exact(time);
-        row = row.when(filed || index > 0, |row| row.child("·")).child(
-            div()
-                .id(format!("{key}-{}", item.skill.id))
-                .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
-                .child(format!("{label} {}", relative(time, now))),
-        );
-    }
-    row
+/// A hairline inset from both card edges, so it starts where the name starts.
+fn divider(cx: &App) -> AnyElement {
+    div()
+        .absolute()
+        .left(px(DIVIDER_INSET))
+        .right(px(DIVIDER_INSET))
+        .bottom(px(0.))
+        .h(px(1.))
+        .bg(cx.theme().border)
+        .into_any_element()
+}
+
+/// The list card's surface, which the presence avatars punch out of.
+fn surface(cx: &App) -> Hsla {
+    skillbinder_theme::library::surface(cx.theme())
+}
+
+/// The skill's folder, shown while Library lists every skill.
+fn folder_line(item: &SkillItem<'_>, folder: &str, cx: &App) -> impl IntoElement {
+    div()
+        .id(format!("folder-{}", item.skill.id))
+        .text_size(px(11.5))
+        .text_color(cx.theme().muted_foreground.opacity(0.8))
+        .child(folder.to_owned())
+}
+
+/// The warning glyph of a skill whose source has an update.
+fn update_glyph(id: &SkillId, cx: &App) -> AnyElement {
+    div()
+        .id(format!("update-{id}"))
+        .flex_shrink_0()
+        .child(
+            app_icon("upload-circle")
+                .small()
+                .text_color(cx.theme().warning),
+        )
+        .tooltip(|window, cx| Tooltip::new("Update available").build(window, cx))
+        .into_any_element()
 }
 
 fn description(text: &str, lines: usize, cx: &App) -> impl IntoElement {
     div()
-        .text_sm()
+        .text_size(px(12.5))
         .text_color(cx.theme().muted_foreground)
         .map(|text| {
             if lines == 1 {
                 text.truncate()
             } else {
-                text.line_clamp(lines)
+                text.line_clamp(lines).text_ellipsis()
             }
         })
         .child(text.to_owned())
 }
 
-/// Agent chips, Universal first, for the Agents rows whose global skill directory holds a copy.
-fn presence(item: &SkillItem<'_>, cx: &mut Context<NativeView>) -> AnyElement {
+/// Agent avatars, Universal first, for the Agents rows whose global skill directory holds a copy.
+/// A row's avatars overlap; each is ringed in the surface behind it so the stack reads as one.
+fn presence(item: &SkillItem<'_>, ring: Hsla, cx: &mut Context<NativeView>) -> AnyElement {
     let muted = |text: &'static str| {
         div()
-            .text_xs()
+            .text_size(px(11.5))
             .text_color(cx.theme().muted_foreground)
             .child(text)
             .into_any_element()
@@ -222,36 +268,29 @@ fn presence(item: &SkillItem<'_>, cx: &mut Context<NativeView>) -> AnyElement {
     };
     let hidden = &holders[holders.len().min(SHOWN_HOLDERS)..];
     h_flex()
-        .flex_wrap()
-        .gap_1()
+        .flex_shrink_0()
         .children(
             holders
                 .iter()
                 .take(SHOWN_HOLDERS)
-                .map(|holder| holder_chip(item, holder, cx)),
+                .enumerate()
+                .map(|(index, holder)| holder_avatar(item, holder, index > 0, ring, cx)),
         )
         .when(!hidden.is_empty(), |row| {
-            let names = hidden
-                .iter()
-                .map(|holder| holder.name.clone())
-                .collect::<Vec<_>>()
-                .join("\n");
-            row.child(
-                div()
-                    .id(format!("holders-more-{}", item.skill.id))
-                    .flex_shrink_0()
-                    // The chip opens nothing, and the click must not open the skill either.
-                    .on_click(|_, _, cx| cx.stop_propagation())
-                    .tooltip(move |window, cx| Tooltip::new(names.clone()).build(window, cx))
-                    .child(Tag::secondary().small().child(format!("+{}", hidden.len()))),
-            )
+            row.child(more_avatars(item, hidden, ring, cx))
         })
         .into_any_element()
 }
 
-/// One agent's avatar and name; its tooltip shows the directory holding the copy, and for
-/// Universal the agents reading it. Clicking it opens the agent's page.
-fn holder_chip(item: &SkillItem<'_>, holder: &Holder, cx: &mut Context<NativeView>) -> AnyElement {
+/// One agent's avatar; its tooltip shows the directory holding the copy, and for Universal the
+/// agents reading it. Clicking it opens the agent's page.
+fn holder_avatar(
+    item: &SkillItem<'_>,
+    holder: &Holder,
+    overlap: bool,
+    ring: Hsla,
+    cx: &mut Context<NativeView>,
+) -> AnyElement {
     let route = holder.route();
     let (tip, key, avatar) = match &holder.reader {
         Reader::Universal(names) => (
@@ -264,19 +303,52 @@ fn holder_chip(item: &SkillItem<'_>, holder: &Holder, cx: &mut Context<NativeVie
     div()
         .id(format!("holder-{}-{key}", item.skill.id))
         .flex_shrink_0()
-        .whitespace_nowrap()
         .cursor_pointer()
+        .when(overlap, |chip| chip.ml(px(-AVATAR_OVERLAP)))
         .tooltip(move |window, cx| Tooltip::new(tip.clone()).build(window, cx))
         .on_click(cx.listener(move |view, _, window, cx| {
             cx.stop_propagation();
             view.navigate(route.clone(), window, cx);
         }))
         .child(
-            Tag::secondary()
-                .small()
-                .gap_1()
-                .child(avatar.with_size(Size::XSmall).flex_shrink_0())
-                .child(div().flex_shrink_0().child(holder.name.clone())),
+            avatar
+                .with_size(px(AVATAR_SIZE))
+                .rounded_full()
+                .border_2()
+                .border_color(ring),
         )
+        .into_any_element()
+}
+
+/// The `+N` circle naming the agents the stack leaves out.
+fn more_avatars(
+    item: &SkillItem<'_>,
+    hidden: &[Holder],
+    ring: Hsla,
+    cx: &mut Context<NativeView>,
+) -> AnyElement {
+    let names = hidden
+        .iter()
+        .map(|holder| holder.name.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
+    div()
+        .id(format!("holders-more-{}", item.skill.id))
+        .flex_shrink_0()
+        .ml(px(-AVATAR_OVERLAP))
+        .flex()
+        .items_center()
+        .justify_center()
+        .size(px(AVATAR_SIZE))
+        .rounded_full()
+        .border_2()
+        .border_color(ring)
+        .bg(cx.theme().muted)
+        .text_size(px(9.5))
+        .text_color(cx.theme().muted_foreground)
+        // The circle opens nothing, and the click must not open the skill either.
+        .on_click(|_, _, cx| cx.stop_propagation())
+        .tooltip(move |window, cx| Tooltip::new(names.clone()).build(window, cx))
+        .child(format!("+{}", hidden.len()))
         .into_any_element()
 }

@@ -43,7 +43,6 @@ impl NativeView {
         };
         if self.route != route {
             self.leave_page();
-            self.needs_update_only = false;
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
             if let Route::Skill(id) = &route {

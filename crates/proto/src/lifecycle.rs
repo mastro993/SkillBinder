@@ -146,6 +146,8 @@ pub struct AppSnapshot {
     pub scanning: bool,
     /// Update state of the library skills whose source was checked for their current content.
     pub updates: BTreeMap<SkillId, SkillUpdate>,
+    /// An update check is running; `updates` keeps the previous results until it completes.
+    pub checking: bool,
     /// Git connection and status.
     pub sync: SyncSnapshot,
     /// Last durable import result, until dismissed.

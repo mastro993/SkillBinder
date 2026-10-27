@@ -132,10 +132,6 @@ async fn import_preserves_source_bytes_and_replays_after_restart() {
             .is_some_and(|time| time.ends_with('Z')),
         "imports record an RFC 3339 UTC time"
     );
-    assert!(
-        library.modified[&skill.id] > 0,
-        "the managed payload's newest file time is reported"
-    );
     engine.dismiss_import().await.unwrap();
     assert_eq!(engine.snapshot().await.unwrap().import_outcome, None);
     engine.shutdown().await.unwrap();
