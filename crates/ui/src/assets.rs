@@ -18,6 +18,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("alert-circle", "AlertCircleIcon"),
     icon!("api", "ApiIcon"),
     icon!("arrow-down", "ArrowDown01Icon"),
+    icon!("arrow-down-to-line", "ArrowDownToLineIcon"),
     icon!("arrow-up", "ArrowUp01Icon"),
     icon!("book", "Book02Icon"),
     icon!("book-copy", "BookCopyIcon"),
@@ -30,6 +31,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("chart", "Analytics01Icon"),
     icon!("chat", "BubbleChatIcon"),
     icon!("check", "Tick02Icon"),
+    icon!("check-bold", "Tick02Icon-stroke-2"),
     icon!("chevron-left", "ArrowLeft01Icon"),
     icon!("chevron-right", "ArrowRight01Icon"),
     icon!("chip", "ChipIcon"),
@@ -82,6 +84,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("tag", "Tag01Icon"),
     icon!("target", "Target01Icon"),
     icon!("translate", "TranslateIcon"),
+    icon!("upload-circle", "UploadCircle01Icon"),
     icon!("video", "Video01Icon"),
     icon!("wrench", "Wrench01Icon"),
 ];

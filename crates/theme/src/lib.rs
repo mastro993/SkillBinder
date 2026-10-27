@@ -98,6 +98,54 @@ pub mod menu {
     }
 }
 
+/// Library metrics in points, measured from the reference design.
+pub mod library {
+    use gpui_kit::Hsla;
+    use gpui_kit::component::Theme;
+
+    /// Corner radius of the card that holds the list.
+    pub const CARD_RADIUS: f32 = 10.0;
+    /// Corner radius of a grid card.
+    pub const TILE_RADIUS: f32 = 12.0;
+    /// Horizontal padding inside a list row.
+    pub const ROW_PADDING_X: f32 = 14.0;
+    /// Vertical padding inside a list row.
+    pub const ROW_PADDING_Y: f32 = 11.0;
+    /// How far a row's divider is inset from the card's edges, so it starts at the name.
+    pub const DIVIDER_INSET: f32 = 14.0;
+    /// Space between a row's text and its presence and dates.
+    pub const ROW_GAP: f32 = 16.0;
+    /// How far an avatar overlaps the one before it in a presence stack.
+    pub const AVATAR_OVERLAP: f32 = 5.0;
+
+    /// The surface of the list card: the page's own color, lifted a step in the dark theme so the
+    /// card and its hairline read as one object against the page.
+    pub fn surface(theme: &Theme) -> Hsla {
+        if theme.is_dark() {
+            Hsla {
+                l: theme.background.l + 0.02,
+                ..theme.background
+            }
+        } else {
+            theme.background
+        }
+    }
+
+    /// The surface of a grid card, a step below the page in the light theme.
+    pub fn tile(theme: &Theme) -> Hsla {
+        theme.muted
+    }
+
+    /// A grid card's surface under the pointer, away from the page in either mode.
+    pub fn tile_hover(theme: &Theme) -> Hsla {
+        let delta = if theme.is_dark() { 0.04 } else { -0.03 };
+        Hsla {
+            l: theme.muted.l + delta,
+            ..theme.muted
+        }
+    }
+}
+
 /// Applies the system font used by the production baseline.
 pub fn init(cx: &mut App) {
     Theme::update(cx, |theme| theme.font_family = system_font().into());

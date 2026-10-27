@@ -1,15 +1,13 @@
 //! Skill updates in Library: the Needs update filter, the Update buttons of skills whose source
 //! has an update, Update all, the last update's result, and why a check or update failed.
 
-use super::controls::{Inactive, button};
-use super::{Effect, NativeView};
-use gpui_kit::component::{
-    ActiveTheme, Sizable,
-    button::ButtonVariants,
-    tab::{Tab, TabBar},
-    v_flex,
+use super::controls::{Inactive, app_icon, button};
+use super::{Effect, NativeView, Route};
+use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, h_flex, v_flex};
+use gpui_kit::{
+    AnyElement, Context, IntoElement, ParentElement, Styled, WeakEntity, div,
+    prelude::FluentBuilder,
 };
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::{AppSnapshot, Skill, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
@@ -41,7 +39,7 @@ impl NativeView {
     }
 
     /// Updates `ids` from their sources, keeping the result for the page to show.
-    fn update(&mut self, ids: Vec<SkillId>, cx: &mut Context<Self>) {
+    pub(super) fn update(&mut self, ids: Vec<SkillId>, cx: &mut Context<Self>) {
         let client = self.client.clone();
         self.run(
             async move { client.update_skills(ids).await.map(Effect::Updated) },
@@ -69,45 +67,77 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The All and Needs update filter; Needs update counts the `skills` with an update.
-    pub(super) fn update_filter_tabs(&self, skills: &[&Skill], cx: &Context<Self>) -> TabBar {
+    /// The All and Needs update filters; Needs update counts the `skills` with an update.
+    pub(super) fn update_filter_tabs(
+        &self,
+        skills: &[&Skill],
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let weak = cx.entity().downgrade();
         let count = skills
             .iter()
             .filter(|skill| self.has_update(&skill.id))
             .count();
-        TabBar::new("update-filter")
-            .segmented()
-            .selected_index(usize::from(self.needs_update_only))
-            .child(Tab::new().label("All").cursor_pointer())
-            .child(
-                Tab::new()
-                    .label(format!("Needs update {count}"))
-                    .cursor_pointer(),
-            )
-            .on_click(move |index, _, cx| {
-                let _ = weak.update(cx, |view, cx| {
-                    view.needs_update_only = *index == 1;
-                    cx.notify();
-                });
-            })
+        let (muted, foreground) = (cx.theme().muted, cx.theme().foreground);
+        let (border, muted_foreground) = (cx.theme().border, cx.theme().muted_foreground);
+        let chip = |index: usize, label: String, weak: WeakEntity<NativeView>| {
+            let selected = usize::from(self.needs_update_only) == index;
+            button(format!("update-filter-{index}"))
+                .small()
+                .ghost()
+                .label(label)
+                .when(selected, |chip| chip.bg(muted).text_color(foreground))
+                .when(!selected, |chip| {
+                    chip.border_1()
+                        .border_color(border)
+                        .text_color(muted_foreground)
+                })
+                .on_click(move |_, _, cx| {
+                    let _ = weak.update(cx, |view, cx| {
+                        view.needs_update_only = index == 1;
+                        cx.notify();
+                    });
+                })
+        };
+        h_flex()
+            .gap_1()
+            .child(chip(0, format!("All {}", skills.len()), weak.clone()))
+            .child(chip(1, format!("Needs update {count}"), weak))
+            .into_any_element()
     }
 
-    /// Library's "Update all (N)", while N is at least one.
+    /// Library's "Import", which opens Discovery, where copies found on this device are reviewed
+    /// before they join the library.
+    fn import_button(&self, cx: &mut Context<Self>) -> AnyElement {
+        button("library-import")
+            .small()
+            .ghost()
+            .icon(app_icon("arrow-down-to-line"))
+            .label("Import")
+            .on_click(cx.listener(|view, _, window, cx| {
+                view.navigate(Route::Discovery, window, cx);
+            }))
+            .into_any_element()
+    }
+
+    /// Library's "Update all (N)" while N is at least one, then Import.
     pub(super) fn library_header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let mut actions = Vec::new();
         let ids = available(&self.snapshot);
-        if ids.is_empty() {
-            return Vec::new();
+        if !ids.is_empty() {
+            actions.push(
+                button("update-all")
+                    .icon(app_icon("upload-circle"))
+                    .label(format!("Update all ({})", ids.len()))
+                    .small()
+                    .primary()
+                    .inactive(self.busy)
+                    .on_click(cx.listener(move |view, _, _, cx| view.update(ids.clone(), cx)))
+                    .into_any_element(),
+            );
         }
-        vec![
-            button("update-all")
-                .label(format!("Update all ({})", ids.len()))
-                .small()
-                .primary()
-                .inactive(self.busy)
-                .on_click(cx.listener(move |view, _, _, cx| view.update(ids.clone(), cx)))
-                .into_any_element(),
-        ]
+        actions.push(self.import_button(cx));
+        actions
     }
 
     /// A skill page's Reinstall button, while it can restore the skill's recorded content, and

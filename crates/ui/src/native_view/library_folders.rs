@@ -197,7 +197,8 @@ impl NativeView {
         ]
     }
 
-    /// Move to folder, with None and each folder; the skill's current choice is checked.
+    /// The active preset's membership, then Move to folder with None and each folder; the
+    /// skill's current choices are checked.
     pub(super) fn skill_menu(&self, skill: &SkillId, cx: &mut Context<Self>) -> Vec<MenuItem> {
         let view = cx.entity().downgrade();
         let current = self
@@ -228,13 +229,41 @@ impl NativeView {
                 Some(folder.id.clone()),
             )
         }));
-        vec![
+        // The row has no checkbox, so the active preset's membership is switched here.
+        let active = self.skill_active(skill);
+        let toggle = MenuItem::new(
+            "toggle-active",
+            format!("Active in {}", self.active_preset_name()),
+        )
+        .checked(active)
+        .disabled(self.busy || self.active_preset_id().is_none())
+        .on_select(menu_action(
+            view.clone(),
+            skill.clone(),
+            move |view, skill, _, cx| view.toggle_activation(skill.clone(), !active, cx),
+        ));
+        let mut items = vec![toggle];
+        if self.has_update(skill) {
+            items.push(
+                MenuItem::new("update-skill", "Update")
+                    .icon("refresh")
+                    .disabled(self.busy)
+                    .on_select(menu_action(
+                        view.clone(),
+                        skill.clone(),
+                        |view, skill, _, cx| view.update(vec![skill.clone()], cx),
+                    )),
+            );
+        }
+        items.push(MenuItem::separator());
+        items.push(
             MenuItem::new("move-to-folder", "Move to folder")
                 .icon("folder")
                 // Another operation would refuse the move, so it is unavailable meanwhile.
                 .disabled(folders.is_empty() || self.busy)
                 .submenu(choices),
-        ]
+        );
+        items
     }
 
     fn move_to_folder(

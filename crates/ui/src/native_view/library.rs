@@ -100,16 +100,10 @@ impl NativeView {
                 ),
             )
             .child(self.update_filter_tabs(matching, cx))
+            .child(div().flex_1())
             .child(
                 div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(format!("Active: {}", self.active_preset_name())),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .text_sm()
+                    .text_size(px(12.))
                     .text_color(cx.theme().muted_foreground)
                     .child(format!("{count} skills")),
             )
@@ -194,10 +188,7 @@ impl NativeView {
             })
             .collect();
         match self.library_view {
-            LibraryView::List => v_flex()
-                .gap_2()
-                .children(items.iter().map(|item| self.skill_row(item, cx)))
-                .into_any_element(),
+            LibraryView::List => self.skill_list(&items, cx),
             LibraryView::Grid => div()
                 .grid()
                 .grid_cols(grid_columns(self.content_width(window)))

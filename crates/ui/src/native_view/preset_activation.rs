@@ -85,7 +85,13 @@ impl NativeView {
             .into_any_element()
     }
 
-    fn toggle_activation(&mut self, skill: SkillId, active: bool, cx: &mut Context<Self>) {
+    /// A one-click switch for a library skill in the active preset. Its changes save at once.
+    pub(super) fn toggle_activation(
+        &mut self,
+        skill: SkillId,
+        active: bool,
+        cx: &mut Context<Self>,
+    ) {
         let Some(id) = self.active_preset_id() else {
             return;
         };

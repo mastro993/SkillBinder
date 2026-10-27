@@ -42,6 +42,17 @@
       "elementCount": 1
     },
     {
+      "name": "ArrowDownToLineIcon",
+      "file": "ArrowDownToLineIcon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/library_updates.rs"
+      ],
+      "sourceModule": "dist/esm/ArrowDownToLineIcon.js",
+      "sourceModuleSha256": "18d63a2e67849bca11ad1591e933ab134f5714aaefadac4fb1773d7b4b5c8bd9",
+      "svgSha256": "ca34ab7b794412d28d03ec13ba98242b156957307303e0cc90c63c3d7b686956",
+      "elementCount": 3
+    },
+    {
       "name": "ArrowLeft01Icon",
       "file": "ArrowLeft01Icon.svg",
       "usedBy": [
@@ -480,7 +491,15 @@
       "sourceModule": "dist/esm/Tick02Icon.js",
       "sourceModuleSha256": "400664e4740d9d87a586b697ed4ce48c1198a2f3c6f226f538cf898b2e1e2235",
       "svgSha256": "b194213dd33124f022d08ceb8337edc222a33499ea78732d1e9ac65f07f44d36",
-      "elementCount": 1
+      "elementCount": 1,
+      "usageOverrides": [
+        {
+          "usedBy": "crates/ui/src/native_view/sidebar_row.rs",
+          "strokeWidth": 2,
+          "file": "Tick02Icon-stroke-2.svg",
+          "svgSha256": "892a0fc7b4d27ddba3fa12daacee198f005ada9d7c1805f9dd91f555ef1a1e93"
+        }
+      ]
     },
     {
       "name": "UnplugIcon",
@@ -492,6 +511,17 @@
       "sourceModuleSha256": "875b151bca0b2998972f3cfecc5e2b19f2360af470c557bdd893f12110c35a39",
       "svgSha256": "f8b79c6c9c1b6bfe985c8713b049530d983930791f2a3a3d19c40661571d7714",
       "elementCount": 5
+    },
+    {
+      "name": "UploadCircle01Icon",
+      "file": "UploadCircle01Icon.svg",
+      "usedBy": [
+        "crates/ui/src/native_view/library_updates.rs"
+      ],
+      "sourceModule": "dist/esm/UploadCircle01Icon.js",
+      "sourceModuleSha256": "a3a3be4ab47242c35d68de25d3a2c257c25929c938641f3db365534f7da52843",
+      "svgSha256": "3afe58cbcc7a052b94aa47fe6a64bd7a8fc92fa0825ab0ce9634fb9ad01a602d",
+      "elementCount": 2
     }
   ]
 }
