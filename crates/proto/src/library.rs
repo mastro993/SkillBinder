@@ -348,9 +348,6 @@ pub struct LibrarySnapshot {
     pub revision: String,
     /// Machine-local details by skill identity.
     pub details: BTreeMap<SkillId, SkillDetails>,
-    /// When each skill's newest managed file last changed on this device, in Unix seconds;
-    /// absent when its payload could not be read.
-    pub modified: BTreeMap<SkillId, u64>,
 }
 /// A machine-local organization mutation.
 #[derive(Clone, Debug)]

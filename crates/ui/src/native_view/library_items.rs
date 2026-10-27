@@ -1,13 +1,11 @@
 //! Library skills as rows inside one card, or as grid tiles on their own surfaces. Each shows its
-//! description, when it last changed, how many files it holds, and which agents hold a copy.
+//! description, its folder while Library lists every skill, and which agents hold a copy.
 
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
-use super::library_dates::{exact, relative};
 use super::library_drift::drift_glyph;
 use super::library_presence::{Holder, Reader};
 use super::sidebar_row::{activate, with_menu};
 use super::{NativeView, Route};
-use chrono::{DateTime, Utc};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tooltip::Tooltip, v_flex};
 use gpui_kit::{
     AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
@@ -24,14 +22,10 @@ const SHOWN_HOLDERS: usize = 4;
 /// read at a glance.
 const AVATAR_SIZE: f32 = 20.;
 
-/// One Library skill with its description, dates, and presence.
+/// One Library skill with its description, folder, and presence.
 pub(super) struct SkillItem<'a> {
     pub skill: &'a Skill,
     pub description: &'a str,
-    /// Absent for skills imported before import times were recorded, or that arrived by Pull.
-    pub imported: Option<DateTime<Utc>>,
-    /// The newest managed file's change time; absent when the payload could not be read.
-    pub modified: Option<DateTime<Utc>>,
     /// The skill's folder, shown while Library lists every skill.
     pub folder: Option<&'a str>,
     /// The skill has an update, so it shows an Update button.
@@ -45,14 +39,6 @@ pub(super) struct SkillItem<'a> {
 impl SkillItem<'_> {
     fn name(&self) -> String {
         self.skill.id.to_string()
-    }
-
-    /// "320 files", or "1 file".
-    fn files(&self) -> String {
-        match self.skill.file_count {
-            1 => "1 file".to_owned(),
-            count => format!("{count} files"),
-        }
     }
 }
 
@@ -113,7 +99,9 @@ impl NativeView {
                                 line.child(drift_glyph(&item.skill.id, cx))
                             }),
                     )
-                    .child(meta_line(item, cx))
+                    .when_some(item.folder, |lines, folder| {
+                        lines.child(folder_line(item, folder, cx))
+                    })
                     .child(description(item.description, 1, cx)),
             )
             .child(div().pt(px(6.)).child(presence(item, ring, cx)))
@@ -172,7 +160,9 @@ impl NativeView {
                         line.child(self.update_button("card", &item.skill.id, cx))
                     }),
             )
-            .child(meta_line(item, cx))
+            .when_some(item.folder, |card, folder| {
+                card.child(folder_line(item, folder, cx))
+            })
             .child(
                 div()
                     .flex_1()
@@ -224,24 +214,13 @@ fn surface(cx: &App) -> Hsla {
     skillbinder_theme::library::surface(cx.theme())
 }
 
-/// "13 hours ago · 320 files", with the skill's folder first while Library lists every skill. The
-/// tooltip holds the exact times.
-fn meta_line(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
-    let tooltip = exact_times(item);
-    let mut parts: Vec<String> = Vec::new();
-    if let Some(folder) = item.folder {
-        parts.push(folder.to_owned());
-    }
-    if let Some(modified) = item.modified {
-        parts.push(relative(modified, Utc::now()));
-    }
-    parts.push(item.files());
+/// The skill's folder, shown while Library lists every skill.
+fn folder_line(item: &SkillItem<'_>, folder: &str, cx: &App) -> impl IntoElement {
     div()
-        .id(format!("meta-{}", item.skill.id))
+        .id(format!("folder-{}", item.skill.id))
         .text_size(px(11.5))
         .text_color(cx.theme().muted_foreground.opacity(0.8))
-        .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
-        .child(parts.join(" · "))
+        .child(folder.to_owned())
 }
 
 /// The warning glyph of a skill whose source has an update.
@@ -256,18 +235,6 @@ fn update_glyph(id: &SkillId, cx: &App) -> AnyElement {
         )
         .tooltip(|window, cx| Tooltip::new("Update available").build(window, cx))
         .into_any_element()
-}
-
-/// The exact local times behind a row's relative date.
-fn exact_times(item: &SkillItem<'_>) -> String {
-    let mut lines: Vec<String> = Vec::new();
-    if let Some(modified) = item.modified {
-        lines.push(format!("Modified {}", exact(modified)));
-    }
-    if let Some(imported) = item.imported {
-        lines.push(format!("Imported {}", exact(imported)));
-    }
-    lines.join("\n")
 }
 
 fn description(text: &str, lines: usize, cx: &App) -> impl IntoElement {

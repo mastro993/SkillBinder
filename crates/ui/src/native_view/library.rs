@@ -3,7 +3,6 @@
 
 use super::NativeView;
 use super::controls::app_icon;
-use super::library_dates as dates;
 use super::library_items::SkillItem;
 use super::library_presence::presence;
 use gpui_kit::component::{
@@ -148,12 +147,6 @@ impl NativeView {
                     .details
                     .get(&skill.id)
                     .map_or("", |details| details.description.as_str()),
-                imported: skill.imported_at.as_deref().and_then(dates::parse),
-                modified: library
-                    .modified
-                    .get(&skill.id)
-                    .copied()
-                    .and_then(dates::from_unix),
                 folder: self.folder_label(skill),
                 update: self.has_update(&skill.id),
                 drifted: skill.drift.is_some(),

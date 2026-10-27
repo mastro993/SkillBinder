@@ -1,7 +1,6 @@
-//! When a Library skill was imported and when its files last changed, as relative times whose
-//! tooltips show the exact local date and time.
+//! When a skill's files last changed, as relative times.
 
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 
 /// How long ago `then` was, in the largest whole unit: "just now", "5 minutes ago", "3 days ago".
 pub(super) fn relative(then: DateTime<Utc>, now: DateTime<Utc>) -> String {
@@ -16,20 +15,6 @@ pub(super) fn relative(then: DateTime<Utc>, now: DateTime<Utc>) -> String {
     };
     let plural = if count == 1 { "" } else { "s" };
     format!("{count} {unit}{plural} ago")
-}
-
-/// The exact time in this device's time zone, such as "14 Oct 2026, 13:05".
-pub(super) fn exact(time: DateTime<Utc>) -> String {
-    time.with_timezone(&Local)
-        .format("%-d %b %Y, %H:%M")
-        .to_string()
-}
-
-/// An RFC 3339 import time.
-pub(super) fn parse(time: &str) -> Option<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(time)
-        .ok()
-        .map(|time| time.with_timezone(&Utc))
 }
 
 /// A Unix time in seconds, as the engine reports file changes.
@@ -60,12 +45,10 @@ mod tests {
     }
 
     #[test]
-    fn install_and_engine_times_parse() {
+    fn engine_times_are_unix_seconds() {
         assert_eq!(
-            parse("2026-10-14T12:00:00Z"),
             from_unix(1_791_979_200),
-            "both describe the same instant"
+            DateTime::from_timestamp(1_791_979_200, 0)
         );
-        assert_eq!(parse("yesterday"), None);
     }
 }
