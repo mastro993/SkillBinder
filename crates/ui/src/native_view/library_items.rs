@@ -8,7 +8,7 @@ use super::library_presence::{Holder, Reader};
 use super::sidebar_row::{activate, with_menu};
 use super::{NativeView, Route};
 use chrono::{DateTime, Utc};
-use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, tooltip::Tooltip, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tooltip::Tooltip, v_flex};
 use gpui_kit::{
     AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
@@ -20,8 +20,9 @@ use skillbinder_theme::library::{
 
 /// Agent avatars shown before the rest collapse into `+N`.
 const SHOWN_HOLDERS: usize = 4;
-/// Diameter of a presence avatar, the kit's extra-small avatar.
-const AVATAR_SIZE: f32 = 16.;
+/// Diameter of a presence avatar, a step above the kit's extra-small avatar so the agent logos
+/// read at a glance.
+const AVATAR_SIZE: f32 = 20.;
 
 /// One Library skill with its description, dates, and presence.
 pub(super) struct SkillItem<'a> {
@@ -344,7 +345,7 @@ fn holder_avatar(
         }))
         .child(
             avatar
-                .with_size(Size::XSmall)
+                .with_size(px(AVATAR_SIZE))
                 .rounded_full()
                 .border_2()
                 .border_color(ring),
@@ -376,7 +377,7 @@ fn more_avatars(
         .border_2()
         .border_color(ring)
         .bg(cx.theme().muted)
-        .text_size(px(8.))
+        .text_size(px(9.5))
         .text_color(cx.theme().muted_foreground)
         // The circle opens nothing, and the click must not open the skill either.
         .on_click(|_, _, cx| cx.stop_propagation())
