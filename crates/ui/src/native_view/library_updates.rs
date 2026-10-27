@@ -3,11 +3,13 @@
 
 use super::controls::{Inactive, app_icon, button};
 use super::{Effect, NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, h_flex, v_flex};
-use gpui_kit::{
-    AnyElement, Context, IntoElement, ParentElement, Styled, WeakEntity, div,
-    prelude::FluentBuilder,
+use gpui_kit::component::{
+    ActiveTheme, Sizable,
+    button::ButtonVariants,
+    tab::{Tab, TabBar},
+    v_flex,
 };
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::{AppSnapshot, Skill, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
@@ -67,43 +69,29 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The All and Needs update filters; Needs update counts the `skills` with an update.
-    pub(super) fn update_filter_tabs(
-        &self,
-        skills: &[&Skill],
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    /// The All and Needs update filter, a segmented control like the List and Grid one; Needs
+    /// update counts the `skills` with an update.
+    pub(super) fn update_filter_tabs(&self, skills: &[&Skill], cx: &mut Context<Self>) -> TabBar {
         let weak = cx.entity().downgrade();
         let count = skills
             .iter()
             .filter(|skill| self.has_update(&skill.id))
             .count();
-        let (muted, foreground) = (cx.theme().muted, cx.theme().foreground);
-        let (border, muted_foreground) = (cx.theme().border, cx.theme().muted_foreground);
-        let chip = |index: usize, label: String, weak: WeakEntity<NativeView>| {
-            let selected = usize::from(self.needs_update_only) == index;
-            button(format!("update-filter-{index}"))
-                .small()
-                .ghost()
-                .label(label)
-                .when(selected, |chip| chip.bg(muted).text_color(foreground))
-                .when(!selected, |chip| {
-                    chip.border_1()
-                        .border_color(border)
-                        .text_color(muted_foreground)
-                })
-                .on_click(move |_, _, cx| {
-                    let _ = weak.update(cx, |view, cx| {
-                        view.needs_update_only = index == 1;
-                        cx.notify();
-                    });
-                })
-        };
-        h_flex()
-            .gap_1()
-            .child(chip(0, format!("All {}", skills.len()), weak.clone()))
-            .child(chip(1, format!("Needs update {count}"), weak))
-            .into_any_element()
+        TabBar::new("update-filter")
+            .segmented()
+            .selected_index(usize::from(self.needs_update_only))
+            .child(Tab::new().label("All").cursor_pointer())
+            .child(
+                Tab::new()
+                    .label(format!("Needs update {count}"))
+                    .cursor_pointer(),
+            )
+            .on_click(move |index, _, cx| {
+                let _ = weak.update(cx, |view, cx| {
+                    view.needs_update_only = *index == 1;
+                    cx.notify();
+                });
+            })
     }
 
     /// Library's "Import", which opens Discovery, where copies found on this device are reviewed

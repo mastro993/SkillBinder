@@ -130,20 +130,6 @@ pub mod library {
             theme.background
         }
     }
-
-    /// The surface of a grid card, a step below the page in the light theme.
-    pub fn tile(theme: &Theme) -> Hsla {
-        theme.muted
-    }
-
-    /// A grid card's surface under the pointer, away from the page in either mode.
-    pub fn tile_hover(theme: &Theme) -> Hsla {
-        let delta = if theme.is_dark() { 0.04 } else { -0.03 };
-        Hsla {
-            l: theme.muted.l + delta,
-            ..theme.muted
-        }
-    }
 }
 
 /// Applies the system font used by the production baseline.

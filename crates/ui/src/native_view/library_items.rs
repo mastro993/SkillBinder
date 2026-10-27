@@ -126,11 +126,8 @@ impl NativeView {
     pub(super) fn skill_card(&self, item: &SkillItem<'_>, cx: &mut Context<Self>) -> AnyElement {
         let id = item.skill.id.clone();
         let owner = format!("skill-card-{id}");
-        let (rest, hover, border) = (
-            cx.theme().muted,
-            skillbinder_theme::library::tile_hover(cx.theme()),
-            cx.theme().border,
-        );
+        // A tile wears the list card's surface and hairline; only the hover fill differs.
+        let (rest, hover, border) = (surface(cx), cx.theme().muted, cx.theme().border);
         let ring = rest;
         let card = div()
             .id(owner.clone())
@@ -143,10 +140,10 @@ impl NativeView {
             .rounded(px(TILE_RADIUS))
             .bg(rest)
             .border_1()
-            .border_color(border.opacity(0.))
+            .border_color(border)
             .p(px(16.))
             .cursor_pointer()
-            .hover(move |card| card.bg(hover).border_color(border))
+            .hover(move |card| card.bg(hover))
             .child(
                 h_flex()
                     .items_center()
