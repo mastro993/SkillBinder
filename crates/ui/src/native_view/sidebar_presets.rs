@@ -1,17 +1,22 @@
 //! The sidebar Presets section: user-ordered presets, inline naming, row menus,
 //! colors, icons, and the reorder menu actions.
 
+mod menu;
 mod optimistic;
+#[cfg(test)]
+mod tests;
 
-use std::{cell::Cell, time::Instant};
+pub(super) use menu::menu_action;
+
+use menu::preset_menu;
+use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
 use super::controls::app_icon;
-use super::menu::MenuItem;
-use super::preset_colors::{color_menu, preset_tint};
-use super::preset_icons::{IconGrid, icon_glyph, menu_glyph};
+use super::preset_colors::preset_tint;
+use super::preset_icons::icon_glyph;
 use super::sidebar_reorder::{RowDrag, RowDragPreview};
 use super::sidebar_row::{
-    RowIcon, activate, active_marker, add_button, icon_color, name_field, row, with_menu,
+    RowIcon, activate, active_marker, add_button, count, name_field, row_with_marker, with_menu,
 };
 use super::{Effect, NativeView};
 use gpui_kit::component::{
@@ -21,10 +26,10 @@ use gpui_kit::component::{
 use gpui_kit::{
     AnyElement, App, AppContext, Context, DragMoveEvent, Entity, Hsla, InteractiveElement,
     IntoElement, MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled,
-    WeakEntity, Window, div, prelude::FluentBuilder, px,
+    Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{
-    LibrarySnapshot, OrganizationChange, Preset, PresetColor, PresetIcon, PresetId, SidebarSection,
+    LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
 };
 use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
@@ -33,6 +38,8 @@ pub(super) struct OptimisticPreset {
     pub(super) preset: Preset,
     /// The source of a clone, so its row sits directly after it; `None` appends a new preset.
     pub(super) after: Option<PresetId>,
+    /// How many skills the preset holds, for its trailing count.
+    pub(super) skills: usize,
 }
 
 /// Which preset name the inline sidebar field edits.
@@ -59,6 +66,15 @@ impl NativeView {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
+        let mut counts = BTreeMap::<&PresetId, usize>::new();
+        for preset in library
+            .library
+            .skills
+            .iter()
+            .flat_map(|skill| &skill.preset_ids)
+        {
+            *counts.entry(preset).or_default() += 1;
+        }
         let (order, floating) = self
             .preset_reorder
             .displayed(&self.preset_ids(), cx.has_active_drag());
@@ -76,6 +92,7 @@ impl NativeView {
                 if self.preset_edit == Some(PresetEdit::Rename(preset.id.clone())) {
                     return self.render_preset_name_field(Some(preset), cx);
                 }
+                let skills = counts.get(&preset.id).copied().unwrap_or(0);
                 let active = active.as_ref() == Some(&preset.id);
                 let placement = RowPlacement {
                     index,
@@ -83,7 +100,7 @@ impl NativeView {
                     offset: self.preset_reorder.offset(&preset.id, now),
                     floating: floating.as_ref() == Some(&preset.id),
                 };
-                self.render_preset_row(preset, active, placement, cx)
+                self.render_preset_row(preset, active, placement, skills, cx)
             })
             .collect();
         for optimistic in &self.optimistic_presets {
@@ -162,6 +179,7 @@ impl NativeView {
         preset: &Preset,
         active: bool,
         placement: RowPlacement,
+        skills: usize,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let dark = cx.theme().mode.is_dark();
@@ -169,15 +187,17 @@ impl NativeView {
         let label: SharedString = self.preset_display_name(preset).to_owned().into();
         let tint = preset.color.map(|color| preset_tint(color, dark));
         let glyph = icon_glyph(preset.icon);
+        let marker = active.then(|| active_marker(id.as_str(), tint, cx));
         let (menu_preset, index, len) = (preset.clone(), placement.index, placement.len);
         let busy = self.busy;
         let open = id.clone();
         let row = activate(
-            row(
+            row_with_marker(
                 format!("preset-{id}"),
                 RowIcon::Glyph(Box::new(app_icon(glyph))),
                 tint,
                 label.clone(),
+                marker,
                 active,
                 cx,
             ),
@@ -196,9 +216,7 @@ impl NativeView {
         );
         let row = row
             .when(active, |row| row.bg(active_preset_fill(tint, cx)))
-            .when(active, |row| {
-                row.child(active_marker(id.as_str(), tint, cx))
-            })
+            .child(count(skills, cx))
             .relative()
             .top(px(placement.offset))
             .when(placement.floating, |row| row.opacity(0.0));
@@ -211,7 +229,7 @@ impl NativeView {
                 icon: RowIcon::Glyph(Box::new(app_icon(glyph))),
                 label,
                 tint,
-                count: None,
+                count: Some(skills),
                 width: self.sidebar_width - 2.0 * INSET,
                 grab: Cell::new(0.0),
             },
@@ -371,163 +389,25 @@ fn shown_preset_name<'a>(
         .map_or(preset.name.as_str(), |(_, name)| name.as_str())
 }
 
-/// The active preset's row fill: its color at a low opacity, or the sidebar selection fill when
-/// it has no color.
+/// Opacity of an active preset's color fill: fainter than the route selection fill in both
+/// themes, and lighter still in the light theme, whose selection fill is dark against its surface.
+const PRESET_TINT_OPACITY: f32 = 0.07;
+const PRESET_TINT_OPACITY_DARK: f32 = 0.15;
+/// Opacity of the route selection fill for an active preset with no color, kept fainter than a
+/// selected navigation row like the tinted fill.
+const PRESET_NEUTRAL_OPACITY: f32 = 0.6;
+
+/// The active preset's row fill: its color at a low opacity, or a fainter selection fill when it
+/// has no color.
 fn active_preset_fill(tint: Option<Hsla>, cx: &App) -> Hsla {
-    tint.map_or_else(|| cx.theme().sidebar_accent, |color| color.opacity(0.22))
-}
-
-/// A menu handler that runs `action` on the view for one row.
-pub(super) fn menu_action<Id: 'static>(
-    view: WeakEntity<NativeView>,
-    id: Id,
-    action: impl Fn(&mut NativeView, &Id, &mut Window, &mut Context<NativeView>) + 'static,
-) -> impl Fn(&mut Window, &mut App) + 'static {
-    move |window, cx| {
-        let _ = view.update(cx, |view, cx| action(view, &id, window, cx));
-    }
-}
-
-/// Sets the color of preset `id` from its menu.
-fn set_preset_color(
-    view: &mut NativeView,
-    id: &PresetId,
-    color: Option<PresetColor>,
-    cx: &mut Context<NativeView>,
-) {
-    let change = OrganizationChange::SetPresetColor {
-        id: id.clone(),
-        color,
+    let theme = cx.theme();
+    let Some(color) = tint else {
+        return theme.sidebar_accent.opacity(PRESET_NEUTRAL_OPACITY);
     };
-    view.change_organization(change, cx);
-}
-
-/// Rename, Clone, Color, Icon, order, and delete actions for a preset at `index` of `len`. The
-/// Default preset's menu holds only Clone: the app never renames it, recolors it, re-icons it,
-/// moves it, or removes it.
-fn preset_menu(
-    preset: &Preset,
-    index: usize,
-    len: usize,
-    busy: bool,
-    window: &mut Window,
-    cx: &mut Context<NativeView>,
-) -> Vec<MenuItem> {
-    let view = cx.entity().downgrade();
-    let (id, color, icon) = (preset.id.clone(), preset.color, preset.icon);
-    let on = |action: fn(&mut NativeView, &PresetId, &mut Window, &mut Context<NativeView>)| {
-        menu_action(view.clone(), id.clone(), action)
+    let opacity = if theme.mode.is_dark() {
+        PRESET_TINT_OPACITY_DARK
+    } else {
+        PRESET_TINT_OPACITY
     };
-    let clone = MenuItem::new("clone", "Clone")
-        .icon("book-copy")
-        .disabled(busy)
-        .on_select(menu_action(
-            view.clone(),
-            id.clone(),
-            |view, id, window, cx| {
-                view.clone_preset_optimistically(id.clone(), window, cx);
-            },
-        ));
-    if preset.is_default() {
-        return vec![clone];
-    }
-    let picked = (view.clone(), id.clone());
-    let grid = cx.new(|cx| {
-        IconGrid::new(
-            Some(icon),
-            PresetIcon::ALL.into_iter().map(Some),
-            color,
-            cx,
-            move |choice, window, cx| {
-                let Some(icon) = choice else {
-                    return;
-                };
-                let (view, id) = &picked;
-                let _ = view.update(cx, |view, cx| {
-                    let id = id.clone();
-                    view.change_organization(OrganizationChange::SetPresetIcon { id, icon }, cx);
-                    if let Some(menu) = view.menu.as_ref() {
-                        menu.close(window, cx);
-                    }
-                });
-            },
-        )
-    });
-    let focus = grid.read(cx).focus().clone();
-    vec![
-        MenuItem::new("rename", "Rename")
-            .icon("pencil-edit")
-            .disabled(busy)
-            .on_select(on(|view, id, window, cx| {
-                view.begin_preset_edit(PresetEdit::Rename(id.clone()), window, cx)
-            })),
-        clone,
-        MenuItem::new("color", "Color")
-            .icon("paint-board")
-            .submenu(color_menu(
-                &view,
-                id.clone(),
-                color,
-                set_preset_color,
-                window,
-                cx,
-            )),
-        MenuItem::new("icon", "Icon")
-            .leading(move |cx| menu_glyph(icon, icon_color(cx)))
-            .panel(focus, move |_, _| grid.clone().into_any_element()),
-        MenuItem::separator(),
-        // The default preset holds the first slot, so the next one cannot move up.
-        MenuItem::new("move-up", "Move Up")
-            .icon("arrow-up")
-            .disabled(index <= 1)
-            .on_select(menu_action(
-                view.clone(),
-                id.clone(),
-                move |view, id, _, cx| view.move_preset(id, index.saturating_sub(1), cx),
-            )),
-        MenuItem::new("move-down", "Move Down")
-            .icon("arrow-down")
-            .disabled(index + 1 >= len)
-            .on_select(menu_action(
-                view.clone(),
-                id.clone(),
-                move |view, id, _, cx| view.move_preset(id, index + 1, cx),
-            )),
-        MenuItem::separator(),
-        MenuItem::new("delete", "Delete…")
-            .icon("delete")
-            .danger()
-            .on_select(on(|view, id, _, cx| {
-                let (client, id) = (view.client.clone(), id.clone());
-                view.run(
-                    async move { client.preview_delete(id).await.map(Effect::DeletePreview) },
-                    cx,
-                );
-            })),
-    ]
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn preset(id: &str, name: &str) -> Preset {
-        Preset {
-            id: PresetId(id.to_owned()),
-            name: name.to_owned(),
-            position: 0,
-            color: None,
-            icon: PresetIcon::Layers,
-        }
-    }
-
-    #[test]
-    fn a_pending_rename_shows_only_on_its_preset() {
-        let review = preset("review", "Review");
-        let other = preset("other", "Other");
-        let pending = Some((PresetId("review".to_owned()), "Reviewed".to_owned()));
-        assert_eq!(shown_preset_name(&review, pending.as_ref()), "Reviewed");
-        assert_eq!(shown_preset_name(&other, pending.as_ref()), "Other");
-        assert_eq!(shown_preset_name(&review, None), "Review");
-    }
+    color.opacity(opacity)
 }

@@ -23,6 +23,8 @@ use skillbinder_theme::sidebar::{
 
 /// Unselected icons sit a step below their label, as in the reference design.
 const ICON_OPACITY: f32 = 0.65;
+/// Space between a row's label and a marker after it, such as the active preset's check.
+const MARKER_GAP: f32 = 4.0;
 /// How far an image icon's corners are rounded inside the row icon slot.
 const IMAGE_RADIUS: f32 = 4.0;
 
@@ -90,6 +92,20 @@ pub(super) fn row(
     selected: bool,
     cx: &App,
 ) -> Stateful<Div> {
+    row_with_marker(id, icon, tint, label, None, selected, cx)
+}
+
+/// A row whose label ends with `marker`, such as the active preset's check, before any trailing
+/// detail the caller appends.
+pub(super) fn row_with_marker(
+    id: impl Into<ElementId>,
+    icon: RowIcon,
+    tint: Option<Hsla>,
+    label: impl Into<SharedString>,
+    marker: Option<AnyElement>,
+    selected: bool,
+    cx: &App,
+) -> Stateful<Div> {
     let theme = cx.theme();
     let text = if selected {
         theme.sidebar_accent_foreground
@@ -114,7 +130,16 @@ pub(super) fn row(
         .when(selected, |row| row.bg(theme.sidebar_accent))
         .when(!selected, |row| row.hover(move |style| style.bg(hover)))
         .child(icon.element(tint, neutral))
-        .child(div().flex_1().min_w_0().truncate().child(label.into()))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .items_center()
+                .gap(px(MARKER_GAP))
+                .child(div().min_w_0().truncate().child(label.into()))
+                .children(marker),
+        )
 }
 
 /// The fill of an unselected row under the pointer, or whose context menu is open.
@@ -193,7 +218,7 @@ pub(super) fn count(value: usize, cx: &App) -> AnyElement {
     detail(format_count(value), cx)
 }
 
-/// A trailing check on the preset whose configuration is active, in its icon color.
+/// A check after the name of the preset whose configuration is active, in its icon color.
 pub(super) fn active_marker(id: &str, tint: Option<Hsla>, cx: &App) -> AnyElement {
     let color = tint.unwrap_or_else(|| cx.theme().sidebar_accent_foreground);
     div()
