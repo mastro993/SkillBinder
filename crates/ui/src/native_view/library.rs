@@ -49,7 +49,7 @@ impl NativeView {
             .collect();
         v_flex()
             .gap_4()
-            .child(self.library_header(&matching, visible.len(), cx))
+            .child(self.library_header(&matching, cx))
             .children(self.active_preset_empty_note(library, cx))
             .children(self.render_update_outcome(cx))
             .child(self.library_results(library, &visible, &typed, window, cx))
@@ -82,12 +82,7 @@ impl NativeView {
 
     /// Search, the Needs update filter over the `matching` skills, and the shown skill count,
     /// then the list/grid control; the title or folders are in the header.
-    fn library_header(
-        &self,
-        matching: &[&Skill],
-        count: usize,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    fn library_header(&self, matching: &[&Skill], cx: &mut Context<Self>) -> impl IntoElement {
         let view = self.library_view;
         let weak = cx.entity().downgrade();
         h_flex()
@@ -101,12 +96,6 @@ impl NativeView {
             )
             .child(self.update_filter_tabs(matching, cx))
             .child(div().flex_1())
-            .child(
-                div()
-                    .text_size(px(12.))
-                    .text_color(cx.theme().muted_foreground)
-                    .child(format!("{count} skills")),
-            )
             .child(
                 TabBar::new("library-view")
                     .segmented()

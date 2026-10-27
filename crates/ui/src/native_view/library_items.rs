@@ -13,7 +13,7 @@ use gpui_kit::{
     AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::Skill;
+use skillbinder_proto::{Skill, SkillId};
 use skillbinder_theme::library::{
     AVATAR_OVERLAP, CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_PADDING_X, ROW_PADDING_Y, TILE_RADIUS,
 };
@@ -105,19 +105,17 @@ impl NativeView {
                                     .truncate()
                                     .child(item.name()),
                             )
+                            .when(item.update, |line| {
+                                line.child(update_glyph(&item.skill.id, cx))
+                            })
                             .when(item.drifted, |line| {
                                 line.child(drift_glyph(&item.skill.id, cx))
                             }),
                     )
-                    .child(description(item.description, 1, cx)),
+                    .child(description(item.description, 1, cx))
+                    .child(meta_line(item, cx)),
             )
-            .child(
-                h_flex()
-                    .flex_shrink_0()
-                    .gap(px(ROW_GAP))
-                    .child(presence(item, ring, cx))
-                    .child(dates(item, cx)),
-            )
+            .child(h_flex().flex_shrink_0().child(presence(item, ring, cx)))
             .when(!last, |row| row.child(divider(cx)));
         frame(self, row, &id, owner, item, cx)
     }
@@ -149,17 +147,26 @@ impl NativeView {
                     .items_center()
                     .gap_2()
                     .child(
-                        div()
+                        h_flex()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(14.5))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .truncate()
-                            .child(item.name()),
+                            .items_center()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .text_size(px(14.5))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .truncate()
+                                    .child(item.name()),
+                            )
+                            .when(item.update, |line| {
+                                line.child(update_glyph(&item.skill.id, cx))
+                            })
+                            .when(item.drifted, |line| {
+                                line.child(drift_glyph(&item.skill.id, cx))
+                            }),
                     )
-                    .when(item.drifted, |line| {
-                        line.child(drift_glyph(&item.skill.id, cx))
-                    })
                     .when(item.update, |line| {
                         line.child(self.update_button("card", &item.skill.id, cx))
                     }),
@@ -222,30 +229,38 @@ fn surface(cx: &App) -> Hsla {
     skillbinder_theme::library::surface(cx.theme())
 }
 
-/// When the skill last changed, over its folder and file count. The tooltip holds the exact
-/// times.
-fn dates(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
-    let now = Utc::now();
+/// "13 hours ago · 320 files", with the skill's folder first while Library lists every skill. The
+/// tooltip holds the exact times.
+fn meta_line(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
     let tooltip = exact_times(item);
-    let mut column = v_flex().flex_shrink_0().items_end().gap(px(1.));
-    if let Some(modified) = item.modified {
-        column = column.child(
-            div()
-                .id(format!("modified-{}", item.skill.id))
-                .text_size(px(11.5))
-                .text_color(cx.theme().foreground)
-                .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
-                .child(relative(modified, now)),
-        );
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(folder) = item.folder {
+        parts.push(folder.to_owned());
     }
-    column.child(
-        div()
-            .max_w(px(190.))
-            .truncate()
-            .text_size(px(11.5))
-            .text_color(cx.theme().muted_foreground)
-            .child(item_detail(item)),
-    )
+    if let Some(modified) = item.modified {
+        parts.push(relative(modified, Utc::now()));
+    }
+    parts.push(item.files());
+    div()
+        .id(format!("meta-{}", item.skill.id))
+        .text_size(px(11.5))
+        .text_color(cx.theme().muted_foreground)
+        .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
+        .child(parts.join(" · "))
+}
+
+/// The warning glyph of a skill whose source has an update.
+fn update_glyph(id: &SkillId, cx: &App) -> AnyElement {
+    div()
+        .id(format!("update-{id}"))
+        .flex_shrink_0()
+        .child(
+            app_icon("upload-circle")
+                .small()
+                .text_color(cx.theme().warning),
+        )
+        .tooltip(|window, cx| Tooltip::new("Update available").build(window, cx))
+        .into_any_element()
 }
 
 /// "320 files · 2 hours ago", for a grid tile's single footer line.
@@ -259,14 +274,6 @@ fn dates_inline(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
         .text_size(px(11.5))
         .text_color(cx.theme().muted_foreground)
         .child(detail)
-}
-
-/// The folder the skill sits in, while Library lists every skill, then its file count.
-fn item_detail(item: &SkillItem<'_>) -> String {
-    match item.folder {
-        Some(folder) => format!("{folder} · {}", item.files()),
-        None => item.files(),
-    }
 }
 
 /// The exact local times behind a row's relative date.
