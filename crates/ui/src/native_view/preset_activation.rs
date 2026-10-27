@@ -85,7 +85,7 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// A one-click switch for a library skill in the active preset. Its changes save at once.
+    /// Adds `skill` to the active preset, or removes it, saving the change at once.
     pub(super) fn toggle_activation(
         &mut self,
         skill: SkillId,

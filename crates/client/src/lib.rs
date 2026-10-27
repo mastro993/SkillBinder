@@ -238,22 +238,7 @@ impl Client {
     /// when another check was running, which leaves nothing new to publish; a library with no
     /// source due counts as checked.
     async fn check_updates(&self) -> bool {
-        // Publish the check while it runs, so the header can show it. The engine reports the
-        // truth, including a check another caller started.
-        let engine = self.shared.engine.clone();
-        let mut check = self
-            .shared
-            .runtime
-            .spawn(async move { engine.check_updates(UPDATE_CHECK_INTERVAL).await });
-        while !check.is_finished() {
-            self.publish_checking(true);
-            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-        }
-        let checked = match (&mut check).await {
-            Ok(result) => result,
-            Err(_) => Err(AppError::storage()),
-        };
-        self.publish_checking(false);
+        let checked = self.run_check(UPDATE_CHECK_INTERVAL).await;
         if matches!(checked, Ok(false)) {
             return false;
         }
@@ -265,16 +250,45 @@ impl Client {
             }
         }
     }
+    /// Runs a source check, publishing that one is running for as long as this caller waits on
+    /// it, so the header shows a manual check as well as the one after a scan. A check another
+    /// caller started finishes this one at once, and publishing is left to that caller.
+    async fn run_check(&self, max_age: std::time::Duration) -> AppResult<bool> {
+        let engine = self.shared.engine.clone();
+        let mut check = self
+            .shared
+            .runtime
+            .spawn(async move { engine.check_updates(max_age).await });
+        let mut announced = false;
+        while !check.is_finished() {
+            self.publish_checking(true);
+            announced = true;
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+        let checked = match (&mut check).await {
+            Ok(result) => result,
+            Err(_) => Err(AppError::storage()),
+        };
+        if announced {
+            self.publish_checking(false);
+        }
+        checked
+    }
     /// Checks every source now, whatever the interval since its last check, and publishes the
     /// results. A check already running keeps the header showing it, and this one then finds
     /// nothing left to start.
     pub async fn check_now(&self) -> AppResult<()> {
-        let checked = self
-            .shared
-            .engine
-            .check_updates(std::time::Duration::ZERO)
-            .await;
-        self.refresh_preserving_outcome(checked).await.map(|_| ())
+        // The caller runs on the UI's executor, so the check and its publishing loop move to the
+        // runtime that owns the engine.
+        let client = self.clone();
+        self.shared
+            .runtime
+            .spawn(async move {
+                let checked = client.run_check(std::time::Duration::ZERO).await;
+                client.refresh_preserving_outcome(checked).await.map(|_| ())
+            })
+            .await
+            .map_err(|_| AppError::storage())?
     }
 
     /// Updates one library skill from its source, without the rescan a whole batch ends with, so a
