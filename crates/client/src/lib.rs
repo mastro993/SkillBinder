@@ -252,7 +252,8 @@ impl Client {
     }
     /// Runs a source check, publishing that one is running for as long as this caller waits on
     /// it, so the header shows a manual check as well as the one after a scan. A check another
-    /// caller started finishes this one at once, and publishing is left to that caller.
+    /// caller started finishes this one at once; the engine still reports it, so publishing
+    /// what the engine holds leaves that caller's spinner up.
     async fn run_check(&self, max_age: std::time::Duration) -> AppResult<bool> {
         let engine = self.shared.engine.clone();
         let mut check = self
@@ -270,7 +271,11 @@ impl Client {
             Err(_) => Err(AppError::storage()),
         };
         if announced {
-            self.publish_checking(false);
+            // Our task may have been refused because another caller's check was running, and
+            // polling can announce before that answer arrives, so publish the engine's truth
+            // rather than clearing a check we do not own.
+            let running = self.shared.engine.check_running().unwrap_or(false);
+            self.publish_checking(running);
         }
         checked
     }

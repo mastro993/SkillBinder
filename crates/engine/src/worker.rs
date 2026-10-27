@@ -34,6 +34,7 @@ struct Owner {
     sender: mpsc::Sender<Message>,
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
+    updates: Updates,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
 }
@@ -84,6 +85,7 @@ impl Engine {
             .map_err(|_| AppError::storage())?;
         let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
+        let updates = Updates::default();
         let shutdown = Shutdown::default();
         let mut state = State {
             config,
@@ -91,7 +93,7 @@ impl Engine {
             git: Git::discover(shutdown.clone()).ok(),
             log,
             scans: scans.clone(),
-            updates: Updates::default(),
+            updates: updates.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
             shutdown: shutdown.clone(),
@@ -131,6 +133,7 @@ impl Engine {
                 sender,
                 thread: Mutex::new(Some(thread)),
                 scans,
+                updates,
                 shutdown,
             }),
         })
@@ -241,6 +244,11 @@ impl Engine {
     /// durable mutation.
     pub fn current_scan(&self) -> AppResult<(Option<ScanSnapshot>, bool)> {
         self.owner.scans.current()
+    }
+    /// Whether a source check is running, so the client can publish the header's state without
+    /// waiting for the check to finish.
+    pub fn check_running(&self) -> AppResult<bool> {
+        self.owner.updates.running()
     }
     /// Re-inspects selected opaque candidates into an immutable review plan.
     pub async fn prepare_import(
