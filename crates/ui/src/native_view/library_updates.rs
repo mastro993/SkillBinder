@@ -10,7 +10,7 @@ use gpui_kit::component::{
     tab::{Tab, TabBar},
     v_flex,
 };
-use gpui_kit::{AnyElement, Context, IntoElement, Keystroke, ParentElement, Styled, div};
+use gpui_kit::{AnyElement, Context, IntoElement, Keystroke, ParentElement, Styled, div, px};
 use skillbinder_proto::{AppSnapshot, Skill, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
@@ -32,12 +32,14 @@ fn summary(outcome: &UpdateOutcome) -> String {
     )
 }
 
-/// `count` drawn in a keycap, which the filter and Update all show instead of parentheses.
+/// `count` drawn in a keycap. It is outlined rather than filled, so it stands off both the
+/// selected tab's raised fill and the bar behind the unselected one.
 fn count_kbd(count: usize) -> Kbd {
     Kbd::new(Keystroke {
         key: count.to_string(),
         ..Keystroke::default()
     })
+    .outline()
 }
 
 impl NativeView {
@@ -93,7 +95,9 @@ impl NativeView {
             .child(
                 Tab::new()
                     .label("Needs update")
-                    .suffix(count_kbd(count))
+                    // Inside the label's own fill, so the tab's padding sets the trailing inset
+                    // and the keycap only needs the gap from the text.
+                    .child(div().ml(px(6.)).child(count_kbd(count)))
                     .cursor_pointer(),
             )
             .on_click(move |index, _, cx| {
