@@ -1,17 +1,11 @@
-//! Skill updates in Library: the Needs update filter, the Update buttons of skills whose source
-//! has an update, Update all, the last update's result, and why a check or update failed.
+//! Skill updates in Library: the Update buttons of skills whose source has an update, Update all,
+//! the last update's result, and why a check or update failed.
 
 use super::controls::{Inactive, app_icon, button};
 use super::{Effect, NativeView, Route};
-use gpui_kit::component::{
-    ActiveTheme, Sizable,
-    button::ButtonVariants,
-    kbd::Kbd,
-    tab::{Tab, TabBar},
-    v_flex,
-};
-use gpui_kit::{AnyElement, Context, IntoElement, Keystroke, ParentElement, Styled, div, px};
-use skillbinder_proto::{AppSnapshot, Skill, SkillId, UpdateCheck, UpdateOutcome};
+use gpui_kit::component::{ActiveTheme, Sizable, button::ButtonVariants, v_flex};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
+use skillbinder_proto::{AppSnapshot, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
 pub(super) fn available(snapshot: &AppSnapshot) -> Vec<SkillId> {
@@ -30,16 +24,6 @@ fn summary(outcome: &UpdateOutcome) -> String {
         outcome.updated.len(),
         outcome.failed.len()
     )
-}
-
-/// `count` drawn in a keycap. It is outlined rather than filled, so it stands off both the
-/// selected tab's raised fill and the bar behind the unselected one.
-fn count_kbd(count: usize) -> Kbd {
-    Kbd::new(Keystroke {
-        key: count.to_string(),
-        ..Keystroke::default()
-    })
-    .outline()
 }
 
 impl NativeView {
@@ -78,34 +62,6 @@ impl NativeView {
                 view.update(vec![skill.clone()], cx);
             }))
             .into_any_element()
-    }
-
-    /// The All and Needs update filter, a segmented control like the List and Grid one; Needs
-    /// update counts the `skills` with an update.
-    pub(super) fn update_filter_tabs(&self, skills: &[&Skill], cx: &mut Context<Self>) -> TabBar {
-        let weak = cx.entity().downgrade();
-        let count = skills
-            .iter()
-            .filter(|skill| self.has_update(&skill.id))
-            .count();
-        TabBar::new("update-filter")
-            .segmented()
-            .selected_index(usize::from(self.needs_update_only))
-            .child(Tab::new().label("All").cursor_pointer())
-            .child(
-                Tab::new()
-                    .label("Needs update")
-                    // Inside the label's own fill, so the tab's padding sets the trailing inset
-                    // and the keycap only needs the gap from the text.
-                    .child(div().ml(px(6.)).child(count_kbd(count)))
-                    .cursor_pointer(),
-            )
-            .on_click(move |index, _, cx| {
-                let _ = weak.update(cx, |view, cx| {
-                    view.needs_update_only = *index == 1;
-                    cx.notify();
-                });
-            })
     }
 
     /// Library's "Import", which opens Discovery, where copies found on this device are reviewed
