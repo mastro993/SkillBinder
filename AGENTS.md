@@ -24,7 +24,7 @@ Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The 
 
 Use GPUI Kit public editing, focus, and overlay APIs. Do not patch or fork dependency sources. Visible icons must use the retained Hugeicons artwork, except agent logos under `assets/agent-logos/` recorded in its `inventory.json`; agents without a logo use the Hugeicons square terminal glyph. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 
-Preserve captured behavior. Visual fidelity and polish are deferred. Approved scope: onboarding, Discovery, Library, presets, Workspaces, Agents, skill updates from their sources, Sync, and Settings. It excludes screens for entering or editing a skill's source, nested presets, and tag-management UI. SkillBinder writes into the agents' global skill directories and workspaces only as managed copies of active library skills (ADR 0006); it never rewrites or removes any other file there.
+Preserve captured behavior. Visual fidelity and polish are deferred. Approved scope: onboarding, Discovery, Library, presets, Workspaces, Agents, skill updates from their sources, Sync, and Settings. It excludes screens for entering or editing a skill's source, nested presets, and tag-management UI. SkillBinder writes into the agents' global skill directories and workspaces only as managed copies of active library skills (ADR 0006). It replaces a same-slug copy it does not manage only after the user confirms it, which makes the copy managed; it never touches any other file there.
 
 Update affected behavior documents in `docs/`. Keep application code and documentation independent of external architecture examples. Preserve dependency and asset licenses.
 
