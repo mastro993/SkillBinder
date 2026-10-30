@@ -174,6 +174,7 @@ impl State {
                     .record(format!("Library reconciliation will retry: {error}"));
             }
         }
+        self.apply_library();
         if let Err(error) = self.prune_source_caches() {
             self.log.record(format!(
                 "Unused source caches will be removed later: {error}"

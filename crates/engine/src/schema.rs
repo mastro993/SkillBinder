@@ -74,6 +74,16 @@ diesel::table! {
     preset_skills (preset_id, slug) {
         preset_id -> Text,
         slug -> Text,
+        agents -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    managed_copies (directory, slug) {
+        directory -> Text,
+        slug -> Text,
+        digest -> Nullable<Text>,
+        issue -> Nullable<Text>,
     }
 }
 

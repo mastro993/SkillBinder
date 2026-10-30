@@ -1,5 +1,5 @@
 use super::{
-    Found, ImportSource, Managed,
+    Found, ImportSource, LibraryIndex,
     registry::Location,
     walk::{Visit, Walk},
 };
@@ -13,7 +13,7 @@ use std::{
 };
 
 struct Traversal<'a> {
-    managed: &'a Managed,
+    library: &'a LibraryIndex,
     log: &'a Logger,
     found: Found,
     /// Candidate and location index of each physical skill directory already listed.
@@ -26,12 +26,12 @@ struct Traversal<'a> {
 
 pub(super) fn scan(
     locations: Vec<Location>,
-    managed: &Managed,
+    library: &LibraryIndex,
     cancel: &AtomicBool,
     log: &Logger,
 ) -> AppResult<Found> {
     let mut traversal = Traversal {
-        managed,
+        library,
         log,
         found: Found {
             snapshot: ScanSnapshot {
@@ -172,12 +172,12 @@ impl Traversal<'_> {
             matches_source: false,
             modified: inspection.modified,
             skill_id: self
-                .managed
+                .library
                 .digests
                 .get(&inspection.manifest.digest)
                 .cloned(),
             held: self
-                .managed
+                .library
                 .slugs
                 .get(&normalized(&inspection.slug))
                 .cloned(),

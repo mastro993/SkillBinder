@@ -77,7 +77,7 @@ impl NativeView {
                 .library
                 .skills
                 .iter()
-                .filter(|skill| skill.preset_ids.contains(&source.id))
+                .filter(|skill| skill.presets.contains_key(&source.id))
                 .count();
             Some((source, skills))
         }) else {

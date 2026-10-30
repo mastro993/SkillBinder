@@ -12,6 +12,8 @@ use std::{
 };
 use tokio::{runtime::Handle, sync::watch};
 
+mod activation;
+
 /// How long a source check holds before the next refresh checks the skill again.
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
@@ -362,23 +364,38 @@ impl Client {
     pub async fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
         self.shared.engine.preview_delete(id).await
     }
-    /// Applies preset or membership edits.
+    /// Applies preset or membership edits. One that wrote or removed copies scans again, so the
+    /// agents' found skills show them.
     pub async fn change_organization(
         &self,
         change: OrganizationChange,
     ) -> AppResult<LibrarySnapshot> {
-        self.refresh_preserving_outcome(self.shared.engine.change_organization(change).await)
-            .await
+        let before = self
+            .snapshot()
+            .library
+            .as_ref()
+            .map(|old| old.copies.clone());
+        let library = self
+            .refresh_preserving_outcome(self.shared.engine.change_organization(change).await)
+            .await?;
+        if before.as_ref() != Some(&library.copies) {
+            self.spawn_scan();
+        }
+        Ok(library)
     }
     /// Connects and fetches a remote without implicit commits.
     pub async fn connect_remote(&self, remote: RemoteConfig) -> AppResult<SyncSnapshot> {
         self.refresh_preserving_outcome(self.shared.engine.connect_remote(remote).await)
             .await
     }
-    /// Performs explicit synchronization or remote refresh.
+    /// Performs explicit synchronization or remote refresh. A Pull or Sync may rewrite your
+    /// agents' copies, so it scans again.
     pub async fn synchronize(&self, action: SyncAction) -> AppResult<SyncSnapshot> {
-        self.refresh_preserving_outcome(self.shared.engine.synchronize(action).await)
-            .await
+        let synchronized = self.shared.engine.synchronize(action).await;
+        if matches!(action, SyncAction::Pull | SyncAction::Sync) {
+            self.spawn_scan();
+        }
+        self.refresh_preserving_outcome(synchronized).await
     }
     /// Stores bounded machine-local preferences.
     pub async fn save_preferences(&self, preferences: Preferences) -> AppResult<()> {

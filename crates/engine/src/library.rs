@@ -10,7 +10,7 @@ use crate::{
 use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Component, Path, PathBuf},
 };
@@ -76,17 +76,26 @@ fn apply_organization(
             editable_preset_mut(library, &id, "renamed")?.name = validate_name(&name)?;
         }
         OrganizationChange::ClonePreset { id } => clone_preset(library, &id)?,
+        OrganizationChange::ActivatePreset { id } => {
+            preset_mut(library, &id)?;
+            library.active_preset = id;
+        }
         OrganizationChange::AddToPreset { id, skills } => {
             for presets in memberships(library, &id, &skills)? {
-                if !presets.contains(&id) {
-                    presets.push(id.clone());
-                    presets.sort();
-                }
+                presets.entry(id.clone()).or_default();
+            }
+        }
+        OrganizationChange::SetTargets { id, skill, targets } => {
+            for presets in memberships(library, &id, std::slice::from_ref(&skill))? {
+                match &targets {
+                    Targets::Agents(agents) if agents.is_empty() => presets.remove(&id),
+                    _ => presets.insert(id.clone(), targets.clone()),
+                };
             }
         }
         OrganizationChange::RemoveFromPreset { id, skills } => {
             for presets in memberships(library, &id, &skills)? {
-                presets.retain(|preset| preset != &id);
+                presets.remove(&id);
             }
         }
         OrganizationChange::ReorderPresets { order } => {
@@ -127,7 +136,10 @@ fn apply_organization(
             editable_preset_mut(library, &id, "deleted")?;
             library.presets.retain(|preset| preset.id != id);
             for skill in &mut library.skills {
-                skill.preset_ids.retain(|preset| preset != &id);
+                skill.presets.remove(&id);
+            }
+            if library.active_preset == id {
+                library.active_preset = PresetId(Preset::DEFAULT_ID.to_owned());
             }
         }
     }
@@ -165,12 +177,12 @@ fn require_default_first(library: &Library, order: &[PresetId]) -> AppResult<()>
     }
     Err(AppError::validation("The Default preset stays first."))
 }
-/// The preset lists of the selected skills, once the preset and every selected skill exist.
+/// The presets of the selected skills, once the preset and every selected skill exist.
 fn memberships<'a>(
     library: &'a mut Library,
     id: &PresetId,
     skills: &'a [SkillId],
-) -> AppResult<impl Iterator<Item = &'a mut Vec<PresetId>>> {
+) -> AppResult<impl Iterator<Item = &'a mut BTreeMap<PresetId, Targets>>> {
     preset_mut(library, id)?;
     if skills.is_empty()
         || skills
@@ -183,10 +195,11 @@ fn memberships<'a>(
         .skills
         .iter_mut()
         .filter(|skill| skills.contains(&skill.id))
-        .map(|skill| &mut skill.preset_ids))
+        .map(|skill| &mut skill.presets))
 }
 
-/// Copies a preset's appearance and skills into a new editable preset directly after it.
+/// Copies a preset's appearance and skills, with their agents, into a new editable preset directly
+/// after it.
 ///
 /// The copy's name is `Copy of <name>`, made unique with a numeric suffix and trimmed to the
 /// 100-character limit when needed. Default may be copied; the copy never becomes Default.
@@ -212,9 +225,8 @@ fn clone_preset(library: &mut Library, id: &PresetId) -> AppResult<()> {
         icon: source.icon,
     };
     for skill in &mut library.skills {
-        if skill.preset_ids.contains(&source.id) {
-            skill.preset_ids.push(copy.id.clone());
-            skill.preset_ids.sort();
+        if let Some(targets) = skill.presets.get(&source.id).cloned() {
+            skill.presets.insert(copy.id.clone(), targets);
         }
     }
     library.presets.push(copy);
@@ -282,10 +294,12 @@ impl State {
     pub(crate) fn library_snapshot(&self) -> AppResult<LibrarySnapshot> {
         let (library, details) = library_store::load(&mut self.database.borrow_mut(), &self.log)?;
         let revision = revision(&library)?;
+        let copies = self.copies(&library)?;
         Ok(LibrarySnapshot {
             library,
             revision,
             details,
+            copies,
         })
     }
     pub(crate) fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
@@ -301,13 +315,25 @@ impl State {
                 "The Default preset cannot be deleted.",
             ));
         }
+        let switch = if library.active_preset == id {
+            let mut after = library.clone();
+            let change = OrganizationChange::DeletePreset {
+                id: id.clone(),
+                revision: revision.clone(),
+            };
+            apply_organization(&mut after, change, &revision)?;
+            Some(self.switch_preview(&library, &after)?)
+        } else {
+            None
+        };
         Ok(DeletePreview {
             preset,
             affected_skills: library
                 .skills
                 .iter()
-                .filter(|skill| skill.preset_ids.contains(&id))
+                .filter(|skill| skill.presets.contains_key(&id))
                 .count(),
+            switch,
             revision,
         })
     }
@@ -317,6 +343,7 @@ impl State {
     ) -> AppResult<LibrarySnapshot> {
         self.require_recovered()?;
         let (mut after, revision) = self.revised_library()?;
+        let before = after.clone();
         apply_organization(&mut after, change, &revision)?;
         validate_organization(&after)?;
         sort_presets(&mut after.presets);
@@ -324,6 +351,8 @@ impl State {
         database::transaction(&mut self.database.borrow_mut(), |connection| {
             library_store::save_organization(connection, &after)
         })?;
+        // The choice is saved; the copies follow it, and those that cannot are reported on them.
+        self.apply_change(&before, &after);
         self.library_snapshot()
     }
     pub(crate) fn contained_skill_path(&self, path: &Path) -> AppResult<PathBuf> {

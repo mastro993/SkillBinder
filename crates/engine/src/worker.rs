@@ -1,6 +1,6 @@
 use crate::{
     database,
-    discovery::{Managed, Scans},
+    discovery::{LibraryIndex, Scans},
     git::Git,
     grants::GrantedDirectory,
     lifecycle::EngineConfig,
@@ -22,6 +22,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 
+mod activation;
 mod sources;
 
 const DATABASE: &str = "skillbinder.db";
@@ -221,8 +222,9 @@ impl Engine {
         self.scan(false).await
     }
     async fn scan(&self, replace: bool) -> AppResult<()> {
-        let (config, workspaces, managed, log) = self
+        let (config, workspaces, index, log) = self
             .call(|state| {
+                state.apply_pending();
                 Ok((
                     state.config.clone(),
                     state
@@ -231,14 +233,14 @@ impl Engine {
                         .filter(|workspace| !workspace.missing)
                         .map(|workspace| (workspace.id, PathBuf::from(workspace.path)))
                         .collect(),
-                    state.managed()?,
+                    state.library_index()?,
                     state.log.clone(),
                 ))
             })
             .await?;
         self.owner
             .scans
-            .start(config, workspaces, managed, log, replace)
+            .start(config, workspaces, index, log, replace)
     }
     /// The last completed scan and whether another one is running, without waiting for a
     /// durable mutation.
@@ -320,10 +322,10 @@ impl Engine {
 impl State {
     /// The digest and slug of each library skill, which put found skills in library. A blocked
     /// library skill marks nothing.
-    fn managed(&self) -> AppResult<Managed> {
+    fn library_index(&self) -> AppResult<LibraryIndex> {
         let (library, details) =
             crate::library_store::load(&mut self.database.borrow_mut(), &self.log)?;
-        let mut managed = Managed::default();
+        let mut index = LibraryIndex::default();
         for skill in library.skills {
             if details.get(&skill.id).map(|details| details.validation)
                 == Some(ValidationStatus::Blocked)
@@ -331,10 +333,10 @@ impl State {
                 continue;
             }
             let normalized = crate::library::normalized(skill.id.as_str());
-            managed.slugs.insert(normalized, skill.id.clone());
-            managed.digests.insert(skill.digest, skill.id);
+            index.slugs.insert(normalized, skill.id.clone());
+            index.digests.insert(skill.digest, skill.id);
         }
-        Ok(managed)
+        Ok(index)
     }
     fn snapshot(&mut self) -> AppResult<AppSnapshot> {
         let bootstrap = self.bootstrap()?;
@@ -396,7 +398,12 @@ impl State {
             SyncAction::Push if current => git
                 .revision(&repo, "HEAD")
                 .and_then(|head| self.set_setting(RECONCILED_HEAD, &head)),
-            SyncAction::Pull | SyncAction::Sync => self.reconcile_head(),
+            SyncAction::Pull | SyncAction::Sync => {
+                let reconciled = self.reconcile_head();
+                // Pulled content rewrites library copies, even after a partial reconcile.
+                self.apply_library();
+                reconciled
+            }
             _ => Ok(()),
         };
         // The recorded commit stays behind on failure, so the next launch retries; the Git

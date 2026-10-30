@@ -19,7 +19,7 @@ impl NativeView {
             ),
             OnboardingStep::Boundaries => (
                 "Keep sources separate",
-                "Discovery reads your agents' skills and your workspaces. Importing a skill creates a managed copy in your private library.",
+                "Discovery reads your agents' skills and your workspaces. Importing a skill copies it into your private library.",
             ),
             OnboardingStep::SyncChoice => (
                 "Sync is optional",

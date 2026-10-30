@@ -178,6 +178,10 @@ impl Walk<'_> {
 }
 
 fn excluded(name: &str, workspace: bool) -> bool {
+    // A copy being written or removed is never a found skill.
+    if name.starts_with(crate::activation::STAGING_PREFIX) {
+        return true;
+    }
     if workspace {
         WORKSPACE_EXCLUSIONS.contains(&name)
     } else {

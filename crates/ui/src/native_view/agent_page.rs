@@ -1,5 +1,5 @@
 //! A detected agent's page, or Universal's: the skill folders in a global skill directory,
-//! read-only. An in-library row leads to its library skill.
+//! read-only. A managed copy is marked, and an in-library row leads to its library skill.
 
 use std::path::Path;
 
@@ -8,7 +8,7 @@ use super::agent_skills::{
 };
 use super::controls::button;
 use super::{NativeView, Route};
-use gpui_kit::component::ActiveTheme;
+use gpui_kit::component::{ActiveTheme, Sizable, tag::Tag};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_proto::AgentOption;
 
@@ -26,7 +26,12 @@ impl NativeView {
         };
         let shared = shared_with(&self.snapshot.agents, agent, &self.snapshot.home);
         let note = (!shared.is_empty()).then(|| format!("Shared with {}", shared.join(", ")));
-        self.render_found(Path::new(dir), note, self.agent_skills(agent), cx)
+        let found = Found {
+            dir: Path::new(dir),
+            resolved: agent.resolved_skills_dir.as_deref(),
+            note,
+        };
+        self.render_found(found, self.agent_skills(agent), cx)
     }
 
     /// Universal's page: the skills every universal agent reads, and which agents those are.
@@ -37,18 +42,43 @@ impl NativeView {
             .iter()
             .map(|agent| agent.display_name.as_str())
             .collect();
-        let note = Some(format!("Used by {}", names.join(", ")));
         let skills = self.found_for(&universal);
-        self.render_found(&universal_dir(home), note, skills, cx)
+        let dir = universal_dir(home);
+        let found = Found {
+            dir: &dir,
+            resolved: universal
+                .first()
+                .and_then(|agent| agent.resolved_skills_dir.as_deref()),
+            note: Some(format!("Used by {}", names.join(", "))),
+        };
+        self.render_found(found, skills, cx)
+    }
+
+    /// The slugs of the managed copies in the global skill directory `resolved`.
+    fn managed_in(&self, resolved: Option<&str>) -> Vec<String> {
+        let (Some(resolved), Some(library)) = (resolved, &self.snapshot.library) else {
+            return Vec::new();
+        };
+        library
+            .copies
+            .iter()
+            .filter(|copy| copy.directory == resolved && copy.managed)
+            .map(|copy| copy.skill.to_string())
+            .collect()
     }
 
     fn render_found(
         &self,
-        dir: &Path,
-        note: Option<String>,
+        found: Found<'_>,
         skills: Vec<FoundSkill>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let Found {
+            dir,
+            resolved,
+            note,
+        } = found;
+        let managed = self.managed_in(resolved);
         let muted = cx.theme().muted_foreground;
         let mut list = div().flex().flex_col().gap_2().child(match skills.len() {
             1 => "1 found skill".to_owned(),
@@ -71,7 +101,12 @@ impl NativeView {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().flex_1().child(skill.slug))
+                    .child(div().flex_1().child(skill.slug.clone()))
+                    .children(
+                        managed
+                            .contains(&skill.slug)
+                            .then(|| Tag::secondary().small().child("Managed copy")),
+                    )
                     .child(div().text_color(muted).child(skill.status.label()))
                     .children(link),
             );
@@ -82,6 +117,13 @@ impl NativeView {
             .child(list)
             .into_any_element()
     }
+}
+
+/// The global skill directory a page lists, as shown and as copies name it.
+struct Found<'a> {
+    dir: &'a Path,
+    resolved: Option<&'a str>,
+    note: Option<String>,
 }
 
 /// The page column; the header breadcrumb names the agent.

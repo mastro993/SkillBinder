@@ -77,7 +77,11 @@ async fn cloning_copies_a_preset_and_its_skills_but_not_its_default_identity() {
     );
     let copy_id = copy.id.clone();
     assert_eq!(
-        library.library.skills[0].preset_ids,
+        library.library.skills[0]
+            .presets
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
         {
             let mut ids = vec![review.clone(), copy_id.clone()];
             ids.sort();

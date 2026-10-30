@@ -38,9 +38,6 @@ impl NativeView {
             if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
                 self.preset_edit = None;
             }
-            if self.active_preset.as_ref().is_some_and(|id| !exists(id)) {
-                self.active_preset = None;
-            }
             let folder_exists = |id: &FolderId| library.library.folders.iter().any(|f| &f.id == id);
             if self
                 .library_folder
@@ -76,6 +73,7 @@ impl NativeView {
             self.sidebar_width =
                 sidebar::clamp_sidebar_width(self.snapshot.preferences.sidebar_width);
         }
+        self.prompt_copies();
         cx.notify();
     }
 
@@ -95,6 +93,8 @@ impl NativeView {
             let _ = this.update(cx, |view, cx| {
                 view.busy = false;
                 view.syncing = false;
+                // The engine has answered, so its active preset is the one shown.
+                view.active_preset = None;
                 view.preset_reorder.settle();
                 view.workspace_reorder.settle();
                 view.folder_reorder.settle();
@@ -105,9 +105,9 @@ impl NativeView {
                         match effect {
                             Effect::None => {}
                             Effect::CloseDialog => view.dialog = DialogState::None,
-                            Effect::Plan(plan) => view.dialog = DialogState::ImportPlan(plan),
+                            Effect::Plan(plan) => view.show_dialog(DialogState::ImportPlan(plan)),
                             Effect::DeletePreview(preview) => {
-                                view.dialog = DialogState::DeletePreset(preview)
+                                view.show_dialog(DialogState::DeletePreset(preview))
                             }
                             Effect::Updated(outcome) => {
                                 // An updated skill's page shows its new content.
@@ -124,6 +124,8 @@ impl NativeView {
                                 }
                             }
                         }
+                        // A dialog the operation closed makes room for copies that now ask.
+                        view.prompt_copies();
                     }
                     Ok(Err(error)) => view.error = Some(error),
                     Err(_) => view.error = Some(AppError::storage()),

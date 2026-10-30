@@ -1,6 +1,5 @@
 use crate::{
-    ImportOutcome, LibrarySnapshot, PresetId, ScanSnapshot, SkillId, SkillUpdate, SyncSnapshot,
-    Workspace,
+    ImportOutcome, LibrarySnapshot, ScanSnapshot, SkillId, SkillUpdate, SyncSnapshot, Workspace,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -51,9 +50,6 @@ pub struct Preferences {
     /// How Library lays out skills; preferences stored before it existed show a list.
     #[serde(default)]
     pub library_view: LibraryView,
-    /// The preset whose skills the app activates; absent starts with the Default preset.
-    #[serde(default)]
-    pub active_preset: Option<PresetId>,
 }
 /// Library layout.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -119,7 +115,6 @@ impl Default for Preferences {
             appearance: Appearance::System,
             folded_sections: BTreeSet::new(),
             library_view: LibraryView::List,
-            active_preset: None,
         }
     }
 }
@@ -183,7 +178,6 @@ mod tests {
         assert!(!preferences.sidebar_collapsed);
         assert!(preferences.folded_sections.is_empty());
         assert_eq!(preferences.library_view, super::LibraryView::List);
-        assert_eq!(preferences.active_preset, None);
         Ok(())
     }
 
@@ -194,17 +188,6 @@ mod tests {
         assert_eq!(
             preferences.folded_sections,
             [super::SidebarSection::Presets].into()
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn the_active_preset_preference_round_trips() -> serde_json::Result<()> {
-        let preferences: Preferences =
-            serde_json::from_str(r#"{"sidebar_width":300.0,"active_preset":"default"}"#)?;
-        assert_eq!(
-            preferences.active_preset,
-            Some(crate::PresetId("default".to_owned()))
         );
         Ok(())
     }

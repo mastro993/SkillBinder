@@ -3,8 +3,8 @@
 
 use super::NativeView;
 use super::controls::app_icon;
+use super::library_copies::{agent_rows, placements};
 use super::library_items::SkillItem;
-use super::library_presence::presence;
 use gpui_kit::component::{
     ActiveTheme, Sizable, h_flex,
     input::Input,
@@ -61,7 +61,7 @@ impl NativeView {
             .library
             .skills
             .iter()
-            .any(|skill| skill.preset_ids.contains(&active))
+            .any(|skill| skill.presets.contains_key(&active))
         {
             return None;
         }
@@ -134,11 +134,8 @@ impl NativeView {
                 .child(format!("No skills in {}", folder.name))
                 .into_any_element();
         }
-        let found = self
-            .snapshot
-            .scan
-            .as_ref()
-            .map(|scan| presence(scan, &self.snapshot.agents, &self.snapshot.home));
+        let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
+        let placed = placements(&library.copies, &rows);
         let items: Vec<SkillItem<'_>> = visible
             .iter()
             .map(|skill| SkillItem {
@@ -150,9 +147,7 @@ impl NativeView {
                 folder: self.folder_label(skill),
                 update: self.has_update(&skill.id),
                 drifted: skill.drift.is_some(),
-                holders: found
-                    .as_ref()
-                    .map(|found| found.get(&skill.id).map_or(&[][..], Vec::as_slice)),
+                placement: placed.get(&skill.id),
             })
             .collect();
         match self.library_view {
@@ -225,7 +220,7 @@ mod tests {
     fn skill(slug: &str) -> Skill {
         Skill {
             id: skillbinder_proto::SkillId(slug.to_owned()),
-            preset_ids: Vec::new(),
+            presets: Default::default(),
             folder_id: None,
             digest: String::new(),
             file_count: 0,

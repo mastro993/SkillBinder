@@ -127,6 +127,10 @@ mod tests {
             .load::<(String, String, i64, Option<String>, String)>(&mut upgraded)
             .map_err(|_| AppError::storage())?;
         let members = crate::schema::preset_skills::table
+            .select((
+                crate::schema::preset_skills::preset_id,
+                crate::schema::preset_skills::slug,
+            ))
             .load::<(String, String)>(&mut upgraded)
             .map_err(|_| AppError::storage())?;
         let expected = [(
@@ -137,6 +141,50 @@ mod tests {
             "layers".to_owned(),
         )];
         if stored == expected && members == [("default".to_owned(), "review".to_owned())] {
+            Ok(())
+        } else {
+            Err(AppError::storage())
+        }
+    }
+
+    /// The active preset the window kept in its preferences becomes the engine's, and existing
+    /// preset memberships hold their skills for all your agents.
+    #[test]
+    fn the_active_preset_moves_into_the_engine() -> AppResult<()> {
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let path = root.path().join("state.db");
+        let mut connection =
+            SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
+                .map_err(|_| AppError::storage())?;
+        for _ in 0..6 {
+            connection
+                .run_next_migration(MIGRATIONS)
+                .map_err(|_| AppError::storage())?;
+        }
+        connection
+            .batch_execute(
+                "INSERT INTO skills(slug, digest, file_count, total_bytes, details) \
+                     VALUES('review', '', 0, 0, '{}'); \
+                 INSERT INTO presets(id, name, position, color, icon) \
+                     VALUES('work', 'Work', 1, NULL, 'layers'); \
+                 INSERT INTO preset_skills(preset_id, slug) VALUES('work', 'review'); \
+                 INSERT INTO device_settings(key, value) \
+                     VALUES('preferences', '{\"sidebar_width\":232.0,\"active_preset\":\"work\"}');",
+            )
+            .map_err(|_| AppError::storage())?;
+        drop(connection);
+        let mut upgraded = open(&path)?;
+        use crate::schema::{device_settings, preset_skills};
+        let active = device_settings::table
+            .find("active_preset")
+            .select(device_settings::value)
+            .first::<String>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        let agents = preset_skills::table
+            .select(preset_skills::agents)
+            .load::<Option<String>>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        if active == "\"work\"" && agents == [None] {
             Ok(())
         } else {
             Err(AppError::storage())

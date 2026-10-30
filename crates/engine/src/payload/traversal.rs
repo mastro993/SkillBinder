@@ -13,6 +13,8 @@ use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
 
 pub(crate) const MAX_ENTRIES: usize = 5000;
+/// The finding of a payload holding Git metadata, which no manifest includes.
+pub(crate) const GIT_EXCLUDED: &str = ".git metadata is excluded.";
 const MAX_TOTAL: u64 = 25 * 1024 * 1024;
 
 pub(super) struct Snapshot {
@@ -125,11 +127,7 @@ impl Walk {
                 continue;
             };
             if name == ".git" {
-                finding(
-                    &mut self.messages,
-                    ValidationStatus::Warning,
-                    ".git metadata is excluded.",
-                );
+                finding(&mut self.messages, ValidationStatus::Warning, GIT_EXCLUDED);
                 continue;
             }
             if !portable(name) {

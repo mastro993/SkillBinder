@@ -22,7 +22,7 @@ fn deferred(scans: &Scans, config: &EngineConfig, log: &Logger) -> Work {
         .start_with(
             config.clone(),
             Vec::new(),
-            Managed::default(),
+            LibraryIndex::default(),
             log.clone(),
             true,
             |work| {
@@ -65,7 +65,7 @@ fn launch_failure_is_a_failed_scan_and_retryable_without_hanging_shutdown() {
     let result = scans.start_with(
         config.clone(),
         Vec::new(),
-        Managed::default(),
+        LibraryIndex::default(),
         log.clone(),
         true,
         |_| Err(std::io::Error::other("injected spawn refusal")),
@@ -95,7 +95,7 @@ fn a_refresh_keeps_the_running_scan() {
         .start_with(
             config.clone(),
             Vec::new(),
-            Managed::default(),
+            LibraryIndex::default(),
             log.clone(),
             false,
             |_| panic!("a refresh must not start a second scan"),

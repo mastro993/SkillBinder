@@ -54,14 +54,11 @@ async fn presets_casefold_share_skills_and_refuse_stale_delete_preview() {
     let preset = preset_named(&library, "Straße").id.clone();
     let library = engine.change_organization(create("Other")).await.unwrap();
     let other = preset_named(&library, "Other").id.clone();
-    let presets_of = |library: &LibrarySnapshot| library.library.skills[0].preset_ids.clone();
-    // Adding the greater identity first proves additions keep the list sorted.
-    let (low, high) = if preset < other {
-        (&preset, &other)
-    } else {
-        (&other, &preset)
+    let presets_of = |library: &LibrarySnapshot| {
+        let presets = &library.library.skills[0].presets;
+        presets.keys().cloned().collect::<Vec<_>>()
     };
-    for id in [high, low, high] {
+    for id in [&other, &preset, &other] {
         engine
             .change_organization(OrganizationChange::AddToPreset {
                 id: id.clone(),

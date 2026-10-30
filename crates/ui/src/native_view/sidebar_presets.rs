@@ -71,7 +71,7 @@ impl NativeView {
             .library
             .skills
             .iter()
-            .flat_map(|skill| &skill.preset_ids)
+            .flat_map(|skill| skill.presets.keys())
         {
             *counts.entry(preset).or_default() += 1;
         }
@@ -203,7 +203,7 @@ impl NativeView {
             ),
             label.clone(),
             cx,
-            move |view, _, cx| view.set_active_preset(Some(open.clone()), cx),
+            move |view, _, cx| view.set_active_preset(open.clone(), cx),
         );
         let protected = preset.is_default();
         let row = with_menu(

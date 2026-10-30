@@ -1,4 +1,4 @@
-use crate::{FolderId, PresetId, SkillId};
+use crate::{FolderId, ManagedCopy, PresetId, PresetSwitch, SkillId, Targets};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -198,7 +198,8 @@ impl PresetIcon {
 ///
 /// Every library has the default preset, whose [`Preset::DEFAULT_ID`] the app seeds once. The app
 /// never deletes it, renames it, changes its icon or color, or moves it; it always comes first.
-/// A skill is active in a preset when the preset holds it, and one preset is active at a time.
+/// A skill is active in a preset when the preset holds it, for all your agents or for specific
+/// ones, and one preset is active at a time.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Preset {
     /// Stable preset identity.
@@ -235,8 +236,8 @@ pub struct Folder {
 pub struct Skill {
     /// The skill's slug, its directory name, which identifies it on every device.
     pub id: SkillId,
-    /// Sorted identities of the presets that hold the skill.
-    pub preset_ids: Vec<PresetId>,
+    /// The presets that hold the skill, each with the agents it holds the skill for.
+    pub presets: BTreeMap<PresetId, Targets>,
     /// The library folder holding the skill, if any.
     pub folder_id: Option<FolderId>,
     /// Manifest SHA-256 cached when the payload was last inspected.
@@ -324,6 +325,8 @@ pub struct UpdateOutcome {
 pub struct Library {
     /// Flat presets in user order.
     pub presets: Vec<Preset>,
+    /// The preset whose skills are written into your agents' global skill directories.
+    pub active_preset: PresetId,
     /// Library folders in creation order.
     pub folders: Vec<Folder>,
     /// Library skills in slug order.
@@ -348,6 +351,9 @@ pub struct LibrarySnapshot {
     pub revision: String,
     /// Machine-local details by skill identity.
     pub details: BTreeMap<SkillId, SkillDetails>,
+    /// Each global skill directory where a library skill is active, or where a managed copy
+    /// waits for the user or for a removal to succeed, by directory then slug.
+    pub copies: Vec<ManagedCopy>,
 }
 /// A machine-local organization mutation.
 #[derive(Clone, Debug)]
@@ -371,12 +377,28 @@ pub enum OrganizationChange {
         /// Preset being copied.
         id: PresetId,
     },
-    /// Add selected skills to a preset; skills already in it stay.
+    /// Make a preset the active one, which writes and removes your agents' copies to match it.
+    ActivatePreset {
+        /// Preset to activate.
+        id: PresetId,
+    },
+    /// Add selected skills to a preset for all your agents; skills already in it stay as they
+    /// are.
     AddToPreset {
         /// Preset receiving the skills.
         id: PresetId,
         /// Selected existing skill identities.
         skills: Vec<SkillId>,
+    },
+    /// Hold a skill in a preset for all your agents or for specific ones, adding it to the
+    /// preset if needed; an empty list of agents removes it from the preset.
+    SetTargets {
+        /// Preset holding the skill.
+        id: PresetId,
+        /// Existing skill identity.
+        skill: SkillId,
+        /// The agents the preset holds the skill for.
+        targets: Targets,
     },
     /// Remove selected skills from a preset; they stay in the library and in other presets.
     RemoveFromPreset {
@@ -435,7 +457,8 @@ pub enum OrganizationChange {
         /// Destination folder, or none to leave it unfiled.
         folder: Option<FolderId>,
     },
-    /// Delete a previewed preset; its skills stay in the library.
+    /// Delete a previewed preset; its skills stay in the library. Deleting the active preset
+    /// activates the Default preset.
     DeletePreset {
         /// Previewed preset identity.
         id: PresetId,
@@ -450,6 +473,8 @@ pub struct DeletePreview {
     pub preset: Preset,
     /// Skills the preset holds; they stay in the library.
     pub affected_skills: usize,
+    /// What activating the Default preset in its place changes, when the preset is active.
+    pub switch: Option<PresetSwitch>,
     /// Required revision for confirmation.
     pub revision: String,
 }

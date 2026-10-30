@@ -1,5 +1,6 @@
-//! The active preset and the skills it configures: selecting a preset loads it, and each
-//! activation toggle changes the active preset's skills and saves at once.
+//! The active preset and the skills it configures: selecting a preset activates it, which writes
+//! and removes your agents' copies, and each activation toggle changes the active preset's skills
+//! and saves at once.
 
 use super::NativeView;
 use super::controls::{Inactive, checkbox};
@@ -11,10 +12,15 @@ use gpui_kit::{
 use skillbinder_proto::{LibrarySnapshot, OrganizationChange, Preset, PresetId, SkillId};
 
 impl NativeView {
-    /// The preset whose configuration the app edits: the chosen one while it still exists,
-    /// otherwise the Default preset every library starts with.
+    /// The preset whose configuration the app edits: one just clicked while its activation is
+    /// saved, otherwise the library's active preset.
     pub(super) fn active_preset<'a>(&self, library: &'a LibrarySnapshot) -> Option<&'a Preset> {
-        resolved_active(&library.library.presets, self.active_preset.as_ref())
+        resolved_active(
+            &library.library.presets,
+            self.active_preset
+                .as_ref()
+                .unwrap_or(&library.library.active_preset),
+        )
     }
 
     /// The identity of the active preset, resolved against the current library.
@@ -35,13 +41,14 @@ impl NativeView {
             .map_or_else(|| "Default".to_owned(), |preset| preset.name.clone())
     }
 
-    /// Changes the active preset and persists the choice with the other local preferences.
-    pub(super) fn set_active_preset(&mut self, id: Option<PresetId>, cx: &mut Context<Self>) {
-        if self.active_preset != id {
-            self.active_preset = id;
-            self.persist_preferences(cx);
-            cx.notify();
+    /// Activates preset `id`, showing it active at once while the engine saves the choice and
+    /// writes your agents' copies to match it.
+    pub(super) fn set_active_preset(&mut self, id: PresetId, cx: &mut Context<Self>) {
+        if self.busy || self.active_preset_id().as_ref() == Some(&id) {
+            return;
         }
+        self.active_preset = Some(id.clone());
+        self.change_organization(OrganizationChange::ActivatePreset { id }, cx);
     }
 
     /// Whether `skill` is active in the active preset.
@@ -53,7 +60,7 @@ impl NativeView {
             .library
             .as_ref()
             .and_then(|library| library.library.skills.iter().find(|held| &held.id == skill))
-            .is_some_and(|held| held.preset_ids.contains(&active))
+            .is_some_and(|held| held.presets.contains_key(&active))
     }
 
     /// A one-click switch for a library skill in the active preset. Its changes save at once.
@@ -111,9 +118,10 @@ impl NativeView {
 }
 
 /// The chosen preset while it exists, otherwise the Default preset.
-fn resolved_active<'a>(presets: &'a [Preset], chosen: Option<&PresetId>) -> Option<&'a Preset> {
-    chosen
-        .and_then(|id| presets.iter().find(|preset| &preset.id == id))
+fn resolved_active<'a>(presets: &'a [Preset], chosen: &PresetId) -> Option<&'a Preset> {
+    presets
+        .iter()
+        .find(|preset| &preset.id == chosen)
         .or_else(|| presets.iter().find(|preset| preset.is_default()))
         .or_else(|| presets.first())
 }
@@ -139,17 +147,13 @@ mod tests {
             preset("default", "Default", 0),
             preset("review", "Review", 1),
         ];
-        let chosen = |id: &str| Some(PresetId(id.to_owned()));
+        let chosen = |id: &str| PresetId(id.to_owned());
         assert_eq!(
-            resolved_active(&presets, chosen("review").as_ref()).map(|p| p.name.as_str()),
+            resolved_active(&presets, &chosen("review")).map(|p| p.name.as_str()),
             Some("Review")
         );
         assert_eq!(
-            resolved_active(&presets, chosen("gone").as_ref()).map(|p| p.name.as_str()),
-            Some("Default")
-        );
-        assert_eq!(
-            resolved_active(&presets, None).map(|p| p.name.as_str()),
+            resolved_active(&presets, &chosen("gone")).map(|p| p.name.as_str()),
             Some("Default")
         );
     }

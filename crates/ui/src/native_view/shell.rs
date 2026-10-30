@@ -98,7 +98,6 @@ impl NativeView {
             appearance: self.appearance,
             folded_sections: self.folded_sections.clone(),
             library_view: self.library_view,
-            active_preset: self.active_preset.clone(),
         };
         let stored = &self.snapshot.preferences;
         if (preferences.sidebar_width - stored.sidebar_width).abs() < 0.5
@@ -106,7 +105,6 @@ impl NativeView {
             && preferences.appearance == stored.appearance
             && preferences.folded_sections == stored.folded_sections
             && preferences.library_view == stored.library_view
-            && preferences.active_preset == stored.active_preset
         {
             self.preference_writes.finish();
             return;

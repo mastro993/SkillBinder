@@ -1,0 +1,64 @@
+//! The managed copies and unapplied directories SkillBinder records, in machine-local SQLite.
+
+use super::plan::{Issue, Row};
+use crate::schema::managed_copies;
+use diesel::{prelude::*, upsert::excluded};
+use skillbinder_proto::{AppError, AppResult};
+use std::collections::BTreeMap;
+
+/// A global skill directory, as its resolved path, and a slug.
+pub(super) type Pair = (String, String);
+
+/// Every recorded directory and slug.
+pub(super) fn load(connection: &mut SqliteConnection) -> AppResult<BTreeMap<Pair, Row>> {
+    managed_copies::table
+        .load::<(String, String, Option<String>, Option<String>)>(connection)
+        .map_err(|_| AppError::storage())?
+        .into_iter()
+        .map(|(directory, slug, digest, issue)| {
+            let issue = issue
+                .as_deref()
+                .map(serde_json::from_str::<Issue>)
+                .transpose()
+                .map_err(|_| AppError::storage())?;
+            Ok(((directory, slug), Row { digest, issue }))
+        })
+        .collect()
+}
+
+/// Records each directory's new row, or forgets it when there is none.
+pub(super) fn save(
+    connection: &mut SqliteConnection,
+    changes: &[(Pair, Option<Row>)],
+) -> AppResult<()> {
+    let storage = |_| AppError::storage();
+    for ((directory, slug), row) in changes {
+        let key = managed_copies::table.find((directory, slug));
+        let Some(row) = row else {
+            diesel::delete(key).execute(connection).map_err(storage)?;
+            continue;
+        };
+        let issue = row
+            .issue
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|_| AppError::storage())?;
+        diesel::insert_into(managed_copies::table)
+            .values((
+                managed_copies::directory.eq(directory),
+                managed_copies::slug.eq(slug),
+                managed_copies::digest.eq(&row.digest),
+                managed_copies::issue.eq(&issue),
+            ))
+            .on_conflict((managed_copies::directory, managed_copies::slug))
+            .do_update()
+            .set((
+                managed_copies::digest.eq(excluded(managed_copies::digest)),
+                managed_copies::issue.eq(excluded(managed_copies::issue)),
+            ))
+            .execute(connection)
+            .map_err(storage)?;
+    }
+    Ok(())
+}

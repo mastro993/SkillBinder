@@ -113,7 +113,7 @@ pub mod library {
     pub const ROW_PADDING_Y: f32 = 11.0;
     /// How far a row's divider is inset from the card's edges, so it starts at the name.
     pub const DIVIDER_INSET: f32 = 14.0;
-    /// How far an avatar overlaps the one before it in a presence stack.
+    /// How far an avatar overlaps the one before it in a skill's stack of agent avatars.
     pub const AVATAR_OVERLAP: f32 = 6.0;
 
     /// The surface of the list card: the page's own color, lifted a step in the dark theme so the
