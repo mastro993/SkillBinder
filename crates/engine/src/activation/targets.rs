@@ -24,10 +24,9 @@ pub(super) struct Places {
 impl Places {
     /// Whether `directory` lies inside a missing workspace's folder.
     pub fn paused(&self, directory: &str) -> bool {
-        let directory = Path::new(directory);
-        self.missing
-            .iter()
-            .any(|folder| directory.starts_with(folder))
+        Path::new(directory)
+            .ancestors()
+            .any(|ancestor| self.missing.contains(ancestor))
     }
 
     /// The folder `directory`'s links are resolved inside: its workspace's, or else home.

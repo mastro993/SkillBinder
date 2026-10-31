@@ -71,8 +71,9 @@ impl State {
         Ok(())
     }
 
-    /// The copy records in workspace `id`'s skill directories that nothing else holds there: no
-    /// other workspace leading to the same directory, and not the active preset. Removing the
+    /// The copy records in workspace `id`'s skill directories, or anywhere inside its folder while
+    /// it is missing, that nothing else holds there: no other workspace leading to the same
+    /// directory, no other missing workspace pausing it, and not the active preset. Removing the
     /// workspace forgets them, leaving its copies unmanaged.
     pub(crate) fn workspace_records(&self, id: &WorkspaceId) -> AppResult<Vec<Pair>> {
         let library = self.read_library()?;
@@ -81,12 +82,18 @@ impl State {
             .workspaces_for(&library, &agents)?
             .into_iter()
             .partition(|workspace| &workspace.id == id);
-        let own = targets::workspace_places(&own).folders;
-        let mut kept = targets::workspace_places(&others).desired;
-        kept.extend(targets::desired(&library, &agents));
+        let (own, others) = (
+            targets::workspace_places(&own),
+            targets::workspace_places(&others),
+        );
+        let global = targets::desired(&library, &agents);
+        let kept = |pair: &Pair| {
+            others.paused(&pair.0) || others.desired.contains(pair) || global.contains(pair)
+        };
         Ok(store::load(&mut self.database.borrow_mut())?
             .into_keys()
-            .filter(|pair| own.contains_key(&pair.0) && !kept.contains(pair))
+            .filter(|pair| own.folders.contains_key(&pair.0) || own.paused(&pair.0))
+            .filter(|pair| !kept(pair))
             .collect())
     }
 

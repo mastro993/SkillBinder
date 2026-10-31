@@ -10,9 +10,12 @@ mod project;
 #[path = "support/fixture.rs"]
 mod support;
 
-use project::{LIBRARY, Project, dirs, names, row, skill};
+#[cfg(unix)]
+use project::{LIBRARY, dirs, names};
+use project::{Project, row, skill};
 use skillbinder_proto::{CopyChoice, CopyState, ErrorCategory, WorkspaceTargets};
 use std::fs;
+#[cfg(unix)]
 use support::write_skill;
 
 #[tokio::test]
@@ -70,22 +73,77 @@ async fn a_missing_workspace_keeps_the_copies_of_a_directory_linked_inside_it() 
         )
         .await
         .unwrap();
-    let linked = row("tooling/agent-skills", "review", CopyState::Applied);
-    assert_eq!(project.states().await, std::slice::from_ref(&linked));
-
-    // While the folder is gone the link cannot be followed, so its directory is known only by the
-    // path it resolved to.
-    let moved = project.folder.with_file_name("moved");
-    fs::rename(&project.folder, &moved).unwrap();
-    project.fixture.scan(&project.engine).await;
-    fs::rename(&moved, &project.folder).unwrap();
-    assert_eq!(project.states().await, [linked], "its records stayed");
+    let linked = |state| row("tooling/agent-skills", "review", state);
+    assert_eq!(project.states().await, [linked(CopyState::Applied)]);
+    let edited = "---\nname: review\ndescription: Test fixture\n---\nMy edit\n";
+    fs::write(project.dir("tooling/agent-skills/review/SKILL.md"), edited).unwrap();
     project
         .engine
         .set_workspace_skill(workspace.id.clone(), skill("review"), None)
         .await
         .unwrap();
+    let asking = linked(CopyState::Edited { active: false });
+    assert_eq!(project.states().await, std::slice::from_ref(&asking));
+    let directory = project.dir("tooling/agent-skills").display().to_string();
+
+    // While the folder is gone the link cannot be followed, so its directory is known only by the
+    // path it resolved to.
+    let moved = project.folder.with_file_name("moved");
+    fs::rename(&project.folder, &moved).unwrap();
+    assert!(
+        project.states().await.is_empty(),
+        "a missing workspace lists no copies"
+    );
+    let refused = project
+        .engine
+        .resolve_copy(directory.clone(), skill("review"), CopyChoice::Keep)
+        .await
+        .unwrap_err();
+    assert_eq!(refused.category, ErrorCategory::Stale);
+    project.fixture.scan(&project.engine).await;
+    fs::rename(&moved, &project.folder).unwrap();
+    assert_eq!(project.states().await, [asking], "its records stayed");
+    project
+        .engine
+        .resolve_copy(directory, skill("review"), CopyChoice::Replace)
+        .await
+        .unwrap();
     assert!(!project.dir("tooling/agent-skills/review").exists());
+    project.engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn removing_a_missing_workspace_leaves_the_copies_of_a_directory_linked_inside_it() {
+    let project = Project::with(&["review"]).await;
+    // Inside home, a managed copy that nothing holds any more would be removed.
+    let folder = fs::canonicalize(&project.fixture.home)
+        .unwrap()
+        .join("proj");
+    fs::create_dir_all(folder.join("tooling/agent-skills")).unwrap();
+    fs::create_dir_all(folder.join(".claude")).unwrap();
+    std::os::unix::fs::symlink("../tooling/agent-skills", folder.join(".claude/skills")).unwrap();
+    let workspace = support::add_workspace(&project.engine, &folder).await;
+    project
+        .engine
+        .set_workspace_skill(
+            workspace.id.clone(),
+            skill("review"),
+            Some(WorkspaceTargets::AllAgents),
+        )
+        .await
+        .unwrap();
+    let copy = folder.join("tooling/agent-skills/review/SKILL.md");
+    assert!(copy.exists());
+
+    let moved = folder.with_file_name("moved");
+    fs::rename(&folder, &moved).unwrap();
+    project.engine.remove_workspace(workspace.id).await.unwrap();
+    fs::rename(&moved, &folder).unwrap();
+    project.fixture.scan(&project.engine).await;
+    assert!(copy.exists(), "removing the workspace leaves its copies");
+    let library = project.engine.snapshot().await.unwrap().library.unwrap();
+    assert!(library.copies.is_empty(), "and no longer manages them");
     project.engine.shutdown().await.unwrap();
 }
 
