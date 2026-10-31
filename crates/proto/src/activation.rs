@@ -23,13 +23,35 @@ impl Targets {
     }
 }
 
-/// A library skill active in one of your agents' global skill directories, or a copy SkillBinder
-/// still manages there, and how that directory stands.
+/// Which of a workspace's agents it holds a skill for. A workspace's agents are the workspace skill
+/// directories it uses, so the target is a directory, relative to the workspace folder, such as
+/// `.claude/skills`, and every agent that reads it counts once.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum WorkspaceTargets {
+    /// Every skill directory the workspace uses, including ones added later.
+    AllAgents,
+    /// Exactly these directories; the list never gains directories.
+    Dirs(BTreeSet<String>),
+}
+impl WorkspaceTargets {
+    /// Whether the skill is held in workspace skill directory `dir`, one the workspace uses.
+    pub fn includes(&self, dir: &str) -> bool {
+        match self {
+            Self::AllAgents => true,
+            Self::Dirs(dirs) => dirs.contains(dir),
+        }
+    }
+}
+
+/// A library skill active in a global or workspace skill directory, or a copy SkillBinder still
+/// manages there, and how that directory stands.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ManagedCopy {
     /// The skill's slug, which is also the copy's directory name.
     pub skill: SkillId,
-    /// The global skill directory, as [`crate::AgentOption::resolved_skills_dir`] shows it.
+    /// The skill directory with links resolved: a global one as
+    /// [`crate::AgentOption::resolved_skills_dir`] shows it, or a workspace's as
+    /// [`crate::Workspace::paths`] does.
     pub directory: String,
     /// Whether the copy is applied, and what holds it back when it is not.
     pub state: CopyState,
@@ -44,7 +66,7 @@ impl ManagedCopy {
     }
 }
 
-/// How a directory stands against what the active preset holds there.
+/// How a directory stands against what the active preset or a workspace holds there.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CopyState {
     /// The skill is active there, and the directory holds its managed copy.

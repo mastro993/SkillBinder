@@ -1,11 +1,11 @@
-//! One pass over global skill directories: what it reads first, which directories it checks, and
-//! the step it takes in each.
+//! One pass over global and workspace skill directories: what it reads first, which directories it
+//! checks, and the step it takes in each.
 
 use super::copies::{self, Moved};
 use super::plan::{self, Issue, Row, Step};
-use super::store::{self, Pair};
-use super::targets;
-use crate::{database, discovery::registry, payload, worker::State};
+use super::store::{self, Holder, Pair};
+use super::targets::Places;
+use crate::{database, payload, worker::State};
 use skillbinder_proto::{AppError, AppResult};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -27,8 +27,10 @@ pub(super) enum Scope {
 
 /// What one pass reads before it changes anything.
 pub(super) struct Pass {
-    pub desired: BTreeSet<Pair>,
+    pub places: Places,
     pub rows: BTreeMap<Pair, Row>,
+    /// Who each record is held for, or `None` for your agents.
+    pub owners: BTreeMap<Pair, Option<Holder>>,
     /// Each library skill's cached digest, by slug.
     pub digests: BTreeMap<String, String>,
 }
@@ -36,16 +38,18 @@ pub(super) struct Pass {
 impl State {
     pub(super) fn read(&self) -> AppResult<Pass> {
         let library = self.read_library()?;
-        let desired = targets::desired(&library, &registry::agent_options(&self.config)?);
+        let places = self.places(&library)?;
         let rows = store::load(&mut self.database.borrow_mut())?;
+        let owners = store::owners(&mut self.database.borrow_mut())?;
         let digests = library
             .skills
             .into_iter()
             .map(|skill| (skill.id.0, skill.digest))
             .collect();
         Ok(Pass {
-            desired,
+            places,
             rows,
+            owners,
             digests,
         })
     }
@@ -57,10 +61,10 @@ impl State {
         directory.starts_with(data) || data.starts_with(directory)
     }
 
-    /// Whether recorded `directory` still resolves to itself inside home, as detection resolves
-    /// an agent's directory: not once a link leads it elsewhere.
-    pub(super) fn current(&self, directory: &Path) -> bool {
-        crate::discovery::paths::resolve_absent(&self.config.home, directory)
+    /// Whether recorded `directory` still resolves to itself inside `boundary`, its workspace's
+    /// folder or home, as the scan resolves it: not once a link leads it elsewhere.
+    pub(super) fn current(&self, boundary: &Path, directory: &Path) -> bool {
+        crate::discovery::paths::resolve_absent(boundary, directory)
             .is_ok_and(|resolved| resolved == directory)
     }
 
@@ -70,7 +74,14 @@ impl State {
             return Ok(());
         }
         let pass = self.read()?;
-        let every: BTreeSet<&Pair> = pass.desired.iter().chain(pass.rows.keys()).collect();
+        let places = &pass.places;
+        // A missing workspace's directories wait for its folder, so no copy recreates it.
+        let every: BTreeSet<&Pair> = places
+            .desired
+            .iter()
+            .chain(pass.rows.keys())
+            .filter(|(directory, _)| !places.paused(directory))
+            .collect();
         let pairs: Vec<&Pair> = match &scope {
             Scope::Slugs(slugs) => every
                 .iter()
@@ -78,9 +89,17 @@ impl State {
                 .filter(|(_, slug)| slugs.contains(slug))
                 .collect(),
             Scope::Pending => {
-                let directories: BTreeSet<_> = every.iter().map(|(dir, _)| dir).collect();
-                for directory in directories.into_iter().map(Path::new) {
-                    if !self.protected(directory) {
+                // A recorded directory a link now leads elsewhere is never swept: its target may
+                // lie outside the boundary, or be no workspace's directory any more.
+                let directories: BTreeSet<&String> = every
+                    .iter()
+                    .filter(|pair| !pass.orphaned(pair))
+                    .map(|(dir, _)| dir)
+                    .collect();
+                for directory in directories {
+                    let boundary = places.boundary(directory, &self.config.home);
+                    let directory = Path::new(directory);
+                    if !self.protected(directory) && self.current(boundary, directory) {
                         copies::sweep(directory);
                     }
                 }
@@ -101,23 +120,31 @@ impl State {
                 .entry(pair.1.clone())
                 .or_insert_with(|| self.library_content(&pair.1).ok());
             let row = pass.rows.get(pair);
-            let after = self.settle(pair, pass.desired.contains(pair), row, source.as_ref());
+            let wanted = places.desired.contains(pair);
+            let boundary = places.boundary(&pair.0, &self.config.home);
+            let after = if pass.orphaned(pair) {
+                None
+            } else {
+                self.settle(pair, (wanted, boundary), row, source.as_ref())
+            };
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }
         }
+        let claims = claims(&pass, &every, &changes);
         database::transaction(&mut self.database.borrow_mut(), |connection| {
-            store::save(connection, &changes)
+            store::save(connection, &changes)?;
+            store::claim(connection, &claims)
         })
     }
 
     /// Brings one directory in line and returns its new row. A directory inside SkillBinder's
-    /// storage is never touched, and neither is one a recorded path no longer leads to, such as
-    /// after an agent's directory became a link to another one.
+    /// storage is never touched, and neither is one a recorded path no longer leads to inside
+    /// `boundary`, such as after an agent's directory became a link to another one.
     fn settle(
         &self,
         pair: &Pair,
-        wanted: bool,
+        (wanted, boundary): (bool, &Path),
         row: Option<&Row>,
         source: Option<&payload::Inspection>,
     ) -> Option<Row> {
@@ -130,7 +157,7 @@ impl State {
                 None
             };
         }
-        if !wanted && !self.current(directory) {
+        if !wanted && !self.current(boundary, directory) {
             return None;
         }
         let target = directory.join(&pair.1);
@@ -196,11 +223,26 @@ impl State {
     }
 }
 
+impl Pass {
+    /// Whether `pair`'s record, no longer held there, is held for a workspace whose directory it
+    /// was held through no longer leads to it, as after a link inside the workspace that led there
+    /// was re-pointed or replaced: it is forgotten without touching the directory, which is not
+    /// that directory's any more.
+    pub fn orphaned(&self, pair: &Pair) -> bool {
+        !self.places.desired.contains(pair)
+            && self
+                .owners
+                .get(pair)
+                .and_then(Option::as_ref)
+                .is_some_and(|holder| !self.places.leads(holder, &pair.0))
+    }
+}
+
 /// Whether a pending pass checks `pair`: anything with an issue, an active skill without a copy
 /// on record or on disk or whose copy predates the library's content, and a managed copy of a
 /// skill no longer active there.
 fn pending(pass: &Pass, pair: &Pair) -> bool {
-    let wanted = pass.desired.contains(pair);
+    let wanted = pass.places.desired.contains(pair);
     match pass.rows.get(pair) {
         None => wanted,
         Some(row) if row.issue.is_some() || !wanted => true,
@@ -209,6 +251,36 @@ fn pending(pass: &Pass, pair: &Pair) -> bool {
                 || fs::symlink_metadata(Path::new(&pair.0).join(&pair.1)).is_err()
         }
     }
+}
+
+/// The new holder of each record of a held pair whose holder changed, whichever pairs the pass
+/// visited, so a workspace letting go of a shared copy hands it to the one still holding it. A
+/// record of a pair no longer held keeps its holder, so removing that workspace forgets it;
+/// removal also looks at what the workspace holds now.
+fn claims(
+    pass: &Pass,
+    every: &BTreeSet<&Pair>,
+    changes: &[(Pair, Option<Row>)],
+) -> Vec<(Pair, Option<Holder>)> {
+    let recorded: BTreeMap<&Pair, bool> = changes
+        .iter()
+        .map(|(pair, row)| (pair, row.is_some()))
+        .collect();
+    every
+        .iter()
+        .copied()
+        .filter(|pair| pass.places.desired.contains(*pair))
+        .filter(|pair| {
+            recorded
+                .get(pair)
+                .copied()
+                .unwrap_or_else(|| pass.rows.contains_key(*pair))
+        })
+        .filter_map(|pair| {
+            let owner = pass.places.owner(pair);
+            (pass.owners.get(pair).cloned().flatten() != owner).then(|| (pair.clone(), owner))
+        })
+        .collect()
 }
 
 /// A row managing a copy with `source`'s content.

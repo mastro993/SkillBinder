@@ -1,9 +1,56 @@
-//! Where the active preset holds each skill: the global skill directories of the detected agents
-//! its entries name, each counted once however many agents share it.
+//! Where each skill is held: the global skill directories of the detected agents the active
+//! preset's entries name, and the workspace skill directories each workspace holds it in, each
+//! directory counted once however many agents share it.
 
-use super::store::Pair;
-use skillbinder_proto::{AgentOption, Library};
-use std::collections::BTreeSet;
+use super::store::{Holder, Pair};
+use skillbinder_proto::{AgentOption, Library, SkillId, Workspace, WorkspaceId};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::{Path, PathBuf},
+};
+
+/// Where skills are held, and the workspace folders whose directories those are.
+#[derive(Default)]
+pub(super) struct Places {
+    /// Every directory and slug where a skill is held.
+    pub desired: BTreeSet<Pair>,
+    /// Who holds each pair only workspaces hold, the first workspace and directory when several
+    /// do, missing or not; a pair the active preset holds is your agents'.
+    pub holders: BTreeMap<Pair, Holder>,
+    /// Where each workspace's skill directories lead now, by workspace and directory.
+    pub reached: BTreeMap<(WorkspaceId, String), String>,
+    /// Each workspace skill directory, resolved, and the folder of the workspace using it.
+    pub folders: BTreeMap<String, PathBuf>,
+    /// The folders of workspaces that are missing. Every directory inside one is left as it is, so
+    /// a copy never recreates the folder, and no record there is forgotten: the path a directory
+    /// resolved to through links inside the folder cannot be resolved again while it is gone.
+    pub missing: BTreeSet<PathBuf>,
+}
+impl Places {
+    /// Whether `directory` lies inside a missing workspace's folder.
+    pub fn paused(&self, directory: &str) -> bool {
+        Path::new(directory)
+            .ancestors()
+            .any(|ancestor| self.missing.contains(ancestor))
+    }
+
+    /// Who a held pair's record is held for: a workspace, or `None` for your agents.
+    pub fn owner(&self, pair: &Pair) -> Option<Holder> {
+        self.holders.get(pair).cloned()
+    }
+
+    /// Whether `holder`'s directory still leads to `directory`.
+    pub fn leads(&self, holder: &Holder, directory: &str) -> bool {
+        self.reached
+            .get(&(holder.workspace.clone(), holder.dir.clone()))
+            .is_some_and(|path| path == directory)
+    }
+
+    /// The folder `directory`'s links are resolved inside: its workspace's, or else home.
+    pub fn boundary<'a>(&'a self, directory: &str, home: &'a Path) -> &'a Path {
+        self.folders.get(directory).map_or(home, PathBuf::as_path)
+    }
+}
 
 /// Every global skill directory and slug the active preset holds a skill in. An agent detected
 /// later is included as soon as it is detected; an agent no longer detected holds nothing.
@@ -25,6 +72,71 @@ pub(super) fn desired(library: &Library, agents: &[AgentOption]) -> BTreeSet<Pai
         }
     }
     pairs
+}
+
+/// Every workspace skill directory `workspaces` use, resolved inside each workspace's folder, and
+/// slug they hold there. A directory whose links lead out of its folder holds nothing, as the scan
+/// skips it.
+pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
+    let mut places = Places::default();
+    for workspace in workspaces {
+        if workspace.missing {
+            places.missing.insert(PathBuf::from(&workspace.path));
+        }
+        for (dir, path) in &workspace.paths {
+            places
+                .reached
+                .insert((workspace.id.clone(), dir.clone()), path.clone());
+            for (skill, targets) in &workspace.skills {
+                if targets.includes(dir) {
+                    // A missing workspace still holds its skills, but nothing is written for it.
+                    let pair = (path.clone(), skill.0.clone());
+                    places
+                        .holders
+                        .entry(pair.clone())
+                        .or_insert_with(|| Holder {
+                            workspace: workspace.id.clone(),
+                            dir: dir.clone(),
+                        });
+                    if !workspace.missing {
+                        places.desired.insert(pair);
+                    }
+                }
+            }
+            places
+                .folders
+                .entry(path.clone())
+                .or_insert_with(|| PathBuf::from(&workspace.path));
+        }
+    }
+    places
+}
+
+/// The skills `workspace` holds in the workspace skill directory of a detected agent whose global
+/// skill directory `global` holds them too, so that agent may load them twice.
+pub(crate) fn overlaps(
+    workspace: &Workspace,
+    global: &BTreeSet<Pair>,
+    agents: &[AgentOption],
+) -> BTreeSet<SkillId> {
+    let reading: Vec<(&str, &str)> = agents
+        .iter()
+        .filter(|agent| agent.detected && workspace.dirs.contains(&agent.workspace_skills_dir))
+        .filter_map(|agent| {
+            let own = agent.resolved_skills_dir.as_deref()?;
+            Some((agent.workspace_skills_dir.as_str(), own))
+        })
+        .collect();
+    workspace
+        .skills
+        .iter()
+        .filter(|(skill, targets)| {
+            reading.iter().any(|(dir, own)| {
+                targets.includes(dir) && global.contains(&((*own).to_owned(), skill.0.clone()))
+            })
+        })
+        .map(|(skill, _)| skill.clone())
+        .collect()
 }
 
 #[cfg(test)]

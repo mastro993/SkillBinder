@@ -7,7 +7,7 @@ impl Engine {
     /// Saves a granted folder's projects as workspaces: the folder itself and each direct child
     /// that has an agent skill directory, or the folder alone when none has one. Agent folders,
     /// such as the home folder, are skipped. An expired grant, or a folder that adds nothing, is
-    /// an error.
+    /// an error. Each library skill a new workspace holds becomes active there, without writing.
     pub async fn add_workspaces(&self, grant: GrantId) -> AppResult<Vec<Workspace>> {
         self.call(move |state| state.add_workspaces(&grant)).await
     }
@@ -54,7 +54,21 @@ impl Engine {
             .await
     }
 
-    /// Forgets a workspace without touching its files.
+    /// Holds a library skill in a workspace for all its agents or for specific workspace skill
+    /// directories, or, with `None`, deactivates it there, and writes or removes its managed copies
+    /// at once. A directory the workspace does not use yet must be a detected agent's, and joins
+    /// its agents; a workspace without agents takes the chosen ones.
+    pub async fn set_workspace_skill(
+        &self,
+        id: WorkspaceId,
+        skill: SkillId,
+        targets: Option<WorkspaceTargets>,
+    ) -> AppResult<()> {
+        self.call(move |state| state.set_workspace_skill(&id, &skill, targets))
+            .await
+    }
+
+    /// Forgets a workspace without touching its files; its managed copies stay, unmanaged.
     pub async fn remove_workspace(&self, id: WorkspaceId) -> AppResult<()> {
         self.call(move |state| state.remove_workspace(&id)).await
     }

@@ -138,6 +138,11 @@ impl NativeView {
             DialogState::DeletePreset(preview) => self.delete_preset_dialog(dialog, preview, cx),
             DialogState::Copies(skill) => self.copies_dialog(dialog, skill.as_ref(), cx),
             DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
+            DialogState::WorkspaceAgents {
+                workspace,
+                skill,
+                chosen,
+            } => self.workspace_agents_dialog(dialog, (workspace, skill, chosen), cx),
             DialogState::DeleteFolder { id, revision } => {
                 self.delete_folder_dialog(dialog, id, revision, cx)
             }

@@ -84,6 +84,23 @@ diesel::table! {
         slug -> Text,
         digest -> Nullable<Text>,
         issue -> Nullable<Text>,
+        workspace_id -> Nullable<Text>,
+        workspace_dir -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    workspace_dirs (workspace_id, dir) {
+        workspace_id -> Text,
+        dir -> Text,
+    }
+}
+
+diesel::table! {
+    workspace_skills (workspace_id, slug) {
+        workspace_id -> Text,
+        slug -> Text,
+        dirs -> Nullable<Text>,
     }
 }
 

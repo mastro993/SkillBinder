@@ -1,6 +1,6 @@
 //! The active preset and the skills it configures: selecting a preset activates it, which writes
-//! and removes your agents' copies, and each activation toggle changes the active preset's skills
-//! and saves at once.
+//! and removes your agents' copies, and each activation toggle changes the active preset's skills,
+//! or on a workspace's page the workspace's, and saves at once.
 
 use super::NativeView;
 use super::controls::{Inactive, checkbox};
@@ -51,8 +51,19 @@ impl NativeView {
         self.change_organization(OrganizationChange::ActivatePreset { id }, cx);
     }
 
-    /// Whether `skill` is active in the active preset.
+    /// Where activation toggles act: the open workspace, or else the active preset.
+    pub(super) fn scope_name(&self) -> String {
+        self.scoped_workspace().map_or_else(
+            || self.active_preset_name(),
+            |workspace| workspace.name.clone(),
+        )
+    }
+
+    /// Whether `skill` is active in the open workspace, or else in the active preset.
     pub(super) fn skill_active(&self, skill: &SkillId) -> bool {
+        if let Some(workspace) = self.scoped_workspace() {
+            return workspace.skills.contains_key(skill);
+        }
         let Some(active) = self.active_preset_id() else {
             return false;
         };
@@ -63,14 +74,15 @@ impl NativeView {
             .is_some_and(|held| held.presets.contains_key(&active))
     }
 
-    /// A one-click switch for a library skill in the active preset. Its changes save at once.
+    /// A one-click switch for a library skill in the open workspace or the active preset. Its
+    /// changes save at once.
     pub(super) fn activation_toggle(&self, skill: &SkillId, cx: &mut Context<Self>) -> AnyElement {
         let checked = self.skill_active(skill);
-        let preset = self.active_preset_name();
+        let scope = self.scope_name();
         let busy = self.busy;
         let weak = cx.entity().downgrade();
         let id = skill.clone();
-        let tooltip = format!("Active in {preset}");
+        let tooltip = format!("Active in {scope}");
         div()
             .id(format!("activation-{skill}"))
             .flex_shrink_0()
@@ -92,13 +104,17 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Adds `skill` to the active preset, or removes it, saving the change at once.
+    /// Adds `skill` to the open workspace or the active preset, or removes it, saving the change
+    /// at once.
     pub(super) fn toggle_activation(
         &mut self,
         skill: SkillId,
         active: bool,
         cx: &mut Context<Self>,
     ) {
+        if let Some(workspace) = self.scoped_workspace().cloned() {
+            return self.toggle_workspace_skill(&workspace, skill, active, cx);
+        }
         let Some(id) = self.active_preset_id() else {
             return;
         };

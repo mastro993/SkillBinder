@@ -1,8 +1,8 @@
-//! Activation writes the active preset's skills into your agents' global skill directories as
-//! managed copies (ADR 0006). The user's choice is saved first; the copies follow it one
-//! directory at a time, and a directory that cannot follow records why instead of rolling the
-//! choice back. Only copies SkillBinder wrote or adopted are ever rewritten or removed, apart
-//! from a replacement the user confirms.
+//! Activation writes the active preset's skills into your agents' global skill directories, and
+//! each workspace's skills into its workspace skill directories, as managed copies (ADR 0006). The
+//! user's choice is saved first; the copies follow it one directory at a time, and a directory
+//! that cannot follow records why instead of rolling the choice back. Only copies SkillBinder
+//! wrote or adopted are ever rewritten or removed, apart from a replacement the user confirms.
 
 mod copies;
 mod pass;
@@ -11,33 +11,99 @@ mod store;
 mod targets;
 
 pub(crate) use copies::STAGING_PREFIX;
+pub(crate) use store::{Holder, Pair, claim, forget};
 
 use crate::{database, discovery::registry, payload, worker::State};
 use pass::{Scope, managed};
 use plan::{Disk, Issue, Row};
 use skillbinder_proto::*;
 use std::{collections::BTreeSet, path::Path};
-use store::Pair;
+use targets::Places;
 
 impl State {
-    /// Each directory where a library skill is active, or where a managed copy waits for the
-    /// user or for a removal to succeed, and how it stands.
+    /// Each directory where a library skill is held, or where a managed copy waits for the user
+    /// or for a removal to succeed, and how it stands. A missing workspace's are left out.
     pub(crate) fn copies(&self, library: &Library) -> AppResult<Vec<ManagedCopy>> {
-        let desired = targets::desired(library, &registry::agent_options(&self.config)?);
+        let places = self.places(library)?;
         let rows = store::load(&mut self.database.borrow_mut())?;
-        let pairs: BTreeSet<&Pair> = desired.iter().chain(rows.keys()).collect();
+        let pairs: BTreeSet<&Pair> = places.desired.iter().chain(rows.keys()).collect();
         Ok(pairs
             .into_iter()
+            .filter(|(directory, _)| !places.paused(directory))
             .filter_map(|pair| {
                 let row = rows.get(pair);
                 Some(ManagedCopy {
                     directory: pair.0.clone(),
                     skill: SkillId(pair.1.clone()),
-                    state: shown(desired.contains(pair), row)?,
+                    state: shown(places.desired.contains(pair), row)?,
                     managed: row.is_some_and(|row| row.digest.is_some()),
                 })
             })
             .collect())
+    }
+
+    /// Where `library` and the workspaces hold skills.
+    fn places(&self, library: &Library) -> AppResult<Places> {
+        let agents = registry::agent_options(&self.config)?;
+        let mut places = targets::workspace_places(&self.workspaces_for(library, &agents)?);
+        for pair in targets::desired(library, &agents) {
+            places.holders.remove(&pair);
+            places.desired.insert(pair);
+        }
+        Ok(places)
+    }
+
+    /// Saves a workspace change with `save`, then brings the copies in line for each skill whose
+    /// directories it changed. Once the change is saved, a failure to apply it is left to the next
+    /// scan.
+    pub(crate) fn change_places(&self, save: impl FnOnce(&Self) -> AppResult<()>) -> AppResult<()> {
+        let before = self.read()?.places.desired;
+        save(self)?;
+        match self.read() {
+            Ok(after) => {
+                let changed = before
+                    .symmetric_difference(&after.places.desired)
+                    .map(|(_, slug)| slug.clone())
+                    .collect();
+                self.quietly(Scope::Slugs(changed));
+            }
+            Err(error) => self
+                .log
+                .record(format!("Copies will be applied at the next scan: {error}")),
+        }
+        Ok(())
+    }
+
+    /// What removing workspace `id` does with the copy records held for it or of pairs it holds
+    /// now: each one the active preset or another workspace, present or missing, still holds passes
+    /// to that holder, and the rest are forgotten, leaving their copies unmanaged.
+    pub(crate) fn handover(&self, id: &WorkspaceId) -> AppResult<Handover> {
+        let library = self.read_library()?;
+        let agents = registry::agent_options(&self.config)?;
+        let (own, others): (Vec<_>, Vec<_>) = self
+            .workspaces_for(&library, &agents)?
+            .into_iter()
+            .partition(|workspace| &workspace.id == id);
+        let (own, others) = (
+            targets::workspace_places(&own),
+            targets::workspace_places(&others),
+        );
+        let global = targets::desired(&library, &agents);
+        let mut handover = Handover::default();
+        for (pair, owner) in store::owners(&mut self.database.borrow_mut())? {
+            let held_for_it = owner.is_some_and(|holder| &holder.workspace == id);
+            if !held_for_it && own.owner(&pair).is_none() {
+                continue;
+            }
+            if global.contains(&pair) {
+                handover.handed.push((pair, None));
+            } else if let Some(holder) = others.owner(&pair) {
+                handover.handed.push((pair, Some(holder)));
+            } else {
+                handover.forgotten.push(pair);
+            }
+        }
+        Ok(handover)
     }
 
     /// What switching from `before`'s active preset to `after`'s does for your agents: the
@@ -126,16 +192,22 @@ impl State {
         // managed.
         let asked = pass.rows.get(&pair).is_some_and(|row| match row.issue {
             Some(Issue::Edited) => true,
-            Some(Issue::Conflict | Issue::Skipped) => pass.desired.contains(&pair),
+            Some(Issue::Conflict | Issue::Skipped) => pass.places.desired.contains(&pair),
             _ => false,
         });
+        let boundary = pass.places.boundary(&pair.0, &self.config.home);
         let (directory, slug) = (Path::new(&pair.0), pair.1.as_str());
-        if !asked || self.protected(directory) || !self.current(directory) {
+        if !asked
+            || pass.places.paused(&pair.0)
+            || pass.orphaned(&pair)
+            || self.protected(directory)
+            || !self.current(boundary, directory)
+        {
             return Err(AppError::stale(
                 "This copy changed meanwhile. Review it again.",
             ));
         }
-        let row = match (choice, pass.desired.contains(&pair)) {
+        let row = match (choice, pass.places.desired.contains(&pair)) {
             (CopyChoice::Keep, true) => Some(Row {
                 digest: None,
                 issue: Some(Issue::Skipped),
@@ -155,8 +227,14 @@ impl State {
                 Some(managed(&source))
             }
         };
+        let held = pass.places.desired.contains(&pair) && row.is_some();
+        let owner = pass.places.owner(&pair);
         database::transaction(&mut self.database.borrow_mut(), |connection| {
-            store::save(connection, &[(pair, row)])
+            store::save(connection, &[(pair.clone(), row)])?;
+            if held {
+                store::claim(connection, &[(pair, owner)])?;
+            }
+            Ok(())
         })
     }
 
@@ -171,6 +249,26 @@ impl State {
     /// A fresh inspection of library skill `slug`.
     fn library_content(&self, slug: &str) -> AppResult<payload::Inspection> {
         payload::inspect(&self.skill_dir(&SkillId(slug.to_owned()))?)
+    }
+}
+
+/// The copy records a workspace's removal passes to another holder, and those it forgets.
+#[derive(Default)]
+pub(crate) struct Handover {
+    pub handed: Vec<(Pair, Option<Holder>)>,
+    pub forgotten: Vec<Pair>,
+}
+
+/// Fills in which skills each workspace holds for an agent that the active preset of `library`
+/// holds them for too.
+pub(crate) fn mark_overlaps(
+    workspaces: &mut [Workspace],
+    library: &Library,
+    agents: &[AgentOption],
+) {
+    let global = targets::desired(library, agents);
+    for workspace in workspaces {
+        workspace.overlaps = targets::overlaps(workspace, &global, agents);
     }
 }
 
