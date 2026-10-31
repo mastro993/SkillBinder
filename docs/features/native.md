@@ -8,5 +8,6 @@ The audited shipped baseline is revision `83d55ef789a7cf256021f6620742e0e9021a83
 - [Discovery and reviewed imports](native/discovery-and-imports.md)
 - [Library and organization](native/library-and-organization.md)
 - [Activation and managed copies](native/activation.md)
+- [Workspace activation](native/workspace-activation.md)
 - [Synchronization, durability, and diagnostics](native/sync-and-durability.md)
 - [Acceptance evidence](native/acceptance-evidence.md)

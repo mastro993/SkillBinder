@@ -40,9 +40,11 @@ mod sidebar_workspaces;
 mod skill_page;
 mod sync;
 mod updates;
+mod workspace_agents;
 mod workspace_dialogs;
 mod workspace_icons;
 mod workspace_page;
+mod workspace_targets;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
@@ -78,6 +80,13 @@ enum DialogState {
         revision: String,
     },
     RemoveWorkspace(WorkspaceId),
+    /// The first activation in a workspace that uses no agents yet, asking which it uses.
+    WorkspaceAgents {
+        workspace: WorkspaceId,
+        skill: SkillId,
+        /// The workspace skill directories chosen so far.
+        chosen: BTreeSet<String>,
+    },
     None,
 }
 
@@ -357,7 +366,7 @@ impl Render for NativeView {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library => self.render_library(window, cx),
                 Route::Skill(id) => self.render_skill(&id.clone(), cx),
-                Route::Workspace(id) => self.render_workspace(&id.clone()),
+                Route::Workspace(id) => self.render_workspace(&id.clone(), window, cx),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
                 Route::Universal => self.render_universal(cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),

@@ -1,6 +1,6 @@
-//! Where library skills are applied: the Agents rows whose global skill directory holds a
-//! skill's managed copy, and the copies that hold the active preset back. Universal stands for the
-//! universal agents together, which share one directory.
+//! Where library skills are applied: the rows whose skill directory holds a skill's managed copy,
+//! the Agents rows for your agents or a workspace's directory rows, and the copies that hold a
+//! skill back. Universal stands for the universal agents together, which share one directory.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -18,7 +18,8 @@ pub(super) enum Reader {
     Agent(String),
 }
 
-/// An Agents row and the global skill directory its agents read.
+/// An Agents row and the global skill directory its agents read, or a workspace skill directory
+/// and the agents that read it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct AgentRow {
     pub reader: Reader,
@@ -26,7 +27,7 @@ pub(super) struct AgentRow {
     pub name: String,
     /// The registry identities of the row's agents.
     pub ids: Vec<String>,
-    /// The global skill directory as the app shows it.
+    /// The skill directory as the app shows it.
     pub dir: String,
     /// The same directory with links resolved, as copies name it.
     pub resolved: String,

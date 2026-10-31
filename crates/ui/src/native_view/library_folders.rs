@@ -229,19 +229,19 @@ impl NativeView {
                 Some(folder.id.clone()),
             )
         }));
-        // The active preset's membership can be switched here as well as from the row.
+        // The membership the row toggles can be switched here as well as from the row.
         let active = self.skill_active(skill);
-        let toggle = MenuItem::new(
-            "toggle-active",
-            format!("Active in {}", self.active_preset_name()),
-        )
-        .checked(active)
-        .disabled(self.busy || self.active_preset_id().is_none())
-        .on_select(menu_action(
-            view.clone(),
-            skill.clone(),
-            move |view, skill, _, cx| view.toggle_activation(skill.clone(), !active, cx),
-        ));
+        let toggle = MenuItem::new("toggle-active", format!("Active in {}", self.scope_name()))
+            .checked(active)
+            .disabled(
+                self.busy
+                    || (self.scoped_workspace().is_none() && self.active_preset_id().is_none()),
+            )
+            .on_select(menu_action(
+                view.clone(),
+                skill.clone(),
+                move |view, skill, _, cx| view.toggle_activation(skill.clone(), !active, cx),
+            ));
         let mut items = vec![toggle];
         if self.has_update(skill) {
             items.push(

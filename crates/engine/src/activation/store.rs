@@ -6,8 +6,8 @@ use diesel::{prelude::*, upsert::excluded};
 use skillbinder_proto::{AppError, AppResult};
 use std::collections::BTreeMap;
 
-/// A global skill directory, as its resolved path, and a slug.
-pub(super) type Pair = (String, String);
+/// A global or workspace skill directory, as its resolved path, and a slug.
+pub(crate) type Pair = (String, String);
 
 /// Every recorded directory and slug.
 pub(super) fn load(connection: &mut SqliteConnection) -> AppResult<BTreeMap<Pair, Row>> {
@@ -61,4 +61,10 @@ pub(super) fn save(
             .map_err(storage)?;
     }
     Ok(())
+}
+
+/// Forgets `records`, leaving their copies in place, unmanaged.
+pub(crate) fn forget(connection: &mut SqliteConnection, records: &[Pair]) -> AppResult<()> {
+    let forgotten: Vec<_> = records.iter().map(|pair| (pair.clone(), None)).collect();
+    save(connection, &forgotten)
 }

@@ -1,11 +1,11 @@
-//! One pass over global skill directories: what it reads first, which directories it checks, and
-//! the step it takes in each.
+//! One pass over global and workspace skill directories: what it reads first, which directories it
+//! checks, and the step it takes in each.
 
 use super::copies::{self, Moved};
 use super::plan::{self, Issue, Row, Step};
 use super::store::{self, Pair};
-use super::targets;
-use crate::{database, discovery::registry, payload, worker::State};
+use super::targets::Places;
+use crate::{database, payload, worker::State};
 use skillbinder_proto::{AppError, AppResult};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -27,7 +27,7 @@ pub(super) enum Scope {
 
 /// What one pass reads before it changes anything.
 pub(super) struct Pass {
-    pub desired: BTreeSet<Pair>,
+    pub places: Places,
     pub rows: BTreeMap<Pair, Row>,
     /// Each library skill's cached digest, by slug.
     pub digests: BTreeMap<String, String>,
@@ -36,7 +36,7 @@ pub(super) struct Pass {
 impl State {
     pub(super) fn read(&self) -> AppResult<Pass> {
         let library = self.read_library()?;
-        let desired = targets::desired(&library, &registry::agent_options(&self.config)?);
+        let places = self.places(&library)?;
         let rows = store::load(&mut self.database.borrow_mut())?;
         let digests = library
             .skills
@@ -44,7 +44,7 @@ impl State {
             .map(|skill| (skill.id.0, skill.digest))
             .collect();
         Ok(Pass {
-            desired,
+            places,
             rows,
             digests,
         })
@@ -57,10 +57,10 @@ impl State {
         directory.starts_with(data) || data.starts_with(directory)
     }
 
-    /// Whether recorded `directory` still resolves to itself inside home, as detection resolves
-    /// an agent's directory: not once a link leads it elsewhere.
-    pub(super) fn current(&self, directory: &Path) -> bool {
-        crate::discovery::paths::resolve_absent(&self.config.home, directory)
+    /// Whether recorded `directory` still resolves to itself inside `boundary`, its workspace's
+    /// folder or home, as the scan resolves it: not once a link leads it elsewhere.
+    pub(super) fn current(&self, boundary: &Path, directory: &Path) -> bool {
+        crate::discovery::paths::resolve_absent(boundary, directory)
             .is_ok_and(|resolved| resolved == directory)
     }
 
@@ -70,7 +70,14 @@ impl State {
             return Ok(());
         }
         let pass = self.read()?;
-        let every: BTreeSet<&Pair> = pass.desired.iter().chain(pass.rows.keys()).collect();
+        let places = &pass.places;
+        // A missing workspace's directories wait for its folder, so no copy recreates it.
+        let every: BTreeSet<&Pair> = places
+            .desired
+            .iter()
+            .chain(pass.rows.keys())
+            .filter(|(directory, _)| !places.paused.contains(directory))
+            .collect();
         let pairs: Vec<&Pair> = match &scope {
             Scope::Slugs(slugs) => every
                 .iter()
@@ -101,7 +108,9 @@ impl State {
                 .entry(pair.1.clone())
                 .or_insert_with(|| self.library_content(&pair.1).ok());
             let row = pass.rows.get(pair);
-            let after = self.settle(pair, pass.desired.contains(pair), row, source.as_ref());
+            let wanted = places.desired.contains(pair);
+            let boundary = places.boundary(&pair.0, &self.config.home);
+            let after = self.settle(pair, (wanted, boundary), row, source.as_ref());
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }
@@ -112,12 +121,12 @@ impl State {
     }
 
     /// Brings one directory in line and returns its new row. A directory inside SkillBinder's
-    /// storage is never touched, and neither is one a recorded path no longer leads to, such as
-    /// after an agent's directory became a link to another one.
+    /// storage is never touched, and neither is one a recorded path no longer leads to inside
+    /// `boundary`, such as after an agent's directory became a link to another one.
     fn settle(
         &self,
         pair: &Pair,
-        wanted: bool,
+        (wanted, boundary): (bool, &Path),
         row: Option<&Row>,
         source: Option<&payload::Inspection>,
     ) -> Option<Row> {
@@ -130,7 +139,7 @@ impl State {
                 None
             };
         }
-        if !wanted && !self.current(directory) {
+        if !wanted && !self.current(boundary, directory) {
             return None;
         }
         let target = directory.join(&pair.1);
@@ -200,7 +209,7 @@ impl State {
 /// on record or on disk or whose copy predates the library's content, and a managed copy of a
 /// skill no longer active there.
 fn pending(pass: &Pass, pair: &Pair) -> bool {
-    let wanted = pass.desired.contains(pair);
+    let wanted = pass.places.desired.contains(pair);
     match pass.rows.get(pair) {
         None => wanted,
         Some(row) if row.issue.is_some() || !wanted => true,

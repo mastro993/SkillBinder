@@ -74,27 +74,11 @@ These strings were added with workspaces and agents; they have no captured basel
 - Workspace row menu: `Rename`, `Move Up`, `Move Down`, `Remove…`. Inline rename placeholder `Workspace name`.
 - Directory picker prompt: `Add workspace`. Duplicate refusals: `This folder is already added as <name>.` when the picked folder itself is the workspace, and `Every project in <folder> is already added.` otherwise, including picking the home folder again after its projects were added. Agent folder refusals when a pick adds nothing because the picked folder, or every project in it, is an agent folder: `Your home folder's skills are shown under Agents.` when the home folder is one of them, otherwise `This folder's skills are shown under Agents.`
 - Remove confirmation: title `Remove workspace`, `Remove <name>?`, `Removes the workspace from SkillBinder. Files in the folder are not touched.`, actions `Cancel`, `Remove workspace`.
-- Workspace page: the header breadcrumb `Workspaces › <name>`; the folder path; missing folder `The workspace folder is missing.`
+- Workspace page: the header breadcrumb `Workspaces › <name>`; the folder path; missing folder `The workspace folder is missing.`; then Library scoped to the workspace (see [Activation](ui-copy/activation.md)).
 
 ## Managed copies
 
-These strings were added with activation (ADR 0006); they have no captured baseline.
-
-- A List row's and Grid card's trailing edge, and a skill page's header before `Reinstall` and `Update`, hold the `Active` checkbox, tooltip `Active in <preset>`, then the agents button: `All agents`, one Agents row's name such as `Universal`, `<n> agents`, or `No agents`, with a down chevron. It opens the agents menu: `All agents`, a separator, then `Universal` with the layers glyph and each other detected agent with its logo, each checked while the skill is held for an agent reading its directory. The row context menu keeps `Active in <preset>`.
-- A row's bottom line, or a card's footer, shows the avatars of the Agents rows whose global skill directory holds the skill's applied copy, Universal first; four show before `+<n>`, whose tooltip names the rest. An avatar's tooltip shows the directory, and Universal's adds `Used by <agents>`. A warning glyph follows while a copy is not applied, asks, or was not removed, tooltip `1 copy needs review` or `<n> copies need review`. With neither, the line reads `Not in any agent`. A skill page shows that text as a warning note with `Review`. The glyph and `Review` open `Skill copies` for that skill.
-- Dialog `Skill copies`, footer `Close`, also opens once when copies newly ask, listing every copy that asks; `<dir>` shows home as `~`:
-
-| Copy | Text | Actions |
-| --- | --- | --- |
-| Conflict | `<dir> already holds a different copy of <slug>.` | `Replace`, `Skip` |
-| Skipped | `<dir> keeps its own copy of <slug>, so <slug> is not applied there.` | `Replace` |
-| Edited | `The copy of <slug> in <dir> was edited there.` | `Overwrite`, `Keep` |
-| Edited, inactive | `<slug> is no longer active in <dir>, but its copy there was edited.` | `Remove`, `Keep` |
-| Not applied | `<slug> is not applied in <dir>. <reason>` | `Retry` |
-| Not removed | `The copy of <slug> in <dir> was not removed. <reason>` | `Retry` |
-
-- Reasons: `Not applied yet.`, `SkillBinder could not write to this directory.`, `Another copy appeared meanwhile.`, `The skill changed while it was copied.`, `This skill cannot safely be copied.`, `The library skill could not be read.`, `This directory is inside SkillBinder's own storage.` A stale answer is refused with `This copy changed meanwhile. Review it again.`
-- Deleting the active preset adds, after `Delete <preset>? Its <count> skills stay in the library.`, either `Default becomes the active preset, which adds <a, b> and removes <c> for your agents.`, with only `adds <a>` or `removes <c>` when one side is empty, or `Default becomes the active preset, with the same skills.`
+The strings added with activation (ADR 0006), for your agents and for workspaces, are in [Activation](ui-copy/activation.md).
 
 ## Screen-state acceptance
 
