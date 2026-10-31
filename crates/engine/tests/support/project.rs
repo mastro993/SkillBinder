@@ -33,15 +33,9 @@ impl Project {
         for slug in slugs {
             write_skill(&fixture.home.join(".claude/skills"), slug, LIBRARY);
         }
-        let ids = fixture
-            .scan(&engine)
-            .await
-            .candidates
-            .into_iter()
-            .map(|candidate| candidate.id)
-            .collect();
-        let plan = engine.prepare_import(ids, false).await.unwrap();
-        engine.apply_import(plan.id).await.unwrap();
+        if !slugs.is_empty() {
+            import_found(&fixture, &engine).await;
+        }
         let folder = fs::canonicalize(&fixture.workspace).unwrap();
         Self {
             fixture,
@@ -82,6 +76,19 @@ impl Project {
             })
             .collect()
     }
+}
+
+/// Imports every skill a scan finds.
+pub async fn import_found(fixture: &Fixture, engine: &Engine) {
+    let ids = fixture
+        .scan(engine)
+        .await
+        .candidates
+        .into_iter()
+        .map(|candidate| candidate.id)
+        .collect();
+    let plan = engine.prepare_import(ids, false).await.unwrap();
+    engine.apply_import(plan.id).await.unwrap();
 }
 
 pub fn skill(slug: &str) -> SkillId {

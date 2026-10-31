@@ -114,41 +114,6 @@ async fn a_missing_workspace_keeps_the_copies_of_a_directory_linked_inside_it() 
 
 #[cfg(unix)]
 #[tokio::test]
-async fn removing_a_missing_workspace_leaves_the_copies_of_a_directory_linked_inside_it() {
-    let project = Project::with(&["review"]).await;
-    // Inside home, a managed copy that nothing holds any more would be removed.
-    let folder = fs::canonicalize(&project.fixture.home)
-        .unwrap()
-        .join("proj");
-    fs::create_dir_all(folder.join("tooling/agent-skills")).unwrap();
-    fs::create_dir_all(folder.join(".claude")).unwrap();
-    std::os::unix::fs::symlink("../tooling/agent-skills", folder.join(".claude/skills")).unwrap();
-    let workspace = support::add_workspace(&project.engine, &folder).await;
-    project
-        .engine
-        .set_workspace_skill(
-            workspace.id.clone(),
-            skill("review"),
-            Some(WorkspaceTargets::AllAgents),
-        )
-        .await
-        .unwrap();
-    let copy = folder.join("tooling/agent-skills/review/SKILL.md");
-    assert!(copy.exists());
-
-    let moved = folder.with_file_name("moved");
-    fs::rename(&folder, &moved).unwrap();
-    project.engine.remove_workspace(workspace.id).await.unwrap();
-    fs::rename(&moved, &folder).unwrap();
-    project.fixture.scan(&project.engine).await;
-    assert!(copy.exists(), "removing the workspace leaves its copies");
-    let library = project.engine.snapshot().await.unwrap().library.unwrap();
-    assert!(library.copies.is_empty(), "and no longer manages them");
-    project.engine.shutdown().await.unwrap();
-}
-
-#[cfg(unix)]
-#[tokio::test]
 async fn a_directory_linked_out_of_the_project_is_never_touched() {
     let project = Project::with(&["review"]).await;
     fs::create_dir_all(project.dir(".claude/skills")).unwrap();

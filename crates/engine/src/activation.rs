@@ -71,10 +71,11 @@ impl State {
         Ok(())
     }
 
-    /// The copy records in workspace `id`'s skill directories, or anywhere inside its folder while
-    /// it is missing, that nothing else holds there: no other workspace leading to the same
-    /// directory, no other missing workspace pausing it, and not the active preset. Removing the
-    /// workspace forgets them, leaving its copies unmanaged.
+    /// The copy records workspace `id` alone holds, which removing it forgets, leaving its copies
+    /// unmanaged: those in its skill directories, and, while its folder is missing, those inside
+    /// it, that no other workspace or the active preset holds. A record in an agent's global skill
+    /// directory is never one, and neither is one inside another missing workspace's folder that is
+    /// nearer to it.
     pub(crate) fn workspace_records(&self, id: &WorkspaceId) -> AppResult<Vec<Pair>> {
         let library = self.read_library()?;
         let agents = registry::agent_options(&self.config)?;
@@ -87,13 +88,32 @@ impl State {
             targets::workspace_places(&others),
         );
         let global = targets::desired(&library, &agents);
+        let global_dirs: BTreeSet<&str> = agents
+            .iter()
+            .filter_map(|agent| agent.resolved_skills_dir.as_deref())
+            .collect();
+        // A record inside missing folders waits for the nearest of them: whether it is this
+        // workspace's (`Some(true)`) or another's (`Some(false)`).
+        let paused_by_own = |directory: &str| {
+            Path::new(directory).ancestors().find_map(|ancestor| {
+                if own.missing.contains(ancestor) {
+                    Some(true)
+                } else {
+                    others.missing.contains(ancestor).then_some(false)
+                }
+            })
+        };
+        let held =
+            |pair: &Pair| own.folders.contains_key(&pair.0) || paused_by_own(&pair.0) == Some(true);
         let kept = |pair: &Pair| {
-            others.paused(&pair.0) || others.desired.contains(pair) || global.contains(pair)
+            paused_by_own(&pair.0) == Some(false)
+                || others.desired.contains(pair)
+                || global.contains(pair)
         };
         Ok(store::load(&mut self.database.borrow_mut())?
             .into_keys()
-            .filter(|pair| own.folders.contains_key(&pair.0) || own.paused(&pair.0))
-            .filter(|pair| !kept(pair))
+            .filter(|pair| !global_dirs.contains(pair.0.as_str()))
+            .filter(|pair| held(pair) && !kept(pair))
             .collect())
     }
 
