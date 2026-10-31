@@ -304,3 +304,41 @@ async fn a_directory_a_link_no_longer_leads_to_keeps_its_copies() {
         project.engine.shutdown().await.unwrap();
     }
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_copy_held_through_a_replaced_link_stays_in_the_directory_it_led_to() {
+    let project = Project::with(&["lint", "review"]).await;
+    // A team keeps `.agents/skills` in Git and links `.claude/skills` to it; only Claude Code is
+    // detected when the workspace is added, so `review` is held through `.claude/skills` alone.
+    let shared = write_skill(&project.dir(".agents/skills"), "review", LIBRARY);
+    fs::create_dir_all(project.dir(".claude")).unwrap();
+    std::os::unix::fs::symlink("../.agents/skills", project.dir(".claude/skills")).unwrap();
+    let workspace = project.add().await;
+    assert_eq!(workspace.dirs, dirs(&[".claude/skills"]));
+    // Later the universal agents are detected and `.agents/skills` joins for another skill.
+    fs::create_dir_all(project.fixture.home.join(".agents/skills")).unwrap();
+    project
+        .engine
+        .set_workspace_skill(
+            workspace.id.clone(),
+            skill("lint"),
+            Some(WorkspaceTargets::Dirs(dirs(&[
+                ".agents/skills",
+                ".claude/skills",
+            ]))),
+        )
+        .await
+        .unwrap();
+
+    // A teammate's commit makes `.claude/skills` a real directory.
+    fs::remove_file(project.dir(".claude/skills")).unwrap();
+    fs::create_dir_all(project.dir(".claude/skills")).unwrap();
+    project.fixture.scan(&project.engine).await;
+    assert!(shared.join("SKILL.md").exists(), "the team's copy stays");
+    assert!(
+        project.dir(".claude/skills/review/SKILL.md").exists(),
+        "Claude Code still gets it"
+    );
+    project.engine.shutdown().await.unwrap();
+}

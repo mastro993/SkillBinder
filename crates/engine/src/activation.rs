@@ -11,7 +11,7 @@ mod store;
 mod targets;
 
 pub(crate) use copies::STAGING_PREFIX;
-pub(crate) use store::{Pair, claim, forget};
+pub(crate) use store::{Holder, Pair, claim, forget};
 
 use crate::{database, discovery::registry, payload, worker::State};
 use pass::{Scope, managed};
@@ -91,7 +91,8 @@ impl State {
         let global = targets::desired(&library, &agents);
         let mut handover = Handover::default();
         for (pair, owner) in store::owners(&mut self.database.borrow_mut())? {
-            if owner.as_ref() != Some(id) && own.owner(&pair).is_none() {
+            let held_for_it = owner.is_some_and(|holder| &holder.workspace == id);
+            if !held_for_it && own.owner(&pair).is_none() {
                 continue;
             }
             if global.contains(&pair) {
@@ -254,7 +255,7 @@ impl State {
 /// The copy records a workspace's removal passes to another holder, and those it forgets.
 #[derive(Default)]
 pub(crate) struct Handover {
-    pub handed: Vec<(Pair, Option<WorkspaceId>)>,
+    pub handed: Vec<(Pair, Option<Holder>)>,
     pub forgotten: Vec<Pair>,
 }
 

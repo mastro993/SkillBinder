@@ -2,7 +2,7 @@
 //! preset's entries name, and the workspace skill directories each workspace holds it in, each
 //! directory counted once however many agents share it.
 
-use super::store::Pair;
+use super::store::{Holder, Pair};
 use skillbinder_proto::{AgentOption, Library, SkillId, Workspace, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -14,9 +14,11 @@ use std::{
 pub(super) struct Places {
     /// Every directory and slug where a skill is held.
     pub desired: BTreeSet<Pair>,
-    /// The workspace holding each pair only workspaces hold, the first one when several do, missing
-    /// or not; a pair the active preset holds is your agents'.
-    pub holders: BTreeMap<Pair, WorkspaceId>,
+    /// Who holds each pair only workspaces hold, the first workspace and directory when several
+    /// do, missing or not; a pair the active preset holds is your agents'.
+    pub holders: BTreeMap<Pair, Holder>,
+    /// Where each workspace's skill directories lead now, by workspace and directory.
+    pub reached: BTreeMap<(WorkspaceId, String), String>,
     /// Each workspace skill directory, resolved, and the folder of the workspace using it.
     pub folders: BTreeMap<String, PathBuf>,
     /// The folders of workspaces that are missing. Every directory inside one is left as it is, so
@@ -33,8 +35,15 @@ impl Places {
     }
 
     /// Who a held pair's record is held for: a workspace, or `None` for your agents.
-    pub fn owner(&self, pair: &Pair) -> Option<WorkspaceId> {
+    pub fn owner(&self, pair: &Pair) -> Option<Holder> {
         self.holders.get(pair).cloned()
+    }
+
+    /// Whether `holder`'s directory still leads to `directory`.
+    pub fn leads(&self, holder: &Holder, directory: &str) -> bool {
+        self.reached
+            .get(&(holder.workspace.clone(), holder.dir.clone()))
+            .is_some_and(|path| path == directory)
     }
 
     /// The folder `directory`'s links are resolved inside: its workspace's, or else home.
@@ -75,6 +84,9 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
             places.missing.insert(PathBuf::from(&workspace.path));
         }
         for (dir, path) in &workspace.paths {
+            places
+                .reached
+                .insert((workspace.id.clone(), dir.clone()), path.clone());
             for (skill, targets) in &workspace.skills {
                 if targets.includes(dir) {
                     // A missing workspace still holds its skills, but nothing is written for it.
@@ -82,7 +94,10 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
                     places
                         .holders
                         .entry(pair.clone())
-                        .or_insert_with(|| workspace.id.clone());
+                        .or_insert_with(|| Holder {
+                            workspace: workspace.id.clone(),
+                            dir: dir.clone(),
+                        });
                     if !workspace.missing {
                         places.desired.insert(pair);
                     }

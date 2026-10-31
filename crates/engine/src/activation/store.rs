@@ -75,31 +75,50 @@ pub(crate) fn forget(connection: &mut SqliteConnection, records: &[Pair]) -> App
     save(connection, &forgotten)
 }
 
-/// The workspace each record is held for, or `None` for your agents.
+/// The workspace a record is held for, and its workspace skill directory the record is held
+/// through, such as `.claude/skills`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct Holder {
+    pub workspace: WorkspaceId,
+    pub dir: String,
+}
+
+/// Who each record is held for, or `None` for your agents.
 pub(super) fn owners(
     connection: &mut SqliteConnection,
-) -> AppResult<BTreeMap<Pair, Option<WorkspaceId>>> {
+) -> AppResult<BTreeMap<Pair, Option<Holder>>> {
     Ok(managed_copies::table
         .select((
             managed_copies::directory,
             managed_copies::slug,
             managed_copies::workspace_id,
+            managed_copies::workspace_dir,
         ))
-        .load::<(String, String, Option<String>)>(connection)
+        .load::<(String, String, Option<String>, Option<String>)>(connection)
         .map_err(|_| AppError::storage())?
         .into_iter()
-        .map(|(directory, slug, owner)| ((directory, slug), owner.map(WorkspaceId)))
+        .map(|(directory, slug, workspace, dir)| {
+            let holder = workspace.map(|workspace| Holder {
+                workspace: WorkspaceId(workspace),
+                dir: dir.unwrap_or_default(),
+            });
+            ((directory, slug), holder)
+        })
         .collect())
 }
 
-/// Records which workspace, or `None` for your agents, each recorded pair is held for.
+/// Records who each recorded pair is held for, or `None` for your agents.
 pub(crate) fn claim(
     connection: &mut SqliteConnection,
-    claims: &[(Pair, Option<WorkspaceId>)],
+    claims: &[(Pair, Option<Holder>)],
 ) -> AppResult<()> {
-    for ((directory, slug), owner) in claims {
+    for ((directory, slug), holder) in claims {
         diesel::update(managed_copies::table.find((directory, slug)))
-            .set(managed_copies::workspace_id.eq(owner.as_ref().map(WorkspaceId::as_str)))
+            .set((
+                managed_copies::workspace_id
+                    .eq(holder.as_ref().map(|holder| holder.workspace.as_str())),
+                managed_copies::workspace_dir.eq(holder.as_ref().map(|holder| &holder.dir)),
+            ))
             .execute(connection)
             .map_err(|_| AppError::storage())?;
     }

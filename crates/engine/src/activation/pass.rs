@@ -3,10 +3,10 @@
 
 use super::copies::{self, Moved};
 use super::plan::{self, Issue, Row, Step};
-use super::store::{self, Pair};
+use super::store::{self, Holder, Pair};
 use super::targets::Places;
 use crate::{database, payload, worker::State};
-use skillbinder_proto::{AppError, AppResult, WorkspaceId};
+use skillbinder_proto::{AppError, AppResult};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -29,8 +29,8 @@ pub(super) enum Scope {
 pub(super) struct Pass {
     pub places: Places,
     pub rows: BTreeMap<Pair, Row>,
-    /// The workspace each record is held for, or `None` for your agents.
-    pub owners: BTreeMap<Pair, Option<WorkspaceId>>,
+    /// Who each record is held for, or `None` for your agents.
+    pub owners: BTreeMap<Pair, Option<Holder>>,
     /// Each library skill's cached digest, by slug.
     pub digests: BTreeMap<String, String>,
 }
@@ -224,14 +224,17 @@ impl State {
 }
 
 impl Pass {
-    /// Whether `pair`'s record is held for a workspace but its directory is no workspace's
-    /// directory now, as after a link inside the workspace that led there was re-pointed or
-    /// replaced: it is forgotten without touching the directory, which home's boundary would
-    /// otherwise judge.
+    /// Whether `pair`'s record, no longer held there, is held for a workspace whose directory it
+    /// was held through no longer leads to it, as after a link inside the workspace that led there
+    /// was re-pointed or replaced: it is forgotten without touching the directory, which is not
+    /// that directory's any more.
     pub fn orphaned(&self, pair: &Pair) -> bool {
         !self.places.desired.contains(pair)
-            && self.owners.get(pair).is_some_and(Option::is_some)
-            && !self.places.folders.contains_key(&pair.0)
+            && self
+                .owners
+                .get(pair)
+                .and_then(Option::as_ref)
+                .is_some_and(|holder| !self.places.leads(holder, &pair.0))
     }
 }
 
@@ -258,7 +261,7 @@ fn claims(
     pass: &Pass,
     every: &BTreeSet<&Pair>,
     changes: &[(Pair, Option<Row>)],
-) -> Vec<(Pair, Option<WorkspaceId>)> {
+) -> Vec<(Pair, Option<Holder>)> {
     let recorded: BTreeMap<&Pair, bool> = changes
         .iter()
         .map(|(pair, row)| (pair, row.is_some()))
