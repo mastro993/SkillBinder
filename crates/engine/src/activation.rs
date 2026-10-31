@@ -11,7 +11,7 @@ mod store;
 mod targets;
 
 pub(crate) use copies::STAGING_PREFIX;
-pub(crate) use store::{Pair, forget};
+pub(crate) use store::{Pair, claim};
 
 use crate::{database, discovery::registry, payload, worker::State};
 use pass::{Scope, managed};
@@ -46,7 +46,10 @@ impl State {
     fn places(&self, library: &Library) -> AppResult<Places> {
         let agents = registry::agent_options(&self.config)?;
         let mut places = targets::workspace_places(&self.workspaces_for(library, &agents)?);
-        places.desired.extend(targets::desired(library, &agents));
+        for pair in targets::desired(library, &agents) {
+            places.holders.remove(&pair);
+            places.desired.insert(pair);
+        }
         Ok(places)
     }
 
@@ -71,49 +74,32 @@ impl State {
         Ok(())
     }
 
-    /// The copy records workspace `id` alone holds, which removing it forgets, leaving its copies
-    /// unmanaged: those in its skill directories, and, while its folder is missing, those inside
-    /// it, that no other workspace or the active preset holds. A record in an agent's global skill
-    /// directory is never one, and neither is one inside another missing workspace's folder that is
-    /// nearer to it.
-    pub(crate) fn workspace_records(&self, id: &WorkspaceId) -> AppResult<Vec<Pair>> {
+    /// The copy records held for workspace `id` that another workspace or the active preset holds
+    /// too, each with its new holder. Removing the workspace hands them over and forgets the rest,
+    /// leaving their copies unmanaged.
+    pub(crate) fn handed_over(
+        &self,
+        id: &WorkspaceId,
+    ) -> AppResult<Vec<(Pair, Option<WorkspaceId>)>> {
         let library = self.read_library()?;
         let agents = registry::agent_options(&self.config)?;
-        let (own, others): (Vec<_>, Vec<_>) = self
+        let others: Vec<_> = self
             .workspaces_for(&library, &agents)?
             .into_iter()
-            .partition(|workspace| &workspace.id == id);
-        let (own, others) = (
-            targets::workspace_places(&own),
-            targets::workspace_places(&others),
-        );
-        let global = targets::desired(&library, &agents);
-        let global_dirs: BTreeSet<&str> = agents
-            .iter()
-            .filter_map(|agent| agent.resolved_skills_dir.as_deref())
+            .filter(|workspace| &workspace.id != id)
             .collect();
-        // A record inside missing folders waits for the nearest of them: whether it is this
-        // workspace's (`Some(true)`) or another's (`Some(false)`).
-        let paused_by_own = |directory: &str| {
-            Path::new(directory).ancestors().find_map(|ancestor| {
-                if own.missing.contains(ancestor) {
-                    Some(true)
-                } else {
-                    others.missing.contains(ancestor).then_some(false)
+        let others = targets::workspace_places(&others);
+        let global = targets::desired(&library, &agents);
+        Ok(store::owners(&mut self.database.borrow_mut())?
+            .into_iter()
+            .filter(|(_, owner)| owner.as_ref() == Some(id))
+            .filter_map(|(pair, _)| {
+                if global.contains(&pair) {
+                    return Some((pair, None));
                 }
+                let holder = others.owner(&pair)?;
+                Some((pair, Some(holder)))
             })
-        };
-        let held =
-            |pair: &Pair| own.folders.contains_key(&pair.0) || paused_by_own(&pair.0) == Some(true);
-        let kept = |pair: &Pair| {
-            paused_by_own(&pair.0) == Some(false)
-                || others.desired.contains(pair)
-                || global.contains(pair)
-        };
-        Ok(store::load(&mut self.database.borrow_mut())?
-            .into_keys()
-            .filter(|pair| !global_dirs.contains(pair.0.as_str()))
-            .filter(|pair| held(pair) && !kept(pair))
             .collect())
     }
 
@@ -237,8 +223,14 @@ impl State {
                 Some(managed(&source))
             }
         };
+        let held = pass.places.desired.contains(&pair) && row.is_some();
+        let owner = pass.places.owner(&pair);
         database::transaction(&mut self.database.borrow_mut(), |connection| {
-            store::save(connection, &[(pair, row)])
+            store::save(connection, &[(pair.clone(), row)])?;
+            if held {
+                store::claim(connection, &[(pair, owner)])?;
+            }
+            Ok(())
         })
     }
 

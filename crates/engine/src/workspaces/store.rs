@@ -325,17 +325,18 @@ impl State {
         Ok(())
     }
 
-    /// Forgets a workspace and the skills it holds. Files in the folder are not touched: its
-    /// managed copies stay there, unmanaged.
+    /// Forgets a workspace, the skills it holds, and the copy records held for it alone. Files in
+    /// the folder are not touched: its managed copies stay there, unmanaged.
     pub(crate) fn remove_workspace(&mut self, id: &WorkspaceId) -> AppResult<()> {
         let image = self.workspace_icon_file(id)?;
         let workspaces = self.workspaces()?;
-        let records = self.workspace_records(id)?;
+        let handed = self.handed_over(id)?;
         database::transaction(&mut self.database.borrow_mut(), |connection| {
+            // The rest of its records cascade away with it.
+            crate::activation::claim(connection, &handed)?;
             diesel::delete(workspaces::table.find(id.as_str()))
                 .execute(connection)
                 .map_err(|_| AppError::storage())?;
-            crate::activation::forget(connection, &records)?;
             workspaces
                 .iter()
                 .filter(|p| &p.id != id)

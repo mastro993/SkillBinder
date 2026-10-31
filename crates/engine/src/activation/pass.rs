@@ -6,7 +6,7 @@ use super::plan::{self, Issue, Row, Step};
 use super::store::{self, Pair};
 use super::targets::Places;
 use crate::{database, payload, worker::State};
-use skillbinder_proto::{AppError, AppResult};
+use skillbinder_proto::{AppError, AppResult, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -29,6 +29,8 @@ pub(super) enum Scope {
 pub(super) struct Pass {
     pub places: Places,
     pub rows: BTreeMap<Pair, Row>,
+    /// The workspace each record is held for, or `None` for your agents.
+    pub owners: BTreeMap<Pair, Option<WorkspaceId>>,
     /// Each library skill's cached digest, by slug.
     pub digests: BTreeMap<String, String>,
 }
@@ -38,6 +40,7 @@ impl State {
         let library = self.read_library()?;
         let places = self.places(&library)?;
         let rows = store::load(&mut self.database.borrow_mut())?;
+        let owners = store::owners(&mut self.database.borrow_mut())?;
         let digests = library
             .skills
             .into_iter()
@@ -46,6 +49,7 @@ impl State {
         Ok(Pass {
             places,
             rows,
+            owners,
             digests,
         })
     }
@@ -103,7 +107,7 @@ impl State {
             }
         };
         let mut sources = BTreeMap::new();
-        let mut changes = Vec::new();
+        let (mut changes, mut claims) = (Vec::new(), Vec::new());
         for pair in pairs {
             if self.shutdown.cancelled() {
                 break;
@@ -115,12 +119,19 @@ impl State {
             let wanted = places.desired.contains(pair);
             let boundary = places.boundary(&pair.0, &self.config.home);
             let after = self.settle(pair, (wanted, boundary), row, source.as_ref());
+            // A record is held for whoever holds the skill there; one no longer held keeps its
+            // owner, so removing that workspace forgets it.
+            let owner = places.owner(pair);
+            if wanted && after.is_some() && pass.owners.get(pair).cloned().flatten() != owner {
+                claims.push((pair.clone(), owner));
+            }
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }
         }
         database::transaction(&mut self.database.borrow_mut(), |connection| {
-            store::save(connection, &changes)
+            store::save(connection, &changes)?;
+            store::claim(connection, &claims)
         })
     }
 

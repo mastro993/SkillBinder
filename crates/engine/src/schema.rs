@@ -84,6 +84,7 @@ diesel::table! {
         slug -> Text,
         digest -> Nullable<Text>,
         issue -> Nullable<Text>,
+        workspace_id -> Nullable<Text>,
     }
 }
 

@@ -3,7 +3,7 @@
 //! directory counted once however many agents share it.
 
 use super::store::Pair;
-use skillbinder_proto::{AgentOption, Library, SkillId, Workspace};
+use skillbinder_proto::{AgentOption, Library, SkillId, Workspace, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
@@ -14,6 +14,9 @@ use std::{
 pub(super) struct Places {
     /// Every directory and slug where a skill is held.
     pub desired: BTreeSet<Pair>,
+    /// The workspace holding each pair only workspaces hold, the first one when several do; a
+    /// pair the active preset holds is your agents'.
+    pub holders: BTreeMap<Pair, WorkspaceId>,
     /// Each workspace skill directory, resolved, and the folder of the workspace using it.
     pub folders: BTreeMap<String, PathBuf>,
     /// The folders of workspaces that are missing. Every directory inside one is left as it is, so
@@ -27,6 +30,11 @@ impl Places {
         Path::new(directory)
             .ancestors()
             .any(|ancestor| self.missing.contains(ancestor))
+    }
+
+    /// Who a held pair's record is held for: a workspace, or `None` for your agents.
+    pub fn owner(&self, pair: &Pair) -> Option<WorkspaceId> {
+        self.holders.get(pair).cloned()
     }
 
     /// The folder `directory`'s links are resolved inside: its workspace's, or else home.
@@ -70,7 +78,12 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
             if !workspace.missing {
                 for (skill, targets) in &workspace.skills {
                     if targets.includes(dir) {
-                        places.desired.insert((path.clone(), skill.0.clone()));
+                        let pair = (path.clone(), skill.0.clone());
+                        places
+                            .holders
+                            .entry(pair.clone())
+                            .or_insert_with(|| workspace.id.clone());
+                        places.desired.insert(pair);
                     }
                 }
             }

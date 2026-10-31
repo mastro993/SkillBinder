@@ -1,6 +1,6 @@
-//! Removing a workspace while its folder is missing forgets only the copy records it alone holds,
-//! so no later scan deletes a copy once the folder returns: not the ones of a nested workspace
-//! that is missing too, and not a global skill directory's. Every folder is inside an isolated
+//! Removing a workspace, also while its folder is missing, forgets only the copy records held for
+//! it, so no later scan deletes a copy: not a nested workspace's, and not a global skill
+//! directory's, however the directories link into each other. Every folder is inside an isolated
 //! home, where a managed copy nothing holds any more would be removed.
 #![cfg(unix)]
 #![expect(
@@ -135,10 +135,12 @@ async fn removing_a_missing_workspace_keeps_a_global_skill_directory_linked_into
     let project = Project::with(&[]).await;
     let home = fs::canonicalize(&project.fixture.home).unwrap();
     let dotfiles = home.join("dotfiles");
-    let skills = dotfiles.join("claude-skills");
+    // Two links lead there, so while the folder is missing its path cannot be resolved.
+    let skills = dotfiles.join("agents/claude-skills");
     write_skill(&skills, "review", LIBRARY);
+    symlink("agents/claude-skills", dotfiles.join("claude")).unwrap();
     fs::create_dir_all(home.join(".claude")).unwrap();
-    symlink("../dotfiles/claude-skills", home.join(".claude/skills")).unwrap();
+    symlink("../dotfiles/claude", home.join(".claude/skills")).unwrap();
     project::import_found(&project.fixture, &project.engine).await;
     let organize = |change| project.engine.change_organization(change);
     let default = PresetId("default".to_owned());
@@ -195,5 +197,68 @@ async fn removing_a_workspace_keeps_the_records_of_a_missing_one_its_directory_l
         [(directory, CopyState::Edited { active: false })],
         "the inner workspace still asks about its edited copy"
     );
+    project.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn removing_a_workspace_whose_directory_became_your_agents_leaves_its_copies() {
+    for at_launch in [false, true] {
+        let mut project = Project::with(&["review"]).await;
+        let home = fs::canonicalize(&project.fixture.home).unwrap();
+        let dotfiles = home.join("dotfiles");
+        fs::create_dir_all(dotfiles.join(".claude/skills")).unwrap();
+        let workspace = support::add_workspace(&project.engine, &dotfiles).await;
+        hold(
+            &project.engine,
+            &workspace.id,
+            Some(WorkspaceTargets::AllAgents),
+        )
+        .await;
+        let copy = dotfiles.join(".claude/skills/review/SKILL.md");
+        assert!(copy.exists());
+        // Like a dotfiles manager, `~/.claude` now links into the workspace.
+        fs::remove_dir_all(home.join(".claude")).unwrap();
+        symlink("dotfiles/.claude", home.join(".claude")).unwrap();
+
+        if at_launch {
+            // The engine forgets a workspace that became an agent folder when it opens.
+            project.engine.shutdown().await.unwrap();
+            project.engine = project.fixture.open();
+            assert!(
+                project
+                    .engine
+                    .snapshot()
+                    .await
+                    .unwrap()
+                    .workspaces
+                    .is_empty()
+            );
+        } else {
+            project.engine.remove_workspace(workspace.id).await.unwrap();
+        }
+        project.fixture.scan(&project.engine).await;
+        assert!(copy.exists(), "at launch: {at_launch}");
+        project.engine.shutdown().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn removing_a_workspace_forgets_its_copies_in_a_directory_shared_with_a_missing_one() {
+    let project = Project::with(&["review"]).await;
+    let (code, outer, _) = nested(&project).await;
+    // The outer workspace's directory leads into the inner one's, which never holds the skill.
+    fs::remove_dir_all(code.join(".claude/skills")).unwrap();
+    symlink("../app/.claude/skills", code.join(".claude/skills")).unwrap();
+    hold(
+        &project.engine,
+        &outer.id,
+        Some(WorkspaceTargets::AllAgents),
+    )
+    .await;
+    let copy = code.join("app/.claude/skills/review/SKILL.md");
+    assert!(copy.exists());
+
+    remove_while_missing(&project, &code.join("app"), outer.id).await;
+    assert!(copy.exists(), "the copy stays, unmanaged");
     project.engine.shutdown().await.unwrap();
 }

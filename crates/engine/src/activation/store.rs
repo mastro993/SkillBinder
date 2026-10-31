@@ -3,7 +3,7 @@
 use super::plan::{Issue, Row};
 use crate::schema::managed_copies;
 use diesel::{prelude::*, upsert::excluded};
-use skillbinder_proto::{AppError, AppResult};
+use skillbinder_proto::{AppError, AppResult, WorkspaceId};
 use std::collections::BTreeMap;
 
 /// A global or workspace skill directory, as its resolved path, and a slug.
@@ -12,6 +12,12 @@ pub(crate) type Pair = (String, String);
 /// Every recorded directory and slug.
 pub(super) fn load(connection: &mut SqliteConnection) -> AppResult<BTreeMap<Pair, Row>> {
     managed_copies::table
+        .select((
+            managed_copies::directory,
+            managed_copies::slug,
+            managed_copies::digest,
+            managed_copies::issue,
+        ))
         .load::<(String, String, Option<String>, Option<String>)>(connection)
         .map_err(|_| AppError::storage())?
         .into_iter()
@@ -63,8 +69,33 @@ pub(super) fn save(
     Ok(())
 }
 
-/// Forgets `records`, leaving their copies in place, unmanaged.
-pub(crate) fn forget(connection: &mut SqliteConnection, records: &[Pair]) -> AppResult<()> {
-    let forgotten: Vec<_> = records.iter().map(|pair| (pair.clone(), None)).collect();
-    save(connection, &forgotten)
+/// The workspace each record is held for, or `None` for your agents.
+pub(super) fn owners(
+    connection: &mut SqliteConnection,
+) -> AppResult<BTreeMap<Pair, Option<WorkspaceId>>> {
+    Ok(managed_copies::table
+        .select((
+            managed_copies::directory,
+            managed_copies::slug,
+            managed_copies::workspace_id,
+        ))
+        .load::<(String, String, Option<String>)>(connection)
+        .map_err(|_| AppError::storage())?
+        .into_iter()
+        .map(|(directory, slug, owner)| ((directory, slug), owner.map(WorkspaceId)))
+        .collect())
+}
+
+/// Records which workspace, or `None` for your agents, each recorded pair is held for.
+pub(crate) fn claim(
+    connection: &mut SqliteConnection,
+    claims: &[(Pair, Option<WorkspaceId>)],
+) -> AppResult<()> {
+    for ((directory, slug), owner) in claims {
+        diesel::update(managed_copies::table.find((directory, slug)))
+            .set(managed_copies::workspace_id.eq(owner.as_ref().map(WorkspaceId::as_str)))
+            .execute(connection)
+            .map_err(|_| AppError::storage())?;
+    }
+    Ok(())
 }
