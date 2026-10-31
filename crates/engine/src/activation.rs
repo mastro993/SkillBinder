@@ -121,11 +121,13 @@ impl State {
         self.require_recovered()?;
         let pass = self.read()?;
         let pair = (directory, skill.0);
-        let asked = pass.rows.get(&pair).is_some_and(|row| {
-            matches!(
-                row.issue,
-                Some(Issue::Conflict | Issue::Skipped | Issue::Edited)
-            )
+        // A conflict or a kept copy asks only while the skill is active there; a row a pass left
+        // behind for an inactive skill must never let Replace remove a copy SkillBinder never
+        // managed.
+        let asked = pass.rows.get(&pair).is_some_and(|row| match row.issue {
+            Some(Issue::Edited) => true,
+            Some(Issue::Conflict | Issue::Skipped) => pass.desired.contains(&pair),
+            _ => false,
         });
         let (directory, slug) = (Path::new(&pair.0), pair.1.as_str());
         if !asked || self.protected(directory) || !self.current(directory) {

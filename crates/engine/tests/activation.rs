@@ -8,16 +8,17 @@
 #[path = "support/fixture.rs"]
 mod support;
 
+use diesel::{prelude::*, sql_types::Text};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    CopyChoice, CopyState, LibrarySnapshot, OrganizationChange, PresetId, PresetSwitch, SkillId,
-    Targets,
+    CopyChoice, CopyState, ErrorCategory, LibrarySnapshot, OrganizationChange, PresetId,
+    PresetSwitch, SkillId, Targets,
 };
 use std::{
     fs,
     path::{Path, PathBuf},
 };
-use support::{Fixture, scan, write_skill};
+use support::{Fixture, category, scan, write_skill};
 
 /// A library holding `slugs`, with Claude Code's directory and the universal one detected.
 struct Agents {
@@ -275,6 +276,32 @@ async fn a_differing_copy_is_untouched_until_the_user_replaces_it() {
         !agents.claude.join("review").exists(),
         "the replacement is managed"
     );
+    agents.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_stale_conflict_of_an_inactive_skill_never_replaces_its_copy() {
+    let agents = Agents::with(&["review"]).await;
+    write_skill(&agents.claude, "review", "Their version");
+    let theirs = text(&agents.claude, "review");
+    // A pass stopped before it forgot the conflict leaves its row behind.
+    diesel::sql_query(
+        "INSERT INTO managed_copies(directory, slug, digest, issue) \
+         VALUES (?, 'review', NULL, '\"Conflict\"')",
+    )
+    .bind::<Text, _>(agents.named(&agents.claude))
+    .execute(&mut agents.fixture.database())
+    .unwrap();
+    let refused = agents
+        .engine
+        .resolve_copy(
+            agents.named(&agents.claude),
+            skill("review"),
+            CopyChoice::Replace,
+        )
+        .await;
+    assert_eq!(category(refused), ErrorCategory::Stale);
+    assert_eq!(text(&agents.claude, "review"), theirs);
     agents.engine.shutdown().await.unwrap();
 }
 
