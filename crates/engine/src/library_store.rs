@@ -5,7 +5,7 @@ use crate::{
     logging::Logger,
     payload::Inspection,
     records::Record,
-    schema::{library_folders, preset_skills, presets, skills},
+    schema::{device_settings, library_folders, preset_skills, presets, skills},
 };
 use diesel::{prelude::*, upsert::excluded};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -131,7 +131,8 @@ pub(crate) fn set_drift(
         .map_err(|_| AppError::storage())
 }
 
-/// Removes a skill; its preset memberships cascade away with it.
+/// Removes a skill; its preset memberships cascade away with it, while its managed copies stay
+/// recorded until activation removes them.
 pub(crate) fn delete_skill(connection: &mut SqliteConnection, slug: &str) -> AppResult<()> {
     diesel::delete(skills::table.find(slug))
         .execute(connection)
@@ -190,13 +191,19 @@ pub(crate) fn load(
     log: &Logger,
 ) -> AppResult<(Library, BTreeMap<SkillId, SkillDetails>)> {
     let storage = |_| AppError::storage();
-    let mut memberships = BTreeMap::<String, Vec<PresetId>>::new();
-    for (preset, slug) in preset_skills::table
-        .order(preset_skills::preset_id)
-        .load::<(String, String)>(connection)
+    let mut memberships = BTreeMap::<String, BTreeMap<PresetId, Targets>>::new();
+    for (preset, slug, agents) in preset_skills::table
+        .load::<(String, String, Option<String>)>(connection)
         .map_err(storage)?
     {
-        memberships.entry(slug).or_default().push(PresetId(preset));
+        let targets = match agents {
+            None => Targets::AllAgents,
+            Some(agents) => Targets::Agents(from_json(&agents)?),
+        };
+        memberships
+            .entry(slug)
+            .or_default()
+            .insert(PresetId(preset), targets);
     }
     let mut details = BTreeMap::new();
     let mut skills = Vec::new();
@@ -219,7 +226,7 @@ pub(crate) fn load(
         let id = SkillId(slug);
         details.insert(id.clone(), from_json(&detail)?);
         skills.push(Skill {
-            preset_ids: memberships.remove(id.as_str()).unwrap_or_default(),
+            presets: memberships.remove(id.as_str()).unwrap_or_default(),
             id,
             folder_id: folder.map(FolderId),
             digest,
@@ -262,6 +269,7 @@ pub(crate) fn load(
         })
         .collect();
     let library = Library {
+        active_preset: active_preset(connection, &presets)?,
         presets,
         folders,
         skills,
@@ -269,7 +277,26 @@ pub(crate) fn load(
     Ok((library, details))
 }
 
-/// Replaces the presets, memberships, folders, and filing with those of `library`.
+/// The device setting holding the active preset's identity.
+const ACTIVE_PRESET: &str = "active_preset";
+
+/// The active preset: the one chosen while it exists, otherwise the Default preset.
+fn active_preset(connection: &mut SqliteConnection, presets: &[Preset]) -> AppResult<PresetId> {
+    let chosen = device_settings::table
+        .find(ACTIVE_PRESET)
+        .select(device_settings::value)
+        .first::<String>(connection)
+        .optional()
+        .map_err(|_| AppError::storage())?
+        .map(|json| from_json::<PresetId>(&json))
+        .transpose()?;
+    Ok(chosen
+        .filter(|id| presets.iter().any(|preset| &preset.id == id))
+        .unwrap_or_else(|| PresetId(Preset::DEFAULT_ID.to_owned())))
+}
+
+/// Replaces the presets, memberships, folders, filing, and active preset with those of
+/// `library`.
 // ponytail: rewrites all organization rows per change; targeted updates if libraries grow large.
 pub(crate) fn save_organization(
     connection: &mut SqliteConnection,
@@ -309,11 +336,16 @@ pub(crate) fn save_organization(
             .map_err(storage)?;
     }
     for skill in &library.skills {
-        for preset in &skill.preset_ids {
+        for (preset, targets) in &skill.presets {
+            let agents = match targets {
+                Targets::AllAgents => None,
+                Targets::Agents(agents) => Some(to_json(agents)?),
+            };
             diesel::insert_into(preset_skills::table)
                 .values((
                     preset_skills::preset_id.eq(preset.as_str()),
                     preset_skills::slug.eq(skill.id.as_str()),
+                    preset_skills::agents.eq(agents),
                 ))
                 .execute(connection)
                 .map_err(storage)?;
@@ -325,7 +357,8 @@ pub(crate) fn save_organization(
                 .map_err(storage)?;
         }
     }
-    Ok(())
+    let active = to_json(&library.active_preset)?;
+    crate::persistence::put_setting(connection, ACTIVE_PRESET, &active)
 }
 
 fn to_json(value: &impl Serialize) -> AppResult<String> {

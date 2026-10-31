@@ -10,7 +10,8 @@ mod support;
 
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    OrganizationChange, SkillId, SkillSource, SkillUpdate, UpdateCheck, UpdateOutcome,
+    CopyChoice, CopyState, OrganizationChange, SkillId, SkillSource, SkillUpdate, UpdateCheck,
+    UpdateOutcome,
 };
 use std::{fs, path::Path, process::Command, time::Duration};
 use support::{Fixture, write_skill};
@@ -271,5 +272,43 @@ async fn a_source_folder_with_a_submodule_fails_its_check() {
             "Couldn't check for updates: The source's folder holds a Git submodule, which SkillBinder cannot check out.".into()
         )
     );
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn an_update_rewrites_managed_copies_but_asks_before_overwriting_an_edited_one() {
+    let published = Published::new();
+    let claude = published.fixture.home.join(".claude/skills");
+    let universal = published.fixture.home.join(".agents/skills");
+    for directory in [&claude, &universal] {
+        fs::create_dir_all(directory).unwrap();
+    }
+    let engine = published.imported().await;
+    engine
+        .change_organization(OrganizationChange::AddToPreset {
+            id: skillbinder_proto::PresetId("default".into()),
+            skills: vec![review()],
+        })
+        .await
+        .unwrap();
+    let edited = "---\nname: review\ndescription: Test fixture\n---\nMine\n";
+    fs::write(claude.join("review/SKILL.md"), edited).unwrap();
+    published.publish("second");
+    engine.update_skills(vec![review()]).await.unwrap();
+    let copy = |directory: &Path| fs::read_to_string(directory.join("review/SKILL.md")).unwrap();
+    assert_eq!(copy(&universal), published.library_text());
+    assert_eq!(copy(&claude), edited, "an edited copy is not overwritten");
+
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    let edited_copy = library
+        .copies
+        .iter()
+        .find(|copy| copy.state == CopyState::Edited { active: true })
+        .unwrap();
+    engine
+        .resolve_copy(edited_copy.directory.clone(), review(), CopyChoice::Replace)
+        .await
+        .unwrap();
+    assert_eq!(copy(&claude), published.library_text());
     engine.shutdown().await.unwrap();
 }

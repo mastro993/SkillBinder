@@ -4,107 +4,20 @@
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
+#[path = "support/device.rs"]
+mod device;
 #[path = "support/fixture.rs"]
 mod support;
 
+use device::{Device, git, import};
 use diesel::{prelude::*, sql_types::Text};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    Drift, ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, Preset, PresetId,
-    RemoteConfig, Skill, SkillId, SyncAction, SyncState, ValidationStatus,
+    Drift, ErrorCategory, FolderId, LibrarySnapshot, OrganizationChange, Preset, PresetId, Skill,
+    SkillId, SyncAction, SyncState, ValidationStatus,
 };
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::fs;
 use support::{Fixture, category, write_skill};
-
-/// Runs Git in `dir` as a peer device would.
-fn git(dir: &Path, args: &[&str]) -> String {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(dir)
-        .args([
-            "-c",
-            "user.name=Peer",
-            "-c",
-            "user.email=peer@example.invalid",
-        ])
-        .args(args)
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "git {args:?}");
-    String::from_utf8(output.stdout).unwrap()
-}
-
-/// A device whose library holds `slugs` and has pushed them to a fresh bare remote.
-struct Device {
-    fixture: Fixture,
-    engine: Engine,
-    remote: RemoteConfig,
-}
-impl Device {
-    async fn published(slugs: &[&str]) -> Self {
-        let fixture = Fixture::new();
-        let engine = fixture.ready().await;
-        import(&fixture, &engine, slugs).await;
-        let bare = fixture.workspace.with_file_name("remote.git");
-        fs::create_dir(&bare).unwrap();
-        git(&bare, &["init", "--bare", "--initial-branch=main"]);
-        let remote = RemoteConfig {
-            url: url::Url::from_file_path(&bare).unwrap().into(),
-            branch: "main".into(),
-        };
-        engine.connect_remote(remote.clone()).await.unwrap();
-        engine.synchronize(SyncAction::Push).await.unwrap();
-        Self {
-            fixture,
-            engine,
-            remote,
-        }
-    }
-
-    fn library(&self) -> PathBuf {
-        self.fixture.data.join("library")
-    }
-
-    /// Clones the remote, lets `edit` change the clone, and pushes the result.
-    fn peer_push(&self, edit: impl FnOnce(&Path)) {
-        let peer = self.fixture.workspace.with_file_name("peer");
-        if !peer.exists() {
-            git(peer.parent().unwrap(), &["clone", &self.remote.url, "peer"]);
-        }
-        edit(&peer.join("skills"));
-        git(&peer, &["add", "-A"]);
-        git(&peer, &["commit", "-m", "peer"]);
-        git(&peer, &["push", "origin", "main"]);
-    }
-
-    async fn organize(&self, change: OrganizationChange) -> LibrarySnapshot {
-        self.engine.change_organization(change).await.unwrap()
-    }
-}
-
-/// Imports one workspace skill per slug.
-async fn import(fixture: &Fixture, engine: &Engine, slugs: &[&str]) {
-    for slug in slugs {
-        fixture.skill(slug, "First version");
-    }
-    if slugs.is_empty() {
-        return;
-    }
-    fixture.register(engine).await;
-    let ids = fixture
-        .scan(engine)
-        .await
-        .candidates
-        .into_iter()
-        .map(|candidate| candidate.id)
-        .collect();
-    let plan = engine.prepare_import(ids, false).await.unwrap();
-    engine.apply_import(plan.id).await.unwrap();
-}
 
 async fn snapshot(engine: &Engine) -> LibrarySnapshot {
     engine.snapshot().await.unwrap().library.unwrap()
@@ -177,7 +90,7 @@ async fn pull_reconciles_changed_skills_and_rehashes_only_those() {
     );
     let delta = skill(&after, "delta");
     assert_eq!(delta.imported_at, None);
-    assert!(delta.preset_ids.is_empty() && delta.folder_id.is_none());
+    assert!(delta.presets.is_empty() && delta.folder_id.is_none());
     let broken = &after.details[&SkillId("broken".into())];
     assert_eq!(
         broken.validation,
@@ -230,8 +143,8 @@ async fn a_skill_removed_by_pull_leaves_its_presets_and_folder() {
     assert_eq!(after.library.folders[0].id, folder);
     let alpha = skill(&after, "alpha");
     assert_eq!(
-        alpha.preset_ids,
-        std::slice::from_ref(&preset),
+        alpha.presets.keys().collect::<Vec<_>>(),
+        [&preset],
         "a changed skill stays organized"
     );
     assert_eq!(alpha.folder_id.as_ref(), Some(&folder));
@@ -278,7 +191,7 @@ async fn local_organization_does_not_block_adoption_but_a_local_skill_does() {
     );
     assert_eq!(adopted.library.folders[0].name, "Local");
     let alpha = skill(&adopted, "alpha");
-    assert!(alpha.preset_ids.is_empty() && alpha.folder_id.is_none());
+    assert!(alpha.presets.is_empty() && alpha.folder_id.is_none());
     assert_eq!(alpha.imported_at, None);
     engine.shutdown().await.unwrap();
 

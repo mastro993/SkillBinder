@@ -47,6 +47,7 @@ impl State {
                 }
             }
         }
+        self.apply_library();
         Ok(outcome)
     }
 
@@ -69,6 +70,9 @@ impl State {
                 id.as_str(),
                 Some(Drift::Lost),
             )?;
+        }
+        if restored.is_ok() {
+            self.apply_library();
         }
         restored
     }

@@ -229,14 +229,14 @@ impl NativeView {
         )
     }
 
-    /// A skill page's Reinstall button, while it can restore the skill's recorded content, and
-    /// its Update button, while the skill has an update.
+    /// A skill page's activation, its Reinstall button, while it can restore the skill's recorded
+    /// content, and its Update button, while the skill has an update.
     pub(super) fn skill_header_actions(
         &self,
         id: &SkillId,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
-        let mut actions: Vec<AnyElement> = vec![self.activation_toggle(id, cx)];
+        let mut actions: Vec<AnyElement> = vec![self.activation_controls(id, cx)];
         actions.extend(self.reinstall_button(id, cx));
         if self.has_update(id) {
             actions.push(self.update_button("page", id, cx));

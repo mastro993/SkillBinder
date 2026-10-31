@@ -2,6 +2,7 @@ mod agent_page;
 mod agent_skills;
 mod breadcrumb;
 mod controls;
+mod copy_dialogs;
 mod custom_color;
 mod dialogs;
 mod discovery;
@@ -9,11 +10,12 @@ mod discovery_versions;
 mod folder_reorder;
 mod hover_scroll;
 mod library;
+mod library_copies;
 mod library_dates;
 mod library_drift;
 mod library_folders;
 mod library_items;
-mod library_presence;
+mod library_targets;
 mod library_updates;
 mod menu;
 #[cfg(feature = "native-test")]
@@ -22,6 +24,7 @@ mod navigation;
 mod onboarding;
 mod preset_activation;
 mod preset_colors;
+mod preset_dialogs;
 mod preset_icons;
 mod route;
 mod settings;
@@ -68,7 +71,12 @@ use skillbinder_proto::*;
 enum DialogState {
     ImportPlan(ImportPlan),
     DeletePreset(DeletePreview),
-    DeleteFolder { id: FolderId, revision: String },
+    /// The copies of one skill that are not applied, or every copy that asks the user.
+    Copies(Option<SkillId>),
+    DeleteFolder {
+        id: FolderId,
+        revision: String,
+    },
     RemoveWorkspace(WorkspaceId),
     None,
 }
@@ -130,8 +138,10 @@ pub struct NativeView {
     content_scroll: hover_scroll::HoverScroll,
     appearance: Appearance,
     library_view: LibraryView,
-    /// The preset whose skills activation toggles edit; absent starts with Default.
+    /// A preset clicked while its activation is saved, shown active until the engine answers.
     active_preset: Option<PresetId>,
+    /// The copies that asked the user in a dialog already, by directory, skill, and state.
+    asked_copies: Vec<(String, SkillId, CopyState)>,
     /// A preset name shown while its rename is being saved; cleared on success or failure.
     optimistic_preset_name: Option<(PresetId, String)>,
     /// Created or cloned presets shown before the engine's snapshot arrives.
@@ -174,7 +184,6 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         let library_view = snapshot.preferences.library_view;
-        let active_preset = snapshot.preferences.active_preset.clone();
         sidebar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
         let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
@@ -260,7 +269,8 @@ impl NativeView {
             content_scroll: hover_scroll::HoverScroll::default(),
             appearance,
             library_view,
-            active_preset,
+            active_preset: None,
+            asked_copies: Vec::new(),
             optimistic_preset_name: None,
             optimistic_presets: Vec::new(),
             updating: None,

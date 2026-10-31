@@ -270,7 +270,7 @@ mod tests {
     fn a_check_ends_however_its_thread_exits() {
         let skill = Skill {
             id: SkillId("sourced".to_owned()),
-            preset_ids: Vec::new(),
+            presets: Default::default(),
             folder_id: None,
             digest: String::new(),
             file_count: 1,

@@ -1,8 +1,10 @@
 //! A library skill's page: its `SKILL.md`, Markdown rendered.
 
-use super::NativeView;
+use super::controls::{Inactive, button};
+use super::copy_dialogs::unsettled_summary;
+use super::{DialogState, NativeView};
 use gpui_kit::component::{
-    ActiveTheme,
+    ActiveTheme, Sizable, h_flex,
     text::{FrontmatterPlugin, MarkdownExtensions, TextView},
     v_flex,
 };
@@ -33,15 +35,44 @@ impl NativeView {
         }));
     }
 
-    /// The last update's result and why the skill's check or update failed, then its `SKILL.md`.
+    /// The last update's result, why the skill's check or update failed, and where it is not
+    /// applied, then its `SKILL.md`.
     pub(super) fn render_skill(&self, id: &SkillId, cx: &mut Context<Self>) -> AnyElement {
         v_flex()
             .gap_4()
             .children(self.render_update_outcome(cx))
             .children(self.render_drift_note(id, cx))
             .children(self.render_update_notes(id, cx))
+            .children(self.render_copies_note(id, cx))
             .child(self.render_skill_file(id, cx))
             .into_any_element()
+    }
+
+    /// How many of the skill's directories hold it back, with Review to list them.
+    fn render_copies_note(&self, id: &SkillId, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let count = self.listed_copies(Some(id)).len();
+        if count == 0 {
+            return None;
+        }
+        let skill = id.clone();
+        Some(
+            h_flex()
+                .gap_2()
+                .text_sm()
+                .text_color(cx.theme().warning)
+                .child(unsettled_summary(count))
+                .child(
+                    button("copies-review")
+                        .label("Review")
+                        .small()
+                        .inactive(self.busy)
+                        .on_click(cx.listener(move |view, _, _, cx| {
+                            view.dialog = DialogState::Copies(Some(skill.clone()));
+                            cx.notify();
+                        })),
+                )
+                .into_any_element(),
+        )
     }
 
     /// The skill's `SKILL.md` with its frontmatter as a table, or why it cannot be shown.

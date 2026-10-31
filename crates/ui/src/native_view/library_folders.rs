@@ -229,7 +229,7 @@ impl NativeView {
                 Some(folder.id.clone()),
             )
         }));
-        // The row has no checkbox, so the active preset's membership is switched here.
+        // The active preset's membership can be switched here as well as from the row.
         let active = self.skill_active(skill);
         let toggle = MenuItem::new(
             "toggle-active",

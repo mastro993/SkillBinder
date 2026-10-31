@@ -132,60 +132,11 @@ impl NativeView {
     }
 
     fn build_dialog(&self, dialog: Dialog, cx: &mut Context<Self>) -> Dialog {
-        let busy = self.busy;
         match &self.dialog {
             DialogState::None => dialog,
             DialogState::ImportPlan(plan) => self.import_plan_dialog(dialog, plan, cx),
-            DialogState::DeletePreset(preview) => {
-                let id = preview.preset.id.clone();
-                let revision = preview.revision.clone();
-                dialog
-                    .title(self.dialog_title("Delete preset", cx))
-                    .child(div().child(format!(
-                        "Delete {}? Its {} skills stay in the library.",
-                        preview.preset.name, preview.affected_skills
-                    )))
-                    .footer(
-                        div()
-                            .flex()
-                            .gap_2()
-                            .child(
-                                button("delete-cancel")
-                                    .label("Cancel")
-                                    .inactive(busy)
-                                    .on_click(cx.listener(|view, _, window, cx| {
-                                        view.dismiss_dialog(window, cx)
-                                    })),
-                            )
-                            .child({
-                                let weak = cx.entity().downgrade();
-                                button("delete-confirm")
-                                    .label("Delete preset")
-                                    .inactive(busy)
-                                    .on_click(move |_, _, cx| {
-                                        let _ = weak.update(cx, |view, cx| {
-                                            let client = view.client.clone();
-                                            let id = id.clone();
-                                            let revision = revision.clone();
-                                            view.run(
-                                                async move {
-                                                    client
-                                                        .change_organization(
-                                                            OrganizationChange::DeletePreset {
-                                                                id,
-                                                                revision,
-                                                            },
-                                                        )
-                                                        .await
-                                                        .map(|_| Effect::CloseDialog)
-                                                },
-                                                cx,
-                                            );
-                                        });
-                                    })
-                            }),
-                    )
-            }
+            DialogState::DeletePreset(preview) => self.delete_preset_dialog(dialog, preview, cx),
+            DialogState::Copies(skill) => self.copies_dialog(dialog, skill.as_ref(), cx),
             DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
             DialogState::DeleteFolder { id, revision } => {
                 self.delete_folder_dialog(dialog, id, revision, cx)

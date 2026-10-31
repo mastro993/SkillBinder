@@ -390,7 +390,11 @@ impl State {
 }
 
 /// Inserts or replaces a device setting holding serialized JSON.
-fn put_setting(connection: &mut SqliteConnection, key: &str, value: &str) -> AppResult<()> {
+pub(crate) fn put_setting(
+    connection: &mut SqliteConnection,
+    key: &str,
+    value: &str,
+) -> AppResult<()> {
     diesel::insert_into(device_settings::table)
         .values((
             device_settings::key.eq(key),
