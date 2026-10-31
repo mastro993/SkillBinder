@@ -330,10 +330,10 @@ impl State {
     pub(crate) fn remove_workspace(&mut self, id: &WorkspaceId) -> AppResult<()> {
         let image = self.workspace_icon_file(id)?;
         let workspaces = self.workspaces()?;
-        let handed = self.handed_over(id)?;
+        let handover = self.handover(id)?;
         database::transaction(&mut self.database.borrow_mut(), |connection| {
-            // The rest of its records cascade away with it.
-            crate::activation::claim(connection, &handed)?;
+            crate::activation::claim(connection, &handover.handed)?;
+            crate::activation::forget(connection, &handover.forgotten)?;
             diesel::delete(workspaces::table.find(id.as_str()))
                 .execute(connection)
                 .map_err(|_| AppError::storage())?;

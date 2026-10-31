@@ -11,7 +11,7 @@ mod store;
 mod targets;
 
 pub(crate) use copies::STAGING_PREFIX;
-pub(crate) use store::{Pair, claim};
+pub(crate) use store::{Pair, claim, forget};
 
 use crate::{database, discovery::registry, payload, worker::State};
 use pass::{Scope, managed};
@@ -74,33 +74,35 @@ impl State {
         Ok(())
     }
 
-    /// The copy records held for workspace `id` that another workspace or the active preset holds
-    /// too, each with its new holder. Removing the workspace hands them over and forgets the rest,
-    /// leaving their copies unmanaged.
-    pub(crate) fn handed_over(
-        &self,
-        id: &WorkspaceId,
-    ) -> AppResult<Vec<(Pair, Option<WorkspaceId>)>> {
+    /// What removing workspace `id` does with the copy records held for it or of pairs it holds
+    /// now: each one the active preset or another workspace, present or missing, still holds passes
+    /// to that holder, and the rest are forgotten, leaving their copies unmanaged.
+    pub(crate) fn handover(&self, id: &WorkspaceId) -> AppResult<Handover> {
         let library = self.read_library()?;
         let agents = registry::agent_options(&self.config)?;
-        let others: Vec<_> = self
+        let (own, others): (Vec<_>, Vec<_>) = self
             .workspaces_for(&library, &agents)?
             .into_iter()
-            .filter(|workspace| &workspace.id != id)
-            .collect();
-        let others = targets::workspace_places(&others);
+            .partition(|workspace| &workspace.id == id);
+        let (own, others) = (
+            targets::workspace_places(&own),
+            targets::workspace_places(&others),
+        );
         let global = targets::desired(&library, &agents);
-        Ok(store::owners(&mut self.database.borrow_mut())?
-            .into_iter()
-            .filter(|(_, owner)| owner.as_ref() == Some(id))
-            .filter_map(|(pair, _)| {
-                if global.contains(&pair) {
-                    return Some((pair, None));
-                }
-                let holder = others.owner(&pair)?;
-                Some((pair, Some(holder)))
-            })
-            .collect())
+        let mut handover = Handover::default();
+        for (pair, owner) in store::owners(&mut self.database.borrow_mut())? {
+            if owner.as_ref() != Some(id) && own.owner(&pair).is_none() {
+                continue;
+            }
+            if global.contains(&pair) {
+                handover.handed.push((pair, None));
+            } else if let Some(holder) = others.owner(&pair) {
+                handover.handed.push((pair, Some(holder)));
+            } else {
+                handover.forgotten.push(pair);
+            }
+        }
+        Ok(handover)
     }
 
     /// What switching from `before`'s active preset to `after`'s does for your agents: the
@@ -246,6 +248,13 @@ impl State {
     fn library_content(&self, slug: &str) -> AppResult<payload::Inspection> {
         payload::inspect(&self.skill_dir(&SkillId(slug.to_owned()))?)
     }
+}
+
+/// The copy records a workspace's removal passes to another holder, and those it forgets.
+#[derive(Default)]
+pub(crate) struct Handover {
+    pub handed: Vec<(Pair, Option<WorkspaceId>)>,
+    pub forgotten: Vec<Pair>,
 }
 
 /// Fills in which skills each workspace holds for an agent that the active preset of `library`

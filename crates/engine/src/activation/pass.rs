@@ -107,7 +107,8 @@ impl State {
             }
         };
         let mut sources = BTreeMap::new();
-        let (mut changes, mut claims) = (Vec::new(), Vec::new());
+        let mut changes = Vec::new();
+        let visited: BTreeSet<&Pair> = pairs.iter().copied().collect();
         for pair in pairs {
             if self.shutdown.cancelled() {
                 break;
@@ -119,16 +120,11 @@ impl State {
             let wanted = places.desired.contains(pair);
             let boundary = places.boundary(&pair.0, &self.config.home);
             let after = self.settle(pair, (wanted, boundary), row, source.as_ref());
-            // A record is held for whoever holds the skill there; one no longer held keeps its
-            // owner, so removing that workspace forgets it.
-            let owner = places.owner(pair);
-            if wanted && after.is_some() && pass.owners.get(pair).cloned().flatten() != owner {
-                claims.push((pair.clone(), owner));
-            }
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }
         }
+        let claims = claims(&pass, &visited, &changes);
         database::transaction(&mut self.database.borrow_mut(), |connection| {
             store::save(connection, &changes)?;
             store::claim(connection, &claims)
@@ -233,6 +229,35 @@ fn pending(pass: &Pass, pair: &Pair) -> bool {
                 || fs::symlink_metadata(Path::new(&pair.0).join(&pair.1)).is_err()
         }
     }
+}
+
+/// The new holder of each record the pass visited whose pair is held by someone else than its
+/// record says. A record of a pair no longer held keeps its holder, so removing that workspace
+/// forgets it; removal also looks at what the workspace holds now.
+fn claims(
+    pass: &Pass,
+    visited: &BTreeSet<&Pair>,
+    changes: &[(Pair, Option<Row>)],
+) -> Vec<(Pair, Option<WorkspaceId>)> {
+    let recorded: BTreeMap<&Pair, bool> = changes
+        .iter()
+        .map(|(pair, row)| (pair, row.is_some()))
+        .collect();
+    visited
+        .iter()
+        .copied()
+        .filter(|pair| pass.places.desired.contains(*pair))
+        .filter(|pair| {
+            recorded
+                .get(pair)
+                .copied()
+                .unwrap_or_else(|| pass.rows.contains_key(*pair))
+        })
+        .filter_map(|pair| {
+            let owner = pass.places.owner(pair);
+            (pass.owners.get(pair).cloned().flatten() != owner).then(|| (pair.clone(), owner))
+        })
+        .collect()
 }
 
 /// A row managing a copy with `source`'s content.

@@ -228,3 +228,38 @@ async fn an_unwritable_workspace_directory_keeps_the_choice_until_a_retry() {
     );
     project.engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn an_answer_for_a_copy_in_a_missing_workspace_waits_for_its_folder() {
+    let project = Project::with(&["review"]).await;
+    fs::create_dir_all(project.dir(".claude/skills")).unwrap();
+    let workspace = project.add().await;
+    let set = |targets| {
+        project
+            .engine
+            .set_workspace_skill(workspace.id.clone(), skill("review"), targets)
+    };
+    set(Some(WorkspaceTargets::AllAgents)).await.unwrap();
+    let edited = "---\nname: review\ndescription: Test fixture\n---\nMy edit\n";
+    fs::write(project.dir(".claude/skills/review/SKILL.md"), edited).unwrap();
+    set(None).await.unwrap();
+    let asking = row(
+        ".claude/skills",
+        "review",
+        CopyState::Edited { active: false },
+    );
+    assert_eq!(project.states().await, std::slice::from_ref(&asking));
+
+    let directory = project.dir(".claude/skills").display().to_string();
+    let moved = project.folder.with_file_name("moved");
+    fs::rename(&project.folder, &moved).unwrap();
+    let refused = project
+        .engine
+        .resolve_copy(directory, skill("review"), CopyChoice::Keep)
+        .await
+        .unwrap_err();
+    assert_eq!(refused.category, ErrorCategory::Stale);
+    fs::rename(&moved, &project.folder).unwrap();
+    assert_eq!(project.states().await, [asking], "it still asks");
+    project.engine.shutdown().await.unwrap();
+}

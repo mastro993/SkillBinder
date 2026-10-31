@@ -14,8 +14,8 @@ use std::{
 pub(super) struct Places {
     /// Every directory and slug where a skill is held.
     pub desired: BTreeSet<Pair>,
-    /// The workspace holding each pair only workspaces hold, the first one when several do; a
-    /// pair the active preset holds is your agents'.
+    /// The workspace holding each pair only workspaces hold, the first one when several do, missing
+    /// or not; a pair the active preset holds is your agents'.
     pub holders: BTreeMap<Pair, WorkspaceId>,
     /// Each workspace skill directory, resolved, and the folder of the workspace using it.
     pub folders: BTreeMap<String, PathBuf>,
@@ -75,14 +75,15 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
             places.missing.insert(PathBuf::from(&workspace.path));
         }
         for (dir, path) in &workspace.paths {
-            if !workspace.missing {
-                for (skill, targets) in &workspace.skills {
-                    if targets.includes(dir) {
-                        let pair = (path.clone(), skill.0.clone());
-                        places
-                            .holders
-                            .entry(pair.clone())
-                            .or_insert_with(|| workspace.id.clone());
+            for (skill, targets) in &workspace.skills {
+                if targets.includes(dir) {
+                    // A missing workspace still holds its skills, but nothing is written for it.
+                    let pair = (path.clone(), skill.0.clone());
+                    places
+                        .holders
+                        .entry(pair.clone())
+                        .or_insert_with(|| workspace.id.clone());
+                    if !workspace.missing {
                         places.desired.insert(pair);
                     }
                 }

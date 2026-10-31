@@ -69,6 +69,12 @@ pub(super) fn save(
     Ok(())
 }
 
+/// Forgets `records`, leaving their copies in place, unmanaged.
+pub(crate) fn forget(connection: &mut SqliteConnection, records: &[Pair]) -> AppResult<()> {
+    let forgotten: Vec<_> = records.iter().map(|pair| (pair.clone(), None)).collect();
+    save(connection, &forgotten)
+}
+
 /// The workspace each record is held for, or `None` for your agents.
 pub(super) fn owners(
     connection: &mut SqliteConnection,
