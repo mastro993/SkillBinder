@@ -198,6 +198,7 @@ impl State {
         let (directory, slug) = (Path::new(&pair.0), pair.1.as_str());
         if !asked
             || pass.places.paused(&pair.0)
+            || pass.orphaned(&pair)
             || self.protected(directory)
             || !self.current(boundary, directory)
         {

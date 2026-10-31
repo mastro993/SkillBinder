@@ -263,3 +263,44 @@ async fn an_answer_for_a_copy_in_a_missing_workspace_waits_for_its_folder() {
     assert_eq!(project.states().await, [asking], "it still asks");
     project.engine.shutdown().await.unwrap();
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_directory_a_link_no_longer_leads_to_keeps_its_copies() {
+    for repointed in [false, true] {
+        let project = Project::with(&["review"]).await;
+        // Inside home, a managed copy nothing holds any more would be removed.
+        let folder = fs::canonicalize(&project.fixture.home)
+            .unwrap()
+            .join("proj");
+        let shared = write_skill(&folder.join("tooling/agent-skills"), "review", LIBRARY);
+        fs::create_dir_all(folder.join(".claude")).unwrap();
+        let link = folder.join(".claude/skills");
+        std::os::unix::fs::symlink("../tooling/agent-skills", &link).unwrap();
+        let workspace = support::add_workspace(&project.engine, &folder).await;
+        assert_eq!(
+            workspace.skills[&skill("review")],
+            WorkspaceTargets::Dirs(dirs(&[".claude/skills"])),
+            "adopted through the link"
+        );
+
+        // A teammate's commit points the link elsewhere, or makes it a real directory.
+        fs::remove_file(&link).unwrap();
+        if repointed {
+            fs::create_dir_all(folder.join("tooling/agent-skills-v2")).unwrap();
+            std::os::unix::fs::symlink("../tooling/agent-skills-v2", &link).unwrap();
+        } else {
+            fs::create_dir_all(&link).unwrap();
+        }
+        fs::create_dir_all(folder.join("tooling/agent-skills/.skillbinder-abc123")).unwrap();
+        project.fixture.scan(&project.engine).await;
+        assert!(shared.join("SKILL.md").exists(), "repointed: {repointed}");
+        assert!(
+            folder
+                .join("tooling/agent-skills/.skillbinder-abc123")
+                .exists(),
+            "never swept"
+        );
+        project.engine.shutdown().await.unwrap();
+    }
+}

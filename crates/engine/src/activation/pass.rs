@@ -90,8 +90,12 @@ impl State {
                 .collect(),
             Scope::Pending => {
                 // A recorded directory a link now leads elsewhere is never swept: its target may
-                // lie outside the boundary.
-                let directories: BTreeSet<&String> = every.iter().map(|(dir, _)| dir).collect();
+                // lie outside the boundary, or be no workspace's directory any more.
+                let directories: BTreeSet<&String> = every
+                    .iter()
+                    .filter(|pair| !pass.orphaned(pair))
+                    .map(|(dir, _)| dir)
+                    .collect();
                 for directory in directories {
                     let boundary = places.boundary(directory, &self.config.home);
                     let directory = Path::new(directory);
@@ -118,7 +122,11 @@ impl State {
             let row = pass.rows.get(pair);
             let wanted = places.desired.contains(pair);
             let boundary = places.boundary(&pair.0, &self.config.home);
-            let after = self.settle(pair, (wanted, boundary), row, source.as_ref());
+            let after = if pass.orphaned(pair) {
+                None
+            } else {
+                self.settle(pair, (wanted, boundary), row, source.as_ref())
+            };
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }
@@ -212,6 +220,18 @@ impl State {
                 }
             }
         }
+    }
+}
+
+impl Pass {
+    /// Whether `pair`'s record is held for a workspace but its directory is no workspace's
+    /// directory now, as after a link inside the workspace that led there was re-pointed or
+    /// replaced: it is forgotten without touching the directory, which home's boundary would
+    /// otherwise judge.
+    pub fn orphaned(&self, pair: &Pair) -> bool {
+        !self.places.desired.contains(pair)
+            && self.owners.get(pair).is_some_and(Option::is_some)
+            && !self.places.folders.contains_key(&pair.0)
     }
 }
 

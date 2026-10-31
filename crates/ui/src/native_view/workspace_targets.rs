@@ -3,9 +3,12 @@
 //! directories or adds a detected agent's. Each directory is one row, naming the agents that read
 //! it, since every one of them loads what it holds.
 
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
-use super::agent_skills::UNIVERSAL;
+use super::agent_skills::{UNIVERSAL, universal_dir};
 use super::controls::{agent_icon, app_icon};
 use super::library_copies::{AgentRow, Reader, shown_dir};
 use super::library_targets::held_label;
@@ -30,8 +33,9 @@ pub(super) struct DirRow {
 }
 
 /// The directories the workspace uses, then those of detected agents it does not use yet, each
-/// once: `.agents/skills` first as Universal, then by name. A row names the detected agents that
-/// read it, or every registry agent that does when none is detected.
+/// once: `.agents/skills` first, then by name. A row names the detected agents that read it, or
+/// every registry agent that does when none is detected; `.agents/skills` is Universal while a
+/// universal agent reads it, so its avatar opens Universal's page.
 pub(super) fn dir_rows(agents: &[AgentOption], workspace: &Workspace, home: &str) -> Vec<DirRow> {
     let detected = agents
         .iter()
@@ -56,7 +60,13 @@ pub(super) fn dir_rows(agents: &[AgentOption], workspace: &Workspace, home: &str
                 readers
             };
             let names: Vec<String> = shown.iter().map(|a| a.display_name.clone()).collect();
-            let (reader, name) = if dir == UNIVERSAL_DIR {
+            let universal = shown.iter().any(|agent| {
+                agent
+                    .global_skills_dir
+                    .as_deref()
+                    .is_some_and(|own| Path::new(own) == universal_dir(home))
+            });
+            let (reader, name) = if dir == UNIVERSAL_DIR && universal {
                 (Reader::Universal(names), UNIVERSAL.to_owned())
             } else {
                 (Reader::Agent(shown.first()?.id.clone()), names.join(", "))
@@ -178,7 +188,8 @@ impl NativeView {
             items.push(MenuItem::separator());
         }
         for row in &rows {
-            let next = toggled(targets, &row.dir, &workspace.dirs);
+            let group = sharing(row, &rows);
+            let next = toggled(targets, &group, &workspace.dirs);
             let item = match &row.row.reader {
                 Reader::Universal(_) => {
                     choose("targets-universal".into(), row.row.name.clone(), next).icon("layers")
@@ -193,28 +204,39 @@ impl NativeView {
                     .leading(move |_| agent_icon(&logo).size(px(ICON_SIZE)).into_any_element())
                 }
             };
-            items.push(item.checked(held(targets, &row.dir, &workspace.dirs)));
+            items.push(item.checked(held(targets, &group, &workspace.dirs)));
         }
         items
     }
 }
 
-/// Whether `targets` hold the skill in `dir`, among the directories the workspace `uses`.
-fn held(targets: Option<&WorkspaceTargets>, dir: &str, uses: &BTreeSet<String>) -> bool {
-    match targets {
+/// The directory of `row` and of every other row whose directory resolves to the same folder,
+/// such as a `.claude/skills` linked to `.agents/skills`: one copy serves them, so they are chosen
+/// together.
+fn sharing(row: &DirRow, rows: &[DirRow]) -> Vec<String> {
+    rows.iter()
+        .filter(|other| other.row.resolved == row.row.resolved)
+        .map(|other| other.dir.clone())
+        .collect()
+}
+
+/// Whether `targets` hold the skill in any of `group`, among the directories the workspace
+/// `uses`.
+fn held(targets: Option<&WorkspaceTargets>, group: &[String], uses: &BTreeSet<String>) -> bool {
+    group.iter().any(|dir| match targets {
         None => false,
         Some(WorkspaceTargets::AllAgents) => uses.contains(dir),
         Some(WorkspaceTargets::Dirs(dirs)) => dirs.contains(dir),
-    }
+    })
 }
 
-/// The targets after choosing `dir`: it leaves when the skill is held there and joins otherwise.
-/// Leaving all agents keeps the workspace's other directories as a specific list, and so does
-/// joining a directory the workspace does not use yet, which then becomes one of its agents. No
-/// directory left deactivates the skill.
+/// The targets after choosing a row reading `group`: its directories leave when the skill is held
+/// in any of them and join otherwise. Leaving all agents keeps the workspace's other directories
+/// as a specific list, and so does joining a directory the workspace does not use yet, which then
+/// becomes one of its agents. No directory left deactivates the skill.
 fn toggled(
     targets: Option<&WorkspaceTargets>,
-    dir: &str,
+    group: &[String],
     uses: &BTreeSet<String>,
 ) -> Option<WorkspaceTargets> {
     let mut dirs = match targets {
@@ -222,10 +244,12 @@ fn toggled(
         Some(WorkspaceTargets::AllAgents) => uses.clone(),
         Some(WorkspaceTargets::Dirs(dirs)) => dirs.clone(),
     };
-    if held(targets, dir, uses) {
-        dirs.remove(dir);
+    if held(targets, group, uses) {
+        for dir in group {
+            dirs.remove(dir);
+        }
     } else {
-        dirs.insert(dir.to_owned());
+        dirs.extend(group.iter().cloned());
     }
     (!dirs.is_empty()).then_some(WorkspaceTargets::Dirs(dirs))
 }
@@ -237,7 +261,7 @@ fn targets_label(targets: Option<&WorkspaceTargets>, rows: &[DirRow]) -> String 
     };
     let named: Vec<_> = rows
         .iter()
-        .filter(|row| dirs.contains(&row.dir))
+        .filter(|row| sharing(row, rows).iter().any(|dir| dirs.contains(dir)))
         .map(|row| row.row.name.as_str())
         .collect();
     held_label(&named)
@@ -292,8 +316,10 @@ mod tests {
 
     #[test]
     fn rows_list_each_directory_once_naming_the_agents_that_read_it() {
+        let mut codex = agent("codex", "Codex", ".agents/skills", true);
+        codex.global_skills_dir = Some("/home/.agents/skills".to_owned());
         let agents = [
-            agent("codex", "Codex", ".agents/skills", true),
+            codex,
             agent("cursor", "Cursor", ".agents/skills", true),
             agent("amp", "Amp", ".agents/skills", false),
             agent("zed", "Zed", ".zed/skills", true),
@@ -332,18 +358,51 @@ mod tests {
         let uses = set(&[".agents/skills", ".claude/skills"]);
         let all = Some(&WorkspaceTargets::AllAgents);
         let dirs = |dirs: &[&str]| Some(WorkspaceTargets::Dirs(set(dirs)));
+        let one = |dir: &str| vec![dir.to_owned()];
         assert_eq!(
-            toggled(all, ".claude/skills", &uses),
+            toggled(all, &one(".claude/skills"), &uses),
             dirs(&[".agents/skills"])
         );
         assert_eq!(
-            toggled(all, ".zed/skills", &uses),
+            toggled(all, &one(".zed/skills"), &uses),
             dirs(&[".agents/skills", ".claude/skills", ".zed/skills"]),
             "a new directory joins with every one the workspace uses"
         );
-        assert_eq!(toggled(None, ".zed/skills", &uses), dirs(&[".zed/skills"]));
-        let one = WorkspaceTargets::Dirs(set(&[".zed/skills"]));
-        assert_eq!(toggled(Some(&one), ".zed/skills", &uses), None);
+        assert_eq!(
+            toggled(None, &one(".zed/skills"), &uses),
+            dirs(&[".zed/skills"])
+        );
+        let zed = WorkspaceTargets::Dirs(set(&[".zed/skills"]));
+        assert_eq!(toggled(Some(&zed), &one(".zed/skills"), &uses), None);
+        let linked = vec![".agents/skills".to_owned(), ".claude/skills".to_owned()];
+        assert_eq!(
+            toggled(dirs(&[".claude/skills"]).as_ref(), &linked, &uses),
+            None,
+            "directories sharing a folder leave together"
+        );
+    }
+
+    #[test]
+    fn rows_sharing_a_folder_are_chosen_together_and_universal_needs_a_universal_agent() {
+        let mut ws = workspace(&[".agents/skills", ".claude/skills"]);
+        ws.paths.insert(
+            ".claude/skills".to_owned(),
+            "/resolved/.agents/skills".to_owned(),
+        );
+        let agents = [
+            agent("cursor", "Cursor", ".agents/skills", true),
+            agent("claude-code", "Claude Code", ".claude/skills", true),
+        ];
+        let rows = dir_rows(&agents, &ws, "/home");
+        assert_eq!(
+            sharing(&rows[1], &rows),
+            [".agents/skills".to_owned(), ".claude/skills".to_owned()]
+        );
+        assert_eq!(
+            (rows[0].row.name.as_str(), &rows[0].row.reader),
+            ("Cursor", &Reader::Agent("cursor".to_owned())),
+            "only Cursor reads it here, and Cursor's page is its own"
+        );
     }
 
     #[test]
