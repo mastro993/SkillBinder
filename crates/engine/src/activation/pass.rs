@@ -76,7 +76,7 @@ impl State {
             .desired
             .iter()
             .chain(pass.rows.keys())
-            .filter(|(directory, _)| !places.paused.contains(directory))
+            .filter(|(directory, _)| !places.paused(directory))
             .collect();
         let pairs: Vec<&Pair> = match &scope {
             Scope::Slugs(slugs) => every
@@ -85,9 +85,13 @@ impl State {
                 .filter(|(_, slug)| slugs.contains(slug))
                 .collect(),
             Scope::Pending => {
-                let directories: BTreeSet<_> = every.iter().map(|(dir, _)| dir).collect();
-                for directory in directories.into_iter().map(Path::new) {
-                    if !self.protected(directory) {
+                // A recorded directory a link now leads elsewhere is never swept: its target may
+                // lie outside the boundary.
+                let directories: BTreeSet<&String> = every.iter().map(|(dir, _)| dir).collect();
+                for directory in directories {
+                    let boundary = places.boundary(directory, &self.config.home);
+                    let directory = Path::new(directory);
+                    if !self.protected(directory) && self.current(boundary, directory) {
                         copies::sweep(directory);
                     }
                 }

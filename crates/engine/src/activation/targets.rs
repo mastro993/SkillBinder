@@ -16,11 +16,20 @@ pub(super) struct Places {
     pub desired: BTreeSet<Pair>,
     /// Each workspace skill directory, resolved, and the folder of the workspace using it.
     pub folders: BTreeMap<String, PathBuf>,
-    /// The directories of workspaces whose folder is missing, which are left as they are, so a
-    /// copy never recreates the folder.
-    pub paused: BTreeSet<String>,
+    /// The folders of workspaces that are missing. Every directory inside one is left as it is, so
+    /// a copy never recreates the folder, and no record there is forgotten: the path a directory
+    /// resolved to through links inside the folder cannot be resolved again while it is gone.
+    pub missing: BTreeSet<PathBuf>,
 }
 impl Places {
+    /// Whether `directory` lies inside a missing workspace's folder.
+    pub fn paused(&self, directory: &str) -> bool {
+        let directory = Path::new(directory);
+        self.missing
+            .iter()
+            .any(|folder| directory.starts_with(folder))
+    }
+
     /// The folder `directory`'s links are resolved inside: its workspace's, or else home.
     pub fn boundary<'a>(&'a self, directory: &str, home: &'a Path) -> &'a Path {
         self.folders.get(directory).map_or(home, PathBuf::as_path)
@@ -55,10 +64,11 @@ pub(super) fn desired(library: &Library, agents: &[AgentOption]) -> BTreeSet<Pai
 pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
     let mut places = Places::default();
     for workspace in workspaces {
+        if workspace.missing {
+            places.missing.insert(PathBuf::from(&workspace.path));
+        }
         for (dir, path) in &workspace.paths {
-            if workspace.missing {
-                places.paused.insert(path.clone());
-            } else {
+            if !workspace.missing {
                 for (skill, targets) in &workspace.skills {
                     if targets.includes(dir) {
                         places.desired.insert((path.clone(), skill.0.clone()));

@@ -1,5 +1,6 @@
 -- Each workspace's agents: the workspace skill directories it uses, relative to its folder, such as
--- `.claude/skills`. Workspaces added before this table existed have none until they are added again.
+-- `.claude/skills`. Workspaces added before this table existed have none: their first activation
+-- chooses them, and adding them again adopts the copies they hold.
 CREATE TABLE workspace_dirs(
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     dir TEXT NOT NULL,

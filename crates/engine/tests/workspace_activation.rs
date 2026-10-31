@@ -4,117 +4,17 @@
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
+#[path = "support/project.rs"]
+mod project;
 #[path = "support/fixture.rs"]
 mod support;
 
-use skillbinder_engine::Engine;
+use project::{LIBRARY, Project, dirs, modified, names, row, skill};
 use skillbinder_proto::{
-    CopyChoice, CopyState, ErrorCategory, LibrarySnapshot, OrganizationChange, PresetId, SkillId,
-    Targets, Workspace, WorkspaceTargets,
+    CopyChoice, CopyState, ErrorCategory, OrganizationChange, PresetId, Targets, WorkspaceTargets,
 };
-use std::{
-    collections::BTreeSet,
-    fs,
-    path::{Path, PathBuf},
-    time::SystemTime,
-};
-use support::{Fixture, write_skill};
-
-/// The body every library skill is imported with, so a copy written with it matches the library.
-const LIBRARY: &str = "Library version";
-
-/// A library holding `slugs`, imported from Claude Code's global skill directory, and a project
-/// folder that is not a workspace yet.
-struct Project {
-    fixture: Fixture,
-    engine: Engine,
-    folder: PathBuf,
-}
-impl Project {
-    async fn with(slugs: &[&str]) -> Self {
-        let fixture = Fixture::new();
-        let engine = fixture.ready().await;
-        for slug in slugs {
-            write_skill(&fixture.home.join(".claude/skills"), slug, LIBRARY);
-        }
-        let ids = fixture
-            .scan(&engine)
-            .await
-            .candidates
-            .into_iter()
-            .map(|candidate| candidate.id)
-            .collect();
-        let plan = engine.prepare_import(ids, false).await.unwrap();
-        engine.apply_import(plan.id).await.unwrap();
-        let folder = fs::canonicalize(&fixture.workspace).unwrap();
-        Self {
-            fixture,
-            engine,
-            folder,
-        }
-    }
-
-    /// One of the project's agent skill directories.
-    fn dir(&self, dir: &str) -> PathBuf {
-        self.folder.join(dir)
-    }
-
-    async fn add(&self) -> Workspace {
-        self.fixture.register(&self.engine).await
-    }
-
-    async fn workspace(&self) -> Workspace {
-        let mut workspaces = self.engine.snapshot().await.unwrap().workspaces;
-        assert_eq!(workspaces.len(), 1);
-        workspaces.remove(0)
-    }
-
-    async fn library(&self) -> LibrarySnapshot {
-        self.engine.snapshot().await.unwrap().library.unwrap()
-    }
-
-    /// The project's copies: each directory relative to the project, slug, and state.
-    async fn states(&self) -> Vec<(String, String, CopyState)> {
-        self.library()
-            .await
-            .copies
-            .into_iter()
-            .filter_map(|copy| {
-                let relative = Path::new(&copy.directory).strip_prefix(&self.folder).ok()?;
-                let relative = relative.to_string_lossy().replace('\\', "/");
-                Some((relative, copy.skill.to_string(), copy.state))
-            })
-            .collect()
-    }
-}
-
-fn skill(slug: &str) -> SkillId {
-    SkillId(slug.to_owned())
-}
-
-fn dirs(dirs: &[&str]) -> BTreeSet<String> {
-    dirs.iter().map(|dir| (*dir).to_owned()).collect()
-}
-
-fn row(dir: &str, slug: &str, state: CopyState) -> (String, String, CopyState) {
-    (dir.to_owned(), slug.to_owned(), state)
-}
-
-fn modified(path: &Path) -> SystemTime {
-    fs::metadata(path.join("SKILL.md"))
-        .unwrap()
-        .modified()
-        .unwrap()
-}
-
-fn names(directory: &Path) -> Vec<String> {
-    let mut names: Vec<_> = fs::read_dir(directory)
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
-        .collect();
-    names.sort();
-    names
-}
+use std::fs;
+use support::write_skill;
 
 #[tokio::test]
 async fn adding_a_workspace_adopts_the_library_skills_it_holds_without_writing() {
@@ -171,7 +71,11 @@ async fn adding_a_workspace_adopts_the_library_skills_it_holds_without_writing()
         .iter()
         .find(|candidate| candidate.slug == "notes")
         .unwrap();
-    assert_eq!(notes.skill_id, None, "slugs not in the library stay found");
+    assert_eq!(
+        notes.in_library(),
+        None,
+        "slugs not in the library stay in Discovery"
+    );
     project.engine.shutdown().await.unwrap();
 }
 
@@ -340,43 +244,6 @@ async fn removing_a_workspace_keeps_its_copies_and_adding_it_again_adopts_them()
         [row(".claude/skills", "review", CopyState::Applied)]
     );
     assert_eq!(modified(&copy), written, "adopted without writing");
-    project.engine.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn a_missing_workspace_folder_is_never_recreated() {
-    let project = Project::with(&["review"]).await;
-    fs::create_dir_all(project.dir(".claude/skills")).unwrap();
-    let workspace = project.add().await;
-    let activate = || {
-        project.engine.set_workspace_skill(
-            workspace.id.clone(),
-            skill("review"),
-            Some(WorkspaceTargets::AllAgents),
-        )
-    };
-    activate().await.unwrap();
-    let moved = project.folder.with_file_name("moved");
-    fs::rename(&project.folder, &moved).unwrap();
-
-    let refused = activate().await.unwrap_err();
-    assert_eq!(refused.category, ErrorCategory::Validation);
-    project.fixture.scan(&project.engine).await;
-    assert!(!project.folder.exists(), "no copy recreates the folder");
-    assert!(project.states().await.is_empty());
-
-    fs::rename(&moved, &project.folder).unwrap();
-    assert_eq!(
-        project.states().await,
-        [row(".claude/skills", "review", CopyState::Applied)],
-        "its copies stayed managed"
-    );
-    project
-        .engine
-        .set_workspace_skill(workspace.id.clone(), skill("review"), None)
-        .await
-        .unwrap();
-    assert!(!project.dir(".claude/skills/review").exists());
     project.engine.shutdown().await.unwrap();
 }
 

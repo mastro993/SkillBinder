@@ -29,7 +29,7 @@ impl State {
         let pairs: BTreeSet<&Pair> = places.desired.iter().chain(rows.keys()).collect();
         Ok(pairs
             .into_iter()
-            .filter(|(directory, _)| !places.paused.contains(directory))
+            .filter(|(directory, _)| !places.paused(directory))
             .filter_map(|pair| {
                 let row = rows.get(pair);
                 Some(ManagedCopy {
@@ -182,7 +182,7 @@ impl State {
         let boundary = pass.places.boundary(&pair.0, &self.config.home);
         let (directory, slug) = (Path::new(&pair.0), pair.1.as_str());
         if !asked
-            || pass.places.paused.contains(&pair.0)
+            || pass.places.paused(&pair.0)
             || self.protected(directory)
             || !self.current(boundary, directory)
         {
