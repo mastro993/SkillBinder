@@ -1,6 +1,6 @@
 //! Library skills as rows inside one card, or as grid tiles on their own surfaces. Each shows its
 //! description, its folder while Library lists every skill, the agents it is applied for, and
-//! its activation in the active preset.
+//! its activation in the active preset, or on a workspace's page in the workspace.
 
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
 use super::copy_dialogs::unsettled_summary;
@@ -8,7 +8,7 @@ use super::library_copies::{AgentRow, Placement, Reader};
 use super::library_drift::drift_glyph;
 use super::sidebar_row::{activate, with_menu};
 use super::{DialogState, NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tooltip::Tooltip, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
 use gpui_kit::{
     AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
@@ -34,6 +34,9 @@ pub(super) struct SkillItem<'a> {
     pub update: bool,
     /// The skill's content differs from its record, so it shows a warning glyph.
     pub drifted: bool,
+    /// The open workspace holds the skill for an agent that the active preset holds it for too,
+    /// so it shows a warning badge.
+    pub overlap: bool,
     /// Where the skill's copies stand; `None` while it has none.
     pub placement: Option<&'a Placement>,
 }
@@ -105,7 +108,8 @@ impl NativeView {
                                     })
                                     .when(item.drifted, |line| {
                                         line.child(drift_glyph(&item.skill.id, cx))
-                                    }),
+                                    })
+                                    .when(item.overlap, |line| line.child(overlap_badge(item))),
                             )
                             .when_some(item.folder, |lines, folder| {
                                 lines.child(folder_line(item, folder, cx))
@@ -165,7 +169,8 @@ impl NativeView {
                             })
                             .when(item.drifted, |line| {
                                 line.child(drift_glyph(&item.skill.id, cx))
-                            }),
+                            })
+                            .when(item.overlap, |line| line.child(overlap_badge(item))),
                     )
                     .when(item.update, |line| {
                         line.child(self.update_button("card", &item.skill.id, cx))
@@ -239,6 +244,22 @@ fn folder_line(item: &SkillItem<'_>, folder: &str, cx: &App) -> impl IntoElement
         .text_size(px(11.5))
         .text_color(cx.theme().muted_foreground.opacity(0.8))
         .child(folder.to_owned())
+}
+
+/// The warning badge of a skill the open workspace holds for an agent that the active preset holds
+/// it for too, which may load it twice.
+fn overlap_badge(item: &SkillItem<'_>) -> AnyElement {
+    div()
+        .id(format!("overlap-{}", item.skill.id))
+        .flex_shrink_0()
+        .child(Tag::warning().small().child("Also in your agents"))
+        .tooltip(|window, cx| {
+            Tooltip::new(
+                "An agent reads this skill both here and in your agents, so it may load it twice.",
+            )
+            .build(window, cx)
+        })
+        .into_any_element()
 }
 
 /// The warning glyph of a skill whose source has an update.

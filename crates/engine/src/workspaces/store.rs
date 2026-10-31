@@ -1,14 +1,15 @@
 //! Workspace rows in machine-local SQLite.
 
 use super::{
+    activation::{self, Held},
     icons,
     projects::{is_agent_folder, projects},
 };
 use crate::{
     database,
-    discovery::registry::{global_skill_dirs, workspace_skill_dirs},
+    discovery::registry::{agent_options, global_skill_dirs, workspace_skill_dirs},
     library::validate_name,
-    library_store::{from_text, to_text},
+    library_store::{self, from_text, to_text},
     logging::Logger,
     persistence::{now, sync_directory},
     schema::workspaces,
@@ -17,6 +18,7 @@ use crate::{
 use diesel::prelude::*;
 use skillbinder_proto::*;
 use std::{
+    collections::BTreeSet,
     fs,
     io::Write,
     path::{Component, Path, PathBuf},
@@ -27,7 +29,10 @@ impl State {
     /// workspaces: the folder itself and each direct child that has an agent skill directory, or
     /// the folder alone when none has one. Agent folders, such as the home folder, and folders
     /// already added are skipped; when nothing is left to add, the addition is refused, naming
-    /// the home folder when it is one of the skipped agent folders.
+    /// the home folder when it is one of the skipped agent folders. Each workspace's agents are
+    /// the workspace skill directories it has that detected agents read, and each library skill it
+    /// holds there becomes active for the directories that hold it, without writing: a copy with
+    /// the library's content is adopted, and one with other content is a conflict.
     pub(crate) fn add_workspaces(&mut self, grant: &GrantId) -> AppResult<Vec<Workspace>> {
         let step: OnboardingStep = self.setting("onboarding")?.unwrap_or_default();
         if step != OnboardingStep::Complete {
@@ -72,6 +77,10 @@ impl State {
                 color: None,
                 icon: None,
                 image: None,
+                dirs: BTreeSet::new(),
+                paths: Default::default(),
+                skills: Default::default(),
+                overlaps: BTreeSet::new(),
             })
             .collect();
         if added.is_empty() {
@@ -87,27 +96,58 @@ impl State {
                 },
             ));
         }
+        let slugs = library_store::slugs(&mut self.database.borrow_mut())?;
+        let detected = activation::detected_dirs(&self.config)?;
+        let held: Vec<Held> = added
+            .iter()
+            .map(|workspace| activation::held_in(Path::new(&workspace.path), &detected, &slugs))
+            .collect();
         // One row per statement: a single multi-row insert would exceed SQLite's bound-parameter
         // limit when a picked folder holds thousands of projects.
-        database::transaction(&mut self.database.borrow_mut(), |connection| {
-            for workspace in &added {
-                diesel::insert_into(workspaces::table)
-                    .values((
-                        workspaces::id.eq(workspace.id.as_str()),
-                        workspaces::canonical_path.eq(&workspace.path),
-                        workspaces::name.eq(&workspace.name),
-                        workspaces::position.eq(i64::from(workspace.position)),
-                        workspaces::created_at.eq(now() as i64),
-                    ))
-                    .execute(connection)
-                    .map_err(|_| AppError::storage())?;
-            }
-            Ok(())
+        self.change_places(|state| {
+            database::transaction(&mut state.database.borrow_mut(), |connection| {
+                for (workspace, held) in added.iter().zip(&held) {
+                    diesel::insert_into(workspaces::table)
+                        .values((
+                            workspaces::id.eq(workspace.id.as_str()),
+                            workspaces::canonical_path.eq(&workspace.path),
+                            workspaces::name.eq(&workspace.name),
+                            workspaces::position.eq(i64::from(workspace.position)),
+                            workspaces::created_at.eq(now() as i64),
+                        ))
+                        .execute(connection)
+                        .map_err(|_| AppError::storage())?;
+                    let skills: Vec<_> = held
+                        .skills
+                        .iter()
+                        .map(|(skill, targets)| (skill, Some(targets)))
+                        .collect();
+                    activation::save(connection, &workspace.id, &held.dirs, &skills)?;
+                }
+                Ok(())
+            })
         })?;
-        Ok(added)
+        let ids: BTreeSet<_> = added.into_iter().map(|workspace| workspace.id).collect();
+        Ok(self
+            .workspaces()?
+            .into_iter()
+            .filter(|workspace| ids.contains(&workspace.id))
+            .collect())
     }
 
     pub(crate) fn workspaces(&self) -> AppResult<Vec<Workspace>> {
+        let agents = agent_options(&self.config)?;
+        self.workspaces_for(&self.read_library()?, &agents)
+    }
+
+    /// The workspaces in order, each marking the skills it holds for an agent that `library`'s
+    /// active preset holds them for too.
+    pub(crate) fn workspaces_for(
+        &self,
+        library: &Library,
+        agents: &[AgentOption],
+    ) -> AppResult<Vec<Workspace>> {
+        let mut held = activation::load(&mut self.database.borrow_mut())?;
         let rows = workspaces::table
             .select((
                 workspaces::id,
@@ -129,11 +169,14 @@ impl State {
                 Option<String>,
             )>(&mut *self.database.borrow_mut())
             .map_err(|_| AppError::storage())?;
-        rows.into_iter()
+        let mut workspaces = rows
+            .into_iter()
             .map(|(id, path, name, position, color, icon, image)| {
                 let color = stored_color(color.as_deref(), &name, &self.log);
                 let icon = stored_icon(&icon, &name, &self.log);
                 let image = image.and_then(|file| self.stored_image(&file));
+                let Held { dirs, skills } = held.remove(&id).unwrap_or_default();
+                let paths = activation::paths(Path::new(&path), &dirs);
                 Ok(Workspace {
                     missing: !Path::new(&path).is_dir(),
                     id: WorkspaceId(id),
@@ -143,9 +186,15 @@ impl State {
                     color,
                     icon,
                     image,
+                    dirs,
+                    paths,
+                    skills,
+                    overlaps: BTreeSet::new(),
                 })
             })
-            .collect()
+            .collect::<AppResult<Vec<_>>>()?;
+        crate::activation::mark_overlaps(&mut workspaces, library, agents);
+        Ok(workspaces)
     }
 
     /// Sets or clears the workspace glyph's color.
@@ -280,11 +329,15 @@ impl State {
         Ok(())
     }
 
-    /// Forgets a workspace. Files in the folder are not touched.
+    /// Forgets a workspace, the skills it holds, and the copy records held for it alone. Files in
+    /// the folder are not touched: its managed copies stay there, unmanaged.
     pub(crate) fn remove_workspace(&mut self, id: &WorkspaceId) -> AppResult<()> {
         let image = self.workspace_icon_file(id)?;
         let workspaces = self.workspaces()?;
+        let handover = self.handover(id)?;
         database::transaction(&mut self.database.borrow_mut(), |connection| {
+            crate::activation::claim(connection, &handover.handed)?;
+            crate::activation::forget(connection, &handover.forgotten)?;
             diesel::delete(workspaces::table.find(id.as_str()))
                 .execute(connection)
                 .map_err(|_| AppError::storage())?;

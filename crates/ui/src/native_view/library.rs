@@ -1,10 +1,12 @@
 //! The Library page: every library skill, one folder's, as a searchable list or grid. Presets
-//! activate skills in place instead of opening a page.
+//! activate skills in place instead of opening a page. A workspace's page lists the same skills,
+//! scoped to the workspace.
 
 use super::NativeView;
 use super::controls::app_icon;
-use super::library_copies::{agent_rows, placements};
+use super::library_copies::{AgentRow, agent_rows, placements};
 use super::library_items::SkillItem;
+use super::workspace_targets::dir_rows;
 use gpui_kit::component::{
     ActiveTheme, Sizable, h_flex,
     input::Input,
@@ -44,34 +46,53 @@ impl NativeView {
         v_flex()
             .gap_4()
             .child(self.library_header(cx))
-            .children(self.active_preset_empty_note(library, cx))
+            .children(self.empty_scope_note(library, cx))
             .children(self.render_update_outcome(cx))
             .child(self.library_results(library, &shown, &typed, window, cx))
             .into_any_element()
     }
 
-    /// A notice under the header while the active preset holds no skills.
-    fn active_preset_empty_note(
+    /// A notice under the header while the open workspace, or else the active preset, holds no
+    /// skills.
+    fn empty_scope_note(
         &self,
         library: &LibrarySnapshot,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let active = self.active_preset_id()?;
-        if library
-            .library
-            .skills
-            .iter()
-            .any(|skill| skill.presets.contains_key(&active))
-        {
+        let holds = match self.scoped_workspace() {
+            Some(workspace) => !workspace.skills.is_empty(),
+            None => {
+                let active = self.active_preset_id()?;
+                library
+                    .library
+                    .skills
+                    .iter()
+                    .any(|skill| skill.presets.contains_key(&active))
+            }
+        };
+        if holds {
             return None;
         }
         Some(
             div()
                 .text_sm()
                 .text_color(cx.theme().muted_foreground)
-                .child(format!("No skills active in {}", self.active_preset_name()))
+                .child(format!("No skills active in {}", self.scope_name()))
                 .into_any_element(),
         )
+    }
+
+    /// The rows the agents line names: the open workspace's skill directories, or else your
+    /// agents' global ones. A skill's copies that need review count in every scope, as its copies
+    /// dialog lists them.
+    fn placement_rows(&self) -> Vec<AgentRow> {
+        match self.scoped_workspace() {
+            Some(workspace) => dir_rows(&self.snapshot.agents, workspace, &self.snapshot.home)
+                .into_iter()
+                .map(|row| row.row)
+                .collect(),
+            None => agent_rows(&self.snapshot.agents, &self.snapshot.home),
+        }
     }
 
     /// The search field, then the list/grid control at the trailing edge; the title or folders are
@@ -134,8 +155,8 @@ impl NativeView {
                 .child(format!("No skills in {}", folder.name))
                 .into_any_element();
         }
-        let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
-        let placed = placements(&library.copies, &rows);
+        let placed = placements(&library.copies, &self.placement_rows());
+        let overlaps = self.scoped_workspace().map(|workspace| &workspace.overlaps);
         let items: Vec<SkillItem<'_>> = visible
             .iter()
             .map(|skill| SkillItem {
@@ -147,6 +168,7 @@ impl NativeView {
                 folder: self.folder_label(skill),
                 update: self.has_update(&skill.id),
                 drifted: skill.drift.is_some(),
+                overlap: overlaps.is_some_and(|overlaps| overlaps.contains(&skill.id)),
                 placement: placed.get(&skill.id),
             })
             .collect();

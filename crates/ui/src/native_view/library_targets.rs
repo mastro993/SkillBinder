@@ -1,6 +1,6 @@
 //! Which agents the active preset holds a library skill for: the Active checkbox holds it for all
 //! your agents, and the trailing agents menu picks specific ones. Universal is one row, since its
-//! agents share one directory.
+//! agents share one directory. On a workspace's page the same controls edit the workspace.
 
 use std::collections::BTreeSet;
 
@@ -55,8 +55,13 @@ impl NativeView {
     /// "All agents", one row's name, or how many rows the skill is held for, with a chevron that
     /// opens the agents menu.
     pub(super) fn targets_button(&self, skill: &SkillId, cx: &mut Context<Self>) -> AnyElement {
-        let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
-        let label = targets_label(self.skill_targets(skill), &rows);
+        let label = match self.scoped_workspace() {
+            Some(workspace) => self.workspace_targets_label(workspace, skill),
+            None => {
+                let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
+                targets_label(self.skill_targets(skill), &rows)
+            }
+        };
         let owner = format!("targets-{skill}");
         let open = self.menu.as_ref().is_some_and(|menu| menu.is_for(&owner));
         let (busy, fill) = (self.busy, cx.theme().muted);
@@ -85,7 +90,10 @@ impl NativeView {
                     MouseButton::Left,
                     cx.listener(move |view, event: &MouseDownEvent, window, cx| {
                         cx.stop_propagation();
-                        let items = view.targets_menu(&skill, cx);
+                        let items = match view.scoped_workspace().cloned() {
+                            Some(workspace) => view.workspace_targets_menu(&workspace, &skill, cx),
+                            None => view.targets_menu(&skill, cx),
+                        };
                         view.menu = Some(OpenMenu::new(
                             owner.clone(),
                             items,
@@ -198,11 +206,17 @@ fn targets_label(targets: Option<&Targets>, rows: &[AgentRow]) -> String {
     let named: Vec<_> = rows
         .iter()
         .filter(|row| held(targets, &sharing(row, rows)))
+        .map(|row| row.name.as_str())
         .collect();
-    match named.as_slice() {
+    held_label(&named)
+}
+
+/// A specific list's label: the one row it holds, how many it holds, or "No agents".
+pub(super) fn held_label(named: &[&str]) -> String {
+    match named {
         [] => "No agents".to_owned(),
-        [row] => row.name.clone(),
-        rows => format!("{} agents", rows.len()),
+        [name] => (*name).to_owned(),
+        names => format!("{} agents", names.len()),
     }
 }
 
