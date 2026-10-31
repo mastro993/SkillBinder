@@ -243,3 +243,33 @@ async fn removing_a_workspace_hands_a_shared_copy_to_a_missing_holder() {
     );
     project.engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn letting_go_of_a_shared_copy_hands_it_to_the_workspace_still_holding_it() {
+    let project = Project::with(&["review"]).await;
+    let (code, outer, app) = nested(&project).await;
+    // Both workspaces' directories lead to `code/app/skills-dir`, the inner one through a link
+    // inside its own folder, which cannot be followed while that folder is missing.
+    fs::create_dir_all(code.join("app/skills-dir")).unwrap();
+    for (link, target) in [
+        ("app/.claude/skills", "../skills-dir"),
+        (".claude/skills", "../app/skills-dir"),
+    ] {
+        fs::remove_dir_all(code.join(link)).unwrap();
+        symlink(target, code.join(link)).unwrap();
+    }
+    hold(
+        &project.engine,
+        &outer.id,
+        Some(WorkspaceTargets::AllAgents),
+    )
+    .await;
+    hold(&project.engine, &app.id, Some(WorkspaceTargets::AllAgents)).await;
+    hold(&project.engine, &outer.id, None).await;
+    let copy = code.join("app/skills-dir/review/SKILL.md");
+    assert!(copy.exists());
+
+    remove_while_missing(&project, &code.join("app"), app.id).await;
+    assert!(copy.exists(), "the copy stays, unmanaged");
+    project.engine.shutdown().await.unwrap();
+}

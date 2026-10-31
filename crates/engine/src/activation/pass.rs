@@ -108,7 +108,6 @@ impl State {
         };
         let mut sources = BTreeMap::new();
         let mut changes = Vec::new();
-        let visited: BTreeSet<&Pair> = pairs.iter().copied().collect();
         for pair in pairs {
             if self.shutdown.cancelled() {
                 break;
@@ -124,7 +123,7 @@ impl State {
                 changes.push((pair.clone(), after));
             }
         }
-        let claims = claims(&pass, &visited, &changes);
+        let claims = claims(&pass, &every, &changes);
         database::transaction(&mut self.database.borrow_mut(), |connection| {
             store::save(connection, &changes)?;
             store::claim(connection, &claims)
@@ -231,19 +230,20 @@ fn pending(pass: &Pass, pair: &Pair) -> bool {
     }
 }
 
-/// The new holder of each record the pass visited whose pair is held by someone else than its
-/// record says. A record of a pair no longer held keeps its holder, so removing that workspace
-/// forgets it; removal also looks at what the workspace holds now.
+/// The new holder of each record of a held pair whose holder changed, whichever pairs the pass
+/// visited, so a workspace letting go of a shared copy hands it to the one still holding it. A
+/// record of a pair no longer held keeps its holder, so removing that workspace forgets it;
+/// removal also looks at what the workspace holds now.
 fn claims(
     pass: &Pass,
-    visited: &BTreeSet<&Pair>,
+    every: &BTreeSet<&Pair>,
     changes: &[(Pair, Option<Row>)],
 ) -> Vec<(Pair, Option<WorkspaceId>)> {
     let recorded: BTreeMap<&Pair, bool> = changes
         .iter()
         .map(|(pair, row)| (pair, row.is_some()))
         .collect();
-    visited
+    every
         .iter()
         .copied()
         .filter(|pair| pass.places.desired.contains(*pair))

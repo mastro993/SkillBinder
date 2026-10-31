@@ -6,6 +6,7 @@ use crate::{
     database,
     discovery::{paths::resolve_absent, registry},
     library_store,
+    lifecycle::EngineConfig,
     schema::{workspace_dirs, workspace_skills},
     worker::State,
 };
@@ -109,15 +110,29 @@ pub(super) fn paths(folder: &Path, dirs: &BTreeSet<String>) -> BTreeMap<String, 
         .collect()
 }
 
-/// What the workspace at `folder` holds when it is added: the registry's workspace skill
-/// directories it has, and each library skill among `slugs` it holds there, for exactly the
-/// directories that hold it.
-pub(super) fn held_in(folder: &Path, slugs: &BTreeSet<String>) -> AppResult<Held> {
-    let dirs: BTreeMap<String, PathBuf> = registry::workspace_skill_dirs()?
+/// The workspace skill directories detected agents read, such as `.claude/skills`.
+pub(super) fn detected_dirs(config: &EngineConfig) -> AppResult<BTreeSet<String>> {
+    Ok(registry::agent_options(config)?
         .into_iter()
+        .filter(|agent| agent.detected)
+        .map(|agent| agent.workspace_skills_dir)
+        .collect())
+}
+
+/// What the workspace at `folder` holds when it is added: the directories among `detected` it
+/// has, and each library skill among `slugs` it holds there, for exactly the directories that
+/// hold it. A directory only undetected agents read, such as a repository's own `skills`, is
+/// left alone.
+pub(super) fn held_in(
+    folder: &Path,
+    detected: &BTreeSet<String>,
+    slugs: &BTreeSet<String>,
+) -> Held {
+    let dirs: BTreeMap<String, PathBuf> = detected
+        .iter()
         .filter_map(|dir| {
-            let path = resolved(folder, &dir).filter(|path| path.is_dir())?;
-            Some((dir, path))
+            let path = resolved(folder, dir).filter(|path| path.is_dir())?;
+            Some((dir.clone(), path))
         })
         .collect();
     let skills = slugs
@@ -131,10 +146,10 @@ pub(super) fn held_in(folder: &Path, slugs: &BTreeSet<String>) -> AppResult<Held
             (!holding.is_empty()).then(|| (SkillId(slug.clone()), WorkspaceTargets::Dirs(holding)))
         })
         .collect();
-    Ok(Held {
+    Held {
         dirs: dirs.into_keys().collect(),
         skills,
-    })
+    }
 }
 
 impl State {
@@ -178,12 +193,7 @@ impl State {
             }
             targets => (targets, BTreeSet::new()),
         };
-        let detected: BTreeSet<String> = registry::agent_options(&self.config)?
-            .into_iter()
-            .filter(|agent| agent.detected)
-            .map(|agent| agent.workspace_skills_dir)
-            .collect();
-        if !added.is_subset(&detected) {
+        if !added.is_subset(&detected_dirs(&self.config)?) {
             return Err(AppError::validation(
                 "Choose the skill directory of a detected agent.",
             ));

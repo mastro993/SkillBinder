@@ -29,7 +29,10 @@ impl State {
     /// workspaces: the folder itself and each direct child that has an agent skill directory, or
     /// the folder alone when none has one. Agent folders, such as the home folder, and folders
     /// already added are skipped; when nothing is left to add, the addition is refused, naming
-    /// the home folder when it is one of the skipped agent folders.
+    /// the home folder when it is one of the skipped agent folders. Each workspace's agents are
+    /// the workspace skill directories it has that detected agents read, and each library skill it
+    /// holds there becomes active for the directories that hold it, without writing: a copy with
+    /// the library's content is adopted, and one with other content is a conflict.
     pub(crate) fn add_workspaces(&mut self, grant: &GrantId) -> AppResult<Vec<Workspace>> {
         let step: OnboardingStep = self.setting("onboarding")?.unwrap_or_default();
         if step != OnboardingStep::Complete {
@@ -94,10 +97,11 @@ impl State {
             ));
         }
         let slugs = library_store::slugs(&mut self.database.borrow_mut())?;
-        let held = added
+        let detected = activation::detected_dirs(&self.config)?;
+        let held: Vec<Held> = added
             .iter()
-            .map(|workspace| activation::held_in(Path::new(&workspace.path), &slugs))
-            .collect::<AppResult<Vec<Held>>>()?;
+            .map(|workspace| activation::held_in(Path::new(&workspace.path), &detected, &slugs))
+            .collect();
         // One row per statement: a single multi-row insert would exceed SQLite's bound-parameter
         // limit when a picked folder holds thousands of projects.
         self.change_places(|state| {

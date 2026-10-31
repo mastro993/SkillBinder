@@ -90,13 +90,17 @@ async fn pulled_content_rewrites_workspace_copies_and_a_removed_skill_loses_them
     // The published skills came from the fixture workspace, whose copies match the library.
     let project = fs::canonicalize(device.fixture.workspace.join(".agents/skills")).unwrap();
     let workspace = device.engine.snapshot().await.unwrap().workspaces.remove(0);
+    // No agent reading `.agents/skills` was detected when it was added, so its first activation
+    // chooses it, once the universal agents are.
+    fs::create_dir_all(device.fixture.home.join(".agents/skills")).unwrap();
+    let universal = WorkspaceTargets::Dirs([".agents/skills".to_owned()].into());
     for slug in ["alpha", "beta"] {
         device
             .engine
             .set_workspace_skill(
                 workspace.id.clone(),
                 SkillId(slug.into()),
-                Some(WorkspaceTargets::AllAgents),
+                Some(universal.clone()),
             )
             .await
             .unwrap();

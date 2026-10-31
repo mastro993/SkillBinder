@@ -28,6 +28,8 @@ async fn adding_a_workspace_adopts_the_library_skills_it_holds_without_writing()
         "Not in the library",
     );
     let before = modified(&claude);
+    // The universal agents read `.agents/skills` in a workspace once they are detected.
+    fs::create_dir_all(project.fixture.home.join(".agents/skills")).unwrap();
 
     let added = project.add().await;
     let workspace = project.workspace().await;
@@ -294,5 +296,36 @@ async fn a_skill_an_agent_reads_both_globally_and_in_the_workspace_is_marked() {
     .await
     .unwrap();
     assert_eq!(project.workspace().await.overlaps, [skill("lint")].into());
+    project.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn adding_a_workspace_leaves_directories_only_undetected_agents_read() {
+    let project = Project::with(&["review"]).await;
+    // A skill author's repository keeps its sources in `skills`, which only OpenClaw reads.
+    let source = write_skill(&project.dir("skills"), "review", LIBRARY);
+    fs::create_dir_all(project.dir(".claude/skills")).unwrap();
+
+    let workspace = project.add().await;
+    assert_eq!(workspace.dirs, dirs(&[".claude/skills"]));
+    assert!(workspace.skills.is_empty(), "nothing is adopted there");
+    project
+        .engine
+        .set_workspace_skill(
+            workspace.id.clone(),
+            skill("review"),
+            Some(WorkspaceTargets::AllAgents),
+        )
+        .await
+        .unwrap();
+    project
+        .engine
+        .set_workspace_skill(workspace.id.clone(), skill("review"), None)
+        .await
+        .unwrap();
+    assert!(
+        source.join("SKILL.md").exists(),
+        "its sources are never touched"
+    );
     project.engine.shutdown().await.unwrap();
 }
