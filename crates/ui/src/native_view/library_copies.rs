@@ -126,14 +126,18 @@ pub(super) fn shown_dir(dir: &str, home: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use skillbinder_proto::SameSlug;
 
     fn agent(id: &str, name: &str, global: &str) -> AgentOption {
         AgentOption {
             id: id.to_owned(),
             display_name: name.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
+            other_workspace_dirs: Vec::new(),
             global_skills_dir: Some(global.to_owned()),
             resolved_skills_dir: Some(global.to_owned()),
+            other_global_dirs: Vec::new(),
+            same_slug: SameSlug::Unknown,
             detected: true,
         }
     }

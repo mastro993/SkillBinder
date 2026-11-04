@@ -18,7 +18,7 @@ use crate::{
 use diesel::prelude::*;
 use skillbinder_proto::*;
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     io::Write,
     path::{Component, Path, PathBuf},
@@ -80,7 +80,7 @@ impl State {
                 dirs: BTreeSet::new(),
                 paths: Default::default(),
                 skills: Default::default(),
-                overlaps: BTreeSet::new(),
+                overlaps: BTreeMap::new(),
             })
             .collect();
         if added.is_empty() {
@@ -189,7 +189,7 @@ impl State {
                     dirs,
                     paths,
                     skills,
-                    overlaps: BTreeSet::new(),
+                    overlaps: BTreeMap::new(),
                 })
             })
             .collect::<AppResult<Vec<_>>>()?;

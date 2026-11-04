@@ -15,7 +15,7 @@ use gpui_kit::{
     AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{Skill, SkillDetails, SkillId};
+use skillbinder_proto::{Overlap, Skill, SkillDetails, SkillId};
 use skillbinder_theme::library::{
     AVATAR_OVERLAP, CARD_RADIUS, DIVIDER_INSET, ROW_PADDING_X, ROW_PADDING_Y, TILE_RADIUS,
 };
@@ -38,8 +38,8 @@ pub(super) struct SkillItem<'a> {
     /// The skill's content differs from its record, so it shows a warning glyph.
     pub drifted: bool,
     /// The open workspace holds the skill for an agent that the active preset holds it for too,
-    /// so it shows a warning badge.
-    pub overlap: bool,
+    /// so it shows a warning badge saying how that agent treats the two copies.
+    pub overlap: Option<Overlap>,
     /// Where the skill's copies stand; `None` while it has none.
     pub placement: Option<&'a Placement>,
 }
@@ -249,7 +249,7 @@ fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
         item.update.then(|| update_glyph(id, cx)),
         item.drifted.then(|| drift_glyph(id, cx)),
         validation_glyph(id, item.details, cx),
-        item.overlap.then(|| overlap_badge(item)),
+        item.overlap.map(|overlap| overlap_badge(item, overlap)),
     ]
     .into_iter()
     .flatten()
@@ -257,18 +257,24 @@ fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
 }
 
 /// The warning badge of a skill the open workspace holds for an agent that the active preset holds
-/// it for too, which may load it twice.
-fn overlap_badge(item: &SkillItem<'_>) -> AnyElement {
+/// it for too: either the agent may load it twice, or it keeps your agents' copy and ignores this
+/// one.
+fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
+    let (label, explanation) = match overlap {
+        Overlap::Twice => (
+            "Also in your agents",
+            "An agent reads this skill both here and in your agents, so it may load it twice.",
+        ),
+        Overlap::Hidden => (
+            "Hidden by your agents",
+            "An agent reads this skill in both places but keeps your agents' copy, so this copy is ignored.",
+        ),
+    };
     div()
         .id(format!("overlap-{}", item.skill.id))
         .flex_shrink_0()
-        .child(Tag::warning().small().child("Also in your agents"))
-        .tooltip(|window, cx| {
-            Tooltip::new(
-                "An agent reads this skill both here and in your agents, so it may load it twice.",
-            )
-            .build(window, cx)
-        })
+        .child(Tag::warning().small().child(label))
+        .tooltip(move |window, cx| Tooltip::new(explanation).build(window, cx))
         .into_any_element()
 }
 

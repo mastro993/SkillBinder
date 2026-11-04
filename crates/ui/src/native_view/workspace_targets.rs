@@ -16,7 +16,7 @@ use super::menu::MenuItem;
 use super::sidebar_presets::menu_action;
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::{Context, IntoElement, Styled, px};
-use skillbinder_proto::{AgentOption, SkillId, Workspace, WorkspaceId, WorkspaceTargets};
+use skillbinder_proto::{AgentOption, DirRole, SkillId, Workspace, WorkspaceId, WorkspaceTargets};
 use skillbinder_theme::sidebar::ICON_SIZE;
 
 /// The workspace skill directory the universal agents, and many others, read.
@@ -33,27 +33,29 @@ pub(super) struct DirRow {
 }
 
 /// The directories the workspace uses, then those of detected agents it does not use yet, each
-/// once: `.agents/skills` first, then by name. A row names the detected agents that read it, or
-/// every registry agent that does when none is detected; `.agents/skills` is Universal while a
-/// universal agent reads it, so its avatar opens Universal's page.
-pub(super) fn dir_rows(agents: &[AgentOption], workspace: &Workspace, home: &str) -> Vec<DirRow> {
-    let detected = agents
-        .iter()
-        .filter(|agent| agent.detected)
-        .map(|agent| agent.workspace_skills_dir.as_str());
-    let dirs: BTreeSet<&str> = workspace
+/// once: `.agents/skills` first, then by name. A detected agent offers its registry directory and
+/// the directories the reviewed overlay names for it alone, such as `.kimi-code/skills`; a
+/// directory only other agents read is offered once the workspace uses it. A row names the
+/// detected agents that read it, or every registry agent that does when none is detected;
+/// `.agents/skills` is Universal while a universal agent reads it, so its avatar opens Universal's
+/// page.
+pub(super) fn dir_rows<'a>(
+    agents: &'a [AgentOption],
+    workspace: &'a Workspace,
+    home: &str,
+) -> Vec<DirRow> {
+    let detected: Vec<&'a AgentOption> = agents.iter().filter(|agent| agent.detected).collect();
+    let dirs: BTreeSet<&'a str> = workspace
         .dirs
         .iter()
         .map(String::as_str)
-        .chain(detected)
+        .chain(detected.iter().flat_map(|agent| offered(agent)))
         .collect();
     let mut rows: Vec<DirRow> = dirs
         .into_iter()
         .filter_map(|dir| {
-            let readers: Vec<&AgentOption> = agents
-                .iter()
-                .filter(|agent| agent.workspace_skills_dir == dir)
-                .collect();
+            let readers: Vec<&AgentOption> =
+                agents.iter().filter(|agent| reads(agent, dir)).collect();
             let shown: Vec<&AgentOption> = if readers.iter().any(|agent| agent.detected) {
                 readers.into_iter().filter(|agent| agent.detected).collect()
             } else {
@@ -89,8 +91,47 @@ pub(super) fn dir_rows(agents: &[AgentOption], workspace: &Workspace, home: &str
             })
         })
         .collect();
+    // An agent with two directories of its own, such as Cline's `.cline/skills` and legacy
+    // `.clinerules/skills`, would give two rows the same name, so those name their directory.
+    let mut names = BTreeSet::new();
+    let duplicated: BTreeSet<String> = rows
+        .iter()
+        .filter(|row| !names.insert(row.row.name.as_str()))
+        .map(|row| row.row.name.clone())
+        .collect();
+    for row in &mut rows {
+        // The registry's directory keeps the plain name.
+        let registry = agents
+            .iter()
+            .any(|agent| agent.workspace_skills_dir == row.dir);
+        if duplicated.contains(&row.row.name) && !registry {
+            row.row.name = format!("{} ({})", row.row.name, row.dir);
+        }
+    }
     rows.sort_by_cached_key(|row| (row.dir != UNIVERSAL_DIR, row.row.name.to_lowercase()));
     rows
+}
+
+/// The directories a row offers for a detected agent: the registry's, then the ones the overlay
+/// records as named for it alone.
+fn offered(agent: &AgentOption) -> impl Iterator<Item = &str> {
+    std::iter::once(agent.workspace_skills_dir.as_str()).chain(
+        agent
+            .other_workspace_dirs
+            .iter()
+            .filter(|dir| dir.role == DirRole::Own)
+            .map(|dir| dir.path.as_str()),
+    )
+}
+
+/// Whether `agent` reads `dir`: as the registry's directory, or as one the overlay adds, whether
+/// named for it or another agent's.
+fn reads(agent: &AgentOption, dir: &str) -> bool {
+    agent.workspace_skills_dir == dir
+        || agent
+            .other_workspace_dirs
+            .iter()
+            .any(|other| other.path == dir)
 }
 
 /// `dir`, relative with slash separators, inside `folder`, as the platform spells paths.
@@ -276,153 +317,4 @@ pub(super) fn dir_icon(row: &DirRow) -> gpui_kit::component::Icon {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn agent(id: &str, name: &str, dir: &str, detected: bool) -> AgentOption {
-        AgentOption {
-            id: id.to_owned(),
-            display_name: name.to_owned(),
-            workspace_skills_dir: dir.to_owned(),
-            global_skills_dir: Some(format!("/home/{id}")),
-            resolved_skills_dir: Some(format!("/home/{id}")),
-            detected,
-        }
-    }
-
-    fn workspace(dirs: &[&str]) -> Workspace {
-        Workspace {
-            id: WorkspaceId("w".to_owned()),
-            name: "api".to_owned(),
-            path: "/home/api".to_owned(),
-            position: 0,
-            missing: false,
-            color: None,
-            icon: None,
-            image: None,
-            dirs: set(dirs),
-            paths: dirs
-                .iter()
-                .map(|dir| ((*dir).to_owned(), format!("/resolved/{dir}")))
-                .collect(),
-            skills: Default::default(),
-            overlaps: Default::default(),
-        }
-    }
-
-    fn set(dirs: &[&str]) -> BTreeSet<String> {
-        dirs.iter().map(|dir| (*dir).to_owned()).collect()
-    }
-
-    #[test]
-    fn rows_list_each_directory_once_naming_the_agents_that_read_it() {
-        let mut codex = agent("codex", "Codex", ".agents/skills", true);
-        codex.global_skills_dir = Some("/home/.agents/skills".to_owned());
-        let agents = [
-            codex,
-            agent("cursor", "Cursor", ".agents/skills", true),
-            agent("amp", "Amp", ".agents/skills", false),
-            agent("zed", "Zed", ".zed/skills", true),
-            agent("qoder", "Qoder", ".qoder/skills", false),
-            agent("qoder-cn", "Qoder CN", ".qoder/skills", false),
-            agent("windsurf", "Windsurf", ".windsurf/skills", false),
-        ];
-        let rows = dir_rows(&agents, &workspace(&[".qoder/skills"]), "/home");
-        let shown: Vec<_> = rows
-            .iter()
-            .map(|row| (row.dir.as_str(), row.row.name.as_str()))
-            .collect();
-        assert_eq!(
-            shown,
-            [
-                (".agents/skills", "Universal"),
-                (".qoder/skills", "Qoder, Qoder CN"),
-                (".zed/skills", "Zed"),
-            ],
-            "undetected agents count only for directories the workspace uses"
-        );
-        assert_eq!(
-            rows[0].row.reader,
-            Reader::Universal(vec!["Codex".to_owned(), "Cursor".to_owned()])
-        );
-        assert_eq!(rows[2].row.dir, "~/api/.zed/skills");
-        assert_eq!(rows[2].row.resolved, "/home/api/.zed/skills");
-        assert_eq!(
-            rows[1].row.resolved, "/resolved/.qoder/skills",
-            "a directory the workspace uses matches its copies' resolved path"
-        );
-    }
-
-    #[test]
-    fn choosing_a_row_toggles_its_directory_into_a_specific_list() {
-        let uses = set(&[".agents/skills", ".claude/skills"]);
-        let all = Some(&WorkspaceTargets::AllAgents);
-        let dirs = |dirs: &[&str]| Some(WorkspaceTargets::Dirs(set(dirs)));
-        let one = |dir: &str| vec![dir.to_owned()];
-        assert_eq!(
-            toggled(all, &one(".claude/skills"), &uses),
-            dirs(&[".agents/skills"])
-        );
-        assert_eq!(
-            toggled(all, &one(".zed/skills"), &uses),
-            dirs(&[".agents/skills", ".claude/skills", ".zed/skills"]),
-            "a new directory joins with every one the workspace uses"
-        );
-        assert_eq!(
-            toggled(None, &one(".zed/skills"), &uses),
-            dirs(&[".zed/skills"])
-        );
-        let zed = WorkspaceTargets::Dirs(set(&[".zed/skills"]));
-        assert_eq!(toggled(Some(&zed), &one(".zed/skills"), &uses), None);
-        let linked = vec![".agents/skills".to_owned(), ".claude/skills".to_owned()];
-        assert_eq!(
-            toggled(dirs(&[".claude/skills"]).as_ref(), &linked, &uses),
-            None,
-            "directories sharing a folder leave together"
-        );
-    }
-
-    #[test]
-    fn rows_sharing_a_folder_are_chosen_together_and_universal_needs_a_universal_agent() {
-        let mut ws = workspace(&[".agents/skills", ".claude/skills"]);
-        ws.paths.insert(
-            ".claude/skills".to_owned(),
-            "/resolved/.agents/skills".to_owned(),
-        );
-        let agents = [
-            agent("cursor", "Cursor", ".agents/skills", true),
-            agent("claude-code", "Claude Code", ".claude/skills", true),
-        ];
-        let rows = dir_rows(&agents, &ws, "/home");
-        assert_eq!(
-            sharing(&rows[1], &rows),
-            [".agents/skills".to_owned(), ".claude/skills".to_owned()]
-        );
-        assert_eq!(
-            (rows[0].row.name.as_str(), &rows[0].row.reader),
-            ("Cursor", &Reader::Agent("cursor".to_owned())),
-            "only Cursor reads it here, and Cursor's page is its own"
-        );
-    }
-
-    #[test]
-    fn the_label_names_all_agents_one_row_or_a_count() {
-        let agents = [
-            agent("codex", "Codex", ".agents/skills", true),
-            agent("claude-code", "Claude Code", ".claude/skills", true),
-        ];
-        let rows = dir_rows(&agents, &workspace(&[]), "/home");
-        let dirs = |dirs: &[&str]| WorkspaceTargets::Dirs(set(dirs));
-        assert_eq!(targets_label(None, &rows), "All agents");
-        assert_eq!(
-            targets_label(Some(&dirs(&[".claude/skills"])), &rows),
-            "Claude Code"
-        );
-        let both = dirs(&[".agents/skills", ".claude/skills"]);
-        assert_eq!(targets_label(Some(&both), &rows), "2 agents");
-        assert_eq!(
-            targets_label(Some(&dirs(&[".gone/skills"])), &rows),
-            "No agents"
-        );
-    }
-}
+mod tests;

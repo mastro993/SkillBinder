@@ -165,7 +165,9 @@ impl NativeView {
                 folder: self.folder_label(skill),
                 update: self.has_update(&skill.id),
                 drifted: skill.drift.is_some(),
-                overlap: overlaps.is_some_and(|overlaps| overlaps.contains(&skill.id)),
+                overlap: overlaps
+                    .and_then(|overlaps| overlaps.get(&skill.id))
+                    .copied(),
                 placement: placed.get(&skill.id),
             })
             .collect();
