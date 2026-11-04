@@ -23,15 +23,15 @@ const REGISTRY_DIRECTORIES_SHA256: [(&str, &str); 4] = [
     ),
     (
         "fixtures/contracts/registry-directories/a-c.json",
-        "ed6bc31e62166f353b2057df4dec097560125ff4de38cec53e5607ac5d6e11cf",
+        "718f38dd75306ebc9c785c8cab30ad3a6796fcb895eb2d5baf7868db62b1d5c9",
     ),
     (
         "fixtures/contracts/registry-directories/d-g.json",
-        "db737257dfdf9128d65d3eba81ee627931e935c7d6d99886d0370544bd9bba9a",
+        "1d53fcba242c2166fdd8bf40bfd0d03f0bd8542913956c2b9e5067f4fce013be",
     ),
     (
         "fixtures/contracts/registry-directories/k-z.json",
-        "cb99a9a3014bf6c7c6b50d35aebfb6579459100a12de21c481c51c231f163124",
+        "255f5eeb4866f38fa9a9d1373b80bef7ba803ce64c9267ef4e4aa44334ffdb24",
     ),
 ];
 const OVERLAY_VERSION: u32 = 1;
@@ -163,6 +163,7 @@ pub(super) fn check(registry: &Registry, overlay: &Overlay) -> anyhow::Result<()
         .map(|agent| (agent.id.as_str(), agent))
         .collect();
     let mut surfaces = BTreeSet::new();
+    let mut previous: Option<(&str, Option<&str>)> = None;
     for entry in &overlay.agents {
         let agent = agents.get(entry.agent.as_str()).with_context(|| {
             format!(
@@ -176,6 +177,15 @@ pub(super) fn check(registry: &Registry, overlay: &Overlay) -> anyhow::Result<()
             entry.agent,
             entry.surface
         );
+        let key = (entry.agent.as_str(), entry.surface.as_deref());
+        ensure!(
+            previous.is_none_or(|last| last < key),
+            "Overlay lists agents out of order: {} {:?}; each file holds a contiguous \
+             alphabetical range",
+            entry.agent,
+            entry.surface
+        );
+        previous = Some(key);
         entry.check(agent)?;
     }
     Ok(())

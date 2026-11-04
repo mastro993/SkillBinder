@@ -92,6 +92,13 @@ fn repeated_agent_and_surface_is_rejected() {
 }
 
 #[test]
+fn out_of_order_entries_are_rejected() {
+    let (registry, mut overlay) = fixture();
+    overlay.agents.swap(0, 1);
+    rejected(&registry, &overlay, "lists agents out of order");
+}
+
+#[test]
 fn missing_registry_directory_is_rejected() {
     let (registry, mut overlay) = fixture();
     entry(&mut overlay, "zed")

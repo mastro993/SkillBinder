@@ -2,27 +2,70 @@
   {
     "agent": "kilo",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".kilo/skills", "role": "own" },
-      { "path": ".kilocode/skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".kilo/skills",
+        "role": "own"
+      },
+      {
+        "path": ".kilocode/skills",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.kilo/skills", "role": "own" },
-      { "path": "~/.kilocode/skills", "role": "own" },
-      { "path": "${XDG_CONFIG_HOME:-~/.config}/kilo/skills", "role": "own" },
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.claude/skills", "role": "compatibility" }
+      {
+        "path": "~/.kilo/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.kilocode/skills",
+        "role": "own"
+      },
+      {
+        "path": "${XDG_CONFIG_HOME:-~/.config}/kilo/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.claude/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      ["~/.kilo/skills"],
-      ["~/.kilocode/skills"],
-      [".kilocode/skills", ".kilo/skills"],
-      ["${XDG_CONFIG_HOME:-~/.config}/kilo/skills"],
-      [".claude/skills", ".agents/skills"],
-      ["~/.agents/skills"],
-      ["~/.claude/skills"]
+      [
+        "~/.kilo/skills"
+      ],
+      [
+        "~/.kilocode/skills"
+      ],
+      [
+        ".kilocode/skills",
+        ".kilo/skills"
+      ],
+      [
+        "${XDG_CONFIG_HOME:-~/.config}/kilo/skills"
+      ],
+      [
+        ".claude/skills",
+        ".agents/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ],
+      [
+        "~/.claude/skills"
+      ]
     ],
     "sources": [
       {
@@ -42,19 +85,39 @@
   {
     "agent": "kimi-code-cli",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".kimi-code/skills", "role": "own" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".kimi-code/skills",
+        "role": "own"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "${KIMI_CODE_HOME:-~/.kimi-code}/skills", "role": "own" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "${KIMI_CODE_HOME:-~/.kimi-code}/skills",
+        "role": "own"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      [".kimi-code/skills"],
-      [".agents/skills"],
-      ["${KIMI_CODE_HOME:-~/.kimi-code}/skills"],
-      ["~/.agents/skills"]
+      [
+        ".kimi-code/skills"
+      ],
+      [
+        ".agents/skills"
+      ],
+      [
+        "${KIMI_CODE_HOME:-~/.kimi-code}/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ]
     ],
     "sources": [
       {
@@ -73,10 +136,21 @@
   },
   {
     "agent": "loaf",
-    "workspace": [{ "path": ".agents/skills", "role": "shared" }],
+    "workspace": [
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      }
+    ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.loaf/skills", "role": "own" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.loaf/skills",
+        "role": "own"
+      }
     ],
     "sameSlug": "both",
     "sources": [
@@ -97,18 +171,48 @@
   {
     "agent": "opencode",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".opencode/skills", "role": "own" },
-      { "path": ".opencode/skill", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".opencode/skills",
+        "role": "own"
+      },
+      {
+        "path": ".opencode/skill",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skills", "role": "own" },
-      { "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skill", "role": "own" },
-      { "path": "~/.opencode/skills", "role": "own" },
-      { "path": "~/.opencode/skill", "role": "own" },
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.claude/skills", "role": "compatibility" }
+      {
+        "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skills",
+        "role": "own"
+      },
+      {
+        "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skill",
+        "role": "own"
+      },
+      {
+        "path": "~/.opencode/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.opencode/skill",
+        "role": "own"
+      },
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.claude/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "one",
     "sources": [
@@ -129,19 +233,39 @@
   {
     "agent": "pi",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".pi/skills", "role": "own" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".pi/skills",
+        "role": "own"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.pi/agent/skills", "role": "own" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.pi/agent/skills",
+        "role": "own"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      [".pi/skills"],
-      [".agents/skills"],
-      ["~/.pi/agent/skills"],
-      ["~/.agents/skills"]
+      [
+        ".pi/skills"
+      ],
+      [
+        ".agents/skills"
+      ],
+      [
+        "~/.pi/agent/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ]
     ],
     "sources": [
       {
@@ -161,48 +285,126 @@
   {
     "agent": "replit",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".local/secondary_skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".local/secondary_skills",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "${XDG_CONFIG_HOME:-~/.config}/agents/skills", "role": "unconfirmed" }
+      {
+        "path": "${XDG_CONFIG_HOME:-~/.config}/agents/skills",
+        "role": "unconfirmed"
+      }
     ],
     "sameSlug": "unknown",
     "sources": [
-      { "url": "https://docs.replit.com/features/agent/skills", "retrievedAt": "2026-11-04" },
+      {
+        "url": "https://docs.replit.com/features/agent/skills",
+        "retrievedAt": "2026-11-04"
+      },
       {
         "url": "https://docs.replit.com/features/agent/skills-directory",
         "retrievedAt": "2026-11-04"
       },
-      { "url": "https://docs.replit.com/build/code/working-with-code", "retrievedAt": "2026-11-04" }
+      {
+        "url": "https://docs.replit.com/build/code/working-with-code",
+        "retrievedAt": "2026-11-04"
+      }
     ]
   },
   {
     "agent": "warp",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".warp/skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" },
-      { "path": ".codex/skills", "role": "compatibility" },
-      { "path": ".copilot/skills", "role": "compatibility" },
-      { "path": ".cursor/skills", "role": "compatibility" },
-      { "path": ".factory/skills", "role": "compatibility" },
-      { "path": ".gemini/skills", "role": "compatibility" },
-      { "path": ".github/skills", "role": "compatibility" },
-      { "path": ".opencode/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".warp/skills",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".codex/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".copilot/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".cursor/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".factory/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".gemini/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".github/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".opencode/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.warp/skills", "role": "own" },
-      { "path": "~/.claude/skills", "role": "compatibility" },
-      { "path": "~/.codex/skills", "role": "compatibility" },
-      { "path": "~/.copilot/skills", "role": "compatibility" },
-      { "path": "~/.cursor/skills", "role": "compatibility" },
-      { "path": "~/.factory/skills", "role": "compatibility" },
-      { "path": "~/.gemini/skills", "role": "compatibility" },
-      { "path": "~/.github/skills", "role": "compatibility" },
-      { "path": "~/.opencode/skills", "role": "compatibility" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.warp/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.claude/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.codex/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.copilot/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.cursor/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.factory/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.gemini/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.github/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.opencode/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "both",
     "sources": [
@@ -218,15 +420,35 @@
         "url": "https://github.com/warpdotdev/Warp/blob/2249469e5d24e472cee6ce97d3d324293f67db71/crates/warp_core/src/paths.rs#L35-L71",
         "revision": "2249469e5d24e472cee6ce97d3d324293f67db71"
       },
-      { "url": "https://docs.warp.dev/agents/capabilities/skills/", "retrievedAt": "2026-11-04" }
+      {
+        "url": "https://docs.warp.dev/agents/capabilities/skills/",
+        "retrievedAt": "2026-11-04"
+      }
     ]
   },
   {
     "agent": "zed",
-    "workspace": [{ "path": ".agents/skills", "role": "shared" }],
-    "global": [{ "path": "~/.agents/skills", "role": "shared" }],
+    "workspace": [
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      }
+    ],
+    "global": [
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      }
+    ],
     "sameSlug": "precedence",
-    "order": [[".agents/skills"], ["~/.agents/skills"]],
+    "order": [
+      [
+        ".agents/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ]
+    ],
     "sources": [
       {
         "url": "https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/agent_skills/agent_skills.rs#L742-L760",

@@ -1,71 +1,54 @@
 [
   {
-    "agent": "codex",
-    "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".codex/skills", "role": "own" }
-    ],
-    "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.codex/skills", "role": "own" },
-      { "path": "/etc/codex/skills", "role": "own" }
-    ],
-    "sameSlug": "both",
-    "sources": [
-      {
-        "url": "https://github.com/openai/codex/blob/6ff1e1ca3b30fc8b914720681fcf5fe62e95f856/codex-rs/ext/skills/src/host_roots.rs#L124-L159",
-        "revision": "6ff1e1ca3b30fc8b914720681fcf5fe62e95f856"
-      },
-      {
-        "url": "https://github.com/openai/codex/blob/6ff1e1ca3b30fc8b914720681fcf5fe62e95f856/codex-rs/ext/skills/src/host_roots_tests.rs#L282-L327",
-        "revision": "6ff1e1ca3b30fc8b914720681fcf5fe62e95f856"
-      },
-      {
-        "url": "https://github.com/openai/codex/blob/6ff1e1ca3b30fc8b914720681fcf5fe62e95f856/codex-rs/ext/skills/src/loader/host_merge.rs#L228-L267",
-        "revision": "6ff1e1ca3b30fc8b914720681fcf5fe62e95f856"
-      }
-    ]
-  },
-  {
-    "agent": "cursor",
-    "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".cursor/skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" },
-      { "path": ".codex/skills", "role": "compatibility" }
-    ],
-    "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.cursor/skills", "role": "own" },
-      { "path": "~/.claude/skills", "role": "compatibility" },
-      { "path": "~/.codex/skills", "role": "compatibility" }
-    ],
-    "sameSlug": "both",
-    "sources": [
-      { "url": "https://cursor.com/docs/skills", "retrievedAt": "2026-11-04" },
-      { "url": "https://cursor.com/docs/release-notes/ide", "retrievedAt": "2026-11-04" }
-    ]
-  },
-  {
     "agent": "deepagents",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".deepagents/skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".deepagents/skills",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.deepagents/agent/skills", "role": "own" },
-      { "path": "~/.claude/skills", "role": "compatibility" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.deepagents/agent/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.claude/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      ["~/.claude/skills"],
-      [".claude/skills"],
-      [".agents/skills"],
-      [".deepagents/skills"],
-      ["~/.agents/skills"],
-      ["~/.deepagents/agent/skills"]
+      [
+        "~/.claude/skills"
+      ],
+      [
+        ".claude/skills"
+      ],
+      [
+        ".agents/skills"
+      ],
+      [
+        ".deepagents/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ],
+      [
+        "~/.deepagents/agent/skills"
+      ]
     ],
     "sources": [
       {
@@ -85,21 +68,46 @@
   {
     "agent": "dexto",
     "workspace": [
-      { "path": "skills", "role": "compatibility" },
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".dexto/skills", "role": "own" }
+      {
+        "path": "skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".dexto/skills",
+        "role": "own"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.dexto/skills", "role": "own" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.dexto/skills",
+        "role": "own"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      [".agents/skills"],
-      ["skills"],
-      [".dexto/skills"],
-      ["~/.agents/skills"],
-      ["~/.dexto/skills"]
+      [
+        ".agents/skills"
+      ],
+      [
+        "skills"
+      ],
+      [
+        ".dexto/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ],
+      [
+        "~/.dexto/skills"
+      ]
     ],
     "sources": [
       {
@@ -119,18 +127,39 @@
   {
     "agent": "droid",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".factory/skills", "role": "own" },
-      { "path": ".agent/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".factory/skills",
+        "role": "own"
+      },
+      {
+        "path": ".agent/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.factory/skills", "role": "own" },
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.agent/skills", "role": "compatibility" }
+      {
+        "path": "~/.factory/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.agent/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "one",
     "sources": [
-      { "url": "https://docs.factory.com/harness/skills", "retrievedAt": "2026-11-04" },
+      {
+        "url": "https://docs.factory.com/harness/skills",
+        "retrievedAt": "2026-11-04"
+      },
       {
         "url": "https://github.com/Factory-AI/factory/blob/892925c655a97e7a0bc7d558236015ebb22cb214/docs/changelog/release-notes.mdx#L3439",
         "revision": "892925c655a97e7a0bc7d558236015ebb22cb214"
@@ -140,20 +169,56 @@
   {
     "agent": "firebender",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".firebender/skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" },
-      { "path": ".codex/skills", "role": "compatibility" },
-      { "path": ".cursor/skills", "role": "compatibility" },
-      { "path": ".goose/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".firebender/skills",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".codex/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".cursor/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".goose/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.firebender/skills", "role": "own" },
-      { "path": "~/.claude/skills", "role": "compatibility" },
-      { "path": "~/.codex/skills", "role": "compatibility" },
-      { "path": "~/.cursor/skills", "role": "compatibility" },
-      { "path": "~/.goose/skills", "role": "compatibility" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.firebender/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.claude/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.codex/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.cursor/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.goose/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "one",
     "order": [
@@ -175,27 +240,69 @@
       ]
     ],
     "sources": [
-      { "url": "https://docs.firebender.com/api-reference/skills", "retrievedAt": "2026-11-04" }
+      {
+        "url": "https://docs.firebender.com/api-reference/skills",
+        "retrievedAt": "2026-11-04"
+      }
     ]
   },
   {
     "agent": "fx",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".fx/skills", "role": "own" },
-      { "path": "skills", "role": "compatibility" },
-      { "path": ".opencode/skills", "role": "compatibility" },
-      { "path": ".codex/skills", "role": "compatibility" },
-      { "path": ".claude/skills", "role": "compatibility" },
-      { "path": ".claw/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".fx/skills",
+        "role": "own"
+      },
+      {
+        "path": "skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".opencode/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".codex/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": ".claw/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.fx/skills", "role": "own" },
-      { "path": "~/.config/opencode/skills", "role": "compatibility" },
-      { "path": "~/.codex/skills", "role": "compatibility" },
-      { "path": "~/.claude/skills", "role": "compatibility" },
-      { "path": "~/.claw/skills", "role": "compatibility" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.fx/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.config/opencode/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.codex/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.claude/skills",
+        "role": "compatibility"
+      },
+      {
+        "path": "~/.claw/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "both",
     "sources": [
@@ -216,19 +323,39 @@
   {
     "agent": "gemini-cli",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".gemini/skills", "role": "own" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".gemini/skills",
+        "role": "own"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.gemini/skills", "role": "own" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.gemini/skills",
+        "role": "own"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      [".agents/skills"],
-      [".gemini/skills"],
-      ["~/.agents/skills"],
-      ["~/.gemini/skills"]
+      [
+        ".agents/skills"
+      ],
+      [
+        ".gemini/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ],
+      [
+        "~/.gemini/skills"
+      ]
     ],
     "sources": [
       {
@@ -245,21 +372,46 @@
     "agent": "github-copilot",
     "surface": "cli",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".github/skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".github/skills",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.copilot/skills", "role": "own" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.copilot/skills",
+        "role": "own"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      [".github/skills"],
-      [".agents/skills"],
-      [".claude/skills"],
-      ["~/.copilot/skills"],
-      ["~/.agents/skills"]
+      [
+        ".github/skills"
+      ],
+      [
+        ".agents/skills"
+      ],
+      [
+        ".claude/skills"
+      ],
+      [
+        "~/.copilot/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ]
     ],
     "sources": [
       {
@@ -276,21 +428,49 @@
     "agent": "github-copilot",
     "surface": "vscode",
     "workspace": [
-      { "path": ".agents/skills", "role": "shared" },
-      { "path": ".github/skills", "role": "own" },
-      { "path": ".claude/skills", "role": "compatibility" }
+      {
+        "path": ".agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": ".github/skills",
+        "role": "own"
+      },
+      {
+        "path": ".claude/skills",
+        "role": "compatibility"
+      }
     ],
     "global": [
-      { "path": "~/.agents/skills", "role": "shared" },
-      { "path": "~/.copilot/skills", "role": "own" },
-      { "path": "~/.claude/skills", "role": "compatibility" }
+      {
+        "path": "~/.agents/skills",
+        "role": "shared"
+      },
+      {
+        "path": "~/.copilot/skills",
+        "role": "own"
+      },
+      {
+        "path": "~/.claude/skills",
+        "role": "compatibility"
+      }
     ],
     "sameSlug": "precedence",
     "order": [
-      [".agents/skills"],
-      [".github/skills", ".claude/skills"],
-      ["~/.agents/skills"],
-      ["~/.copilot/skills", "~/.claude/skills"]
+      [
+        ".agents/skills"
+      ],
+      [
+        ".github/skills",
+        ".claude/skills"
+      ],
+      [
+        "~/.agents/skills"
+      ],
+      [
+        "~/.copilot/skills",
+        "~/.claude/skills"
+      ]
     ],
     "sources": [
       {
