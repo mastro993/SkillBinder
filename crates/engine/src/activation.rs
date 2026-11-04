@@ -306,10 +306,11 @@ pub(crate) fn mark_overlaps(
     workspaces: &mut [Workspace],
     library: &Library,
     agents: &[AgentOption],
+    preferences: &crate::discovery::registry::Preferences,
 ) {
     let global = targets::desired(library, agents);
     for workspace in workspaces {
-        workspace.overlaps = targets::overlaps(workspace, &global, agents);
+        workspace.overlaps = targets::overlaps(workspace, &global, agents, preferences);
     }
 }
 

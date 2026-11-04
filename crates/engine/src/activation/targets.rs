@@ -3,7 +3,8 @@
 //! directory counted once however many agents share it.
 
 use super::store::{Holder, Pair};
-use skillbinder_proto::{AgentOption, Library, SkillId, Workspace, WorkspaceId};
+use crate::discovery::registry::{Loaded, Preferences};
+use skillbinder_proto::{AgentOption, Library, Overlap, SameSlug, SkillId, Workspace, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
@@ -112,46 +113,118 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
     places
 }
 
-/// The skills `workspace` holds in the workspace skill directory of a detected agent whose global
-/// skill directory `global` holds them too, so that agent may load them twice.
+/// The skills `workspace` holds that a detected agent also holds in a global skill directory it
+/// reads, and how that agent treats the two copies.
 pub(crate) fn overlaps(
     workspace: &Workspace,
     global: &BTreeSet<Pair>,
     agents: &[AgentOption],
-) -> BTreeSet<SkillId> {
-    let reading: Vec<(&str, &str)> = agents
-        .iter()
-        .filter(|agent| agent.detected && workspace.dirs.contains(&agent.workspace_skills_dir))
-        .filter_map(|agent| {
-            let own = agent.resolved_skills_dir.as_deref()?;
-            Some((agent.workspace_skills_dir.as_str(), own))
-        })
-        .collect();
-    workspace
-        .skills
-        .iter()
-        .filter(|(skill, targets)| {
-            reading.iter().any(|(dir, own)| {
-                targets.includes(dir) && global.contains(&((*own).to_owned(), skill.0.clone()))
-            })
-        })
-        .map(|(skill, _)| skill.clone())
-        .collect()
+    preferences: &Preferences,
+) -> BTreeMap<SkillId, Overlap> {
+    let mut overlaps: BTreeMap<SkillId, Overlap> = BTreeMap::new();
+    for agent in agents.iter().filter(|agent| agent.detected) {
+        let dirs: Vec<&str> = std::iter::once(agent.workspace_skills_dir.as_str())
+            .chain(
+                agent
+                    .other_workspace_dirs
+                    .iter()
+                    .map(|dir| dir.path.as_str()),
+            )
+            .filter(|dir| workspace.dirs.contains(*dir))
+            .collect();
+        let globals: Vec<&str> = agent
+            .resolved_skills_dir
+            .iter()
+            .chain(&agent.other_global_dirs)
+            .map(String::as_str)
+            .collect();
+        for (skill, targets) in &workspace.skills {
+            let mut mark = None;
+            for dir in dirs.iter().filter(|dir| targets.includes(dir)) {
+                for directory in &globals {
+                    if !global.contains(&((*directory).to_owned(), skill.0.clone())) {
+                        continue;
+                    }
+                    let overlap = match agent.same_slug {
+                        SameSlug::Both | SameSlug::Unknown => Overlap::Twice,
+                        SameSlug::Precedence | SameSlug::One => {
+                            match preferences.loaded(&agent.id, dir, directory) {
+                                Some(Loaded::Workspace) => Overlap::Overrides,
+                                Some(Loaded::Global) => Overlap::Hidden,
+                                None => Overlap::OneCopy,
+                            }
+                        }
+                    };
+                    mark = Some(strongest(mark, overlap));
+                }
+            }
+            let Some(mark) = mark else {
+                continue;
+            };
+            overlaps
+                .entry(skill.clone())
+                .and_modify(|seen| *seen = strongest(Some(*seen), mark))
+                .or_insert(mark);
+        }
+    }
+    overlaps
+}
+
+/// The mark two agents' verdicts fold into, worst outcome first: one that may load the skill twice
+/// outranks one that hides this copy, which outranks one that overrides your agents', which
+/// outranks one whose winner no source fixes.
+fn strongest(seen: Option<Overlap>, next: Overlap) -> Overlap {
+    fn severity(overlap: Overlap) -> u8 {
+        match overlap {
+            Overlap::Twice => 3,
+            Overlap::Hidden => 2,
+            Overlap::Overrides => 1,
+            Overlap::OneCopy => 0,
+        }
+    }
+    seen.filter(|seen| severity(*seen) >= severity(next))
+        .unwrap_or(next)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_proto::{PresetId, Skill, SkillId, Targets};
-
+    use skillbinder_proto::{
+        AgentDir, DirRole, PresetId, Skill, SkillId, Targets, WorkspaceTargets,
+    };
     fn agent(id: &str, directory: &str, detected: bool) -> AgentOption {
         AgentOption {
             id: id.to_owned(),
             display_name: id.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
+            other_workspace_dirs: Vec::new(),
             global_skills_dir: Some(directory.to_owned()),
             resolved_skills_dir: Some(directory.to_owned()),
+            other_global_dirs: Vec::new(),
+            same_slug: SameSlug::Unknown,
             detected,
+        }
+    }
+
+    /// The workspace holding `slug` in `dir`, used by that directory alone.
+    fn workspace(dir: &str, slug: &str) -> Workspace {
+        Workspace {
+            id: WorkspaceId("w".to_owned()),
+            name: "api".to_owned(),
+            path: "/home/api".to_owned(),
+            position: 0,
+            missing: false,
+            color: None,
+            icon: None,
+            image: None,
+            dirs: [dir.to_owned()].into(),
+            paths: [(dir.to_owned(), format!("/home/api/{dir}"))].into(),
+            skills: [(
+                SkillId(slug.to_owned()),
+                WorkspaceTargets::Dirs([dir.to_owned()].into()),
+            )]
+            .into(),
+            overlaps: BTreeMap::new(),
         }
     }
 
@@ -201,6 +274,77 @@ mod tests {
                 pair("/h/.claude/skills", "one"),
             ]
             .into()
+        );
+    }
+
+    #[test]
+    fn overlaps_through_a_compatibility_directory_may_load_the_skill_twice() {
+        // Cursor reads `.claude/skills` in a workspace and `~/.agents/skills` globally, both as
+        // directories named for other agents, and keeps both copies.
+        let mut cursor = agent("cursor", "/h/.cursor/skills", true);
+        cursor.other_workspace_dirs = [AgentDir {
+            path: ".claude/skills".to_owned(),
+            role: DirRole::Compatibility,
+        }]
+        .into();
+        cursor.other_global_dirs = ["/h/.agents/skills".to_owned()].into();
+        cursor.same_slug = SameSlug::Both;
+        let global = [("/h/.agents/skills".to_owned(), "review".to_owned())].into();
+        let overlaps = overlaps(
+            &workspace(".claude/skills", "review"),
+            &global,
+            &[cursor],
+            &Preferences::default(),
+        );
+        assert_eq!(
+            overlaps.get(&SkillId("review".to_owned())),
+            Some(&Overlap::Twice)
+        );
+    }
+
+    #[test]
+    fn one_copy_without_a_ranked_winner_is_marked_and_one_kept_twice_wins() {
+        let gemini = {
+            let mut gemini = agent("gemini-cli", "/h/.gemini/skills", true);
+            gemini.workspace_skills_dir = ".gemini/skills".to_owned();
+            gemini.same_slug = SameSlug::Precedence;
+            gemini
+        };
+        let twice = {
+            let mut codex = agent("codex", "/h/.agents/skills", true);
+            codex.other_workspace_dirs = [AgentDir {
+                path: ".gemini/skills".to_owned(),
+                role: DirRole::Compatibility,
+            }]
+            .into();
+            codex.same_slug = SameSlug::Both;
+            codex
+        };
+        let global = [
+            ("/h/.gemini/skills".to_owned(), "lint".to_owned()),
+            ("/h/.agents/skills".to_owned(), "lint".to_owned()),
+        ]
+        .into();
+        let workspace = workspace(".gemini/skills", "lint");
+        assert_eq!(
+            overlaps(
+                &workspace,
+                &global,
+                std::slice::from_ref(&gemini),
+                &Preferences::default()
+            )
+            .get(&SkillId("lint".to_owned())),
+            Some(&Overlap::OneCopy)
+        );
+        assert_eq!(
+            overlaps(
+                &workspace,
+                &global,
+                &[gemini, twice],
+                &Preferences::default()
+            )
+            .get(&SkillId("lint".to_owned())),
+            Some(&Overlap::Twice)
         );
     }
 }

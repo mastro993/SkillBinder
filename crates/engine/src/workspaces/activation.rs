@@ -110,12 +110,23 @@ pub(super) fn paths(folder: &Path, dirs: &BTreeSet<String>) -> BTreeMap<String, 
         .collect()
 }
 
-/// The workspace skill directories detected agents read, such as `.claude/skills`.
+/// The workspace skill directories detected agents read, such as `.claude/skills`: each detected
+/// agent's registry directory and the directories the reviewed overlay records as its own, such as
+/// `.kimi-code/skills`. A directory only other agents read is never one, so a folder holding it is
+/// not a workspace's agent until the user chooses it.
 pub(super) fn detected_dirs(config: &EngineConfig) -> AppResult<BTreeSet<String>> {
     Ok(registry::agent_options(config)?
         .into_iter()
         .filter(|agent| agent.detected)
-        .map(|agent| agent.workspace_skills_dir)
+        .flat_map(|agent| {
+            std::iter::once(agent.workspace_skills_dir).chain(
+                agent
+                    .other_workspace_dirs
+                    .into_iter()
+                    .filter(|dir| dir.role == DirRole::Own)
+                    .map(|dir| dir.path),
+            )
+        })
         .collect())
 }
 

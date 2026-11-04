@@ -11,9 +11,10 @@ mod support;
 
 use project::{LIBRARY, Project, dirs, modified, names, row, skill};
 use skillbinder_proto::{
-    CopyChoice, CopyState, ErrorCategory, OrganizationChange, PresetId, Targets, WorkspaceTargets,
+    CopyChoice, CopyState, ErrorCategory, OrganizationChange, Overlap, PresetId, SkillId, Targets,
+    WorkspaceTargets,
 };
-use std::fs;
+use std::{collections::BTreeMap, fs};
 use support::write_skill;
 
 #[tokio::test]
@@ -279,15 +280,27 @@ async fn a_skill_an_agent_reads_both_globally_and_in_the_workspace_is_marked() {
             Some(WorkspaceTargets::Dirs(dirs(&[dir]))),
         )
     };
-    // The universal agents read `.agents/skills` here and `~/.agents/skills` globally, which holds
-    // review but not lint; Claude Code reads neither `.agents/skills` directory.
+    // The universal agents read `.agents/skills` here and `~/.agents/skills` globally, and Cursor
+    // also reads them as directories named for other agents; all of them keep both copies.
     set("review", ".agents/skills").await.unwrap();
     set("lint", ".agents/skills").await.unwrap();
-    assert_eq!(project.workspace().await.overlaps, [skill("review")].into());
-    set("lint", ".claude/skills").await.unwrap();
+    let twice = |slugs: &[&str]| -> BTreeMap<SkillId, Overlap> {
+        slugs
+            .iter()
+            .map(|slug| (skill(slug), Overlap::Twice))
+            .collect()
+    };
     assert_eq!(
         project.workspace().await.overlaps,
-        [skill("lint"), skill("review")].into()
+        twice(&["lint", "review"])
+    );
+    set("lint", ".claude/skills").await.unwrap();
+    // Cursor and GitHub Copilot read `.claude/skills` in the workspace and `~/.agents/skills` or
+    // `~/.claude/skills` globally, while Claude Code keeps one copy, so the agent that may load it
+    // twice decides the warning.
+    assert_eq!(
+        project.workspace().await.overlaps,
+        twice(&["lint", "review"])
     );
     organize(OrganizationChange::RemoveFromPreset {
         id: PresetId("default".to_owned()),
@@ -295,7 +308,7 @@ async fn a_skill_an_agent_reads_both_globally_and_in_the_workspace_is_marked() {
     })
     .await
     .unwrap();
-    assert_eq!(project.workspace().await.overlaps, [skill("lint")].into());
+    assert_eq!(project.workspace().await.overlaps, twice(&["lint"]));
     project.engine.shutdown().await.unwrap();
 }
 
@@ -326,6 +339,90 @@ async fn adding_a_workspace_leaves_directories_only_undetected_agents_read() {
     assert!(
         source.join("SKILL.md").exists(),
         "its sources are never touched"
+    );
+    project.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_skill_activates_into_an_agents_own_directory_alone() {
+    let project = Project::with(&["review"]).await;
+    // Kimi Code CLI reads `.agents/skills` and its own `.kimi-code/skills`, and keeps the own copy.
+    // It counts as detected through the registry's directory alone.
+    fs::create_dir_all(project.fixture.home.join(".agents/skills")).unwrap();
+    fs::create_dir_all(project.fixture.home.join(".kimi-code/skills")).unwrap();
+    for dir in [".agents/skills", ".kimi-code/skills"] {
+        fs::create_dir_all(project.dir(dir)).unwrap();
+    }
+    let workspace = project.add().await;
+    assert_eq!(
+        workspace.dirs,
+        dirs(&[".agents/skills", ".kimi-code/skills"])
+    );
+    project
+        .engine
+        .set_workspace_skill(
+            workspace.id.clone(),
+            skill("review"),
+            Some(WorkspaceTargets::Dirs(dirs(&[".kimi-code/skills"]))),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        project.states().await,
+        [row(".kimi-code/skills", "review", CopyState::Applied)]
+    );
+    assert!(
+        !project.dir(".agents/skills/review").exists(),
+        "a copy in the shared directory reaches every agent that reads it"
+    );
+    project.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_global_first_agent_hides_the_workspace_copy() {
+    let project = Project::with(&["notes"]).await;
+    // Cline ranks `~/.agents/skills` above its own `.cline/skills`, so the workspace copy is the
+    // one it ignores.
+    fs::create_dir_all(project.fixture.home.join(".agents/skills")).unwrap();
+    write_skill(&project.dir(".cline/skills"), "notes", LIBRARY);
+    project
+        .engine
+        .change_organization(OrganizationChange::SetTargets {
+            id: PresetId("default".to_owned()),
+            skill: skill("notes"),
+            targets: Targets::Agents(["cline".to_owned()].into()),
+        })
+        .await
+        .unwrap();
+    let workspace = project.add().await;
+    assert!(workspace.dirs.contains(".cline/skills"));
+    assert_eq!(
+        workspace.overlaps.get(&skill("notes")),
+        Some(&Overlap::Hidden)
+    );
+    project.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_workspace_first_agent_keeps_the_workspace_copy() {
+    let project = Project::with(&["lint"]).await;
+    // Kimi Code CLI ranks `.kimi-code/skills` above `~/.agents/skills`, so it loads the workspace
+    // copy and ignores your agents'.
+    fs::create_dir_all(project.fixture.home.join(".agents/skills")).unwrap();
+    write_skill(&project.dir(".kimi-code/skills"), "lint", LIBRARY);
+    project
+        .engine
+        .change_organization(OrganizationChange::SetTargets {
+            id: PresetId("default".to_owned()),
+            skill: skill("lint"),
+            targets: Targets::Agents(["kimi-code-cli".to_owned()].into()),
+        })
+        .await
+        .unwrap();
+    let workspace = project.add().await;
+    assert_eq!(
+        workspace.overlaps.get(&skill("lint")),
+        Some(&Overlap::Overrides)
     );
     project.engine.shutdown().await.unwrap();
 }

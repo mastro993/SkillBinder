@@ -161,14 +161,18 @@ pub(super) fn agent_fallback(agents: &[AgentOption], home: &str, route: Route) -
 mod tests {
     use super::super::agent_skills::UNIVERSAL;
     use super::*;
+    use skillbinder_proto::SameSlug;
 
     fn agent(id: &str, global: &str, detected: bool) -> AgentOption {
         AgentOption {
             id: id.to_owned(),
             display_name: id.to_owned(),
             workspace_skills_dir: ".agents/skills".to_owned(),
+            other_workspace_dirs: Vec::new(),
             global_skills_dir: Some(global.to_owned()),
             resolved_skills_dir: Some(global.to_owned()),
+            other_global_dirs: Vec::new(),
+            same_slug: SameSlug::Unknown,
             detected,
         }
     }

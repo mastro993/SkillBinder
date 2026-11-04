@@ -1,26 +1,101 @@
 use super::paths;
 use crate::{lifecycle::EngineConfig, logging::Logger};
 use serde::Deserialize;
-use skillbinder_proto::{AgentOption, AppError, AppResult, WorkspaceId};
+use skillbinder_proto::{AgentDir, AgentOption, AppError, AppResult, SameSlug, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
 
+mod directories;
+
 #[derive(Deserialize)]
 struct Registry {
-    agents: Vec<Agent>,
+    agents: Vec<RegistryAgent>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Agent {
+struct RegistryAgent {
     id: String,
     display_name: String,
     /// The upstream registry calls a workspace a project.
     #[serde(rename = "projectSkillsDir")]
     workspace_skills_dir: String,
     global_roots: Vec<String>,
+}
+/// A registry agent with every skill directory the reviewed overlay records for it. Its registry
+/// directories stay first on each side, so the global skill directory the app shows and detection
+/// do not change.
+struct Agent {
+    id: String,
+    display_name: String,
+    /// Its skill directory at the top of a workspace.
+    workspace_skills_dir: String,
+    /// The other workspace skill directories it reads, deduplicated in overlay order.
+    other_workspace_dirs: Vec<AgentDir>,
+    /// Its global skill directory templates, in registry order.
+    global_roots: Vec<String>,
+    /// The other global skill directory templates it reads, deduplicated in overlay order.
+    other_global_dirs: Vec<String>,
+    same_slug: SameSlug,
+    /// One ranking per surface a source gives, winner first, each tier holding directories it
+    /// leaves unranked against each other.
+    orders: Vec<Vec<Vec<Ranked>>>,
+}
+
+/// A directory an overlay order ranks: a workspace one relative to the folder, or a global one
+/// resolved as the app shows it, so both compare with the directories the workspace and the scan
+/// name.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum Ranked {
+    Workspace(String),
+    Global(String),
+}
+
+/// Which copy of one slug an agent loads, when a source ranks the two directories.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Loaded {
+    Workspace,
+    Global,
+}
+
+/// The reviewed load order of every agent, for the overlap mark.
+#[derive(Default)]
+pub(crate) struct Preferences {
+    orders: BTreeMap<String, Vec<Vec<Vec<Ranked>>>>,
+}
+impl Preferences {
+    /// Which of `workspace` and `global` the agent loads, when every surface that ranks both agrees:
+    /// `None` when no source ranks them, they share a tier, or the surfaces disagree.
+    pub(crate) fn loaded(&self, agent: &str, workspace: &str, global: &str) -> Option<Loaded> {
+        let workspace = Ranked::Workspace(workspace.to_owned());
+        let global = Ranked::Global(global.to_owned());
+        let mut loaded = None;
+        for order in self.orders.get(agent)? {
+            let (Some(workspace), Some(global)) = (tier(order, &workspace), tier(order, &global))
+            else {
+                continue;
+            };
+            if workspace == global {
+                return None;
+            }
+            let next = if workspace < global {
+                Loaded::Workspace
+            } else {
+                Loaded::Global
+            };
+            match loaded {
+                Some(seen) if seen != next => return None,
+                _ => loaded = Some(next),
+            }
+        }
+        loaded
+    }
+}
+/// The tier of `directory` in `order`, or `None` when it does not rank it.
+fn tier(order: &[Vec<Ranked>], directory: &Ranked) -> Option<usize> {
+    order.iter().position(|tier| tier.contains(directory))
 }
 pub(crate) struct Location {
     pub path: PathBuf,
@@ -50,7 +125,108 @@ fn registry() -> AppResult<Registry> {
     ))
     .map_err(|_| AppError::storage())
 }
-/// The agents' global skill directories, plus the direct skill directories of each workspace.
+/// Every registry agent with the directories the reviewed overlay adds to it.
+fn agents(config: &EngineConfig) -> AppResult<Vec<Agent>> {
+    let entries = directories::entries().map_err(|_| AppError::storage())?;
+    Ok(registry()?
+        .agents
+        .into_iter()
+        .map(|agent| {
+            let id = agent.id.clone();
+            merged(
+                agent,
+                entries.iter().filter(move |entry| entry.agent == id),
+                config,
+            )
+        })
+        .collect())
+}
+/// The reviewed load orders of every agent.
+pub(crate) fn preferences(config: &EngineConfig) -> AppResult<Preferences> {
+    Ok(Preferences {
+        orders: agents(config)?
+            .into_iter()
+            .map(|agent| (agent.id, agent.orders))
+            .filter(|(_, orders)| !orders.is_empty())
+            .collect(),
+    })
+}
+/// `agent` with the overlay entries of every surface it has.
+fn merged<'a>(
+    agent: RegistryAgent,
+    entries: impl Iterator<Item = &'a directories::Entry>,
+    config: &EngineConfig,
+) -> Agent {
+    let mut workspace_seen: BTreeSet<String> = [agent.workspace_skills_dir.clone()].into();
+    let mut global_seen: BTreeSet<String> = agent.global_roots.iter().cloned().collect();
+    let mut other_workspace_dirs = Vec::new();
+    let mut other_global_dirs = Vec::new();
+    let mut orders = Vec::new();
+    let mut same_slug = None;
+    for entry in entries {
+        for directory in &entry.workspace {
+            if workspace_seen.insert(directory.path.clone()) {
+                other_workspace_dirs.push(AgentDir {
+                    path: directory.path.clone(),
+                    role: directory.role,
+                });
+            }
+        }
+        for directory in &entry.global {
+            if global_seen.insert(directory.path.clone()) {
+                other_global_dirs.push(directory.path.clone());
+            }
+        }
+        same_slug = Some(same_slug.map_or(entry.same_slug, |seen| combine(seen, entry.same_slug)));
+        if let Some(order) = &entry.order {
+            orders.push(
+                order
+                    .iter()
+                    .map(|ranked| {
+                        ranked
+                            .iter()
+                            .filter_map(|path| ranked_dir(path, config))
+                            .collect()
+                    })
+                    .collect(),
+            );
+        }
+    }
+    Agent {
+        id: agent.id,
+        display_name: agent.display_name,
+        workspace_skills_dir: agent.workspace_skills_dir,
+        other_workspace_dirs,
+        global_roots: agent.global_roots,
+        other_global_dirs,
+        same_slug: same_slug.unwrap_or(SameSlug::Unknown),
+        orders,
+    }
+}
+/// A directory an overlay order names, as it compares with the workspace's and the app's: a
+/// relative path is a workspace directory, and a template or absolute path is a global one,
+/// resolved inside home like the directories activation writes. One outside home is never read,
+/// so it is left out.
+fn ranked_dir(path: &str, config: &EngineConfig) -> Option<Ranked> {
+    if !path.starts_with('~') && !path.starts_with('$') && !path.starts_with('/') {
+        return Some(Ranked::Workspace(path.to_owned()));
+    }
+    let expanded = expand(path, config)?;
+    let place = bounded(&expanded, &config.home).ok()?;
+    Some(Ranked::Global(place.canonical.display().to_string()))
+}
+/// The same-slug verdict for an agent whose surfaces disagree: one that may keep both copies wins
+/// over one that keeps a single copy, as the overlap warning does.
+fn combine(seen: SameSlug, next: SameSlug) -> SameSlug {
+    match (seen, next) {
+        (SameSlug::Both, _) | (_, SameSlug::Both) => SameSlug::Both,
+        (SameSlug::Unknown, _) | (_, SameSlug::Unknown) => SameSlug::Unknown,
+        (SameSlug::Precedence, _) | (_, SameSlug::Precedence) => SameSlug::Precedence,
+        (SameSlug::One, SameSlug::One) => SameSlug::One,
+    }
+}
+/// The agents' global skill directories and the direct skill directories of each workspace,
+/// including every directory the reviewed overlay records.
 pub(crate) fn locations(
     config: &EngineConfig,
     workspaces: &[(WorkspaceId, PathBuf)],
@@ -58,9 +234,9 @@ pub(crate) fn locations(
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
     let global_lock = crate::sources::lock::global_lock(config);
-    for agent in registry()?.agents {
+    for agent in agents(config)? {
         let own = global_dir(&agent, config);
-        for template in &agent.global_roots {
+        for template in agent.global_roots.iter().chain(&agent.other_global_dirs) {
             if let Some(path) = expand(template, config) {
                 let reading = Reading::Global {
                     own: own.as_ref() == Some(&path),
@@ -77,15 +253,27 @@ pub(crate) fn locations(
             }
         }
         for (id, boundary) in workspaces {
-            let path = boundary.join(&agent.workspace_skills_dir);
-            let reading = Reading::Workspace(id);
             let lock = crate::sources::lock::project_lock(boundary);
-            add(&mut combined, path, boundary, &agent, (reading, lock), log);
+            let dirs = std::iter::once(&agent.workspace_skills_dir)
+                .chain(agent.other_workspace_dirs.iter().map(|dir| &dir.path));
+            for dir in dirs {
+                add(
+                    &mut combined,
+                    boundary.join(dir),
+                    boundary,
+                    &agent,
+                    (Reading::Workspace(id), lock.clone()),
+                    log,
+                );
+            }
         }
     }
     Ok(combined.into_values().collect())
 }
-/// The distinct workspace skill directories of every registry agent, such as `.claude/skills`.
+/// The distinct workspace skill directories the registry itself names, such as `.claude/skills`.
+/// Directories only the reviewed overlay records are read by the scan and activation, but they do
+/// not decide which folders are agent folders: adding the home folder or forgetting a workspace at
+/// launch reads this.
 pub(crate) fn workspace_skill_dirs() -> AppResult<BTreeSet<String>> {
     Ok(registry()?
         .agents
@@ -114,31 +302,49 @@ pub(crate) fn global_skill_dirs(config: &EngineConfig) -> AppResult<BTreeSet<Pat
 /// Every registry agent, by display name, with the skill directories it reads and whether its
 /// global skill directory exists.
 pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>> {
-    let mut options: Vec<_> = registry()?
-        .agents
+    let mut options: Vec<_> = agents(config)?
         .into_iter()
         .map(|agent| {
             let global = global_dir(&agent, config);
-            let resolved = global.as_ref().map(|path| {
-                bounded(path, &config.home).map_or_else(|_| path.clone(), |place| place.canonical)
-            });
+            let resolved = global.as_ref().map(|path| resolved_dir(path, config));
             AgentOption {
                 // An agent counts only where the scan reads its directory: inside home.
                 detected: global
                     .as_ref()
                     .is_some_and(|path| path.is_dir() && bounded(path, &config.home).is_ok()),
                 global_skills_dir: global.map(|path| path.display().to_string()),
-                resolved_skills_dir: resolved.map(|path| path.display().to_string()),
+                resolved_skills_dir: resolved.clone(),
+                other_global_dirs: agent
+                    .other_global_dirs
+                    .iter()
+                    .filter_map(|template| expand(template, config))
+                    // Only directories the scan reads count: a system-wide one, such as
+                    // `/etc/codex/skills`, lies outside home.
+                    .filter_map(|path| bounded(&path, &config.home).ok())
+                    .map(|place| place.canonical.display().to_string())
+                    .filter(|path| resolved.as_deref() != Some(path.as_str()))
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect(),
                 id: agent.id,
                 display_name: agent.display_name,
                 workspace_skills_dir: agent.workspace_skills_dir,
+                other_workspace_dirs: agent.other_workspace_dirs,
+                same_slug: agent.same_slug,
             }
         })
         .collect();
     options.sort_by_cached_key(|option| (option.display_name.to_lowercase(), option.id.clone()));
     Ok(options)
 }
-/// An agent's global skill directory: its first global root that expands on this device.
+/// `path` with links inside home resolved, as copies name it.
+fn resolved_dir(path: &Path, config: &EngineConfig) -> String {
+    bounded(path, &config.home)
+        .map_or_else(|_| path.to_owned(), |place| place.canonical)
+        .display()
+        .to_string()
+}
+/// An agent's global skill directory: its first registry root that expands on this device.
 fn global_dir(agent: &Agent, config: &EngineConfig) -> Option<PathBuf> {
     agent
         .global_roots
@@ -254,35 +460,6 @@ fn expand(template: &str, config: &EngineConfig) -> Option<PathBuf> {
     let path = PathBuf::from(output);
     path.is_absolute().then_some(path)
 }
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn registry_has_79_agents_and_shared_reader_locations() -> Result<(), Box<dyn std::error::Error>>
-    {
-        let registry: Registry = serde_json::from_str(include_str!(
-            "../../../../fixtures/contracts/registry-79.json"
-        ))?;
-        assert_eq!(registry.agents.len(), 79);
-        let temp = tempfile::tempdir()?;
-        let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-        let workspaces = vec![(WorkspaceId::new(), temp.path().join("workspace"))];
-        let log = Logger::start(temp.path().join("logs"), &config.home)?;
-        let locations = locations(&config, &workspaces, &log)?;
-        assert_eq!(
-            locations
-                .iter()
-                .filter(|location| location.path == temp.path().join("workspace/.agents/skills"))
-                .count(),
-            1
-        );
-        assert!(locations.iter().any(|location| location.readers.len() > 1));
-        assert!(workspace_skill_dirs()?.contains(".agents/skills"));
-        assert_eq!(expand("${UNSET}/skills", &config), None);
-        assert_eq!(
-            expand("${UNSET:-~/.config}/skills", &config),
-            Some(config.home.join(".config/skills"))
-        );
-        Ok(())
-    }
-}
+mod tests;
