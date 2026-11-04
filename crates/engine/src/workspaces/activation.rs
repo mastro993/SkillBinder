@@ -54,7 +54,7 @@ pub(super) fn load(connection: &mut SqliteConnection) -> AppResult<BTreeMap<Stri
 }
 
 /// Adds `dirs` to workspace `id`'s agents and holds or, with `None`, drops `skills` there.
-pub(super) fn save(
+pub(crate) fn save(
     connection: &mut SqliteConnection,
     id: &WorkspaceId,
     dirs: &BTreeSet<String>,

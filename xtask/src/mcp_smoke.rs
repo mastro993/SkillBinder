@@ -193,10 +193,12 @@ pub(crate) fn run(mut args: impl Iterator<Item = OsString>) -> anyhow::Result<()
 }
 
 fn exercise_ui(rpc: &mut Rpc) -> anyhow::Result<()> {
+    // Create library leads to the review of the library's first import, prepared at once.
     for title in [
         "Keep sources separate",
         "Sync is optional",
         "Create your library",
+        "Import your skills",
     ] {
         rpc.tool("click_element", json!({"id":"onboarding-next"}))?;
         wait_tree(rpc, |tree| {

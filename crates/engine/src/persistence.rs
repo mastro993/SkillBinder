@@ -95,6 +95,9 @@ pub(crate) struct Journal {
     /// ones.
     #[serde(default)]
     pub records: Vec<RecordChange>,
+    /// Where an import makes its new skills active, saved with them.
+    #[serde(default)]
+    pub held: Vec<crate::imports::placement::Held>,
 }
 /// One skill's record before and after a journaled change; `None` is no record.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -317,6 +320,7 @@ impl State {
             for record in &journal.skills {
                 save_skill(connection, record)?;
             }
+            crate::imports::placement::save(connection, &journal.held)?;
             if let Some(outcome) = &journal.outcome {
                 record_outcome(connection, outcome)?;
             }

@@ -8,7 +8,9 @@
 
 use crate::support::{Fixture, write_skill};
 use skillbinder_engine::Engine;
-use skillbinder_proto::{CopyState, LibrarySnapshot, SkillId, Workspace};
+use skillbinder_proto::{
+    CopyState, LibrarySnapshot, OrganizationChange, PresetId, SkillId, Workspace,
+};
 use std::{
     collections::BTreeSet,
     fs,
@@ -35,6 +37,18 @@ impl Project {
         }
         if !slugs.is_empty() {
             import_found(&fixture, &engine).await;
+            // Importing made the skills active for Claude Code, where they were found. These
+            // journeys start with none active and Claude Code's copies in place, unmanaged.
+            engine
+                .change_organization(OrganizationChange::RemoveFromPreset {
+                    id: PresetId("default".to_owned()),
+                    skills: slugs.iter().map(|slug| skill(slug)).collect(),
+                })
+                .await
+                .unwrap();
+            for slug in slugs {
+                write_skill(&fixture.home.join(".claude/skills"), slug, LIBRARY);
+            }
         }
         let folder = fs::canonicalize(&fixture.workspace).unwrap();
         Self {

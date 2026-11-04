@@ -20,6 +20,10 @@ impl Shutdown {
     pub(crate) fn cancelled(&self) -> bool {
         self.0.load(Ordering::Acquire)
     }
+    /// The flag a scan run on the engine worker checks, so a quit stops it.
+    pub(crate) fn flag(&self) -> &AtomicBool {
+        &self.0
+    }
     /// The failure an operation stopped by shutdown reports.
     pub(crate) fn error() -> AppError {
         AppError::new(

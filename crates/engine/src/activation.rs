@@ -162,6 +162,13 @@ impl State {
         }
     }
 
+    /// Brings the copies of newly imported skills in line where the import made them active:
+    /// matching copies are adopted, the replacements the user confirmed are written, and failures
+    /// wait for the next scan.
+    pub(crate) fn apply_imported(&self, slugs: BTreeSet<String>) {
+        self.quietly(Scope::Slugs(slugs));
+    }
+
     /// Tries again every directory that may not hold what it should, as each scan does: it
     /// retries failures, writes the copies a newly detected agent needs, and notices copies that
     /// were deleted.
@@ -250,6 +257,40 @@ impl State {
     fn library_content(&self, slug: &str) -> AppResult<payload::Inspection> {
         payload::inspect(&self.skill_dir(&SkillId(slug.to_owned()))?)
     }
+}
+
+/// The content of the copy at `target` that SkillBinder could adopt or replace, or `None` for
+/// nothing there or anything it never adopts, such as a link or a Git checkout.
+pub(crate) fn held_copy(target: &Path) -> Option<String> {
+    match copies::probe(target) {
+        Disk::Copy(digest) => Some(digest),
+        Disk::Absent | Disk::Other => None,
+    }
+}
+
+/// Records each copy the user confirmed replacing, by directory and slug, as managed with the
+/// content it held when they confirmed and held for its holder, so the next pass rewrites it with
+/// the library's content, or asks once it no longer holds what they confirmed.
+pub(crate) fn confirm_replacements(
+    connection: &mut diesel::SqliteConnection,
+    replaced: &[(Pair, String, Option<Holder>)],
+) -> AppResult<()> {
+    let rows: Vec<_> = replaced
+        .iter()
+        .map(|(pair, digest, _)| {
+            let row = Row {
+                digest: Some(digest.clone()),
+                issue: None,
+            };
+            (pair.clone(), Some(row))
+        })
+        .collect();
+    let holders: Vec<_> = replaced
+        .iter()
+        .map(|(pair, _, holder)| (pair.clone(), holder.clone()))
+        .collect();
+    store::save(connection, &rows)?;
+    store::claim(connection, &holders)
 }
 
 /// The copy records a workspace's removal passes to another holder, and those it forgets.

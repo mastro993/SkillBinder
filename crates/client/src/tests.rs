@@ -16,7 +16,8 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
     ] {
         engine.set_onboarding(step).await?;
     }
-    engine.complete_onboarding().await?;
+    engine.create_library().await?;
+    engine.complete_onboarding(None).await?;
     let original = engine.snapshot().await?;
     let (snapshots, _) = watch::channel(Arc::new(original.clone()));
     let shared = Shared {

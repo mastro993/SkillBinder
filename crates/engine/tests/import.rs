@@ -19,7 +19,11 @@ async fn onboarding_requires_each_step_and_survives_restart() {
     let fixture = Fixture::new();
     let engine = fixture.open();
     assert_eq!(
-        category(engine.complete_onboarding().await),
+        category(engine.create_library().await),
+        ErrorCategory::Validation
+    );
+    assert_eq!(
+        category(engine.complete_onboarding(None).await),
         ErrorCategory::Validation
     );
     assert_eq!(
@@ -41,13 +45,34 @@ async fn onboarding_requires_each_step_and_survives_restart() {
         .await
         .unwrap();
     engine.set_onboarding(OnboardingStep::Ready).await.unwrap();
-    let complete = engine.complete_onboarding().await.unwrap();
+    let created = engine.create_library().await.unwrap();
+    assert_eq!(created.step, OnboardingStep::Import);
+    assert!(Path::new(&created.library_path).join("skills").is_dir());
+    // Once the library exists, its creation and the earlier steps are done.
+    assert_eq!(
+        engine.create_library().await.unwrap().library_path,
+        created.library_path
+    );
+    assert_eq!(
+        engine
+            .set_onboarding(OnboardingStep::Boundaries)
+            .await
+            .unwrap()
+            .step,
+        OnboardingStep::Import
+    );
+    engine.shutdown().await.unwrap();
+    let engine = fixture.open();
+    assert_eq!(
+        engine.bootstrap().await.unwrap().step,
+        OnboardingStep::Import
+    );
+    let complete = engine.complete_onboarding(None).await.unwrap();
     assert_eq!(complete.step, OnboardingStep::Complete);
     assert_eq!(
-        engine.complete_onboarding().await.unwrap().library_path,
-        complete.library_path
+        engine.complete_onboarding(None).await.unwrap().step,
+        OnboardingStep::Complete
     );
-    assert!(Path::new(&complete.library_path).join("skills").is_dir());
     engine.shutdown().await.unwrap();
     let engine = fixture.open();
     assert_eq!(

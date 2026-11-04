@@ -337,18 +337,7 @@ pub(crate) fn save_organization(
     }
     for skill in &library.skills {
         for (preset, targets) in &skill.presets {
-            let agents = match targets {
-                Targets::AllAgents => None,
-                Targets::Agents(agents) => Some(to_json(agents)?),
-            };
-            diesel::insert_into(preset_skills::table)
-                .values((
-                    preset_skills::preset_id.eq(preset.as_str()),
-                    preset_skills::slug.eq(skill.id.as_str()),
-                    preset_skills::agents.eq(agents),
-                ))
-                .execute(connection)
-                .map_err(storage)?;
+            hold_in_preset(connection, preset, skill.id.as_str(), targets)?;
         }
         if let Some(folder) = &skill.folder_id {
             diesel::update(skills::table.find(skill.id.as_str()))
@@ -359,6 +348,32 @@ pub(crate) fn save_organization(
     }
     let active = to_json(&library.active_preset)?;
     crate::persistence::put_setting(connection, ACTIVE_PRESET, &active)
+}
+
+/// Holds `slug` in `preset` for `targets`, replacing what the preset held it for.
+pub(crate) fn hold_in_preset(
+    connection: &mut SqliteConnection,
+    preset: &PresetId,
+    slug: &str,
+    targets: &Targets,
+) -> AppResult<()> {
+    let storage = |_| AppError::storage();
+    let agents = match targets {
+        Targets::AllAgents => None,
+        Targets::Agents(agents) => Some(to_json(agents)?),
+    };
+    diesel::delete(preset_skills::table.find((preset.as_str(), slug)))
+        .execute(connection)
+        .map_err(storage)?;
+    diesel::insert_into(preset_skills::table)
+        .values((
+            preset_skills::preset_id.eq(preset.as_str()),
+            preset_skills::slug.eq(slug),
+            preset_skills::agents.eq(agents),
+        ))
+        .execute(connection)
+        .map_err(storage)?;
+    Ok(())
 }
 
 fn to_json(value: &impl Serialize) -> AppResult<String> {

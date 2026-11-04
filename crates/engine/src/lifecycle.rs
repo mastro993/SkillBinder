@@ -1,5 +1,5 @@
 use crate::{persistence, worker::State};
-use skillbinder_proto::{AppError, AppResult, Bootstrap, ErrorCategory, OnboardingStep};
+use skillbinder_proto::{AppError, AppResult, Bootstrap, ErrorCategory, OnboardingStep, PlanId};
 use std::{collections::BTreeMap, path::PathBuf};
 
 /// Filesystem boundaries captured once at application startup.
@@ -42,12 +42,13 @@ impl State {
             logs_path: self.config.data_dir.join("logs").display().to_string(),
         })
     }
+    /// Moves between the steps before the library exists; once it does, they are done.
     pub(crate) fn set_onboarding(&mut self, next: OnboardingStep) -> AppResult<Bootstrap> {
         let current = self.bootstrap()?;
-        if current.step == OnboardingStep::Complete {
+        if current.step >= OnboardingStep::Import {
             return Ok(current);
         }
-        if next == OnboardingStep::Complete || (next as u8) > (current.step as u8) + 1 {
+        if next >= OnboardingStep::Import || (next as u8) > (current.step as u8) + 1 {
             return Err(AppError::validation(
                 "Complete the current setup step first.",
             ));
@@ -64,9 +65,10 @@ impl State {
         self.set_setting("onboarding", &next)?;
         self.bootstrap()
     }
-    pub(crate) fn complete_onboarding(&mut self) -> AppResult<Bootstrap> {
+    /// Creates the library at the Ready step, then onboarding reviews its first import.
+    pub(crate) fn create_library(&mut self) -> AppResult<Bootstrap> {
         let boot = self.bootstrap()?;
-        if boot.step == OnboardingStep::Complete {
+        if boot.step >= OnboardingStep::Import {
             return Ok(boot);
         }
         if boot.step != OnboardingStep::Ready {
@@ -96,6 +98,24 @@ impl State {
             persistence::sync_directory(&self.config.data_dir)?;
         }
         self.catch_up();
+        self.set_setting("onboarding", &OnboardingStep::Import)?;
+        self.bootstrap()
+    }
+    /// Finishes onboarding once the library exists, first applying the reviewed first import, if
+    /// any; a failed import leaves onboarding at its import review.
+    pub(crate) fn complete_onboarding(&mut self, plan: Option<PlanId>) -> AppResult<Bootstrap> {
+        let boot = self.bootstrap()?;
+        if boot.step == OnboardingStep::Complete {
+            return Ok(boot);
+        }
+        if boot.step != OnboardingStep::Import {
+            return Err(AppError::validation(
+                "Create the library before finishing setup.",
+            ));
+        }
+        if let Some(plan) = plan {
+            self.apply_import(plan)?;
+        }
         self.set_setting("onboarding", &OnboardingStep::Complete)?;
         self.bootstrap()
     }

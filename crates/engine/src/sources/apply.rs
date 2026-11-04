@@ -193,6 +193,7 @@ impl State {
             skills: vec![SavedSkill::new(slug.to_owned(), &saved, None, record, None)],
             outcome: None,
             records,
+            held: Vec::new(),
         })
     }
 }

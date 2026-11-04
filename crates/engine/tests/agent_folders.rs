@@ -113,7 +113,8 @@ async fn ready_with(
     ] {
         engine.set_onboarding(step).await.unwrap();
     }
-    engine.complete_onboarding().await.unwrap();
+    engine.create_library().await.unwrap();
+    engine.complete_onboarding(None).await.unwrap();
     engine
 }
 

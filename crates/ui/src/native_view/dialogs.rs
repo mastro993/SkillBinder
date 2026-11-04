@@ -78,19 +78,15 @@ impl NativeView {
     ) -> Dialog {
         let busy = self.busy;
         let plan_id = plan.id.clone();
-        let mut body = div().flex().flex_col().gap_2().child(format!(
-            "Review {} selected sources before copying them into the managed library.",
-            plan.items.len()
-        ));
-        for item in &plan.items {
-            body = body.child(format!(
-                "{} — {:?} — {} → {} ({} bytes)",
-                item.slug, item.decision, item.source, item.destination, item.total_bytes
-            ));
-            for message in &item.messages {
-                body = body.child(format!("{:?}: {}", message.status, message.message));
-            }
-        }
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(format!(
+                "Review {} selected sources before copying them into the managed library.",
+                plan.items.len()
+            ))
+            .child(self.import_review(plan));
         dialog
             .title(self.dialog_title("Review import", cx))
             .child(body)
