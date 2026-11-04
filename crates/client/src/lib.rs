@@ -13,6 +13,7 @@ use std::{
 use tokio::{runtime::Handle, sync::watch};
 
 mod activation;
+mod onboarding;
 
 /// How long a source check holds before the next refresh checks the skill again.
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
@@ -137,21 +138,6 @@ impl Client {
             }
             Err(error) => Err(error),
         }
-    }
-    /// Rechecks prerequisites.
-    pub async fn bootstrap(&self) -> AppResult<Bootstrap> {
-        self.refresh_preserving_outcome(self.shared.engine.bootstrap().await)
-            .await
-    }
-    /// Advances or revisits an allowed onboarding step.
-    pub async fn set_onboarding(&self, step: OnboardingStep) -> AppResult<Bootstrap> {
-        self.refresh_preserving_outcome(self.shared.engine.set_onboarding(step).await)
-            .await
-    }
-    /// Creates the local library atomically.
-    pub async fn complete_onboarding(&self) -> AppResult<Bootstrap> {
-        self.refresh_preserving_outcome(self.shared.engine.complete_onboarding().await)
-            .await
     }
     /// Issues a capability from native directory selection.
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {

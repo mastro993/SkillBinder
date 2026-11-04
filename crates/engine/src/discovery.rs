@@ -9,7 +9,7 @@ use crate::{lifecycle::EngineConfig, logging::Logger, payload::Inspection};
 use skillbinder_proto::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex, MutexGuard,
         atomic::{AtomicBool, Ordering},
@@ -27,6 +27,30 @@ pub(crate) struct ImportSource {
     /// sorted.
     pub locks: Vec<PathBuf>,
 }
+
+/// A found skill chosen for import: the version it imports, and where the scan found the skill
+/// across all its versions, which is where importing makes it active.
+pub(crate) struct Selected {
+    pub id: CandidateId,
+    pub source: ImportSource,
+    /// Registry identities of the agents whose own global skill directory held a version.
+    pub agents: BTreeSet<String>,
+    /// The workspaces whose scan found a version.
+    pub workspaces: BTreeSet<WorkspaceId>,
+    /// Each skill folder the scan found a version in, as [`folder`] names it.
+    pub folders: BTreeSet<PathBuf>,
+}
+
+/// Skill folder `path` with its directory's links resolved but not its own, so a linked skill
+/// folder never stands for the folder it leads to. `None` when its directory cannot be resolved.
+pub(crate) fn folder(path: &Path) -> Option<PathBuf> {
+    let directory = std::fs::canonicalize(path.parent()?).ok()?;
+    Some(directory.join(path.file_name()?))
+}
+
+/// Where the scan found each key's versions: the agents and workspaces reading them, and the
+/// skill folders holding them.
+type Places = (BTreeSet<String>, BTreeSet<WorkspaceId>, BTreeSet<PathBuf>);
 
 /// The library skills a scan marks found skills with: by content, which blocked payloads never
 /// match, and by normalized slug, whatever the content.
@@ -52,6 +76,65 @@ impl Found {
             sources: BTreeMap::new(),
         }
     }
+
+    /// The found skills `ids` choose, each with where the scan found any of its versions.
+    pub(crate) fn selected(&self, ids: &[CandidateId]) -> AppResult<Vec<Selected>> {
+        if self.snapshot.error.is_some() {
+            return Err(AppError::stale(
+                "Run a complete scan before preparing an import.",
+            ));
+        }
+        if ids.is_empty()
+            || ids.len() > MAX_IMPORT
+            || ids.iter().collect::<BTreeSet<_>>().len() != ids.len()
+        {
+            return Err(AppError::validation(
+                "Choose between 1 and 500 distinct candidates.",
+            ));
+        }
+        let mut found: BTreeMap<&str, Places> = BTreeMap::new();
+        for candidate in &self.snapshot.candidates {
+            let (agents, workspaces, folders) = found.entry(candidate.key.as_str()).or_default();
+            for location in &candidate.locations {
+                agents.extend(location.global_agents.iter().cloned());
+                workspaces.extend(location.workspaces.iter().cloned());
+                folders.extend(folder(Path::new(&location.display_path)));
+            }
+        }
+        ids.iter()
+            .map(|id| {
+                let gone = || AppError::stale("A selected skill is no longer found. Choose again.");
+                let source = self.sources.get(id).ok_or_else(gone)?;
+                let key = self
+                    .snapshot
+                    .candidates
+                    .iter()
+                    .find(|candidate| &candidate.id == id)
+                    .map(|candidate| candidate.key.as_str())
+                    .ok_or_else(gone)?;
+                let (agents, workspaces, folders) = found.get(key).cloned().unwrap_or_default();
+                Ok(Selected {
+                    id: id.clone(),
+                    source: source.clone(),
+                    agents,
+                    workspaces,
+                    folders,
+                })
+            })
+            .collect()
+    }
+}
+
+/// Scans only the agents' global skill directories, at once on the calling thread, as first boot
+/// does before any workspace exists.
+pub(crate) fn scan_global(
+    config: &EngineConfig,
+    library: &LibraryIndex,
+    cancel: &AtomicBool,
+    log: &Logger,
+) -> AppResult<Found> {
+    let locations = registry::locations(config, &[], log)?;
+    traversal::scan(locations, library, cancel, log)
 }
 
 #[derive(Default)]
@@ -113,32 +196,14 @@ impl Scans {
             .collect())
     }
 
-    pub(crate) fn selected(
-        &self,
-        ids: &[CandidateId],
-    ) -> AppResult<Vec<(CandidateId, ImportSource)>> {
+    /// The found skills `ids` choose in the last scan, which must have completed.
+    pub(crate) fn selected(&self, ids: &[CandidateId]) -> AppResult<Vec<Selected>> {
         let state = self.lock()?;
         let found = state
             .last
             .as_ref()
-            .filter(|found| found.snapshot.error.is_none())
             .ok_or_else(|| AppError::stale("Run a complete scan before preparing an import."))?;
-        if ids.is_empty()
-            || ids.len() > MAX_IMPORT
-            || ids.iter().collect::<BTreeSet<_>>().len() != ids.len()
-        {
-            return Err(AppError::validation(
-                "Choose between 1 and 500 distinct candidates.",
-            ));
-        }
-        ids.iter()
-            .map(|id| {
-                let source = found.sources.get(id).ok_or_else(|| {
-                    AppError::stale("A selected skill is no longer found. Choose again.")
-                })?;
-                Ok((id.clone(), source.clone()))
-            })
-            .collect()
+        found.selected(ids)
     }
 
     /// Starts a scan. With `replace`, a running scan is cancelled and replaced; without it, a

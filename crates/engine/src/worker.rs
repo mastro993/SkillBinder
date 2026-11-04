@@ -23,6 +23,7 @@ use std::{
 use tokio::sync::oneshot;
 
 mod activation;
+mod onboarding;
 mod sources;
 
 const DATABASE: &str = "skillbinder.db";
@@ -187,22 +188,6 @@ impl Engine {
         }
         Ok(())
     }
-    /// Rechecks prerequisites and persisted onboarding progress.
-    pub async fn bootstrap(&self) -> AppResult<Bootstrap> {
-        self.call(|state| {
-            state.git = Git::discover(state.shutdown.clone()).ok();
-            state.bootstrap()
-        })
-        .await
-    }
-    /// Persists one legal onboarding transition.
-    pub async fn set_onboarding(&self, step: OnboardingStep) -> AppResult<Bootstrap> {
-        self.call(move |state| state.set_onboarding(step)).await
-    }
-    /// Atomically creates the local library at the final onboarding step.
-    pub async fn complete_onboarding(&self) -> AppResult<Bootstrap> {
-        self.call(State::complete_onboarding).await
-    }
     /// Captures state from the durable worker and the independent scan owner.
     pub async fn snapshot(&self) -> AppResult<AppSnapshot> {
         self.call(State::snapshot).await
@@ -322,7 +307,7 @@ impl Engine {
 impl State {
     /// The digest and slug of each library skill, which put found skills in library. A blocked
     /// library skill marks nothing.
-    fn library_index(&self) -> AppResult<LibraryIndex> {
+    pub(crate) fn library_index(&self) -> AppResult<LibraryIndex> {
         let (library, details) =
             crate::library_store::load(&mut self.database.borrow_mut(), &self.log)?;
         let mut index = LibraryIndex::default();

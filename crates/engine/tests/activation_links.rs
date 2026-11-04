@@ -15,7 +15,7 @@ mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    CopyState, LibrarySnapshot, OnboardingStep, OrganizationChange, PresetId, SkillId,
+    CopyState, LibrarySnapshot, OnboardingStep, OrganizationChange, PresetId, SkillId, Targets,
 };
 use std::{fs, os::unix::fs::symlink, path::Path};
 use support::{scan, write_skill};
@@ -32,7 +32,8 @@ async fn imported(home: &Path, data: &Path) -> Engine {
     ] {
         engine.set_onboarding(step).await.unwrap();
     }
-    engine.complete_onboarding().await.unwrap();
+    engine.create_library().await.unwrap();
+    engine.complete_onboarding(None).await.unwrap();
     let ids = scan(&engine)
         .await
         .candidates
@@ -44,12 +45,21 @@ async fn imported(home: &Path, data: &Path) -> Engine {
     engine
 }
 
+/// Holds `review` for all your agents, or for none. Importing it made it active only for the
+/// universal agents, whose directory held it.
 fn membership(add: bool) -> OrganizationChange {
-    let (id, skills) = (PresetId("default".into()), vec![SkillId("review".into())]);
+    let (id, skill) = (PresetId("default".into()), SkillId("review".into()));
     if add {
-        OrganizationChange::AddToPreset { id, skills }
+        OrganizationChange::SetTargets {
+            id,
+            skill,
+            targets: Targets::AllAgents,
+        }
     } else {
-        OrganizationChange::RemoveFromPreset { id, skills }
+        OrganizationChange::RemoveFromPreset {
+            id,
+            skills: vec![skill],
+        }
     }
 }
 

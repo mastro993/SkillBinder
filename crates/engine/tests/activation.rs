@@ -39,7 +39,7 @@ impl Agents {
         for slug in slugs {
             fixture.skill(slug, "Library version");
         }
-        fixture.register(&engine).await;
+        let workspace = fixture.register(&engine).await;
         let ids = fixture
             .scan(&engine)
             .await
@@ -49,6 +49,9 @@ impl Agents {
             .collect();
         let plan = engine.prepare_import(ids, false).await.unwrap();
         engine.apply_import(plan.id).await.unwrap();
+        // Importing made the skills active in the workspace they were found in; these journeys
+        // start with none active, so the workspace goes and leaves its copies unmanaged.
+        engine.remove_workspace(workspace.id).await.unwrap();
         Self {
             fixture,
             engine,

@@ -1,5 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use super::*;
+use crate::imports::placement::Held;
+use skillbinder_proto::{Preset, PresetId, WorkspaceId};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 fn fixture() -> (tempfile::TempDir, State, Journal) {
@@ -58,8 +60,44 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
             existing: vec![],
         }),
         records,
+        held: held(),
     };
     (directory, state, journal)
+}
+/// An import's activations: `skill-0` for Claude Code in the Default preset, with a confirmed
+/// replacement there, and in a workspace removed meanwhile, whose entries recovery skips.
+fn held() -> Vec<Held> {
+    use crate::imports::placement::Replaced;
+    let gone = WorkspaceId("removed".into());
+    let slug = || "skill-0".to_owned();
+    vec![
+        Held::Preset {
+            preset: PresetId(Preset::DEFAULT_ID.into()),
+            slug: slug(),
+            agents: ["claude-code".to_owned()].into(),
+        },
+        Held::Workspace {
+            workspace: gone.clone(),
+            slug: slug(),
+            dirs: [".claude/skills".to_owned()].into(),
+        },
+        Held::Replaced {
+            directory: "/home/.claude/skills".into(),
+            slug: slug(),
+            copy: Replaced {
+                digest: "theirs".into(),
+                workspace: None,
+            },
+        },
+        Held::Replaced {
+            directory: "/removed/.claude/skills".into(),
+            slug: slug(),
+            copy: Replaced {
+                digest: "theirs".into(),
+                workspace: Some((gone, ".claude/skills".into())),
+            },
+        },
+    ]
 }
 fn inject(points: &[(&'static str, bool)]) {
     FAULTS.with(|faults| *faults.borrow_mut() = points.iter().copied().collect());
@@ -105,6 +143,31 @@ fn assert_result(state: &State, applied: bool) {
         )
     };
     assert_eq!(details, 2 * i64::from(applied));
+    let (presets, copies): (Vec<(String, Option<String>)>, Vec<String>) = {
+        let database = &mut *state.database.borrow_mut();
+        (
+            crate::schema::preset_skills::table
+                .select((
+                    crate::schema::preset_skills::slug,
+                    crate::schema::preset_skills::agents,
+                ))
+                .load(database)
+                .unwrap(),
+            crate::schema::managed_copies::table
+                .select(crate::schema::managed_copies::directory)
+                .load(database)
+                .unwrap(),
+        )
+    };
+    if applied {
+        assert_eq!(
+            presets,
+            [("skill-0".to_owned(), Some(r#"["claude-code"]"#.to_owned()))]
+        );
+        assert_eq!(copies, ["/home/.claude/skills"]);
+    } else {
+        assert_eq!((presets.len(), copies.len()), (0, 0));
+    }
     assert_eq!(outcomes, i64::from(applied));
     assert_eq!(consumed, i64::from(applied));
     let outcome = state.setting::<ImportOutcome>("import_outcome").unwrap();

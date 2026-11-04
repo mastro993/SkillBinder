@@ -112,6 +112,7 @@ pub(crate) async fn prepare(engine: &Engine) -> anyhow::Result<()> {
     ] {
         engine.set_onboarding(step).await?;
     }
-    engine.complete_onboarding().await?;
+    engine.create_library().await?;
+    engine.complete_onboarding(None).await?;
     Ok(())
 }

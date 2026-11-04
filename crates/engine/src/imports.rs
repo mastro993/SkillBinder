@@ -1,5 +1,9 @@
+mod first;
+pub(crate) mod placement;
+
 use crate::{
-    discovery::ImportSource,
+    discovery::registry,
+    discovery::{ImportSource, Selected},
     library::normalized,
     library_store::SavedSkill,
     payload::{self, Inspection},
@@ -23,6 +27,9 @@ struct Prepared {
     /// Where each row's skill was published, as its lock file recorded at review.
     #[serde(default)]
     origins: Vec<Option<SkillSource>>,
+    /// Where each row's skill becomes active; a plan stored before imports activated has none.
+    #[serde(default)]
+    placements: Vec<placement::Placement>,
 }
 impl State {
     pub(crate) fn prepare_import(
@@ -34,13 +41,16 @@ impl State {
         let selected = self.scans.selected(&ids)?;
         self.prepare_reviewed(selected, acknowledge_invalid)
     }
-    /// Re-inspects selected sources into an immutable review plan.
+    /// Re-inspects selected sources into an immutable review plan, with where each new skill
+    /// becomes active and the copies of other versions it replaces there.
     fn prepare_reviewed(
         &mut self,
-        selected: Vec<(CandidateId, ImportSource)>,
+        selected: Vec<Selected>,
         acknowledge_invalid: bool,
     ) -> AppResult<ImportPlan> {
         let (library, revision) = self.revised_library()?;
+        let agents = registry::agent_options(&self.config)?;
+        let workspaces = self.workspaces_for(&library, &agents)?;
         // Slugs by normalized name, so names that differ only in case collide, and by digest.
         let mut names: BTreeMap<String, SkillId> = BTreeMap::new();
         let mut digests: BTreeMap<String, SkillId> = BTreeMap::new();
@@ -56,8 +66,10 @@ impl State {
         let mut items = Vec::new();
         let mut sources = Vec::new();
         let mut origins = Vec::new();
-        for (candidate_id, source) in selected {
-            let inspection = reinspect(&source)?;
+        let mut placements = Vec::new();
+        for found in selected {
+            let (candidate_id, source) = (found.id.clone(), &found.source);
+            let inspection = reinspect(source)?;
             if inspection.status == ValidationStatus::Blocked {
                 return Err(AppError::validation("Blocked payloads cannot be imported."));
             }
@@ -91,17 +103,26 @@ impl State {
                     (id, ImportDecision::NewSkill)
                 }
             };
+            // A skill already in library stays where it is active; only a new one is placed.
+            let placement = match decision {
+                ImportDecision::NewSkill => {
+                    placement::place(skill_id.as_str(), digest, &found, &agents, &workspaces)
+                }
+                ImportDecision::Existing => placement::Placement::default(),
+            };
             items.push(ImportItem {
                 candidate_id,
                 destination: format!("skills/{skill_id}"),
                 skill_id,
                 slug: inspection.slug.clone(),
-                source: source.display_path,
+                source: source.display_path.clone(),
                 decision,
                 validation: inspection.status,
                 messages: inspection.messages.clone(),
                 total_bytes: inspection.manifest.total_bytes(),
+                replaces: placement.replaced.keys().cloned().collect(),
             });
+            placements.push(placement);
             origins.push(crate::sources::lock::source(
                 &source.locks,
                 &inspection.slug,
@@ -118,6 +139,7 @@ impl State {
             review: review.clone(),
             sources,
             origins,
+            placements,
         };
         diesel::insert_into(operation_plans::table)
             .values((
@@ -154,7 +176,9 @@ impl State {
         if persistence::now() >= prepared.review.expires_at {
             return Err(AppError::stale("Import plan expired. Review it again."));
         }
-        if self.revised_library()?.1 != prepared.review.revision {
+        // The revision covers the active preset, so the one at review is still active.
+        let (library, revision) = self.revised_library()?;
+        if revision != prepared.review.revision {
             return Err(AppError::stale("The library changed after import review."));
         }
         for (item, inspection) in prepared.review.items.iter().zip(&prepared.sources) {
@@ -207,13 +231,18 @@ impl State {
             existing: Vec::new(),
         };
         let mut origins = prepared.origins.iter();
+        let mut placements = prepared.placements.iter();
         let mut records = Vec::new();
+        let mut held = Vec::new();
         for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
             let origin = origins.next().cloned().flatten();
+            let placement = placements.next().cloned().unwrap_or_default();
             if item.decision == ImportDecision::Existing {
                 outcome.existing.push(item.skill_id.clone());
                 continue;
             }
+            let slug = item.skill_id.as_str();
+            held.extend(placement::held(&library.active_preset, slug, placement));
             let record = Record::of(source, origin);
             records.push(RecordChange {
                 slug: item.skill_id.to_string(),
@@ -241,11 +270,14 @@ impl State {
             skills,
             outcome: Some(outcome.clone()),
             records,
+            held,
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);
         }
         result?;
+        // The skills are saved where they are active; their copies follow.
+        self.apply_imported(outcome.imported.iter().map(|id| id.0.clone()).collect());
         Ok(outcome)
     }
 }

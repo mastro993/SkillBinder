@@ -16,7 +16,10 @@ pub enum OnboardingStep {
     SyncChoice,
     /// Final creation confirmation.
     Ready,
-    /// Atomic local library initialization completed.
+    /// The library exists; review importing the skills found in your agents' global skill
+    /// directories, or skip it.
+    Import,
+    /// Onboarding finished: the library exists, and its first import was applied or skipped.
     Complete,
 }
 /// Bootstrap result used before enabling product screens.

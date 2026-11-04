@@ -9,6 +9,7 @@ mod discovery;
 mod discovery_versions;
 mod folder_reorder;
 mod hover_scroll;
+mod import_review;
 mod library;
 mod library_copies;
 mod library_dates;
@@ -23,6 +24,7 @@ mod menu;
 mod native_test;
 mod navigation;
 mod onboarding;
+mod onboarding_import;
 mod preset_activation;
 mod preset_colors;
 mod preset_dialogs;
@@ -95,6 +97,10 @@ enum Effect {
     None,
     CloseDialog,
     Plan(ImportPlan),
+    /// Onboarding's review of the library's first import, or `None` with nothing to import.
+    FirstImport(Option<ImportPlan>),
+    /// Onboarding's first import failed, so its review is prepared again before importing.
+    FirstImportFailed(AppError),
     DeletePreview(DeletePreview),
     Updated(UpdateOutcome),
     /// A skill was reinstalled, so its page shows its restored content.
@@ -120,6 +126,8 @@ pub struct NativeView {
     /// The keys of the found skills whose versions Discovery lists.
     expanded_skills: BTreeSet<String>,
     acknowledge_invalid: bool,
+    /// Onboarding's review of the library's first import, once prepared.
+    first_import: Option<onboarding_import::FirstImport>,
     /// The open context menu.
     menu: Option<menu::OpenMenu>,
     /// Inline preset name editing in the sidebar.
@@ -144,7 +152,8 @@ pub struct NativeView {
     sections_moving: BTreeSet<SidebarSection>,
     /// Scroll position of the sidebar's preset, workspace, and agent sections.
     sidebar_scroll: hover_scroll::HoverScroll,
-    /// Scroll position of the page, whose scrollbar shows while the pointer is over it.
+    /// Scroll position of the page, or of onboarding's import review, whose scrollbar shows while
+    /// the pointer is over it.
     content_scroll: hover_scroll::HoverScroll,
     appearance: Appearance,
     library_view: LibraryView,
@@ -261,6 +270,7 @@ impl NativeView {
             version_choices: BTreeMap::new(),
             expanded_skills: BTreeSet::new(),
             acknowledge_invalid: false,
+            first_import: None,
             menu: None,
             preset_edit: None,
             preset_reorder: RowReorder::default().pinned(1),

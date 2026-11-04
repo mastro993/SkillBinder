@@ -112,6 +112,11 @@ pub struct ImportItem {
     pub messages: Vec<ValidationMessage>,
     /// Total copied bytes.
     pub total_bytes: u64,
+    /// The skill directories, as [`crate::ManagedCopy::directory`] names them, whose copy of the
+    /// slug holds another version, which importing replaces, since the skill becomes active
+    /// wherever it was found; the review states each one. Empty for a skill already in library.
+    #[serde(default)]
+    pub replaces: Vec<String>,
 }
 /// A plan expires after 300 seconds and must be applied against unchanged state.
 #[derive(Clone, Debug, Serialize, Deserialize)]

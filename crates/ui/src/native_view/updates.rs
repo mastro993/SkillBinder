@@ -6,7 +6,7 @@ use skillbinder_proto::*;
 use super::library_folders::FolderEdit;
 use super::route::Route;
 use super::sidebar_presets::PresetEdit;
-use super::{DialogState, Effect, NativeView, agent_page, sidebar};
+use super::{DialogState, Effect, NativeView, agent_page, onboarding_import, sidebar};
 
 impl NativeView {
     pub(super) fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
@@ -106,6 +106,14 @@ impl NativeView {
                             Effect::None => {}
                             Effect::CloseDialog => view.dialog = DialogState::None,
                             Effect::Plan(plan) => view.show_dialog(DialogState::ImportPlan(plan)),
+                            Effect::FirstImport(plan) => {
+                                view.first_import =
+                                    Some(onboarding_import::FirstImport::from(plan));
+                            }
+                            Effect::FirstImportFailed(error) => {
+                                view.first_import = None;
+                                view.error = Some(error);
+                            }
                             Effect::DeletePreview(preview) => {
                                 view.show_dialog(DialogState::DeletePreset(preview))
                             }

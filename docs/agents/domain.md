@@ -13,7 +13,7 @@ SkillBinder is one bounded context with one product vocabulary. Keep domain term
 - `README.md` identifies what this checkout can run.
 - `docs/features/native.md` describes the implemented features. Add behavior documentation with new features rather than documenting an aspirational implementation as complete.
 
-The shipped scope contains four onboarding steps, Discovery, import review, Library, presets, Sync, and Settings. Workspaces, Agents, and skill updates extend that scope. Screens for entering or editing a skill's source, nested presets, and tag-management UI are outside it.
+The shipped scope contains four onboarding steps, Discovery, import review, Library, presets, Sync, and Settings. Workspaces, Agents, skill updates, and onboarding's review of the library's first import extend that scope. Screens for entering or editing a skill's source, nested presets, and tag-management UI are outside it.
 
 ## Update documentation with behavior
 

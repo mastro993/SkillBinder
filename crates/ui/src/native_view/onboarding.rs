@@ -2,14 +2,23 @@ use super::controls::{Inactive, button};
 use super::{Effect, NativeView};
 use gpui_kit::component::button::ButtonVariants;
 use gpui_kit::{
-    Context, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
-    div, prelude::FluentBuilder,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
 };
 use skillbinder_proto::OnboardingStep;
 
 impl NativeView {
-    pub(super) fn render_onboarding(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    pub(super) fn render_onboarding(&self, cx: &mut Context<Self>) -> AnyElement {
         let step = self.snapshot.bootstrap.step;
+        if step == OnboardingStep::Import {
+            return div()
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(self.render_first_import(cx))
+                .into_any_element();
+        }
         let ready = self.snapshot.bootstrap.git_version.is_some()
             && self.snapshot.bootstrap.storage_writable;
         let (title, detail) = match step {
@@ -29,14 +38,18 @@ impl NativeView {
                 "Create your library",
                 "The managed library will be created in application data.",
             ),
-            OnboardingStep::Complete => ("SkillBinder", "Your library is ready."),
+            OnboardingStep::Import | OnboardingStep::Complete => {
+                ("SkillBinder", "Your library is ready.")
+            }
         };
         let client = self.client.clone();
         let next = match step {
             OnboardingStep::Prerequisites => OnboardingStep::Boundaries,
             OnboardingStep::Boundaries => OnboardingStep::SyncChoice,
             OnboardingStep::SyncChoice => OnboardingStep::Ready,
-            OnboardingStep::Ready | OnboardingStep::Complete => OnboardingStep::Complete,
+            OnboardingStep::Ready | OnboardingStep::Import | OnboardingStep::Complete => {
+                OnboardingStep::Import
+            }
         };
         let back = match step {
             OnboardingStep::Boundaries => Some(OnboardingStep::Prerequisites),
@@ -131,17 +144,20 @@ impl NativeView {
                                 let client = client.clone();
                                 view.run(
                                     async move {
-                                        if next == OnboardingStep::Complete {
-                                            client.complete_onboarding().await?;
-                                        } else {
+                                        if next != OnboardingStep::Import {
                                             client.set_onboarding(next).await?;
+                                            return Ok(Effect::None);
                                         }
-                                        Ok(Effect::None)
+                                        // The library exists before its first import is reviewed.
+                                        client.create_library().await?;
+                                        let plan = client.prepare_first_import().await?;
+                                        Ok(Effect::FirstImport(plan))
                                     },
                                     cx,
                                 );
                             })),
                     ),
             )
+            .into_any_element()
     }
 }
