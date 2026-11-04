@@ -161,10 +161,7 @@ impl NativeView {
             .iter()
             .map(|skill| SkillItem {
                 skill,
-                description: library
-                    .details
-                    .get(&skill.id)
-                    .map_or("", |details| details.description.as_str()),
+                details: library.details.get(&skill.id),
                 folder: self.folder_label(skill),
                 update: self.has_update(&skill.id),
                 drifted: skill.drift.is_some(),

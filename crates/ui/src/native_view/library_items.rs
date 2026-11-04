@@ -1,11 +1,13 @@
 //! Library skills as rows inside one card, or as grid tiles on their own surfaces. Each shows its
-//! description, its folder while Library lists every skill, the agents it is applied for, and
-//! its activation in the active preset, or on a workspace's page in the workspace.
+//! description, its folder while Library lists every skill, its update, drift, and validation
+//! glyphs, the agents it is applied for, and its activation in the active preset, or on a
+//! workspace's page in the workspace.
 
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
 use super::copy_dialogs::unsettled_summary;
 use super::library_copies::{AgentRow, Placement, Reader};
 use super::library_drift::drift_glyph;
+use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
 use super::{DialogState, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
@@ -13,7 +15,7 @@ use gpui_kit::{
     AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{Skill, SkillId};
+use skillbinder_proto::{Skill, SkillDetails, SkillId};
 use skillbinder_theme::library::{
     AVATAR_OVERLAP, CARD_RADIUS, DIVIDER_INSET, ROW_PADDING_X, ROW_PADDING_Y, TILE_RADIUS,
 };
@@ -24,10 +26,11 @@ const SHOWN_HOLDERS: usize = 4;
 /// at a glance.
 const AVATAR_SIZE: f32 = 20.;
 
-/// One Library skill with its description, folder, and copies.
+/// One Library skill with its details, folder, and copies.
 pub(super) struct SkillItem<'a> {
     pub skill: &'a Skill,
-    pub description: &'a str,
+    /// The skill's description and validation; `None` while the snapshot has none.
+    pub details: Option<&'a SkillDetails>,
     /// The skill's folder, shown while Library lists every skill.
     pub folder: Option<&'a str>,
     /// The skill has an update, so it shows an Update button.
@@ -44,6 +47,11 @@ pub(super) struct SkillItem<'a> {
 impl SkillItem<'_> {
     fn name(&self) -> String {
         self.skill.id.to_string()
+    }
+
+    fn description(&self) -> &str {
+        self.details
+            .map_or("", |details| details.description.as_str())
     }
 }
 
@@ -103,18 +111,12 @@ impl NativeView {
                                             .truncate()
                                             .child(item.name()),
                                     )
-                                    .when(item.update, |line| {
-                                        line.child(update_glyph(&item.skill.id, cx))
-                                    })
-                                    .when(item.drifted, |line| {
-                                        line.child(drift_glyph(&item.skill.id, cx))
-                                    })
-                                    .when(item.overlap, |line| line.child(overlap_badge(item))),
+                                    .children(name_marks(item, cx)),
                             )
                             .when_some(item.folder, |lines, folder| {
                                 lines.child(folder_line(item, folder, cx))
                             })
-                            .child(description(item.description, 1, cx)),
+                            .child(description(item.description(), 1, cx)),
                     )
                     .child(self.activation_controls(&item.skill.id, cx)),
             )
@@ -164,13 +166,7 @@ impl NativeView {
                                     .truncate()
                                     .child(item.name()),
                             )
-                            .when(item.update, |line| {
-                                line.child(update_glyph(&item.skill.id, cx))
-                            })
-                            .when(item.drifted, |line| {
-                                line.child(drift_glyph(&item.skill.id, cx))
-                            })
-                            .when(item.overlap, |line| line.child(overlap_badge(item))),
+                            .children(name_marks(item, cx)),
                     )
                     .when(item.update, |line| {
                         line.child(self.update_button("card", &item.skill.id, cx))
@@ -183,7 +179,7 @@ impl NativeView {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .child(description(item.description, 2, cx)),
+                    .child(description(item.description(), 2, cx)),
             )
             .child(
                 h_flex()
@@ -244,6 +240,20 @@ fn folder_line(item: &SkillItem<'_>, folder: &str, cx: &App) -> impl IntoElement
         .text_size(px(11.5))
         .text_color(cx.theme().muted_foreground.opacity(0.8))
         .child(folder.to_owned())
+}
+
+/// The glyphs after a skill's name, for its update, drift, and validation, then its overlap badge.
+fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
+    let id = &item.skill.id;
+    [
+        item.update.then(|| update_glyph(id, cx)),
+        item.drifted.then(|| drift_glyph(id, cx)),
+        validation_glyph(id, item.details, cx),
+        item.overlap.then(|| overlap_badge(item)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 /// The warning badge of a skill the open workspace holds for an agent that the active preset holds
