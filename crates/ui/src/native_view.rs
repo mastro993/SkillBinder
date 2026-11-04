@@ -17,6 +17,7 @@ mod library_folders;
 mod library_items;
 mod library_targets;
 mod library_updates;
+mod library_validation;
 mod menu;
 #[cfg(feature = "native-test")]
 mod native_test;
