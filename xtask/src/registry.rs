@@ -4,6 +4,8 @@ use anyhow::{Context, ensure};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
+mod directories;
+
 const REGISTRY_SHA256: &str = "eb1365a541f5e95f3adc6bb5f3c0a1a2fb2f84be0d82ec942f50b669b004c044";
 const UPSTREAM_COMMIT: &str = "13e4063a1cf913f5606d57d42ab83a86f5001e04";
 const UPSTREAM_FILES: [(&str, &str); 2] = [
@@ -38,6 +40,8 @@ struct Agent {
     /// The upstream registry calls a workspace a project.
     #[serde(rename = "projectSkillsDir")]
     workspace_skills_dir: String,
+    #[serde(default)]
+    global_roots: Vec<String>,
 }
 
 fn load(root: &Path) -> anyhow::Result<Registry> {
@@ -64,7 +68,7 @@ fn load(root: &Path) -> anyhow::Result<Registry> {
     Ok(registry)
 }
 
-fn document(mut registry: Registry) -> anyhow::Result<String> {
+fn document(mut registry: Registry, overlay: &directories::Overlay) -> anyhow::Result<String> {
     registry.agents.sort_by(|a, b| {
         a.display_name
             .to_lowercase()
@@ -83,20 +87,43 @@ fn document(mut registry: Registry) -> anyhow::Result<String> {
     )?;
     writeln!(
         text,
-        "| Agent | ID | Workspace skills directory |\n| --- | --- | --- |"
+        "Other skill directories come from the reviewed overlay in `fixtures/contracts/registry-directories/`, split the way the findings are.\n"
+    )?;
+    writeln!(
+        text,
+        "| Agent | ID | Workspace skills directory | Other skill directories |\n| --- | --- | --- | --- |"
     )?;
     for agent in registry.agents {
         writeln!(
             text,
-            "| {} | `{}` | `{}` |",
-            agent.display_name, agent.id, agent.workspace_skills_dir
+            "| {} | `{}` | `{}` | {} |",
+            agent.display_name,
+            agent.id,
+            agent.workspace_skills_dir,
+            other_directories(overlay, &agent)
         )?;
     }
     Ok(text)
 }
 
+/// The cell listing an agent's directories that are not its registry ones.
+fn other_directories(overlay: &directories::Overlay, agent: &Agent) -> String {
+    let others = directories::others(overlay, agent);
+    if others.is_empty() {
+        return "—".to_owned();
+    }
+    others
+        .iter()
+        .map(|path| format!("`{path}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 pub fn verify(root: &Path) -> anyhow::Result<()> {
-    let expected = document(load(root)?)?;
+    let registry = load(root)?;
+    let overlay = directories::load(root)?;
+    directories::check(&registry, &overlay)?;
+    let expected = document(registry, &overlay)?;
     let actual = std::fs::read_to_string(root.join("docs/supported-agents.md"))?;
     ensure!(
         actual.replace("\r\n", "\n") == expected,
@@ -106,6 +133,9 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
 }
 
 pub fn print(root: &Path) -> anyhow::Result<()> {
-    print!("{}", document(load(root)?)?);
+    let registry = load(root)?;
+    let overlay = directories::load(root)?;
+    directories::check(&registry, &overlay)?;
+    print!("{}", document(registry, &overlay)?);
     Ok(())
 }

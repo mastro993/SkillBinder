@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
             evidence::verify(root)?;
             graph::verify(root)?;
             println!(
-                "Verified registry, licensed artwork, preserved baseline integrity, and crate boundaries."
+                "Verified the registry, its skill-directory overlay, licensed artwork, preserved baseline integrity, and crate boundaries."
             );
             println!("This command does not establish native behavior or visual parity.");
             Ok(())

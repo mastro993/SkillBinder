@@ -22,7 +22,7 @@ The executable lives in `apps/desktop`, native presentation in `crates/ui`, appe
 
 Use the verification commands in the README. Add meaningful Rust tests at the owning behavior boundary when new domain operations are implemented. Native input, focus, directory selection, and rendering require an interactive desktop check with recorded evidence.
 
-A registry change updates `fixtures/contracts/registry-79.json` and its pinned provenance. Run `cargo run -p xtask -- verify`. Generate registry documentation with `cargo run -p xtask -- registry > docs/supported-agents.md`.
+A registry change updates `fixtures/contracts/registry-79.json` and its pinned provenance, and forces a new review of `fixtures/contracts/registry-directories.json` and its three parts: update their hash constants in `xtask/src/registry/directories.rs` with the findings' sources. Run `cargo run -p xtask -- verify`. Generate registry documentation with `cargo run -p xtask -- registry > docs/supported-agents.md`.
 
 ## Deliver an authorized change
 
