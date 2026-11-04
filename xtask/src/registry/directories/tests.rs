@@ -23,10 +23,19 @@ fn fixture() -> (Registry, Overlay) {
 
 fn entry<'a>(overlay: &'a mut Overlay, agent: &str) -> &'a mut Entry {
     overlay
-        .agents
+        .parts
         .iter_mut()
+        .flat_map(|part| part.agents.iter_mut())
         .find(|entry| entry.agent == agent)
         .expect("overlay entry")
+}
+
+fn part_of<'a>(overlay: &'a mut Overlay, agent: &str) -> &'a mut Part {
+    overlay
+        .parts
+        .iter_mut()
+        .find(|part| part.agents.iter().any(|entry| entry.agent == agent))
+        .expect("overlay part")
 }
 
 fn rejected(registry: &Registry, overlay: &Overlay, rule: &str) {
@@ -78,8 +87,8 @@ fn changed_registry_sha_is_rejected() {
 fn unknown_agent_is_rejected() {
     let (registry, mut overlay) = fixture();
     let mut unknown = entry(&mut overlay, "zed").clone();
-    unknown.agent = "no-such-agent".into();
-    overlay.agents.push(unknown);
+    unknown.agent = "nope".into();
+    part_of(&mut overlay, "zed").agents.push(unknown);
     rejected(&registry, &overlay, "outside the registry");
 }
 
@@ -87,15 +96,28 @@ fn unknown_agent_is_rejected() {
 fn repeated_agent_and_surface_is_rejected() {
     let (registry, mut overlay) = fixture();
     let repeated = entry(&mut overlay, "github-copilot").clone();
-    overlay.agents.push(repeated);
+    part_of(&mut overlay, "github-copilot")
+        .agents
+        .push(repeated);
     rejected(&registry, &overlay, "repeats an agent and surface");
 }
 
 #[test]
 fn out_of_order_entries_are_rejected() {
     let (registry, mut overlay) = fixture();
-    overlay.agents.swap(0, 1);
+    overlay.parts[0].agents.swap(0, 1);
     rejected(&registry, &overlay, "lists agents out of order");
+}
+
+#[test]
+fn entry_outside_its_part_range_is_rejected() {
+    let (registry, mut overlay) = fixture();
+    let codex = entry(&mut overlay, "codex").clone();
+    for part in &mut overlay.parts {
+        part.agents.retain(|entry| entry.agent != "codex");
+    }
+    overlay.parts[1].agents.insert(0, codex);
+    rejected(&registry, &overlay, "outside the range its part holds");
 }
 
 #[test]

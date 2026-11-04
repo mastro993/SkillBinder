@@ -1,463 +1,469 @@
-[
-  {
-    "agent": "kilo",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": ".kilo/skills",
-        "role": "own"
-      },
-      {
-        "path": ".kilocode/skills",
-        "role": "own"
-      },
-      {
-        "path": ".claude/skills",
-        "role": "compatibility"
-      }
-    ],
-    "global": [
-      {
-        "path": "~/.kilo/skills",
-        "role": "own"
-      },
-      {
-        "path": "~/.kilocode/skills",
-        "role": "own"
-      },
-      {
-        "path": "${XDG_CONFIG_HOME:-~/.config}/kilo/skills",
-        "role": "own"
-      },
-      {
-        "path": "~/.agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": "~/.claude/skills",
-        "role": "compatibility"
-      }
-    ],
-    "sameSlug": "precedence",
-    "order": [
-      [
-        "~/.kilo/skills"
+{
+  "range": [
+    "k",
+    "z"
+  ],
+  "agents": [
+    {
+      "agent": "kilo",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": ".kilo/skills",
+          "role": "own"
+        },
+        {
+          "path": ".kilocode/skills",
+          "role": "own"
+        },
+        {
+          "path": ".claude/skills",
+          "role": "compatibility"
+        }
       ],
-      [
-        "~/.kilocode/skills"
+      "global": [
+        {
+          "path": "~/.kilo/skills",
+          "role": "own"
+        },
+        {
+          "path": "~/.kilocode/skills",
+          "role": "own"
+        },
+        {
+          "path": "${XDG_CONFIG_HOME:-~/.config}/kilo/skills",
+          "role": "own"
+        },
+        {
+          "path": "~/.agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": "~/.claude/skills",
+          "role": "compatibility"
+        }
       ],
-      [
-        ".kilocode/skills",
-        ".kilo/skills"
+      "sameSlug": "precedence",
+      "order": [
+        [
+          "~/.kilo/skills"
+        ],
+        [
+          "~/.kilocode/skills"
+        ],
+        [
+          ".kilocode/skills",
+          ".kilo/skills"
+        ],
+        [
+          "${XDG_CONFIG_HOME:-~/.config}/kilo/skills"
+        ],
+        [
+          ".claude/skills",
+          ".agents/skills"
+        ],
+        [
+          "~/.agents/skills"
+        ],
+        [
+          "~/.claude/skills"
+        ]
       ],
-      [
-        "${XDG_CONFIG_HOME:-~/.config}/kilo/skills"
-      ],
-      [
-        ".claude/skills",
-        ".agents/skills"
-      ],
-      [
-        "~/.agents/skills"
-      ],
-      [
-        "~/.claude/skills"
+      "sources": [
+        {
+          "url": "https://github.com/Kilo-Org/kilocode/blob/b81761530650f8ec7b071441f4f54d2514f1a244/packages/opencode/src/skill/index.ts#L220-L254",
+          "revision": "b81761530650f8ec7b071441f4f54d2514f1a244"
+        },
+        {
+          "url": "https://github.com/Kilo-Org/kilocode/blob/b81761530650f8ec7b071441f4f54d2514f1a244/packages/opencode/src/config/paths.ts#L23-L41",
+          "revision": "b81761530650f8ec7b071441f4f54d2514f1a244"
+        },
+        {
+          "url": "https://github.com/Kilo-Org/kilocode/blob/b81761530650f8ec7b071441f4f54d2514f1a244/packages/kilo-docs/pages/customize/skills.md#L233",
+          "revision": "b81761530650f8ec7b071441f4f54d2514f1a244"
+        }
       ]
-    ],
-    "sources": [
-      {
-        "url": "https://github.com/Kilo-Org/kilocode/blob/b81761530650f8ec7b071441f4f54d2514f1a244/packages/opencode/src/skill/index.ts#L220-L254",
-        "revision": "b81761530650f8ec7b071441f4f54d2514f1a244"
-      },
-      {
-        "url": "https://github.com/Kilo-Org/kilocode/blob/b81761530650f8ec7b071441f4f54d2514f1a244/packages/opencode/src/config/paths.ts#L23-L41",
-        "revision": "b81761530650f8ec7b071441f4f54d2514f1a244"
-      },
-      {
-        "url": "https://github.com/Kilo-Org/kilocode/blob/b81761530650f8ec7b071441f4f54d2514f1a244/packages/kilo-docs/pages/customize/skills.md#L233",
-        "revision": "b81761530650f8ec7b071441f4f54d2514f1a244"
-      }
-    ]
-  },
-  {
-    "agent": "kimi-code-cli",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": ".kimi-code/skills",
-        "role": "own"
-      }
-    ],
-    "global": [
-      {
-        "path": "~/.agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": "${KIMI_CODE_HOME:-~/.kimi-code}/skills",
-        "role": "own"
-      }
-    ],
-    "sameSlug": "precedence",
-    "order": [
-      [
-        ".kimi-code/skills"
+    },
+    {
+      "agent": "kimi-code-cli",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": ".kimi-code/skills",
+          "role": "own"
+        }
       ],
-      [
-        ".agents/skills"
+      "global": [
+        {
+          "path": "~/.agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": "${KIMI_CODE_HOME:-~/.kimi-code}/skills",
+          "role": "own"
+        }
       ],
-      [
-        "${KIMI_CODE_HOME:-~/.kimi-code}/skills"
+      "sameSlug": "precedence",
+      "order": [
+        [
+          ".kimi-code/skills"
+        ],
+        [
+          ".agents/skills"
+        ],
+        [
+          "${KIMI_CODE_HOME:-~/.kimi-code}/skills"
+        ],
+        [
+          "~/.agents/skills"
+        ]
       ],
-      [
-        "~/.agents/skills"
+      "sources": [
+        {
+          "url": "https://github.com/MoonshotAI/kimi-code/blob/2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7/packages/agent-core-v2/src/features/skill/catalog/skillRoots.ts#L8-L39",
+          "revision": "2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7"
+        },
+        {
+          "url": "https://github.com/MoonshotAI/kimi-code/blob/2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7/packages/agent-core-v2/test/features/skill/catalog/fileSkillDiscovery.test.ts#L118-L126",
+          "revision": "2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7"
+        },
+        {
+          "url": "https://github.com/MoonshotAI/kimi-code/blob/2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7/docs/en/customization/skills.md#L85-L97",
+          "revision": "2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7"
+        }
       ]
-    ],
-    "sources": [
-      {
-        "url": "https://github.com/MoonshotAI/kimi-code/blob/2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7/packages/agent-core-v2/src/features/skill/catalog/skillRoots.ts#L8-L39",
-        "revision": "2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7"
-      },
-      {
-        "url": "https://github.com/MoonshotAI/kimi-code/blob/2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7/packages/agent-core-v2/test/features/skill/catalog/fileSkillDiscovery.test.ts#L118-L126",
-        "revision": "2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7"
-      },
-      {
-        "url": "https://github.com/MoonshotAI/kimi-code/blob/2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7/docs/en/customization/skills.md#L85-L97",
-        "revision": "2c73f3f50af4fa7f2540ca0d2e33b07a1408e3a7"
-      }
-    ]
-  },
-  {
-    "agent": "loaf",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      }
-    ],
-    "global": [
-      {
-        "path": "~/.agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": "~/.loaf/skills",
-        "role": "own"
-      }
-    ],
-    "sameSlug": "both",
-    "sources": [
-      {
-        "url": "https://github.com/veyzyn/loaf/blob/ab9145757f0c38da1c127214199881db233d7aab/src/skills/loader.ts#L38-L46",
-        "revision": "ab9145757f0c38da1c127214199881db233d7aab"
-      },
-      {
-        "url": "https://github.com/veyzyn/loaf/blob/ab9145757f0c38da1c127214199881db233d7aab/src/skills/loader.test.ts#L128-L156",
-        "revision": "ab9145757f0c38da1c127214199881db233d7aab"
-      },
-      {
-        "url": "https://github.com/veyzyn/loaf/blob/ab9145757f0c38da1c127214199881db233d7aab/docs/skills.md#L26-L34",
-        "revision": "ab9145757f0c38da1c127214199881db233d7aab"
-      }
-    ]
-  },
-  {
-    "agent": "opencode",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": ".opencode/skills",
-        "role": "own"
-      },
-      {
-        "path": ".opencode/skill",
-        "role": "own"
-      },
-      {
-        "path": ".claude/skills",
-        "role": "compatibility"
-      }
-    ],
-    "global": [
-      {
-        "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skills",
-        "role": "own"
-      },
-      {
-        "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skill",
-        "role": "own"
-      },
-      {
-        "path": "~/.opencode/skills",
-        "role": "own"
-      },
-      {
-        "path": "~/.opencode/skill",
-        "role": "own"
-      },
-      {
-        "path": "~/.agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": "~/.claude/skills",
-        "role": "compatibility"
-      }
-    ],
-    "sameSlug": "one",
-    "sources": [
-      {
-        "url": "https://github.com/anomalyco/opencode/blob/810c0eba1a7348036f8bdf61e6632d0c36c6876c/packages/opencode/src/skill/index.ts#L185-L227",
-        "revision": "810c0eba1a7348036f8bdf61e6632d0c36c6876c"
-      },
-      {
-        "url": "https://github.com/anomalyco/opencode/blob/810c0eba1a7348036f8bdf61e6632d0c36c6876c/packages/opencode/src/config/paths.ts#L23-L41",
-        "revision": "810c0eba1a7348036f8bdf61e6632d0c36c6876c"
-      },
-      {
-        "url": "https://github.com/anomalyco/opencode/blob/810c0eba1a7348036f8bdf61e6632d0c36c6876c/packages/web/src/content/docs/skills.mdx#L221",
-        "revision": "810c0eba1a7348036f8bdf61e6632d0c36c6876c"
-      }
-    ]
-  },
-  {
-    "agent": "pi",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": ".pi/skills",
-        "role": "own"
-      }
-    ],
-    "global": [
-      {
-        "path": "~/.agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": "~/.pi/agent/skills",
-        "role": "own"
-      }
-    ],
-    "sameSlug": "precedence",
-    "order": [
-      [
-        ".pi/skills"
+    },
+    {
+      "agent": "loaf",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        }
       ],
-      [
-        ".agents/skills"
+      "global": [
+        {
+          "path": "~/.agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": "~/.loaf/skills",
+          "role": "own"
+        }
       ],
-      [
-        "~/.pi/agent/skills"
-      ],
-      [
-        "~/.agents/skills"
+      "sameSlug": "both",
+      "sources": [
+        {
+          "url": "https://github.com/veyzyn/loaf/blob/ab9145757f0c38da1c127214199881db233d7aab/src/skills/loader.ts#L38-L46",
+          "revision": "ab9145757f0c38da1c127214199881db233d7aab"
+        },
+        {
+          "url": "https://github.com/veyzyn/loaf/blob/ab9145757f0c38da1c127214199881db233d7aab/src/skills/loader.test.ts#L128-L156",
+          "revision": "ab9145757f0c38da1c127214199881db233d7aab"
+        },
+        {
+          "url": "https://github.com/veyzyn/loaf/blob/ab9145757f0c38da1c127214199881db233d7aab/docs/skills.md#L26-L34",
+          "revision": "ab9145757f0c38da1c127214199881db233d7aab"
+        }
       ]
-    ],
-    "sources": [
-      {
-        "url": "https://github.com/earendil-works/pi/blob/f9a26365568127461c47a07a37dcb42c140a3ac5/packages/coding-agent/src/core/package-manager.ts#L2604-L2707",
-        "revision": "f9a26365568127461c47a07a37dcb42c140a3ac5"
-      },
-      {
-        "url": "https://github.com/earendil-works/pi/blob/f9a26365568127461c47a07a37dcb42c140a3ac5/packages/coding-agent/src/core/skills.ts#L426-L455",
-        "revision": "f9a26365568127461c47a07a37dcb42c140a3ac5"
-      },
-      {
-        "url": "https://github.com/earendil-works/pi/blob/f9a26365568127461c47a07a37dcb42c140a3ac5/packages/coding-agent/docs/skills.md#L83-L85",
-        "revision": "f9a26365568127461c47a07a37dcb42c140a3ac5"
-      }
-    ]
-  },
-  {
-    "agent": "replit",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": ".local/secondary_skills",
-        "role": "own"
-      },
-      {
-        "path": ".claude/skills",
-        "role": "compatibility"
-      }
-    ],
-    "global": [
-      {
-        "path": "${XDG_CONFIG_HOME:-~/.config}/agents/skills",
-        "role": "unconfirmed"
-      }
-    ],
-    "sameSlug": "unknown",
-    "sources": [
-      {
-        "url": "https://docs.replit.com/features/agent/skills",
-        "retrievedAt": "2026-11-04"
-      },
-      {
-        "url": "https://docs.replit.com/features/agent/skills-directory",
-        "retrievedAt": "2026-11-04"
-      },
-      {
-        "url": "https://docs.replit.com/build/code/working-with-code",
-        "retrievedAt": "2026-11-04"
-      }
-    ]
-  },
-  {
-    "agent": "warp",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": ".warp/skills",
-        "role": "own"
-      },
-      {
-        "path": ".claude/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": ".codex/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": ".copilot/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": ".cursor/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": ".factory/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": ".gemini/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": ".github/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": ".opencode/skills",
-        "role": "compatibility"
-      }
-    ],
-    "global": [
-      {
-        "path": "~/.agents/skills",
-        "role": "shared"
-      },
-      {
-        "path": "~/.warp/skills",
-        "role": "own"
-      },
-      {
-        "path": "~/.claude/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": "~/.codex/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": "~/.copilot/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": "~/.cursor/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": "~/.factory/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": "~/.gemini/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": "~/.github/skills",
-        "role": "compatibility"
-      },
-      {
-        "path": "~/.opencode/skills",
-        "role": "compatibility"
-      }
-    ],
-    "sameSlug": "both",
-    "sources": [
-      {
-        "url": "https://github.com/warpdotdev/Warp/blob/2249469e5d24e472cee6ce97d3d324293f67db71/crates/ai/src/skills/skill_provider.rs#L103-L168",
-        "revision": "2249469e5d24e472cee6ce97d3d324293f67db71"
-      },
-      {
-        "url": "https://github.com/warpdotdev/Warp/blob/2249469e5d24e472cee6ce97d3d324293f67db71/app/src/ai/skills/skill_utils.rs#L28-L85",
-        "revision": "2249469e5d24e472cee6ce97d3d324293f67db71"
-      },
-      {
-        "url": "https://github.com/warpdotdev/Warp/blob/2249469e5d24e472cee6ce97d3d324293f67db71/crates/warp_core/src/paths.rs#L35-L71",
-        "revision": "2249469e5d24e472cee6ce97d3d324293f67db71"
-      },
-      {
-        "url": "https://docs.warp.dev/agents/capabilities/skills/",
-        "retrievedAt": "2026-11-04"
-      }
-    ]
-  },
-  {
-    "agent": "zed",
-    "workspace": [
-      {
-        "path": ".agents/skills",
-        "role": "shared"
-      }
-    ],
-    "global": [
-      {
-        "path": "~/.agents/skills",
-        "role": "shared"
-      }
-    ],
-    "sameSlug": "precedence",
-    "order": [
-      [
-        ".agents/skills"
+    },
+    {
+      "agent": "opencode",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": ".opencode/skills",
+          "role": "own"
+        },
+        {
+          "path": ".opencode/skill",
+          "role": "own"
+        },
+        {
+          "path": ".claude/skills",
+          "role": "compatibility"
+        }
       ],
-      [
-        "~/.agents/skills"
+      "global": [
+        {
+          "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skills",
+          "role": "own"
+        },
+        {
+          "path": "${XDG_CONFIG_HOME:-~/.config}/opencode/skill",
+          "role": "own"
+        },
+        {
+          "path": "~/.opencode/skills",
+          "role": "own"
+        },
+        {
+          "path": "~/.opencode/skill",
+          "role": "own"
+        },
+        {
+          "path": "~/.agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": "~/.claude/skills",
+          "role": "compatibility"
+        }
+      ],
+      "sameSlug": "one",
+      "sources": [
+        {
+          "url": "https://github.com/anomalyco/opencode/blob/810c0eba1a7348036f8bdf61e6632d0c36c6876c/packages/opencode/src/skill/index.ts#L185-L227",
+          "revision": "810c0eba1a7348036f8bdf61e6632d0c36c6876c"
+        },
+        {
+          "url": "https://github.com/anomalyco/opencode/blob/810c0eba1a7348036f8bdf61e6632d0c36c6876c/packages/opencode/src/config/paths.ts#L23-L41",
+          "revision": "810c0eba1a7348036f8bdf61e6632d0c36c6876c"
+        },
+        {
+          "url": "https://github.com/anomalyco/opencode/blob/810c0eba1a7348036f8bdf61e6632d0c36c6876c/packages/web/src/content/docs/skills.mdx#L221",
+          "revision": "810c0eba1a7348036f8bdf61e6632d0c36c6876c"
+        }
       ]
-    ],
-    "sources": [
-      {
-        "url": "https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/agent_skills/agent_skills.rs#L742-L760",
-        "revision": "c4273271092b0287f7d181f616bd5171e0a2f70c"
-      },
-      {
-        "url": "https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/docs/src/ai/skills.md#L166-L185",
-        "revision": "c4273271092b0287f7d181f616bd5171e0a2f70c"
-      }
-    ]
-  }
-]
+    },
+    {
+      "agent": "pi",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": ".pi/skills",
+          "role": "own"
+        }
+      ],
+      "global": [
+        {
+          "path": "~/.agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": "~/.pi/agent/skills",
+          "role": "own"
+        }
+      ],
+      "sameSlug": "precedence",
+      "order": [
+        [
+          ".pi/skills"
+        ],
+        [
+          ".agents/skills"
+        ],
+        [
+          "~/.pi/agent/skills"
+        ],
+        [
+          "~/.agents/skills"
+        ]
+      ],
+      "sources": [
+        {
+          "url": "https://github.com/earendil-works/pi/blob/f9a26365568127461c47a07a37dcb42c140a3ac5/packages/coding-agent/src/core/package-manager.ts#L2604-L2707",
+          "revision": "f9a26365568127461c47a07a37dcb42c140a3ac5"
+        },
+        {
+          "url": "https://github.com/earendil-works/pi/blob/f9a26365568127461c47a07a37dcb42c140a3ac5/packages/coding-agent/src/core/skills.ts#L426-L455",
+          "revision": "f9a26365568127461c47a07a37dcb42c140a3ac5"
+        },
+        {
+          "url": "https://github.com/earendil-works/pi/blob/f9a26365568127461c47a07a37dcb42c140a3ac5/packages/coding-agent/docs/skills.md#L83-L85",
+          "revision": "f9a26365568127461c47a07a37dcb42c140a3ac5"
+        }
+      ]
+    },
+    {
+      "agent": "replit",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": ".local/secondary_skills",
+          "role": "own"
+        },
+        {
+          "path": ".claude/skills",
+          "role": "compatibility"
+        }
+      ],
+      "global": [
+        {
+          "path": "${XDG_CONFIG_HOME:-~/.config}/agents/skills",
+          "role": "unconfirmed"
+        }
+      ],
+      "sameSlug": "unknown",
+      "sources": [
+        {
+          "url": "https://docs.replit.com/features/agent/skills",
+          "retrievedAt": "2026-11-04"
+        },
+        {
+          "url": "https://docs.replit.com/features/agent/skills-directory",
+          "retrievedAt": "2026-11-04"
+        },
+        {
+          "url": "https://docs.replit.com/build/code/working-with-code",
+          "retrievedAt": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "agent": "warp",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": ".warp/skills",
+          "role": "own"
+        },
+        {
+          "path": ".claude/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": ".codex/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": ".copilot/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": ".cursor/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": ".factory/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": ".gemini/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": ".github/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": ".opencode/skills",
+          "role": "compatibility"
+        }
+      ],
+      "global": [
+        {
+          "path": "~/.agents/skills",
+          "role": "shared"
+        },
+        {
+          "path": "~/.warp/skills",
+          "role": "own"
+        },
+        {
+          "path": "~/.claude/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": "~/.codex/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": "~/.copilot/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": "~/.cursor/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": "~/.factory/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": "~/.gemini/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": "~/.github/skills",
+          "role": "compatibility"
+        },
+        {
+          "path": "~/.opencode/skills",
+          "role": "compatibility"
+        }
+      ],
+      "sameSlug": "both",
+      "sources": [
+        {
+          "url": "https://github.com/warpdotdev/Warp/blob/2249469e5d24e472cee6ce97d3d324293f67db71/crates/ai/src/skills/skill_provider.rs#L103-L168",
+          "revision": "2249469e5d24e472cee6ce97d3d324293f67db71"
+        },
+        {
+          "url": "https://github.com/warpdotdev/Warp/blob/2249469e5d24e472cee6ce97d3d324293f67db71/app/src/ai/skills/skill_utils.rs#L28-L85",
+          "revision": "2249469e5d24e472cee6ce97d3d324293f67db71"
+        },
+        {
+          "url": "https://github.com/warpdotdev/Warp/blob/2249469e5d24e472cee6ce97d3d324293f67db71/crates/warp_core/src/paths.rs#L35-L71",
+          "revision": "2249469e5d24e472cee6ce97d3d324293f67db71"
+        },
+        {
+          "url": "https://docs.warp.dev/agents/capabilities/skills/",
+          "retrievedAt": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "agent": "zed",
+      "workspace": [
+        {
+          "path": ".agents/skills",
+          "role": "shared"
+        }
+      ],
+      "global": [
+        {
+          "path": "~/.agents/skills",
+          "role": "shared"
+        }
+      ],
+      "sameSlug": "precedence",
+      "order": [
+        [
+          ".agents/skills"
+        ],
+        [
+          "~/.agents/skills"
+        ]
+      ],
+      "sources": [
+        {
+          "url": "https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/agent_skills/agent_skills.rs#L742-L760",
+          "revision": "c4273271092b0287f7d181f616bd5171e0a2f70c"
+        },
+        {
+          "url": "https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/docs/src/ai/skills.md#L166-L185",
+          "revision": "c4273271092b0287f7d181f616bd5171e0a2f70c"
+        }
+      ]
+    }
+  ]
+}

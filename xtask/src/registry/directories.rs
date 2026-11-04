@@ -1,8 +1,9 @@
 //! The reviewed overlay of every skill directory each agent reads, beside the registry's own.
 //!
 //! The overlay is split so each file stays small enough to read whole: a header tying it to the
-//! reviewed registry, then one file per range of agent names. A path compares after expansion
-//! with every variable unset, as the engine resolves it on a device where no variable is set.
+//! reviewed registry, then one file per range of agent names, each recording the range it holds.
+//! A path compares after expansion with every variable unset, as the engine resolves it on a
+//! device where no variable is set.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -23,15 +24,15 @@ const REGISTRY_DIRECTORIES_SHA256: [(&str, &str); 4] = [
     ),
     (
         "fixtures/contracts/registry-directories/a-c.json",
-        "718f38dd75306ebc9c785c8cab30ad3a6796fcb895eb2d5baf7868db62b1d5c9",
+        "a21cd5c0b01ff9da78c4ff2616680f527bf88ce0f1837d125cb8ed0876f2ed4c",
     ),
     (
         "fixtures/contracts/registry-directories/d-g.json",
-        "1d53fcba242c2166fdd8bf40bfd0d03f0bd8542913956c2b9e5067f4fce013be",
+        "eb7cfa2937afee892a40f9f09cb79ec1d3effa970bd0ed17805126061b191af9",
     ),
     (
         "fixtures/contracts/registry-directories/k-z.json",
-        "255f5eeb4866f38fa9a9d1373b80bef7ba803ce64c9267ef4e4aa44334ffdb24",
+        "a5882b319fdae3aa6762f3d3ab381932845043f32d2c8c164967c7c0fa97419c",
     ),
 ];
 const OVERLAY_VERSION: u32 = 1;
@@ -55,7 +56,23 @@ const REPOSITORIES: [&str; 5] = [
 pub(super) struct Overlay {
     overlay_version: u32,
     registry_sha256: String,
-    #[serde(default)]
+    /// One part per range of agent names, in file order.
+    parts: Vec<Part>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Header {
+    overlay_version: u32,
+    registry_sha256: String,
+}
+
+/// A part of the overlay and the range of agent names it may hold.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Part {
+    /// The first letter of the lowest, and of the highest, agent id the part holds.
+    range: (char, char),
     agents: Vec<Entry>,
 }
 
@@ -136,14 +153,15 @@ pub(super) fn load(root: &Path) -> anyhow::Result<Overlay> {
             "Reviewed overlay bytes changed: {path}; a new provenance review is required"
         );
     }
-    let header: Overlay = read(root, REGISTRY_DIRECTORIES_SHA256[0].0)?;
-    let parts: Vec<Vec<Entry>> = REGISTRY_DIRECTORIES_SHA256[1..]
+    let header: Header = read(root, REGISTRY_DIRECTORIES_SHA256[0].0)?;
+    let parts: Vec<Part> = REGISTRY_DIRECTORIES_SHA256[1..]
         .iter()
         .map(|(path, _)| read(root, path))
         .collect::<anyhow::Result<_>>()?;
     Ok(Overlay {
-        agents: parts.into_iter().flatten().collect(),
-        ..header
+        overlay_version: header.overlay_version,
+        registry_sha256: header.registry_sha256,
+        parts,
     })
 }
 
@@ -157,6 +175,7 @@ pub(super) fn check(registry: &Registry, overlay: &Overlay) -> anyhow::Result<()
         overlay.registry_sha256 == REGISTRY_SHA256,
         "Overlay registrySha256 does not match the reviewed registry"
     );
+    check_parts(overlay)?;
     let agents: BTreeMap<&str, &Agent> = registry
         .agents
         .iter()
@@ -164,7 +183,7 @@ pub(super) fn check(registry: &Registry, overlay: &Overlay) -> anyhow::Result<()
         .collect();
     let mut surfaces = BTreeSet::new();
     let mut previous: Option<(&str, Option<&str>)> = None;
-    for entry in &overlay.agents {
+    for entry in overlay.parts.iter().flat_map(|part| &part.agents) {
         let agent = agents.get(entry.agent.as_str()).with_context(|| {
             format!(
                 "Overlay names an agent outside the registry: {}",
@@ -191,6 +210,34 @@ pub(super) fn check(registry: &Registry, overlay: &Overlay) -> anyhow::Result<()
     Ok(())
 }
 
+/// Each part holds an ascending range and only agents inside it, so an entry filed with the
+/// wrong range cannot pass as a later part's first one.
+fn check_parts(overlay: &Overlay) -> anyhow::Result<()> {
+    let mut previous: Option<(char, char)> = None;
+    for part in &overlay.parts {
+        ensure!(
+            previous.is_none_or(|last| last.1 < part.range.0),
+            "Overlay ranges do not ascend: {part:?} follows {previous:?}"
+        );
+        for entry in &part.agents {
+            let first = entry
+                .agent
+                .chars()
+                .next()
+                .context("Overlay names an empty agent")?;
+            ensure!(
+                (part.range.0..=part.range.1).contains(&first),
+                "Overlay files {} outside the range its part holds: {}-{}",
+                entry.agent,
+                part.range.0,
+                part.range.1
+            );
+        }
+        previous = Some(part.range);
+    }
+    Ok(())
+}
+
 /// The directories an agent reads that are not its registry ones, workspace before global and
 /// merged across its surfaces.
 pub(super) fn others(overlay: &Overlay, agent: &Agent) -> Vec<String> {
@@ -198,8 +245,9 @@ pub(super) fn others(overlay: &Overlay, agent: &Agent) -> Vec<String> {
     let mut seen = BTreeSet::new();
     let mut paths = Vec::new();
     for entry in overlay
-        .agents
+        .parts
         .iter()
+        .flat_map(|part| &part.agents)
         .filter(|entry| entry.agent == agent.id)
     {
         for directory in entry.workspace.iter().chain(entry.global.iter()) {
