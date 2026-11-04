@@ -1,0 +1,104 @@
+[
+  {
+    "agent": "amp",
+    "workspace": [
+      { "path": ".agents/skills", "role": "shared" },
+      { "path": ".claude/skills", "role": "compatibility" }
+    ],
+    "global": [
+      { "path": "${XDG_CONFIG_HOME:-~/.config}/agents/skills", "role": "shared" },
+      { "path": "~/.agents/skills", "role": "shared" },
+      { "path": "~/.config/amp/skills", "role": "own" },
+      { "path": "~/.claude/skills", "role": "compatibility" }
+    ],
+    "sameSlug": "precedence",
+    "order": [
+      ["${XDG_CONFIG_HOME:-~/.config}/agents/skills"],
+      ["~/.agents/skills"],
+      ["~/.config/amp/skills"],
+      [".agents/skills"],
+      [".claude/skills"],
+      ["~/.claude/skills"]
+    ],
+    "sources": [
+      { "url": "https://ampcode.com/docs/customize/skills", "retrievedAt": "2026-11-04" }
+    ]
+  },
+  {
+    "agent": "antigravity",
+    "workspace": [
+      { "path": ".agents/skills", "role": "shared" },
+      { "path": ".agent/skills", "role": "compatibility" }
+    ],
+    "global": [
+      { "path": "~/.gemini/config/skills", "role": "own" },
+      { "path": "~/.gemini/antigravity/skills", "role": "own" }
+    ],
+    "sameSlug": "unknown",
+    "sources": [
+      { "url": "https://antigravity.google/docs/skills", "retrievedAt": "2026-11-04" }
+    ]
+  },
+  {
+    "agent": "antigravity-cli",
+    "workspace": [
+      { "path": ".agents/skills", "role": "shared" },
+      { "path": "_agent/skills", "role": "compatibility" },
+      { "path": "_agents/skills", "role": "compatibility" },
+      { "path": ".agent/skills", "role": "compatibility" }
+    ],
+    "global": [
+      { "path": "~/.gemini/antigravity-cli/skills", "role": "own" },
+      { "path": "~/.gemini/config/skills", "role": "own" },
+      { "path": "~/.gemini/skills", "role": "compatibility" }
+    ],
+    "sameSlug": "precedence",
+    "order": [
+      ["~/.gemini/antigravity-cli/skills", "~/.gemini/skills"],
+      ["~/.gemini/config/skills"],
+      [".agents/skills"],
+      [".agent/skills", "_agent/skills", "_agents/skills"]
+    ],
+    "sources": [
+      { "url": "https://antigravity.google/docs/skills", "retrievedAt": "2026-11-04" },
+      { "url": "https://antigravity.google/docs/customization-discovery", "retrievedAt": "2026-11-04" },
+      { "url": "https://antigravity.google/docs/cli/gcli-migration", "retrievedAt": "2026-11-04" }
+    ]
+  },
+  {
+    "agent": "cline",
+    "workspace": [
+      { "path": ".agents/skills", "role": "shared" },
+      { "path": ".cline/skills", "role": "own" },
+      { "path": ".clinerules/skills", "role": "own" },
+      { "path": ".claude/skills", "role": "compatibility" }
+    ],
+    "global": [
+      { "path": "~/.agents/skills", "role": "shared" },
+      { "path": "~/.cline/skills", "role": "own" }
+    ],
+    "sameSlug": "precedence",
+    "order": [
+      ["~/.agents/skills"],
+      ["~/.cline/skills"],
+      [".agents/skills"],
+      [".claude/skills"],
+      [".cline/skills"],
+      [".clinerules/skills"]
+    ],
+    "sources": [
+      {
+        "url": "https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/sdk/packages/shared/src/storage/paths.ts#L468-L523",
+        "revision": "a459f1d04dea030833b558be645011ab739c463b"
+      },
+      {
+        "url": "https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/docs/customization/skills.mdx#L153-L162",
+        "revision": "a459f1d04dea030833b558be645011ab739c463b"
+      },
+      {
+        "url": "https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/docs/getting-started/config.mdx#L63",
+        "revision": "a459f1d04dea030833b558be645011ab739c463b"
+      }
+    ]
+  }
+]

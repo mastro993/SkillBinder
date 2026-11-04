@@ -81,7 +81,7 @@ SkillBinder writes at the top of a workspace folder, and not every agent reads t
 
 ## Proposal
 
-This is a proposal only; the registry is unchanged. If it is accepted, a follow-up issue makes the change and regenerates `docs/supported-agents.md`.
+The data half of this proposal is implemented: `fixtures/contracts/registry-directories.json` holds the overlay's version and the registry hash it was reviewed against, `fixtures/contracts/registry-directories/{a-c,d-g,k-z}.json` hold the entries, split so each file stays small enough to read whole, and `xtask/src/registry/directories.rs` verifies them. The registry is still byte-identical, and no engine, proto, or UI code reads the overlay yet: #93 carries that half, which would regenerate `docs/supported-agents.md` again.
 
 ### Keep the registry byte-identical
 
