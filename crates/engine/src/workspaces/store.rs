@@ -193,7 +193,8 @@ impl State {
                 })
             })
             .collect::<AppResult<Vec<_>>>()?;
-        crate::activation::mark_overlaps(&mut workspaces, library, agents);
+        let preferences = crate::discovery::registry::preferences(&self.config)?;
+        crate::activation::mark_overlaps(&mut workspaces, library, agents, &preferences);
         Ok(workspaces)
     }
 

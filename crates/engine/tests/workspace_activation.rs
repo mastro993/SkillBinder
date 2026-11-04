@@ -377,3 +377,52 @@ async fn a_skill_activates_into_an_agents_own_directory_alone() {
     );
     project.engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn a_global_first_agent_hides_the_workspace_copy() {
+    let project = Project::with(&["notes"]).await;
+    // Cline ranks `~/.agents/skills` above its own `.cline/skills`, so the workspace copy is the
+    // one it ignores.
+    fs::create_dir_all(project.fixture.home.join(".agents/skills")).unwrap();
+    write_skill(&project.dir(".cline/skills"), "notes", LIBRARY);
+    project
+        .engine
+        .change_organization(OrganizationChange::SetTargets {
+            id: PresetId("default".to_owned()),
+            skill: skill("notes"),
+            targets: Targets::Agents(["cline".to_owned()].into()),
+        })
+        .await
+        .unwrap();
+    let workspace = project.add().await;
+    assert!(workspace.dirs.contains(".cline/skills"));
+    assert_eq!(
+        workspace.overlaps.get(&skill("notes")),
+        Some(&Overlap::Hidden)
+    );
+    project.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_workspace_first_agent_keeps_the_workspace_copy() {
+    let project = Project::with(&["lint"]).await;
+    // Kimi Code CLI ranks `.kimi-code/skills` above `~/.agents/skills`, so it loads the workspace
+    // copy and ignores your agents'.
+    fs::create_dir_all(project.fixture.home.join(".agents/skills")).unwrap();
+    write_skill(&project.dir(".kimi-code/skills"), "lint", LIBRARY);
+    project
+        .engine
+        .change_organization(OrganizationChange::SetTargets {
+            id: PresetId("default".to_owned()),
+            skill: skill("lint"),
+            targets: Targets::Agents(["kimi-code-cli".to_owned()].into()),
+        })
+        .await
+        .unwrap();
+    let workspace = project.add().await;
+    assert_eq!(
+        workspace.overlaps.get(&skill("lint")),
+        Some(&Overlap::Overrides)
+    );
+    project.engine.shutdown().await.unwrap();
+}

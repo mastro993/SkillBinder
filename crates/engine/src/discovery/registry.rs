@@ -39,6 +39,63 @@ struct Agent {
     /// The other global skill directory templates it reads, deduplicated in overlay order.
     other_global_dirs: Vec<String>,
     same_slug: SameSlug,
+    /// One ranking per surface a source gives, winner first, each tier holding directories it
+    /// leaves unranked against each other.
+    orders: Vec<Vec<Vec<Ranked>>>,
+}
+
+/// A directory an overlay order ranks: a workspace one relative to the folder, or a global one
+/// resolved as the app shows it, so both compare with the directories the workspace and the scan
+/// name.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum Ranked {
+    Workspace(String),
+    Global(String),
+}
+
+/// Which copy of one slug an agent loads, when a source ranks the two directories.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Loaded {
+    Workspace,
+    Global,
+}
+
+/// The reviewed load order of every agent, for the overlap mark.
+#[derive(Default)]
+pub(crate) struct Preferences {
+    orders: BTreeMap<String, Vec<Vec<Vec<Ranked>>>>,
+}
+impl Preferences {
+    /// Which of `workspace` and `global` the agent loads, when every surface that ranks both agrees:
+    /// `None` when no source ranks them, they share a tier, or the surfaces disagree.
+    pub(crate) fn loaded(&self, agent: &str, workspace: &str, global: &str) -> Option<Loaded> {
+        let workspace = Ranked::Workspace(workspace.to_owned());
+        let global = Ranked::Global(global.to_owned());
+        let mut loaded = None;
+        for order in self.orders.get(agent)? {
+            let (Some(workspace), Some(global)) = (tier(order, &workspace), tier(order, &global))
+            else {
+                continue;
+            };
+            if workspace == global {
+                return None;
+            }
+            let next = if workspace < global {
+                Loaded::Workspace
+            } else {
+                Loaded::Global
+            };
+            match loaded {
+                Some(seen) if seen != next => return None,
+                _ => loaded = Some(next),
+            }
+        }
+        loaded
+    }
+}
+/// The tier of `directory` in `order`, or `None` when it does not rank it.
+fn tier(order: &[Vec<Ranked>], directory: &Ranked) -> Option<usize> {
+    order.iter().position(|tier| tier.contains(directory))
 }
 pub(crate) struct Location {
     pub path: PathBuf,
@@ -69,26 +126,42 @@ fn registry() -> AppResult<Registry> {
     .map_err(|_| AppError::storage())
 }
 /// Every registry agent with the directories the reviewed overlay adds to it.
-fn agents() -> AppResult<Vec<Agent>> {
+fn agents(config: &EngineConfig) -> AppResult<Vec<Agent>> {
     let entries = directories::entries().map_err(|_| AppError::storage())?;
     Ok(registry()?
         .agents
         .into_iter()
         .map(|agent| {
             let id = agent.id.clone();
-            merged(agent, entries.iter().filter(move |entry| entry.agent == id))
+            merged(
+                agent,
+                entries.iter().filter(move |entry| entry.agent == id),
+                config,
+            )
         })
         .collect())
+}
+/// The reviewed load orders of every agent.
+pub(crate) fn preferences(config: &EngineConfig) -> AppResult<Preferences> {
+    Ok(Preferences {
+        orders: agents(config)?
+            .into_iter()
+            .map(|agent| (agent.id, agent.orders))
+            .filter(|(_, orders)| !orders.is_empty())
+            .collect(),
+    })
 }
 /// `agent` with the overlay entries of every surface it has.
 fn merged<'a>(
     agent: RegistryAgent,
     entries: impl Iterator<Item = &'a directories::Entry>,
+    config: &EngineConfig,
 ) -> Agent {
     let mut workspace_seen: BTreeSet<String> = [agent.workspace_skills_dir.clone()].into();
     let mut global_seen: BTreeSet<String> = agent.global_roots.iter().cloned().collect();
     let mut other_workspace_dirs = Vec::new();
     let mut other_global_dirs = Vec::new();
+    let mut orders = Vec::new();
     let mut same_slug = None;
     for entry in entries {
         for directory in &entry.workspace {
@@ -105,6 +178,19 @@ fn merged<'a>(
             }
         }
         same_slug = Some(same_slug.map_or(entry.same_slug, |seen| combine(seen, entry.same_slug)));
+        if let Some(order) = &entry.order {
+            orders.push(
+                order
+                    .iter()
+                    .map(|ranked| {
+                        ranked
+                            .iter()
+                            .filter_map(|path| ranked_dir(path, config))
+                            .collect()
+                    })
+                    .collect(),
+            );
+        }
     }
     Agent {
         id: agent.id,
@@ -114,7 +200,20 @@ fn merged<'a>(
         global_roots: agent.global_roots,
         other_global_dirs,
         same_slug: same_slug.unwrap_or(SameSlug::Unknown),
+        orders,
     }
+}
+/// A directory an overlay order names, as it compares with the workspace's and the app's: a
+/// relative path is a workspace directory, and a template or absolute path is a global one,
+/// resolved inside home like the directories activation writes. One outside home is never read,
+/// so it is left out.
+fn ranked_dir(path: &str, config: &EngineConfig) -> Option<Ranked> {
+    if !path.starts_with('~') && !path.starts_with('$') && !path.starts_with('/') {
+        return Some(Ranked::Workspace(path.to_owned()));
+    }
+    let expanded = expand(path, config)?;
+    let place = bounded(&expanded, &config.home).ok()?;
+    Some(Ranked::Global(place.canonical.display().to_string()))
 }
 /// The same-slug verdict for an agent whose surfaces disagree: one that may keep both copies wins
 /// over one that keeps a single copy, as the overlap warning does.
@@ -135,7 +234,7 @@ pub(crate) fn locations(
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
     let global_lock = crate::sources::lock::global_lock(config);
-    for agent in agents()? {
+    for agent in agents(config)? {
         let own = global_dir(&agent, config);
         for template in agent.global_roots.iter().chain(&agent.other_global_dirs) {
             if let Some(path) = expand(template, config) {
@@ -203,7 +302,7 @@ pub(crate) fn global_skill_dirs(config: &EngineConfig) -> AppResult<BTreeSet<Pat
 /// Every registry agent, by display name, with the skill directories it reads and whether its
 /// global skill directory exists.
 pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>> {
-    let mut options: Vec<_> = agents()?
+    let mut options: Vec<_> = agents(config)?
         .into_iter()
         .map(|agent| {
             let global = global_dir(&agent, config);
@@ -361,103 +460,6 @@ fn expand(template: &str, config: &EngineConfig) -> Option<PathBuf> {
     let path = PathBuf::from(output);
     path.is_absolute().then_some(path)
 }
-#[cfg(test)]
-mod tests {
-    #![expect(
-        clippy::unwrap_used,
-        reason = "Test assertions report fixture and operation failures."
-    )]
-    use super::*;
-    use skillbinder_proto::DirRole;
-    #[test]
-    fn registry_has_79_agents_and_shared_reader_locations() -> Result<(), Box<dyn std::error::Error>>
-    {
-        let registry: Registry = serde_json::from_str(include_str!(
-            "../../../../fixtures/contracts/registry-79.json"
-        ))?;
-        assert_eq!(registry.agents.len(), 79);
-        let temp = tempfile::tempdir()?;
-        let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-        let workspaces = vec![(WorkspaceId::new(), temp.path().join("workspace"))];
-        let log = Logger::start(temp.path().join("logs"), &config.home)?;
-        let locations = locations(&config, &workspaces, &log)?;
-        assert_eq!(
-            locations
-                .iter()
-                .filter(|location| location.path == temp.path().join("workspace/.agents/skills"))
-                .count(),
-            1
-        );
-        assert!(locations.iter().any(|location| location.readers.len() > 1));
-        assert!(workspace_skill_dirs()?.contains(".agents/skills"));
-        assert_eq!(expand("${UNSET}/skills", &config), None);
-        assert_eq!(
-            expand("${UNSET:-~/.config}/skills", &config),
-            Some(config.home.join(".config/skills"))
-        );
-        Ok(())
-    }
 
-    #[test]
-    fn the_overlay_adds_directories_without_changing_detection()
-    -> Result<(), Box<dyn std::error::Error>> {
-        let temp = tempfile::tempdir()?;
-        let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-        let workspaces = vec![(WorkspaceId::new(), temp.path().join("workspace"))];
-        let log = Logger::start(temp.path().join("logs"), &config.home)?;
-        let locations = locations(&config, &workspaces, &log)?;
-        let readers = |path: PathBuf| {
-            locations
-                .iter()
-                .find(|location| location.path == path)
-                .map(|location| location.readers.clone())
-                .unwrap_or_default()
-        };
-        // Directories only the reviewed overlay records are scanned, in a workspace and under home.
-        assert!(
-            readers(temp.path().join("workspace/.kimi-code/skills"))
-                .iter()
-                .any(|reader| reader == "Kimi Code CLI")
-        );
-        assert!(
-            readers(config.home.join(".codex/skills"))
-                .iter()
-                .any(|reader| reader == "Codex")
-        );
-        let agents = agent_options(&config)?;
-        let kimi = agents
-            .iter()
-            .find(|agent| agent.id == "kimi-code-cli")
-            .unwrap();
-        // The registry's directory stays the shown one, and detection still reads it alone.
-        assert_eq!(kimi.workspace_skills_dir, ".agents/skills");
-        assert_eq!(
-            kimi.global_skills_dir,
-            Some(config.home.join(".agents/skills").display().to_string())
-        );
-        assert!(!kimi.detected, "nothing created its global skill directory");
-        assert_eq!(kimi.same_slug, SameSlug::Precedence);
-        assert!(
-            kimi.other_workspace_dirs
-                .iter()
-                .any(|dir| { dir.path == ".kimi-code/skills" && dir.role == DirRole::Own })
-        );
-        assert!(
-            kimi.other_global_dirs
-                .iter()
-                .any(|dir| Path::new(dir) == config.home.join(".kimi-code/skills"))
-        );
-        let codex = agents.iter().find(|agent| agent.id == "codex").unwrap();
-        assert!(
-            !codex
-                .other_global_dirs
-                .iter()
-                .any(|dir| dir.starts_with("/etc")),
-            "a directory outside home is never scanned"
-        );
-        // Overlay directories never decide which folders are agent folders.
-        assert!(!workspace_skill_dirs()?.contains(".kimi-code/skills"));
-        assert!(!global_skill_dirs(&config)?.contains(&config.home.join(".codex/skills")));
-        Ok(())
-    }
-}
+#[cfg(test)]
+mod tests;

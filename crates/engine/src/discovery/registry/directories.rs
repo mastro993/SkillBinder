@@ -27,6 +27,9 @@ pub(super) struct Entry {
     pub workspace: Vec<Directory>,
     pub global: Vec<Directory>,
     pub same_slug: SameSlug,
+    /// Tiers of directories a source ranks, winner first.
+    #[serde(default)]
+    pub order: Option<Vec<Vec<String>>>,
 }
 
 #[derive(Deserialize)]

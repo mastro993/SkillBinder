@@ -45,8 +45,12 @@ pub struct Workspace {
 pub enum Overlap {
     /// The agent keeps both copies, so it may load the skill twice.
     Twice,
-    /// The agent keeps one copy and it is not the workspace's, so this copy is ignored.
+    /// The agent keeps your agents' copy, so this one is ignored.
     Hidden,
+    /// The agent keeps this workspace copy, so your agents' copy is ignored.
+    Overrides,
+    /// The agent keeps one copy, and no source says which.
+    OneCopy,
 }
 
 /// What an agent does when two directories it reads hold one slug, as the reviewed overlay

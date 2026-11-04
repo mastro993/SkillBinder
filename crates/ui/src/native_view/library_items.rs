@@ -257,8 +257,8 @@ fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
 }
 
 /// The warning badge of a skill the open workspace holds for an agent that the active preset holds
-/// it for too: either the agent may load it twice, or it keeps your agents' copy and ignores this
-/// one.
+/// it for too: the agent may load it twice, or it keeps one copy, which the reviewed order names
+/// for every agent but the ones no source ranks.
 fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
     let (label, explanation) = match overlap {
         Overlap::Twice => (
@@ -268,6 +268,14 @@ fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
         Overlap::Hidden => (
             "Hidden by your agents",
             "An agent reads this skill in both places but keeps your agents' copy, so this copy is ignored.",
+        ),
+        Overlap::Overrides => (
+            "Overrides your agents",
+            "An agent reads this skill in both places but loads this copy, so your agents' copy is ignored.",
+        ),
+        Overlap::OneCopy => (
+            "One copy is used",
+            "An agent reads this skill in both places but keeps one copy, and no source says which.",
         ),
     };
     div()
