@@ -278,6 +278,8 @@ impl State {
         result?;
         // The skills are saved where they are active; their copies follow.
         self.apply_imported(outcome.imported.iter().map(|id| id.0.clone()).collect());
+        // The import that first fills the library uses up the one-time adoption.
+        self.adopt_agent_copies();
         Ok(outcome)
     }
 }

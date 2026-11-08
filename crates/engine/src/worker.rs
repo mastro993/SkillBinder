@@ -387,6 +387,8 @@ impl State {
                 let reconciled = self.reconcile_head();
                 // Pulled content rewrites library copies, even after a partial reconcile.
                 self.apply_library();
+                // One that fills an empty library adopts the skills your agents already have.
+                self.adopt_agent_copies();
                 reconciled
             }
             _ => Ok(()),

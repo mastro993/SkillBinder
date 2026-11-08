@@ -117,6 +117,7 @@ impl State {
             self.apply_import(plan)?;
         }
         self.set_setting("onboarding", &OnboardingStep::Complete)?;
+        self.adopt_agent_copies();
         self.bootstrap()
     }
 }

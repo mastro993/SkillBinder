@@ -4,6 +4,7 @@
 //! that cannot follow records why instead of rolling the choice back. Only copies SkillBinder
 //! wrote or adopted are ever rewritten or removed, apart from a replacement the user confirms.
 
+mod adoption;
 mod copies;
 mod pass;
 mod plan;
