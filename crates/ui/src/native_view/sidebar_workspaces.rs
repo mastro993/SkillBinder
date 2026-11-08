@@ -1,5 +1,5 @@
 //! The sidebar Workspaces section: user-ordered workspace rows with inline renaming, row menus,
-//! and drag reordering. Each row counts the skills the last scan found.
+//! and drag reordering. Each row counts the skills active in its workspace.
 
 use std::{cell::Cell, rc::Rc, time::Instant};
 
@@ -131,9 +131,7 @@ impl NativeView {
         } else {
             workspace.name.clone()
         };
-        let found = self
-            .found_where(|location| location.workspaces.contains(&workspace.id))
-            .len();
+        let active = workspace.skills.len();
         let trailing = if workspace.missing {
             app_icon("alert-circle")
                 .size(px(ICON_SIZE))
@@ -141,7 +139,7 @@ impl NativeView {
                 .text_color(cx.theme().warning)
                 .into_any_element()
         } else {
-            count(found, cx)
+            count(active, cx)
         };
         let (index, len) = (placement.index, placement.len);
         let row = activate(
@@ -172,7 +170,7 @@ impl NativeView {
                 icon: row_icon(workspace),
                 label,
                 tint,
-                count: Some(found),
+                count: Some(active),
                 width: self.sidebar_width - 2.0 * INSET,
                 grab: Cell::new(0.0),
             },

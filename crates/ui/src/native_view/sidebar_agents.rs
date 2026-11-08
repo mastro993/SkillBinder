@@ -11,7 +11,7 @@ use gpui_kit::component::Icon;
 use gpui_kit::{
     AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
-use skillbinder_proto::{AgentOption, CandidateLocation, SidebarSection};
+use skillbinder_proto::{AgentOption, SidebarSection};
 use skillbinder_theme::sidebar::ROW_GAP;
 
 impl NativeView {
@@ -99,19 +99,11 @@ impl NativeView {
 
     /// The skill folders the last scan found in the global skill directory of any of `agents`.
     pub(super) fn found_for(&self, agents: &[&AgentOption]) -> Vec<FoundSkill> {
-        self.found_where(|location| read_globally(location, agents))
-    }
-
-    /// The skill folders the last scan found at the locations `holds` accepts.
-    pub(super) fn found_where(
-        &self,
-        holds: impl Fn(&CandidateLocation) -> bool,
-    ) -> Vec<FoundSkill> {
         let candidates = self
             .snapshot
             .scan
             .as_ref()
             .map_or(&[][..], |scan| &scan.candidates);
-        found_where(candidates, holds)
+        found_where(candidates, |location| read_globally(location, agents))
     }
 }
