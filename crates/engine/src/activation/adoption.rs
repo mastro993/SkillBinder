@@ -49,6 +49,10 @@ impl State {
         let mut probed = BTreeMap::<(&str, &str), Option<String>>::new();
         let mut held = BTreeMap::<String, BTreeSet<String>>::new();
         for skill in &library.skills {
+            // A quit before every copy was probed leaves the adoption to the next launch.
+            if self.shutdown.cancelled() {
+                return Ok(());
+            }
             if skill.presets.contains_key(&library.active_preset) {
                 continue;
             }
