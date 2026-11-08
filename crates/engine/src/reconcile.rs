@@ -175,6 +175,7 @@ impl State {
             }
         }
         self.apply_library();
+        self.adopt_agent_copies();
         if let Err(error) = self.prune_source_caches() {
             self.log.record(format!(
                 "Unused source caches will be removed later: {error}"
