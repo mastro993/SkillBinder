@@ -53,6 +53,7 @@ impl NativeView {
             .cursor_pointer()
             .tab_index(0)
             .role(Role::Button)
+            .aria_expanded(open)
             .when(open, |button| button.bg(highlight))
             .hover(move |style| style.bg(highlight))
             .when_some(self.open_popover_cells(&skill), |button, cells| {

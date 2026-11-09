@@ -3,7 +3,7 @@
 
 use std::{cell::Cell, rc::Rc};
 
-use super::super::place_popover::pill_row;
+use super::super::place_popover::place_line;
 use super::avatar::{self, Fill, Ring};
 use super::logo::Logo;
 use super::popover::{Align, Anchor, placed, surface};
@@ -96,13 +96,19 @@ impl Render for Gallery {
     }
 }
 
-/// The popover's lines as `place_popover` builds them, 276 points wide: one with All agents and
-/// four pills, and docs-site's, whose 12 pills wrap beside its 95.73-point name.
+/// The popover's lines, 276 points wide: All agents, 97.74 points of label and switch, with four
+/// pills and with eight, and docs-site's, whose 12 pills wrap beside its 95.73-point name.
 fn popover_lines(logo: Logo, cx: &App) -> impl IntoElement {
     let pills = |prefix: &'static str, count: usize| {
         (0..count).map(move |index| {
             pill::pill(format!("{prefix}{index}"), logo, false, cx).test_support()
         })
+    };
+    let lead = |id: &'static str, width: f32| {
+        div()
+            .id(id)
+            .child(div().w(px(width)).h(px(18.2)))
+            .test_support()
     };
     div()
         .absolute()
@@ -113,37 +119,17 @@ fn popover_lines(logo: Logo, cx: &App) -> impl IntoElement {
         .flex_col()
         .gap(px(8.))
         .child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(8.))
-                .min_h(px(28.))
-                .child(div().flex_1().min_w_0().h(px(18.)))
-                .child(pill_row().children(pills("agent-", 4)))
+            place_line(lead("all-row", 97.74), pills("agent-", 4))
                 .id("agents-line")
                 .test_support(),
         )
         .child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(8.))
-                .min_h(px(28.))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .flex_grow(1.)
-                        .flex_shrink_0()
-                        .min_w_0()
-                        .child(div().w(px(95.73)).h(px(18.2))),
-                )
-                .child(
-                    pill_row()
-                        .children(pills("dir-", 12))
-                        .id("dirs")
-                        .test_support(),
-                )
+            place_line(lead("all-row-many", 97.74), pills("many-", 8))
+                .id("many-line")
+                .test_support(),
+        )
+        .child(
+            place_line(lead("docs-name", 95.73), pills("dir-", 12))
                 .id("docs-line")
                 .test_support(),
         )
@@ -225,23 +211,24 @@ fn popover_pills_sit_at_the_trailing_edge_and_wrap_beside_the_name(cx: &mut Test
     assert_eq!(bounds(cx, window, "agents-line").size.height, px(28.));
     // Four pills end at the line's trailing edge: the first at +160, +172 in the popover.
     let first = bounds(cx, window, "agent-0");
+    assert!(near(first.origin.x, 260.), "{first:?}");
     assert!(
-        near(first.origin.x, 260.),
-        "{first:?} {:?}",
-        bounds(cx, window, "agents-line")
+        near(bounds(cx, window, "all-row").size.width, 152.),
+        "All agents takes the free width"
     );
-    let dirs = bounds(cx, window, "dirs");
-    assert!(near(dirs.size.width, 172.27), "{dirs:?}");
-    assert_eq!(
-        dirs.size.height,
-        px(80.),
-        "5, 5, and 2 pills on three lines"
-    );
+    // Eight agents wrap five and three beside All agents, which keeps its width.
+    let many = bounds(cx, window, "all-row-many");
+    assert!(f32::from(many.size.width) >= 97.74 - 0.5, "{many:?}");
+    assert_eq!(bounds(cx, window, "many-line").size.height, px(52.));
+    // docs-site's pills: 5, 5, and 2 on three lines.
+    let docs = bounds(cx, window, "docs-name");
+    let last = bounds(cx, window, "dir-11");
+    assert!(near(docs.size.width, 95.73), "{docs:?}");
     assert_eq!(bounds(cx, window, "docs-line").size.height, px(80.));
     // The last line's two pills keep to the trailing edge.
-    let last = bounds(cx, window, "dir-11");
+    let line = bounds(cx, window, "docs-line");
     assert!(
-        near(last.right(), 376.) && near(last.origin.y, f32::from(dirs.origin.y) + 56.),
+        near(last.right(), 376.) && near(last.origin.y, f32::from(line.origin.y) + 56.),
         "{last:?}"
     );
 }

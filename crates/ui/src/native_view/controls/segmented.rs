@@ -4,8 +4,8 @@
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    App, Div, ElementId, FontWeight, InteractiveElement, ParentElement, Stateful, Styled, div,
-    hsla, prelude::FluentBuilder, px,
+    App, Div, ElementId, FontWeight, InteractiveElement, ParentElement, Stateful,
+    StatefulInteractiveElement, Styled, div, hsla, prelude::FluentBuilder, px,
 };
 
 use super::logo::{Ink, Logo};
@@ -28,11 +28,13 @@ pub(crate) fn track(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
         .bg(cx.theme().tab_bar_segmented)
 }
 
-/// One segment; the caller adds its label or icon, its click, and its accessible name.
+/// One segment, selected for assistive technology while chosen; the caller adds its label or
+/// icon, its click, and its accessible name.
 pub(crate) fn segment(id: impl Into<ElementId>, chosen: bool, cx: &App) -> Stateful<Div> {
     let theme = cx.theme();
     let foreground = theme.foreground;
     text::sized(div().id(id), 12.5)
+        .aria_selected(chosen)
         .group(GROUP)
         .flex()
         .flex_none()

@@ -17,7 +17,7 @@ use super::workspace_icons::sized_icon;
 use super::{DialogState, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, Bounds, Context, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
+    AnyElement, Bounds, Context, Div, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
     MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled, Toggled,
     Window, deferred, div, prelude::FluentBuilder, px,
 };
@@ -187,8 +187,6 @@ impl NativeView {
         let group = div()
             .id("place-all-row")
             .flex()
-            .flex_1()
-            .min_w_0()
             .items_center()
             .gap(px(8.))
             .child(text::sized(div(), 13.).child("All agents"))
@@ -225,20 +223,20 @@ impl NativeView {
                     .child(section_label("Your agents", cx))
                     .child(preset_chip(preset, cx)),
             )
-            .child(
-                h_flex()
-                    .gap(px(8.))
-                    .min_h(px(28.))
-                    .child(tip(group, "Includes agents added later"))
-                    .when(none, |line| {
-                        line.child(
-                            text::sized(div(), 11.5)
-                                .text_color(cx.theme().muted_foreground)
-                                .child("No agents detected"),
-                        )
-                    })
-                    .when(!none, |line| line.child(pill_row().children(pills))),
-            )
+            .child(if none {
+                place_line(
+                    tip(group, "Includes agents added later"),
+                    [text::sized(div(), 11.5)
+                        .text_color(cx.theme().muted_foreground)
+                        .child("No agents detected")
+                        .into_any_element()],
+                )
+            } else {
+                place_line(
+                    tip(group, "Includes agents added later"),
+                    pills.map(IntoElement::into_any_element),
+                )
+            })
             .into_any_element()
     }
 
@@ -298,9 +296,6 @@ impl NativeView {
             )
         });
         let name = v_flex()
-            .flex_grow(1.)
-            .flex_shrink_0()
-            .min_w_0()
             .child(
                 h_flex()
                     .min_w_0()
@@ -321,14 +316,7 @@ impl NativeView {
                         .child("No agents yet"),
                 )
             });
-        let line = div()
-            .id(format!("place-ws-{}", workspace.id))
-            .flex()
-            .items_center()
-            .gap(px(8.))
-            .min_h(px(28.))
-            .child(name)
-            .child(pill_row().children(pills));
+        let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));
         if place.missing() {
             tip(line.opacity(0.4), "The workspace folder is missing.").into_any_element()
         } else {
@@ -337,13 +325,27 @@ impl NativeView {
     }
 }
 
-/// Pills on one line, wrapping onto further lines aligned to the trailing edge.
-pub(super) fn pill_row() -> gpui_kit::Div {
+/// A line of the popover: `lead`, never narrower than its content and taking the free width,
+/// then `pills` at the trailing edge, wrapping onto further lines beside it rather than crushing
+/// it however many there are.
+pub(super) fn place_line<E: Styled + IntoElement>(
+    lead: E,
+    pills: impl IntoIterator<Item = impl IntoElement>,
+) -> Div {
     div()
         .flex()
-        .flex_wrap()
-        .justify_end()
         .items_center()
-        .gap(px(4.))
-        .min_w_0()
+        .gap(px(8.))
+        .min_h(px(28.))
+        .child(lead.flex_grow(1.).flex_shrink_0())
+        .child(
+            div()
+                .flex()
+                .flex_wrap()
+                .justify_end()
+                .items_center()
+                .gap(px(4.))
+                .min_w_0()
+                .children(pills),
+        )
 }
