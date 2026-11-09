@@ -4,8 +4,9 @@
 //! fades in over 150 ms and the dialog drops 8 px into place while it fades in over 180 ms;
 //! reduced motion shows the end at once, as for every GPUI animation.
 
+use super::app_icon;
 use super::motion::ease_out;
-use super::{app_icon, shadow};
+use super::shadow::{self, Corners};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, App, Div, ElementId, FontWeight, InteractiveElement,
@@ -36,7 +37,11 @@ pub(crate) fn scrim(id: impl Into<ElementId>, dialog: Div, cx: &App) -> Stateful
         .px(px(16.))
         .pb(px(16.))
         .bg(cx.theme().overlay)
-        .child(dropping(dialog.relative()))
+        .child(dropping(shadow::under_large(
+            dialog,
+            0.,
+            Corners::Radius(8.),
+        )))
 }
 
 /// `dialog` dropping into place while it fades in.
@@ -60,7 +65,8 @@ pub(crate) fn fading_in(
         .into_any_element()
 }
 
-/// A `width` dialog: the page background, a `border` hairline, radius 8, and the large shadow.
+/// A `width` dialog: the page background, a `border` hairline, and radius 8; [`scrim`] casts the
+/// large shadow under it.
 pub(crate) fn surface(width: f32, cx: &App) -> Div {
     let theme = cx.theme();
     div()
@@ -75,7 +81,6 @@ pub(crate) fn surface(width: f32, cx: &App) -> Div {
         .text_color(theme.foreground)
         .text_size(px(13.))
         .line_height(px(18.2))
-        .shadow(shadow::large())
 }
 
 /// The title row: `title` at 15 px semibold, then `close`.

@@ -3,9 +3,10 @@
 //! close button, and its own timing, so the app draws this one. It rises 8 px into place while it
 //! fades in over 200 ms, and leaves dropping 6 px while it fades out over 180 ms.
 
+use super::app_icon;
 use super::exact_text::exact_text;
 use super::motion::{ease, ease_out};
-use super::{app_icon, shadow};
+use super::shadow::{self, Corners};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, App, Div, InteractiveElement, IntoElement, ParentElement,
@@ -109,7 +110,6 @@ pub(crate) fn toast_layer(
         .text_size(px(13.))
         .line_height(px(18.2))
         .whitespace_nowrap()
-        .shadow(shadow::large())
         .when_some(toast.icon, |chip, icon| {
             chip.child(app_icon(icon).size(px(15.)).flex_none().text_color(ink))
         })
@@ -120,7 +120,10 @@ pub(crate) fn toast_layer(
                 .text_ellipsis()
                 .child(exact_text(toast.message.clone())),
         );
-    let chip = moving(chip(body), toast);
+    let chip = moving(
+        shadow::under_large(chip(body), 0., Corners::Radius(8.)),
+        toast,
+    );
     deferred(
         div()
             .absolute()
@@ -137,7 +140,7 @@ pub(crate) fn toast_layer(
 }
 
 /// `chip` rising into place as it fades in, or dropping as it fades out once leaving.
-fn moving(chip: Stateful<Div>, toast: &Toast) -> AnyElement {
+fn moving(chip: Div, toast: &Toast) -> AnyElement {
     let serial = toast.serial;
     if toast.leaving {
         let leaving = Animation::new(LEAVING).with_easing(ease());

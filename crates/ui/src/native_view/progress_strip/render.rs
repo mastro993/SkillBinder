@@ -6,8 +6,9 @@
 use super::super::NativeView;
 use super::super::controls::motion::{ease, ease_out};
 use super::super::controls::progress_bar::pill_progress;
+use super::super::controls::shadow::{self, Corners};
 use super::super::controls::text_button::{Height, Look, text_button};
-use super::super::controls::{app_icon, exact_text::exact_text, shadow, spinner::spinner};
+use super::super::controls::{app_icon, exact_text::exact_text, spinner::spinner};
 use super::super::import_review::place_name;
 use super::{Shown, WASH_FADE, done_label};
 use gpui_kit::base::FocusTrapElement;
@@ -25,6 +26,8 @@ use std::{sync::Arc, time::Duration};
 const PILL_HEIGHT: f32 = 34.;
 /// Distance from the window's top edge to the pill.
 const PILL_TOP: f32 = 10.;
+/// Width of the hairline ring just outside the pill.
+const RING: f32 = 1.;
 /// How far above its place the pill starts entering.
 const PILL_SLIDE: f32 = 6.;
 /// How long the pill takes to enter.
@@ -84,7 +87,7 @@ impl NativeView {
             None => layer,
             Some(pill) => layer
                 .child(wash("activation-strip-wash", true, cx))
-                .child(entering(pill_row(pill))),
+                .child(entering(pill_row(ringed(pill, cx)))),
         };
         Some(
             layer
@@ -116,18 +119,19 @@ fn entering(row: Div) -> AnyElement {
         "activation-strip-enter",
         Animation::new(PILL_ENTER).with_easing(ease_out()),
         |row, entered| {
-            row.top(px(PILL_TOP - PILL_SLIDE * (1. - entered)))
+            row.top(px(PILL_TOP - RING - PILL_SLIDE * (1. - entered)))
                 .opacity(entered)
         },
     )
     .into_any_element()
 }
 
-/// A full-width row 10 px below the window's top edge that centers `pill` on the window.
+/// A full-width row that centers the ringed `pill` on the window, the pill 10 px below its top
+/// edge.
 fn pill_row(pill: impl IntoElement) -> Div {
     div()
         .absolute()
-        .top(px(PILL_TOP))
+        .top(px(PILL_TOP - RING))
         .left_0()
         .right_0()
         .flex()
@@ -135,7 +139,20 @@ fn pill_row(pill: impl IntoElement) -> Div {
         .child(pill)
 }
 
-/// The pill's surface: the menu surface, fully rounded, with a hairline ring and a large shadow.
+/// `pill` inside its hairline ring, under the large shadow. A ring drawn as a spread shadow keeps
+/// the pill's 17 px radius on its 36 px box (G2), so its ends flatten; a capsule of its own stays
+/// round, and composites over the shadow as CSS draws it.
+fn ringed(pill: Stateful<Div>, cx: &App) -> Div {
+    let ring = div()
+        .flex_none()
+        .p(px(RING))
+        .rounded_full()
+        .bg(cx.theme().foreground.opacity(LINE_INK))
+        .child(pill);
+    shadow::under_large(ring, RING, Corners::Full)
+}
+
+/// The pill's surface: the menu surface, fully rounded.
 fn pill(id: &'static str, cx: &Context<NativeView>) -> Stateful<Div> {
     let theme = cx.theme();
     div()
@@ -152,7 +169,6 @@ fn pill(id: &'static str, cx: &Context<NativeView>) -> Stateful<Div> {
         .line_height(px(18.2))
         .font_weight(MEDIUM)
         .whitespace_nowrap()
-        .shadow(shadow::large_with_ring(theme.foreground.opacity(LINE_INK)))
 }
 
 /// The running pill: spinner, label, percent, and the progress line along its bottom edge,
