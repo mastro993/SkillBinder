@@ -122,6 +122,7 @@ impl State {
                 .or_insert_with(|| self.library_content(&pair.1).ok());
             let row = pass.rows.get(pair);
             let wanted = places.desired.contains(pair);
+            self.progress.working(&pair.0, &pair.1, !wanted);
             let boundary = places.boundary(&pair.0, &self.config.home);
             let after = if pass.orphaned(pair) {
                 None

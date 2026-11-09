@@ -102,6 +102,7 @@ fn counts(done: usize, total: usize, attention: usize) -> ActivationProgress {
         done,
         total,
         attention,
+        step: None,
     }
 }
 

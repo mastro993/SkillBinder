@@ -2,7 +2,7 @@
 //! while a tracked job runs; the client reads the counts without queueing behind the worker, as it
 //! reads a running scan.
 
-use skillbinder_proto::{ActivationProgress, AppError, AppResult};
+use skillbinder_proto::{ActivationProgress, ActivationStep, AppError, AppResult, SkillId};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 #[derive(Default)]
@@ -25,6 +25,9 @@ impl Drop for Tracking {
     fn drop(&mut self) {
         if let Ok(mut record) = self.0.0.lock() {
             record.tracking = false;
+            if let Some(counts) = record.counts.as_mut() {
+                counts.step = None;
+            }
         }
     }
 }
@@ -57,6 +60,18 @@ impl Progress {
         self.count(|counts| counts.total += pairs);
     }
 
+    /// Names the pair a pass is about to bring in line: `directory` and `slug`, `removing` when
+    /// the skill is no longer active there.
+    pub(crate) fn working(&self, directory: &str, slug: &str, removing: bool) {
+        self.count(|counts| {
+            counts.step = Some(ActivationStep {
+                skill: SkillId(slug.to_owned()),
+                directory: directory.to_owned(),
+                removing,
+            });
+        });
+    }
+
     /// Counts one pair brought in line, which needs the user when `attention` is true.
     pub(crate) fn advanced(&self, attention: bool) {
         self.count(|counts| {
@@ -76,7 +91,7 @@ impl Progress {
 
     /// The counts of the change in flight, or of the last one since the record was cleared.
     pub(crate) fn current(&self) -> AppResult<Option<ActivationProgress>> {
-        Ok(self.lock()?.counts)
+        Ok(self.lock()?.counts.clone())
     }
 }
 
@@ -89,6 +104,7 @@ mod tests {
             done,
             total,
             attention,
+            step: None,
         })
     }
 
@@ -112,9 +128,14 @@ mod tests {
         let tracking = progress.begin();
         progress.planned(4);
         progress.advanced(false);
+        progress.working("/home/.claude/skills", "review", true);
         progress.advanced(true);
         progress.planned(2);
-        assert_eq!(progress.current()?, counts(2, 6, 1));
+        let step = progress.current()?.and_then(|counts| counts.step);
+        assert_eq!(
+            step.map(|step| (step.skill.0, step.removing)),
+            Some(("review".to_owned(), true))
+        );
         drop(tracking);
         progress.advanced(true);
         assert_eq!(progress.current()?, counts(2, 6, 1));

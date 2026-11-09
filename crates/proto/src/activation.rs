@@ -107,7 +107,7 @@ impl CopyState {
 
 /// How far a change that writes and removes copies has got: of the (directory, skill) pairs it
 /// brings in line, how many it has done, and how many of those need the user.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ActivationProgress {
     /// Pairs brought in line so far.
     pub done: usize,
@@ -115,6 +115,19 @@ pub struct ActivationProgress {
     pub total: usize,
     /// Done pairs whose copy then [`CopyState::needs_attention`].
     pub attention: usize,
+    /// The pair the change is on while it runs; `None` once it is over.
+    pub step: Option<ActivationStep>,
+}
+
+/// The (directory, skill) pair a change is bringing in line.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ActivationStep {
+    /// The skill's slug.
+    pub skill: SkillId,
+    /// The skill directory with links resolved, as [`ManagedCopy::directory`] names it.
+    pub directory: String,
+    /// The skill is no longer active there, so its copy goes.
+    pub removing: bool,
 }
 impl ActivationProgress {
     /// The share done, rounded to the nearest percent and capped at 100; nothing planned is 0.
@@ -173,7 +186,7 @@ mod tests {
         let progress = |done, total| ActivationProgress {
             done,
             total,
-            attention: 0,
+            ..ActivationProgress::default()
         };
         assert_eq!(progress(0, 0).percent(), 0);
         assert_eq!(progress(1, 3).percent(), 33);
