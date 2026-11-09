@@ -7,7 +7,7 @@ use std::sync::Arc;
 use gpui_kit::{FontFeatures, Styled, px};
 
 /// The prototypes' line height, as a multiple of the font size.
-pub(crate) const LINE: f32 = 1.4;
+const LINE: f32 = 1.4;
 
 /// Sets `size` px text on a line box of 1.4 times it.
 pub(crate) fn sized<E: Styled>(element: E, size: f32) -> E {

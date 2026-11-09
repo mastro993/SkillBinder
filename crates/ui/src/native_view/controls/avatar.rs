@@ -12,9 +12,9 @@ use super::logo::Logo;
 use super::text;
 
 /// An avatar's diameter.
-pub(crate) const SIZE: f32 = 18.;
+const SIZE: f32 = 18.;
 /// How far each avatar overlaps the one before it.
-pub(crate) const OVERLAP: f32 = 5.;
+const OVERLAP: f32 = 5.;
 /// The ring's width outside the circle.
 const RING: f32 = 2.;
 /// A color logo's share of the circle, on white.

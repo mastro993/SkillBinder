@@ -321,7 +321,7 @@ fn a_global_directory_linked_to_the_universal_one_is_one_entry_naming_both() {
     );
     assert_eq!(places.agents[1].detail(), None);
     assert_eq!(
-        places.every(),
+        places.every,
         ["amp", "codex", "windsurf", "claude-code", "cursor"]
     );
 }

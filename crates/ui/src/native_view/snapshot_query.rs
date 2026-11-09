@@ -74,6 +74,8 @@ pub(super) struct WorkspaceEntries<'a> {
 pub(super) struct Places<'a> {
     pub agents: Vec<Entry>,
     pub workspaces: Vec<WorkspaceEntries<'a>>,
+    /// Every listed agent's id: the agents a fixed list keeps when All agents is switched off.
+    every: Vec<String>,
 }
 
 impl<'a> Places<'a> {
@@ -103,15 +105,15 @@ impl<'a> Places<'a> {
                 ),
             })
             .collect();
-        Self { agents, workspaces }
-    }
-
-    /// Every listed agent's id: the agents a fixed list keeps when All agents is switched off.
-    pub(super) fn every(&self) -> Vec<String> {
-        self.agents
+        let every = agents
             .iter()
             .flat_map(|entry| entry.keys.iter().cloned())
-            .collect()
+            .collect();
+        Self {
+            agents,
+            workspaces,
+            every,
+        }
     }
 
     /// Where `skill` is on: each entry held or not, through the `active` preset and each
@@ -153,7 +155,7 @@ impl<'a> Places<'a> {
             skill: &skill.id,
             agents,
             targets,
-            every: self.every(),
+            every: &self.every,
             workspaces,
         }
     }
@@ -212,7 +214,7 @@ pub(super) struct SkillPlaces<'a> {
     /// What the active preset holds the skill for, while it holds it.
     pub targets: Option<&'a Targets>,
     /// Every listed agent's id.
-    every: Vec<String>,
+    every: &'a [String],
     pub workspaces: Vec<WorkspacePlace<'a>>,
 }
 
@@ -253,13 +255,13 @@ impl<'a> SkillPlaces<'a> {
     /// The active preset's targets after toggling `entry`. An empty list removes the skill from
     /// the preset.
     pub(super) fn toggled(&self, entry: &Entry) -> Targets {
-        library_targets::toggled(self.targets, &entry.keys, &self.every)
+        library_targets::toggled(self.targets, &entry.keys, self.every)
     }
 }
 
 /// Whether `skill` is on right now: the `active` preset holds it for one of your agents, or a
 /// workspace holds it, even one whose folder is missing.
-pub(super) fn is_active(places: &Places<'_>, skill: &Skill, active: &PresetId) -> bool {
+fn is_active(places: &Places<'_>, skill: &Skill, active: &PresetId) -> bool {
     let held = skill.presets.get(active).is_some_and(|targets| {
         places
             .agents
@@ -398,13 +400,13 @@ fn filtered(
 }
 
 /// Alphabetical by slug ignoring case, then by slug so equal names keep a stable order.
-pub(super) fn name_order(skill: &Skill) -> (String, String) {
+fn name_order(skill: &Skill) -> (String, String) {
     let slug = skill.id.as_str();
     (slug.to_lowercase(), slug.to_owned())
 }
 
 /// Search matches the slug or description, ignoring case; `query` is lowercase.
-pub(super) fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
+fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
     query.is_empty()
         || skill.id.as_str().to_lowercase().contains(query)
         || library

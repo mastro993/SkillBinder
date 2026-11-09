@@ -40,7 +40,7 @@ pub(crate) struct Anchor {
 
 /// The popover's origin for its `size`: below the trigger, else above, else beside it, kept
 /// inside the window's margin.
-pub(crate) fn origin(anchor: Anchor, size: Size<Pixels>, window: Size<Pixels>) -> Point<Pixels> {
+fn origin(anchor: Anchor, size: Size<Pixels>, window: Size<Pixels>) -> Point<Pixels> {
     let trigger = anchor.trigger;
     let (width, height) = (f32::from(size.width), f32::from(size.height));
     let (window_w, window_h) = (f32::from(window.width), f32::from(window.height));
