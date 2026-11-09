@@ -2,6 +2,7 @@
 //! row it does not expose (14 px at small, with no weight) and keeps its own outline colors and
 //! hover, so the app draws these itself.
 
+use super::exact_text::exact_text;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     App, Div, ElementId, InteractiveElement, ParentElement, Role, SharedString, Stateful,
@@ -84,5 +85,5 @@ pub(crate) fn text_button(
         .whitespace_nowrap()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(label)
+        .child(exact_text(label))
 }

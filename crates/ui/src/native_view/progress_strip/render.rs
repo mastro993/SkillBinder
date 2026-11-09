@@ -7,7 +7,7 @@ use super::super::NativeView;
 use super::super::controls::motion::{ease, ease_out};
 use super::super::controls::progress_bar::pill_progress;
 use super::super::controls::text_button::{Height, Look, text_button};
-use super::super::controls::{app_icon, shadow, spinner::spinner};
+use super::super::controls::{app_icon, exact_text::exact_text, shadow, spinner::spinner};
 use super::super::import_review::place_name;
 use super::{Shown, WASH_FADE, done_label};
 use gpui_kit::base::FocusTrapElement;
@@ -171,14 +171,14 @@ fn working_pill(
         .pr(px(14.))
         .gap(px(8.))
         .child(spinner("activation-strip-spinner", px(14.), ink))
-        .child(div().child(label))
+        .child(exact_text(label))
         .child(
             div()
                 .id("activation-strip-percent")
                 .min_w(px(32.))
                 .text_color(theme.muted_foreground)
                 .font_features(FontFeatures(Arc::new(vec![("tnum".into(), 1)])))
-                .child(format!("{percent}%")),
+                .child(exact_text(format!("{percent}%"))),
         )
         .children(progress)
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
@@ -192,7 +192,7 @@ fn done_pill(attention: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
         .pr(px(5.))
         .gap(px(6.))
         .child(app_icon("alert-circle").size(px(16.)).text_color(warning))
-        .child(div().mr(px(4.)).child(done_label(attention)))
+        .child(div().mr(px(4.)).child(exact_text(done_label(attention))))
         .child(
             text_button(
                 "activation-strip-review",

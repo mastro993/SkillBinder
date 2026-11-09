@@ -3,6 +3,7 @@
 //! close button, and its own timing, so the app draws this one. It rises 8 px into place while it
 //! fades in over 200 ms, and leaves dropping 6 px while it fades out over 180 ms.
 
+use super::exact_text::exact_text;
 use super::motion::{ease, ease_out};
 use super::{app_icon, shadow};
 use gpui_kit::component::ActiveTheme;
@@ -112,7 +113,13 @@ pub(crate) fn toast_layer(
         .when_some(toast.icon, |chip, icon| {
             chip.child(app_icon(icon).size(px(15.)).flex_none().text_color(ink))
         })
-        .child(div().min_w_0().text_ellipsis().child(toast.message.clone()));
+        .child(
+            div()
+                .flex()
+                .min_w_0()
+                .text_ellipsis()
+                .child(exact_text(toast.message.clone())),
+        );
     let chip = moving(chip(body), toast);
     deferred(
         div()
