@@ -31,6 +31,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("chat", "BubbleChatIcon"),
     icon!("check", "Tick02Icon"),
     icon!("check-bold", "Tick02Icon-stroke-2"),
+    icon!("check-circle", "CheckmarkCircle02Icon"),
     icon!("chevron-left", "ArrowLeft01Icon"),
     icon!("chevron-right", "ArrowRight01Icon"),
     icon!("chip", "ChipIcon"),
@@ -56,6 +57,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("layers", "Layers01Icon"),
     icon!("libraries", "LibrariesIcon"),
     icon!("list-view", "ListViewIcon"),
+    icon!("loading", "Loading03Icon"),
     icon!("magic-wand", "MagicWand01Icon"),
     icon!("moon", "Moon02Icon"),
     icon!("music", "MusicNote01Icon"),
@@ -241,5 +243,16 @@ mod tests {
         );
         assert_eq!(agent_color_logo("cursor"), None);
         assert!(matches!(Assets.load("agents/codex-color.svg"), Ok(Some(_))));
+    }
+
+    #[test]
+    fn the_progress_glyphs_are_mapped_and_unknown_ones_fail() {
+        for name in ["loading", "check-circle", "alert-circle"] {
+            assert!(matches!(
+                Assets.load(&format!("icons/{name}.svg")),
+                Ok(Some(_))
+            ));
+        }
+        assert!(Assets.load("icons/circle-check.svg").is_err());
     }
 }

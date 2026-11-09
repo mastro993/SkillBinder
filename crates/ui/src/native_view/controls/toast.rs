@@ -1,0 +1,125 @@
+//! The app's toast: an inverted chip centered at the bottom of the window, sized to its text, that
+//! closes by itself. Kit `Notification` keeps a fixed width, a popover card at the top right, a
+//! close button, and its own timing, so the app draws this one.
+
+use super::{app_icon, shadow};
+use gpui_kit::component::ActiveTheme;
+use gpui_kit::{
+    AnyElement, App, Div, InteractiveElement, IntoElement, ParentElement, SharedString, Stateful,
+    Styled, deferred, div, prelude::FluentBuilder, px,
+};
+use std::time::{Duration, Instant};
+
+/// How long a toast stays.
+pub(crate) const SHOWN: Duration = Duration::from_millis(4000);
+/// How long a toast stays after the pointer leaves it; hovering keeps it.
+pub(crate) const AFTER_LEAVE: Duration = Duration::from_millis(1500);
+/// Above the menus and the dialog layer, so a toast shows over an open dialog.
+const PRIORITY: usize = gpui_kit::base::POPUP_PRIORITY + 10;
+
+/// One toast and when it closes.
+#[derive(Clone, Debug)]
+pub(crate) struct Toast {
+    pub message: SharedString,
+    /// A retained glyph drawn in the text color before the message.
+    pub icon: Option<&'static str>,
+    /// When it closes; `None` while the pointer is over it.
+    closes: Option<Instant>,
+}
+
+impl Toast {
+    /// A toast shown at `now`, closing [`SHOWN`] later.
+    pub(crate) fn new(
+        message: impl Into<SharedString>,
+        icon: Option<&'static str>,
+        now: Instant,
+    ) -> Self {
+        Self {
+            message: message.into(),
+            icon,
+            closes: Some(now + SHOWN),
+        }
+    }
+
+    /// Pauses it while the pointer is over it, or gives it [`AFTER_LEAVE`] more from `now` once the
+    /// pointer leaves; returns when it then closes.
+    pub(crate) fn hover(&mut self, hovered: bool, now: Instant) -> Option<Instant> {
+        self.closes = (!hovered).then(|| now + AFTER_LEAVE);
+        self.closes
+    }
+
+    /// Whether a timer set for `deadline` closes it: a later hover or a newer toast moved it.
+    pub(crate) fn expires_at(&self, deadline: Instant) -> bool {
+        self.closes == Some(deadline)
+    }
+}
+
+/// The toast chip with id `id` over the window, centered 16 px above its bottom edge; the caller
+/// adds its hover listener to the chip through `chip`.
+pub(crate) fn toast_layer(
+    id: &'static str,
+    toast: &Toast,
+    chip: impl FnOnce(Stateful<Div>) -> Stateful<Div>,
+    cx: &App,
+) -> AnyElement {
+    let theme = cx.theme();
+    let ink = theme.background;
+    let body = div()
+        .id(id)
+        .occlude()
+        .min_w_0()
+        .flex()
+        .items_center()
+        .gap(px(10.))
+        .min_h(px(36.))
+        .py(px(6.))
+        .px(px(12.))
+        .rounded(px(8.))
+        .bg(theme.foreground)
+        .text_color(ink)
+        .text_size(px(13.))
+        .line_height(px(18.2))
+        .whitespace_nowrap()
+        .overflow_hidden()
+        .shadow(shadow::large())
+        .when_some(toast.icon, |chip, icon| {
+            chip.child(app_icon(icon).size(px(15.)).flex_none().text_color(ink))
+        })
+        .child(div().min_w_0().text_ellipsis().child(toast.message.clone()));
+    deferred(
+        div()
+            .absolute()
+            .left_0()
+            .right_0()
+            .bottom(px(16.))
+            .px(px(16.))
+            .flex()
+            .justify_center()
+            .child(chip(body)),
+    )
+    .with_priority(PRIORITY)
+    .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_toast_closes_after_its_time_unless_hovered() {
+        let now = Instant::now();
+        let mut toast = Toast::new("Switched to Work", Some("check-circle"), now);
+        let first = now + SHOWN;
+        assert!(toast.expires_at(first));
+        assert_eq!(toast.hover(true, now), None);
+        assert!(!toast.expires_at(first), "hovering keeps it");
+        let left = now + Duration::from_secs(10);
+        let second = toast.hover(false, left);
+        assert_eq!(second, Some(left + AFTER_LEAVE));
+        assert!(
+            !toast.expires_at(first),
+            "the first timer no longer closes it"
+        );
+        assert!(toast.expires_at(left + AFTER_LEAVE));
+    }
+}
