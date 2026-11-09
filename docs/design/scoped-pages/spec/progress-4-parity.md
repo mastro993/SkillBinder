@@ -13,24 +13,26 @@ The native capture is the gpui MCP full-window screenshot, 2360x1456. pixdiff al
 - **Toast states (08, 10).** The toast does not cover the sidebar, so the sidebar and the page are excluded, and only the toast box is compared. Its halo is a ratio check.
 - **Review (07).** A pixel target: C5 was settled for the prototype (2026-11-09).
 
-Pass criterion for every strict crop: the README's [Pass criteria](../README.md#pass-criteria), compared with `pixdiff --tolerance 8`.
+Pass criterion for every strict crop: the README's [Pass criteria](../README.md#pass-criteria), compared with `pixdiff --tolerance 8`, with `snap.pixels` at most the state's budget below.
 
 ## Strict crops (reference vs native)
 
 The ring box is the pill plus its 1 px edge ring. The spinner never stands still natively, so it is always masked.
 
-| State | `--crop` (ring or toast box) | `--ignore` |
-|---|---|---|
-| 01 appear-10 | `509.05,9,161.9,36` | spinner `522.05,20,14,14` |
-| 02 strip-45 | `509.05,9,161.9,36` | `522.05,20,14,14` |
-| 03 adding-50 | `517.63,9,144.74,36` | `530.63,20,14,14` |
-| 04 importing-50 | `509.48,9,161.03,36` | `522.48,20,14,14` |
-| 05 finishing-100 | `506.4,9,167.2,36` | `519.4,20,14,14` |
-| 06 done-2 | `435.42,9,309.16,36` | none |
-| 07 review | `380,56,420,232` | the dialog's close-button hover, if the pointer rests there |
-| 08 toast-switched | `500.64,676,178.72,36` | none |
-| 09 deleting-45 | `509.05,9,161.9,36` | `522.05,20,14,14` |
-| 10 toast-deleted | `448.02,676,283.95,36` | none |
+| State | `--crop` (ring or toast box) | `--ignore` | Snap budget |
+|---|---|---|---|
+| 01 appear-10 | `509.05,9,161.9,36` | spinner `522.05,20,14,14` | 170 |
+| 02 strip-45 | `509.05,9,161.9,36` | `522.05,20,14,14` | 210 |
+| 03 adding-50 | `517.63,9,144.74,36` | `530.63,20,14,14` | set with #100 |
+| 04 importing-50 | `509.48,9,161.03,36` | `522.48,20,14,14` | 280 |
+| 05 finishing-100 | `506.4,9,167.2,36` | `519.4,20,14,14` | 370 |
+| 06 done-2 | `435.42,9,309.16,36` | none | 600 |
+| 07 review | `380,56,420,232` | the dialog's close-button hover, if the pointer rests there | 2,100 |
+| 08 toast-switched | `500.64,676,178.72,36` | none | 450 |
+| 09 deleting-45 | `509.05,9,161.9,36` | `522.05,20,14,14` | 210 |
+| 10 toast-deleted | `448.02,676,283.95,36` | none | 720 |
+
+The budgets follow the README's rule, measured on #104's native build (light / dark): 01 89 / 137, 02 and 09 119 / 173, 04 228 / 216, 05 305 / 264, 06 496 / 443, 07 1,697 / 1,734, 08 367 / 291, 10 594 / 306. Moving the whole capture by 1 device px (left, right, up, down or diagonally) exceeds them, except sideways in 05: its pill and text sit at fractional x, so a capture moved sideways scores 253–347, about what the real one scores (264–305).
 
 ```
 $R/parity/pixdiff $R/references/progress/02-strip-45-light.png native.png diff.png \
@@ -67,7 +69,7 @@ If no base capture can be had, use these sample pixels on the strip capture inst
 
 ## Halo check (light only)
 
-`progress-checks.py halo <ref_base> <ref_strip> <nat_base> <nat_strip> light --rect … --ignore <ring box>` compares the shadow darkening `s = 1 − strip/washed` between the reference and native, within 2/255. On the references it scores 0. Swapping in a pill of another width fails: 5,275 px, max 37/255.
+`progress-checks.py halo <ref_base> <ref_strip> <nat_base> <nat_strip> light --rect … --ignore <ring box>` compares the shadow darkening `s = 1 − strip/washed` between the reference and native, within 3/255. GPUI's 4-sample blur leaves the flat page under the halo 3/255 off (5/5 G1), so 2/255 cannot pass. On the references it scores 0. Swapping in the 03 pill, 17 px narrower, fails: 2,665 px, max 13/255.
 
 In the dark theme the halo is under one level beyond the ring, so it is not checked.
 

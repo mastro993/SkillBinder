@@ -50,6 +50,22 @@ Notes:
 - Text antialiasing differs between Skia and CoreText. Judge text with pixdiff's AA-filtered count and with the text rects in 3/7–5/7, not with the raw count.
 - Window corners: pixdiff already drops the 1,168 non-opaque corner pixels of a native capture.
 
+## Snap budgets
+
+The README's snap rule: `snap.pixels` per state, in either theme, at most the budget. Measured on #105's native build with the masks it used (the ones above plus the AppKit window frame `1179,0,1,728`, `0,727,1180,1`, `1166,714,14,14`, the hover scrollbar in 07–13, 15, 17 and 18, and the pill tooltip `918,576,236,38` in 12). Moving the whole capture by 1 device px (left, right, up, down or diagonally) exceeds the budget in every state; the closest is 06 dark, 1,446 against 1,200.
+
+| NN | light / dark | Budget | NN | light / dark | Budget |
+|---|---|---|---|---|---|
+| 01 | 8,152 / 9,829 | 12,000 | 10 | 8,649 / 10,295 | 13,000 |
+| 02 | 9,223 / 11,025 | 14,000 | 11 | 8,639 / 10,654 | 13,000 |
+| 03 | 2,775 / 3,518 | 4,300 | 12 | 8,448 / 10,345 | 13,000 |
+| 04 | 3,024 / 3,646 | 4,400 | 13 | 8,695 / 10,632 | 13,000 |
+| 05 | 1,598 / 1,994 | 2,400 | 14 | 7,950 / 10,273 | 13,000 |
+| 06 | 821 / 943 | 1,200 | 15 | 9,013 / 10,693 | 13,000 |
+| 07 | 8,129 / 9,668 | 12,000 | 16 | 10,947 / 14,575 | 18,000 |
+| 08 | 8,127 / 9,737 | 12,000 | 17 | 11,118 / 14,509 | 18,000 |
+| 09 | 8,141 / 9,797 | 12,000 | 18 | 10,922 / 14,483 | 18,000 |
+
 ## Pass rule
 
-The README's [Pass criteria](../README.md#pass-criteria), compared with `pixdiff --tolerance 8`. A diagnostic hint, not a rule: antialiasing-only mismatch (yellow) above about 0.5 % of a crop usually means text positions or sizes are off, so check the spec rects.
+The README's [Pass criteria](../README.md#pass-criteria), compared with `pixdiff --tolerance 8`, and the snap budgets above. A diagnostic hint, not a rule: antialiasing-only mismatch (yellow) above about 0.5 % of a crop usually means text positions or sizes are off, so check the spec rects.

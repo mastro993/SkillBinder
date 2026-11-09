@@ -1,21 +1,27 @@
 """Pixel diff of a reference render against a native GPUI screenshot.
 
 usage: pixdiff <ref.png> <native.png> <out-diff.png> [--crop x,y,w,h] [--ignore x,y,w,h ...]
-               [--tolerance N] [--scale S] [--side out-side.png] [--json]
+               [--tolerance N] [--scale S] [--side out-side.png] [--no-snap] [--json]
 
 Rects are logical px in window coordinates (multiplied by --scale, default 2), also with
 --crop. Both images must have the same size (the native window must be 1180x728 at 2x).
 A pixel mismatches when its largest RGB channel delta exceeds --tolerance (default 0).
 Pixels that are not opaque in either image (macOS window corners) are left out and counted.
 
-Two numbers are reported:
+Three numbers are reported:
   raw          every mismatching pixel
-  aa-filtered  raw minus antialiasing pixels: pixelmatch's detector (a pixel lying between a
+  snap         mismatching pixels, not antialiasing, that a shift of at most 1 device px explains
+               both ways: in every channel the native value lies within the min..max (± tolerance)
+               of the reference's 3x3 neighbourhood, and the reference value within the native's.
+               GPUI puts icons and box edges on whole device pixels where Chrome draws them at
+               fractional positions. A missing or extra line, a wrong fill or a 2 device px
+               shift fails one direction and stays red. --no-snap turns the test off (snap = 0).
+  aa-filtered  raw minus antialiasing pixels (pixelmatch's detector: a pixel lying between a
                darker and a brighter neighbour, with at most 2 equal neighbours, next to a flat
-               area in both images), applied to each image against the other. Isolated text-edge
-               differences go; shifted solid edges, wrong colors and sizes stay.
+               area in both images, applied to each image against the other) and minus snap.
+               Isolated text-edge differences go; wrong colors, sizes and larger shifts stay.
 Writes out-diff.png (the reference faded to gray; red = mismatch, yellow = antialiasing only,
-blue = ignored or not opaque) and a side-by-side ref | native | diff (default
+green = snap only, blue = ignored or not opaque) and a side-by-side ref | native | diff (default
 <out-diff>.side.png). Exit 0 after a comparison, 2 on bad input.
 """
 import argparse
@@ -99,6 +105,24 @@ def antialiased(img, other, many_img, many_other):
     return out & (zeroes <= 2) & (lo < 0) & (hi > 0)
 
 
+def snapped(ref, nat, box, tolerance):
+    """True where, per channel, each image's value lies within the other's 3x3 min..max (± tolerance).
+    ref and nat are whole images and box the crop (x0, y0, x1, y1), so neighbours outside the crop
+    count; the image edge repeats."""
+    x0, y0, x1, y1 = box
+    h, w = y1 - y0, x1 - x0
+    ring = lambda img: np.pad(img[..., :3].astype(np.int16), ((1, 1), (1, 1), (0, 0)), mode="edge")[y0:y1 + 2, x0:x1 + 2]
+    r, n = ring(ref), ring(nat)
+
+    def within(v, around):
+        views = [around[1 + dy:1 + dy + h, 1 + dx:1 + dx + w] for dy in (-1, 0, 1) for dx in (-1, 0, 1)]
+        lo, hi = np.min(views, axis=0) - tolerance, np.max(views, axis=0) + tolerance
+        v = v[1:1 + h, 1:1 + w]
+        return ((v >= lo) & (v <= hi)).all(axis=2)
+
+    return within(n, r) & within(r, n)
+
+
 def bbox(mask, ox, oy, scale):
     ys, xs = np.nonzero(mask)
     if not len(xs):
@@ -117,6 +141,7 @@ def main():
     p.add_argument("--tolerance", type=int, default=0)
     p.add_argument("--scale", type=float, default=2.0)
     p.add_argument("--side")
+    p.add_argument("--no-snap", action="store_true")
     p.add_argument("--json", action="store_true")
     a = p.parse_args()
 
@@ -130,6 +155,7 @@ def main():
     if x1 <= x0 or y1 <= y0:
         print("pixdiff: the crop is outside the image", file=sys.stderr)
         sys.exit(2)
+    near = False if a.no_snap else snapped(ref, nat, (x0, y0, x1, y1), a.tolerance)
     ref, nat = ref[y0:y1, x0:x1], nat[y0:y1, x0:x1]
     h, w = ref.shape[:2]
 
@@ -143,7 +169,8 @@ def main():
     raw = (delta > a.tolerance) & compared
     many_ref, many_nat = many_siblings(ref), many_siblings(nat)
     aa = raw & (antialiased(ref, nat, many_ref, many_nat) | antialiased(nat, ref, many_nat, many_ref))
-    real = raw & ~aa
+    snap = raw & ~aa & near
+    real = raw & ~aa & ~snap
 
     n = int(compared.sum())
     stat = lambda m: {"pixels": int(m.sum()), "percent": round(100 * m.sum() / n, 4) if n else 0.0,
@@ -153,13 +180,15 @@ def main():
         "size": [W, H], "scale": a.scale, "region_px": [x0, y0, x1 - x0, y1 - y0], "compared": n,
         "ignored": int(ignored.sum()), "not_opaque": int((clear & ~ignored).sum()), "tolerance": a.tolerance,
         "max_delta": int(delta[compared].max()) if n else 0,
-        "raw": stat(raw), "aa_filtered": stat(real), "antialiasing": int(aa.sum()), "diff": a.out, "side": side,
+        "raw": stat(raw), "aa_filtered": stat(real), "antialiasing": int(aa.sum()), "snap": stat(snap),
+        "diff": a.out, "side": side,
     }
 
     gray = ref[..., :3].astype(np.float32) @ np.array([0.299, 0.587, 0.114], np.float32)
     out = np.repeat((255 - (255 - gray) * 0.25)[..., None], 3, axis=2).astype(np.uint8)
     out[ignored | clear] = (205, 225, 255)
     out[aa] = (255, 196, 0)
+    out[snap] = (0, 160, 80)
     out[real] = (230, 0, 0)
     Image.fromarray(out, "RGB").save(a.out)
     gap = np.full((h, max(2, int(8 * a.scale)), 3), 128, np.uint8)
@@ -171,7 +200,7 @@ def main():
     lg = lambda v: f"{v / a.scale:g}"
     print(f"region       {lg(x0)},{lg(y0)},{lg(x1 - x0)},{lg(y1 - y0)} logical ({x1 - x0}x{y1 - y0} px at {a.scale:g}x); "
           f"compared {n:,} px, ignored {result['ignored']:,}, not opaque {result['not_opaque']:,}; tolerance {a.tolerance}")
-    for key, label in (("raw", "raw"), ("aa_filtered", "aa-filtered")):
+    for key, label in (("raw", "raw"), ("snap", "snap"), ("aa_filtered", "aa-filtered")):
         s = result[key]
         box = f"  bbox {','.join(f'{v:g}' for v in s['bbox'])} logical" if s["bbox"] else ""
         print(f"{label:<12} {s['pixels']:,} px mismatched ({s['percent']:.4f}%), max channel delta {s['max_delta']}{box}")

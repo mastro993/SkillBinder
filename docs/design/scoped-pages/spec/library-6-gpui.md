@@ -78,3 +78,10 @@ Decided 2026-11-09: where Kit cannot hit the prototype pixel for pixel, the app 
 - **G15 Kit Avatar.** It adds `border_1` and fills its image (`GC/avatar/avatar.rs`). The app adds `p_px()` and a 2 px border ring inside a 20 px box. Either way the logo is 16 px instead of 14.04, and the ring sits inside instead of outside. Build the avatar as described above.
 - **G16 Kit Button small text.** It is 14 px; the prototype uses 12. Button is Styled. Verify that `.text_size(px(12.))` reaches the label; otherwise use `.xsmall().h(px(24.)).px(px(8.))`.
 - **G17 Kit Tag small.** It uses text_xs (12), line 1.25, `px_1p5 py_0p5` and radius 3 (`GC/tag.rs`); the prototype uses 11/500, h 18, px 6 and radius 4. Override it or use a div.
+- **G18 Icons and logos snap to device pixels.**
+  - `paint_svg` snaps its bounds, rounds the sprite origin half toward zero and rounds its size up (`G/window.rs:4813,4847-4848`); `paint_image` snaps its bounds too (`:4978`). Chrome antialiases the glyph at its fractional position, such as the update glyph at x 343.25 or a logo 2.7 px inside its avatar.
+  - Delta: up to 1 device px on every icon and logo edge. pixdiff counts it as snap, within the state's budget (2/7).
+  - A logo detail 1 device px wide, such as the Claude Code logo's legs, can still differ: Chrome spreads its ink over two pixels where GPUI keeps it in one. The native value then lies outside the reference's range, so the pixel stays red.
+- **G19 Box edges snap to device pixels.**
+  - `paint_quad` snaps the bounds and border widths (`G/window.rs:4506-4507`). Chrome antialiases an edge at a fractional position, such as the segment track at x 601.77 in 04–06, or chip and separator edges at .34 and .45.
+  - Delta: one device column per such edge, or a whole element 1 device px off. pixdiff counts it as snap, within the budget. G10 has the same cause; this is where it shows.
