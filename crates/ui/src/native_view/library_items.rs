@@ -13,9 +13,9 @@ use super::snapshot_query::SkillPlaces;
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, DefiniteLength, Div, FontWeight, Hsla, InteractiveElement,
-    IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled, canvas, div,
-    prelude::FluentBuilder, px,
+    AnyElement, App, Context, DefiniteLength, Div, FontFeatures, FontWeight, Hsla,
+    InteractiveElement, IntoElement, ParentElement, SharedString, Stateful,
+    StatefulInteractiveElement, Styled, canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Overlap, Skill, SkillDetails, SkillId};
 use skillbinder_theme::library::{
@@ -210,12 +210,21 @@ impl NativeView {
     /// The name with its glyphs and folder tag, one line high, padded by `pad_y` in a tile.
     fn title_line(&self, item: &SkillItem<'_>, pad_y: Option<DefiniteLength>, cx: &App) -> Div {
         let dim = item.dimmed();
+        let name: SharedString = item.name().into();
+        let overhang = text::overhang(
+            &name,
+            SLUG_SIZE,
+            FontWeight::SEMIBOLD,
+            FontFeatures::default(),
+            cx,
+        );
         let slug = text::sized(div(), SLUG_SIZE)
             .min_w_0()
             .font_weight(FontWeight::SEMIBOLD)
             .truncate()
+            .mr(px(overhang))
             .when(dim, |slug| slug.opacity(DIM))
-            .child(item.name());
+            .child(name);
         h_flex()
             .min_w_0()
             .gap(px(6.))

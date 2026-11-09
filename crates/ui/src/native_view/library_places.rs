@@ -14,9 +14,9 @@ use super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::workspace_icons::sized_icon;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    AnyElement, App, Context, Div, ElementId, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Toggled,
-    canvas, div, prelude::FluentBuilder, px,
+    AnyElement, App, Context, Div, ElementId, FontFeatures, InteractiveElement, IntoElement,
+    KeyDownEvent, ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled,
+    Toggled, canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::Preset;
 use skillbinder_theme::menu::HIGHLIGHT_INK;
@@ -184,6 +184,13 @@ fn workspace_chip(
                     .min_w_0()
                     .max_w(px(CHIP_NAME_MAX))
                     .truncate()
+                    .mr(px(text::overhang(
+                        &only.workspace.name.clone().into(),
+                        12.,
+                        text::MEDIUM,
+                        FontFeatures::default(),
+                        cx,
+                    )))
                     .child(only.workspace.name.clone()),
             ),
             format!("{}\n{}", only.workspace.name, only.held_names()),
@@ -191,7 +198,13 @@ fn workspace_chip(
         several => Some(tip(
             base()
                 .child(Logo::Glyph("icons/code-folder.svg").element(13., muted.into(), false))
-                .child(several.len().to_string()),
+                .child(text::run(
+                    several.len().to_string(),
+                    12.,
+                    text::MEDIUM,
+                    false,
+                    cx,
+                )),
             several
                 .iter()
                 .map(|place| format!("{} · {}", place.workspace.name, place.held_names()))
@@ -240,7 +253,7 @@ pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
         .px(px(8.))
         .gap(px(5.))
         .child(dot(tint))
-        .child(name.clone());
+        .child(text::run(name.clone(), 12., text::MEDIUM, false, cx));
     tip(chip, format!("Saved to {name}")).into_any_element()
 }
 

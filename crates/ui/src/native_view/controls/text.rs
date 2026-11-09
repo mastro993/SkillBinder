@@ -4,7 +4,10 @@
 
 use std::sync::Arc;
 
-use gpui_kit::{FontFeatures, FontWeight, Styled, px};
+use gpui_kit::{
+    App, Div, FontFeatures, FontWeight, ParentElement, SharedString, Styled, TextRun,
+    WindowTextSystem, div, font, hsla, px,
+};
 
 /// The prototypes' line height, as a multiple of the font size.
 const LINE: f32 = 1.4;
@@ -29,6 +32,77 @@ pub(crate) fn line_shortfall(size: f32, scale: f32) -> f32 {
     // GPUI rounds a device length half toward zero.
     let device = ((line * scale).abs() - 0.5).ceil();
     chrome - device / scale
+}
+
+/// One run of `size` px text in `weight`, with tabular figures when `tabular`, that advances its
+/// line by its shaped width rounded to the device pixel, as Chrome lays the prototypes out, where
+/// GPUI sizes a text box to the next whole point and moves whatever follows it. The run's box
+/// takes the shaped width, which GPUI rounds to the device pixel; the text, up to a pixel wider,
+/// paints past it on one line. Its parent sets its color and line height.
+pub(crate) fn run(
+    text: impl Into<SharedString>,
+    size: f32,
+    weight: FontWeight,
+    tabular: bool,
+    cx: &App,
+) -> Div {
+    let text = text.into();
+    let features = if tabular {
+        self::tabular()
+    } else {
+        FontFeatures::default()
+    };
+    let width = shaped_width(&text, size, weight, features.clone(), cx);
+    div()
+        .flex_none()
+        .w(px(width))
+        .whitespace_nowrap()
+        .text_size(px(size))
+        .font_weight(weight)
+        .font_features(features)
+        .child(text)
+}
+
+/// How much less than its whole-point text box `text` advances, as a negative trailing margin for
+/// a text box that must keep GPUI's width, such as one that truncates. GPUI collapses a box of
+/// text with a negative margin when its parent sizes to its content, so only a box whose parent
+/// has its own width, such as a row's name, takes it.
+pub(crate) fn overhang(
+    text: &SharedString,
+    size: f32,
+    weight: FontWeight,
+    features: FontFeatures,
+    cx: &App,
+) -> f32 {
+    let width = shaped_width(text, size, weight, features, cx);
+    width - width.ceil()
+}
+
+/// `text`'s width as GPUI shapes it in the system font.
+fn shaped_width(
+    text: &SharedString,
+    size: f32,
+    weight: FontWeight,
+    features: FontFeatures,
+    cx: &App,
+) -> f32 {
+    let mut face = font(skillbinder_theme::system_font());
+    face.weight = weight;
+    face.features = features;
+    let shaped = WindowTextSystem::new(cx.text_system().clone()).shape_line(
+        text.clone(),
+        px(size),
+        &[TextRun {
+            len: text.len(),
+            font: face,
+            color: hsla(0., 0., 0., 1.),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        }],
+        None,
+    );
+    f32::from(shaped.width)
 }
 
 /// Tabular figures, so counts keep their width as they change.

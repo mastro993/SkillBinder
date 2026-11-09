@@ -74,7 +74,7 @@ impl NativeView {
             segment(format!("library-filter-{key}"), chosen == filter, cx)
                 .role(Role::Tab)
                 .aria_label(label)
-                .child(label)
+                .child(text::run(label, 12.5, text::MEDIUM, false, cx))
                 .child(count(value, cx))
                 .on_click(cx.listener(move |view, _, window, cx| {
                     view.library_filter.active = filter;
@@ -115,11 +115,11 @@ impl NativeView {
             .when(!on, |chip| chip.hover(move |style| style.bg(hover)))
             .child(Logo::Glyph("icons/upload-circle.svg").element(14., glyph_color.into(), false))
             .child(
-                text::sized(div(), 12.)
-                    .font_weight(FontWeight::NORMAL)
-                    .font_features(text::tabular())
-                    .text_color(count_color)
-                    .child(value.to_string()),
+                text::sized(
+                    text::run(value.to_string(), 12., FontWeight::NORMAL, true, cx),
+                    12.,
+                )
+                .text_color(count_color),
             )
             .on_click(cx.listener(|view, _, window, cx| {
                 view.library_filter.updates = !view.library_filter.updates;

@@ -41,7 +41,7 @@ pub(crate) fn tag(label: impl Into<SharedString>, cx: &App) -> Div {
         .font_weight(text::MEDIUM)
         .text_color(theme.foreground)
         .whitespace_nowrap()
-        .child(label.into())
+        .child(text::run(label, 11., text::MEDIUM, false, cx))
 }
 
 /// An 8 px dot in `color`.
@@ -73,5 +73,5 @@ pub(crate) fn outline_button(
         .whitespace_nowrap()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(label.into())
+        .child(text::run(label, 12., text::MEDIUM, false, cx))
 }

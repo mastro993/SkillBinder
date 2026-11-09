@@ -17,9 +17,9 @@ use super::workspace_icons::sized_icon;
 use super::{DialogState, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, Bounds, Context, Div, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
-    MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled, Toggled,
-    Window, deferred, div, prelude::FluentBuilder, px,
+    AnyElement, Bounds, Context, Div, FocusHandle, FontWeight, InteractiveElement, IntoElement,
+    KeyDownEvent, MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled,
+    Toggled, Window, deferred, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{SkillId, WorkspaceTargets};
 use skillbinder_theme::menu::LINE_INK;
@@ -189,7 +189,10 @@ impl NativeView {
             .flex()
             .items_center()
             .gap(px(8.))
-            .child(text::sized(div(), 13.).child("All agents"))
+            .child(text::sized(
+                text::run("All agents", 13., FontWeight::NORMAL, false, cx),
+                13.,
+            ))
             .child(toggle);
         let pills = places.agents.iter().map(|held| {
             let entry = held.entry;

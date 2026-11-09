@@ -4,8 +4,8 @@
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    App, Div, ElementId, InteractiveElement, ParentElement, Stateful, StatefulInteractiveElement,
-    Styled, div, hsla, prelude::FluentBuilder, px,
+    App, Div, ElementId, InteractiveElement, Stateful, StatefulInteractiveElement, Styled, div,
+    hsla, prelude::FluentBuilder, px,
 };
 
 use super::logo::{Ink, Logo};
@@ -64,10 +64,11 @@ pub(crate) fn segment(id: impl Into<ElementId>, chosen: bool, cx: &App) -> State
 
 /// A segment's count: muted 11 px tabular figures.
 pub(crate) fn count(value: usize, cx: &App) -> Div {
-    text::sized(div(), 11.)
-        .font_features(text::tabular())
-        .text_color(cx.theme().muted_foreground)
-        .child(value.to_string())
+    text::sized(
+        text::run(value.to_string(), 11., text::MEDIUM, true, cx),
+        11.,
+    )
+    .text_color(cx.theme().muted_foreground)
 }
 
 /// A segment's 15 px glyph: the text color while chosen, else muted until the segment is hovered.
