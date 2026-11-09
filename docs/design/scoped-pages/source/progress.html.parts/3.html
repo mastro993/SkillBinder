@@ -1,0 +1,105 @@
+  // ---- C: steps -----------------------------------------------------------------------------
+  function stepsView(plan) {
+    let d = null;
+    const ofOp = (op) => plan.pairs.filter((p) => p.op === op);
+    const phases = [
+      { op: 'add', glyph: icon('plus', 14), word: plan.kind === 'import' ? 'importing' : 'adding' },
+      { op: 'remove', glyph: newIcon('minus', 14), word: 'removing' },
+    ].map((ph) => ({ ...ph, pairs: ofOp(ph.op) })).filter((ph) => ph.pairs.length).map((ph) => {
+      const slugs = [...new Set(ph.pairs.map((p) => p.slug))];
+      const meter = h('span');
+      const end = h('span', { class: 'pp-phase-end' });
+      const el = h('div', { class: 'pp-phase is-pending' },
+        h('span', { class: 'pp-phase-ic', html: ph.glyph }),
+        h('span', { class: 'pp-phase-label', 'data-tip': slugs.join('\n') }, h('b', String(slugs.length)), ` ${ph.word}`),
+        h('div', { class: 'sb-progress' }, meter), end);
+      return { ...ph, el, meter, end };
+    });
+    const pct = h('span', { class: 'pp-head-pct' }, '0%');
+    const step = h('span', { class: 'pp-step' });
+    const count = h('span', { class: 'pp-count' });
+    return {
+      show() {
+        d = openDialog(win, { title: plan.title, size: 'md', dismissible: false, body: [
+          h('div', { class: 'pp-phases' }, phases.map((ph) => ph.el)),
+          h('div', { class: 'pp-stepline' }, step, count)] });
+        d.el.querySelector('.sb-dialog-header').lastElementChild.before(pct);
+      },
+      update(s) {
+        const doneSet = new Set(s.pairs.slice(0, s.done));
+        pct.textContent = `${s.pct}%`;
+        step.textContent = s.done < s.total ? s.step : '';
+        phases.forEach((ph) => {
+          const n = ph.pairs.filter((p) => doneSet.has(p)).length;
+          const issues = ph.pairs.filter((p) => doneSet.has(p) && p.problem).length;
+          const finished = n === ph.pairs.length;
+          const active = !finished && (n > 0 || s.pairs[s.done] === ph.pairs[0]);
+          ph.meter.style.width = `${Math.round((n / ph.pairs.length) * 100)}%`;
+          ph.el.classList.toggle('is-pending', !finished && !active);
+          ph.end.className = `pp-phase-end${finished ? (issues ? ' is-warn' : ' is-done') : ''}`;
+          ph.end.removeAttribute('data-tip');
+          if (finished && issues) {
+            ph.end.setAttribute('data-tip', `${issues} to review`);
+            ph.end.replaceChildren(ic('alert-circle', 15));
+          } else if (finished) ph.end.replaceChildren(ic('check', 15));
+          else if (active) ph.end.replaceChildren(spinner(14));
+          else ph.end.replaceChildren(h('span', { class: 'pp-wait' }));
+        });
+        count.replaceChildren(s.hit ? warnMark(s.hit) : '');
+      },
+      close() { if (d) d.close(); },
+      done(hit, cb) {
+        d.setTitle(doneTitle(hit), warnIcon(18));
+        step.textContent = slugList(hit);
+        count.replaceChildren();
+        dialogDone(d, cb);
+      },
+    };
+  }
+
+  // ---- D: inline pill -----------------------------------------------------------------------
+  function inlineView(plan) {
+    const verb = plan.title.split(' ')[0];
+    const fill = h('span', { class: 'pp-pill-bar' });
+    const pct = h('span', { class: 'pp-pill-pct' }, '0%');
+    const pill = h('div', { class: 'pp-pill', role: 'status', 'aria-live': 'polite' }, spinner(14), h('span', `${verb}…`), pct, fill);
+    let onKey = null;
+    const close = () => {
+      if (onKey) document.removeEventListener('keydown', onKey);
+      pill.remove();
+      win.classList.remove('pp-dim');
+    };
+    return {
+      show() {
+        win.classList.add('pp-dim');
+        win.append(pill);
+      },
+      update(s) {
+        pct.textContent = `${s.pct}%`;
+        fill.style.width = `${s.pct}%`;
+        pill.setAttribute('data-tip', `${plan.title}\n${s.step}`);
+      },
+      close,
+      done(hit, cb) {
+        const end = (review) => { close(); cb(review); };
+        pill.removeAttribute('data-tip');
+        pill.classList.add('is-done');
+        pill.replaceChildren(h.html(warnIcon(16)), h('span', doneTitle(hit)),
+          h('button', { class: 'sb-btn sb-btn-primary sb-btn-sm', onclick: () => end(true) }, 'Review'),
+          h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => end(false) }, 'Close'));
+        onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); end(false); } };
+        document.addEventListener('keydown', onKey);
+        pill.querySelector('button').focus({ preventScroll: true });
+      },
+    };
+  }
+
+  const VIEWS = { bar: barView, ring: ringView, steps: stepsView, inline: inlineView };
+
+  draw();
+  syncRun();
+  ready = true;
+})();
+</script>
+</body>
+</html>

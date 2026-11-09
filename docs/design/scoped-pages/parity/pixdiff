@@ -1,0 +1,4 @@
+#!/bin/bash
+# Pixel diff of a reference against a native screenshot; usage in pixdiff.py.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+exec "$HERE/py" "$HERE/pixdiff.py" "$@"

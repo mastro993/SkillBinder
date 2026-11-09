@@ -1,0 +1,236 @@
+  // ---- Library: header, filters, list ---------------------------------------------------
+  function drawLibrary() {
+    closePop();
+    const tabOpts = [{ id: null, label: 'All skills' }, ...ui.folders.map((f) => ({ id: f, label: f }))];
+    const check = h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Check for updates', 'aria-label': 'Check for updates', onclick: () => {
+      check.replaceChildren(spinner(16));
+      setTimeout(() => {
+        check.replaceChildren(ic('refresh-04', 16));
+        const n = D.skills.filter((s) => s.hasUpdate).length;
+        if (!n) { toast(win, 'Up to date', { icon: 'check-circle' }); return; }
+        toast(win, `${n} update${n === 1 ? '' : 's'}`, { icon: 'upload-circle', action: 'Show', onAction: showUpdates });
+      }, 900);
+    } }, ic('refresh-04', 16));
+    hdr.replaceChildren(
+      tabs(tabOpts, ui.folder, (f) => { ui.folder = f; drawLibrary(); }, { onAdd: addFolder }),
+      h('div', { class: 'sb-header-actions' }, check,
+        h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Import', 'aria-label': 'Import', onclick: () => toast(win, 'Not in this prototype') }, ic('import', 16))));
+
+    filtersSlot = h('div', { class: 'lib-filters' });
+    const toolbar = h('div', { class: 'sb-toolbar lib-toolbar' },
+      searchInput({ value: ui.query, onInput: (q) => { ui.query = q; paintFilters(); drawList(); } }),
+      filtersSlot,
+      h('span', { class: 'sb-spacer' }),
+      seg([{ id: 'list', icon: icon('list-view', 15), tip: 'List' }, { id: 'grid', icon: icon('grid-view', 15), tip: 'Grid' }],
+        ui.layout, (v) => { ui.layout = v; drawList(); }));
+    if (ui.filterStyle === 'menu') {
+      const btn = h('button', {
+        class: 'sb-btn sb-btn-icon lib-fbtn', 'data-tip': 'Filter', 'aria-label': 'Filter', 'aria-haspopup': 'menu',
+        html: newIcon('filter', 16).replace('data-tip="new icon"', 'data-tip="Filter\nnew icon"'),
+        onclick: (e) => filterMenu(e.currentTarget),
+      });
+      filtersSlot.append(btn, h('div', { class: 'lib-fchips' }));
+    }
+    const body = h('div', { class: 'lib-body' }, h('div', { class: 'lib-scroll' }));
+    page.className = 'sb-page lib-page';
+    page.replaceChildren(toolbar, body);
+    paintFilters();
+    drawList();
+    if (ui.variant === 'inspector' && ui.selected) showInspector();
+    page.querySelector('.lib-scroll').scrollTop = ui.scrollTop;
+    ui.scrollTop = 0;
+  }
+
+  function setFilter(patch) {
+    Object.assign(ui, patch);
+    closePop();
+    paintFilters();
+    drawList();
+  }
+  function showUpdates() {
+    if (ui.view !== 'library' || ui.skill) return;
+    Object.assign(ui, { folder: null, status: 'all', query: '', updates: true });
+    drawLibrary();
+  }
+
+  // Each filter counts what it would show with the other filters applied.
+  function counts() {
+    const n = (o) => D.filterSkills({ folder: ui.folder, query: ui.query, ...o }).length;
+    return {
+      all: n({ updates: ui.updates }),
+      active: n({ status: 'active', updates: ui.updates }),
+      inactive: n({ status: 'inactive', updates: ui.updates }),
+      updates: n({ status: ui.status, updates: true }),
+    };
+  }
+
+  function paintFilters() {
+    if (!filtersSlot || !filtersSlot.isConnected) return;
+    const c = counts();
+    if (ui.filterStyle === 'menu') {
+      filtersSlot.querySelector('.lib-fbtn').classList.toggle('is-on', ui.status !== 'all' || ui.updates);
+      const chips = [];
+      if (ui.status !== 'all') chips.push(filterChip(null, ui.status === 'active' ? 'Active' : 'Inactive', { status: 'all' }));
+      if (ui.updates) chips.push(filterChip('upload-circle', 'Updates', { updates: false }));
+      filtersSlot.querySelector('.lib-fchips').replaceChildren(...chips);
+      return;
+    }
+    filtersSlot.replaceChildren(
+      seg([{ id: 'all', label: 'All', count: c.all }, { id: 'active', label: 'Active', count: c.active }, { id: 'inactive', label: 'Inactive', count: c.inactive }],
+        ui.status, (s) => setFilter({ status: s })),
+      h('button', {
+        class: `sb-chip lib-tall${ui.updates ? ' is-active' : ''}`, 'data-tip': 'Updates', 'aria-label': 'Updates', 'aria-pressed': String(ui.updates),
+        onclick: () => setFilter({ updates: !ui.updates }),
+      }, ic('upload-circle', 14), h('span', { class: 'sb-chip-count' }, c.updates)));
+  }
+
+  function filterChip(iconName, label, patch) {
+    return h('button', { class: 'sb-chip lib-fchip lib-tall', 'data-tip': 'Remove filter', 'aria-label': `Remove ${label} filter`, onclick: () => setFilter(patch) },
+      iconName ? ic(iconName, 13) : null, label, ic('close', 12));
+  }
+
+  function filterMenu(anchor) {
+    menu(win, anchor, () => {
+      const c = counts();
+      const count = (n) => `<span>${n}</span>`;
+      const radio = (id, label) => ({
+        label, icon: `<span class="lib-radio${ui.status === id ? ' is-on' : ''}"></span>`, trail: count(c[id]),
+        keepOpen: true, onSelect: () => setFilter({ status: id }),
+      });
+      return [
+        { heading: 'Status' }, radio('all', 'All'), radio('active', 'Active'), radio('inactive', 'Inactive'), '-',
+        { label: 'Updates', icon: `<span class="lib-fcheck${ui.updates ? ' is-on' : ''}">${ui.updates ? icon('check', 12) : ''}</span>`,
+          trail: icon('upload-circle', 13) + count(c.updates), keepOpen: true, onSelect: () => setFilter({ updates: !ui.updates }) },
+      ];
+    }, { className: 'lib-fmenu' });
+  }
+
+  function addFolder(e) {
+    const anchor = e.currentTarget;
+    const input = h('input', { class: 'sb-input', placeholder: 'Folder name', 'aria-label': 'Folder name' });
+    const api = popover(win, anchor, h('form', { class: 'lib-folderpop', onsubmit: (ev) => {
+      ev.preventDefault();
+      const name = input.value.trim();
+      if (!name) return;
+      if (!ui.folders.includes(name)) ui.folders.push(name);
+      api.close();
+      ui.folder = name;
+      drawLibrary();
+    } }, input, h('button', { class: 'sb-btn sb-btn-primary', type: 'submit' }, 'Add')), { className: 'lib-pop-sm' });
+    if (api) input.focus();
+  }
+
+  function drawList() {
+    const scroll = page.querySelector('.lib-scroll');
+    if (!scroll) return;
+    rows.clear();
+    const list = D.filterSkills(ui);
+    if (!list.length) {
+      const filtered = ui.status !== 'all' || ui.updates || ui.query;
+      scroll.replaceChildren(filtered
+        ? emptyState({ icon: 'search', title: 'No skills match',
+          action: h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => { Object.assign(ui, { status: 'all', updates: false, query: '' }); drawLibrary(); } }, 'Clear filters') })
+        : emptyState({ icon: 'folder', title: `No skills in ${ui.folder}` }));
+      return;
+    }
+    const items = list.map(item);
+    scroll.replaceChildren(ui.layout === 'grid' ? h('div', { class: 'lib-grid' }, items) : h('div', { class: 'sb-card' }, items));
+  }
+
+  // Edited rows stay put while their popover or inspector is open; the filter re-applies after.
+  function reconcile() {
+    if (ui.view !== 'library' || ui.skill || !page.querySelector('.lib-scroll')) return;
+    const want = new Set(D.filterSkills(ui).map((s) => s.slug));
+    if ([...want].some((s) => !rows.has(s))) { closePop(); drawList(); return; }
+    [...rows.keys()].filter((s) => !want.has(s) && s !== ui.selected && !(pop && pop.slug === s)).forEach((s) => {
+      rows.get(s).el.remove();
+      rows.delete(s);
+    });
+    if (!rows.size) drawList();
+    placePop();
+  }
+
+  function updateMark(s) {
+    return s.hasUpdate ? h('span', { class: 'lib-upd', 'data-tip': 'Update available', html: icon('upload-circle', 14) }) : null;
+  }
+
+  function item(s) {
+    const grid = ui.layout === 'grid';
+    const place = ui.variant === 'popover'
+      ? h('button', { class: 'lib-place is-btn', 'aria-haspopup': 'dialog', onclick: (e) => { e.stopPropagation(); openWhere(s.slug, place); } })
+      : h('span', { class: 'lib-place' });
+    const title = h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug), updateMark(s),
+      s.folder && !ui.folder ? h('span', { class: 'sb-tag lib-foldertag' }, s.folder) : null);
+    const go = ui.variant === 'page' ? h('span', { class: 'lib-go', html: icon('chevron-right', 14) }) : null;
+    const el = grid
+      ? h('div', { class: 'lib-tile' }, title, h('div', { class: 'sb-desc lib-tile-desc' }, s.desc), h('div', { class: 'lib-tile-foot' }, place))
+      : h('div', { class: 'sb-row lib-row' }, h('div', { class: 'sb-row-main' }, title, h('div', { class: 'sb-desc' }, s.desc)),
+        h('div', { class: 'sb-row-end' }, place, go));
+    if (ui.variant !== 'popover') {
+      el.tabIndex = 0;
+      el.classList.add('is-clickable');
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', s.slug);
+      el.addEventListener('click', () => activate(s.slug));
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(s.slug); } });
+    }
+    const r = { el, place, slug: s.slug };
+    rows.set(s.slug, r);
+    paintItem(r);
+    return el;
+  }
+
+  function paintItem(r) {
+    const active = D.isActive(r.slug);
+    r.el.classList.toggle('is-dim', !active);
+    r.el.classList.toggle('is-selected', ui.variant === 'inspector' && ui.selected === r.slug);
+    r.place.classList.toggle('is-empty', !active);
+    r.place.replaceChildren(...placement(r.slug));
+    if (r.place.tagName !== 'BUTTON') return;
+    if (active) { r.place.removeAttribute('data-tip'); r.place.setAttribute('aria-label', 'Change where it is on'); }
+    else { r.place.setAttribute('data-tip', 'Turn on'); r.place.setAttribute('aria-label', 'Turn on'); }
+  }
+
+  // A row or tile too narrow for a workspace name (e.g. the inspector is open) shows a count.
+  function isNarrow() {
+    const scroll = page.querySelector('.lib-scroll');
+    if (!scroll) return false;
+    const w = scroll.clientWidth;
+    if (ui.layout !== 'grid') return w < 440;
+    const cols = Math.max(1, Math.floor((w + 10) / 190));
+    return (w - (cols - 1) * 10) / cols < 200;
+  }
+
+  // Your agents as one logo stack; workspaces as chips (a count when narrow or several).
+  function placement(slug) {
+    const w = D.whereActive(slug);
+    const isBtn = ui.variant === 'popover';
+    if (!w.agents.length && !w.workspaces.length) return isBtn ? [ic('plus', 14)] : [];
+    const out = [];
+    if (w.agents.length) {
+      const names = D.presetRaw(slug) === 'all' ? 'All agents' : w.agents.map((id) => D.target(id).name).join(', ');
+      out.push(h('span', { class: 'sb-avatar-stack', 'data-tip': `Your agents\n${names}` }, w.agents.map((id) => avatar(id, { tip: false }))));
+    }
+    if (w.agents.length && w.workspaces.length) out.push(h('span', { class: 'lib-place-sep' }));
+    const dirNames = (x) => x.dirs.map((d) => D.wsDir(d).name).join(', ');
+    if (w.workspaces.length === 1 && !isNarrow()) {
+      const x = w.workspaces[0];
+      out.push(h('span', { class: 'sb-chip lib-wschip', 'data-tip': `${x.id}\n${dirNames(x)}` }, ic('code-folder', 13), x.id));
+    } else if (w.workspaces.length) {
+      out.push(h('span', { class: 'sb-chip lib-wschip', 'data-tip': w.workspaces.map((x) => `${x.id} · ${dirNames(x)}`).join('\n') },
+        ic('code-folder', 13), String(w.workspaces.length)));
+    }
+    if (isBtn) out.push(h('span', { style: 'display:grid;opacity:.7', html: icon('arrow-down', 12) }));
+    return out;
+  }
+
+  // ---- the shared "where it's on" editor --------------------------------------------------
+  function withKey(el, key) { el.dataset.key = key; return el; }
+  function keepFocus(root, fn) {
+    const a = document.activeElement;
+    const key = a && root.contains(a) ? a.dataset.key : null;
+    fn();
+    const next = key && root.querySelector(`[data-key="${key}"]`);
+    if (next) next.focus({ preventScroll: true });
+  }
+

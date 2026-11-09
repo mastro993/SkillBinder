@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Progress dialog</title>
+<!-- Blocking progress dialog prototype: four body layouts over the Library.
+     Build: python3 -I kit/inline.py progress.html progress.out.html -->
+<link rel="stylesheet" href="kit/kit.css">
+<style>
+/* demo controls (above the window) */
+.pp-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.pp-group { display: flex; align-items: center; gap: 6px; }
+.pp-label { font-size: 12px; color: var(--sb-muted-fg); }
+.sb-vbar.pp-busy { opacity: .5; transition: opacity .15s; }
+.pp-tall { height: 28px; }
+
+/* blocking */
+.sb-window .sb-dialog:focus-visible { outline: none; }
+.pp-blocker { position: absolute; inset: 0; z-index: 69; cursor: progress; }
+/* Frosted wash, as crumble draws it in GPUI: the content stays sharp under the page color
+   at 70%, covering the whole window; the pill sits above it. */
+.sb-window::after {
+  content: ""; position: absolute; inset: 0; z-index: 72; pointer-events: none; opacity: 0;
+  background: color-mix(in srgb, var(--sb-bg) 70%, transparent); transition: opacity .2s;
+}
+.sb-window.pp-dim::after { opacity: 1; }
+
+.pp-warn { display: inline-flex; align-items: center; gap: 3px; color: var(--sb-warning); font-weight: 600; }
+.pp-step { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* A: bar */
+.pp-stepline { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--sb-muted-fg); }
+.pp-count { flex: none; display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+/* B: ring */
+.pp-ring-dialog > .sb-dialog-header { display: none; }
+.pp-ring-dialog > .sb-dialog-body { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 22px 20px 18px; text-align: center; }
+.pp-ring-dialog > .sb-dialog-footer { justify-content: center; }
+.pp-ring { position: relative; width: 72px; height: 72px; margin-bottom: 10px; }
+.pp-ring > svg { display: block; transform: rotate(-90deg); }
+.pp-ring-track { stroke: color-mix(in srgb, var(--sb-primary) 13%, transparent); }
+.pp-ring-bar { stroke: var(--sb-primary); transition: stroke-dashoffset .2s ease-out, stroke .2s; }
+.pp-ring.is-warn .pp-ring-bar { stroke: var(--sb-warning); }
+.pp-ring-center { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pp-ring.is-warn .pp-ring-center { color: var(--sb-warning); }
+.pp-ring-title { max-width: 100%; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.pp-ring-step { max-width: 100%; font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* C: steps */
+.pp-head-pct { flex: none; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pp-phases { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.pp-phase { display: grid; grid-template-columns: 20px 92px 1fr 16px; align-items: center; gap: 10px; font-size: 13px; }
+.pp-phase-ic { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 5px; background: var(--sb-muted); }
+.pp-phase-label { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pp-phase-label b { font-weight: 600; }
+.pp-phase.is-pending .pp-phase-label { opacity: .55; }
+.pp-phase .sb-progress { height: 4px; }
+.pp-phase-end { display: grid; place-items: center; width: 16px; height: 16px; color: var(--sb-muted-fg); }
+.pp-phase-end.is-done { color: var(--sb-success); }
+.pp-phase-end.is-warn { color: var(--sb-warning); }
+.pp-wait { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--sb-input); }
+.pp-phases + .pp-stepline { margin-top: 12px; }
+
+/* D: inline pill */
+.pp-pill {
+  position: absolute; z-index: 75; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; height: 34px; max-width: calc(100% - 24px); padding: 0 14px 0 12px; overflow: hidden;
+  border-radius: 999px; background: var(--sb-popover); color: var(--sb-popover-fg);
+  box-shadow: 0 0 0 1px var(--sb-line), var(--sb-shadow-lg); font-size: 13px; font-weight: 500; white-space: nowrap;
+  animation: pp-pill-in .18s ease-out;
+}
+.pp-pill.is-done { gap: 6px; padding: 0 5px 0 10px; }
+.pp-pill.is-done > span:nth-child(2) { margin-right: 4px; }
+.pp-pill-pct { min-width: 32px; color: var(--sb-muted-fg); font-variant-numeric: tabular-nums; }
+.pp-pill-bar { position: absolute; left: 0; bottom: 0; width: 0; height: 2px; background: var(--sb-primary); transition: width .2s ease-out; }
+@keyframes pp-pill-in { from { opacity: 0; transform: translate(-50%, -6px); } }
+</style>
+<script src="kit/reference.js"></script>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:460px">
+    <aside id="side"></aside>
+    <main class="sb-main"><header class="sb-header"></header><div class="sb-page"></div></main>
+  </div>
+</div>
+<script src="kit/icons.js"></script>
+<script src="kit/data.js"></script>
+<script src="kit/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const main = win.querySelector('.sb-main');
+  const hdr = win.querySelector('.sb-header');
+  const page = win.querySelector('.sb-page');
+  const ui = { variant: 'bar', speed: 3000, problems: 0, action: 'switch', folder: null, status: 'all', updates: false, query: '', busy: false, stale: false };
+  let ready = false;
+
+  // ---- controls above the window -------------------------------------------------
+  // Picking a variant runs the chosen action at once, so each layout is seen without an extra click.
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'bar', label: 'Bar', desc: 'Title, a bar with %, the current step and "7 of 20".' },
+    { id: 'ring', label: 'Ring', desc: 'A ring with % inside, the title under it, the current step below.' },
+    { id: 'steps', label: 'Steps', desc: 'One line for adding and one for removing, each with its own bar; overall % at the top.' },
+    { id: 'inline', label: 'Inline', desc: 'Light touch: no card. A wash of the page color covers the window and a pill at the top shows the %. Still blocking.' },
+  ], (id) => { ui.variant = id; if (ready) run(ui.action); });
+
+  const runBtn = h('button', { class: 'sb-btn sb-btn-primary sb-btn-sm', onclick: () => run(ui.action) }, 'Run');
+  bar.extra.append(
+    h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', 'data-tip': 'Restore the fixture', onclick: () => { DATA.reset(); toast(win, 'Fixture restored'); } }, 'Reset'),
+    runBtn);
+  const group = (label, el) => h('div', { class: 'pp-group' }, h('span', { class: 'pp-label' }, label), el);
+  bar.el.append(h('div', { class: 'pp-ctl' },
+    group('Speed', seg([
+      { id: '200', label: 'Fast', count: '0.2s', tip: 'Ends before the dialog would show' },
+      { id: '600', label: 'Quick', count: '0.6s', tip: 'Ends inside the 500 ms minimum, so it holds at 100%' },
+      { id: '3000', label: 'Normal', count: '3s' },
+      { id: '8000', label: 'Slow', count: '8s' },
+    ], String(ui.speed), (v) => { ui.speed = Number(v); })),
+    group('Problems', seg([{ id: '0', label: 'None' }, { id: '2', label: '2' }], String(ui.problems), (v) => { ui.problems = Number(v); })),
+    group('Action', seg([
+      { id: 'switch', label: 'Switch preset' },
+      { id: 'delete', label: "Delete preset that's on" },
+      { id: 'add', label: 'Add 4 skills' },
+      { id: 'import', label: 'Import 6' },
+    ], ui.action, (v) => { ui.action = v; syncRun(); }))));
+
+  renderSidebar(side, {
+    active: 'library',
+    onNav: (key) => { if (key !== 'library') toast(win, 'Not in this prototype'); },
+    onPreset: (id) => run(() => runPlan(() => DATA.switchPreset(id))),
+  });
+  DATA.on(() => { if (ui.busy) ui.stale = true; else draw(); syncRun(); });
+
+  // ---- Library behind ----------------------------------------------------------------
+  function draw() {
+    const tabOpts = [{ id: null, label: 'All skills' }, ...DATA.folders.map((f) => ({ id: f, label: f }))];
+    hdr.replaceChildren(
+      tabs(tabOpts, ui.folder, (f) => { ui.folder = f; draw(); }, { onAdd: () => toast(win, 'Not in this prototype') }),
+      h('div', { class: 'sb-header-actions' },
+        h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Check for updates', 'aria-label': 'Check for updates', onclick: () => toast(win, 'Not in this prototype') }, ic('refresh-04', 16)),
+        h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Import 6 skills', 'aria-label': 'Import', onclick: () => run('import') }, ic('import', 16))));
+    const c = DATA.counts({ folder: ui.folder, query: ui.query });
+    const list = h('div');
+    page.replaceChildren(
+      h('div', { class: 'sb-toolbar' },
+        searchInput({ value: ui.query, onInput: (q) => { ui.query = q; drawList(list); } }),
+        seg([{ id: 'all', label: 'All', count: c.all }, { id: 'active', label: 'Active', count: c.active }, { id: 'inactive', label: 'Inactive', count: c.inactive }],
+          ui.status, (s) => { ui.status = s; draw(); }),
+        h('button', {
+          class: `sb-chip pp-tall${ui.updates ? ' is-active' : ''}`, 'data-tip': 'Updates', 'aria-label': 'Updates', 'aria-pressed': String(ui.updates),
+          onclick: () => { ui.updates = !ui.updates; draw(); },
+        }, ic('upload-circle', 14), h('span', { class: 'sb-chip-count' }, c.updates))),
+      list);
+    drawList(list);
+  }
+  function drawList(list) {
+    const rows = DATA.filterSkills(ui).map(libraryRow);
+    list.replaceChildren(rows.length ? h('div', { class: 'sb-card' }, rows) : emptyState({ icon: 'search', title: 'No skills match' }));
+  }
+  function libraryRow(s) {
+    const w = DATA.whereActive(s.slug);
+    const on = w.agents.length || w.workspaces.length;
+    return h('div', { class: `sb-row${on ? '' : ' is-dim'}` },
+      h('div', { class: 'sb-row-main' },
+        h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug), s.folder && !ui.folder ? h('span', { class: 'sb-tag' }, s.folder) : null),
+        h('div', { class: 'sb-desc' }, s.desc),
+        h('div', { class: 'sb-meta' }, on
+          ? [w.agents.length ? avatarStack(w.agents) : null, w.workspaces.map((x) => wsChip(x.id, { dirs: x.dirs }))]
+          : 'Inactive')));
+  }
+
+  // ---- actions ------------------------------------------------------------------------
+  const IMPORTS = [['figma-export', 'claude'], ['review-pr', 'claude'], ['lint-fix', 'universal'],
+    ['i18n-strings', 'cursor'], ['perf-profile', 'universal'], ['sql-migrate', 'claude']];
+

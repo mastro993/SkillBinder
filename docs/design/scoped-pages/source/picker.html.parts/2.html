@@ -1,0 +1,238 @@
+  // ---- selection ----------------------------------------------------------------------------
+  function defaults() {
+    const dirs = wsDirIds();
+    return dirs.length ? dirs : [...P.last];
+  }
+  function setSel(slug, on) {
+    if (on) P.sel.set(slug, isWs() ? new Set(P.variant === 'a' ? [] : defaults()) : null);
+    else P.sel.delete(slug);
+    if (on && isWs()) P.all.set(slug, true); else P.all.delete(slug);
+    render();
+  }
+  function remember(set) {
+    if (set.size) P.last = [...set];
+  }
+  // Unticking a folder the workspace uses turns All off; ticking one it does not use yet leaves All.
+  function toggleDir(slug, id) {
+    const set = P.sel.get(slug);
+    if (set.has(id)) {
+      set.delete(id);
+      if (wsDirIds().includes(id)) P.all.set(slug, false);
+    } else set.add(id);
+    remember(set);
+    render();
+  }
+  // All on ticks every folder the workspace uses; All off keeps the ticked pills.
+  function toggleAll(slug) {
+    const on = !P.all.get(slug);
+    P.all.set(slug, on);
+    if (on) wsDirIds().forEach((id) => P.sel.get(slug).add(id));
+    remember(P.sel.get(slug));
+    render();
+  }
+  function cellToggle(slug, id, on) {
+    if (!P.sel.has(slug)) P.sel.set(slug, new Set());
+    const set = P.sel.get(slug);
+    if (on) set.add(id); else set.delete(id);
+    remember(set);
+    render();
+  }
+  function blockReason() {
+    if (!P.sel.size) return 'Select skills';
+    if (!isWs()) return null;
+    if (P.variant === 'a') return P.dirs.size ? null : 'Choose an agent';
+    const missing = [...P.sel].find(([, set]) => !set.size);
+    return missing ? `Pick an agent for ${missing[0]}` : null;
+  }
+
+  // ---- picker ---------------------------------------------------------------------------------
+  // Only the Add skill button animates it in; demo switches swap it in place without a flash.
+  function openPicker(animate = false) {
+    if (picker) picker.close();
+    win.querySelectorAll(':scope > .sb-toast').forEach((t) => t.remove()); // would cover the footer
+    Object.assign(P, { folder: null, query: '', sel: new Map(), all: new Map(), dirs: new Set(wsDirIds()), last: [] });
+    picker = openDialog(win, { onClose: () => { picker = null; } });
+    picker.scrim.classList.add('pk-scrim');
+    picker.el.classList.add('pk-dialog');
+    if (!animate) [picker.scrim, picker.el].forEach((el) => { el.style.animation = 'none'; });
+    picker.el.querySelector('.sb-dialog-header > .sb-btn').setAttribute('data-tip', 'Close');
+    picker.el.querySelector('.sb-dialog-title').replaceChildren(title());
+
+    const search = searchInput({ placeholder: 'Search library', onInput: (q) => { P.query = q; render(); } });
+    els = {
+      chips: h('div', { class: 'pk-chips' }),
+      list: h('div', { class: `sb-card pk-list${P.variant === 'd' && isWs() ? ' pk-matrix' : ''}` }),
+      right: P.variant === 'c' ? h('div', { class: 'pk-right' }) : null,
+    };
+    const tools = h('div', { class: 'pk-tools' }, search, els.chips);
+    picker.setBody(els.right
+      ? h('div', { class: 'pk-split' }, h('div', { class: 'pk-left' }, tools, els.list), els.right)
+      : [tools, els.list]);
+    render();
+    search.querySelector('input').focus({ preventScroll: true });
+  }
+  function title() {
+    if (isWs()) {
+      const w = ws();
+      return h('div', { class: 'pk-title' }, h('span', 'Add skill'), h('span', { class: 'pk-to' }, 'to'),
+        h('span', { class: 'sb-chip', 'data-tip': w.path }, ic('code-folder', 13), w.name));
+    }
+    const t = DATA.target(AGENT);
+    return h('div', { class: 'pk-title' }, h('span', 'Add skill'), h('span', { class: 'pk-to' }, 'to'),
+      h('span', { class: 'sb-chip', 'data-tip': t.path }, ic(t.logo, 13), t.name), presetChip());
+  }
+
+  function render() {
+    if (!picker) return;
+    renderChips();
+    renderList();
+    if (els.right) renderRight();
+    else renderFoot();
+  }
+  function renderChips() {
+    const opts = [{ id: null, label: 'All' }, ...DATA.folders.map((f) => ({ id: f, label: f }))];
+    els.chips.replaceChildren(...opts.map((o) => h('button', {
+      class: `sb-chip${P.folder === o.id ? ' is-active' : ''}`, onclick: () => { P.folder = o.id; render(); },
+    }, o.label, h('span', { class: 'sb-chip-count' }, DATA.filterSkills({ folder: o.id, query: P.query }).length))));
+  }
+  function renderList() {
+    const top = els.list.scrollTop;
+    const skills = DATA.filterSkills({ folder: P.folder, query: P.query });
+    els.list.replaceChildren(...(skills.length
+      ? [P.variant === 'd' && isWs() ? matrixHead() : null, ...skills.map(row)].filter(Boolean)
+      : [emptyState({ icon: 'search', title: 'No skills match',
+        action: h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: clearFilters }, 'Clear search') })]));
+    els.list.scrollTop = top;
+  }
+  function clearFilters() {
+    P.query = '';
+    P.folder = null;
+    picker.el.querySelector('.sb-search input').value = '';
+    render();
+  }
+
+  function row(s) {
+    const here = already(s.slug);
+    const on = P.sel.has(s.slug);
+    const perRow = P.variant === 'b' && on && isWs();
+    const matrix = P.variant === 'd' && isWs();
+    const noAgent = matrix && on && !P.sel.get(s.slug).size;
+    return h('div', {
+      class: `sb-row pk-row${here ? ' is-dim' : ''}${on ? ' is-sel' : ''}`, 'data-tip': here ? 'Already here' : null,
+      onclick: (e) => { if (!here && !e.target.closest('input, button, .pk-cells, .pk-pills')) setSel(s.slug, !on); },
+    },
+    checkbox({ checked: here || on, disabled: here, onChange: (v) => setSel(s.slug, v) }),
+    h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug),
+        s.hasUpdate ? h('span', { class: 'pk-upd', 'data-tip': 'Update available', html: icon('upload-circle', 14) }) : null,
+        noAgent ? h('span', { class: 'pk-warn', 'data-tip': 'Pick an agent', html: icon('alert-circle', 14) }) : null),
+      h('div', { class: 'sb-desc' }, s.desc),
+      perRow ? h('div', { class: 'pk-pills' }, pillsFor(s.slug, false), warnFor(s.slug)) : null),
+    matrix ? cellsFor(s.slug, here) : null);
+  }
+  function pillsFor(slug, iconOnly) {
+    const set = P.sel.get(slug);
+    const all = !!P.all.get(slug);
+    return [
+      h('button', { class: `sb-pill pk-all${all ? ' is-on' : ''}`, 'aria-pressed': String(all),
+        'data-tip': 'Includes agents added later', onclick: () => toggleAll(slug) }, 'All'),
+      ...DATA.wsDirs.map((d) => pill(d, set.has(d.id), { iconOnly, tip: dirTip(d), onClick: () => toggleDir(slug, d.id) })),
+    ];
+  }
+  function warnFor(slug) {
+    return P.sel.get(slug).size ? null : h('span', { class: 'pk-warn' }, ic('alert-circle', 13), 'Pick an agent');
+  }
+
+  // D: matrix
+  function matrixHead() {
+    const picked = [...P.sel.keys()];
+    return h('div', { class: 'pk-mhead' }, h('span', 'Skill'), h('div', { class: 'pk-cells' }, DATA.wsDirs.map((d) => {
+      const all = picked.length > 0 && picked.every((slug) => P.sel.get(slug).has(d.id));
+      const hint = picked.length ? `${all ? 'Turn off' : 'Turn on'} for selected` : 'Select skills first';
+      return h('span', { class: 'pk-cell', 'data-tip': `${dirTip(d)}\n${hint}` }, pill(d, all, {
+        iconOnly: true, tip: null, disabled: !picked.length,
+        onClick: () => {
+          picked.forEach((slug) => { const set = P.sel.get(slug); if (all) set.delete(d.id); else set.add(d.id); });
+          if (!all) remember(P.sel.get(picked[0]));
+          render();
+        },
+      }));
+    })));
+  }
+  function cellsFor(slug, here) {
+    const held = here ? DATA.workspaceHolds(P.ctx, slug) : [];
+    const set = P.sel.get(slug);
+    return h('div', { class: 'pk-cells' }, DATA.wsDirs.map((d) => h('span', { class: 'pk-cell' }, checkbox({
+      checked: here ? held.includes(d.id) : !!(set && set.has(d.id)), disabled: here, tip: here ? null : d.name,
+      onChange: (v) => cellToggle(slug, d.id, v),
+    }))));
+  }
+
+  // Footer (A, B, D) and right pane (C)
+  function cancelBtn() {
+    return h('button', { class: 'sb-btn sb-btn-outline', onclick: () => picker.close() }, 'Cancel');
+  }
+  function addBtn() {
+    const reason = blockReason();
+    const n = P.sel.size;
+    return h('span', { class: 'pk-add', 'data-tip': reason },
+      h('button', { class: 'sb-btn sb-btn-primary', disabled: !!reason, onclick: doAdd }, n ? `Add ${n}` : 'Add'));
+  }
+  function renderFoot() {
+    const n = P.sel.size;
+    picker.setFooter(
+      P.variant === 'a' && isWs() ? h('div', { class: 'pk-foot-pills' }, h('span', { class: 'sb-muted sb-small' }, 'To'),
+        DATA.wsDirs.map((d) => pill(d, P.dirs.has(d.id), { tip: dirTip(d), onClick: () => {
+          if (P.dirs.has(d.id)) P.dirs.delete(d.id); else P.dirs.add(d.id);
+          render();
+        } }))) : null,
+      h('span', { class: 'pk-count' }, n ? `${n} selected` : ''),
+      cancelBtn(), addBtn());
+  }
+  function renderRight() {
+    const n = P.sel.size;
+    const old = els.right.querySelector('.pk-right-list');
+    const top = old ? old.scrollTop : 0;
+    els.right.replaceChildren(
+      h('div', { class: 'pk-right-head' }, 'Selected', n ? h('span', { class: 'sb-chip-count' }, n) : null),
+      n ? h('div', { class: 'pk-right-list' }, [...P.sel.keys()].map((slug) => h('div', { class: 'pk-sel' },
+        h('div', { class: 'pk-sel-top' }, h('span', { class: 'sb-slug' }, slug),
+          h('button', { class: 'sb-btn sb-btn-icon sb-btn-xs', 'data-tip': 'Deselect', 'aria-label': `Deselect ${slug}`, onclick: () => setSel(slug, false) }, ic('close', 13))),
+        isWs() ? h('div', { class: 'pk-sel-pills' }, pillsFor(slug, true), warnFor(slug)) : null)))
+        : h('div', { class: 'pk-right-empty' }, 'Nothing selected'),
+      h('div', { class: 'pk-right-foot' }, cancelBtn(), addBtn()));
+    const list = els.right.querySelector('.pk-right-list');
+    if (list) list.scrollTop = top;
+  }
+
+  // ---- add -----------------------------------------------------------------------------------
+  function doAdd() {
+    if (blockReason()) return;
+    const slugs = DATA.skills.map((s) => s.slug).filter((slug) => P.sel.has(slug));
+    const pairs = [];
+    if (isWs()) {
+      const groups = new Map();
+      slugs.forEach((slug) => {
+        const set = P.variant === 'a' ? P.dirs : P.sel.get(slug);
+        const key = DATA.wsDirs.map((d) => d.id).filter((id) => set.has(id)).join(',');
+        groups.set(key, [...(groups.get(key) || []), slug]);
+      });
+      groups.forEach((list, key) => pairs.push(...DATA.addSkills({ slugs: list, targets: key.split(','), ws: P.ctx }).pairs));
+      // A skill whose All pill is on is held for all the workspace's agents, later ones too.
+      slugs.filter((slug) => P.all.get(slug)).forEach((slug) => DATA.setWorkspaceDirs(P.ctx, slug, 'all'));
+    } else {
+      pairs.push(...DATA.addSkills({ slugs, targets: [AGENT] }).pairs);
+    }
+    picker.close();
+    const n = slugs.length;
+    if (n >= 2) progressDialog(win, { title: `Adding ${n} skills`, plan: { pairs, toast: `Added ${n} skills` } });
+    else if (SB.settings.problems) {
+      // One skill skips the progress dialog, so its problem is offered from the toast.
+      toast(win, `Added <b>${slugs[0]}</b> · 1 needs attention`, { icon: 'alert-circle', action: 'Review', ms: 6000,
+        onAction: () => reviewDialog(win, [{ ...pairs[0], problem: 'different' }]) });
+    } else toast(win, `Added <b>${slugs[0]}</b>`, { icon: 'check-circle' });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Verify the native application
 
-The workspace implements the shipped product journeys with pinned GPUI Kit. Functional coverage is documented in [native features](features/native.md). Visual fidelity and polish are deferred by the user's latest instruction.
+The workspace implements the shipped product journeys with pinned GPUI Kit. Functional coverage is documented in [native features](features/native.md). Visual fidelity and polish are deferred, except for surfaces with an approved prototype in `docs/design/`: they must match it pixel for pixel, checked with the [parity procedure](design/scoped-pages/README.md#parity-procedure).
 
 - [Prerequisites and checks](native-gate/checks.md)
 - [Recorded evidence](native-gate/recorded-evidence.md)
