@@ -4,6 +4,8 @@ Each gap below was checked against the pinned sources: gpui-pre 0.3.7, gpui-pre-
 
 ## G — GPUI or Kit cannot match as-is
 
+Decided 2026-11-09: where Kit cannot hit the prototype pixel for pixel, the app builds an exact control of its own in a small module under `crates/ui/src/native_view/controls/`, reused across slices; Kit stays where styling matches exactly. For these pages that means the toast (G1), the dialog surface (G2), the tooltip (G3), the avatar and its ring (G6, G10) and the small button text (G9). The search field stays a styled Kit `Input` (G5), and the checkbox keeps Kit's Hugeicons tick (G4).
+
 **G1 Toast: Kit `Notification` cannot render it.** `GC/notification.rs`:
 - the stack has a fixed global width (`NotificationSettings.width` 382, `:1016-1061`) and the item is `w_full()` (`:428`);
 - its surface is popover with a border, radius_lg, `toast_shadow`, py 14 and px 16 (`:429-436`);
@@ -20,7 +22,7 @@ The prototype toast is content-sized (235 px), inverted (fg bg), centered at the
 - GPUI's shader uses `blur_radius` as the Gaussian σ (`shaders.metal:1093`, `:530`), while CSS blur = 2σ. The Kit shadow therefore equals CSS `0 20px 50px -5px` / `0 8px 20px -6px`, twice the prototype's softness.
 - Everything else is reachable: `.w(320)`, `.margin_top(56)`, paddings via Styled (`:588-600`), overlay `theme.overlay`.
 
-*Delta:* a wider, fainter halo, up to about 40 px below the dialog, with per-pixel differences of 1 to 6 levels; no edge or geometry change. *Closest:* accept it and raise `--tolerance` to 8 in that halo band. Or, if exactness is mandatory, an app-drawn modal that uses blur 12.5 / 5, which needs a decision because AGENTS.md prefers Kit overlays.
+*Delta:* a wider, fainter halo, up to about 40 px below the dialog, with per-pixel differences of 1 to 6 levels; no edge or geometry change. *Decided:* exactness is mandatory, so the dialog surface is app-drawn with blur 12.5 / 5; it keeps Kit's public overlay and focus APIs where they allow it (AGENTS.md).
 
 **G3 Tooltip placement and metrics.**
 - Kit `Tooltip` is Styled (`GC/tooltip.rs:110-130`): `.text_xs()`, `.py_1()`, `.line_height()`, `.max_w(260)` and margin overrides all work. It sets `m_3` (12 px), text_sm (14) and py 2 by default.
@@ -36,7 +38,7 @@ The prototype toast is content-sized (235 px), inverted (fg bg), centered at the
 - The prototype's mark is a CSS-drawn 1.5 px "L" rotated −45°.
 - Drawing that L (gpui `PathBuilder::stroke`, `path_builder.rs:88`) would be a non-Hugeicons glyph, which AGENTS.md forbids.
 
-*Delta:* the mark pixels inside each checked box differ (about 40 px each, at 2x). *Closest:* keep Kit's mark and mask the box interiors (index, "Comparison rectangles"). Otherwise the user must approve a new glyph.
+*Delta:* the mark pixels inside each checked box differ (about 40 px each, at 2x). *Decided:* keep Kit's retained Hugeicons tick (AGENTS.md icon rule) as a documented delta, and mask the box interiors (index, "Comparison rectangles").
 
 **G5 Search field.**
 - Kit `Input` sizes are XSmall 20, Small 24, Medium 32 and Large 44, and `Size::Size(n)` sets the text to n × 0.875 (`GC/sizing.rs`). So 28 needs `Styled::h(px(28.))` (Input's inherent `h()` is multi-line only, `GC/input/input.rs:282`), `.text_size(13)`, `.px(8)` and `.gap(5)`, with the prefix icon at 15.
@@ -68,23 +70,22 @@ The prototype toast is content-sized (235 px), inverted (fg bg), centered at the
 
 **G10 Kit Avatar defaults.** `GC/avatar/avatar.rs:84-135` sets border 1 `theme.border`, bg `secondary`, a placeholder icon at 0.6 × size, and an image `size_full`. *Closest:* `.border_0()`, explicit bg, `.p(1.98)` for color art, and a placeholder `Icon` sized 12.6. *Delta:* none.
 
-## A — prototype artifacts the reference faithfully shows (decide: match, or fix the prototype and re-render)
+## A — prototype artifacts, fixed in the prototype (decided 2026-11-09)
 
-- **A1 Menu avatar ring.**
-  - What the reference shows: inside the agents menu the avatar ring uses the page bg (`#ffffff \| #0a0a0a`), not the menu surface (`#ffffff \| #262626`).
-  - Where it shows: in dark it draws a visible dark ring; in light, a white ring on the highlighted row (03).
-  - Options: matching needs a ring in page bg; fixing is one CSS line (`.sb-menu { --sb-ring-bg: var(--sb-popover) }`).
+- **A1 Menu avatar ring.** The avatar ring inside the agents menu now takes the menu surface (`#ffffff \| #262626`; `.sb-menu { --sb-ring-bg: var(--sb-popover) }` in the kit), not the page bg. The ring keeps the surface color on the highlighted item (03). References re-rendered.
 - **A2 Color logos on a white disc in dark.** This follows the app's `agent_avatar` (white bg in both themes), so it is consistent and needs no action.
 
-## D — prototype vs issue #101 / #102 (pixel parity follows the prototype unless the user says otherwise)
+## D — prototype vs issue #101 / #102: settled for the prototype (2026-11-09)
 
-- **D1 Overlap mark.** The prototype shows a `robot` glyph in an 18 secondary square with the tooltip "Also in your agents\n…". #101 keeps "the overlap tag, with its current four labels" (a yellow `Tag`).
-- **D2 Edited mark.** The prototype shows `pencil-edit` "Changed here". The issues do not list it, and it is not in the app.
-- **D3 Clear button.** The reference has no clear button. Library's field is `cleanable(true)`: drop it on these pages, or mask the trailing 24 px.
-- **D4 Toast duration.** The prototype uses 4 s; #101 says about 5 s (Kit autohide).
-- **D5 Menu row order.** #101 puts Universal first; the prototype fixture lists `.claude/skills` first.
-- **D6 Preset tints.** The kit dots blue `#3b82f6` and amber `#f59e0b`; the app's `preset_colors.rs` uses Blue `#2563eb \| #60a5fa` and Yellow `#ca8a04 \| #facc15`. Default (neutral) is muted-fg in both, which is the only one rendered.
-- **D7 Edited-copy prompt.** The prototype shows its own 320 confirm. #101 and #102 reuse the Skill copies dialog, and changing its wording is out of scope. State 06 is the reference only if the prompt follows the prototype.
-- **D8 Search width.** Scoped pages use 220 (kit default); Library's field is flex (338.63 at 1180) in `library.html`. A shared component needs a width per page.
-- **D9 Empty state.** The prototype has it top-aligned (padding 36); #101 says "centred in the page".
+The spec in this folder is authoritative for every visual value.
+
+- **D1 Overlap mark.** The `robot` glyph in an 18 secondary square, tooltip "Also in your agents\n…", replaces #101's yellow overlap tag.
+- **D2 Edited mark.** `pencil-edit` with the tooltip "Changed here".
+- **D3 Clear button.** None on these pages.
+- **D4 Toast duration.** 4 s, pausing on hover, as the prototype.
+- **D5 Menu row order.** The app's: Universal first, then by name (real data; the prototype was changed).
+- **D6 Preset tints.** The prototype's blue `#3b82f6` and amber `#f59e0b`; the native fixture already uses them as custom colors. Default (neutral) is muted-fg in both, the only one rendered.
+- **D7 Edited-copy prompt.** The prototype's 320 confirm, "You changed this skill here" with Keep and Remove: state 06 is the reference.
+- **D8 Search width.** 220 on these pages; Library's field stays flexible. A shared component takes a width per page.
+- **D9 Empty state.** Top-aligned, padding 36, as the prototype.
 - **D10 No reference yet:** the review glyph (`alert-circle`), the missing-folder note, the agent empty state, and an agent page with a `Shared with` stack. The prototype has no fixture for these.

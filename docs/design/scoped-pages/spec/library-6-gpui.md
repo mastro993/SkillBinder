@@ -18,7 +18,7 @@ Sources checked:
 | Row | `skill_row` with padding 10/14, min-h 56, gap 12, two lines; hover bg `muted`; first/last rows carry their own 9 px corners | yes (G4) |
 | Slug, description | `div().text_size(px(14.)).font_weight(SEMIBOLD).line_height(px(19.6))`; desc 12.5 / 17.5 muted `.truncate()` | yes (G9) |
 | Folder tag | a div (h 18, px 6, radius 4, bg `secondary`, 11/500), or Kit `Tag::secondary().small()` with overrides | Kit defaults no: G17 |
-| Update glyph | existing update glyph (`library_updates.rs`), `app_icon("upload-circle")` 14 | color: C1 |
+| Update glyph | existing update glyph (`library_updates.rs`), `app_icon("upload-circle")` 14, tinted `info` (cyan) here; the rest of the app keeps warning | yes |
 | Placement button | new `library_places.rs`: `div().id(..).h_flex().gap(6).min_h(26).pl(6).pr(4).rounded(6)` + `.hover(..)`, click/Enter/Space stop propagation | yes |
 | Dashed "+" circle | `size(26).rounded_full().border_1().border_dashed()` + `group_hover(row, opacity 1)` (`G/elements/div.rs:773,852`) | pattern: G1 |
 | Avatar stack | rework `holder_avatar`/`more_avatars` (`library_items.rs:385-452`) into `library_avatars.rs`: 18 px box, ring = `BoxShadow{spread 2, blur 0, color ring_bg}`, `.ml(px(-5.))` | yes, not with Kit Avatar defaults: G15 |
@@ -34,6 +34,8 @@ Sources checked:
 | Tooltips | Kit `Tooltip` | text size: C8 |
 
 ## Gaps: where GPUI or Kit cannot match the CSS exactly
+
+Decided 2026-11-09: where Kit cannot hit the prototype pixel for pixel, the app builds its own control in a small module under `crates/ui/src/native_view/controls/`, reused by every slice: the switch (G5), the segmented control (G6), the popover placement with its 8 px margin (G8), the avatar with its outside ring (G15), the small button text (G16) and the tag (G17). Kit stays where styling matches exactly, such as the Input (G7).
 
 - **G1 Dashed borders.**
   - GPUI dashes are 2 × width with a 1 × width gap: `gpui-pre-apple/src/shaders.metal:230-231`, and the same in `gpui-pre-wgpu/shaders.wgsl:706-707`.
@@ -53,18 +55,18 @@ Sources checked:
 - **G5 Kit Switch sizes are fixed.**
   - Small is 28×16 with a 12 px thumb; medium is 36×20 with 16. Neither has a thumb shadow, and the thumb moves on a spring (`GC/switch.rs:28-36,119-124`). Its Styled refinement applies to the outer row, not the track.
   - Prototype: 30×18, a 14 px thumb, and a shadow.
-  - Kit small leaves the track 2 px narrower and shorter, the thumb 2 px smaller, and no shadow. Exact needs an app switch.
+  - Kit small leaves the track 2 px narrower and shorter, the thumb 2 px smaller, and no shadow. Decided: an app-owned switch.
 - **G6 Kit segmented TabBar.**
   - Medium tabs are 32 high with a 24 px inner pill and inner padding 12 (`GC/tab/tab.rs:23-75`). The indicator uses `raised_shadow()` (`GC/styled.rs:112-119`) and animates.
   - Prototype: a 28 px track with a 2 px pad, padding 9, and the shadow in G3.
   - `Tab` is Styled (`tab.rs:606`), so `.h(px(28.))` can fix the height. The inner padding cannot change: each segment comes out 6 px wider, which moves the chip, the search width (−9) and the List/Grid. The active shadow also differs.
-  - Exact needs an app-owned segmented control (both groups).
+  - Decided: an app-owned segmented control (both groups).
 - **G7 Kit Input.**
   - Heights come only from sizes 20/24/32/44 (`GC/sizing.rs input_h`). A custom size gives 24 and a text size of 0.875 × it.
   - Fix with Styled `.h(px(28.))`. The focus border and halo (`input.rs:739,784`) and the clear button do not exist in the refs, so blur the field or mask it (2/7).
 - **G8 Kit Popover.**
   - Defaults: radius `theme.radius` (6), Kit `popover_shadow`, and padding `p_3`. The offset is rem × 0.25 = 4, which matches (`GC/popover.rs:308,325`).
-  - It flips sides like the prototype. It clamps 4 px from the window (`GB/positioner.rs:89,105`); the prototype clamps 8. Kit Popover exposes no margin, so state 17 lands at x 876 instead of 872.
+  - It flips sides like the prototype. It clamps 4 px from the window (`GB/positioner.rs:89,105`); the prototype clamps 8. Kit Popover exposes no margin, so state 17 would land at x 876 instead of 872. Decided: app-owned placement with the 8 px margin.
   - "Scroll the list to make room" is app logic.
   - The open animation must have finished before the capture.
 - **G9 Default line height.** GPUI's is φ ≈ 1.618 (`G/style.rs:494`). Set the CSS boxes explicitly: 19.6, 17.5, 18.2, 16.8, 16.1 and 15.4. Otherwise rows grow past 59.09.

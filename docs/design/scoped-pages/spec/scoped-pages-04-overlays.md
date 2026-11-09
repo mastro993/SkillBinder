@@ -7,14 +7,14 @@ Colors are `light | dark`. Every overlay is positioned in the whole window (1180
 | element | rect | style |
 |---|---|---|
 | scrim | (0, 0) 1180×728, covers the sidebar too | overlay `#0000000d \| #00000033`. Over white it gives `#f2f2f2 \| #080808`; over the sidebar `#ededed \| #121212`. Padding-top **56**: the dialog's top edge is at y 56 |
-| dialog (`sm`) | **(430, 56) 320 wide**; 04: h 120, 06: h 128.2 | bg `#ffffff \| #0a0a0a`, border 1 `#e5e5e5 \| #262626`, radius **8**; shadow `0 20px 25px -5px #0000001a, 0 8px 10px -6px #0000001a` (both themes) |
+| dialog (`sm`) | **(430, 56) 320 wide**; 04: h 120, 06: h 146.39 | bg `#ffffff \| #0a0a0a`, border 1 `#e5e5e5 \| #262626`, radius **8**; shadow `0 20px 25px -5px #0000001a, 0 8px 10px -6px #0000001a` (both themes) |
 | header | (431, 57) 318 wide | flex, items centered, gap 8, **padding 14 16 6 16** |
 | title | x 447, w 254 (wraps) | 15px / **600**, lh 21, fg. 04 wraps to 2 lines ("Remove tailwind-helper from / acme-web?", y 71 to 113); 06 is one line at y 72.5 |
 | close | (709, 80) 24×24 in 04; centered on the header in 06 | ghost icon button, radius 6, muted-fg; icon `close` 16×16 |
-| body | 06 only: (431, 101) h 34.2 | padding 4 16 12 16; text 13px / 400, lh 18.2, **muted-fg** at y 105. Hidden when empty (04) |
-| footer | 04: (431, 119) h 56; 06: (431, 135.2) h 48 | flex, gap 8, left-aligned; **padding 12 16 16 16** when there is no body, otherwise 4 16 16 16 |
-| Cancel / Keep | 04: (447, 131) 64.49×28; 06: (447, 139.2) 53.16×28 | outline: bg `#ffffff \| #0a0a0a`, border 1 `#e5e5e5 \| #262626`, radius 6, padding 0 10, 13px / 500, lh 13, fg |
-| Remove | 04: (519.49, 131) 71.2×28; 06: (508.16, 139.2) 71.2×28 | danger: bg `#ef4444 \| #f87171`, text `#ffffff`, border transparent. Autofocused, but no focus ring shows (opened by pointer) |
+| body | 06 only: (431, 101) h 52.39 | padding 4 16 12 16; text 13px / 400, lh 18.2, **muted-fg** at y 105, wrapping at 286: `storybook · acme-web · Claude Code, Cline, Cursor, fx, Warp` takes 2 lines. Hidden when empty (04) |
+| footer | 04: (431, 119) h 56; 06: (431, 153.39) h 48 | flex, gap 8, left-aligned; **padding 12 16 16 16** when there is no body, otherwise 4 16 16 16 |
+| Cancel / Keep | 04: (447, 131) 64.49×28; 06: (447, 157.39) 53.16×28 | outline: bg `#ffffff \| #0a0a0a`, border 1 `#e5e5e5 \| #262626`, radius 6, padding 0 10, 13px / 500, lh 13, fg |
+| Remove | 04: (519.49, 131) 71.2×28; 06: (508.16, 157.39) 71.2×28 | danger: bg `#ef4444 \| #f87171`, text `#ffffff`, border transparent. Autofocused, but no focus ring shows (opened by pointer) |
 
 Copy:
 - 04: title `Remove <skill> from <workspace>?`, no body, `Cancel` then `Remove`.
@@ -40,7 +40,7 @@ There is no icon and no close button. A newer toast replaces the old one.
 | text | **12px** / 400, lh **16.2**, fg; `\n` starts a new line (pre-line); wraps at max-width **260** |
 | padding | **4 8** |
 | placement | centered **below** the trigger with a **6** gap; flips above when it does not fit; clamped **8** from the window edges |
-| measured | 13 chip: (987.05, 38.75) 111.4×26.2 `Saved to Default`. 14 trash: (1017, 146.55) 155.42×26.2 `Remove from acme-web`, clamped at the right (ends at 1172.42). 10 members: (241.52, 36.74) 260×42.39, 2 lines `Used by Codex, Amp, OpenCode, Gemini CLI, GitHub Copilot` |
+| measured | 13 chip: (987.05, 38.75) 111.4×26.2 `Saved to Default`. 14 trash: (1017, 146.55) 155.42×26.2 `Remove from acme-web`, clamped at the right (ends at 1172.42). 10 members: (241.52, 36.74) 260×58.59, 3 lines `Used by Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed` |
 
 Every tooltip string in the area: `Add skill` (none: the button has a label), `Saved to <preset>`, `Used by <names>`, `Remove from <place>`, `Includes agents added later`, the folder rows (`scoped-pages-03-menu.md`), the avatars and marks (`scoped-pages-02-rows.md`).
 

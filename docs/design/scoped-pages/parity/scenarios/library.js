@@ -63,8 +63,8 @@ __ref.scenario('pop-agents-2ws', async (s) => {
 // 11: popover for an inactive skill (a11y-audit, the first row): everything off.
 __ref.scenario('pop-inactive', async (s) => { await openPop(s, 'a11y-audit'); });
 
-// 12: popover for git-commit (Claude Code + Universal), pointer on docs-site's first pill
-// ("No agents yet" line, pill hover fill).
+// 12: popover for git-commit (Universal + Claude Code), pointer on docs-site's .claude/skills pill,
+// the second of its 12 wrapped pills ("No agents yet" line, pill hover fill).
 __ref.scenario('pop-docs-site', async (s) => {
   await openPop(s, 'git-commit');
   await s.hover('[data-key="w:docs-site:claude"]');

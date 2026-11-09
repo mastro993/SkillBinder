@@ -1,15 +1,17 @@
 /* Reference scenarios for scoped-pages.html (API: ../reference.js). Render with
  * ../render-ref.sh scoped-pages menu <theme> <name> <out.png>.
- * Spec: spec/scoped-pages-*.md. Fixture: the kit data.js (acme-web uses .claude/skills +
- * .agents/skills; Default is the preset that is on). Pointer rules: a click leaves the virtual
- * pointer on its target, as a real click does; scenarios that move rows (navigation, removal)
- * call unhover() so no stale hover fill or tooltip timer lands on another element. */
+ * Spec: spec/scoped-pages-*.md. Fixture: the kit data.js (acme-web uses .agents/skills, shown as
+ * Universal, and .claude/skills, named after its readers; Default is the preset that is on).
+ * Pointer rules: a click leaves the virtual pointer on its target, as a real click does;
+ * scenarios that move rows (navigation, removal) call unhover() so no stale hover fill or
+ * tooltip timer lands on another element. */
 (function () {
 'use strict';
 
 const row = (s, slug) => s.get('.sb-page .sb-row', { text: slug });
 const nav = async (s, key) => { await s.click(`[data-nav="${key}"]`); await s.unhover(); };
 const menuItem = (s, label) => s.get('.sp-agmenu .sb-menu-item', { text: label });
+const CLAUDE_DIR = 'Claude Code, Cline, Cursor, fx, Warp'; // .claude/skills, named after its readers
 
 // Headless Chrome never gives the page system focus, so :focus and :focus-visible never match
 // (checked: the typed field reported no ring). A live browser shows a typed text field with both.
@@ -36,8 +38,8 @@ __ref.scenario('ws-menu-all', async (s) => {
   await s.click(row(s, 'code-review').querySelector('.sp-agbtn'));
 });
 
-// 03 Same menu after unticking Universal: All agents off, Claude Code still ticked, menu open,
-// the button behind reads "Claude Code"; pointer stays on the Universal item (highlight).
+// 03 Same menu after unticking Universal: All agents off, .claude/skills still ticked, menu open,
+// the button behind reads its name; pointer stays on the Universal item (highlight).
 __ref.scenario('ws-menu-untick', async (s) => {
   await s.click(row(s, 'code-review').querySelector('.sp-agbtn'));
   await s.click(menuItem(s, 'Universal'));
@@ -46,7 +48,7 @@ __ref.scenario('ws-menu-untick', async (s) => {
 // 04 Unticking tailwind-helper's last folder closes the menu and asks first.
 __ref.scenario('ws-confirm-last', async (s) => {
   await s.click(row(s, 'tailwind-helper').querySelector('.sp-agbtn'));
-  await s.click(menuItem(s, 'Claude Code'));
+  await s.click(menuItem(s, CLAUDE_DIR));
   if (!s.$('.sb-dialog')) throw new Error('no confirmation');
 });
 

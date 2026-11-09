@@ -24,8 +24,8 @@ Rows sort by slug, ignoring case. A click or Enter opens the skill page, which i
 | mark | glyph (Hugeicons) | box style | tooltip |
 |---|---|---|---|
 | overlap (also on for your agents) | `robot` 13×13, fg | bg secondary `#e5e5e5 \| #262626` | `Also in your agents` + newline + `All agents` or the names, e.g. `Claude Code, Cursor` |
-| update | `upload-circle` 14×14, warning `#eab308 \| #facc15` | none | `Update available` |
-| edited copy here | `pencil-edit` 13×13, muted-fg | none | `Changed here` + newline + place name (`Claude Code`) |
+| update | `upload-circle` 14×14, info (cyan) `#06b6d4 \| #22d3ee`, as on every redesigned surface (decided 2026-11-09) | none | `Update available` |
+| edited copy here | `pencil-edit` 13×13, muted-fg | none | `Changed here` + newline + place name (`Claude Code, Cline, Cursor, fx, Warp`) |
 
 Examples:
 - code-review's overlap mark is at (353.17, 109.8), 6 after the slug.
@@ -38,10 +38,10 @@ The workspace page shows overlap and edited marks. The agent page shows only upd
 | element | rect | style |
 |---|---|---|
 | row end | right edge 1149, centered vertically (y = row y + 15.55) | flex, gap **8**: agents button, then trash |
-| agents button `.sp-agbtn` | h **28**, right edge **1117**. Widths: "All agents" 121.85, "Universal" 105.34, "Claude Code" 125.76 | flex, items centered, **gap 6**, **padding 0 6 0 5**, radius 6, border 0, bg transparent, 12px / 400, lh 16.8, muted-fg |
+| agents button `.sp-agbtn` | h **28**, right edge **1117**. Widths: "All agents" 121.85, "Universal" 105.34, "Claude Code, Cline, Cursor, fx, Warp" 259.48 (x 857.52; the row's main column shrinks to 582.52) | flex, items centered, **gap 6**, **padding 0 6 0 5**, radius 6, border 0, bg transparent, 12px / 400, lh 16.8, muted-fg |
 | — hover, or menu open (`aria-expanded`) | same | bg `#f5f5f5 \| #262626`, text, chevron and label fg `#0a0a0a \| #fafafa` |
-| — avatar stack | first avatar at button x + 5, y + 5 | see "Avatars" below. One avatar per held folder: `claude-code` art for .claude/skills, `layers` glyph for .agents/skills |
-| — label | e.g. "All agents" at x 1037.15, w 55.85 | `All agents` / the one folder's name (`Claude Code`, `Universal`) / `<n> agents` |
+| — avatar stack | first avatar at button x + 5, y + 5 | see "Avatars" below. One avatar per held folder, in the app's order: `layers` glyph for .agents/skills first, then `claude-code` art for .claude/skills |
+| — label | e.g. "All agents" at x 1037.15, w 55.85 | `All agents` / the one folder's name (`Claude Code, Cline, Cursor, fx, Warp`, `Universal`) / `<n> agents` |
 | — chevron | 12×12 at (1099, row y + 23.55) | `arrow-down`, current text color |
 | trash | (1125, row y + 17.55) **24×24** | ghost icon button: radius 6, border 1 transparent, muted-fg. Hover bg `#f5f5f5 \| #262626`, icon fg. Icon `delete` **15×15** at +4.5 |
 | trash tooltip and aria | none | `Remove from <workspace>` (`Remove from acme-web`) |
@@ -54,14 +54,14 @@ On the agent page (09) the row end is the trash only, at (1125, row y + 17.55). 
 |---|---|
 | size | **18×18** circle |
 | overlap in a stack | each later avatar has margin-left **−5** (step 13) and paints over the earlier one |
-| color logo (`claude-code`, `codex`, `amp`, `gemini-cli`) | bg **`#ffffff` in both themes**, logo **14.04×14.04** (78%) centered (offset 1.98) |
-| mono logo or glyph (`layers`, `cursor`, …) | bg muted `#f5f5f5 \| #262626`, glyph **12.6×12.6** (70%) centered, color fg |
-| ring | box-shadow `0 0 0 2px` in the surface under the avatar: card `#ffffff \| #0f0f0f`; hovered row `#f5f5f5 \| #262626`; header `#ffffff \| #0a0a0a`; menu: the page bg, see G6 and A1 |
+| color logo (`claude-code`, `codex`, `kimi-code-cli`) | bg **`#ffffff` in both themes**, logo **14.04×14.04** (78%) centered (offset 1.98) |
+| mono logo or glyph (`layers`, `cline`, `cursor`, `fx`, `pi`, `warp`, `windsurf`; `square-terminal` for an agent without a logo, such as Dexto) | bg muted `#f5f5f5 \| #262626`, glyph **12.6×12.6** (70%) centered, color fg |
+| ring | box-shadow `0 0 0 2px` in the surface under the avatar: card `#ffffff \| #0f0f0f`; hovered row `#f5f5f5 \| #262626`; header `#ffffff \| #0a0a0a`; menu: the menu surface `#ffffff \| #262626` (decided 2026-11-09, was A1), also on a highlighted item; see G6 |
 | border | none |
 | overflow | at most 4: with more than 4, 3 avatars then a `+N` circle (18, muted bg, 9.5px / 600, muted-fg, lh 13.3) whose tooltip lists the rest |
-| tooltip (agents button avatars) | folder name + newline + who else reads it: `Claude Code\nCursor reads it too`, `Universal\nCodex, Amp, OpenCode, Gemini CLI, GitHub Copilot` |
+| tooltip (agents button avatars) | the folder's row name, plus its readers for Universal: `Universal\nCline, Codex, Cursor, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed`, `Claude Code, Cline, Cursor, fx, Warp` |
 
-Measured in 01, code-review: the Claude Code avatar is at (1000.15, 119.55) with its logo at (1002.13, 121.52) 14.04. The Universal avatar is at (1013.15, 119.55) with its glyph at (1015.85, 122.25) 12.59.
+Measured in 01, code-review: the Universal avatar is at (1000.15, 119.55) with its glyph at (1002.85, 122.25) 12.59. The Claude Code avatar is at (1013.15, 119.55) with its logo at (1015.13, 121.52) 14.04.
 
 ## Differences from today's app constants
 

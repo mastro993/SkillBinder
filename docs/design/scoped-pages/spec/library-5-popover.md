@@ -4,7 +4,7 @@
 
 | Property | Value |
 |---|---|
-| Width | 300. Height: content + 24. 239.29 with docs-site showing "No agents yet"; 233 once every workspace uses an agent (state 13) |
+| Width | 300. Height: content + 24. 285 with docs-site showing "No agents yet" and its 12 pills on 3 lines; 233 once every workspace uses an agent (state 13) |
 | Padding | 12 |
 | Radius | 12 |
 | Background | menu surface #ffffff/#262626. Text fg |
@@ -25,14 +25,14 @@ Content (`.lib-where`): 276 wide at +12,+12, column, gap 10.
 | Agents line | +12,+42, 276×28 | flex, gap 8, items centered |
 | "All agents" + switch | +12,+46.9; the label is 59.74 wide (13/400, line 18.2); the switch is at +79.74,+46.99 | the group is flex 1, gap 8, left-aligned. Tooltip "Includes agents added later" on the whole group |
 | Switch | 30×18, radius full | track: off #d4d4d4/#404040, on primary #171717/#fafafa. Thumb 14×14 circle at inset 2, bg page #ffffff/#0a0a0a, shadow `0 1px 2px #00000040`; on = translateX(12) |
-| Agent pills | right-aligned at +172, +202, +232, +262; y +44; gap 4 | see Pills |
+| Agent pills | right-aligned at +172, +202, +232, +262 (Universal, Claude Code, Cursor, Windsurf); y +44; gap 4 | see Pills |
 | Section "Workspaces" | +12,+80 | 1 px top border fg@10%, padding-top 10, column, gap 8 |
 | Label "Workspaces" | +12,+93.95 | as "Your agents" |
-| Workspace line | starts at +121 (acme-web), +157 (api-server), +193 (docs-site); 276 wide | flex, gap 8, items centered, min-height 28; the docs-site line is 34.29 high |
-| Name column | flex 1, min-width 0 | column |
+| Workspace line | starts at +121 (acme-web), +157 (api-server), +193 (docs-site); 276 wide | flex, gap 8, items centered, min-height 28; the docs-site line is 80 high (its wrapped pills) |
+| Name column | `flex: 1 0 auto`: never narrower than its content (docs-site 95.73), it takes the line's free width. On docs-site's line it is centered beside the pills, at +215.85 | column |
 | Name row | h 18.2 | flex, gap 6: `code-folder` 14 in muted-fg (the workspace's glyph), then the name 13/400 fg, one line, ellipsis |
 | "No agents yet" | under the name, padding-left 20 | 11.5/400, line 16.1, muted-fg |
-| Workspace pills | right-aligned, flex none, gap 4, no wrapping; centered on the line | one per directory the workspace uses. A workspace with no agent gets one per detected agent's workspace directory (fixture: claude, agents, windsurf) |
+| Workspace pills | right-aligned, gap 4 both ways; centered on the line. Many pills wrap onto further lines aligned to the trailing edge (`flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end`; decided 2026-11-09). docs-site: a 172.27×80 block at +115.73,+193, lines of 5, 5 and 2 pills at +0, +28, +56 | one per directory the workspace uses. A workspace with no agent gets one per directory its detected agents offer: 12 in the fixture, as native offers them (see Order) |
 
 ## Pills (`.sb-pill.is-icon`)
 
@@ -42,8 +42,9 @@ Content (`.lib-where`): 276 wide at +12,+12, column, gap 10.
 | Off | border dashed fg@24% (#0a0a0a3d/#fafafa3d), transparent, color muted-fg. The logo is grayscaled (`filter: grayscale(1)`) at opacity .5. Color logos turn gray, mono logos are muted-fg at .5 |
 | On | border solid fg, bg page #ffffff/#0a0a0a, color fg. The logo is at full opacity and keeps its colors: the Claude Code logo is orange (C3) |
 | Hover | bg muted #f5f5f5/#262626, color fg; the border style is unchanged (state 12) |
-| Tooltips | the target's name, plus a second line where there is one. Agents: "Claude Code", "Cursor", "Universal\nCodex, Amp, OpenCode, Gemini CLI, GitHub Copilot", "Windsurf". Workspace directories: "Claude Code\nCursor reads it too", "Universal\nCodex, Amp, OpenCode, Gemini CLI, GitHub Copilot", "Windsurf" |
-| Order | agents: claude, cursor, universal, windsurf. Workspace directories: claude, agents, windsurf (C4) |
+| Tooltips | the target's name, plus a second line where there is one. Agents: "Universal\nCline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed", "Claude Code", "Cursor", "Windsurf". Workspace directories: "Universal\nCline, Codex, Cursor, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed", then the row name alone |
+| Order | the app's (decided 2026-11-09). Agents: Universal, Claude Code, Cursor, Windsurf. Workspace directories, `.agents/skills` first, then by name: Universal; "Claude Code, Cline, Cursor, fx, Warp" (`.claude/skills`); "Cline (.cline/skills)"; "Cline (.clinerules/skills)"; "Codex, Cursor, fx, Warp" (`.codex`); "Cursor, Warp" (`.cursor`); Dexto; fx; Kimi Code CLI (`.kimi-code`); Pi; Warp; Windsurf |
+| Logos | a row shows its first reader's logo: `layers` for Universal; color claude-code, codex, kimi-code-cli; mono cline, cursor, fx, pi, warp, windsurf; `square-terminal` for Dexto. Kimi's color logo is a white K and a blue dot, so on a light surface only the dot shows |
 
 ## Position (window px)
 
@@ -51,11 +52,11 @@ The `↑` mark means the popover opened above its trigger.
 
 | State | Trigger rect | Popover rect | Rule |
 |---|---|---|---|
-| 10 | 1012.59,292.83 136.41×26 | 849,322.83 300×239.29 | list: right edge = trigger right (1149); top = trigger bottom + 4 |
+| 10 | 1012.59,292.83 136.41×26 | 849,322.83 300×285 | list: right edge = trigger right (1149); top = trigger bottom + 4 |
 | 11 | 1123,115.55 26×26 | 849,145.55 | same |
-| 12 | 1090,647.39 59×26 | 849,404.39 ↑ | does not fit below (bottom margin 8): bottom = trigger top − 4 |
+| 12 | 1090,647.39 59×26 | 849,358.39 ↑ | does not fit below (bottom margin 8): bottom = trigger top − 4 |
 | 13 | 991.25,647.39 157.75×26 | 849,410.39 300×233 ↑ | re-placed after the content shrank: the bottom stays at trigger top − 4 |
-| 14 | 1090,668.64 59×26 | 849,425.64 ↑ | above |
+| 14 | 1090,668.64 59×26 | 849,379.64 ↑ | above |
 | 15 | 959.34,292.83 189.66×26 | 849,322.83 | below |
 | 17 (grid) | 955.5,179.59 189.66×26 | 872,209.59 | grid: left = trigger left, then clamped to window width − 8 − 300 = 872; top = trigger bottom + 4. Above would be placed over the whole tile |
 

@@ -8,7 +8,7 @@ Pixel parity covers only the redesigned surfaces:
 - the progress pill, while running and when done;
 - the end toast.
 
-The Library page behind the wash belongs to #99. The Review list is today's Skill copies dialog (see C5).
+The Library page behind the wash belongs to #99. The Review list follows the prototype (C5, decided).
 
 Paths below are relative to `docs/design/scoped-pages/`.
 
@@ -31,7 +31,7 @@ Fixture: Default → Frontend is 20 pairs (13 adds, 7 removals). At Normal speed
 | 00 | `default` | 0 | Library before any action. It is the base for the wash formula; not a parity target. |
 | 01 | `appear-10` | 300 ms | First frame after the reveal: wash, then the pill `Switching…` `10%` (2 of 20) |
 | 02 | `strip-45` | 1350 ms | `Switching…` `45%` (9 of 20). The sidebar already shows Frontend as active (optimistic). |
-| 03 | `adding-50` | 1500 ms | Action "Add 4 skills" (Claude Code + Universal, 8 pairs): `Adding…` `50%` |
+| 03 | `adding-50` | 1500 ms | Action "Add 4 skills" (Universal + Claude Code, 8 pairs): `Adding…` `50%` |
 | 04 | `importing-50` | 1500 ms | Action "Import 6" (6 pairs): `Importing…` `50%` |
 | 05 | `finishing-100` | 600 ms | Speed Quick (0.6 s): work done at 600 ms, the pill holds `100%` with a full bar until 800 ms (reveal + 500) |
 | 06 | `done-2` | 3000 ms | Problems = 2: `Done · 2 need attention` + Review + Close. The wash stays; the Library behind has redrawn. |
@@ -50,20 +50,20 @@ Every state has a light PNG and a dark PNG, `references/progress/NN-<scenario>-{
   - The rebuilt bundle loads with a clean console. No blur or backdrop remains.
 - The follow-up answers (picker All pill, list-only pages, Library All agents, parity scope) require nothing more in this area, so there is no other approved addition.
 
-## Conflicts between the prototype (frozen here) and issue #98: settle before implementing
+## Conflicts with issue #98: settled for the prototype (2026-11-09)
 
-| # | Item | Prototype (what the refs show) | Issue #98 text |
+The user decided that the spec in this folder is authoritative for every visual value, so each conflict below follows the prototype and the references stand as rendered.
+
+| # | Item | Decided (the prototype) | Superseded #98 text |
 |---|---|---|---|
 | C1 | Wash | page `background` at **70%** over the whole window (sidebar included), no blur | "`background` at 55% opacity" |
 | C2 | Spinner glyph | `loading` = `Loading03Icon` (retained but not mapped in `assets.rs`), 14 px, foreground | `refresh-03` as `sidebar_row::spinner` builds it (muted, 12 px) |
 | C3 | Progress line | 2 px bar in `primary`, **no track**, clipped by the pill's rounded shape | Kit `Progress` xsmall (4 px, with a track at 20%) |
-| C4 | End toast | inverted chip at bottom center (fg fill, bg text), `check-circle` 15 px in the text color, 36 px high, radius 8, 4 s | Kit `Notification` with the `check` glyph in `success` (top-right card, 382 wide, border, 14 px text, 5 s) |
-| C5 | Review | the kit `reviewDialog`: title `2 need attention`, md 420 wide, rows in a card with Replace/Keep or Remove/Keep, footer Done | "opens the Skill copies dialog… each copy keeps today's row" (title `Skill copies`, Kit Dialog 448 wide) |
-| C6 | Percentage | `Math.round(done/total*100)` | "rounded down" (floor). They differ at 1/8 (13 vs 12) and 1/6 (17 vs 16). The refs use exact values (10, 45, 50, 100). |
-| C7 | Running tooltip | the pill has `data-tip` = "<plan title>\n<current step>", for example "Switching to Frontend\nCopying tailwind-helper → Cursor" | "No tooltip" |
+| C4 | End toast | an app toast: inverted chip at bottom center (fg fill, bg text), `check-circle` 15 px in the text color, 36 px high, radius 8, 4 s | Kit `Notification` with the `check` glyph in `success` (top-right card, 382 wide, border, 14 px text, 5 s) |
+| C5 | Review | the prototype's list: title `2 need attention`, 420 wide, rows in a card with Replace/Keep or Remove/Keep, footer Done (state 07 is a pixel target) | "opens the Skill copies dialog… each copy keeps today's row" (title `Skill copies`, Kit Dialog 448 wide) |
+| C6 | Percentage | `Math.round(done/total*100)`. The refs use exact values (10, 45, 50, 100) | "rounded down" (floor) |
+| C7 | Running tooltip | the pill has a tooltip "<plan title>\n<current step>", for example "Switching to Frontend\nCopying tailwind-helper → Cursor" | "No tooltip" |
 | C8 | Import toast | `Imported 6 skills` | "An import shows no toast" (the result banner reports it) |
-| C9 | Pill button text | 12 px, weight 500 | (unspecified). A Kit small `Button` label is 14 px, weight 400. |
-
-The pixel references follow the prototype. When a conflict is settled in favour of the issue, its reference must be re-rendered after the prototype changes.
+| C9 | Pill button text | 12 px, weight 500, as an app-owned small button | (unspecified). A Kit small `Button` label is 14 px, weight 400. |
 
 Other parts: 2 = wash and pill, 3 = toast and review list, 4 = parity crops and masks, 5 = GPUI mapping and gaps.

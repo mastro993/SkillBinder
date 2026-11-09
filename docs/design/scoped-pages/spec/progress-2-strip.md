@@ -74,7 +74,7 @@ Hover states, taken from the CSS (not in the refs):
 | Percent | `<n>%`, from `0%` to `100%` |
 | Done | `Done · 1 needs attention` / `Done · <n> need attention` |
 | Buttons | `Review`, `Close` |
-| Running tooltip (prototype only, C7) | `<plan title>\n<step>`, for example `Switching to Frontend` / `Copying tailwind-helper → Cursor`, `Removing release-notes from Claude Code` |
+| Running tooltip (C7, decided for the prototype) | `<plan title>\n<step>`, for example `Switching to Frontend` / `Copying tailwind-helper → Cursor`, `Removing release-notes from Claude Code` |
 
 ## Timings (prototype; reference mode freezes every animation)
 

@@ -18,7 +18,7 @@ Sources checked: `gpui-pre-0.3.7` (`G`), `gpui-pre-apple-0.3.7` (Metal), `gpui-c
 | row | `h_flex().items_start()` px 12 py 7 gap 10; divider = absolute 1 px child inset 14 | picked fill = fg 3.5% over surface (`#f6f6f6`/`#171717`); hover `muted` |
 | checkbox | Kit `checkbox()` (`controls.rs:14`) — or an app box, see gap 5 | Medium = 16 px, radius 4 (`GC/checkbox.rs:218-245`) |
 | slug / description | 14/600 truncate; `description()` (`library_items.rs:303`) | that helper is 12.5 px: picker needs 12 px |
-| update glyph | `update_glyph` (`library_items.rs:290`, `app_icon("upload-circle").small()` = 14, warning) | make `pub(super)` (issue) |
+| update glyph | `update_glyph` (`library_items.rs:290`, `app_icon("upload-circle").small()` = 14), tinted `info` (cyan) here | make `pub(super)` (issue) |
 | empty "No skills match" | v_flex block + 40 px tile + `app_icon("search")` 20 + Kit `Button::outline().small()` | button label 12 px (Kit Small = 14), see gap 6 |
 | Selected pane, header, cards | divs (sidebar bg, border, radius 10/8) | — |
 | deselect × | `button(..).ghost().xsmall()` icon-only (20x20) | glyph 13 (Kit XSmall = 12); radius 5 (Kit 6) |
@@ -28,6 +28,11 @@ Sources checked: `gpui-pre-0.3.7` (`G`), `gpui-pre-apple-0.3.7` (Metal), `gpui-c
 | tooltips | Kit `Tooltip` (`Styled`, `GC/tooltip.rs:87`) | 12 px, lh 16.2, `py(4) px(8)`, no `m_3`; placement and delay: gap 2 |
 
 ## GPUI gaps (cannot match exactly with the stock API) and the closest equivalent
+
+Decided 2026-11-09: where Kit cannot match exactly, the app owns the control (small modules under
+`crates/ui/src/native_view/controls/`, reused across slices): here the tooltip (2), the dashed
+pill outline (1), the 28 px buttons with their small text (6) and the dialog surface. The check
+mark stays Kit's Hugeicons tick, a documented delta masked in parity (5).
 
 1. **Dashed border pattern.** `border_dashed()` exists (`G/styled.rs:500`), but the Metal shader
    fixes the pattern at a 2·w dash and 1·w gap along the perimeter (`shaders.metal:215-232`).

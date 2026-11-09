@@ -18,7 +18,7 @@
 | segmented track | #f5f5f5 | #171717 | tab_bar_segmented |
 | primary (switch on) | #171717 | #fafafa | primary |
 | switch off track | #d4d4d4 | #404040 | switch |
-| info (update glyph in proto) | #06b6d4 | #22d3ee | info (see 7/7 C1) |
+| info (update glyph, cyan on every redesigned surface) | #06b6d4 | #22d3ee | info (decided 2026-11-09) |
 | dashed outline | #0a0a0a3d | #fafafa3d | fg@0.24 |
 
 Font: system UI (SF Pro). The base is `13px/1.4` everywhere, so every line box is 1.4 × the font size unless a row says otherwise.

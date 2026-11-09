@@ -12,7 +12,7 @@ Files in this spec:
 4. Rows, placement area, grid.
 5. Popover.
 6. GPUI/Kit mapping and gaps.
-7. Conflicts to settle.
+7. Conflicts, settled.
 
 ## Conventions
 
@@ -20,7 +20,7 @@ Files in this spec:
 - Colors are written light/dark as `#rrggbb[aa]`. "fg" is #0a0a0a/#fafafa and "muted-fg" is #737373/#a3a3a3. The other tokens are in 3/7.
 - The 232 px sidebar is the prototype's mock and is never compared.
 - Rendering: `parity/render-ref.sh library popover <light|dark> <scenario> <out.png> --filters segmented`. Two renders of the same state are byte-identical (checked on 10 and 14).
-- Data is the kit's `data.js` INITIAL, inlined in the bundle: Default active, 18 skills, 3 workspaces. Native: `parity/fixture/restore.sh $FX` (clean seed), then the steps below.
+- Data is the kit's `data.js` INITIAL, inlined in the bundle: Default active, 18 skills, 3 workspaces. Its agents and directories are the native fixture's, in the app's order (decided 2026-11-09): your agents Universal, Claude Code, Cursor, Windsurf; Universal's members are the registry's `~/.agents/skills` agents; a workspace with no agent offers the 12 directories native offers (5/7). Native: `parity/fixture/restore.sh $FX` (clean seed), then the steps below.
 - Pointer:
   - Hover and popover states keep the pointer where the table says.
   - Every other state has no pointer. On native, park the pointer in the sidebar (`pointer_move {x:120,y:600}`) before the capture.
@@ -46,11 +46,11 @@ Each state was rendered in light and dark at `references/library/<NN>-<state>-<t
 | 06 | `no-match` | Search "zzz": empty state "No skills match" + "Clear filters"; all counts 0 | none | type `zzz` |
 | 07 | `hover-active` | code-review row hover fill | (605.2, 305.8), the row body | move the pointer there |
 | 08 | `hover-inactive` | a11y-audit row hover fill + dashed "+" circle visible | (687, 128.5) | move the pointer there |
-| 09 | `hover-place` | pointer on code-review's placement button (row hover; the button fill equals the row fill, see 7/7 C2) | (1054.2, 305.8) | move there; take the shot before the 350 ms tooltip |
-| 10 | `pop-agents-2ws` | code-review popover: All agents on, 4 pills on; acme-web both pills on, api-server on, docs-site "No agents yet" + 3 off pills; the row shows a "2" count chip | (1080.8, 305.8), on the trigger | delta: api-server holds code-review in `.claude/skills` (popover › api-server pill › Esc); then click the trigger |
+| 09 | `hover-place` | pointer on code-review's placement button: row hover, and the button's highlight fill over it (4/7) | (1054.2, 305.8) | move there; take the shot before the 350 ms tooltip |
+| 10 | `pop-agents-2ws` | code-review popover: All agents on, 4 pills on; acme-web both pills on, api-server on, docs-site "No agents yet" + 12 off pills on 3 lines; the row shows a "2" count chip | (1080.8, 305.8), on the trigger | delta: api-server holds code-review in `.claude/skills` (popover › api-server pill › Esc); then click the trigger |
 | 11 | `pop-inactive` | a11y-audit popover (first row): switch off, every pill off; the trigger is the dashed circle with the open fill | (1136, 128.55) | click a11y-audit's trigger (hover the row first so it shows) |
-| 12 | `pop-docs-site` | git-commit popover opened above the row; pointer on docs-site's Claude Code pill (hover fill) | (1064, 614.5) | click git-commit's trigger at (1119.5, 660.4), then move to the pill |
-| 13 | `pop-docs-site-on` | as 12, then that pill clicked: docs-site uses `.claude/skills` and holds git-commit; its line loses "No agents yet" and the popover shrinks to 233 high, still anchored above; the row gains a docs-site chip | none | as 12, click the pill, park the pointer. Restore the fixture afterwards |
+| 12 | `pop-docs-site` | git-commit popover opened above the row; pointer on docs-site's `.claude/skills` pill, the second (hover fill) | (1034, 563.4) | click git-commit's trigger at (1119.5, 660.4), then move to the pill |
+| 13 | `pop-docs-site-on` | as 12, then that pill clicked: docs-site uses `.claude/skills` and holds git-commit; its line loses "No agents yet" and its 12 pills, and the popover shrinks from 285 to 233 high, still anchored above; the row gains a docs-site chip | none | as 12, click the pill, park the pointer. Restore the fixture afterwards |
 | 14 | `pop-bottom` | list scrolled to the end (card bottom at y 712); test-writer popover above the last row | (1119.5, 681.6) | scroll the list to the end, click test-writer's trigger |
 | 15 | `all-agents-off` | code-review popover after switching All agents off: switch off, all 4 agent pills stay on (explicit list) | (943.7, 378.8), on the switch | click code-review's trigger, then the switch |
 | 16 | `grid` | grid view, 4 columns, tiles a11y-audit…test-writer (5th row clipped) | none | click Grid |
@@ -63,7 +63,7 @@ The task's "preset switch handoff" state belongs to the progress area and was sk
 
 - A workspace whose folder is missing (line at 0.4 opacity).
 - The unsettled-copy warning glyph before the placement area.
-- `+N` avatar overflow: the fixture has at most 4 directories.
+- `+N` avatar overflow: a skill is held in at most 4 of your agents' directories.
 - Narrow (<440 px) count chips.
 - Tooltips: the kit tooltip is a 12 px mock (see 7/7).
 - The edited-copy confirm.

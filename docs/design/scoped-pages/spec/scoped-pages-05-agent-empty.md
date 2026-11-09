@@ -22,11 +22,11 @@ Rows (09): code-review, frontend-design, git-commit, pdf-tools (update mark), re
 |---|---|---|
 | glyph | (249, 13.74) 16×16 | `layers`, fg, bare |
 | name | (274, 12.3) w 61.02 | `Universal` |
-| member stack `.sp-members` | **(343.02, 12.74) 57×18**, 8 after the name | avatars 18 with step 13 (overlap −5): `codex` (343.02), `amp` (356.02), `gemini-cli` (369.02), all color art at 14.04 on `#ffffff`; then `+2` (382.02): an 18 circle, muted bg `#f5f5f5 \| #262626`, 9.5px / 600 muted-fg. Each has a 2 px ring in the header bg `#ffffff \| #0a0a0a` |
-| — tooltip | (241.52, 36.74) 260×42.39 | `Used by Codex, Amp, OpenCode, Gemini CLI, GitHub Copilot`; it wraps at 260 into 2 lines |
+| member stack `.sp-members` | **(343.02, 12.74) 57×18**, 8 after the name | avatars 18 with step 13 (overlap −5): `cline` (343.02, mono 12.6 on muted), `codex` (356.02, color art 14.04 on `#ffffff`), `square-terminal` for Dexto, which has no logo (369.02, glyph 12.6 on muted); then `+7` (382.02): an 18 circle, muted bg `#f5f5f5 \| #262626`, 9.5px / 600 muted-fg. Each has a 2 px ring in the header bg `#ffffff \| #0a0a0a` |
+| — tooltip | (241.52, 36.74) 260×58.59 | `Used by Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed`; it wraps at 260 into 3 lines |
 | path | (408.02, 13.34) | `~/.agents/skills` |
 
-The stack rule matches the avatar overflow rule: with more than 4 members, 3 logos then `+N`. The fixture has 5 members, so it shows 3 logos and `+2`. An agent page whose directory other detected agents share (#102 `Shared with <names>`) uses the same stack and placement. The prototype has no such fixture, so there is no reference for it.
+The stack rule matches the avatar overflow rule: with more than 4 members, 3 logos then `+N`. Universal's members are the registry's `~/.agents/skills` agents, in name order: 10 in the fixture (decided 2026-11-09), so it shows the first 3 and `+7`. An agent page whose directory other detected agents share (#102 `Shared with <names>`) uses the same stack and placement. The prototype has no such fixture, so there is no reference for it.
 
 ## Empty state (07 docs-site)
 

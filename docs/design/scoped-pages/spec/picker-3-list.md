@@ -34,7 +34,7 @@ Row content, x offsets from the row's left (74.4):
 | text column | `112.4,142.4 576.59x38.39` (row.x+38) | column, gap 2 | |
 | title line | `112.4,142.4 576.59x19.59` | row, gap 6, items centered | |
 | slug | `112.4,142.4 69.7x19.59` | 14 / 600, lh 19.6, one line, ellipsis | `#0a0a0a \| #fafafa` |
-| update glyph (k8s-debug, pdf-tools, storybook) | `192.65,249.98 14x14` in state 07 (slug end + 6, centered on the title line) | Hugeicons `upload-circle` 14 | warning `#eab308 \| #facc15`; tooltip "Update available" |
+| update glyph (k8s-debug, pdf-tools, storybook) | `192.65,249.98 14x14` in state 07 (slug end + 6, centered on the title line) | Hugeicons `upload-circle` 14 | info (cyan) `#06b6d4 \| #22d3ee`, as on every redesigned surface (decided 2026-11-09); tooltip "Update available" |
 | description | `112.4,163.99 576.59x16.8` (title + 2) | 12 / 400, lh 16.8, one line, ellipsis | `#737373 \| #a3a3a3` |
 
 Already-here row (`is-dim`, e.g. code-review, row 3): checkbox checked + disabled, slug and

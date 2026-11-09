@@ -4,7 +4,7 @@ usage: python3 -I picker-parity.py <dumps-dir> <out.json>
 <dumps-dir> holds <NN>-<state>-light.json for every state below, each written by
 render-ref.sh picker c light <state> <png> --spec selectors/picker.json <dumps-dir>/<NN>-<state>-light.json
 """
-import json, os, sys
+import json, os, re, sys
 J = sys.argv[1]; OUT = sys.argv[2]
 STATES = [("01", "empty"), ("02", "selected-3"), ("03", "all-off"), ("04", "no-agent"), ("05", "no-match"),
           ("06", "already-here"), ("07", "folder-chip"), ("08", "docs-site"), ("09", "docs-site-carry"),
@@ -47,6 +47,9 @@ for n, name in STATES:
         if c["styles"]["background"] == "#171717" and r["y"] + r["h"] <= bottom:  # checked, in view
             st["optional_ignore"]["check_glyph"].append([r2(r["x"] + 2), r2(r["y"] + 2), 12, 12])
     out["states"][f"{n}-{name}"] = st
-json.dump(out, open(OUT, "w"), indent=1)
+# One rect per line keeps the file under the repository's 5,000-token limit.
+text = json.dumps(out, indent=1)
+text = re.sub(r"\[[-\d.,\s]+\]", lambda m: json.dumps(json.loads(m.group(0))), text)
+open(OUT, "w").write(text)
 for k, v in out["states"].items():
     print(k, "crops", v["crops"], "ignore", [i["rect"] for i in v["ignore"]], "dashed", len(v["optional_ignore"]["dashed_pill"]), "checks", len(v["optional_ignore"]["check_glyph"]), v.get("tooltip", {}).get("text", ""))

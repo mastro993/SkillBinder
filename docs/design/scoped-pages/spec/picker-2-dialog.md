@@ -15,9 +15,8 @@ Line heights are the prototype's 1.4 em unless given (13 px -> 18.2, 12 px -> 16
 
 Sizing for other window sizes: `w = 0.92·(W−20)`, `h = 0.90·(H−20)`, `x = (W−w)/2`,
 `y = 10 + (H−20−h)/2` (= 45.4 at 728). No max width; the dialog never scrolls as a whole.
-Conflicts settled in favor of the prototype: issue #100 says the panes take "about 70%" of the
-window height (the prototype gives 573.2 / 728 = 78.7%); the user saw the prototype in a narrower
-chat frame, so at 1180x728 the same 92% / 90% rule makes a larger dialog than they saw.
+Decided 2026-11-09 for the prototype: the dialog is 92% × 90% of the window, so the panes take
+78.7% of its height (573.2 / 728), not #100's "about 70%".
 
 ## Header row (`.sb-dialog-header`)
 

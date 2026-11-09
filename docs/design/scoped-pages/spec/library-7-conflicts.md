@@ -1,22 +1,22 @@
-# Library visual spec (issue #99) — 7/7: conflicts to settle before implementing
+# Library visual spec (issue #99) — 7/7: conflicts, settled
 
-The references show the prototype exactly as approved. Each item below is a place where the prototype disagrees with #99's text, the current app, or the native fixture. Under pixel parity the prototype wins unless the user decides otherwise. When a decision changes the prototype, edit `prototypes/library.html` and re-run `parity/render-all.sh library`: the scenarios need no change.
+Each item below was a place where the prototype disagreed with #99's text, the current app, or the native fixture. The user settled them on 2026-11-09: the spec in this folder is authoritative for every visual value. Where a decision changed the prototype, `prototypes/library.html` was rebuilt and every state re-rendered.
 
-| # | Conflict | Prototype (refs) | #99 / app / fixture | States affected | Suggested resolution |
-|---|---|---|---|---|---|
-| C1 | Update glyph color | `.lib-upd` uses info: cyan #06b6d4/#22d3ee | the app paints `upload-circle` in warning #eab308/#facc15; scoped-pages and picker use warning | every state that shows k8s-debug, pdf-tools or storybook (01–05, 07–18) | switch the prototype to `--sb-warning` and re-render; keep the app color |
-| C2 | Placement hover/open fill | `--sb-muted`, which equals the row hover fill (#f5f5f5/#262626), so it is invisible on a hovered row | #99: the menu highlight fg@0.08 over the row fill | 09, 10, 11, 12, 13, 14, 15, 17 | take #99: the prototype uses `--sb-highlight` (#0a0a0a14/#fafafa14) and re-renders |
-| C3 | Logos in pills and avatars | pill on: the logo in its own colors (Claude Code orange); off: grayscale at .5. Row avatars: color logos on white | #99: monochrome logo, fg when on and muted when off | 10–15, 17 | keep the prototype (it was approved) and fix #99's text |
-| C4 | Agent order and fixture targets | targets claude, cursor, universal, windsurf; workspace directories claude, agents, windsurf; Universal = Codex, Amp, OpenCode, Gemini CLI, GitHub Copilot | native and #99: Universal first, then Claude Code, Cursor, Windsurf. Native `.claude/skills` reads "Claude Code, Cline, Cursor, fx, Warp"; docs-site offers about 12 directories; native Universal = Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed (`parity/fixture/README.md`, "Known differences" 1–3) | every state with a stack or a popover (01, 02, 04, 05, 07, 09–18) | blocking for parity. Either reorder the kit's `data.js` targets (inlined in all four bundles: all four areas re-render), or adapt the fixture. Also cut the native detected agents so docs-site offers the same 3 directories, or widen `wsDirs` |
-| C5 | Avatar metrics | 18 px, ring 2 px outside, overlap 5, logo 14.04 (color) / 12.6 (mono) | #99 and the app: 20 px, overlap 6, ring inside the box | rows in every list and grid state | prototype; fix #99's text |
-| C6 | Empty-state copy | one copy, "No skills match" + "Clear filters", for a search, a segment or Updates; "No skills in <folder>" | #99: "No skills match these filters" + Clear filters (filters); "No skills match '<query>'" (search only); "No skills in <folder>" | 06 | decide. If #99 wins, change `drawList` and re-render 06 |
-| C7 | Accessible names | "Change where it is on", "Turn on" | "Change where <slug> is on", "Turn on <slug>" | none (no pixels) | take #99 |
-| C8 | Tooltip text size | kit tooltip 12 px | app Kit `Tooltip` 14 px (`GC/tooltip.rs`) | none frozen | use the app's Tooltip; the kit tooltip is a mock |
-| C9 | Page and row geometry | gutter 16, top 14, gap 12; toolbar 28 high; flexible search (338.63); List/Grid 72×28; rows 59.09 with the folder as a tag; grid 4 × 221.5, radius 10, padding 12, gap 10. Header mock: gutter 16, 28 px icon buttons | app: gutter 24, top 16, gap 16; Input 32; search 260 fixed (#99: "keeps 260, may shrink to 160"); List/Grid 70×32; rows 90.5 with a folder line; grid 3 × ~290, radius 12, padding 16 | all | parity means the Library adopts the prototype frame. Align the header gutter to 16 too, so the tabs start at x 248, or keep the header masked (2/7) |
-| C10 | Updates chip | outlined pill chip 28 high; on = solid fg fill with the text in the page color | #99: a small ghost button with the chosen fill of a folder tab (muted) | 01–06 | prototype; fix #99's text |
-| C11 | Workspace pill wrapping | `.lib-wspills` never wraps (flex none) | #99: pills wrap onto further lines, aligned to the trailing edge | none frozen (3 pills at most), but C4's native fixture would overflow | decide with C4 |
-| C12 | Count weight | segment counts inherit weight 500 | #99: "muted 11-point tabular figures" | 01–06 | prototype (500) |
-| C13 | Kit components named in #99 | the segments, List/Grid and switch need 28/24 px and 30×18 geometry | Kit TabBar segmented and Switch cannot produce it (6/7 G5, G6) | 01–06, 10–15, 17 | app-owned segmented and switch controls, or accept the documented deltas |
+| # | Conflict | Decided | States affected |
+|---|---|---|---|
+| C1 | Update glyph color: cyan in the prototype, warning yellow in the app | cyan (`info` #06b6d4/#22d3ee) on every redesigned surface, Library, workspace and agent pages and the picker; the rest of the app, such as the skill page header, keeps yellow | 01–05, 07–18 |
+| C2 | Placement hover/open fill equalled the row hover, so it did not show on a hovered row | fixed in the prototype: the menu highlight fg@0.08 over the row's fill, #e2e2e2/#373737 on a hovered row, #ececec/#212121 over the card; the avatar rings inside take the same composite (4/7) | 09–15, 17 |
+| C3 | Logos in pills and avatars: #99 asked for monochrome logos | the prototype: a pill shows the logo in its own colors when on and grayscale at .5 when off; row avatars put color logos on white | 10–15, 17 |
+| C4 | Agent order and fixture targets | the real data: your agents Universal, Claude Code, Cursor, Windsurf; Universal's members are the registry's `~/.agents/skills` agents; `.claude/skills` is "Claude Code, Cline, Cursor, fx, Warp"; a workspace with no agent offers native's 12 directories (5/7). The kit's `data.js` now matches the native fixture | every state with a stack or a popover |
+| C5 | Avatar metrics: #99 and the app use 20 px, overlap 6, ring inside | the prototype: 18 px, ring 2 px outside, overlap 5, logo 14.04 (color) / 12.6 (mono), as an app-owned avatar | every list and grid state |
+| C6 | Empty-state copy: #99 had three messages | the prototype: one "No skills match" with "Clear filters", plus "No skills in <folder>" | 06 |
+| C7 | Accessible names | no pixels: #99's names, which carry the slug ("Change where <slug> is on", "Turn on <slug>") | none |
+| C8 | Tooltip text size: the app's Kit tooltip is 14 px | the prototype's 12 px tooltip, as an app-owned control | none frozen |
+| C9 | Page and row geometry: the app's gutter 24, Input 32, rows 90.5, grid of 3 | the prototype's frame and spacing (3/7, 4/7); the header stays masked (2/7) | all |
+| C10 | Updates chip: #99 asked for a ghost button | the prototype's outlined pill chip, 28 high, solid fg when on | 01–06 |
+| C11 | Workspace pills never wrapped | many logo pills wrap onto further lines, aligned to the trailing edge, wherever pills appear (5/7) | 10–15, 17 |
+| C12 | Count weight: #99 asked for muted 11-point figures | the prototype: weight 500 | 01–06 |
+| C13 | Kit segments, List/Grid and switch cannot reach 28/24 px and 30×18 | app-owned segmented control and switch (6/7) | 01–06, 10–15, 17 |
 
 ## Not conflicts (verified equal)
 

@@ -11,7 +11,7 @@ The native capture is the gpui MCP full-window screenshot, 2360x1456. pixdiff al
   - the wash color, through a formula on the native capture itself;
   - the shadow halo, as a ratio.
 - **Toast states (08, 10).** The toast does not cover the sidebar, so the sidebar and the page are excluded, and only the toast box is compared. Its halo is a ratio check.
-- **Review (07).** It is a pixel target only if conflict C5 is settled for the prototype. Otherwise check only that the wash and the pill are gone.
+- **Review (07).** A pixel target: C5 was settled for the prototype (2026-11-09).
 
 Pass criterion for every strict crop: `pixdiff --tolerance 8` reports **0 aa-filtered** mismatches. Glyph-edge antialiasing (yellow) is accepted. Wrong colors, sizes or offsets are red and fail.
 
@@ -27,7 +27,7 @@ The ring box is the pill plus its 1 px edge ring. The spinner never stands still
 | 04 importing-50 | `509.48,9,161.03,36` | `522.48,20,14,14` |
 | 05 finishing-100 | `506.4,9,167.2,36` | `519.4,20,14,14` |
 | 06 done-2 | `435.42,9,309.16,36` | none |
-| 07 review (only if C5 → prototype) | `380,56,420,232` | the dialog's close-button hover, if the pointer rests there |
+| 07 review | `380,56,420,232` | the dialog's close-button hover, if the pointer rests there |
 | 08 toast-switched | `500.64,676,178.72,36` | none |
 | 09 deleting-45 | `509.05,9,161.9,36` | `522.05,20,14,14` |
 | 10 toast-deleted | `448.02,676,283.95,36` | none |
@@ -85,13 +85,13 @@ The reference bases are `00-idle-<theme>.png` for 01–05 and 09, and `08-toast-
 
 ## Review (07)
 
-If C5 keeps today's Skill copies dialog, run only:
+Besides the strict crop, check that the wash and the pill are gone:
 
 ```
 progress-checks.py wash base.png review.png light --color '#000000' --alpha 0.05 --ignore <dialog rect + 24 px shadow>
 ```
 
-In the dark theme use `--alpha 0.2`. `base` is the window after the dialog closes. This proves there is no wash and no pill, and that the Kit scrim is in place. On the references it scores max 1.0 (light) and 0.0 (dark).
+In the dark theme use `--alpha 0.2`. `base` is the window after the dialog closes. This proves there is no wash and no pill, and that the dialog scrim is in place. On the references it scores max 1.0 (light) and 0.0 (dark).
 
 ## Regions never compared against the reference
 

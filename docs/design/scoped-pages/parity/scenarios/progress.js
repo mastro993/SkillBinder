@@ -24,7 +24,7 @@
     await reach(s, '45%');
   });
 
-  // 03 Add 4 skills (picker batch, #100) for Claude Code and Universal: 8 pairs, 50% = 4 of 8.
+  // 03 Add 4 skills (picker batch, #100) for Universal and Claude Code: 8 pairs, 50% = 4 of 8.
   __ref.scenario('adding-50', async (s) => {
     await pick(s, 'add');
     await run(s);

@@ -1,6 +1,6 @@
 /* Reference scenarios for picker.html, variant c "Two panes" (API: ../reference.js). Render with
  * ../render-ref.sh picker c <theme> <name> <out.png>. The picker opens on load from acme-web
- * (uses Claude Code + Universal); "From" (hidden demo control) restarts it from the fixture.
+ * (uses Universal + .claude/skills); "From" (hidden demo control) restarts it from the fixture.
  * Every scenario ends with the pointer off the window unless it shows a tooltip.
  *
  * Focus, as a focused browser window shows it: headless Chrome has no window focus, so the
@@ -61,6 +61,7 @@
     await s.tick(400); // kit delay 350 ms
   }
   const selected3 = (s) => pick(s, 'a11y-audit', 'api-docs', 'changelog');
+  const CLAUDE_DIR = 'Claude Code, Cline, Cursor, fx, Warp'; // .claude/skills, named after its readers
 
   // 01: as opened from acme-web, the search focused.
   __ref.scenario('empty', (s) => focused(s));
@@ -68,7 +69,7 @@
   // 02: three picks; each card starts with All on and the workspace's folders ticked.
   __ref.scenario('selected-3', selected3);
 
-  // 03: api-docs with Universal unticked: All turns off, Claude Code stays.
+  // 03: api-docs with Universal unticked: All turns off, .claude/skills stays.
   __ref.scenario('all-off', async (s) => {
     await selected3(s);
     await click(s, pillOf(s, 'api-docs', 'Universal'));
@@ -78,7 +79,7 @@
   // 04: changelog with every pill unticked: "Pick an agent"; Add 3 disabled, its tooltip shown.
   __ref.scenario('no-agent', async (s) => {
     await selected3(s);
-    await click(s, pillOf(s, 'changelog', 'Claude Code'));
+    await click(s, pillOf(s, 'changelog', CLAUDE_DIR));
     await click(s, pillOf(s, 'changelog', 'Universal'));
     await tooltip(s, '.pk-right-foot .pk-add');
   });
@@ -115,11 +116,11 @@
     await pick(s, 'a11y-audit', 'api-docs');
   });
 
-  // 09: docs-site carry-over: Claude Code ticked on the first pick, the next pick starts with it.
+  // 09: docs-site carry-over: .claude/skills ticked on the first pick, the next pick starts with it.
   __ref.scenario('docs-site-carry', async (s) => {
     await from(s, 'docs-site');
     await pick(s, 'a11y-audit');
-    await click(s, pillOf(s, 'a11y-audit', 'Claude Code'));
+    await click(s, pillOf(s, 'a11y-audit', CLAUDE_DIR));
     await pick(s, 'api-docs');
   });
 
@@ -129,7 +130,7 @@
     await selected3(s);
   });
 
-  // 11: a folder the workspace does not use yet: Windsurf's pill tooltip on the first card.
+  // 11: a folder the workspace does not use yet: Windsurf's pill (the last) tooltip on the first card.
   __ref.scenario('pill-tooltip', async (s) => {
     await selected3(s);
     await tooltip(s, pillOf(s, 'a11y-audit', 'Windsurf'));

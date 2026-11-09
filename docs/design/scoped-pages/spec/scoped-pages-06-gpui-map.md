@@ -32,7 +32,7 @@ How to read this file:
 | card, rows, divider | `library_items.rs::skill_list` and `frame` (`:60-126`, `:197-231`), with #99's `RowEnd` (`RowEnd::Workspace` #101, `RowEnd::Agent` #102) | exact after the constant changes in `scoped-pages-02-rows.md` (padding Y 10, divider at the row top, gap 12) |
 | slug, description | `name_marks`, `description(text, 1, cx)` (`:246`, `:303`) | exact; G8 text AA |
 | overlap mark | today `overlap_badge` is a yellow `Tag` (`:262`). The reference is an 18×18 `div` radius 5, bg `secondary`, holding `app_icon("robot")` 13 | D1 |
-| update mark | `update_glyph` (`:290`), `upload-circle` 14 in warning, in an 18 box | exact |
+| update mark | `update_glyph` (`:290`), `upload-circle` 14 tinted `info` (cyan) on these pages, in an 18 box | exact |
 | edited mark | new: 18 box with `app_icon("pencil-edit")` 13, muted | D2 |
 | agents button | #101 `workspace_page/agents.rs`: a `div` button styled like `library_targets.rs::targets_button` (`:57`), but h 28, padding 0 6 0 5, gap 6, hover/open bg `muted`; `logo_stack` plus label plus `app_icon("arrow-down")` 12 | exact |
 | avatars | `controls.rs::agent_avatar` / `glyph_avatar` (Kit `Avatar`) at `Size::Size(px(18.))` with `.border_0()`; color art with `.p(px(1.98))` (logo 14.04); glyph `Icon` sized 12.6 | G6 (ring), G10 (avatar defaults) |
@@ -47,7 +47,7 @@ How to read this file:
 | items 30 high, radius 8, gap 9, highlight fg@8% | `div` rows with `.hover(bg(fg.opacity(HIGHLIGHT_INK)))`; keyboard focus via `track_focus` | exact (the app menu row is 32: use 30 here) |
 | checkbox 16 | `controls::checkbox(id)` (Kit `Checkbox`, Size Medium = 16, radius `min(radius, 4)` = 4) | G4 (mark) |
 | separator | 1 px `div`, margin 4 8, `fg.opacity(LINE_INK)` | exact |
-| row avatars | as in the list, ring = A1 | A1 |
+| row avatars | as in the list; ring in the menu surface | exact |
 
 ## Overlays
 

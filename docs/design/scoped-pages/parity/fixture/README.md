@@ -74,13 +74,13 @@ Element ids `preset-default`, `agents-universal`, `agent-claude-code`, `agent-cu
 | 18 skills (slug, description) | 18 library skills. Each `SKILL.md` has `name: <slug>` and `description: <description>` byte for byte, and the body is `# <slug>` and the description. |
 | Folders Web 6, Backend 4, Writing 3, none 5 | Library folders Web, Backend, Writing in that tab order, with the same filing (`make-fixture.sh` lists each skill's folder). |
 | Updates: k8s-debug, pdf-tools, storybook | A `file://…/root/sources/skills.git` source whose HEAD changes these three. They learn it at import from the global lock (k8s-debug, pdf-tools) and from acme-web's `skills-lock.json` (storybook). The other 15 have no source. |
-| Your agents claude, cursor, universal, windsurf | Claude Code, Cursor, Windsurf and Universal, detected at `~/.claude/skills`, `~/.cursor/skills`, `~/.codeium/windsurf/skills` and `~/.agents/skills` under `--home`. |
+| Your agents universal, claude, cursor, windsurf (the app's order); Universal's members Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed | Universal, Claude Code, Cursor and Windsurf, detected at `~/.agents/skills`, `~/.claude/skills`, `~/.cursor/skills` and `~/.codeium/windsurf/skills` under `--home`. The registry's agents whose global root is `~/.agents/skills` are Universal's members; a preset that holds Universal stores their 10 ids. |
 | Default (no color, on) | code-review for All agents; git-commit for Claude Code and Universal; pdf-tools and release-notes for Claude Code; test-writer and frontend-design for Claude Code and Cursor; changelog for Universal (7). |
 | Frontend (blue) | Custom color `#3b82f6`. code-review, frontend-design, tailwind-helper and a11y-audit for all; storybook for Claude Code and Cursor; data-viz for Cursor (6). |
 | Backend (amber) | Custom color `#f59e0b`. code-review and sql-helper for all; api-docs for Universal; docker-compose for Claude Code and Universal; k8s-debug for Claude Code (5). |
-| acme-web `~/code/acme-web`, uses `.claude/skills` and `.agents/skills` | `$FX/root/home/code/acme-web`, shown as `~/code/acme-web` once home is shortened. code-review and e2e-playwright for all; storybook and tailwind-helper for `.claude/skills`; frontend-design for `.agents/skills` (5). |
+| acme-web `~/code/acme-web`, uses `.agents/skills` and `.claude/skills` | `$FX/root/home/code/acme-web`, shown as `~/code/acme-web` once home is shortened. code-review and e2e-playwright for all; storybook and tailwind-helper for `.claude/skills`; frontend-design for `.agents/skills` (5). |
 | api-server, uses `.claude/skills` | sql-helper and docker-compose for all; api-docs for `.claude/skills` (3). |
-| docs-site, uses none | Holds nothing; the folder has only a README (0). |
+| docs-site, uses none; offers the 12 directories of the detected agents | Holds nothing; the folder has only a README (0). Its agents menu offers `.agents/skills` (Universal), `.claude/skills` ("Claude Code, Cline, Cursor, fx, Warp"), `.cline/skills`, `.clinerules/skills`, `.codex/skills`, `.cursor/skills`, `.dexto/skills`, `.fx/skills`, `.kimi-code/skills`, `.pi/skills`, `.warp/skills` and `.windsurf/skills`. |
 | Active 13, inactive 5 | Inactive: a11y-audit, copy-editor, data-viz, k8s-debug, prompt-tuning. |
 | Sidebar counts | Library 18. Default 7, Frontend 6, Backend 5. acme-web 5, api-server 3, docs-site 0. Universal 3, Claude Code 6, Cursor 3, Windsurf 1. Discovery 2. |
 | Discovery 2 | `figma-export` and `react-hooks` in `acme-web/.claude/skills`, not in the library. The prototypes give only the count, so the names are the fixture's. |
@@ -88,12 +88,11 @@ Element ids `preset-default`, `agents-universal`, `agent-claude-code`, `agent-cu
 
 ## Known differences
 
-1. **Universal members.** The prototypes name Codex, Amp, OpenCode, Gemini CLI and GitHub Copilot. The registry's agents with the global root `~/.agents/skills` are Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp and Zed; a preset that holds Universal stores those 10 ids.
-2. **Agent order.** Native puts Universal first, then sorts by name: Universal, Claude Code, Cursor, Windsurf, in the sidebar, the agents menus and the avatar stacks. The prototypes order them Claude Code, Cursor, Universal, Windsurf.
-3. **Workspace directories.** Native names `.claude/skills` after every detected reader ("Claude Code, Cline, Cursor, fx, Warp"), where the prototype says "Claude Code" with the tip "Cursor reads it too". The native agents menu also offers about ten more agent directories for a workspace without agents; the prototype offers `.claude`, `.agents` and `.windsurf`.
-4. **Paths.** The current app prints the full workspace path. The projects live under the fake home, so a page that shortens home to `~` shows exactly `~/code/acme-web`.
-5. **Preset colors.** The app's palette has no amber, and its Blue is `#2563eb` / `#60a5fa`. The fixture uses custom colors equal to the prototype tints, which the app draws the same in both themes.
-6. **Edited and foreign copies** are opt-in, and the app learns about them lazily: a copy is marked Edited only when the engine tries to rewrite or remove it. The foreign `~/.cursor/skills/tailwind-helper` raises the current app's Cursor count from 3 to 4, and switching to Frontend reports it as a conflict.
-7. **Sync.** The library repository has no commits or remote, so the Sync row shows an attention dot. The sidebar is never compared.
+The prototypes' agents, Universal members, directory names and order used to differ from native. On 2026-11-09 the user decided the prototype data must be the real data, so the kit's `data.js` now matches this fixture: Universal first, then by name; Universal's members are the registry's `~/.agents/skills` agents; `.claude/skills` is named after its detected readers; a workspace without agents offers the 12 directories above. What still differs:
 
-Differences 1 to 3 change pixels on the redesigned surfaces; the spec lists them as conflict C4 (`../../spec/library-7-conflicts.md`), to settle before a parity check.
+1. **Paths.** The current app prints the full workspace path. The projects live under the fake home, so a page that shortens home to `~` shows exactly `~/code/acme-web`.
+2. **Preset colors.** The app's palette has no amber, and its Blue is `#2563eb` / `#60a5fa`. The fixture uses custom colors equal to the prototype tints, which the app draws the same in both themes.
+3. **Edited and foreign copies** are opt-in, and the app learns about them lazily: a copy is marked Edited only when the engine tries to rewrite or remove it. The foreign `~/.cursor/skills/tailwind-helper` raises the current app's Cursor count from 3 to 4, and switching to Frontend reports it as a conflict.
+4. **Sync.** The library repository has no commits or remote, so the Sync row shows an attention dot. The sidebar is never compared.
+
+None of these changes pixels on the redesigned surfaces.

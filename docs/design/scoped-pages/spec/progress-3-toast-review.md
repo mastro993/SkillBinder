@@ -22,11 +22,11 @@ Behaviour (prototype `toast()`):
 | `Switched to <preset>` | clean preset switch |
 | `Deleted <preset> · Switched to Default` | clean delete of the preset that is on |
 | `Added <slug>` / `Added <n> skills` | clean picker batch (#100) |
-| `Imported <n> skills` | clean import. Prototype only; #98 says no toast (C8). |
+| `Imported <n> skills` | clean import (C8, decided for the prototype over #98's "no toast"). |
 
 A change with zero pairs shows only the toast: no strip and no blocker.
 
-## Review list (state 07): the prototype's mock of Skill copies (see conflict C5)
+## Review list (state 07): the prototype's list (C5, decided for the prototype)
 
 Opened by Review. The pill and the wash are already gone. The kit dialog draws over a scrim.
 
@@ -47,4 +47,4 @@ Row copy:
 
 After an answer, the row ends in a muted check plus `Replaced` / `Removed` / `Kept` / `Done` / `Skipped`.
 
-#98 instead opens the app's existing **Skill copies** dialog through `DialogState::Copies(CopiesListing::Attention)`, keeping today's rows and wording. That dialog is outside the redesign, so state 07 is a pixel target only if C5 is settled in favour of the prototype (part 4).
+#98 had Review open the app's existing **Skill copies** dialog with today's rows and wording. The user settled C5 for the prototype on 2026-11-09, so state 07 is a pixel target (part 4).

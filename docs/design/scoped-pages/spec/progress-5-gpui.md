@@ -23,7 +23,7 @@ The app wrappers are in `crates/ui/src/native_view/`. The theme constants are in
 | Review | `button("strip-review").primary().small().child(div().text_xs().font_weight(FontWeight::MEDIUM).child("Review")).focus_ring(false)` | Near: Kit small = 24 high, `px_2`, radius `theme.radius` 6, primary `#171717` / `#fafafa`. Use a child, not `.label()`, because a small label is 14 px weight 400 (G8). |
 | Close | `button("strip-close").small().child(…12 px medium…).bg(theme.background).border_color(theme.border).focus_ring(false)` | Light matches. Dark needs the overrides: Kit default is `button` `#2f2f2f4d` fill with an `input` `#2f2f2f` border, but the prototype has `#0a0a0a` with `#262626`. Hover still differs (G8). |
 | End toast | An app element, not Kit `Notification`: `h_flex().absolute().bottom(px(16.))`, centered in a full-width row, `.min_h(px(36.)).py(px(6.)).px(px(12.)).gap(px(10.)).rounded(px(8.)).bg(theme.foreground).text_color(theme.background).text_size(px(13.))`, plus lg1 and lg2 as on the pill; icon `app_icon("check-circle")` 15 px | Yes, once `icon!("check-circle", "CheckmarkCircle02Icon")` is added (retained, not mapped). Kit `Notification` cannot match (G9). |
-| Review list | Today's Skill copies dialog (`build_dialog`, Kit `Dialog`) per #98 | Not the prototype (C5): title, width 448 vs 420, top offset viewport/10 = 72.8 vs 56, row layout |
+| Review list | An app-owned dialog drawn as the prototype's list (C5, decided): 420 wide at y 56, rows in a card, footer Done; today's Skill copies dialog (Kit `Dialog`, 448 wide at viewport/10) does not match | Yes, as an app-owned control |
 | Delete confirmation | Today's Delete preset dialog; it hands over to the strip | Not redesigned |
 
 ## Gaps (CSS with no exact GPUI equivalent)

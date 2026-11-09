@@ -19,7 +19,7 @@ Placements measured in the references:
 |---|---|---|---|
 | 04 | Add wrapper `793.48,632.59 304.12x28` | Pick an agent for changelog | `857.53,666.59 175.84x26.2` (below; hangs over the dialog's bottom edge onto the wash) |
 | 06 | row code-review `74.4,292.57 626.59x52.39` | Already here | `343.19,350.96 89.42x26.2` |
-| 11 | Windsurf pill `830.72,161.9 26x24` | Windsurf / .windsurf/skills · not used here yet | `738.72,191.9 210.4x42.39` (covers the next card) |
+| 11 | Windsurf pill `761.98,189.9 26x24` (second pill line) | Windsurf / .windsurf/skills · not used here yet | `669.98,219.9 210.4x42.39` (covers the next card and the list's edge) |
 
 ## Copy strings (exact)
 
@@ -39,7 +39,7 @@ Placements measured in the references:
 | pane empty | `Nothing selected` |
 | deselect | tooltip `Deselect`; aria `Deselect <slug>` |
 | All pill | `All`; tooltip `Includes agents added later` |
-| folder pill tooltips (acme-web) | `Claude Code\n.claude/skills\nCursor reads it too` · `Universal\n.agents/skills\nCodex, Amp, OpenCode, Gemini CLI, GitHub Copilot` · `Windsurf\n.windsurf/skills · not used here yet` |
+| folder pill tooltips (acme-web) | the row name, the path, ` · not used here yet` for a folder the workspace does not use, and Universal's readers: `Universal\n.agents/skills\nCline, Codex, Cursor, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed` · `Claude Code, Cline, Cursor, fx, Warp\n.claude/skills` · `Windsurf\n.windsurf/skills · not used here yet` |
 | folder pill tooltips (docs-site) | as above, each path followed by ` · not used here yet` |
 | card warning | `Pick an agent` |
 | footer | `Cancel` · `Add` / `Add N` |
@@ -49,7 +49,7 @@ Placements measured in the references:
 
 1. Window content: sidebar, header, workspace or agent page (unchanged, not compared).
 2. Scrim/wash over the whole window, sidebar included (kit z 70). Per issue #100 a click on it
-   does nothing (the prototype closed the picker there; the issue decides); ×, Esc and Cancel close it.
+   does nothing (decided: #100 wins over the prototype, which closed the picker there); ×, Esc and Cancel close it.
 3. Dialog box and its shadow; inside it the list and the Selected pane.
 4. Tooltips (kit z 90), above the dialog, may extend past it onto the wash (state 04).
 (Toasts, kit z 85, are not part of the picker; the add's progress belongs to #98.)

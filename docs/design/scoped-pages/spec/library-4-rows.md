@@ -10,7 +10,7 @@
 | Main column | x 263; w 848 when the end is empty | column, gap 2; height 39.09 = 19.59 + 2 + 17.5 |
 | Title line | h 19.59 | flex, gap 6, items centered |
 | Slug | e.g. "code-review" 84.17 w | 14/600, line 19.6, fg, one line, ellipsis |
-| Update glyph | 14×14 after the slug (gap 6); k8s-debug at x 343.25, y title+2.8 | `upload-circle` 14 in info #06b6d4/#22d3ee (C1). Tooltip "Update available". Keeps opacity 1 on dimmed rows |
+| Update glyph | 14×14 after the slug (gap 6); k8s-debug at x 343.25, y title+2.8 | `upload-circle` 14 in info (cyan) #06b6d4/#22d3ee, as on every redesigned surface (decided 2026-11-09; the rest of the app keeps warning yellow). Tooltip "Update available". Keeps opacity 1 on dimmed rows |
 | Folder tag | after the slug and glyph; h 18, y title+0.8. "Web" w 35.7, "Backend" w 58.04 | padding 0 6, radius 4, bg secondary, 11/500 fg (line 15.4). Shown only while "All skills" is chosen and the list is ≥ 440 wide |
 | Description | y title+21.59, h 17.5 | 12.5/400, line 17.5, muted-fg, one line, ellipsis |
 | Dimmed (inactive) row | — | slug, tag and description at opacity .5; the row bg is unchanged |
@@ -23,8 +23,8 @@ Current app, to change (C9): rows are 90.5 high with padding 14/11 and three lin
 A button, `aria-haspopup=dialog`. It stops propagation: a click never opens the skill page.
 
 **Active skill.** min-height 26, padding 0 4 0 6, gap 6, radius 6, transparent, color muted-fg.
-- Hover or open: bg muted #f5f5f5/#262626 and color fg. The avatar ring takes the same muted.
-- On a hovered row this fill equals the row fill, so it does not show (states 09, 10, 14). See C2.
+- Hover or open: the menu highlight, fg at 0.08 (#0a0a0a14/#fafafa14), over the row's own fill, and color fg (decided 2026-11-09, was C2). On a hovered row (states 09, 10, 11, 17) it shows #e2e2e2/#373737 (Skia rounds some edges to #e3e3e3); open with the pointer elsewhere (12, 13, 14, 15), #ececec/#212121 over the card.
+- The avatar rings inside take the same composite: a 2 px highlight ring over the 2 px ring in the row's fill (`0 0 0 2px highlight, 0 0 0 2px <row fill>`), so they stay invisible on the fill.
 
 Children, in order:
 1. The avatar stack, present if your agents hold the skill.
@@ -42,16 +42,16 @@ Children, in order:
 
 | Element | Size | Style |
 |---|---|---|
-| Avatar | 18×18 circle; each after the first has margin-left −5 (13 px step); stack of n = 18 + 13(n−1) wide; y = button y + 4 | ring `0 0 0 2px <ring-bg>` drawn outside the 18 px box: card #ffffff/#0f0f0f, hovered row #f5f5f5/#262626, button hover/open muted. Later avatars paint over earlier ones |
-| Avatar, color logo (claude-code, codex, gemini-cli, amp) | logo 14.04 (0.78×), centered | bg #ffffff in both themes; the logo keeps its colors |
-| Avatar, mono logo or glyph (cursor, windsurf; `layers` for Universal; `square-terminal`) | logo 12.6 (0.7×), centered | bg muted, glyph in fg |
+| Avatar | 18×18 circle; each after the first has margin-left −5 (13 px step); stack of n = 18 + 13(n−1) wide; y = button y + 4 | ring `0 0 0 2px <ring-bg>` drawn outside the 18 px box: card #ffffff/#0f0f0f, hovered row #f5f5f5/#262626, button hover/open the highlight over that. Later avatars paint over earlier ones |
+| Avatar, color logo (claude-code, codex, kimi-code-cli) | logo 14.04 (0.78×), centered | bg #ffffff in both themes; the logo keeps its colors. Kimi's own colors are a white K and a blue dot, so on white only the dot shows, as in the app |
+| Avatar, mono logo or glyph (cline, cursor, fx, pi, warp, windsurf; `layers` for Universal; `square-terminal` for an agent without a logo, such as Dexto) | logo 12.6 (0.7×), centered | bg muted, glyph in fg |
 | Separator | 1×14 | bg border |
 | Workspace chip | h 20, padding 0 7 0 5, gap 4 | 1 px border, radius 999, bg page #ffffff/#0a0a0a, 12/500 fg (line 16.8). Glyph `code-folder` 13 in muted-fg (the workspace's own glyph) |
 | Count chip | same chip; the text is the number of workspaces | used for ≥ 2 workspaces, or a list narrower than 440 |
 | Chevron | `arrow-down` 12×12, opacity .7 | in the button's color: muted-fg, fg on hover and open |
 
 Order and tooltips:
-- The stack follows the target order (fixture: claude, cursor, universal, windsurf; see C4). The prototype shows every avatar, with no `+N`; a 5th directory would need the existing `+N` circle (not frozen).
+- The stack follows the app's agent order: Universal first, then by name (fixture: Universal, Claude Code, Cursor, Windsurf; decided 2026-11-09). The prototype shows every avatar, with no `+N`; a 5th directory would need the existing `+N` circle (not frozen).
 - Stack tooltip: "Your agents\n" + "All agents" when the preset holds `all`, else the names joined by ", ".
 - Name chip tooltip: "<ws>\n<directory names>". Count chip tooltip: one line per workspace, "<ws> · <directory names>".
 - The button itself has no tooltip. Its aria-label is "Change where it is on" (C7).
@@ -59,7 +59,7 @@ Order and tooltips:
 **Inactive skill.** A 26×26 circle at 1123, row top + 16.55.
 - 1 px dashed fg@24%, radius full, transparent; a `plus` 14 in muted-fg, centered at +6,+6.
 - Opacity 0 until the row (or tile) is hovered, the circle has focus-visible, or its popover is open.
-- Open: bg muted (state 11). Tooltip and aria "Turn on".
+- Open: the highlight fill, as an active skill's button (state 11: #e2e2e2/#373737 on the hovered row). Tooltip and aria "Turn on".
 
 ## Grid (state 16)
 

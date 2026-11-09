@@ -11,7 +11,7 @@ Files:
 - `scoped-pages-04-overlays.md`: dialogs, toast, tooltips, z-order, timings.
 - `scoped-pages-05-agent-empty.md`: agent and Universal header, empty states, no match.
 - `scoped-pages-06-gpui-map.md`: the GPUI or Kit building block for each element.
-- `scoped-pages-07-gpui-gaps.md`: GPUI gaps, prototype artifacts, and decisions to settle.
+- `scoped-pages-07-gpui-gaps.md`: GPUI gaps, the prototype fixes, and the user's decisions.
 
 Raw computed styles come from `parity/render-ref.sh --spec parity/selectors/scoped-pages.json` (not committed), and `parity/spec-rows.py` prints them.
 
@@ -36,7 +36,7 @@ PNG = `references/scoped-pages/<NN>-<scenario>-<light|dark>.png`; all are 2360×
 |---|---|---|
 | 01 | `ws-list` | acme-web: header, search, 5 rows |
 | 02 | `ws-menu-all` | Agents menu open on code-review (All agents on); pointer on its button |
-| 03 | `ws-menu-untick` | same menu after unticking Universal: All off, Claude Code on, button reads "Claude Code"; pointer on the Universal item |
+| 03 | `ws-menu-untick` | same menu after unticking Universal: All off, `.claude/skills` on, button reads "Claude Code, Cline, Cursor, fx, Warp"; pointer on the Universal item |
 | 04 | `ws-confirm-last` | tailwind-helper's last folder unticked: menu closed, confirm "Remove tailwind-helper from acme-web?" |
 | 05 | `ws-undo-toast` | trash on e2e-playwright: 4 rows, toast "Removed **e2e-playwright** · Undo" |
 | 06 | `ws-edited-ask` | trash on storybook (copy edited in .claude/skills): "You changed this skill here" Keep / Remove |
@@ -55,7 +55,7 @@ Every render was checked by eye, in both themes. Each shows the intended state, 
 
 The fixture is the kit's `data.js` (`parity/fixture/README.md` builds the native one):
 - Workspaces:
-  - acme-web uses `.claude/skills` and `.agents/skills`.
+  - acme-web uses `.agents/skills` (Universal) and `.claude/skills`, shown in that order.
   - api-server uses `.claude/skills`.
   - docs-site uses none.
 - Presets: Default is on.
@@ -64,8 +64,8 @@ The fixture is the kit's `data.js` (`parity/fixture/README.md` builds the native
   - code-review, All agents;
   - e2e-playwright, All agents;
   - frontend-design, Universal;
-  - storybook, Claude Code;
-  - tailwind-helper, Claude Code.
+  - storybook, `.claude/skills` ("Claude Code, Cline, Cursor, fx, Warp");
+  - tailwind-helper, `.claude/skills`.
 - Update available: storybook, pdf-tools and k8s-debug.
 
 The native fixture must give the same rows, labels and marks, in the same order.
@@ -87,7 +87,7 @@ The compared area is the main column. `parity/pixdiff ref.png native.png diff.pn
 | 04, 06 | none in the crop; the crop already includes the dialog and the wash over the main column | wash over the sidebar: sample an empty sidebar pixel, expect `#ededed` light / `#121212` dark (sidebar `#fafafa`/`#161616` under overlay `#0000000d`/`#00000033`); main-column wash `#f2f2f2` / `#080808` |
 | 10 | none (tooltip starts at x = 241.5, inside the crop) | none |
 
-Native captures also have 1,168 non-opaque corner pixels, which pixdiff skips. Where gap G4 (checkbox mark) stays open, add `--ignore` for each checked box interior in 02 and 03: `930,160,14,15`, `930,199,14,15`, `930,229,14,15` (02), and `930,199,14,15` (03). The boxes sit at y = 159.55, 198.55 and 228.55, and the interior is the 14 px inside the 1 px border.
+Native captures also have 1,168 non-opaque corner pixels, which pixdiff skips. Where gap G4 (checkbox mark) stays open, add `--ignore` for each checked box interior in 02 and 03: `831,160,14,15`, `831,199,14,15`, `831,229,14,15` (02), and `831,229,14,15` (03). The boxes sit at y = 159.55, 198.55 and 228.55, and the interior is the 14 px inside the 1 px border.
 
 ## Behaviour captured by the states (unchanged prototype logic)
 

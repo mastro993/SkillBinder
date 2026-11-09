@@ -19,7 +19,7 @@ Values are the computed styles from the reference renders (the `ws-list` dumps, 
 | menu surface | `#ffffff` | `#262626` | agents menu |
 | popover (tooltip) | `#ffffff` | `#0a0a0a` | tooltip |
 | line / highlight | fg @10% / fg @8% | same | menu ring and separator / item highlight |
-| warning | `#eab308` | `#facc15` | update mark |
+| info | `#06b6d4` | `#22d3ee` | update mark: cyan on every redesigned surface (decided 2026-11-09) |
 | danger | `#ef4444` | `#f87171` | Remove button (text `#ffffff` in both) |
 | overlay | `#0000000d` | `#00000033` | dialog scrim |
 

@@ -40,18 +40,18 @@ PNGs: `references/picker/<NN>-<state>-<light|dark>.png` (2360x1456). Scenarios: 
 | NN | state | scenario | from | what it shows | search |
 |---|---|---|---|---|---|
 | 01 | empty | `empty` | acme-web | picker as opened; 3 already-here rows ticked + greyed; "Nothing selected"; `Add` disabled | focused |
-| 02 | selected-3 | `selected-3` | acme-web | a11y-audit, api-docs, changelog picked; cards with All on, Claude Code + Universal on, Windsurf dashed; `Add 3` | — |
-| 03 | all-off | `all-off` | acme-web | 02, then api-docs' Universal unticked: All off, Claude Code only | — |
-| 04 | no-agent | `no-agent` | acme-web | 02, then changelog's Claude Code + Universal unticked: All off, all dashed, "Pick an agent"; `Add 3` disabled with tooltip "Pick an agent for changelog" | — |
+| 02 | selected-3 | `selected-3` | acme-web | a11y-audit, api-docs, changelog picked; cards with All on, Universal + `.claude/skills` on, the other 10 folders dashed, wrapping onto a second line; `Add 3` | — |
+| 03 | all-off | `all-off` | acme-web | 02, then api-docs' Universal unticked: All off, `.claude/skills` only | — |
+| 04 | no-agent | `no-agent` | acme-web | 02, then changelog's Universal + `.claude/skills` unticked: All off, all dashed, "Pick an agent"; `Add 3` disabled with tooltip "Pick an agent for changelog" | — |
 | 05 | no-match | `no-match` | acme-web | search "zzz": chips All 0 / Web 0 / Backend 0 / Writing 0, "No skills match" + Clear search | focused, text |
 | 06 | already-here | `already-here` | acme-web | pointer on code-review: row hover + tooltip "Already here" | focused |
 | 07 | folder-chip | `folder-chip` | acme-web | Backend chip chosen: 4 rows, k8s-debug update glyph | — |
 | 08 | docs-site | `docs-site` | docs-site | 2 picks, nothing ticked, All on, "Pick an agent" x2, `Add 2` disabled | — |
-| 09 | docs-site-carry | `docs-site-carry` | docs-site | Claude Code ticked on a11y-audit; api-docs starts with it; `Add 2` | — |
+| 09 | docs-site-carry | `docs-site-carry` | docs-site | `.claude/skills` ticked on a11y-audit; api-docs starts with it; `Add 2` | — |
 | 10 | agent | `agent` | Claude Code | title chip Claude Code + preset chip Default; slug-only cards; `Add 3` | — |
-| 11 | pill-tooltip | `pill-tooltip` | acme-web | 02 + pointer on a11y-audit's Windsurf pill: hover fill + 2-line tooltip | — |
+| 11 | pill-tooltip | `pill-tooltip` | acme-web | 02 + pointer on a11y-audit's Windsurf pill, the last, on the second line: hover fill + 2-line tooltip | — |
 
-Fixture: the kit's `data.js` (18 library skills; acme-web uses `.claude/skills` and `.agents/skills`,
+Fixture: the kit's `data.js`, with the native fixture's agents and folders in the app's order (18 library skills; acme-web uses `.agents/skills` and `.claude/skills`,
 holds code-review, e2e-playwright, frontend-design, storybook, tailwind-helper; docs-site uses none;
 Claude Code's active preset Default holds code-review, frontend-design, git-commit, pdf-tools,
 release-notes, test-writer). The native check must use the same fixture data.
