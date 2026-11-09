@@ -180,7 +180,10 @@ fn updates_keep_only_a_newer_version_at_the_source() {
 
 #[test]
 fn filters_combine_with_the_folder_tab_and_search() {
-    let snapshot = library().build();
+    let snapshot = library()
+        .update("a-review", UpdateCheck::Available)
+        .update("c-sql", UpdateCheck::Available)
+        .build();
     let places = Places::new(&snapshot);
     let default = preset_id("default");
     let web = FolderId("web".to_owned());
@@ -200,6 +203,36 @@ fn filters_combine_with_the_folder_tab_and_search() {
         slugs(&library_skills(&snapshot, &places, &default, searched)),
         ["f-off"],
         "search matches the description"
+    );
+    let updates = LibraryFilter {
+        active: ActiveFilter::All,
+        updates: true,
+    };
+    let updates_in_web = Query {
+        folder: Some(&web),
+        ..query(updates)
+    };
+    assert_eq!(
+        slugs(&library_skills(
+            &snapshot,
+            &places,
+            &default,
+            updates_in_web
+        )),
+        ["a-review"]
+    );
+    let updates_searched = Query {
+        search: "sql",
+        ..query(updates)
+    };
+    assert_eq!(
+        slugs(&library_skills(
+            &snapshot,
+            &places,
+            &default,
+            updates_searched
+        )),
+        ["c-sql"]
     );
 }
 
