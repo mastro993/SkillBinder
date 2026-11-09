@@ -1,54 +1,99 @@
-//! The Library page: every library skill, one folder's, as a searchable list or grid. Presets
-//! activate skills in place instead of opening a page. A workspace's page lists the same skills,
-//! scoped to the workspace.
+//! The Library page: every library skill, or one folder's, narrowed by search and the Active and
+//! Updates filters, as a list or grid under a fixed toolbar, each showing where it is on. A
+//! workspace's page lists the same skills, scoped to the workspace, with its activation controls.
 
-use super::NativeView;
-use super::controls::app_icon;
-use super::library_copies::{AgentRow, agent_rows, placements};
-use super::library_items::SkillItem;
-use super::workspace_targets::dir_rows;
-use gpui_kit::component::{
-    ActiveTheme, Sizable, h_flex,
-    input::Input,
-    tab::{Tab, TabBar},
-    v_flex,
+use super::library_copies::{AgentRow, placements};
+use super::library_items::{Layout, RowEnd, SkillItem};
+use super::snapshot_query::{
+    LibraryFilter, Places, Query, filter_counts, has_update, library_skills,
 };
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, px};
-use skillbinder_proto::{LibrarySnapshot, LibraryView, Skill};
+use super::workspace_targets::dir_rows;
+use super::{NativeView, Route};
+use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::{
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, Window, div, px,
+};
+use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
+use skillbinder_theme::library::{
+    GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE, PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP,
+};
 
-/// Narrowest grid card.
-const CARD_MIN: f32 = 260.;
-/// Space between grid cards and between the grid and the detail panel.
-const GAP: f32 = 12.;
-/// The page's horizontal padding on both sides.
-const PAGE_PADDING: f32 = 48.;
+/// A workspace's page keeps the shell's 24-point gutter on both sides.
+const WORKSPACE_PADDING: f32 = 48.;
 
 impl NativeView {
     pub(super) fn render_library(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let Some(library) = &self.snapshot.library else {
+        let (Some(library), Some(active)) = (&self.snapshot.library, self.active_preset_id())
+        else {
             return div()
                 .child("Finish onboarding to open your library.")
                 .into_any_element();
         };
         let typed = self.search.read(cx).value().trim().to_owned();
-        let query = typed.to_lowercase();
-        let folder = self.shown_folder().map(|folder| &folder.id);
-        let mut shown: Vec<&Skill> = library
-            .library
-            .skills
-            .iter()
-            .filter(|skill| {
-                folder.is_none_or(|id| skill.folder_id.as_ref() == Some(id))
-                    && matches(skill, library, &query)
-            })
+        let search = typed.to_lowercase();
+        let on_library = self.route == Route::Library;
+        let places = Places::new(&self.snapshot);
+        let query = Query {
+            folder: self.shown_folder().map(|folder| &folder.id),
+            search: &search,
+            // A workspace's page has no filter row.
+            filter: if on_library {
+                self.library_filter
+            } else {
+                LibraryFilter::default()
+            },
+            keep: self.place_popover.as_ref().map(|popover| &popover.skill),
+        };
+        let shown = library_skills(&self.snapshot, &places, &active, query);
+        let counts = on_library.then(|| filter_counts(&self.snapshot, &places, &active, query));
+        let toolbar = self.library_toolbar(counts, cx);
+        let width = self.content_width(window);
+        let results = self.library_results(library, &places, &active, &shown, &typed, width, cx);
+        let notes: Vec<AnyElement> = self
+            .empty_scope_note(library, cx)
+            .into_iter()
+            .chain(self.render_update_outcome(cx))
             .collect();
-        shown.sort_by_cached_key(|skill| name_order(skill));
+        if !on_library {
+            return v_flex()
+                .gap_4()
+                .child(toolbar)
+                .children(notes)
+                .child(results)
+                .into_any_element();
+        }
+        // The toolbar stays put while the list under it scrolls.
         v_flex()
-            .gap_4()
-            .child(self.library_header(cx))
-            .children(self.empty_scope_note(library, cx))
-            .children(self.render_update_outcome(cx))
-            .child(self.library_results(library, &shown, &typed, window, cx))
+            .size_full()
+            .px(px(PAGE_GUTTER))
+            .pt(px(PAGE_TOP))
+            .gap(px(PAGE_GAP))
+            .child(toolbar)
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(
+                        v_flex()
+                            .id("library-scroll")
+                            .size_full()
+                            .overflow_y_scroll()
+                            .track_scroll(&self.content_scroll.handle)
+                            .on_scroll_wheel(cx.listener(|view, _, window, cx| {
+                                view.close_place_popover(window, cx);
+                            }))
+                            .gap(px(PAGE_GAP))
+                            .pb(px(PAGE_BOTTOM))
+                            .children(notes)
+                            .child(results),
+                    )
+                    .child(
+                        self.content_scroll
+                            .scrollbar("library-scrollbar", px(0.), cx),
+                    ),
+            )
             .into_any_element()
     }
 
@@ -82,79 +127,41 @@ impl NativeView {
         )
     }
 
-    /// The rows the agents line names: the open workspace's skill directories, or else your
-    /// agents' global ones. A skill's copies that need review count in every scope, as its copies
-    /// dialog lists them.
+    /// The rows the agents line names on a workspace's page: the workspace's skill directories.
+    /// Library shows where skills are on instead, so only the copies that need review count there.
     fn placement_rows(&self) -> Vec<AgentRow> {
-        match self.scoped_workspace() {
-            Some(workspace) => dir_rows(&self.snapshot.agents, workspace, &self.snapshot.home)
+        self.scoped_workspace().map_or_else(Vec::new, |workspace| {
+            dir_rows(&self.snapshot.agents, workspace, &self.snapshot.home)
                 .into_iter()
                 .map(|row| row.row)
-                .collect(),
-            None => agent_rows(&self.snapshot.agents, &self.snapshot.home),
-        }
+                .collect()
+        })
     }
 
-    /// The search field, then the list/grid control at the trailing edge; the title or folders are
-    /// in the header.
-    fn library_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let view = self.library_view;
-        let weak = cx.entity().downgrade();
-        h_flex()
-            .gap_3()
-            .child(
-                div().w(px(260.)).child(
-                    Input::new(&self.search)
-                        .prefix(app_icon("search").small())
-                        .cleanable(true),
-                ),
-            )
-            .child(div().flex_1())
-            .child(
-                TabBar::new("library-view")
-                    .segmented()
-                    .selected_index(match view {
-                        LibraryView::List => 0,
-                        LibraryView::Grid => 1,
-                    })
-                    .child(view_tab("list-view", "List"))
-                    .child(view_tab("grid-view", "Grid"))
-                    .on_click(move |index, _, cx| {
-                        let _ = weak.update(cx, |view, cx| {
-                            view.library_view = view_at(*index);
-                            view.persist_preferences(cx);
-                            cx.notify();
-                        });
-                    }),
-            )
-    }
-
+    #[expect(clippy::too_many_arguments)]
     fn library_results(
         &self,
         library: &LibrarySnapshot,
+        places: &Places<'_>,
+        active: &PresetId,
         visible: &[&Skill],
-        query: &str,
-        window: &Window,
+        typed: &str,
+        width: f32,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        if visible.is_empty() && !query.is_empty() {
-            return div()
-                .py_8()
-                .text_center()
-                .text_color(cx.theme().muted_foreground)
-                .child(format!("No skills match '{query}'"))
-                .into_any_element();
+        if visible.is_empty() {
+            return self.empty_results(typed, cx);
         }
-        if let Some(folder) = self.shown_folder()
-            && visible.is_empty()
-        {
-            return div()
-                .py_8()
-                .text_center()
-                .text_color(cx.theme().muted_foreground)
-                .child(format!("No skills in {}", folder.name))
-                .into_any_element();
-        }
+        let on_library = self.route == Route::Library;
+        let grid = self.library_view == LibraryView::Grid;
+        let columns = grid_columns(width);
+        let layout = Layout {
+            narrow: if grid {
+                tile_width(width, columns) < NARROW_TILE
+            } else {
+                width < NARROW_LIST
+            },
+        };
         let placed = placements(&library.copies, &self.placement_rows());
         let overlaps = self.scoped_workspace().map(|workspace| &workspace.overlaps);
         let items: Vec<SkillItem<'_>> = visible
@@ -162,117 +169,75 @@ impl NativeView {
             .map(|skill| SkillItem {
                 skill,
                 details: library.details.get(&skill.id),
-                folder: self.folder_label(skill),
-                update: self.has_update(&skill.id),
+                // A narrow list has no room for folder tags.
+                folder: self
+                    .folder_label(skill)
+                    .filter(|_| grid || width >= NARROW_LIST),
+                update: has_update(&self.snapshot, &skill.id),
                 drifted: skill.drift.is_some(),
                 overlap: overlaps
                     .and_then(|overlaps| overlaps.get(&skill.id))
                     .copied(),
                 placement: placed.get(&skill.id),
+                end: if on_library {
+                    RowEnd::Places(places.of(skill, active))
+                } else {
+                    RowEnd::Activation
+                },
             })
             .collect();
-        match self.library_view {
-            LibraryView::List => self.skill_list(&items, cx),
-            LibraryView::Grid => div()
+        if grid {
+            div()
                 .grid()
-                .grid_cols(grid_columns(self.content_width(window)))
-                .gap(px(GAP))
-                .children(items.iter().map(|item| self.skill_card(item, cx)))
-                .into_any_element(),
+                .grid_cols(columns)
+                .gap(px(GRID_GAP))
+                .children(items.iter().map(|item| self.skill_card(item, layout, cx)))
+                .into_any_element()
+        } else {
+            self.skill_list(&items, layout, cx)
         }
     }
 
-    /// The main column's width inside its padding.
+    /// The list's width: the main column inside the page's padding.
     fn content_width(&self, window: &Window) -> f32 {
         let sidebar = if self.sidebar_collapsed {
             0.
         } else {
             self.sidebar_width
         };
-        f32::from(window.viewport_size().width) - sidebar - PAGE_PADDING
+        let padding = if self.route == Route::Library {
+            2. * PAGE_GUTTER
+        } else {
+            WORKSPACE_PADDING
+        };
+        f32::from(window.viewport_size().width) - sidebar - padding
     }
 }
 
-/// Alphabetical by slug ignoring case, then by slug so equal names keep a stable order.
-fn name_order(skill: &Skill) -> (String, String) {
-    let slug = skill.id.as_str();
-    (slug.to_lowercase(), slug.to_owned())
-}
-
-/// Search matches the slug or description, ignoring case.
-fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
-    query.is_empty()
-        || skill.id.as_str().to_lowercase().contains(query)
-        || library
-            .details
-            .get(&skill.id)
-            .is_some_and(|details| details.description.to_lowercase().contains(query))
-}
-
-/// One segment of the list/grid control.
-fn view_tab(icon: &str, label: &'static str) -> Tab {
-    Tab::new()
-        .icon(app_icon(icon))
-        .aria_label(label)
-        .cursor_pointer()
-}
-
-/// The view behind a segment of the list/grid control, in display order.
-fn view_at(index: usize) -> LibraryView {
-    if index == 1 {
-        LibraryView::Grid
-    } else {
-        LibraryView::List
-    }
-}
-
-/// As many columns of at least `CARD_MIN` as fit.
+/// As many columns of at least `GRID_MIN` as fit, at least one.
 fn grid_columns(width: f32) -> u16 {
     // Truncation is intended: only whole columns fit.
     #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let columns = ((width + GAP) / (CARD_MIN + GAP)).floor().max(1.) as u16;
+    let columns = ((width + GRID_GAP) / (GRID_MIN + GRID_GAP)).floor().max(1.) as u16;
     columns
+}
+
+/// One tile's width in a grid of `columns`.
+fn tile_width(width: f32, columns: u16) -> f32 {
+    let columns = f32::from(columns);
+    (width - (columns - 1.) * GRID_GAP) / columns
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn skill(slug: &str) -> Skill {
-        Skill {
-            id: skillbinder_proto::SkillId(slug.to_owned()),
-            presets: Default::default(),
-            folder_id: None,
-            digest: String::new(),
-            file_count: 0,
-            total_bytes: 0,
-            imported_at: None,
-            source: None,
-            recorded: String::new(),
-            drift: None,
-        }
-    }
-
-    #[test]
-    fn skills_sort_by_slug_ignoring_case() {
-        let skills = [skill("pdf"), skill("zeta"), skill("Docx"), skill("beta")];
-        let mut sorted: Vec<&Skill> = skills.iter().collect();
-        sorted.sort_by_cached_key(|skill| name_order(skill));
-        let slugs: Vec<_> = sorted.iter().map(|skill| skill.id.as_str()).collect();
-        assert_eq!(slugs, ["beta", "Docx", "pdf", "zeta"]);
-    }
-
-    #[test]
-    fn segments_are_list_then_grid() {
-        assert_eq!(view_at(0), LibraryView::List);
-        assert_eq!(view_at(1), LibraryView::Grid);
-    }
-
     #[test]
     fn grid_fits_whole_columns_and_keeps_one() {
         assert_eq!(grid_columns(100.), 1);
-        assert_eq!(grid_columns(531.), 1);
-        assert_eq!(grid_columns(532.), 2);
-        assert_eq!(grid_columns(804.), 3);
+        assert_eq!(grid_columns(369.), 1);
+        assert_eq!(grid_columns(370.), 2);
+        assert_eq!(grid_columns(916.), 4);
+        assert_eq!(tile_width(916., 4), 221.5);
     }
 }

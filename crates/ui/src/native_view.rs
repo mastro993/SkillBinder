@@ -11,11 +11,14 @@ mod folder_reorder;
 mod hover_scroll;
 mod import_review;
 mod library;
+mod library_avatars;
 mod library_copies;
 mod library_dates;
 mod library_drift;
+mod library_filters;
 mod library_folders;
 mod library_items;
+mod library_places;
 mod library_targets;
 mod library_updates;
 mod library_validation;
@@ -25,6 +28,7 @@ mod native_test;
 mod navigation;
 mod onboarding;
 mod onboarding_import;
+mod place_popover;
 mod preset_activation;
 mod preset_colors;
 mod preset_dialogs;
@@ -41,6 +45,7 @@ mod sidebar_row;
 mod sidebar_scroll;
 mod sidebar_workspaces;
 mod skill_page;
+mod snapshot_query;
 mod sync;
 mod updates;
 mod workspace_agents;
@@ -135,6 +140,10 @@ pub struct NativeView {
     preset_reorder: RowReorder<PresetId>,
     /// The library folder chosen in the header; none is All skills. Not kept across restarts.
     library_folder: Option<FolderId>,
+    /// Library's Active and Updates filters; like the folder, not kept across restarts.
+    library_filter: snapshot_query::LibraryFilter,
+    /// The Library skill whose popover is open.
+    place_popover: Option<place_popover::PlacePopover>,
     /// Inline folder naming in the header.
     folder_edit: Option<FolderEdit>,
     folder_reorder: RowReorder<FolderId>,
@@ -275,6 +284,8 @@ impl NativeView {
             preset_edit: None,
             preset_reorder: RowReorder::default().pinned(1),
             library_folder: None,
+            library_filter: snapshot_query::LibraryFilter::default(),
+            place_popover: None,
             folder_edit: None,
             creating_folder: None,
             workspace_edit: None,
@@ -422,6 +433,7 @@ impl Render for NativeView {
                         )),
                 )
             })
+            .children(self.render_place_popover(cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
     }
 }

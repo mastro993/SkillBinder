@@ -1,30 +1,32 @@
 //! Library skills as rows inside one card, or as grid tiles on their own surfaces. Each shows its
-//! description, its folder while Library lists every skill, its update, drift, and validation
-//! glyphs, the agents it is applied for, and its activation in the active preset, or on a
-//! workspace's page in the workspace.
+//! name, its update, drift, and validation glyphs, its folder as a tag while Library lists every
+//! skill, and its description, then what [`RowEnd`] says: on Library where the skill is on, on a
+//! workspace's page its activation there and the agents it is applied for.
 
-use super::controls::{agent_avatar, app_icon, glyph_avatar};
-use super::copy_dialogs::unsettled_summary;
-use super::library_copies::{AgentRow, Placement, Reader};
+use super::controls::chip::tag;
+use super::controls::{app_icon, text, tooltip::tip};
+use super::library_copies::Placement;
 use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
-use super::{DialogState, NativeView, Route};
+use super::snapshot_query::SkillPlaces;
+use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
+    AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
+    ParentElement, Stateful, StatefulInteractiveElement, Styled, canvas, div,
+    prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Overlap, Skill, SkillDetails, SkillId};
 use skillbinder_theme::library::{
-    AVATAR_OVERLAP, CARD_RADIUS, DIVIDER_INSET, ROW_PADDING_X, ROW_PADDING_Y, TILE_RADIUS,
+    CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
+    TILE_MIN_HEIGHT, TILE_PADDING, TILE_RADIUS,
 };
 
-/// Agent avatars shown before the rest collapse into `+N`.
-const SHOWN_HOLDERS: usize = 4;
-/// Diameter of an agent avatar, a step above the kit's extra-small avatar so the agent logos read
-/// at a glance.
-const AVATAR_SIZE: f32 = 20.;
+/// The hover group of a row or tile, whose dashed `+` shows while it is hovered.
+pub(super) const ITEM_GROUP: &str = "skill-item";
+/// Opacity of an inactive skill's name, tag, and description.
+const DIM: f32 = 0.5;
 
 /// One Library skill with its details, folder, and copies.
 pub(super) struct SkillItem<'a> {
@@ -33,7 +35,7 @@ pub(super) struct SkillItem<'a> {
     pub details: Option<&'a SkillDetails>,
     /// The skill's folder, shown while Library lists every skill.
     pub folder: Option<&'a str>,
-    /// The skill has an update, so it shows an Update button.
+    /// The skill's source has a newer version.
     pub update: bool,
     /// The skill's content differs from its record, so it shows a warning glyph.
     pub drifted: bool,
@@ -42,6 +44,16 @@ pub(super) struct SkillItem<'a> {
     pub overlap: Option<Overlap>,
     /// Where the skill's copies stand; `None` while it has none.
     pub placement: Option<&'a Placement>,
+    pub end: RowEnd<'a>,
+}
+
+/// What a row or tile shows at its end. Every use matches it exhaustively, so a new kind of row
+/// fails to compile until it is drawn.
+pub(super) enum RowEnd<'a> {
+    /// Library: where the skill is on, which opens the popover that changes it.
+    Places(SkillPlaces<'a>),
+    /// A workspace's page: the Active checkbox and agents button, and the agents line.
+    Activation,
 }
 
 impl SkillItem<'_> {
@@ -53,162 +65,214 @@ impl SkillItem<'_> {
         self.details
             .map_or("", |details| details.description.as_str())
     }
+
+    /// An inactive skill on Library draws its text dimmed.
+    fn dimmed(&self) -> bool {
+        match &self.end {
+            RowEnd::Places(places) => !places.is_active(),
+            RowEnd::Activation => false,
+        }
+    }
+
+    /// The copies that are not applied, or ask, or were not removed.
+    fn unsettled(&self) -> usize {
+        self.placement
+            .map_or(0, |placement| placement.unsettled.len())
+    }
+}
+
+/// How a list or grid lays out its items.
+#[derive(Clone, Copy)]
+pub(super) struct Layout {
+    /// Too narrow for a workspace's name, so one chip counts the workspaces.
+    pub narrow: bool,
 }
 
 impl NativeView {
     /// The list's card: one bordered surface holding every row, divided by inset hairlines.
-    pub(super) fn skill_list(&self, items: &[SkillItem<'_>], cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn skill_list(
+        &self,
+        items: &[SkillItem<'_>],
+        layout: Layout,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let last = items.len().saturating_sub(1);
         v_flex()
             .border_1()
             .rounded(px(CARD_RADIUS))
             .border_color(cx.theme().border)
             .bg(surface(cx))
-            .overflow_hidden()
             .children(
                 items
                     .iter()
                     .enumerate()
-                    .map(|(index, item)| self.skill_row(item, index == last, cx)),
+                    .map(|(index, item)| self.skill_row(item, index, index == last, layout, cx)),
             )
             .into_any_element()
     }
 
-    /// A row of the list card: name, one description line, then the agents it is applied for,
-    /// with its activation at the trailing edge.
-    fn skill_row(&self, item: &SkillItem<'_>, last: bool, cx: &mut Context<Self>) -> AnyElement {
-        let id = item.skill.id.clone();
-        let owner = format!("skill-row-{id}");
+    /// A row of the list card: name and one description line, with its end at the trailing
+    /// edge. The first and last rows round their outer corners so the hover fill follows the
+    /// card's.
+    fn skill_row(
+        &self,
+        item: &SkillItem<'_>,
+        index: usize,
+        last: bool,
+        layout: Layout,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let owner = format!("skill-row-{}", item.skill.id);
         let hover = cx.theme().muted;
-        let ring = surface(cx);
+        let inner = px(CARD_RADIUS - 1.);
         let row = div()
             .id(owner.clone())
+            .group(ITEM_GROUP)
             .relative()
             .flex()
-            .flex_col()
+            .items_center()
+            .gap(px(ROW_GAP))
             .w_full()
+            .min_h(px(ROW_MIN_HEIGHT))
             .px(px(ROW_PADDING_X))
             .py(px(ROW_PADDING_Y))
             .cursor_pointer()
             .hover(move |row| row.bg(hover))
+            .when(index == 0, |row| row.rounded_t(inner))
+            .when(last, |row| row.rounded_b(inner))
+            .when(index > 0, |row| row.child(divider(cx)))
             .child(
-                h_flex()
-                    .w_full()
-                    .items_start()
-                    .gap_3()
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                h_flex()
-                                    .gap_1()
-                                    .child(
-                                        div()
-                                            .min_w_0()
-                                            .text_size(px(14.))
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .truncate()
-                                            .child(item.name()),
-                                    )
-                                    .children(name_marks(item, cx)),
-                            )
-                            .when_some(item.folder, |lines, folder| {
-                                lines.child(folder_line(item, folder, cx))
-                            })
-                            .child(description(item.description(), 1, cx)),
-                    )
-                    .child(self.activation_controls(&item.skill.id, cx)),
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(px(2.))
+                    .child(self.title_line(item, cx))
+                    .child(description(item, 1, cx))
+                    .when(matches!(item.end, RowEnd::Activation), |main| {
+                        main.child(div().pt(px(4.)).child(self.agents_line(item, cx)))
+                    }),
             )
-            .child(div().pt(px(6.)).child(placement(item, ring, cx)))
-            .when(!last, |row| row.child(divider(cx)));
-        frame(self, row, &id, owner, item, cx)
+            .child(self.row_end(item, false, layout, cx));
+        frame(self, row, item, owner, cx)
     }
 
-    /// A grid tile: name with its Update button, two description lines, then the agents it is
-    /// applied for beside its activation.
-    pub(super) fn skill_card(&self, item: &SkillItem<'_>, cx: &mut Context<Self>) -> AnyElement {
-        let id = item.skill.id.clone();
-        let owner = format!("skill-card-{id}");
+    /// A grid tile: name, two description lines, then its end in the footer.
+    pub(super) fn skill_card(
+        &self,
+        item: &SkillItem<'_>,
+        layout: Layout,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let owner = format!("skill-card-{}", item.skill.id);
         // A tile wears the list card's surface and hairline; only the hover fill differs.
         let (rest, hover, border) = (surface(cx), cx.theme().muted, cx.theme().border);
-        let ring = rest;
         let card = div()
             .id(owner.clone())
+            .group(ITEM_GROUP)
+            .relative()
             .flex()
             .flex_col()
+            .gap(px(TILE_GAP))
             .w_full()
             .min_w_0()
-            .gap(px(9.))
-            .min_h(px(152.))
+            .min_h(px(TILE_MIN_HEIGHT))
+            .p(px(TILE_PADDING))
             .rounded(px(TILE_RADIUS))
             .bg(rest)
             .border_1()
             .border_color(border)
-            .p(px(16.))
             .cursor_pointer()
             .hover(move |card| card.bg(hover))
-            .child(
-                h_flex()
-                    .items_center()
-                    .gap_2()
-                    .child(
-                        h_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .items_center()
-                            .gap_1()
-                            .child(
-                                div()
-                                    .min_w_0()
-                                    .text_size(px(14.5))
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .truncate()
-                                    .child(item.name()),
-                            )
-                            .children(name_marks(item, cx)),
-                    )
-                    .when(item.update, |line| {
-                        line.child(self.update_button("card", &item.skill.id, cx))
-                    }),
-            )
-            .when_some(item.folder, |card, folder| {
-                card.child(folder_line(item, folder, cx))
+            .child(self.title_line(item, cx))
+            .child(description(item, 2, cx))
+            .when(matches!(item.end, RowEnd::Activation), |card| {
+                card.child(self.agents_line(item, cx))
             })
             .child(
                 div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(description(item.description(), 2, cx)),
-            )
-            .child(
-                h_flex()
+                    .mt_auto()
+                    .pt(px(6.))
+                    .min_h(px(32.))
+                    .flex()
                     .items_center()
-                    .justify_between()
-                    .gap_2()
-                    .child(div().min_w_0().child(placement(item, ring, cx)))
-                    .child(self.activation_controls(&item.skill.id, cx)),
+                    .child(self.row_end(item, true, layout, cx)),
             );
-        frame(self, card, &id, owner, item, cx)
+        frame(self, card, item, owner, cx)
+    }
+
+    /// The name with its glyphs and folder tag, one line high.
+    fn title_line(&self, item: &SkillItem<'_>, cx: &App) -> Div {
+        let dim = item.dimmed();
+        let slug = text::sized(div(), 14.)
+            .min_w_0()
+            .font_weight(FontWeight::SEMIBOLD)
+            .truncate()
+            .when(dim, |slug| slug.opacity(DIM))
+            .child(item.name());
+        h_flex()
+            .min_w_0()
+            .gap(px(6.))
+            .child(slug)
+            .children(name_marks(item, cx))
+            .when_some(item.folder, |line, folder| {
+                line.child(tag(folder.to_owned(), cx).when(dim, |tag| tag.opacity(DIM)))
+            })
+    }
+
+    /// The end of a row or tile: where the skill is on, or its activation in the workspace.
+    fn row_end(
+        &self,
+        item: &SkillItem<'_>,
+        grid: bool,
+        layout: Layout,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        match &item.end {
+            RowEnd::Places(places) => {
+                let unsettled = item.unsettled();
+                h_flex()
+                    .flex_none()
+                    .items_center()
+                    .gap(px(8.))
+                    .when(unsettled > 0, |end| {
+                        end.child(self.unsettled_glyph(&item.skill.id, unsettled, cx))
+                    })
+                    .child(self.place_trigger(places, grid, layout.narrow, cx))
+                    .into_any_element()
+            }
+            RowEnd::Activation => self.activation_controls(&item.skill.id, cx),
+        }
     }
 }
 
-/// Opens the skill's page on click or Enter, and its menu on right-click.
+/// Opens the skill's page on click or Enter, and its menu on right-click. While the skill's
+/// popover is open, the row records where it was painted, so the popover can open above it.
 fn frame(
     view: &NativeView,
-    element: gpui_kit::Stateful<gpui_kit::Div>,
-    id: &skillbinder_proto::SkillId,
-    owner: String,
+    element: Stateful<Div>,
     item: &SkillItem<'_>,
+    owner: String,
     cx: &mut Context<NativeView>,
 ) -> AnyElement {
+    let id = item.skill.id.clone();
     let route = Route::Skill(id.clone());
-    let menu_id = id.clone();
+    let element = element.when_some(view.open_popover_cells(&id), |element, cells| {
+        element.child(
+            canvas(
+                move |bounds, _, _| cells.item.set(Some(bounds)),
+                |_, (), _, _| {},
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full(),
+        )
+    });
     let element = activate(element, item.name(), cx, move |view, window, cx| {
         view.navigate(route.clone(), window, cx);
     });
     with_menu(element, owner, true, view, cx, move |view, _, cx| {
-        view.skill_menu(&menu_id, cx)
+        view.skill_menu(&id, cx)
     })
     // The wrapper is the grid item, so it must take the column's width rather than the text's.
     .w_full()
@@ -216,37 +280,34 @@ fn frame(
     .into_any_element()
 }
 
-/// A hairline inset from both card edges, so it starts where the name starts.
+/// A hairline at the top of every row but the first, inset from both card edges so it starts
+/// where the name starts.
 fn divider(cx: &App) -> AnyElement {
     div()
         .absolute()
         .left(px(DIVIDER_INSET))
         .right(px(DIVIDER_INSET))
-        .bottom(px(0.))
+        .top(px(0.))
         .h(px(1.))
         .bg(cx.theme().border)
         .into_any_element()
 }
 
-/// The list card's surface, which the agent avatars punch out of.
-fn surface(cx: &App) -> Hsla {
+/// The list card's surface, which the agent avatars ring themselves in.
+pub(super) fn surface(cx: &App) -> Hsla {
     skillbinder_theme::library::surface(cx.theme())
-}
-
-/// The skill's folder, shown while Library lists every skill.
-fn folder_line(item: &SkillItem<'_>, folder: &str, cx: &App) -> impl IntoElement {
-    div()
-        .id(format!("folder-{}", item.skill.id))
-        .text_size(px(11.5))
-        .text_color(cx.theme().muted_foreground.opacity(0.8))
-        .child(folder.to_owned())
 }
 
 /// The glyphs after a skill's name, for its update, drift, and validation, then its overlap badge.
 fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     let id = &item.skill.id;
+    // Redesigned surfaces show updates in the info color; the workspace page keeps warning.
+    let tone = match item.end {
+        RowEnd::Places(_) => cx.theme().info,
+        RowEnd::Activation => cx.theme().warning,
+    };
     [
-        item.update.then(|| update_glyph(id, cx)),
+        item.update.then(|| update_glyph(id, tone)),
         item.drifted.then(|| drift_glyph(id, cx)),
         validation_glyph(id, item.details, cx),
         item.overlap.map(|overlap| overlap_badge(item, overlap)),
@@ -286,24 +347,22 @@ fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
         .into_any_element()
 }
 
-/// The warning glyph of a skill whose source has an update.
-fn update_glyph(id: &SkillId, cx: &App) -> AnyElement {
-    div()
+/// The 14 px glyph of a skill whose source has an update, in `tone`. It keeps full opacity on a
+/// dimmed row.
+fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
+    let glyph = div()
         .id(format!("update-{id}"))
         .flex_shrink_0()
-        .child(
-            app_icon("upload-circle")
-                .small()
-                .text_color(cx.theme().warning),
-        )
-        .tooltip(|window, cx| Tooltip::new("Update available").build(window, cx))
-        .into_any_element()
+        .child(app_icon("upload-circle").small().text_color(tone));
+    tip(glyph, "Update available").into_any_element()
 }
 
-fn description(text: &str, lines: usize, cx: &App) -> impl IntoElement {
-    div()
-        .text_size(px(12.5))
+/// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
+fn description(item: &SkillItem<'_>, lines: usize, cx: &App) -> impl IntoElement {
+    text::sized(div(), 12.5)
+        .min_w_0()
         .text_color(cx.theme().muted_foreground)
+        .when(item.dimmed(), |text| text.opacity(DIM))
         .map(|text| {
             if lines == 1 {
                 text.truncate()
@@ -311,142 +370,5 @@ fn description(text: &str, lines: usize, cx: &App) -> impl IntoElement {
                 text.line_clamp(lines).text_ellipsis()
             }
         })
-        .child(text.to_owned())
-}
-
-/// Agent avatars, Universal first, for the Agents rows whose global skill directory holds the
-/// skill's applied copy, then a warning glyph while any of its copies is not applied. A row's
-/// avatars overlap; each is ringed in the surface behind it so the stack reads as one.
-fn placement(item: &SkillItem<'_>, ring: Hsla, cx: &mut Context<NativeView>) -> AnyElement {
-    let (applied, unsettled) = item.placement.map_or((&[][..], 0), |placement| {
-        (placement.applied.as_slice(), placement.unsettled.len())
-    });
-    if applied.is_empty() && unsettled == 0 {
-        return div()
-            .text_size(px(11.5))
-            .text_color(cx.theme().muted_foreground)
-            .child("Not in any agent")
-            .into_any_element();
-    }
-    let hidden = &applied[applied.len().min(SHOWN_HOLDERS)..];
-    h_flex()
-        .flex_shrink_0()
-        .items_center()
-        .children(
-            applied
-                .iter()
-                .take(SHOWN_HOLDERS)
-                .enumerate()
-                .map(|(index, holder)| holder_avatar(item, holder, index > 0, ring, cx)),
-        )
-        .when(!hidden.is_empty(), |row| {
-            row.child(more_avatars(item, hidden, ring, cx))
-        })
-        .when(unsettled > 0, |row| {
-            row.child(unsettled_glyph(
-                &item.skill.id,
-                unsettled,
-                !applied.is_empty(),
-                cx,
-            ))
-        })
-        .into_any_element()
-}
-
-/// The warning glyph of a skill with copies that are not applied; clicking it lists them.
-fn unsettled_glyph(
-    id: &SkillId,
-    count: usize,
-    after_avatars: bool,
-    cx: &mut Context<NativeView>,
-) -> AnyElement {
-    let skill = id.clone();
-    div()
-        .id(format!("unsettled-{id}"))
-        .flex_shrink_0()
-        .cursor_pointer()
-        .when(after_avatars, |glyph| glyph.ml(px(6.)))
-        .child(
-            app_icon("alert-circle")
-                .small()
-                .text_color(cx.theme().warning),
-        )
-        .tooltip(move |window, cx| Tooltip::new(unsettled_summary(count)).build(window, cx))
-        .on_click(cx.listener(move |view, _, _, cx| {
-            cx.stop_propagation();
-            view.dialog = DialogState::Copies(Some(skill.clone()));
-            cx.notify();
-        }))
-        .into_any_element()
-}
-
-/// One agent's avatar; its tooltip shows the directory holding the copy, and for Universal the
-/// agents reading it. Clicking it opens the agent's page.
-fn holder_avatar(
-    item: &SkillItem<'_>,
-    holder: &AgentRow,
-    overlap: bool,
-    ring: Hsla,
-    cx: &mut Context<NativeView>,
-) -> AnyElement {
-    let route = holder.route();
-    let (tip, key, avatar) = match &holder.reader {
-        Reader::Universal(names) => (
-            format!("{}\nUsed by {}", holder.dir, names.join(", ")),
-            "universal",
-            glyph_avatar(app_icon("layers"), cx),
-        ),
-        Reader::Agent(id) => (holder.dir.clone(), id.as_str(), agent_avatar(id, cx)),
-    };
-    div()
-        .id(format!("holder-{}-{key}", item.skill.id))
-        .flex_shrink_0()
-        .cursor_pointer()
-        .when(overlap, |chip| chip.ml(px(-AVATAR_OVERLAP)))
-        .tooltip(move |window, cx| Tooltip::new(tip.clone()).build(window, cx))
-        .on_click(cx.listener(move |view, _, window, cx| {
-            cx.stop_propagation();
-            view.navigate(route.clone(), window, cx);
-        }))
-        .child(
-            avatar
-                .with_size(px(AVATAR_SIZE))
-                .rounded_full()
-                .border_2()
-                .border_color(ring),
-        )
-        .into_any_element()
-}
-
-/// The `+N` circle naming the agents the stack leaves out.
-fn more_avatars(
-    item: &SkillItem<'_>,
-    hidden: &[AgentRow],
-    ring: Hsla,
-    cx: &mut Context<NativeView>,
-) -> AnyElement {
-    let names = hidden
-        .iter()
-        .map(|holder| holder.name.clone())
-        .collect::<Vec<_>>()
-        .join("\n");
-    div()
-        .id(format!("holders-more-{}", item.skill.id))
-        .flex_shrink_0()
-        .ml(px(-AVATAR_OVERLAP))
-        .flex()
-        .items_center()
-        .justify_center()
-        .size(px(AVATAR_SIZE))
-        .rounded_full()
-        .border_2()
-        .border_color(ring)
-        .bg(cx.theme().muted)
-        .text_size(px(9.5))
-        .text_color(cx.theme().muted_foreground)
-        // The circle opens nothing, and the click must not open the skill either.
-        .on_click(|_, _, cx| cx.stop_propagation())
-        .tooltip(move |window, cx| Tooltip::new(names.clone()).build(window, cx))
-        .child(format!("+{}", hidden.len()))
-        .into_any_element()
+        .child(item.description().to_owned())
 }

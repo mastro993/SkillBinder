@@ -35,6 +35,9 @@ impl NativeView {
             if matches!(&self.route, Route::Skill(id) if !skill_exists(id)) {
                 self.route = Route::Library;
             }
+            if matches!(&self.place_popover, Some(popover) if !skill_exists(&popover.skill)) {
+                self.place_popover = None;
+            }
             if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
                 self.preset_edit = None;
             }
