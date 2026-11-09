@@ -24,23 +24,28 @@ pub enum StripHold {
 }
 
 impl NativeView {
-    /// Holds the progress strip as `strip` says, or releases it with `None`, and holds the end
-    /// toast while `toast` is true. Releasing shows or ends a strip whose time is up at once, and
-    /// gives a released toast 1.5 s more.
+    /// Holds the progress strip as `strip` says, or releases it with `Some(None)`, and holds the
+    /// end toast while `toast` is `Some(true)`; `None` leaves that hold as it is. Releasing shows
+    /// or ends a strip whose time is up at once, and gives a released toast 1.5 s more. Returns
+    /// the holds now in place.
     pub fn hold_activation(
         &mut self,
-        strip: Option<StripHold>,
-        toast: bool,
+        strip: Option<Option<StripHold>>,
+        toast: Option<bool>,
         cx: &mut Context<Self>,
-    ) {
-        let toast_released = self.holds.toast && !toast;
-        self.holds = Holds { strip, toast };
+    ) -> (Option<StripHold>, bool) {
+        let toast_released = self.holds.toast && toast == Some(false);
+        let holds = Holds {
+            strip: strip.unwrap_or(self.holds.strip),
+            toast: toast.unwrap_or(self.holds.toast),
+        };
+        self.holds = holds;
         if let Some(current) = self.strip.as_ref() {
             let (due, ends) = (current.due(Instant::now()), current.ends());
             if due {
                 self.reveal_strip(cx);
             }
-            if let (None, Some(ends)) = (strip, ends) {
+            if let (None, Some(ends)) = (holds.strip, ends) {
                 self.end_strip_at(ends, cx);
             }
         }
@@ -48,6 +53,7 @@ impl NativeView {
             self.hover_toast(false, cx);
         }
         cx.notify();
+        (holds.strip, holds.toast)
     }
 
     /// Whether a hold keeps the strip from ending.

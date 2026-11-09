@@ -15,7 +15,7 @@ const SCHEMA: &str = r#"{
   "additionalProperties": false,
   "properties": {
     "strip": {
-      "description": "null releases the strip. \"hidden\" keeps a strip that starts or is up unrevealed: only the transparent input blocker, for the wash formula's base capture. An integer 0-100 shows that percent once the strip reveals. A held strip never ends; releasing ends one whose change has landed.",
+      "description": "null releases the strip. \"hidden\" keeps a strip that starts or is up unrevealed: only the transparent input blocker, for the wash formula's base capture. An integer 0-100 shows that percent once the strip reveals. A held strip never ends; releasing ends one whose change has landed. Left out, the strip's hold stays as it is.",
       "anyOf": [
         { "type": "null" },
         { "const": "hidden" },
@@ -24,7 +24,7 @@ const SCHEMA: &str = r#"{
     },
     "toast": {
       "type": "boolean",
-      "description": "true keeps the end toast up until a call with false, which gives it 1.5 s more."
+      "description": "true keeps the end toast up until a call with false, which gives it 1.5 s more. Left out, the toast's hold stays as it is."
     }
   }
 }"#;
@@ -50,24 +50,25 @@ pub(crate) fn register_holds(
             if name != NAME {
                 return Err(BridgeError::new(ErrorCode::NotFound, "Unknown command."));
             }
+            // A key left out leaves its hold as it is.
             let strip = match arguments.get("strip") {
                 None => None,
-                Some(value) if value.is_null() => None,
-                Some(value) if value.as_str() == Some("hidden") => Some(StripHold::Hidden),
+                Some(value) if value.is_null() => Some(None),
+                Some(value) if value.as_str() == Some("hidden") => Some(Some(StripHold::Hidden)),
                 Some(value) => {
                     let percent = value
                         .as_u64()
                         .and_then(|percent| u8::try_from(percent).ok())
                         .filter(|percent| *percent <= 100)
                         .ok_or_else(|| invalid("strip"))?;
-                    Some(StripHold::Percent(percent))
+                    Some(Some(StripHold::Percent(percent)))
                 }
             };
-            let toast = match arguments.get("toast") {
-                None => false,
-                Some(value) => value.as_bool().ok_or_else(|| invalid("toast"))?,
-            };
-            view.update(cx, |view, cx| view.hold_activation(strip, toast, cx));
+            let toast = arguments
+                .get("toast")
+                .map(|value| value.as_bool().ok_or_else(|| invalid("toast")))
+                .transpose()?;
+            let (strip, toast) = view.update(cx, |view, cx| view.hold_activation(strip, toast, cx));
             let shown = match strip {
                 None => "null".to_owned(),
                 Some(StripHold::Hidden) => "\"hidden\"".to_owned(),
