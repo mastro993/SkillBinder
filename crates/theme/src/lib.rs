@@ -103,18 +103,44 @@ pub mod library {
     use gpui_kit::Hsla;
     use gpui_kit::component::Theme;
 
+    /// Space between the page's edges and its toolbar and list.
+    pub const PAGE_GUTTER: f32 = 16.0;
+    /// Space above the toolbar.
+    pub const PAGE_TOP: f32 = 14.0;
+    /// Space between the toolbar and the list.
+    pub const PAGE_GAP: f32 = 12.0;
+    /// Space below the list's end, inside its scroll view.
+    pub const PAGE_BOTTOM: f32 = 16.0;
+    /// Height of the toolbar row and of its search field and controls.
+    pub const TOOLBAR_HEIGHT: f32 = 28.0;
     /// Corner radius of the card that holds the list.
     pub const CARD_RADIUS: f32 = 10.0;
-    /// Corner radius of a grid card.
-    pub const TILE_RADIUS: f32 = 12.0;
+    /// Shortest a list row is drawn.
+    pub const ROW_MIN_HEIGHT: f32 = 56.0;
     /// Horizontal padding inside a list row.
     pub const ROW_PADDING_X: f32 = 14.0;
     /// Vertical padding inside a list row.
-    pub const ROW_PADDING_Y: f32 = 11.0;
+    pub const ROW_PADDING_Y: f32 = 10.0;
+    /// Space between a row's text and its end.
+    pub const ROW_GAP: f32 = 12.0;
     /// How far a row's divider is inset from the card's edges, so it starts at the name.
     pub const DIVIDER_INSET: f32 = 14.0;
-    /// How far an avatar overlaps the one before it in a skill's stack of agent avatars.
-    pub const AVATAR_OVERLAP: f32 = 6.0;
+    /// Corner radius of a grid tile.
+    pub const TILE_RADIUS: f32 = 10.0;
+    /// Padding inside a grid tile.
+    pub const TILE_PADDING: f32 = 12.0;
+    /// Space between a tile's lines.
+    pub const TILE_GAP: f32 = 4.0;
+    /// Shortest a grid tile is drawn.
+    pub const TILE_MIN_HEIGHT: f32 = 116.0;
+    /// Narrowest a grid column is drawn.
+    pub const GRID_MIN: f32 = 180.0;
+    /// Space between grid tiles.
+    pub const GRID_GAP: f32 = 10.0;
+    /// Below this width a list hides folder tags and counts a skill's workspaces in one chip.
+    pub const NARROW_LIST: f32 = 440.0;
+    /// Below this width a grid tile counts a skill's workspaces in one chip.
+    pub const NARROW_TILE: f32 = 200.0;
 
     /// The surface of the list card: the page's own color, lifted a step in the dark theme so the
     /// card and its hairline read as one object against the page.

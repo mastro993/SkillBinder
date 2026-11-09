@@ -42,21 +42,26 @@ pub(super) enum RowIcon {
 
 impl RowIcon {
     pub(super) fn element(self, tint: Option<Hsla>, fallback: Hsla) -> AnyElement {
+        self.sized(tint, fallback, ICON_SIZE)
+    }
+
+    /// The icon `size` px square, such as a workspace's glyph in a chip.
+    pub(super) fn sized(self, tint: Option<Hsla>, fallback: Hsla, size: f32) -> AnyElement {
         let color = tint.unwrap_or(fallback);
         match self {
-            Self::Glyph(icon) => glyph_element(*icon, color),
+            Self::Glyph(icon) => glyph_element(*icon, color, size),
             Self::Image { path, glyph } => div()
-                .size(px(ICON_SIZE))
+                .size(px(size))
                 .flex_shrink_0()
-                .rounded(px(IMAGE_RADIUS))
+                .rounded(px(IMAGE_RADIUS * size / ICON_SIZE))
                 .overflow_hidden()
                 .when_some(tint, |tile, color| tile.bg(color))
                 .child(
                     img(path)
-                        .size(px(ICON_SIZE))
+                        .size(px(size))
                         .object_fit(ObjectFit::Cover)
                         .with_fallback(move || {
-                            glyph_element((*glyph).clone(), image_ink(tint, fallback))
+                            glyph_element((*glyph).clone(), image_ink(tint, fallback), size)
                         }),
                 )
                 .into_any_element(),
@@ -75,9 +80,9 @@ fn image_ink(tint: Option<Hsla>, fallback: Hsla) -> Hsla {
     )
 }
 
-/// A glyph sized and tinted for a row's icon slot.
-fn glyph_element(icon: Icon, color: Hsla) -> AnyElement {
-    icon.size(px(ICON_SIZE))
+/// A glyph `size` px square, tinted `color`.
+fn glyph_element(icon: Icon, color: Hsla, size: f32) -> AnyElement {
+    icon.size(px(size))
         .flex_shrink_0()
         .text_color(color)
         .into_any_element()
