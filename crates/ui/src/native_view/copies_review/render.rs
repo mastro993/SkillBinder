@@ -23,6 +23,16 @@ use skillbinder_theme::library::surface as card_surface;
 const WIDTH: f32 = 420.;
 /// Line box of a row's slug, 14 px at line height 1.4; GPUI rounds a text line to whole pixels.
 const TITLE_LINE: f32 = 19.6;
+/// Space between a row's slug line and its reason line.
+const LINE_GAP: f32 = 2.;
+/// Least height of a row's reason line.
+const REASON_LINE: f32 = 18.;
+/// Height of a row's answer buttons.
+const ANSWER_HEIGHT: f32 = 24.;
+/// Where the answers sit below a row's padding: centered on the row's two lines as the design
+/// lays them out. Centered in GPUI's row instead, whose slug line rounds to 19.5, they land exactly
+/// on a half device pixel, which GPUI rounds toward the top, a device pixel above the design.
+const ANSWERS_TOP: f32 = (TITLE_LINE + LINE_GAP + REASON_LINE - ANSWER_HEIGHT) / 2.;
 
 impl NativeView {
     /// The review list over the window, while it is open.
@@ -122,7 +132,7 @@ impl NativeView {
         let main = div()
             .flex()
             .flex_col()
-            .gap(px(2.))
+            .gap(px(LINE_GAP))
             .flex_1()
             .min_w_0()
             .child(
@@ -154,7 +164,7 @@ impl NativeView {
                     .flex()
                     .items_center()
                     .gap(px(6.))
-                    .min_h(px(18.))
+                    .min_h(px(REASON_LINE))
                     .text_size(px(11.5))
                     .line_height(px(16.1))
                     .text_color(muted)
@@ -162,7 +172,10 @@ impl NativeView {
                     .child(reason),
             );
         let end = match row {
-            Row::Ask(choice, copy) => self.review_answers(index, choice, copy, cx),
+            Row::Ask(choice, copy) => self
+                .review_answers(index, choice, copy, cx)
+                .self_start()
+                .mt(px(ANSWERS_TOP)),
             Row::Settled(word) => div()
                 .flex()
                 .items_center()
