@@ -120,10 +120,12 @@ impl Element for ExactText {
         window: &mut Window,
         cx: &mut App,
     ) {
-        // Layout rounds the authored width to a device pixel, possibly down; only less room than
-        // that rounded width means the line was shrunk.
-        let fits = window.pixel_snap(measured.line.width) <= bounds.size.width;
-        let cut = measured.affix.as_ref().filter(|_| !fits);
+        let shrunk = shrunk(
+            measured.line.width,
+            bounds.size.width,
+            window.scale_factor(),
+        );
+        let cut = measured.affix.as_ref().filter(|_| shrunk);
         let line = match cut {
             None => measured.line.clone(),
             Some(affix) => {
@@ -145,5 +147,32 @@ impl Element for ExactText {
         let align = window.text_style().text_align;
         // A glyph that cannot be rasterized only leaves the line unpainted.
         let _painted = line.paint(bounds.origin, measured.line_height, align, None, window, cx);
+    }
+}
+
+/// Whether a line `width` wide was given less `room` than its own width. Layout rounds the authored
+/// width to the nearest device pixel at `scale`, halves toward zero, so a line whose room is that
+/// rounded width still fits even when it is narrower than the line.
+fn shrunk(width: Pixels, room: Pixels, scale: f32) -> bool {
+    let device = f32::from(width) * scale;
+    let rounded = (device - 0.5).ceil().max(0.) / scale;
+    room < px(rounded)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shrunk;
+    use gpui_kit::px;
+
+    #[test]
+    fn a_line_keeps_its_text_in_its_own_rounded_width() {
+        // "Switched to Frontend" shapes to 129.72 px; layout gives it 129.5 at 2x.
+        assert!(!shrunk(px(129.72), px(129.5), 2.));
+        assert!(
+            !shrunk(px(129.75), px(129.5), 2.),
+            "a half rounds toward zero"
+        );
+        assert!(shrunk(px(129.72), px(129.), 2.));
+        assert!(!shrunk(px(129.72), px(200.), 2.));
     }
 }
