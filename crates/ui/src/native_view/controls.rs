@@ -58,3 +58,6 @@ impl Inactive for Checkbox {
             .when(inactive, |checkbox| checkbox.cursor_default())
     }
 }
+
+#[cfg(test)]
+mod tests;

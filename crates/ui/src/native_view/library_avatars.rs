@@ -32,31 +32,30 @@ impl NativeView {
         }
         let ring = Ring::from(surface(cx));
         let hidden = applied.len().saturating_sub(SHOWN);
+        let more = (hidden > 0).then(|| {
+            let names = applied[SHOWN..]
+                .iter()
+                .map(|holder| holder.name.clone())
+                .collect::<Vec<_>>()
+                .join("\n");
+            let more = div()
+                .id(format!("holders-more-{}", item.skill.id))
+                .child(avatar::more(hidden, &ring, cx))
+                // The circle opens nothing, and the click must not open the skill either.
+                .on_click(|_, _, cx| cx.stop_propagation());
+            tip(more, names).into_any_element()
+        });
+        let avatars: Vec<AnyElement> = applied
+            .iter()
+            .take(SHOWN)
+            .map(|holder| holder_avatar(&item.skill.id, holder, &ring, cx))
+            .chain(more)
+            .collect();
         h_flex()
             .flex_shrink_0()
             .items_center()
-            .children(
-                applied
-                    .iter()
-                    .take(SHOWN)
-                    .enumerate()
-                    .map(|(index, holder)| {
-                        holder_avatar(&item.skill.id, holder, index == 0, &ring, cx)
-                    }),
-            )
-            .when(hidden > 0, |line| {
-                let names = applied[SHOWN..]
-                    .iter()
-                    .map(|holder| holder.name.clone())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                let more = div()
-                    .id(format!("holders-more-{}", item.skill.id))
-                    .flex_none()
-                    .child(avatar::more(hidden, &ring, cx))
-                    // The circle opens nothing, and the click must not open the skill either.
-                    .on_click(|_, _, cx| cx.stop_propagation());
-                line.child(tip(more, names))
+            .when(!avatars.is_empty(), |line| {
+                line.child(avatar::overlap(avatars))
             })
             .when(unsettled > 0, |line| {
                 line.child(
@@ -99,7 +98,6 @@ impl NativeView {
 fn holder_avatar(
     skill: &SkillId,
     holder: &AgentRow,
-    first: bool,
     ring: &Ring,
     cx: &mut Context<NativeView>,
 ) -> AnyElement {
@@ -113,14 +111,8 @@ fn holder_avatar(
     };
     let chip = div()
         .id(format!("holder-{skill}-{key}"))
-        .flex_none()
         .cursor_pointer()
-        .child(avatar::avatar(
-            Logo::reader(&holder.reader),
-            ring,
-            first,
-            cx,
-        ))
+        .child(avatar::avatar(Logo::reader(&holder.reader), ring, cx))
         .on_click(cx.listener(move |view, _, window, cx| {
             cx.stop_propagation();
             view.navigate(route.clone(), window, cx);

@@ -31,11 +31,14 @@ impl NativeView {
             .flex_shrink(1.)
             .min_w(px(100.))
             .child(
+                // The glyph sits 8 points from the field's outer edge and the text 29, as the
+                // prototype places them over its 1-point border.
                 Input::new(&self.search)
                     .prefix(app_icon("search").size(px(15.)).text_color(muted))
                     .h(px(TOOLBAR_HEIGHT))
-                    .px(px(8.))
-                    .gap(px(5.))
+                    .pl(px(7.))
+                    .pr(px(8.))
+                    .gap(px(6.))
                     .rounded(px(6.))
                     .text_size(px(13.)),
             );

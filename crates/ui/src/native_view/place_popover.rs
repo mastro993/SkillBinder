@@ -92,6 +92,10 @@ impl NativeView {
     /// dialog covers it.
     pub(super) fn render_place_popover(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let popover = self.place_popover.as_ref()?;
+        // Rendering comes before any painting, so a trigger that is not drawn this frame, such
+        // as one the search left out, leaves the popover hidden rather than where it last was.
+        popover.cells.trigger.set(None);
+        popover.cells.item.set(None);
         if self.route != Route::Library || !matches!(self.dialog, DialogState::None) {
             return None;
         }
@@ -334,7 +338,7 @@ impl NativeView {
 }
 
 /// Pills on one line, wrapping onto further lines aligned to the trailing edge.
-fn pill_row() -> gpui_kit::Div {
+pub(super) fn pill_row() -> gpui_kit::Div {
     div()
         .flex()
         .flex_wrap()

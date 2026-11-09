@@ -4,7 +4,7 @@
 //! popover. The preset chip and the pill are shared with the popover and the other pages.
 
 use super::NativeView;
-use super::controls::avatar::{self, Ring};
+use super::controls::avatar::{self, Fill, Ring};
 use super::controls::chip::{chip, dot};
 use super::controls::logo::{Ink, Logo};
 use super::controls::{dashed, pill, text, tooltip::tip};
@@ -97,15 +97,21 @@ fn active_button(
     let theme = cx.theme();
     let highlight = theme.foreground.alpha(HIGHLIGHT_INK);
     let (rest, hover) = (surface(cx), theme.muted);
-    let lit = |fill: gpui_kit::Hsla| fill.blend(highlight);
-    // The rings take the fill behind them: the row's, with the highlight while the button is
-    // hovered or open.
+    // The rings take the fill behind them: the row's, with the highlight over it while the
+    // button is hovered or open.
     let ring = Ring {
-        rest: if open { lit(rest) } else { rest },
-        hovers: vec![
-            (ITEM_GROUP.into(), if open { lit(hover) } else { hover }),
-            (PLACE_GROUP.into(), lit(hover)),
-        ],
+        fill: Fill {
+            rest,
+            hover: Some((ITEM_GROUP.into(), hover)),
+        },
+        tint: Some(Fill {
+            rest: if open {
+                highlight
+            } else {
+                gpui_kit::transparent_black()
+            },
+            hover: Some((PLACE_GROUP.into(), highlight)),
+        }),
     };
     let held: Vec<_> = places.held_agents().collect();
     let workspaces: Vec<_> = places.holding_workspaces().collect();
