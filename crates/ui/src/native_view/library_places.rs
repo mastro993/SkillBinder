@@ -14,9 +14,9 @@ use super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::workspace_icons::sized_icon;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    AnyElement, App, Context, Div, ElementId, FontFeatures, InteractiveElement, IntoElement,
-    KeyDownEvent, ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled,
-    Toggled, canvas, div, prelude::FluentBuilder, px,
+    AnyElement, App, Context, Div, ElementId, InteractiveElement, IntoElement, KeyDownEvent,
+    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Toggled,
+    canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::Preset;
 use skillbinder_theme::menu::HIGHLIGHT_INK;
@@ -180,18 +180,8 @@ fn workspace_chip(
         [] => None,
         [only] if !narrow => Some(tip(
             base().child(sized_icon(only.workspace, 13., cx)).child(
-                div()
-                    .min_w_0()
-                    .max_w(px(CHIP_NAME_MAX))
-                    .truncate()
-                    .mr(px(text::overhang(
-                        &only.workspace.name.clone().into(),
-                        12.,
-                        text::MEDIUM,
-                        FontFeatures::default(),
-                        cx,
-                    )))
-                    .child(only.workspace.name.clone()),
+                text::truncated(only.workspace.name.clone(), 12., text::MEDIUM, cx)
+                    .max_w(px(CHIP_NAME_MAX)),
             ),
             format!("{}\n{}", only.workspace.name, only.held_names()),
         )),

@@ -34,11 +34,8 @@ pub(crate) fn line_shortfall(size: f32, scale: f32) -> f32 {
     chrome - device / scale
 }
 
-/// One run of `size` px text in `weight`, with tabular figures when `tabular`, that advances its
-/// line by its shaped width rounded to the device pixel, as Chrome lays the prototypes out, where
-/// GPUI sizes a text box to the next whole point and moves whatever follows it. The run's box
-/// takes the shaped width, which GPUI rounds to the device pixel; the text, up to a pixel wider,
-/// paints past it on one line. Its parent sets its color and line height.
+/// One line of `size` px text in `weight`, with tabular figures when `tabular`, in a box exactly
+/// as wide as GPUI shapes it, so whatever follows lands where Chrome puts it in the prototypes.
 pub(crate) fn run(
     text: impl Into<SharedString>,
     size: f32,
@@ -53,30 +50,68 @@ pub(crate) fn run(
         FontFeatures::default()
     };
     let width = width(&text, size, weight, features.clone(), cx);
-    div()
-        .flex_none()
-        .w(px(width))
-        .whitespace_nowrap()
-        .text_size(px(size))
-        .font_weight(weight)
-        .font_features(features)
-        .child(text)
+    exact(width, size, weight, features).child(
+        div()
+            .absolute()
+            .top_0()
+            .left_0()
+            .whitespace_nowrap()
+            .child(text),
+    )
 }
 
-/// How much less than its whole-point text box `text` advances, as a negative trailing margin for
-/// a text box that must keep GPUI's width, such as one that truncates. GPUI collapses a box of
-/// text with a negative margin when its parent sizes to its content, so only a box whose parent
-/// has its own width, such as a row's name, takes it.
-pub(crate) fn overhang(
-    text: &SharedString,
+/// As [`run`], for a name that ends in an ellipsis once its line is too narrow for it, such as a
+/// skill's name: its box may shrink below the text's width.
+pub(crate) fn truncated(
+    text: impl Into<SharedString>,
     size: f32,
     weight: FontWeight,
-    features: FontFeatures,
     cx: &App,
-) -> f32 {
-    let width = width(text, size, weight, features, cx);
-    width - width.ceil()
+) -> Div {
+    let text = text.into();
+    let width = width(&text, size, weight, FontFeatures::default(), cx);
+    exact(width, size, weight, FontFeatures::default())
+        .min_w_0()
+        .child(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .w_full()
+                .truncate()
+                .child(text),
+        )
 }
+
+/// A box `width` wide and one `size` px line high whose width GPUI keeps to the fraction. Chrome
+/// places every edge at its exact position and rounds it to the device pixel; GPUI rounds each
+/// length first, and sizes text to the next whole point, so a box after a run of text could land a
+/// pixel off. A length GPUI derives from an aspect ratio stays exact, so a strut 4 points high,
+/// cancelled by an equal negative margin, carries the width, and a second strut the line's height.
+/// The text, positioned absolutely, adds no size of its own.
+fn exact(width: f32, size: f32, weight: FontWeight, features: FontFeatures) -> Div {
+    // A hair over the shaped width, so GPUI never truncates the text it measured to fit.
+    let width = width + 1. / 1024.;
+    div()
+        .relative()
+        .flex()
+        .flex_col()
+        .flex_none()
+        .text_size(px(size))
+        .line_height(px(size * LINE))
+        .font_weight(weight)
+        .font_features(features)
+        .child(
+            div()
+                .h(px(STRUT))
+                .mb(px(-STRUT))
+                .aspect_ratio(width / STRUT),
+        )
+        .child(div().h(px(size * LINE)))
+}
+
+/// The height of the strut that carries an exact width.
+const STRUT: f32 = 4.;
 
 /// `text`'s width as GPUI shapes it in the system font.
 pub(crate) fn width(
