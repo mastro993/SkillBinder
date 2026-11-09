@@ -160,8 +160,10 @@ impl NativeView {
                 self.asked_copies.push(asked);
             }
         }
-        if review {
-            self.dialog = DialogState::Copies(CopiesListing::Attention(Review::of(&copies)));
+        let listing = Review::of(&copies);
+        // Copies settled meanwhile, such as by a scan's retry, leave nothing to review.
+        if review && !listing.is_empty() {
+            self.dialog = DialogState::Copies(CopiesListing::Attention(listing));
         }
         cx.notify();
     }

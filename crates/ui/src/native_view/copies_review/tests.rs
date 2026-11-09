@@ -33,8 +33,9 @@ fn the_review_lists_exactly_the_copies_that_need_attention() {
         copy("/h/.claude/skills", "kept", CopyState::NotRemoved(reason())),
     ];
     let review = Review::of(&copies);
+    let listed: Vec<_> = review.items.iter().map(|(item, _)| item.clone()).collect();
     assert_eq!(
-        review.items,
+        listed,
         [
             item("/h/.cursor/skills", "conflict"),
             item("/h/.claude/skills", "edited"),
@@ -47,7 +48,8 @@ fn the_review_lists_exactly_the_copies_that_need_attention() {
         .filter(|copy| copy.state.needs_attention())
         .map(|copy| (copy.directory.clone(), copy.skill.clone()))
         .collect();
-    assert_eq!(review.items, expected);
+    assert_eq!(listed, expected);
+    assert_eq!(review.items[0].1, "Different copy there");
 }
 
 #[test]
@@ -68,7 +70,7 @@ fn each_problem_offers_its_answers_and_settles_with_what_was_done() {
         review
             .items
             .iter()
-            .map(|item| review.row(item, copies))
+            .map(|(item, _)| review.row(item, copies))
             .collect()
     };
     let asked = [conflict.clone(), edited.clone(), unwritten.clone()];
@@ -122,10 +124,10 @@ fn an_answer_that_did_not_take_asks_again() {
         Answer::Replace,
     );
     assert!(matches!(
-        review.row(&review.items[0], std::slice::from_ref(&conflict)),
+        review.row(&review.items[0].0, std::slice::from_ref(&conflict)),
         Row::Ask(..)
     ));
     // A copy settled some other way reads as done.
     let fresh = Review::of(std::slice::from_ref(&conflict));
-    assert_eq!(fresh.row(&fresh.items[0], &[]), Row::Settled("Done"));
+    assert_eq!(fresh.row(&fresh.items[0].0, &[]), Row::Settled("Done"));
 }

@@ -9,10 +9,11 @@ use std::collections::BTreeMap;
 /// A copy the review lists, by directory and skill.
 type Item = (String, SkillId);
 
-/// The review's copies and what the user answered for each.
+/// The review's copies, each with why it needed the user when the review opened, which its row
+/// keeps once answered, and what the user answered for each.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(super) struct Review {
-    items: Vec<Item>,
+    items: Vec<(Item, &'static str)>,
     answers: BTreeMap<Item, Answer>,
 }
 
@@ -23,10 +24,18 @@ impl Review {
             items: copies
                 .iter()
                 .filter(|copy| copy.state.needs_attention())
-                .map(|copy| (copy.directory.clone(), copy.skill.clone()))
+                .filter_map(|copy| {
+                    let choice = Choice::for_state(&copy.state)?;
+                    Some(((copy.directory.clone(), copy.skill.clone()), choice.reason))
+                })
                 .collect(),
             answers: BTreeMap::new(),
         }
+    }
+
+    /// Whether it lists no copy.
+    pub(super) fn is_empty(&self) -> bool {
+        self.items.is_empty()
     }
 
     /// How `item`'s row stands, given the library's `copies` now.

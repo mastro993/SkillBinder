@@ -46,7 +46,10 @@ impl NativeView {
             .items
             .iter()
             .enumerate()
-            .map(|(index, item)| self.review_row(index, count, item, review.row(item, copies), cx))
+            .map(|(index, (item, reason))| {
+                let row = review.row(item, copies);
+                self.review_row(index, count, (item, reason), row, cx)
+            })
             .collect();
         let theme = cx.theme();
         let card = div()
@@ -97,7 +100,7 @@ impl NativeView {
         &self,
         index: usize,
         count: usize,
-        item: &Item,
+        (item, listed): (&Item, &'static str),
         row: Row,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -111,9 +114,10 @@ impl NativeView {
             &snapshot.workspaces,
             &snapshot.home,
         );
+        // An answered row keeps the reason it was listed for.
         let reason = match &row {
             Row::Ask(choice, _) => choice.reason,
-            Row::Settled(_) => "",
+            Row::Settled(_) => listed,
         };
         let main = div()
             .flex()
@@ -154,10 +158,8 @@ impl NativeView {
                     .text_size(px(11.5))
                     .line_height(px(16.1))
                     .text_color(muted)
-                    .when(!reason.is_empty(), |meta| {
-                        meta.child(app_icon("alert-circle").size(px(13.)).text_color(warning))
-                            .child(reason)
-                    }),
+                    .child(app_icon("alert-circle").size(px(13.)).text_color(warning))
+                    .child(reason),
             );
         let end = match row {
             Row::Ask(choice, copy) => self.review_answers(index, choice, copy, cx),
