@@ -33,21 +33,24 @@ fn the_review_lists_exactly_the_copies_that_need_attention() {
         copy("/h/.claude/skills", "kept", CopyState::NotRemoved(reason())),
     ];
     let review = Review::of(&copies);
-    let listed: Vec<_> = review.items.iter().map(|(item, _)| item.clone()).collect();
+    let mut listed: Vec<_> = review.items.iter().map(|(item, _)| item.clone()).collect();
+    // Copies the change writes come before those it removes.
     assert_eq!(
         listed,
         [
             item("/h/.cursor/skills", "conflict"),
-            item("/h/.claude/skills", "edited"),
             item("/h/.claude/skills", "unwritten"),
+            item("/h/.claude/skills", "edited"),
             item("/h/.claude/skills", "kept"),
         ]
     );
-    let expected: Vec<_> = copies
+    let mut expected: Vec<_> = copies
         .iter()
         .filter(|copy| copy.state.needs_attention())
         .map(|copy| (copy.directory.clone(), copy.skill.clone()))
         .collect();
+    listed.sort();
+    expected.sort();
     assert_eq!(listed, expected);
     assert_eq!(review.items[0].1, "Different copy there");
 }
@@ -85,8 +88,8 @@ fn each_problem_offers_its_answers_and_settles_with_what_was_done() {
         choices,
         [
             ("Different copy there", Answer::Replace, Answer::Keep),
-            ("You changed it here", Answer::Remove, Answer::Keep),
             ("Can't write the folder", Answer::Retry, Answer::Skip),
+            ("You changed it here", Answer::Remove, Answer::Keep),
         ]
     );
 
@@ -109,8 +112,8 @@ fn each_problem_offers_its_answers_and_settles_with_what_was_done() {
         rows(&review, &now),
         [
             Row::Settled("Replaced"),
-            Row::Settled("Kept"),
             Row::Settled("Skipped"),
+            Row::Settled("Kept"),
         ]
     );
 }

@@ -18,17 +18,26 @@ pub(super) struct Review {
 }
 
 impl Review {
-    /// The copies among `copies` that need the user now.
+    /// The copies among `copies` that need the user now: those of skills active in their
+    /// directory first, as a change writes them before it removes, then those of skills no longer
+    /// active there.
     pub(super) fn of(copies: &[ManagedCopy]) -> Self {
+        let mut listed: Vec<_> = copies
+            .iter()
+            .filter(|copy| copy.state.needs_attention())
+            .filter_map(|copy| {
+                let choice = Choice::for_state(&copy.state)?;
+                let removing = matches!(
+                    copy.state,
+                    CopyState::Edited { active: false } | CopyState::NotRemoved(_)
+                );
+                let item = (copy.directory.clone(), copy.skill.clone());
+                Some((removing, (item, choice.reason)))
+            })
+            .collect();
+        listed.sort_by_key(|(removing, _)| *removing);
         Self {
-            items: copies
-                .iter()
-                .filter(|copy| copy.state.needs_attention())
-                .filter_map(|copy| {
-                    let choice = Choice::for_state(&copy.state)?;
-                    Some(((copy.directory.clone(), copy.skill.clone()), choice.reason))
-                })
-                .collect(),
+            items: listed.into_iter().map(|(_, item)| item).collect(),
             answers: BTreeMap::new(),
         }
     }
