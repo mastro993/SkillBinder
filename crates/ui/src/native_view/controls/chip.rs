@@ -3,8 +3,8 @@
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    App, Div, ElementId, FontWeight, Hsla, InteractiveElement, ParentElement, SharedString,
-    Stateful, Styled, div, px,
+    App, Div, ElementId, Hsla, InteractiveElement, ParentElement, SharedString, Stateful, Styled,
+    div, px,
 };
 
 use super::text;
@@ -22,7 +22,7 @@ pub(crate) fn chip(id: impl Into<ElementId>, height: f32, cx: &App) -> Stateful<
         .border_color(theme.border)
         .rounded_full()
         .bg(theme.background)
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(text::MEDIUM)
         .text_color(theme.foreground)
         .whitespace_nowrap()
 }
@@ -38,7 +38,7 @@ pub(crate) fn tag(label: impl Into<SharedString>, cx: &App) -> Div {
         .px(px(6.))
         .rounded(px(4.))
         .bg(theme.secondary)
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(text::MEDIUM)
         .text_color(theme.foreground)
         .whitespace_nowrap()
         .child(label.into())
@@ -68,7 +68,7 @@ pub(crate) fn outline_button(
         .border_color(theme.border)
         .rounded(px(6.))
         .bg(theme.background)
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(text::MEDIUM)
         .text_color(theme.foreground)
         .whitespace_nowrap()
         .cursor_pointer()

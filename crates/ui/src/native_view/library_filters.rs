@@ -25,6 +25,9 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let muted = cx.theme().muted_foreground;
+        let field = Input::new(&self.search)
+            .prefix(app_icon("search").size(px(15.)).text_color(muted))
+            .bg(cx.theme().background);
         let search = div()
             .flex_basis(px(120.))
             .flex_grow(1.)
@@ -32,10 +35,11 @@ impl NativeView {
             .min_w(px(100.))
             .child(
                 // The glyph sits 8 points from the field's outer edge and the text 29, as the
-                // prototype places them over its 1-point border.
-                Input::new(&self.search)
-                    .prefix(app_icon("search").size(px(15.)).text_color(muted))
-                    .h(px(TOOLBAR_HEIGHT))
+                // prototype places them over its 1-point border. `Input::h` sizes only a
+                // multi-line field, so the height goes through `Styled`; Kit's 8-point vertical
+                // padding would clip the text's descenders at that height.
+                Styled::h(field, px(TOOLBAR_HEIGHT))
+                    .py(px(0.))
                     .pl(px(7.))
                     .pr(px(8.))
                     .gap(px(6.))

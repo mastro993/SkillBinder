@@ -13,20 +13,22 @@ use super::snapshot_query::SkillPlaces;
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, Stateful, StatefulInteractiveElement, Styled, canvas, div,
+    AnyElement, App, Context, DefiniteLength, Div, FontWeight, Hsla, InteractiveElement,
+    IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled, canvas, div,
     prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Overlap, Skill, SkillDetails, SkillId};
 use skillbinder_theme::library::{
-    CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
-    TILE_MIN_HEIGHT, TILE_PADDING, TILE_RADIUS,
+    CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, TILE_GAP, TILE_MIN_HEIGHT,
+    TILE_PADDING, TILE_RADIUS,
 };
 
 /// The hover group of a row or tile, whose dashed `+` shows while it is hovered.
 pub(super) const ITEM_GROUP: &str = "skill-item";
 /// Opacity of an inactive skill's name, tag, and description.
 const DIM: f32 = 0.5;
+/// The size of a skill's name, whose line sets a row's and a tile's height.
+pub(super) const SLUG_SIZE: f32 = 14.;
 
 /// One Library skill with its details, folder, and copies.
 pub(super) struct SkillItem<'a> {
@@ -86,6 +88,11 @@ impl SkillItem<'_> {
 pub(super) struct Layout {
     /// Too narrow for a workspace's name, so one chip counts the workspaces.
     pub narrow: bool,
+    /// The vertical padding that makes up for GPUI's shorter name line (`text::line_shortfall`),
+    /// as a fraction of the parent's width, since GPUI rounds every point length to the device
+    /// pixel but keeps fractions: a row's padding, half the shortfall over 10 points, or the
+    /// padding around a tile's name line, half the shortfall.
+    pub pad_y: DefiniteLength,
 }
 
 impl NativeView {
@@ -135,7 +142,7 @@ impl NativeView {
             .w_full()
             .min_h(px(ROW_MIN_HEIGHT))
             .px(px(ROW_PADDING_X))
-            .py(px(ROW_PADDING_Y))
+            .py(layout.pad_y)
             .cursor_pointer()
             .hover(move |row| row.bg(hover))
             .when(index == 0, |row| row.rounded_t(inner))
@@ -146,7 +153,7 @@ impl NativeView {
                     .flex_1()
                     .min_w_0()
                     .gap(px(2.))
-                    .child(self.title_line(item, cx))
+                    .child(self.title_line(item, None, cx))
                     .child(description(item, 1, cx))
                     .when(matches!(item.end, RowEnd::Activation), |main| {
                         main.child(div().pt(px(4.)).child(self.agents_line(item, cx)))
@@ -183,7 +190,7 @@ impl NativeView {
             .border_color(border)
             .cursor_pointer()
             .hover(move |card| card.bg(hover))
-            .child(self.title_line(item, cx))
+            .child(self.title_line(item, Some(layout.pad_y), cx))
             .child(description(item, 2, cx))
             .when(matches!(item.end, RowEnd::Activation), |card| {
                 card.child(self.agents_line(item, cx))
@@ -200,10 +207,10 @@ impl NativeView {
         frame(self, card, item, owner, cx)
     }
 
-    /// The name with its glyphs and folder tag, one line high.
-    fn title_line(&self, item: &SkillItem<'_>, cx: &App) -> Div {
+    /// The name with its glyphs and folder tag, one line high, padded by `pad_y` in a tile.
+    fn title_line(&self, item: &SkillItem<'_>, pad_y: Option<DefiniteLength>, cx: &App) -> Div {
         let dim = item.dimmed();
-        let slug = text::sized(div(), 14.)
+        let slug = text::sized(div(), SLUG_SIZE)
             .min_w_0()
             .font_weight(FontWeight::SEMIBOLD)
             .truncate()
@@ -212,6 +219,7 @@ impl NativeView {
         h_flex()
             .min_w_0()
             .gap(px(6.))
+            .when_some(pad_y, Styled::py)
             .child(slug)
             .children(name_marks(item, cx))
             .when_some(item.folder, |line, folder| {

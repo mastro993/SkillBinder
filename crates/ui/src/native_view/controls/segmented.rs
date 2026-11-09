@@ -4,8 +4,8 @@
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    App, Div, ElementId, FontWeight, InteractiveElement, ParentElement, Stateful,
-    StatefulInteractiveElement, Styled, div, hsla, prelude::FluentBuilder, px,
+    App, Div, ElementId, InteractiveElement, ParentElement, Stateful, StatefulInteractiveElement,
+    Styled, div, hsla, prelude::FluentBuilder, px,
 };
 
 use super::logo::{Ink, Logo};
@@ -43,7 +43,7 @@ pub(crate) fn segment(id: impl Into<ElementId>, chosen: bool, cx: &App) -> State
         .h(px(24.))
         .px(px(9.))
         .rounded(px(6.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(text::MEDIUM)
         .cursor_pointer()
         .when(chosen, |segment| {
             segment

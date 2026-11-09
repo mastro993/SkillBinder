@@ -267,7 +267,7 @@ pub(super) fn place_pill(
 /// An 11.5 px medium muted section label.
 pub(super) fn section_label(label: &'static str, cx: &App) -> Div {
     text::sized(div(), 11.5)
-        .font_weight(gpui_kit::FontWeight::MEDIUM)
+        .font_weight(text::MEDIUM)
         .text_color(cx.theme().muted_foreground)
         .child(label)
 }
