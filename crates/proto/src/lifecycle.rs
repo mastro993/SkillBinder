@@ -150,6 +150,8 @@ pub struct AppSnapshot {
     pub sync: SyncSnapshot,
     /// Last durable import result, until dismissed.
     pub import_outcome: Option<ImportOutcome>,
+    /// How far the change that writes and removes copies has got while it runs, or `None`.
+    pub activation: Option<crate::ActivationProgress>,
     /// Local appearance preferences.
     pub preferences: Preferences,
 }

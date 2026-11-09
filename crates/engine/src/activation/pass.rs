@@ -110,6 +110,7 @@ impl State {
                     .collect()
             }
         };
+        self.progress.planned(pairs.len());
         let mut sources = BTreeMap::new();
         let mut changes = Vec::new();
         for pair in pairs {
@@ -127,6 +128,9 @@ impl State {
             } else {
                 self.settle(pair, (wanted, boundary), row, source.as_ref())
             };
+            let attention =
+                super::shown(wanted, after.as_ref()).is_some_and(|s| s.needs_attention());
+            self.progress.advanced(attention);
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }

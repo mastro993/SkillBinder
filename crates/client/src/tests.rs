@@ -80,3 +80,41 @@ async fn committed_outcome_survives_projection_failure() -> Result<(), Box<dyn s
     assert_eq!(error.message, "Original operation failed");
     Ok(())
 }
+
+#[tokio::test]
+async fn a_tracked_change_returns_its_counts_and_leaves_no_progress_published()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempfile::tempdir()?;
+    let engine = Engine::open(EngineConfig::isolated(
+        directory.path().join("data"),
+        directory.path().join("home"),
+    ))?;
+    for step in [
+        OnboardingStep::Boundaries,
+        OnboardingStep::SyncChoice,
+        OnboardingStep::Ready,
+    ] {
+        engine.set_onboarding(step).await?;
+    }
+    engine.create_library().await?;
+    engine.complete_onboarding(None).await?;
+    let client = Client::new(engine.clone(), Handle::current()).await?;
+    let (library, created) = client
+        .change_organization(OrganizationChange::CreatePreset {
+            name: "Work".into(),
+        })
+        .await?;
+    // Creating a preset changes no directory, so its pass plans nothing.
+    assert_eq!(created, ActivationProgress::default());
+    let work = library.library.presets[1].id.clone();
+    let (library, switched) = client
+        .change_organization(OrganizationChange::ActivatePreset { id: work.clone() })
+        .await?;
+    assert_eq!(library.library.active_preset, work);
+    assert_eq!(switched.percent(), 0);
+    // The engine's record holds the switch's final counts; the snapshot holds none.
+    assert_eq!(engine.activation_progress()?, Some(switched));
+    assert_eq!(client.snapshot().activation, None);
+    engine.shutdown().await?;
+    Ok(())
+}
