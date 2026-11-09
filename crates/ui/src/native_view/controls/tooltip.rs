@@ -18,7 +18,7 @@ use gpui_kit::{
 use super::shadow;
 
 /// How long the pointer rests on an element before its tooltip shows.
-pub(crate) const SHOW_DELAY: Duration = Duration::from_millis(350);
+const SHOW_DELAY: Duration = Duration::from_millis(350);
 const FONT_SIZE: f32 = 12.;
 const LINE_HEIGHT: f32 = FONT_SIZE * 1.35;
 const PADDING_X: f32 = 8.;
@@ -66,45 +66,69 @@ fn build(
         .split('\n')
         .map(|line| line.to_owned().into())
         .collect();
-    let run = |len| TextRun {
-        len,
-        font: font(skillbinder_theme::system_font()),
-        color: hsla(0., 0., 0., 1.),
-        background_color: None,
-        underline: None,
-        strikethrough: None,
-    };
-    let widths: Vec<f32> = lines
-        .iter()
-        .map(|line| {
-            let shaped = window.text_system().shape_line(
-                line.clone(),
-                px(FONT_SIZE),
-                &[run(line.len())],
-                None,
-            );
-            f32::from(shaped.width)
-        })
-        .collect();
-    let inner = MAX_WIDTH - 2. * (PADDING_X + BORDER);
-    let widest = widths.iter().copied().fold(0., f32::max).min(inner);
-    // A line wider than the box wraps; rows stay few, so the cast is exact.
-    #[expect(clippy::cast_precision_loss)]
-    let rows: f32 = widths
-        .iter()
-        .map(|width| (width / inner).ceil().max(1.))
-        .sum::<f32>()
-        .max(lines.len() as f32);
-    let tip = size(
-        px(widest.ceil() + 2. * (PADDING_X + BORDER)),
-        px(rows * LINE_HEIGHT + 2. * (PADDING_Y + BORDER)),
-    );
+    let tip = measure(text, window);
     let mouse = window.mouse_position();
     let anchor = anchor.unwrap_or_else(|| Bounds::new(mouse, size(px(0.), px(0.))));
     let origin = place(anchor, tip, window.viewport_size());
     // GPUI draws the tooltip one pixel below and right of the pointer.
     let frame = Bounds::new(origin - mouse - point(px(1.), px(1.)), tip);
     cx.new(|_| Tip { lines, frame }).into()
+}
+
+/// The box `text` needs: as wide as its widest line, at most `MAX_WIDTH`, and as tall as its
+/// lines once the ones wider than that wrap, counted as the text system wraps them, since a
+/// word-wrapped line can take more rows than its width alone suggests.
+pub(super) fn measure(text: &SharedString, window: &Window) -> Size<Pixels> {
+    let inner = MAX_WIDTH - 2. * (PADDING_X + BORDER);
+    let run = TextRun {
+        len: text.len(),
+        font: font(skillbinder_theme::system_font()),
+        color: hsla(0., 0., 0., 1.),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+    };
+    let shaped = window
+        .text_system()
+        .shape_text(text.clone(), px(FONT_SIZE), &[run], Some(px(inner)), None)
+        .unwrap_or_default();
+    let widest = shaped
+        .iter()
+        .map(|line| f32::from(line.width()))
+        .fold(0., f32::max);
+    let rows: usize = shaped
+        .iter()
+        .map(|line| line.wrap_boundaries().len() + 1)
+        .sum();
+    // Rows stay few, so the cast is exact.
+    #[expect(clippy::cast_precision_loss)]
+    let rows = rows.max(1) as f32;
+    size(
+        px(widest.ceil() + 2. * (PADDING_X + BORDER)),
+        px(rows * LINE_HEIGHT + 2. * (PADDING_Y + BORDER)),
+    )
+}
+
+/// The bordered box holding `lines`, `width` wide; its height follows the wrapped lines.
+pub(super) fn surface(lines: &[SharedString], width: Pixels, cx: &App) -> Div {
+    let theme = cx.theme();
+    div()
+        .w(width)
+        .px(px(PADDING_X))
+        .py(px(PADDING_Y))
+        .border_1()
+        .border_color(theme.border)
+        .rounded(px(6.))
+        .bg(theme.popover)
+        .shadow(vec![
+            shadow::css(0., 2., 4., -2., hsla(0., 0., 0., 0.1)),
+            shadow::css(0., 4., 6., -1., hsla(0., 0., 0., 0.1)),
+        ])
+        .font_family(skillbinder_theme::system_font())
+        .text_size(px(FONT_SIZE))
+        .line_height(px(LINE_HEIGHT))
+        .text_color(theme.popover_foreground)
+        .children(lines.iter().map(|line| div().child(line.clone())))
 }
 
 /// The tooltip's origin: centred below `anchor`, above it when the bottom is too close, and kept
@@ -127,30 +151,13 @@ fn place(anchor: Bounds<Pixels>, tip: Size<Pixels>, window: Size<Pixels>) -> Poi
 
 impl Render for Tip {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
         let frame = self.frame;
         // A 1 px root never reaches the window's edge, so GPUI keeps it at the pointer.
         div().size(px(1.)).child(
-            div()
+            surface(&self.lines, frame.size.width, cx)
                 .absolute()
                 .left(frame.origin.x)
-                .top(frame.origin.y)
-                .w(frame.size.width)
-                .px(px(PADDING_X))
-                .py(px(PADDING_Y))
-                .border_1()
-                .border_color(theme.border)
-                .rounded(px(6.))
-                .bg(theme.popover)
-                .shadow(vec![
-                    shadow::css(0., 2., 4., -2., hsla(0., 0., 0., 0.1)),
-                    shadow::css(0., 4., 6., -1., hsla(0., 0., 0., 0.1)),
-                ])
-                .font_family(skillbinder_theme::system_font())
-                .text_size(px(FONT_SIZE))
-                .line_height(px(LINE_HEIGHT))
-                .text_color(theme.popover_foreground)
-                .children(self.lines.iter().map(|line| div().child(line.clone()))),
+                .top(frame.origin.y),
         )
     }
 }
