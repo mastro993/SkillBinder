@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspace and agent pages</title>
+<!-- Prototype: Workspace + Agent pages. Variants differ in how a workspace row shows and
+     toggles its agents (A pills, B matrix, C agents menu). Agent pages are the same in all.
+     Build: python3 -I kit/inline.py scoped-pages.html scoped-pages.out.html -->
+<link rel="stylesheet" href="kit/kit.css">
+<style>
+/* page header */
+.sp-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.sp-head-ic { width: 18px; height: 18px; flex: none; display: grid; place-items: center; }
+.sp-path { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--sb-muted-fg); }
+.sp-members { flex: none; }
+
+/* row marks */
+.sp-mark { width: 18px; height: 18px; flex: none; display: inline-grid; place-items: center; border-radius: 5px; color: var(--sb-muted-fg); }
+.sp-mark-overlap { background: var(--sb-secondary); color: var(--sb-fg); }
+.sp-mark-update { color: var(--sb-info); }
+.sp-pills { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+@keyframes sp-flash { from { background: color-mix(in srgb, var(--sb-info) 16%, transparent); } }
+.sb-row.is-new { animation: sp-flash 1.8s ease-out; }
+
+/* B: matrix */
+/* Rows share the card's columns (subgrid), so each agent column is as wide as its header and
+   the skill column keeps the rest, even with three agents at chat width. */
+.mx { display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--mx-n, 1), minmax(56px, max-content)) max-content; column-gap: 18px; }
+.mx-head, .mx > .sb-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; }
+.mx-head {
+  height: 34px; padding: 0 14px; border-bottom: 1px solid var(--sb-border); border-radius: 9px 9px 0 0;
+  background: color-mix(in srgb, var(--sb-fg) 2.5%, var(--sb-card)); font-size: 11.5px; color: var(--sb-muted-fg);
+}
+.mx-col { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--sb-fg); font-weight: 500; }
+.mx-cell { display: grid; place-items: center; }
+.mx > .sb-row:last-child { border-radius: 0 0 9px 9px; }
+
+/* C: agents menu */
+.sp-agbtn { height: 28px; gap: 6px; padding: 0 6px 0 5px; }
+.sp-agmenu { min-width: 190px; }
+.sp-agmenu .sb-checkbox { pointer-events: none; }
+.sp-agmenu .sb-menu-item { gap: 9px; }
+
+/* placeholder picker */
+.pk-agents { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.pk-agents-label { margin-right: 2px; font-size: 12px; color: var(--sb-muted-fg); }
+.pk-row { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 12px; cursor: pointer; }
+.pk-row + .pk-row { border-top: 1px solid var(--sb-border); }
+.pk-row:hover { background: var(--sb-hover); }
+.pk-row.is-dim { cursor: default; }
+.pk-row.is-dim .pk-text { opacity: .5; }
+.pk-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.pk-text b { flex: none; font-size: 13px; font-weight: 600; }
+.pk-text span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--sb-muted-fg); }
+
+/* A dialog takes focus when it opens; the kit's ring belongs on its controls, not the whole box. */
+.sb-window .sb-dialog:focus-visible { outline: none; }
+
+.sp-hint { margin-top: 8px; font: 12px/1.4 var(--sb-font); color: var(--sb-muted-fg); }
+.sp-hint b { font-weight: 600; color: var(--sb-fg); white-space: nowrap; }
+</style>
+<script src="kit/reference.js"></script>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+  <div class="sp-hint">Try: untick a row's last agent · trash <b>storybook</b> (acme-web) or <b>release-notes</b> (Claude Code): changed there · <b>docs-site</b> is empty · Add skill · switch preset on an agent page</div>
+</div>
+<script src="kit/icons.js"></script>
+<script src="kit/data.js"></script>
+<script src="kit/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  // hold: defer page redraws while a progress dialog runs; menu: open agents menu (variant C).
+  const ui = { view: 'ws:acme-web', variant: 'pills', hold: false, menu: null, dirty: false, flash: new Set(), query: '' };
+
+  // Approved addition (follow-up answer): workspace and agent pages keep the search field shared
+  // with Library. It stays mounted while the list redraws, so typing keeps focus; it narrows rows
+  // by slug or description, ignoring case. A place that holds nothing shows only its empty state.
+  const search = searchInput({ onInput: (q) => { ui.query = q; draw(); } });
+  const tools = h('div', { class: 'sb-toolbar' }, search);
+  const listSlot = h('div');
+  function showList(slugs, row) {
+    const q = ui.query.trim().toLowerCase();
+    const shown = slugs.filter((slug) => !q || slug.includes(q) || DATA.skill(slug).desc.toLowerCase().includes(q));
+    if (tools.parentNode !== page) page.replaceChildren(tools, listSlot);
+    listSlot.replaceChildren(shown.length ? h('div', { class: 'sb-card' }, shown.map(row))
+      : emptyState({ icon: 'search', title: `No skills match '${ui.query.trim()}'` }));
+  }
+
+  function draw() {
+    const [kind, id] = ui.view.split(':');
+    if (kind === 'ws') workspacePage(id);
+    else if (kind === 'agent') agentPage(id);
+    else otherPage(kind);
+    ui.flash.clear();
+  }
+
+  // Redraw unless work is running or the agents menu is open (it redraws when it closes).
+  function sync() {
+    if (ui.hold) return;
+    if (ui.menu) { ui.dirty = true; return; }
+    ui.dirty = false;
+    draw();
+  }
+  // A menu closed by pressing on another row's button must not swap that button out before
+  // its click lands, so the redraw waits for the pointer to come up.
+  let pressed = false;
+  document.addEventListener('pointerdown', () => { pressed = true; }, true);
+  document.addEventListener('pointerup', () => { pressed = false; }, true);
+  function syncAfterPointer() {
+    if (!pressed) { sync(); return; }
+    document.addEventListener('pointerup', () => setTimeout(sync), { once: true, capture: true });
+  }
+
+  // ---- shared pieces -----------------------------------------------------------------
+  function withProgress(apply) {
+    ui.hold = true;
+    const plan = apply();
+    const [kind, id] = ui.view.split(':');
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      ui.hold = false;
+      // Flash only the rows this page gained (the sidebar is blocked, so the view is unchanged).
+      (plan.pairs || []).filter((p) => p.op === 'add' && (kind === 'ws' ? p.ws === id : !p.ws && p.target === id))
+        .forEach((p) => ui.flash.add(p.slug));
+      draw();
+    };
+    const done = progressDialog(win, { plan });
+    // Rows appear when the work ends (the kit removes its input blocker), not when the dialog closes.
+    const blocker = [...win.children].reverse().find((el) => el.style && el.style.zIndex === '69');
+    if (blocker) {
+      const mo = new MutationObserver(() => { if (!blocker.isConnected) { mo.disconnect(); release(); } });
+      mo.observe(win, { childList: true });
+    }
+    done.then(release);
+  }
+
+  const askEdited = (slug, where) => confirmDialog(win, {
+    title: 'You changed this skill here', body: `${slug} · ${where}`, confirm: 'Remove', cancel: 'Keep',
+  });
+
+  function removedToast(slug, undo) {
+    toast(win, `Removed <b>${slug}</b>`, { action: 'Undo', onAction: () => { ui.flash.add(slug); undo(); } });
+  }
+
+  const trashBtn = (tip, onclick) => h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': tip, 'aria-label': tip, onclick }, ic('delete', 15));
+  const addBtn = (scope) => h('button', { class: 'sb-btn sb-btn-primary sb-btn-sm', onclick: () => openPicker(scope) }, ic('plus', 14), 'Add skill');
+  const rowClass = (slug) => `sb-row${ui.flash.has(slug) ? ' is-new' : ''}`;
+
+  function overlapMark(slug) {
+    const holds = DATA.presetHolds(slug);
+    if (!holds.length) return null;
+    const names = DATA.presetRaw(slug) === 'all' ? 'All agents' : holds.map((id) => DATA.target(id).name).join(', ');
+    return h('span', { class: 'sp-mark sp-mark-overlap', 'data-tip': `Also in your agents\n${names}`, html: icon('robot', 13) });
+  }
+  const editedMark = (where) => h('span', { class: 'sp-mark', 'data-tip': `Changed here\n${where}`, html: icon('pencil-edit', 13) });
+
+  function rowMain(slug, marks) {
+    const s = DATA.skill(slug);
+    return h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, slug),
+        s.hasUpdate ? h('span', { class: 'sp-mark sp-mark-update', 'data-tip': 'Update available', html: icon('upload-circle', 14) }) : null,
+        marks),
+      h('div', { class: 'sb-desc' }, s.desc));
+  }
+
+  // ---- workspace page -----------------------------------------------------------------
+  function workspacePage(wsId) {
+    const ws = DATA.workspace(wsId);
+    hdr.replaceChildren(
+      h('div', { class: 'sp-head' }, h('span', { class: 'sp-head-ic', html: icon('code-folder', 16) }),
+        h('span', { class: 'sb-title' }, ws.name), h('span', { class: 'sp-path' }, ws.path)),
+      h('div', { class: 'sb-header-actions' }, addBtn({ kind: 'ws', id: wsId })));
+    const slugs = DATA.workspaceSkills(wsId);
+    if (!slugs.length) {
+      page.replaceChildren(emptyState({ icon: 'code-folder', title: `No skills in ${ws.name}`,
+        sub: ws.dirs.length ? null : 'No agents here yet', action: addBtn({ kind: 'ws', id: wsId }) }));
+      return;
+    }
+    if (ui.variant === 'matrix') page.replaceChildren(matrix(ws, slugs));
+    else showList(slugs, (slug) => wsRow(ws, slug));
+  }
+
+  function wsMarks(ws, slug) {
+    const edited = DATA.workspaceHolds(ws.id, slug).find((d) => DATA.isEdited(slug, d, ws.id));
+    return [overlapMark(slug), edited ? editedMark(DATA.wsDir(edited).name) : null];
+  }
+
+  function wsRow(ws, slug) {
+    const holds = DATA.workspaceHolds(ws.id, slug);
+    const agents = ui.variant === 'pills'
+      ? h('div', { class: 'sp-pills' }, DATA.workspaceDirs(ws.id).map((d) => pill(d, holds.includes(d.id), { onClick: () => toggleDir(ws, slug, d.id) })))
+      : agentsMenuButton(ws, slug);
+    return h('div', { class: rowClass(slug) }, rowMain(slug, wsMarks(ws, slug)),
+      h('div', { class: 'sb-row-end' }, agents, trashBtn(`Remove from ${ws.name}`, () => removeFromWorkspace(ws, slug))));
+  }
+
+  async function removeFromWorkspace(ws, slug) {
+    const edited = DATA.workspaceHolds(ws.id, slug).find((d) => DATA.isEdited(slug, d, ws.id));
+    if (edited && !(await askEdited(slug, `${ws.name} · ${DATA.wsDir(edited).name}`))) return;
+    removedToast(slug, DATA.setWorkspaceDirs(ws.id, slug, null));
+  }
+
+  // One agent on/off. Turning off asks only for a copy changed there or for the last agent.
+  async function toggleDir(ws, slug, dirId) {
+    const holds = DATA.workspaceHolds(ws.id, slug);
+    if (!holds.includes(dirId)) { DATA.setWorkspaceDirs(ws.id, slug, [...holds, dirId]); return; }
+    const last = holds.length === 1;
+    const ok = DATA.isEdited(slug, dirId, ws.id)
+      ? await askEdited(slug, `${ws.name} · ${DATA.wsDir(dirId).name}`)
+      : !last || await confirmDialog(win, { title: `Remove ${slug} from ${ws.name}?` });
+    if (!ok) return;
+    const undo = DATA.removeWorkspaceDir(ws.id, slug, dirId);
+    if (last) removedToast(slug, undo);
+  }
+

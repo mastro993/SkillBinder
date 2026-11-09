@@ -13,7 +13,7 @@ The native capture is the gpui MCP full-window screenshot, 2360x1456. pixdiff al
 - **Toast states (08, 10).** The toast does not cover the sidebar, so the sidebar and the page are excluded, and only the toast box is compared. Its halo is a ratio check.
 - **Review (07).** A pixel target: C5 was settled for the prototype (2026-11-09).
 
-Pass criterion for every strict crop: `pixdiff --tolerance 8` reports **0 aa-filtered** mismatches. Glyph-edge antialiasing (yellow) is accepted. Wrong colors, sizes or offsets are red and fail.
+Pass criterion for every strict crop: the README's [Pass criteria](../README.md#pass-criteria), compared with `pixdiff --tolerance 8`.
 
 ## Strict crops (reference vs native)
 

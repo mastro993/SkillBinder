@@ -50,8 +50,6 @@ Notes:
 - Text antialiasing differs between Skia and CoreText. Judge text with pixdiff's AA-filtered count and with the text rects in 3/7–5/7, not with the raw count.
 - Window corners: pixdiff already drops the 1,168 non-opaque corner pixels of a native capture.
 
-## Pass rule (proposed)
+## Pass rule
 
-Compare with `--tolerance 8` and read the AA-filtered mismatch count.
-- Any real mismatch (red in diff.png) outside text glyphs is a geometry or color defect.
-- For one state, AA-only mismatch (yellow) above about 0.5 % of the crop means the text positions or sizes are off. Check the spec rects.
+The README's [Pass criteria](../README.md#pass-criteria), compared with `pixdiff --tolerance 8`. A diagnostic hint, not a rule: antialiasing-only mismatch (yellow) above about 0.5 % of a crop usually means text positions or sizes are off, so check the spec rects.

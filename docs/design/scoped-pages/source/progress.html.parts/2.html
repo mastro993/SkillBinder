@@ -1,0 +1,232 @@
+  function switchTarget() {
+    const on = DATA.activePreset().id;
+    const ids = DATA.presets().map((p) => p.id);
+    if (on !== 'frontend' && ids.includes('frontend')) return 'frontend';
+    return on === 'default' ? ids.find((id) => id !== 'default') : 'default';
+  }
+  const ACTIONS = {
+    switch() {
+      let id = switchTarget();
+      if (!id) { DATA.reset(); id = 'frontend'; }
+      return runPlan(() => DATA.switchPreset(id));
+    },
+    async delete() {
+      const setup = DATA.activePreset().id === 'default';
+      if (setup) {
+        // Demo setup: only a preset other than Default can be deleted, so turn one on first
+        // (undone on Cancel).
+        if (!deletable()) DATA.reset();
+        DATA.switchPreset(deletable().id);
+      }
+      const on = DATA.activePreset();
+      const ok = await confirmDialog(win, { title: `Delete ${on.name}?`, body: 'Your agents switch to Default.', confirm: 'Delete' });
+      if (!ok) {
+        if (setup) DATA.switchPreset('default');
+        return undefined;
+      }
+      return runPlan(() => ({ ...DATA.deletePreset(on.id), toast: `Deleted ${on.name} · Switched to Default` }));
+    },
+    add() {
+      const free = () => DATA.skills.filter((s) => !DATA.presetHolds(s.slug).length).slice(0, 4).map((s) => s.slug);
+      if (free().length < 4) DATA.reset();
+      const slugs = free();
+      return runPlan(() => DATA.addSkills({ slugs, targets: ['claude', 'universal'] }));
+    },
+    import() {
+      return runPlan(() => ({ kind: 'import', title: 'Importing 6 skills', toast: 'Imported 6 skills',
+        pairs: IMPORTS.map(([slug, target]) => ({ slug, target, op: 'add' })) }));
+    },
+  };
+  function deletable() {
+    return DATA.presets().find((p) => p.id === 'frontend') || DATA.presets().find((p) => p.id !== 'default');
+  }
+  function syncRun() {
+    const on = DATA.activePreset();
+    const tips = {
+      switch: () => `Switch to ${(DATA.preset(switchTarget()) || { name: 'Frontend' }).name}`,
+      delete: () => (on.id === 'default' ? `Turn on ${(deletable() || { name: 'Frontend' }).name}, then delete it` : `Delete ${on.name}`),
+      add: () => 'Add 4 skills to Claude Code and Universal',
+      import: () => 'Import 6 skills',
+    };
+    runBtn.setAttribute('data-tip', tips[ui.action]());
+  }
+  async function run(action) {
+    if (bar.el.inert) return;
+    bar.el.inert = true;
+    bar.el.classList.add('pp-busy');
+    try {
+      await (typeof action === 'function' ? action() : ACTIONS[action]());
+    } finally {
+      bar.el.inert = false;
+      bar.el.classList.remove('pp-busy');
+    }
+  }
+
+  // ---- blocking runner ------------------------------------------------------------------
+  const plural = (n) => `need${n === 1 ? 's' : ''}`;
+  const doneTitle = (hit) => `Done · ${hit.length} ${plural(hit.length)} attention`;
+  const slugList = (hit) => [...new Set(hit.map((p) => p.slug))].join(', ');
+  const warnIcon = (size) => `<span style="color:var(--sb-warning);display:grid">${icon('alert-circle', size)}</span>`;
+  const warnMark = (n) => h('span', { class: 'pp-warn', 'data-tip': `${n} to review at the end` }, ic('alert-circle', 13), String(n));
+  function stepText(plan, p) {
+    if (plan.kind === 'import') return `Importing ${p.slug} from ${DATA.placeName(p)}`;
+    return p.op === 'remove' ? `Removing ${p.slug} from ${DATA.placeName(p)}` : `Copying ${p.slug} → ${DATA.placeName(p)}`;
+  }
+
+  // Adds run first, then removals. Problems: None strips them; 2 keeps the plan's own and tops up.
+  function withProblems(plan, n) {
+    const pairs = [...plan.pairs.filter((p) => p.op === 'add'), ...plan.pairs.filter((p) => p.op === 'remove')].map((p) => ({ ...p }));
+    pairs.filter((p) => p.problem).slice(n).forEach((p) => { delete p.problem; });
+    const need = n - pairs.filter((p) => p.problem).length;
+    const free = pairs.filter((p) => !p.problem);
+    for (let k = 0; k < Math.min(need, free.length); k += 1) {
+      const p = free[Math.floor(((k + 0.5) * free.length) / need)];
+      p.problem = p.op === 'remove' ? 'edited' : k ? 'unwritable' : 'different';
+    }
+    return { ...plan, pairs };
+  }
+
+  function lockWindow(on) {
+    ui.busy = on;
+    side.inert = on;
+    main.inert = on;
+    if (!on) flushStale();
+  }
+  function flushStale() {
+    if (ui.stale) { ui.stale = false; draw(); }
+  }
+
+  // makePlan applies the change; the Library behind redraws when the work is done.
+  function runPlan(makePlan) {
+    lockWindow(true);
+    const plan = withProblems(makePlan(), ui.problems);
+    const pairs = plan.pairs;
+    const total = pairs.length;
+    if (!total) {
+      lockWindow(false);
+      toast(win, plan.toast, { icon: 'check-circle' });
+      return Promise.resolve();
+    }
+    const view = VIEWS[ui.variant](plan);
+    const stepMs = ui.speed / total;
+    const blocker = h('div', { class: 'pp-blocker' });
+    win.append(blocker);
+    return new Promise((resolve) => {
+      let done = 0;
+      let shownAt = 0;
+      const hit = [];
+      const state = () => {
+        const cur = pairs[Math.min(done, total - 1)];
+        return { done, total, plan, pairs, hit: hit.length, pct: Math.round((done / total) * 100), index: Math.min(done + 1, total), step: stepText(plan, cur) };
+      };
+      // Input is blocked at once; the dialog shows only after 300 ms.
+      const showTimer = setTimeout(() => { shownAt = Date.now(); view.show(); view.update(state()); }, 300);
+      const tick = () => {
+        if (pairs[done].problem) hit.push(pairs[done]);
+        done += 1;
+        if (shownAt) view.update(state());
+        if (done < total) setTimeout(tick, stepMs);
+        else finish();
+      };
+      setTimeout(tick, stepMs);
+
+      function finish() {
+        clearTimeout(showTimer);
+        // Once shown, stay at least 500 ms.
+        const wait = shownAt ? Math.max(0, 500 - (Date.now() - shownAt)) : 0;
+        setTimeout(() => {
+          blocker.remove();
+          if (!hit.length) {
+            view.close();
+            lockWindow(false);
+            toast(win, plan.toast, { icon: 'check-circle' });
+            resolve();
+            return;
+          }
+          if (!shownAt) { shownAt = Date.now(); view.show(); }
+          view.update(state());
+          flushStale();
+          view.done(hit, (review) => {
+            lockWindow(false);
+            if (review) reviewDialog(win, hit).then(resolve);
+            else resolve();
+          });
+        }, wait);
+      }
+    });
+  }
+
+  // Shared end state for the dialog variants: Review / Close, Esc and outside click now close.
+  function dialogDone(d, cb) {
+    let review = false;
+    d.setDismissible(true, { closeButton: false });
+    d.setFooter(
+      h('button', { class: 'sb-btn sb-btn-primary', 'data-autofocus': '', onclick: () => { review = true; d.close(); } }, 'Review'),
+      h('button', { class: 'sb-btn sb-btn-outline', onclick: () => d.close() }, 'Close'));
+    d.onClose = () => cb(review);
+    d.el.querySelector('[data-autofocus]').focus({ preventScroll: true });
+  }
+
+  // ---- A: bar -------------------------------------------------------------------------------
+  function barView(plan) {
+    let d = null;
+    const fill = h('span');
+    const pct = h('span', { class: 'sb-progress-pct' }, '0%');
+    const step = h('span', { class: 'pp-step' });
+    const count = h('span', { class: 'pp-count' });
+    return {
+      show() {
+        d = openDialog(win, { title: plan.title, size: 'md', dismissible: false, body: [
+          h('div', { class: 'sb-progress-row' }, h('div', { class: 'sb-progress' }, fill), pct),
+          h('div', { class: 'pp-stepline' }, step, count)] });
+      },
+      update(s) {
+        fill.style.width = `${s.pct}%`;
+        pct.textContent = `${s.pct}%`;
+        step.textContent = s.step;
+        count.replaceChildren(s.hit ? warnMark(s.hit) : '', `${s.index} of ${s.total}`);
+      },
+      close() { if (d) d.close(); },
+      done(hit, cb) {
+        d.setTitle(doneTitle(hit), warnIcon(18));
+        step.textContent = slugList(hit);
+        count.replaceChildren(`${plan.pairs.length} of ${plan.pairs.length}`);
+        dialogDone(d, cb);
+      },
+    };
+  }
+
+  // ---- B: ring ------------------------------------------------------------------------------
+  function ringView(plan) {
+    const C = 2 * Math.PI * 31;
+    let d = null;
+    const ring = h.html(`<div class="pp-ring"><svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+      <circle class="pp-ring-track" cx="36" cy="36" r="31" fill="none" stroke-width="5"/>
+      <circle class="pp-ring-bar" cx="36" cy="36" r="31" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>
+      </svg><div class="pp-ring-center">0%</div></div>`);
+    const arc = ring.querySelector('.pp-ring-bar');
+    const center = ring.querySelector('.pp-ring-center');
+    const title = h('div', { class: 'pp-ring-title' }, plan.title);
+    const step = h('div', { class: 'pp-ring-step' });
+    return {
+      show() {
+        d = openDialog(win, { size: 'sm', dismissible: false, body: [ring, title, step] });
+        d.el.classList.add('pp-ring-dialog');
+        d.el.setAttribute('aria-label', plan.title);
+      },
+      update(s) {
+        arc.setAttribute('stroke-dashoffset', String(C * (1 - s.pct / 100)));
+        center.textContent = `${s.pct}%`;
+        step.textContent = s.step;
+      },
+      close() { if (d) d.close(); },
+      done(hit, cb) {
+        ring.classList.add('is-warn');
+        center.replaceChildren(ic('alert-circle', 24));
+        title.textContent = doneTitle(hit);
+        step.textContent = slugList(hit);
+        dialogDone(d, cb);
+      },
+    };
+  }
+

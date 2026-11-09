@@ -1,0 +1,186 @@
+  // B: matrix ------------------------------------------------------------------------------
+  function matrix(ws, slugs) {
+    const dirs = DATA.workspaceDirs(ws.id);
+    const head = h('div', { class: 'mx-head' },
+      h('span', `${slugs.length} skill${slugs.length === 1 ? '' : 's'}`),
+      dirs.map((d) => h('span', { class: 'mx-col', 'data-tip': [d.name, d.path, d.tip].filter(Boolean).join('\n') },
+        avatar(d, { size: 16, tip: false }), h('span', { class: 'sb-ellipsis' }, d.name))),
+      h('span'));
+    const rows = slugs.map((slug) => {
+      const holds = DATA.workspaceHolds(ws.id, slug);
+      return h('div', { class: rowClass(slug) }, rowMain(slug, wsMarks(ws, slug)),
+        dirs.map((d) => h('div', { class: 'mx-cell' }, checkbox({
+          checked: holds.includes(d.id), tip: d.name,
+          // An untick that asks first stays ticked until confirmed; the redraw shows the result.
+          onChange: (checked, e) => { if (!checked) e.target.checked = true; toggleDir(ws, slug, d.id); },
+        }))),
+        h('div', { class: 'mx-cell' }, trashBtn(`Remove from ${ws.name}`, () => removeFromWorkspace(ws, slug))));
+    });
+    return h('div', { class: 'sb-card mx', style: `--mx-n:${dirs.length}` }, head, rows);
+  }
+
+  // C: agents menu ---------------------------------------------------------------------------
+  function fillAgentsButton(btn, ws, slug) {
+    const holds = DATA.workspaceHolds(ws.id, slug);
+    btn.replaceChildren(avatarStack(holds.map(DATA.wsDir), { size: 18 }),
+      h('span', DATA.targetsLabel(DATA.wsRaw(ws.id, slug), 'ws')), ic('arrow-down', 12));
+  }
+  function agentsMenuButton(ws, slug) {
+    const btn = h('button', { class: 'sb-targets sp-agbtn', 'aria-haspopup': 'menu', onclick: () => openAgentsMenu(ws, slug, btn) });
+    fillAgentsButton(btn, ws, slug);
+    return btn;
+  }
+  function openAgentsMenu(ws, slug, btn) {
+    const content = h('div', { class: 'sp-agmenu', role: 'menu' });
+    const api = popover(win, btn, content, {
+      align: 'end',
+      onClose: () => { ui.menu = null; if (ui.dirty) syncAfterPointer(); },
+    });
+    if (!api) return;
+    const item = ({ checked, lead, label, tip, onSelect }) => h('button', {
+      class: 'sb-menu-item', role: 'menuitemcheckbox', 'aria-checked': String(checked), 'data-tip': tip || null, onclick: onSelect,
+    }, h('input', { type: 'checkbox', class: 'sb-checkbox', tabindex: '-1', checked }), lead || null, h('span', { class: 'sb-ellipsis' }, label));
+    const build = () => {
+      const focused = [...content.children].indexOf(document.activeElement);
+      const raw = DATA.wsRaw(ws.id, slug);
+      const holds = DATA.workspaceHolds(ws.id, slug);
+      content.replaceChildren(
+        item({ checked: raw === 'all', label: 'All agents', tip: 'Includes agents added later',
+          onSelect: () => DATA.setWorkspaceDirs(ws.id, slug, raw === 'all' ? [...holds] : 'all') }),
+        h('div', { class: 'sb-menu-sep' }),
+        ...DATA.workspaceDirs(ws.id).map((d) => item({
+          checked: holds.includes(d.id), lead: avatar(d, { size: 18, tip: false }), label: d.name,
+          tip: [d.path, d.tip].filter(Boolean).join('\n'),
+          onSelect: () => {
+            const asks = holds.includes(d.id) && (holds.length === 1 || DATA.isEdited(slug, d.id, ws.id));
+            if (asks) api.close();
+            toggleDir(ws, slug, d.id);
+          },
+        })));
+      if (focused >= 0) content.children[focused].focus(); // keep keyboard place across toggles
+      api.reposition();
+    };
+    ui.menu = { close: () => api.close(), refresh: () => { build(); fillAgentsButton(btn, ws, slug); } };
+    build();
+  }
+
+  // ---- agent page --------------------------------------------------------------------------
+  function agentPage(targetId) {
+    const t = DATA.target(targetId);
+    const members = t.members ? h('span', { class: 'sb-avatar-stack sp-members', 'data-tip': `Used by ${t.members.join(', ')}` },
+      t.memberLogos.map((logo) => avatar({ name: logo, logo }, { size: 18, tip: false })),
+      t.members.length > t.memberLogos.length ? h('span', { class: 'sb-avatar sb-avatar-more', style: '--sz:18px' }, `+${t.members.length - t.memberLogos.length}`) : null) : null;
+    hdr.replaceChildren(
+      h('div', { class: 'sp-head' }, h('span', { class: 'sp-head-ic', html: icon(t.logo, 16) }),
+        h('span', { class: 'sb-title' }, t.name), members, h('span', { class: 'sp-path' }, t.path)),
+      h('div', { class: 'sb-header-actions' }, presetChip(), addBtn({ kind: 'agent', id: targetId })));
+    const slugs = DATA.agentSkills(targetId);
+    if (!slugs.length) {
+      page.replaceChildren(emptyState({ icon: t.logo, title: `No skills on for ${t.name}`, action: addBtn({ kind: 'agent', id: targetId }) }));
+      return;
+    }
+    showList(slugs, (slug) => h('div', { class: rowClass(slug) },
+      rowMain(slug, DATA.isEdited(slug, targetId) ? editedMark(t.name) : null),
+      h('div', { class: 'sb-row-end' }, trashBtn(`Remove from ${t.name}`, async () => {
+        if (DATA.isEdited(slug, targetId) && !(await askEdited(slug, t.name))) return;
+        removedToast(slug, DATA.removeAgent(slug, targetId));
+      }))));
+  }
+
+  function otherPage(kind) {
+    const names = { discovery: 'Discovery', library: 'Library', settings: 'Settings', preset: 'Preset' };
+    hdr.replaceChildren(h('span', { class: 'sb-title' }, names[kind] || kind));
+    page.replaceChildren(emptyState({ icon: kind === 'discovery' ? 'compass' : kind === 'settings' ? 'settings' : 'libraries',
+      title: 'Not in this prototype', sub: 'Open a workspace or an agent' }));
+  }
+
+  // ---- placeholder Add skill picker (the real one is a separate prototype) -----------------------
+  function openPicker(scope) {
+    const isWs = scope.kind === 'ws';
+    const name = isWs ? DATA.workspace(scope.id).name : DATA.target(scope.id).name;
+    const already = new Set(isWs ? DATA.workspaceSkills(scope.id) : DATA.agentSkills(scope.id));
+    const picked = new Set();
+    const agents = new Set(isWs ? DATA.workspace(scope.id).dirs : [scope.id]);
+    const agentsRow = h('div', { class: 'pk-agents' });
+    const addSlot = h('span', { style: 'display:inline-flex' });
+
+    const list = h('div', { class: 'sb-card' }, DATA.skills.map((s) => {
+      const on = already.has(s.slug);
+      return h('label', { class: `pk-row${on ? ' is-dim' : ''}`, 'data-tip': on ? 'Already here' : null },
+        h('input', { type: 'checkbox', class: 'sb-checkbox', checked: on, disabled: on,
+          onchange: (e) => { if (e.target.checked) picked.add(s.slug); else picked.delete(s.slug); renderFooter(); } }),
+        h('span', { class: 'pk-text' }, h('b', s.slug), h('span', s.desc)));
+    }));
+
+    function renderAgents() {
+      if (!isWs) {
+        const t = DATA.target(scope.id);
+        agentsRow.replaceChildren(h('span', { class: 'pk-agents-label' }, 'For'), avatar(t), h('b', { class: 'sb-small' }, t.name),
+          h('span', { class: 'sb-spacer' }), presetChip());
+        return;
+      }
+      agentsRow.replaceChildren(h('span', { class: 'pk-agents-label' }, 'Agents'),
+        ...DATA.wsDirs.map((d) => pill(d, agents.has(d.id), { onClick: () => {
+          if (agents.has(d.id)) agents.delete(d.id); else agents.add(d.id);
+          renderAgents();
+          renderFooter();
+        } })));
+    }
+    function renderFooter() {
+      const n = picked.size;
+      const why = !agents.size ? 'Choose an agent' : !n ? 'Pick a skill' : null;
+      addSlot.toggleAttribute('data-tip', !!why);
+      if (why) addSlot.setAttribute('data-tip', why);
+      addSlot.replaceChildren(h('button', { class: 'sb-btn sb-btn-primary', disabled: !!why, onclick: add }, n ? `Add ${n}` : 'Add'));
+    }
+    function add() {
+      const slugs = [...picked].sort();
+      const args = { slugs, targets: [...agents], ws: isWs ? scope.id : undefined };
+      d.close();
+      if (slugs.length > 1) { withProgress(() => DATA.addSkills(args)); return; }
+      ui.flash.add(slugs[0]);
+      DATA.addSkills(args);
+      toast(win, `Added <b>${slugs[0]}</b>`, { icon: 'check-circle' });
+    }
+
+    const d = openDialog(win, {
+      title: `Add to ${name}`, size: 'md', top: true, body: [agentsRow, list],
+      footer: [h('span', { class: 'sb-tag sb-tag-outline', 'data-tip': 'The real picker is a separate prototype' }, 'Placeholder'),
+        h('span', { class: 'sb-spacer' }),
+        h('button', { class: 'sb-btn sb-btn-outline', onclick: () => d.close() }, 'Cancel'), addSlot],
+    });
+    renderAgents();
+    renderFooter();
+  }
+
+  // ---- boot (after every const helper exists) ----------------------------------------------
+  // The bar sits outside the window, so the progress blocker does not cover it: while work
+  // runs, a variant change waits for the release redraw and Reset does nothing.
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'pills', label: 'Logo pills', desc: 'Workspace rows: one pill per agent at the row end. Solid = on, dashed = off.' },
+    { id: 'matrix', label: 'Matrix', desc: 'Workspace list as a table: one checkbox column per agent, trash at the end.' },
+    { id: 'menu', label: 'Agents menu', desc: 'Workspace rows: logo stack + menu with All agents and one checkbox per agent.' },
+  ], (id) => { ui.variant = id; if (ui.menu) ui.menu.close(); sync(); });
+  bar.extra.append(demoControls(), h('button', {
+    class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Reset demo data', 'aria-label': 'Reset demo data',
+    onclick: () => {
+      if (ui.hold) return;
+      win.querySelectorAll(':scope > .sb-toast').forEach((t) => t.remove()); // its Undo would act on old data
+      DATA.reset();
+    },
+  }, ic('refresh-03', 15)));
+
+  renderSidebar(side, {
+    active: ui.view,
+    onNav: (key) => { ui.view = key; renderSidebar(side, { active: key }); draw(); },
+    onPreset: (id) => withProgress(() => DATA.switchPreset(id)),
+  });
+
+  DATA.on(() => {
+    if (ui.menu && !ui.hold) ui.menu.refresh();
+    sync();
+  });
+})();
+</script>
+</body>
+</html>

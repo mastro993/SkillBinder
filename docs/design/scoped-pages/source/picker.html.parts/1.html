@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add skill picker</title>
+<!-- Add skill picker prototype: four ways to choose agents while adding library skills.
+     Build: python3 -I kit/inline.py picker.html picker.out.html
+     then node ../review-picker/slim.mjs picker.out.html picker.out.html (drops unused icons, minifies) -->
+<link rel="stylesheet" href="kit/kit.css">
+<style>
+.pk-ctx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 12.5px/1.4 var(--sb-font); color: var(--sb-muted-fg); }
+
+.sb-scrim.pk-scrim { align-items: center; padding: 10px; }
+.sb-dialog.pk-dialog { width: 92%; height: 90%; max-width: none; max-height: none; }
+.pk-dialog .sb-dialog-header { padding-bottom: 8px; }
+.pk-dialog .sb-dialog-body { display: flex; flex-direction: column; gap: 10px; overflow: hidden; padding-bottom: 12px; }
+.pk-dialog .sb-dialog-footer { padding-top: 10px; padding-bottom: 12px; border-top: 1px solid var(--sb-border); }
+.pk-title { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.pk-to { color: var(--sb-muted-fg); font-size: 13px; font-weight: 400; }
+
+.pk-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pk-tools .sb-search { flex: 1 1 170px; width: auto; max-width: 260px; }
+.pk-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.pk-list { flex: 1; min-height: 0; overflow: auto; }
+.pk-list .sb-row { align-items: flex-start; min-height: 46px; padding: 7px 12px; gap: 10px; cursor: pointer; }
+.pk-list .sb-row > .sb-checkbox { margin-top: 2px; }
+.pk-list .sb-row.is-sel { background: color-mix(in srgb, var(--sb-fg) 3.5%, var(--sb-card)); }
+.pk-list .sb-row.is-dim { cursor: default; }
+.pk-list .sb-row .sb-desc { font-size: 12px; }
+.pk-list .sb-empty { padding: 28px 16px; }
+.pk-upd { display: grid; color: var(--sb-info); }
+
+.pk-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.pk-warn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; color: color-mix(in srgb, var(--sb-warning) 70%, var(--sb-fg)); }
+
+.pk-foot-pills { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.pk-count { margin-left: auto; font-size: 12.5px; color: var(--sb-muted-fg); white-space: nowrap; }
+.pk-add { display: inline-flex; }
+/* A disabled button gets no hover in some engines; let its wrapper show the "why" tooltip. */
+.pk-add > .sb-btn:disabled, .pk-cell > .sb-pill:disabled { pointer-events: none; }
+/* Review list (kit dialog): wrap "→ place" under the slug instead of cutting the slug short. */
+.sb-scrim:not(.pk-scrim) .sb-row-title { flex-wrap: wrap; row-gap: 0; }
+.sb-scrim:not(.pk-scrim) .sb-row-title > .sb-slug { flex: none; max-width: 100%; }
+/* Demo controls wait while a blocking dialog runs in the window. */
+.pk-busy > .sb-vbar { pointer-events: none; opacity: .5; }
+
+/* C: two panes */
+.pk-split { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.pk-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.pk-right {
+  flex: 0 0 38%; min-width: 0; display: flex; flex-direction: column;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-sidebar);
+}
+.pk-right-head { display: flex; align-items: center; gap: 6px; padding: 9px 12px 7px; font-size: 12.5px; font-weight: 600; }
+.pk-right-list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 6px 6px; }
+.pk-right-empty { flex: 1; display: grid; place-items: center; padding: 16px; font-size: 12.5px; color: var(--sb-muted-fg); }
+.pk-right-foot { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--sb-border); }
+.pk-right-foot > .pk-add { flex: 1; }
+.pk-right-foot > .pk-add > .sb-btn { width: 100%; }
+.pk-sel { display: flex; flex-direction: column; gap: 5px; padding: 5px 5px 6px 10px; border: 1px solid var(--sb-border); border-radius: 8px; background: var(--sb-card); }
+.pk-sel-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pk-sel-top .sb-slug { flex: 1; font-size: 13px; }
+.pk-sel-pills { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+/* Approved addition (#100 follow-up): the text-only "All" pill that starts each pill row. */
+.sb-pill.pk-all { padding: 0 9px; }
+
+/* D: matrix */
+.pk-mhead {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 38px;
+  border-bottom: 1px solid var(--sb-border); border-radius: 9px 9px 0 0; background: var(--sb-card);
+  font-size: 12px; color: var(--sb-muted-fg);
+}
+.pk-mhead > :first-child { flex: 1; }
+.pk-matrix .sb-row { align-items: center; }
+.pk-matrix .sb-row > .sb-checkbox { margin-top: 0; }
+.pk-cells { display: flex; flex: none; }
+.pk-cell { width: 42px; display: grid; place-items: center; }
+</style>
+<script src="kit/reference.js"></script>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:620px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="kit/icons.js"></script>
+<script src="kit/data.js"></script>
+<script src="kit/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const AGENT = 'claude';
+  const CONTEXTS = [
+    { id: 'acme-web', label: 'acme-web', icon: icon('code-folder', 14), tip: 'Uses Universal and Claude Code' },
+    { id: 'docs-site', label: 'docs-site (no agents yet)', icon: icon('code-folder', 14), tip: 'Uses no agent yet' },
+    { id: AGENT, label: 'Claude Code', icon: icon('claude-code', 14), tip: 'One of your agents' },
+  ];
+
+  // Picker state. sel: slug -> Set of folder ids (workspace) or null (agent), in pick order.
+  // all: slug -> the skill's "All" pill (workspace; on when picked; on = WorkspaceTargets::AllAgents).
+  const P = { ctx: 'acme-web', variant: 'a', folder: null, query: '', sel: new Map(), all: new Map(), dirs: new Set(), last: [] };
+  let picker = null;
+  let els = {};
+  SB.settings.problems = 0;
+
+  // ---- context ------------------------------------------------------------------------
+  const isWs = () => P.ctx !== AGENT;
+  const ws = () => DATA.workspace(P.ctx);
+  const navKey = () => (isWs() ? `ws:${P.ctx}` : `agent:${AGENT}`);
+  const already = (slug) => (isWs() ? DATA.workspaceHolds(P.ctx, slug).length > 0 : DATA.presetHolds(slug).includes(AGENT));
+  const wsDirIds = () => (isWs() ? [...ws().dirs] : []);
+  function dirTip(d) {
+    const used = wsDirIds().includes(d.id);
+    return [d.name, `${d.path}${used ? '' : ' · not used here yet'}`, d.tip].filter(Boolean).join('\n');
+  }
+
+  renderSidebar(side, {
+    active: navKey(),
+    onNav: (key) => {
+      const id = key === `agent:${AGENT}` ? AGENT : key.startsWith('ws:') ? key.slice(3) : null;
+      if (id && CONTEXTS.some((c) => c.id === id)) setCtx(id);
+      else toast(win, 'Not in this prototype');
+    },
+  });
+  DATA.on(drawPage);
+  drawPage();
+
+  // ---- variant bar + demo controls ------------------------------------------------------
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Once for all', desc: 'Agent pills in the footer apply to every selected skill.' },
+    { id: 'b', label: 'Per row', desc: 'Ticking a skill reveals its own agent pills, pre-ticked; adjust each row.' },
+    { id: 'c', label: 'Two panes', desc: 'Pick on the left; set agents per skill in the Selected pane.' },
+    { id: 'd', label: 'Matrix', desc: 'One column per agent; a column header sets it for every selected skill.' },
+  ], (id) => { P.variant = id; DATA.reset(); openPicker(); });
+  bar.extra.append(
+    seg([{ id: 'fast', label: 'Fast', tip: 'Work ends before the dialog shows' }, { id: 'slow', label: 'Slow' }],
+      SB.settings.speed, (v) => { SB.settings.speed = v; }),
+    seg([{ id: 'clean', label: 'Clean' }, { id: 'problem', label: '1 problem', tip: 'One copy needs attention' }],
+      'clean', (v) => { SB.settings.problems = v === 'problem' ? 1 : 0; }));
+  const ctxRow = h('div', { class: 'pk-ctx' });
+  bar.el.append(ctxRow);
+  drawCtx();
+
+  // While the progress, Done or Review dialog is up, switching would open the picker over it.
+  const proto = document.getElementById('proto');
+  const blocking = (el) => !el.matches('aside, main, .sb-toast, .sb-tooltip, .sb-menu') && !(picker && el === picker.scrim);
+  new MutationObserver(() => proto.classList.toggle('pk-busy', [...win.children].some(blocking)))
+    .observe(win, { childList: true });
+
+  function drawCtx() {
+    // "From" starts each scenario from the fixture, so "docs-site (no agents yet)" stays true.
+    ctxRow.replaceChildren(h('span', 'From'), seg(CONTEXTS, P.ctx, (id) => { DATA.reset(); setCtx(id); }));
+  }
+  function setCtx(id) {
+    P.ctx = id;
+    drawCtx();
+    renderSidebar(side, { active: navKey() });
+    drawPage();
+    openPicker();
+  }
+
+  // ---- page behind the picker -------------------------------------------------------------
+  function addSkillBtn() {
+    return h('button', { class: 'sb-btn sb-btn-primary sb-btn-sm', onclick: () => openPicker(true) }, ic('plus', 14), 'Add skill');
+  }
+  function pageRow(slug, end) {
+    return h('div', { class: 'sb-row' },
+      h('div', { class: 'sb-row-main' }, h('span', { class: 'sb-slug' }, slug), h('div', { class: 'sb-desc' }, DATA.skill(slug).desc)),
+      end ? h('div', { class: 'sb-row-end' }, end) : null);
+  }
+  function drawPage() {
+    if (isWs()) {
+      const w = ws();
+      hdr.replaceChildren(h('div', { class: 'sb-crumbs' }, h('span', 'Workspaces'), ic('chevron-right', 14), h('span', w.name)),
+        h('div', { class: 'sb-header-actions' }, addSkillBtn()));
+      const slugs = DATA.workspaceSkills(w.id);
+      page.replaceChildren(slugs.length
+        ? h('div', { class: 'sb-card' }, slugs.map((slug) => pageRow(slug, avatarStack(DATA.workspaceHolds(w.id, slug)))))
+        : emptyState({ icon: 'code-folder', title: 'No skills here yet', sub: w.path, action: addSkillBtn() }));
+      return;
+    }
+    const t = DATA.target(AGENT);
+    hdr.replaceChildren(h('div', { class: 'sb-crumbs' }, h('span', 'Agents'), ic('chevron-right', 14), h('span', t.name)),
+      h('div', { class: 'sb-header-actions' }, presetChip(), addSkillBtn()));
+    const slugs = DATA.agentSkills(AGENT);
+    page.replaceChildren(slugs.length ? h('div', { class: 'sb-card' }, slugs.map((slug) => pageRow(slug)))
+      : emptyState({ icon: t.logo, title: `Nothing on for ${t.name}`, action: addSkillBtn() }));
+  }
+

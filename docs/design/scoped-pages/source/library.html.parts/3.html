@@ -1,0 +1,203 @@
+  // compact (popover): agent pills are logos on the All agents line, like the workspace lines.
+  function whereSections(slug, { compact = false } = {}) {
+    const raw = D.presetRaw(slug);
+    const holds = D.presetHolds(slug);
+    const all = raw === 'all';
+    const allRow = h('div', { class: compact ? 'lib-allrow is-compact' : 'lib-allrow', 'data-tip': 'Includes agents added later' }, h('span', 'All agents'),
+      withKey(h('button', { class: 'lib-switch', role: 'switch', 'aria-checked': String(all), 'aria-label': 'All agents',
+        onclick: () => D.setAgents(slug, all ? holds : 'all') }), 'all'));
+    const pills = D.targets.map((t) =>
+      withKey(pill(t, holds.includes(t.id), { iconOnly: compact, onClick: () => toggleAgent(slug, t.id) }), `a:${t.id}`));
+    const agents = h('section', { class: 'lib-sec' },
+      h('div', { class: 'lib-sec-head' }, h('span', { class: 'lib-sec-label' }, 'Your agents'), presetChip()),
+      compact
+        ? h('div', { class: 'lib-wsline' }, allRow, h('span', { class: 'lib-wspills' }, pills))
+        : [allRow, h('div', { class: 'lib-pills' }, pills)]);
+    const workspaces = h('section', { class: 'lib-sec' },
+      h('div', { class: 'lib-sec-head' }, h('span', { class: 'lib-sec-label' }, 'Workspaces')),
+      D.workspaces().map((ws) => wsLine(slug, ws)));
+    return [agents, workspaces];
+  }
+
+  // A workspace with no agents yet offers every agent folder it could use.
+  function wsLine(slug, ws) {
+    const dirs = D.workspaceDirs(ws.id);
+    const holds = D.workspaceHolds(ws.id, slug);
+    const none = !dirs.length;
+    return h('div', { class: 'lib-wsline' },
+      h('div', { class: 'lib-wsname' },
+        h('span', { class: 'lib-wsname-top' }, ic('code-folder', 14), h('span', { class: 'sb-ellipsis' }, ws.name)),
+        none ? h('span', { class: 'lib-none' }, 'No agents yet') : null),
+      h('span', { class: 'lib-wspills' }, (none ? D.wsDirs : dirs).map((d) =>
+        withKey(pill(d, holds.includes(d.id), { iconOnly: true, onClick: () => toggleWsDir(slug, ws.id, d.id) }), `w:${ws.id}:${d.id}`))));
+  }
+
+  function confirmEdited(slug, place) {
+    return confirmDialog(win, { title: 'You changed this skill here', body: `${slug} · ${place}`, confirm: 'Remove', cancel: 'Keep' });
+  }
+
+  // Unticking the last agent removes silently; only an edited copy asks.
+  async function toggleAgent(slug, id) {
+    const raw = D.presetRaw(slug);
+    const holds = D.presetHolds(slug);
+    if (!holds.includes(id)) { D.setAgents(slug, raw === 'all' ? 'all' : [...holds, id]); return; }
+    if (D.isEdited(slug, id) && !(await confirmEdited(slug, D.target(id).name))) return;
+    D.removeAgent(slug, id);
+  }
+
+  async function toggleWsDir(slug, wsId, dir) {
+    const holds = D.workspaceHolds(wsId, slug);
+    if (!holds.includes(dir)) {
+      D.setWorkspaceDirs(wsId, slug, D.wsRaw(wsId, slug) === 'all' ? 'all' : [...holds, dir]);
+      return;
+    }
+    if (D.isEdited(slug, dir, wsId) && !(await confirmEdited(slug, D.placeName({ target: dir, ws: wsId })))) return;
+    D.removeWorkspaceDir(wsId, slug, dir);
+  }
+
+  // ---- A: popover -------------------------------------------------------------------
+  function openWhere(slug, anchor, scrolled = false) {
+    const content = h('div', { class: 'lib-where' }, whereSections(slug, { compact: true }));
+    const api = popover(win, anchor, content, {
+      align: ui.layout === 'grid' ? 'start' : 'end', className: 'lib-pop',
+      onClose: () => { if (pop && pop.api === api) pop = null; setTimeout(reconcile, 0); },
+    });
+    if (!api) return;
+    pop = { api, slug, content, anchor };
+    api.el.setAttribute('role', 'dialog');
+    api.el.setAttribute('aria-label', `Where ${slug} is on`);
+    const need = placePop();
+    if (!need || scrolled) return;
+    // Neither side fits: scroll the list to make room, then reopen (closing and scrolling run before
+    // any paint, so nothing flashes; the reopen waits for the scroll event, which closes popovers).
+    const scroll = page.querySelector('.lib-scroll');
+    const max = scroll.scrollHeight - scroll.clientHeight;
+    const view = scroll.getBoundingClientRect();
+    const item = anchor.closest('.lib-row, .lib-tile').getBoundingClientRect();
+    const stays = (d) => item.top - d >= view.top && item.bottom - d <= view.bottom;   // the whole row stays in view
+    const delta = [need.down, -need.up].filter((d) => scroll.scrollTop + d >= 0 && scroll.scrollTop + d <= max && stays(d))
+      .sort((x, y) => Math.abs(x) - Math.abs(y))[0];
+    if (delta === undefined) return;
+    api.close();
+    scroll.scrollTop += delta;
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (anchor.isConnected && !pop) openWhere(slug, anchor, true); }));
+  }
+
+  // Below the placement, or above it (above the whole tile in the grid, so its title stays
+  // visible). Returns null when placed, else the scroll {down, up} that would make room; until
+  // then it sits beside the placement.
+  function placePop() {
+    if (!pop) return null;
+    const { el } = pop.api;
+    const wr = win.getBoundingClientRect();
+    const ox = wr.left + win.clientLeft;
+    const oy = wr.top + win.clientTop;
+    const rel = (r) => ({ l: r.left - ox, r: r.right - ox, t: r.top - oy, b: r.bottom - oy });
+    const a = rel(pop.anchor.getBoundingClientRect());
+    const tile = pop.anchor.closest('.lib-tile');
+    const above = tile ? rel(tile.getBoundingClientRect()).t : a.t;
+    const W = win.clientWidth;
+    const H = win.clientHeight;
+    const w = el.offsetWidth;
+    const ht = el.offsetHeight;
+    let left = tile ? a.l : a.r - w;
+    let top;
+    let need = null;
+    if (a.b + 4 + ht <= H - 8) top = a.b + 4;
+    else if (above - 4 - ht >= 8) top = above - 4 - ht;
+    else {
+      need = { down: Math.ceil(a.b + 4 + ht - (H - 8)), up: Math.ceil(8 - (above - 4 - ht)) };
+      top = (a.t + a.b) / 2 - ht / 2;
+      left = a.l - 8 - w >= 8 ? a.l - 8 - w : a.r + 8;
+    }
+    el.style.left = `${Math.max(8, Math.min(left, W - w - 8))}px`;
+    el.style.top = `${Math.max(8, Math.min(top, H - ht - 8))}px`;
+    return need;
+  }
+  function closePop() { if (pop) pop.api.close(); }
+
+  // ---- B: inspector ------------------------------------------------------------------
+  function activate(slug) {
+    if (ui.variant === 'page') { openSkill(slug); return; }
+    const prev = ui.selected;
+    ui.selected = slug;
+    showInspector();
+    if (prev && prev !== slug) reconcile();   // the row left behind re-applies the filters
+  }
+  function showInspector() {
+    const body = page.querySelector('.lib-body');
+    if (!body) return;
+    if (!insp.isConnected) body.append(insp);
+    paintInspector();
+    rows.forEach(paintItem);
+  }
+  function paintInspector() {
+    const s = D.skill(ui.selected);
+    keepFocus(insp, () => insp.replaceChildren(
+      h('div', { class: 'lib-insp-head' },
+        h('span', { class: 'sb-slug' }, s.slug), updateMark(s),
+        h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Open skill page', 'aria-label': 'Open skill page', onclick: () => openSkill(s.slug) }, ic('book', 15)),
+        h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Close', 'aria-label': 'Close', onclick: closeInspector }, ic('close', 15))),
+      h('div', { class: 'sb-desc lib-insp-desc' }, s.desc),
+      h('div', { class: 'lib-where' }, whereSections(s.slug))));
+  }
+  function closeInspector() {
+    ui.selected = null;
+    insp.remove();
+    rows.forEach(paintItem);
+    reconcile();
+  }
+
+  // ---- C: skill page -----------------------------------------------------------------
+  function openSkill(slug) {
+    closePop();
+    const scroll = page.querySelector('.lib-scroll');
+    ui.scrollTop = scroll ? scroll.scrollTop : 0;
+    ui.skill = slug;
+    drawSkillPage(slug);
+  }
+  function back() { ui.skill = null; drawLibrary(); }
+
+  function drawSkillPage(slug) {
+    const s = D.skill(slug);
+    hdr.replaceChildren(
+      h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm lib-back', 'data-tip': 'Back', 'aria-label': 'Back', onclick: back }, ic('chevron-right', 16)),
+      h('div', { class: 'sb-crumbs' }, h('button', { class: 'lib-crumb', onclick: back }, 'Library'), ic('chevron-right', 14), h('span', s.slug)));
+    skillWhere = h('div', { class: 'lib-where is-columns' });
+    page.className = 'sb-page';
+    page.replaceChildren(
+      h('div', { class: 'lib-skill-head' },
+        h('div', { class: 'sb-row-title' }, h('span', { class: 'lib-skill-title' }, s.slug), updateMark(s), s.folder ? h('span', { class: 'sb-tag' }, s.folder) : null),
+        h('div', { class: 'sb-muted' }, s.desc)),
+      h('div', { class: 'lib-block' }, h('div', { class: 'lib-block-label' }, "Where it's on"), skillWhere),
+      h('div', { class: 'lib-block' }, h('div', { class: 'lib-block-label' }, 'SKILL.md'), skillMd(s)));
+    paintSkillWhere();
+  }
+  function paintSkillWhere() {
+    if (!skillWhere || !skillWhere.isConnected) return;
+    keepFocus(skillWhere, () => skillWhere.replaceChildren(...whereSections(ui.skill)));
+  }
+  function skillMd(s) {
+    const title = s.slug.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+    return h('pre', { class: 'lib-md' },
+      h('span', { class: 'lib-md-dim' }, `---\nname: ${s.slug}\ndescription: ${s.desc}\n---\n\n`),
+      `# ${title}\n\nUse this skill when the task matches the description.\n\n## Steps\n\n1. Read the files the task touches.\n2. Make the smallest change that works.\n3. Say what changed and why.`);
+  }
+
+  // ---- other pages (out of scope) ---------------------------------------------------------
+  function drawOther() {
+    closePop();
+    const [kind, id] = ui.view.split(':');
+    const meta = kind === 'ws' ? [D.workspace(id).name, 'code-folder']
+      : kind === 'agent' ? [D.target(id).name, D.target(id).logo]
+        : kind === 'discovery' ? ['Discovery', 'compass'] : ['Settings', 'settings'];
+    hdr.replaceChildren(h('span', { class: 'sb-title' }, meta[0]));
+    page.className = 'sb-page';
+    page.replaceChildren(emptyState({ icon: meta[1], title: 'Not in this prototype',
+      action: h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => nav('library') }, 'Back to Library') }));
+  }
+
+})();
+</script>
+</body>
+</html>

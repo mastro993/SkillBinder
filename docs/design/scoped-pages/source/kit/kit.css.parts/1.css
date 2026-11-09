@@ -1,0 +1,179 @@
+/* SkillBinder prototype kit: app look mapped onto the host theme variables.
+ *
+ * Tokens: --sb-* resolve the host vars (--background, --foreground, --card, --popover,
+ *   --muted-foreground, --destructive, --warning, --success, --info, --font-sans) with the
+ *   app's shadcn-neutral values as fallbacks (dark fallbacks via prefers-color-scheme, for
+ *   standalone use). Surfaces, primary and ring are neutral mixes of fg/bg (app look).
+ * Shell:   .sb-window (fake app window; height via --sb-h, default 560px)
+ *          .sb-sidebar .sb-lights .sb-nav-row(.is-active) .sb-nav-ic .sb-nav-label
+ *          .sb-nav-count .sb-nav-on .sb-nav-section .sb-nav-foot
+ *          .sb-main .sb-header .sb-title .sb-crumbs .sb-header-actions .sb-page .sb-toolbar
+ * List:    .sb-card > .sb-row(.is-dim) > .sb-row-main(.sb-row-title .sb-slug .sb-desc .sb-meta)
+ *          + .sb-row-end, .sb-row-hover (revealed on row hover/focus)
+ * Buttons: .sb-btn + .sb-btn-primary|-outline|-ghost|-danger|-icon, sizes .sb-btn-sm .sb-btn-xs,
+ *          .sb-btn-block, .sb-targets ("All agents ⌄" muted dropdown button)
+ * Inputs:  input.sb-checkbox (checked / indeterminate / disabled), .sb-check-label,
+ *          .sb-search > .sb-ic + input.sb-input, .sb-seg > button(.is-active) .sb-seg-count,
+ *          .sb-tabs > .sb-tab(.is-active) .sb-tabs-sep
+ * Marks:   .sb-chip(.is-active) .sb-chip-count, .sb-tag .sb-tag-warning .sb-tag-outline,
+ *          .sb-dot + .sb-tint-neutral|-blue|-amber (sets --tint), .sb-avatar(.is-color .is-glyph
+ *          .is-ws; size via --sz) .sb-avatar-stack .sb-avatar-more, .sb-pill(.is-on .is-icon)
+ *          .sb-pill-logo, .sb-newicon (glyph not in the retained set)
+ * Overlays (absolute inside .sb-window): .sb-tooltip .sb-menu .sb-menu-item(.is-danger)
+ *          .sb-menu-sep .sb-menu-heading .sb-menu-trail .sb-scrim(.is-top) .sb-dialog
+ *          (-sm|-md|-lg) .sb-dialog-header .sb-dialog-title .sb-dialog-body .sb-dialog-footer
+ *          .sb-toast .sb-toast-text .sb-toast-action .sb-menu-ic
+ * Feedback: .sb-progress(.is-indeterminate) > span, .sb-progress-row .sb-progress-pct
+ *          .sb-progress-step, .sb-spin, .sb-empty .sb-empty-ic
+ *          .sb-empty-title .sb-empty-sub
+ * Utility: .sb-hstack .sb-vstack .sb-spacer .sb-muted .sb-small .sb-ellipsis .sb-ic
+ * Variant bar (above the window): .sb-vbar .sb-vbar-top .sb-vbar-seg .sb-vbar-opt(.is-active)
+ *          .sb-vbar-extra .sb-vbar-desc
+ */
+
+/* Only these come from the host (with the app's values as fallbacks). Every neutral surface,
+ * the primary and the focus ring derive from --foreground/--background, because hosts often
+ * use a brand-colored --primary and much subtler --muted/--border than the app's shadcn neutral. */
+:root {
+  --sb-fb-bg: #ffffff; --sb-fb-fg: #0a0a0a; --sb-fb-card: #ffffff; --sb-fb-muted-fg: #737373;
+  --sb-fb-danger: #dc2626; --sb-fb-warning: #eab308; --sb-fb-success: #16a34a; --sb-fb-info: #2563eb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sb-fb-bg: #0a0a0a; --sb-fb-fg: #fafafa; --sb-fb-card: #0f0f0f; --sb-fb-muted-fg: #a3a3a3;
+    --sb-fb-warning: #facc15; --sb-fb-success: #4ade80; --sb-fb-info: #60a5fa;
+  }
+}
+/* Declared on body too, so a host theme set on <body> is picked up. */
+:root, body {
+  --sb-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans, system-ui, "Helvetica Neue", sans-serif);
+  --sb-mono: var(--font-mono, Menlo, ui-monospace, monospace);
+  --sb-bg: var(--background, var(--sb-fb-bg));
+  --sb-fg: var(--foreground, var(--sb-fb-fg));
+  --sb-card: var(--card, var(--sb-fb-card));
+  --sb-popover: var(--popover, var(--sb-card));
+  --sb-popover-fg: var(--popover-foreground, var(--sb-fg));
+  --sb-muted-fg: var(--muted-foreground, var(--sb-fb-muted-fg));
+  --sb-danger: var(--destructive, var(--sb-fb-danger));
+  --sb-warning: var(--warning, var(--sb-fb-warning));
+  --sb-success: var(--success, var(--sb-fb-success));
+  --sb-info: var(--info, var(--sb-fb-info));
+  /* Neutral app surfaces (light ≈ #f5f5f5 / #e5e5e5 / #fafafa / #ebebeb; dark ≈ #262626 border). */
+  --sb-muted: color-mix(in srgb, var(--sb-fg) 6%, var(--sb-bg));
+  --sb-border: color-mix(in srgb, var(--sb-fg) 12%, var(--sb-bg));
+  --sb-input: color-mix(in srgb, var(--sb-fg) 18%, var(--sb-bg));
+  --sb-sidebar: color-mix(in srgb, var(--sb-fg) 3.5%, var(--sb-bg));
+  --sb-sel: color-mix(in srgb, var(--sb-fg) 10%, var(--sb-bg));
+  --sb-hover: color-mix(in srgb, var(--sb-fg) 4%, var(--sb-card));
+  --sb-secondary: color-mix(in srgb, var(--sb-fg) 8%, var(--sb-bg));
+  --sb-line: color-mix(in srgb, var(--sb-fg) 10%, transparent);
+  --sb-highlight: color-mix(in srgb, var(--sb-fg) 7%, transparent);
+  --sb-primary: var(--sb-fg);
+  --sb-primary-fg: var(--sb-bg);
+  --sb-ring: color-mix(in srgb, var(--sb-fg) 40%, transparent);
+  --sb-shadow-md: 0 4px 6px -1px rgb(0 0 0 / .10), 0 2px 4px -2px rgb(0 0 0 / .10);
+  --sb-shadow-lg: 0 20px 25px -5px rgb(0 0 0 / .12), 0 8px 10px -6px rgb(0 0 0 / .10);
+}
+
+html.sb-standalone { color-scheme: light dark; }
+html.sb-standalone body { margin: 16px; background: var(--sb-bg); color: var(--sb-fg); font-family: var(--sb-font); }
+
+/* ---- window shell ------------------------------------------------------- */
+.sb-window, .sb-window *, .sb-vbar, .sb-vbar *, .sb-tooltip { box-sizing: border-box; }
+.sb-window {
+  position: relative; isolation: isolate; display: flex; width: 100%; min-width: 0;
+  height: var(--sb-h, 560px); overflow: hidden; text-align: left;
+  border: 1px solid var(--sb-border); border-radius: 10px;
+  background: var(--sb-bg); color: var(--sb-fg);
+  font: 13px/1.4 var(--sb-font); -webkit-font-smoothing: antialiased;
+}
+:where(.sb-window) :where(button, input) { font: inherit; color: inherit; }
+.sb-window [hidden] { display: none !important; }
+.sb-ic { flex: none; display: block; }
+.sb-ic-missing { display: inline-grid; place-items: center; outline: 1px dashed var(--sb-danger); color: var(--sb-danger); font-size: 10px; }
+
+.sb-sidebar {
+  width: var(--sb-sidebar-w, 170px); flex: none; display: flex; flex-direction: column; gap: 1px;
+  padding: 0 6px 8px; overflow-y: auto; scrollbar-width: none;
+  background: var(--sb-sidebar); border-right: 1px solid var(--sb-border);
+}
+.sb-lights { height: 40px; flex: none; display: flex; align-items: center; gap: 7px; padding-left: 8px; }
+.sb-lights i { width: 11px; height: 11px; border-radius: 50%; background: color-mix(in srgb, var(--sb-fg) 14%, transparent); }
+.sb-nav-row {
+  display: flex; align-items: center; gap: 7px; width: 100%; height: 28px; flex: none; padding: 0 8px;
+  border: 0; border-radius: 7px; background: transparent; color: var(--sb-muted-fg);
+  font-size: 13px; font-weight: 500; text-align: left; cursor: pointer;
+}
+.sb-nav-row:hover { background: color-mix(in srgb, var(--sb-sel) 55%, transparent); }
+.sb-nav-row.is-active { background: var(--sb-sel); color: var(--sb-fg); }
+.sb-nav-ic { width: 15px; height: 15px; flex: none; display: grid; place-items: center; color: color-mix(in srgb, var(--sb-muted-fg) 80%, transparent); }
+.sb-nav-row.is-active .sb-nav-ic { color: var(--sb-fg); }
+.sb-nav-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+.sb-nav-count { flex: none; font-size: 11.5px; font-weight: 400; color: var(--sb-muted-fg); font-variant-numeric: tabular-nums; }
+.sb-nav-on { color: var(--tint, var(--sb-fg)); }
+.sb-nav-row.is-on { color: var(--sb-fg); }
+.sb-nav-section {
+  display: flex; align-items: center; justify-content: space-between; height: 24px; flex: none;
+  margin-top: 8px; padding: 0 2px 0 8px; font-size: 11.5px; color: var(--sb-muted-fg);
+}
+.sb-nav-foot { margin-top: auto; padding-top: 8px; }
+
+.sb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sb-header {
+  height: 44px; flex: none; display: flex; align-items: center; gap: 8px; min-width: 0;
+  padding: 0 10px 0 16px; border-bottom: 1px solid var(--sb-border);
+}
+.sb-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.sb-crumbs { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 13.5px; white-space: nowrap; }
+.sb-crumbs > :not(:last-child) { color: var(--sb-muted-fg); }
+.sb-header-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; flex: none; }
+.sb-page { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 20px; }
+.sb-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---- list card ------------------------------------------------------------ */
+.sb-card { border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card); }
+.sb-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 14px; }
+.sb-row + .sb-row::before { content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 1px; background: var(--sb-border); }
+.sb-row:hover { background: var(--sb-hover); --sb-ring-bg: var(--sb-hover); }
+.sb-card > .sb-row:first-child { border-radius: 9px 9px 0 0; }
+.sb-card > .sb-row:last-child { border-radius: 0 0 9px 9px; }
+.sb-card > .sb-row:only-child { border-radius: 9px; }
+.sb-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sb-row-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sb-slug { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-desc { font-size: 12.5px; color: var(--sb-muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-meta { display: flex; align-items: center; gap: 6px; min-height: 18px; font-size: 11.5px; color: var(--sb-muted-fg); }
+.sb-row-end { flex: none; display: flex; align-items: center; gap: 8px; }
+.sb-row-hover { opacity: 0; transition: opacity .12s; }
+.sb-row:hover .sb-row-hover, .sb-row:focus-within .sb-row-hover { opacity: 1; }
+.sb-row.is-dim .sb-slug, .sb-row.is-dim .sb-desc { opacity: .5; }
+
+/* ---- buttons ---------------------------------------------------------------- */
+.sb-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px;
+  border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--sb-fg);
+  font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap; cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s, opacity .12s;
+}
+.sb-btn:hover { background: var(--sb-muted); }
+.sb-btn:disabled { opacity: .45; cursor: default; }
+.sb-btn:disabled:hover { background: transparent; }
+.sb-btn-primary, .sb-btn-primary:disabled:hover { background: var(--sb-primary); color: var(--sb-primary-fg); }
+.sb-btn-primary:hover { background: color-mix(in srgb, var(--sb-primary) 86%, var(--sb-bg)); }
+.sb-btn-outline, .sb-btn-outline:disabled:hover { background: var(--sb-bg); border-color: var(--sb-border); }
+.sb-btn-outline:hover { background: var(--sb-muted); }
+.sb-btn-danger, .sb-btn-danger:disabled:hover { background: var(--sb-danger); color: #fff; }
+.sb-btn-danger:hover { background: color-mix(in srgb, var(--sb-danger) 88%, #000); }
+.sb-btn-icon { width: 28px; padding: 0; color: var(--sb-muted-fg); }
+.sb-btn-icon:hover { color: var(--sb-fg); }
+.sb-btn-sm { height: 24px; padding: 0 8px; font-size: 12px; }
+.sb-btn-xs { height: 20px; padding: 0 6px; font-size: 11.5px; border-radius: 5px; }
+.sb-btn-icon.sb-btn-sm { width: 24px; padding: 0; }
+.sb-btn-icon.sb-btn-xs { width: 20px; padding: 0; }
+.sb-btn-block { width: 100%; }
+.sb-targets {
+  display: inline-flex; align-items: center; gap: 3px; height: 24px; padding: 0 6px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--sb-muted-fg); font-size: 12px; white-space: nowrap; cursor: pointer;
+}
+.sb-targets:hover, .sb-targets[aria-expanded="true"] { background: var(--sb-muted); color: var(--sb-fg); }
+

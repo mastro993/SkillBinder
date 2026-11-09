@@ -1,0 +1,37 @@
+/* ---- utility ------------------------------------------------------------------ */
+.sb-hstack { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sb-vstack { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sb-spacer { flex: 1; }
+.sb-muted { color: var(--sb-muted-fg); }
+.sb-small { font-size: 12px; }
+.sb-ellipsis { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sb-window :focus-visible, .sb-vbar :focus-visible { outline: 2px solid var(--sb-ring); outline-offset: 1px; }
+.sb-checkbox:focus-visible { outline-offset: 2px; }
+
+/* ---- variant bar (outside the window) -------------------------------------------- */
+.sb-vbar { display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px; color: var(--sb-fg); font: 13px/1.4 var(--sb-font); }
+.sb-vbar-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sb-vbar-extra { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.sb-vbar-extra:empty { display: none; }
+.sb-vbar-seg { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 2px; max-width: 100%; padding: 3px; border-radius: var(--radius, 8px); background: var(--sb-muted); }
+.sb-vbar-opt {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 5px; border: 0;
+  border-radius: calc(var(--radius, 8px) - 2px); background: transparent; color: var(--sb-muted-fg);
+  font: 500 12.5px var(--sb-font); white-space: nowrap; cursor: pointer;
+}
+.sb-vbar-opt:hover { color: var(--sb-fg); }
+.sb-vbar-opt b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; background: var(--sb-highlight); color: var(--sb-fg); font-size: 11px; }
+.sb-vbar-opt.is-active { background: var(--sb-bg); color: var(--sb-fg); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+.sb-vbar-opt.is-active b { background: var(--sb-fg); color: var(--sb-bg); }
+.sb-vbar-desc { padding-left: 2px; font-size: 12.5px; color: var(--sb-muted-fg); }
+
+@keyframes sb-fade { from { opacity: 0; } }
+@keyframes sb-pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+@keyframes sb-drop { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes sb-rise { from { opacity: 0; transform: translate(-50%, 8px); } }
+@keyframes sb-rotate { to { transform: rotate(360deg); } }
+@keyframes sb-indet { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) {
+  .sb-window *, .sb-tooltip { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  .sb-spin, .sb-progress.is-indeterminate > span { animation-duration: 2s !important; }
+}

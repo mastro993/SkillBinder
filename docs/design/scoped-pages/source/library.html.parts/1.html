@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library prototype</title>
+<!-- Library prototype: where a skill is on, three ways to change it (A popover, B inspector,
+     C skill page), two filter styles. Build: python3 -I kit/inline.py library.html library.out.html -->
+<link rel="stylesheet" href="kit/kit.css">
+<style>
+/* ---- page frame: fixed toolbar, scrolling list (+ inspector) ---- */
+.sb-page.lib-page { overflow: hidden; padding-bottom: 0; }
+.lib-toolbar { flex-wrap: nowrap; }
+.lib-toolbar .sb-search { flex: 1 1 120px; width: auto; min-width: 100px; }
+.lib-filters { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lib-fchips { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lib-tall { height: 28px; }
+.lib-fchip .sb-ic:last-child { margin-right: -3px; color: var(--sb-muted-fg); }
+.lib-fbtn.is-on { background: var(--sb-muted); color: var(--sb-fg); }
+.lib-body { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.lib-scroll { flex: 1; min-width: 0; overflow: auto; padding-bottom: 16px; scrollbar-width: thin; }
+
+/* ---- rows and tiles ---- */
+.lib-row.is-clickable, .lib-tile.is-clickable { cursor: pointer; }
+.lib-row.is-selected, .lib-row.is-selected:hover { background: var(--sb-sel); --sb-ring-bg: var(--sb-sel); }
+.lib-upd { display: grid; flex: none; color: var(--sb-info); }
+.lib-go { display: grid; color: var(--sb-muted-fg); opacity: .6; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.lib-tile {
+  position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 116px; padding: 12px;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card);
+}
+.lib-tile:hover { background: var(--sb-hover); --sb-ring-bg: var(--sb-hover); }
+.lib-tile.is-selected { box-shadow: 0 0 0 1px var(--sb-fg); }
+.lib-tile-desc { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.lib-tile-foot { margin-top: auto; padding-top: 6px; display: flex; align-items: center; min-height: 32px; }
+.lib-tile.is-dim .sb-slug, .lib-tile.is-dim .sb-desc, .is-dim .lib-foldertag { opacity: .5; }
+.lib-scroll { container-type: inline-size; }
+@container (max-width: 440px) { .lib-row .lib-foldertag { display: none; } }
+
+/* ---- placement: where the skill is on ---- */
+.lib-place {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 26px; padding: 0 2px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--sb-muted-fg);
+}
+.lib-place.is-btn { padding: 0 4px 0 6px; cursor: pointer; }
+/* Hover/open fill: the menu highlight (fg at 0.08) over the row's own fill, so it shows on a
+   hovered row. The avatar rings inside take the same highlight over the row fill. */
+.lib-place.is-btn:hover, .lib-place.is-btn[aria-expanded="true"] { background: var(--sb-highlight); color: var(--sb-fg); }
+.lib-place.is-btn:hover .sb-avatar, .lib-place.is-btn[aria-expanded="true"] .sb-avatar {
+  box-shadow: 0 0 0 2px var(--sb-highlight), 0 0 0 2px var(--sb-ring-bg, var(--sb-bg));
+}
+.lib-place.is-btn.is-empty {
+  width: 26px; padding: 0; justify-content: center; opacity: 0;
+  border: 1px dashed color-mix(in srgb, var(--sb-fg) 24%, transparent); border-radius: 999px;
+}
+.sb-row:hover .lib-place.is-empty, .lib-tile:hover .lib-place.is-empty,
+.lib-place.is-empty:focus-visible, .lib-place.is-empty[aria-expanded="true"] { opacity: 1; }
+.lib-place-sep { width: 1px; height: 14px; flex: none; background: var(--sb-border); }
+.lib-wschip { height: 20px; gap: 4px; padding: 0 7px 0 5px; }
+.lib-wschip .sb-ic { color: var(--sb-muted-fg); }
+
+/* ---- the "where it's on" editor (popover, inspector, skill page) ---- */
+.lib-where { display: flex; flex-direction: column; gap: 10px; }
+.lib-where > .lib-sec + .lib-sec { padding-top: 10px; border-top: 1px solid var(--sb-line); }
+.lib-where.is-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 28px; }
+.lib-where.is-columns > .lib-sec + .lib-sec { padding-top: 0; border-top: 0; }
+.lib-sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lib-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+.lib-sec-label { font-size: 11.5px; font-weight: 500; color: var(--sb-muted-fg); }
+.lib-allrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.lib-allrow.is-compact { flex: 1; min-width: 0; justify-content: flex-start; }
+.lib-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.lib-wsline { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.lib-wsname { flex: 1 0 auto; min-width: 0; display: flex; flex-direction: column; }
+.lib-wsname-top { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; }
+.lib-wsname-top .sb-ic { color: var(--sb-muted-fg); }
+.lib-none { padding-left: 20px; font-size: 11.5px; color: var(--sb-muted-fg); }
+/* Many pills wrap onto further lines, aligned to the trailing edge. */
+.lib-wspills { display: flex; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; gap: 4px; min-width: 0; }
+.lib-switch {
+  position: relative; width: 30px; height: 18px; flex: none; padding: 0; border: 0; border-radius: 999px;
+  background: var(--sb-input); cursor: pointer; transition: background .15s;
+}
+.lib-switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--sb-bg); box-shadow: 0 1px 2px rgb(0 0 0 / .25); transition: transform .15s;
+}
+.lib-switch[aria-checked="true"] { background: var(--sb-primary); }
+.lib-switch[aria-checked="true"]::after { transform: translateX(12px); }
+
+/* ---- overlays ---- */
+.sb-menu.lib-pop { width: 300px; padding: 12px; }
+.sb-menu.lib-pop-sm { min-width: 0; width: 220px; padding: 8px; }
+.lib-folderpop { display: flex; gap: 6px; margin: 0; }
+.lib-fmenu .sb-menu-trail { gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.lib-radio, .lib-fcheck {
+  width: 14px; height: 14px; display: grid; place-items: center; border: 1px solid var(--sb-input); background: var(--sb-bg);
+}
+.lib-radio { border-radius: 50%; }
+.lib-radio.is-on { border-color: var(--sb-primary); }
+.lib-radio.is-on::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sb-primary); }
+.lib-fcheck { border-radius: 4px; color: var(--sb-primary-fg); }
+.lib-fcheck.is-on { background: var(--sb-primary); border-color: var(--sb-primary); }
+
+/* ---- B: inspector ---- */
+.lib-insp {
+  width: 240px; flex: none; align-self: flex-start; max-height: calc(100% - 16px); overflow: auto; padding: 10px 12px 12px;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); animation: lib-in .16s ease-out;
+}
+.lib-insp-head { display: flex; align-items: center; gap: 4px; min-width: 0; margin-right: -4px; }
+.lib-insp-head .sb-slug { flex: 1; min-width: 0; }
+.lib-insp-desc { margin: 2px 0 12px; white-space: normal; }
+@keyframes lib-in { from { opacity: 0; transform: translateX(8px); } }
+
+/* ---- C: skill page ---- */
+.lib-back .sb-ic { transform: rotate(180deg); }
+.lib-crumb { padding: 0; border: 0; background: none; cursor: pointer; }
+.lib-crumb:hover { color: var(--sb-fg); }
+.lib-skill-title { font-size: 18px; font-weight: 600; }
+.lib-skill-head { display: flex; flex-direction: column; gap: 4px; }
+.lib-block { padding: 12px 14px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
+.lib-block-label { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 12px; font-weight: 600; }
+.lib-md { margin: 0; color: var(--sb-fg); font: 12px/1.55 var(--sb-mono); white-space: pre-wrap; }
+.lib-md-dim { color: var(--sb-muted-fg); }
+</style>
+<script src="kit/reference.js"></script>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page lib-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="kit/icons.js"></script>
+<script src="kit/data.js"></script>
+<script src="kit/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  const D = window.DATA;
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+
+  const ui = {
+    variant: 'popover', filterStyle: 'seg', layout: 'list', view: 'library',
+    folder: null, status: 'all', updates: false, query: '',
+    folders: [...D.folders], skill: null, selected: null, scrollTop: 0,
+  };
+  const rows = new Map();   // slug -> {el, place, slug} for the rendered list
+  const insp = h('aside', { class: 'lib-insp', 'aria-label': 'Where it is on' });
+  let pop = null;           // A: {api, slug, content}
+  let filtersSlot = null;   // re-painted on filter and data changes
+  let skillWhere = null;    // C: the editor block on the skill page
+  let switching = false;
+
+  // ---- shell -----------------------------------------------------------------------
+  renderSidebar(side, { active: 'library', onNav: nav, onPreset: switchTo });
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'popover', label: 'Popover', desc: 'Click where a skill is on (right of each row) to change it in a popover.' },
+    { id: 'inspector', label: 'Inspector', desc: 'Click a row to change where it is on in a side panel.' },
+    { id: 'page', label: 'Skill page', desc: "Click a row to open the skill's page and change where it is on there." },
+  ], (id) => { closePop(); Object.assign(ui, { variant: id, selected: null, skill: null }); insp.remove(); draw(); });
+  bar.extra.append(
+    h('span', { class: 'sb-muted sb-small' }, 'Filters'),
+    seg([{ id: 'seg', label: 'Segmented' }, { id: 'menu', label: 'Menu' }], ui.filterStyle, (v) => { ui.filterStyle = v; draw(); }),
+    demoControls());
+
+  D.on((ev) => {
+    if (switching) return;
+    if (ev.type === 'preset' || ev.type === 'preset-deleted' || ev.type === 'reset') draw();
+    else refresh();
+  });
+  // Esc in the search box only clears it; elsewhere it closes the inspector.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.target.closest('input')) return;
+    if (ui.view === 'library' && ui.selected && !ui.skill) closeInspector();
+  });
+  // Repaint placements when the window is resized (full-width browser), so names and counts fit.
+  new ResizeObserver(() => { if (ui.view === 'library' && !ui.skill) rows.forEach(paintItem); }).observe(win);
+
+  function nav(key) {
+    closePop();
+    ui.view = key;
+    ui.skill = null;
+    renderSidebar(side, { active: key });
+    draw();
+  }
+
+  // The list updates after the blocking switch, not under it.
+  async function switchTo(id) {
+    closePop();
+    const plan = D.planSwitch(id);
+    switching = true;
+    D.switchPreset(id);
+    await progressDialog(win, { plan });
+    switching = false;
+    draw();
+  }
+
+  function draw() {
+    if (ui.view !== 'library') drawOther();
+    else if (ui.skill) drawSkillPage(ui.skill);
+    else drawLibrary();
+  }
+
+  function refresh() {
+    if (ui.view !== 'library') return;
+    if (ui.skill) { paintSkillWhere(); return; }
+    paintFilters();
+    rows.forEach(paintItem);
+    if (pop) { keepFocus(pop.content, () => pop.content.replaceChildren(...whereSections(pop.slug, { compact: true }))); placePop(); }
+    if (ui.selected && insp.isConnected) paintInspector();
+  }
+
