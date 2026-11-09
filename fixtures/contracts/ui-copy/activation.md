@@ -27,3 +27,19 @@ These strings were added with activation (ADR 0006); they have no captured basel
 - A skill also active for your agents, for an agent that reads both, shows the warning tag `Also in your agents`, with the tooltip `An agent reads this skill both here and in your agents, so it may load it twice.`
 - Dialog `Choose agents`, shown by the first activation in a workspace that uses no agents: `Which agents does <workspace> use? <slug> is copied into their skill directories.`, or `No agents are detected on this device.`. Each row is a checkbox naming the directory's agents, then the directory with home as `~`, and for Universal `<dir> · Used by <agents>`. Actions: `Cancel`, `Activate`.
 - Refusals: `Choose which agents this workspace uses.`, `Choose the skill directory of a detected agent.`, `The workspace folder is missing.`, `Skill no longer exists.`, `Workspace no longer exists.`
+
+## Blocking progress
+
+Added with ADR 0007 (#98); the look follows `docs/design/scoped-pages/spec/progress-2-strip.md` and `progress-3-toast-review.md`.
+
+- The strip's pill reads `Switching…` for a preset switch and for deleting the active preset, or `Importing…` for an import, then `<n>%`. Its tooltip is the change on one line, `Switching to <preset>`, `Switching to Default`, or `Importing <n> skills`, and the step on the next, `Copying <slug> → <place>` or `Removing <slug> from <place>`.
+- Done pill: `Done · 1 needs attention` or `Done · <n> need attention`, with `Review` and `Close`.
+- Toasts: `Switched to <preset>`, `Deleted <preset> · Switched to Default`, `Imported <n> skills` (`Imported 1 skill`).
+- Review list, titled `1 needs attention` or `<n> need attention`, footer `Done`. A row reads `<slug>` then `→ <place>`, a place being the agents that read the directory or `<workspace> · <agents>`, over its reason and answers:
+
+| Copy | Reason | Actions | Answered |
+| --- | --- | --- | --- |
+| Conflict | `Different copy there` | `Replace`, `Keep` | `Replaced`, `Kept` |
+| Edited | `You changed it here` | `Replace`, `Keep` | `Replaced`, `Kept` |
+| Edited, inactive | `You changed it here` | `Remove`, `Keep` | `Removed`, `Kept` |
+| Not applied, not removed | `Can't write the folder` | `Retry`, `Skip` | `Done`, `Skipped` |
