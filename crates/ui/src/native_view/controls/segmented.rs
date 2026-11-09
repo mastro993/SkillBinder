@@ -13,6 +13,12 @@ use super::{shadow, text};
 
 /// The hover group of one segment.
 const GROUP: &str = "segment";
+/// A segment's padding on each side.
+pub(crate) const SEGMENT_PADDING: f32 = 9.;
+/// The gap between a segment's label and its count.
+pub(crate) const SEGMENT_GAP: f32 = 5.;
+/// The track's padding around its segments, and the gap between them.
+pub(crate) const TRACK_PADDING: f32 = 2.;
 
 /// The track holding the segments.
 pub(crate) fn track(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
@@ -22,8 +28,8 @@ pub(crate) fn track(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
         .flex_none()
         .items_center()
         .h(px(28.))
-        .p(px(2.))
-        .gap(px(2.))
+        .p(px(TRACK_PADDING))
+        .gap(px(TRACK_PADDING))
         .rounded(px(8.))
         .bg(cx.theme().tab_bar_segmented)
 }
@@ -39,9 +45,9 @@ pub(crate) fn segment(id: impl Into<ElementId>, chosen: bool, cx: &App) -> State
         .flex()
         .flex_none()
         .items_center()
-        .gap(px(5.))
+        .gap(px(SEGMENT_GAP))
         .h(px(24.))
-        .px(px(9.))
+        .px(px(SEGMENT_PADDING))
         .rounded(px(6.))
         .font_weight(text::MEDIUM)
         .cursor_pointer()

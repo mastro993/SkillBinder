@@ -49,11 +49,11 @@ impl NativeView {
         };
         let shown = library_skills(&self.snapshot, &places, &active, query);
         let counts = on_library.then(|| filter_counts(&self.snapshot, &places, &active, query));
-        let toolbar = self.library_toolbar(counts, cx);
         let frame = Frame {
             width: self.content_width(window),
             scale: window.scale_factor(),
         };
+        let toolbar = self.library_toolbar(counts, frame.width, cx);
         let results = self.library_results(library, &places, &active, &shown, &typed, frame, cx);
         let notes: Vec<AnyElement> = self
             .empty_scope_note(library, cx)

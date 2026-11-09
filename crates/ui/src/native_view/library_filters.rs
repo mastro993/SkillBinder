@@ -5,23 +5,34 @@
 
 use super::controls::chip::{chip, outline_button};
 use super::controls::logo::Logo;
-use super::controls::segmented::{count, glyph, segment, track};
+use super::controls::segmented::{
+    SEGMENT_GAP, SEGMENT_PADDING, TRACK_PADDING, count, glyph, segment, track,
+};
 use super::controls::{app_icon, text, tooltip::tip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, h_flex, input::Input, v_flex};
 use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Role,
-    StatefulInteractiveElement, Styled, Toggled, div, prelude::FluentBuilder, px,
+    StatefulInteractiveElement, Styled, Toggled, div, prelude::FluentBuilder, px, relative,
 };
 use skillbinder_proto::LibraryView;
 use skillbinder_theme::library::TOOLBAR_HEIGHT;
+
+/// The gap between the segments' track and the Updates chip.
+const FILTERS_GAP: f32 = 6.;
+/// The Updates chip's border, padding, glyph, and gap between glyph and count.
+const CHIP_BORDER: f32 = 1.;
+const CHIP_PADDING: f32 = 8.;
+const UPDATE_GLYPH: f32 = 14.;
+const CHIP_GAP: f32 = 5.;
 
 impl NativeView {
     /// The toolbar; `counts` are given on Library, which shows the filters.
     pub(super) fn library_toolbar(
         &self,
         counts: Option<FilterCounts>,
+        width: f32,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let muted = cx.theme().muted_foreground;
@@ -51,15 +62,48 @@ impl NativeView {
             .h(px(TOOLBAR_HEIGHT))
             .gap(px(8.))
             .child(search)
-            .children(counts.map(|counts| self.library_filters(counts, cx)))
+            .children(counts.map(|counts| self.library_filters(counts, width, cx)))
             .child(div().flex_1())
             .child(self.view_segments(cx))
             .into_any_element()
     }
 
-    /// The All, Active, and Inactive segments, each with its count, then the Updates chip.
-    fn library_filters(&self, counts: FilterCounts, cx: &mut Context<Self>) -> Div {
+    /// The All, Active, and Inactive segments, each with its count, then the Updates chip, in a
+    /// toolbar `toolbar` points wide. Their widths follow from their text, which Chrome keeps to
+    /// the fraction; GPUI rounds a width in points to the device pixel but keeps a fraction of the
+    /// parent's width, so each box takes its exact width as one, and the field and the gap beside
+    /// them split the rest as the prototype's do.
+    fn library_filters(&self, counts: FilterCounts, toolbar: f32, cx: &mut Context<Self>) -> Div {
         let chosen = self.library_filter.active;
+        let label =
+            |label: &str| text::width(&label.into(), 12.5, text::MEDIUM, Default::default(), cx);
+        let figures = |value: usize| {
+            text::width(
+                &value.to_string().into(),
+                11.,
+                text::MEDIUM,
+                text::tabular(),
+                cx,
+            )
+        };
+        let widths = [
+            ("All", counts.all),
+            ("Active", counts.active),
+            ("Inactive", counts.inactive),
+        ]
+        .map(|(name, value)| 2. * SEGMENT_PADDING + label(name) + SEGMENT_GAP + figures(value));
+        let segments_width: f32 = widths.iter().sum();
+        let inner = segments_width + 2. * TRACK_PADDING;
+        let track_width = inner + 2. * TRACK_PADDING;
+        let updates = text::width(
+            &counts.updates.to_string().into(),
+            12.,
+            FontWeight::NORMAL,
+            text::tabular(),
+            cx,
+        );
+        let chip_width = 2. * (CHIP_BORDER + CHIP_PADDING) + UPDATE_GLYPH + CHIP_GAP + updates;
+        let filters_width = track_width + FILTERS_GAP + chip_width;
         let segments = [
             ("all", "All", ActiveFilter::All, counts.all),
             ("active", "Active", ActiveFilter::Active, counts.active),
@@ -70,8 +114,11 @@ impl NativeView {
                 counts.inactive,
             ),
         ]
-        .map(|(key, label, filter, value)| {
+        .into_iter()
+        .zip(widths)
+        .map(|((key, label, filter, value), width)| {
             segment(format!("library-filter-{key}"), chosen == filter, cx)
+                .w(relative(width / inner))
                 .role(Role::Tab)
                 .aria_label(label)
                 .child(text::run(label, 12.5, text::MEDIUM, false, cx))
@@ -85,17 +132,19 @@ impl NativeView {
         h_flex()
             .flex_none()
             .min_w_0()
-            .gap(px(6.))
+            .w(relative(filters_width / toolbar))
+            .gap(px(FILTERS_GAP))
             .child(
                 track("library-filter", cx)
+                    .w(relative(track_width / filters_width))
                     .role(Role::TabList)
                     .children(segments),
             )
-            .child(self.updates_chip(counts.updates, cx))
+            .child(self.updates_chip(counts.updates, chip_width / filters_width, cx))
     }
 
     /// The Updates chip: the update glyph and how many skills have one; filled while on.
-    fn updates_chip(&self, value: usize, cx: &mut Context<Self>) -> AnyElement {
+    fn updates_chip(&self, value: usize, share: f32, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
         let on = self.library_filter.updates;
         let (glyph_color, count_color) = if on {
@@ -105,15 +154,20 @@ impl NativeView {
         };
         let (fill, hover) = (theme.foreground, theme.muted);
         let chip = chip("library-filter-updates", TOOLBAR_HEIGHT, cx)
-            .px(px(8.))
-            .gap(px(5.))
+            .w(relative(share))
+            .px(px(CHIP_PADDING))
+            .gap(px(CHIP_GAP))
             .cursor_pointer()
             .role(Role::Button)
             .aria_toggled(if on { Toggled::True } else { Toggled::False })
             .aria_label("Updates")
             .when(on, |chip| chip.bg(fill).border_color(fill))
             .when(!on, |chip| chip.hover(move |style| style.bg(hover)))
-            .child(Logo::Glyph("icons/upload-circle.svg").element(14., glyph_color.into(), false))
+            .child(Logo::Glyph("icons/upload-circle.svg").element(
+                UPDATE_GLYPH,
+                glyph_color.into(),
+                false,
+            ))
             .child(
                 text::sized(
                     text::run(value.to_string(), 12., FontWeight::NORMAL, true, cx),

@@ -52,7 +52,7 @@ pub(crate) fn run(
     } else {
         FontFeatures::default()
     };
-    let width = shaped_width(&text, size, weight, features.clone(), cx);
+    let width = width(&text, size, weight, features.clone(), cx);
     div()
         .flex_none()
         .w(px(width))
@@ -74,12 +74,12 @@ pub(crate) fn overhang(
     features: FontFeatures,
     cx: &App,
 ) -> f32 {
-    let width = shaped_width(text, size, weight, features, cx);
+    let width = width(text, size, weight, features, cx);
     width - width.ceil()
 }
 
 /// `text`'s width as GPUI shapes it in the system font.
-fn shaped_width(
+pub(crate) fn width(
     text: &SharedString,
     size: f32,
     weight: FontWeight,
