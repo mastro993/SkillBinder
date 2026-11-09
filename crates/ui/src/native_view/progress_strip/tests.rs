@@ -24,6 +24,7 @@ fn a_change_that_lands_before_the_reveal_ends_at_once_with_its_toast() {
     let landed = now + Duration::from_millis(120);
     assert_eq!(strip.land(progress(20, 20, 0).into(), landed), landed);
     assert_eq!(strip.shown(), Shown::Blocker, "it never shows");
+    assert!(!strip.washed(), "no wash fades out");
     assert_eq!(
         strip.finish(landed),
         Finish::Toast("Switched to Frontend".to_owned())
@@ -67,6 +68,26 @@ fn the_shown_percent_never_goes_down() {
     assert_eq!(strip.shown(), Shown::Working(45));
     strip.follow(Some(&progress(19, 20, 0)));
     assert_eq!(strip.shown(), Shown::Working(95));
+}
+
+#[test]
+fn the_line_grows_from_the_percent_shown_before() {
+    let now = Instant::now();
+    let mut strip = Strip::new(switching(), now);
+    strip.follow(Some(&progress(4, 20, 0)));
+    strip.reveal(now + REVEAL_AFTER);
+    assert!(strip.washed());
+    assert_eq!(
+        strip.bar_from(),
+        20,
+        "the pill enters with its line in place"
+    );
+    strip.follow(Some(&progress(9, 20, 0)));
+    assert_eq!((strip.bar_from(), strip.shown()), (20, Shown::Working(45)));
+    strip.follow(Some(&progress(9, 40, 0)));
+    assert_eq!(strip.bar_from(), 20, "a lower report moves nothing");
+    strip.land(progress(20, 20, 0).into(), now + Duration::from_secs(1));
+    assert_eq!((strip.bar_from(), strip.shown()), (45, Shown::Working(100)));
 }
 
 #[test]

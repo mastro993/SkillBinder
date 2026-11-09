@@ -1,12 +1,14 @@
 //! The app's toast: an inverted chip centered at the bottom of the window, sized to its text, that
 //! closes by itself. Kit `Notification` keeps a fixed width, a popover card at the top right, a
-//! close button, and its own timing, so the app draws this one.
+//! close button, and its own timing, so the app draws this one. It rises 8 px into place while it
+//! fades in over 200 ms, and leaves dropping 6 px while it fades out over 180 ms.
 
+use super::motion::{ease, ease_out};
 use super::{app_icon, shadow};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    AnyElement, App, Div, InteractiveElement, IntoElement, ParentElement, SharedString, Stateful,
-    Styled, deferred, div, prelude::FluentBuilder, px,
+    Animation, AnimationExt, AnyElement, App, Div, InteractiveElement, IntoElement, ParentElement,
+    SharedString, Stateful, Styled, deferred, div, prelude::FluentBuilder, px,
 };
 use std::time::{Duration, Instant};
 
@@ -14,6 +16,10 @@ use std::time::{Duration, Instant};
 pub(crate) const SHOWN: Duration = Duration::from_millis(4000);
 /// How long a toast stays after the pointer leaves it; hovering keeps it.
 pub(crate) const AFTER_LEAVE: Duration = Duration::from_millis(1500);
+/// How long a toast takes to leave.
+pub(crate) const LEAVING: Duration = Duration::from_millis(180);
+/// How long a toast takes to rise into place.
+const RISING: Duration = Duration::from_millis(200);
 /// Above the menus and the dialog layer, so a toast shows over an open dialog.
 const PRIORITY: usize = gpui_kit::base::POPUP_PRIORITY + 10;
 
@@ -23,34 +29,55 @@ pub(crate) struct Toast {
     pub message: SharedString,
     /// A retained glyph drawn in the text color before the message.
     pub icon: Option<&'static str>,
-    /// When it closes; `None` while the pointer is over it.
+    /// Which toast this is, so one that replaces another rises anew.
+    pub serial: u64,
+    /// When it closes; `None` while the pointer is over it or once it is leaving.
     closes: Option<Instant>,
+    /// It is leaving, and goes once it has faded out.
+    leaving: bool,
 }
 
 impl Toast {
-    /// A toast shown at `now`, closing [`SHOWN`] later.
+    /// Toast number `serial`, shown at `now`, closing [`SHOWN`] later.
     pub(crate) fn new(
         message: impl Into<SharedString>,
         icon: Option<&'static str>,
+        serial: u64,
         now: Instant,
     ) -> Self {
         Self {
             message: message.into(),
             icon,
+            serial,
             closes: Some(now + SHOWN),
+            leaving: false,
         }
     }
 
     /// Pauses it while the pointer is over it, or gives it [`AFTER_LEAVE`] more from `now` once the
-    /// pointer leaves; returns when it then closes.
+    /// pointer leaves; returns when it then closes. A leaving toast keeps leaving.
     pub(crate) fn hover(&mut self, hovered: bool, now: Instant) -> Option<Instant> {
+        if self.leaving {
+            return None;
+        }
         self.closes = (!hovered).then(|| now + AFTER_LEAVE);
         self.closes
     }
 
     /// Whether a timer set for `deadline` closes it: a later hover or a newer toast moved it.
     pub(crate) fn expires_at(&self, deadline: Instant) -> bool {
-        self.closes == Some(deadline)
+        !self.leaving && self.closes == Some(deadline)
+    }
+
+    /// Starts it leaving.
+    pub(crate) fn leave(&mut self) {
+        self.closes = None;
+        self.leaving = true;
+    }
+
+    /// Whether it is leaving.
+    pub(crate) fn leaving(&self) -> bool {
+        self.leaving
     }
 }
 
@@ -66,6 +93,7 @@ pub(crate) fn toast_layer(
     let ink = theme.background;
     let body = div()
         .id(id)
+        .relative()
         .occlude()
         .min_w_0()
         .flex()
@@ -85,6 +113,7 @@ pub(crate) fn toast_layer(
             chip.child(app_icon(icon).size(px(15.)).flex_none().text_color(ink))
         })
         .child(div().min_w_0().text_ellipsis().child(toast.message.clone()));
+    let chip = moving(chip(body), toast);
     deferred(
         div()
             .absolute()
@@ -94,9 +123,27 @@ pub(crate) fn toast_layer(
             .px(px(16.))
             .flex()
             .justify_center()
-            .child(chip(body)),
+            .child(chip),
     )
     .with_priority(PRIORITY)
+    .into_any_element()
+}
+
+/// `chip` rising into place as it fades in, or dropping as it fades out once leaving.
+fn moving(chip: Stateful<Div>, toast: &Toast) -> AnyElement {
+    let serial = toast.serial;
+    if toast.leaving {
+        let leaving = Animation::new(LEAVING).with_easing(ease());
+        return chip
+            .with_animation(("toast-leave", serial), leaving, |chip, left| {
+                chip.top(px(6. * left)).opacity(1. - left)
+            })
+            .into_any_element();
+    }
+    let rising = Animation::new(RISING).with_easing(ease_out());
+    chip.with_animation(("toast-rise", serial), rising, |chip, risen| {
+        chip.top(px(8. * (1. - risen))).opacity(risen)
+    })
     .into_any_element()
 }
 
@@ -107,7 +154,7 @@ mod tests {
     #[test]
     fn a_toast_closes_after_its_time_unless_hovered() {
         let now = Instant::now();
-        let mut toast = Toast::new("Switched to Work", Some("check-circle"), now);
+        let mut toast = Toast::new("Switched to Work", Some("check-circle"), 0, now);
         let first = now + SHOWN;
         assert!(toast.expires_at(first));
         assert_eq!(toast.hover(true, now), None);
@@ -120,5 +167,13 @@ mod tests {
             "the first timer no longer closes it"
         );
         assert!(toast.expires_at(left + AFTER_LEAVE));
+        toast.leave();
+        assert!(toast.leaving());
+        assert!(!toast.expires_at(left + AFTER_LEAVE), "it closes once");
+        assert_eq!(
+            toast.hover(false, left),
+            None,
+            "a leaving toast keeps leaving"
+        );
     }
 }

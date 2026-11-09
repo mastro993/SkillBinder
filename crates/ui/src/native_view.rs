@@ -177,6 +177,8 @@ pub struct NativeView {
     updating: Option<(usize, usize)>,
     /// The progress strip of a blocking change, from the click until it ends.
     strip: Option<progress_strip::Strip>,
+    /// When the wash of a strip that ended began fading out, while it fades.
+    wash_fade: Option<std::time::Instant>,
     /// Focus for the strip and the review list while they are up, so keys reach nothing else.
     overlay_focus: FocusHandle,
     toast: Option<controls::toast::Toast>,
@@ -310,6 +312,7 @@ impl NativeView {
             optimistic_presets: Vec::new(),
             updating: None,
             strip: None,
+            wash_fade: None,
             overlay_focus: cx.focus_handle().tab_stop(true),
             toast: None,
             #[cfg(feature = "native-test")]

@@ -1,7 +1,9 @@
 //! How the review list draws: the app's dialog, 420 wide, with the copies in a card and Done.
 
 use super::super::controls::app_icon;
-use super::super::controls::dialog_surface::{body, close_button, footer, header, scrim, surface};
+use super::super::controls::dialog_surface::{
+    body, close_button, fading_in, footer, header, scrim, surface,
+};
 use super::super::controls::text_button::{Height, Look, text_button};
 use super::super::copy_dialogs::CopiesListing;
 use super::super::import_review::place_name;
@@ -78,21 +80,19 @@ impl NativeView {
                     .on_click(cx.listener(|view, _, _, cx| view.close_review(cx))),
                 ),
             );
-        Some(
-            scrim("copies-review", dialog, cx)
-                .track_focus(&self.overlay_focus)
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|view, _, _, cx| view.close_review(cx)),
-                )
-                .on_key_down(cx.listener(|view, event: &KeyDownEvent, _, cx| {
-                    if event.keystroke.key == "escape" {
-                        view.close_review(cx);
-                    }
-                }))
-                .focus_trap("copies-review-trap", &self.overlay_focus)
-                .into_any_element(),
-        )
+        // The focus trap also tracks the overlay's focus, so keys reach the scrim.
+        let scrim = scrim("copies-review", dialog, cx)
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|view, _, _, cx| view.close_review(cx)),
+            )
+            .on_key_down(cx.listener(|view, event: &KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" {
+                    view.close_review(cx);
+                }
+            }))
+            .focus_trap("copies-review-trap", &self.overlay_focus);
+        Some(fading_in("copies-review-fade", scrim))
     }
 
     /// One copy: slug and place, why it needs the user, and its answers or how it settled.

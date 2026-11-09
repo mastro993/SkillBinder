@@ -16,6 +16,8 @@ use std::time::{Duration, Instant};
 pub(super) const REVEAL_AFTER: Duration = Duration::from_millis(300);
 /// How long a shown strip stays at least.
 pub(super) const SHOWN_AT_LEAST: Duration = Duration::from_millis(500);
+/// How long the wash takes to fade in as the strip shows, and out once it ends.
+pub(super) const WASH_FADE: Duration = Duration::from_millis(200);
 
 /// The change the app is blocked for, which names the strip's label and its end toast.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -132,6 +134,8 @@ pub(super) struct Strip {
     revealed: Option<Instant>,
     /// The highest percent shown so far.
     percent: u8,
+    /// The percent the progress line grows from toward `percent`.
+    bar_from: u8,
     /// The latest step the change reported, for the tooltip.
     step: Option<skillbinder_proto::ActivationStep>,
     stage: Stage,
@@ -146,6 +150,7 @@ impl Strip {
             started: now,
             revealed: None,
             percent: 0,
+            bar_from: 0,
             step: None,
             stage: Stage::Working,
             ends: None,
@@ -157,9 +162,31 @@ impl Strip {
     }
 
     /// Shows the wash and the pill, unless they show already. A change that lands first ends the
-    /// strip at once, so the reveal never comes.
+    /// strip at once, so the reveal never comes. The pill enters with its line already at the
+    /// current percent.
     pub(super) fn reveal(&mut self, now: Instant) {
-        self.revealed.get_or_insert(now);
+        if self.revealed.is_none() {
+            self.revealed = Some(now);
+            self.bar_from = self.percent;
+        }
+    }
+
+    /// Whether the wash has shown, so it fades out once the strip ends.
+    pub(super) fn washed(&self) -> bool {
+        self.revealed.is_some()
+    }
+
+    /// The percent the progress line grows from toward the shown percent.
+    pub(super) fn bar_from(&self) -> u8 {
+        self.bar_from
+    }
+
+    /// Shows `percent` from now on, the line growing from the one shown before.
+    fn advance_to(&mut self, percent: u8) {
+        if percent > self.percent {
+            self.bar_from = self.percent;
+            self.percent = percent;
+        }
     }
 
     /// Follows the published progress. The percent never goes down, and a refresh that publishes
@@ -169,7 +196,7 @@ impl Strip {
             return;
         }
         if let Some(reported) = reported {
-            self.percent = self.percent.max(reported.percent());
+            self.advance_to(reported.percent());
             if reported.step.is_some() {
                 self.step.clone_from(&reported.step);
             }
@@ -179,7 +206,7 @@ impl Strip {
     /// The change landed at `now`: returns when the strip ends.
     pub(super) fn land(&mut self, landing: Landing, now: Instant) -> Instant {
         self.stage = Stage::Landed(landing);
-        self.percent = 100;
+        self.advance_to(100);
         *self.ends.insert(ends_at(self.revealed, now))
     }
 

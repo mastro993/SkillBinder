@@ -4,7 +4,7 @@
 use super::super::copies_review::Review;
 use super::super::copy_dialogs::CopiesListing;
 use super::super::{DialogState, Effect, NativeView};
-use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip};
+use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip, WASH_FADE};
 use gpui_kit::{Context, Window};
 use skillbinder_proto::AppResult;
 use std::{
@@ -123,17 +123,40 @@ impl NativeView {
         };
         match strip.finish(Instant::now()) {
             Finish::Toast(message) => {
-                self.strip = None;
+                self.take_strip(cx);
                 self.show_toast(message, Some("check-circle"), cx);
                 self.prompt_copies();
             }
             Finish::Closed => {
-                self.strip = None;
+                self.take_strip(cx);
                 self.prompt_copies();
             }
             Finish::Done => {}
         }
         cx.notify();
+    }
+
+    /// Takes the strip down at once, so input reaches the app again; a wash that showed fades out
+    /// over [`WASH_FADE`] unless motion is reduced.
+    fn take_strip(&mut self, cx: &mut Context<Self>) {
+        let Some(strip) = self.strip.take() else {
+            return;
+        };
+        if !strip.washed() || cx.reduce_motion() {
+            return;
+        }
+        let fading = Instant::now();
+        self.wash_fade = Some(fading);
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(WASH_FADE).await;
+            let _ = this.update(cx, |view, cx| {
+                if view.wash_fade == Some(fading) {
+                    view.wash_fade = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     /// Closes the Done pill, opening the review of the copies that need the user when `review` is
@@ -143,7 +166,7 @@ impl NativeView {
         if !matches!(self.strip.as_ref().map(Strip::shown), Some(Shown::Done(_))) {
             return;
         }
-        self.strip = None;
+        self.take_strip(cx);
         let copies = self
             .snapshot
             .library

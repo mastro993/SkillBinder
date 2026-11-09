@@ -1,15 +1,28 @@
 //! The app's dialog surface: a scrim over the whole window and a dialog 56 px from its top edge,
 //! centered across it, with a title row, a body, and a footer. Kit `Dialog` hard-codes a shadow
-//! twice as soft, so the app draws the dialogs its design draws exactly.
+//! twice as soft, so the app draws the dialogs its design draws exactly. As it opens, the scrim
+//! fades in over 150 ms and the dialog drops 8 px into place while it fades in over 180 ms;
+//! reduced motion shows the end at once, as for every GPUI animation.
 
+use super::motion::ease_out;
 use super::{app_icon, shadow};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    App, Div, ElementId, FontWeight, InteractiveElement, ParentElement, Role, SharedString,
-    Stateful, StatefulInteractiveElement, Styled, div, px, transparent_black,
+    Animation, AnimationExt, AnyElement, App, Div, ElementId, FontWeight, InteractiveElement,
+    IntoElement, ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled,
+    div, px, transparent_black,
 };
+use std::time::Duration;
 
-/// The scrim with id `id`, which takes every pointer event over the window and holds `dialog`.
+/// How long the scrim takes to fade in.
+const SCRIM_FADE: Duration = Duration::from_millis(150);
+/// How long the dialog takes to drop into place.
+const DIALOG_DROP: Duration = Duration::from_millis(180);
+/// How far above its place the dialog starts dropping.
+const DROP: f32 = 8.;
+
+/// The scrim with id `id`, which takes every pointer event over the window and holds `dialog`,
+/// which drops into place as it opens.
 pub(crate) fn scrim(id: impl Into<ElementId>, dialog: Div, cx: &App) -> Stateful<Div> {
     div()
         .id(id)
@@ -23,7 +36,28 @@ pub(crate) fn scrim(id: impl Into<ElementId>, dialog: Div, cx: &App) -> Stateful
         .px(px(16.))
         .pb(px(16.))
         .bg(cx.theme().overlay)
-        .child(dialog)
+        .child(dropping(dialog.relative()))
+}
+
+/// `dialog` dropping into place while it fades in.
+fn dropping(dialog: Div) -> AnyElement {
+    let drop = Animation::new(DIALOG_DROP).with_easing(ease_out());
+    dialog
+        .with_animation("dialog-drop", drop, |dialog, dropped| {
+            dialog.top(px(-DROP * (1. - dropped))).opacity(dropped)
+        })
+        .into_any_element()
+}
+
+/// `scrim`, finished with its listeners, fading in under the animation id `id` as it opens.
+pub(crate) fn fading_in(
+    id: &'static str,
+    scrim: impl Styled + IntoElement + 'static,
+) -> AnyElement {
+    let fade = Animation::new(SCRIM_FADE).with_easing(ease_out());
+    scrim
+        .with_animation(id, fade, |scrim, faded| scrim.opacity(faded))
+        .into_any_element()
 }
 
 /// A `width` dialog: the page background, a `border` hairline, radius 8, and the large shadow.

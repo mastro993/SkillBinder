@@ -2,6 +2,7 @@
 //! button variants. The submodules draw the controls Kit cannot draw as the app's design does.
 
 pub(super) mod dialog_surface;
+pub(super) mod motion;
 pub(super) mod progress_bar;
 pub(super) mod shadow;
 pub(super) mod spinner;

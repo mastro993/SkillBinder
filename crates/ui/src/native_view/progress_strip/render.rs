@@ -1,52 +1,67 @@
 //! How the strip draws: the layer that blocks input, the wash of the page color over the whole
 //! window, and the pill centered 10 px below the window's top edge (spec/progress-2-strip.md).
+//! As the strip shows, the wash fades in over 200 ms and the pill slides 6 px down into place
+//! while it fades in over 180 ms; once the strip ends, the wash fades out over 200 ms.
 
 use super::super::NativeView;
+use super::super::controls::motion::{ease, ease_out};
 use super::super::controls::progress_bar::pill_progress;
 use super::super::controls::text_button::{Height, Look, text_button};
 use super::super::controls::{app_icon, shadow, spinner::spinner};
 use super::super::import_review::place_name;
-use super::{Shown, done_label};
+use super::{Shown, WASH_FADE, done_label};
 use gpui_kit::base::FocusTrapElement;
 use gpui_kit::component::{ActiveTheme, tooltip::Tooltip};
 use gpui_kit::{
-    AnyElement, Context, Div, FontFeatures, FontWeight, InteractiveElement, IntoElement,
-    KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, div, px,
+    Animation, AnimationExt, AnyElement, App, Context, Div, FontFeatures, FontWeight,
+    InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Stateful,
+    StatefulInteractiveElement, Styled, div, px,
 };
 use skillbinder_theme::menu::{LINE_INK, surface};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 /// Height of the pill.
 const PILL_HEIGHT: f32 = 34.;
+/// Distance from the window's top edge to the pill.
+const PILL_TOP: f32 = 10.;
+/// How far above its place the pill starts entering.
+const PILL_SLIDE: f32 = 6.;
+/// How long the pill takes to enter.
+const PILL_ENTER: Duration = Duration::from_millis(180);
 /// Opacity of the page color washed over the window while the strip shows.
 const WASH: f32 = 0.7;
 
 impl NativeView {
-    /// The strip over everything else in the window, while it is up.
-    pub(in crate::native_view) fn render_strip(
-        &self,
-        cx: &mut Context<Self>,
-    ) -> Option<AnyElement> {
+    /// The strip over everything else in the window while it is up, after the wash of one that
+    /// ended while that wash fades out.
+    pub(in crate::native_view) fn render_strip(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let fading = self
+            .wash_fade
+            .map(|_| wash("activation-strip-fade", false, cx));
+        fading.into_iter().chain(self.render_layer(cx)).collect()
+    }
+
+    /// The layer that blocks input from the click, with the wash and the pill once revealed.
+    fn render_layer(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let strip = self.strip.as_ref()?;
-        let shown = match (strip.shown(), self.held_percent()) {
+        let held = self.held_percent();
+        let shown = match (strip.shown(), held) {
             (Shown::Working(_), Some(percent)) => Shown::Working(percent),
             (shown, _) => shown,
         };
-        let theme = cx.theme();
-        let wash = theme.background.opacity(WASH);
         let layer = div()
             .id("activation-strip-layer")
             .absolute()
             .inset_0()
             .occlude()
-            .track_focus(&self.overlay_focus)
+            // The focus trap below also tracks the overlay's focus, so keys reach the layer.
             .on_key_down(cx.listener(|view, event: &KeyDownEvent, _, cx| {
                 if event.keystroke.key == "escape" {
                     view.close_strip(false, cx);
                 }
             }));
-        let layer = match shown {
-            Shown::Blocker => layer,
+        let pill = match shown {
+            Shown::Blocker => None,
             Shown::Working(percent) => {
                 let tooltip = strip.tooltip(|directory| {
                     let snapshot = &self.snapshot;
@@ -57,12 +72,18 @@ impl NativeView {
                         &snapshot.home,
                     )
                 });
+                // A held percent shows its line at once.
+                let from = held.unwrap_or(strip.bar_from());
                 let label = strip.activity.label();
-                layer
-                    .bg(wash)
-                    .child(pill_row(working_pill(label, percent, tooltip, cx)))
+                Some(working_pill(label, (from, percent), tooltip, cx))
             }
-            Shown::Done(attention) => layer.bg(wash).child(pill_row(done_pill(attention, cx))),
+            Shown::Done(attention) => Some(done_pill(attention, cx)),
+        };
+        let layer = match pill {
+            None => layer,
+            Some(pill) => layer
+                .child(wash("activation-strip-wash", true, cx))
+                .child(entering(pill_row(pill))),
         };
         Some(
             layer
@@ -72,11 +93,40 @@ impl NativeView {
     }
 }
 
+/// The page color at 70% over the whole window, which takes no input. It fades in, or out once
+/// the strip has ended, over [`WASH_FADE`]; reduced motion shows the end at once, as for every
+/// GPUI animation.
+fn wash(id: &'static str, fading_in: bool, cx: &App) -> AnyElement {
+    div()
+        .absolute()
+        .inset_0()
+        .bg(cx.theme().background.opacity(WASH))
+        .with_animation(
+            id,
+            Animation::new(WASH_FADE).with_easing(ease()),
+            move |wash, faded| wash.opacity(if fading_in { faded } else { 1. - faded }),
+        )
+        .into_any_element()
+}
+
+/// `row` sliding down into place while it fades in, as the pill enters.
+fn entering(row: Div) -> AnyElement {
+    row.with_animation(
+        "activation-strip-enter",
+        Animation::new(PILL_ENTER).with_easing(ease_out()),
+        |row, entered| {
+            row.top(px(PILL_TOP - PILL_SLIDE * (1. - entered)))
+                .opacity(entered)
+        },
+    )
+    .into_any_element()
+}
+
 /// A full-width row 10 px below the window's top edge that centers `pill` on the window.
 fn pill_row(pill: impl IntoElement) -> Div {
     div()
         .absolute()
-        .top(px(10.))
+        .top(px(PILL_TOP))
         .left_0()
         .right_0()
         .flex()
@@ -104,15 +154,17 @@ fn pill(id: &'static str, cx: &Context<NativeView>) -> Stateful<Div> {
         .shadow(shadow::large_with_ring(theme.foreground.opacity(LINE_INK)))
 }
 
-/// The running pill: spinner, label, percent, and the progress line along its bottom edge.
+/// The running pill: spinner, label, percent, and the progress line along its bottom edge,
+/// growing `from` the percent shown before.
 fn working_pill(
     label: &'static str,
-    percent: u8,
+    (from, percent): (u8, u8),
     tooltip: String,
     cx: &Context<NativeView>,
 ) -> Stateful<Div> {
     let theme = cx.theme();
-    let ink = theme.popover_foreground;
+    let (ink, line) = (theme.popover_foreground, theme.primary);
+    let progress = pill_progress(from, percent, px(PILL_HEIGHT), line);
     pill("activation-strip", cx)
         .pl(px(12.))
         .pr(px(14.))
@@ -127,7 +179,7 @@ fn working_pill(
                 .font_features(FontFeatures(Arc::new(vec![("tnum".into(), 1)])))
                 .child(format!("{percent}%")),
         )
-        .children(pill_progress(percent, px(PILL_HEIGHT), theme.primary))
+        .children(progress)
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
 }
 
