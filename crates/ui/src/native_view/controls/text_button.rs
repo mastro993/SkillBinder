@@ -4,9 +4,10 @@
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    App, Div, ElementId, FontWeight, InteractiveElement, ParentElement, Role, SharedString,
-    Stateful, StatefulInteractiveElement, Styled, div, px, transparent_black,
+    App, Div, ElementId, InteractiveElement, ParentElement, Role, SharedString, Stateful,
+    StatefulInteractiveElement, Styled, div, px, transparent_black,
 };
+use skillbinder_theme::MEDIUM;
 
 /// How a text button is filled.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -79,7 +80,7 @@ pub(crate) fn text_button(
         .text_color(ink)
         .text_size(px(text))
         .line_height(px(text))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(MEDIUM)
         .whitespace_nowrap()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))

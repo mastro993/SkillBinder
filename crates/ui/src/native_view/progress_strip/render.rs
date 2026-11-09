@@ -13,10 +13,11 @@ use super::{Shown, WASH_FADE, done_label};
 use gpui_kit::base::FocusTrapElement;
 use gpui_kit::component::{ActiveTheme, tooltip::Tooltip};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, Context, Div, FontFeatures, FontWeight,
-    InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Stateful,
-    StatefulInteractiveElement, Styled, div, px,
+    Animation, AnimationExt, AnyElement, App, Context, Div, FontFeatures, InteractiveElement,
+    IntoElement, KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, div,
+    px,
 };
+use skillbinder_theme::MEDIUM;
 use skillbinder_theme::menu::{LINE_INK, surface};
 use std::{sync::Arc, time::Duration};
 
@@ -149,7 +150,7 @@ fn pill(id: &'static str, cx: &Context<NativeView>) -> Stateful<Div> {
         .text_color(theme.popover_foreground)
         .text_size(px(13.))
         .line_height(px(18.2))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(MEDIUM)
         .whitespace_nowrap()
         .shadow(shadow::large_with_ring(theme.foreground.opacity(LINE_INK)))
 }

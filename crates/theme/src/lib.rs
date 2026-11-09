@@ -1,7 +1,7 @@
 //! Application appearance and typography.
 
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Global, Window};
+use gpui_kit::{App, FontWeight, Global, Window};
 
 /// Height of the window header row.
 pub const HEADER_HEIGHT: f32 = 44.0;
@@ -139,6 +139,11 @@ pub fn init(cx: &mut App) {
 pub fn system_font() -> &'static str {
     ".SystemUIFont"
 }
+
+/// The system font's Medium face, the design's `font-weight: 500`. GPUI matches weights through
+/// font-kit, which places SF Pro Medium's Core Text weight (0.23) at 530, so a request for 500
+/// (`FontWeight::MEDIUM`) falls back to Regular and its text sets about 3.6% narrower.
+pub const MEDIUM: FontWeight = FontWeight(530.0);
 
 /// Explicit mode chosen in the app; absent while the app follows the window appearance.
 struct ModeOverride(Option<ThemeMode>);
