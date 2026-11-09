@@ -80,7 +80,6 @@ pub(crate) fn toast_layer(
         .text_size(px(13.))
         .line_height(px(18.2))
         .whitespace_nowrap()
-        .overflow_hidden()
         .shadow(shadow::large())
         .when_some(toast.icon, |chip, icon| {
             chip.child(app_icon(icon).size(px(15.)).flex_none().text_color(ink))

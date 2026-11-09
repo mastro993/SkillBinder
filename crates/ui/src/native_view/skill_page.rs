@@ -1,7 +1,7 @@
 //! A library skill's page: its `SKILL.md`, Markdown rendered.
 
 use super::controls::{Inactive, button};
-use super::copy_dialogs::unsettled_summary;
+use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::{DialogState, NativeView};
 use gpui_kit::component::{
     ActiveTheme, Sizable, h_flex,
@@ -67,7 +67,7 @@ impl NativeView {
                         .small()
                         .inactive(self.busy)
                         .on_click(cx.listener(move |view, _, _, cx| {
-                            view.dialog = DialogState::Copies(Some(skill.clone()));
+                            view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
                             cx.notify();
                         })),
                 )

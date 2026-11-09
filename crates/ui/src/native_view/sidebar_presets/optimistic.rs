@@ -6,11 +6,8 @@ use super::super::preset_colors::preset_tint;
 use super::super::preset_icons::icon_glyph;
 use super::super::sidebar_row::{RowIcon, count, row};
 use super::{NativeView, OptimisticPreset};
-use gpui_kit::component::{
-    ActiveTheme, WindowExt,
-    notification::{Notification, NotificationType},
-};
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Window};
+use gpui_kit::component::{ActiveTheme, WindowExt, notification::Notification};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window};
 use skillbinder_proto::{AppError, OrganizationChange, Preset, PresetIcon, PresetId};
 use std::collections::BTreeSet;
 
@@ -23,7 +20,7 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.busy {
+        if self.blocked() {
             return;
         }
         let position = self.snapshot.library.as_ref().map_or(0, |library| {
@@ -63,7 +60,7 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.busy {
+        if self.blocked() {
             return;
         }
         let Some((source, skills)) = self.snapshot.library.as_ref().and_then(|library| {
@@ -121,6 +118,12 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.blocked() {
+            // Nothing is saved, so the optimistic row or name goes.
+            self.optimistic_preset_name = None;
+            self.optimistic_presets.clear();
+            return cx.notify();
+        }
         self.busy = true;
         self.error = None;
         cx.notify();
@@ -193,18 +196,20 @@ fn optimistic_copy_name<'a>(source: &str, existing: impl Iterator<Item = &'a str
     }
 }
 
-/// An error-style toast for a refused preset creation, clone, or rename.
+/// An error-style toast for a refused preset creation, clone, or rename. Its glyph is a retained
+/// one: a notification type would ask for an unmapped icon.
 pub(super) fn error_toast(
     window: &mut Window,
     title: &'static str,
     error: &AppError,
     cx: &mut Context<NativeView>,
 ) {
+    let glyph = app_icon("alert-circle").text_color(cx.theme().danger);
     window.push_notification(
         Notification::new()
+            .icon(glyph)
             .title(title)
-            .message(error.message.clone())
-            .with_type(NotificationType::Error),
+            .message(error.message.clone()),
         cx,
     );
 }
