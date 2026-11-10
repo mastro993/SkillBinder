@@ -49,7 +49,8 @@ pub(crate) fn dot(color: Hsla) -> Div {
     div().flex_none().size(px(8.)).rounded_full().bg(color)
 }
 
-/// A small outline button: 24 px high, 12 px medium text, on the page fill; muted while hovered.
+/// A small outline button: 24 px high, 12 px medium text on a 12 px line, on the page fill; muted
+/// while hovered.
 pub(crate) fn outline_button(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,
@@ -73,5 +74,5 @@ pub(crate) fn outline_button(
         .whitespace_nowrap()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(text::run(label, 12., text::MEDIUM, false, cx))
+        .child(text::tight(label, 12., text::MEDIUM, cx))
 }

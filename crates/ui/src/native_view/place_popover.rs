@@ -304,16 +304,16 @@ impl NativeView {
                     .min_w_0()
                     .gap(px(6.))
                     .child(sized_icon(workspace, 14., cx))
-                    .child(
-                        text::sized(div(), 13.)
-                            .min_w_0()
-                            .truncate()
-                            .child(workspace.name.clone()),
-                    ),
+                    .child(text::truncated(
+                        workspace.name.clone(),
+                        13.,
+                        FontWeight::NORMAL,
+                        cx,
+                    )),
             )
             .when(place.uses_none(), |name| {
                 name.child(
-                    text::sized(div(), 11.5)
+                    text::observed(text::sized(div(), 11.5), format!("none-{}", workspace.id))
                         .pl(px(20.))
                         .text_color(cx.theme().muted_foreground)
                         .child("No agents yet"),
