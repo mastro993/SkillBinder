@@ -4,6 +4,7 @@ use super::super::controls::app_icon;
 use super::super::controls::dialog_surface::{
     body, close_button, fading_in, footer, header, scrim, surface,
 };
+use super::super::controls::exact_text::exact_text;
 use super::super::controls::text_button::{Height, Look, text_button};
 use super::super::copy_dialogs::CopiesListing;
 use super::super::import_review::place_name;
@@ -148,15 +149,21 @@ impl NativeView {
                             .text_size(px(14.))
                             .line_height(px(TITLE_LINE))
                             .font_weight(FontWeight::SEMIBOLD)
-                            .child(item.1.to_string()),
+                            .child(
+                                exact_text(item.1.to_string()).named(("copies-review-slug", index)),
+                            ),
                     )
                     .child(
                         div()
+                            .flex()
                             .min_w_0()
                             .text_color(muted)
                             .whitespace_nowrap()
                             .text_ellipsis()
-                            .child(format!("→ {place}")),
+                            .child(
+                                exact_text(format!("→ {place}"))
+                                    .named(("copies-review-place", index)),
+                            ),
                     ),
             )
             .child(
@@ -169,7 +176,7 @@ impl NativeView {
                     .line_height(px(16.1))
                     .text_color(muted)
                     .child(app_icon("alert-circle").size(px(13.)).text_color(warning))
-                    .child(reason),
+                    .child(exact_text(reason).named(("copies-review-reason", index))),
             );
         let end = match row {
             Row::Ask(choice, copy) => self

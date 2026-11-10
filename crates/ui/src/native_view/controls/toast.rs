@@ -118,7 +118,7 @@ pub(crate) fn toast_layer(
                 .flex()
                 .min_w_0()
                 .text_ellipsis()
-                .child(exact_text(toast.message.clone())),
+                .child(exact_text(toast.message.clone()).named("toast-message")),
         );
     let chip = moving(
         shadow::under_large(chip(body), 0., Corners::Radius(8.)),

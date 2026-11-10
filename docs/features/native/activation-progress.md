@@ -33,6 +33,10 @@ Review opens a dialog titled `<n> need attention`, 420 points wide and 56 points
 
 When Delete preset deletes the active preset, it closes its confirmation and the strip takes over. Deleting a preset that is not active writes nothing and keeps the confirmation's own flow. Import closes Review import, and the strip takes over; the import's result banner still reports it until dismissed.
 
+## Accessibility
+
+Every line of text in the pill, the toast and the review list is a label in the accessibility tree holding its text: the label and percentage, `Done · N need attention`, the button labels, the toast's message, and the review list's title, slugs, places and reasons. Assistive technology reads them, and the `native-test` bridge reports each one's layout bounds, which the parity check compares with the reference's text boxes.
+
 ## Native test controls
 
 The `native-test` build advertises the MCP app command `hold_activation` so a parity capture can wait for a state that real timing passes too fast to catch. `{"strip": "hidden"}` keeps a strip that starts or is up unrevealed, showing only the input blocker; `{"strip": <percent>}` shows that percentage once the strip reveals; a held strip never ends, and `{"strip": null}` releases it, ending one whose change has landed. `{"toast": true}` keeps the end toast up until a call with `false`. A key left out leaves its hold as it is, so one call can change either hold or both. A capture waits for the motion to settle, 200 milliseconds after the strip shows or the toast appears. Ordinary builds have no such control.

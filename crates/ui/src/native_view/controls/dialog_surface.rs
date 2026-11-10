@@ -5,6 +5,7 @@
 //! reduced motion shows the end at once, as for every GPUI animation.
 
 use super::app_icon;
+use super::exact_text::exact_text;
 use super::motion::ease_out;
 use super::shadow::{self, Corners};
 use gpui_kit::component::ActiveTheme;
@@ -94,12 +95,14 @@ pub(crate) fn header(title: impl Into<SharedString>, close: Stateful<Div>) -> Di
         .pb(px(6.))
         .child(
             div()
+                .flex()
                 .flex_1()
                 .min_w_0()
                 .text_size(px(15.))
                 .line_height(px(21.))
                 .font_weight(FontWeight::SEMIBOLD)
-                .child(title.into()),
+                .text_ellipsis()
+                .child(exact_text(title).named("title")),
         )
         .child(close)
 }

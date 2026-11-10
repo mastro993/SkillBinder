@@ -85,5 +85,5 @@ pub(crate) fn text_button(
         .whitespace_nowrap()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(exact_text(label))
+        .child(exact_text(label).named("label"))
 }

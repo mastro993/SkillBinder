@@ -187,14 +187,14 @@ fn working_pill(
         .pr(px(14.))
         .gap(px(8.))
         .child(spinner("activation-strip-spinner", px(14.), ink))
-        .child(exact_text(label))
+        .child(exact_text(label).named("activation-strip-label"))
         .child(
             div()
                 .id("activation-strip-percent")
                 .min_w(px(32.))
                 .text_color(theme.muted_foreground)
                 .font_features(FontFeatures(Arc::new(vec![("tnum".into(), 1)])))
-                .child(exact_text(format!("{percent}%"))),
+                .child(exact_text(format!("{percent}%")).named("activation-strip-percent-text")),
         )
         .children(progress)
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
@@ -208,7 +208,11 @@ fn done_pill(attention: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
         .pr(px(5.))
         .gap(px(6.))
         .child(app_icon("alert-circle").size(px(16.)).text_color(warning))
-        .child(div().mr(px(4.)).child(exact_text(done_label(attention))))
+        .child(
+            div()
+                .mr(px(4.))
+                .child(exact_text(done_label(attention)).named("activation-strip-label")),
+        )
         .child(
             text_button(
                 "activation-strip-review",

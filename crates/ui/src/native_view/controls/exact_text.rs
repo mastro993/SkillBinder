@@ -2,20 +2,39 @@
 //! whole pixel, and layout rounds a measured size up again to a device pixel, where CSS keeps the
 //! width fractional, so a pill, chip, or button that hugs its text grows by up to 1 px and moves
 //! what follows it. This element authors its shaped width, which layout rounds to the nearest
-//! device pixel. With `text_ellipsis` in its style it may shrink, and then ends in `…`.
+//! device pixel. With `text_ellipsis` in its style it may shrink, and then ends in `…`. Given an
+//! id, it is a label in the accessibility tree, as GPUI's own text is, so assistive technology
+//! reads it and the native-test bridge reports its layout bounds.
 
 use gpui_kit::{
     App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement, LayoutId,
-    Pixels, ShapedLine, SharedString, Size, Style, TextOverflow, TextRun, TruncateFrom, Window, px,
+    Pixels, Role, ShapedLine, SharedString, Size, Style, TextOverflow, TextRun, TruncateFrom,
+    Window, accesskit, px,
 };
 use std::panic::Location;
 
 /// `text` on one line, sized to its shaped width in the inherited text style.
 pub(crate) fn exact_text(text: impl Into<SharedString>) -> ExactText {
-    ExactText(text.into())
+    ExactText {
+        text: text.into(),
+        id: None,
+    }
 }
 
-pub(crate) struct ExactText(SharedString);
+pub(crate) struct ExactText {
+    text: SharedString,
+    id: Option<ElementId>,
+}
+
+impl ExactText {
+    /// The text as an accessible label with id `id`.
+    pub(crate) fn named(self, id: impl Into<ElementId>) -> Self {
+        Self {
+            id: Some(id.into()),
+            ..self
+        }
+    }
+}
 
 /// What layout measured, for painting.
 pub(crate) struct Measured {
@@ -40,11 +59,19 @@ impl Element for ExactText {
     type PrepaintState = ();
 
     fn id(&self) -> Option<ElementId> {
-        None
+        self.id.clone()
     }
 
     fn source_location(&self) -> Option<&'static Location<'static>> {
         None
+    }
+
+    fn a11y_role(&self) -> Option<Role> {
+        self.id.as_ref().map(|_| Role::Label)
+    }
+
+    fn write_a11y_info(&self, node: &mut accesskit::Node) {
+        node.set_value(self.text.to_string());
     }
 
     fn request_layout(
@@ -58,9 +85,9 @@ impl Element for ExactText {
         let rem = window.rem_size();
         let font_size = style.font_size.to_pixels(rem);
         let line_height = window.pixel_snap(style.line_height.to_pixels(font_size.into(), rem));
-        let run = style.to_run(self.0.len());
+        let run = style.to_run(self.text.len());
         let line = window.text_system().shape_line(
-            self.0.clone(),
+            self.text.clone(),
             font_size,
             std::slice::from_ref(&run),
             None,
@@ -133,7 +160,7 @@ impl Element for ExactText {
                     .text_system()
                     .line_wrapper(measured.run.font.clone(), measured.font_size);
                 let (text, runs) = wrapper.truncate_line(
-                    self.0.clone(),
+                    self.text.clone(),
                     bounds.size.width,
                     affix,
                     std::slice::from_ref(&measured.run),
@@ -161,8 +188,21 @@ fn shrunk(width: Pixels, room: Pixels, scale: f32) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::shrunk;
-    use gpui_kit::px;
+    use super::{exact_text, shrunk};
+    use gpui_kit::{Element, ElementId, Role, accesskit, px};
+
+    #[test]
+    fn a_named_line_is_an_accessible_label_with_its_text() {
+        let named = exact_text("Switching…").named("activation-strip-label");
+        assert_eq!(named.id(), Some(ElementId::from("activation-strip-label")));
+        assert_eq!(named.a11y_role(), Some(Role::Label));
+        let mut node = accesskit::Node::new(Role::Label);
+        named.write_a11y_info(&mut node);
+        assert_eq!(node.value(), Some("Switching…"));
+        let unnamed = exact_text("Switching…");
+        assert_eq!(unnamed.id(), None);
+        assert_eq!(unnamed.a11y_role(), None);
+    }
 
     #[test]
     fn a_line_keeps_its_text_in_its_own_rounded_width() {
