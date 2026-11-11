@@ -6,7 +6,7 @@
 //! progress strip is up. A missing workspace's pills are disabled: they never do anything and
 //! take no focus.
 
-use super::super::controls::exact_text::{exact_text, sized};
+use super::super::controls::text::sized;
 use super::super::controls::{Logo, keyboard_focused, tooltip};
 use super::super::library_copies::Reader;
 use super::super::library_places::{place_pill, preset_chip, section_label};
@@ -17,7 +17,7 @@ use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, Toggle, spring};
 use gpui_kit::component::{ActiveTheme, ThemeStyled, box_shadow, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, FocusHandle, InteractiveElement, IntoElement,
-    ParentElement, Pixels, StatefulInteractiveElement, Styled, Window, div, hsla,
+    ParentElement, Pixels, StatefulInteractiveElement, Styled, Text, Window, div, hsla,
     prelude::FluentBuilder, px, transparent_black,
 };
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
@@ -89,7 +89,7 @@ impl Sections<'_> {
             .items_center()
             .gap(px(8.))
             // The switch's accessible name reads the label.
-            .child(exact_text("label", "All agents").presentational())
+            .child("All agents")
             .child(toggle);
         let pills: Vec<AnyElement> = places
             .agents
@@ -209,7 +209,12 @@ impl Sections<'_> {
                     .min_w_0()
                     .gap(px(6.))
                     .child(sized_icon(workspace, 14., cx))
-                    .child(exact_text("name", workspace.name.clone()).truncate()),
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .child(Text::new("name".into(), workspace.name.clone().into())),
+                    ),
             )
             .when(place.uses_none(), |name| {
                 name.child(

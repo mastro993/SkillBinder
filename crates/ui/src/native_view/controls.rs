@@ -1,10 +1,10 @@
 //! The app's ways into GPUI Kit's controls. Buttons and checkboxes get the hand cursor, which Kit
 //! keeps only on its link and text button variants; a text button gets the design's medium label;
 //! an element that is not a Kit control gets Kit's tooltip; and an agent or a skill directory gets
-//! its logo, which Kit has no picker for. The submodules hold the controls the app still draws
-//! itself.
+//! its logo, which Kit has no picker for. The `text` submodule holds the design's type and tabular
+//! figures.
 
-pub(super) mod exact_text;
+pub(super) mod text;
 
 use super::library_copies::Reader;
 use gpui_kit::component::{

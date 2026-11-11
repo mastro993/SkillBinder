@@ -2,7 +2,7 @@
 //! directories that hold the skill's applied copy; everywhere, the warning glyph of copies that
 //! are not applied. The avatar stack, which Library's placement button shows too, lives here.
 
-use super::controls::exact_text::{exact_text, sized};
+use super::controls::text::sized;
 use super::controls::{Logo, app_icon, tooltip};
 use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::library_copies::{AgentRow, Reader};
@@ -11,7 +11,8 @@ use super::{DialogState, NativeView};
 use gpui_kit::component::{ActiveTheme, Icon, Sizable, avatar::Avatar, h_flex};
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px, white,
+    ParentElement, StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
+    white,
 };
 use skillbinder_proto::SkillId;
 
@@ -64,7 +65,7 @@ pub(super) fn avatar(logo: Logo, ring: Ring, cx: &App) -> Avatar {
     }
 }
 
-/// The `+N` circle after the shown avatars; its line is `more`.
+/// The `+N` circle after the shown avatars; its text is `more`.
 fn more(count: usize, ring: Ring, cx: &App) -> Div {
     let theme = cx.theme();
     ring.around(sized(div(), 9.5))
@@ -76,7 +77,7 @@ fn more(count: usize, ring: Ring, cx: &App) -> Div {
         .bg(theme.muted)
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(theme.muted_foreground)
-        .child(exact_text("more", format!("+{count}")))
+        .child(Text::new("more".into(), format!("+{count}").into()))
 }
 
 /// `items`, each an avatar, each after the first overlapping the one before by `OVERLAP` and

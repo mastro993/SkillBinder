@@ -8,7 +8,7 @@
 //! duration.
 
 use super::super::NativeView;
-use super::super::controls::exact_text::tabular;
+use super::super::controls::text::tabular;
 use super::super::controls::{app_icon, text_button, tooltip};
 use super::super::import_review::place_name;
 use super::{Shown, done_label, wash_fade};

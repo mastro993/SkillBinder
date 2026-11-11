@@ -4,7 +4,7 @@
 //! session, like the folder tab, and combine with it and the search; "Clear filters" resets them
 //! and the search but keeps the folder tab.
 
-use super::controls::exact_text::{sized, tabular};
+use super::controls::text::{sized, tabular};
 use super::controls::{app_icon, keyboard_focused, text_button, tooltip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};

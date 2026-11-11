@@ -5,7 +5,7 @@
 //! shared with the popover.
 
 use super::NativeView;
-use super::controls::exact_text::{exact_text, sized};
+use super::controls::text::sized;
 use super::controls::{Logo, app_icon, tooltip};
 use super::library_avatars::{Ring, stack};
 use super::library_items::{ITEM_GROUP, surface};
@@ -335,10 +335,10 @@ fn dashed<E: Styled>(element: E, cx: &App) -> E {
         .border_color(cx.theme().foreground.alpha(DASHED_INK))
 }
 
-/// An 11.5 px medium muted section label, its line `id`.
+/// An 11.5 px medium muted section label, its text `id`.
 pub(super) fn section_label(id: &'static str, label: &'static str, cx: &App) -> Div {
     sized(div(), 11.5)
         .font_weight(MEDIUM)
         .text_color(cx.theme().muted_foreground)
-        .child(exact_text(id, label))
+        .child(Text::new(id.into(), label.into()))
 }
