@@ -35,7 +35,7 @@ When Delete preset deletes the active preset, it closes its confirmation and the
 
 ## Accessibility
 
-Every line of text in the pill, the toast and the review list is a label in the accessibility tree holding its text: the label and percentage, `Done · N need attention`, the button labels, the toast's message, and the review list's title, slugs, places and reasons. Assistive technology reads them, and the `native-test` bridge reports each one's layout bounds, which the parity check compares with the reference's text boxes.
+Every line of text in the pill, the toast and the review list is a label in the accessibility tree holding its text: the label and percentage, `Done · N need attention`, the button labels, the toast's message, and the review list's title, slugs, places and reasons, and the word that ends a settled row. Assistive technology reads them, and the `native-test` bridge reports each one's layout bounds, which the parity check compares with the reference's text boxes.
 
 ## Native test controls
 

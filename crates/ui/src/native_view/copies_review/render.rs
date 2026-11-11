@@ -190,7 +190,7 @@ impl NativeView {
                 .text_size(px(12.))
                 .text_color(muted)
                 .child(app_icon("check").size(px(14.)))
-                .child(word),
+                .child(exact_text(word).named(("copies-review-settled", index))),
         };
         div()
             .id(("copies-review-row", index))
