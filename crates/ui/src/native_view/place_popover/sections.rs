@@ -55,14 +55,17 @@ pub(super) struct Sections<'a> {
 impl Sections<'_> {
     /// Your agents, then the workspaces under a hairline while any exists.
     pub(super) fn render<V: Placer>(&self, window: &mut Window, cx: &mut Context<V>) -> AnyElement {
-        // The All agents switch's thumb slides on Kit's spring, as Kit's own switch does.
+        // The All agents switch's thumb slides on Kit's spring, as Kit's own switch does. Each
+        // skill's thumb keeps its own, so a popover opened straight from another one's does not
+        // slide from where that one's thumb was.
         let travel = if self.places.all_agents() {
             px(TRAVEL)
         } else {
             px(0.)
         };
         let spring_move = cx.theme().motion_tokens().spring_move;
-        let thumb = spring("place-all-agents-thumb", travel, spring_move, window, cx);
+        let key = ("place-all-agents-thumb", self.places.skill.0.clone());
+        let thumb = spring(key, travel, spring_move, window, cx);
         sized(v_flex(), 13.)
             .gap(px(10.))
             .child(self.agents(thumb, window, cx))
