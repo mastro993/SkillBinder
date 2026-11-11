@@ -2,7 +2,7 @@
 //! the Default preset, so the confirmation states the skills that switch adds and removes.
 
 use super::controls::{Inactive, button};
-use super::progress_strip::Activity;
+use super::progress_strip::{Activity, Landing};
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::dialog::Dialog;
 use gpui_kit::{Context, ParentElement, Styled, div};
@@ -74,9 +74,8 @@ impl NativeView {
                                 view.block(
                                     Activity::DeletingActive { preset },
                                     async move {
-                                        let (_, progress) =
-                                            client.change_organization(change).await?;
-                                        Ok(progress.into())
+                                        client.change_organization(change).await?;
+                                        Ok(Landing::default())
                                     },
                                     cx,
                                 );

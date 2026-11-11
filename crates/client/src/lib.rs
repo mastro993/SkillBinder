@@ -23,7 +23,10 @@ struct Shared {
     engine: Engine,
     runtime: Handle,
     snapshots: watch::Sender<Arc<AppSnapshot>>,
+    /// The generation the latest full read was requested as.
     requested: AtomicU64,
+    /// The generation of the full read shown now; a read requested before it is stale.
+    published: AtomicU64,
     /// Completed scans whose found copies sources were already learned from and checked after.
     checked_scans: AtomicU64,
 }
@@ -43,6 +46,7 @@ impl Client {
                 runtime,
                 snapshots,
                 requested: AtomicU64::new(0),
+                published: AtomicU64::new(0),
                 checked_scans: AtomicU64::new(0),
             }),
         };
@@ -62,7 +66,8 @@ impl Client {
     pub fn runtime(&self) -> Handle {
         self.shared.runtime.clone()
     }
-    /// Refreshes the projection and rejects reads superseded by a newer request.
+    /// Refreshes the projection. The read shows once it lands unless a read requested after it
+    /// already shows, so an operation's own refresh shows before the operation returns.
     pub async fn refresh(&self) -> AppResult<()> {
         let generation = self.shared.requested.fetch_add(1, Ordering::AcqRel) + 1;
         let snapshot = self.shared.engine.snapshot().await?;
@@ -367,7 +372,7 @@ impl Shared {
     fn publish_full(&self, generation: u64, mut snapshot: AppSnapshot) -> AppResult<()> {
         let mut result = Ok(());
         self.snapshots.send_if_modified(|current| {
-            if generation != self.requested.load(Ordering::Acquire) {
+            if generation <= self.published.load(Ordering::Acquire) {
                 return false;
             }
             match self.engine.current_scan() {
@@ -380,6 +385,7 @@ impl Shared {
                     return false;
                 }
             }
+            self.published.store(generation, Ordering::Release);
             snapshot.generation = current.generation + 1;
             *current = Arc::new(snapshot.clone());
             true

@@ -129,9 +129,7 @@ impl State {
             } else {
                 self.settle(pair, (wanted, boundary), row, source.as_ref())
             };
-            let attention =
-                super::shown(wanted, after.as_ref()).is_some_and(|s| s.needs_attention());
-            self.progress.advanced(attention);
+            self.progress.advanced();
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }

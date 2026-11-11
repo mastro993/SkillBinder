@@ -72,12 +72,9 @@ impl Progress {
         });
     }
 
-    /// Counts one pair brought in line, which needs the user when `attention` is true.
-    pub(crate) fn advanced(&self, attention: bool) {
-        self.count(|counts| {
-            counts.done += 1;
-            counts.attention += usize::from(attention);
-        });
+    /// Counts one pair brought in line.
+    pub(crate) fn advanced(&self) {
+        self.count(|counts| counts.done += 1);
     }
 
     fn count(&self, change: impl FnOnce(&mut ActivationProgress)) {
@@ -99,11 +96,10 @@ impl Progress {
 mod tests {
     use super::*;
 
-    fn counts(done: usize, total: usize, attention: usize) -> Option<ActivationProgress> {
+    fn counts(done: usize, total: usize) -> Option<ActivationProgress> {
         Some(ActivationProgress {
             done,
             total,
-            attention,
             step: None,
         })
     }
@@ -112,13 +108,13 @@ mod tests {
     fn reports_outside_a_tracked_job_are_ignored() -> AppResult<()> {
         let progress = Progress::default();
         progress.planned(3);
-        progress.advanced(true);
+        progress.advanced();
         assert_eq!(progress.current()?, None);
         let tracking = progress.begin();
         drop(tracking);
         progress.planned(3);
-        progress.advanced(false);
-        assert_eq!(progress.current()?, counts(0, 0, 0));
+        progress.advanced();
+        assert_eq!(progress.current()?, counts(0, 0));
         Ok(())
     }
 
@@ -127,9 +123,9 @@ mod tests {
         let progress = Progress::default();
         let tracking = progress.begin();
         progress.planned(4);
-        progress.advanced(false);
+        progress.advanced();
         progress.working("/home/.claude/skills", "review", true);
-        progress.advanced(true);
+        progress.advanced();
         progress.planned(2);
         let step = progress.current()?.and_then(|counts| counts.step);
         assert_eq!(
@@ -137,8 +133,8 @@ mod tests {
             Some(("review".to_owned(), true))
         );
         drop(tracking);
-        progress.advanced(true);
-        assert_eq!(progress.current()?, counts(2, 6, 1));
+        progress.advanced();
+        assert_eq!(progress.current()?, counts(2, 6));
         Ok(())
     }
 
@@ -149,7 +145,7 @@ mod tests {
         progress.planned(1);
         progress.clear();
         assert_eq!(progress.current()?, None);
-        progress.advanced(false);
+        progress.advanced();
         assert_eq!(progress.current()?, None);
         drop(tracking);
         Ok(())

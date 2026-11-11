@@ -1,6 +1,7 @@
 //! The review list that Review opens from the Done pill (spec/progress-3-toast-review.md): every
-//! copy that needed the user when it opened, in a card, each with the two answers its state offers.
-//! An answered row ends in a muted check and what was done.
+//! copy that waited for the user when it opened, whichever change left it, in a card, each with
+//! the two answers its state offers. An answered row ends in a muted check and what was done. The
+//! Done pill counts the same copies.
 
 mod render;
 use skillbinder_proto::{CopyState, ManagedCopy, SkillId};
@@ -20,7 +21,7 @@ pub(super) struct Review {
 impl Review {
     /// The copies among `copies` that need the user now: those of skills active in their
     /// directory first, as a change writes them before it removes, then those of skills no longer
-    /// active there.
+    /// active there. The Done pill counts them, so both read one number.
     pub(super) fn of(copies: &[ManagedCopy]) -> Self {
         let mut listed: Vec<_> = copies
             .iter()
@@ -42,6 +43,11 @@ impl Review {
         }
     }
 
+    /// How many copies it lists.
+    pub(super) fn len(&self) -> usize {
+        self.items.len()
+    }
+
     /// Whether it lists no copy.
     pub(super) fn is_empty(&self) -> bool {
         self.items.is_empty()
@@ -61,6 +67,15 @@ impl Review {
             Some((choice, copy)) => Row::Ask(choice, copy),
             None => Row::Settled(answer.map_or("Done", Answer::settled)),
         }
+    }
+}
+
+/// `1 needs attention` or `<n> need attention`: the review's title, and the Done pill's label
+/// after `Done · `.
+pub(super) fn attention_label(count: usize) -> String {
+    match count {
+        1 => "1 needs attention".to_owned(),
+        count => format!("{count} need attention"),
     }
 }
 

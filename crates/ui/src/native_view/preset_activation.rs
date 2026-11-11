@@ -4,7 +4,7 @@
 
 use super::NativeView;
 use super::controls::{Inactive, checkbox};
-use super::progress_strip::Activity;
+use super::progress_strip::{Activity, Landing};
 use gpui_kit::component::Sizable;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
@@ -64,8 +64,8 @@ impl NativeView {
             Activity::Switching { preset },
             async move {
                 let change = OrganizationChange::ActivatePreset { id };
-                let (_, progress) = client.change_organization(change).await?;
-                Ok(progress.into())
+                client.change_organization(change).await?;
+                Ok(Landing::default())
             },
             cx,
         );

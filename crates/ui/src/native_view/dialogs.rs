@@ -124,10 +124,8 @@ impl NativeView {
                                     view.block(
                                         Activity::Importing { skills },
                                         async move {
-                                            let (outcome, progress) =
-                                                client.apply_import(plan_id).await?;
+                                            let outcome = client.apply_import(plan_id).await?;
                                             Ok(Landing {
-                                                progress,
                                                 imported: outcome.imported.len(),
                                             })
                                         },

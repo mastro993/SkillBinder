@@ -11,12 +11,12 @@ const PUBLISH_INTERVAL: Duration = Duration::from_millis(100);
 
 impl Client {
     /// Runs the engine `call` on the runtime and publishes the engine's progress record every
-    /// interval until it returns, then reads the final counts and publishes `None` whatever the
-    /// result. A change faster than one interval returns at once.
+    /// interval until it returns, then publishes `None` whatever the result. A change faster than
+    /// one interval returns at once.
     pub(crate) async fn tracked<T: Send + 'static>(
         &self,
         call: impl Future<Output = AppResult<T>> + Send + 'static,
-    ) -> (AppResult<T>, ActivationProgress) {
+    ) -> AppResult<T> {
         let mut task = self.shared.runtime.spawn(call);
         let mut interval = tokio::time::interval_at(Instant::now(), PUBLISH_INTERVAL);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -27,9 +27,8 @@ impl Client {
                 _ = interval.tick() => self.publish_activation(Some(self.activation_counts())),
             }
         };
-        let counts = self.activation_counts();
         self.publish_activation(None);
-        (result, counts)
+        result
     }
 
     /// The engine's counts, or none counted yet.

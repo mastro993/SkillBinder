@@ -1,13 +1,14 @@
 use super::*;
 use skillbinder_engine::EngineConfig;
+use std::path::Path;
 
-#[tokio::test]
-async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
--> Result<(), Box<dyn std::error::Error>> {
-    let directory = tempfile::tempdir()?;
+type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+/// An engine in `directory`, onboarded with an empty library.
+async fn ready(directory: &Path) -> AppResult<Engine> {
     let engine = Engine::open(EngineConfig::isolated(
-        directory.path().join("data"),
-        directory.path().join("home"),
+        directory.join("data"),
+        directory.join("home"),
     ))?;
     for step in [
         OnboardingStep::Boundaries,
@@ -18,15 +19,28 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
     }
     engine.create_library().await?;
     engine.complete_onboarding(None).await?;
-    let original = engine.snapshot().await?;
-    let (snapshots, _) = watch::channel(Arc::new(original.clone()));
-    let shared = Shared {
+    Ok(engine)
+}
+
+/// The client's shared state showing `shown`, with two full reads requested and neither shown.
+fn two_reads_requested(engine: &Engine, shown: AppSnapshot) -> Shared {
+    let (snapshots, _) = watch::channel(Arc::new(shown));
+    Shared {
         engine: engine.clone(),
         runtime: Handle::current(),
         snapshots,
         requested: AtomicU64::new(2),
+        published: AtomicU64::new(0),
         checked_scans: AtomicU64::new(0),
-    };
+    }
+}
+
+#[tokio::test]
+async fn rejects_old_full_reads_without_losing_scan_or_mutation_results() -> TestResult {
+    let directory = tempfile::tempdir()?;
+    let engine = ready(directory.path()).await?;
+    let original = engine.snapshot().await?;
+    let shared = two_reads_requested(&engine, original.clone());
     engine
         .save_preferences(Preferences {
             sidebar_width: 320.0,
@@ -61,7 +75,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results()
 }
 
 #[tokio::test]
-async fn committed_outcome_survives_projection_failure() -> Result<(), Box<dyn std::error::Error>> {
+async fn committed_outcome_survives_projection_failure() -> TestResult {
     let directory = tempfile::tempdir()?;
     let engine = Engine::open(EngineConfig::isolated(
         directory.path().join("data"),
@@ -82,39 +96,48 @@ async fn committed_outcome_survives_projection_failure() -> Result<(), Box<dyn s
 }
 
 #[tokio::test]
-async fn a_tracked_change_returns_its_counts_and_leaves_no_progress_published()
--> Result<(), Box<dyn std::error::Error>> {
+async fn a_read_shows_at_once_while_a_newer_one_is_still_on_its_way() -> TestResult {
     let directory = tempfile::tempdir()?;
-    let engine = Engine::open(EngineConfig::isolated(
-        directory.path().join("data"),
-        directory.path().join("home"),
-    ))?;
-    for step in [
-        OnboardingStep::Boundaries,
-        OnboardingStep::SyncChoice,
-        OnboardingStep::Ready,
-    ] {
-        engine.set_onboarding(step).await?;
-    }
-    engine.create_library().await?;
-    engine.complete_onboarding(None).await?;
+    let engine = ready(directory.path()).await?;
+    let original = engine.snapshot().await?;
+    let shared = two_reads_requested(&engine, original.clone());
+    let read = |sidebar_width| {
+        let mut read = original.clone();
+        read.preferences.sidebar_width = sidebar_width;
+        read
+    };
+    // A change's own refresh lands while a refresh requested after it is still reading, such as a
+    // source check's: the change's result shows before the change returns.
+    shared.publish_full(1, read(320.0))?;
+    assert_eq!(shared.snapshots.borrow().preferences.sidebar_width, 320.0);
+    // The newer read replaces it once it lands.
+    shared.publish_full(2, read(400.0))?;
+    assert_eq!(shared.snapshots.borrow().preferences.sidebar_width, 400.0);
+    engine.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_tracked_change_shows_its_result_and_leaves_no_progress_published() -> TestResult {
+    let directory = tempfile::tempdir()?;
+    let engine = ready(directory.path()).await?;
     let client = Client::new(engine.clone(), Handle::current()).await?;
-    let (library, created) = client
+    let library = client
         .change_organization(OrganizationChange::CreatePreset {
             name: "Work".into(),
         })
         .await?;
-    // Creating a preset changes no directory, so its pass plans nothing.
-    assert_eq!(created, ActivationProgress::default());
     let work = library.library.presets[1].id.clone();
-    let (library, switched) = client
+    client
         .change_organization(OrganizationChange::ActivatePreset { id: work.clone() })
         .await?;
-    assert_eq!(library.library.active_preset, work);
-    assert_eq!(switched.percent(), 0);
-    // The engine's record holds the switch's final counts; the snapshot holds none.
-    assert_eq!(engine.activation_progress()?, Some(switched));
-    assert_eq!(client.snapshot().activation, None);
+    let shown = client.snapshot();
+    let active = shown
+        .library
+        .as_ref()
+        .map(|library| &library.library.active_preset);
+    assert_eq!(active, Some(&work));
+    assert_eq!(shown.activation, None);
     engine.shutdown().await?;
     Ok(())
 }

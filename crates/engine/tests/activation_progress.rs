@@ -1,6 +1,5 @@
 //! A change that writes and removes copies counts the (directory, skill) pairs its passes bring in
-//! line, and how many then need the user, while other jobs leave the counts alone. Every agent
-//! directory is under an isolated home.
+//! line, while other jobs leave the counts alone. Every agent directory is under an isolated home.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
@@ -97,11 +96,10 @@ fn skill(slug: &str) -> SkillId {
     SkillId(slug.to_owned())
 }
 
-fn counts(done: usize, total: usize, attention: usize) -> ActivationProgress {
+fn counts(done: usize, total: usize) -> ActivationProgress {
     ActivationProgress {
         done,
         total,
-        attention,
         step: None,
     }
 }
@@ -119,19 +117,19 @@ fn needing_attention(library: &LibrarySnapshot) -> usize {
 async fn a_switch_counts_each_skill_in_each_directory() {
     let agents = Agents::with(&["alpha", "beta", "gamma"]).await;
     // The import adopted one copy per skill where it was found.
-    assert_eq!(agents.imported, counts(3, 3, 0));
+    assert_eq!(agents.imported, counts(3, 3));
     let work = agents.preset("Work", &["alpha", "beta", "gamma"]).await;
     agents
         .organize(OrganizationChange::ActivatePreset { id: work })
         .await;
-    assert_eq!(agents.progress(), counts(6, 6, 0));
+    assert_eq!(agents.progress(), counts(6, 6));
     assert_eq!(agents.progress().percent(), 100);
     agents.engine.shutdown().await.unwrap();
 }
 
 #[cfg(unix)]
 #[tokio::test]
-async fn problems_never_stop_the_pass_and_count_as_attention() {
+async fn problems_never_stop_the_pass() {
     use std::os::unix::fs::PermissionsExt;
     let agents = Agents::with(&["alpha", "beta", "gamma"]).await;
     let work = agents.preset("Work", &["alpha", "beta", "gamma"]).await;
@@ -145,16 +143,14 @@ async fn problems_never_stop_the_pass_and_count_as_attention() {
         .organize(OrganizationChange::ActivatePreset { id: work })
         .await;
     fs::set_permissions(&agents.claude, fs::Permissions::from_mode(0o755)).unwrap();
-    let progress = agents.progress();
-    assert_eq!((progress.done, progress.total), (6, 6));
+    assert_eq!(agents.progress(), counts(6, 6));
     // The universal alpha differs, and none of Claude Code's three could be written.
-    assert_eq!(progress.attention, 4);
-    assert_eq!(progress.attention, needing_attention(&library));
+    assert_eq!(needing_attention(&library), 4);
     agents.engine.shutdown().await.unwrap();
 }
 
 #[tokio::test]
-async fn an_edited_copy_the_switch_removes_counts() {
+async fn an_edited_copy_the_switch_removes_counts_and_waits() {
     let agents = Agents::with(&["alpha"]).await;
     agents
         .organize(OrganizationChange::AddToPreset {
@@ -167,7 +163,7 @@ async fn an_edited_copy_the_switch_removes_counts() {
     let library = agents
         .organize(OrganizationChange::ActivatePreset { id: empty })
         .await;
-    assert_eq!(agents.progress(), counts(2, 2, 1));
+    assert_eq!(agents.progress(), counts(2, 2));
     assert_eq!(needing_attention(&library), 1);
     assert!(agents.claude.join("alpha").exists(), "the edits stay");
     assert!(!agents.universal.join("alpha").exists());
@@ -188,7 +184,7 @@ async fn deleting_the_active_preset_counts_the_switch_to_default() {
             revision: preview.revision,
         })
         .await;
-    assert_eq!(agents.progress(), counts(4, 4, 0));
+    assert_eq!(agents.progress(), counts(4, 4));
     assert!(!agents.claude.join("beta").exists());
     agents.engine.shutdown().await.unwrap();
 }
@@ -201,7 +197,7 @@ async fn later_scans_and_retries_leave_the_counts_alone() {
         .organize(OrganizationChange::ActivatePreset { id: work })
         .await;
     let switched = agents.progress();
-    assert_eq!(switched, counts(4, 4, 0));
+    assert_eq!(switched, counts(4, 4));
     // A deleted copy makes the next scan's Pending pass and a retry write it again.
     fs::remove_dir_all(agents.claude.join("alpha")).unwrap();
     scan(&agents.engine).await;

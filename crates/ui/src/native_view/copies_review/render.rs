@@ -9,7 +9,7 @@ use super::super::controls::text_button::{Height, Look, text_button};
 use super::super::copy_dialogs::CopiesListing;
 use super::super::import_review::place_name;
 use super::super::{DialogState, Effect, NativeView};
-use super::{Answer, Choice, Item, Row};
+use super::{Answer, Choice, Item, Row, attention_label};
 use gpui_kit::base::FocusTrapElement;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
@@ -50,11 +50,8 @@ impl NativeView {
             .as_ref()
             .map(|library| library.copies.as_slice())
             .unwrap_or_default();
-        let count = review.items.len();
-        let title = match count {
-            1 => "1 needs attention".to_owned(),
-            count => format!("{count} need attention"),
-        };
+        let count = review.len();
+        let title = attention_label(count);
         let rows: Vec<_> = review
             .items
             .iter()

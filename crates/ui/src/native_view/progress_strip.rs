@@ -1,15 +1,17 @@
 //! The blocking progress strip (ADR 0007). A change that can write many copies blocks the app from
 //! the click: a transparent layer takes every pointer event, and after 300 ms the window takes a
 //! wash of the page color and a pill at its top shows how far the change has got. Once shown, the
-//! strip stays at least 500 ms. It ends in a toast when nothing needs the user, or in `Done · N
-//! need attention` with Review and Close.
+//! strip stays at least 500 ms. It ends in a toast when no copy waits for the user, or in `Done ·
+//! N need attention` with Review and Close, N counting every copy that waits, whichever change
+//! left it.
 
 mod flow;
 mod render;
 #[cfg(test)]
 mod tests;
 
-use skillbinder_proto::ActivationProgress;
+use super::copies_review::{Review, attention_label};
+use skillbinder_proto::{ActivationProgress, ManagedCopy};
 use std::time::{Duration, Instant};
 
 /// How long a change runs before the strip shows.
@@ -66,30 +68,16 @@ fn skills(verb: &str, count: usize) -> String {
     }
 }
 
-/// The Done pill's label.
-pub(super) fn done_label(attention: usize) -> String {
-    match attention {
-        1 => "Done · 1 needs attention".to_owned(),
-        count => format!("Done · {count} need attention"),
-    }
+/// The Done pill's label for `waiting` copies.
+pub(super) fn done_label(waiting: usize) -> String {
+    format!("Done · {}", attention_label(waiting))
 }
 
 /// What a blocking change reports when it lands.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(super) struct Landing {
-    /// The final counts of its passes.
-    pub progress: ActivationProgress,
     /// The skills an import brought into the library.
     pub imported: usize,
-}
-
-impl From<ActivationProgress> for Landing {
-    fn from(progress: ActivationProgress) -> Self {
-        Self {
-            progress,
-            imported: 0,
-        }
-    }
 }
 
 /// How far the strip has got.
@@ -100,7 +88,7 @@ enum Stage {
     Landed(Landing),
     /// The change was refused; the strip holds until it has shown long enough.
     Failed,
-    /// The change landed with copies that need the user.
+    /// The change landed with this many copies waiting for the user.
     Done(usize),
 }
 
@@ -111,7 +99,7 @@ pub(super) enum Shown {
     Blocker,
     /// The wash and the running pill at this percent.
     Working(u8),
-    /// The wash and the Done pill for this many copies.
+    /// The wash and the Done pill for this many waiting copies.
     Done(usize),
 }
 
@@ -228,16 +216,20 @@ impl Strip {
         now.duration_since(self.started) >= REVEAL_AFTER
     }
 
-    /// Ends the strip at `now`, its time being up: copies that need the user turn it into the
-    /// Done pill, which shows at once if it had not.
-    pub(super) fn finish(&mut self, now: Instant) -> Finish {
+    /// Ends the strip at `now`, its time being up. The library's `copies` once the change has
+    /// landed decide how: any that waits for the user, whichever change left it, turns the strip
+    /// into the Done pill, which shows at once if it had not and counts the copies its Review
+    /// lists.
+    pub(super) fn finish(&mut self, now: Instant, copies: &[ManagedCopy]) -> Finish {
         match &self.stage {
-            Stage::Landed(landing) if landing.progress.attention > 0 => {
-                self.stage = Stage::Done(landing.progress.attention);
-                self.revealed.get_or_insert(now);
-                Finish::Done
-            }
-            Stage::Landed(landing) => Finish::Toast(self.activity.toast(landing)),
+            Stage::Landed(landing) => match Review::of(copies).len() {
+                0 => Finish::Toast(self.activity.toast(landing)),
+                waiting => {
+                    self.stage = Stage::Done(waiting);
+                    self.revealed.get_or_insert(now);
+                    Finish::Done
+                }
+            },
             Stage::Failed => Finish::Closed,
             Stage::Working | Stage::Done(_) => Finish::Done,
         }
@@ -246,7 +238,7 @@ impl Strip {
     /// What the strip draws now.
     pub(super) fn shown(&self) -> Shown {
         match (&self.stage, self.revealed) {
-            (Stage::Done(attention), _) => Shown::Done(*attention),
+            (Stage::Done(waiting), _) => Shown::Done(*waiting),
             (_, None) => Shown::Blocker,
             (_, Some(_)) => Shown::Working(self.percent),
         }

@@ -81,7 +81,7 @@ impl NativeView {
                 let label = strip.activity.label();
                 Some(working_pill(label, (from, percent), tooltip, cx))
             }
-            Shown::Done(attention) => Some(done_pill(attention, cx)),
+            Shown::Done(waiting) => Some(done_pill(waiting, cx)),
         };
         let layer = match pill {
             None => layer,
@@ -201,7 +201,7 @@ fn working_pill(
 }
 
 /// The Done pill: the warning glyph, `Done · N need attention`, Review, and Close.
-fn done_pill(attention: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
+fn done_pill(waiting: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
     let warning = cx.theme().warning;
     pill("activation-strip", cx)
         .pl(px(10.))
@@ -211,7 +211,7 @@ fn done_pill(attention: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
         .child(
             div()
                 .mr(px(4.))
-                .child(exact_text(done_label(attention)).named("activation-strip-label")),
+                .child(exact_text(done_label(waiting)).named("activation-strip-label")),
         )
         .child(
             text_button(

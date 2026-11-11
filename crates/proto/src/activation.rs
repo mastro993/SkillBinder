@@ -106,15 +106,13 @@ impl CopyState {
 }
 
 /// How far a change that writes and removes copies has got: of the (directory, skill) pairs it
-/// brings in line, how many it has done, and how many of those need the user.
+/// brings in line, how many it has done.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ActivationProgress {
     /// Pairs brought in line so far.
     pub done: usize,
     /// Pairs the change brings in line, as far as it has planned them.
     pub total: usize,
-    /// Done pairs whose copy then [`CopyState::needs_attention`].
-    pub attention: usize,
     /// The pair the change is on while it runs; `None` once it is over.
     pub step: Option<ActivationStep>,
 }

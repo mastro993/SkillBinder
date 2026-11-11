@@ -6,11 +6,21 @@ use super::super::copy_dialogs::CopiesListing;
 use super::super::{DialogState, Effect, NativeView};
 use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip, WASH_FADE};
 use gpui_kit::{Context, Window};
-use skillbinder_proto::AppResult;
+use skillbinder_proto::{AppResult, AppSnapshot, ManagedCopy};
 use std::{
     future::Future,
+    sync::Arc,
     time::{Duration, Instant},
 };
+
+/// The library's copies in `snapshot`: the Done pill counts those that wait for the user, and its
+/// Review lists them.
+fn library_copies(snapshot: &AppSnapshot) -> &[ManagedCopy] {
+    snapshot
+        .library
+        .as_ref()
+        .map_or(&[], |library| library.copies.as_slice())
+}
 
 impl NativeView {
     /// Whether the app takes no new change: one is in flight, or the strip is up.
@@ -87,7 +97,8 @@ impl NativeView {
         }
     }
 
-    /// The blocking change landed: the strip ends once it has shown long enough.
+    /// The blocking change landed: the strip ends once it has shown long enough. The snapshot
+    /// already holds the change's copies, as the change refreshed it before returning.
     pub(in crate::native_view) fn land_strip(&mut self, landing: Landing, cx: &mut Context<Self>) {
         if let Some(strip) = self.strip.as_mut() {
             let ends = strip.land(landing, Instant::now());
@@ -118,10 +129,11 @@ impl NativeView {
         if self.strip_held() {
             return;
         }
+        let snapshot = Arc::clone(&self.snapshot);
         let Some(strip) = self.strip.as_mut() else {
             return;
         };
-        match strip.finish(Instant::now()) {
+        match strip.finish(Instant::now(), library_copies(&snapshot)) {
             Finish::Toast(message) => {
                 self.take_strip(cx);
                 self.show_toast(message, Some("check-circle"), cx);
@@ -167,12 +179,8 @@ impl NativeView {
             return;
         }
         self.take_strip(cx);
-        let copies = self
-            .snapshot
-            .library
-            .as_ref()
-            .map(|library| library.copies.clone())
-            .unwrap_or_default();
+        let snapshot = Arc::clone(&self.snapshot);
+        let copies = library_copies(&snapshot);
         for copy in copies.iter().filter(|copy| copy.asks()) {
             let asked = (
                 copy.directory.clone(),
@@ -183,7 +191,7 @@ impl NativeView {
                 self.asked_copies.push(asked);
             }
         }
-        let listing = Review::of(&copies);
+        let listing = Review::of(copies);
         // Copies settled meanwhile, such as by a scan's retry, leave nothing to review.
         if review && !listing.is_empty() {
             self.dialog = DialogState::Copies(CopiesListing::Attention(listing));
