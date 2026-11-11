@@ -87,7 +87,7 @@ The compared area is the main column. `parity/pixdiff ref.png native.png diff.pn
 | 04, 06 | none in the crop; the crop already includes the dialog and the wash over the main column | wash over the sidebar: sample an empty sidebar pixel, expect `#ededed` light / `#121212` dark (sidebar `#fafafa`/`#161616` under overlay `#0000000d`/`#00000033`); main-column wash `#f2f2f2` / `#080808` |
 | 10 | none (tooltip starts at x = 241.5, inside the crop) | none |
 
-Native captures also have 1,168 non-opaque corner pixels, which pixdiff skips. Where gap G4 (checkbox mark) stays open, add `--ignore` for each checked box interior in 02 and 03: `831,160,14,15`, `831,199,14,15`, `831,229,14,15` (02), and `831,229,14,15` (03). The boxes sit at y = 159.55, 198.55 and 228.55, and the interior is the 14 px inside the 1 px border.
+pixdiff always leaves out the window frame: a native capture's 1,168 non-opaque corner pixels, and every pixel within 2 device px of them or of the window edge (the edge hairline, along this crop's top, right and bottom edges). Where gap G4 (checkbox mark) stays open, add `--ignore` for each checked box interior in 02 and 03: `831,160,14,15`, `831,199,14,15`, `831,229,14,15` (02), and `831,229,14,15` (03). The boxes sit at y = 159.55, 198.55 and 228.55, and the interior is the 14 px inside the 1 px border.
 
 ## Behaviour captured by the states (unchanged prototype logic)
 

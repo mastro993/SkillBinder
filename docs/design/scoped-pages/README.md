@@ -17,8 +17,8 @@ Never compared:
 
 - The app's 232 px sidebar. It stays as it is. In the references it is the prototypes' mock sidebar, widened to 232.
 - The Library header. The prototype mocks this existing surface; it is masked by default (`spec/library-2-crops.md`).
-- The content under the progress wash. A formula checks the wash instead.
-- The window corners and the macOS traffic lights, which AppKit draws.
+- The content under the progress wash, and the page seen through the pill's ring or past a crop's rounded corners (`pixdiff --page`, `spec/progress-4-parity.md`). A formula checks the wash instead.
+- The window frame (its rounded corners and 2 device px edge hairline), which pixdiff and `parity/progress-checks.py` leave out, and the macOS traffic lights. AppKit draws both.
 
 ## Chosen variants
 
@@ -33,7 +33,7 @@ Each state has `references/<area>/<NN>-<state>-<light|dark>.png`: 2360 × 1456 p
 
 ## Frosted wash instead of blur
 
-The approved progress variant dimmed and blurred the window behind the strip. GPUI has no backdrop or element blur, and AGENTS.md forbids patching dependencies to add one. The prototype was therefore changed to a frosted wash before the references were rendered: the page `background` at 70% opacity over the whole window, sidebar included. The pill sits above the wash, and a transparent blocker sits below it. No `blur()` or `backdrop-filter` is left in any bundle. Natively the wash is one window-sized quad of `background` at alpha 0.7. `parity/progress-checks.py wash` checks it on the native capture itself: `strip = round(0.7 · bg + 0.3 · base)` within 1 level. The traffic lights cannot be washed and are masked. Issue #98's text said 55%; the user settled it at 70% (C1 in `spec/progress-1-states.md`).
+The approved progress variant dimmed and blurred the window behind the strip. GPUI has no backdrop or element blur, and AGENTS.md forbids patching dependencies to add one. The prototype was therefore changed to a frosted wash before the references were rendered: the page `background` at 70% opacity over the whole window, sidebar included. The pill sits above the wash, and a transparent blocker sits below it. No `blur()` or `backdrop-filter` is left in any bundle. Natively the wash is one window-sized quad of `background` at alpha 0.7. `parity/progress-checks.py wash` checks it on the native capture itself: `strip = round(0.7 · bg + 0.3 · base)` within 1 level. The traffic lights and the window frame cannot be washed and are left out. Issue #98's text said 55%; the user settled it at 70% (C1 in `spec/progress-1-states.md`).
 
 ## Approved additions
 
@@ -73,8 +73,8 @@ parity/render-all.sh --check [area …]   # re-render into a temporary folder an
 1. **Fixture.** Build the native fixture once (`parity/fixture/README.md`). Before each run, restore it with `parity/fixture/restore.sh $FX`, or `restore.sh $FX problems` for the edited and foreign copies (picker and progress problem states, workspace state 06).
 2. **Launch.** Run `cargo build -p skillbinder --features native-test --locked`, then `target/debug/skillbinder --mcp --data-dir $FX/root/data --home $FX/root/home`. The window opens at 1180 × 728. For the dark references, switch the theme with the sidebar toggle.
 3. **Reach the state** through the gpui MCP. Use the steps in the area's states table. Let animations settle, and leave the pointer where the table says (parked when the reference has none).
-4. **Screenshot** with the MCP `screenshot` (the full window, 2360 × 1456) and save it unchanged as a PNG.
-5. **Compare.** Run `parity/pixdiff references/<area>/<NN>-<state>-<theme>.png native.png diff.png --tolerance 8 --crop <crop> [--ignore <rect> …] --side side.png --json`. Rects are logical px; pixdiff scales them by 2 and leaves out pixels that are not opaque.
+4. **Screenshot** with the MCP `screenshot` (the full window, 2360 × 1456) and save it unchanged as a PNG. It must be in sRGB, as the references are. The screenshot holds the display's color codes, untagged, so first set the display's color profile to sRGB IEC61966-2.1 (System Settings › Displays). Check it on a capture with nothing over the sidebar: the interiors of the Frontend and Backend preset icons must read exactly `#3b82f6` and `#f59e0b`. On #104's P3 display they read (78, 128, 238) and (233, 162, 59): grays keep their values, every tinted pixel moves, and converting back to sRGB is not exact.
+5. **Compare.** Run `parity/pixdiff references/<area>/<NN>-<state>-<theme>.png native.png diff.png --tolerance 8 --crop <crop> [--ignore <rect> …] --side side.png --json`. Rects are logical px; pixdiff scales them by 2 and leaves out the window frame: pixels that are not opaque, and those within 2 device px of them or of the window edge.
 
 | Area | Default crop | Per-state masks and extra checks |
 |---|---|---|
@@ -87,10 +87,14 @@ parity/render-all.sh --check [area …]   # re-render into a temporary folder an
 
 A state passes in a theme when all of these hold:
 
-- **No geometry or color mismatch.** After pixdiff's antialiasing filter (`aa_filtered`, red in `diff.png`), no pixel remains outside text glyphs. A red pixel on a box edge, fill, border, radius, shadow, icon or logo is a defect.
-- **Text antialiasing is allowed and listed.** Chrome rasterizes with Skia and GPUI with CoreText, both with SF Pro, so glyph edges differ. Yellow pixels are allowed. Red pixels are allowed only inside a text run's box, and only when the native text bounds (MCP `get_element_bounds`) match the spec rect within 0.5 logical px. The PR lists each such run with its state and pixel count.
-- **Only the spec's masks.** Required masks (spinner, caret, scrollbar, traffic lights) need no comment. An optional mask for a GPUI gap still open, such as the dash pattern or the checkbox mark, is listed in the PR with its gap id.
+- **No geometry or color mismatch.** After pixdiff's antialiasing, snapping and icon filters (`aa_filtered`, red in `diff.png`), no pixel remains outside text glyphs. A red pixel on a box edge, fill, border, radius, shadow, icon or logo is a defect.
+- **Pixel snapping stays within the state's budget.** GPUI puts icons, logos and box edges on whole device pixels, where Chrome antialiases them at fractional positions. pixdiff counts such a pixel as `snap` (green in `diff.png`) when a shift of at most 1 device px explains it both ways: in every channel, each image's value lies within the other's 3×3 neighbourhood (± tolerance). A missing or extra line, a wrong fill or a 2 device px shift fails one way and stays red. `snap.pixels + icon.pixels` must not exceed the state's budget in the area's crop table. The budget is what catches the whole capture moved by 1 device px; a single element 1 device px off is accepted as snapping by design (Library G19).
+- **Icon residue stays small (G18).** An SVG icon or logo whose box (from the reference's `--spec` dump) starts at a fractional device position is drawn by GPUI on whole device pixels, so a detail 1 or 2 device px wide can land at another sub-pixel phase. pixdiff counts the red pixels left in such a box, widened by 1 device px, as `icon` (purple), but only while the box has at most 12 and each is within 40 levels of passing the snap test. Otherwise they all stay red, so a wrong, missing, recolored or moved icon still fails.
+- **Text antialiasing is allowed and listed.** Chrome rasterizes with Skia and GPUI with CoreText, both with SF Pro, so glyph edges differ. Yellow pixels are allowed. Red pixels are allowed only inside a text run's box, and only when the native text bounds (MCP `get_element_bounds`, the layout box, not the ink) match the spec rect within 0.5 logical px. Layout does not change with the theme, so a run that passes in light passes in dark. Light-on-dark glyphs look up to 1 px bolder because CoreText dilates them (Library G13); that shows in the ink only. The PR lists each such run with its state and pixel count.
+- **Only the spec's masks.** Required masks (spinner, caret, scrollbar, traffic lights) need no comment. An optional mask for a GPUI gap still open, such as the dash pattern, the checkbox mark or the progress bar's end at the pill's curve, is listed in the PR with its gap id.
 - **The other checks pass.** The wash formula, the halo ratio and the wash samples pass as the area's spec states.
+
+A budget is set once per state, from the native build of the area's parity PR: 1.2 × the larger of the light and dark `snap + icon` counts, rounded up to two significant figures. That PR shows that moving the whole native capture by 1 device px, in each direction, exceeds it, except where the area's spec lists an exception (progress 05 moved sideways). Text glyph edges make up most of the count, so budgets differ by state: one cap per area would let a moved page through in the sparser states. `--no-snap` turns the test off.
 
 The evidence covers every reference state of the area, in light and dark. Attach the native screenshots, the `diff.png` and `side.png` files, and the pixdiff JSON to the PR, and record it apart from the native interaction check.
 
@@ -98,11 +102,11 @@ The evidence covers every reference state of the area, in light and dark. Attach
 
 Where GPUI or GPUI Kit cannot reach a CSS value as-is, the spec gives the closest equivalent and the expected delta.
 
-- **All areas.** GPUI's shadow `blur_radius` is a sigma: use half the CSS blur. A spread shadow keeps the element's radius. Content masks are rectangles, so nothing clips to a rounded corner. GPUI's default line height is about 1.618, so set every line height explicitly. Kit Button, Avatar, Tag and Tooltip defaults differ in size, padding, text size or delay, so the app owns those controls (Decisions, 1); the Kit Input matches with overrides.
-- **Library** (`spec/library-6-gpui.md`, G1–G17): GPUI draws 2/1 px dashes where Chrome draws about 3/2 px, so use a custom path or the dash masks. GPUI has no CSS `filter`; use image grayscale. Kit Switch and the segmented TabBar cannot take the 30 × 18 and 28 px geometry. Kit Popover clamps 4 px from the window edge, where the prototype clamps 8. GPUI has no container queries and no auto-fill grid.
+- **All areas.** GPUI snaps quads, SVG icons and images to whole device pixels (`gpui-pre` `window.rs` `paint_quad`, `paint_svg`, `paint_image`); Chrome antialiases them at fractional positions. Up to 1 device px of this is snap, within the state's budget (Pass criteria). GPUI's shadow `blur_radius` is a sigma: use half the CSS blur. A spread shadow keeps the element's radius. Content masks are rectangles, so nothing clips to a rounded corner. GPUI's default line height is about 1.618, so set every line height explicitly. Kit Button, Avatar, Tag and Tooltip defaults differ in size, padding, text size or delay, so the app owns those controls (Decisions, 1); the Kit Input matches with overrides.
+- **Library** (`spec/library-6-gpui.md`, G1–G19): GPUI draws 2/1 px dashes where Chrome draws about 3/2 px, so use a custom path or the dash masks. GPUI has no CSS `filter`; use image grayscale. Kit Switch and the segmented TabBar cannot take the 30 × 18 and 28 px geometry. Kit Popover clamps 4 px from the window edge, where the prototype clamps 8. GPUI has no container queries and no auto-fill grid.
 - **Workspace and agent pages** (`spec/scoped-pages-07-gpui-gaps.md`, G1–G10): Kit Notification cannot draw the toast, so use an app toast. Kit Dialog's shadow is twice as soft. Kit tooltips prefer the top and wait 500 ms. Kit Checkbox draws the Hugeicons tick, not the CSS check; mask the box interior.
 - **Picker** (`spec/picker-6-gpui.md`): dashed pills, tooltip placement and delay, and the check mark, as above. GPUI applies opacity per primitive, so use the flattened colors in `spec/picker-5-overlays.md`. Build the focus ring from two absolute children. The Kit scrollbar fades in on hover.
-- **Progress** (`spec/progress-5-gpui.md`, G1–G12): the traffic lights stay unwashed. Kit Spinner turns at another speed, so use a custom rotation. Kit Notification cannot draw the toast. GPUI has no CSS transitions; motion falls outside still parity.
+- **Progress** (`spec/progress-5-gpui.md`, G1–G13): the traffic lights and the window frame stay unwashed. GPUI's 4-sample shadow blur leaves the light halo up to 3/255 off, which the halo check allows. Kit Spinner turns at another speed, so use a custom rotation. Kit Notification cannot draw the toast. GPUI has no CSS transitions; motion falls outside still parity.
 
 ## Decisions (2026-11-09)
 
