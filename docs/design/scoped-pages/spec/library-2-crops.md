@@ -48,11 +48,11 @@ Notes:
   - The typed text ("debug", "zzz") is then compared too.
 - Spinners: none. The "Check for updates" spinner lives in the header, which is not compared.
 - Text antialiasing differs between Skia and CoreText. Judge text with pixdiff's AA-filtered count and with the text rects in 3/7–5/7, not with the raw count.
-- Window corners: pixdiff already drops the 1,168 non-opaque corner pixels of a native capture.
+- Window frame: pixdiff always leaves it out: the 1,168 non-opaque corner pixels of a native capture, and every pixel within 2 device px of them or of the window edge (the edge hairline, along this crop's right and bottom edges).
 
 ## Snap budgets
 
-The README's snap rule: `snap.pixels + icon.pixels` per state, in either theme, at most the budget. For the icon rule, pass each rect of `searchIc`, `updIc`, `lgIc`, `updGlyphSvg`, `avatarSvg`, `wschipIc`, `chevSvg`, `plusIc` and `emptyIcSvg` (`parity/selectors/library-page.json`), and of `pillSvg` and `wsnameIc` (`library-pop.json`), from the state's `render-ref.sh --spec` dumps as `--icon`. Measured on #105's native build with the masks it used (the ones above plus the AppKit window frame `1179,0,1,728`, `0,727,1180,1`, `1166,714,14,14`, the hover scrollbar in 07–13, 15, 17 and 18, and the pill tooltip `918,576,236,38` in 12). Icon residue adds at most 25 per state (02 dark) and 8 per icon. Moving the whole capture by 1 device px (left, right, up, down or diagonally) exceeds the budget in every state; the closest is 06 dark, 1,446 against 1,200.
+The README's snap rule: `snap.pixels + icon.pixels` per state, in either theme, at most the budget. For the icon rule, pass each rect of `searchIc`, `updIc`, `lgIc`, `updGlyphSvg`, `avatarSvg`, `wschipIc`, `chevSvg`, `plusIc` and `emptyIcSvg` (`parity/selectors/library-page.json`), and of `pillSvg` and `wsnameIc` (`library-pop.json`), from the state's `render-ref.sh --spec` dumps as `--icon`. Measured on #105's native build with the masks it used (the ones above, the hover scrollbar in 07–13, 15, 17 and 18, and the pill tooltip `918,576,236,38` in 12). #105 masked the window frame with `1179,0,1,728`, `0,727,1180,1` and `1166,714,14,14`; pixdiff's frame rule gives the same snap, icon and red counts in all 36 captures. Icon residue adds at most 25 per state (02 dark) and 8 per icon. Moving the whole capture by 1 device px (left, right, up, down or diagonally) exceeds the budget in every state; the closest is 06 dark, 1,446 against 1,200.
 
 | NN | snap, light / dark | Budget | NN | snap, light / dark | Budget |
 |---|---|---|---|---|---|

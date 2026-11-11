@@ -18,7 +18,7 @@ Never compared:
 - The app's 232 px sidebar. It stays as it is. In the references it is the prototypes' mock sidebar, widened to 232.
 - The Library header. The prototype mocks this existing surface; it is masked by default (`spec/library-2-crops.md`).
 - The content under the progress wash, and the page seen through the pill's ring or past a crop's rounded corners (`pixdiff --page`, `spec/progress-4-parity.md`). A formula checks the wash instead.
-- The window frame (its rounded corners and edge hairline) and the macOS traffic lights, which AppKit draws.
+- The window frame (its rounded corners and 2 device px edge hairline), which pixdiff and `parity/progress-checks.py` leave out, and the macOS traffic lights. AppKit draws both.
 
 ## Chosen variants
 
@@ -73,8 +73,8 @@ parity/render-all.sh --check [area …]   # re-render into a temporary folder an
 1. **Fixture.** Build the native fixture once (`parity/fixture/README.md`). Before each run, restore it with `parity/fixture/restore.sh $FX`, or `restore.sh $FX problems` for the edited and foreign copies (picker and progress problem states, workspace state 06).
 2. **Launch.** Run `cargo build -p skillbinder --features native-test --locked`, then `target/debug/skillbinder --mcp --data-dir $FX/root/data --home $FX/root/home`. The window opens at 1180 × 728. For the dark references, switch the theme with the sidebar toggle.
 3. **Reach the state** through the gpui MCP. Use the steps in the area's states table. Let animations settle, and leave the pointer where the table says (parked when the reference has none).
-4. **Screenshot** with the MCP `screenshot` (the full window, 2360 × 1456) and save it unchanged as a PNG.
-5. **Compare.** Run `parity/pixdiff references/<area>/<NN>-<state>-<theme>.png native.png diff.png --tolerance 8 --crop <crop> [--ignore <rect> …] --side side.png --json`. Rects are logical px; pixdiff scales them by 2 and leaves out pixels that are not opaque.
+4. **Screenshot** with the MCP `screenshot` (the full window, 2360 × 1456) and save it unchanged as a PNG. It must be in sRGB, as the references are. The screenshot holds the display's color codes, untagged, so first set the display's color profile to sRGB IEC61966-2.1 (System Settings › Displays). Check it on a capture with nothing over the sidebar: the interiors of the Frontend and Backend preset icons must read exactly `#3b82f6` and `#f59e0b`. On #104's P3 display they read (78, 128, 238) and (233, 162, 59): grays keep their values, every tinted pixel moves, and converting back to sRGB is not exact.
+5. **Compare.** Run `parity/pixdiff references/<area>/<NN>-<state>-<theme>.png native.png diff.png --tolerance 8 --crop <crop> [--ignore <rect> …] --side side.png --json`. Rects are logical px; pixdiff scales them by 2 and leaves out the window frame: pixels that are not opaque, and those within 2 device px of them or of the window edge.
 
 | Area | Default crop | Per-state masks and extra checks |
 |---|---|---|

@@ -8,7 +8,9 @@ usage: pixdiff <ref.png> <native.png> <out-diff.png> [--crop x,y,w,h] [--ignore 
 Rects are logical px in window coordinates (multiplied by --scale, default 2), also with
 --crop. Both images must have the same size (the native window must be 1180x728 at 2x).
 A pixel mismatches when its largest RGB channel delta exceeds --tolerance (default 0).
-Pixels that are not opaque in either image (macOS window corners) are left out and counted.
+The window frame, which AppKit draws above the app, is left out and counted: every pixel that is
+not opaque in either image (the rounded corners) and every pixel within RING device px of one of
+them or of the image edge (the edge hairline), by 8-neighbour distance.
 
 These numbers are reported:
   raw          every mismatching pixel
@@ -34,7 +36,7 @@ These numbers are reported:
                That is page content seen through a translucent ring or past rounded corners; it
                is left out like --ignore.
 Writes out-diff.png (the reference faded to gray; red = mismatch, yellow = antialiasing only,
-green = snap only, purple = icon only, blue = ignored, page or not opaque) and a side-by-side
+green = snap only, purple = icon only, blue = ignored, page or frame) and a side-by-side
 ref | native | diff (default <out-diff>.side.png). Exit 0 after a comparison, 2 on bad input.
 """
 import argparse
@@ -46,6 +48,22 @@ import numpy as np
 from PIL import Image
 
 OFFSETS = [(dy, dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if (dy, dx) != (0, 0)]
+RING = 2  # device px: the window's edge hairline, measured on #104's captures (spec/progress-4-parity.md)
+
+
+def grow(m, n):
+    """m dilated by n device px (each step adds the 8 neighbours); outside the image counts as False."""
+    for _ in range(n):
+        p = np.pad(m, 1)
+        m = np.any([p[1 + dy:p.shape[0] - 1 + dy, 1 + dx:p.shape[1] - 1 + dx]
+                    for dy in (-1, 0, 1) for dx in (-1, 0, 1)], axis=0)
+    return m
+
+
+def frame(opaque):
+    """The window frame: not opaque in any image, or within RING device px of such a pixel or the image edge."""
+    outside = np.pad(~np.logical_and.reduce(opaque), RING, constant_values=True)
+    return grow(outside, RING)[RING:-RING, RING:-RING]
 
 
 def rect(text):
@@ -219,6 +237,7 @@ def main():
         sys.exit(2)
     near = False if a.no_snap else snapped(ref, nat, (x0, y0, x1, y1), a.tolerance)
     near_icon = snapped(ref, nat, (x0, y0, x1, y1), a.tolerance + a.icon_slack) if a.icon else None
+    clear = frame([ref[..., 3] == 255, nat[..., 3] == 255])[y0:y1, x0:x1]
     ref, nat = ref[y0:y1, x0:x1], nat[y0:y1, x0:x1]
     h, w = ref.shape[:2]
     page = np.zeros((h, w), bool)
@@ -230,7 +249,6 @@ def main():
     for r in a.ignore:
         ix0, iy0, ix1, iy1 = physical(r, a.scale, (x0, y0, x1, y1))
         ignored[iy0 - y0:iy1 - y0, ix0 - x0:ix1 - x0] = True
-    clear = (ref[..., 3] < 255) | (nat[..., 3] < 255)
     page &= ~ignored & ~clear
     compared = ~ignored & ~clear & ~page
     delta = np.abs(ref[..., :3].astype(np.int16) - nat[..., :3].astype(np.int16)).max(axis=2)
@@ -247,7 +265,7 @@ def main():
     side = a.side or str(Path(a.out).with_suffix("")) + ".side.png"
     result = {
         "size": [W, H], "scale": a.scale, "region_px": [x0, y0, x1 - x0, y1 - y0], "compared": n,
-        "ignored": int(ignored.sum()), "not_opaque": int((clear & ~ignored).sum()), "tolerance": a.tolerance,
+        "ignored": int(ignored.sum()), "frame": int((clear & ~ignored).sum()), "tolerance": a.tolerance,
         "max_delta": int(delta[compared].max()) if n else 0,
         "raw": stat(raw), "aa_filtered": stat(real), "antialiasing": int(aa.sum()), "snap": stat(snap),
         "icon": stat(icon), "icon_boxes": icons, "page": int(page.sum()), "diff": a.out, "side": side,
@@ -269,7 +287,7 @@ def main():
         return
     lg = lambda v: f"{v / a.scale:g}"
     print(f"region       {lg(x0)},{lg(y0)},{lg(x1 - x0)},{lg(y1 - y0)} logical ({x1 - x0}x{y1 - y0} px at {a.scale:g}x); "
-          f"compared {n:,} px, ignored {result['ignored']:,}, page {result['page']:,}, not opaque {result['not_opaque']:,}; "
+          f"compared {n:,} px, ignored {result['ignored']:,}, page {result['page']:,}, frame {result['frame']:,}; "
           f"tolerance {a.tolerance}")
     for key, label in (("raw", "raw"), ("snap", "snap"), ("icon", "icon"), ("aa_filtered", "aa-filtered")):
         s = result[key]
