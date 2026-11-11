@@ -101,7 +101,7 @@ impl NativeView {
     /// dialog covers it.
     pub(super) fn render_place_popover(
         &self,
-        window: &Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let popover = self.place_popover.as_ref()?;

@@ -5,7 +5,7 @@
 //! and the search but keeps the folder tab.
 
 use super::controls::exact_text::{sized, tabular};
-use super::controls::{app_icon, text_button, tooltip};
+use super::controls::{app_icon, keyboard_focused, text_button, tooltip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};
 use gpui_kit::base::Toggle;
@@ -124,7 +124,7 @@ impl NativeView {
             })
             .read(cx)
             .clone();
-        let ring = focus.is_focused(window) && window.last_input_was_keyboard();
+        let ring = keyboard_focused(&focus, window);
         let toggle = cx.listener(|view, _: &ClickEvent, window, cx| {
             view.library_filter.updates = !view.library_filter.updates;
             view.close_place_popover(window, cx);

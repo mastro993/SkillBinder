@@ -251,15 +251,13 @@ impl Harness {
         focused
     }
 
-    /// The control showing the focus outline, if one does.
-    fn outlined(&self, cx: &mut TestAppContext) -> Option<&'static str> {
-        let mut outlined = None;
-        self.check(cx, |window| {
-            outlined = CONTROLS
-                .into_iter()
-                .find(|control| window.within(*control).try_find("focus-outline").is_some());
-        });
-        outlined
+    /// The control showing Kit's focus ring, if one does: the focused one, while the last input
+    /// was a key. Kit's ring has no id to find it by.
+    fn ringed(&self, cx: &mut TestAppContext) -> Option<&'static str> {
+        let focused = self.focused(cx);
+        let mut keyboard = false;
+        self.check(cx, |window| keyboard = window.last_input_was_keyboard());
+        focused.filter(|_| keyboard)
     }
 
     /// The popover is gone and its trigger has focus.
@@ -289,7 +287,7 @@ fn tab_and_shift_tab_cycle_the_switch_and_every_enabled_pill(cx: &mut TestAppCon
     for control in CONTROLS.into_iter().chain([CONTROLS[0]]) {
         harness.press(cx, &["tab"]);
         assert_eq!(harness.focused(cx), Some(control));
-        assert_eq!(harness.outlined(cx), Some(control));
+        assert_eq!(harness.ringed(cx), Some(control));
     }
     harness.press(cx, &["shift-tab"]);
     assert_eq!(harness.focused(cx), Some(CONTROLS[3]));
@@ -362,7 +360,7 @@ fn escape_hands_focus_back_to_the_trigger(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn a_click_shows_no_outline_until_the_keyboard_moves_focus(cx: &mut TestAppContext) {
+fn a_click_shows_no_focus_ring_until_the_keyboard_moves_focus(cx: &mut TestAppContext) {
     let harness = Harness::new(cx, false);
     harness.click(cx, "trigger");
     harness.check(cx, |window| {
@@ -370,17 +368,16 @@ fn a_click_shows_no_outline_until_the_keyboard_moves_focus(cx: &mut TestAppConte
         for control in CONTROLS {
             assert_eq!(window.find(control).focused(), Some(false), "{control}");
         }
-        assert!(window.try_find("focus-outline").is_none());
     });
     harness.click(cx, CONTROLS[1]);
     assert_eq!(harness.focused(cx), Some(CONTROLS[1]));
     assert_eq!(
-        harness.outlined(cx),
+        harness.ringed(cx),
         None,
-        "a click focuses the pill without its outline"
+        "a click focuses the pill without its focus ring"
     );
     harness.press(cx, &["tab"]);
-    assert_eq!(harness.outlined(cx), Some(CONTROLS[2]));
+    assert_eq!(harness.ringed(cx), Some(CONTROLS[2]));
 }
 
 #[gpui_kit::test]
@@ -397,20 +394,4 @@ fn a_pointer_close_focuses_the_view_as_before(cx: &mut TestAppContext) {
     let delta = ScrollDelta::Pixels(point(px(0.), px(-40.)));
     harness.step(cx, |window, cx| window.scroll("host", delta, cx));
     harness.assert_closed_on_view(cx);
-}
-
-#[gpui_kit::test]
-fn the_outline_clears_each_control_and_its_border_by_a_pixel(cx: &mut TestAppContext) {
-    let harness = Harness::new(cx, false);
-    harness.click(cx, "trigger");
-    // The switch has no border; the pills have a 1 px border, dashed while off.
-    for control in &CONTROLS[..3] {
-        harness.press(cx, &["tab"]);
-        harness.check(cx, |window| {
-            let edge = window.find(*control).bounds();
-            let outline = window.within(*control).find("focus-outline").bounds();
-            // A 1 px gap, then the 2 px ring.
-            assert_eq!(outline, edge.dilate(px(3.)), "{control}");
-        });
-    }
 }

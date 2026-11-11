@@ -12,7 +12,6 @@ pub(super) mod popover;
 pub(super) mod press;
 pub(super) mod progress_bar;
 pub(super) mod shadow;
-pub(super) mod switch;
 pub(super) mod toast;
 
 use super::library_copies::Reader;
@@ -20,8 +19,8 @@ use gpui_kit::component::{
     Disableable, Icon, Sizable, Size, button::Button, checkbox::Checkbox, tooltip::Tooltip,
 };
 use gpui_kit::{
-    AnyElement, AnyView, App, ElementId, IntoElement, ParentElement, SharedString, Styled,
-    StyledImage, Window, div, img, prelude::FluentBuilder, px,
+    AnyElement, AnyView, App, ElementId, FocusHandle, IntoElement, ParentElement, SharedString,
+    Styled, StyledImage, Window, div, img, prelude::FluentBuilder, px,
 };
 use skillbinder_theme::MEDIUM;
 
@@ -63,6 +62,12 @@ pub(super) fn tooltip(
 ) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static {
     let text = text.into();
     move |window, cx| Tooltip::new(text.clone()).build(window, cx)
+}
+
+/// Whether `focus` has focus that a key gave it, the only focus that shows Kit's focus ring on the
+/// app's own controls: a click that focuses one shows none.
+pub(super) fn keyboard_focused(focus: &FocusHandle, window: &Window) -> bool {
+    focus.is_focused(window) && window.last_input_was_keyboard()
 }
 
 /// Retained Hugeicons artwork mapped under `icons/` in the asset source.

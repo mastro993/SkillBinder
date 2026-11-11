@@ -6,8 +6,8 @@ use std::{cell::Cell, rc::Rc};
 use super::super::library_copies::Reader;
 use super::super::place_popover::place_line;
 use super::Logo;
+use super::pill;
 use super::popover::{Align, Anchor, placed, surface};
-use super::{pill, switch};
 use gpui_kit::base::TestSupportExt;
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
@@ -34,8 +34,7 @@ impl Render for Gallery {
                     .items_center()
                     .gap(px(8.))
                     .child(pill::pill("pill-on", logo, true, false, cx).test_support())
-                    .child(pill::pill("pill-off", logo, false, false, cx).test_support())
-                    .child(switch::switch("switch", true, cx).test_support()),
+                    .child(pill::pill("pill-off", logo, false, false, cx).test_support()),
             )
             .child(popover_lines(logo, cx))
             .child(
@@ -146,7 +145,6 @@ fn controls_take_the_prototypes_sizes(cx: &mut TestAppContext) {
     let window = open(cx);
     assert_eq!(sized(bounds(cx, window, "pill-on")), (26., 24.));
     assert_eq!(sized(bounds(cx, window, "pill-off")), (26., 24.));
-    assert_eq!(sized(bounds(cx, window, "switch")), (30., 18.));
 }
 
 #[gpui_kit::test]
