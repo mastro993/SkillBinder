@@ -246,7 +246,6 @@ async fn a_copy_changed_after_review_is_never_overwritten() {
         named(&later.dir(".agents/skills")),
         "lint".to_owned(),
         CopyState::Edited { active: true },
-        true
     )));
     later.engine.shutdown().await.unwrap();
 }

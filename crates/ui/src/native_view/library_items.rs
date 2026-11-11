@@ -1,8 +1,10 @@
 //! Library skills as rows inside one card, or as grid tiles on their own surfaces. Each shows its
 //! name, its update, drift, and validation glyphs, its folder as a tag while Library lists every
 //! skill, and its description, then what [`RowEnd`] says: on Library where the skill is on, on a
-//! workspace's page the agents it is held for there and its Delete button.
+//! workspace's page the agents it is held for there and its Delete button, and on an agent's page
+//! its Delete button.
 
+use super::agent_page::AgentPageRow;
 use super::controls::text::sized;
 use super::controls::{app_icon, tooltip};
 use super::library_copies::Placement;
@@ -10,7 +12,7 @@ use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
 use super::snapshot_query::SkillPlaces;
-use super::workspace_page::{WorkspaceRow, workspace_marks};
+use super::workspace_page::{WorkspaceRow, edited_mark, workspace_marks};
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, v_flex};
 use gpui_kit::{
@@ -55,6 +57,8 @@ pub(super) enum RowEnd<'a> {
     Places(SkillPlaces<'a>),
     /// A workspace's page: the agents the workspace holds the skill for, and Delete.
     Workspace(WorkspaceRow<'a>),
+    /// An agent's or Universal's page: Delete, and no menu.
+    Agent(AgentPageRow<'a>),
 }
 
 impl SkillItem<'_> {
@@ -71,7 +75,7 @@ impl SkillItem<'_> {
     fn dimmed(&self) -> bool {
         match &self.end {
             RowEnd::Places(places) => !places.is_active(),
-            RowEnd::Workspace(_) => false,
+            RowEnd::Workspace(_) | RowEnd::Agent(_) => false,
         }
     }
 
@@ -232,12 +236,14 @@ impl NativeView {
                     .into_any_element()
             }
             RowEnd::Workspace(row) => self.workspace_row_end(item, row, cx),
+            RowEnd::Agent(row) => self.agent_row_end(item, row, cx),
         }
     }
 }
 
-/// Opens the skill's page on click or Enter, and its menu on right-click. While the skill's
-/// popover is open, the row records where it was painted, so the popover can open above it.
+/// Opens the skill's page on click or Enter, and, except on an agent's page, its menu on
+/// right-click. While the skill's popover is open, the row records where it was painted, so the
+/// popover can open above it.
 fn frame(
     view: &NativeView,
     element: Stateful<Div>,
@@ -262,9 +268,14 @@ fn frame(
     let element = activate(element, item.name(), cx, move |view, window, cx| {
         view.navigate(route.clone(), window, cx);
     });
-    with_menu(element, owner, true, view, cx, move |view, _, cx| {
-        view.skill_menu(&id, cx)
-    })
+    match item.end {
+        RowEnd::Agent(_) => element,
+        RowEnd::Places(_) | RowEnd::Workspace(_) => {
+            with_menu(element, owner, true, view, cx, move |view, _, cx| {
+                view.skill_menu(&id, cx)
+            })
+        }
+    }
     // The wrapper is the grid item, so it must take the column's width rather than the text's.
     .w_full()
     .min_w_0()
@@ -290,7 +301,7 @@ pub(super) fn surface(cx: &App) -> Hsla {
 }
 
 /// The glyphs after a skill's name, for its update, drift, and validation, then on a workspace's
-/// page its overlap and edited marks.
+/// page its overlap and edited marks, and on an agent's page its edited mark.
 fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     let id = &item.skill.id;
     let marks = [
@@ -303,6 +314,9 @@ fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     match &item.end {
         RowEnd::Places(_) => marks.collect(),
         RowEnd::Workspace(row) => marks.chain(workspace_marks(id, row, cx)).collect(),
+        RowEnd::Agent(row) => marks
+            .chain(row.edited.then(|| edited_mark(id, row.name, cx)))
+            .collect(),
     }
 }
 

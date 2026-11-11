@@ -10,25 +10,20 @@ use super::NativeView;
 use super::controls::text::sized;
 use super::controls::{app_icon, tooltip};
 use super::library_copies::{agent_rows, placements};
-use super::library_filters::{empty_state, glyph};
+use super::library_filters::empty_state;
 use super::library_items::{RowEnd, SkillItem};
 use super::library_targets::{held, sharing};
+use super::page_head::EMPTY_TOP;
 use super::skill_picker::Place;
-use super::snapshot_query::{Entry, has_update, matching, workspace_skills};
+use super::snapshot_query::{Entry, has_update, workspace_skills};
 use super::workspace_icons::sized_icon;
 use super::workspace_targets::folders;
-use gpui_kit::component::{ActiveTheme, h_flex, input::Input, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex};
 use gpui_kit::{
     AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{CopyState, Overlap, SkillId, Targets, Workspace, WorkspaceId};
-use skillbinder_theme::library::{PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP};
-
-/// The search field's width on this page.
-const SEARCH_WIDTH: f32 = 220.;
-/// The empty state's distance from the top of the page.
-const EMPTY_TOP: f32 = 36.;
 
 /// What a workspace page's row shows beyond a Library row.
 pub(super) struct WorkspaceRow<'a> {
@@ -48,12 +43,8 @@ impl NativeView {
             return div().into_any_element();
         };
         let held = workspace_skills(&self.snapshot, workspace);
-        let page = v_flex()
-            .w_full()
-            .px(px(PAGE_GUTTER))
-            .pt(px(PAGE_TOP))
-            .pb(px(PAGE_BOTTOM))
-            .gap(px(PAGE_GAP))
+        let page = self
+            .scoped_page()
             .when(workspace.missing, |page| page.child(missing_note(cx)))
             .children(self.render_update_outcome(cx));
         if held.is_empty() {
@@ -61,28 +52,12 @@ impl NativeView {
                 .child(self.empty_workspace(workspace, cx))
                 .into_any_element();
         }
-        let typed = self.search.read(cx).value().trim().to_owned();
-        let shown = matching(&self.snapshot, held, &typed.to_lowercase());
-        let search = div().w(px(SEARCH_WIDTH)).max_w_full().child(
-            Input::new(&self.search)
-                .prefix(
-                    app_icon("search")
-                        .size(px(15.))
-                        .text_color(cx.theme().muted_foreground),
-                )
-                .bg(cx.theme().background),
-        );
-        let results = if shown.is_empty() {
-            empty_state(
-                glyph("search", cx),
-                format!("No skills match '{typed}'"),
-                cx,
-            )
-            .into_any_element()
-        } else {
-            self.workspace_list(workspace, &shown, cx)
-        };
-        page.child(search).child(results).into_any_element()
+        self.scoped_list(
+            page,
+            held,
+            |view, shown, cx| view.workspace_list(workspace, shown, cx),
+            cx,
+        )
     }
 
     /// The rows of `skills` in one card.
@@ -219,17 +194,21 @@ pub(super) fn workspace_marks(id: &SkillId, row: &WorkspaceRow<'_>, cx: &App) ->
         .text_color(theme.foreground)
         .into_any_element()
     });
-    let edited = row.edited.as_ref().map(|names| {
-        mark(
-            format!("edited-{id}"),
-            "pencil-edit",
-            "Changed here",
-            format!("Changed here\n{names}"),
-        )
-        .text_color(theme.muted_foreground)
-        .into_any_element()
-    });
+    let edited = row.edited.as_ref().map(|names| edited_mark(id, names, cx));
     overlap.into_iter().chain(edited).collect()
+}
+
+/// The edited mark of a skill whose copy in the places `names` was changed there: `pencil-edit`,
+/// muted, with the tooltip "Changed here" and the names.
+pub(super) fn edited_mark(id: &SkillId, names: &str, cx: &App) -> AnyElement {
+    mark(
+        format!("edited-{id}"),
+        "pencil-edit",
+        "Changed here",
+        format!("Changed here\n{names}"),
+    )
+    .text_color(cx.theme().muted_foreground)
+    .into_any_element()
 }
 
 /// An 18 px mark holding the 13 px glyph `icon`, read as `label`, with `text` as its tooltip.

@@ -232,9 +232,9 @@ fn inked(id: &'static str, open: bool, cx: &App) -> Stateful<Div> {
         .group_hover(PLACE_GROUP, move |style| style.text_color(foreground))
 }
 
-/// The active preset's chip: its color dot, muted without a color, then its name. It says where
-/// changes for your agents are saved and is not clickable.
-pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
+/// The active preset's chip `id`: its color dot, muted without a color, then its name. It says
+/// where changes for your agents are saved and is not clickable.
+pub(super) fn preset_chip(id: &'static str, preset: Option<&Preset>, cx: &App) -> AnyElement {
     let theme = cx.theme();
     let tint = preset
         .and_then(|preset| preset.color)
@@ -243,7 +243,7 @@ pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
         });
     let name = preset.map_or_else(|| "Default".to_owned(), |preset| preset.name.clone());
     div()
-        .id("place-preset")
+        .id(id)
         .flex_none()
         .child(
             chip(cx)

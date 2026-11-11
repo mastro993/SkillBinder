@@ -1,47 +1,12 @@
-//! Detected agents and the skills found in skill directories: a detected agent's found skills
-//! are the skill folders the last scan found in its global skill directory, which agents sharing
-//! that directory share. The universal agents, which all read `~/.agents/skills`, are
-//! listed together as Universal.
+//! Detected agents and how the Agents section names them. The universal agents, which all read
+//! `~/.agents/skills`, are listed together as Universal.
 
 use std::path::{Path, PathBuf};
 
-use skillbinder_proto::{AgentOption, Candidate, CandidateLocation, SkillId, ValidationStatus};
+use skillbinder_proto::AgentOption;
 
 /// The name of the universal agents together.
 pub(super) const UNIVERSAL: &str = "Universal";
-
-/// What one found skill folder holds relative to the library.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) enum FoundStatus {
-    /// Its content matches a library skill, or the library holds its slug, so it is in library.
-    InLibrary,
-    /// A skill the library does not hold.
-    NotInLibrary,
-    /// A skill the library does not hold whose payload fails validation.
-    Invalid,
-    /// A skill the library does not hold whose payload cannot safely be copied.
-    Blocked,
-}
-
-impl FoundStatus {
-    pub(super) fn label(self) -> &'static str {
-        match self {
-            Self::InLibrary => "In library",
-            Self::NotInLibrary => "Not in library",
-            Self::Invalid => "Invalid",
-            Self::Blocked => "Blocked",
-        }
-    }
-}
-
-/// One skill folder found in a skill directory.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct FoundSkill {
-    pub slug: String,
-    pub status: FoundStatus,
-    /// The library skill with the same content.
-    pub skill: Option<SkillId>,
-}
 
 /// Agents whose global skill directory exists, alphabetically: the snapshot lists agents by
 /// lowercase display name.
@@ -52,13 +17,6 @@ pub(super) fn detected_agents(agents: &[AgentOption]) -> Vec<&AgentOption> {
 /// The global skill directory the universal agents share: `~/.agents/skills`.
 pub(super) fn universal_dir(home: &str) -> PathBuf {
     Path::new(home).join(".agents").join("skills")
-}
-
-/// Whether one of `agents` reads `location` as its global skill directory, through any link.
-pub(super) fn read_globally(location: &CandidateLocation, agents: &[&AgentOption]) -> bool {
-    agents
-        .iter()
-        .any(|agent| location.global_agents.contains(&agent.id))
 }
 
 /// Splits detected agents into the universal agents and the rest, keeping their order.
@@ -89,41 +47,10 @@ pub(super) fn agent_name(agent: &AgentOption, home: &str) -> String {
     }
 }
 
-/// Skill folders the scan found at the locations `holds` accepts, by slug.
-pub(super) fn found_where(
-    candidates: &[Candidate],
-    holds: impl Fn(&CandidateLocation) -> bool,
-) -> Vec<FoundSkill> {
-    let mut skills: Vec<_> = candidates
-        .iter()
-        .flat_map(|candidate| {
-            let status = match (candidate.in_library(), candidate.validation) {
-                (Some(_), _) => FoundStatus::InLibrary,
-                (None, ValidationStatus::Invalid) => FoundStatus::Invalid,
-                (None, ValidationStatus::Blocked) => FoundStatus::Blocked,
-                (None, ValidationStatus::Valid | ValidationStatus::Warning) => {
-                    FoundStatus::NotInLibrary
-                }
-            };
-            candidate
-                .locations
-                .iter()
-                .filter(|location| holds(location))
-                .map(move |_| FoundSkill {
-                    slug: candidate.slug.clone(),
-                    status,
-                    skill: candidate.in_library().cloned(),
-                })
-        })
-        .collect();
-    skills.sort_by(|a, b| (&a.slug, a.status).cmp(&(&b.slug, b.status)));
-    skills
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_proto::{CandidateId, SameSlug};
+    use skillbinder_proto::SameSlug;
 
     fn agent(id: &str) -> AgentOption {
         AgentOption {
@@ -136,31 +63,6 @@ mod tests {
             other_global_dirs: Vec::new(),
             same_slug: SameSlug::Unknown,
             detected: true,
-        }
-    }
-
-    fn candidate(slug: &str, skill: Option<SkillId>, validation: ValidationStatus) -> Candidate {
-        Candidate {
-            id: CandidateId::new(),
-            key: slug.to_owned(),
-            preferred: true,
-            matches_source: false,
-            modified: None,
-            skill_id: skill,
-            held: None,
-            slug: slug.to_owned(),
-            description: String::new(),
-            locations: vec![CandidateLocation {
-                display_path: format!("/home/.claude/skills/{slug}"),
-                readers: Vec::new(),
-                agents: Vec::new(),
-                global_agents: vec!["claude-code".to_owned()],
-                workspaces: Vec::new(),
-            }],
-            validation,
-            messages: Vec::new(),
-            total_bytes: 0,
-            file_count: 0,
         }
     }
 
@@ -193,37 +95,5 @@ mod tests {
             agent_name(rest[1], "/home"),
             "Universal (~/.config/agents/skills)"
         );
-    }
-
-    #[test]
-    fn found_skills_list_every_folder_an_agent_reads_globally() {
-        let kept = SkillId("kept".into());
-        let mut elsewhere = candidate("elsewhere", None, ValidationStatus::Valid);
-        elsewhere.locations[0].global_agents.clear();
-        let mut linked = candidate("linked", None, ValidationStatus::Valid);
-        linked.locations[0].global_agents = vec!["codex".to_owned()];
-        let candidates = [
-            candidate("kept", Some(kept.clone()), ValidationStatus::Valid),
-            candidate("broken", None, ValidationStatus::Invalid),
-            candidate("found", None, ValidationStatus::Warning),
-            elsewhere,
-            linked,
-        ];
-        let mut claude = agent("claude-code");
-        claude.global_skills_dir = Some("/home/.claude/skills".to_owned());
-        let skills = found_where(&candidates, |location| read_globally(location, &[&claude]));
-        let listed: Vec<_> = skills
-            .iter()
-            .map(|skill| (skill.slug.as_str(), skill.status))
-            .collect();
-        assert_eq!(
-            listed,
-            [
-                ("broken", FoundStatus::Invalid),
-                ("found", FoundStatus::NotInLibrary),
-                ("kept", FoundStatus::InLibrary),
-            ]
-        );
-        assert_eq!(skills[2].skill, Some(kept));
     }
 }

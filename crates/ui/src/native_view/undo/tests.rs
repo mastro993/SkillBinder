@@ -1,4 +1,4 @@
-use super::super::snapshot_query::fixture::{Fixture, dirs, id};
+use super::super::snapshot_query::fixture::{Fixture, agents, dirs, id, preset_id};
 use super::*;
 use skillbinder_proto::WorkspaceId;
 
@@ -6,7 +6,6 @@ fn copy(skill: &str, directory: &str, state: CopyState) -> ManagedCopy {
     ManagedCopy {
         skill: id(skill),
         directory: directory.to_owned(),
-        managed: true,
         state,
     }
 }
@@ -67,10 +66,51 @@ fn undo_restores_the_captured_choice_while_its_workspace_and_skill_remain() {
         !restorable(&undo("acme-web", "review"), &missing),
         "the engine would refuse a missing folder"
     );
-    let Undo::Workspace { previous, .. } = undo("acme-web", "review");
-    assert_eq!(
-        previous,
-        dirs(&[".claude/skills"]),
-        "Undo keeps the exact directories"
+}
+
+#[test]
+fn undo_saves_a_preset_choice_while_that_preset_and_skill_remain() {
+    let snapshot = Fixture::new()
+        .preset("frontend", "Frontend")
+        .skill("review", "", None)
+        .build();
+    let undo = |preset: &str, skill: &str| Undo::Preset {
+        id: preset_id(preset),
+        skill: id(skill),
+        previous: Targets::AllAgents,
+    };
+    assert!(
+        restorable(&undo("frontend", "review"), &snapshot),
+        "an inactive preset still takes it"
     );
+    assert!(!restorable(&undo("deleted", "review"), &snapshot));
+    assert!(!restorable(&undo("default", "gone"), &snapshot));
+}
+
+#[test]
+fn undo_sends_the_kept_choice_to_the_place_it_came_from() {
+    let (kept, review) = (agents(&["claude-code", "zed"]), id("review"));
+    let undo = Undo::Preset {
+        id: preset_id("frontend"),
+        skill: review.clone(),
+        previous: kept.clone(),
+    };
+    assert!(
+        matches!(
+            undo.restoring(),
+            Restoring::Preset(OrganizationChange::SetTargets { id, skill, targets })
+                if id == preset_id("frontend") && skill == review && targets == kept
+        ),
+        "the captured preset, not the active one, takes the captured targets"
+    );
+    let undo = Undo::Workspace {
+        id: WorkspaceId("acme-web".to_owned()),
+        skill: id("review"),
+        previous: dirs(&[".claude/skills"]),
+    };
+    assert!(matches!(
+        undo.restoring(),
+        Restoring::Workspace { id, targets, .. }
+            if id == WorkspaceId("acme-web".to_owned()) && targets == dirs(&[".claude/skills"])
+    ));
 }

@@ -401,7 +401,7 @@ async fn an_unwritable_directory_keeps_the_choice_and_shows_it_not_applied() {
             .contains(&row(".claude/skills", "review", CopyState::Applied))
     );
 
-    // A copy that cannot be removed stays managed until a retry removes it.
+    // A copy that cannot be removed stays until a retry removes it.
     fs::set_permissions(&agents.claude, fs::Permissions::from_mode(0o555)).unwrap();
     let library = agents.organize(deactivate("review")).await;
     assert!(library.library.skills[0].presets.is_empty());
@@ -409,7 +409,6 @@ async fn an_unwritable_directory_keeps_the_choice_and_shows_it_not_applied() {
         &agents.states(&library)[..],
         [(directory, _, CopyState::NotRemoved(_))] if directory == ".claude/skills"
     ));
-    assert!(library.copies[0].managed);
     assert!(agents.claude.join("review").exists());
     fs::set_permissions(&agents.claude, fs::Permissions::from_mode(0o755)).unwrap();
     let library = agents.engine.retry_copies().await.unwrap();

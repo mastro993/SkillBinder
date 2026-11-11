@@ -76,9 +76,6 @@ pub struct ManagedCopy {
     pub directory: String,
     /// Whether the copy is applied, and what holds it back when it is not.
     pub state: CopyState,
-    /// Whether the directory holds a copy SkillBinder manages, such as an applied or edited one,
-    /// or one it could not rewrite or remove yet.
-    pub managed: bool,
 }
 impl ManagedCopy {
     /// Whether the user decides what happens to the directory's copy before anything changes.

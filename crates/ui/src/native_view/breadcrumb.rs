@@ -1,10 +1,8 @@
 //! The header breadcrumb: the current page's title under its sidebar section.
 
-use super::agent_skills::{UNIVERSAL, agent_name};
 use super::{NativeView, Route};
 use gpui_kit::component::breadcrumb::{Breadcrumb, BreadcrumbItem};
 use gpui_kit::{Context, IntoElement, Styled};
-use skillbinder_proto::AppSnapshot;
 
 /// One breadcrumb step; `target` is the route it opens, and the last step opens nothing.
 #[derive(Debug, PartialEq, Eq)]
@@ -30,42 +28,34 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
             label: "Library".to_owned(),
             target: Some(Route::Library),
         }),
-        Route::Agent(_) | Route::Universal => Some(Crumb::text("Agents")),
-        // A workspace's page draws its own head instead of the breadcrumb.
-        Route::Workspace(_) | Route::Discovery | Route::Library | Route::Sync | Route::Settings => {
-            None
-        }
+        // A workspace's, an agent's, and Universal's page draw their own head instead.
+        Route::Workspace(_)
+        | Route::Agent(_)
+        | Route::Universal
+        | Route::Discovery
+        | Route::Library
+        | Route::Sync
+        | Route::Settings => None,
     };
     section.into_iter().chain([Crumb::text(title)]).collect()
 }
 
-/// The current page's own name, as the sidebar shows it.
-fn title(route: &Route, snapshot: &AppSnapshot) -> String {
+/// The current page's own name, as the sidebar shows it. Library and the scoped pages draw their
+/// own title instead of the breadcrumb.
+fn title(route: &Route) -> String {
     match route {
         Route::Discovery => "Discovery".to_owned(),
-        Route::Library => "Library".to_owned(),
         Route::Skill(id) => id.to_string(),
-        Route::Workspace(id) => snapshot
-            .workspaces
-            .iter()
-            .find(|workspace| &workspace.id == id)
-            .map(|workspace| workspace.name.clone())
-            .unwrap_or_default(),
-        Route::Agent(id) => snapshot
-            .agents
-            .iter()
-            .find(|agent| &agent.id == id)
-            .map_or_else(|| id.clone(), |agent| agent_name(agent, &snapshot.home)),
-        Route::Universal => UNIVERSAL.to_owned(),
         Route::Sync => "Sync".to_owned(),
         Route::Settings => "Settings".to_owned(),
+        Route::Library | Route::Workspace(_) | Route::Agent(_) | Route::Universal => String::new(),
     }
 }
 
 impl NativeView {
     pub(super) fn render_breadcrumb(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let weak = cx.entity().downgrade();
-        let steps = crumbs(&self.route, title(&self.route, &self.snapshot));
+        let steps = crumbs(&self.route, title(&self.route));
         Breadcrumb::new()
             .min_w_0()
             .children(steps.into_iter().map(|crumb| {
@@ -99,6 +89,8 @@ mod tests {
             Route::Discovery,
             Route::Library,
             Route::Workspace(WorkspaceId::new()),
+            Route::Agent("codex".to_owned()),
+            Route::Universal,
             Route::Sync,
             Route::Settings,
         ] {
@@ -107,14 +99,9 @@ mod tests {
     }
 
     #[test]
-    fn nested_pages_follow_their_section_and_only_library_links_back() {
-        assert_eq!(labels(Route::Agent("codex".to_owned())), ["Agents", "Page"]);
-        assert_eq!(labels(Route::Universal), ["Agents", "Page"]);
+    fn a_skill_page_follows_library_and_links_back() {
         let skill = crumbs(&Route::Skill(SkillId("pdf".into())), "pdf".to_owned());
         assert_eq!(skill[0].target, Some(Route::Library));
-        assert_eq!(
-            crumbs(&Route::Agent("codex".to_owned()), String::new())[0].target,
-            None
-        );
+        assert_eq!(skill[1].label, "pdf");
     }
 }

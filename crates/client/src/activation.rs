@@ -6,7 +6,7 @@ use skillbinder_proto::*;
 
 impl Client {
     /// Applies preset or membership edits, publishing their progress while they run. One that
-    /// wrote or removed copies scans again, so the agents' found skills show them.
+    /// wrote or removed copies scans again, so Discovery and the copies' warning glyphs show them.
     pub async fn change_organization(
         &self,
         change: OrganizationChange,

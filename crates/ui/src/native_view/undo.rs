@@ -11,7 +11,8 @@ use super::{Effect, NativeView};
 use gpui_kit::Context;
 use gpui_kit::component::notification::Notification;
 use skillbinder_proto::{
-    AppSnapshot, CopyState, ManagedCopy, SkillId, WorkspaceId, WorkspaceTargets,
+    AppSnapshot, CopyState, ManagedCopy, OrganizationChange, PresetId, SkillId, Targets,
+    WorkspaceId, WorkspaceTargets,
 };
 
 /// A place's choice for a skill before its removal, which Undo saves again.
@@ -22,14 +23,55 @@ pub(super) enum Undo {
         skill: SkillId,
         previous: WorkspaceTargets,
     },
+    /// A preset's agents for a skill, saved to that preset even once another one is active.
+    Preset {
+        id: PresetId,
+        skill: SkillId,
+        previous: Targets,
+    },
 }
 
 impl Undo {
     pub(super) fn skill(&self) -> &SkillId {
         match self {
-            Self::Workspace { skill, .. } => skill,
+            Self::Workspace { skill, .. } | Self::Preset { skill, .. } => skill,
         }
     }
+
+    /// The change that saves the kept choice again, to the place it came from.
+    pub(super) fn restoring(self) -> Restoring {
+        match self {
+            Self::Workspace {
+                id,
+                skill,
+                previous,
+            } => Restoring::Workspace {
+                id,
+                skill,
+                targets: previous,
+            },
+            Self::Preset {
+                id,
+                skill,
+                previous,
+            } => Restoring::Preset(OrganizationChange::SetTargets {
+                id,
+                skill,
+                targets: previous,
+            }),
+        }
+    }
+}
+
+/// What Undo sends: a workspace's choice for a skill, or a preset's change.
+#[derive(Debug)]
+pub(super) enum Restoring {
+    Workspace {
+        id: WorkspaceId,
+        skill: SkillId,
+        targets: WorkspaceTargets,
+    },
+    Preset(OrganizationChange),
 }
 
 /// A removal that landed: what Undo restores, and the resolved directories it touched.
@@ -59,10 +101,13 @@ pub(super) fn edited_asks(
 /// Whether Undo can still save `undo`: its place and its skill are still there, and a workspace's
 /// folder is not missing, which would refuse it.
 pub(super) fn restorable(undo: &Undo, snapshot: &AppSnapshot) -> bool {
-    let in_library = snapshot
+    let Some(library) = &snapshot.library else {
+        return false;
+    };
+    let in_library = library
         .library
+        .skills
         .iter()
-        .flat_map(|library| &library.library.skills)
         .any(|skill| &skill.id == undo.skill());
     in_library
         && match undo {
@@ -70,6 +115,7 @@ pub(super) fn restorable(undo: &Undo, snapshot: &AppSnapshot) -> bool {
                 .workspaces
                 .iter()
                 .any(|workspace| &workspace.id == id && !workspace.missing),
+            Undo::Preset { id, .. } => library.library.presets.iter().any(|p| &p.id == id),
         }
 }
 
@@ -136,12 +182,11 @@ impl NativeView {
             return false;
         }
         if restorable(&undo, &self.snapshot) {
-            match undo {
-                Undo::Workspace {
-                    id,
-                    skill,
-                    previous,
-                } => self.set_workspace_skill(id, skill, Some(previous), cx),
+            match undo.restoring() {
+                Restoring::Workspace { id, skill, targets } => {
+                    self.set_workspace_skill(id, skill, Some(targets), cx);
+                }
+                Restoring::Preset(change) => self.change_organization(change, cx),
             }
         }
         true
