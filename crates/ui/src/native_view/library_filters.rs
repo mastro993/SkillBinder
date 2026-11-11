@@ -1,13 +1,13 @@
-//! Library's toolbar and empty results. The toolbar reads: the search field, then on Library the
-//! All, Active, and Inactive segments with their counts and the Updates chip, a flexible gap, and
+//! Library's toolbar and empty results. The toolbar reads: the search field, then the All,
+//! Active, and Inactive segments with their counts and the Updates chip, a flexible gap, and
 //! the List and Grid segments. The segments are Kit's segmented tab bars. The filters last the
 //! session, like the folder tab, and combine with it and the search; "Clear filters" resets them
 //! and the search but keeps the folder tab.
 
+use super::NativeView;
 use super::controls::text::{sized, tabular};
 use super::controls::{app_icon, focus_ring, text_button, tooltip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
-use super::{NativeView, Route};
 use gpui_kit::base::Toggle;
 use gpui_kit::component::tab::{Tab, TabBar};
 use gpui_kit::component::{ActiveTheme, Size, h_flex, input::Input, v_flex};
@@ -39,10 +39,10 @@ const UPDATE_GLYPH: f32 = 14.;
 const CHIP_GAP: f32 = 5.;
 
 impl NativeView {
-    /// The toolbar; `counts` are given on Library, which shows the filters.
+    /// The toolbar, its filters with their `counts`.
     pub(super) fn library_toolbar(
         &self,
-        counts: Option<FilterCounts>,
+        counts: FilterCounts,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -62,7 +62,7 @@ impl NativeView {
             .h(px(TOOLBAR_HEIGHT))
             .gap(px(8.))
             .child(search)
-            .children(counts.map(|counts| self.library_filters(counts, window, cx)))
+            .child(self.library_filters(counts, window, cx))
             .child(div().flex_1())
             .child(self.view_segments(cx))
             .into_any_element()
@@ -199,19 +199,8 @@ impl NativeView {
     }
 
     /// Why nothing is listed: a filter or the search matches nothing, with Clear filters, or the
-    /// chosen folder holds no skill. A workspace's page keeps its plain search message.
+    /// chosen folder holds no skill.
     pub(super) fn empty_results(&self, typed: &str, cx: &mut Context<Self>) -> AnyElement {
-        if self.route != Route::Library {
-            if typed.is_empty() {
-                return div().into_any_element();
-            }
-            return div()
-                .py_8()
-                .text_center()
-                .text_color(cx.theme().muted_foreground)
-                .child(format!("No skills match '{typed}'"))
-                .into_any_element();
-        }
         if self.library_filter.narrows() || !typed.is_empty() {
             let clear = text_button("library-clear-filters", "Clear filters", Size::Small)
                 .outline()
@@ -221,20 +210,32 @@ impl NativeView {
                         .update(cx, |input, cx| input.set_value("", window, cx));
                     cx.notify();
                 }));
-            return empty_state("search", "No skills match".to_owned(), cx)
+            return empty_state(glyph("search", cx), "No skills match".to_owned(), cx)
                 .child(div().mt(px(8.)).child(clear))
                 .into_any_element();
         }
         match self.shown_folder() {
-            Some(folder) => empty_state("folder", format!("No skills in {}", folder.name), cx)
-                .into_any_element(),
+            Some(folder) => empty_state(
+                glyph("folder", cx),
+                format!("No skills in {}", folder.name),
+                cx,
+            )
+            .into_any_element(),
             None => div().into_any_element(),
         }
     }
 }
 
-/// The empty state's `icon` glyph in a 40 px rounded square, then its title.
-fn empty_state(icon: &str, title: String, cx: &Context<NativeView>) -> Div {
+/// The retained glyph `name` as an empty state shows it.
+pub(super) fn glyph(name: &str, cx: &App) -> AnyElement {
+    app_icon(name)
+        .size(px(20.))
+        .text_color(cx.theme().foreground)
+        .into_any_element()
+}
+
+/// The empty state: `icon` in a 40 px rounded square, then its title.
+pub(super) fn empty_state(icon: AnyElement, title: String, cx: &App) -> Div {
     let theme = cx.theme();
     v_flex()
         .w_full()
@@ -252,7 +253,7 @@ fn empty_state(icon: &str, title: String, cx: &Context<NativeView>) -> Div {
                 .mb(px(4.))
                 .rounded(px(10.))
                 .bg(theme.muted)
-                .child(app_icon(icon).size(px(20.)).text_color(theme.foreground)),
+                .child(icon),
         )
         .child(
             sized(div().id("empty-title"), 14.)

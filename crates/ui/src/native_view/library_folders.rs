@@ -198,8 +198,8 @@ impl NativeView {
         ]
     }
 
-    /// The active preset's membership, then Move to folder with None and each folder; the
-    /// skill's current choices are checked.
+    /// On Library the active preset's membership, then Update while one exists, then Move to
+    /// folder with None and each folder; the skill's current choices are checked.
     pub(super) fn skill_menu(&self, skill: &SkillId, cx: &mut Context<Self>) -> Vec<MenuItem> {
         let view = cx.entity().downgrade();
         let current = self
@@ -230,20 +230,24 @@ impl NativeView {
                 Some(folder.id.clone()),
             )
         }));
-        // The membership the row toggles can be switched here as well as from the row.
-        let active = self.skill_active(skill);
-        let toggle = MenuItem::new("toggle-active", format!("Active in {}", self.scope_name()))
-            .checked(active)
-            .disabled(
-                self.busy
-                    || (self.scoped_workspace().is_none() && self.active_preset_id().is_none()),
-            )
-            .on_select(menu_action(
-                view.clone(),
-                skill.clone(),
-                move |view, skill, _, cx| view.toggle_activation(skill.clone(), !active, cx),
-            ));
-        let mut items = vec![toggle];
+        // On Library, the active preset's membership can be switched here as well.
+        let mut items = Vec::new();
+        if self.route == Route::Library {
+            let active = self.skill_active(skill);
+            let name = self.active_preset_name();
+            items.push(
+                MenuItem::new("toggle-active", format!("Active in {name}"))
+                    .checked(active)
+                    .disabled(self.busy || self.active_preset_id().is_none())
+                    .on_select(menu_action(
+                        view.clone(),
+                        skill.clone(),
+                        move |view, skill, _, cx| {
+                            view.toggle_activation(skill.clone(), !active, cx)
+                        },
+                    )),
+            );
+        }
         if self.has_update(skill) {
             items.push(
                 MenuItem::new("update-skill", "Update")
@@ -256,7 +260,9 @@ impl NativeView {
                     )),
             );
         }
-        items.push(MenuItem::separator());
+        if !items.is_empty() {
+            items.push(MenuItem::separator());
+        }
         items.push(
             MenuItem::new("move-to-folder", "Move to folder")
                 .icon("folder")

@@ -1,14 +1,10 @@
 //! The Library page: every library skill, or one folder's, narrowed by search and the Active and
-//! Updates filters, as a list or grid under a fixed toolbar, each showing where it is on. A
-//! workspace's page lists the same skills, scoped to the workspace, with its activation controls.
+//! Updates filters, as a list or grid under a fixed toolbar, each showing where it is on.
 
-use super::library_copies::{AgentRow, placements};
+use super::NativeView;
+use super::library_copies::placements;
 use super::library_items::{RowEnd, SkillItem};
-use super::snapshot_query::{
-    LibraryFilter, Places, Query, filter_counts, has_update, library_skills,
-};
-use super::workspace_targets::dir_rows;
-use super::{NativeView, Route};
+use super::snapshot_query::{Places, Query, filter_counts, has_update, library_skills};
 use gpui_kit::component::{ActiveTheme, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
@@ -18,9 +14,6 @@ use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
 use skillbinder_theme::library::{
     GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE, PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP,
 };
-
-/// A workspace's page keeps the shell's 24-point gutter on both sides.
-const WORKSPACE_PADDING: f32 = 48.;
 
 impl NativeView {
     pub(super) fn render_library(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -32,21 +25,15 @@ impl NativeView {
         };
         let typed = self.search.read(cx).value().trim().to_owned();
         let search = typed.to_lowercase();
-        let on_library = self.route == Route::Library;
         let places = Places::new(&self.snapshot);
         let query = Query {
             folder: self.shown_folder().map(|folder| &folder.id),
             search: &search,
-            // A workspace's page has no filter row.
-            filter: if on_library {
-                self.library_filter
-            } else {
-                LibraryFilter::default()
-            },
+            filter: self.library_filter,
             keep: self.place_popover.as_ref().map(|popover| &popover.skill),
         };
         let shown = library_skills(&self.snapshot, &places, &active, query);
-        let counts = on_library.then(|| filter_counts(&self.snapshot, &places, &active, query));
+        let counts = filter_counts(&self.snapshot, &places, &active, query);
         let width = self.content_width(window);
         let toolbar = self.library_toolbar(counts, window, cx);
         let results = self.library_results(library, &places, &active, &shown, &typed, width, cx);
@@ -55,14 +42,6 @@ impl NativeView {
             .into_iter()
             .chain(self.render_update_outcome(cx))
             .collect();
-        if !on_library {
-            return v_flex()
-                .gap_4()
-                .child(toolbar)
-                .children(notes)
-                .child(results)
-                .into_any_element();
-        }
         // The toolbar stays put while the list under it scrolls.
         v_flex()
             .size_full()
@@ -97,24 +76,18 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// A notice under the header while the open workspace, or else the active preset, holds no
-    /// skills.
+    /// A notice under the header while the active preset holds no skills.
     fn empty_scope_note(
         &self,
         library: &LibrarySnapshot,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let holds = match self.scoped_workspace() {
-            Some(workspace) => !workspace.skills.is_empty(),
-            None => {
-                let active = self.active_preset_id()?;
-                library
-                    .library
-                    .skills
-                    .iter()
-                    .any(|skill| skill.presets.contains_key(&active))
-            }
-        };
+        let active = self.active_preset_id()?;
+        let holds = library
+            .library
+            .skills
+            .iter()
+            .any(|skill| skill.presets.contains_key(&active));
         if holds {
             return None;
         }
@@ -122,20 +95,9 @@ impl NativeView {
             div()
                 .text_sm()
                 .text_color(cx.theme().muted_foreground)
-                .child(format!("No skills active in {}", self.scope_name()))
+                .child(format!("No skills active in {}", self.active_preset_name()))
                 .into_any_element(),
         )
-    }
-
-    /// The rows the agents line names on a workspace's page: the workspace's skill directories.
-    /// Library shows where skills are on instead, so only the copies that need review count there.
-    fn placement_rows(&self) -> Vec<AgentRow> {
-        self.scoped_workspace().map_or_else(Vec::new, |workspace| {
-            dir_rows(&self.snapshot.agents, workspace, &self.snapshot.home)
-                .into_iter()
-                .map(|row| row.row)
-                .collect()
-        })
     }
 
     #[expect(clippy::too_many_arguments)]
@@ -152,7 +114,6 @@ impl NativeView {
         if visible.is_empty() {
             return self.empty_results(typed, cx);
         }
-        let on_library = self.route == Route::Library;
         let grid = self.library_view == LibraryView::Grid;
         let columns = grid_columns(width);
         let narrow = if grid {
@@ -160,8 +121,8 @@ impl NativeView {
         } else {
             width < NARROW_LIST
         };
-        let placed = placements(&library.copies, &self.placement_rows());
-        let overlaps = self.scoped_workspace().map(|workspace| &workspace.overlaps);
+        // Library shows where skills are on instead, so only the copies that need review count.
+        let placed = placements(&library.copies, &[]);
         let items: Vec<SkillItem<'_>> = visible
             .iter()
             .map(|skill| SkillItem {
@@ -173,15 +134,8 @@ impl NativeView {
                     .filter(|_| grid || width >= NARROW_LIST),
                 update: has_update(&self.snapshot, &skill.id),
                 drifted: skill.drift.is_some(),
-                overlap: overlaps
-                    .and_then(|overlaps| overlaps.get(&skill.id))
-                    .copied(),
                 placement: placed.get(&skill.id),
-                end: if on_library {
-                    RowEnd::Places(places.of(skill, active))
-                } else {
-                    RowEnd::Activation
-                },
+                end: RowEnd::Places(places.of(skill, active)),
             })
             .collect();
         if grid {
@@ -203,12 +157,7 @@ impl NativeView {
         } else {
             self.sidebar_width
         };
-        let padding = if self.route == Route::Library {
-            2. * PAGE_GUTTER
-        } else {
-            WORKSPACE_PADDING
-        };
-        f32::from(window.viewport_size().width) - sidebar - padding
+        f32::from(window.viewport_size().width) - sidebar - 2. * PAGE_GUTTER
     }
 }
 

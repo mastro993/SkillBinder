@@ -209,7 +209,14 @@ impl Render for Stage {
         let surface = popover.begin_frame().map(|anchor| {
             let content = div().h(px(200.)).into_any_element();
             let label = "Where review is on".to_owned();
-            deferred(popover.place(anchor, popover.surface(label, content, Self::close, cx)))
+            deferred(
+                popover.place(
+                    anchor,
+                    popover
+                        .surface(label, content, Self::close, cx)
+                        .into_any_element(),
+                ),
+            )
         });
         let cells = popover.cells.clone();
         stage

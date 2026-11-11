@@ -70,7 +70,7 @@ impl PlacePopover {
     }
 
     /// The focus of the control `id`, which Tab reaches after the controls drawn before it.
-    pub(super) fn key(&self, id: &str, cx: &App) -> FocusHandle {
+    pub(in super::super) fn key(&self, id: &str, cx: &App) -> FocusHandle {
         let focus = self
             .keys
             .borrow_mut()

@@ -198,7 +198,8 @@ impl NativeView {
     }
 
     /// The page under the header: Library frames itself, with a fixed toolbar over its own
-    /// scrolling list; every other page scrolls whole inside the shell's 24-point gutter.
+    /// scrolling list; every other page scrolls whole, a workspace's page in its own frame and the
+    /// rest inside the shell's 24-point gutter.
     fn render_content(&self, page: AnyElement, cx: &mut Context<Self>) -> Vec<AnyElement> {
         if self.route == Route::Library {
             return vec![
@@ -218,9 +219,9 @@ impl NativeView {
                 .size_full()
                 .overflow_y_scroll()
                 .track_scroll(&self.content_scroll.handle)
-                .px_6()
-                .pt_4()
-                .pb_6()
+                .when(!matches!(self.route, Route::Workspace(_)), |page| {
+                    page.px_6().pt_4().pb_6()
+                })
                 .child(self.render_import_outcome(cx))
                 .child(page)
                 .into_any_element(),
@@ -292,11 +293,7 @@ impl NativeView {
         });
         // With the header's inset, the breadcrumb lines up with the page's 24-point padding.
         let title = div().flex_1().min_w_0().pl_4().when(with_sidebar, |title| {
-            if self.route == Route::Library {
-                title.child(self.render_folder_tabs(window, cx))
-            } else {
-                title.child(self.render_breadcrumb(cx).into_any_element())
-            }
+            title.child(self.render_title(window, cx))
         });
         let reserves = reserves_traffic_lights(window);
         // A page's header ends in the sidebar's hairline; onboarding's has no line.

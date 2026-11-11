@@ -416,7 +416,7 @@ fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
 }
 
 mod scoped;
-pub(super) use scoped::{agent_skills, searched, workspace_skills};
+pub(super) use scoped::{agent_skills, matching, searched, workspace_skills};
 
 #[cfg(test)]
 pub(super) mod fixture;

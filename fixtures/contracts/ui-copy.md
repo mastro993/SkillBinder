@@ -68,14 +68,14 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312`. Copy
 
 These strings were added with workspaces and agents; they have no captured baseline.
 
-- Sidebar section `Workspaces` with add button label `Add workspace`. Add buttons show their label as a tooltip. It lists the added workspaces; empty: `No workspaces`. A workspace row's trailing detail is its number of found skills; its accessibility label is its name, or `<name>, folder missing` while its folder is missing.
+- Sidebar section `Workspaces` with add button label `Add workspace`. Add buttons show their label as a tooltip. It lists the added workspaces; empty: `No workspaces`. A workspace row's trailing detail is the number of skills its page lists; its accessibility label is its name, or `<name>, folder missing` while its folder is missing.
 - Sidebar section `Agents`, with no add button, lists `Universal` first for the detected agents that read `~/.agents/skills`, then the other detected agents by display name; the registry's Universal agent is named `Universal (<its directory>)`; each row's accessibility label is the display name and its trailing detail is its number of found skills. Empty: `No agents`.
 - Universal page: the header breadcrumb `Agents › Universal`; the `~/.agents/skills` path; `Used by <agents>`; then the found skills as on an agent page.
 - Agent page: the header breadcrumb `Agents › <display name>`; the global skill directory path; `Shared with <agents>` when other detected agents read the same directory; `1 found skill` or `<n> found skills`; each row's slug, a `Managed copy` tag on a managed copy in that directory, status `In library`, `Not in library`, `Invalid`, or `Blocked`, and `Show in Library` on an In library row.
 - Workspace row menu: `Rename`, `Move Up`, `Move Down`, `Remove…`. Inline rename placeholder `Workspace name`.
 - Directory picker prompt: `Add workspace`. Duplicate refusals: `This folder is already added as <name>.` when the picked folder itself is the workspace, and `Every project in <folder> is already added.` otherwise, including picking the home folder again after its projects were added. Agent folder refusals when a pick adds nothing because the picked folder, or every project in it, is an agent folder: `Your home folder's skills are shown under Agents.` when the home folder is one of them, otherwise `This folder's skills are shown under Agents.`
 - Remove confirmation: title `Remove workspace`, `Remove <name>?`, `Removes the workspace from SkillBinder. Files in the folder are not touched.`, actions `Cancel`, `Remove workspace`.
-- Workspace page: the header breadcrumb `Workspaces › <name>`; the folder path; missing folder `The workspace folder is missing.`; then Library scoped to the workspace (see [Activation](ui-copy/activation.md)).
+- Workspace page: the header's head, the workspace's glyph, `<name>`, and its folder with home as `~`, then `Add skill`; missing folder `The workspace folder is missing.`; the search field `Search skills`; then the skills the workspace holds (see [Activation](ui-copy/activation.md)).
 
 ## Managed copies
 

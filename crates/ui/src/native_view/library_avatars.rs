@@ -1,18 +1,15 @@
-//! A skill's copies as avatars: on a workspace's page, the agents line under a row, naming the
-//! directories that hold the skill's applied copy; everywhere, the warning glyph of copies that
-//! are not applied. The avatar stack, which Library's placement button shows too, lives here.
+//! Agent avatars in an overlapping stack, which Library's placement button and a workspace page's
+//! agents button show, and the warning glyph of a skill's copies that are not applied.
 
 use super::controls::text::sized;
 use super::controls::{Logo, app_icon, tooltip};
 use super::copy_dialogs::{CopiesListing, unsettled_summary};
-use super::library_copies::{AgentRow, Reader};
-use super::library_items::{ITEM_GROUP, SkillItem, surface};
+use super::library_items::ITEM_GROUP;
 use super::{DialogState, NativeView};
-use gpui_kit::component::{ActiveTheme, Icon, Sizable, avatar::Avatar, h_flex};
+use gpui_kit::component::{ActiveTheme, Icon, Sizable, avatar::Avatar};
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
-    white,
+    ParentElement, StatefulInteractiveElement, Styled, Text, div, px, white,
 };
 use skillbinder_proto::SkillId;
 
@@ -113,59 +110,28 @@ pub(super) fn stack(logos: &[Logo], ring: Ring, cx: &App) -> Div {
     )
 }
 
-impl NativeView {
-    /// Agent avatars, Universal first, for the directories that hold the skill's applied copy,
-    /// then the warning glyph of copies that are not applied, or a muted note while neither shows.
-    /// Clicking an avatar opens its agent's page.
-    pub(super) fn agents_line(&self, item: &SkillItem<'_>, cx: &mut Context<Self>) -> AnyElement {
-        let (applied, unsettled) = item.placement.map_or((&[][..], 0), |placement| {
-            (placement.applied.as_slice(), placement.unsettled.len())
-        });
-        if applied.is_empty() && unsettled == 0 {
-            return sized(div().id("no-agents"), 11.5)
-                .text_color(cx.theme().muted_foreground)
-                .child("Not in any agent")
-                .into_any_element();
-        }
-        let ring = Ring {
-            rest: surface(cx),
-            hovered: None,
-        };
-        let hidden = applied.len().saturating_sub(SHOWN);
-        let more = (hidden > 0).then(|| {
-            let names = applied[SHOWN..]
-                .iter()
-                .map(|holder| holder.name.clone())
-                .collect::<Vec<_>>()
-                .join("\n");
-            div()
-                .id(format!("holders-more-{}", item.skill.id))
-                .child(more(hidden, ring, cx))
-                // The circle opens nothing, and the click must not open the skill either.
-                .on_click(|_, _, cx| cx.stop_propagation())
-                .tooltip(tooltip(names))
-                .into_any_element()
-        });
-        let avatars: Vec<AnyElement> = applied
+/// An overlapping stack of `logos`, the first `SHOWN` as avatars and the rest as `+N`, whose
+/// tooltip lists the rest's `names`, one per line; `id` names the `+N` circle.
+pub(super) fn named_stack(id: String, logos: &[(Logo, String)], ring: Ring, cx: &App) -> Div {
+    let hidden = logos.get(SHOWN..).unwrap_or_default();
+    let rest = (!hidden.is_empty()).then(|| {
+        let names: Vec<&str> = hidden.iter().map(|(_, name)| name.as_str()).collect();
+        div()
+            .id(id)
+            .child(more(hidden.len(), ring, cx))
+            .tooltip(tooltip(names.join("\n")))
+            .into_any_element()
+    });
+    overlap(
+        logos
             .iter()
             .take(SHOWN)
-            .map(|holder| holder_avatar(&item.skill.id, holder, ring, cx))
-            .chain(more)
-            .collect();
-        h_flex()
-            .flex_shrink_0()
-            .items_center()
-            .when(!avatars.is_empty(), |line| line.child(overlap(avatars)))
-            .when(unsettled > 0, |line| {
-                line.child(
-                    div()
-                        .when(!applied.is_empty(), |glyph| glyph.ml(px(6.)))
-                        .child(self.unsettled_glyph(&item.skill.id, unsettled, cx)),
-                )
-            })
-            .into_any_element()
-    }
+            .map(|(logo, _)| avatar(*logo, ring, cx).into_any_element())
+            .chain(rest),
+    )
+}
 
+impl NativeView {
     /// The warning glyph of a skill with copies that are not applied; clicking it lists them.
     pub(super) fn unsettled_glyph(
         &self,
@@ -191,32 +157,4 @@ impl NativeView {
             .tooltip(tooltip(unsettled_summary(count)))
             .into_any_element()
     }
-}
-
-/// One directory's avatar; its tooltip names the directory, and for Universal the agents reading
-/// it. Clicking it opens the agent's page.
-fn holder_avatar(
-    skill: &SkillId,
-    holder: &AgentRow,
-    ring: Ring,
-    cx: &mut Context<NativeView>,
-) -> AnyElement {
-    let route = holder.route();
-    let (text, key) = match &holder.reader {
-        Reader::Universal(names) => (
-            format!("{}\nUsed by {}", holder.dir, names.join(", ")),
-            "universal".to_owned(),
-        ),
-        Reader::Agent(id) => (holder.dir.clone(), id.clone()),
-    };
-    div()
-        .id(format!("holder-{skill}-{key}"))
-        .cursor_pointer()
-        .child(avatar(Logo::reader(&holder.reader), ring, cx))
-        .on_click(cx.listener(move |view, _, window, cx| {
-            cx.stop_propagation();
-            view.navigate(route.clone(), window, cx);
-        }))
-        .tooltip(super::controls::tooltip(text))
-        .into_any_element()
 }

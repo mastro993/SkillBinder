@@ -5,7 +5,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use super::Route;
 use super::agent_skills::{UNIVERSAL, agent_name, detected_agents, split_universal};
 use skillbinder_proto::{AgentOption, CopyState, ManagedCopy, SkillId};
 
@@ -31,16 +30,6 @@ pub(super) struct AgentRow {
     pub dir: String,
     /// The same directory with links resolved, as copies name it.
     pub resolved: String,
-}
-
-impl AgentRow {
-    /// The page the row opens: the agent's, or Universal's.
-    pub(super) fn route(&self) -> Route {
-        match &self.reader {
-            Reader::Universal(_) => Route::Universal,
-            Reader::Agent(id) => Route::Agent(id.clone()),
-        }
-    }
 }
 
 /// The Agents rows in section order: Universal first, then the other detected agents
@@ -169,8 +158,6 @@ mod tests {
             Reader::Universal(vec!["Amp".to_owned(), "Codex".to_owned()])
         );
         assert_eq!(rows[0].ids, ["amp", "codex"]);
-        assert_eq!(rows[0].route(), Route::Universal);
-        assert_eq!(rows[1].route(), Route::Agent("claude-code".to_owned()));
     }
 
     #[test]

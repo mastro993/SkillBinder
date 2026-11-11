@@ -12,7 +12,7 @@ struct Host(PendingToast);
 
 impl Render for Host {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if let Some((toast, _)) = self.0.take() {
+        if let Some((toast, ..)) = self.0.take() {
             window.push_notification(toast, cx);
         }
         div()
