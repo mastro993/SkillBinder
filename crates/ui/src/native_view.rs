@@ -47,6 +47,7 @@ mod sidebar_row;
 mod sidebar_scroll;
 mod sidebar_workspaces;
 mod skill_page;
+mod skill_picker;
 mod snapshot_query;
 mod sync;
 mod toasts;
@@ -100,6 +101,7 @@ enum DialogState {
         revision: String,
     },
     RemoveWorkspace(WorkspaceId),
+    AddSkill(Box<skill_picker::SkillPicker>),
     /// The first activation in a workspace that uses no agents yet, asking which it uses.
     WorkspaceAgents {
         workspace: WorkspaceId,

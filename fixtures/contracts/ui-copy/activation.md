@@ -30,15 +30,25 @@ These strings were added with activation (ADR 0006); they have no captured basel
 - Its agents button reads `All agents`, one directory row's name, `<n> agents`, or `No agents`. Its menu lists `All agents`, disabled while the workspace uses no agents, then a separator and one row per workspace skill directory: `Universal` with the layers glyph for `.agents/skills`, then the others by name, each named after the detected agents that read it, joined with `, `.
 - A skill also active for your agents, for an agent that reads both, shows the warning tag `Also in your agents`, with the tooltip `An agent reads this skill both here and in your agents, so it may load it twice.`
 - Dialog `Choose agents`, shown by the first activation in a workspace that uses no agents: `Which agents does <workspace> use? <slug> is copied into their skill directories.`, or `No agents are detected on this device.`. Each row is a checkbox naming the directory's agents, then the directory with home as `~`, and for Universal `<dir> · Used by <agents>`. Actions: `Cancel`, `Activate`.
-- Refusals: `Choose which agents this workspace uses.`, `Choose the skill directory of a detected agent.`, `The workspace folder is missing.`, `Skill no longer exists.`, `Workspace no longer exists.`
+- Refusals: `Choose which agents this workspace uses.`, `Select skills to add.`, `Pick an agent for <slug>.`, `Choose the skill directory of a detected agent.`, `The workspace folder is missing.`, `Skill no longer exists.`, `Workspace no longer exists.`
+
+## Add skill picker
+
+Added with ADR 0007 (#100); the look follows `docs/design/scoped-pages/prototypes/picker.html`, variant C "Two panes".
+
+- A workspace's, an agent's, or Universal's page header: the button `Add skill`; on a workspace whose folder is missing it is disabled, tooltip `The workspace folder is missing.`
+- Title `Add skill`, a muted `to`, then the place's chip: a workspace's name, tooltip its folder; an agent's name, or `Universal`, tooltip its global skill directory with home as `~`, and for Universal `Used by <agents>` on the next line. On an agent's page the preset chip follows, tooltip `Saved to <preset>`. The close button's tooltip is `Close`.
+- Left pane: the search placeholder `Search library`; chips `All <n>` and `<folder> <n>`; a row's update glyph, tooltip `Update available`; a skill already there, tooltip `Already here`. Empty list: `No skills match` with the button `Clear search`, or `No skills in your library`.
+- Right pane: `Selected`, then the count once something is picked; `Nothing selected`. A card's ×, tooltip `Deselect`, accessible name `Deselect <slug>`. In a workspace, the pill `All`, tooltip `Includes agents added later`; a directory pill's tooltip is its name, its agents for Universal, then its directory, adding ` · not used here yet`; `Pick an agent` on a card with none ticked; `No agents are detected on this device.`
+- Footer: `Cancel`, then `Add` or `Add <n>`, disabled with the tooltip `Select skills` or `Pick an agent for <slug>`.
 
 ## Blocking progress
 
 Added with ADR 0007 (#98); the look follows `docs/design/scoped-pages/prototypes/progress.html`, variant D "Inline".
 
-- The strip's pill reads `Switching…` for a preset switch and for deleting the active preset, or `Importing…` for an import, then `<n>%`. Its tooltip is the change on one line, `Switching to <preset>`, `Switching to Default`, or `Importing <n> skills`, and the step on the next, `Copying <slug> → <place>` or `Removing <slug> from <place>`.
+- The strip's pill reads `Switching…` for a preset switch and for deleting the active preset, `Importing…` for an import, or `Adding…` for the Add skill picker, then `<n>%`. Its tooltip is the change on one line, `Switching to <preset>`, `Switching to Default`, `Importing <n> skills`, `Adding <slug>`, or `Adding <n> skills`, and the step on the next, `Copying <slug> → <place>` or `Removing <slug> from <place>`.
 - Done pill: `Done · 1 needs attention` or `Done · <n> need attention`, with `Review` and `Close`.
-- Toasts: `Switched to <preset>`, `Deleted <preset> · Switched to Default`, `Imported <n> skills` (`Imported 1 skill`).
+- Toasts: `Switched to <preset>`, `Deleted <preset> · Switched to Default`, `Imported <n> skills` (`Imported 1 skill`), `Added <slug>`, `Added <n> skills`.
 - Review list, titled `1 needs attention` or `<n> need attention`, footer `Done`. A row reads `<slug>` then `→ <place>`, a place being the agents that read the directory or `<workspace> · <agents>`, over its reason and answers:
 
 | Copy | Reason | Actions | Answered |

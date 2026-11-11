@@ -256,7 +256,7 @@ pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
 
 /// A chip: Kit's small tag on the page fill with a hairline border, fully rounded, its glyph or dot
 /// 4 px before its medium text.
-fn chip(cx: &App) -> Tag {
+pub(super) fn chip(cx: &App) -> Tag {
     let theme = cx.theme();
     Tag::custom(theme.background, theme.foreground, theme.border)
         .small()
@@ -328,7 +328,7 @@ pub(super) fn place_pill(
 }
 
 /// `element` inside the dashed outline of an off pill or an inactive skill's `+` circle.
-fn dashed<E: Styled>(element: E, cx: &App) -> E {
+pub(super) fn dashed<E: Styled>(element: E, cx: &App) -> E {
     element
         .border_1()
         .border_dashed()

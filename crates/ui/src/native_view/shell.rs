@@ -3,6 +3,7 @@
 use std::rc::Rc;
 
 use super::controls::button;
+use super::skill_picker::Place;
 use super::{
     NativeView, Route,
     sidebar::{SidebarDrag, clamp_sidebar_width, hairline, visible_width},
@@ -340,11 +341,11 @@ impl NativeView {
             Route::Discovery => self.discovery_header_actions(cx),
             Route::Library => self.library_header_actions(cx),
             Route::Skill(ref id) => self.skill_header_actions(&id.clone(), cx),
-            Route::Workspace(_)
-            | Route::Agent(_)
-            | Route::Universal
-            | Route::Sync
-            | Route::Settings => Vec::new(),
+            Route::Workspace(_) | Route::Agent(_) | Route::Universal => Place::of(&self.route)
+                .map_or_else(Vec::new, |place| {
+                    vec![self.add_skill_button(place, "add-skill", cx)]
+                }),
+            Route::Sync | Route::Settings => Vec::new(),
         }
     }
 }

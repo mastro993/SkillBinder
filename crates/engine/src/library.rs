@@ -342,9 +342,17 @@ impl State {
         change: OrganizationChange,
     ) -> AppResult<LibrarySnapshot> {
         self.require_recovered()?;
+        self.organize(|library, revision| apply_organization(library, change, revision))
+    }
+    /// Saves what `edit` makes of the library, given its revision, in one transaction, then brings
+    /// the copies in line in one pass.
+    pub(crate) fn organize(
+        &mut self,
+        edit: impl FnOnce(&mut Library, &str) -> AppResult<()>,
+    ) -> AppResult<LibrarySnapshot> {
         let (mut after, revision) = self.revised_library()?;
         let before = after.clone();
-        apply_organization(&mut after, change, &revision)?;
+        edit(&mut after, &revision)?;
         validate_organization(&after)?;
         sort_presets(&mut after.presets);
         order_folders(&mut after.folders);

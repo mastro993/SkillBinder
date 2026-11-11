@@ -16,6 +16,14 @@ impl Engine {
     ) -> impl Future<Output = AppResult<LibrarySnapshot>> + Send + 'static {
         self.tracked(move |state| state.change_organization(change))
     }
+    /// Adds library skills to the active preset or a workspace as one change, counting the pairs
+    /// its pass brings in line, like [`Self::change_organization`].
+    pub fn add_skills(
+        &self,
+        change: AddSkills,
+    ) -> impl Future<Output = AppResult<()>> + Send + 'static {
+        self.tracked(move |state| state.add_skills(change))
+    }
     /// Applies a reviewed plan, or returns its durable previous outcome, counting the pairs its
     /// passes bring in line, like [`Self::change_organization`].
     pub fn apply_import(

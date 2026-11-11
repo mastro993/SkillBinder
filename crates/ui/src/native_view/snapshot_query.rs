@@ -34,7 +34,7 @@ pub(super) struct Entry {
 impl Entry {
     /// Groups rows, each with its keys, by the folder they resolve to, keeping the first row of
     /// each and their order.
-    fn grouped(rows: impl IntoIterator<Item = (AgentRow, Vec<String>)>) -> Vec<Self> {
+    pub(super) fn grouped(rows: impl IntoIterator<Item = (AgentRow, Vec<String>)>) -> Vec<Self> {
         let mut entries: Vec<Self> = Vec::new();
         for (row, keys) in rows {
             let readers = match &row.reader {
@@ -414,6 +414,9 @@ fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
             .get(&skill.id)
             .is_some_and(|details| details.description.to_lowercase().contains(query))
 }
+
+mod scoped;
+pub(super) use scoped::{agent_skills, searched, workspace_skills};
 
 #[cfg(test)]
 pub(super) mod fixture;

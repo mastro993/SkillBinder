@@ -362,7 +362,7 @@ fn folder_tag(folder: String, dim: bool) -> impl IntoElement {
 
 /// The 14 px glyph of a skill whose source has an update, in `tone`. It keeps full opacity on a
 /// dimmed row.
-fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
+pub(super) fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
     div()
         .id(format!("update-{id}"))
         .flex_shrink_0()
