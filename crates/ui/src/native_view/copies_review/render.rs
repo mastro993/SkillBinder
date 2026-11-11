@@ -54,9 +54,12 @@ impl NativeView {
             })
             .collect();
         let theme = cx.theme();
+        // 13 px like the prototype's dialog body, so a row's place stays smaller than its slug
+        // rather than taking the dialog's larger default.
         let card = div()
             .flex()
             .flex_col()
+            .text_size(px(13.))
             .border_1()
             .border_color(theme.border)
             .rounded(px(10.))
