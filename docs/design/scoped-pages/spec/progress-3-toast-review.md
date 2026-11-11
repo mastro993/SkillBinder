@@ -24,7 +24,7 @@ Behaviour (prototype `toast()`):
 | `Added <slug>` / `Added <n> skills` | clean picker batch (#100) |
 | `Imported <n> skills` | clean import (C8, decided for the prototype over #98's "no toast"). |
 
-A change with zero pairs shows only the toast: no strip and no blocker.
+A change with zero pairs shows only the toast, with no strip and no blocker, when no copy waits for the user. Otherwise it ends in the Done pill (user decision, 2026-11-11: the pill and Review count every waiting copy, whichever change left it).
 
 ## Review list (state 07): the prototype's list (C5, decided for the prototype)
 

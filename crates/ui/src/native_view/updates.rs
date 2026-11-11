@@ -65,9 +65,7 @@ impl NativeView {
         {
             self.workspace_edit = None;
         }
-        if let Some(strip) = self.strip.as_mut() {
-            strip.follow(latest.activation.as_ref());
-        }
+        self.follow_strip(&latest);
         self.snapshot = latest;
         if self.snapshot.preferences.sidebar_width != self.sidebar_width
             && !self.resizing_sidebar

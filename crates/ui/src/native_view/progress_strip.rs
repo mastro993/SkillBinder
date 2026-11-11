@@ -235,6 +235,17 @@ impl Strip {
         }
     }
 
+    /// Follows the library's `copies` while the Done pill shows, so it counts the copies Review
+    /// would list now. Once none waits, it keeps its count and Review opens nothing.
+    pub(super) fn recount(&mut self, copies: &[ManagedCopy]) {
+        if let Stage::Done(shown) = &mut self.stage {
+            match Review::of(copies).len() {
+                0 => {}
+                waiting => *shown = waiting,
+            }
+        }
+    }
+
     /// What the strip draws now.
     pub(super) fn shown(&self) -> Shown {
         match (&self.stage, self.revealed) {

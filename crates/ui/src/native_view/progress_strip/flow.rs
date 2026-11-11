@@ -97,6 +97,15 @@ impl NativeView {
         }
     }
 
+    /// Follows `latest` while the strip is up: the running pill's progress, and the Done pill's
+    /// count of the copies that wait.
+    pub(in crate::native_view) fn follow_strip(&mut self, latest: &AppSnapshot) {
+        if let Some(strip) = self.strip.as_mut() {
+            strip.follow(latest.activation.as_ref());
+            strip.recount(library_copies(latest));
+        }
+    }
+
     /// The blocking change landed: the strip ends once it has shown long enough. The snapshot
     /// already holds the change's copies, as the change refreshed it before returning.
     pub(in crate::native_view) fn land_strip(&mut self, landing: Landing, cx: &mut Context<Self>) {

@@ -171,14 +171,33 @@ fn a_change_that_leaves_no_copy_waiting_ends_with_its_toast() {
 }
 
 #[test]
-fn a_copy_an_import_and_its_adoption_both_brought_in_line_counts_once() {
+fn the_done_pill_follows_the_copies_that_wait_until_none_does() {
     let now = Instant::now();
-    let importing = Activity::Importing { skills: 1 };
-    let mut strip = strip_landed(importing, Landing { imported: 1 }, now);
-    // Both of the import's passes went over this pair; the library holds one copy for it.
-    let copies = [copy("/w/.agents/skills", "pdf", CopyState::Conflict)];
-    assert_eq!(strip.finish(now, &copies), Finish::Done);
+    let conflict = copy("/h/.cursor/skills", "conflict", CopyState::Conflict);
+    let edited = copy(
+        "/h/.claude/skills",
+        "edited",
+        CopyState::Edited { active: true },
+    );
+    let mut strip = Strip::new(switching(), now);
+    strip.recount(std::slice::from_ref(&conflict));
+    assert_eq!(
+        strip.shown(),
+        Shown::Blocker,
+        "a running strip counts nothing"
+    );
+    strip.land(Landing::default(), now);
+    assert_eq!(
+        strip.finish(now, std::slice::from_ref(&conflict)),
+        Finish::Done
+    );
+    // A scan after the change found an edited copy before Review was clicked.
+    strip.recount(&[conflict.clone(), edited.clone()]);
+    assert_eq!(strip.shown(), Shown::Done(2));
+    strip.recount(&[edited]);
     assert_eq!(strip.shown(), Shown::Done(1));
+    strip.recount(&[]);
+    assert_eq!(strip.shown(), Shown::Done(1), "Review then opens nothing");
 }
 
 #[test]
