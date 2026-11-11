@@ -4,6 +4,8 @@
 //! its logo, which Kit has no picker for. The `text` submodule holds the design's type and tabular
 //! figures.
 
+#[cfg(test)]
+pub(super) mod frames;
 pub(super) mod text;
 
 use super::library_copies::Reader;
