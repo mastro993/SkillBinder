@@ -38,9 +38,9 @@ impl NativeView {
                 cards
                     .iter()
                     .map(|(skill, pills)| {
-                        let pills = (!entries.is_empty())
+                        let pill_row = (!entries.is_empty())
                             .then(|| self.pill_row(skill, pills, workspace, entries, cx));
-                        self.picker_card(skill, pills, pills_empty(picker, skill), cx)
+                        self.picker_card(skill, pill_row, pills.dirs.is_empty(), cx)
                     })
                     .collect()
             }
@@ -239,16 +239,6 @@ impl NativeView {
             )
             .child(add)
             .into_any_element()
-    }
-}
-
-/// Whether `skill`'s card in a workspace ticks no pill.
-fn pills_empty(picker: &SkillPicker, skill: &SkillId) -> bool {
-    match &picker.selection {
-        Selection::Workspace { cards, .. } => cards
-            .iter()
-            .any(|(held, pills)| held == skill && pills.dirs.is_empty()),
-        Selection::Agent(_) => false,
     }
 }
 

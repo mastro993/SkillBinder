@@ -15,7 +15,7 @@ use super::library_targets::sharing;
 use super::progress_strip::{Activity, Landing};
 use super::snapshot_query::{Entry, agent_skills, workspace_skills};
 use super::workspace_targets::dir_rows;
-use super::{DialogState, NativeView, Route};
+use super::{DialogState, NativeView};
 use gpui_kit::component::{
     Size,
     button::ButtonVariants,
@@ -37,18 +37,6 @@ pub(super) enum Place {
     Agent(String),
     /// The universal agents' shared global skill directory.
     Universal,
-}
-
-impl Place {
-    /// The place whose page `route` is, if it is one.
-    pub(super) fn of(route: &Route) -> Option<Self> {
-        match route {
-            Route::Workspace(id) => Some(Self::Workspace(id.clone())),
-            Route::Agent(id) => Some(Self::Agent(id.clone())),
-            Route::Universal => Some(Self::Universal),
-            _ => None,
-        }
-    }
 }
 
 /// The agents a workspace card holds its skill for: `all` holds it for every directory the
@@ -255,28 +243,23 @@ pub(super) enum Resolved<'a> {
 impl<'a> Resolved<'a> {
     /// `place` in `snapshot`, or `None` once it is gone.
     pub(super) fn of(snapshot: &'a AppSnapshot, place: &Place) -> Option<Self> {
-        let agents = || {
-            let rows = agent_rows(&snapshot.agents, &snapshot.home);
-            let row = rows.iter().find(|row| match (place, &row.reader) {
-                (Place::Universal, Reader::Universal(_)) => true,
-                (Place::Agent(id), _) => row.ids.contains(id),
-                _ => false,
-            })?;
-            let ids = sharing(row, &rows);
-            Some(Self::Agents {
-                row: row.clone(),
-                ids,
-            })
-        };
-        match place {
-            Place::Workspace(id) => {
-                let workspace = snapshot.workspaces.iter().find(|w| &w.id == id)?;
-                let rows = dir_rows(&snapshot.agents, workspace, &snapshot.home);
-                let entries = Entry::grouped(rows.into_iter().map(|row| (row.row, vec![row.dir])));
-                Some(Self::Workspace { workspace, entries })
-            }
-            Place::Agent(_) | Place::Universal => agents(),
+        if let Place::Workspace(id) = place {
+            let workspace = snapshot.workspaces.iter().find(|w| &w.id == id)?;
+            let rows = dir_rows(&snapshot.agents, workspace, &snapshot.home);
+            let entries = Entry::grouped(rows.into_iter().map(|row| (row.row, vec![row.dir])));
+            return Some(Self::Workspace { workspace, entries });
         }
+        let rows = agent_rows(&snapshot.agents, &snapshot.home);
+        let row = rows.iter().find(|row| match (place, &row.reader) {
+            (Place::Universal, Reader::Universal(_)) => true,
+            (Place::Agent(id), _) => row.ids.contains(id),
+            _ => false,
+        })?;
+        let ids = sharing(row, &rows);
+        Some(Self::Agents {
+            row: row.clone(),
+            ids,
+        })
     }
 
     pub(super) fn scope(&self) -> Scope<'_> {
@@ -289,11 +272,16 @@ impl<'a> Resolved<'a> {
         }
     }
 
-    /// The library skills the place holds already, through `preset` for your agents.
-    pub(super) fn holding(&self, snapshot: &AppSnapshot, preset: &PresetId) -> BTreeSet<SkillId> {
-        let held = match self {
-            Self::Workspace { workspace, .. } => workspace_skills(snapshot, workspace),
-            Self::Agents { ids, .. } => agent_skills(snapshot, preset, ids),
+    /// The library skills the place holds already, through the active `preset` for your agents.
+    pub(super) fn holding(
+        &self,
+        snapshot: &AppSnapshot,
+        preset: Option<&PresetId>,
+    ) -> BTreeSet<SkillId> {
+        let held = match (self, preset) {
+            (Self::Workspace { workspace, .. }, _) => workspace_skills(snapshot, workspace),
+            (Self::Agents { ids, .. }, Some(preset)) => agent_skills(snapshot, preset, ids),
+            (Self::Agents { .. }, None) => Vec::new(),
         };
         held.into_iter().map(|skill| skill.id.clone()).collect()
     }

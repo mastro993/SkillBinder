@@ -45,6 +45,6 @@ On 2026-11-11, a macOS ARM64 MCP session with the `native-test` debug build of t
 - **Agents.** Cursor's page showed `Add skill to`, the Cursor chip and the Default chip, whose tooltip read "Saved to Default"; the card held only the slug and ×. Add 1 for copy-editor wrote `~/.cursor/skills/copy-editor` and kept Claude Code in Default's entry. Universal's picker showed the layers glyph and the Default chip.
 - **Closing.** Escape closed the picker, and Cancel saved nothing.
 - **Missing folder.** With docs-site's folder moved away, its header's Add skill was disabled with the tooltip "The workspace folder is missing."
-- **Themes.** The picker was captured in the light and dark themes; the screenshots are attached to the pull request.
+These are native interaction checks.
 
-These are native interaction checks and a design review by eye beside `docs/design/scoped-pages/references/picker/`, not pixel comparisons.
+Design check, by eye beside `docs/design/scoped-pages/references/picker/` and `references/progress/03-adding-50`, from the same session's native screenshots, not a pixel comparison. Light: 01 empty, 02 three selected, 03 All off, 04 no agent with Add's tooltip, 05 no match, 06 "Already here", 07 folder chip with a search, 09 the carried-over pills, 10 an agent with "Saved to Default", `Adding… 50%` and the toast. Dark: 01, 03, 08 a workspace with no agents, and 10 for Universal. Layout, hierarchy, copy, icons and states follow the "Two panes" prototype; the pill tooltip of state 11 was checked but not kept as a screenshot, and states 02 and 04 to 07 and 09, 11 and `Adding…` were not captured in the dark theme.

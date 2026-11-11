@@ -12,7 +12,6 @@ use gpui_kit::{
     AnyElement, App, Context, FontWeight, InteractiveElement, IntoElement, ParentElement, Pixels,
     Size, StatefulInteractiveElement, Styled, Text, div, px,
 };
-use skillbinder_proto::PresetId;
 
 /// The dialog's share of the window's width and height.
 const WIDTH: f32 = 0.92;
@@ -37,11 +36,7 @@ impl NativeView {
             .library
             .as_ref()
             .and_then(|library| self.active_preset(library));
-        let active = preset.map_or_else(
-            || PresetId("default".to_owned()),
-            |preset| preset.id.clone(),
-        );
-        let here = resolved.holding(&self.snapshot, &active);
+        let here = resolved.holding(&self.snapshot, preset.map(|preset| &preset.id));
         let theme = cx.theme();
         let mut title = h_flex()
             .gap(px(8.))
