@@ -2,7 +2,7 @@
 
 Library lists every library skill unless the folder tab, the search, or a filter narrows it, and each row and tile shows where the skill is on: for which of your agents through the active preset, and in which workspaces ([ADR 0007](../../adr/0007-pages-list-active-skills.md)). A skill is Active when it is on right now: the active preset holds it for at least one of your agents, the detected agents, or at least one workspace holds it, even one whose folder is missing. A skill only presets that are off hold, or that the active preset holds only for agents that are not detected, is Inactive. Changing where a skill is on edits the active preset for your agents and the workspace itself for a workspace; copies follow as [Activation](activation.md) and [Workspace activation](workspace-activation.md) describe.
 
-The look is the approved prototype's, frozen as a pixel spec in [`docs/design/scoped-pages/`](../../design/scoped-pages/README.md) (`spec/library-*.md`); values below are logical points.
+The design follows variant A, "Popover", with the Segmented filters, of the approved prototype, [`docs/design/scoped-pages/prototypes/library.html`](../../design/scoped-pages/prototypes/library.html); values below are logical points.
 
 ## Page frame and toolbar
 
