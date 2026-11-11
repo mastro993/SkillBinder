@@ -3,6 +3,7 @@ mod agent_skills;
 mod breadcrumb;
 mod controls;
 mod copies_review;
+mod copy_changed;
 mod copy_dialogs;
 mod custom_color;
 mod dialogs;
@@ -29,6 +30,7 @@ mod native_test;
 mod navigation;
 mod onboarding;
 mod onboarding_import;
+mod page_head;
 mod place_popover;
 mod preset_activation;
 mod preset_colors;
@@ -51,8 +53,8 @@ mod skill_picker;
 mod snapshot_query;
 mod sync;
 mod toasts;
+mod undo;
 mod updates;
-mod workspace_agents;
 mod workspace_dialogs;
 mod workspace_icons;
 mod workspace_page;
@@ -102,12 +104,10 @@ enum DialogState {
     },
     RemoveWorkspace(WorkspaceId),
     AddSkill(Box<skill_picker::SkillPicker>),
-    /// The first activation in a workspace that uses no agents yet, asking which it uses.
-    WorkspaceAgents {
+    /// Unticking a skill's last folder on a workspace's page asks before removing it there.
+    RemoveFromWorkspace {
         workspace: WorkspaceId,
         skill: SkillId,
-        /// The workspace skill directories chosen so far.
-        chosen: BTreeSet<String>,
     },
     None,
 }
@@ -126,6 +126,8 @@ enum Effect {
     Reinstalled(SkillId),
     /// A blocking change landed, so the progress strip ends.
     Activated(progress_strip::Landing),
+    /// A skill was removed from one place, so the toast offers Undo.
+    Removed(undo::Removal),
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -158,7 +160,7 @@ pub struct NativeView {
     library_folder: Option<FolderId>,
     /// Library's Active and Updates filters; like the folder, not kept across restarts.
     library_filter: snapshot_query::LibraryFilter,
-    /// The Library skill whose popover is open.
+    /// The Library skill whose popover, or the workspace page's skill whose agents menu, is open.
     place_popover: Option<place_popover::PlacePopover>,
     /// Inline folder naming in the header.
     folder_edit: Option<FolderEdit>,
@@ -426,7 +428,7 @@ impl Render for NativeView {
                 Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library => self.render_library(window, cx),
                 Route::Skill(id) => self.render_skill(&id.clone(), cx),
-                Route::Workspace(id) => self.render_workspace(&id.clone(), window, cx),
+                Route::Workspace(id) => self.render_workspace(&id.clone(), cx),
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
                 Route::Universal => self.render_universal(cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),

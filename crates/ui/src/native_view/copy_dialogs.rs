@@ -5,6 +5,7 @@
 
 use super::controls::{Inactive, button};
 use super::copies_review::Review;
+use super::copy_changed::Changed;
 use super::library_copies::shown_dir;
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::{Sizable, button::ButtonVariants, dialog::Dialog, h_flex, v_flex};
@@ -21,13 +22,15 @@ pub(super) enum CopiesListing {
     Skill(SkillId),
     /// The copies that needed the user when the strip's Review opened, in the review list.
     Attention(Review),
+    /// The edited copies a removal left asking, in the narrow Keep or Remove prompt.
+    Changed(Changed),
 }
 
 impl CopiesListing {
     /// The skill the Skill copies dialog is for, or `None` for every copy that asks.
     fn skill(&self) -> Option<&SkillId> {
         match self {
-            Self::Skill(skill) => Some(skill),
+            Self::Skill(skill) | Self::Changed(Changed { skill, .. }) => Some(skill),
             Self::Asking | Self::Attention(_) => None,
         }
     }
@@ -83,6 +86,11 @@ impl NativeView {
             }
             DialogState::Copies(listing @ (CopiesListing::Asking | CopiesListing::Skill(_)))
                 if self.listed_copies(listing.skill()).is_empty() =>
+            {
+                self.dialog = DialogState::None;
+            }
+            DialogState::Copies(CopiesListing::Changed(changed))
+                if self.changed_copies(changed).is_empty() =>
             {
                 self.dialog = DialogState::None;
             }

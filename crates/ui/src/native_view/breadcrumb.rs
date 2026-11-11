@@ -30,9 +30,11 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
             label: "Library".to_owned(),
             target: Some(Route::Library),
         }),
-        Route::Workspace(_) => Some(Crumb::text("Workspaces")),
         Route::Agent(_) | Route::Universal => Some(Crumb::text("Agents")),
-        Route::Discovery | Route::Library | Route::Sync | Route::Settings => None,
+        // A workspace's page draws its own head instead of the breadcrumb.
+        Route::Workspace(_) | Route::Discovery | Route::Library | Route::Sync | Route::Settings => {
+            None
+        }
     };
     section.into_iter().chain([Crumb::text(title)]).collect()
 }
@@ -92,10 +94,11 @@ mod tests {
     }
 
     #[test]
-    fn top_level_pages_are_their_title_alone() {
+    fn pages_without_a_section_are_their_title_alone() {
         for route in [
             Route::Discovery,
             Route::Library,
+            Route::Workspace(WorkspaceId::new()),
             Route::Sync,
             Route::Settings,
         ] {
@@ -105,16 +108,12 @@ mod tests {
 
     #[test]
     fn nested_pages_follow_their_section_and_only_library_links_back() {
-        assert_eq!(
-            labels(Route::Workspace(WorkspaceId::new())),
-            ["Workspaces", "Page"]
-        );
         assert_eq!(labels(Route::Agent("codex".to_owned())), ["Agents", "Page"]);
         assert_eq!(labels(Route::Universal), ["Agents", "Page"]);
         let skill = crumbs(&Route::Skill(SkillId("pdf".into())), "pdf".to_owned());
         assert_eq!(skill[0].target, Some(Route::Library));
         assert_eq!(
-            crumbs(&Route::Workspace(WorkspaceId::new()), String::new())[0].target,
+            crumbs(&Route::Agent("codex".to_owned()), String::new())[0].target,
             None
         );
     }

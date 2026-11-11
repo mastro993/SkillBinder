@@ -10,6 +10,7 @@ use super::preset_icons::IconGrid;
 use super::sidebar_presets::{RowPlacement, menu_action};
 use super::sidebar_reorder::{RowDrag, RowDragPreview, grab_cursor};
 use super::sidebar_row::{activate, add_button, count, name_field, row, with_menu};
+use super::snapshot_query::workspace_skills;
 use super::workspace_icons::{
     ChooseImage, choices as workspace_icon_choices, icon_picker, menu_icon, row_icon,
 };
@@ -23,7 +24,9 @@ use gpui_kit::{
     MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{PresetColor, PresetIcon, SidebarSection, Workspace, WorkspaceId};
+use skillbinder_proto::{
+    AppSnapshot, PresetColor, PresetIcon, SidebarSection, Workspace, WorkspaceId,
+};
 use skillbinder_theme::sidebar::{ICON_SIZE, INSET, ROW_GAP};
 
 impl NativeView {
@@ -131,7 +134,7 @@ impl NativeView {
         } else {
             workspace.name.clone()
         };
-        let active = workspace.skills.len();
+        let active = skill_count(&self.snapshot, workspace);
         let trailing = if workspace.missing {
             app_icon("alert-circle")
                 .size(px(ICON_SIZE))
@@ -451,6 +454,35 @@ impl NativeView {
                     .map(|_| Effect::None)
             },
             cx,
+        );
+    }
+}
+
+/// A workspace row's count: the library skills its page lists.
+fn skill_count(snapshot: &AppSnapshot, workspace: &Workspace) -> usize {
+    workspace_skills(snapshot, workspace).len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::snapshot_query::fixture::Fixture;
+    use super::*;
+    use skillbinder_proto::WorkspaceTargets;
+
+    #[test]
+    fn a_row_counts_the_library_skills_its_page_lists() {
+        let snapshot = Fixture::new()
+            .workspace("acme-web", &[".claude/skills"])
+            .skill("review", "", None)
+            .skill("pdf", "", None)
+            .ws_hold("acme-web", "review", WorkspaceTargets::AllAgents)
+            .ws_hold("acme-web", "gone", WorkspaceTargets::AllAgents)
+            .build();
+        let workspace = &snapshot.workspaces[0];
+        assert_eq!(skill_count(&snapshot, workspace), 1);
+        assert_eq!(
+            skill_count(&snapshot, workspace),
+            workspace_skills(&snapshot, workspace).len()
         );
     }
 }

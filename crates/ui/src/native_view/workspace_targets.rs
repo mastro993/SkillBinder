@@ -1,7 +1,7 @@
-//! Which of a workspace's agents it holds a library skill for, on the workspace's page. The Active
-//! checkbox holds the skill for all of them, and the agents menu picks specific workspace skill
-//! directories or adds a detected agent's. Each directory is one row, naming the agents that read
-//! it, since every one of them loads what it holds.
+//! Which of a workspace's agents it holds a library skill for. A workspace's page lists the
+//! folders its directories resolve to in each row's agents menu; Library's popover and the Add
+//! skill picker also offer detected agents' directories it does not use yet. Each directory is
+//! one row, naming the agents that read it, since every one of them loads what it holds.
 
 use std::{
     collections::BTreeSet,
@@ -9,21 +9,17 @@ use std::{
 };
 
 use super::agent_skills::{UNIVERSAL, universal_dir};
-use super::controls::{agent_icon, app_icon};
 use super::library_copies::{AgentRow, Reader, shown_dir};
 use super::library_targets::held_label;
-use super::menu::MenuItem;
-use super::sidebar_presets::menu_action;
-use super::{DialogState, Effect, NativeView};
-use gpui_kit::{Context, IntoElement, Styled, px};
+use super::snapshot_query::Entry;
+use super::{Effect, NativeView};
+use gpui_kit::Context;
 use skillbinder_proto::{AgentOption, DirRole, SkillId, Workspace, WorkspaceId, WorkspaceTargets};
-use skillbinder_theme::sidebar::ICON_SIZE;
 
 /// The workspace skill directory the universal agents, and many others, read.
 const UNIVERSAL_DIR: &str = ".agents/skills";
 
-/// One workspace skill directory as the agents menu, the agents line, and the agents dialog show
-/// it.
+/// One workspace skill directory as the agents menu, Library's popover, and the picker show it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct DirRow {
     /// The directory relative to the workspace folder, such as `.claude/skills`.
@@ -162,103 +158,52 @@ impl NativeView {
             cx,
         );
     }
+}
 
-    /// Checks or unchecks Active on the workspace's page: for all its agents, or, while it uses
-    /// none, after asking which agents it uses.
-    pub(super) fn toggle_workspace_skill(
-        &mut self,
-        workspace: &Workspace,
-        skill: SkillId,
-        active: bool,
-        cx: &mut Context<Self>,
-    ) {
-        if active && workspace.dirs.is_empty() {
-            self.show_dialog(DialogState::WorkspaceAgents {
-                workspace: workspace.id.clone(),
-                skill,
-                chosen: BTreeSet::new(),
-            });
-            cx.notify();
-            return;
-        }
-        let targets = active.then_some(WorkspaceTargets::AllAgents);
-        self.set_workspace_skill(workspace.id.clone(), skill, targets, cx);
-    }
+/// The folders a workspace's agents menu lists: the directories it uses, `.agents/skills` first,
+/// then by name, those that resolve to one folder sharing an entry, which keeps the first one's
+/// name and logo.
+pub(super) fn folders(agents: &[AgentOption], workspace: &Workspace, home: &str) -> Vec<Entry> {
+    Entry::grouped(
+        dir_rows(agents, workspace, home)
+            .into_iter()
+            .filter(|row| workspace.dirs.contains(&row.dir))
+            .map(|row| (row.row, vec![row.dir])),
+    )
+}
 
-    /// The agents button's label on a workspace's page.
-    pub(super) fn workspace_targets_label(&self, workspace: &Workspace, skill: &SkillId) -> String {
-        let rows = dir_rows(&self.snapshot.agents, workspace, &self.snapshot.home);
-        targets_label(workspace.skills.get(skill), &rows)
-    }
+/// The `folders` that hold the skill for `targets`, among the directories the workspace `uses`.
+pub(super) fn held_folders<'a>(
+    targets: Option<&WorkspaceTargets>,
+    folders: &'a [Entry],
+    uses: &BTreeSet<String>,
+) -> Vec<&'a Entry> {
+    folders
+        .iter()
+        .filter(|folder| held(targets, &folder.keys, uses))
+        .collect()
+}
 
-    /// All agents, then a row for each directory, checked while the workspace holds the skill
-    /// there. Choosing a row adds or removes its directory.
-    pub(super) fn workspace_targets_menu(
-        &self,
-        workspace: &Workspace,
-        skill: &SkillId,
-        cx: &mut Context<Self>,
-    ) -> Vec<MenuItem> {
-        let view = cx.entity().downgrade();
-        let rows = dir_rows(&self.snapshot.agents, workspace, &self.snapshot.home);
-        let targets = workspace.skills.get(skill);
-        let busy = self.busy;
-        let choose = |key: String, label: String, next: Option<WorkspaceTargets>| {
-            let id = workspace.id.clone();
-            MenuItem::new(key, label)
-                .disabled(busy)
-                .on_select(menu_action(
-                    view.clone(),
-                    skill.clone(),
-                    move |view, skill, _, cx| {
-                        view.set_workspace_skill(id.clone(), skill.clone(), next.clone(), cx)
-                    },
-                ))
-        };
-        let mut items = vec![
-            choose(
-                "targets-all".into(),
-                "All agents".into(),
-                Some(WorkspaceTargets::AllAgents),
-            )
-            .checked(targets == Some(&WorkspaceTargets::AllAgents))
-            // A workspace without agents takes the ones chosen below.
-            .disabled(busy || workspace.dirs.is_empty()),
-        ];
-        if !rows.is_empty() {
-            items.push(MenuItem::separator());
-        }
-        for row in &rows {
-            let group = sharing(row, &rows);
-            let next = toggled(targets, &group, &workspace.dirs);
-            let item = match &row.row.reader {
-                Reader::Universal(_) => {
-                    choose("targets-universal".into(), row.row.name.clone(), next).icon("layers")
-                }
-                Reader::Agent(id) => {
-                    let logo = id.clone();
-                    choose(
-                        format!("targets-dir-{}", row.dir),
-                        row.row.name.clone(),
-                        next,
-                    )
-                    .leading(move |_| agent_icon(&logo).size(px(ICON_SIZE)).into_any_element())
-                }
-            };
-            items.push(item.checked(held(targets, &group, &workspace.dirs)));
-        }
-        items
+/// The targets after the All agents item: all agents from a specific list, or from all agents
+/// exactly the directories held now, every one the workspace `uses`.
+pub(super) fn all_agents_toggled(
+    targets: Option<&WorkspaceTargets>,
+    uses: &BTreeSet<String>,
+) -> WorkspaceTargets {
+    match targets {
+        Some(WorkspaceTargets::AllAgents) => WorkspaceTargets::Dirs(uses.clone()),
+        _ => WorkspaceTargets::AllAgents,
     }
 }
 
-/// The directory of `row` and of every other row whose directory resolves to the same folder,
-/// such as a `.claude/skills` linked to `.agents/skills`: one copy serves them, so they are chosen
-/// together.
-fn sharing(row: &DirRow, rows: &[DirRow]) -> Vec<String> {
-    rows.iter()
-        .filter(|other| other.row.resolved == row.row.resolved)
-        .map(|other| other.dir.clone())
-        .collect()
+/// The agents button's label: "All agents", the one `held` folder's name, how many it holds, or
+/// "No agents".
+pub(super) fn targets_label(targets: Option<&WorkspaceTargets>, held: &[&Entry]) -> String {
+    if matches!(targets, Some(WorkspaceTargets::AllAgents)) {
+        return "All agents".to_owned();
+    }
+    let named: Vec<_> = held.iter().map(|folder| folder.row.name.as_str()).collect();
+    held_label(&named)
 }
 
 /// Whether `targets` hold the skill in any of `group`, among the directories the workspace
@@ -297,27 +242,6 @@ pub(super) fn toggled(
         dirs.extend(group.iter().cloned());
     }
     (!dirs.is_empty()).then_some(WorkspaceTargets::Dirs(dirs))
-}
-
-/// "All agents", the one row a specific list holds, how many it holds, or "No agents".
-fn targets_label(targets: Option<&WorkspaceTargets>, rows: &[DirRow]) -> String {
-    let Some(WorkspaceTargets::Dirs(dirs)) = targets else {
-        return "All agents".to_owned();
-    };
-    let named: Vec<_> = rows
-        .iter()
-        .filter(|row| sharing(row, rows).iter().any(|dir| dirs.contains(dir)))
-        .map(|row| row.row.name.as_str())
-        .collect();
-    held_label(&named)
-}
-
-/// The glyph a directory row shows: the layers glyph for Universal, otherwise its agent's logo.
-pub(super) fn dir_icon(row: &DirRow) -> gpui_kit::component::Icon {
-    match &row.row.reader {
-        Reader::Universal(_) => app_icon("layers"),
-        Reader::Agent(id) => agent_icon(id),
-    }
 }
 
 #[cfg(test)]

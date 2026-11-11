@@ -180,8 +180,8 @@ fn choosing_a_row_toggles_its_directory_into_a_specific_list() {
 }
 
 #[test]
-fn rows_sharing_a_folder_are_chosen_together_and_universal_needs_a_universal_agent() {
-    let mut ws = workspace(&[".agents/skills", ".claude/skills"]);
+fn the_menu_lists_only_the_directories_the_workspace_uses_one_per_folder() {
+    let mut ws = workspace(&[".agents/skills", ".claude/skills", ".zed/skills"]);
     ws.paths.insert(
         ".claude/skills".to_owned(),
         "/resolved/.agents/skills".to_owned(),
@@ -189,36 +189,98 @@ fn rows_sharing_a_folder_are_chosen_together_and_universal_needs_a_universal_age
     let agents = [
         agent("cursor", "Cursor", ".agents/skills", true),
         agent("claude-code", "Claude Code", ".claude/skills", true),
+        agent("zed", "Zed", ".zed/skills", true),
+        agent("kiro", "Kiro", ".kiro/skills", true),
     ];
-    let rows = dir_rows(&agents, &ws, "/home");
+    let folders = folders(&agents, &ws, "/home");
+    let shown: Vec<_> = folders
+        .iter()
+        .map(|folder| (folder.row.name.as_str(), folder.keys.clone()))
+        .collect();
     assert_eq!(
-        sharing(&rows[1], &rows),
-        [".agents/skills".to_owned(), ".claude/skills".to_owned()]
+        shown,
+        [
+            (
+                "Cursor",
+                vec![".agents/skills".to_owned(), ".claude/skills".to_owned()]
+            ),
+            ("Zed", vec![".zed/skills".to_owned()]),
+        ],
+        "a detected agent's unused directory is the picker's, and a linked one shares a row"
     );
     assert_eq!(
-        (rows[0].row.name.as_str(), &rows[0].row.reader),
-        ("Cursor", &Reader::Agent("cursor".to_owned())),
+        folders[0].row.reader,
+        Reader::Agent("cursor".to_owned()),
         "only Cursor reads it here, and Cursor's page is its own"
     );
+    let unused = workspace(&[]);
+    assert!(super::folders(&agents, &unused, "/home").is_empty());
 }
 
 #[test]
-fn the_label_names_all_agents_one_row_or_a_count() {
+fn held_folders_follow_all_agents_a_list_and_a_shared_folder() {
+    let mut ws = workspace(&[".agents/skills", ".claude/skills", ".zed/skills"]);
+    ws.paths.insert(
+        ".claude/skills".to_owned(),
+        "/resolved/.agents/skills".to_owned(),
+    );
+    let agents = [
+        agent("cursor", "Cursor", ".agents/skills", true),
+        agent("claude-code", "Claude Code", ".claude/skills", true),
+        agent("zed", "Zed", ".zed/skills", true),
+    ];
+    let folders = folders(&agents, &ws, "/home");
+    let names = |targets: Option<&WorkspaceTargets>| -> Vec<String> {
+        held_folders(targets, &folders, &ws.dirs)
+            .iter()
+            .map(|folder| folder.row.name.clone())
+            .collect()
+    };
+    assert_eq!(names(Some(&WorkspaceTargets::AllAgents)), ["Cursor", "Zed"]);
+    let zed = WorkspaceTargets::Dirs(set(&[".zed/skills"]));
+    assert_eq!(names(Some(&zed)), ["Zed"]);
+    let linked = WorkspaceTargets::Dirs(set(&[".claude/skills"]));
+    assert_eq!(
+        names(Some(&linked)),
+        ["Cursor"],
+        "a directory resolving to a shared folder holds that folder"
+    );
+    assert!(names(None).is_empty());
+}
+
+#[test]
+fn all_agents_turns_on_or_keeps_the_directories_held_now() {
+    let uses = set(&[".agents/skills", ".claude/skills"]);
+    let all = WorkspaceTargets::AllAgents;
+    assert_eq!(
+        all_agents_toggled(Some(&all), &uses),
+        WorkspaceTargets::Dirs(uses.clone()),
+        "unticking keeps exactly the directories held now, so no file changes"
+    );
+    let one = WorkspaceTargets::Dirs(set(&[".claude/skills"]));
+    assert_eq!(all_agents_toggled(Some(&one), &uses), all);
+}
+
+#[test]
+fn the_label_names_all_agents_one_folder_or_a_count() {
+    let ws = workspace(&[".agents/skills", ".claude/skills"]);
     let agents = [
         agent("codex", "Codex", ".agents/skills", true),
         agent("claude-code", "Claude Code", ".claude/skills", true),
     ];
-    let rows = dir_rows(&agents, &workspace(&[]), "/home");
+    let folders = folders(&agents, &ws, "/home");
     let dirs = |dirs: &[&str]| WorkspaceTargets::Dirs(set(dirs));
-    assert_eq!(targets_label(None, &rows), "All agents");
+    let label = |targets: &WorkspaceTargets| {
+        targets_label(
+            Some(targets),
+            &held_folders(Some(targets), &folders, &ws.dirs),
+        )
+    };
+    assert_eq!(label(&WorkspaceTargets::AllAgents), "All agents");
+    assert_eq!(label(&dirs(&[".claude/skills"])), "Claude Code");
     assert_eq!(
-        targets_label(Some(&dirs(&[".claude/skills"])), &rows),
-        "Claude Code"
+        label(&dirs(&[".agents/skills", ".claude/skills"])),
+        "2 agents"
     );
-    let both = dirs(&[".agents/skills", ".claude/skills"]);
-    assert_eq!(targets_label(Some(&both), &rows), "2 agents");
-    assert_eq!(
-        targets_label(Some(&dirs(&[".gone/skills"])), &rows),
-        "No agents"
-    );
+    assert_eq!(label(&dirs(&[".gone/skills"])), "No agents");
 }

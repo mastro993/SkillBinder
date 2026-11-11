@@ -38,6 +38,15 @@ impl NativeView {
             if matches!(&self.place_popover, Some(popover) if !skill_exists(&popover.skill)) {
                 self.place_popover = None;
             }
+            // A workspace's agents menu closes once the workspace no longer holds its skill.
+            if let (Route::Workspace(id), Some(popover)) = (&self.route, &self.place_popover)
+                && !latest
+                    .workspaces
+                    .iter()
+                    .any(|w| &w.id == id && w.skills.contains_key(&popover.skill))
+            {
+                self.place_popover = None;
+            }
             if matches!(&self.preset_edit, Some(PresetEdit::Rename(id)) if !exists(id)) {
                 self.preset_edit = None;
             }
@@ -136,6 +145,7 @@ impl NativeView {
                                 }
                             }
                             Effect::Activated(landing) => view.land_strip(landing, cx),
+                            Effect::Removed(removal) => view.removed(removal, cx),
                         }
                         // A dialog the operation closed makes room for copies that now ask.
                         view.prompt_copies();

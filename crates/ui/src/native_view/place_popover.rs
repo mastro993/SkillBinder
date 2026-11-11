@@ -1,4 +1,5 @@
-//! The popover that changes where a Library skill is on. "Your agents" edits the active preset:
+//! The popover that changes where a Library skill is on, whose surface a workspace page's agents
+//! menu shares. "Your agents" edits the active preset:
 //! an All agents switch and one pill per skill directory of your agents. Each workspace's line
 //! edits that workspace, one pill per directory it uses, or, while it uses none, per directory the
 //! detected agents offer. Each change saves at once; the last pill off removes the skill from that
@@ -129,8 +130,9 @@ impl NativeView {
         }
     }
 
-    /// The open popover, drawn above the page beside its trigger, while Library shows it and no
-    /// dialog covers it.
+    /// The open popover, drawn above the page beside its trigger, while Library or a workspace's
+    /// page shows it and no dialog covers it: on Library where the skill is on, on a workspace's
+    /// page its agents menu.
     pub(super) fn render_place_popover(
         &self,
         window: &mut Window,
@@ -138,10 +140,39 @@ impl NativeView {
     ) -> Option<AnyElement> {
         let popover = self.place_popover.as_ref()?;
         let anchor = popover.begin_frame();
-        if self.route != Route::Library || !matches!(self.dialog, DialogState::None) {
+        if !matches!(self.dialog, DialogState::None) {
             return None;
         }
         let anchor = anchor?;
+        let surface = match &self.route {
+            Route::Library => self.place_surface(popover, window, cx)?,
+            Route::Workspace(id) => {
+                let workspace = self.workspace(id)?;
+                let content =
+                    self.workspace_agents_menu(popover, workspace, &popover.skill, window, cx);
+                let label = format!("Agents for {}", popover.skill);
+                popover
+                    .surface(label, content, Self::close_place_popover, cx)
+                    .w_auto()
+                    .p_0()
+                    .into_any_element()
+            }
+            _ => return None,
+        };
+        Some(
+            deferred(popover.place(anchor, surface))
+                .with_priority(1)
+                .into_any_element(),
+        )
+    }
+
+    /// Library's popover: where the skill is on.
+    fn place_surface(
+        &self,
+        popover: &PlacePopover,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let library = self.snapshot.library.as_ref()?;
         let skill = library
             .library
@@ -159,10 +190,9 @@ impl NativeView {
         }
         .render(window, cx);
         let label = format!("Where {} is on", skill.id);
-        let surface = popover.surface(label, content, Self::close_place_popover, cx);
         Some(
-            deferred(popover.place(anchor, surface))
-                .with_priority(1)
+            popover
+                .surface(label, content, Self::close_place_popover, cx)
                 .into_any_element(),
         )
     }
@@ -206,10 +236,14 @@ impl PlacePopover {
 
     /// `surface` placed for the frame by `anchor`. While the popover opens it is drawn unseen,
     /// so that it holds the focus it took until its trigger has been painted and places it.
-    fn place(&self, anchor: Anchor, surface: impl IntoElement + Styled) -> Positioner {
+    fn place(&self, anchor: Anchor, surface: AnyElement) -> Positioner {
         match anchor {
             Anchor::Painted(bounds) => placed(bounds, self.grid, surface),
-            Anchor::Opening => placed(Bounds::default(), self.grid, surface.opacity(0.)),
+            Anchor::Opening => placed(
+                Bounds::default(),
+                self.grid,
+                div().opacity(0.).child(surface),
+            ),
         }
     }
 

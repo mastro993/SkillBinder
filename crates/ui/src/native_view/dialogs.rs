@@ -185,13 +185,14 @@ impl NativeView {
             DialogState::Copies(CopiesListing::Attention(review)) => {
                 self.review_dialog(dialog, review, cx)
             }
+            DialogState::Copies(CopiesListing::Changed(changed)) => {
+                self.changed_dialog(dialog, changed, cx)
+            }
             DialogState::Copies(listing) => self.copies_dialog(dialog, listing, cx),
             DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
-            DialogState::WorkspaceAgents {
-                workspace,
-                skill,
-                chosen,
-            } => self.workspace_agents_dialog(dialog, (workspace, skill, chosen), cx),
+            DialogState::RemoveFromWorkspace { workspace, skill } => {
+                self.remove_from_workspace_dialog(dialog, workspace, skill, cx)
+            }
             DialogState::DeleteFolder { id, revision } => {
                 self.delete_folder_dialog(dialog, id, revision, cx)
             }

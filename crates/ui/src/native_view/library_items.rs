@@ -1,7 +1,7 @@
 //! Library skills as rows inside one card, or as grid tiles on their own surfaces. Each shows its
 //! name, its update, drift, and validation glyphs, its folder as a tag while Library lists every
 //! skill, and its description, then what [`RowEnd`] says: on Library where the skill is on, on a
-//! workspace's page its activation there and the agents it is applied for.
+//! workspace's page the agents it is held for there and its Delete button.
 
 use super::controls::text::sized;
 use super::controls::{app_icon, tooltip};
@@ -10,6 +10,7 @@ use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
 use super::snapshot_query::SkillPlaces;
+use super::workspace_page::{WorkspaceRow, workspace_marks};
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, v_flex};
 use gpui_kit::{
@@ -17,7 +18,7 @@ use gpui_kit::{
     ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, canvas, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{Overlap, Skill, SkillDetails, SkillId};
+use skillbinder_proto::{Skill, SkillDetails, SkillId};
 use skillbinder_theme::MEDIUM;
 use skillbinder_theme::library::{
     CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
@@ -42,9 +43,6 @@ pub(super) struct SkillItem<'a> {
     pub update: bool,
     /// The skill's content differs from its record, so it shows a warning glyph.
     pub drifted: bool,
-    /// The open workspace holds the skill for an agent that the active preset holds it for too,
-    /// so it shows a warning badge saying how that agent treats the two copies.
-    pub overlap: Option<Overlap>,
     /// Where the skill's copies stand; `None` while it has none.
     pub placement: Option<&'a Placement>,
     pub end: RowEnd<'a>,
@@ -55,8 +53,8 @@ pub(super) struct SkillItem<'a> {
 pub(super) enum RowEnd<'a> {
     /// Library: where the skill is on, which opens the popover that changes it.
     Places(SkillPlaces<'a>),
-    /// A workspace's page: the Active checkbox and agents button, and the agents line.
-    Activation,
+    /// A workspace's page: the agents the workspace holds the skill for, and Delete.
+    Workspace(WorkspaceRow<'a>),
 }
 
 impl SkillItem<'_> {
@@ -73,7 +71,7 @@ impl SkillItem<'_> {
     fn dimmed(&self) -> bool {
         match &self.end {
             RowEnd::Places(places) => !places.is_active(),
-            RowEnd::Activation => false,
+            RowEnd::Workspace(_) => false,
         }
     }
 
@@ -144,10 +142,7 @@ impl NativeView {
                     .min_w_0()
                     .gap(px(2.))
                     .child(self.title_line(item, cx))
-                    .child(description(item, 1, cx))
-                    .when(matches!(item.end, RowEnd::Activation), |main| {
-                        main.child(div().pt(px(4.)).child(self.agents_line(item, cx)))
-                    }),
+                    .child(description(item, 1, cx)),
             )
             .child(self.row_end(item, false, narrow, cx));
         frame(self, row, item, owner, cx)
@@ -183,9 +178,6 @@ impl NativeView {
             .hover(move |card| card.bg(hover))
             .child(self.title_line(item, cx))
             .child(description(item, 2, cx))
-            .when(matches!(item.end, RowEnd::Activation), |card| {
-                card.child(self.agents_line(item, cx))
-            })
             .child(
                 div()
                     .mt_auto()
@@ -218,7 +210,7 @@ impl NativeView {
             })
     }
 
-    /// The end of a row or tile: where the skill is on, or its activation in the workspace.
+    /// The end of a row or tile: where the skill is on, or the workspace's agents and Delete.
     fn row_end(
         &self,
         item: &SkillItem<'_>,
@@ -239,7 +231,7 @@ impl NativeView {
                     .child(self.place_trigger(places, grid, narrow, cx))
                     .into_any_element()
             }
-            RowEnd::Activation => self.activation_controls(&item.skill.id, cx),
+            RowEnd::Workspace(row) => self.workspace_row_end(item, row, cx),
         }
     }
 }
@@ -297,53 +289,21 @@ pub(super) fn surface(cx: &App) -> Hsla {
     skillbinder_theme::library::surface(cx.theme())
 }
 
-/// The glyphs after a skill's name, for its update, drift, and validation, then its overlap badge.
+/// The glyphs after a skill's name, for its update, drift, and validation, then on a workspace's
+/// page its overlap and edited marks.
 fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     let id = &item.skill.id;
-    // Redesigned surfaces show updates in the info color; the workspace page keeps warning.
-    let tone = match item.end {
-        RowEnd::Places(_) => cx.theme().info,
-        RowEnd::Activation => cx.theme().warning,
-    };
-    [
-        item.update.then(|| update_glyph(id, tone)),
+    let marks = [
+        item.update.then(|| update_glyph(id, cx.theme().info)),
         item.drifted.then(|| drift_glyph(id, cx)),
         validation_glyph(id, item.details, cx),
-        item.overlap.map(|overlap| overlap_badge(item, overlap)),
     ]
     .into_iter()
-    .flatten()
-    .collect()
-}
-
-/// The warning badge of a skill the open workspace holds for an agent that the active preset holds
-/// it for too: the agent may load it twice, or it keeps one copy, which the reviewed order names
-/// for every agent but the ones no source ranks.
-fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
-    let (label, explanation) = match overlap {
-        Overlap::Twice => (
-            "Also in your agents",
-            "An agent reads this skill both here and in your agents, so it may load it twice.",
-        ),
-        Overlap::Hidden => (
-            "Hidden by your agents",
-            "An agent reads this skill in both places but keeps your agents' copy, so this copy is ignored.",
-        ),
-        Overlap::Overrides => (
-            "Overrides your agents",
-            "An agent reads this skill in both places but loads this copy, so your agents' copy is ignored.",
-        ),
-        Overlap::OneCopy => (
-            "One copy is used",
-            "An agent reads this skill in both places but keeps one copy, and no source says which.",
-        ),
-    };
-    div()
-        .id(format!("overlap-{}", item.skill.id))
-        .flex_shrink_0()
-        .child(Tag::warning().small().child(label))
-        .tooltip(tooltip(explanation))
-        .into_any_element()
+    .flatten();
+    match &item.end {
+        RowEnd::Places(_) => marks.collect(),
+        RowEnd::Workspace(row) => marks.chain(workspace_marks(id, row, cx)).collect(),
+    }
 }
 
 /// A skill's folder: Kit's secondary tag, borderless, in 11 px medium text whose line is `tag`. A
