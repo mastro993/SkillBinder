@@ -11,6 +11,14 @@ use gpui_kit::{
 };
 use skillbinder_proto::*;
 
+impl DialogState {
+    /// Whether this dialog stays up while an operation runs, `busy`: every dialog but the review
+    /// list, which closes while one of its answers is being carried out.
+    fn locked(&self, busy: bool) -> bool {
+        busy && !matches!(self, Self::Copies(CopiesListing::Attention(_)))
+    }
+}
+
 impl NativeView {
     pub(super) fn sync_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
         if matches!(self.dialog, DialogState::None) {
@@ -42,14 +50,9 @@ impl NativeView {
         }
     }
 
-    /// Whether the open dialog stays up while an operation runs: every dialog but the review
-    /// list, which closes while one of its answers is being carried out.
+    /// Whether the open dialog stays up while an operation runs, as [`DialogState::locked`] says.
     fn dialog_locked(&self) -> bool {
-        self.busy
-            && !matches!(
-                self.dialog,
-                DialogState::Copies(CopiesListing::Attention(_))
-            )
+        self.dialog.locked(self.busy)
     }
 
     pub(super) fn dismiss_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -167,6 +170,28 @@ impl NativeView {
             DialogState::DeleteFolder { id, revision } => {
                 self.delete_folder_dialog(dialog, id, revision, cx)
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::DialogState;
+    use super::super::copies_review::Review;
+    use super::CopiesListing;
+    use skillbinder_proto::WorkspaceId;
+
+    #[test]
+    fn only_the_review_list_closes_while_an_operation_runs() {
+        let review = DialogState::Copies(CopiesListing::Attention(Review::default()));
+        assert!(!review.locked(true));
+        assert!(!review.locked(false));
+        for other in [
+            DialogState::Copies(CopiesListing::Asking),
+            DialogState::RemoveWorkspace(WorkspaceId::new()),
+        ] {
+            assert!(other.locked(true));
+            assert!(!other.locked(false), "nothing runs, so it closes");
         }
     }
 }

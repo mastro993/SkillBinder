@@ -197,7 +197,7 @@ pub struct NativeView {
     /// Focus for the strip while it is up, so keys reach nothing else.
     overlay_focus: FocusHandle,
     /// A toast waiting for the next frame, where the window it shows in is at hand.
-    toast: Option<gpui_kit::SharedString>,
+    toast: toasts::PendingToast,
     #[cfg(feature = "native-test")]
     holds: native_test::Holds,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
@@ -337,7 +337,7 @@ impl NativeView {
             strip: None,
             wash_fade: None,
             overlay_focus: cx.focus_handle().tab_stop(true),
-            toast: None,
+            toast: toasts::PendingToast::default(),
             #[cfg(feature = "native-test")]
             holds: native_test::Holds::default(),
             sidebar_motion: 0,
