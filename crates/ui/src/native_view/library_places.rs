@@ -6,18 +6,18 @@
 
 use super::NativeView;
 use super::controls::avatar::{self, Fill, Ring};
-use super::controls::chip::{chip, dot};
 use super::controls::exact_text::{exact_text, sized};
 use super::controls::logo::{Ink, Logo};
 use super::controls::{pill, tooltip::tip};
 use super::library_items::{ITEM_GROUP, surface};
 use super::preset_colors::preset_tint;
+use super::sidebar_row::dot;
 use super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::workspace_icons::sized_icon;
-use gpui_kit::component::ActiveTheme;
+use gpui_kit::component::{ActiveTheme, Sizable, tag::Tag};
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Toggled,
+    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Text, Toggled,
     canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::Preset;
@@ -178,28 +178,32 @@ fn workspace_chip(
     cx: &App,
 ) -> Option<Stateful<Div>> {
     let muted = cx.theme().muted_foreground;
-    let base = || {
-        chip(format!("place-workspaces-{}", places.skill), 20., cx)
-            .gap(px(4.))
-            .pl(px(5.))
-            .pr(px(7.))
+    let base = |tag: Tag| {
+        div()
+            .id(format!("place-workspaces-{}", places.skill))
+            .flex_none()
+            .child(tag)
     };
     match workspaces {
         [] => None,
         [only] if !narrow => Some(tip(
-            base().child(sized_icon(only.workspace, 13., cx)).child(
-                div()
-                    .flex()
-                    .min_w_0()
-                    .max_w(px(CHIP_NAME_MAX))
-                    .child(exact_text("name", only.workspace.name.clone()).truncate()),
+            base(
+                chip(cx).child(sized_icon(only.workspace, 13., cx)).child(
+                    div()
+                        .min_w_0()
+                        .max_w(px(CHIP_NAME_MAX))
+                        .truncate()
+                        .child(Text::new("name".into(), only.workspace.name.clone().into())),
+                ),
             ),
             format!("{}\n{}", only.workspace.name, only.held_names()),
         )),
         several => Some(tip(
-            base()
-                .child(Logo::Glyph("icons/code-folder.svg").element(13., muted.into(), false))
-                .child(exact_text("count", several.len().to_string())),
+            base(
+                chip(cx)
+                    .child(Logo::Glyph("icons/code-folder.svg").element(13., muted.into(), false))
+                    .child(Text::new("count".into(), several.len().to_string().into())),
+            ),
             several
                 .iter()
                 .map(|place| format!("{} · {}", place.workspace.name, place.held_names()))
@@ -243,12 +247,23 @@ pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
             preset_tint(color, theme.is_dark())
         });
     let name = preset.map_or_else(|| "Default".to_owned(), |preset| preset.name.clone());
-    let chip = chip("place-preset", 22., cx)
-        .px(px(8.))
-        .gap(px(5.))
-        .child(dot(tint))
-        .child(exact_text("name", name.clone()));
+    let chip = div().id("place-preset").flex_none().child(
+        chip(cx)
+            .child(dot(tint))
+            .child(Text::new("name".into(), name.clone().into())),
+    );
     tip(chip, format!("Saved to {name}")).into_any_element()
+}
+
+/// A chip: Kit's small tag on the page fill with a hairline border, fully rounded, its glyph or dot
+/// 4 px before its medium text.
+fn chip(cx: &App) -> Tag {
+    let theme = cx.theme();
+    Tag::custom(theme.background, theme.foreground, theme.border)
+        .small()
+        .rounded_full()
+        .gap(px(4.))
+        .font_weight(MEDIUM)
 }
 
 /// A 26 by 24 pill toggling one directory, with its tooltip and accessible name; the caller adds

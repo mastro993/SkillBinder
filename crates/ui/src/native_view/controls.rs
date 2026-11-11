@@ -3,7 +3,6 @@
 //! where Kit's own cannot match them pixel for pixel.
 
 pub(super) mod avatar;
-pub(super) mod chip;
 pub(super) mod dialog_surface;
 pub(super) mod exact_text;
 pub(super) mod logo;

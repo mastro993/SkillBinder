@@ -7,7 +7,7 @@ use super::super::place_popover::place_line;
 use super::avatar::{self, Fill, Ring};
 use super::logo::Logo;
 use super::popover::{Align, Anchor, placed, surface};
-use super::{chip, pill, segmented, switch, tooltip};
+use super::{pill, segmented, switch, tooltip};
 use gpui_kit::base::TestSupportExt;
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
@@ -62,7 +62,6 @@ impl Render for Gallery {
                             .child(avatar::stack(&logos, &ring, cx))
                             .test_support(),
                     )
-                    .child(chip::chip("chip", 20., cx).px(px(6.)).test_support())
                     .child(tooltip::tip(div().id("tipped").size(px(10.)), "Tip").test_support()),
             )
             .child(popover_lines(logos[0], cx))
@@ -199,7 +198,6 @@ fn controls_take_the_prototypes_sizes(cx: &mut TestAppContext) {
         "four 18-point avatars, each overlapping the one before by 5"
     );
     assert_eq!(sized(bounds(cx, window, "wrapped")), (57., 18.));
-    assert_eq!(bounds(cx, window, "chip").size.height, px(20.));
     assert_eq!(sized(bounds(cx, window, "tipped")), (10., 10.));
 }
 

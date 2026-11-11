@@ -3,7 +3,6 @@
 //! skill, and its description, then what [`RowEnd`] says: on Library where the skill is on, on a
 //! workspace's page its activation there and the agents it is applied for.
 
-use super::controls::chip::tag;
 use super::controls::exact_text::{exact_text, sized};
 use super::controls::{app_icon, tooltip::tip};
 use super::library_copies::Placement;
@@ -15,10 +14,11 @@ use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
 use gpui_kit::{
     AnyElement, App, Context, DefiniteLength, Div, FontWeight, Hsla, InteractiveElement,
-    IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled, canvas, div,
+    IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, canvas, div,
     prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Overlap, Skill, SkillDetails, SkillId};
+use skillbinder_theme::MEDIUM;
 use skillbinder_theme::library::{
     CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, TILE_GAP, TILE_MIN_HEIGHT,
     TILE_PADDING, TILE_RADIUS,
@@ -225,7 +225,7 @@ impl NativeView {
             .child(slug)
             .children(name_marks(item, cx))
             .when_some(item.folder, |line, folder| {
-                line.child(tag(folder.to_owned(), cx).when(dim, |tag| tag.opacity(DIM)))
+                line.child(folder_tag(folder.to_owned(), dim))
             })
     }
 
@@ -355,6 +355,20 @@ fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
         .child(Tag::warning().small().child(label))
         .tooltip(move |window, cx| Tooltip::new(explanation).build(window, cx))
         .into_any_element()
+}
+
+/// A skill's folder: Kit's secondary tag, borderless, in 11 px medium text whose line is `tag`. A
+/// dimmed tag fades on a wrapper, since Kit's tag raises its own opacity under the pointer.
+fn folder_tag(folder: String, dim: bool) -> impl IntoElement {
+    div().flex_none().when(dim, |tag| tag.opacity(DIM)).child(
+        Tag::secondary()
+            .small()
+            .rounded(px(4.))
+            .border_0()
+            .text_size(px(11.))
+            .font_weight(MEDIUM)
+            .child(Text::new("tag".into(), folder.into())),
+    )
 }
 
 /// The 14 px glyph of a skill whose source has an update, in `tone`. It keeps full opacity on a
