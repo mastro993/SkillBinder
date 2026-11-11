@@ -7,7 +7,7 @@ use super::super::place_popover::place_line;
 use super::avatar::{self, Fill, Ring};
 use super::logo::Logo;
 use super::popover::{Align, Anchor, placed, surface};
-use super::{pill, segmented, switch};
+use super::{pill, switch};
 use gpui_kit::base::TestSupportExt;
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
@@ -46,15 +46,6 @@ impl Render for Gallery {
                     .child(pill::pill("pill-on", logos[0], true, false, cx).test_support())
                     .child(pill::pill("pill-off", logos[0], false, false, cx).test_support())
                     .child(switch::switch("switch", true, cx).test_support())
-                    .child(
-                        segmented::track("track", cx)
-                            .child(
-                                segmented::segment("segment", true, cx)
-                                    .child("All")
-                                    .test_support(),
-                            )
-                            .test_support(),
-                    )
                     .child(avatar::stack(&logos, &ring, cx).id("stack").test_support())
                     .child(
                         div()
@@ -173,8 +164,6 @@ fn controls_take_the_prototypes_sizes(cx: &mut TestAppContext) {
     assert_eq!(sized(bounds(cx, window, "pill-on")), (26., 24.));
     assert_eq!(sized(bounds(cx, window, "pill-off")), (26., 24.));
     assert_eq!(sized(bounds(cx, window, "switch")), (30., 18.));
-    assert_eq!(bounds(cx, window, "track").size.height, px(28.));
-    assert_eq!(bounds(cx, window, "segment").size.height, px(24.));
     assert_eq!(
         sized(bounds(cx, window, "stack")),
         (57., 18.),

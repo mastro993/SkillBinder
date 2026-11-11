@@ -7,8 +7,7 @@
 //! the parity check's half point.
 
 use gpui_kit::{
-    App, Font, FontFeatures, FontWeight, Pixels, ShapedLine, SharedString, TextRun, TextSystem,
-    WindowTextSystem, font, hsla, px,
+    Font, FontWeight, Pixels, ShapedLine, SharedString, TextRun, TextSystem, WindowTextSystem,
 };
 use skillbinder_theme::{MEDIUM, system_font};
 
@@ -87,30 +86,4 @@ pub(super) fn measure(
     });
     let widths = Widths::new(f32::from(line.width), regular);
     (line, widths)
-}
-
-/// The width a line of `text` takes in the system font at `size` px, `weight`, and `features`, as
-/// [`super::ExactText`] lays it out, for a box sized ahead of layout.
-pub(crate) fn width(
-    text: &SharedString,
-    size: f32,
-    weight: FontWeight,
-    features: FontFeatures,
-    cx: &App,
-) -> f32 {
-    let mut font = font(system_font());
-    font.weight = weight;
-    font.features = features;
-    let run = TextRun {
-        len: text.len(),
-        font,
-        color: hsla(0., 0., 0., 1.),
-        background_color: None,
-        underline: None,
-        strikethrough: None,
-    };
-    let lines = WindowTextSystem::new(cx.text_system().clone());
-    measure(text, &run, px(size), &lines, cx.text_system())
-        .1
-        .laid
 }

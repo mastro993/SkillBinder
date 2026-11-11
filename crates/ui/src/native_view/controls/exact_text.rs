@@ -28,7 +28,6 @@ use gpui_kit::{
     Size, Style, Styled, TextRun, TruncateFrom, Window, accesskit, px,
 };
 
-pub(crate) use width::width;
 use width::{Widths, measure};
 
 /// The prototypes' line height, as a multiple of the font size.

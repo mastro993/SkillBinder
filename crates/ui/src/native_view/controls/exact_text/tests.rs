@@ -7,15 +7,15 @@ use std::panic::UnwindSafe;
 use std::sync::{Arc, Mutex};
 
 use super::super::text_button;
-use super::width::{MEDIUM_SHARE, Widths, drawn_medium, width};
+use super::width::{MEDIUM_SHARE, Widths, drawn_medium};
 use super::{exact_text, line_shortfall, shrunk};
 use faces::{Faces, MEDIUM_SCALE, regular_width};
 use gpui_kit::component::{Size, button::ButtonVariants};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
-    AccessibilityFrame, AppContext, Bounds, Context, Element, ElementId, FontFeatures, FontWeight,
-    FrameObserver, IntoElement, ParentElement, Pixels, Render, Role, Styled, TestAppContext,
-    TextSystem, Window, WindowBounds, WindowOptions, accesskit, div, font, px, size,
+    AccessibilityFrame, AppContext, Bounds, Context, Element, ElementId, FontWeight, FrameObserver,
+    IntoElement, ParentElement, Pixels, Render, Role, Styled, TestAppContext, TextSystem, Window,
+    WindowBounds, WindowOptions, accesskit, div, font, px, size,
 };
 use skillbinder_theme::{MEDIUM, system_font};
 
@@ -215,9 +215,6 @@ fn weight_500_lines_take_chromes_width_in_every_control() {
         );
         let semibold = bounds(&frame, "semibold").size.width;
         assert!(near(semibold, regular * 1.75), "{semibold:?}");
-        // A box sized ahead of layout, as the Library filters' are, takes the same width.
-        let ahead = cx.update(|cx| width(&NAME.into(), SIZE, MEDIUM, FontFeatures::default(), cx));
-        assert!((ahead - widths.laid).abs() < 1e-3, "{ahead}");
     });
 }
 

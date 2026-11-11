@@ -11,7 +11,6 @@ pub(super) mod pill;
 pub(super) mod popover;
 pub(super) mod press;
 pub(super) mod progress_bar;
-pub(super) mod segmented;
 pub(super) mod shadow;
 pub(super) mod switch;
 pub(super) mod toast;

@@ -111,8 +111,9 @@ pub mod library {
     pub const PAGE_GAP: f32 = 12.0;
     /// Space below the list's end, inside its scroll view.
     pub const PAGE_BOTTOM: f32 = 16.0;
-    /// Height of the toolbar row and of its search field and controls.
-    pub const TOOLBAR_HEIGHT: f32 = 28.0;
+    /// Height of the toolbar row: GPUI Kit's standard control height, which its search field,
+    /// segmented filters, and Updates chip take.
+    pub const TOOLBAR_HEIGHT: f32 = 32.0;
     /// Corner radius of the card that holds the list.
     pub const CARD_RADIUS: f32 = 10.0;
     /// Shortest a list row is drawn.

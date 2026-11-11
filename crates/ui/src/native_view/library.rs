@@ -53,7 +53,7 @@ impl NativeView {
             width: self.content_width(window),
             scale: window.scale_factor(),
         };
-        let toolbar = self.library_toolbar(counts, frame.width, window, cx);
+        let toolbar = self.library_toolbar(counts, window, cx);
         let results = self.library_results(library, &places, &active, &shown, &typed, frame, cx);
         let notes: Vec<AnyElement> = self
             .empty_scope_note(library, cx)
