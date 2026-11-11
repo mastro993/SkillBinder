@@ -49,18 +49,14 @@ impl NativeView {
         self.at_strip_time(REVEAL_AFTER, started, Self::reveal_strip, cx);
     }
 
-    /// Keeps keyboard focus on the overlay while the strip or the review list is up, and gives it
-    /// back to the window once they are gone.
+    /// Keeps keyboard focus on the overlay while the strip is up, and gives it back to the window
+    /// once it is gone.
     pub(in crate::native_view) fn sync_overlay_focus(
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let up = self.strip.is_some()
-            || matches!(
-                self.dialog,
-                DialogState::Copies(CopiesListing::Attention(_))
-            );
+        let up = self.strip.is_some();
         if up && !self.overlay_focus.is_focused(window) {
             window.focus(&self.overlay_focus, cx);
         } else if !up && self.overlay_focus.is_focused(window) {

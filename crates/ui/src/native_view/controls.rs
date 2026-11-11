@@ -4,7 +4,6 @@
 //! its logo, which Kit has no picker for. The submodules hold the controls the app still draws
 //! itself.
 
-pub(super) mod dialog_surface;
 pub(super) mod exact_text;
 pub(super) mod motion;
 pub(super) mod shadow;

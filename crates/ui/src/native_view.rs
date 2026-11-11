@@ -194,7 +194,7 @@ pub struct NativeView {
     strip: Option<progress_strip::Strip>,
     /// When the wash of a strip that ended began fading out, while it fades.
     wash_fade: Option<std::time::Instant>,
-    /// Focus for the strip and the review list while they are up, so keys reach nothing else.
+    /// Focus for the strip while it is up, so keys reach nothing else.
     overlay_focus: FocusHandle,
     toast: Option<controls::toast::Toast>,
     #[cfg(feature = "native-test")]
@@ -481,7 +481,6 @@ impl Render for NativeView {
             })
             .children(self.render_place_popover(window, cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
-            .children(self.render_review(cx))
             .children(self.render_strip(window, cx))
             .children(self.render_toast(cx))
     }
