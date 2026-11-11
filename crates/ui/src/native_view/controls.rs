@@ -1,6 +1,7 @@
-//! App buttons and checkboxes: GPUI Kit keeps the arrow cursor on them, except on link and text
-//! button variants. The submodules hold the app-owned controls drawn to the approved prototypes
-//! where Kit's own cannot match them pixel for pixel.
+//! The app's ways into GPUI Kit's controls. Buttons and checkboxes get the hand cursor, which Kit
+//! keeps only on its link and text button variants; a text button gets the design's medium label;
+//! and an element that is not a Kit control gets Kit's tooltip. The submodules hold the controls
+//! the app still draws itself.
 
 pub(super) mod avatar;
 pub(super) mod dialog_surface;
