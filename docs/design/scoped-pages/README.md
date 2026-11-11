@@ -18,7 +18,7 @@ Never compared:
 - The app's 232 px sidebar. It stays as it is. In the references it is the prototypes' mock sidebar, widened to 232.
 - The Library header. The prototype mocks this existing surface; it is masked by default (`spec/library-2-crops.md`).
 - The content under the progress wash, and the page seen through the pill's ring or past a crop's rounded corners (`pixdiff --page`, `spec/progress-4-parity.md`). A formula checks the wash instead.
-- The window corners and the macOS traffic lights, which AppKit draws.
+- The window frame (its rounded corners and edge hairline) and the macOS traffic lights, which AppKit draws.
 
 ## Chosen variants
 
@@ -33,7 +33,7 @@ Each state has `references/<area>/<NN>-<state>-<light|dark>.png`: 2360 × 1456 p
 
 ## Frosted wash instead of blur
 
-The approved progress variant dimmed and blurred the window behind the strip. GPUI has no backdrop or element blur, and AGENTS.md forbids patching dependencies to add one. The prototype was therefore changed to a frosted wash before the references were rendered: the page `background` at 70% opacity over the whole window, sidebar included. The pill sits above the wash, and a transparent blocker sits below it. No `blur()` or `backdrop-filter` is left in any bundle. Natively the wash is one window-sized quad of `background` at alpha 0.7. `parity/progress-checks.py wash` checks it on the native capture itself: `strip = round(0.7 · bg + 0.3 · base)` within 1 level. The traffic lights cannot be washed and are masked. Issue #98's text said 55%; the user settled it at 70% (C1 in `spec/progress-1-states.md`).
+The approved progress variant dimmed and blurred the window behind the strip. GPUI has no backdrop or element blur, and AGENTS.md forbids patching dependencies to add one. The prototype was therefore changed to a frosted wash before the references were rendered: the page `background` at 70% opacity over the whole window, sidebar included. The pill sits above the wash, and a transparent blocker sits below it. No `blur()` or `backdrop-filter` is left in any bundle. Natively the wash is one window-sized quad of `background` at alpha 0.7. `parity/progress-checks.py wash` checks it on the native capture itself: `strip = round(0.7 · bg + 0.3 · base)` within 1 level. The traffic lights and the window frame cannot be washed and are left out. Issue #98's text said 55%; the user settled it at 70% (C1 in `spec/progress-1-states.md`).
 
 ## Approved additions
 
@@ -106,7 +106,7 @@ Where GPUI or GPUI Kit cannot reach a CSS value as-is, the spec gives the closes
 - **Library** (`spec/library-6-gpui.md`, G1–G19): GPUI draws 2/1 px dashes where Chrome draws about 3/2 px, so use a custom path or the dash masks. GPUI has no CSS `filter`; use image grayscale. Kit Switch and the segmented TabBar cannot take the 30 × 18 and 28 px geometry. Kit Popover clamps 4 px from the window edge, where the prototype clamps 8. GPUI has no container queries and no auto-fill grid.
 - **Workspace and agent pages** (`spec/scoped-pages-07-gpui-gaps.md`, G1–G10): Kit Notification cannot draw the toast, so use an app toast. Kit Dialog's shadow is twice as soft. Kit tooltips prefer the top and wait 500 ms. Kit Checkbox draws the Hugeicons tick, not the CSS check; mask the box interior.
 - **Picker** (`spec/picker-6-gpui.md`): dashed pills, tooltip placement and delay, and the check mark, as above. GPUI applies opacity per primitive, so use the flattened colors in `spec/picker-5-overlays.md`. Build the focus ring from two absolute children. The Kit scrollbar fades in on hover.
-- **Progress** (`spec/progress-5-gpui.md`, G1–G13): the traffic lights stay unwashed. GPUI's 4-sample shadow blur leaves the light halo up to 3/255 off, which the halo check allows. Kit Spinner turns at another speed, so use a custom rotation. Kit Notification cannot draw the toast. GPUI has no CSS transitions; motion falls outside still parity.
+- **Progress** (`spec/progress-5-gpui.md`, G1–G13): the traffic lights and the window frame stay unwashed. GPUI's 4-sample shadow blur leaves the light halo up to 3/255 off, which the halo check allows. Kit Spinner turns at another speed, so use a custom rotation. Kit Notification cannot draw the toast. GPUI has no CSS transitions; motion falls outside still parity.
 
 ## Decisions (2026-11-09)
 

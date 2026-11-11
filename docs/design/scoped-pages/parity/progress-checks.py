@@ -5,8 +5,8 @@ usage (through parity/py):
       [--ignore x,y,w,h ...]
       Every pixel of <strip> inside --rect (default: whole window) must equal
       round(alpha*color + (1-alpha)*base) within 1 level, outside the --ignore rects.
-      color defaults to the page background (the wash); a Kit scrim is --color #000000
-      --alpha 0.05 (light) or 0.2 (dark).
+      color defaults to the page background (the wash); the Kit scrim (overlay #0000000d or
+      #00000033) is --color #000000 --alpha 0.05098 (light, 13/255) or 0.2 (dark, 51/255).
       base = the same window without the strip (native: a capture taken just before the click).
   halo <ref_base.png> <ref_strip.png> <nat_base.png> <nat_strip.png> <light|dark> --rect x,y,w,h
       [--ignore x,y,w,h ...] [--alpha 0.7]
@@ -15,6 +15,9 @@ usage (through parity/py):
       GPUI's 4-sample blur leaves flat page pixels 3/255 off (spec/progress-5-gpui.md G1).
       Pixels where the two bases differ by more than 1 level, and their 8 neighbours, are page
       content (the mock's page against the app's, edges up to a device px apart): left out.
+Both checks leave out the window frame, which AppKit draws above the content (G5): every pixel
+that is not opaque in any of the images (the rounded corners, as pixdiff) and every pixel within
+RING device px of one of them or of the image edge (the window's edge hairline).
 Rects are logical px of the 1180x728 window; images are 2x. Exit 1 on failure.
 """
 import argparse
@@ -25,6 +28,7 @@ from PIL import Image
 
 BG = {"light": (255, 255, 255), "dark": (10, 10, 10)}
 HALO = 3  # /255: GPUI's shadow blur (G1)
+RING = 2  # device px: the edge hairline measured on #104's captures, light and dark (spec/progress-4-parity.md)
 
 
 def rect(text):
@@ -32,7 +36,25 @@ def rect(text):
 
 
 def load(path):
-    return np.asarray(Image.open(path).convert("RGB")).astype(float)
+    """(RGB as float, opaque mask)."""
+    im = Image.open(path)
+    opaque = np.asarray(im.getchannel("A")) == 255 if "A" in im.getbands() else np.ones(im.size[::-1], bool)
+    return np.asarray(im.convert("RGB")).astype(float), opaque
+
+
+def grow(m, n):
+    """m dilated by n device px (each step adds the 8 neighbours); outside the image counts as False."""
+    for _ in range(n):
+        p = np.pad(m, 1)
+        m = np.any([p[1 + dy:p.shape[0] - 1 + dy, 1 + dx:p.shape[1] - 1 + dx]
+                    for dy in (-1, 0, 1) for dx in (-1, 0, 1)], axis=0)
+    return m
+
+
+def frame(opaque):
+    """The window frame: not opaque in any image, or within RING device px of such a pixel or the image edge."""
+    outside = np.pad(~np.logical_and.reduce(opaque), RING, constant_values=True)
+    return grow(outside, RING)[RING:-RING, RING:-RING]
 
 
 def mask_for(shape, area, ignores):
@@ -59,24 +81,26 @@ def main():
     p.add_argument("--ignore", type=rect, action="append", default=[])
     a = p.parse_args()
     theme = a.images[-1]
+    images, opaque = zip(*(load(f) for f in a.images[:2 if a.mode == "wash" else 4]))
+    area = mask_for(images[0].shape, a.rect, a.ignore)
+    edge = area & frame(opaque)
+    area &= ~edge
     if a.mode == "wash":
-        base, strip = (load(f) for f in a.images[:2])
+        base, strip = images
         d = np.abs(strip - np.round(washed(base, theme, a.alpha, a.color))).max(axis=2)
-        v = d[mask_for(d.shape, a.rect, a.ignore)]
+        v = d[area]
         bad = int((v > 1).sum())
-        print(f"wash: {v.size} px, max {v.max():.1f}, off by >1: {bad}")
+        print(f"wash: {v.size} px, max {v.max():.1f}, off by >1: {bad}; frame left out: {int(edge.sum())}")
         return 1 if bad else 0
-    rb, rs, nb, ns = (load(f) for f in a.images[:4])
-    page = np.pad(np.abs(rb - nb).max(axis=2) > 1, 1)
-    page = np.any([page[1 + dy:page.shape[0] - 1 + dy, 1 + dx:page.shape[1] - 1 + dx]
-                   for dy in (-1, 0, 1) for dx in (-1, 0, 1)], axis=0)
-    area = mask_for(rb.shape, a.rect, a.ignore)
+    rb, rs, nb, ns = images
+    page = grow(np.abs(rb - nb).max(axis=2) > 1, 1)
     m = area & ~page
     s_ref = 1 - rs / np.maximum(washed(rb, theme, a.alpha), 1)
     s_nat = 1 - ns / np.maximum(washed(nb, theme, a.alpha), 1)
     d = np.round((np.abs(s_ref - s_nat) * 255).max(axis=2), 3)[m]  # 3 levels must not read as 3.0000001
     bad = int((d > HALO).sum())
-    print(f"halo: {d.size} px, max {d.max():.1f}/255, off by >{HALO}: {bad}; page content left out: {int((area & page).sum())}")
+    print(f"halo: {d.size} px, max {d.max():.1f}/255, off by >{HALO}: {bad}; page content left out: "
+          f"{int((area & page).sum())}; frame left out: {int(edge.sum())}")
     return 1 if bad else 0
 
 

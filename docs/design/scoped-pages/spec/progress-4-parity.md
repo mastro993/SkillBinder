@@ -2,7 +2,7 @@
 
 Rects are logical px `x,y,w,h` in the 1180x728 window, the units `parity/pixdiff` and `parity/progress-checks.py` take. `R` is `docs/design/scoped-pages`.
 
-The native capture is the gpui MCP full-window screenshot, 2360x1456. pixdiff already leaves out the 1,168 non-opaque window-corner pixels.
+The native capture is the gpui MCP full-window screenshot, 2360x1456. pixdiff already leaves out the 1,168 non-opaque window-corner pixels. `progress-checks.py` always leaves out the whole window frame (see the wash check).
 
 ## What is compared
 
@@ -56,6 +56,7 @@ The pill and the toast hug their text. If native text measures narrower or wider
 - **Ignore**:
   - the pill box plus halo: `pill.x−14, 0, pill.w+28, 82`. For 02 that is `496,0,188,82`; for 06 it is `422,0,336,82`.
   - the macOS traffic lights `12,11,68,22`. AppKit draws them above the content, so no GPUI layer can wash them; the prototype washes its mock lights.
+  - the window frame, always, with no flag. AppKit draws it above the content too (5/5 G5). `progress-checks.py` leaves out every pixel that is not opaque in either capture (pixdiff's 1,168 corner pixels), and every pixel within 2 device px of one of them or of the image edge (8-neighbour distance), which follows the rounded corners. 2 device px is the edge hairline's widest, measured on #104's 36 native captures: each side has a ring of 1 or 2 device px, never 3. In dark it shows everywhere (top rows `#9b9b9b`, `#474747` over a `#0a0a0a` page); in light it is a paler line, seen only over content darker than white (`#f7f7f7`, `#f5f5f5` over the review scrim's `#f2f2f2`). A 1 px ring leaves 7,130 dark pixels of 02 failing, up to 47 levels. The frame is 16,416 px of a capture. The references have no frame, so there it removes only the outer 2 px.
 
 ```
 $R/parity/py $R/parity/progress-checks.py wash base.png strip.png light \
@@ -98,10 +99,14 @@ The reference bases are `00-idle-<theme>.png` for 01–05 and 08–10, and `08-t
 Besides the strict crop, check that the wash and the pill are gone:
 
 ```
-progress-checks.py wash base.png review.png light --color '#000000' --alpha 0.05 --ignore <dialog rect + 24 px shadow>
+$R/parity/py $R/parity/progress-checks.py wash base.png review.png light --color '#000000' --alpha 0.05098 \
+  --ignore 347,43,486,297.19 --ignore 12,11,68,22
 ```
 
-In the dark theme use `--alpha 0.2`. `base` is the window after the dialog closes. This proves there is no wash and no pill, and that the dialog scrim is in place. On the references it scores max 1.0 (light) and 0.0 (dark).
+In the dark theme use `--alpha 0.2`. The alphas are the scrim's own: Kit's `overlay` and the prototype's `--ref-overlay` are `#0000000d` (13/255 = 0.05098) and `#00000033` (51/255 = 0.2). `base` is the window after the dialog closes. This proves there is no wash and no pill, and that the dialog scrim is in place.
+
+- **Dialog shadow.** The ignore is the dialog `380,56,420,231.19` grown by its shadow's paint extent on each side: 33 left and right, 13 above, 53 below. Chrome paints a box shadow out to `ceil(3σ) + spread`, moved by the offset, with σ = blur / 2 (Blink `ShadowData::RectOutsets`). Of shadow-lg's layers, `0 20px 25px -5px` reaches 38 − 5 = 33 to each side, 33 − 20 = 13 above and 33 + 20 = 53 below; `0 8px 10px -6px` reaches 9, 1 and 17. GPUI paints each layer to 3 × its blur radius (`shaders.metal` 476), 37.5 and 15, which lies inside.
+- **Reference pair.** `07-review` over `08-toast-switched`, with the toast and its shadow also left out: the toast grown the same way, `467.64,663,244.72,102`. Light scores max 0.0 over 2,773,868 px, and dark max 0.0. The old box, the dialog plus 24 px (`356,32,468,280`), failed the reference itself: 7,076 px, up to 4 levels, at y 312–316 where the shadow continues below it.
 
 ## Regions never compared against the reference
 
@@ -109,5 +114,5 @@ In the dark theme use `--alpha 0.2`. `base` is the window after the dialog close
 - The page seen through the ring or past a crop's rounded corners (`pixdiff --page`).
 - The spinner glyph's angle.
 - The text caret (hidden in references).
-- Window corners (non-opaque).
+- The window frame: its non-opaque corners and its 2 device px edge hairline.
 - The traffic lights.
