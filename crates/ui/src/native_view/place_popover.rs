@@ -69,7 +69,7 @@ impl NativeView {
             .map(|popover| popover.cells.clone())
     }
 
-    /// Opens `skill`'s popover, or closes it when it is open.
+    /// Opens `skill`'s popover, or closes it when it is open; nothing while the app is blocked.
     pub(super) fn toggle_place_popover(
         &mut self,
         skill: &SkillId,
@@ -77,6 +77,9 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.blocked() {
+            return;
+        }
         if self.popover_open(skill) {
             self.close_place_popover(window, cx);
             return;
@@ -121,7 +124,7 @@ impl NativeView {
             popover,
             places: &places,
             preset: self.active_preset(library),
-            busy: self.busy,
+            blocked: self.blocked(),
         }
         .render(window, cx);
         let label = format!("Where {} is on", skill.id);

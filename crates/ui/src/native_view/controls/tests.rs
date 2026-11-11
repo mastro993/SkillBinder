@@ -43,8 +43,8 @@ impl Render for Gallery {
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .child(pill::pill("pill-on", logos[0], true, cx).test_support())
-                    .child(pill::pill("pill-off", logos[0], false, cx).test_support())
+                    .child(pill::pill("pill-on", logos[0], true, false, cx).test_support())
+                    .child(pill::pill("pill-off", logos[0], false, false, cx).test_support())
                     .child(switch::switch("switch", true, cx).test_support())
                     .child(
                         segmented::track("track", cx)
@@ -101,7 +101,7 @@ impl Render for Gallery {
 fn popover_lines(logo: Logo, cx: &App) -> impl IntoElement {
     let pills = |prefix: &'static str, count: usize| {
         (0..count).map(move |index| {
-            pill::pill(format!("{prefix}{index}"), logo, false, cx).test_support()
+            pill::pill(format!("{prefix}{index}"), logo, false, false, cx).test_support()
         })
     };
     let lead = |id: &'static str, width: f32| {

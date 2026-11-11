@@ -1,7 +1,8 @@
 //! Where a library skill is on, at a Library row's trailing edge or in a grid tile's footer: one
 //! button holding your agents' logo stack, a hairline, the workspaces' chips, and a chevron, or a
 //! dashed `+` circle that shows while an inactive skill's row is hovered. Either opens the skill's
-//! popover. The preset chip and the pill are shared with the popover and the other pages.
+//! popover, except while the app is blocked, when it is inert. The preset chip and the pill are
+//! shared with the popover and the other pages.
 
 use super::NativeView;
 use super::controls::avatar::{self, Fill, Ring};
@@ -30,7 +31,8 @@ const CHIP_NAME_MAX: f32 = 140.;
 
 impl NativeView {
     /// The skill's placement button; clicking it, or Enter or Space while it has focus, opens or
-    /// closes the popover and never the skill's page.
+    /// closes the popover and never the skill's page. While a change runs or the progress strip
+    /// is up it does nothing, and shows no hover or hand cursor.
     pub(super) fn place_trigger(
         &self,
         places: &SkillPlaces<'_>,
@@ -45,19 +47,16 @@ impl NativeView {
         let key = skill.clone();
         let button = div()
             .id(format!("place-{skill}"))
-            .group(PLACE_GROUP)
             .relative()
             .flex()
             .flex_none()
             .items_center()
             .min_h(px(26.))
             .rounded(px(6.))
-            .cursor_pointer()
             .tab_index(0)
             .role(Role::Button)
             .aria_expanded(open)
             .when(open, |button| button.bg(highlight))
-            .hover(move |style| style.bg(highlight))
             .when_some(self.open_popover_cells(&skill), |button, cells| {
                 button.child(
                     canvas(
@@ -70,6 +69,7 @@ impl NativeView {
                     .size_full(),
                 )
             })
+            // Inert, it still takes the click, so the row behind it does not open the skill.
             .on_click(cx.listener(move |view, _, window, cx| {
                 cx.stop_propagation();
                 view.toggle_place_popover(&toggle, grid, window, cx);
@@ -79,7 +79,13 @@ impl NativeView {
                     cx.stop_propagation();
                     view.toggle_place_popover(&key, grid, window, cx);
                 }
-            }));
+            }))
+            .when(!self.blocked(), |button| {
+                button
+                    .group(PLACE_GROUP)
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(highlight))
+            });
         if places.is_active() {
             active_button(button, places, open, narrow, cx)
         } else {
@@ -247,18 +253,19 @@ pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
 }
 
 /// A 26 by 24 pill toggling one directory, with its tooltip and accessible name; the caller adds
-/// its click.
+/// its click, unless the pill is `inert`.
 pub(super) fn place_pill(
     id: impl Into<ElementId>,
     logo: Logo,
     on: bool,
+    inert: bool,
     tooltip: impl Into<SharedString>,
     cx: &App,
 ) -> Stateful<Div> {
     let tooltip = tooltip.into();
     let label = tooltip.lines().next().unwrap_or_default().to_owned();
     tip(
-        pill::pill(id, logo, on, cx)
+        pill::pill(id, logo, on, inert, cx)
             .role(Role::Button)
             .aria_toggled(if on { Toggled::True } else { Toggled::False })
             .aria_label(label),

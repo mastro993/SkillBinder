@@ -1,6 +1,7 @@
 //! A 26 by 24 icon pill toggling one skill directory. Off, it has a dashed outline and a muted,
 //! grayscale logo at half opacity; on, a solid outline in the text color on the page fill and the
-//! logo in its own colors. Hover adds the muted fill.
+//! logo in its own colors. Hover adds the muted fill, unless the pill is inert because a press
+//! would do nothing.
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
@@ -16,8 +17,15 @@ const GROUP: &str = "pill";
 /// The dashed outline's ink.
 pub(crate) const DASHED_INK: f32 = 0.24;
 
-/// The pill; the caller adds its click, tooltip, and accessible name.
-pub(crate) fn pill(id: impl Into<ElementId>, logo: Logo, on: bool, cx: &App) -> Stateful<Div> {
+/// The pill; the caller adds its click, tooltip, and accessible name. An `inert` pill, which a
+/// press leaves as it is, shows no hover.
+pub(crate) fn pill(
+    id: impl Into<ElementId>,
+    logo: Logo,
+    on: bool,
+    inert: bool,
+    cx: &App,
+) -> Stateful<Div> {
     let theme = cx.theme();
     let (foreground, muted, hover) = (theme.foreground, theme.muted_foreground, theme.muted);
     let ink = if on {
@@ -25,7 +33,7 @@ pub(crate) fn pill(id: impl Into<ElementId>, logo: Logo, on: bool, cx: &App) -> 
     } else {
         Ink {
             rest: muted.opacity(0.5),
-            hover: Some((GROUP, foreground.opacity(0.5))),
+            hover: (!inert).then_some((GROUP, foreground.opacity(0.5))),
         }
     };
     let mark = div()
@@ -55,6 +63,6 @@ pub(crate) fn pill(id: impl Into<ElementId>, logo: Logo, on: bool, cx: &App) -> 
         .when(!on, |pill| {
             pill.child(dashed::outline(foreground.alpha(DASHED_INK)))
         })
-        .hover(move |style| style.bg(hover))
+        .when(!inert, |pill| pill.hover(move |style| style.bg(hover)))
         .child(mark)
 }

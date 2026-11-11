@@ -51,7 +51,7 @@ struct Host {
     focus: FocusHandle,
     trigger: FocusHandle,
     popover: Option<PlacePopover>,
-    busy: bool,
+    blocked: bool,
     saved: Vec<String>,
 }
 
@@ -100,7 +100,7 @@ impl Render for Host {
                 popover,
                 places: &places,
                 preset: None,
-                busy: self.busy,
+                blocked: self.blocked,
             }
             .render(window, cx);
             let label = "Where review is on".to_owned();
@@ -160,7 +160,7 @@ struct Harness {
 }
 
 impl Harness {
-    fn new(cx: &mut TestAppContext, busy: bool) -> Self {
+    fn new(cx: &mut TestAppContext, blocked: bool) -> Self {
         // The app's own init, so the popover's Tab bindings are the ones the app registers.
         cx.update(crate::init);
         let options = WindowOptions {
@@ -183,7 +183,7 @@ impl Harness {
                             // Tab would reach from the popover.
                             trigger: cx.focus_handle().tab_stop(true),
                             popover: None,
-                            busy,
+                            blocked,
                             saved: Vec::new(),
                         }
                     })
@@ -331,7 +331,7 @@ fn enter_and_space_save_what_a_click_saves(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn the_controls_keep_focus_but_do_nothing_while_busy(cx: &mut TestAppContext) {
+fn the_controls_keep_focus_but_do_nothing_while_blocked(cx: &mut TestAppContext) {
     let harness = Harness::new(cx, true);
     harness.click(cx, "trigger");
     harness.press(cx, &["tab", "space", "enter"]);

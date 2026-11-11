@@ -1,8 +1,8 @@
 //! The popover's content: "Your agents", with the preset chip, the All agents switch, and a pill
 //! per skill directory of your agents, then a line per workspace with its pills. A control saves
 //! through the view showing the popover on a click, or on Enter or Space while it has focus, and
-//! does nothing while that view is busy. A missing workspace's pills never do anything and take
-//! no focus.
+//! does nothing, with no hover or hand cursor, while that view is blocked: a change runs or the
+//! progress strip is up. A missing workspace's pills never do anything and take no focus.
 
 use super::super::controls::exact_text::{exact_text, sized};
 use super::super::controls::logo::Logo;
@@ -41,8 +41,8 @@ pub(super) struct Sections<'a> {
     pub places: &'a SkillPlaces<'a>,
     /// The active preset, which "Your agents" edits.
     pub preset: Option<&'a Preset>,
-    /// Another operation runs, so the controls do nothing.
-    pub busy: bool,
+    /// A change runs or the progress strip is up, so the controls do nothing.
+    pub blocked: bool,
 }
 
 impl Sections<'_> {
@@ -89,7 +89,8 @@ impl Sections<'_> {
                     None => entry.row.name.clone(),
                 };
                 let focus = self.popover.key(&id, cx);
-                let pill = place_pill(id, Logo::reader(&entry.row.reader), held.held, tooltip, cx);
+                let logo = Logo::reader(&entry.row.reader);
+                let pill = place_pill(id, logo, held.held, self.blocked, tooltip, cx);
                 let save = self.save_agents(places.toggled(entry));
                 pressable(pill, &focus, save, window, cx)
             })
@@ -118,13 +119,13 @@ impl Sections<'_> {
             .into_any_element()
     }
 
-    /// Saving `targets` for your agents, unless the view is busy.
+    /// Saving `targets` for your agents, unless the view is blocked.
     fn save_agents<V: Placer>(
         &self,
         targets: Targets,
     ) -> Option<impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static> {
         let skill = self.places.skill.clone();
-        (!self.busy).then_some(move |view: &mut V, _: &mut Window, cx: &mut Context<V>| {
+        (!self.blocked).then_some(move |view: &mut V, _: &mut Window, cx: &mut Context<V>| {
             view.place_agents(skill.clone(), targets.clone(), cx);
         })
     }
@@ -167,16 +168,18 @@ impl Sections<'_> {
             };
             let id = format!("place-ws-{}-{}", workspace.id, entry.keys.join("+"));
             let focus = (!place.missing()).then(|| self.popover.key(&id, cx));
-            let pill = place_pill(id, Logo::reader(&entry.row.reader), held.held, tooltip, cx);
+            let logo = Logo::reader(&entry.row.reader);
+            let pill = place_pill(id, logo, held.held, self.blocked, tooltip, cx);
             let Some(focus) = focus else {
                 return pill.into_any_element();
             };
             let (skill, target) = (self.places.skill.clone(), workspace.id.clone());
             let next = place.toggled(entry);
-            let save =
-                (!self.busy).then_some(move |view: &mut V, _: &mut Window, cx: &mut Context<V>| {
+            let save = (!self.blocked).then_some(
+                move |view: &mut V, _: &mut Window, cx: &mut Context<V>| {
                     view.place_workspace(target.clone(), skill.clone(), next.clone(), cx);
-                });
+                },
+            );
             pressable(pill, &focus, save, window, cx)
         });
         let name = v_flex()
