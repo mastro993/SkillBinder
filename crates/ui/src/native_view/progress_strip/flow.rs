@@ -4,7 +4,7 @@
 use super::super::copies_review::Review;
 use super::super::copy_dialogs::CopiesListing;
 use super::super::{DialogState, Effect, NativeView};
-use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip, WASH_FADE};
+use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip, wash_fade};
 use gpui_kit::{Context, Window};
 use skillbinder_proto::{AppResult, AppSnapshot, ManagedCopy};
 use std::{
@@ -158,7 +158,7 @@ impl NativeView {
     }
 
     /// Takes the strip down at once, so input reaches the app again; a wash that showed fades out
-    /// over [`WASH_FADE`] unless motion is reduced.
+    /// over [`wash_fade`] unless motion is reduced.
     fn take_strip(&mut self, cx: &mut Context<Self>) {
         let Some(strip) = self.strip.take() else {
             return;
@@ -167,9 +167,10 @@ impl NativeView {
             return;
         }
         let fading = Instant::now();
+        let fade = wash_fade(cx);
         self.wash_fade = Some(fading);
         cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(WASH_FADE).await;
+            cx.background_executor().timer(fade).await;
             let _ = this.update(cx, |view, cx| {
                 if view.wash_fade == Some(fading) {
                     view.wash_fade = None;

@@ -1,17 +1,18 @@
 //! How the strip draws: the layer that blocks input, the wash of the page color over the whole
-//! window, and the pill centered 10 px below the window's top edge (spec/progress-2-strip.md).
-//! As the strip shows, the wash fades in over 200 ms and the pill slides 6 px down into place
-//! while it fades in over 180 ms; once the strip ends, the wash fades out over 200 ms.
+//! window, and the pill centered 10 px below the window's top edge, as variant D of
+//! `docs/design/scoped-pages/prototypes/progress.html` draws them. They move with Kit's motion
+//! tokens: as the strip shows, the wash fades in over the normal duration and the pill slides 6 px
+//! down into place while it fades in over the fast one; once the strip ends, the wash fades out
+//! over the normal duration.
 
 use super::super::NativeView;
 use super::super::controls::app_icon;
 use super::super::controls::exact_text::{exact_text, tabular};
-use super::super::controls::motion::{ease, ease_out};
 use super::super::controls::progress_bar::pill_progress;
 use super::super::controls::shadow::{self, Corners};
 use super::super::controls::text_button::{Height, Look, text_button};
 use super::super::import_review::place_name;
-use super::{Shown, WASH_FADE, done_label};
+use super::{Shown, done_label, wash_fade};
 use gpui_kit::base::FocusTrapElement;
 use gpui_kit::component::{ActiveTheme, Sizable, spinner::Spinner, tooltip::Tooltip};
 use gpui_kit::{
@@ -20,7 +21,6 @@ use gpui_kit::{
 };
 use skillbinder_theme::MEDIUM;
 use skillbinder_theme::menu::{LINE_INK, surface};
-use std::time::Duration;
 
 /// Height of the pill.
 const PILL_HEIGHT: f32 = 34.;
@@ -30,8 +30,6 @@ const PILL_TOP: f32 = 10.;
 const RING: f32 = 1.;
 /// How far above its place the pill starts entering.
 const PILL_SLIDE: f32 = 6.;
-/// How long the pill takes to enter.
-const PILL_ENTER: Duration = Duration::from_millis(180);
 /// Opacity of the page color washed over the window while the strip shows.
 const WASH: f32 = 0.7;
 
@@ -87,7 +85,7 @@ impl NativeView {
             None => layer,
             Some(pill) => layer
                 .child(wash("activation-strip-wash", true, cx))
-                .child(entering(pill_row(ringed(pill, cx)))),
+                .child(entering(pill_row(ringed(pill, cx)), cx)),
         };
         Some(
             layer
@@ -98,26 +96,34 @@ impl NativeView {
 }
 
 /// The page color at 70% over the whole window, which takes no input. It fades in, or out once
-/// the strip has ended, over [`WASH_FADE`]; reduced motion shows the end at once, as for every
+/// the strip has ended, over [`wash_fade`]; reduced motion shows the end at once, as for every
 /// GPUI animation.
 fn wash(id: &'static str, fading_in: bool, cx: &App) -> AnyElement {
+    let motion = &cx.theme().motion;
+    let easing = if fading_in {
+        motion.easing_enter.clone()
+    } else {
+        motion.easing_exit.clone()
+    };
     div()
         .absolute()
         .inset_0()
         .bg(cx.theme().background.opacity(WASH))
         .with_animation(
             id,
-            Animation::new(WASH_FADE).with_easing(ease()),
+            Animation::new(wash_fade(cx)).with_easing(move |delta| easing.sample(delta)),
             move |wash, faded| wash.opacity(if fading_in { faded } else { 1. - faded }),
         )
         .into_any_element()
 }
 
 /// `row` sliding down into place while it fades in, as the pill enters.
-fn entering(row: Div) -> AnyElement {
+fn entering(row: Div, cx: &App) -> AnyElement {
+    let motion = &cx.theme().motion;
+    let easing = motion.easing_enter.clone();
     row.with_animation(
         "activation-strip-enter",
-        Animation::new(PILL_ENTER).with_easing(ease_out()),
+        Animation::new(motion.duration_fast).with_easing(move |delta| easing.sample(delta)),
         |row, entered| {
             row.top(px(PILL_TOP - RING - PILL_SLIDE * (1. - entered)))
                 .opacity(entered)

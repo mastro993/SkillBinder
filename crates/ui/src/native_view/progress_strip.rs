@@ -11,6 +11,8 @@ mod render;
 mod tests;
 
 use super::copies_review::{Review, attention_label};
+use gpui_kit::App;
+use gpui_kit::component::ActiveTheme;
 use skillbinder_proto::{ActivationProgress, ManagedCopy};
 use std::time::{Duration, Instant};
 
@@ -18,8 +20,6 @@ use std::time::{Duration, Instant};
 pub(super) const REVEAL_AFTER: Duration = Duration::from_millis(300);
 /// How long a shown strip stays at least.
 pub(super) const SHOWN_AT_LEAST: Duration = Duration::from_millis(500);
-/// How long the wash takes to fade in as the strip shows, and out once it ends.
-pub(super) const WASH_FADE: Duration = Duration::from_millis(200);
 
 /// The change the app is blocked for, which names the strip's label and its end toast.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -71,6 +71,12 @@ fn skills(verb: &str, count: usize) -> String {
 /// The Done pill's label for `waiting` copies.
 pub(super) fn done_label(waiting: usize) -> String {
     format!("Done · {}", attention_label(waiting))
+}
+
+/// How long the wash takes to fade in as the strip shows, and out once it ends: Kit's normal
+/// motion duration, which both the fade and the timer that removes the faded wash read.
+pub(super) fn wash_fade(cx: &App) -> Duration {
+    cx.theme().motion.duration_normal
 }
 
 /// What a blocking change reports when it lands.
