@@ -1,5 +1,5 @@
-//! Native-test controls: the smoke steps, and the holds a parity capture uses to wait for a strip
-//! or toast state that real timing passes too fast to catch.
+//! Native-test controls: the smoke steps, and the holds a native check uses to wait for a strip or
+//! toast state that real timing passes too fast to catch.
 
 use super::{DialogState, NativeView, Route};
 use gpui_kit::component::{WindowExt, notification::Notification};
@@ -7,7 +7,7 @@ use gpui_kit::{Context, Focusable, SharedString, Window};
 use skillbinder_proto::WorkspaceId;
 use std::time::Instant;
 
-/// What a native capture holds.
+/// What a native check holds.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Holds {
     strip: Option<StripHold>,
@@ -19,8 +19,6 @@ pub(super) struct Holds {
 /// How a held progress strip shows. A held strip never ends.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StripHold {
-    /// Only the transparent layer that blocks input: the wash and the pill do not show.
-    Hidden,
     /// The pill shows this percent once revealed, whatever the change has done.
     Percent(u8),
 }
@@ -64,17 +62,11 @@ impl NativeView {
         self.holds.strip.is_some()
     }
 
-    /// Whether a hold keeps the strip from showing.
-    pub(super) fn reveal_held(&self) -> bool {
-        self.holds.strip == Some(StripHold::Hidden)
-    }
-
     /// The percent a hold shows instead of the change's.
     pub(super) fn held_percent(&self) -> Option<u8> {
-        match self.holds.strip {
-            Some(StripHold::Percent(percent)) => Some(percent.min(100)),
-            _ => None,
-        }
+        self.holds
+            .strip
+            .map(|StripHold::Percent(percent)| percent.min(100))
     }
 
     /// `toast`, showing `message`, as the toast hold keeps it: while the hold is on, it does not

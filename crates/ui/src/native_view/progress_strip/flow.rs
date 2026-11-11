@@ -84,9 +84,6 @@ impl NativeView {
     }
 
     pub(in crate::native_view) fn reveal_strip(&mut self, cx: &mut Context<Self>) {
-        if self.reveal_held() {
-            return;
-        }
         if let Some(strip) = self.strip.as_mut() {
             strip.reveal(Instant::now());
             cx.notify();
@@ -210,11 +207,6 @@ impl NativeView {
 impl NativeView {
     /// Whether a native-test hold keeps the strip from ending.
     fn strip_held(&self) -> bool {
-        false
-    }
-
-    /// Whether a native-test hold keeps the strip from showing.
-    fn reveal_held(&self) -> bool {
         false
     }
 
