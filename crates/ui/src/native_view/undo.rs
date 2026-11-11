@@ -38,6 +38,8 @@ pub(super) struct Removal {
     pub dirs: BTreeSet<String>,
     /// The place's name, as the Keep or Remove prompt reads it.
     pub place: String,
+    /// The copies that had asked when the removal started, which the prompt keeps as asked.
+    pub asked: Vec<(String, SkillId, CopyState)>,
 }
 
 /// Whether the removal of `skill` from `dirs` left a copy there that was edited in place and asks
@@ -93,6 +95,7 @@ impl NativeView {
             },
             dirs: workspace.paths.values().cloned().collect(),
             place: workspace.name.clone(),
+            asked: self.asked_copies.clone(),
         };
         let client = self.client.clone();
         self.run(
@@ -114,32 +117,38 @@ impl NativeView {
             .as_ref()
             .map_or(&[][..], |library| library.copies.as_slice());
         if edited_asks(copies, &skill, &removal.dirs) {
-            self.ask_changed(Changed {
+            let changed = Changed {
                 skill,
                 dirs: removal.dirs,
                 place: removal.place,
-            });
+            };
+            self.ask_changed(changed, removal.asked);
             return;
         }
         self.toast
             .show_undo(format!("Removed {skill}").into(), removal.undo, cx);
     }
 
-    /// Saves the choice `undo` kept, unless the app is blocked or the place or skill is gone.
-    pub(super) fn restore(&mut self, undo: Undo, cx: &mut Context<Self>) {
-        if self.blocked() || !restorable(&undo, &self.snapshot) {
-            return;
+    /// Saves the choice `undo` kept, unless the place or skill is gone. While the app is blocked
+    /// it saves nothing and returns `false`, so the toast stays for another try.
+    pub(super) fn restore(&mut self, undo: Undo, cx: &mut Context<Self>) -> bool {
+        if self.blocked() {
+            return false;
         }
-        match undo {
-            Undo::Workspace {
-                id,
-                skill,
-                previous,
-            } => self.set_workspace_skill(id, skill, Some(previous), cx),
+        if restorable(&undo, &self.snapshot) {
+            match undo {
+                Undo::Workspace {
+                    id,
+                    skill,
+                    previous,
+                } => self.set_workspace_skill(id, skill, Some(previous), cx),
+            }
         }
+        true
     }
 
-    /// `toast` with its Undo button, which restores `undo` and closes the toast. Kit stops a
+    /// `toast` with its Undo button, which restores `undo` and closes the toast, or leaves it open
+    /// while the app is blocked. Kit stops a
     /// toast with an action from closing by itself, so it closes after its time again.
     pub(super) fn with_undo(
         &self,
@@ -154,8 +163,12 @@ impl NativeView {
                 button("toast-undo").label("Undo").on_click(cx.listener(
                     move |toast, _, window, cx| {
                         let undo = undo.clone();
-                        let _ = view.update(cx, |view, cx| view.restore(undo, cx));
-                        toast.dismiss(window, cx);
+                        let done = view
+                            .update(cx, |view, cx| view.restore(undo, cx))
+                            .unwrap_or(true);
+                        if done {
+                            toast.dismiss(window, cx);
+                        }
                     },
                 ))
             })

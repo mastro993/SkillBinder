@@ -11,7 +11,7 @@ use super::workspace_targets::folders;
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::{ActiveTheme, button::ButtonVariants, dialog::Dialog, h_flex};
 use gpui_kit::{Context, ParentElement, Styled, div, px};
-use skillbinder_proto::{CopyChoice, ManagedCopy, SkillId};
+use skillbinder_proto::{CopyChoice, CopyState, ManagedCopy, SkillId};
 
 /// The prompt's width.
 const WIDTH: f32 = 320.;
@@ -44,14 +44,21 @@ impl NativeView {
             .collect()
     }
 
-    /// Opens the prompt for `changed` in place of the Skill copies dialog, and records its copies
-    /// as asked, so that dialog does not ask about them again.
-    pub(super) fn ask_changed(&mut self, changed: Changed) {
+    /// Opens the prompt for `changed` in place of the Skill copies dialog the removal's snapshot
+    /// opened for its copies. The copies that had `asked` before the removal and the prompt's own
+    /// count as asked, so that dialog asks only about copies that started asking since.
+    pub(super) fn ask_changed(
+        &mut self,
+        changed: Changed,
+        asked: Vec<(String, SkillId, CopyState)>,
+    ) {
         let copies = self
             .changed_copies(&changed)
             .into_iter()
             .map(|copy| (copy.directory, copy.skill, copy.state));
-        self.show_dialog(DialogState::Copies(CopiesListing::Changed(changed)));
+        // Not `show_dialog`: replacing that dialog would forget the copies the user closed.
+        self.dialog = DialogState::Copies(CopiesListing::Changed(changed));
+        self.asked_copies = asked;
         self.asked_copies.extend(copies);
     }
 
