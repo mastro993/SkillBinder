@@ -4,7 +4,6 @@
 use std::{cell::Cell, rc::Rc};
 
 use super::super::place_popover::place_line;
-use super::avatar::{self, Fill, Ring};
 use super::logo::Logo;
 use super::popover::{Align, Anchor, placed, surface};
 use super::{pill, switch};
@@ -13,7 +12,7 @@ use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
     AnyWindowHandle, App, AppContext, Bounds, Context, InteractiveElement, IntoElement,
     ParentElement, Pixels, Render, Styled, TestAppContext, Window, WindowBounds, WindowOptions,
-    canvas, deferred, div, hsla, px, size,
+    canvas, deferred, div, px, size,
 };
 
 struct Gallery {
@@ -24,17 +23,7 @@ impl Render for Gallery {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let record = self.trigger.clone();
         let anchor = self.trigger.clone();
-        let ring = Ring {
-            fill: Fill {
-                rest: hsla(0., 0., 1., 1.),
-                hover: Some(("row".into(), hsla(0., 0., 0.96, 1.))),
-            },
-            tint: Some(Fill {
-                rest: gpui_kit::transparent_black(),
-                hover: Some(("place".into(), hsla(0., 0., 0., 0.08))),
-            }),
-        };
-        let logos = [Logo::Glyph("icons/layers.svg"); 4];
+        let logo = Logo::Glyph("icons/layers.svg");
         div()
             .size_full()
             .relative()
@@ -43,18 +32,11 @@ impl Render for Gallery {
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .child(pill::pill("pill-on", logos[0], true, false, cx).test_support())
-                    .child(pill::pill("pill-off", logos[0], false, false, cx).test_support())
-                    .child(switch::switch("switch", true, cx).test_support())
-                    .child(avatar::stack(&logos, &ring, cx).id("stack").test_support())
-                    .child(
-                        div()
-                            .id("wrapped")
-                            .child(avatar::stack(&logos, &ring, cx))
-                            .test_support(),
-                    ),
+                    .child(pill::pill("pill-on", logo, true, false, cx).test_support())
+                    .child(pill::pill("pill-off", logo, false, false, cx).test_support())
+                    .child(switch::switch("switch", true, cx).test_support()),
             )
-            .child(popover_lines(logos[0], cx))
+            .child(popover_lines(logo, cx))
             .child(
                 div()
                     .absolute()
@@ -164,12 +146,6 @@ fn controls_take_the_prototypes_sizes(cx: &mut TestAppContext) {
     assert_eq!(sized(bounds(cx, window, "pill-on")), (26., 24.));
     assert_eq!(sized(bounds(cx, window, "pill-off")), (26., 24.));
     assert_eq!(sized(bounds(cx, window, "switch")), (30., 18.));
-    assert_eq!(
-        sized(bounds(cx, window, "stack")),
-        (57., 18.),
-        "four 18-point avatars, each overlapping the one before by 5"
-    );
-    assert_eq!(sized(bounds(cx, window, "wrapped")), (57., 18.));
 }
 
 #[gpui_kit::test]

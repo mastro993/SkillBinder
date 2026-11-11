@@ -3,7 +3,6 @@
 //! and an element that is not a Kit control gets Kit's tooltip. The submodules hold the controls
 //! the app still draws itself.
 
-pub(super) mod avatar;
 pub(super) mod dialog_surface;
 pub(super) mod exact_text;
 pub(super) mod logo;

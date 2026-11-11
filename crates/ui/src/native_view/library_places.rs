@@ -5,10 +5,10 @@
 //! shared with the popover and the other pages.
 
 use super::NativeView;
-use super::controls::avatar::{self, Fill, Ring};
 use super::controls::exact_text::{exact_text, sized};
 use super::controls::logo::{Ink, Logo};
 use super::controls::{pill, tooltip};
+use super::library_avatars::{Ring, stack};
 use super::library_items::{ITEM_GROUP, surface};
 use super::preset_colors::preset_tint;
 use super::sidebar_row::dot;
@@ -16,7 +16,7 @@ use super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::workspace_icons::sized_icon;
 use gpui_kit::component::{ActiveTheme, Sizable, tag::Tag};
 use gpui_kit::{
-    AnyElement, App, Context, Div, ElementId, InteractiveElement, IntoElement, KeyDownEvent,
+    AnyElement, App, Context, Div, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent,
     ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Text, Toggled,
     canvas, div, prelude::FluentBuilder, px,
 };
@@ -104,27 +104,22 @@ fn active_button(
     cx: &App,
 ) -> AnyElement {
     let theme = cx.theme();
-    let highlight = theme.foreground.alpha(HIGHLIGHT_INK);
-    let (rest, hover) = (surface(cx), theme.muted);
-    // The rings take the fill behind them: the row's, with the highlight over it while the
-    // button is hovered or open.
+    // The rings take the fill behind them: the row's, under the highlight while the popover is
+    // open. They keep the row's while the pointer is on the button.
+    let behind = |fill: Hsla| {
+        if open {
+            fill.blend(theme.foreground.alpha(HIGHLIGHT_INK))
+        } else {
+            fill
+        }
+    };
     let ring = Ring {
-        fill: Fill {
-            rest,
-            hover: Some((ITEM_GROUP.into(), hover)),
-        },
-        tint: Some(Fill {
-            rest: if open {
-                highlight
-            } else {
-                gpui_kit::transparent_black()
-            },
-            hover: Some((PLACE_GROUP.into(), highlight)),
-        }),
+        rest: behind(surface(cx)),
+        hovered: Some(behind(theme.muted)),
     };
     let held: Vec<_> = places.held_agents().collect();
     let workspaces: Vec<_> = places.holding_workspaces().collect();
-    let stack = (!held.is_empty()).then(|| {
+    let agents = (!held.is_empty()).then(|| {
         let logos: Vec<Logo> = held
             .iter()
             .map(|entry| Logo::reader(&entry.row.reader))
@@ -139,7 +134,7 @@ fn active_button(
         };
         div()
             .id(format!("place-agents-{}", places.skill))
-            .child(avatar::stack(&logos, &ring, cx))
+            .child(stack(&logos, ring, cx))
             .tooltip(tooltip(format!("Your agents\n{names}")))
     });
     let chevron = Ink {
@@ -155,7 +150,7 @@ fn active_button(
         .pl(px(6.))
         .pr(px(4.))
         .aria_label(format!("Change where {} is on", places.skill))
-        .children(stack)
+        .children(agents)
         .when(!held.is_empty() && !workspaces.is_empty(), |button| {
             button.child(div().flex_none().w(px(1.)).h(px(14.)).bg(theme.border))
         })
