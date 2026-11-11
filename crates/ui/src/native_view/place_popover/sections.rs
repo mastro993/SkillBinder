@@ -1,18 +1,19 @@
 //! The popover's content: "Your agents", with the preset chip, the All agents switch, and a pill
-//! per skill directory of your agents, then a line per workspace with its pills. A control saves
+//! per skill directory of your agents, then a line per workspace with its pills. The switch and
+//! the pills are Kit's base switch and toggle on the popover's own focus handles. A control saves
 //! through the view showing the popover on a click, or on Enter or Space while it has focus, and
 //! does nothing, with no hover or hand cursor, while that view is blocked: a change runs or the
-//! progress strip is up. A missing workspace's pills never do anything and take no focus.
+//! progress strip is up. A missing workspace's pills are disabled: they never do anything and
+//! take no focus.
 
 use super::super::controls::exact_text::{exact_text, sized};
-use super::super::controls::press::pressable;
 use super::super::controls::{Logo, keyboard_focused, tooltip};
 use super::super::library_copies::Reader;
 use super::super::library_places::{place_pill, preset_chip, section_label};
 use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::super::workspace_icons::sized_icon;
 use super::{PlacePopover, place_line};
-use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, spring};
+use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, Toggle, spring};
 use gpui_kit::component::{ActiveTheme, ThemeStyled, box_shadow, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, FocusHandle, InteractiveElement, IntoElement,
@@ -78,13 +79,9 @@ impl Sections<'_> {
         let all = places.all_agents();
         let focus = self.popover.key("place-all-agents", cx);
         let save = self.save_agents(places.switched(!all));
-        let toggle =
-            all_agents_switch(all, thumb, &focus, window, cx).when_some(save, |toggle, save| {
-                let press =
-                    cx.listener(move |view, _: &ClickEvent, window, cx| save(view, window, cx));
-                toggle
-                    .cursor_pointer()
-                    .on_change(move |_, event, window, cx| press(event, window, cx))
+        let toggle = all_agents_switch(all, thumb, &focus, window, cx)
+            .when_some(save, |toggle, save| {
+                toggle.cursor_pointer().on_change(on_change(save, cx))
             });
         let group = div()
             .id("place-all-row")
@@ -191,9 +188,11 @@ impl Sections<'_> {
             let id = format!("place-ws-{}-{}", workspace.id, entry.keys.join("+"));
             let focus = (!place.missing()).then(|| self.popover.key(&id, cx));
             let logo = Logo::reader(&entry.row.reader);
-            let pill = place_pill(id, logo, held.held, self.blocked, tooltip, cx);
+            let inert = self.blocked || focus.is_none();
+            let pill = place_pill(id, logo, held.held, inert, tooltip, cx);
+            // A missing workspace's pill takes no focus and no press.
             let Some(focus) = focus else {
-                return pill.into_any_element();
+                return pill.disabled(true).into_any_element();
             };
             let (skill, target) = (self.places.skill.clone(), workspace.id.clone());
             let next = place.toggled(entry);
@@ -229,6 +228,33 @@ impl Sections<'_> {
             line.into_any_element()
         }
     }
+}
+
+/// `pill` on the popover's `focus` for it, with Kit's focus ring while a key gave it that focus;
+/// `press` runs on a click, or Enter or Space while it has focus. Without `press` it keeps its
+/// focus and does nothing.
+fn pressable<V: Placer>(
+    pill: Toggle,
+    focus: &FocusHandle,
+    press: Option<impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static>,
+    window: &Window,
+    cx: &Context<V>,
+) -> AnyElement {
+    pill.track_focus(focus)
+        .when(keyboard_focused(focus, window), |pill| {
+            pill.focus_ring_style(window, cx)
+        })
+        .when_some(press, |pill, press| pill.on_change(on_change(press, cx)))
+        .into_any_element()
+}
+
+/// `press` as a Kit control's change handler, run on the view showing the popover.
+fn on_change<V: Placer>(
+    press: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
+    cx: &Context<V>,
+) -> impl Fn(bool, &ClickEvent, &mut Window, &mut App) + 'static {
+    let press = cx.listener(move |view, _: &ClickEvent, window, cx| press(view, window, cx));
+    move |_, event, window, cx| press(event, window, cx)
 }
 
 /// The All agents switch: Kit's base switch on the popover's `focus` for it, which keeps that focus

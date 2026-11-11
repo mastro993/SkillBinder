@@ -1,12 +1,12 @@
-//! The controls laid out in a real GPUI window at the app's 1180 by 728 points: their sizes, and
-//! the popover placed from where its trigger was painted in the same frame.
+//! The controls laid out in a real GPUI window at the app's 1180 by 728 points: the popover's
+//! wrapping pills, and the popover placed from where its trigger was painted in the same frame.
 
 use std::{cell::Cell, rc::Rc};
 
 use super::super::library_copies::Reader;
+use super::super::library_places::place_pill;
 use super::super::place_popover::place_line;
 use super::Logo;
-use super::pill;
 use super::popover::{Align, Anchor, placed, surface};
 use gpui_kit::base::TestSupportExt;
 use gpui_kit::test::TestWindowExt;
@@ -28,14 +28,6 @@ impl Render for Gallery {
         div()
             .size_full()
             .relative()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .child(pill::pill("pill-on", logo, true, false, cx).test_support())
-                    .child(pill::pill("pill-off", logo, false, false, cx).test_support()),
-            )
             .child(popover_lines(logo, cx))
             .child(
                 div()
@@ -70,9 +62,8 @@ impl Render for Gallery {
 /// pills and with eight, and docs-site's, whose 12 pills wrap beside its 95.73-point name.
 fn popover_lines(logo: Logo, cx: &App) -> impl IntoElement {
     let pills = |prefix: &'static str, count: usize| {
-        (0..count).map(move |index| {
-            pill::pill(format!("{prefix}{index}"), logo, false, false, cx).test_support()
-        })
+        (0..count)
+            .map(move |index| place_pill(format!("{prefix}{index}"), logo, false, false, "", cx))
     };
     let lead = |id: &'static str, width: f32| {
         div()
@@ -138,13 +129,6 @@ fn bounds(cx: &mut TestAppContext, window: AnyWindowHandle, id: &'static str) ->
 
 fn sized(bounds: Bounds<Pixels>) -> (f32, f32) {
     (f32::from(bounds.size.width), f32::from(bounds.size.height))
-}
-
-#[gpui_kit::test]
-fn controls_take_the_prototypes_sizes(cx: &mut TestAppContext) {
-    let window = open(cx);
-    assert_eq!(sized(bounds(cx, window, "pill-on")), (26., 24.));
-    assert_eq!(sized(bounds(cx, window, "pill-off")), (26., 24.));
 }
 
 #[gpui_kit::test]

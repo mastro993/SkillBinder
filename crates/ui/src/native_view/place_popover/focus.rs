@@ -1,5 +1,5 @@
 //! How the popover holds keyboard focus. Opening it focuses the popover itself, not a control, so
-//! no control shows its outline until Tab reaches one. Each control keeps one focus while the
+//! no control shows its focus ring until Tab reaches one. Each control keeps one focus while the
 //! popover is open. Tab and Shift-Tab cycle the controls in the order they are drawn, wrapping at
 //! either end rather than leaving for the page behind; GPUI Kit's focus trap would walk every tab
 //! stop of a long Library to wrap. Closing it from the keyboard hands focus back to the trigger;

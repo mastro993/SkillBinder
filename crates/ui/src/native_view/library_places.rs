@@ -2,29 +2,33 @@
 //! button holding your agents' logo stack, a hairline, the workspaces' chips, and a chevron, or a
 //! dashed `+` circle that shows while an inactive skill's row is hovered. Either opens the skill's
 //! popover, except while the app is blocked, when it is inert. The preset chip and the pill are
-//! shared with the popover and the other pages.
+//! shared with the popover.
 
 use super::NativeView;
 use super::controls::exact_text::{exact_text, sized};
-use super::controls::{Logo, app_icon, pill, tooltip};
+use super::controls::{Logo, app_icon, tooltip};
 use super::library_avatars::{Ring, stack};
 use super::library_items::{ITEM_GROUP, surface};
 use super::preset_colors::preset_tint;
 use super::sidebar_row::dot;
 use super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::workspace_icons::sized_icon;
+use gpui_kit::base::Toggle;
 use gpui_kit::component::{ActiveTheme, Sizable, tag::Tag};
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Text, Toggled,
-    canvas, div, prelude::FluentBuilder, px,
+    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Text, canvas,
+    div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::Preset;
 use skillbinder_theme::MEDIUM;
 use skillbinder_theme::menu::HIGHLIGHT_INK;
 
-/// The hover group of the placement button.
+/// The hover groups of the placement button and of a pill.
 const PLACE_GROUP: &str = "place";
+const PILL_GROUP: &str = "pill";
+/// The ink of a dashed outline: the text color at 24%.
+const DASHED_INK: f32 = 0.24;
 /// The widest a workspace's name shows in its chip.
 const CHIP_NAME_MAX: f32 = 140.;
 
@@ -198,7 +202,7 @@ fn workspace_chip(
 /// The 26 px dashed `+` circle of an inactive skill, shown while its row or tile is hovered, it
 /// has keyboard focus, or its popover is open.
 fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> AnyElement {
-    pill::dashed(button, cx)
+    dashed(button, cx)
         .justify_center()
         .size(px(26.))
         .rounded_full()
@@ -261,8 +265,11 @@ fn chip(cx: &App) -> Tag {
         .font_weight(MEDIUM)
 }
 
-/// A 26 by 24 pill toggling one directory, with its tooltip and accessible name; the caller adds
-/// its click, unless the pill is `inert`.
+/// A 26 by 24 pill toggling one directory: Kit's base toggle, named by the first line of its tooltip
+/// `text`. Off, it has a dashed outline and a muted logo, a color one grayscale, at half opacity;
+/// on, a solid outline in the text color on the page fill and the logo in its own colors. Unless
+/// it is `inert`, because a press would do nothing, hover adds the muted fill and the hand
+/// cursor. The caller adds its focus and its press.
 pub(super) fn place_pill(
     id: impl Into<ElementId>,
     logo: Logo,
@@ -270,14 +277,62 @@ pub(super) fn place_pill(
     inert: bool,
     text: impl Into<SharedString>,
     cx: &App,
-) -> Stateful<Div> {
+) -> Toggle {
+    let theme = cx.theme();
+    let (foreground, hover) = (theme.foreground, theme.muted);
     let text = text.into();
     let label = text.lines().next().unwrap_or_default().to_owned();
-    pill::pill(id, logo, on, inert, cx)
-        .role(Role::Button)
-        .aria_toggled(if on { Toggled::True } else { Toggled::False })
-        .aria_label(label)
+    // A glyph inherits its color from here, whose hover a stateful element keeps from frame to
+    // frame.
+    let mark = div()
+        .id("logo")
+        .flex()
+        .flex_none()
+        .items_center()
+        .justify_center()
+        .size(px(16.))
+        .text_color(if on {
+            foreground
+        } else {
+            theme.muted_foreground.opacity(0.5)
+        })
+        .when(!on && !inert, |mark| {
+            mark.group_hover(PILL_GROUP, move |style| {
+                style.text_color(foreground.opacity(0.5))
+            })
+        })
+        .when(!on && logo.is_color(), |mark| mark.opacity(0.5))
+        .child(logo.element(15., !on));
+    Toggle::new(id)
+        .pressed(on)
+        .accessibility_label(label)
+        .group(PILL_GROUP)
+        .flex_none()
+        .w(px(26.))
+        .h(px(24.))
+        .rounded_full()
+        .map(|pill| {
+            if on {
+                pill.border_1()
+                    .border_color(foreground)
+                    .bg(theme.background)
+            } else {
+                dashed(pill, cx)
+            }
+        })
+        .when(!inert, |pill| {
+            pill.cursor_pointer().hover(move |style| style.bg(hover))
+        })
+        .child(mark)
         .tooltip(tooltip(text))
+}
+
+/// `element` inside the dashed outline of an off pill or an inactive skill's `+` circle.
+fn dashed<E: Styled>(element: E, cx: &App) -> E {
+    element
+        .border_1()
+        .border_dashed()
+        .border_color(cx.theme().foreground.alpha(DASHED_INK))
 }
 
 /// An 11.5 px medium muted section label, its line `id`.
