@@ -48,14 +48,22 @@ pub(super) fn checkbox(id: impl Into<ElementId>) -> Checkbox {
     Checkbox::new(id).cursor_pointer()
 }
 
+/// The widest a tooltip's lines grow before they wrap.
+const TOOLTIP_LINE: f32 = 240.;
+
 /// Kit's tooltip reading `text`, one line per `\n`, for GPUI's `tooltip` on an element that is
 /// not a Kit control: it shows below and right of the pointer once the pointer rests on the
-/// element for GPUI's delay.
+/// element for GPUI's delay. A line wider than [`TOOLTIP_LINE`] wraps; Kit's own text never
+/// does, since its box takes the width of its longest line.
 pub(super) fn tooltip(
     text: impl Into<SharedString>,
 ) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static {
     let text = text.into();
-    move |window, cx| Tooltip::new(text.clone()).build(window, cx)
+    move |window, cx| {
+        let text = text.clone();
+        Tooltip::element(move |_, _| div().max_w(px(TOOLTIP_LINE)).child(text.clone()))
+            .build(window, cx)
+    }
 }
 
 /// Whether `focus` has focus that a key gave it, the only focus that shows Kit's focus ring on the
