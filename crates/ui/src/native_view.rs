@@ -196,7 +196,8 @@ pub struct NativeView {
     wash_fade: Option<std::time::Instant>,
     /// Focus for the strip while it is up, so keys reach nothing else.
     overlay_focus: FocusHandle,
-    toast: Option<controls::toast::Toast>,
+    /// A toast waiting for the next frame, where the window it shows in is at hand.
+    toast: Option<gpui_kit::SharedString>,
     #[cfg(feature = "native-test")]
     holds: native_test::Holds,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
@@ -433,6 +434,7 @@ impl Render for NativeView {
         };
         self.sync_dialog(window, cx);
         self.sync_overlay_focus(window, cx);
+        self.push_toast(window, cx);
         let colors = cx.theme().colors;
         let global_error = self
             .error
@@ -482,6 +484,5 @@ impl Render for NativeView {
             .children(self.render_place_popover(window, cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
             .children(self.render_strip(window, cx))
-            .children(self.render_toast(cx))
     }
 }

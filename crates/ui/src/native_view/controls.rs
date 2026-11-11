@@ -5,9 +5,6 @@
 //! itself.
 
 pub(super) mod exact_text;
-pub(super) mod motion;
-pub(super) mod shadow;
-pub(super) mod toast;
 
 use super::library_copies::Reader;
 use gpui_kit::component::{

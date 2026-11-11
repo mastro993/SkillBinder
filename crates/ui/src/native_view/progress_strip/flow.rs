@@ -141,7 +141,7 @@ impl NativeView {
         match strip.finish(Instant::now(), library_copies(&snapshot)) {
             Finish::Toast(message) => {
                 self.take_strip(cx);
-                self.show_toast(message, Some("check-circle"), cx);
+                self.show_toast(message, cx);
                 self.prompt_copies();
             }
             Finish::Closed => {
