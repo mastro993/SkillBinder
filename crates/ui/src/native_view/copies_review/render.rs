@@ -1,49 +1,42 @@
-//! How the review list draws: the app's dialog, 420 wide, with the copies in a card and Done.
+//! How the review list draws: Kit's dialog, 420 wide and 56 px from the window's top edge, with
+//! the copies in a card and Done.
 
-use super::super::controls::app_icon;
-use super::super::controls::dialog_surface::{
-    body, close_button, fading_in, footer, header, scrim, surface,
-};
-use super::super::controls::exact_text::exact_text;
-use super::super::controls::text_button::{Height, Look, text_button};
+use super::super::controls::{app_icon, text_button};
 use super::super::copy_dialogs::CopiesListing;
 use super::super::import_review::place_name;
 use super::super::{DialogState, Effect, NativeView};
-use super::{Answer, Choice, Item, Row, attention_label};
-use gpui_kit::base::FocusTrapElement;
-use gpui_kit::component::ActiveTheme;
+use super::{Answer, Choice, Item, Review, Row, attention_label};
+use gpui_kit::component::{
+    ActiveTheme, Size,
+    button::{Button, ButtonVariants},
+    dialog::Dialog,
+};
 use gpui_kit::{
-    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, KeyDownEvent,
-    MouseButton, ParentElement, StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
-    px,
+    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
+    Text, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{CopyChoice, ManagedCopy};
 use skillbinder_theme::library::surface as card_surface;
 
 /// Width of the review dialog.
 const WIDTH: f32 = 420.;
-/// Line box of a row's slug, 14 px at line height 1.4; GPUI rounds a text line to whole pixels.
+/// Distance from the window's top edge to the review dialog.
+const TOP: f32 = 56.;
+/// Line box of a row's slug, 14 px at line height 1.4.
 const TITLE_LINE: f32 = 19.6;
 /// Space between a row's slug line and its reason line.
 const LINE_GAP: f32 = 2.;
 /// Least height of a row's reason line.
 const REASON_LINE: f32 = 18.;
-/// Height of a row's answer buttons.
-const ANSWER_HEIGHT: f32 = 24.;
-/// Where the answers sit below a row's padding: centered on the row's two lines as the design
-/// lays them out. Centered in GPUI's row instead, whose slug line rounds to 19.5, they land exactly
-/// on a half device pixel, which GPUI rounds toward the top, a device pixel above the design.
-const ANSWERS_TOP: f32 = (TITLE_LINE + LINE_GAP + REASON_LINE - ANSWER_HEIGHT) / 2.;
 
 impl NativeView {
-    /// The review list over the window, while it is open.
-    pub(in crate::native_view) fn render_review(
+    /// The review list in Kit's `dialog`: its title, the copies in a card, and Done.
+    pub(in crate::native_view) fn review_dialog(
         &self,
+        dialog: Dialog,
+        review: &Review,
         cx: &mut Context<Self>,
-    ) -> Option<AnyElement> {
-        let DialogState::Copies(CopiesListing::Attention(review)) = &self.dialog else {
-            return None;
-        };
+    ) -> Dialog {
         let copies = self
             .snapshot
             .library
@@ -51,7 +44,6 @@ impl NativeView {
             .map(|library| library.copies.as_slice())
             .unwrap_or_default();
         let count = review.len();
-        let title = attention_label(count);
         let rows: Vec<_> = review
             .items
             .iter()
@@ -62,45 +54,31 @@ impl NativeView {
             })
             .collect();
         let theme = cx.theme();
+        // 13 px like the prototype's dialog body, so a row's place stays smaller than its slug
+        // rather than taking the dialog's larger default.
         let card = div()
             .flex()
             .flex_col()
+            .text_size(px(13.))
             .border_1()
             .border_color(theme.border)
             .rounded(px(10.))
             .bg(card_surface(theme))
             .children(rows);
-        let close = close_button("copies-review-close", cx)
-            .on_click(cx.listener(|view, _, _, cx| view.close_review(cx)));
-        let dialog = surface(WIDTH, cx)
-            .occlude()
-            .child(header(title, close))
-            .child(body().child(card))
-            .child(
-                footer().child(
-                    text_button(
-                        "copies-review-done",
-                        "Done",
-                        Look::Outline,
-                        Height::Regular,
-                        cx,
-                    )
-                    .on_click(cx.listener(|view, _, _, cx| view.close_review(cx))),
+        dialog
+            .w(px(WIDTH))
+            .margin_top(px(TOP))
+            .title(self.dialog_title(attention_label(count), cx))
+            .child(card)
+            .footer(
+                div().flex().child(
+                    text_button("copies-review-done", "Done", Size::Medium)
+                        .outline()
+                        .on_click(
+                            cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
+                        ),
                 ),
-            );
-        // The focus trap also tracks the overlay's focus, so keys reach the scrim.
-        let scrim = scrim("copies-review", dialog, cx)
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|view, _, _, cx| view.close_review(cx)),
             )
-            .on_key_down(cx.listener(|view, event: &KeyDownEvent, _, cx| {
-                if event.keystroke.key == "escape" {
-                    view.close_review(cx);
-                }
-            }))
-            .focus_trap("copies-review-trap", &self.overlay_focus);
-        Some(fading_in("copies-review-fade", scrim))
     }
 
     /// One copy: slug and place, why it needs the user, and its answers or how it settled.
@@ -146,14 +124,21 @@ impl NativeView {
                             .text_size(px(14.))
                             .line_height(px(TITLE_LINE))
                             .font_weight(FontWeight::SEMIBOLD)
-                            .child(exact_text(
-                                ("copies-review-slug", index),
-                                item.1.to_string(),
+                            .child(Text::new(
+                                ("copies-review-slug", index).into(),
+                                item.1.to_string().into(),
                             )),
                     )
-                    .child(div().flex().min_w_0().text_color(muted).child(
-                        exact_text(("copies-review-place", index), format!("→ {place}")).truncate(),
-                    )),
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .text_color(muted)
+                            .child(Text::new(
+                                ("copies-review-place", index).into(),
+                                format!("→ {place}").into(),
+                            )),
+                    ),
             )
             .child(
                 div()
@@ -165,13 +150,13 @@ impl NativeView {
                     .line_height(px(16.1))
                     .text_color(muted)
                     .child(app_icon("alert-circle").size(px(13.)).text_color(warning))
-                    .child(exact_text(("copies-review-reason", index), reason)),
+                    .child(Text::new(
+                        ("copies-review-reason", index).into(),
+                        reason.into(),
+                    )),
             );
         let end = match row {
-            Row::Ask(choice, copy) => self
-                .review_answers(index, choice, copy, cx)
-                .self_start()
-                .mt(px(ANSWERS_TOP)),
+            Row::Ask(choice, copy) => self.review_answers(index, choice, copy, cx),
             Row::Settled(word) => div()
                 .flex()
                 .items_center()
@@ -179,7 +164,10 @@ impl NativeView {
                 .text_size(px(12.))
                 .text_color(muted)
                 .child(app_icon("check").size(px(14.)))
-                .child(exact_text(("copies-review-settled", index), word)),
+                .child(Text::new(
+                    ("copies-review-settled", index).into(),
+                    word.into(),
+                )),
         };
         div()
             .id(("copies-review-row", index))
@@ -216,17 +204,17 @@ impl NativeView {
         copy: ManagedCopy,
         cx: &mut Context<Self>,
     ) -> Div {
-        let button = |id, answer: Answer, look, cx: &mut Context<Self>| {
+        let button = |id, answer: Answer, look: fn(Button) -> Button, cx: &mut Context<Self>| {
             let copy = copy.clone();
-            text_button((id, index), answer.label(), look, Height::Small, cx)
+            look(text_button((id, index), answer.label(), Size::Small))
                 .on_click(cx.listener(move |view, _, _, cx| view.answer_review(answer, &copy, cx)))
         };
         div()
             .flex()
             .items_center()
             .gap(px(8.))
-            .child(button("copies-review-yes", choice.yes, Look::Primary, cx))
-            .child(button("copies-review-no", choice.no, Look::Outline, cx))
+            .child(button("copies-review-yes", choice.yes, Button::primary, cx))
+            .child(button("copies-review-no", choice.no, Button::outline, cx))
     }
 
     /// Records `answer` for `copy` and carries it out; the row settles once the copy no longer
@@ -259,15 +247,5 @@ impl NativeView {
             },
             cx,
         );
-    }
-
-    fn close_review(&mut self, cx: &mut Context<Self>) {
-        if matches!(
-            self.dialog,
-            DialogState::Copies(CopiesListing::Attention(_))
-        ) {
-            self.dialog = DialogState::None;
-            cx.notify();
-        }
     }
 }

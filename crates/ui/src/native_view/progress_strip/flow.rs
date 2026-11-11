@@ -4,7 +4,7 @@
 use super::super::copies_review::Review;
 use super::super::copy_dialogs::CopiesListing;
 use super::super::{DialogState, Effect, NativeView};
-use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip, WASH_FADE};
+use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip, wash_fade};
 use gpui_kit::{Context, Window};
 use skillbinder_proto::{AppResult, AppSnapshot, ManagedCopy};
 use std::{
@@ -49,18 +49,14 @@ impl NativeView {
         self.at_strip_time(REVEAL_AFTER, started, Self::reveal_strip, cx);
     }
 
-    /// Keeps keyboard focus on the overlay while the strip or the review list is up, and gives it
-    /// back to the window once they are gone.
+    /// Keeps keyboard focus on the overlay while the strip is up, and gives it back to the window
+    /// once it is gone.
     pub(in crate::native_view) fn sync_overlay_focus(
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let up = self.strip.is_some()
-            || matches!(
-                self.dialog,
-                DialogState::Copies(CopiesListing::Attention(_))
-            );
+        let up = self.strip.is_some();
         if up && !self.overlay_focus.is_focused(window) {
             window.focus(&self.overlay_focus, cx);
         } else if !up && self.overlay_focus.is_focused(window) {
@@ -88,9 +84,6 @@ impl NativeView {
     }
 
     pub(in crate::native_view) fn reveal_strip(&mut self, cx: &mut Context<Self>) {
-        if self.reveal_held() {
-            return;
-        }
         if let Some(strip) = self.strip.as_mut() {
             strip.reveal(Instant::now());
             cx.notify();
@@ -145,7 +138,7 @@ impl NativeView {
         match strip.finish(Instant::now(), library_copies(&snapshot)) {
             Finish::Toast(message) => {
                 self.take_strip(cx);
-                self.show_toast(message, Some("check-circle"), cx);
+                self.show_toast(message, cx);
                 self.prompt_copies();
             }
             Finish::Closed => {
@@ -158,7 +151,7 @@ impl NativeView {
     }
 
     /// Takes the strip down at once, so input reaches the app again; a wash that showed fades out
-    /// over [`WASH_FADE`] unless motion is reduced.
+    /// over [`wash_fade`] unless motion is reduced.
     fn take_strip(&mut self, cx: &mut Context<Self>) {
         let Some(strip) = self.strip.take() else {
             return;
@@ -167,9 +160,10 @@ impl NativeView {
             return;
         }
         let fading = Instant::now();
+        let fade = wash_fade(cx);
         self.wash_fade = Some(fading);
         cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(WASH_FADE).await;
+            cx.background_executor().timer(fade).await;
             let _ = this.update(cx, |view, cx| {
                 if view.wash_fade == Some(fading) {
                     view.wash_fade = None;
@@ -213,11 +207,6 @@ impl NativeView {
 impl NativeView {
     /// Whether a native-test hold keeps the strip from ending.
     fn strip_held(&self) -> bool {
-        false
-    }
-
-    /// Whether a native-test hold keeps the strip from showing.
-    fn reveal_held(&self) -> bool {
         false
     }
 

@@ -1,7 +1,8 @@
-//! The review list that Review opens from the Done pill (spec/progress-3-toast-review.md): every
-//! copy that waited for the user when it opened, whichever change left it, in a card, each with
-//! the two answers its state offers. An answered row ends in a muted check and what was done. The
-//! Done pill counts the same copies.
+//! The review list that Review opens from the Done pill in Kit's dialog, as variant D of
+//! `docs/design/scoped-pages/prototypes/progress.html` draws it: every copy that waited for the
+//! user when it opened, whichever change left it, in a card, each with the two answers its state
+//! offers. An answered row ends in a muted check and what was done. The Done pill counts the
+//! same copies.
 
 mod render;
 use skillbinder_proto::{CopyState, ManagedCopy, SkillId};

@@ -194,9 +194,10 @@ pub struct NativeView {
     strip: Option<progress_strip::Strip>,
     /// When the wash of a strip that ended began fading out, while it fades.
     wash_fade: Option<std::time::Instant>,
-    /// Focus for the strip and the review list while they are up, so keys reach nothing else.
+    /// Focus for the strip while it is up, so keys reach nothing else.
     overlay_focus: FocusHandle,
-    toast: Option<controls::toast::Toast>,
+    /// A toast waiting for the next frame, where the window it shows in is at hand.
+    toast: toasts::PendingToast,
     #[cfg(feature = "native-test")]
     holds: native_test::Holds,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
@@ -336,7 +337,7 @@ impl NativeView {
             strip: None,
             wash_fade: None,
             overlay_focus: cx.focus_handle().tab_stop(true),
-            toast: None,
+            toast: toasts::PendingToast::default(),
             #[cfg(feature = "native-test")]
             holds: native_test::Holds::default(),
             sidebar_motion: 0,
@@ -433,6 +434,7 @@ impl Render for NativeView {
         };
         self.sync_dialog(window, cx);
         self.sync_overlay_focus(window, cx);
+        self.push_toast(window, cx);
         let colors = cx.theme().colors;
         let global_error = self
             .error
@@ -481,8 +483,6 @@ impl Render for NativeView {
             })
             .children(self.render_place_popover(window, cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
-            .children(self.render_review(cx))
-            .children(self.render_strip(cx))
-            .children(self.render_toast(cx))
+            .children(self.render_strip(window, cx))
     }
 }

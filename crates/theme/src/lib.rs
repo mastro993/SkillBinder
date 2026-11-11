@@ -111,8 +111,9 @@ pub mod library {
     pub const PAGE_GAP: f32 = 12.0;
     /// Space below the list's end, inside its scroll view.
     pub const PAGE_BOTTOM: f32 = 16.0;
-    /// Height of the toolbar row and of its search field and controls.
-    pub const TOOLBAR_HEIGHT: f32 = 28.0;
+    /// Height of the toolbar row: GPUI Kit's standard control height, which its search field,
+    /// segmented filters, and Updates chip take.
+    pub const TOOLBAR_HEIGHT: f32 = 32.0;
     /// Corner radius of the card that holds the list.
     pub const CARD_RADIUS: f32 = 10.0;
     /// Shortest a list row is drawn.
@@ -168,7 +169,7 @@ pub fn system_font() -> &'static str {
 
 /// The system font's Medium face, the design's `font-weight: 500`. GPUI matches weights through
 /// font-kit, which places SF Pro Medium's Core Text weight (0.23) at 530, so a request for 500
-/// (`FontWeight::MEDIUM`) falls back to Regular and its text sets about 3.6% narrower.
+/// (`FontWeight::MEDIUM`) falls back to the Regular face and medium text would draw regular.
 /// font-kit gives Medium every request above 500 up to 530 (Semibold reads 600): 520 sits inside.
 pub const MEDIUM: FontWeight = FontWeight(520.0);
 

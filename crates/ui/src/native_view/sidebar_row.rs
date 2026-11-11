@@ -1,8 +1,9 @@
 //! The sidebar row: icon, truncated label, optional trailing detail, and a selection fill.
 
-use std::{path::PathBuf, rc::Rc, sync::Arc};
+use std::{path::PathBuf, rc::Rc};
 
 use super::NativeView;
+use super::controls::text::tabular;
 use super::controls::{app_icon, button};
 use super::menu::{MenuItem, OpenMenu};
 use gpui_kit::component::{
@@ -12,10 +13,10 @@ use gpui_kit::component::{
     spinner::Spinner,
 };
 use gpui_kit::{
-    AnyElement, App, Context, Div, ElementId, Entity, FontFeatures, FontWeight, Hsla,
-    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit,
-    ParentElement, SharedString, Stateful, StatefulInteractiveElement, Styled, StyledImage, Window,
-    black, div, img, prelude::FluentBuilder, px, white,
+    AnyElement, App, Context, Div, ElementId, Entity, FontWeight, Hsla, InteractiveElement,
+    IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit, ParentElement, SharedString,
+    Stateful, StatefulInteractiveElement, Styled, StyledImage, Window, black, div, img,
+    prelude::FluentBuilder, px, white,
 };
 use skillbinder_theme::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
@@ -244,7 +245,7 @@ fn detail(text: impl Into<SharedString>, cx: &App) -> AnyElement {
     div()
         .flex_shrink_0()
         .text_size(px(DETAIL_SIZE))
-        .font_features(FontFeatures(Arc::new(vec![("tnum".into(), 1)])))
+        .font_features(tabular())
         .text_color(cx.theme().muted_foreground.opacity(ICON_OPACITY))
         .child(text.into())
         .into_any_element()

@@ -1,37 +1,88 @@
-//! App buttons and checkboxes: GPUI Kit keeps the arrow cursor on them, except on link and text
-//! button variants. The submodules hold the app-owned controls drawn to the approved prototypes
-//! where Kit's own cannot match them pixel for pixel.
+//! The app's ways into GPUI Kit's controls. Buttons and checkboxes get the hand cursor, which Kit
+//! keeps only on its link and text button variants; a text button gets the design's medium label;
+//! an element that is not a Kit control gets Kit's tooltip; a base control gets Kit's focus ring
+//! only from the keyboard; and an agent or a skill directory gets its logo, which Kit has no
+//! picker for. The `text` submodule holds the design's type and tabular figures.
 
-pub(super) mod avatar;
-pub(super) mod chip;
-pub(super) mod dashed;
-pub(super) mod dialog_surface;
-pub(super) mod exact_text;
-pub(super) mod logo;
-pub(super) mod motion;
-pub(super) mod pill;
-pub(super) mod popover;
-pub(super) mod press;
-pub(super) mod progress_bar;
-pub(super) mod segmented;
-pub(super) mod shadow;
-pub(super) mod spinner;
-pub(super) mod switch;
-pub(super) mod text_button;
-pub(super) mod toast;
-pub(super) mod tooltip;
+#[cfg(test)]
+pub(super) mod frames;
+pub(super) mod text;
 
-use gpui_kit::component::{Disableable, Icon, button::Button, checkbox::Checkbox};
-use gpui_kit::{ElementId, Styled, prelude::FluentBuilder};
+use super::library_copies::Reader;
+use gpui_kit::component::{
+    Disableable, Icon, Sizable, Size, ThemeStyled, button::Button, checkbox::Checkbox,
+    tooltip::Tooltip,
+};
+use gpui_kit::{
+    AnyElement, AnyView, App, ElementId, FocusHandle, InteractiveElement, IntoElement,
+    ParentElement, SharedString, Styled, StyledImage, Window, div, img, prelude::FluentBuilder, px,
+};
+use skillbinder_theme::MEDIUM;
 
 /// Button that shows a hand cursor while it is enabled.
 pub(super) fn button(id: impl Into<ElementId>) -> Button {
     Button::new(id).cursor_pointer()
 }
 
+/// A `size` button reading `label` in medium weight, 12 px at Kit's small size and 13 px at the
+/// others. Kit sets the size of its own label on a row it does not expose, so the text is a child;
+/// the label is the button's accessible name, which the text does not repeat.
+pub(super) fn text_button(
+    id: impl Into<ElementId>,
+    label: impl Into<SharedString>,
+    size: Size,
+) -> Button {
+    let label = label.into();
+    let text = if matches!(size, Size::Small) {
+        12.
+    } else {
+        13.
+    };
+    button(id)
+        .with_size(size)
+        .accessibility_label(label.clone())
+        .child(div().text_size(px(text)).font_weight(MEDIUM).child(label))
+}
+
 /// Checkbox that shows a hand cursor while it is enabled.
 pub(super) fn checkbox(id: impl Into<ElementId>) -> Checkbox {
     Checkbox::new(id).cursor_pointer()
+}
+
+/// The widest a tooltip's lines grow before they wrap.
+const TOOLTIP_LINE: f32 = 240.;
+
+/// Kit's tooltip reading `text`, one line per `\n`, for GPUI's `tooltip` on an element that is
+/// not a Kit control: it shows below and right of the pointer once the pointer rests on the
+/// element for GPUI's delay. A line wider than [`TOOLTIP_LINE`] wraps; Kit's own text never
+/// does, since its box takes the width of its longest line.
+pub(super) fn tooltip(
+    text: impl Into<SharedString>,
+) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static {
+    let text = text.into();
+    move |window, cx| {
+        let text = text.clone();
+        Tooltip::element(move |_, _| div().max_w(px(TOOLTIP_LINE)).child(text.clone()))
+            .build(window, cx)
+    }
+}
+
+/// What a test build tags the control that draws a focus ring with, since Kit's ring has none.
+pub(super) const FOCUS_RING: &str = "app-focus-ring";
+
+/// `control` with Kit's focus ring while `focus` has focus that a key gave it, the only focus that
+/// shows one on the app's own controls: a click that focuses one shows none. In a test build the
+/// ringed control carries the [`FOCUS_RING`] debug selector.
+pub(super) fn focus_ring<E>(control: E, focus: &FocusHandle, window: &Window, cx: &App) -> E
+where
+    E: ThemeStyled + ParentElement + InteractiveElement + FluentBuilder,
+{
+    let ringed = focus.is_focused(window) && window.last_input_was_keyboard();
+    control.when(ringed, |control| {
+        control
+            .focus_ring_style(window, cx)
+            .debug_selector(|| FOCUS_RING.to_owned())
+    })
 }
 
 /// Retained Hugeicons artwork mapped under `icons/` in the asset source.
@@ -45,6 +96,55 @@ pub(super) fn agent_icon(id: &str) -> Icon {
         || app_icon("square-terminal"),
         |path| Icon::empty().path(path),
     )
+}
+
+/// What an avatar or a pill draws for an agent or a skill directory: a retained glyph, an agent's
+/// monochrome logo, or its full-color logo.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Logo {
+    /// A retained Hugeicons glyph by its asset path, drawn in the text color.
+    Glyph(&'static str),
+    /// A monochrome logo by its asset path, drawn in the text color.
+    Mono(&'static str),
+    /// A full-color logo by its asset path, drawn in its own colors.
+    Color(&'static str),
+}
+
+impl Logo {
+    /// An agent's full-color logo, else its monochrome logo, else the square terminal glyph.
+    pub(super) fn agent(id: &str) -> Self {
+        crate::assets::agent_color_logo(id)
+            .map(Self::Color)
+            .or_else(|| crate::assets::agent_logo(id).map(Self::Mono))
+            .unwrap_or(Self::Glyph("icons/square-terminal.svg"))
+    }
+
+    /// The `layers` glyph for Universal, otherwise the reading agent's logo.
+    pub(super) fn reader(reader: &Reader) -> Self {
+        match reader {
+            Reader::Universal(_) => Self::Glyph("icons/layers.svg"),
+            Reader::Agent(id) => Self::agent(id),
+        }
+    }
+
+    pub(super) fn is_color(self) -> bool {
+        matches!(self, Self::Color(_))
+    }
+
+    /// The logo at `size` px: a glyph or monochrome logo is Kit's icon in the text color it
+    /// inherits; a color logo keeps its colors, or turns grayscale when `gray`.
+    pub(super) fn element(self, size: f32, gray: bool) -> AnyElement {
+        match self {
+            Self::Glyph(path) | Self::Mono(path) => {
+                Icon::empty().path(path).size(px(size)).into_any_element()
+            }
+            Self::Color(path) => img(path)
+                .flex_none()
+                .size(px(size))
+                .grayscale(gray)
+                .into_any_element(),
+        }
+    }
 }
 
 pub(super) trait Inactive {

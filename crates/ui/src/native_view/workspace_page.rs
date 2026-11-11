@@ -10,7 +10,7 @@ impl NativeView {
     pub(super) fn render_workspace(
         &self,
         id: &WorkspaceId,
-        window: &Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Some(workspace) = self.workspace(id) else {

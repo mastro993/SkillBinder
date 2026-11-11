@@ -1,6 +1,7 @@
 //! The popover's keyboard journeys in a GPUI test window, drawn by a stand-in for the native view
 //! with the popover's own content, box, and focus.
 
+use super::super::controls::FOCUS_RING;
 use super::super::snapshot_query::Places;
 use super::super::snapshot_query::fixture::{Fixture, agents, id, preset_id};
 use super::PlacePopover;
@@ -9,8 +10,8 @@ use gpui_kit::test::{TestSupportExt, TestWindowExt};
 use gpui_kit::{
     AnyWindowHandle, AppContext, Bounds, Context, Entity, FocusHandle, FrameObserver,
     InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Render, ScrollDelta,
-    StatefulInteractiveElement, Styled, TestAppContext, Window, WindowBounds, WindowOptions,
-    canvas, div, point, prelude::FluentBuilder, px, size,
+    StatefulInteractiveElement, Styled, TestAppContext, VisualTestContext, Window, WindowBounds,
+    WindowOptions, canvas, div, point, prelude::FluentBuilder, px, size,
 };
 use skillbinder_proto::{AppSnapshot, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 use std::sync::Arc;
@@ -92,6 +93,7 @@ impl Placer for Host {
 impl Render for Host {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let popover = self.popover.as_ref().and_then(|popover| {
+            // Drawn in place rather than placed, so it shows from its first frame.
             popover.begin_frame();
             let skill = self.snapshot.library.as_ref()?.library.skills.first()?;
             let all = Places::new(&self.snapshot);
@@ -122,7 +124,7 @@ impl Render for Host {
             .when_some(cells, |trigger, cells| {
                 trigger.child(
                     canvas(
-                        move |bounds, _, _| cells.trigger.set(Some(bounds)),
+                        move |bounds, window, _| cells.record_trigger(bounds, window),
                         |_, (), _, _| {},
                     )
                     .absolute()
@@ -251,15 +253,17 @@ impl Harness {
         focused
     }
 
-    /// The control showing the focus outline, if one does.
-    fn outlined(&self, cx: &mut TestAppContext) -> Option<&'static str> {
-        let mut outlined = None;
+    /// The control drawing Kit's focus ring, if one does, found by the debug selector the app's
+    /// ring gives it, since Kit's ring has no id.
+    fn ringed(&self, cx: &mut TestAppContext) -> Option<&'static str> {
+        let ring = VisualTestContext::from_window(self.handle, cx).debug_bounds(FOCUS_RING)?;
+        let mut ringed = None;
         self.check(cx, |window| {
-            outlined = CONTROLS
+            ringed = CONTROLS
                 .into_iter()
-                .find(|control| window.within(*control).try_find("focus-outline").is_some());
+                .find(|control| window.find(*control).bounds().contains(&ring.center()));
         });
-        outlined
+        ringed
     }
 
     /// The popover is gone and its trigger has focus.
@@ -289,7 +293,7 @@ fn tab_and_shift_tab_cycle_the_switch_and_every_enabled_pill(cx: &mut TestAppCon
     for control in CONTROLS.into_iter().chain([CONTROLS[0]]) {
         harness.press(cx, &["tab"]);
         assert_eq!(harness.focused(cx), Some(control));
-        assert_eq!(harness.outlined(cx), Some(control));
+        assert_eq!(harness.ringed(cx), Some(control));
     }
     harness.press(cx, &["shift-tab"]);
     assert_eq!(harness.focused(cx), Some(CONTROLS[3]));
@@ -362,7 +366,7 @@ fn escape_hands_focus_back_to_the_trigger(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn a_click_shows_no_outline_until_the_keyboard_moves_focus(cx: &mut TestAppContext) {
+fn a_click_shows_no_focus_ring_until_the_keyboard_moves_focus(cx: &mut TestAppContext) {
     let harness = Harness::new(cx, false);
     harness.click(cx, "trigger");
     harness.check(cx, |window| {
@@ -370,17 +374,16 @@ fn a_click_shows_no_outline_until_the_keyboard_moves_focus(cx: &mut TestAppConte
         for control in CONTROLS {
             assert_eq!(window.find(control).focused(), Some(false), "{control}");
         }
-        assert!(window.try_find("focus-outline").is_none());
     });
     harness.click(cx, CONTROLS[1]);
     assert_eq!(harness.focused(cx), Some(CONTROLS[1]));
     assert_eq!(
-        harness.outlined(cx),
+        harness.ringed(cx),
         None,
-        "a click focuses the pill without its outline"
+        "a click focuses the pill without its focus ring"
     );
     harness.press(cx, &["tab"]);
-    assert_eq!(harness.outlined(cx), Some(CONTROLS[2]));
+    assert_eq!(harness.ringed(cx), Some(CONTROLS[2]));
 }
 
 #[gpui_kit::test]
@@ -399,18 +402,4 @@ fn a_pointer_close_focuses_the_view_as_before(cx: &mut TestAppContext) {
     harness.assert_closed_on_view(cx);
 }
 
-#[gpui_kit::test]
-fn the_outline_clears_each_control_and_its_border_by_a_pixel(cx: &mut TestAppContext) {
-    let harness = Harness::new(cx, false);
-    harness.click(cx, "trigger");
-    // The switch and Cursor's pill have no border; Claude Code's pill is on, with a 1 px border.
-    for control in &CONTROLS[..3] {
-        harness.press(cx, &["tab"]);
-        harness.check(cx, |window| {
-            let edge = window.find(*control).bounds();
-            let outline = window.within(*control).find("focus-outline").bounds();
-            // A 1 px gap, then the 2 px ring.
-            assert_eq!(outline, edge.dilate(px(3.)), "{control}");
-        });
-    }
-}
+mod layout;

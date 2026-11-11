@@ -2,9 +2,8 @@
 //! Updates filters, as a list or grid under a fixed toolbar, each showing where it is on. A
 //! workspace's page lists the same skills, scoped to the workspace, with its activation controls.
 
-use super::controls::exact_text::line_shortfall;
 use super::library_copies::{AgentRow, placements};
-use super::library_items::{Layout, RowEnd, SLUG_SIZE, SkillItem};
+use super::library_items::{RowEnd, SkillItem};
 use super::snapshot_query::{
     LibraryFilter, Places, Query, filter_counts, has_update, library_skills,
 };
@@ -13,19 +12,18 @@ use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div, px, relative,
+    StatefulInteractiveElement, Styled, Window, div, px,
 };
 use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
 use skillbinder_theme::library::{
     GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE, PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP,
-    ROW_PADDING_Y, TILE_PADDING,
 };
 
 /// A workspace's page keeps the shell's 24-point gutter on both sides.
 const WORKSPACE_PADDING: f32 = 48.;
 
 impl NativeView {
-    pub(super) fn render_library(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_library(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let (Some(library), Some(active)) = (&self.snapshot.library, self.active_preset_id())
         else {
             return div()
@@ -49,12 +47,9 @@ impl NativeView {
         };
         let shown = library_skills(&self.snapshot, &places, &active, query);
         let counts = on_library.then(|| filter_counts(&self.snapshot, &places, &active, query));
-        let frame = Frame {
-            width: self.content_width(window),
-            scale: window.scale_factor(),
-        };
-        let toolbar = self.library_toolbar(counts, frame.width, cx);
-        let results = self.library_results(library, &places, &active, &shown, &typed, frame, cx);
+        let width = self.content_width(window);
+        let toolbar = self.library_toolbar(counts, window, cx);
+        let results = self.library_results(library, &places, &active, &shown, &typed, width, cx);
         let notes: Vec<AnyElement> = self
             .empty_scope_note(library, cx)
             .into_iter()
@@ -151,7 +146,7 @@ impl NativeView {
         active: &PresetId,
         visible: &[&Skill],
         typed: &str,
-        frame: Frame,
+        width: f32,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         if visible.is_empty() {
@@ -159,9 +154,12 @@ impl NativeView {
         }
         let on_library = self.route == Route::Library;
         let grid = self.library_view == LibraryView::Grid;
-        let width = frame.width;
         let columns = grid_columns(width);
-        let layout = frame.layout(grid, columns);
+        let narrow = if grid {
+            tile_width(width, columns) < NARROW_TILE
+        } else {
+            width < NARROW_LIST
+        };
         let placed = placements(&library.copies, &self.placement_rows());
         let overlaps = self.scoped_workspace().map(|workspace| &workspace.overlaps);
         let items: Vec<SkillItem<'_>> = visible
@@ -191,10 +189,10 @@ impl NativeView {
                 .grid()
                 .grid_cols(columns)
                 .gap(px(GRID_GAP))
-                .children(items.iter().map(|item| self.skill_card(item, layout, cx)))
+                .children(items.iter().map(|item| self.skill_card(item, narrow, cx)))
                 .into_any_element()
         } else {
-            self.skill_list(&items, layout, cx)
+            self.skill_list(&items, narrow, cx)
         }
     }
 
@@ -211,40 +209,6 @@ impl NativeView {
             WORKSPACE_PADDING
         };
         f32::from(window.viewport_size().width) - sidebar - padding
-    }
-}
-
-/// Chrome rounds a box edge that falls on half a device pixel up and GPUI rounds it down, so the
-/// ninth row's top, 1143.5 device pixels at 2x, would land a pixel higher than the prototype's.
-/// Padding each row and tile by this much more breaks such ties upward and moves no other edge.
-const TIE: f32 = 1. / 8192.;
-
-/// The list's width and the window's scale.
-#[derive(Clone, Copy)]
-struct Frame {
-    width: f32,
-    scale: f32,
-}
-
-impl Frame {
-    /// A list's rows, or a grid of `columns` tiles. A row's padding resolves against the card
-    /// inside its 1-point border, and a tile's name line against the tile inside its border and
-    /// padding.
-    fn layout(self, grid: bool, columns: u16) -> Layout {
-        let half = line_shortfall(SLUG_SIZE, self.scale) / 2. + TIE;
-        if grid {
-            let tile = tile_width(self.width, columns);
-            Layout {
-                narrow: tile < NARROW_TILE,
-                // Padding cannot be negative; at 1x GPUI's line is the taller one.
-                pad_y: relative(half.max(0.) / (tile - 2. * (TILE_PADDING + 1.))),
-            }
-        } else {
-            Layout {
-                narrow: self.width < NARROW_LIST,
-                pad_y: relative((ROW_PADDING_Y + half) / (self.width - 2.)),
-            }
-        }
     }
 }
 
@@ -273,19 +237,5 @@ mod tests {
         assert_eq!(grid_columns(370.), 2);
         assert_eq!(grid_columns(916.), 4);
         assert_eq!(tile_width(916., 4), 221.5);
-    }
-
-    #[test]
-    fn rows_and_tiles_pad_by_half_the_name_lines_shortfall() {
-        let frame = Frame {
-            width: 916.,
-            scale: 2.,
-        };
-        let half = 0.09375 / 2. + TIE;
-        assert_eq!(
-            frame.layout(false, 4).pad_y,
-            relative((ROW_PADDING_Y + half) / 914.)
-        );
-        assert_eq!(frame.layout(true, 4).pad_y, relative(half / 195.5));
     }
 }

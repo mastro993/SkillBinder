@@ -3,25 +3,25 @@
 //! skill, and its description, then what [`RowEnd`] says: on Library where the skill is on, on a
 //! workspace's page its activation there and the agents it is applied for.
 
-use super::controls::chip::tag;
-use super::controls::exact_text::{exact_text, sized};
-use super::controls::{app_icon, tooltip::tip};
+use super::controls::text::sized;
+use super::controls::{app_icon, tooltip};
 use super::library_copies::Placement;
 use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
 use super::snapshot_query::SkillPlaces;
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, DefiniteLength, Div, FontWeight, Hsla, InteractiveElement,
-    IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled, canvas, div,
+    AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
+    ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, canvas, div,
     prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Overlap, Skill, SkillDetails, SkillId};
+use skillbinder_theme::MEDIUM;
 use skillbinder_theme::library::{
-    CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, TILE_GAP, TILE_MIN_HEIGHT,
-    TILE_PADDING, TILE_RADIUS,
+    CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
+    TILE_MIN_HEIGHT, TILE_PADDING, TILE_RADIUS,
 };
 
 /// The hover group of a row or tile, whose dashed `+` shows while it is hovered.
@@ -29,7 +29,7 @@ pub(super) const ITEM_GROUP: &str = "skill-item";
 /// Opacity of an inactive skill's name, tag, and description.
 const DIM: f32 = 0.5;
 /// The size of a skill's name, whose line sets a row's and a tile's height.
-pub(super) const SLUG_SIZE: f32 = 14.;
+const SLUG_SIZE: f32 = 14.;
 
 /// One Library skill with its details, folder, and copies.
 pub(super) struct SkillItem<'a> {
@@ -84,24 +84,13 @@ impl SkillItem<'_> {
     }
 }
 
-/// How a list or grid lays out its items.
-#[derive(Clone, Copy)]
-pub(super) struct Layout {
-    /// Too narrow for a workspace's name, so one chip counts the workspaces.
-    pub narrow: bool,
-    /// The vertical padding that makes up for GPUI's shorter name line
-    /// (`exact_text::line_shortfall`), as a fraction of the parent's width, since GPUI rounds
-    /// every point length to the device pixel but keeps fractions: a row's padding, half the
-    /// shortfall over 10 points, or the padding around a tile's name line, half the shortfall.
-    pub pad_y: DefiniteLength,
-}
-
 impl NativeView {
-    /// The list's card: one bordered surface holding every row, divided by inset hairlines.
+    /// The list's card: one bordered surface holding every row, divided by inset hairlines. A
+    /// `narrow` list has no room for a workspace's name, so one chip counts the workspaces.
     pub(super) fn skill_list(
         &self,
         items: &[SkillItem<'_>],
-        layout: Layout,
+        narrow: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let last = items.len().saturating_sub(1);
@@ -114,7 +103,7 @@ impl NativeView {
                 items
                     .iter()
                     .enumerate()
-                    .map(|(index, item)| self.skill_row(item, index, index == last, layout, cx)),
+                    .map(|(index, item)| self.skill_row(item, index, index == last, narrow, cx)),
             )
             .into_any_element()
     }
@@ -127,7 +116,7 @@ impl NativeView {
         item: &SkillItem<'_>,
         index: usize,
         last: bool,
-        layout: Layout,
+        narrow: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let owner = format!("skill-row-{}", item.skill.id);
@@ -143,7 +132,7 @@ impl NativeView {
             .w_full()
             .min_h(px(ROW_MIN_HEIGHT))
             .px(px(ROW_PADDING_X))
-            .py(layout.pad_y)
+            .py(px(ROW_PADDING_Y))
             .cursor_pointer()
             .hover(move |row| row.bg(hover))
             .when(index == 0, |row| row.rounded_t(inner))
@@ -154,21 +143,22 @@ impl NativeView {
                     .flex_1()
                     .min_w_0()
                     .gap(px(2.))
-                    .child(self.title_line(item, None, cx))
+                    .child(self.title_line(item, cx))
                     .child(description(item, 1, cx))
                     .when(matches!(item.end, RowEnd::Activation), |main| {
                         main.child(div().pt(px(4.)).child(self.agents_line(item, cx)))
                     }),
             )
-            .child(self.row_end(item, false, layout, cx));
+            .child(self.row_end(item, false, narrow, cx));
         frame(self, row, item, owner, cx)
     }
 
-    /// A grid tile: name, two description lines, then its end in the footer.
+    /// A grid tile: name, two description lines, then its end in the footer. A `narrow` tile has
+    /// no room for a workspace's name, so one chip counts the workspaces.
     pub(super) fn skill_card(
         &self,
         item: &SkillItem<'_>,
-        layout: Layout,
+        narrow: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let owner = format!("skill-card-{}", item.skill.id);
@@ -191,7 +181,7 @@ impl NativeView {
             .border_color(border)
             .cursor_pointer()
             .hover(move |card| card.bg(hover))
-            .child(self.title_line(item, Some(layout.pad_y), cx))
+            .child(self.title_line(item, cx))
             .child(description(item, 2, cx))
             .when(matches!(item.end, RowEnd::Activation), |card| {
                 card.child(self.agents_line(item, cx))
@@ -203,29 +193,28 @@ impl NativeView {
                     .min_h(px(32.))
                     .flex()
                     .items_center()
-                    .child(self.row_end(item, true, layout, cx)),
+                    .child(self.row_end(item, true, narrow, cx)),
             );
         frame(self, card, item, owner, cx)
     }
 
-    /// The name with its glyphs and folder tag, one line high, padded by `pad_y` in a tile. The
-    /// name's line is `slug`; the row's accessible name reads it.
-    fn title_line(&self, item: &SkillItem<'_>, pad_y: Option<DefiniteLength>, cx: &App) -> Div {
+    /// The name with its glyphs and folder tag, one line high. The name is plain text, since the
+    /// row's accessible name reads it.
+    fn title_line(&self, item: &SkillItem<'_>, cx: &App) -> Div {
         let dim = item.dimmed();
         let slug = sized(div(), SLUG_SIZE)
-            .flex()
             .min_w_0()
+            .truncate()
             .font_weight(FontWeight::SEMIBOLD)
             .when(dim, |slug| slug.opacity(DIM))
-            .child(exact_text("slug", item.name()).truncate().presentational());
+            .child(item.name());
         h_flex()
             .min_w_0()
             .gap(px(6.))
-            .when_some(pad_y, Styled::py)
             .child(slug)
             .children(name_marks(item, cx))
             .when_some(item.folder, |line, folder| {
-                line.child(tag(folder.to_owned(), cx).when(dim, |tag| tag.opacity(DIM)))
+                line.child(folder_tag(folder.to_owned(), dim))
             })
     }
 
@@ -234,7 +223,7 @@ impl NativeView {
         &self,
         item: &SkillItem<'_>,
         grid: bool,
-        layout: Layout,
+        narrow: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         match &item.end {
@@ -247,7 +236,7 @@ impl NativeView {
                     .when(unsettled > 0, |end| {
                         end.child(self.unsettled_glyph(&item.skill.id, unsettled, cx))
                     })
-                    .child(self.place_trigger(places, grid, layout.narrow, cx))
+                    .child(self.place_trigger(places, grid, narrow, cx))
                     .into_any_element()
             }
             RowEnd::Activation => self.activation_controls(&item.skill.id, cx),
@@ -353,18 +342,33 @@ fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
         .id(format!("overlap-{}", item.skill.id))
         .flex_shrink_0()
         .child(Tag::warning().small().child(label))
-        .tooltip(move |window, cx| Tooltip::new(explanation).build(window, cx))
+        .tooltip(tooltip(explanation))
         .into_any_element()
+}
+
+/// A skill's folder: Kit's secondary tag, borderless, in 11 px medium text whose line is `tag`. A
+/// dimmed tag fades on a wrapper, since Kit's tag raises its own opacity under the pointer.
+fn folder_tag(folder: String, dim: bool) -> impl IntoElement {
+    div().flex_none().when(dim, |tag| tag.opacity(DIM)).child(
+        Tag::secondary()
+            .small()
+            .rounded(px(4.))
+            .border_0()
+            .text_size(px(11.))
+            .font_weight(MEDIUM)
+            .child(Text::new("tag".into(), folder.into())),
+    )
 }
 
 /// The 14 px glyph of a skill whose source has an update, in `tone`. It keeps full opacity on a
 /// dimmed row.
 fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
-    let glyph = div()
+    div()
         .id(format!("update-{id}"))
         .flex_shrink_0()
-        .child(app_icon("upload-circle").small().text_color(tone));
-    tip(glyph, "Update available").into_any_element()
+        .child(app_icon("upload-circle").small().text_color(tone))
+        .tooltip(tooltip("Update available"))
+        .into_any_element()
 }
 
 /// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.

@@ -1,5 +1,5 @@
-//! The `hold_activation` MCP command: a parity capture holds the progress strip or the end toast
-//! so a state that real timing passes too fast to catch stays on screen.
+//! The `hold_activation` MCP command: a native check holds the progress strip or the end toast so
+//! a state that real timing passes too fast to catch stays on screen.
 
 use gpui_kit::Entity;
 use gpui_mcp::{
@@ -15,16 +15,15 @@ const SCHEMA: &str = r#"{
   "additionalProperties": false,
   "properties": {
     "strip": {
-      "description": "null releases the strip. \"hidden\" keeps a strip that starts or is up unrevealed: only the transparent input blocker, for the wash formula's base capture. An integer 0-100 shows that percent once the strip reveals. A held strip never ends; releasing ends one whose change has landed. Left out, the strip's hold stays as it is.",
+      "description": "null releases the strip. An integer 0-100 shows that percent once the strip reveals. A held strip never ends; releasing ends one whose change has landed. Left out, the strip's hold stays as it is.",
       "anyOf": [
         { "type": "null" },
-        { "const": "hidden" },
         { "type": "integer", "minimum": 0, "maximum": 100 }
       ]
     },
     "toast": {
       "type": "boolean",
-      "description": "true keeps the end toast up until a call with false, which gives it 1.5 s more. Left out, the toast's hold stays as it is."
+      "description": "true keeps the end toast up until a call with false, which shows it again to close by itself after 5 s, unless it was closed meanwhile. Left out, the toast's hold stays as it is."
     }
   }
 }"#;
@@ -40,7 +39,7 @@ pub(crate) fn register_holds(
                 name: NAME.to_owned(),
                 title: "Hold activation progress".to_owned(),
                 description: "Holds or releases the blocking progress strip and its end toast \
-                              for a native capture."
+                              for a native check."
                     .to_owned(),
                 input_schema: SCHEMA.parse().map_err(|_| invalid("schema"))?,
                 mutating: true,
@@ -54,7 +53,6 @@ pub(crate) fn register_holds(
             let strip = match arguments.get("strip") {
                 None => None,
                 Some(value) if value.is_null() => Some(None),
-                Some(value) if value.as_str() == Some("hidden") => Some(Some(StripHold::Hidden)),
                 Some(value) => {
                     let percent = value
                         .as_u64()
@@ -71,7 +69,6 @@ pub(crate) fn register_holds(
             let (strip, toast) = view.update(cx, |view, cx| view.hold_activation(strip, toast, cx));
             let shown = match strip {
                 None => "null".to_owned(),
-                Some(StripHold::Hidden) => "\"hidden\"".to_owned(),
                 Some(StripHold::Percent(percent)) => percent.to_string(),
             };
             let output = format!(r#"{{"strip":{shown},"toast":{toast}}}"#);
