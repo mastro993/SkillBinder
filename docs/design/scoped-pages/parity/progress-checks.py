@@ -5,22 +5,34 @@ usage (through parity/py):
       [--ignore x,y,w,h ...]
       Every pixel of <strip> inside --rect (default: whole window) must equal
       round(alpha*color + (1-alpha)*base) within 1 level, outside the --ignore rects.
-      color defaults to the page background (the wash); a Kit scrim is --color #000000
-      --alpha 0.05 (light) or 0.2 (dark).
+      color defaults to the page background (the wash); the Kit scrim (overlay #0000000d or
+      #00000033) is --color #000000 --alpha 0.05098 (light, 13/255) or 0.2 (dark, 51/255).
       base = the same window without the strip (native: a capture taken just before the click).
   halo <ref_base.png> <ref_strip.png> <nat_base.png> <nat_strip.png> <light|dark> --rect x,y,w,h
       [--ignore x,y,w,h ...] [--alpha 0.7]
       Shadow darkening s = 1 - strip/washed (washed = the pure wash over base) must match between
-      the reference and the native capture within 2/255 (light only; dark is below 1 level).
+      the reference and the native capture within 3/255 (light only; dark is below 1 level).
+      GPUI's 4-sample blur leaves flat page pixels 3/255 off (spec/progress-5-gpui.md G1).
+      Pixels where the two bases differ by more than 1 level, and their 8 neighbours, are page
+      content (the mock's page against the app's, edges up to a device px apart): left out.
+Both checks leave out the window frame, which AppKit draws above the content (G5), as pixdiff does
+(its frame()): every pixel that is not opaque in any of the images (the rounded corners) and every
+pixel within 2 device px of one of them or of the image edge (the window's edge hairline).
 Rects are logical px of the 1180x728 window; images are 2x. Exit 1 on failure.
 """
 import argparse
 import sys
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
+sys.dont_write_bytecode = True  # no __pycache__ in the repository
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # parity/py runs python -I
+from pixdiff import frame, grow  # noqa: E402
+
 BG = {"light": (255, 255, 255), "dark": (10, 10, 10)}
+HALO = 3  # /255: GPUI's shadow blur (G1)
 
 
 def rect(text):
@@ -28,7 +40,10 @@ def rect(text):
 
 
 def load(path):
-    return np.asarray(Image.open(path).convert("RGB")).astype(float)
+    """(RGB as float, opaque mask)."""
+    im = Image.open(path)
+    opaque = np.asarray(im.getchannel("A")) == 255 if "A" in im.getbands() else np.ones(im.size[::-1], bool)
+    return np.asarray(im.convert("RGB")).astype(float), opaque
 
 
 def mask_for(shape, area, ignores):
@@ -55,20 +70,26 @@ def main():
     p.add_argument("--ignore", type=rect, action="append", default=[])
     a = p.parse_args()
     theme = a.images[-1]
+    images, opaque = zip(*(load(f) for f in a.images[:2 if a.mode == "wash" else 4]))
+    area = mask_for(images[0].shape, a.rect, a.ignore)
+    edge = area & frame(opaque)
+    area &= ~edge
     if a.mode == "wash":
-        base, strip = (load(f) for f in a.images[:2])
+        base, strip = images
         d = np.abs(strip - np.round(washed(base, theme, a.alpha, a.color))).max(axis=2)
-        v = d[mask_for(d.shape, a.rect, a.ignore)]
+        v = d[area]
         bad = int((v > 1).sum())
-        print(f"wash: {v.size} px, max {v.max():.1f}, off by >1: {bad}")
+        print(f"wash: {v.size} px, max {v.max():.1f}, off by >1: {bad}; frame left out: {int(edge.sum())}")
         return 1 if bad else 0
-    rb, rs, nb, ns = (load(f) for f in a.images[:4])
-    m = mask_for(rb.shape, a.rect, a.ignore)
+    rb, rs, nb, ns = images
+    page = grow(np.abs(rb - nb).max(axis=2) > 1, 1)
+    m = area & ~page
     s_ref = 1 - rs / np.maximum(washed(rb, theme, a.alpha), 1)
     s_nat = 1 - ns / np.maximum(washed(nb, theme, a.alpha), 1)
-    d = (np.abs(s_ref - s_nat) * 255).max(axis=2)[m]
-    bad = int((d > 2).sum())
-    print(f"halo: {d.size} px, max {d.max():.1f}/255, off by >2: {bad}")
+    d = np.round((np.abs(s_ref - s_nat) * 255).max(axis=2), 3)[m]  # 3 levels must not read as 3.0000001
+    bad = int((d > HALO).sum())
+    print(f"halo: {d.size} px, max {d.max():.1f}/255, off by >{HALO}: {bad}; page content left out: "
+          f"{int((area & page).sum())}; frame left out: {int(edge.sum())}")
     return 1 if bad else 0
 
 
