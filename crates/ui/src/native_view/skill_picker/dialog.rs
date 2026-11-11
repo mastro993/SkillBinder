@@ -50,7 +50,7 @@ impl NativeView {
             .child(div().text_color(theme.muted_foreground).child("to"))
             .child(place_chip(&resolved, &self.snapshot.home, cx));
         if matches!(resolved, Resolved::Agents { .. }) {
-            title = title.child(preset_chip(preset, cx));
+            title = title.child(preset_chip("place-preset", preset, cx));
         }
         let body = h_flex()
             .id("picker-body")

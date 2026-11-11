@@ -1,45 +1,39 @@
 //! The sidebar Agents section: Universal first, then the other detected agents alphabetically,
 //! each opening its own page.
 
-use super::agent_skills::{
-    FoundSkill, UNIVERSAL, agent_name, detected_agents, found_where, read_globally, split_universal,
-};
+use super::agent_page::page_skills;
 use super::controls::{agent_icon, app_icon};
+use super::library_copies::{AgentRow, Reader, agent_rows};
+use super::library_targets::sharing;
 use super::sidebar_row::{RowIcon, activate, count, row};
 use super::{NativeView, Route};
 use gpui_kit::component::Icon;
 use gpui_kit::{
     AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
-use skillbinder_proto::{AgentOption, SidebarSection};
+use skillbinder_proto::{AppSnapshot, PresetId, SidebarSection};
 use skillbinder_theme::sidebar::ROW_GAP;
 
 impl NativeView {
     pub(super) fn render_agents(&self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
-        let home = &self.snapshot.home;
-        let (universal, others) = split_universal(detected_agents(&self.snapshot.agents), home);
-        let universal_row = (!universal.is_empty()).then(|| {
-            self.render_agent_row(
-                "agents-universal",
-                app_icon("layers"),
-                UNIVERSAL.to_owned(),
-                Route::Universal,
-                self.found_for(&universal).len(),
-                cx,
-            )
-        });
-        let rows: Vec<AnyElement> = universal_row
+        let preset = self.active_preset_id();
+        let rows: Vec<AnyElement> = counted_rows(&self.snapshot, preset.as_ref())
             .into_iter()
-            .chain(others.iter().map(|agent| {
-                self.render_agent_row(
-                    format!("agent-{}", agent.id),
-                    agent_icon(&agent.id),
-                    agent_name(agent, home),
-                    Route::Agent(agent.id.clone()),
-                    self.agent_skills(agent).len(),
-                    cx,
-                )
-            }))
+            .map(|(agent, skills)| {
+                let (id, icon, route): (ElementId, Icon, Route) = match &agent.reader {
+                    Reader::Universal(_) => (
+                        "agents-universal".into(),
+                        app_icon("layers"),
+                        Route::Universal,
+                    ),
+                    Reader::Agent(id) => (
+                        format!("agent-{id}").into(),
+                        agent_icon(id),
+                        Route::Agent(id.clone()),
+                    ),
+                };
+                self.render_agent_row(id, icon, agent.name, route, skills, cx)
+            })
             .collect();
         // The section is hidden while no agent is detected.
         if rows.is_empty() {
@@ -91,19 +85,18 @@ impl NativeView {
         .child(count(skills, cx))
         .into_any_element()
     }
-
-    /// The skill folders in the agent's global skill directory.
-    pub(super) fn agent_skills(&self, agent: &AgentOption) -> Vec<FoundSkill> {
-        self.found_for(&[agent])
-    }
-
-    /// The skill folders the last scan found in the global skill directory of any of `agents`.
-    pub(super) fn found_for(&self, agents: &[&AgentOption]) -> Vec<FoundSkill> {
-        let candidates = self
-            .snapshot
-            .scan
-            .as_ref()
-            .map_or(&[][..], |scan| &scan.candidates);
-        found_where(candidates, |location| read_globally(location, agents))
-    }
 }
+
+/// The Agents rows, each with the number of skills its page lists through the active `preset`.
+fn counted_rows(snapshot: &AppSnapshot, preset: Option<&PresetId>) -> Vec<(AgentRow, usize)> {
+    let rows = agent_rows(&snapshot.agents, &snapshot.home);
+    rows.iter()
+        .map(|row| {
+            let skills = page_skills(snapshot, preset, &sharing(row, &rows)).len();
+            (row.clone(), skills)
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests;

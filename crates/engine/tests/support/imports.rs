@@ -82,16 +82,16 @@ pub async fn universal(engine: &Engine, home: &Path) -> Vec<String> {
         .collect()
 }
 
-pub type Copy = (String, String, CopyState, bool);
+pub type Copy = (String, String, CopyState);
 
-/// Each copy's directory, slug, and state, with whether SkillBinder manages it, in path order.
+/// Each copy's directory, slug, and state, in path order.
 pub fn copies(library: &LibrarySnapshot) -> Vec<Copy> {
     library
         .copies
         .iter()
         .map(|copy| {
             let (directory, slug) = (copy.directory.clone(), copy.skill.to_string());
-            (directory, slug, copy.state.clone(), copy.managed)
+            (directory, slug, copy.state.clone())
         })
         .collect()
 }
@@ -102,7 +102,7 @@ pub fn sorted<const N: usize>(mut expected: [Copy; N]) -> Vec<Copy> {
 }
 
 pub fn applied(directory: &Path, slug: &str) -> Copy {
-    (named(directory), slug.to_owned(), CopyState::Applied, true)
+    (named(directory), slug.to_owned(), CopyState::Applied)
 }
 
 /// The held agents of each skill in preset `id`.

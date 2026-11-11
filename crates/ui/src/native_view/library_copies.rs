@@ -135,7 +135,6 @@ mod tests {
         ManagedCopy {
             skill: skill.clone(),
             directory: directory.to_owned(),
-            managed: state == CopyState::Applied,
             state,
         }
     }

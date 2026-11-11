@@ -132,7 +132,7 @@ impl Sections<'_> {
                     .gap(px(8.))
                     .min_h(px(22.))
                     .child(section_label("agents-label", "Your agents", cx))
-                    .child(preset_chip(self.preset, cx)),
+                    .child(preset_chip("place-preset", self.preset, cx)),
             )
             .child(place_line(
                 group.tooltip(tooltip("Includes agents added later")),

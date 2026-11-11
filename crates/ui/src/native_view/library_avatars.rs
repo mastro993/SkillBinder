@@ -100,11 +100,16 @@ fn overlap<E: IntoElement>(items: impl IntoIterator<Item = E>) -> Div {
 
 /// An overlapping stack of `logos`, the first `SHOWN` as avatars and the rest as `+N`.
 pub(super) fn stack(logos: &[Logo], ring: Ring, cx: &App) -> Div {
-    let hidden = logos.len().saturating_sub(SHOWN);
+    stack_of(logos, SHOWN, ring, cx)
+}
+
+/// An overlapping stack of `logos`, the first `shown` as avatars and the rest as `+N`.
+pub(super) fn stack_of(logos: &[Logo], shown: usize, ring: Ring, cx: &App) -> Div {
+    let hidden = logos.len().saturating_sub(shown);
     overlap(
         logos
             .iter()
-            .take(SHOWN)
+            .take(shown)
             .map(|logo| avatar(*logo, ring, cx).into_any_element())
             .chain((hidden > 0).then(|| more(hidden, ring, cx).into_any_element())),
     )

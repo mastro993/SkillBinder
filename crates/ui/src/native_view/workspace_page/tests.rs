@@ -6,7 +6,6 @@ fn copy(directory: &str, state: CopyState) -> ManagedCopy {
     ManagedCopy {
         skill: id("review"),
         directory: directory.to_owned(),
-        managed: true,
         state,
     }
 }

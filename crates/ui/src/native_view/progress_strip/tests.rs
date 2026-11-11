@@ -13,7 +13,6 @@ fn copy(directory: &str, slug: &str, state: CopyState) -> ManagedCopy {
     ManagedCopy {
         skill: SkillId(slug.to_owned()),
         directory: directory.to_owned(),
-        managed: true,
         state,
     }
 }

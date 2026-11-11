@@ -341,10 +341,8 @@ impl NativeView {
             Route::Workspace(ref id) => {
                 vec![self.add_skill_button(Place::Workspace(id.clone()), "add-skill", cx)]
             }
-            Route::Agent(ref id) => {
-                vec![self.add_skill_button(Place::Agent(id.clone()), "add-skill", cx)]
-            }
-            Route::Universal => vec![self.add_skill_button(Place::Universal, "add-skill", cx)],
+            Route::Agent(ref id) => self.agent_header_actions(Place::Agent(id.clone()), cx),
+            Route::Universal => self.agent_header_actions(Place::Universal, cx),
             Route::Sync | Route::Settings => Vec::new(),
         }
     }

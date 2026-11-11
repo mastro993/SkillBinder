@@ -40,7 +40,6 @@ impl State {
                     directory: pair.0.clone(),
                     skill: SkillId(pair.1.clone()),
                     state: shown(places.desired.contains(pair), row)?,
-                    managed: row.is_some_and(|row| row.digest.is_some()),
                 })
             })
             .collect())
