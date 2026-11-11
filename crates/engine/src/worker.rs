@@ -1,4 +1,5 @@
 use crate::{
+    activation::Progress,
     database,
     discovery::{LibraryIndex, Scans},
     git::Git,
@@ -37,6 +38,7 @@ struct Owner {
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
     updates: Updates,
+    progress: Progress,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
 }
@@ -52,6 +54,8 @@ pub(crate) struct State {
     pub log: Logger,
     pub scans: Scans,
     pub updates: Updates,
+    /// How far a tracked change has got; passes count their pairs into it.
+    pub progress: Progress,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
     pub recovery_required: bool,
     /// Stops the work a quit would otherwise wait for.
@@ -88,6 +92,7 @@ impl Engine {
         let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
         let updates = Updates::default();
+        let progress = Progress::default();
         let shutdown = Shutdown::default();
         let mut state = State {
             config,
@@ -96,6 +101,7 @@ impl Engine {
             log,
             scans: scans.clone(),
             updates: updates.clone(),
+            progress: progress.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
             shutdown: shutdown.clone(),
@@ -136,6 +142,7 @@ impl Engine {
                 thread: Mutex::new(Some(thread)),
                 scans,
                 updates,
+                progress,
                 shutdown,
             }),
         })
@@ -246,10 +253,6 @@ impl Engine {
         self.call(move |state| state.prepare_import(ids, acknowledge_invalid))
             .await
     }
-    /// Applies a reviewed plan, or returns its durable previous outcome.
-    pub async fn apply_import(&self, plan: PlanId) -> AppResult<ImportOutcome> {
-        self.call(move |state| state.apply_import(plan)).await
-    }
     /// Dismisses the retained terminal outcome.
     pub async fn dismiss_import(&self) -> AppResult<()> {
         self.call(|state| state.set_setting("import_outcome", &Option::<ImportOutcome>::None))
@@ -266,14 +269,6 @@ impl Engine {
     /// Captures preset deletion consequences and the required revision.
     pub async fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
         self.call(move |state| state.preview_delete(id)).await
-    }
-    /// Applies a validated, journaled organization change.
-    pub async fn change_organization(
-        &self,
-        change: OrganizationChange,
-    ) -> AppResult<LibrarySnapshot> {
-        self.call(move |state| state.change_organization(change))
-            .await
     }
     /// Validates and fetches a remote before saving its configuration.
     pub async fn connect_remote(&self, remote: RemoteConfig) -> AppResult<SyncSnapshot> {
@@ -358,6 +353,8 @@ impl State {
             updates,
             sync,
             import_outcome: self.setting("import_outcome")?.flatten(),
+            // A snapshot is a worker job, so no tracked change is in flight while it runs.
+            activation: None,
             preferences: self.setting("preferences")?.unwrap_or_default(),
         })
     }
@@ -430,6 +427,7 @@ impl State {
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),
             updates: Updates::default(),
+            progress: Progress::default(),
             grants: BTreeMap::new(),
             recovery_required: false,
             shutdown: Shutdown::default(),

@@ -1,5 +1,7 @@
 use super::controls::{Inactive, button};
-use super::{DialogState, Effect, NativeView};
+use super::copy_dialogs::CopiesListing;
+use super::progress_strip::{Activity, Landing};
+use super::{DialogState, NativeView};
 use gpui_kit::component::{
     IconName, Sizable, WindowExt, button::ButtonVariants, dialog::Dialog, h_flex,
 };
@@ -8,7 +10,11 @@ use skillbinder_proto::*;
 
 impl NativeView {
     pub(super) fn sync_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
-        if matches!(self.dialog, DialogState::None) {
+        // The review list is the app's own dialog, not a Kit one.
+        if matches!(
+            self.dialog,
+            DialogState::None | DialogState::Copies(CopiesListing::Attention(_))
+        ) {
             if window.has_active_dialog(cx) {
                 window.close_dialog(cx);
             }
@@ -104,6 +110,7 @@ impl NativeView {
                     )
                     .child({
                         let weak = cx.entity().downgrade();
+                        let skills = plan.items.len();
                         button("import-apply")
                             .label("Import")
                             .primary()
@@ -112,12 +119,15 @@ impl NativeView {
                                 let _ = weak.update(cx, |view, cx| {
                                     let client = view.client.clone();
                                     let plan_id = plan_id.clone();
-                                    view.run(
+                                    // The strip takes over from the review.
+                                    view.dialog = DialogState::None;
+                                    view.block(
+                                        Activity::Importing { skills },
                                         async move {
-                                            client
-                                                .apply_import(plan_id)
-                                                .await
-                                                .map(|_| Effect::CloseDialog)
+                                            let outcome = client.apply_import(plan_id).await?;
+                                            Ok(Landing {
+                                                imported: outcome.imported.len(),
+                                            })
                                         },
                                         cx,
                                     );
@@ -132,7 +142,7 @@ impl NativeView {
             DialogState::None => dialog,
             DialogState::ImportPlan(plan) => self.import_plan_dialog(dialog, plan, cx),
             DialogState::DeletePreset(preview) => self.delete_preset_dialog(dialog, preview, cx),
-            DialogState::Copies(skill) => self.copies_dialog(dialog, skill.as_ref(), cx),
+            DialogState::Copies(listing) => self.copies_dialog(dialog, listing, cx),
             DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
             DialogState::WorkspaceAgents {
                 workspace,

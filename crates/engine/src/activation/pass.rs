@@ -110,6 +110,7 @@ impl State {
                     .collect()
             }
         };
+        self.progress.planned(pairs.len());
         let mut sources = BTreeMap::new();
         let mut changes = Vec::new();
         for pair in pairs {
@@ -121,12 +122,14 @@ impl State {
                 .or_insert_with(|| self.library_content(&pair.1).ok());
             let row = pass.rows.get(pair);
             let wanted = places.desired.contains(pair);
+            self.progress.working(&pair.0, &pair.1, !wanted);
             let boundary = places.boundary(&pair.0, &self.config.home);
             let after = if pass.orphaned(pair) {
                 None
             } else {
                 self.settle(pair, (wanted, boundary), row, source.as_ref())
             };
+            self.progress.advanced();
             if after.as_ref() != row {
                 changes.push((pair.clone(), after));
             }

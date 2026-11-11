@@ -1,5 +1,14 @@
 //! App buttons and checkboxes: GPUI Kit keeps the arrow cursor on them, except on link and text
-//! button variants.
+//! button variants. The submodules draw the controls Kit cannot draw as the app's design does.
+
+pub(super) mod dialog_surface;
+pub(super) mod exact_text;
+pub(super) mod motion;
+pub(super) mod progress_bar;
+pub(super) mod shadow;
+pub(super) mod spinner;
+pub(super) mod text_button;
+pub(super) mod toast;
 
 use gpui_kit::component::{
     ActiveTheme, Disableable, Icon, avatar::Avatar, button::Button, checkbox::Checkbox,

@@ -4,7 +4,7 @@
 //! workspace's page in the workspace.
 
 use super::controls::{agent_avatar, app_icon, glyph_avatar};
-use super::copy_dialogs::unsettled_summary;
+use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::library_copies::{AgentRow, Placement, Reader};
 use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
@@ -374,7 +374,7 @@ fn unsettled_glyph(
         .tooltip(move |window, cx| Tooltip::new(unsettled_summary(count)).build(window, cx))
         .on_click(cx.listener(move |view, _, _, cx| {
             cx.stop_propagation();
-            view.dialog = DialogState::Copies(Some(skill.clone()));
+            view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
             cx.notify();
         }))
         .into_any_element()

@@ -339,7 +339,7 @@ impl NativeView {
 
     fn submit_folder_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // Another operation would refuse the change, so the field stays open with its name.
-        if self.busy {
+        if self.blocked() {
             return;
         }
         let name = Self::input_text(&self.folder_name, cx);

@@ -91,6 +91,55 @@ pub enum CopyState {
     NotRemoved(String),
 }
 
+impl CopyState {
+    /// Whether the copy needs the user once a change has run: one that asks, one that could not
+    /// be written, and one that could not be removed. An applied copy and one the user chose to
+    /// keep do not.
+    pub fn needs_attention(&self) -> bool {
+        match self {
+            Self::Conflict | Self::Edited { .. } | Self::NotApplied(_) | Self::NotRemoved(_) => {
+                true
+            }
+            Self::Applied | Self::Skipped => false,
+        }
+    }
+}
+
+/// How far a change that writes and removes copies has got: of the (directory, skill) pairs it
+/// brings in line, how many it has done.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ActivationProgress {
+    /// Pairs brought in line so far.
+    pub done: usize,
+    /// Pairs the change brings in line, as far as it has planned them.
+    pub total: usize,
+    /// The pair the change is on while it runs; `None` once it is over.
+    pub step: Option<ActivationStep>,
+}
+
+/// The (directory, skill) pair a change is bringing in line.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ActivationStep {
+    /// The skill's slug.
+    pub skill: SkillId,
+    /// The skill directory with links resolved, as [`ManagedCopy::directory`] names it.
+    pub directory: String,
+    /// The skill is no longer active there, so its copy goes.
+    pub removing: bool,
+}
+impl ActivationProgress {
+    /// The share done, rounded to the nearest percent and capped at 100; nothing planned is 0.
+    pub fn percent(&self) -> u8 {
+        if self.total == 0 {
+            return 0;
+        }
+        let done = self.done.min(self.total) as u128;
+        let total = self.total as u128;
+        // Round half up, as the progress strip's design rounds.
+        u8::try_from((done * 200 + total) / (total * 2)).unwrap_or(100)
+    }
+}
+
 /// The user's answer for a copy that [`ManagedCopy::asks`], or for a skipped one.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CopyChoice {
@@ -128,5 +177,38 @@ mod tests {
         assert!(specific.includes("claude-code"));
         assert!(!specific.includes("codex"));
         Ok(())
+    }
+
+    #[test]
+    fn percent_rounds_to_the_nearest_and_never_passes_100() {
+        let progress = |done, total| ActivationProgress {
+            done,
+            total,
+            ..ActivationProgress::default()
+        };
+        assert_eq!(progress(0, 0).percent(), 0);
+        assert_eq!(progress(1, 3).percent(), 33);
+        assert_eq!(progress(2, 3).percent(), 67);
+        assert_eq!(progress(3, 3).percent(), 100);
+        assert_eq!(progress(9, 20).percent(), 45);
+        assert_eq!(progress(1, 8).percent(), 13);
+        assert_eq!(progress(5, 3).percent(), 100);
+    }
+
+    #[test]
+    fn only_copies_left_for_the_user_need_attention() {
+        let reason = || "No access.".to_owned();
+        let states = [
+            (CopyState::Applied, false),
+            (CopyState::Skipped, false),
+            (CopyState::Conflict, true),
+            (CopyState::Edited { active: true }, true),
+            (CopyState::Edited { active: false }, true),
+            (CopyState::NotApplied(reason()), true),
+            (CopyState::NotRemoved(reason()), true),
+        ];
+        for (state, attention) in states {
+            assert_eq!(state.needs_attention(), attention, "{state:?}");
+        }
     }
 }

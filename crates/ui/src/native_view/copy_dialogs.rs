@@ -4,6 +4,7 @@
 //! that ask open the dialog once; a skill's warning glyph reopens it for that skill.
 
 use super::controls::{Inactive, button};
+use super::copies_review::Review;
 use super::library_copies::shown_dir;
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::{Sizable, button::ButtonVariants, dialog::Dialog, h_flex, v_flex};
@@ -11,6 +12,26 @@ use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{CopyChoice, CopyState, ManagedCopy, SkillId};
+
+/// Which copies the copies dialog lists.
+pub(super) enum CopiesListing {
+    /// Every copy that asks; the dialog opens by itself for those that have not asked yet.
+    Asking,
+    /// One skill's copies that are not applied, from its warning glyph or its page.
+    Skill(SkillId),
+    /// The copies that needed the user when the strip's Review opened, in the review list.
+    Attention(Review),
+}
+
+impl CopiesListing {
+    /// The skill the Skill copies dialog is for, or `None` for every copy that asks.
+    fn skill(&self) -> Option<&SkillId> {
+        match self {
+            Self::Skill(skill) => Some(skill),
+            Self::Asking | Self::Attention(_) => None,
+        }
+    }
+}
 
 /// What the user can do about one copy.
 enum Action {
@@ -36,8 +57,12 @@ impl NativeView {
     }
 
     /// Opens the dialog for copies that ask and have not asked yet, and closes it once nothing
-    /// it lists is left.
+    /// it lists is left. Nothing opens while the progress strip is up: copies that need the user
+    /// wait for its end.
     pub(super) fn prompt_copies(&mut self) {
+        if self.strip.is_some() {
+            return;
+        }
         let asking: Vec<_> = self
             .listed_copies(None)
             .into_iter()
@@ -53,15 +78,17 @@ impl NativeView {
                     .collect();
                 if !fresh.is_empty() {
                     self.asked_copies.extend(fresh);
-                    self.dialog = DialogState::Copies(None);
+                    self.dialog = DialogState::Copies(CopiesListing::Asking);
                 }
             }
-            DialogState::Copies(skill) if self.listed_copies(skill.as_ref()).is_empty() => {
+            DialogState::Copies(listing @ (CopiesListing::Asking | CopiesListing::Skill(_)))
+                if self.listed_copies(listing.skill()).is_empty() =>
+            {
                 self.dialog = DialogState::None;
             }
             // The open dialog lists every copy that asks, including ones that started asking
             // since it opened.
-            DialogState::Copies(None) => {
+            DialogState::Copies(CopiesListing::Asking) => {
                 let shown: Vec<_> = asking
                     .into_iter()
                     .filter(|asked| !self.asked_copies.contains(asked))
@@ -85,11 +112,11 @@ impl NativeView {
     pub(super) fn copies_dialog(
         &self,
         dialog: Dialog,
-        skill: Option<&SkillId>,
+        listing: &CopiesListing,
         cx: &mut Context<Self>,
     ) -> Dialog {
         let rows: Vec<_> = self
-            .listed_copies(skill)
+            .listed_copies(listing.skill())
             .into_iter()
             .enumerate()
             .map(|(index, copy)| self.copy_row(index, copy, cx))

@@ -323,7 +323,7 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.busy {
+        if self.blocked() {
             return;
         }
         let Some(stored) = self

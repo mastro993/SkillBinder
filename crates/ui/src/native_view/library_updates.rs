@@ -144,7 +144,7 @@ impl NativeView {
 
     /// Checks every source now and shows the results as the snapshot they publish.
     fn check_for_updates(&mut self, cx: &mut Context<Self>) {
-        if self.busy || self.snapshot.checking {
+        if self.blocked() || self.snapshot.checking {
             return;
         }
         self.error = None;
@@ -166,7 +166,7 @@ impl NativeView {
     /// Updates every skill with an update, one at a time, so the header can count them.
     fn update_available(&mut self, cx: &mut Context<Self>) {
         let ids = available(&self.snapshot);
-        if ids.is_empty() || self.busy || self.updating.is_some() {
+        if ids.is_empty() || self.blocked() || self.updating.is_some() {
             return;
         }
         let total = ids.len();

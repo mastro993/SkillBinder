@@ -65,6 +65,7 @@ impl NativeView {
         {
             self.workspace_edit = None;
         }
+        self.follow_strip(&latest);
         self.snapshot = latest;
         if self.snapshot.preferences.sidebar_width != self.sidebar_width
             && !self.resizing_sidebar
@@ -81,7 +82,7 @@ impl NativeView {
     where
         F: Future<Output = AppResult<Effect>> + Send + 'static,
     {
-        if self.busy {
+        if self.blocked() {
             return;
         }
         self.busy = true;
@@ -131,12 +132,19 @@ impl NativeView {
                                     view.load_skill(id, cx);
                                 }
                             }
+                            Effect::Activated(landing) => view.land_strip(landing, cx),
                         }
                         // A dialog the operation closed makes room for copies that now ask.
                         view.prompt_copies();
                     }
-                    Ok(Err(error)) => view.error = Some(error),
-                    Err(_) => view.error = Some(AppError::storage()),
+                    Ok(Err(error)) => {
+                        view.error = Some(error);
+                        view.fail_strip(cx);
+                    }
+                    Err(_) => {
+                        view.error = Some(AppError::storage());
+                        view.fail_strip(cx);
+                    }
                 }
                 cx.notify();
             });

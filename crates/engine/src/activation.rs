@@ -8,10 +8,12 @@ mod adoption;
 mod copies;
 mod pass;
 mod plan;
+mod progress;
 mod store;
 mod targets;
 
 pub(crate) use copies::STAGING_PREFIX;
+pub(crate) use progress::Progress;
 pub(crate) use store::{Holder, Pair, claim, forget};
 
 use crate::{database, discovery::registry, payload, worker::State};
