@@ -210,6 +210,16 @@ fn labels_and_toasts_name_each_change() {
     );
     assert_eq!(importing.toast(&imported(6)), "Imported 6 skills");
     assert_eq!(importing.toast(&imported(1)), "Imported 1 skill");
+    let adding = |slugs: &[&str]| Activity::Adding {
+        skills: slugs.iter().map(|slug| (*slug).to_owned()).collect(),
+    };
+    assert_eq!(adding(&["pdf"]).label(), "Adding…");
+    assert_eq!(adding(&["pdf"]).title(), "Adding pdf");
+    assert_eq!(adding(&["pdf"]).toast(&imported(0)), "Added pdf");
+    assert_eq!(
+        adding(&["pdf", "a", "b"]).toast(&imported(0)),
+        "Added 3 skills"
+    );
     assert_eq!(done_label(1), "Done · 1 needs attention");
     assert_eq!(done_label(2), "Done · 2 need attention");
 }

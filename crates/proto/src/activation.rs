@@ -1,6 +1,6 @@
-use crate::SkillId;
+use crate::{SkillId, WorkspaceId};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Which of your agents a preset holds a skill for. The target of activation is a global skill
 /// directory, so agents that share one, such as the universal agents, count once.
@@ -41,6 +41,27 @@ impl WorkspaceTargets {
             Self::Dirs(dirs) => dirs.contains(dir),
         }
     }
+}
+
+/// Library skills added to one place at once, each for the agents chosen for it. A skill the place
+/// already holds keeps what it holds and gains them; nothing is removed.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum AddSkills {
+    /// To the active preset, for your agents: each skill's agents by registry identity.
+    YourAgents {
+        /// Each skill and the agents it gains, by registry identity.
+        skills: BTreeMap<SkillId, BTreeSet<String>>,
+    },
+    /// To workspace `id`: each skill's targets, after `dirs`, the detected agents' workspace skill
+    /// directories it does not use yet, join its agents.
+    Workspace {
+        /// The workspace the skills join.
+        id: WorkspaceId,
+        /// Directories the workspace's agents gain, each a detected agent's.
+        dirs: BTreeSet<String>,
+        /// Each skill and the targets it gains there.
+        skills: BTreeMap<SkillId, WorkspaceTargets>,
+    },
 }
 
 /// A library skill active in a global or workspace skill directory, or a copy SkillBinder still
@@ -176,6 +197,31 @@ mod tests {
         assert!(Targets::AllAgents.includes("codex"));
         assert!(specific.includes("claude-code"));
         assert!(!specific.includes("codex"));
+        Ok(())
+    }
+
+    #[test]
+    fn additions_round_trip() -> serde_json::Result<()> {
+        let id = WorkspaceId("acme".to_owned());
+        let changes = [
+            AddSkills::YourAgents {
+                skills: [(SkillId("pdf".into()), ["claude-code".to_owned()].into())].into(),
+            },
+            AddSkills::Workspace {
+                id,
+                dirs: [".agents/skills".to_owned()].into(),
+                skills: [
+                    (SkillId("pdf".into()), WorkspaceTargets::AllAgents),
+                    (
+                        SkillId("review".into()),
+                        WorkspaceTargets::Dirs([".claude/skills".to_owned()].into()),
+                    ),
+                ]
+                .into(),
+            },
+        ];
+        let stored = serde_json::to_string(&changes)?;
+        assert_eq!(serde_json::from_str::<Vec<AddSkills>>(&stored)?, changes);
         Ok(())
     }
 

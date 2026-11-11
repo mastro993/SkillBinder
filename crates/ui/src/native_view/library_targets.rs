@@ -167,7 +167,7 @@ impl NativeView {
 /// The agents of `row` and of every other row reading the same directory, such as an agent whose
 /// global skill directory links to the universal one: the target is the directory, so they are
 /// chosen together.
-fn sharing(row: &AgentRow, rows: &[AgentRow]) -> Vec<String> {
+pub(super) fn sharing(row: &AgentRow, rows: &[AgentRow]) -> Vec<String> {
     rows.iter()
         .filter(|other| other.resolved == row.resolved)
         .flat_map(|other| other.ids.iter().cloned())

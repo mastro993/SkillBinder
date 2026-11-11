@@ -45,6 +45,14 @@ impl Client {
         self.spawn_scan();
         Ok(())
     }
+    /// Adds library skills to the active preset or a workspace as one change, publishing its
+    /// progress while it runs, then scans again once.
+    pub async fn add_skills(&self, change: AddSkills) -> AppResult<()> {
+        let added = self.tracked(self.shared.engine.add_skills(change)).await;
+        self.refresh_preserving_outcome(added).await?;
+        self.spawn_scan();
+        Ok(())
+    }
     /// Holds a library skill in a workspace for `targets`, or deactivates it there with `None`,
     /// then scans again so the workspace's found skills show its copies.
     pub async fn set_workspace_skill(

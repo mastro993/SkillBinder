@@ -6,8 +6,8 @@ use gpui_kit::component::{
     IconName, Sizable, WindowExt, button::ButtonVariants, dialog::Dialog, h_flex,
 };
 use gpui_kit::{
-    AnyElement, Context, IntoElement, ParentElement, SharedString, Styled, Text, Window, div,
-    prelude::FluentBuilder,
+    AnyElement, Context, IntoElement, ParentElement, Pixels, SharedString, Size, Styled, Text,
+    Window, div, prelude::FluentBuilder,
 };
 use skillbinder_proto::*;
 
@@ -20,22 +20,25 @@ impl DialogState {
 }
 
 impl NativeView {
-    pub(super) fn sync_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn sync_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.drop_lost_picker();
         if matches!(self.dialog, DialogState::None) {
             if window.has_active_dialog(cx) {
                 window.close_dialog(cx);
             }
         } else if !window.has_active_dialog(cx) {
             let weak = cx.entity().downgrade();
-            window.open_dialog(cx, move |dialog, _, cx| {
+            window.open_dialog(cx, move |dialog, window, cx| {
                 let Some(view) = weak.upgrade() else {
                     return dialog;
                 };
                 view.update(cx, |view, cx| {
                     let close_view = cx.entity().downgrade();
                     let locked = view.dialog_locked();
-                    view.build_dialog(dialog, cx)
-                        .overlay_closable(!locked)
+                    // A click outside the picker keeps it, so a long selection is not lost.
+                    let picking = matches!(view.dialog, DialogState::AddSkill(_));
+                    view.build_dialog(dialog, window.viewport_size(), cx)
+                        .overlay_closable(!locked && !picking)
                         .close_button(false)
                         .keyboard(!locked)
                         .on_ok(|_, _, _| false)
@@ -47,6 +50,12 @@ impl NativeView {
                         })
                 })
             });
+            // The dialog takes focus as it opens; the picker hands it to its search.
+            if let DialogState::AddSkill(picker) = &self.dialog {
+                picker
+                    .search
+                    .update(cx, |input, cx| input.focus(window, cx));
+            }
         }
     }
 
@@ -70,17 +79,27 @@ impl NativeView {
         title: impl Into<SharedString>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        self.dialog_heading(Text::new("title".into(), title.into()), cx)
+    }
+
+    /// Title row holding `title`, such as text and chips, with the app close button.
+    pub(super) fn dialog_heading(
+        &self,
+        title: impl IntoElement,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         h_flex()
             .w_full()
             .justify_between()
             .gap_2()
-            .child(Text::new("title".into(), title.into()))
+            .child(title)
             .when(!self.dialog_locked(), |row| {
                 row.child(
                     button("dialog-close")
                         .ghost()
                         .small()
                         .icon(IconName::Close)
+                        .tooltip("Close")
                         .accessibility_label("Close dialog")
                         .on_click(
                             cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
@@ -152,9 +171,15 @@ impl NativeView {
             )
     }
 
-    fn build_dialog(&self, dialog: Dialog, cx: &mut Context<Self>) -> Dialog {
+    fn build_dialog(
+        &self,
+        dialog: Dialog,
+        viewport: Size<Pixels>,
+        cx: &mut Context<Self>,
+    ) -> Dialog {
         match &self.dialog {
             DialogState::None => dialog,
+            DialogState::AddSkill(picker) => self.skill_picker_dialog(dialog, picker, viewport, cx),
             DialogState::ImportPlan(plan) => self.import_plan_dialog(dialog, plan, cx),
             DialogState::DeletePreset(preview) => self.delete_preset_dialog(dialog, preview, cx),
             DialogState::Copies(CopiesListing::Attention(review)) => {

@@ -163,6 +163,10 @@ pub(super) fn held_in(
     }
 }
 
+/// What a workspace change saves: the directories that join the workspace's agents, and each
+/// skill's targets there, `None` dropping it.
+pub(crate) type WorkspaceEdit = (BTreeSet<String>, Vec<(SkillId, Option<WorkspaceTargets>)>);
+
 impl State {
     /// Holds library skill `skill` in workspace `id` for `targets`, or, with `None` or no
     /// directories, deactivates it there, then writes or removes its copies at once. Directories
@@ -176,6 +180,37 @@ impl State {
         targets: Option<WorkspaceTargets>,
     ) -> AppResult<()> {
         self.require_recovered()?;
+        self.change_workspace_skills(id, |workspace| {
+            let targets = targets.filter(
+                |targets| !matches!(targets, WorkspaceTargets::Dirs(dirs) if dirs.is_empty()),
+            );
+            let (targets, added) = match targets {
+                Some(WorkspaceTargets::AllAgents) if workspace.dirs.is_empty() => {
+                    return Err(AppError::validation(
+                        "Choose which agents this workspace uses.",
+                    ));
+                }
+                Some(WorkspaceTargets::Dirs(dirs)) if workspace.dirs.is_empty() => {
+                    (Some(WorkspaceTargets::AllAgents), dirs)
+                }
+                Some(WorkspaceTargets::Dirs(dirs)) => {
+                    let added = dirs.difference(&workspace.dirs).cloned().collect();
+                    (Some(WorkspaceTargets::Dirs(dirs)), added)
+                }
+                targets => (targets, BTreeSet::new()),
+            };
+            Ok((added, vec![(skill.clone(), targets)]))
+        })
+    }
+
+    /// Saves what `edit` makes of workspace `id` in one transaction, then writes or removes the
+    /// copies of each skill whose directories changed in one pass. The workspace's folder must be
+    /// there, each skill in the library, and each joining directory a detected agent's.
+    pub(crate) fn change_workspace_skills(
+        &self,
+        id: &WorkspaceId,
+        edit: impl FnOnce(&Workspace) -> AppResult<WorkspaceEdit>,
+    ) -> AppResult<()> {
         let workspace = self
             .workspaces()?
             .into_iter()
@@ -184,34 +219,24 @@ impl State {
         if workspace.missing {
             return Err(AppError::validation("The workspace folder is missing."));
         }
-        if !library_store::holds(&mut self.database.borrow_mut(), skill.as_str())? {
-            return Err(AppError::not_found("Skill no longer exists."));
+        let (added, skills) = edit(&workspace)?;
+        for (skill, _) in &skills {
+            if !library_store::holds(&mut self.database.borrow_mut(), skill.as_str())? {
+                return Err(AppError::not_found("Skill no longer exists."));
+            }
         }
-        let targets = targets
-            .filter(|targets| !matches!(targets, WorkspaceTargets::Dirs(dirs) if dirs.is_empty()));
-        let (targets, added) = match targets {
-            Some(WorkspaceTargets::AllAgents) if workspace.dirs.is_empty() => {
-                return Err(AppError::validation(
-                    "Choose which agents this workspace uses.",
-                ));
-            }
-            Some(WorkspaceTargets::Dirs(dirs)) if workspace.dirs.is_empty() => {
-                (Some(WorkspaceTargets::AllAgents), dirs)
-            }
-            Some(WorkspaceTargets::Dirs(dirs)) => {
-                let added = dirs.difference(&workspace.dirs).cloned().collect();
-                (Some(WorkspaceTargets::Dirs(dirs)), added)
-            }
-            targets => (targets, BTreeSet::new()),
-        };
         if !added.is_subset(&detected_dirs(&self.config)?) {
             return Err(AppError::validation(
                 "Choose the skill directory of a detected agent.",
             ));
         }
+        let skills: Vec<_> = skills
+            .iter()
+            .map(|(skill, targets)| (skill, targets.as_ref()))
+            .collect();
         self.change_places(|state| {
             database::transaction(&mut state.database.borrow_mut(), |connection| {
-                save(connection, id, &added, &[(skill, targets.as_ref())])
+                save(connection, id, &added, &skills)
             })
         })
     }

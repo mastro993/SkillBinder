@@ -30,6 +30,8 @@ pub(super) enum Activity {
     DeletingActive { preset: String },
     /// Applying an import of `skills` reviewed skills.
     Importing { skills: usize },
+    /// Adding these library skills, by slug, to a workspace or your agents.
+    Adding { skills: Vec<String> },
 }
 
 impl Activity {
@@ -38,6 +40,7 @@ impl Activity {
         match self {
             Self::Switching { .. } | Self::DeletingActive { .. } => "Switching…",
             Self::Importing { .. } => "Importing…",
+            Self::Adding { .. } => "Adding…",
         }
     }
 
@@ -47,6 +50,7 @@ impl Activity {
             Self::Switching { preset } => format!("Switching to {preset}"),
             Self::DeletingActive { .. } => "Switching to Default".to_owned(),
             Self::Importing { skills: count } => skills("Importing", *count),
+            Self::Adding { skills } => named("Adding", skills),
         }
     }
 
@@ -56,6 +60,7 @@ impl Activity {
             Self::Switching { preset } => format!("Switched to {preset}"),
             Self::DeletingActive { preset } => format!("Deleted {preset} · Switched to Default"),
             Self::Importing { .. } => skills("Imported", landing.imported),
+            Self::Adding { skills } => named("Added", skills),
         }
     }
 }
@@ -65,6 +70,14 @@ fn skills(verb: &str, count: usize) -> String {
     match count {
         1 => format!("{verb} 1 skill"),
         count => format!("{verb} {count} skills"),
+    }
+}
+
+/// `<verb> <slug>` for one skill, otherwise `<verb> <n> skills`.
+fn named(verb: &str, slugs: &[String]) -> String {
+    match slugs {
+        [slug] => format!("{verb} {slug}"),
+        slugs => skills(verb, slugs.len()),
     }
 }
 
