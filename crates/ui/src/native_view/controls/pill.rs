@@ -9,13 +9,10 @@ use gpui_kit::{
     prelude::FluentBuilder, px,
 };
 
-use super::dashed;
 use super::logo::{Ink, Logo};
 
 /// The hover group of one pill.
 const GROUP: &str = "pill";
-/// The dashed outline's ink.
-pub(crate) const DASHED_INK: f32 = 0.24;
 
 /// The pill; the caller adds its click, tooltip, and accessible name. An `inert` pill, which a
 /// press leaves as it is, shows no hover.
@@ -60,9 +57,16 @@ pub(crate) fn pill(
                 .border_color(foreground)
                 .bg(theme.background)
         })
-        .when(!on, |pill| {
-            pill.child(dashed::outline(foreground.alpha(DASHED_INK)))
-        })
+        .when(!on, |pill| dashed(pill, cx))
         .when(!inert, |pill| pill.hover(move |style| style.bg(hover)))
         .child(mark)
+}
+
+/// `element` inside the dashed outline of an off pill or an inactive skill's `+` circle: a 1 px
+/// border in the text color at 24%.
+pub(crate) fn dashed<E: Styled>(element: E, cx: &App) -> E {
+    element
+        .border_1()
+        .border_dashed()
+        .border_color(cx.theme().foreground.alpha(0.24))
 }

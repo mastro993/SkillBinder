@@ -9,7 +9,7 @@ use super::controls::avatar::{self, Fill, Ring};
 use super::controls::chip::{chip, dot};
 use super::controls::exact_text::{exact_text, sized};
 use super::controls::logo::{Ink, Logo};
-use super::controls::{dashed, pill, tooltip::tip};
+use super::controls::{pill, tooltip::tip};
 use super::library_items::{ITEM_GROUP, surface};
 use super::preset_colors::preset_tint;
 use super::snapshot_query::{SkillPlaces, WorkspacePlace};
@@ -221,7 +221,7 @@ fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> An
         },
         hover: Some((PLACE_GROUP, theme.foreground)),
     };
-    let button = button
+    let button = pill::dashed(button, cx)
         .justify_center()
         .size(px(26.))
         .rounded_full()
@@ -229,7 +229,6 @@ fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> An
         .opacity(if open { 1. } else { 0. })
         .group_hover(ITEM_GROUP, |style| style.opacity(1.))
         .focus_visible(|style| style.opacity(1.))
-        .child(dashed::outline(theme.foreground.alpha(pill::DASHED_INK)))
         .child(Logo::Glyph("icons/plus.svg").element(14., plus, false));
     tip(button, "Turn on").into_any_element()
 }

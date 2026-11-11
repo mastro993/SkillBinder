@@ -403,7 +403,7 @@ fn a_pointer_close_focuses_the_view_as_before(cx: &mut TestAppContext) {
 fn the_outline_clears_each_control_and_its_border_by_a_pixel(cx: &mut TestAppContext) {
     let harness = Harness::new(cx, false);
     harness.click(cx, "trigger");
-    // The switch and Cursor's pill have no border; Claude Code's pill is on, with a 1 px border.
+    // The switch has no border; the pills have a 1 px border, dashed while off.
     for control in &CONTROLS[..3] {
         harness.press(cx, &["tab"]);
         harness.check(cx, |window| {

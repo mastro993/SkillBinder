@@ -4,7 +4,6 @@
 
 pub(super) mod avatar;
 pub(super) mod chip;
-pub(super) mod dashed;
 pub(super) mod dialog_surface;
 pub(super) mod exact_text;
 pub(super) mod logo;
