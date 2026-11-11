@@ -6,8 +6,7 @@
 
 use super::NativeView;
 use super::controls::exact_text::{exact_text, sized};
-use super::controls::logo::{Ink, Logo};
-use super::controls::{pill, tooltip};
+use super::controls::{Logo, app_icon, pill, tooltip};
 use super::library_avatars::{Ring, stack};
 use super::library_items::{ITEM_GROUP, surface};
 use super::preset_colors::preset_tint;
@@ -137,14 +136,6 @@ fn active_button(
             .child(stack(&logos, ring, cx))
             .tooltip(tooltip(format!("Your agents\n{names}")))
     });
-    let chevron = Ink {
-        rest: if open {
-            theme.foreground
-        } else {
-            theme.muted_foreground
-        },
-        hover: Some((PLACE_GROUP, theme.foreground)),
-    };
     button
         .gap(px(6.))
         .pl(px(6.))
@@ -156,10 +147,9 @@ fn active_button(
         })
         .children(workspace_chip(places, &workspaces, narrow, cx))
         .child(
-            div()
-                .flex_none()
+            inked("chevron", open, cx)
                 .opacity(0.7)
-                .child(Logo::Glyph("icons/arrow-down.svg").element(12., chevron, false)),
+                .child(app_icon("arrow-down").size(px(12.))),
         )
         .into_any_element()
 }
@@ -187,7 +177,7 @@ fn workspace_chip(
         ),
         several => (
             chip(cx)
-                .child(Logo::Glyph("icons/code-folder.svg").element(13., muted.into(), false))
+                .child(app_icon("code-folder").size(px(13.)).text_color(muted))
                 .child(Text::new("count".into(), several.len().to_string().into())),
             several
                 .iter()
@@ -208,15 +198,6 @@ fn workspace_chip(
 /// The 26 px dashed `+` circle of an inactive skill, shown while its row or tile is hovered, it
 /// has keyboard focus, or its popover is open.
 fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> AnyElement {
-    let theme = cx.theme();
-    let plus = Ink {
-        rest: if open {
-            theme.foreground
-        } else {
-            theme.muted_foreground
-        },
-        hover: Some((PLACE_GROUP, theme.foreground)),
-    };
     pill::dashed(button, cx)
         .justify_center()
         .size(px(26.))
@@ -225,9 +206,26 @@ fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> An
         .opacity(if open { 1. } else { 0. })
         .group_hover(ITEM_GROUP, |style| style.opacity(1.))
         .focus_visible(|style| style.opacity(1.))
-        .child(Logo::Glyph("icons/plus.svg").element(14., plus, false))
+        .child(inked("plus", open, cx).child(app_icon("plus").size(px(14.))))
         .tooltip(tooltip("Turn on"))
         .into_any_element()
+}
+
+/// The wrapper `id` of the chevron or the `+`, whose glyph inherits the text color from it: muted,
+/// and the text color while the popover is open or the pointer is on the button. A stateful
+/// element keeps that hover from frame to frame, so the glyph can take it as it is laid out.
+fn inked(id: &'static str, open: bool, cx: &App) -> Stateful<Div> {
+    let theme = cx.theme();
+    let foreground = theme.foreground;
+    div()
+        .id(id)
+        .flex_none()
+        .text_color(if open {
+            foreground
+        } else {
+            theme.muted_foreground
+        })
+        .group_hover(PLACE_GROUP, move |style| style.text_color(foreground))
 }
 
 /// The active preset's chip: its color dot, muted without a color, then its name. It says where

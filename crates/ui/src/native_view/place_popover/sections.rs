@@ -5,9 +5,8 @@
 //! progress strip is up. A missing workspace's pills never do anything and take no focus.
 
 use super::super::controls::exact_text::{exact_text, sized};
-use super::super::controls::logo::Logo;
 use super::super::controls::press::pressable;
-use super::super::controls::{switch::switch, tooltip};
+use super::super::controls::{Logo, switch::switch, tooltip};
 use super::super::library_copies::Reader;
 use super::super::library_places::{place_pill, preset_chip, section_label};
 use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};

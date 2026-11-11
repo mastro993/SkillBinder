@@ -1,11 +1,11 @@
 //! The app's ways into GPUI Kit's controls. Buttons and checkboxes get the hand cursor, which Kit
 //! keeps only on its link and text button variants; a text button gets the design's medium label;
-//! and an element that is not a Kit control gets Kit's tooltip. The submodules hold the controls
-//! the app still draws itself.
+//! an element that is not a Kit control gets Kit's tooltip; and an agent or a skill directory gets
+//! its logo, which Kit has no picker for. The submodules hold the controls the app still draws
+//! itself.
 
 pub(super) mod dialog_surface;
 pub(super) mod exact_text;
-pub(super) mod logo;
 pub(super) mod motion;
 pub(super) mod pill;
 pub(super) mod popover;
@@ -15,12 +15,13 @@ pub(super) mod shadow;
 pub(super) mod switch;
 pub(super) mod toast;
 
+use super::library_copies::Reader;
 use gpui_kit::component::{
     Disableable, Icon, Sizable, Size, button::Button, checkbox::Checkbox, tooltip::Tooltip,
 };
 use gpui_kit::{
-    AnyView, App, ElementId, ParentElement, SharedString, Styled, Window, div,
-    prelude::FluentBuilder, px,
+    AnyElement, AnyView, App, ElementId, IntoElement, ParentElement, SharedString, Styled,
+    StyledImage, Window, div, img, prelude::FluentBuilder, px,
 };
 use skillbinder_theme::MEDIUM;
 
@@ -75,6 +76,55 @@ pub(super) fn agent_icon(id: &str) -> Icon {
         || app_icon("square-terminal"),
         |path| Icon::empty().path(path),
     )
+}
+
+/// What an avatar or a pill draws for an agent or a skill directory: a retained glyph, an agent's
+/// monochrome logo, or its full-color logo.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Logo {
+    /// A retained Hugeicons glyph by its asset path, drawn in the text color.
+    Glyph(&'static str),
+    /// A monochrome logo by its asset path, drawn in the text color.
+    Mono(&'static str),
+    /// A full-color logo by its asset path, drawn in its own colors.
+    Color(&'static str),
+}
+
+impl Logo {
+    /// An agent's full-color logo, else its monochrome logo, else the square terminal glyph.
+    pub(super) fn agent(id: &str) -> Self {
+        crate::assets::agent_color_logo(id)
+            .map(Self::Color)
+            .or_else(|| crate::assets::agent_logo(id).map(Self::Mono))
+            .unwrap_or(Self::Glyph("icons/square-terminal.svg"))
+    }
+
+    /// The `layers` glyph for Universal, otherwise the reading agent's logo.
+    pub(super) fn reader(reader: &Reader) -> Self {
+        match reader {
+            Reader::Universal(_) => Self::Glyph("icons/layers.svg"),
+            Reader::Agent(id) => Self::agent(id),
+        }
+    }
+
+    pub(super) fn is_color(self) -> bool {
+        matches!(self, Self::Color(_))
+    }
+
+    /// The logo at `size` px: a glyph or monochrome logo is Kit's icon in the text color it
+    /// inherits; a color logo keeps its colors, or turns grayscale when `gray`.
+    pub(super) fn element(self, size: f32, gray: bool) -> AnyElement {
+        match self {
+            Self::Glyph(path) | Self::Mono(path) => {
+                Icon::empty().path(path).size(px(size)).into_any_element()
+            }
+            Self::Color(path) => img(path)
+                .flex_none()
+                .size(px(size))
+                .grayscale(gray)
+                .into_any_element(),
+        }
+    }
 }
 
 pub(super) trait Inactive {

@@ -5,7 +5,6 @@
 //! and the search but keeps the folder tab.
 
 use super::controls::exact_text::{sized, tabular};
-use super::controls::logo::Logo;
 use super::controls::{app_icon, text_button, tooltip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};
@@ -224,24 +223,20 @@ impl NativeView {
                         .update(cx, |input, cx| input.set_value("", window, cx));
                     cx.notify();
                 }));
-            return empty_state("icons/search.svg", "No skills match".to_owned(), cx)
+            return empty_state("search", "No skills match".to_owned(), cx)
                 .child(div().mt(px(8.)).child(clear))
                 .into_any_element();
         }
         match self.shown_folder() {
-            Some(folder) => empty_state(
-                "icons/folder.svg",
-                format!("No skills in {}", folder.name),
-                cx,
-            )
-            .into_any_element(),
+            Some(folder) => empty_state("folder", format!("No skills in {}", folder.name), cx)
+                .into_any_element(),
             None => div().into_any_element(),
         }
     }
 }
 
-/// The empty state's glyph in a 40 px rounded square, then its title.
-fn empty_state(icon: &'static str, title: String, cx: &Context<NativeView>) -> Div {
+/// The empty state's `icon` glyph in a 40 px rounded square, then its title.
+fn empty_state(icon: &str, title: String, cx: &Context<NativeView>) -> Div {
     let theme = cx.theme();
     v_flex()
         .w_full()
@@ -259,7 +254,7 @@ fn empty_state(icon: &'static str, title: String, cx: &Context<NativeView>) -> D
                 .mb(px(4.))
                 .rounded(px(10.))
                 .bg(theme.muted)
-                .child(Logo::Glyph(icon).element(20., theme.foreground.into(), false)),
+                .child(app_icon(icon).size(px(20.)).text_color(theme.foreground)),
         )
         .child(
             sized(div().id("empty-title"), 14.)

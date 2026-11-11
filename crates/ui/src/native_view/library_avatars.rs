@@ -3,8 +3,7 @@
 //! are not applied. The avatar stack, which Library's placement button shows too, lives here.
 
 use super::controls::exact_text::{exact_text, sized};
-use super::controls::logo::Logo;
-use super::controls::{app_icon, tooltip};
+use super::controls::{Logo, app_icon, tooltip};
 use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::library_copies::{AgentRow, Reader};
 use super::library_items::{ITEM_GROUP, SkillItem, surface};

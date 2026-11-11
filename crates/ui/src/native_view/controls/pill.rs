@@ -9,7 +9,7 @@ use gpui_kit::{
     prelude::FluentBuilder, px,
 };
 
-use super::logo::{Ink, Logo};
+use super::Logo;
 
 /// The hover group of one pill.
 const GROUP: &str = "pill";
@@ -25,22 +25,23 @@ pub(crate) fn pill(
 ) -> Stateful<Div> {
     let theme = cx.theme();
     let (foreground, muted, hover) = (theme.foreground, theme.muted_foreground, theme.muted);
-    let ink = if on {
-        Ink::from(foreground)
-    } else {
-        Ink {
-            rest: muted.opacity(0.5),
-            hover: (!inert).then_some((GROUP, foreground.opacity(0.5))),
-        }
-    };
+    // A glyph inherits its color from here, whose hover a stateful element keeps from frame to
+    // frame.
     let mark = div()
+        .id("logo")
         .flex()
         .flex_none()
         .items_center()
         .justify_center()
         .size(px(16.))
+        .text_color(if on { foreground } else { muted.opacity(0.5) })
+        .when(!on && !inert, |mark| {
+            mark.group_hover(GROUP, move |style| {
+                style.text_color(foreground.opacity(0.5))
+            })
+        })
         .when(!on && logo.is_color(), |mark| mark.opacity(0.5))
-        .child(logo.element(15., ink, !on));
+        .child(logo.element(15., !on));
     div()
         .id(id)
         .group(GROUP)

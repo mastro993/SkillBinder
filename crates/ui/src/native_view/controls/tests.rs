@@ -3,8 +3,9 @@
 
 use std::{cell::Cell, rc::Rc};
 
+use super::super::library_copies::Reader;
 use super::super::place_popover::place_line;
-use super::logo::Logo;
+use super::Logo;
 use super::popover::{Align, Anchor, placed, surface};
 use super::{pill, switch};
 use gpui_kit::base::TestSupportExt;
@@ -189,4 +190,21 @@ fn the_popover_opens_below_its_trigger_painted_in_the_same_frame(cx: &mut TestAp
         "{popover:?}"
     );
     assert_eq!(sized(popover), (302., 287.));
+}
+
+#[test]
+fn agents_take_their_color_logo_then_their_monochrome_one_then_the_terminal_glyph() {
+    assert_eq!(
+        Logo::agent("claude-code"),
+        Logo::Color("agents/claude-code-color.svg")
+    );
+    assert_eq!(Logo::agent("cursor"), Logo::Mono("agents/cursor.svg"));
+    assert_eq!(
+        Logo::agent("dexto"),
+        Logo::Glyph("icons/square-terminal.svg")
+    );
+    assert_eq!(
+        Logo::reader(&Reader::Universal(Vec::new())),
+        Logo::Glyph("icons/layers.svg")
+    );
 }
