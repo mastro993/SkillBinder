@@ -30,10 +30,12 @@ Open a bundle in a browser. Its variant bar switches variants, and its demo cont
 
 Each control comes from GPUI Kit, styled through its public API; the app keeps no look-alike of a Kit control. The user settled these on 2026-11-11:
 
-1. **Toasts are Kit Notifications** at the bottom center: a card in Kit's notification column, with a × on hover, sliding up, closing after 5 s and pausing while hovered. This covers the end-of-change toast and the Undo toasts. It replaces the prototype's inverted chip (Progress C4, D4).
+1. **The end-of-change toast is a Kit Notification** at the bottom center: a card in Kit's notification column, with a × on hover, sliding up, closing after 5 s and pausing while hovered. It replaces the prototype's inverted chip (Progress C4).
 2. **Tooltips are Kit's defaults** everywhere. On an element that is not a Kit control, GPUI's tooltip with a Kit `Tooltip` shows below and right of the pointer after 500 ms. There is no custom delay.
 3. **The Library toolbar is 32 px**, Kit's standard height: the search field, the Updates chip and both segmented switches.
 4. **Agent avatars are Kit Avatars.** A logo clipped to the circle is fine. The ring that separates overlapping avatars keeps the row's color while the pointer is on the placement button, and takes the open highlight while the popover is open.
+
+The Undo toasts on the workspace and agent pages follow from Kit first ([decisions.md](decisions.md) General 1): they are the same Kit Notification (D4).
 
 | Element | Kit component |
 |---|---|
@@ -82,7 +84,7 @@ The prototypes have no data for these, so they have no screenshot: a workspace w
 
 ## Reference screenshots
 
-`references/<area>/` holds 108 PNGs of the states above, light and dark, rendered from the prototypes on 2026-11-09 at 2x with the app's color tokens and its 232 px sidebar. They show hover, tooltip, popover and toast states that take interaction to reach, and they serve PR before-and-after images. They illustrate the design; they are not a pass criterion. Check a native surface against the prototype by eye: layout, hierarchy, copy, icons, states and behavior. Nothing regenerates them, so when a prototype changes a state, recapture that screenshot from the prototype or delete it.
+`references/<area>/` holds 108 PNGs of the states above, light and dark, rendered from the prototypes on 2026-11-09 at 2x with the app's color tokens and its 232 px sidebar. They show hover, tooltip, popover and toast states that take interaction to reach, and they serve PR before-and-after images. They illustrate the design; they are not a pass criterion. Check a native surface against the prototype by eye: layout, hierarchy, copy, icons, states and behavior. Nothing regenerates them, so when a prototype changes a state, recapture that screenshot from the prototype or delete it. An open bundle draws the kit's fallback colors and a 170 px mock sidebar, so a recaptured screenshot differs slightly from the others; that is fine for an illustration.
 
 ## Folder layout
 

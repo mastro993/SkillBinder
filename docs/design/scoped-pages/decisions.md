@@ -25,13 +25,15 @@ The user settled each point below on 2026-11-09, where a prototype disagreed wit
 | C2 | The placement fill equalled the row hover, so it did not show on a hovered row | the menu highlight over the row's fill, as General 3 |
 | C3 | Logos in pills and avatars: #99 asked for monochrome logos | a pill shows the logo in its own colors when on and grayscale at half opacity when off; row avatars put color logos on white |
 | C4 | Agent order and fixture targets | the real data, as General 4 |
+| C5 | Avatar metrics: #99 and the app used 20 px avatars with the ring inside | Kit Avatars, about 18 px, overlapping, with a ring separating them (revised 2026-11-11) |
 | C6 | Empty-state copy: #99 had three messages | one "No skills match" with "Clear filters", plus "No skills in <folder>" |
 | C7 | Accessible names | #99's names, which carry the slug: "Change where <slug> is on", "Turn on <slug>" |
+| C9 | Page and row geometry: the app's gutter 24, rows 90.5 and a grid of 3 | the prototype's frame, gutters and 4-column grid over the app's; sizes are guidance (revised 2026-11-11) |
 | C10 | Updates chip: #99 asked for a ghost button | the outlined pill chip, solid foreground when on; Kit's 32 px since 2026-11-11 |
 | C11 | Workspace pills never wrapped | many logo pills wrap onto further lines, aligned to the trailing edge |
 | C12 | Count weight: #99 asked for muted 11-point figures | medium weight |
 
-C5 (avatar metrics), C8 (tooltip text size), C9 (page and row geometry) and C13 (app-owned segmented control and switch) fixed exact sizes or app-owned controls; they were withdrawn on 2026-11-11.
+C8 (a 12 px tooltip as an app-owned control) and C13 (an app-owned segmented control and switch) were withdrawn on 2026-11-11: the tooltip, the segmented switches and the switch are Kit's.
 
 ## Progress (#98)
 
@@ -67,7 +69,7 @@ C9 (the pill's button text at 12 px, as an app-owned button) was withdrawn on 20
 - **D1 Overlap mark.** The `robot` glyph in a small secondary square, with the tooltip "Also in your agents" and the names, replaces #101's yellow overlap tag.
 - **D2 Edited mark.** `pencil-edit` with the tooltip "Changed here" and the place.
 - **D3 Clear button.** None in the search field on these pages.
-- **D4 Toast.** A Kit Notification at the bottom center that closes after 5 s and pauses while hovered (revised 2026-11-11; it was an app toast lasting 4 s).
+- **D4 Toast.** A Kit Notification at the bottom center that closes after 5 s and pauses while hovered (revised 2026-11-11 under General 1; it was an app toast lasting 4 s).
 - **D5 Menu row order.** The app's: Universal first, then by name.
 - **D6 Preset tints.** The prototype's blue `#3b82f6` and amber `#f59e0b`, which the native fixture sets as custom colors. Default, neutral, is muted foreground.
 - **D7 Edited-copy prompt.** The prototype's narrow confirmation, about 320 wide: "You changed this skill here" with Keep and Remove.
