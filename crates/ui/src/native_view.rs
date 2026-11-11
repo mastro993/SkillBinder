@@ -482,7 +482,7 @@ impl Render for NativeView {
             .children(self.render_place_popover(window, cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
             .children(self.render_review(cx))
-            .children(self.render_strip(cx))
+            .children(self.render_strip(window, cx))
             .children(self.render_toast(cx))
     }
 }

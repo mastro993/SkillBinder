@@ -7,7 +7,6 @@
 pub(super) mod dialog_surface;
 pub(super) mod exact_text;
 pub(super) mod motion;
-pub(super) mod progress_bar;
 pub(super) mod shadow;
 pub(super) mod toast;
 

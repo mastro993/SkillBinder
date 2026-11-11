@@ -2,7 +2,7 @@
 //! copied across as-is spreads twice as far; [`css`] converts one.
 //!
 //! The large drop shadow of the app's own overlays: CSS `0 20px 25px -5px` then `0 8px 10px -6px`,
-//! both black at 10%, under the progress pill, the end toast, and the app's dialogs.
+//! both black at 10%, under the end toast and the app's dialogs.
 //!
 //! A GPUI shadow keeps its element's corner radius on the spread box, where CSS rounds a spread
 //! shadow to the radius plus the spread, so a pill or a card would cast a shadow with the wrong
@@ -42,15 +42,12 @@ const LARGE: [Css; 2] = [
 /// The corners of the surface a shadow follows.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Corners {
-    /// Fully rounded, as a pill.
-    Full,
     /// Rounded to this radius.
     Radius(f32),
 }
 
 /// `surface` under the large shadow, in a holder as large as it. `inset` is how far inside
-/// `surface` the box the design shadows lies, such as 1 px for a hairline ring drawn around it.
-/// The shadows paint before `surface`, so a translucent ring composites over them as in CSS.
+/// `surface` the box the design shadows lies. The shadows paint before `surface`.
 pub(crate) fn under_large(surface: impl IntoElement, inset: f32, corners: Corners) -> Div {
     div()
         .relative()
@@ -76,8 +73,6 @@ fn caster(shadow: &Css, inset: f32, corners: Corners) -> Div {
         .top(px(side + shadow.y))
         .bottom(px(side - shadow.y))
         .shadow(vec![css(0., 0., shadow.blur, 0., ink)]);
-    match corners {
-        Corners::Full => caster.rounded_full(),
-        Corners::Radius(radius) => caster.rounded(px((radius + shadow.spread).max(0.))),
-    }
+    let Corners::Radius(radius) = corners;
+    caster.rounded(px((radius + shadow.spread).max(0.)))
 }
