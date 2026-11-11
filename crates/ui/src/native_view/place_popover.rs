@@ -85,8 +85,8 @@ impl NativeView {
         cx.notify();
     }
 
-    /// Closes the popover; while it has keyboard focus, its trigger takes it back, or the window's
-    /// shortcuts once the trigger is gone.
+    /// Closes the popover. A key that closes it while it has focus hands focus back to its
+    /// trigger; otherwise, or once the trigger is gone, the view takes focus.
     pub(super) fn close_place_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(popover) = self.place_popover.take() {
             popover.release(&self.focus, window, cx);

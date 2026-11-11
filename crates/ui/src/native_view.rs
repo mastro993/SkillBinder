@@ -206,6 +206,7 @@ pub struct NativeView {
     /// The window lost focus since the app last refreshed.
     left_focus: bool,
     _activation_subscription: Subscription,
+    _focus_lost_subscription: Subscription,
     _subscription: Task<()>,
 }
 
@@ -268,9 +269,13 @@ impl NativeView {
                 input.set_value(remote.branch.clone(), window, cx)
             });
         }
-        // Window-level shortcuts such as ToggleSidebar dispatch through the focused view.
+        // Window-level shortcuts such as ToggleSidebar dispatch through the focused view, so it
+        // takes focus back whenever the focused element leaves the window, such as an open
+        // popover on leaving the page.
         let focus = cx.focus_handle();
         window.focus(&focus, cx);
+        let focus_lost_subscription =
+            cx.on_focus_lost(window, |view, window, cx| window.focus(&view.focus, cx));
         Self {
             client,
             snapshot,
@@ -330,6 +335,7 @@ impl NativeView {
             _workspace_name_subscription: workspace_name_subscription,
             left_focus: false,
             _activation_subscription: activation_subscription,
+            _focus_lost_subscription: focus_lost_subscription,
             _subscription: subscription,
         }
     }

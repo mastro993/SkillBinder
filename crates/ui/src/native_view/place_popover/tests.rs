@@ -3,14 +3,14 @@
 
 use super::super::snapshot_query::Places;
 use super::super::snapshot_query::fixture::{Fixture, agents, id, preset_id};
+use super::PlacePopover;
 use super::sections::{Placer, Sections};
-use super::{PlacePopover, key_bindings};
 use gpui_kit::test::{TestSupportExt, TestWindowExt};
 use gpui_kit::{
     AnyWindowHandle, AppContext, Bounds, Context, Entity, FocusHandle, FrameObserver,
-    InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Render,
-    StatefulInteractiveElement, Styled, TestAppContext, Window, WindowBounds, WindowOptions, div,
-    px, size,
+    InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Render, ScrollDelta,
+    StatefulInteractiveElement, Styled, TestAppContext, Window, WindowBounds, WindowOptions,
+    canvas, div, point, prelude::FluentBuilder, px, size,
 };
 use skillbinder_proto::{AppSnapshot, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 use std::sync::Arc;
@@ -110,11 +110,25 @@ impl Render for Host {
                     .into_any_element(),
             )
         });
+        // Like the Library's trigger, it records where it is while the popover is open, so a
+        // press on it is not a press outside.
+        let cells = self.popover.as_ref().map(|popover| popover.cells.clone());
         let trigger = div()
             .id("trigger")
             .test_support()
             .track_focus(&self.trigger)
+            .relative()
             .size(px(26.))
+            .when_some(cells, |trigger, cells| {
+                trigger.child(
+                    canvas(
+                        move |bounds, _, _| cells.trigger.set(Some(bounds)),
+                        |_, (), _, _| {},
+                    )
+                    .absolute()
+                    .size_full(),
+                )
+            })
             .on_click(cx.listener(|host, _, window, cx| host.toggle(window, cx)))
             .on_key_down(cx.listener(|host, event: &KeyDownEvent, window, cx| {
                 if event.keystroke.key == "enter" {
@@ -127,6 +141,8 @@ impl Render for Host {
             .test_support()
             .track_focus(&self.focus)
             .size_full()
+            // As the Library's list does.
+            .on_scroll_wheel(cx.listener(|host, _, window, cx| host.close(window, cx)))
             .child(trigger)
             .children(popover)
     }
@@ -145,10 +161,8 @@ struct Harness {
 
 impl Harness {
     fn new(cx: &mut TestAppContext, busy: bool) -> Self {
-        cx.update(|cx| {
-            gpui_kit::init(cx);
-            cx.bind_keys(key_bindings());
-        });
+        // The app's own init, so the popover's Tab bindings are the ones the app registers.
+        cx.update(crate::init);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::new(
                 Default::default(),
@@ -255,6 +269,15 @@ impl Harness {
             assert_eq!(window.find("trigger").focused(), Some(true));
         });
     }
+
+    /// The popover is gone and the view itself has focus, not the trigger.
+    fn assert_closed_on_view(&self, cx: &mut TestAppContext) {
+        self.check(cx, |window| {
+            assert!(window.try_find("place-popover").is_none());
+            assert_eq!(window.find("trigger").focused(), Some(false));
+            assert_eq!(window.find("host").focused(), Some(true));
+        });
+    }
 }
 
 #[gpui_kit::test]
@@ -358,4 +381,36 @@ fn a_click_shows_no_outline_until_the_keyboard_moves_focus(cx: &mut TestAppConte
     );
     harness.press(cx, &["tab"]);
     assert_eq!(harness.outlined(cx), Some(CONTROLS[2]));
+}
+
+#[gpui_kit::test]
+fn a_pointer_close_focuses_the_view_as_before(cx: &mut TestAppContext) {
+    let harness = Harness::new(cx, false);
+    harness.click(cx, "trigger");
+    harness.press(cx, &["tab"]);
+    // The trigger's click closes it, though pressing the trigger focuses it first.
+    harness.click(cx, "trigger");
+    harness.assert_closed_on_view(cx);
+    // A scroll closes it while the pill a click focused still has focus.
+    harness.click(cx, "trigger");
+    harness.click(cx, CONTROLS[1]);
+    let delta = ScrollDelta::Pixels(point(px(0.), px(-40.)));
+    harness.step(cx, |window, cx| window.scroll("host", delta, cx));
+    harness.assert_closed_on_view(cx);
+}
+
+#[gpui_kit::test]
+fn the_outline_clears_each_control_and_its_border_by_a_pixel(cx: &mut TestAppContext) {
+    let harness = Harness::new(cx, false);
+    harness.click(cx, "trigger");
+    // The switch and Cursor's pill have no border; Claude Code's pill is on, with a 1 px border.
+    for control in &CONTROLS[..3] {
+        harness.press(cx, &["tab"]);
+        harness.check(cx, |window| {
+            let edge = window.find(*control).bounds();
+            let outline = window.within(*control).find("focus-outline").bounds();
+            // A 1 px gap, then the 2 px ring.
+            assert_eq!(outline, edge.dilate(px(3.)), "{control}");
+        });
+    }
 }

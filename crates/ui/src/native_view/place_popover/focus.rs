@@ -2,7 +2,8 @@
 //! no control shows its outline until Tab reaches one. Each control keeps one focus while the
 //! popover is open. Tab and Shift-Tab cycle the controls in the order they are drawn, wrapping at
 //! either end rather than leaving for the page behind; GPUI Kit's focus trap would walk every tab
-//! stop of a long Library to wrap. Closing hands focus back to the trigger.
+//! stop of a long Library to wrap. Closing it from the keyboard hands focus back to the trigger;
+//! any other close focuses the view, as before.
 
 use std::cell::RefCell;
 
@@ -54,16 +55,15 @@ impl PlacePopover {
         }
     }
 
-    /// Hands focus back to the trigger while the popover has it, or to `fallback`, the view's own
-    /// focus, once the trigger is no longer drawn.
+    /// Hands focus back as the popover closes: to the trigger when a key closes it while it has
+    /// focus and the trigger is still drawn, otherwise to `fallback`, the view's own focus, as a
+    /// pointer close always did.
     pub(super) fn release(&self, fallback: &FocusHandle, window: &mut Window, cx: &mut App) {
-        if !self.focus.contains_focused(window, cx) {
-            return;
-        }
+        let keyed = window.last_input_was_keyboard() && self.focus.contains_focused(window, cx);
         let restore = self
             .restore
             .as_ref()
-            .filter(|restore| fallback.contains(restore, window))
+            .filter(|restore| keyed && fallback.contains(restore, window))
             .unwrap_or(fallback);
         window.focus(restore, cx);
     }
