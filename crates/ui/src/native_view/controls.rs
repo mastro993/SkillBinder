@@ -1,8 +1,8 @@
 //! The app's ways into GPUI Kit's controls. Buttons and checkboxes get the hand cursor, which Kit
 //! keeps only on its link and text button variants; a text button gets the design's medium label;
-//! an element that is not a Kit control gets Kit's tooltip; and an agent or a skill directory gets
-//! its logo, which Kit has no picker for. The `text` submodule holds the design's type and tabular
-//! figures.
+//! an element that is not a Kit control gets Kit's tooltip; a base control gets Kit's focus ring
+//! only from the keyboard; and an agent or a skill directory gets its logo, which Kit has no
+//! picker for. The `text` submodule holds the design's type and tabular figures.
 
 #[cfg(test)]
 pub(super) mod frames;
@@ -10,11 +10,12 @@ pub(super) mod text;
 
 use super::library_copies::Reader;
 use gpui_kit::component::{
-    Disableable, Icon, Sizable, Size, button::Button, checkbox::Checkbox, tooltip::Tooltip,
+    Disableable, Icon, Sizable, Size, ThemeStyled, button::Button, checkbox::Checkbox,
+    tooltip::Tooltip,
 };
 use gpui_kit::{
-    AnyElement, AnyView, App, ElementId, FocusHandle, IntoElement, ParentElement, SharedString,
-    Styled, StyledImage, Window, div, img, prelude::FluentBuilder, px,
+    AnyElement, AnyView, App, ElementId, FocusHandle, InteractiveElement, IntoElement,
+    ParentElement, SharedString, Styled, StyledImage, Window, div, img, prelude::FluentBuilder, px,
 };
 use skillbinder_theme::MEDIUM;
 
@@ -66,10 +67,22 @@ pub(super) fn tooltip(
     }
 }
 
-/// Whether `focus` has focus that a key gave it, the only focus that shows Kit's focus ring on the
-/// app's own controls: a click that focuses one shows none.
-pub(super) fn keyboard_focused(focus: &FocusHandle, window: &Window) -> bool {
-    focus.is_focused(window) && window.last_input_was_keyboard()
+/// What a test build tags the control that draws a focus ring with, since Kit's ring has none.
+pub(super) const FOCUS_RING: &str = "app-focus-ring";
+
+/// `control` with Kit's focus ring while `focus` has focus that a key gave it, the only focus that
+/// shows one on the app's own controls: a click that focuses one shows none. In a test build the
+/// ringed control carries the [`FOCUS_RING`] debug selector.
+pub(super) fn focus_ring<E>(control: E, focus: &FocusHandle, window: &Window, cx: &App) -> E
+where
+    E: ThemeStyled + ParentElement + InteractiveElement + FluentBuilder,
+{
+    let ringed = focus.is_focused(window) && window.last_input_was_keyboard();
+    control.when(ringed, |control| {
+        control
+            .focus_ring_style(window, cx)
+            .debug_selector(|| FOCUS_RING.to_owned())
+    })
 }
 
 /// Retained Hugeicons artwork mapped under `icons/` in the asset source.

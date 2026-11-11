@@ -5,12 +5,12 @@
 //! and the search but keeps the folder tab.
 
 use super::controls::text::{sized, tabular};
-use super::controls::{app_icon, keyboard_focused, text_button, tooltip};
+use super::controls::{app_icon, focus_ring, text_button, tooltip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};
 use gpui_kit::base::Toggle;
 use gpui_kit::component::tab::{Tab, TabBar};
-use gpui_kit::component::{ActiveTheme, Size, ThemeStyled, h_flex, input::Input, v_flex};
+use gpui_kit::component::{ActiveTheme, Size, h_flex, input::Input, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, Div, FontWeight, InteractiveElement, IntoElement,
     ParentElement, StatefulInteractiveElement, Styled, Text, Window, div, prelude::FluentBuilder,
@@ -124,7 +124,6 @@ impl NativeView {
             })
             .read(cx)
             .clone();
-        let ring = keyboard_focused(&focus, window);
         let toggle = cx.listener(|view, _: &ClickEvent, window, cx| {
             view.library_filter.updates = !view.library_filter.updates;
             view.close_place_popover(window, cx);
@@ -165,9 +164,8 @@ impl NativeView {
                     .text_color(count_color)
                     .child(Text::new("count".into(), value.to_string().into())),
             )
-            .tooltip(tooltip("Updates"))
-            .when(ring, |chip| chip.focus_ring_style(window, cx));
-        chip.into_any_element()
+            .tooltip(tooltip("Updates"));
+        focus_ring(chip, &focus, window, cx).into_any_element()
     }
 
     /// The List and Grid segments; the choice is kept across launches.

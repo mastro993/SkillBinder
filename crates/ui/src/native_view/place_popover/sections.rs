@@ -7,14 +7,14 @@
 //! take no focus.
 
 use super::super::controls::text::sized;
-use super::super::controls::{Logo, keyboard_focused, tooltip};
+use super::super::controls::{Logo, focus_ring, tooltip};
 use super::super::library_copies::Reader;
 use super::super::library_places::{place_pill, preset_chip, section_label};
 use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::super::workspace_icons::sized_icon;
 use super::{PlacePopover, place_line};
 use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, Toggle, spring};
-use gpui_kit::component::{ActiveTheme, ThemeStyled, box_shadow, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, box_shadow, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, FocusHandle, InteractiveElement, IntoElement,
     ParentElement, Pixels, StatefulInteractiveElement, Styled, Text, Window, div, hsla,
@@ -245,10 +245,7 @@ fn pressable<V: Placer>(
     window: &Window,
     cx: &Context<V>,
 ) -> AnyElement {
-    pill.track_focus(focus)
-        .when(keyboard_focused(focus, window), |pill| {
-            pill.focus_ring_style(window, cx)
-        })
+    focus_ring(pill.track_focus(focus), focus, window, cx)
         .when_some(press, |pill, press| pill.on_change(on_change(press, cx)))
         .into_any_element()
 }
@@ -289,9 +286,6 @@ fn all_agents_switch(
         .p(px(1.))
         .bg(theme.switch)
         .styles(|styles| styles.checked(|style| style.bg(primary)))
-        .when(keyboard_focused(focus, window), |track| {
-            track.focus_ring_style(window, cx)
-        })
         .child(
             SwitchThumb::new(on)
                 .size(px(THUMB))
@@ -311,5 +305,5 @@ fn all_agents_switch(
         .accessibility_label("All agents")
         .track_focus(focus)
         .flex_none()
-        .child(track)
+        .child(focus_ring(track, focus, window, cx))
 }

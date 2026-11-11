@@ -1,6 +1,7 @@
 //! The popover's keyboard journeys in a GPUI test window, drawn by a stand-in for the native view
 //! with the popover's own content, box, and focus.
 
+use super::super::controls::FOCUS_RING;
 use super::super::snapshot_query::Places;
 use super::super::snapshot_query::fixture::{Fixture, agents, id, preset_id};
 use super::PlacePopover;
@@ -9,8 +10,8 @@ use gpui_kit::test::{TestSupportExt, TestWindowExt};
 use gpui_kit::{
     AnyWindowHandle, AppContext, Bounds, Context, Entity, FocusHandle, FrameObserver,
     InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Render, ScrollDelta,
-    StatefulInteractiveElement, Styled, TestAppContext, Window, WindowBounds, WindowOptions,
-    canvas, div, point, prelude::FluentBuilder, px, size,
+    StatefulInteractiveElement, Styled, TestAppContext, VisualTestContext, Window, WindowBounds,
+    WindowOptions, canvas, div, point, prelude::FluentBuilder, px, size,
 };
 use skillbinder_proto::{AppSnapshot, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 use std::sync::Arc;
@@ -252,13 +253,17 @@ impl Harness {
         focused
     }
 
-    /// The control showing Kit's focus ring, if one does: the focused one, while the last input
-    /// was a key. Kit's ring has no id to find it by.
+    /// The control drawing Kit's focus ring, if one does, found by the debug selector the app's
+    /// ring gives it, since Kit's ring has no id.
     fn ringed(&self, cx: &mut TestAppContext) -> Option<&'static str> {
-        let focused = self.focused(cx);
-        let mut keyboard = false;
-        self.check(cx, |window| keyboard = window.last_input_was_keyboard());
-        focused.filter(|_| keyboard)
+        let ring = VisualTestContext::from_window(self.handle, cx).debug_bounds(FOCUS_RING)?;
+        let mut ringed = None;
+        self.check(cx, |window| {
+            ringed = CONTROLS
+                .into_iter()
+                .find(|control| window.find(*control).bounds().contains(&ring.center()));
+        });
+        ringed
     }
 
     /// The popover is gone and its trigger has focus.
