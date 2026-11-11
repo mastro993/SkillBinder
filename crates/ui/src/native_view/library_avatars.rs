@@ -5,7 +5,7 @@
 use super::controls::avatar::{self, Ring, SHOWN};
 use super::controls::exact_text::sized;
 use super::controls::logo::Logo;
-use super::controls::{app_icon, tooltip::tip};
+use super::controls::{app_icon, tooltip};
 use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::library_copies::{AgentRow, Reader};
 use super::library_items::{SkillItem, surface};
@@ -39,12 +39,13 @@ impl NativeView {
                 .map(|holder| holder.name.clone())
                 .collect::<Vec<_>>()
                 .join("\n");
-            let more = div()
+            div()
                 .id(format!("holders-more-{}", item.skill.id))
                 .child(avatar::more(hidden, &ring, cx))
                 // The circle opens nothing, and the click must not open the skill either.
-                .on_click(|_, _, cx| cx.stop_propagation());
-            tip(more, names).into_any_element()
+                .on_click(|_, _, cx| cx.stop_propagation())
+                .tooltip(tooltip(names))
+                .into_any_element()
         });
         let avatars: Vec<AnyElement> = applied
             .iter()
@@ -76,7 +77,7 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let skill = id.clone();
-        let glyph = div()
+        div()
             .id(format!("unsettled-{id}"))
             .flex_shrink_0()
             .cursor_pointer()
@@ -89,8 +90,9 @@ impl NativeView {
                 cx.stop_propagation();
                 view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
                 cx.notify();
-            }));
-        tip(glyph, unsettled_summary(count)).into_any_element()
+            }))
+            .tooltip(tooltip(unsettled_summary(count)))
+            .into_any_element()
     }
 }
 
@@ -103,20 +105,21 @@ fn holder_avatar(
     cx: &mut Context<NativeView>,
 ) -> AnyElement {
     let route = holder.route();
-    let (tooltip, key) = match &holder.reader {
+    let (text, key) = match &holder.reader {
         Reader::Universal(names) => (
             format!("{}\nUsed by {}", holder.dir, names.join(", ")),
             "universal".to_owned(),
         ),
         Reader::Agent(id) => (holder.dir.clone(), id.clone()),
     };
-    let chip = div()
+    div()
         .id(format!("holder-{skill}-{key}"))
         .cursor_pointer()
         .child(avatar::avatar(Logo::reader(&holder.reader), ring, cx))
         .on_click(cx.listener(move |view, _, window, cx| {
             cx.stop_propagation();
             view.navigate(route.clone(), window, cx);
-        }));
-    tip(chip, tooltip).into_any_element()
+        }))
+        .tooltip(super::controls::tooltip(text))
+        .into_any_element()
 }

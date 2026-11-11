@@ -15,10 +15,14 @@ pub(super) mod segmented;
 pub(super) mod shadow;
 pub(super) mod switch;
 pub(super) mod toast;
-pub(super) mod tooltip;
 
-use gpui_kit::component::{Disableable, Icon, Sizable, Size, button::Button, checkbox::Checkbox};
-use gpui_kit::{ElementId, ParentElement, SharedString, Styled, div, prelude::FluentBuilder, px};
+use gpui_kit::component::{
+    Disableable, Icon, Sizable, Size, button::Button, checkbox::Checkbox, tooltip::Tooltip,
+};
+use gpui_kit::{
+    AnyView, App, ElementId, ParentElement, SharedString, Styled, Window, div,
+    prelude::FluentBuilder, px,
+};
 use skillbinder_theme::MEDIUM;
 
 /// Button that shows a hand cursor while it is enabled.
@@ -49,6 +53,16 @@ pub(super) fn text_button(
 /// Checkbox that shows a hand cursor while it is enabled.
 pub(super) fn checkbox(id: impl Into<ElementId>) -> Checkbox {
     Checkbox::new(id).cursor_pointer()
+}
+
+/// Kit's tooltip reading `text`, one line per `\n`, for GPUI's `tooltip` on an element that is
+/// not a Kit control: it shows below and right of the pointer once the pointer rests on the
+/// element for GPUI's delay.
+pub(super) fn tooltip(
+    text: impl Into<SharedString>,
+) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static {
+    let text = text.into();
+    move |window, cx| Tooltip::new(text.clone()).build(window, cx)
 }
 
 /// Retained Hugeicons artwork mapped under `icons/` in the asset source.

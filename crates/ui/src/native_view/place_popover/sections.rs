@@ -7,7 +7,7 @@
 use super::super::controls::exact_text::{exact_text, sized};
 use super::super::controls::logo::Logo;
 use super::super::controls::press::pressable;
-use super::super::controls::{switch::switch, tooltip::tip};
+use super::super::controls::{switch::switch, tooltip};
 use super::super::library_copies::Reader;
 use super::super::library_places::{place_pill, preset_chip, section_label};
 use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
@@ -115,7 +115,10 @@ impl Sections<'_> {
                     .child(section_label("agents-label", "Your agents", cx))
                     .child(preset_chip(self.preset, cx)),
             )
-            .child(place_line(tip(group, "Includes agents added later"), pills))
+            .child(place_line(
+                group.tooltip(tooltip("Includes agents added later")),
+                pills,
+            ))
             .into_any_element()
     }
 
@@ -200,7 +203,9 @@ impl Sections<'_> {
             });
         let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));
         if place.missing() {
-            tip(line.opacity(0.4), "The workspace folder is missing.").into_any_element()
+            line.opacity(0.4)
+                .tooltip(tooltip("The workspace folder is missing."))
+                .into_any_element()
         } else {
             line.into_any_element()
         }

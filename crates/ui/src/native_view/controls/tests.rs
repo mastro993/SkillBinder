@@ -7,13 +7,13 @@ use super::super::place_popover::place_line;
 use super::avatar::{self, Fill, Ring};
 use super::logo::Logo;
 use super::popover::{Align, Anchor, placed, surface};
-use super::{pill, segmented, switch, tooltip};
+use super::{pill, segmented, switch};
 use gpui_kit::base::TestSupportExt;
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
     AnyWindowHandle, App, AppContext, Bounds, Context, InteractiveElement, IntoElement,
-    ParentElement, Pixels, Render, SharedString, Styled, TestAppContext, Window, WindowBounds,
-    WindowOptions, canvas, deferred, div, hsla, px, size,
+    ParentElement, Pixels, Render, Styled, TestAppContext, Window, WindowBounds, WindowOptions,
+    canvas, deferred, div, hsla, px, size,
 };
 
 struct Gallery {
@@ -21,7 +21,7 @@ struct Gallery {
 }
 
 impl Render for Gallery {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let record = self.trigger.clone();
         let anchor = self.trigger.clone();
         let ring = Ring {
@@ -61,11 +61,9 @@ impl Render for Gallery {
                             .id("wrapped")
                             .child(avatar::stack(&logos, &ring, cx))
                             .test_support(),
-                    )
-                    .child(tooltip::tip(div().id("tipped").size(px(10.)), "Tip").test_support()),
+                    ),
             )
             .child(popover_lines(logos[0], cx))
-            .child(wrapped_tooltip(window, cx))
             .child(
                 div()
                     .absolute()
@@ -134,21 +132,6 @@ fn popover_lines(logo: Logo, cx: &App) -> impl IntoElement {
         )
 }
 
-/// Three words, each too wide to share a line with another, so they wrap onto three rows though
-/// the text is less than twice the box's width.
-const WRAPPING: &str = "aaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbb cccccccccccccccccccc";
-
-/// The tooltip box for [`WRAPPING`], sized as the tooltip measures it.
-fn wrapped_tooltip(window: &Window, cx: &App) -> impl IntoElement {
-    let text = SharedString::from(WRAPPING);
-    let width = tooltip::measure(&text, window).width;
-    div().absolute().top(px(400.)).left(px(100.)).child(
-        tooltip::surface(&[text], width, cx)
-            .id("tooltip-box")
-            .test_support(),
-    )
-}
-
 fn open(cx: &mut TestAppContext) -> AnyWindowHandle {
     cx.update(|cx| {
         gpui_kit::init(cx);
@@ -198,7 +181,6 @@ fn controls_take_the_prototypes_sizes(cx: &mut TestAppContext) {
         "four 18-point avatars, each overlapping the one before by 5"
     );
     assert_eq!(sized(bounds(cx, window, "wrapped")), (57., 18.));
-    assert_eq!(sized(bounds(cx, window, "tipped")), (10., 10.));
 }
 
 #[gpui_kit::test]
@@ -242,25 +224,4 @@ fn the_popover_opens_below_its_trigger_painted_in_the_same_frame(cx: &mut TestAp
         "{popover:?}"
     );
     assert_eq!(sized(popover), (302., 287.));
-}
-
-#[gpui_kit::test]
-fn a_tooltip_is_as_tall_as_its_word_wrapped_lines(cx: &mut TestAppContext) {
-    let window = open(cx);
-    let measured = cx
-        .update_window(window, |_, window, _| {
-            tooltip::measure(&SharedString::from(WRAPPING), window)
-        })
-        .unwrap_or_else(|error| panic!("read test window: {error}"));
-    // Three 16.2-point rows inside 4 points of padding and a 1-point border, top and bottom.
-    assert!(
-        (f32::from(measured.height) - 58.6).abs() < 0.01,
-        "{measured:?}"
-    );
-    // Layout snaps to the test window's whole device pixels, so the drawn box rounds 58.6.
-    let drawn = bounds(cx, window, "tooltip-box").size.height;
-    assert!(
-        (f32::from(drawn) - f32::from(measured.height)).abs() < 1.,
-        "the box holds every wrapped row: {drawn:?}"
-    );
 }

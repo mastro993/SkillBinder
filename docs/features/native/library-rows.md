@@ -59,7 +59,6 @@ Every visible text run has an element id in every build, so the `native-test` br
 | A workspace chip's name, or the count chip's count | `name` or `count`, in `place-workspaces-<slug>` |
 | The `+N` avatar | `more` |
 | The empty state's title | `empty-title` |
-| A tooltip's lines | `tooltip-line` with the line's index |
 | The popover's section labels | `agents-label`, `workspaces-label` |
 | The preset chip's name, All agents | `name`, in `place-preset`; `label`, in `place-all-row` |
 | A workspace's name and "No agents yet" | `name`, in `place-ws-<workspace>`; `none-<workspace>` |

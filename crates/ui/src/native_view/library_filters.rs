@@ -8,13 +8,11 @@ use super::controls::logo::Logo;
 use super::controls::segmented::{
     SEGMENT_GAP, SEGMENT_PADDING, TRACK_PADDING, count, glyph, segment, track,
 };
-use super::controls::{app_icon, text_button, tooltip::tip};
+use super::controls::{app_icon, text_button, tooltip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};
 use gpui_kit::base::Toggle;
-use gpui_kit::component::{
-    ActiveTheme, Size, ThemeStyled, h_flex, input::Input, tooltip::Tooltip, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Size, ThemeStyled, h_flex, input::Input, v_flex};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, Div, FontWeight, InteractiveElement, IntoElement,
     ParentElement, Role, StatefulInteractiveElement, Styled, Text, Window, div,
@@ -205,7 +203,7 @@ impl NativeView {
                     .text_color(count_color)
                     .child(Text::new("count".into(), value.to_string().into())),
             )
-            .tooltip(|window, cx| Tooltip::new("Updates").build(window, cx))
+            .tooltip(tooltip("Updates"))
             .when(ring, |chip| chip.focus_ring_style(window, cx));
         chip.into_any_element()
     }
@@ -218,7 +216,7 @@ impl NativeView {
         ]
         .map(|(key, label, icon, view)| {
             let chosen = self.library_view == view;
-            let segment = segment(format!("library-view-{key}"), chosen, cx)
+            segment(format!("library-view-{key}"), chosen, cx)
                 .role(Role::Tab)
                 .aria_label(label)
                 .child(glyph(icon, chosen, cx))
@@ -227,8 +225,8 @@ impl NativeView {
                     this.close_place_popover(window, cx);
                     this.persist_preferences(cx);
                     cx.notify();
-                }));
-            tip(segment, label)
+                }))
+                .tooltip(tooltip(label))
         });
         track("library-view", cx)
             .role(Role::TabList)

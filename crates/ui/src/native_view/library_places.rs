@@ -8,7 +8,7 @@ use super::NativeView;
 use super::controls::avatar::{self, Fill, Ring};
 use super::controls::exact_text::{exact_text, sized};
 use super::controls::logo::{Ink, Logo};
-use super::controls::{pill, tooltip::tip};
+use super::controls::{pill, tooltip};
 use super::library_items::{ITEM_GROUP, surface};
 use super::preset_colors::preset_tint;
 use super::sidebar_row::dot;
@@ -137,10 +137,10 @@ fn active_button(
                 .collect::<Vec<_>>()
                 .join(", ")
         };
-        let stack = div()
+        div()
             .id(format!("place-agents-{}", places.skill))
-            .child(avatar::stack(&logos, &ring, cx));
-        tip(stack, format!("Your agents\n{names}"))
+            .child(avatar::stack(&logos, &ring, cx))
+            .tooltip(tooltip(format!("Your agents\n{names}")))
     });
     let chevron = Ink {
         rest: if open {
@@ -178,39 +178,36 @@ fn workspace_chip(
     cx: &App,
 ) -> Option<Stateful<Div>> {
     let muted = cx.theme().muted_foreground;
-    let base = |tag: Tag| {
-        div()
-            .id(format!("place-workspaces-{}", places.skill))
-            .flex_none()
-            .child(tag)
-    };
-    match workspaces {
-        [] => None,
-        [only] if !narrow => Some(tip(
-            base(
-                chip(cx).child(sized_icon(only.workspace, 13., cx)).child(
-                    div()
-                        .min_w_0()
-                        .max_w(px(CHIP_NAME_MAX))
-                        .truncate()
-                        .child(Text::new("name".into(), only.workspace.name.clone().into())),
-                ),
+    let (tag, text) = match workspaces {
+        [] => return None,
+        [only] if !narrow => (
+            chip(cx).child(sized_icon(only.workspace, 13., cx)).child(
+                div()
+                    .min_w_0()
+                    .max_w(px(CHIP_NAME_MAX))
+                    .truncate()
+                    .child(Text::new("name".into(), only.workspace.name.clone().into())),
             ),
             format!("{}\n{}", only.workspace.name, only.held_names()),
-        )),
-        several => Some(tip(
-            base(
-                chip(cx)
-                    .child(Logo::Glyph("icons/code-folder.svg").element(13., muted.into(), false))
-                    .child(Text::new("count".into(), several.len().to_string().into())),
-            ),
+        ),
+        several => (
+            chip(cx)
+                .child(Logo::Glyph("icons/code-folder.svg").element(13., muted.into(), false))
+                .child(Text::new("count".into(), several.len().to_string().into())),
             several
                 .iter()
                 .map(|place| format!("{} · {}", place.workspace.name, place.held_names()))
                 .collect::<Vec<_>>()
                 .join("\n"),
-        )),
-    }
+        ),
+    };
+    Some(
+        div()
+            .id(format!("place-workspaces-{}", places.skill))
+            .flex_none()
+            .child(tag)
+            .tooltip(tooltip(text)),
+    )
 }
 
 /// The 26 px dashed `+` circle of an inactive skill, shown while its row or tile is hovered, it
@@ -225,7 +222,7 @@ fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> An
         },
         hover: Some((PLACE_GROUP, theme.foreground)),
     };
-    let button = pill::dashed(button, cx)
+    pill::dashed(button, cx)
         .justify_center()
         .size(px(26.))
         .rounded_full()
@@ -233,8 +230,9 @@ fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> An
         .opacity(if open { 1. } else { 0. })
         .group_hover(ITEM_GROUP, |style| style.opacity(1.))
         .focus_visible(|style| style.opacity(1.))
-        .child(Logo::Glyph("icons/plus.svg").element(14., plus, false));
-    tip(button, "Turn on").into_any_element()
+        .child(Logo::Glyph("icons/plus.svg").element(14., plus, false))
+        .tooltip(tooltip("Turn on"))
+        .into_any_element()
 }
 
 /// The active preset's chip: its color dot, muted without a color, then its name. It says where
@@ -247,12 +245,16 @@ pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
             preset_tint(color, theme.is_dark())
         });
     let name = preset.map_or_else(|| "Default".to_owned(), |preset| preset.name.clone());
-    let chip = div().id("place-preset").flex_none().child(
-        chip(cx)
-            .child(dot(tint))
-            .child(Text::new("name".into(), name.clone().into())),
-    );
-    tip(chip, format!("Saved to {name}")).into_any_element()
+    div()
+        .id("place-preset")
+        .flex_none()
+        .child(
+            chip(cx)
+                .child(dot(tint))
+                .child(Text::new("name".into(), name.clone().into())),
+        )
+        .tooltip(tooltip(format!("Saved to {name}")))
+        .into_any_element()
 }
 
 /// A chip: Kit's small tag on the page fill with a hairline border, fully rounded, its glyph or dot
@@ -273,18 +275,16 @@ pub(super) fn place_pill(
     logo: Logo,
     on: bool,
     inert: bool,
-    tooltip: impl Into<SharedString>,
+    text: impl Into<SharedString>,
     cx: &App,
 ) -> Stateful<Div> {
-    let tooltip = tooltip.into();
-    let label = tooltip.lines().next().unwrap_or_default().to_owned();
-    tip(
-        pill::pill(id, logo, on, inert, cx)
-            .role(Role::Button)
-            .aria_toggled(if on { Toggled::True } else { Toggled::False })
-            .aria_label(label),
-        tooltip,
-    )
+    let text = text.into();
+    let label = text.lines().next().unwrap_or_default().to_owned();
+    pill::pill(id, logo, on, inert, cx)
+        .role(Role::Button)
+        .aria_toggled(if on { Toggled::True } else { Toggled::False })
+        .aria_label(label)
+        .tooltip(tooltip(text))
 }
 
 /// An 11.5 px medium muted section label, its line `id`.

@@ -4,14 +4,14 @@
 //! workspace's page its activation there and the agents it is applied for.
 
 use super::controls::exact_text::{exact_text, sized};
-use super::controls::{app_icon, tooltip::tip};
+use super::controls::{app_icon, tooltip};
 use super::library_copies::Placement;
 use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
 use super::snapshot_query::SkillPlaces;
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, tooltip::Tooltip, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, v_flex};
 use gpui_kit::{
     AnyElement, App, Context, DefiniteLength, Div, FontWeight, Hsla, InteractiveElement,
     IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, canvas, div,
@@ -353,7 +353,7 @@ fn overlap_badge(item: &SkillItem<'_>, overlap: Overlap) -> AnyElement {
         .id(format!("overlap-{}", item.skill.id))
         .flex_shrink_0()
         .child(Tag::warning().small().child(label))
-        .tooltip(move |window, cx| Tooltip::new(explanation).build(window, cx))
+        .tooltip(tooltip(explanation))
         .into_any_element()
 }
 
@@ -374,11 +374,12 @@ fn folder_tag(folder: String, dim: bool) -> impl IntoElement {
 /// The 14 px glyph of a skill whose source has an update, in `tone`. It keeps full opacity on a
 /// dimmed row.
 fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
-    let glyph = div()
+    div()
         .id(format!("update-{id}"))
         .flex_shrink_0()
-        .child(app_icon("upload-circle").small().text_color(tone));
-    tip(glyph, "Update available").into_any_element()
+        .child(app_icon("upload-circle").small().text_color(tone))
+        .tooltip(tooltip("Update available"))
+        .into_any_element()
 }
 
 /// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
