@@ -313,10 +313,12 @@ impl NativeView {
             )
             .when(place.uses_none(), |name| {
                 name.child(
-                    text::observed(text::sized(div(), 11.5), format!("none-{}", workspace.id))
-                        .pl(px(20.))
-                        .text_color(cx.theme().muted_foreground)
-                        .child("No agents yet"),
+                    text::observed(text::sized(div(), 11.5), || {
+                        format!("none-{}", workspace.id)
+                    })
+                    .pl(px(20.))
+                    .text_color(cx.theme().muted_foreground)
+                    .child("No agents yet"),
                 )
             });
         let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));

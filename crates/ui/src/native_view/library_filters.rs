@@ -270,7 +270,7 @@ fn empty_state(icon: &'static str, title: String, cx: &Context<NativeView>) -> D
                 .child(Logo::Glyph(icon).element(20., theme.foreground.into(), false)),
         )
         .child(
-            text::observed(text::sized(div(), 14.), "empty-title")
+            text::observed(text::sized(div(), 14.), || "empty-title")
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(theme.foreground)
                 .child(title),

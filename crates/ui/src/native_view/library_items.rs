@@ -363,7 +363,7 @@ fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
 
 /// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
 fn description(item: &SkillItem<'_>, lines: usize, cx: &App) -> impl IntoElement {
-    text::observed(text::sized(div(), 12.5), format!("desc-{}", item.name()))
+    text::observed(text::sized(div(), 12.5), || format!("desc-{}", item.name()))
         .min_w_0()
         .text_color(cx.theme().muted_foreground)
         .when(item.dimmed(), |text| text.opacity(DIM))

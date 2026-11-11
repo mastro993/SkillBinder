@@ -1,6 +1,9 @@
 //! The prototypes' type: every line box is 1.4 times its font size, since GPUI's default line
 //! height (about 1.618) would make rows taller than the prototypes', and counts use tabular
-//! figures. A run of text takes the width Chrome gives it in the prototypes.
+//! figures. A run of text takes its shaped width, and weight 500 the width Chrome gives it. Other
+//! weights keep the width of the named instance GPUI draws them with: weight 600, drawn with
+//! Semibold at wght 590, sets a little narrower than Chrome's 600 ("e2e-playwright" at 14 px:
+//! 102.69 against 102.96).
 
 use std::sync::Arc;
 
@@ -49,7 +52,8 @@ pub(crate) fn line_shortfall(size: f32, scale: f32) -> f32 {
 }
 
 /// One line of `size` px text in `weight`, with tabular figures when `tabular`, in a box exactly
-/// as wide as Chrome lays it out, so whatever follows lands where the prototypes put it.
+/// as wide as its laid width (see [`Widths::of`]), so whatever follows lands where the prototypes
+/// put it.
 pub(crate) fn run(
     text: impl Into<SharedString>,
     size: f32,
@@ -91,11 +95,11 @@ pub(crate) fn truncated(
     set(text.into(), face, Fit::Truncate, cx)
 }
 
-/// `text` set in `face`, in a box as wide as Chrome lays it out, named for the gpui MCP.
+/// `text` set in `face`, in a box of its laid width, named for the gpui MCP.
 fn set(text: SharedString, face: Face, fit: Fit, cx: &App) -> Div {
     let widths = Widths::of(&text, &face, cx);
-    let id = format!("text-{text}");
-    observed(exact(widths, face, StyledText::new(text), fit), id)
+    let element = exact(widths, face, StyledText::new(text.clone()), fit);
+    observed(element, move || format!("text-{text}"))
 }
 
 /// How a run is set: its font size, line box, weight, and font features.
@@ -119,8 +123,8 @@ impl Face {
     }
 }
 
-/// A run's widths in points: `laid`, the width Chrome gives it, which sizes its box, and `drawn`,
-/// the width of the glyphs GPUI paints.
+/// A run's widths in points: `laid`, which sizes its box, and `drawn`, the width of the glyphs
+/// GPUI paints. Only weight 500's differ.
 #[derive(Clone, Copy)]
 struct Widths {
     laid: f32,
@@ -130,14 +134,19 @@ struct Widths {
 impl Widths {
     /// GPUI shapes weight 500 with the Medium instance, while Chrome draws it from the wght axis
     /// at 500, with narrower advances; such a run is laid out as Chrome lays it, see [`between`].
+    /// Any other weight is laid out at the width GPUI shapes it.
     fn of(text: &SharedString, face: &Face, cx: &App) -> Self {
-        let drawn = shaped(text, face, face.weight, cx);
-        if face.weight != MEDIUM {
+        Self::at(face.weight, |weight| shaped(text, face, weight, cx))
+    }
+
+    /// A run's widths at `weight`, from the width GPUI shapes it at a given weight.
+    fn at(weight: FontWeight, shaped: impl Fn(FontWeight) -> f32) -> Self {
+        let drawn = shaped(weight);
+        if weight != MEDIUM {
             return Self { laid: drawn, drawn };
         }
-        let regular = shaped(text, face, FontWeight::NORMAL, cx);
         Self {
-            laid: between(regular, drawn),
+            laid: between(shaped(FontWeight::NORMAL), drawn),
             drawn,
         }
     }
@@ -206,7 +215,8 @@ fn exact(widths: Widths, face: Face, text: StyledText, fit: Fit) -> Div {
         .child(line.child(text))
 }
 
-/// `text`'s width as Chrome lays it out in the system font.
+/// The width a run of `text` takes in the system font: Chrome's for weight 500, GPUI's shaped
+/// width for any other weight.
 pub(crate) fn width(
     text: &SharedString,
     size: f32,
@@ -238,19 +248,20 @@ fn shaped(text: &SharedString, face: &Face, weight: FontWeight, cx: &App) -> f32
     f32::from(shaped.width)
 }
 
-/// Names `element` `id` under `native-test`, so the gpui MCP reports its layout box to a parity
-/// check; the name changes nothing else. Elsewhere it returns `element` as it is.
+/// Names `element` with the id `id` builds under `native-test`, so the gpui MCP reports its
+/// layout box to a parity check; the name changes nothing else. Elsewhere it returns `element` as
+/// it is and never builds the id.
 #[cfg(feature = "native-test")]
-pub(crate) fn observed<E: gpui_kit::InteractiveElement>(
+pub(crate) fn observed<E: gpui_kit::InteractiveElement, I: Into<ElementId>>(
     mut element: E,
-    id: impl Into<ElementId>,
+    id: impl FnOnce() -> I,
 ) -> E {
-    element.interactivity().element_id = Some(id.into());
+    element.interactivity().element_id = Some(id().into());
     element
 }
 
 #[cfg(not(feature = "native-test"))]
-pub(crate) fn observed<E>(element: E, _: impl Into<ElementId>) -> E {
+pub(crate) fn observed<E, I: Into<ElementId>>(element: E, _: impl FnOnce() -> I) -> E {
     element
 }
 

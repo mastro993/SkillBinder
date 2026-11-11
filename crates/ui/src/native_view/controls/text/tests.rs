@@ -3,9 +3,9 @@ use std::{cell::RefCell, rc::Rc};
 use super::{Face, Fit, MEDIUM, MEDIUM_SHARE, Widths, between, exact, line_shortfall, shaped};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
-    AnyWindowHandle, AppContext, Bounds, Context, FontFeatures, IntoElement, ParentElement, Render,
-    Styled, StyledText, TestAppContext, TextLayout, Window, WindowBounds, WindowOptions, div, px,
-    size,
+    AnyWindowHandle, AppContext, Bounds, Context, FontFeatures, FontWeight, IntoElement,
+    ParentElement, Render, Styled, StyledText, TestAppContext, TextLayout, Window, WindowBounds,
+    WindowOptions, div, px, size,
 };
 
 #[test]
@@ -21,10 +21,30 @@ fn line_shortfall_is_what_device_snapping_takes_from_chromes_line_box() {
 fn weight_500_is_laid_out_as_chrome_draws_it_from_the_wght_axis() {
     // wght 500 is 100 of the 110 between the Regular instance, 400, and the Medium one, 510.
     assert!((MEDIUM_SHARE - 100. / 110.).abs() < 1e-6);
-    // CoreText widths of "Inactive" at 12.5 px, Regular and Medium, then Chrome's at weight 500.
-    assert!((between(45.660, 47.093) - 46.97).abs() < 0.01);
-    // "Clear filters" at 12 px.
+    // "Clear filters" at 12 px: CoreText's Regular and Medium widths, then Chrome's at weight 500.
     assert!((between(65.250, 67.322) - 67.14).abs() < 0.01);
+    // "Inactive" at 12.5 px, as CoreText shapes it at each weight GPUI draws.
+    let shaped = |weight: FontWeight| {
+        if weight == FontWeight::NORMAL {
+            45.660
+        } else if weight == MEDIUM {
+            47.093
+        } else {
+            48.5
+        }
+    };
+    let medium = Widths::at(MEDIUM, shaped);
+    assert!((medium.laid - 46.97).abs() < 0.01, "Chrome's width");
+    assert_eq!(medium.drawn, 47.093, "drawn with the Medium face");
+    for weight in [FontWeight::NORMAL, FontWeight::SEMIBOLD] {
+        let other = Widths::at(weight, shaped);
+        assert_eq!(
+            other.laid,
+            shaped(weight),
+            "{weight:?} keeps its shaped width"
+        );
+        assert_eq!(other.drawn, other.laid);
+    }
 }
 
 /// The text of each run, as GPUI laid it out in the last frame.
