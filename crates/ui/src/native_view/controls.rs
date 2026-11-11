@@ -1,19 +1,28 @@
 //! App buttons and checkboxes: GPUI Kit keeps the arrow cursor on them, except on link and text
-//! button variants. The submodules draw the controls Kit cannot draw as the app's design does.
+//! button variants. The submodules hold the app-owned controls drawn to the approved prototypes
+//! where Kit's own cannot match them pixel for pixel.
 
+pub(super) mod avatar;
+pub(super) mod chip;
+pub(super) mod dashed;
 pub(super) mod dialog_surface;
 pub(super) mod exact_text;
+pub(super) mod logo;
 pub(super) mod motion;
+pub(super) mod pill;
+pub(super) mod popover;
+pub(super) mod press;
 pub(super) mod progress_bar;
+pub(super) mod segmented;
 pub(super) mod shadow;
 pub(super) mod spinner;
+pub(super) mod switch;
 pub(super) mod text_button;
 pub(super) mod toast;
+pub(super) mod tooltip;
 
-use gpui_kit::component::{
-    ActiveTheme, Disableable, Icon, avatar::Avatar, button::Button, checkbox::Checkbox,
-};
-use gpui_kit::{App, ElementId, Styled, prelude::FluentBuilder, white};
+use gpui_kit::component::{Disableable, Icon, button::Button, checkbox::Checkbox};
+use gpui_kit::{ElementId, Styled, prelude::FluentBuilder};
 
 /// Button that shows a hand cursor while it is enabled.
 pub(super) fn button(id: impl Into<ElementId>) -> Button {
@@ -38,23 +47,6 @@ pub(super) fn agent_icon(id: &str) -> Icon {
     )
 }
 
-/// An agent's avatar: its full-color logo on white, else its monochrome logo or the square
-/// terminal glyph.
-pub(super) fn agent_avatar(id: &str, cx: &App) -> Avatar {
-    match crate::assets::agent_color_logo(id) {
-        Some(path) => Avatar::new().src(path).bg(white()).p_px(),
-        None => glyph_avatar(agent_icon(id), cx),
-    }
-}
-
-/// An avatar showing a glyph in the theme's text color.
-pub(super) fn glyph_avatar(icon: Icon, cx: &App) -> Avatar {
-    Avatar::new()
-        .placeholder(icon)
-        .bg(cx.theme().muted)
-        .text_color(cx.theme().foreground)
-}
-
 pub(super) trait Inactive {
     /// Disables the button and restores the arrow cursor while it is disabled.
     fn inactive(self, inactive: bool) -> Self;
@@ -73,3 +65,6 @@ impl Inactive for Checkbox {
             .when(inactive, |checkbox| checkbox.cursor_default())
     }
 }
+
+#[cfg(test)]
+mod tests;

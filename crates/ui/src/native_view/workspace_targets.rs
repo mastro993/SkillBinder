@@ -263,7 +263,11 @@ fn sharing(row: &DirRow, rows: &[DirRow]) -> Vec<String> {
 
 /// Whether `targets` hold the skill in any of `group`, among the directories the workspace
 /// `uses`.
-fn held(targets: Option<&WorkspaceTargets>, group: &[String], uses: &BTreeSet<String>) -> bool {
+pub(super) fn held(
+    targets: Option<&WorkspaceTargets>,
+    group: &[String],
+    uses: &BTreeSet<String>,
+) -> bool {
     group.iter().any(|dir| match targets {
         None => false,
         Some(WorkspaceTargets::AllAgents) => uses.contains(dir),
@@ -275,7 +279,7 @@ fn held(targets: Option<&WorkspaceTargets>, group: &[String], uses: &BTreeSet<St
 /// in any of them and join otherwise. Leaving all agents keeps the workspace's other directories
 /// as a specific list, and so does joining a directory the workspace does not use yet, which then
 /// becomes one of its agents. No directory left deactivates the skill.
-fn toggled(
+pub(super) fn toggled(
     targets: Option<&WorkspaceTargets>,
     group: &[String],
     uses: &BTreeSet<String>,

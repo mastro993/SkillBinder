@@ -351,8 +351,9 @@ pub struct LibrarySnapshot {
     pub revision: String,
     /// Machine-local details by skill identity.
     pub details: BTreeMap<SkillId, SkillDetails>,
-    /// Each global skill directory where a library skill is active, or where a managed copy
-    /// waits for the user or for a removal to succeed, by directory then slug.
+    /// Each skill directory, your agents' global ones and the workspaces' own, where a library
+    /// skill is active, or where a managed copy waits for the user or for a removal to succeed,
+    /// by directory then slug. A missing workspace's directories are left out.
     pub copies: Vec<ManagedCopy>,
 }
 /// A machine-local organization mutation.

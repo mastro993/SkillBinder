@@ -16,7 +16,7 @@ Input is blocked from the click: a transparent layer over the whole window takes
 
 The strip shows only after 300 milliseconds, so a short change does not flash: the whole window, sidebar included, takes a wash of the page color at 70%, and a pill centered on the window 10 points below its top edge shows a spinner turning every 0.9 seconds, the label, the percentage in the muted color with tabular figures, and a 2-point line in the primary color along its bottom edge. The label reads `Switching…` for a preset switch and for deleting the active preset, and `Importing…` for an import. The pill's tooltip names the change and its step, such as "Switching to Frontend" over "Copying tailwind-helper → Cursor" or "Removing release-notes from Claude Code". Once shown, the strip stays at least 500 milliseconds. As it shows, the wash fades in over 200 milliseconds, and the pill slides 6 points down into place while it fades in over 180 milliseconds; the line grows to each new percentage over 200 milliseconds.
 
-Some changes keep their own behavior and show no strip, but are refused while it is up: a Library toggle or agents menu, a workspace toggle, Retry, Replace and Keep, Sync, Update, Update all, Reinstall, and adding a workspace or choosing its image. Update all keeps its progress ring in the Library header.
+Some changes keep their own behavior and show no strip, but are refused while it is up: Library's placement button, switch and pills, which look inert meanwhile, a workspace page's toggle or agents menu, Retry, Replace and Keep, Sync, Update, Update all, Reinstall, and adding a workspace or choosing its image. Update all keeps its progress ring in the Library header.
 
 ## The end
 
@@ -35,7 +35,7 @@ When Delete preset deletes the active preset, it closes its confirmation and the
 
 ## Accessibility
 
-Every line of text in the pill, the toast and the review list is a label in the accessibility tree holding its text: the label and percentage, `Done · N need attention`, the button labels, the toast's message, and the review list's title, slugs, places and reasons, and the word that ends a settled row. Assistive technology reads them, and the `native-test` bridge reports each one's layout bounds, which the parity check compares with the reference's text boxes.
+Every line of text in the pill, the toast and the review list is the app's exact line, laid out as Library's are, weight 500 at Chrome's width ([Library rows](library-rows.md#text-runs)). Each is a label in the accessibility tree holding its text: the label and percentage, `Done · N need attention`, the toast's message, and the review list's title, slugs, places and reasons, and the word that ends a settled row. A button's label is the button's accessible name, so assistive technology does not read it again as a label. The `native-test` bridge reports every one's layout bounds and text, which the parity check compares with the reference's text boxes, under these ids: `activation-strip-label` (the running and the Done label), `activation-strip-percent-text`, `toast-message`, `title`, `copies-review-slug`, `copies-review-place`, `copies-review-reason` and `copies-review-settled` with the row's index, and `label` inside each button, such as `activation-strip-review` or `copies-review-done`.
 
 ## Native test controls
 

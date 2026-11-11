@@ -12,11 +12,14 @@ mod folder_reorder;
 mod hover_scroll;
 mod import_review;
 mod library;
+mod library_avatars;
 mod library_copies;
 mod library_dates;
 mod library_drift;
+mod library_filters;
 mod library_folders;
 mod library_items;
+mod library_places;
 mod library_targets;
 mod library_updates;
 mod library_validation;
@@ -26,6 +29,7 @@ mod native_test;
 mod navigation;
 mod onboarding;
 mod onboarding_import;
+mod place_popover;
 mod preset_activation;
 mod preset_colors;
 mod preset_dialogs;
@@ -43,6 +47,7 @@ mod sidebar_row;
 mod sidebar_scroll;
 mod sidebar_workspaces;
 mod skill_page;
+mod snapshot_query;
 mod sync;
 mod toasts;
 mod updates;
@@ -55,6 +60,12 @@ mod workspace_targets;
 #[cfg(feature = "native-test")]
 pub use native_test::StripHold;
 pub use shell::{GoBack, GoForward, ToggleSidebar};
+
+/// Binds the keys the view's own controls take before the window does: Tab and Shift-Tab in the
+/// Library popover.
+pub(crate) fn bind_keys(cx: &mut gpui_kit::App) {
+    cx.bind_keys(place_popover::key_bindings());
+}
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -143,6 +154,10 @@ pub struct NativeView {
     preset_reorder: RowReorder<PresetId>,
     /// The library folder chosen in the header; none is All skills. Not kept across restarts.
     library_folder: Option<FolderId>,
+    /// Library's Active and Updates filters; like the folder, not kept across restarts.
+    library_filter: snapshot_query::LibraryFilter,
+    /// The Library skill whose popover is open.
+    place_popover: Option<place_popover::PlacePopover>,
     /// Inline folder naming in the header.
     folder_edit: Option<FolderEdit>,
     folder_reorder: RowReorder<FolderId>,
@@ -208,6 +223,7 @@ pub struct NativeView {
     /// The window lost focus since the app last refreshed.
     left_focus: bool,
     _activation_subscription: Subscription,
+    _focus_lost_subscription: Subscription,
     _subscription: Task<()>,
 }
 
@@ -270,9 +286,13 @@ impl NativeView {
                 input.set_value(remote.branch.clone(), window, cx)
             });
         }
-        // Window-level shortcuts such as ToggleSidebar dispatch through the focused view.
+        // Window-level shortcuts such as ToggleSidebar dispatch through the focused view, so it
+        // takes focus back whenever the focused element leaves the window, such as an open
+        // popover on leaving the page.
         let focus = cx.focus_handle();
         window.focus(&focus, cx);
+        let focus_lost_subscription =
+            cx.on_focus_lost(window, |view, window, cx| window.focus(&view.focus, cx));
         Self {
             client,
             snapshot,
@@ -292,6 +312,8 @@ impl NativeView {
             preset_edit: None,
             preset_reorder: RowReorder::default().pinned(1),
             library_folder: None,
+            library_filter: snapshot_query::LibraryFilter::default(),
+            place_popover: None,
             folder_edit: None,
             creating_folder: None,
             workspace_edit: None,
@@ -336,6 +358,7 @@ impl NativeView {
             _workspace_name_subscription: workspace_name_subscription,
             left_focus: false,
             _activation_subscription: activation_subscription,
+            _focus_lost_subscription: focus_lost_subscription,
             _subscription: subscription,
         }
     }
@@ -456,6 +479,7 @@ impl Render for NativeView {
                         )),
                 )
             })
+            .children(self.render_place_popover(window, cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
             .children(self.render_review(cx))
             .children(self.render_strip(cx))

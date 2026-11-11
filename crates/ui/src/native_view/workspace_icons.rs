@@ -37,6 +37,15 @@ pub(super) fn menu_icon(workspace: &Workspace, cx: &App) -> AnyElement {
     row_icon(workspace).element(tint, icon_color(cx))
 }
 
+/// The workspace's glyph or image `size` px square, its glyph tinted or muted, as a Library chip
+/// or popover line shows it.
+pub(super) fn sized_icon(workspace: &Workspace, size: f32, cx: &App) -> AnyElement {
+    let tint = workspace
+        .color
+        .map(|color| preset_tint(color, cx.theme().is_dark()));
+    row_icon(workspace).sized(tint, cx.theme().muted_foreground, size)
+}
+
 /// The icon grid with the image choice below it, separated by a divider.
 pub(super) fn icon_picker(
     grid: Entity<IconGrid>,

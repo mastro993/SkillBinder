@@ -146,22 +146,14 @@ impl NativeView {
                             .text_size(px(14.))
                             .line_height(px(TITLE_LINE))
                             .font_weight(FontWeight::SEMIBOLD)
-                            .child(
-                                exact_text(item.1.to_string()).named(("copies-review-slug", index)),
-                            ),
+                            .child(exact_text(
+                                ("copies-review-slug", index),
+                                item.1.to_string(),
+                            )),
                     )
-                    .child(
-                        div()
-                            .flex()
-                            .min_w_0()
-                            .text_color(muted)
-                            .whitespace_nowrap()
-                            .text_ellipsis()
-                            .child(
-                                exact_text(format!("→ {place}"))
-                                    .named(("copies-review-place", index)),
-                            ),
-                    ),
+                    .child(div().flex().min_w_0().text_color(muted).child(
+                        exact_text(("copies-review-place", index), format!("→ {place}")).truncate(),
+                    )),
             )
             .child(
                 div()
@@ -173,7 +165,7 @@ impl NativeView {
                     .line_height(px(16.1))
                     .text_color(muted)
                     .child(app_icon("alert-circle").size(px(13.)).text_color(warning))
-                    .child(exact_text(reason).named(("copies-review-reason", index))),
+                    .child(exact_text(("copies-review-reason", index), reason)),
             );
         let end = match row {
             Row::Ask(choice, copy) => self
@@ -187,7 +179,7 @@ impl NativeView {
                 .text_size(px(12.))
                 .text_color(muted)
                 .child(app_icon("check").size(px(14.)))
-                .child(exact_text(word).named(("copies-review-settled", index))),
+                .child(exact_text(("copies-review-settled", index), word)),
         };
         div()
             .id(("copies-review-row", index))

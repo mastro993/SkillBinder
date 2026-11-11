@@ -63,6 +63,7 @@ impl NativeView {
         self.preview = None;
         self.update_outcome = None;
         self.skill_load = None;
+        self.place_popover = None;
         self.content_scroll.handle.set_offset(Default::default());
     }
 }

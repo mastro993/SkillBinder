@@ -144,6 +144,7 @@ impl NativeView {
                     return;
                 }
                 view.library_folder = chosen.clone();
+                view.close_place_popover(window, cx);
                 if let Some(id) = &chosen
                     && event.click_count() > 1
                 {

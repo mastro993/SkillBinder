@@ -1,13 +1,22 @@
+//! CSS box shadows in GPUI. GPUI's blur radius is a Gaussian sigma, half the CSS blur, so a shadow
+//! copied across as-is spreads twice as far; [`css`] converts one.
+//!
 //! The large drop shadow of the app's own overlays: CSS `0 20px 25px -5px` then `0 8px 10px -6px`,
 //! both black at 10%, under the progress pill, the end toast, and the app's dialogs.
 //!
 //! A GPUI shadow keeps its element's corner radius on the spread box, where CSS rounds a spread
 //! shadow to the radius plus the spread, so a pill or a card would cast a shadow with the wrong
 //! ends. Each shadow is therefore cast by a transparent box of its own, placed and rounded as CSS
-//! places and rounds that shadow, with no spread or offset; GPUI's blur radius is a Gaussian
-//! sigma, half the CSS blur.
+//! places and rounds that shadow, with no spread or offset.
 
-use gpui_kit::{BoxShadow, Div, IntoElement, ParentElement, Styled, div, hsla, px};
+use gpui_kit::{BoxShadow, Div, Hsla, IntoElement, ParentElement, Styled, div, hsla, px};
+
+/// The CSS shadow `x y blur spread color`.
+pub(crate) fn css(x: f32, y: f32, blur: f32, spread: f32, color: Hsla) -> BoxShadow {
+    BoxShadow::new(px(x), px(y), color)
+        .blur_radius(px(blur / 2.))
+        .spread_radius(px(spread))
+}
 
 /// One CSS drop shadow in black at 10%.
 struct Css {
@@ -66,9 +75,7 @@ fn caster(shadow: &Css, inset: f32, corners: Corners) -> Div {
         .right(px(side))
         .top(px(side + shadow.y))
         .bottom(px(side - shadow.y))
-        .shadow(vec![
-            BoxShadow::new(px(0.), px(0.), ink).blur_radius(px(shadow.blur / 2.)),
-        ]);
+        .shadow(vec![css(0., 0., shadow.blur, 0., ink)]);
     match corners {
         Corners::Full => caster.rounded_full(),
         Corners::Radius(radius) => caster.rounded(px((radius + shadow.spread).max(0.))),

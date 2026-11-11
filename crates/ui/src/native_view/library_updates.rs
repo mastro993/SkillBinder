@@ -2,7 +2,7 @@
 //! the last update's result, and why a check or update failed.
 
 use super::controls::{Inactive, app_icon, button};
-use super::{Effect, NativeView, Route};
+use super::{Effect, NativeView, Route, snapshot_query};
 use gpui_kit::component::{
     ActiveTheme, Sizable, Size, button::ButtonVariants, progress::ProgressCircle, tooltip::Tooltip,
     v_flex,
@@ -35,10 +35,7 @@ fn summary(outcome: &UpdateOutcome) -> String {
 impl NativeView {
     /// Whether skill `id` has an update.
     pub(super) fn has_update(&self, id: &SkillId) -> bool {
-        self.snapshot
-            .updates
-            .get(id)
-            .is_some_and(|update| update.available())
+        snapshot_query::has_update(&self.snapshot, id)
     }
 
     /// Updates `ids` from their sources, keeping the result for the page to show.

@@ -156,7 +156,7 @@ impl NativeView {
     }
 
     /// Holds `skill` in the active preset for `targets`; no agents removes it from the preset.
-    fn set_targets(&mut self, skill: SkillId, targets: Targets, cx: &mut Context<Self>) {
+    pub(super) fn set_targets(&mut self, skill: SkillId, targets: Targets, cx: &mut Context<Self>) {
         let Some(id) = self.active_preset_id() else {
             return;
         };
@@ -175,14 +175,14 @@ fn sharing(row: &AgentRow, rows: &[AgentRow]) -> Vec<String> {
 }
 
 /// Whether `targets` hold the skill for any of `ids`.
-fn held(targets: Option<&Targets>, ids: &[String]) -> bool {
+pub(super) fn held(targets: Option<&Targets>, ids: &[String]) -> bool {
     targets.is_some_and(|targets| ids.iter().any(|id| targets.includes(id)))
 }
 
 /// The targets after choosing a row reading for `ids`: they leave when the skill is held for them
 /// and join otherwise. Leaving all agents keeps every other detected agent as a specific list,
 /// which never gains agents; `every` lists the detected agents.
-fn toggled(targets: Option<&Targets>, ids: &[String], every: &[String]) -> Targets {
+pub(super) fn toggled(targets: Option<&Targets>, ids: &[String], every: &[String]) -> Targets {
     let mut agents: BTreeSet<String> = match targets {
         None => BTreeSet::new(),
         Some(Targets::AllAgents) => every.iter().cloned().collect(),

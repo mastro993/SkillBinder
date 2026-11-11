@@ -189,26 +189,43 @@ impl NativeView {
                                     cx.notify();
                                 }
                             }))
-                            .child(
-                                div()
-                                    .id("main-content")
-                                    .size_full()
-                                    .overflow_y_scroll()
-                                    .track_scroll(&self.content_scroll.handle)
-                                    .px_6()
-                                    .pt_4()
-                                    .pb_6()
-                                    .child(self.render_import_outcome(cx))
-                                    .child(page),
-                            )
-                            .child(
-                                self.content_scroll
-                                    .scrollbar("content-scrollbar", px(0.), cx),
-                            ),
+                            .children(self.render_content(page, cx)),
                     ),
             )
             .child(self.render_sidebar_toggle(window, cx))
             .into_any_element()
+    }
+
+    /// The page under the header: Library frames itself, with a fixed toolbar over its own
+    /// scrolling list; every other page scrolls whole inside the shell's 24-point gutter.
+    fn render_content(&self, page: AnyElement, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        if self.route == Route::Library {
+            return vec![
+                div()
+                    .id("main-content")
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .child(self.render_import_outcome(cx))
+                    .child(div().flex_1().min_h_0().child(page))
+                    .into_any_element(),
+            ];
+        }
+        vec![
+            div()
+                .id("main-content")
+                .size_full()
+                .overflow_y_scroll()
+                .track_scroll(&self.content_scroll.handle)
+                .px_6()
+                .pt_4()
+                .pb_6()
+                .child(self.render_import_outcome(cx))
+                .child(page)
+                .into_any_element(),
+            self.content_scroll
+                .scrollbar("content-scrollbar", px(0.), cx),
+        ]
     }
 
     fn finish_resize(

@@ -4,23 +4,23 @@
 //! while it fades in over 180 ms; once the strip ends, the wash fades out over 200 ms.
 
 use super::super::NativeView;
+use super::super::controls::exact_text::{exact_text, tabular};
 use super::super::controls::motion::{ease, ease_out};
 use super::super::controls::progress_bar::pill_progress;
 use super::super::controls::shadow::{self, Corners};
 use super::super::controls::text_button::{Height, Look, text_button};
-use super::super::controls::{app_icon, exact_text::exact_text, spinner::spinner};
+use super::super::controls::{app_icon, spinner::spinner};
 use super::super::import_review::place_name;
 use super::{Shown, WASH_FADE, done_label};
 use gpui_kit::base::FocusTrapElement;
 use gpui_kit::component::{ActiveTheme, tooltip::Tooltip};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, Context, Div, FontFeatures, InteractiveElement,
-    IntoElement, KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, div,
-    px,
+    Animation, AnimationExt, AnyElement, App, Context, Div, InteractiveElement, IntoElement,
+    KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, div, px,
 };
 use skillbinder_theme::MEDIUM;
 use skillbinder_theme::menu::{LINE_INK, surface};
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 /// Height of the pill.
 const PILL_HEIGHT: f32 = 34.;
@@ -168,7 +168,6 @@ fn pill(id: &'static str, cx: &Context<NativeView>) -> Stateful<Div> {
         .text_size(px(13.))
         .line_height(px(18.2))
         .font_weight(MEDIUM)
-        .whitespace_nowrap()
 }
 
 /// The running pill: spinner, label, percent, and the progress line along its bottom edge,
@@ -187,14 +186,17 @@ fn working_pill(
         .pr(px(14.))
         .gap(px(8.))
         .child(spinner("activation-strip-spinner", px(14.), ink))
-        .child(exact_text(label).named("activation-strip-label"))
+        .child(exact_text("activation-strip-label", label))
         .child(
             div()
                 .id("activation-strip-percent")
                 .min_w(px(32.))
                 .text_color(theme.muted_foreground)
-                .font_features(FontFeatures(Arc::new(vec![("tnum".into(), 1)])))
-                .child(exact_text(format!("{percent}%")).named("activation-strip-percent-text")),
+                .font_features(tabular())
+                .child(exact_text(
+                    "activation-strip-percent-text",
+                    format!("{percent}%"),
+                )),
         )
         .children(progress)
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
@@ -211,7 +213,7 @@ fn done_pill(waiting: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
         .child(
             div()
                 .mr(px(4.))
-                .child(exact_text(done_label(waiting)).named("activation-strip-label")),
+                .child(exact_text("activation-strip-label", done_label(waiting))),
         )
         .child(
             text_button(
