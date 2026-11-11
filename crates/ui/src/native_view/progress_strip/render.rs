@@ -4,16 +4,16 @@
 //! while it fades in over 180 ms; once the strip ends, the wash fades out over 200 ms.
 
 use super::super::NativeView;
+use super::super::controls::app_icon;
 use super::super::controls::exact_text::{exact_text, tabular};
 use super::super::controls::motion::{ease, ease_out};
 use super::super::controls::progress_bar::pill_progress;
 use super::super::controls::shadow::{self, Corners};
 use super::super::controls::text_button::{Height, Look, text_button};
-use super::super::controls::{app_icon, spinner::spinner};
 use super::super::import_review::place_name;
 use super::{Shown, WASH_FADE, done_label};
 use gpui_kit::base::FocusTrapElement;
-use gpui_kit::component::{ActiveTheme, tooltip::Tooltip};
+use gpui_kit::component::{ActiveTheme, Sizable, spinner::Spinner, tooltip::Tooltip};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, App, Context, Div, InteractiveElement, IntoElement,
     KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, div, px,
@@ -185,7 +185,13 @@ fn working_pill(
         .pl(px(12.))
         .pr(px(14.))
         .gap(px(8.))
-        .child(spinner("activation-strip-spinner", px(14.), ink))
+        .child(
+            Spinner::new()
+                .icon(app_icon("loading"))
+                .color(ink)
+                .with_size(px(14.))
+                .ease(|turned| turned),
+        )
         .child(exact_text("activation-strip-label", label))
         .child(
             div()

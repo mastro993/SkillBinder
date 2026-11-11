@@ -15,7 +15,6 @@ pub(super) mod press;
 pub(super) mod progress_bar;
 pub(super) mod segmented;
 pub(super) mod shadow;
-pub(super) mod spinner;
 pub(super) mod switch;
 pub(super) mod text_button;
 pub(super) mod toast;
