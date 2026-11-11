@@ -153,7 +153,7 @@ fn pill_row(pill: impl IntoElement) -> Div {
 
 /// The pill's surface: Kit's popover surface, with its hairline ring and shadow, on the menu
 /// surface and fully rounded.
-fn pill(id: &'static str, cx: &Context<NativeView>) -> Stateful<Div> {
+fn pill(id: &'static str, cx: &App) -> Stateful<Div> {
     div()
         .id(id)
         .relative()
@@ -169,13 +169,15 @@ fn pill(id: &'static str, cx: &Context<NativeView>) -> Stateful<Div> {
         .font_weight(MEDIUM)
 }
 
-/// The running pill: spinner, label, percent, and the progress line along its bottom edge.
+/// The running pill: spinner, label, percent, and the progress line along its bottom edge. The
+/// label and percent are plain text, which assistive technology reads once, as the progress
+/// line's name and value; their ids let the native-test bridge report them.
 fn working_pill(
     label: &'static str,
     percent: u8,
     text: String,
     window: &mut Window,
-    cx: &mut Context<NativeView>,
+    cx: &mut App,
 ) -> Stateful<Div> {
     let theme = cx.theme();
     let (ink, muted, color) = (
@@ -195,17 +197,14 @@ fn working_pill(
                 .with_size(px(14.))
                 .ease(|turned| turned),
         )
-        .child(Text::new("activation-strip-label".into(), label.into()))
+        .child(div().id("activation-strip-label").child(label))
         .child(
             div()
                 .id("activation-strip-percent")
                 .min_w(px(32.))
                 .text_color(muted)
                 .font_features(tabular())
-                .child(Text::new(
-                    "activation-strip-percent-text".into(),
-                    format!("{percent}%").into(),
-                )),
+                .child(format!("{percent}%")),
         )
         .child(line)
         .tooltip(tooltip(text))
@@ -281,3 +280,6 @@ fn done_pill(waiting: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
                 .on_click(cx.listener(|view, _, _, cx| view.close_strip(false, cx))),
         )
 }
+
+#[cfg(test)]
+mod tests;
