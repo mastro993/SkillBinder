@@ -4,12 +4,14 @@
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    App, Div, ElementId, InteractiveElement, Stateful, StatefulInteractiveElement, Styled, div,
-    hsla, prelude::FluentBuilder, px,
+    App, Div, ElementId, InteractiveElement, ParentElement, Stateful, StatefulInteractiveElement,
+    Styled, div, hsla, prelude::FluentBuilder, px,
 };
 
+use super::exact_text::{exact_text, sized, tabular};
 use super::logo::{Ink, Logo};
-use super::{shadow, text};
+use super::shadow;
+use skillbinder_theme::MEDIUM;
 
 /// The hover group of one segment.
 const GROUP: &str = "segment";
@@ -39,7 +41,7 @@ pub(crate) fn track(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
 pub(crate) fn segment(id: impl Into<ElementId>, chosen: bool, cx: &App) -> Stateful<Div> {
     let theme = cx.theme();
     let foreground = theme.foreground;
-    text::sized(div().id(id), 12.5)
+    sized(div().id(id), 12.5)
         .aria_selected(chosen)
         .group(GROUP)
         .flex()
@@ -49,7 +51,7 @@ pub(crate) fn segment(id: impl Into<ElementId>, chosen: bool, cx: &App) -> State
         .h(px(24.))
         .px(px(SEGMENT_PADDING))
         .rounded(px(6.))
-        .font_weight(text::MEDIUM)
+        .font_weight(MEDIUM)
         .cursor_pointer()
         .when(chosen, |segment| {
             segment
@@ -68,13 +70,13 @@ pub(crate) fn segment(id: impl Into<ElementId>, chosen: bool, cx: &App) -> State
         })
 }
 
-/// A segment's count: muted 11 px tabular figures.
+/// A segment's count: muted 11 px medium tabular figures; its line is `count`.
 pub(crate) fn count(value: usize, cx: &App) -> Div {
-    text::sized(
-        text::run(value.to_string(), 11., text::MEDIUM, true, cx),
-        11.,
-    )
-    .text_color(cx.theme().muted_foreground)
+    sized(div(), 11.)
+        .font_weight(MEDIUM)
+        .font_features(tabular())
+        .text_color(cx.theme().muted_foreground)
+        .child(exact_text("count", value.to_string()))
 }
 
 /// A segment's 15 px glyph: the text color while chosen, else muted until the segment is hovered.

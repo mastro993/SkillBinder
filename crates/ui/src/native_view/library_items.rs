@@ -4,7 +4,8 @@
 //! workspace's page its activation there and the agents it is applied for.
 
 use super::controls::chip::tag;
-use super::controls::{app_icon, text, tooltip::tip};
+use super::controls::exact_text::{exact_text, sized};
+use super::controls::{app_icon, tooltip::tip};
 use super::library_copies::Placement;
 use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
@@ -88,10 +89,10 @@ impl SkillItem<'_> {
 pub(super) struct Layout {
     /// Too narrow for a workspace's name, so one chip counts the workspaces.
     pub narrow: bool,
-    /// The vertical padding that makes up for GPUI's shorter name line (`text::line_shortfall`),
-    /// as a fraction of the parent's width, since GPUI rounds every point length to the device
-    /// pixel but keeps fractions: a row's padding, half the shortfall over 10 points, or the
-    /// padding around a tile's name line, half the shortfall.
+    /// The vertical padding that makes up for GPUI's shorter name line
+    /// (`exact_text::line_shortfall`), as a fraction of the parent's width, since GPUI rounds
+    /// every point length to the device pixel but keeps fractions: a row's padding, half the
+    /// shortfall over 10 points, or the padding around a tile's name line, half the shortfall.
     pub pad_y: DefiniteLength,
 }
 
@@ -207,11 +208,16 @@ impl NativeView {
         frame(self, card, item, owner, cx)
     }
 
-    /// The name with its glyphs and folder tag, one line high, padded by `pad_y` in a tile.
+    /// The name with its glyphs and folder tag, one line high, padded by `pad_y` in a tile. The
+    /// name's line is `slug`; the row's accessible name reads it.
     fn title_line(&self, item: &SkillItem<'_>, pad_y: Option<DefiniteLength>, cx: &App) -> Div {
         let dim = item.dimmed();
-        let slug = text::truncated(item.name(), SLUG_SIZE, FontWeight::SEMIBOLD, cx)
-            .when(dim, |slug| slug.opacity(DIM));
+        let slug = sized(div(), SLUG_SIZE)
+            .flex()
+            .min_w_0()
+            .font_weight(FontWeight::SEMIBOLD)
+            .when(dim, |slug| slug.opacity(DIM))
+            .child(exact_text("slug", item.name()).truncate().presentational());
         h_flex()
             .min_w_0()
             .gap(px(6.))
@@ -363,7 +369,7 @@ fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
 
 /// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
 fn description(item: &SkillItem<'_>, lines: usize, cx: &App) -> impl IntoElement {
-    text::observed(text::sized(div(), 12.5), || format!("desc-{}", item.name()))
+    sized(div().id(format!("desc-{}", item.name())), 12.5)
         .min_w_0()
         .text_color(cx.theme().muted_foreground)
         .when(item.dimmed(), |text| text.opacity(DIM))

@@ -3,8 +3,9 @@
 //! are not applied.
 
 use super::controls::avatar::{self, Ring, SHOWN};
+use super::controls::exact_text::sized;
 use super::controls::logo::Logo;
-use super::controls::{app_icon, text, tooltip::tip};
+use super::controls::{app_icon, tooltip::tip};
 use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::library_copies::{AgentRow, Reader};
 use super::library_items::{SkillItem, surface};
@@ -25,7 +26,7 @@ impl NativeView {
             (placement.applied.as_slice(), placement.unsettled.len())
         });
         if applied.is_empty() && unsettled == 0 {
-            return text::sized(div(), 11.5)
+            return sized(div().id("no-agents"), 11.5)
                 .text_color(cx.theme().muted_foreground)
                 .child("Not in any agent")
                 .into_any_element();

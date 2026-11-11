@@ -109,7 +109,6 @@ pub(crate) fn toast_layer(
         .text_color(ink)
         .text_size(px(13.))
         .line_height(px(18.2))
-        .whitespace_nowrap()
         .when_some(toast.icon, |chip, icon| {
             chip.child(app_icon(icon).size(px(15.)).flex_none().text_color(ink))
         })
@@ -117,8 +116,7 @@ pub(crate) fn toast_layer(
             div()
                 .flex()
                 .min_w_0()
-                .text_ellipsis()
-                .child(exact_text(toast.message.clone()).named("toast-message")),
+                .child(exact_text("toast-message", toast.message.clone()).truncate()),
         );
     let chip = moving(
         shadow::under_large(chip(body), 0., Corners::Radius(8.)),

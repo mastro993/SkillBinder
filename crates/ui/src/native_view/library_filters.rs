@@ -3,12 +3,14 @@
 //! the List and Grid segments. The filters last the session, like the folder tab, and combine with
 //! it and the search; "Clear filters" resets them and the search but keeps the folder tab.
 
-use super::controls::chip::{chip, outline_button};
+use super::controls::chip::chip;
+use super::controls::exact_text::{exact_text, sized, tabular, width};
 use super::controls::logo::Logo;
 use super::controls::segmented::{
     SEGMENT_GAP, SEGMENT_PADDING, TRACK_PADDING, count, glyph, segment, track,
 };
-use super::controls::{app_icon, text, tooltip::tip};
+use super::controls::text_button::{Height, Look, text_button};
+use super::controls::{app_icon, tooltip::tip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, h_flex, input::Input, v_flex};
@@ -17,6 +19,7 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, Toggled, div, prelude::FluentBuilder, px, relative,
 };
 use skillbinder_proto::LibraryView;
+use skillbinder_theme::MEDIUM;
 use skillbinder_theme::library::TOOLBAR_HEIGHT;
 
 /// The gap between the segments' track and the Updates chip.
@@ -75,17 +78,8 @@ impl NativeView {
     /// them split the rest as the prototype's do.
     fn library_filters(&self, counts: FilterCounts, toolbar: f32, cx: &mut Context<Self>) -> Div {
         let chosen = self.library_filter.active;
-        let label =
-            |label: &str| text::width(&label.into(), 12.5, text::MEDIUM, Default::default(), cx);
-        let figures = |value: usize| {
-            text::width(
-                &value.to_string().into(),
-                11.,
-                text::MEDIUM,
-                text::tabular(),
-                cx,
-            )
-        };
+        let label = |label: &str| width(&label.into(), 12.5, MEDIUM, Default::default(), cx);
+        let figures = |value: usize| width(&value.to_string().into(), 11., MEDIUM, tabular(), cx);
         let widths = [
             ("All", counts.all),
             ("Active", counts.active),
@@ -95,11 +89,11 @@ impl NativeView {
         let segments_width: f32 = widths.iter().sum();
         let inner = segments_width + 2. * TRACK_PADDING;
         let track_width = inner + 2. * TRACK_PADDING;
-        let updates = text::width(
+        let updates = width(
             &counts.updates.to_string().into(),
             12.,
             FontWeight::NORMAL,
-            text::tabular(),
+            tabular(),
             cx,
         );
         let chip_width = 2. * (CHIP_BORDER + CHIP_PADDING) + UPDATE_GLYPH + CHIP_GAP + updates;
@@ -121,7 +115,7 @@ impl NativeView {
                 .w(relative(width / inner))
                 .role(Role::Tab)
                 .aria_label(label)
-                .child(text::run(label, 12.5, text::MEDIUM, false, cx))
+                .child(exact_text("label", label).presentational())
                 .child(count(value, cx))
                 .on_click(cx.listener(move |view, _, window, cx| {
                     view.library_filter.active = filter;
@@ -169,11 +163,11 @@ impl NativeView {
                 false,
             ))
             .child(
-                text::sized(
-                    text::run(value.to_string(), 12., FontWeight::NORMAL, true, cx),
-                    12.,
-                )
-                .text_color(count_color),
+                sized(div(), 12.)
+                    .font_weight(FontWeight::NORMAL)
+                    .font_features(tabular())
+                    .text_color(count_color)
+                    .child(exact_text("count", value.to_string())),
             )
             .on_click(cx.listener(|view, _, window, cx| {
                 view.library_filter.updates = !view.library_filter.updates;
@@ -224,14 +218,19 @@ impl NativeView {
                 .into_any_element();
         }
         if self.library_filter.narrows() || !typed.is_empty() {
-            let clear = outline_button("library-clear-filters", "Clear filters", cx).on_click(
-                cx.listener(|view, _, window, cx| {
-                    view.library_filter = LibraryFilter::default();
-                    view.search
-                        .update(cx, |input, cx| input.set_value("", window, cx));
-                    cx.notify();
-                }),
-            );
+            let clear = text_button(
+                "library-clear-filters",
+                "Clear filters",
+                Look::Outline,
+                Height::Small,
+                cx,
+            )
+            .on_click(cx.listener(|view, _, window, cx| {
+                view.library_filter = LibraryFilter::default();
+                view.search
+                    .update(cx, |input, cx| input.set_value("", window, cx));
+                cx.notify();
+            }));
             return empty_state("icons/search.svg", "No skills match".to_owned(), cx)
                 .child(div().mt(px(8.)).child(clear))
                 .into_any_element();
@@ -270,7 +269,7 @@ fn empty_state(icon: &'static str, title: String, cx: &Context<NativeView>) -> D
                 .child(Logo::Glyph(icon).element(20., theme.foreground.into(), false)),
         )
         .child(
-            text::observed(text::sized(div(), 14.), || "empty-title")
+            sized(div().id("empty-title"), 14.)
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(theme.foreground)
                 .child(title),

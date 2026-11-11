@@ -101,8 +101,7 @@ pub(crate) fn header(title: impl Into<SharedString>, close: Stateful<Div>) -> Di
                 .text_size(px(15.))
                 .line_height(px(21.))
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_ellipsis()
-                .child(exact_text(title).named("title")),
+                .child(exact_text("title", title).truncate()),
         )
         .child(close)
 }

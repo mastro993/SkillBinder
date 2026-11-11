@@ -169,7 +169,8 @@ pub fn system_font() -> &'static str {
 /// The system font's Medium face, the design's `font-weight: 500`. GPUI matches weights through
 /// font-kit, which places SF Pro Medium's Core Text weight (0.23) at 530, so a request for 500
 /// (`FontWeight::MEDIUM`) falls back to Regular and its text sets about 3.6% narrower.
-pub const MEDIUM: FontWeight = FontWeight(530.0);
+/// font-kit gives Medium every request above 500 up to 530 (Semibold reads 600): 520 sits inside.
+pub const MEDIUM: FontWeight = FontWeight(520.0);
 
 /// Explicit mode chosen in the app; absent while the app follows the window appearance.
 struct ModeOverride(Option<ThemeMode>);

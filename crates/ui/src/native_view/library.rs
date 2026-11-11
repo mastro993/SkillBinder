@@ -2,7 +2,7 @@
 //! Updates filters, as a list or grid under a fixed toolbar, each showing where it is on. A
 //! workspace's page lists the same skills, scoped to the workspace, with its activation controls.
 
-use super::controls::text;
+use super::controls::exact_text::line_shortfall;
 use super::library_copies::{AgentRow, placements};
 use super::library_items::{Layout, RowEnd, SLUG_SIZE, SkillItem};
 use super::snapshot_query::{
@@ -231,7 +231,7 @@ impl Frame {
     /// inside its 1-point border, and a tile's name line against the tile inside its border and
     /// padding.
     fn layout(self, grid: bool, columns: u16) -> Layout {
-        let half = text::line_shortfall(SLUG_SIZE, self.scale) / 2. + TIE;
+        let half = line_shortfall(SLUG_SIZE, self.scale) / 2. + TIE;
         if grid {
             let tile = tile_width(self.width, columns);
             Layout {

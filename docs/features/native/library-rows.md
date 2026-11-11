@@ -43,3 +43,24 @@ The popover is 300 points wide with 12 points of padding and 12-point corners on
 - Each change saves at once and the popover stays open, showing it; while it is open its row stays listed even if it no longer matches the filters, which apply again once it closes. While another operation runs, the switch and the pills do nothing. An edited managed copy still asks through Skill copies once the operation ends, and the popover hides while that dialog is open.
 - A press outside it, Escape, scrolling the list, or leaving the page closes it.
 - The keyboard reaches every control. Opening the popover focuses the popover itself, so no control shows a focus outline until Tab or Shift-Tab moves to one. They cycle through the switch and the pills, except a missing workspace's, in the order they are drawn, wrapping at either end instead of leaving for the page. Enter or Space acts on the focused control as a click does, and does nothing while another operation runs. Only a control focused from the keyboard shows the prototypes' focus outline, a 2-point ring in the text color at 40%, 1 point outside the control and its border; a click focuses a control without one. When the popover closes while it has focus and the last input was a key, as with Escape, focus goes back to the trigger, so the keyboard is on the trigger again. A close after pointer input, such as a press on the trigger or outside it, or a scroll, focuses the window as before; a press then focuses whatever it lands on, as any press does. Whenever the focused element leaves the window, as the popover does on leaving the page or when its skill leaves the library, the window takes focus, so its shortcuts keep working.
+
+## Text runs
+
+The segment labels and counts, the Updates count, names, folder tags, chips, the `+N` avatar, Clear filters, and the popover's section labels, preset chip, All agents and workspace names are each the app's exact line (`controls/exact_text.rs`), as are the progress strip's, the toast's, the review list's and every text button's lines. Its box is as wide as Chrome lays the text out, kept to the fraction rather than rounded to the device pixel, so whatever follows lands where the prototype puts it. GPUI draws weight 500 with SF Pro's named Medium instance (wght 510 in the `fvar` table of `SFNS.ttf`), whose advances are wider than Chrome's weight 500 on the font's wght axis, so a line GPUI draws with the Medium face is laid out at Regular + 100/110 × (Medium − Regular) and drawn with Medium, a hair wider than its box. Which lines get it follows the face GPUI resolves a weight to, not the number: font-kit reads Medium at 530 and gives it every request above 500 up to 530, the app asks for 520 (`skillbinder_theme::MEDIUM`), and a request for exactly 500 draws Regular. Any other face keeps GPUI's shaped width. A line that may not fit, such as a skill's or a workspace's name, shrinks like a CSS flex item and ends in `…`; any other keeps its width.
+
+Every visible text run has an element id in every build, so the `native-test` bridge reports its layout box and its text (`get_ui_tree`, `get_element_bounds`), and a parity check finds a run by its id or by its text. The bridge names a run by its own id where that is unique in the window, and otherwise by the trailing ids of its path, such as `skill-row-pdf-tools.slug`. An exact line is also a label in the accessibility tree holding its text, except where an enclosing element's accessible name already reads that text: a button's label, a segment's label, a row's or tile's name, and All agents beside its switch. Assistive technology reads each text once.
+
+| Run | Id, inside |
+|---|---|
+| A segment's label and count | `label` and `count`, in `library-filter-all`, `-active` or `-inactive` |
+| The Updates count | `count`, in `library-filter-updates` |
+| A row's or tile's name and folder tag | `slug` and `tag`, in `skill-row-<slug>` or `skill-card-<slug>` |
+| A row's or tile's description | `desc-<slug>` |
+| A workspace chip's name, or the count chip's count | `name` or `count`, in `place-workspaces-<slug>` |
+| The `+N` avatar | `more` |
+| The empty state's title and Clear filters | `empty-title`; `label`, in `library-clear-filters` |
+| A tooltip's lines | `tooltip-line` with the line's index |
+| The popover's section labels | `agents-label`, `workspaces-label` |
+| The preset chip's name, All agents | `name`, in `place-preset`; `label`, in `place-all-row` |
+| A workspace's name and "No agents yet" | `name`, in `place-ws-<workspace>`; `none-<workspace>` |
+| "No agents detected", or a workspace page's "Not in any agent" | `no-agents` |

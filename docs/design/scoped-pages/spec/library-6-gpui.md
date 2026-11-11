@@ -29,7 +29,7 @@ Sources checked:
 | All agents switch | Kit `switch::Switch` (#99), or an app switch div 30×18 | Kit: no, G5 |
 | Pills | new `place_pill`: `size(26,24).rounded_full().border_1()` dashed/solid; logo `img(..).grayscale(true).opacity(.5)` off (`G/elements/img.rs:153`) or `svg()` tinted | close: G1, G2 |
 | Workspace lines | `h_flex().gap(8).min_h(28)`; name `.text_ellipsis()`; pills `.flex_none().gap(4)` | yes |
-| Empty state | existing `library_results` empty block, with the 40×40 icon box, title, and Kit Button outline small "Clear filters" (`.text_size(px(12.))`) | verify G16 |
+| Empty state | existing `library_results` empty block, with the 40×40 icon box, title, and Kit Button outline small "Clear filters" (`.text_size(px(12.))`) | verify G16. Built with the app's small outline text button (`controls/text_button.rs`), as the progress strip's Close |
 | Grid | `.grid().grid_cols(n).gap(px(10.))` with n = ⌊(w+10)/190⌋ (`G/styled.rs:752`); tile radius 10, p 12, gap 4, desc `.line_clamp(2)` | yes (G12) |
 | Tooltips | Kit `Tooltip` | text size: C8 |
 
@@ -87,3 +87,4 @@ Decided 2026-11-09: where Kit cannot hit the prototype pixel for pixel, the app 
   - Delta: one device column per such edge, or a whole element 1 device px off. pixdiff counts it as snap, within the budget. G10 has the same cause; this is where it shows.
   - A sub-pixel layout difference can tip the rounding. GPUI shapes weight 500 with SF Pro's Medium face, whose advances are about 0.4% wider than Chrome's weight 500 on the variable font: "All", "Active" and "Inactive" at 12.5 px measure 15.29, 37.35 and 47.09 natively, against 15.23, 37.25 and 46.97. The filters grow 0.33 px, so the Updates chip moves 0.17 px right. In 04–06 that crosses a rounding boundary: Chrome's chip at device x 1611.32 snaps to 1611, GPUI's at about 1611.65 to 1612. Its rounded end is then more than 1 device px off, and 10 px (light) and 2 px (dark) stay red.
   - Closest equivalent: size a box that holds weight 500 text from Regular + 10/11 × (Medium − Regular) advances. That matches Chrome's widths within 0.01 px for these runs.
+  - Implemented once, in the app's exact line (`controls/exact_text.rs`), which every exact-width line uses, the progress strip's, toast's, review list's and text buttons' included. It applies to a line whose weight GPUI resolves to SF Pro's Medium face, whatever the number (`skillbinder_theme::MEDIUM` is 520), and keeps the box's width to the fraction through an aspect ratio rather than an authored width, which layout would round to the device pixel.

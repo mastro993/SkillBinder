@@ -4,9 +4,10 @@
 //! does nothing while that view is busy. A missing workspace's pills never do anything and take
 //! no focus.
 
+use super::super::controls::exact_text::{exact_text, sized};
 use super::super::controls::logo::Logo;
 use super::super::controls::press::pressable;
-use super::super::controls::{switch::switch, text, tooltip::tip};
+use super::super::controls::{switch::switch, tooltip::tip};
 use super::super::library_copies::Reader;
 use super::super::library_places::{place_pill, preset_chip, section_label};
 use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
@@ -14,7 +15,7 @@ use super::super::workspace_icons::sized_icon;
 use super::{PlacePopover, place_line};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement, Role,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Role,
     StatefulInteractiveElement, Styled, Toggled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
@@ -47,7 +48,7 @@ pub(super) struct Sections<'a> {
 impl Sections<'_> {
     /// Your agents, then the workspaces under a hairline while any exists.
     pub(super) fn render<V: Placer>(&self, window: &Window, cx: &Context<V>) -> AnyElement {
-        text::sized(v_flex(), 13.)
+        sized(v_flex(), 13.)
             .gap(px(10.))
             .child(self.agents(window, cx))
             .when(!self.places.workspaces.is_empty(), |content| {
@@ -71,10 +72,8 @@ impl Sections<'_> {
             .flex()
             .items_center()
             .gap(px(8.))
-            .child(text::sized(
-                text::run("All agents", 13., FontWeight::NORMAL, false, cx),
-                13.,
-            ))
+            // The switch's accessible name reads the label.
+            .child(exact_text("label", "All agents").presentational())
             .child(pressable(toggle, &focus, save, window, cx));
         let pills: Vec<AnyElement> = places
             .agents
@@ -97,7 +96,7 @@ impl Sections<'_> {
             .collect();
         let pills = if pills.is_empty() {
             vec![
-                text::sized(div(), 11.5)
+                sized(div().id("no-agents"), 11.5)
                     .text_color(cx.theme().muted_foreground)
                     .child("No agents detected")
                     .into_any_element(),
@@ -112,7 +111,7 @@ impl Sections<'_> {
                     .justify_between()
                     .gap(px(8.))
                     .min_h(px(22.))
-                    .child(section_label("Your agents", cx))
+                    .child(section_label("agents-label", "Your agents", cx))
                     .child(preset_chip(self.preset, cx)),
             )
             .child(place_line(tip(group, "Includes agents added later"), pills))
@@ -137,11 +136,11 @@ impl Sections<'_> {
             .pt(px(10.))
             .border_t_1()
             .border_color(cx.theme().foreground.alpha(LINE_INK))
-            .child(
-                h_flex()
-                    .min_h(px(22.))
-                    .child(section_label("Workspaces", cx)),
-            )
+            .child(h_flex().min_h(px(22.)).child(section_label(
+                "workspaces-label",
+                "Workspaces",
+                cx,
+            )))
             .children(
                 self.places
                     .workspaces
@@ -186,21 +185,14 @@ impl Sections<'_> {
                     .min_w_0()
                     .gap(px(6.))
                     .child(sized_icon(workspace, 14., cx))
-                    .child(text::truncated(
-                        workspace.name.clone(),
-                        13.,
-                        FontWeight::NORMAL,
-                        cx,
-                    )),
+                    .child(exact_text("name", workspace.name.clone()).truncate()),
             )
             .when(place.uses_none(), |name| {
                 name.child(
-                    text::observed(text::sized(div(), 11.5), || {
-                        format!("none-{}", workspace.id)
-                    })
-                    .pl(px(20.))
-                    .text_color(cx.theme().muted_foreground)
-                    .child("No agents yet"),
+                    sized(div().id(format!("none-{}", workspace.id)), 11.5)
+                        .pl(px(20.))
+                        .text_color(cx.theme().muted_foreground)
+                        .child("No agents yet"),
                 )
             });
         let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));

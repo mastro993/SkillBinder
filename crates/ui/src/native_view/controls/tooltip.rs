@@ -10,9 +10,9 @@ use std::{cell::Cell, rc::Rc, time::Duration};
 
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    AnyView, App, AppContext, Bounds, Context, Div, IntoElement, ParentElement, Pixels, Point,
-    Render, SharedString, Size, Stateful, StatefulInteractiveElement, Styled, TextRun, Window,
-    canvas, div, font, hsla, point, px, size,
+    AnyView, App, AppContext, Bounds, Context, Div, InteractiveElement, IntoElement, ParentElement,
+    Pixels, Point, Render, SharedString, Size, Stateful, StatefulInteractiveElement, Styled,
+    TextRun, Window, canvas, div, font, hsla, point, px, size,
 };
 
 use super::shadow;
@@ -109,7 +109,8 @@ pub(super) fn measure(text: &SharedString, window: &Window) -> Size<Pixels> {
     )
 }
 
-/// The bordered box holding `lines`, `width` wide; its height follows the wrapped lines.
+/// The bordered box holding `lines`, `width` wide; its height follows the wrapped lines. Each line
+/// is `tooltip-line` and its index, so the native-test bridge reports it.
 pub(super) fn surface(lines: &[SharedString], width: Pixels, cx: &App) -> Div {
     let theme = cx.theme();
     div()
@@ -128,7 +129,12 @@ pub(super) fn surface(lines: &[SharedString], width: Pixels, cx: &App) -> Div {
         .text_size(px(FONT_SIZE))
         .line_height(px(LINE_HEIGHT))
         .text_color(theme.popover_foreground)
-        .children(lines.iter().map(|line| div().child(line.clone())))
+        .children(
+            lines
+                .iter()
+                .enumerate()
+                .map(|(index, line)| div().id(("tooltip-line", index)).child(line.clone())),
+        )
 }
 
 /// The tooltip's origin: centred below `anchor`, above it when the bottom is too close, and kept

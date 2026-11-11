@@ -39,7 +39,8 @@ impl Height {
 }
 
 /// A `look` button reading `label`, `height` high, with a 1 px border, radius 6, medium text on a
-/// line as tall as the text, and a hand cursor.
+/// line as tall as the text, and a hand cursor. The label is its accessible name, which the label
+/// line does not repeat.
 pub(crate) fn text_button(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,
@@ -82,8 +83,7 @@ pub(crate) fn text_button(
         .text_size(px(text))
         .line_height(px(text))
         .font_weight(MEDIUM)
-        .whitespace_nowrap()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(exact_text(label).named("label"))
+        .child(exact_text("label", label).presentational())
 }

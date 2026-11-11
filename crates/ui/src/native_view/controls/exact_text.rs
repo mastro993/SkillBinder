@@ -1,38 +1,101 @@
-//! One line of text as wide as its glyph advances. A GPUI text element rounds its width up to a
-//! whole pixel, and layout rounds a measured size up again to a device pixel, where CSS keeps the
-//! width fractional, so a pill, chip, or button that hugs its text grows by up to 1 px and moves
-//! what follows it. This element authors its shaped width, which layout rounds to the nearest
-//! device pixel. With `text_ellipsis` in its style it may shrink, and then ends in `…`. Given an
-//! id, it is a label in the accessibility tree, as GPUI's own text is, so assistive technology
-//! reads it and the native-test bridge reports its layout bounds.
+//! One line of text as wide as Chrome lays it out, the app's one element for a line whose box
+//! must land where the prototypes put it. A GPUI text element rounds its width up to a whole
+//! pixel, and layout rounds every authored length to the device pixel, where CSS keeps the width
+//! fractional, so a pill, chip, or button that hugs its text would grow by up to 1 px and move
+//! what follows it. This element derives its width from an aspect ratio, which layout keeps to
+//! the fraction, and paints the shaped line itself, so it never wraps. Weight 500 takes Chrome's
+//! width, not GPUI's, as [`width`] describes.
+//!
+//! The line takes its size, weight, features, and line height from the inherited text style; the
+//! prototypes' type is [`sized`]. It keeps its width, or with [`ExactText::truncate`] shrinks like
+//! a CSS flex item and then ends in `…`.
+//!
+//! Every line has an element id, so the native-test bridge reports its layout box and text in
+//! every build. It is a label in the accessibility tree holding its text, unless it is
+//! [`ExactText::presentational`]: an enclosing element's accessible name reads the same text,
+//! as a button's does its label, and assistive technology must not read it twice.
+
+mod width;
+
+#[cfg(test)]
+mod tests;
+
+use std::{panic::Location, sync::Arc};
 
 use gpui_kit::{
-    App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement, LayoutId,
-    Pixels, Role, ShapedLine, SharedString, Size, Style, TextOverflow, TextRun, TruncateFrom,
-    Window, accesskit, px,
+    App, Bounds, Element, ElementId, FontFeatures, FrameNodeData, GlobalElementId,
+    InspectorElementId, IntoElement, LayoutId, Length, Pixels, Role, ShapedLine, SharedString,
+    Size, Style, Styled, TextRun, TruncateFrom, Window, accesskit, px,
 };
-use std::panic::Location;
 
-/// `text` on one line, sized to its shaped width in the inherited text style.
-pub(crate) fn exact_text(text: impl Into<SharedString>) -> ExactText {
+pub(crate) use width::width;
+use width::{Widths, measure};
+
+/// The prototypes' line height, as a multiple of the font size.
+const LINE: f32 = 1.4;
+/// What ends a line cut to fit, as CSS `text-overflow: ellipsis` draws it.
+const ELLIPSIS: &str = "…";
+
+/// The line `text`, reachable as `id`, sized to the width Chrome gives it in the inherited text
+/// style; a label in the accessibility tree.
+pub(crate) fn exact_text(id: impl Into<ElementId>, text: impl Into<SharedString>) -> ExactText {
     ExactText {
+        id: id.into(),
         text: text.into(),
-        id: None,
+        fit: Fit::Whole,
+        reading: Reading::Label,
     }
 }
 
 pub(crate) struct ExactText {
+    id: ElementId,
     text: SharedString,
-    id: Option<ElementId>,
+    fit: Fit,
+    reading: Reading,
+}
+
+/// What a line does once its parent gives it less room than its width.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Fit {
+    /// Nothing: it keeps its width, as unwrapped CSS text does.
+    Whole,
+    /// Its box shrinks like a CSS flex item, and the text ends in an ellipsis.
+    Truncate,
+}
+
+/// How assistive technology reads a line.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Reading {
+    /// As a label holding its text.
+    Label,
+    /// Not at all: an enclosing element's accessible name reads the same text.
+    Presentational,
 }
 
 impl ExactText {
-    /// The text as an accessible label with id `id`.
-    pub(crate) fn named(self, id: impl Into<ElementId>) -> Self {
+    /// Lets the line shrink below its width, ending it in `…`, as a skill's name does.
+    pub(crate) fn truncate(self) -> Self {
         Self {
-            id: Some(id.into()),
+            fit: Fit::Truncate,
             ..self
         }
+    }
+
+    /// Leaves the line out of the accessibility tree, for text an enclosing element's accessible
+    /// name already reads; the native-test bridge still reports it.
+    pub(crate) fn presentational(self) -> Self {
+        Self {
+            reading: Reading::Presentational,
+            ..self
+        }
+    }
+
+    /// The room the glyphs of a line of `widths` take once layout gives its box only `room` at
+    /// `scale`, so it is cut to fit and ends in `…`; `None` while it shows whole. The glyphs are
+    /// as much wider than the box as the drawn width is than the laid one.
+    fn cut(&self, widths: Widths, room: Pixels, scale: f32) -> Option<Pixels> {
+        (self.fit == Fit::Truncate && shrunk(widths.laid, room, scale))
+            .then(|| room * widths.overhang())
     }
 }
 
@@ -42,8 +105,7 @@ pub(crate) struct Measured {
     run: TextRun,
     font_size: Pixels,
     line_height: Pixels,
-    /// The affix that ends a line cut to fit, when the style asks for one.
-    affix: Option<SharedString>,
+    widths: Widths,
 }
 
 impl IntoElement for ExactText {
@@ -59,7 +121,7 @@ impl Element for ExactText {
     type PrepaintState = ();
 
     fn id(&self) -> Option<ElementId> {
-        self.id.clone()
+        Some(self.id.clone())
     }
 
     fn source_location(&self) -> Option<&'static Location<'static>> {
@@ -67,11 +129,27 @@ impl Element for ExactText {
     }
 
     fn a11y_role(&self) -> Option<Role> {
-        self.id.as_ref().map(|_| Role::Label)
+        match self.reading {
+            Reading::Label => Some(Role::Label),
+            Reading::Presentational => None,
+        }
     }
 
     fn write_a11y_info(&self, node: &mut accesskit::Node) {
         node.set_value(self.text.to_string());
+    }
+
+    // A frame node of its own, apart from any accessibility node, so observers such as the
+    // native-test bridge report a presentational line too.
+    fn frame_node(&self) -> Option<FrameNodeData> {
+        Some(FrameNodeData {
+            fallback_role: Role::Label,
+            ..FrameNodeData::default()
+        })
+    }
+
+    fn frame_text(&self) -> Option<&str> {
+        Some(&self.text)
     }
 
     fn request_layout(
@@ -86,42 +164,20 @@ impl Element for ExactText {
         let font_size = style.font_size.to_pixels(rem);
         let line_height = window.pixel_snap(style.line_height.to_pixels(font_size.into(), rem));
         let run = style.to_run(self.text.len());
-        let line = window.text_system().shape_line(
-            self.text.clone(),
+        let (line, widths) = measure(
+            &self.text,
+            &run,
             font_size,
-            std::slice::from_ref(&run),
-            None,
+            window.text_system(),
+            cx.text_system(),
         );
-        let affix = style.text_overflow.map(|overflow| match overflow {
-            TextOverflow::Truncate(affix)
-            | TextOverflow::TruncateStart(affix)
-            | TextOverflow::TruncateMiddle(affix) => affix,
-        });
-        // An authored width rounds to the nearest device pixel; a measured one would round up.
-        let defaults = Style::default();
-        let layout = Style {
-            size: Size {
-                width: line.width.into(),
-                height: line_height.into(),
-            },
-            // Text that may end in an ellipsis shrinks to the room it has; other text keeps
-            // its width, as unwrapped CSS text does.
-            min_size: Size {
-                width: affix
-                    .as_ref()
-                    .map_or(defaults.min_size.width, |_| px(0.).into()),
-                ..defaults.min_size
-            },
-            flex_shrink: if affix.is_some() { 1. } else { 0. },
-            ..defaults
-        };
-        let layout = window.request_layout(layout, [], cx);
+        let layout = window.request_layout(layout(widths.laid, line_height, self.fit), [], cx);
         let measured = Measured {
             line,
             run,
             font_size,
             line_height,
-            affix,
+            widths,
         };
         (layout, measured)
     }
@@ -147,22 +203,17 @@ impl Element for ExactText {
         window: &mut Window,
         cx: &mut App,
     ) {
-        let shrunk = shrunk(
-            measured.line.width,
-            bounds.size.width,
-            window.scale_factor(),
-        );
-        let cut = measured.affix.as_ref().filter(|_| shrunk);
+        let cut = self.cut(measured.widths, bounds.size.width, window.scale_factor());
         let line = match cut {
             None => measured.line.clone(),
-            Some(affix) => {
+            Some(room) => {
                 let mut wrapper = cx
                     .text_system()
                     .line_wrapper(measured.run.font.clone(), measured.font_size);
                 let (text, runs) = wrapper.truncate_line(
                     self.text.clone(),
-                    bounds.size.width,
-                    affix,
+                    room,
+                    ELLIPSIS,
                     std::slice::from_ref(&measured.run),
                     TruncateFrom::End,
                 );
@@ -177,42 +228,57 @@ impl Element for ExactText {
     }
 }
 
-/// Whether a line `width` wide was given less `room` than its own width. Layout rounds the authored
-/// width to the nearest device pixel at `scale`, halves toward zero, so a line whose room is that
-/// rounded width still fits even when it is narrower than the line.
-fn shrunk(width: Pixels, room: Pixels, scale: f32) -> bool {
-    let device = f32::from(width) * scale;
-    let rounded = (device - 0.5).ceil().max(0.) / scale;
-    room < px(rounded)
+/// The box of a line `laid` wide and `line_height` high. Layout rounds an authored width to the
+/// device pixel but keeps a width it derives from an aspect ratio to the fraction, as Chrome
+/// does; the height is whole device pixels already, so the ratio gives back `laid`.
+fn layout(laid: f32, line_height: Pixels, fit: Fit) -> Style {
+    let defaults = Style::default();
+    let height = f32::from(line_height);
+    let (min_width, flex_shrink) = match fit {
+        Fit::Whole => (defaults.min_size.width, 0.),
+        Fit::Truncate => (px(0.).into(), 1.),
+    };
+    Style {
+        size: Size {
+            width: Length::Auto,
+            height: line_height.into(),
+        },
+        aspect_ratio: (height > 0.).then(|| laid / height),
+        min_size: Size {
+            width: min_width,
+            ..defaults.min_size
+        },
+        flex_shrink,
+        ..defaults
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{exact_text, shrunk};
-    use gpui_kit::{Element, ElementId, Role, accesskit, px};
+/// Whether layout gave a line `laid` wide less `room` than its width. Layout rounds each edge of
+/// the box to the device pixel at `scale`, so a box it did not squeeze keeps at least the whole
+/// device pixels of its width.
+fn shrunk(laid: f32, room: Pixels, scale: f32) -> bool {
+    room < px((laid * scale).floor() / scale)
+}
 
-    #[test]
-    fn a_named_line_is_an_accessible_label_with_its_text() {
-        let named = exact_text("Switching…").named("activation-strip-label");
-        assert_eq!(named.id(), Some(ElementId::from("activation-strip-label")));
-        assert_eq!(named.a11y_role(), Some(Role::Label));
-        let mut node = accesskit::Node::new(Role::Label);
-        named.write_a11y_info(&mut node);
-        assert_eq!(node.value(), Some("Switching…"));
-        let unnamed = exact_text("Switching…");
-        assert_eq!(unnamed.id(), None);
-        assert_eq!(unnamed.a11y_role(), None);
-    }
+/// Sets `size` px text on a line box 1.4 times as high, the prototypes' type, where GPUI's own
+/// line height (about 1.618) would make rows taller than theirs.
+pub(crate) fn sized<E: Styled>(element: E, size: f32) -> E {
+    element.text_size(px(size)).line_height(px(size * LINE))
+}
 
-    #[test]
-    fn a_line_keeps_its_text_in_its_own_rounded_width() {
-        // "Switched to Frontend" shapes to 129.72 px; layout gives it 129.5 at 2x.
-        assert!(!shrunk(px(129.72), px(129.5), 2.));
-        assert!(
-            !shrunk(px(129.75), px(129.5), 2.),
-            "a half rounds toward zero"
-        );
-        assert!(shrunk(px(129.72), px(129.), 2.));
-        assert!(!shrunk(px(129.72), px(200.), 2.));
-    }
+/// How much shorter GPUI draws the line box of `size` px text than the prototypes do at `scale`.
+/// Chrome keeps a line box in 1/64 px units, so 1.4 × 14 px stays 19.59375, while GPUI snaps it to
+/// the device pixel, 19.5 at 2x. Callers pad by it so what stacks under a line lands where the
+/// prototypes put it.
+pub(crate) fn line_shortfall(size: f32, scale: f32) -> f32 {
+    let line = size * LINE;
+    let chrome = (line * 64.).floor() / 64.;
+    // GPUI rounds a device length half toward zero.
+    let device = ((line * scale).abs() - 0.5).ceil();
+    chrome - device / scale
+}
+
+/// Tabular figures, so counts keep their width as they change.
+pub(crate) fn tabular() -> FontFeatures {
+    FontFeatures(Arc::new(vec![("tnum".into(), 1)]))
 }

@@ -8,8 +8,8 @@ use gpui_kit::{
     Styled, div, prelude::FluentBuilder, px, white,
 };
 
+use super::exact_text::{exact_text, sized};
 use super::logo::Logo;
-use super::text;
 
 /// An avatar's diameter.
 const SIZE: f32 = 18.;
@@ -104,10 +104,10 @@ pub(crate) fn avatar(logo: Logo, ring: &Ring, cx: &App) -> Div {
     ringed(ring, circle)
 }
 
-/// The `+N` circle after the shown avatars.
+/// The `+N` circle after the shown avatars; its line is `more`.
 pub(crate) fn more(count: usize, ring: &Ring, cx: &App) -> Div {
     let theme = cx.theme();
-    let circle = text::sized(div(), 9.5)
+    let circle = sized(div(), 9.5)
         .flex()
         .items_center()
         .justify_center()
@@ -116,7 +116,7 @@ pub(crate) fn more(count: usize, ring: &Ring, cx: &App) -> Div {
         .bg(theme.muted)
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(theme.muted_foreground)
-        .child(format!("+{count}"));
+        .child(exact_text("more", format!("+{count}")));
     ringed(ring, circle)
 }
 

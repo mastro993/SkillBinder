@@ -35,7 +35,7 @@ When Delete preset deletes the active preset, it closes its confirmation and the
 
 ## Accessibility
 
-Every line of text in the pill, the toast and the review list is a label in the accessibility tree holding its text: the label and percentage, `Done · N need attention`, the button labels, the toast's message, and the review list's title, slugs, places and reasons, and the word that ends a settled row. Assistive technology reads them, and the `native-test` bridge reports each one's layout bounds, which the parity check compares with the reference's text boxes.
+Every line of text in the pill, the toast and the review list is the app's exact line, laid out as Library's are, weight 500 at Chrome's width ([Library rows](library-rows.md#text-runs)). Each is a label in the accessibility tree holding its text: the label and percentage, `Done · N need attention`, the toast's message, and the review list's title, slugs, places and reasons, and the word that ends a settled row. A button's label is the button's accessible name, so assistive technology does not read it again as a label. The `native-test` bridge reports every one's layout bounds and text, which the parity check compares with the reference's text boxes, under these ids: `activation-strip-label` (the running and the Done label), `activation-strip-percent-text`, `toast-message`, `title`, `copies-review-slug`, `copies-review-place`, `copies-review-reason` and `copies-review-settled` with the row's index, and `label` inside each button, such as `activation-strip-review` or `copies-review-done`.
 
 ## Native test controls
 

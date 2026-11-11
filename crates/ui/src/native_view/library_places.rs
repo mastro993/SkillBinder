@@ -6,8 +6,9 @@
 use super::NativeView;
 use super::controls::avatar::{self, Fill, Ring};
 use super::controls::chip::{chip, dot};
+use super::controls::exact_text::{exact_text, sized};
 use super::controls::logo::{Ink, Logo};
-use super::controls::{dashed, pill, text, tooltip::tip};
+use super::controls::{dashed, pill, tooltip::tip};
 use super::library_items::{ITEM_GROUP, surface};
 use super::preset_colors::preset_tint;
 use super::snapshot_query::{SkillPlaces, WorkspacePlace};
@@ -19,6 +20,7 @@ use gpui_kit::{
     canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_proto::Preset;
+use skillbinder_theme::MEDIUM;
 use skillbinder_theme::menu::HIGHLIGHT_INK;
 
 /// The hover group of the placement button.
@@ -180,21 +182,18 @@ fn workspace_chip(
         [] => None,
         [only] if !narrow => Some(tip(
             base().child(sized_icon(only.workspace, 13., cx)).child(
-                text::truncated(only.workspace.name.clone(), 12., text::MEDIUM, cx)
-                    .max_w(px(CHIP_NAME_MAX)),
+                div()
+                    .flex()
+                    .min_w_0()
+                    .max_w(px(CHIP_NAME_MAX))
+                    .child(exact_text("name", only.workspace.name.clone()).truncate()),
             ),
             format!("{}\n{}", only.workspace.name, only.held_names()),
         )),
         several => Some(tip(
             base()
                 .child(Logo::Glyph("icons/code-folder.svg").element(13., muted.into(), false))
-                .child(text::run(
-                    several.len().to_string(),
-                    12.,
-                    text::MEDIUM,
-                    false,
-                    cx,
-                )),
+                .child(exact_text("count", several.len().to_string())),
             several
                 .iter()
                 .map(|place| format!("{} · {}", place.workspace.name, place.held_names()))
@@ -243,7 +242,7 @@ pub(super) fn preset_chip(preset: Option<&Preset>, cx: &App) -> AnyElement {
         .px(px(8.))
         .gap(px(5.))
         .child(dot(tint))
-        .child(text::run(name.clone(), 12., text::MEDIUM, false, cx));
+        .child(exact_text("name", name.clone()));
     tip(chip, format!("Saved to {name}")).into_any_element()
 }
 
@@ -267,7 +266,10 @@ pub(super) fn place_pill(
     )
 }
 
-/// An 11.5 px medium muted section label.
-pub(super) fn section_label(label: &'static str, cx: &App) -> Div {
-    text::run(label, 11.5, text::MEDIUM, false, cx).text_color(cx.theme().muted_foreground)
+/// An 11.5 px medium muted section label, its line `id`.
+pub(super) fn section_label(id: &'static str, label: &'static str, cx: &App) -> Div {
+    sized(div(), 11.5)
+        .font_weight(MEDIUM)
+        .text_color(cx.theme().muted_foreground)
+        .child(exact_text(id, label))
 }
