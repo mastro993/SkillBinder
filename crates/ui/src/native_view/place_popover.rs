@@ -4,7 +4,8 @@
 //! detected agents offer. Each change saves at once; the last pill off removes the skill from that
 //! place without asking. It stays open across changes and closes on a press outside, Escape, a
 //! scroll of the list, or leaving the page. The keyboard reaches every control, as
-//! [`focus`] describes.
+//! [`focus`] describes. It is Kit's popover surface, placed by Kit's positioner from where its
+//! trigger was last painted.
 
 mod focus;
 mod sections;
@@ -17,25 +18,54 @@ use std::{
     rc::Rc,
 };
 
-use super::controls::popover::{Align, Anchor, placed, surface};
 use super::snapshot_query::Places;
 use super::{DialogState, NativeView, Route};
+use gpui_kit::base::{Align, Placement, Positioner};
+use gpui_kit::component::{ActiveTheme, ThemeStyled};
 use gpui_kit::{
     AnyElement, Bounds, Context, Div, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
     MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled,
-    TestSupportExt, Window, deferred, div, px,
+    TestSupportExt, Window, deferred, div, point, px,
 };
 use sections::{Placer, Sections};
 use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
+use skillbinder_theme::menu::{RADIUS, WINDOW_MARGIN, surface as menu_surface};
 
 pub(super) use focus::key_bindings;
 
+/// The popover's width and padding, and the space between it and its trigger.
+const WIDTH: f32 = 300.;
+const PADDING: f32 = 12.;
+const OFFSET: f32 = 4.;
+
 /// Where the open popover's trigger and its row or tile were last painted, in window
-/// coordinates.
+/// coordinates, and the trigger's bounds the popover was last placed by.
 #[derive(Clone, Default)]
 pub(super) struct Cells {
-    pub trigger: Rc<Cell<Option<Bounds<Pixels>>>>,
+    trigger: Rc<Cell<Option<Bounds<Pixels>>>>,
     pub item: Rc<Cell<Option<Bounds<Pixels>>>>,
+    placed: Rc<Cell<Option<Bounds<Pixels>>>>,
+}
+
+impl Cells {
+    /// Records where the trigger is painted, which places the popover from the next frame on. It
+    /// asks for that frame when the trigger is not where the popover was last placed, as when the
+    /// popover has just opened or its trigger moved.
+    pub(super) fn record_trigger(&self, bounds: Bounds<Pixels>, window: &mut Window) {
+        self.trigger.set(Some(bounds));
+        if self.placed.get() != Some(bounds) {
+            window.request_animation_frame();
+        }
+    }
+}
+
+/// Where the popover opens from in a frame.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Anchor {
+    /// The trigger as it was painted last frame, or in a grid [`anchor`]'s span of its tile.
+    Painted(Bounds<Pixels>),
+    /// Nowhere yet: the popover has just opened, and its trigger has not been painted since.
+    Opening,
 }
 
 /// The skill whose popover is open.
@@ -44,6 +74,8 @@ pub(super) struct PlacePopover {
     /// Opened from a grid tile, so it lines up with the trigger's leading edge.
     grid: bool,
     cells: Cells,
+    /// Its trigger has not been painted since it opened.
+    opening: Cell<bool>,
     focus: FocusHandle,
     /// What had focus when it opened, its trigger, which takes focus back when it closes.
     restore: Option<FocusHandle>,
@@ -105,12 +137,11 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let popover = self.place_popover.as_ref()?;
-        // Rendering comes before any painting, so a trigger that is not drawn this frame, such
-        // as one the search left out, leaves the popover hidden rather than where it last was.
-        popover.begin_frame();
+        let anchor = popover.begin_frame();
         if self.route != Route::Library || !matches!(self.dialog, DialogState::None) {
             return None;
         }
+        let anchor = anchor?;
         let library = self.snapshot.library.as_ref()?;
         let skill = library
             .library
@@ -129,27 +160,8 @@ impl NativeView {
         .render(window, cx);
         let label = format!("Where {} is on", skill.id);
         let surface = popover.surface(label, content, Self::close_place_popover, cx);
-        let cells = popover.cells.clone();
-        let align = if popover.grid {
-            Align::Start
-        } else {
-            Align::End
-        };
-        let anchor = move || {
-            let trigger = cells.trigger.get()?;
-            // In the grid it opens above the whole tile, so the tile's title stays visible.
-            let above = match align {
-                Align::Start => cells.item.get().map_or(trigger.top(), |item| item.top()),
-                Align::End => trigger.top(),
-            };
-            Some(Anchor {
-                trigger,
-                above,
-                align,
-            })
-        };
         Some(
-            deferred(placed(anchor, surface))
+            deferred(popover.place(anchor, surface))
                 .with_priority(1)
                 .into_any_element(),
         )
@@ -173,8 +185,37 @@ impl Placer for NativeView {
 }
 
 impl PlacePopover {
-    /// The popover's box around `content`, a dialog named `label`. It holds the popover's focus,
-    /// cycles its controls with Tab and Shift-Tab, and runs `close` on Escape or on a press
+    /// Starts drawing a frame: clears the Tab order, which the controls record again, and takes
+    /// where the trigger and its item were painted last frame, which they record again as this
+    /// frame paints. Returns what the popover opens from, if anything: once its trigger has been
+    /// painted, a frame after one that left the trigger out, such as one whose search did,
+    /// leaves the popover hidden.
+    pub(super) fn begin_frame(&self) -> Option<Anchor> {
+        self.stops.borrow_mut().clear();
+        let trigger = self.cells.trigger.take();
+        let item = self.cells.item.take();
+        self.cells.placed.set(trigger);
+        match trigger {
+            Some(trigger) => {
+                self.opening.set(false);
+                Some(Anchor::Painted(anchor(trigger, item, self.grid)))
+            }
+            None => self.opening.get().then_some(Anchor::Opening),
+        }
+    }
+
+    /// `surface` placed for the frame by `anchor`. While the popover opens it is drawn unseen,
+    /// so that it holds the focus it took until its trigger has been painted and places it.
+    fn place(&self, anchor: Anchor, surface: impl IntoElement + Styled) -> Positioner {
+        match anchor {
+            Anchor::Painted(bounds) => placed(bounds, self.grid, surface),
+            Anchor::Opening => placed(Bounds::default(), self.grid, surface.opacity(0.)),
+        }
+    }
+
+    /// The popover's box around `content`, a dialog named `label`: Kit's popover surface, with
+    /// its hairline ring and shadow, on the menu's fill and corners. It holds the popover's
+    /// focus, cycles its controls with Tab and Shift-Tab, and runs `close` on Escape or on a press
     /// outside it, except on its trigger, whose click toggles it.
     fn surface<V: 'static>(
         &self,
@@ -182,9 +223,17 @@ impl PlacePopover {
         content: AnyElement,
         close: fn(&mut V, &mut Window, &mut Context<V>),
         cx: &Context<V>,
-    ) -> impl IntoElement + use<V> {
+    ) -> impl IntoElement + Styled + use<V> {
         let outside = self.cells.trigger.clone();
-        let surface = surface("place-popover", 300., 12., content, cx)
+        let surface = div()
+            .id("place-popover")
+            .w(px(WIDTH))
+            .p(px(PADDING))
+            // Kit's surface sets its own fill and corners, so the menu's come after it.
+            .popover_style(cx)
+            .bg(menu_surface(cx.theme()))
+            .rounded(px(RADIUS))
+            .child(content)
             .test_support()
             .track_focus(&self.focus)
             .occlude()
@@ -207,6 +256,32 @@ impl PlacePopover {
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation());
         self.cycle(surface)
     }
+}
+
+/// What the popover opens from: in a list, the trigger; in a grid, the trigger's width from its
+/// tile's top to its own bottom, so that it opens below the trigger, or else above the whole
+/// tile and the tile's title stays visible.
+fn anchor(trigger: Bounds<Pixels>, item: Option<Bounds<Pixels>>, grid: bool) -> Bounds<Pixels> {
+    match item.filter(|_| grid) {
+        Some(item) => Bounds::from_corners(
+            point(trigger.left(), item.top().min(trigger.top())),
+            trigger.bottom_right(),
+        ),
+        None => trigger,
+    }
+}
+
+/// `surface` placed by Kit's positioner `OFFSET` below `anchor`, else above it, lined up with its
+/// leading edge in a grid and its trailing edge in a list, and kept the menus' margin inside the
+/// window.
+fn placed(anchor: Bounds<Pixels>, grid: bool, surface: impl IntoElement) -> Positioner {
+    Positioner::side(anchor)
+        .placement(Placement::Bottom)
+        .align(if grid { Align::Start } else { Align::End })
+        .offset(px(OFFSET))
+        .margin(px(WINDOW_MARGIN))
+        .occlude()
+        .child(surface)
 }
 
 /// A line of the popover: `lead`, never narrower than its content and taking the free width,

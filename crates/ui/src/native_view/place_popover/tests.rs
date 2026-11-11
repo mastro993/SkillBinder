@@ -92,6 +92,7 @@ impl Placer for Host {
 impl Render for Host {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let popover = self.popover.as_ref().and_then(|popover| {
+            // Drawn in place rather than placed, so it shows from its first frame.
             popover.begin_frame();
             let skill = self.snapshot.library.as_ref()?.library.skills.first()?;
             let all = Places::new(&self.snapshot);
@@ -122,7 +123,7 @@ impl Render for Host {
             .when_some(cells, |trigger, cells| {
                 trigger.child(
                     canvas(
-                        move |bounds, _, _| cells.trigger.set(Some(bounds)),
+                        move |bounds, window, _| cells.record_trigger(bounds, window),
                         |_, (), _, _| {},
                     )
                     .absolute()
@@ -395,3 +396,5 @@ fn a_pointer_close_focuses_the_view_as_before(cx: &mut TestAppContext) {
     harness.step(cx, |window, cx| window.scroll("host", delta, cx));
     harness.assert_closed_on_view(cx);
 }
+
+mod layout;

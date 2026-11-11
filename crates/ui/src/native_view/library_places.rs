@@ -63,7 +63,7 @@ impl NativeView {
             .when_some(self.open_popover_cells(&skill), |button, cells| {
                 button.child(
                     canvas(
-                        move |bounds, _, _| cells.trigger.set(Some(bounds)),
+                        move |bounds, window, _| cells.record_trigger(bounds, window),
                         |_, (), _, _| {},
                     )
                     .absolute()

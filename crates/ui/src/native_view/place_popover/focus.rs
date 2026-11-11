@@ -5,7 +5,7 @@
 //! stop of a long Library to wrap. Closing it from the keyboard hands focus back to the trigger;
 //! any other close focuses the view, as before.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use super::{Cells, PlacePopover};
 use gpui_kit::{App, Context, FocusHandle, InteractiveElement, KeyBinding, Window};
@@ -48,6 +48,7 @@ impl PlacePopover {
             skill,
             grid,
             cells: Cells::default(),
+            opening: Cell::new(true),
             focus,
             restore,
             keys: RefCell::default(),
@@ -66,14 +67,6 @@ impl PlacePopover {
             .filter(|restore| keyed && fallback.contains(restore, window))
             .unwrap_or(fallback);
         window.focus(restore, cx);
-    }
-
-    /// Starts drawing a frame: the trigger and item record where they are again, and the controls
-    /// the Tab order.
-    pub(super) fn begin_frame(&self) {
-        self.cells.trigger.set(None);
-        self.cells.item.set(None);
-        self.stops.borrow_mut().clear();
     }
 
     /// The focus of the control `id`, which Tab reaches after the controls drawn before it.
