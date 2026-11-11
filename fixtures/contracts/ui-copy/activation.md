@@ -34,7 +34,7 @@ These strings were added with activation (ADR 0006); they have no captured basel
 
 ## Blocking progress
 
-Added with ADR 0007 (#98); the look follows `docs/design/scoped-pages/spec/progress-2-strip.md` and `progress-3-toast-review.md`.
+Added with ADR 0007 (#98); the look follows `docs/design/scoped-pages/prototypes/progress.html`, variant D "Inline".
 
 - The strip's pill reads `Switching…` for a preset switch and for deleting the active preset, or `Importing…` for an import, then `<n>%`. Its tooltip is the change on one line, `Switching to <preset>`, `Switching to Default`, or `Importing <n> skills`, and the step on the next, `Copying <slug> → <place>` or `Removing <slug> from <place>`.
 - Done pill: `Done · 1 needs attention` or `Done · <n> need attention`, with `Review` and `Close`.

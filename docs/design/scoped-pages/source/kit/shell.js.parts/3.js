@@ -111,8 +111,7 @@
 
   // ---- variant bar + demo controls ----------------------------------------------------
   function variantBar(root, variants, onChange) {
-    // Reference mode (kit/reference.js, ?ref=1) may start on the variant its URL names.
-    let current = (window.__ref && window.__ref.pickVariant(variants)) || variants[0].id;
+    let current = variants[0].id;
     const segEl = h('div', { class: 'sb-vbar-seg', role: 'tablist' });
     const desc = h('div', { class: 'sb-vbar-desc' });
     const extra = h('div', { class: 'sb-vbar-extra' });

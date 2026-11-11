@@ -33,8 +33,7 @@
  *          onNav(key), onPreset(id)}) re-renders on DATA changes; default onPreset switches the
  *          preset through progressDialog.
  *          variantBar(root, [{id, label, desc}], onChange(id, variant)) -> {el, extra, set, get};
- *          rendered above the window, choice kept in memory, onChange fires once at start
- *          (with the variant ?ref=1&variant= names, in reference mode; see reference.js).
+ *          rendered above the window, choice kept in memory, onChange fires once at start.
  *          demoControls() -> Fast/Slow + Problems toggles bound to SB.settings.
  *          SB.settings = {speed:'slow', problems: undefined}
  */

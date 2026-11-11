@@ -36,12 +36,12 @@
  * use a brand-colored --primary and much subtler --muted/--border than the app's shadcn neutral. */
 :root {
   --sb-fb-bg: #ffffff; --sb-fb-fg: #0a0a0a; --sb-fb-card: #ffffff; --sb-fb-muted-fg: #737373;
-  --sb-fb-danger: #dc2626; --sb-fb-warning: #eab308; --sb-fb-success: #16a34a; --sb-fb-info: #2563eb;
+  --sb-fb-danger: #dc2626; --sb-fb-warning: #eab308; --sb-fb-success: #16a34a; --sb-fb-info: #06b6d4;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --sb-fb-bg: #0a0a0a; --sb-fb-fg: #fafafa; --sb-fb-card: #0f0f0f; --sb-fb-muted-fg: #a3a3a3;
-    --sb-fb-warning: #facc15; --sb-fb-success: #4ade80; --sb-fb-info: #60a5fa;
+    --sb-fb-warning: #facc15; --sb-fb-success: #4ade80; --sb-fb-info: #22d3ee;
   }
 }
 /* Declared on body too, so a host theme set on <body> is picked up. */

@@ -1,5 +1,5 @@
 // node verify.js <prototype.html> <root>: compare the prototypes' fixture (kit/data.js, inlined in
-// every bundle under ../../prototypes) with the native seed (library SKILL.md frontmatter + the
+// every bundle under ../prototypes) with the native seed (library SKILL.md frontmatter + the
 // app database read through the sqlite3 CLI). Exit 1 on drift.
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const [bundle, root] = process.argv.slice(2);
