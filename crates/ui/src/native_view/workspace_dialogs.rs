@@ -9,6 +9,9 @@ use skillbinder_proto::*;
 impl NativeView {
     /// Picks a folder, grants it, and adds its projects as workspaces; a scan then covers them.
     pub(super) fn choose_workspace_folder(&mut self, cx: &mut Context<Self>) {
+        if self.blocked() {
+            return;
+        }
         let picker = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -44,6 +47,9 @@ impl NativeView {
 
     /// Picks an image, copies it into application storage, and makes it the workspace icon.
     pub(super) fn choose_workspace_image(&mut self, id: WorkspaceId, cx: &mut Context<Self>) {
+        if self.blocked() {
+            return;
+        }
         let picker = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,

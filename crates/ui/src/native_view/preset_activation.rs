@@ -4,6 +4,7 @@
 
 use super::NativeView;
 use super::controls::{Inactive, checkbox};
+use super::progress_strip::{Activity, Landing};
 use gpui_kit::component::Sizable;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
@@ -42,13 +43,32 @@ impl NativeView {
     }
 
     /// Activates preset `id`, showing it active at once while the engine saves the choice and
-    /// writes your agents' copies to match it.
+    /// writes your agents' copies to match it; the progress strip blocks the app meanwhile.
     pub(super) fn set_active_preset(&mut self, id: PresetId, cx: &mut Context<Self>) {
-        if self.busy || self.active_preset_id().as_ref() == Some(&id) {
+        // Checked before the optimistic preset is set, which `block` could not undo.
+        if self.blocked() || self.active_preset_id().as_ref() == Some(&id) {
             return;
         }
+        let Some(preset) = self
+            .snapshot
+            .library
+            .as_ref()
+            .and_then(|library| library.library.presets.iter().find(|p| p.id == id))
+            .map(|preset| preset.name.clone())
+        else {
+            return;
+        };
         self.active_preset = Some(id.clone());
-        self.change_organization(OrganizationChange::ActivatePreset { id }, cx);
+        let client = self.client.clone();
+        self.block(
+            Activity::Switching { preset },
+            async move {
+                let change = OrganizationChange::ActivatePreset { id };
+                client.change_organization(change).await?;
+                Ok(Landing::default())
+            },
+            cx,
+        );
     }
 
     /// Where activation toggles act: the open workspace, or else the active preset.

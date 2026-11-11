@@ -2,7 +2,8 @@
 //! the Default preset, so the confirmation states the skills that switch adds and removes.
 
 use super::controls::{Inactive, button};
-use super::{Effect, NativeView};
+use super::progress_strip::{Activity, Landing};
+use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::dialog::Dialog;
 use gpui_kit::{Context, ParentElement, Styled, div};
 use skillbinder_proto::{DeletePreview, OrganizationChange, PresetSwitch, SkillId};
@@ -17,6 +18,11 @@ impl NativeView {
         let busy = self.busy;
         let id = preview.preset.id.clone();
         let revision = preview.revision.clone();
+        // Deleting the active preset activates Default, which the strip blocks the app for.
+        let active = preview
+            .switch
+            .is_some()
+            .then(|| preview.preset.name.clone());
         dialog
             .title(self.dialog_title("Delete preset", cx))
             .child(
@@ -52,12 +58,24 @@ impl NativeView {
                                     id: id.clone(),
                                     revision: revision.clone(),
                                 };
-                                view.run(
+                                let Some(preset) = active.clone() else {
+                                    return view.run(
+                                        async move {
+                                            client
+                                                .change_organization(change)
+                                                .await
+                                                .map(|_| Effect::CloseDialog)
+                                        },
+                                        cx,
+                                    );
+                                };
+                                // The strip takes over from the confirmation.
+                                view.dialog = DialogState::None;
+                                view.block(
+                                    Activity::DeletingActive { preset },
                                     async move {
-                                        client
-                                            .change_organization(change)
-                                            .await
-                                            .map(|_| Effect::CloseDialog)
+                                        client.change_organization(change).await?;
+                                        Ok(Landing::default())
                                     },
                                     cx,
                                 );

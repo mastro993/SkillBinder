@@ -9,6 +9,8 @@ The audited shipped baseline is revision `83d55ef789a7cf256021f6620742e0e9021a83
 - [Library and organization](native/library-and-organization.md)
 - [Library rows, filters, and where skills are on](native/library-rows.md)
 - [Activation and managed copies](native/activation.md)
+- [Activation progress](native/activation-progress.md)
 - [Workspace activation](native/workspace-activation.md)
 - [Synchronization, durability, and diagnostics](native/sync-and-durability.md)
 - [Acceptance evidence](native/acceptance-evidence.md)
+- [UI acceptance evidence](native/acceptance-evidence-ui.md)

@@ -7,7 +7,7 @@ use skillbinder_proto::*;
 impl NativeView {
     /// Runs one Git operation, marking the view as syncing until it settles.
     pub(super) fn synchronize(&mut self, action: SyncAction, cx: &mut Context<Self>) {
-        if self.busy {
+        if self.blocked() {
             return;
         }
         self.syncing = true;

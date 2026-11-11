@@ -4,6 +4,8 @@ mod assets;
 mod native_view;
 
 pub use assets::Assets;
+#[cfg(feature = "native-test")]
+pub use native_view::StripHold;
 pub use native_view::{GoBack, GoForward, NativeView, ToggleSidebar};
 
 /// Initializes the unmodified component library, application typography, and the key bindings

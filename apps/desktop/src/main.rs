@@ -217,7 +217,12 @@ fn run() -> anyhow::Result<()> {
                     };
                     let bridge_config = gpui_mcp::BridgeConfig::new(app_id, "SkillBinder");
                     match gpui_mcp::BridgeHandle::install(window, cx, bridge_config) {
-                        Ok(handle) => *bridge.borrow_mut() = Some(handle),
+                        Ok(handle) => {
+                            if let Err(error) = native_test::register_holds(&handle, view.clone()) {
+                                eprintln!("Could not register native-test commands: {error}");
+                            }
+                            *bridge.borrow_mut() = Some(handle);
+                        }
                         Err(error) => {
                             eprintln!("Could not start native MCP bridge: {error}");
                             return view;

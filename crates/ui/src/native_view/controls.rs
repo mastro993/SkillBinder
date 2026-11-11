@@ -5,14 +5,21 @@
 pub(super) mod avatar;
 pub(super) mod chip;
 pub(super) mod dashed;
+pub(super) mod dialog_surface;
+pub(super) mod exact_text;
 pub(super) mod logo;
+pub(super) mod motion;
 pub(super) mod pill;
 pub(super) mod popover;
 pub(super) mod press;
+pub(super) mod progress_bar;
 pub(super) mod segmented;
 pub(super) mod shadow;
+pub(super) mod spinner;
 pub(super) mod switch;
 pub(super) mod text;
+pub(super) mod text_button;
+pub(super) mod toast;
 pub(super) mod tooltip;
 
 use gpui_kit::component::{Disableable, Icon, button::Button, checkbox::Checkbox};

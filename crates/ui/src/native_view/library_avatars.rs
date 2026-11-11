@@ -5,7 +5,7 @@
 use super::controls::avatar::{self, Ring, SHOWN};
 use super::controls::logo::Logo;
 use super::controls::{app_icon, text, tooltip::tip};
-use super::copy_dialogs::unsettled_summary;
+use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::library_copies::{AgentRow, Reader};
 use super::library_items::{SkillItem, surface};
 use super::{DialogState, NativeView};
@@ -86,7 +86,7 @@ impl NativeView {
             )
             .on_click(cx.listener(move |view, _, _, cx| {
                 cx.stop_propagation();
-                view.dialog = DialogState::Copies(Some(skill.clone()));
+                view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
                 cx.notify();
             }));
         tip(glyph, unsettled_summary(count)).into_any_element()

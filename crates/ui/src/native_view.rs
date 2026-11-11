@@ -2,6 +2,7 @@ mod agent_page;
 mod agent_skills;
 mod breadcrumb;
 mod controls;
+mod copies_review;
 mod copy_dialogs;
 mod custom_color;
 mod dialogs;
@@ -33,6 +34,7 @@ mod preset_activation;
 mod preset_colors;
 mod preset_dialogs;
 mod preset_icons;
+mod progress_strip;
 mod route;
 mod settings;
 mod shell;
@@ -47,6 +49,7 @@ mod sidebar_workspaces;
 mod skill_page;
 mod snapshot_query;
 mod sync;
+mod toasts;
 mod updates;
 mod workspace_agents;
 mod workspace_dialogs;
@@ -54,6 +57,8 @@ mod workspace_icons;
 mod workspace_page;
 mod workspace_targets;
 
+#[cfg(feature = "native-test")]
+pub use native_test::StripHold;
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
 /// Binds the keys the view's own controls take before the window does: Tab and Shift-Tab in the
@@ -87,8 +92,9 @@ use skillbinder_proto::*;
 enum DialogState {
     ImportPlan(ImportPlan),
     DeletePreset(DeletePreview),
-    /// The copies of one skill that are not applied, or every copy that asks the user.
-    Copies(Option<SkillId>),
+    /// The copies of one skill that are not applied, every copy that asks the user, or the
+    /// review of the copies that need the user after a blocking change.
+    Copies(copy_dialogs::CopiesListing),
     DeleteFolder {
         id: FolderId,
         revision: String,
@@ -116,6 +122,8 @@ enum Effect {
     Updated(UpdateOutcome),
     /// A skill was reinstalled, so its page shows its restored content.
     Reinstalled(SkillId),
+    /// A blocking change landed, so the progress strip ends.
+    Activated(progress_strip::Landing),
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -182,6 +190,15 @@ pub struct NativeView {
     optimistic_presets: Vec<sidebar_presets::OptimisticPreset>,
     /// How many skills an update run has finished of its total, while it runs.
     updating: Option<(usize, usize)>,
+    /// The progress strip of a blocking change, from the click until it ends.
+    strip: Option<progress_strip::Strip>,
+    /// When the wash of a strip that ended began fading out, while it fades.
+    wash_fade: Option<std::time::Instant>,
+    /// Focus for the strip and the review list while they are up, so keys reach nothing else.
+    overlay_focus: FocusHandle,
+    toast: Option<controls::toast::Toast>,
+    #[cfg(feature = "native-test")]
+    holds: native_test::Holds,
     /// Sidebar toggle count; zero renders without motion, so launch does not animate.
     sidebar_motion: u64,
     /// Collapsed sidebar still mounted for its closing motion.
@@ -316,6 +333,12 @@ impl NativeView {
             optimistic_preset_name: None,
             optimistic_presets: Vec::new(),
             updating: None,
+            strip: None,
+            wash_fade: None,
+            overlay_focus: cx.focus_handle().tab_stop(true),
+            toast: None,
+            #[cfg(feature = "native-test")]
+            holds: native_test::Holds::default(),
             sidebar_motion: 0,
             sidebar_closing: false,
             resizing_sidebar: false,
@@ -409,6 +432,7 @@ impl Render for NativeView {
             self.render_shell(page, window, cx)
         };
         self.sync_dialog(window, cx);
+        self.sync_overlay_focus(window, cx);
         let colors = cx.theme().colors;
         let global_error = self
             .error
@@ -416,12 +440,22 @@ impl Render for NativeView {
             .or(self.snapshot.background_error.as_ref());
         div()
             .track_focus(&self.focus)
-            .on_action(cx.listener(|view, _: &ToggleSidebar, _, cx| view.toggle_sidebar(cx)))
+            .on_action(cx.listener(|view, _: &ToggleSidebar, _, cx| {
+                if !view.blocked() {
+                    view.toggle_sidebar(cx);
+                }
+            }))
             .when(!onboarding, |root| {
-                root.on_action(cx.listener(|view, _: &GoBack, window, cx| view.go_back(window, cx)))
-                    .on_action(
-                        cx.listener(|view, _: &GoForward, window, cx| view.go_forward(window, cx)),
-                    )
+                root.on_action(cx.listener(|view, _: &GoBack, window, cx| {
+                    if !view.blocked() {
+                        view.go_back(window, cx);
+                    }
+                }))
+                .on_action(cx.listener(|view, _: &GoForward, window, cx| {
+                    if !view.blocked() {
+                        view.go_forward(window, cx);
+                    }
+                }))
             })
             .size_full()
             .font_family(skillbinder_theme::system_font())
@@ -447,5 +481,8 @@ impl Render for NativeView {
             })
             .children(self.render_place_popover(window, cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
+            .children(self.render_review(cx))
+            .children(self.render_strip(cx))
+            .children(self.render_toast(cx))
     }
 }
