@@ -9,11 +9,10 @@ use super::controls::logo::Logo;
 use super::controls::segmented::{
     SEGMENT_GAP, SEGMENT_PADDING, TRACK_PADDING, count, glyph, segment, track,
 };
-use super::controls::text_button::{Height, Look, text_button};
-use super::controls::{app_icon, tooltip::tip};
+use super::controls::{app_icon, text_button, tooltip::tip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, h_flex, input::Input, v_flex};
+use gpui_kit::component::{ActiveTheme, Size, h_flex, input::Input, v_flex};
 use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Role,
     StatefulInteractiveElement, Styled, Toggled, div, prelude::FluentBuilder, px, relative,
@@ -218,19 +217,14 @@ impl NativeView {
                 .into_any_element();
         }
         if self.library_filter.narrows() || !typed.is_empty() {
-            let clear = text_button(
-                "library-clear-filters",
-                "Clear filters",
-                Look::Outline,
-                Height::Small,
-                cx,
-            )
-            .on_click(cx.listener(|view, _, window, cx| {
-                view.library_filter = LibraryFilter::default();
-                view.search
-                    .update(cx, |input, cx| input.set_value("", window, cx));
-                cx.notify();
-            }));
+            let clear = text_button("library-clear-filters", "Clear filters", Size::Small)
+                .outline()
+                .on_click(cx.listener(|view, _, window, cx| {
+                    view.library_filter = LibraryFilter::default();
+                    view.search
+                        .update(cx, |input, cx| input.set_value("", window, cx));
+                    cx.notify();
+                }));
             return empty_state("icons/search.svg", "No skills match".to_owned(), cx)
                 .child(div().mt(px(8.)).child(clear))
                 .into_any_element();

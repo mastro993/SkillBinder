@@ -15,16 +15,36 @@ pub(super) mod progress_bar;
 pub(super) mod segmented;
 pub(super) mod shadow;
 pub(super) mod switch;
-pub(super) mod text_button;
 pub(super) mod toast;
 pub(super) mod tooltip;
 
-use gpui_kit::component::{Disableable, Icon, button::Button, checkbox::Checkbox};
-use gpui_kit::{ElementId, Styled, prelude::FluentBuilder};
+use gpui_kit::component::{Disableable, Icon, Sizable, Size, button::Button, checkbox::Checkbox};
+use gpui_kit::{ElementId, ParentElement, SharedString, Styled, div, prelude::FluentBuilder, px};
+use skillbinder_theme::MEDIUM;
 
 /// Button that shows a hand cursor while it is enabled.
 pub(super) fn button(id: impl Into<ElementId>) -> Button {
     Button::new(id).cursor_pointer()
+}
+
+/// A `size` button reading `label` in medium weight, 12 px at Kit's small size and 13 px at the
+/// others. Kit sets the size of its own label on a row it does not expose, so the text is a child;
+/// the label is the button's accessible name, which the text does not repeat.
+pub(super) fn text_button(
+    id: impl Into<ElementId>,
+    label: impl Into<SharedString>,
+    size: Size,
+) -> Button {
+    let label = label.into();
+    let text = if matches!(size, Size::Small) {
+        12.
+    } else {
+        13.
+    };
+    button(id)
+        .with_size(size)
+        .accessibility_label(label.clone())
+        .child(div().text_size(px(text)).font_weight(MEDIUM).child(label))
 }
 
 /// Checkbox that shows a hand cursor while it is enabled.

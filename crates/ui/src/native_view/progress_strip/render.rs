@@ -6,15 +6,16 @@
 //! over the normal duration.
 
 use super::super::NativeView;
-use super::super::controls::app_icon;
 use super::super::controls::exact_text::{exact_text, tabular};
 use super::super::controls::progress_bar::pill_progress;
 use super::super::controls::shadow::{self, Corners};
-use super::super::controls::text_button::{Height, Look, text_button};
+use super::super::controls::{app_icon, text_button};
 use super::super::import_review::place_name;
 use super::{Shown, done_label, wash_fade};
 use gpui_kit::base::FocusTrapElement;
-use gpui_kit::component::{ActiveTheme, Sizable, spinner::Spinner, tooltip::Tooltip};
+use gpui_kit::component::{
+    ActiveTheme, Sizable, Size, button::ButtonVariants, spinner::Spinner, tooltip::Tooltip,
+};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, App, Context, Div, InteractiveElement, IntoElement,
     KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, div, px,
@@ -228,23 +229,13 @@ fn done_pill(waiting: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
                 .child(exact_text("activation-strip-label", done_label(waiting))),
         )
         .child(
-            text_button(
-                "activation-strip-review",
-                "Review",
-                Look::Primary,
-                Height::Small,
-                cx,
-            )
-            .on_click(cx.listener(|view, _, _, cx| view.close_strip(true, cx))),
+            text_button("activation-strip-review", "Review", Size::Small)
+                .primary()
+                .on_click(cx.listener(|view, _, _, cx| view.close_strip(true, cx))),
         )
         .child(
-            text_button(
-                "activation-strip-close",
-                "Close",
-                Look::Outline,
-                Height::Small,
-                cx,
-            )
-            .on_click(cx.listener(|view, _, _, cx| view.close_strip(false, cx))),
+            text_button("activation-strip-close", "Close", Size::Small)
+                .outline()
+                .on_click(cx.listener(|view, _, _, cx| view.close_strip(false, cx))),
         )
 }

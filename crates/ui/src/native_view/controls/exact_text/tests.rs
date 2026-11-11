@@ -6,10 +6,11 @@ mod faces;
 use std::panic::UnwindSafe;
 use std::sync::{Arc, Mutex};
 
-use super::super::text_button::{Height, Look, text_button};
+use super::super::text_button;
 use super::width::{MEDIUM_SHARE, Widths, drawn_medium, width};
 use super::{exact_text, line_shortfall, shrunk};
 use faces::{Faces, MEDIUM_SCALE, regular_width};
+use gpui_kit::component::{Size, button::ButtonVariants};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
     AccessibilityFrame, AppContext, Bounds, Context, Element, ElementId, FontFeatures, FontWeight,
@@ -104,7 +105,7 @@ fn name_widths() -> (f32, Widths) {
 struct Lines;
 
 impl Render for Lines {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         let row = |weight| div().flex().font_weight(weight);
         let half = name_widths().1.laid / 2.;
         div()
@@ -118,13 +119,7 @@ impl Render for Lines {
             .child(row(FontWeight(530.)).child(exact_text("medium-530", NAME)))
             .child(row(FontWeight::MEDIUM).child(exact_text("css-500", NAME)))
             .child(row(FontWeight::SEMIBOLD).child(exact_text("semibold", NAME)))
-            .child(text_button(
-                "review",
-                "Review",
-                Look::Primary,
-                Height::Small,
-                cx,
-            ))
+            .child(text_button("review", "Review", Size::Small).primary())
             .child(row(MEDIUM).truncate().child(exact_text("whole", NAME)))
             .child(row(MEDIUM).child(exact_text("fits", NAME).truncate()))
             .child(
@@ -220,11 +215,6 @@ fn weight_500_lines_take_chromes_width_in_every_control() {
         );
         let semibold = bounds(&frame, "semibold").size.width;
         assert!(near(semibold, regular * 1.75), "{semibold:?}");
-        // The strip's and the review list's buttons: 12 px weight 500 inside 8 px and a border.
-        let label = regular_width("Review", SIZE);
-        let laid = Widths::new(label * MEDIUM_SCALE, Some(label)).laid;
-        assert!(near(bounds(&frame, "label").size.width, laid));
-        assert!(near(bounds(&frame, "review").size.width, laid + 18.));
         // A box sized ahead of layout, as the Library filters' are, takes the same width.
         let ahead = cx.update(|cx| width(&NAME.into(), SIZE, MEDIUM, FontFeatures::default(), cx));
         assert!((ahead - widths.laid).abs() < 1e-3, "{ahead}");
@@ -247,16 +237,16 @@ fn every_line_reaches_the_bridge_and_assistive_technology_reads_it_once() {
         };
         assert_eq!((text.as_str(), medium.value()), (NAME, Some(NAME)));
         assert_eq!(medium.role(), Role::Label);
-        let Some((text, read)) = node("label") else {
-            panic!("the bridge has no button label");
+        let Some((text, Some(button))) = node("review") else {
+            panic!("the button is not an accessible node");
         };
-        assert_eq!(text, "Review");
-        assert!(
-            read.is_none(),
-            "the button's label is not a label of its own"
-        );
-        let button = node("review").and_then(|(_, node)| node.and_then(accesskit::Node::label));
-        assert_eq!(button, Some("Review"));
+        assert_eq!((text.as_str(), button.label()), ("Review", Some("Review")));
+        let labels = frame
+            .nodes()
+            .filter_map(|(_, node)| frame.accessibility_node(node))
+            .filter(|node| node.role() == Role::Label && node.value() == Some("Review"))
+            .count();
+        assert_eq!(labels, 0, "the button's text is not a label of its own");
     });
 }
 

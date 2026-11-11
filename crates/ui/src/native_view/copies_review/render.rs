@@ -1,17 +1,19 @@
 //! How the review list draws: the app's dialog, 420 wide, with the copies in a card and Done.
 
-use super::super::controls::app_icon;
 use super::super::controls::dialog_surface::{
     body, close_button, fading_in, footer, header, scrim, surface,
 };
 use super::super::controls::exact_text::exact_text;
-use super::super::controls::text_button::{Height, Look, text_button};
+use super::super::controls::{app_icon, text_button};
 use super::super::copy_dialogs::CopiesListing;
 use super::super::import_review::place_name;
 use super::super::{DialogState, Effect, NativeView};
 use super::{Answer, Choice, Item, Row, attention_label};
 use gpui_kit::base::FocusTrapElement;
-use gpui_kit::component::ActiveTheme;
+use gpui_kit::component::{
+    ActiveTheme, Size,
+    button::{Button, ButtonVariants},
+};
 use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, KeyDownEvent,
     MouseButton, ParentElement, StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
@@ -78,14 +80,9 @@ impl NativeView {
             .child(body().child(card))
             .child(
                 footer().child(
-                    text_button(
-                        "copies-review-done",
-                        "Done",
-                        Look::Outline,
-                        Height::Regular,
-                        cx,
-                    )
-                    .on_click(cx.listener(|view, _, _, cx| view.close_review(cx))),
+                    text_button("copies-review-done", "Done", Size::Medium)
+                        .outline()
+                        .on_click(cx.listener(|view, _, _, cx| view.close_review(cx))),
                 ),
             );
         // The focus trap also tracks the overlay's focus, so keys reach the scrim.
@@ -216,17 +213,17 @@ impl NativeView {
         copy: ManagedCopy,
         cx: &mut Context<Self>,
     ) -> Div {
-        let button = |id, answer: Answer, look, cx: &mut Context<Self>| {
+        let button = |id, answer: Answer, look: fn(Button) -> Button, cx: &mut Context<Self>| {
             let copy = copy.clone();
-            text_button((id, index), answer.label(), look, Height::Small, cx)
+            look(text_button((id, index), answer.label(), Size::Small))
                 .on_click(cx.listener(move |view, _, _, cx| view.answer_review(answer, &copy, cx)))
         };
         div()
             .flex()
             .items_center()
             .gap(px(8.))
-            .child(button("copies-review-yes", choice.yes, Look::Primary, cx))
-            .child(button("copies-review-no", choice.no, Look::Outline, cx))
+            .child(button("copies-review-yes", choice.yes, Button::primary, cx))
+            .child(button("copies-review-no", choice.no, Button::outline, cx))
     }
 
     /// Records `answer` for `copy` and carries it out; the row settles once the copy no longer
