@@ -56,6 +56,12 @@ mod workspace_targets;
 
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 
+/// Binds the keys the view's own controls take before the window does: Tab and Shift-Tab in the
+/// Library popover.
+pub(crate) fn bind_keys(cx: &mut gpui_kit::App) {
+    cx.bind_keys(place_popover::key_bindings());
+}
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
@@ -433,7 +439,7 @@ impl Render for NativeView {
                         )),
                 )
             })
-            .children(self.render_place_popover(cx))
+            .children(self.render_place_popover(window, cx))
             .children(self.menu.as_ref().map(menu::OpenMenu::render))
     }
 }

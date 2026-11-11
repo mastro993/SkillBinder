@@ -8,6 +8,7 @@ pub(super) mod dashed;
 pub(super) mod logo;
 pub(super) mod pill;
 pub(super) mod popover;
+pub(super) mod press;
 pub(super) mod segmented;
 pub(super) mod shadow;
 pub(super) mod switch;

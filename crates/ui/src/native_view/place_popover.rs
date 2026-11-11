@@ -3,26 +3,32 @@
 //! edits that workspace, one pill per directory it uses, or, while it uses none, per directory the
 //! detected agents offer. Each change saves at once; the last pill off removes the skill from that
 //! place without asking. It stays open across changes and closes on a press outside, Escape, a
-//! scroll of the list, or leaving the page.
+//! scroll of the list, or leaving the page. The keyboard reaches every control, as
+//! [`focus`] describes.
 
-use std::{cell::Cell, rc::Rc};
+mod focus;
+mod sections;
+#[cfg(test)]
+mod tests;
 
-use super::controls::logo::Logo;
-use super::controls::popover::{Align, Anchor, placed, surface};
-use super::controls::{switch::switch, text, tooltip::tip};
-use super::library_copies::Reader;
-use super::library_places::{place_pill, preset_chip, section_label};
-use super::snapshot_query::{Places, SkillPlaces, WorkspacePlace};
-use super::workspace_icons::sized_icon;
-use super::{DialogState, NativeView, Route};
-use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
-use gpui_kit::{
-    AnyElement, Bounds, Context, Div, FocusHandle, FontWeight, InteractiveElement, IntoElement,
-    KeyDownEvent, MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled,
-    Toggled, Window, deferred, div, prelude::FluentBuilder, px,
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    rc::Rc,
 };
-use skillbinder_proto::{SkillId, WorkspaceTargets};
-use skillbinder_theme::menu::LINE_INK;
+
+use super::controls::popover::{Align, Anchor, placed, surface};
+use super::snapshot_query::Places;
+use super::{DialogState, NativeView, Route};
+use gpui_kit::{
+    AnyElement, Bounds, Context, Div, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
+    MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled,
+    TestSupportExt, Window, deferred, div, px,
+};
+use sections::{Placer, Sections};
+use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
+
+pub(super) use focus::key_bindings;
 
 /// Where the open popover's trigger and its row or tile were last painted, in window
 /// coordinates.
@@ -39,6 +45,12 @@ pub(super) struct PlacePopover {
     grid: bool,
     cells: Cells,
     focus: FocusHandle,
+    /// What had focus when it opened, its trigger, which takes focus back when it closes.
+    restore: Option<FocusHandle>,
+    /// Each control's focus, by element id, kept while the popover is open.
+    keys: RefCell<HashMap<String, FocusHandle>>,
+    /// The controls Tab reaches, in the order they were last drawn.
+    stops: Rc<RefCell<Vec<FocusHandle>>>,
 }
 
 impl NativeView {
@@ -69,33 +81,30 @@ impl NativeView {
             self.close_place_popover(window, cx);
             return;
         }
-        let focus = cx.focus_handle();
-        window.focus(&focus, cx);
-        self.place_popover = Some(PlacePopover {
-            skill: skill.clone(),
-            grid,
-            cells: Cells::default(),
-            focus,
-        });
+        self.place_popover = Some(PlacePopover::open(skill.clone(), grid, window, cx));
         cx.notify();
     }
 
-    /// Closes the popover and returns keyboard focus to the window's shortcuts.
+    /// Closes the popover; while it has keyboard focus, its trigger takes it back, or the window's
+    /// shortcuts once the trigger is gone.
     pub(super) fn close_place_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.place_popover.take().is_some() {
-            window.focus(&self.focus, cx);
+        if let Some(popover) = self.place_popover.take() {
+            popover.release(&self.focus, window, cx);
             cx.notify();
         }
     }
 
     /// The open popover, drawn above the page beside its trigger, while Library shows it and no
     /// dialog covers it.
-    pub(super) fn render_place_popover(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_place_popover(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let popover = self.place_popover.as_ref()?;
         // Rendering comes before any painting, so a trigger that is not drawn this frame, such
         // as one the search left out, leaves the popover hidden rather than where it last was.
-        popover.cells.trigger.set(None);
-        popover.cells.item.set(None);
+        popover.begin_frame();
         if self.route != Route::Library || !matches!(self.dialog, DialogState::None) {
             return None;
         }
@@ -108,35 +117,16 @@ impl NativeView {
         let active = self.active_preset_id()?;
         let all = Places::new(&self.snapshot);
         let places = all.of(skill, &active);
-        let content = text::sized(v_flex(), 13.)
-            .gap(px(10.))
-            .child(self.agents_section(&places, cx))
-            .when(!places.workspaces.is_empty(), |content| {
-                content.child(self.workspaces_section(&places, cx))
-            });
+        let content = Sections {
+            popover,
+            places: &places,
+            preset: self.active_preset(library),
+            busy: self.busy,
+        }
+        .render(window, cx);
+        let label = format!("Where {} is on", skill.id);
+        let surface = popover.surface(label, content, Self::close_place_popover, cx);
         let cells = popover.cells.clone();
-        let outside = popover.cells.trigger.clone();
-        let surface = surface("place-popover", 300., 12., content, cx)
-            .track_focus(&popover.focus)
-            .occlude()
-            .role(Role::Dialog)
-            .aria_label(format!("Where {} is on", skill.id))
-            .on_mouse_down_out(
-                cx.listener(move |view, event: &MouseDownEvent, window, cx| {
-                    // A press on the trigger toggles the popover through its click instead.
-                    if outside.get().is_some_and(|b| b.contains(&event.position)) {
-                        return;
-                    }
-                    view.close_place_popover(window, cx);
-                }),
-            )
-            .on_key_down(cx.listener(|view, event: &KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" {
-                    cx.stop_propagation();
-                    view.close_place_popover(window, cx);
-                }
-            }))
-            .on_scroll_wheel(|_, _, cx| cx.stop_propagation());
         let align = if popover.grid {
             Align::Start
         } else {
@@ -161,172 +151,58 @@ impl NativeView {
                 .into_any_element(),
         )
     }
+}
 
-    /// The preset chip, the All agents switch, and a pill per skill directory of your agents.
-    fn agents_section(&self, places: &SkillPlaces<'_>, cx: &mut Context<Self>) -> AnyElement {
-        let busy = self.busy;
-        let all = places.all_agents();
-        let preset = self
-            .snapshot
-            .library
-            .as_ref()
-            .and_then(|library| self.active_preset(library));
-        let next = places.switched(!all);
-        let skill = places.skill.clone();
-        let toggle = switch("place-all-agents", all, cx)
-            .role(Role::Switch)
-            .aria_toggled(if all { Toggled::True } else { Toggled::False })
-            .aria_label("All agents")
-            .when(!busy, |switch| {
-                switch
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |view, _, _, cx| {
-                        view.set_targets(skill.clone(), next.clone(), cx);
-                    }))
-            });
-        let group = div()
-            .id("place-all-row")
-            .flex()
-            .items_center()
-            .gap(px(8.))
-            .child(text::sized(
-                text::run("All agents", 13., FontWeight::NORMAL, false, cx),
-                13.,
-            ))
-            .child(toggle);
-        let pills = places.agents.iter().map(|held| {
-            let entry = held.entry;
-            let id = match &entry.row.reader {
-                Reader::Universal(_) => "place-agents-universal".to_owned(),
-                Reader::Agent(id) => format!("place-agent-{id}"),
-            };
-            let tooltip = match entry.detail() {
-                Some(detail) => format!("{}\n{detail}", entry.row.name),
-                None => entry.row.name.clone(),
-            };
-            let (skill, next) = (places.skill.clone(), places.toggled(entry));
-            place_pill(id, Logo::reader(&entry.row.reader), held.held, tooltip, cx).when(
-                !busy,
-                |pill| {
-                    pill.cursor_pointer()
-                        .on_click(cx.listener(move |view, _, _, cx| {
-                            view.set_targets(skill.clone(), next.clone(), cx);
-                        }))
-                },
-            )
-        });
-        let none = places.agents.is_empty();
-        v_flex()
-            .gap(px(8.))
-            .child(
-                h_flex()
-                    .justify_between()
-                    .gap(px(8.))
-                    .min_h(px(22.))
-                    .child(section_label("Your agents", cx))
-                    .child(preset_chip(preset, cx)),
-            )
-            .child(if none {
-                place_line(
-                    tip(group, "Includes agents added later"),
-                    [text::sized(div(), 11.5)
-                        .text_color(cx.theme().muted_foreground)
-                        .child("No agents detected")
-                        .into_any_element()],
-                )
-            } else {
-                place_line(
-                    tip(group, "Includes agents added later"),
-                    pills.map(IntoElement::into_any_element),
-                )
-            })
-            .into_any_element()
+impl Placer for NativeView {
+    fn place_agents(&mut self, skill: SkillId, targets: Targets, cx: &mut Context<Self>) {
+        self.set_targets(skill, targets, cx);
     }
 
-    /// One line per workspace, in sidebar order, under a hairline.
-    fn workspaces_section(&self, places: &SkillPlaces<'_>, cx: &mut Context<Self>) -> AnyElement {
-        v_flex()
-            .gap(px(8.))
-            .pt(px(10.))
-            .border_t_1()
-            .border_color(cx.theme().foreground.alpha(LINE_INK))
-            .child(
-                h_flex()
-                    .min_h(px(22.))
-                    .child(section_label("Workspaces", cx)),
-            )
-            .children(
-                places
-                    .workspaces
-                    .iter()
-                    .map(|place| self.workspace_line(places, place, cx)),
-            )
-            .into_any_element()
-    }
-
-    /// A workspace's glyph and name, "No agents yet" while it uses none, then its pills. A
-    /// workspace whose folder is missing is faded and does nothing.
-    fn workspace_line(
-        &self,
-        places: &SkillPlaces<'_>,
-        place: &WorkspacePlace<'_>,
+    fn place_workspace(
+        &mut self,
+        workspace: WorkspaceId,
+        skill: SkillId,
+        targets: Option<WorkspaceTargets>,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let workspace = place.workspace;
-        let inert = self.busy || place.missing();
-        let pills = place.entries.iter().map(|held| {
-            let entry = held.entry;
-            let tooltip = match entry.detail() {
-                Some(detail) => format!("{}\n{detail}", entry.row.name),
-                None => entry.row.name.clone(),
-            };
-            let id = format!("place-ws-{}-{}", workspace.id, entry.keys.join("+"));
-            let next: Option<WorkspaceTargets> = place.toggled(entry);
-            let (skill, target) = (places.skill.clone(), workspace.id.clone());
-            place_pill(id, Logo::reader(&entry.row.reader), held.held, tooltip, cx).when(
-                !inert,
-                |pill| {
-                    pill.cursor_pointer()
-                        .on_click(cx.listener(move |view, _, _, cx| {
-                            view.set_workspace_skill(
-                                target.clone(),
-                                skill.clone(),
-                                next.clone(),
-                                cx,
-                            );
-                        }))
-                },
+    ) {
+        self.set_workspace_skill(workspace, skill, targets, cx);
+    }
+}
+
+impl PlacePopover {
+    /// The popover's box around `content`, a dialog named `label`. It holds the popover's focus,
+    /// cycles its controls with Tab and Shift-Tab, and runs `close` on Escape or on a press
+    /// outside it, except on its trigger, whose click toggles it.
+    fn surface<V: 'static>(
+        &self,
+        label: String,
+        content: AnyElement,
+        close: fn(&mut V, &mut Window, &mut Context<V>),
+        cx: &Context<V>,
+    ) -> impl IntoElement + use<V> {
+        let outside = self.cells.trigger.clone();
+        let surface = surface("place-popover", 300., 12., content, cx)
+            .test_support()
+            .track_focus(&self.focus)
+            .occlude()
+            .role(Role::Dialog)
+            .aria_label(label)
+            .on_mouse_down_out(
+                cx.listener(move |view, event: &MouseDownEvent, window, cx| {
+                    if outside.get().is_some_and(|b| b.contains(&event.position)) {
+                        return;
+                    }
+                    close(view, window, cx);
+                }),
             )
-        });
-        let name = v_flex()
-            .child(
-                h_flex()
-                    .min_w_0()
-                    .gap(px(6.))
-                    .child(sized_icon(workspace, 14., cx))
-                    .child(text::truncated(
-                        workspace.name.clone(),
-                        13.,
-                        FontWeight::NORMAL,
-                        cx,
-                    )),
-            )
-            .when(place.uses_none(), |name| {
-                name.child(
-                    text::observed(text::sized(div(), 11.5), || {
-                        format!("none-{}", workspace.id)
-                    })
-                    .pl(px(20.))
-                    .text_color(cx.theme().muted_foreground)
-                    .child("No agents yet"),
-                )
-            });
-        let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));
-        if place.missing() {
-            tip(line.opacity(0.4), "The workspace folder is missing.").into_any_element()
-        } else {
-            line.into_any_element()
-        }
+            .on_key_down(cx.listener(move |view, event: &KeyDownEvent, window, cx| {
+                if event.keystroke.key == "escape" {
+                    cx.stop_propagation();
+                    close(view, window, cx);
+                }
+            }))
+            .on_scroll_wheel(|_, _, cx| cx.stop_propagation());
+        self.cycle(surface)
     }
 }
 
