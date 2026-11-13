@@ -122,7 +122,7 @@ impl Git {
 
     fn network(&self, repo: Option<&Path>, args: &[&str]) -> AppResult<String> {
         let output = process::run(
-            &self.executable,
+            &self.program,
             repo,
             args,
             NETWORK_TIMEOUT,

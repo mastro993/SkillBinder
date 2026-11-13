@@ -13,7 +13,6 @@ It was first built on 2026-11-09 from `feat/skill-activation-redesign` at `18f5e
 | `make-fixture.sh <root> [init\|finish\|problems]` | Builds the files. `init` creates the home, the workspaces, the Git source and the skills locks before the first launch. `finish` adds the 2 skills only Discovery lists, after the UI setup. `problems` makes the optional edited and foreign copies. |
 | `restore.sh $FX [problems]` | Replaces `$FX/root` with a fresh copy of `$FX/seed` at the same absolute path. With `problems`, it also applies the edited and foreign copies. It refuses to run while the app is open on that root. |
 | `verify.js <prototype.html> <root>` | Checks a root against the prototypes' data: counts, descriptions, folders, preset and workspace holdings, colors and sources. Pass any bundle from `../prototypes/`; it prints `OK: …` for a good seed. Needs `node` and `sqlite3`. |
-| `panel-pick.js` | Accessibility (JXA) helper that selects a folder in the native "Add workspace" panel. Only needed to build the seed. |
 
 ## Build the seed (once per fixture directory, about 15 minutes of UI driving)
 
@@ -24,7 +23,7 @@ The seed stores absolute paths, so it works only at the `$FX/root` it was built 
 3. Onboarding: Continue ×3, Create library, Import. This imports 12 skills into Default for the agents that held them.
 4. Library: untick a11y-audit, copy-editor, data-viz, k8s-debug and prompt-tuning. Set the code-review agents menu to "All agents".
 5. Presets: add "Frontend" and "Backend". For each, open the right-click menu › Color › Custom, set the hex field (`set_text`) to `#3B82F6` or `#F59E0B`, and press Enter.
-6. Add the workspaces acme-web, api-server and docs-site, in that order, from `$FX/root/home/code` (see "Driving tips" for the folder panel).
+6. Add the workspaces acme-web, api-server and docs-site, in that order, with the MCP command `add_workspace {"path": "$FX/root/home/code/<name>"}` for each.
 7. Discovery: Select all (6) › Review import › Import.
 8. On the acme-web page, set code-review and e2e-playwright to "All agents". On api-server, set sql-helper and docker-compose to "All agents".
 9. Preset holdings:
@@ -55,10 +54,6 @@ target/debug/skillbinder --mcp --data-dir $FX/root/data --home $FX/root/home
 
 - "frame wait timed out" means the window is fully covered: GPUI draws no frame then. Move it to an uncovered spot without activating the app, for example `osascript -e 'tell application "System Events" to set position of window 1 of (first process whose unix id is <pid>) to {x, y}'`, and raise it with `perform action "AXRaise"` before a screenshot.
 - `click_element` on a row below the fold reports "clicked" but misses. Scroll the row into view first.
-- The "Add workspace" folder panel is out of reach of the MCP. Accessibility calls work without focus:
-  1. Open the panel's "Where:" popup and pick an ancestor folder of `$FX`.
-  2. `osascript -l JavaScript panel-pick.js <pid> <folder> … root home code acme-web` expands each named folder in turn and selects the last.
-  3. `osascript -e 'tell application "System Events" to click button "Add workspace" of splitter group 1 of window "Open" of (first process whose unix id is <pid>)'`
 
 ## Prototype data → native fixture
 

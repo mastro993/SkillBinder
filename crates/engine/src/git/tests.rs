@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 use super::*;
-use std::fs;
+use std::{fs, path::PathBuf};
 use tempfile::TempDir;
 
 struct Fixture {
@@ -17,7 +17,7 @@ impl Fixture {
         let bare = root.path().join("remote.git");
         let peer = root.path().join("peer");
         fs::create_dir(&bare).unwrap();
-        let git = Git::discover(Shutdown::default()).unwrap();
+        let git = Git::discover(None, Shutdown::default()).unwrap();
         git.output(&bare, &["init", "--bare", "--initial-branch=main"])
             .unwrap();
         git.initialize(&repo).unwrap();
@@ -405,12 +405,12 @@ fn review_remote_attributes_do_not_execute_global_filters() {
             "#!/bin/sh\nexport HOME='{}'\nexport XDG_CONFIG_HOME='{}'\nexec '{}' \"$@\"\n",
             home.display(),
             home.display(),
-            f.git.executable.display()
+            f.git.program.executable.display()
         ),
     )
     .unwrap();
     fs::set_permissions(&wrapper, fs::Permissions::from_mode(0o700)).unwrap();
-    f.git.executable = wrapper;
+    f.git.program.executable = wrapper;
     f.git
         .perform(&f.repo, Some(&f.remote), SyncAction::Pull)
         .unwrap();

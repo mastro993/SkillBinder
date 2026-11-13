@@ -9,7 +9,7 @@ impl Git {
     /// Whether the library's object database holds the tree `tree`.
     pub fn has_tree(&self, repo: &Path, tree: &str) -> AppResult<bool> {
         let out = process::run(
-            &self.executable,
+            &self.program,
             Some(repo),
             &["cat-file", "-t", "--end-of-options", tree],
             Duration::from_secs(30),
@@ -29,7 +29,7 @@ impl Git {
     ) -> AppResult<()> {
         let path = scratch.to_str().ok_or_else(AppError::storage)?;
         process::run(
-            &self.executable,
+            &self.program,
             None,
             &[
                 "init",

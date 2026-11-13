@@ -15,7 +15,7 @@ use skillbinder_proto::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::{Path, PathBuf},
+    path::Path,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -26,26 +26,30 @@ const MANAGED: [&str; 2] = ["skills", "records"];
 /// A verified executable whose identity is fixed for this engine session.
 #[derive(Clone, Debug)]
 pub struct Git {
-    executable: PathBuf,
+    program: process::Program,
     version: String,
     /// Stops a running command when the application quits, instead of waiting for its timeout.
     shutdown: Shutdown,
 }
 
 impl Git {
-    /// Finds Git only in absolute PATH entries and requires version 2.39 or newer.
-    pub(crate) fn discover(shutdown: Shutdown) -> AppResult<Self> {
+    /// Finds Git only in absolute PATH entries and requires version 2.39 or newer. With `home`,
+    /// its commands read only that home's Git configuration, never the user's or the system's.
+    pub(crate) fn discover(home: Option<&Path>, shutdown: Shutdown) -> AppResult<Self> {
         let path = std::env::var_os("PATH").ok_or_else(|| failure("Git was not found."))?;
         for directory in std::env::split_paths(&path).filter(|p| p.is_absolute()) {
             let executable = directory.join(if cfg!(windows) { "git.exe" } else { "git" });
             if !executable.is_file() {
                 continue;
             }
-            let executable = executable
-                .canonicalize()
-                .map_err(|_| failure("Git could not be resolved."))?;
+            let program = process::Program {
+                executable: executable
+                    .canonicalize()
+                    .map_err(|_| failure("Git could not be resolved."))?,
+                home: home.map(Path::to_owned),
+            };
             let output = process::run(
-                &executable,
+                &program,
                 None,
                 &["--version"],
                 Duration::from_secs(30),
@@ -58,7 +62,7 @@ impl Git {
                 return Err(failure("Git verification failed."));
             }
             return Ok(Self {
-                executable,
+                program,
                 version,
                 shutdown,
             });
@@ -88,7 +92,7 @@ impl Git {
     pub fn validate_remote(&self, remote: &RemoteConfig) -> AppResult<()> {
         validation::remote(remote)?;
         let result = process::run(
-            &self.executable,
+            &self.program,
             None,
             &["check-ref-format", "--branch", &remote.branch],
             Duration::from_secs(30),
@@ -385,7 +389,7 @@ impl Git {
     /// The commit `name` resolves to, if any.
     pub fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {
         let out = process::run(
-            &self.executable,
+            &self.program,
             Some(repo),
             &[
                 "rev-parse",
@@ -496,7 +500,7 @@ impl Git {
         timeout: Duration,
         stop: Option<&Shutdown>,
     ) -> AppResult<String> {
-        let output = process::run(&self.executable, Some(repo), args, timeout, stop)?;
+        let output = process::run(&self.program, Some(repo), args, timeout, stop)?;
         if !output.status.success() {
             return Err(failure(
                 "Git operation failed. Check access and repository state.",

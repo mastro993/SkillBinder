@@ -55,17 +55,9 @@ pub(crate) fn parse_launch(
             ),
         }
     }
-    ensure!(
-        home.is_none() || data.is_some(),
-        "--home requires --data-dir"
-    );
-    ensure!(
-        mode == NativeMode::Interactive || data.is_some(),
-        "--smoke-test and --mcp require an isolated --data-dir"
-    );
-    let Some(data) = data else {
-        return Ok((EngineConfig::platform()?, mode));
-    };
+    // A native-test build never runs on the user's own library or home.
+    let data =
+        data.ok_or_else(|| anyhow::anyhow!("Native test builds require an isolated --data-dir"))?;
     let platform = EngineConfig::platform()?;
     let data = resolved_path(&data)?;
     ensure!(
@@ -73,12 +65,10 @@ pub(crate) fn parse_launch(
         "--data-dir cannot use the platform data directory"
     );
     let home = resolved_path(&home.unwrap_or_else(|| data.join("fixture-home")))?;
-    if mode == NativeMode::Mcp {
-        ensure!(
-            home != resolved_path(&platform.home)?,
-            "--home cannot use the real home in MCP mode"
-        );
-    }
+    ensure!(
+        home != resolved_path(&platform.home)?,
+        "--home cannot use the real home"
+    );
     Ok((EngineConfig::isolated(data, home), mode))
 }
 
@@ -114,9 +104,10 @@ mod tests {
     fn modes_require_isolation_and_exclude_each_other() -> anyhow::Result<()> {
         let fixture = std::env::temp_dir().join("skillbinder-parser-fixture");
         let fixture = fixture.to_str().context("fixture path is not UTF-8")?;
-        assert_eq!(parse(&[])?.1, NativeMode::Interactive);
+        assert_eq!(parse(&["--data-dir", fixture])?.1, NativeMode::Interactive);
         assert_eq!(parse(&["--data-dir", fixture, "--mcp"])?.1, NativeMode::Mcp);
         for args in [
+            vec![],
             vec!["--mcp"],
             vec!["--smoke-test"],
             vec!["--mcp", "--smoke-test", "--data-dir", fixture],
@@ -132,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn mcp_rejects_real_data_and_home_paths() -> anyhow::Result<()> {
+    fn rejects_real_data_and_home_paths() -> anyhow::Result<()> {
         let platform = EngineConfig::platform()?;
         let fixture = std::env::temp_dir().join("skillbinder-parser-fixture");
         let fixture = fixture.to_str().context("fixture path is not UTF-8")?;
@@ -149,7 +140,6 @@ mod tests {
         );
         assert!(
             parse(&[
-                "--mcp",
                 "--data-dir",
                 fixture,
                 "--home",

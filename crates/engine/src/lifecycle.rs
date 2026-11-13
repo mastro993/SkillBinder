@@ -1,6 +1,18 @@
 use crate::{persistence, worker::State};
 use skillbinder_proto::{AppError, AppResult, Bootstrap, ErrorCategory, OnboardingStep, PlanId};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
+
+/// Whose Git configuration the engine's Git commands read.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GitProfile {
+    /// The user's own, with their credential helpers, SSH setup, and URL rewrites.
+    User,
+    /// Only the configured home's, never the user's or the system's.
+    Home,
+}
 
 /// Filesystem boundaries captured once at application startup.
 #[derive(Clone, Debug)]
@@ -11,6 +23,8 @@ pub struct EngineConfig {
     pub home: PathBuf,
     /// Environment used solely to expand declarative registry paths.
     pub environment: BTreeMap<String, String>,
+    /// Whose Git configuration Git commands read.
+    pub git: GitProfile,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
@@ -20,14 +34,24 @@ impl EngineConfig {
             data_dir: dirs.data_local_dir().join("SkillBinder"),
             home: dirs.home_dir().to_path_buf(),
             environment: std::env::vars().collect(),
+            git: GitProfile::User,
         })
     }
-    /// Creates an isolated engine configuration for tests or native fixtures.
+    /// Creates an isolated engine configuration for tests or native fixtures. Git reads only
+    /// `home`'s configuration, so a fixture never reaches the user's credentials or identity.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
             data_dir,
             home,
             environment: BTreeMap::new(),
+            git: GitProfile::Home,
+        }
+    }
+    /// The home whose Git configuration alone Git commands read, if not the user's.
+    pub(crate) fn git_home(&self) -> Option<&Path> {
+        match self.git {
+            GitProfile::User => None,
+            GitProfile::Home => Some(&self.home),
         }
     }
 }

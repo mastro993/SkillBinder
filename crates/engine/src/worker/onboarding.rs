@@ -9,7 +9,7 @@ impl Engine {
     /// Rechecks prerequisites and persisted onboarding progress.
     pub async fn bootstrap(&self) -> AppResult<Bootstrap> {
         self.call(|state| {
-            state.git = Git::discover(state.shutdown.clone()).ok();
+            state.git = Git::discover(state.config.git_home(), state.shutdown.clone()).ok();
             state.bootstrap()
         })
         .await

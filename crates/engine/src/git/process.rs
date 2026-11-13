@@ -2,7 +2,7 @@ use super::{AppResult, failure};
 use crate::shutdown::Shutdown;
 use std::{
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process::{Child, Command, Output, Stdio},
     sync::mpsc,
     thread,
@@ -11,8 +11,15 @@ use std::{
 
 const OUTPUT_LIMIT: usize = 4 * 1024 * 1024;
 
+/// The Git executable, and the home whose configuration alone it reads, if not the user's.
+#[derive(Clone, Debug)]
+pub(super) struct Program {
+    pub(super) executable: PathBuf,
+    pub(super) home: Option<PathBuf>,
+}
+
 pub(super) fn run(
-    executable: &Path,
+    program: &Program,
     repo: Option<&Path>,
     args: &[&str],
     timeout: Duration,
@@ -21,7 +28,7 @@ pub(super) fn run(
     if let Some(repo) = repo {
         require_raw_attributes(repo)?;
     }
-    let mut command = Command::new(executable);
+    let mut command = Command::new(&program.executable);
     for (key, _) in std::env::vars_os() {
         if key
             .to_string_lossy()
@@ -30,6 +37,12 @@ pub(super) fn run(
         {
             command.env_remove(key);
         }
+    }
+    if let Some(home) = &program.home {
+        command
+            .env("HOME", home)
+            .env_remove("XDG_CONFIG_HOME")
+            .env("GIT_CONFIG_NOSYSTEM", "1");
     }
     let null = if cfg!(windows) { "NUL" } else { "/dev/null" };
     command
@@ -242,7 +255,10 @@ mod tests {
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
         let start = std::time::Instant::now();
         let result = super::run(
-            &script,
+            &super::Program {
+                executable: script,
+                home: None,
+            },
             None,
             &[],
             std::time::Duration::from_millis(40),
@@ -266,7 +282,17 @@ mod tests {
             cancelled.cancel();
         });
         let start = std::time::Instant::now();
-        let result = super::run(&script, None, &[], Duration::from_secs(30), Some(&shutdown));
+        let program = super::Program {
+            executable: script,
+            home: None,
+        };
+        let result = super::run(
+            &program,
+            None,
+            &[],
+            Duration::from_secs(30),
+            Some(&shutdown),
+        );
         assert_eq!(
             result.unwrap_err().category,
             skillbinder_proto::ErrorCategory::Cancelled
@@ -289,7 +315,7 @@ fn permits_user_credential_helper_configuration() {
         "[credential]\n\thelper = harmless-fixture\n",
     )
     .unwrap();
-    let git = super::Git::discover(super::Shutdown::default()).unwrap();
+    let git = super::Git::discover(None, super::Shutdown::default()).unwrap();
     let wrapper = root.path().join("git-wrapper");
     std::fs::write(
         &wrapper,
@@ -297,7 +323,7 @@ fn permits_user_credential_helper_configuration() {
             "#!/bin/sh\nexport HOME='{}'\nexport XDG_CONFIG_HOME='{}'\nexec '{}' \"$@\"\n",
             root.path().display(),
             root.path().display(),
-            git.executable.display()
+            git.program.executable.display()
         ),
     )
     .unwrap();
@@ -305,6 +331,10 @@ fn permits_user_credential_helper_configuration() {
     // Exec'ing a just-written script fails with "Text file busy" on Linux while another test's
     // forked child still holds its write descriptor, so retry the spawn for at most a second.
     let args = ["config", "--global", "--get", "credential.helper"];
+    let wrapper = Program {
+        executable: wrapper,
+        home: None,
+    };
     let started = std::time::Instant::now();
     let output = loop {
         let result = run(&wrapper, None, &args, Duration::from_secs(30), None);
@@ -319,4 +349,34 @@ fn permits_user_credential_helper_configuration() {
         String::from_utf8(output.stdout).unwrap().trim(),
         "harmless-fixture"
     );
+}
+
+#[cfg(test)]
+#[test]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Configuration fixture failures must abort the test."
+)]
+fn reads_only_the_given_home_configuration() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path().canonicalize().unwrap();
+    std::fs::write(home.join(".gitconfig"), "[user]\n\tname = Fixture\n").unwrap();
+    let git = super::Git::discover(Some(&home), super::Shutdown::default()).unwrap();
+    let args = ["config", "--list", "--show-scope", "--show-origin"];
+    let output = run(&git.program, None, &args, Duration::from_secs(30), None).unwrap();
+    let listed = String::from_utf8(output.stdout).unwrap();
+    assert!(listed.contains("user.name=Fixture"), "{listed}");
+    // The engine's own `-c` options and any repository's config may show; the user's and the
+    // system's files may not.
+    for line in listed.lines() {
+        let mut fields = line.split('\t');
+        let (scope, origin) = (fields.next().unwrap(), fields.next().unwrap());
+        assert_ne!(scope, "system", "{line}");
+        if scope == "global" {
+            assert!(
+                origin.starts_with(&format!("file:{}", home.display())),
+                "{line}"
+            );
+        }
+    }
 }

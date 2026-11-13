@@ -94,10 +94,11 @@ impl Engine {
         let updates = Updates::default();
         let progress = Progress::default();
         let shutdown = Shutdown::default();
+        let git = Git::discover(config.git_home(), shutdown.clone()).ok();
         let mut state = State {
             config,
             database,
-            git: Git::discover(shutdown.clone()).ok(),
+            git,
             log,
             scans: scans.clone(),
             updates: updates.clone(),

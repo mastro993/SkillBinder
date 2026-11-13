@@ -1,11 +1,12 @@
-//! Native-test controls: the smoke steps, and the holds a native check uses to wait for a strip or
-//! toast state that real timing passes too fast to catch.
+//! Native-test controls: the smoke steps, the holds a native check uses to wait for a strip or
+//! toast state that real timing passes too fast to catch, and adding a workspace without the
+//! system folder panel, which a native check cannot drive.
 
 use super::{DialogState, NativeView, Route};
 use gpui_kit::component::{WindowExt, notification::Notification};
 use gpui_kit::{Context, Focusable, SharedString, Window};
 use skillbinder_proto::WorkspaceId;
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 
 /// What a native check holds.
 #[derive(Clone, Debug, Default)]
@@ -55,6 +56,16 @@ impl NativeView {
         }
         cx.notify();
         (strip, toast)
+    }
+
+    /// Adds `folder`'s projects as workspaces, as picking it in the folder panel does. Returns
+    /// false, adding nothing, while a change blocks the window.
+    pub fn add_workspace(&mut self, folder: PathBuf, cx: &mut Context<Self>) -> bool {
+        if self.blocked() {
+            return false;
+        }
+        self.add_workspace_folder(async move { Ok(Some(folder)) }, cx);
+        true
     }
 
     /// Whether a hold keeps the strip from ending.
