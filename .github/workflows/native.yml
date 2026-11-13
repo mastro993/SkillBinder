@@ -41,7 +41,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.96.0 --profile minimal
+        run: rustup toolchain install 1.100.0 --profile minimal
       - name: Install cross-compilation target
         if: matrix.target
         run: |

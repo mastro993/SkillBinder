@@ -36,7 +36,7 @@ CI and local verification:
 
 - `cargo fmt --all --check`
 - workspace Clippy with warnings denied (`dbg!`, `todo!`, `unimplemented!`, and library stdout prints are denied)
-- `cccc .` (limits in `cccc.toml`; install `cccc-cli` 1.8.3 with Rust 1.99.1, as CI does — 1.96 cannot build it). Do not raise the limits; refactor instead.
+- `cccc .` (limits in `cccc.toml`; install `cccc-cli` 1.8.3 with `cargo install cccc-cli --version 1.8.3 --locked`, as CI does). Do not raise the limits; refactor instead.
 - workspace tests
 - `cargo run -p xtask -- verify` (registry, licensed artwork, baseline integrity, crate graph)
 - locked release build
