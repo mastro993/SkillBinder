@@ -28,7 +28,6 @@ const SCHEMA: &str = r#"{
   }
 }"#;
 
-/// `hold_activation`'s listing.
 pub(super) fn descriptor() -> Result<ApplicationCommandDescriptor, BridgeError> {
     Ok(ApplicationCommandDescriptor {
         name: NAME.to_owned(),
@@ -41,7 +40,6 @@ pub(super) fn descriptor() -> Result<ApplicationCommandDescriptor, BridgeError> 
     })
 }
 
-/// Runs `hold_activation` on `view`.
 pub(super) fn execute(
     view: &Entity<NativeView>,
     request: ApplicationCommandRequest,

@@ -55,7 +55,6 @@ pub(crate) fn parse_launch(
             ),
         }
     }
-    // A native-test build never runs on the user's own library or home.
     let data =
         data.ok_or_else(|| anyhow::anyhow!("Native test builds require an isolated --data-dir"))?;
     let platform = EngineConfig::platform()?;

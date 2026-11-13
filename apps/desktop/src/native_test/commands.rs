@@ -1,5 +1,3 @@
-//! The MCP commands a native-test build advertises on its bridge.
-
 use super::{holds, workspaces};
 use gpui_kit::Entity;
 use gpui_mcp::{
@@ -8,7 +6,6 @@ use gpui_mcp::{
 };
 use skillbinder_ui::NativeView;
 
-/// Advertises `hold_activation` and `add_workspace` on the bridge, acting on `view`.
 pub(crate) fn register_commands(
     bridge: &BridgeHandle,
     view: Entity<NativeView>,

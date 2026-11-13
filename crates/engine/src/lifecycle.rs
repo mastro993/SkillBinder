@@ -47,7 +47,6 @@ impl EngineConfig {
             git: GitProfile::Home,
         }
     }
-    /// The home whose Git configuration alone Git commands read, if not the user's.
     pub(crate) fn git_home(&self) -> Option<&Path> {
         match self.git {
             GitProfile::User => None,

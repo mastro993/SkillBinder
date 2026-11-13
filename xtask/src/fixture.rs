@@ -156,7 +156,6 @@ fn copy_tree(from: &Path, to: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The directories in `parent`, by name.
 fn children(parent: &Path) -> anyhow::Result<Vec<PathBuf>> {
     let mut children = Vec::new();
     for entry in fs::read_dir(parent).with_context(|| format!("Missing {}", parent.display()))? {
