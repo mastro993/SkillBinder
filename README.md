@@ -7,7 +7,7 @@ SkillBinder manages a local library of agent skills with native GPUI screens and
 
 ## Run
 
-Install Rust 1.96 through `rustup` and the [platform prerequisites](docs/native-gate/checks.md#prerequisites). Then run:
+Install Rust 1.100 through `rustup` and the [platform prerequisites](docs/native-gate/checks.md#prerequisites). Then run:
 
 ```sh
 cargo run -p skillbinder --locked
