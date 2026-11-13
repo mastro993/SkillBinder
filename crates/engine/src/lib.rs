@@ -21,5 +21,5 @@ mod sources;
 mod worker;
 mod workspaces;
 
-pub use lifecycle::EngineConfig;
+pub use lifecycle::{EngineConfig, GitProfile};
 pub use worker::Engine;

@@ -40,8 +40,11 @@ Packaging writes a macOS app and DMG, Windows ZIP, or Linux tarball beneath `dis
 For isolated native testing:
 
 ```sh
-cargo run -p skillbinder --features native-test --locked -- --data-dir /tmp/skillbinder-test --home /tmp/skillbinder-test-home
+cargo run -p xtask --locked -- fixture /tmp/skillbinder-world
+cargo run -p skillbinder --features native-test --locked -- --data-dir /tmp/skillbinder-world/data --home /tmp/skillbinder-world/home
 ```
+
+The first command builds a [synthetic world](fixtures/synthetic/README.md) of fictional agents, projects, a skill source, and a Sync remote. A `native-test` build refuses to run without an isolated `--data-dir` or on your real home.
 
 Add `--smoke-test` to exercise native rendering, text, focus, overlays, and orderly exit automatically against the isolated data directory. The `native-test` build also accepts `--mcp --data-dir <isolated-path>` for opt-in UI automation through the [GPUI MCP bridge](docs/native-gate/checks.md#run-the-opt-in-mcp-bridge). Ordinary builds contain no bridge or test flags.
 

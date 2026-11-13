@@ -1,8 +1,10 @@
 use gpui_kit::{Entity, Window};
 mod arguments;
+mod commands;
 mod holds;
+mod workspaces;
 pub(crate) use arguments::{NativeMode, parse_launch};
-pub(crate) use holds::register_holds;
+pub(crate) use commands::register_commands;
 use skillbinder_engine::Engine;
 use skillbinder_proto::OnboardingStep;
 use skillbinder_ui::NativeView;

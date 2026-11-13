@@ -5,6 +5,7 @@ use super::{Effect, NativeView};
 use gpui_kit::component::dialog::Dialog;
 use gpui_kit::{Context, ParentElement, PathPromptOptions, Styled, div};
 use skillbinder_proto::*;
+use std::path::PathBuf;
 
 impl NativeView {
     /// Picks a folder, grants it, and adds its projects as workspaces; a scan then covers them.
@@ -18,14 +19,27 @@ impl NativeView {
             multiple: false,
             prompt: Some("Add workspace".into()),
         });
+        self.add_workspace_folder(
+            async move {
+                match picker.await {
+                    Ok(Ok(Some(paths))) => Ok(paths.into_iter().next()),
+                    Ok(Ok(None)) => Ok(None),
+                    _ => Err(AppError::storage()),
+                }
+            },
+            cx,
+        );
+    }
+
+    /// Grants the folder `folder` resolves to, if any, and adds its projects as workspaces.
+    pub(super) fn add_workspace_folder(
+        &mut self,
+        folder: impl Future<Output = AppResult<Option<PathBuf>>> + Send + 'static,
+        cx: &mut Context<Self>,
+    ) {
         let client = self.client.clone();
         let handle = client.runtime().spawn(async move {
-            let path = match picker.await {
-                Ok(Ok(Some(paths))) => paths.into_iter().next(),
-                Ok(Ok(None)) => None,
-                _ => return Err(AppError::storage()),
-            };
-            let Some(path) = path else {
+            let Some(path) = folder.await? else {
                 return Ok(());
             };
             let grant = client.grant_directory(path).await?;

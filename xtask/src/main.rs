@@ -3,6 +3,7 @@
 
 mod clippy_policy;
 mod evidence;
+mod fixture;
 mod graph;
 mod manifests;
 mod mcp_smoke;
@@ -30,8 +31,9 @@ fn main() -> anyhow::Result<()> {
         Some("clippy-policy") => clippy_policy::write(root),
         Some("package") => package::package(root, std::env::args().nth(2).as_deref()),
         Some("mcp-smoke") => mcp_smoke::run(std::env::args_os().skip(2)),
+        Some("fixture") => fixture::build(root, std::env::args().nth(2).as_deref()),
         _ => anyhow::bail!(
-            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|package [target]|mcp-smoke <app-binary> <gpui-mcp-binary>>"
+            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|package [target]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>>"
         ),
     }
 }

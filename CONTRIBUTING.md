@@ -4,7 +4,7 @@
 
 1. Read [feature coverage](docs/features/native.md), [architecture](docs/architecture/native.md), and [verification status](docs/native-gate.md).
 2. Install the pinned Rust toolchain and platform prerequisites.
-3. Run the app with an isolated `native-test` data directory for interaction checks.
+3. Run the app on the [synthetic world](fixtures/synthetic/README.md) (`cargo run -p xtask -- fixture <dir>`) with an isolated `native-test` data directory for interaction checks.
 4. Run the README verification commands, including the locked release build.
 5. Update affected behavior documentation in `docs/`.
 

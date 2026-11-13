@@ -28,7 +28,7 @@ Domain and integration tests use isolated storage and local bare Git remotes. Th
 
 CI `checks.yml` runs formatting, `cccc .` with `cccc-cli` 1.8.3 built by Rust 1.99.1 (cached across runs), Clippy with warnings denied (the workspace `clippy.toml` denies filesystem, process, network, and environment APIs outside the crates that own them), workspace tests, and `xtask verify`. Complexity limits stay in `cccc.toml`; do not raise them.
 
-The native test feature provides isolated startup and a renderer smoke test:
+The native test feature provides isolated startup and a renderer smoke test. A `native-test` build never opens the user's own library or home: every mode requires `--data-dir`, which may not be the platform data directory, and `--home` may not be the real home; without `--home`, the home is `<data-dir>/fixture-home`. In an isolated run, the engine's Git commands read only the fixture home's Git configuration, never the user's or the system's, so a fixture never reaches the user's credential helpers, URL rewrites, or identity. SSH still reads the account's own `~/.ssh`, so fixtures use `file://` remotes.
 
 ```sh
 cargo run -p skillbinder --features native-test --locked -- \
@@ -38,6 +38,18 @@ cargo run -p skillbinder --features native-test --locked -- \
 ```
 
 The smoke test initializes only the supplied test directory and renders all four product screens and a GPUI Kit dialog across actual native frames. It checks Unicode text, input focus, modal focus capture and restoration, and refusal of implicit confirmation. Renderer error logs fail the check, including missing icon mappings. Errors from the platform backends (`gpui_linux`, `gpui_macos`, `gpui_windows`) and from wgpu's EGL adapter probe (`wgpu_hal::gles::egl`) describe host display, input, and driver conditions. They are printed without failing the check. For example, Xvfb exposes no pointer device, and nested Weston has no GL driver while Vulkan renders. The test then drains the engine and exits. Success prints `NATIVE_SMOKE_OK`. Test-only stage and renderer logs identify startup failures; Linux CI collects thread backtraces if a smoke process stalls. It does not simulate physical keyboard input, IME composition, or directory selection. Ordinary builds contain no test controls or bridge.
+
+### Launch on the synthetic world
+
+`fixtures/synthetic/` holds a small fictional machine: agents' global skill directories, projects, a skill source with a newer version, and a Sync remote, all with made-up content. Build it at a new directory and launch on it:
+
+```sh
+cargo run -p xtask --locked -- fixture /tmp/skillbinder-world
+cargo run -p skillbinder --features native-test --locked -- \
+  --data-dir /tmp/skillbinder-world/data --home /tmp/skillbinder-world/home
+```
+
+The task refuses a directory that is not empty and prints the launch command, the projects folder to add as workspaces, and the Sync remote's `file://` URL. Its Git commits carry fixed dates and author, so every build gives the same commits. `fixtures/synthetic/README.md` lists what the world holds and which states each part exercises. Add `--mcp` to drive it through the bridge below. The prototype-parity fixture in `docs/design/scoped-pages/fixture/` is separate: it reproduces the prototypes' data for visual comparison.
 
 ### Run the opt-in MCP bridge
 
@@ -62,7 +74,9 @@ Configure an MCP client to start the server:
 {"mcpServers":{"gpui":{"command":"gpui-mcp","args":["--app-id","skillbinder"]}}}
 ```
 
-For Codex, run `codex mcp add gpui -- gpui-mcp --app-id skillbinder`. The server discovers the running window; the client configuration needs no endpoint path or token. The bridge starts only when both `native-test` and `--mcp` are present. `--mcp` requires `--data-dir`, conflicts with `--smoke-test`, and refuses the platform data directory or the real home as an explicit `--home` override. The GPUI patch applies to every build, while the optional MCP bridge dependency stays outside the ordinary app graph. The quit hook stops the bridge before draining the engine. MCP automation proves native rendered interaction, not visual parity or packaged-app behavior.
+For Codex, run `codex mcp add gpui -- gpui-mcp --app-id skillbinder`. The server discovers the running window; the client configuration needs no endpoint path or token. The bridge starts only when both `native-test` and `--mcp` are present. `--mcp` conflicts with `--smoke-test`. The GPUI patch applies to every build, while the optional MCP bridge dependency stays outside the ordinary app graph. The quit hook stops the bridge before draining the engine. MCP automation proves native rendered interaction, not visual parity or packaged-app behavior.
+
+The bridge advertises two app commands. `hold_activation` holds the progress strip or its end toast (see [activation progress](../features/native/activation-progress.md)). `add_workspace {"path": "<absolute folder>"}` adds a folder's projects as workspaces, as picking it in the system folder panel does, which the bridge cannot drive; it answers `Busy` while a change blocks the window, and a refusal shows in the window as an error.
 
 For a repeatable local interaction check, build the native test app and run the pinned server through `xtask`:
 
