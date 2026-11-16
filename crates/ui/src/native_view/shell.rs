@@ -208,7 +208,6 @@ impl NativeView {
                     .size_full()
                     .flex()
                     .flex_col()
-                    .child(self.render_import_outcome(cx))
                     .child(div().flex_1().min_h_0().child(page))
                     .into_any_element(),
             ];
@@ -222,7 +221,6 @@ impl NativeView {
                 .when(!matches!(self.route, Route::Workspace(_)), |page| {
                     page.px_6().pt_4().pb_6()
                 })
-                .child(self.render_import_outcome(cx))
                 .child(page)
                 .into_any_element(),
             self.content_scroll
@@ -335,7 +333,6 @@ impl NativeView {
 
     fn header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         match self.route {
-            Route::Discovery => self.discovery_header_actions(cx),
             Route::Library => self.library_header_actions(cx),
             Route::Skill(ref id) => self.skill_header_actions(&id.clone(), cx),
             Route::Workspace(ref id) => {

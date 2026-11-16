@@ -108,12 +108,6 @@ impl NativeView {
             .library
             .as_ref()
             .map(|library| library.library.skills.len());
-        // Scans run on every refresh, so they show no loading state here.
-        let found = self.found_count();
-        let discovery = match found {
-            0 => None,
-            found => Some(count(found, cx)),
-        };
         let hairline = hairline(window);
         let (above, below) = match snapshot.library {
             Some(_) => super::sidebar_scroll::scrolled_edges(&self.sidebar_scroll.handle),
@@ -157,10 +151,6 @@ impl NativeView {
                     .border_b(hairline)
                     .border_color(divider(above))
                     .child(
-                        self.nav_row(Route::Discovery, "compass", "Discovery", cx)
-                            .children(discovery),
-                    )
-                    .child(
                         self.nav_row(Route::Library, "libraries", "Library", cx)
                             .when_some(skills, |row, skills| row.child(count(skills, cx))),
                     ),
@@ -201,8 +191,6 @@ impl NativeView {
         self.persist_preferences(cx);
     }
 
-    /// Library is selected while it lists every skill and on a skill's page. Presets are
-    /// activated in place and never select a route.
     fn nav_row(
         &self,
         route: Route,
@@ -210,8 +198,7 @@ impl NativeView {
         label: &'static str,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let selected = self.route == route
-            || matches!((&self.route, &route), (Route::Skill(_), Route::Library));
+        let selected = nav_selected(&self.route, &route);
         activate(
             row(
                 format!("nav-{}", label.to_lowercase()),
@@ -372,9 +359,25 @@ fn needs_sync(sync: &SyncSnapshot) -> bool {
     ) || sync.changed_files > 0
 }
 
+/// Whether the row opening `row` is selected on `current`: Library is selected while it lists
+/// every skill and on a skill's page. Presets are activated in place and never select a route.
+fn nav_selected(current: &Route, row: &Route) -> bool {
+    current == row || matches!((current, row), (Route::Skill(_), Route::Library))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::visible_width;
+    use super::super::route::Route;
+    use super::super::snapshot_query::fixture::id;
+    use super::{nav_selected, visible_width};
+
+    #[test]
+    fn library_is_selected_on_the_starting_route_and_on_a_skill_page() {
+        for current in [Route::default(), Route::Skill(id("review"))] {
+            assert!(nav_selected(&current, &Route::Library), "{current:?}");
+            assert!(!nav_selected(&current, &Route::Sync), "{current:?}");
+        }
+    }
 
     #[test]
     fn visible_width_runs_toward_the_target_state() {

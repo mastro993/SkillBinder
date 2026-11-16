@@ -6,7 +6,6 @@ use super::super::controls::text::tabular;
 use super::super::controls::{Inactive, app_icon, button, text_button};
 use super::super::library_filters::{empty_state, glyph};
 use super::super::sidebar_row::format_count;
-use super::Seed;
 use gpui_kit::component::{ActiveTheme, Sizable, Size, button::ButtonVariants};
 use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder, px,
@@ -34,7 +33,7 @@ impl NativeView {
             .tooltip("Scan for skills")
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, window, cx| {
-                view.open_import_dialog(Seed::default(), window, cx);
+                view.open_import_dialog(window, cx);
             }))
             .into_any_element()
     }
@@ -46,7 +45,7 @@ impl NativeView {
             .primary()
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, window, cx| {
-                view.open_import_dialog(Seed::default(), window, cx);
+                view.open_import_dialog(window, cx);
             }));
         empty_state(
             glyph("folder-search", cx),

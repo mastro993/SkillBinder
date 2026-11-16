@@ -3,7 +3,7 @@
 # in this folder gives the whole procedure.
 #
 #   make-fixture.sh <root>           stage "init": home, workspaces, Git sources, skills locks
-#   make-fixture.sh <root> finish    after the UI setup (app quit): the 2 Discovery-only skills
+#   make-fixture.sh <root> finish    after the UI setup (app quit): the 2 found skills not in library
 #   make-fixture.sh <root> problems  optional: the EDITED and FOREIGN copies (file edits only)
 #
 # <root> must be absolute and is <fixture dir>/root: the app stores absolute paths (workspaces,
@@ -63,8 +63,8 @@ init_home() {
 
 # Workspaces (~/code/<name>, so the app shows "~/code/acme-web" like data.js). A workspace uses
 # the skill directories that exist when it is added: acme-web .claude + .agents, api-server
-# .claude, docs-site none. Copies of library skills are adopted; the rest are imported from
-# Discovery, which makes each active for exactly the directories holding it.
+# .claude, docs-site none. Copies of library skills are adopted; the rest are imported with
+# Scan for skills, which makes each active for exactly the directories holding it.
 init_workspaces() {
   local w s
   for w in acme-web api-server docs-site; do

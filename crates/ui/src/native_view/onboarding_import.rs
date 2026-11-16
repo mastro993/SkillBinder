@@ -9,7 +9,7 @@ mod tests;
 
 use super::controls::{Inactive, app_icon, text_button};
 use super::import_dialog::list::import_label;
-use super::import_dialog::{ImportDialog, Phase, Seed, alert_glyph, changed_line};
+use super::import_dialog::{ImportDialog, Phase, alert_glyph, changed_line};
 use super::progress_strip::{Activity, Landing};
 use super::{Effect, NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
@@ -36,7 +36,7 @@ impl NativeView {
             return;
         }
         self.first_import = Some(FirstImport {
-            list: ImportDialog::new(Seed::default(), false, window, cx),
+            list: ImportDialog::new(false, window, cx),
             reviewing: false,
         });
         self.prepare_found(cx);

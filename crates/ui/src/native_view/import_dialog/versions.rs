@@ -1,5 +1,5 @@
 //! Found skills: the not-in-library candidates grouped into one skill per key, each with its
-//! versions and the version an import of it takes, and how a version reads in a list.
+//! versions, and how a version reads in a list.
 
 use super::super::NativeView;
 use super::super::controls::{app_icon, button};
@@ -16,7 +16,7 @@ use gpui_kit::{
     AnyElement, App, Context, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{AppSnapshot, Candidate, CandidateId, CandidateLocation, ValidationStatus};
+use skillbinder_proto::{AppSnapshot, Candidate, CandidateLocation, ValidationStatus};
 use std::{collections::BTreeMap, path::Path};
 
 /// One found skill and its versions, in the order the scan lists them.
@@ -25,37 +25,8 @@ pub(in crate::native_view) struct FoundSkill<'a> {
     pub versions: Vec<&'a Candidate>,
 }
 
-impl<'a> FoundSkill<'a> {
-    /// The version an import of this skill takes: the one the user chose, while it is still
-    /// found and importable, else the preferred one; none when every version is blocked.
-    pub(in crate::native_view) fn chosen(
-        &self,
-        choices: &BTreeMap<String, CandidateId>,
-    ) -> Option<&'a Candidate> {
-        let choice = choices.get(self.key);
-        self.versions
-            .iter()
-            .copied()
-            .filter(|version| importable(version))
-            .find(|version| Some(&version.id) == choice)
-            .or_else(|| {
-                self.versions
-                    .iter()
-                    .copied()
-                    .find(|version| version.preferred)
-            })
-    }
-
-    /// The slug, as the chosen or first version spells it.
-    pub(in crate::native_view) fn slug(&self, choices: &BTreeMap<String, CandidateId>) -> &'a str {
-        self.chosen(choices)
-            .or_else(|| self.versions.first().copied())
-            .map_or(self.key, |version| version.slug.as_str())
-    }
-}
-
 /// Whether a version can be imported: it is not blocked and has files.
-pub(in crate::native_view) fn importable(version: &Candidate) -> bool {
+fn importable(version: &Candidate) -> bool {
     version.validation != ValidationStatus::Blocked && version.file_count > 0
 }
 
@@ -79,7 +50,7 @@ pub(in crate::native_view) fn found_skills<'a>(listed: &[&'a Candidate]) -> Vec<
 }
 
 /// A version's radio label: when it was modified, then Invalid or Blocked (D4).
-pub(in crate::native_view) fn version_label(version: &Candidate) -> String {
+fn version_label(version: &Candidate) -> String {
     let modified = version
         .modified
         .and_then(dates::from_unix)
@@ -100,11 +71,7 @@ pub(in crate::native_view) fn version_label(version: &Candidate) -> String {
 }
 
 /// A version's locations as "directory · readers", its size, and its validation messages.
-pub(in crate::native_view) fn version_details(
-    version: &Candidate,
-    snapshot: &AppSnapshot,
-    cx: &App,
-) -> AnyElement {
+fn version_details(version: &Candidate, snapshot: &AppSnapshot, cx: &App) -> AnyElement {
     v_flex()
         .min_w_0()
         .gap(px(2.))
@@ -158,7 +125,7 @@ fn location_label(location: &CandidateLocation, snapshot: &AppSnapshot) -> Strin
 }
 
 /// A line of `text` after the alert glyph, both in `color`, wrapping beside the glyph.
-pub(in crate::native_view) fn warning(text: String, color: Hsla) -> AnyElement {
+fn warning(text: String, color: Hsla) -> AnyElement {
     h_flex()
         .items_start()
         .gap(px(6.))
@@ -298,6 +265,7 @@ impl NativeView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use skillbinder_proto::CandidateId;
 
     fn version(id: &str, key: &str, preferred: bool, validation: ValidationStatus) -> Candidate {
         Candidate {
@@ -319,34 +287,14 @@ mod tests {
     }
 
     #[test]
-    fn versions_group_by_key_and_import_the_choice_or_the_preferred_one() {
+    fn versions_group_by_key_in_the_order_the_scan_lists_them() {
         let a1 = version("a1", "a", false, ValidationStatus::Valid);
         let b = version("b", "b", true, ValidationStatus::Valid);
         let a2 = version("a2", "a", true, ValidationStatus::Valid);
-        let a3 = version("a3", "a", false, ValidationStatus::Blocked);
-        let skills = found_skills(&[&a1, &b, &a2, &a3]);
+        let skills = found_skills(&[&a1, &b, &a2]);
         let keys: Vec<_> = skills.iter().map(|skill| skill.key).collect();
         assert_eq!(keys, ["a", "b"]);
-        assert_eq!(skills[0].versions.len(), 3);
-        let chosen = |choices: &BTreeMap<String, CandidateId>| {
-            skills[0]
-                .chosen(choices)
-                .map(|version| version.id.0.clone())
-        };
-        let mut choices = BTreeMap::new();
-        assert_eq!(chosen(&choices).as_deref(), Some("a2"));
-        choices.insert("a".to_owned(), CandidateId("a1".to_owned()));
-        assert_eq!(chosen(&choices).as_deref(), Some("a1"));
-        // A blocked or vanished choice falls back to the preferred version.
-        choices.insert("a".to_owned(), CandidateId("a3".to_owned()));
-        assert_eq!(chosen(&choices).as_deref(), Some("a2"));
-    }
-
-    #[test]
-    fn a_skill_whose_versions_are_all_blocked_has_no_choice() {
-        let blocked = version("x", "x", false, ValidationStatus::Blocked);
-        let skills = found_skills(&[&blocked]);
-        assert!(skills[0].chosen(&BTreeMap::new()).is_none());
-        assert_eq!(skills[0].slug(&BTreeMap::new()), "x");
+        let ids: Vec<_> = skills[0].versions.iter().map(|v| v.id.0.as_str()).collect();
+        assert_eq!(ids, ["a1", "a2"]);
     }
 }

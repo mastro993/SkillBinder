@@ -170,15 +170,16 @@ fn assert_result(state: &State, applied: bool) {
     }
     assert_eq!(outcomes, i64::from(applied));
     assert_eq!(consumed, i64::from(applied));
-    let outcome = state.setting::<ImportOutcome>("import_outcome").unwrap();
-    assert_eq!(outcome.is_some(), applied);
-    if let Some(outcome) = outcome {
-        let stored: String = idempotency_records::table
-            .find(outcome.plan_id.as_str())
-            .select(idempotency_records::result)
+    if applied {
+        let (plan, stored): (String, String) = idempotency_records::table
+            .select((
+                idempotency_records::operation_id,
+                idempotency_records::result,
+            ))
             .first(&mut *state.database.borrow_mut())
             .unwrap();
-        assert_eq!(serde_json::to_string(&outcome).unwrap(), stored);
+        let outcome: ImportOutcome = serde_json::from_str(&stored).unwrap();
+        assert_eq!(outcome.plan_id.as_str(), plan);
     }
     assert_eq!(journals_kept(state), 0);
     assert!(!state.recovery_required);

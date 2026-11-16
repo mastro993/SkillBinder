@@ -128,10 +128,6 @@ async fn import_preserves_source_bytes_and_replays_after_restart() {
         engine.apply_import(plan.id, ids, false).await.unwrap(),
         first
     );
-    assert_eq!(
-        engine.snapshot().await.unwrap().import_outcome,
-        Some(first.clone())
-    );
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(library.library.skills.len(), 1);
     let skill = &library.library.skills[0];
@@ -142,8 +138,6 @@ async fn import_preserves_source_bytes_and_replays_after_restart() {
             .is_some_and(|time| time.ends_with('Z')),
         "imports record an RFC 3339 UTC time"
     );
-    engine.dismiss_import().await.unwrap();
-    assert_eq!(engine.snapshot().await.unwrap().import_outcome, None);
     engine.shutdown().await.unwrap();
 }
 

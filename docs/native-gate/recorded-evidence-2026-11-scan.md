@@ -42,3 +42,14 @@ On 2026-11-16, a macOS ARM64 MCP session ran first boots of the `native-test` de
 - **Skip.** On a fresh world, Skip opened Library's empty state with nothing imported and the Scan for skills count at 10.
 
 Design check, by eye beside `docs/design/scan-import/prototypes/onboarding.html` (variant B), not a pixel comparison. Layout, hierarchy, copy, icons, and states follow the prototype. While Review list is open the column takes the window's height so the list fills the rest and scrolls; the other onboarding steps keep their earlier plain styling.
+
+## Discovery retired (#117)
+
+On 2026-11-16, a macOS ARM64 MCP session ran the `native-test` debug builds of `main` (before) and of this branch (after) on an isolated synthetic world from `cargo run -p xtask -- fixture`, with its `--data-dir` and `--home` under the session's scratch directory. This is a native interaction check, separate from compilation, the domain tests, the native smoke test, and a packaged-app smoke test.
+
+- **Before.** On `main`, onboarding's import of 8 skills ended in Library under "Import finished: 8 copied, 0 already in library" with Dismiss result, and the sidebar began with a Discovery row counting 2. A relaunch opened Discovery, with the banner still shown.
+- **Upgrade.** This branch opened the same data directory, which held the stored result: the migration removed it, the app started on Library, the sidebar began with Library, and no banner showed.
+- **Removed workspace.** With `atlas-web` and `orbit-api` added by `add_workspace`, removing `atlas-web` from its own page through the row menu's Remove… opened Library.
+- **Agents no longer detected.** With Cursor's page open, moving `~/.cursor` away and refocusing the window dropped Cursor from Agents and opened Library. With Universal's page open, moving `~/.agents` away did the same for Universal.
+- **Import.** With the directories back, Scan for skills, counting 3, opened the Import skills dialog with "Import 1 skill"; Import ended with the strip's "Imported 1 skill", no banner showed, and no import result was stored.
+- **Smoke.** `--smoke-test` passed, its step opening Scan for skills where it opened Discovery before.

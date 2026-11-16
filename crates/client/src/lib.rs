@@ -337,11 +337,6 @@ impl Client {
             .prepare_import_version(plan, version)
             .await
     }
-    /// Dismisses the last retained import result.
-    pub async fn dismiss_import(&self) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.dismiss_import().await)
-            .await
-    }
     /// Reads a bounded skill preview.
     pub async fn preview_skill(
         &self,

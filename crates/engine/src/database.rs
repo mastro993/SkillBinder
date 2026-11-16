@@ -191,6 +191,38 @@ mod tests {
         }
     }
 
+    /// The last import's result, which a retired banner showed until dismissed, is forgotten.
+    #[test]
+    fn a_stored_import_result_is_forgotten() -> AppResult<()> {
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let path = root.path().join("state.db");
+        let mut connection =
+            SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
+                .map_err(|_| AppError::storage())?;
+        for _ in 0..9 {
+            connection
+                .run_next_migration(MIGRATIONS)
+                .map_err(|_| AppError::storage())?;
+        }
+        connection
+            .batch_execute(
+                "INSERT INTO device_settings(key, value) VALUES('kept', '1'); \
+                 INSERT INTO device_settings(key, value) VALUES('import_outcome', '{}');",
+            )
+            .map_err(|_| AppError::storage())?;
+        drop(connection);
+        let mut upgraded = open(&path)?;
+        let keys = crate::schema::device_settings::table
+            .select(crate::schema::device_settings::key)
+            .load::<String>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        if keys == ["kept"] {
+            Ok(())
+        } else {
+            Err(AppError::storage())
+        }
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn opens_paths_that_are_not_utf8() -> AppResult<()> {

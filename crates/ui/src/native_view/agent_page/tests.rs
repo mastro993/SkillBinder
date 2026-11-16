@@ -151,7 +151,7 @@ fn a_page_without_an_active_preset_lists_nothing() {
 }
 
 #[test]
-fn pages_of_agents_no_longer_detected_open_discovery() {
+fn pages_of_agents_no_longer_detected_open_library() {
     let agents = [
         agent("codex", "/home/.agents/skills", true),
         agent("claude-code", "/home/.claude/skills", true),
@@ -161,12 +161,12 @@ fn pages_of_agents_no_longer_detected_open_discovery() {
     let page = |id: &str| Route::Agent(id.to_owned());
     assert_eq!(fallback(page("claude-code")), page("claude-code"));
     assert_eq!(fallback(page("codex")), Route::Universal);
-    assert_eq!(fallback(page("cursor")), Route::Discovery);
+    assert_eq!(fallback(page("cursor")), Route::Library);
     assert_eq!(fallback(Route::Universal), Route::Universal);
     let undetected = [agent("codex", "/home/.agents/skills", false)];
     assert_eq!(
         agent_fallback(&undetected, "/home", Route::Universal),
-        Route::Discovery
+        Route::Library
     );
 }
 

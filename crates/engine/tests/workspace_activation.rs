@@ -77,7 +77,7 @@ async fn adding_a_workspace_adopts_the_library_skills_it_holds_without_writing()
     assert_eq!(
         notes.in_library(),
         None,
-        "slugs not in the library stay in Discovery"
+        "slugs not in the library stay found, not in library"
     );
     project.engine.shutdown().await.unwrap();
 }

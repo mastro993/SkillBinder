@@ -1,7 +1,7 @@
 //! The Import skills dialog (ADR 0008, design D1 to D13): it scans afresh, prepares one plan for
 //! every found skill not in library (ADR 0009), and imports the ticked ones. Library's Scan for
-//! skills and its empty state open it; Discovery's Review import opens it with Discovery's ticks.
-//! Onboarding's import step holds the same state and embeds its list (O3).
+//! skills and its empty state open it. Onboarding's import step holds the same state and embeds
+//! its list (O3).
 
 mod entry;
 mod frame;
@@ -37,15 +37,6 @@ pub(super) enum Phase {
     Ready(Box<FoundImport>),
 }
 
-/// The ticks, version choices, and acknowledgement a dialog opens with.
-#[derive(Default)]
-pub(super) struct Seed {
-    /// Ticked keys; `None` ticks the first list's defaults.
-    pub ticked: Option<BTreeSet<String>>,
-    pub choices: BTreeMap<String, CandidateId>,
-    pub acknowledge_invalid: bool,
-}
-
 pub(super) struct ImportDialog {
     pub phase: Phase,
     /// Ticked found skills by key; `None` until the first list shows and ticks its defaults.
@@ -69,13 +60,8 @@ pub(super) struct ImportDialog {
 }
 
 impl ImportDialog {
-    /// A dialog in its Scanning state, opening with `seed`.
-    pub(super) fn new(
-        seed: Seed,
-        headed: bool,
-        window: &mut Window,
-        cx: &mut Context<NativeView>,
-    ) -> Self {
+    /// A dialog in its Scanning state, with nothing ticked until its first list shows.
+    pub(super) fn new(headed: bool, window: &mut Window, cx: &mut Context<NativeView>) -> Self {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search found skills"));
         let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
@@ -84,10 +70,10 @@ impl ImportDialog {
         });
         Self {
             phase: Phase::Scanning,
-            ticked: seed.ticked,
-            choices: seed.choices,
+            ticked: None,
+            choices: BTreeMap::new(),
             expanded: BTreeSet::new(),
-            acknowledge_invalid: seed.acknowledge_invalid,
+            acknowledge_invalid: false,
             search,
             _search: subscription,
             choosing: None,
@@ -131,16 +117,11 @@ impl NativeView {
     }
 
     /// Opens the dialog in its Scanning state and starts the scan.
-    pub(super) fn open_import_dialog(
-        &mut self,
-        seed: Seed,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn open_import_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.blocked() {
             return;
         }
-        let dialog = ImportDialog::new(seed, true, window, cx);
+        let dialog = ImportDialog::new(true, window, cx);
         self.show_dialog(DialogState::ImportSkills(Box::new(dialog)));
         self.prepare_found(cx);
     }
