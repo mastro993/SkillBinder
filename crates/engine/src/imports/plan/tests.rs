@@ -24,10 +24,15 @@ fn a_source_that_changed_since_the_scan_is_left_out_of_the_plan() {
     let found = source(&directory);
     assert!(plannable(&found).unwrap().is_some(), "unchanged source");
 
-    fs::remove_dir_all(&directory).unwrap();
+    // The replacement exists beside the original before it takes its place, so the file
+    // system cannot hand it the original's freed inode, as Linux does on a delete and recreate.
+    let replacement = directory.with_file_name("replacement");
+    source(&replacement);
+    let removed = directory.with_file_name("removed");
+    fs::rename(&directory, &removed).unwrap();
     assert!(plannable(&found).unwrap().is_none(), "removed source");
 
-    source(&directory);
+    fs::rename(&replacement, &directory).unwrap();
     assert!(plannable(&found).unwrap().is_none(), "replaced source");
 }
 
