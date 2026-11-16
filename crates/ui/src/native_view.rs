@@ -7,7 +7,6 @@ mod copy_changed;
 mod copy_dialogs;
 mod custom_color;
 mod dialogs;
-mod discovery;
 mod folder_reorder;
 mod hover_scroll;
 mod import_dialog;
@@ -76,7 +75,6 @@ use std::{
     sync::Arc,
 };
 
-use controls::{Inactive, button};
 use gpui_kit::component::{
     ActiveTheme,
     input::{InputEvent, InputState},
@@ -139,13 +137,6 @@ pub struct NativeView {
     dialog: DialogState,
     /// The Import skills dialog while its import runs, reopened if the list changed (D11).
     importing: Option<Box<import_dialog::ImportDialog>>,
-    /// Discovery's keys of the found skills chosen for import.
-    selected_skills: BTreeSet<String>,
-    /// The version the user chose for a found skill, by key, instead of its preferred one.
-    version_choices: BTreeMap<String, CandidateId>,
-    /// The keys of the found skills whose versions Discovery lists.
-    expanded_skills: BTreeSet<String>,
-    acknowledge_invalid: bool,
     /// Onboarding's import step, once it shows.
     first_import: Option<onboarding_import::FirstImport>,
     /// The open context menu.
@@ -299,17 +290,13 @@ impl NativeView {
             client,
             snapshot,
             focus,
-            route: Route::Discovery,
+            route: Route::default(),
             history: History::default(),
             busy: false,
             syncing: false,
             error: None,
             dialog: DialogState::None,
             importing: None,
-            selected_skills: BTreeSet::new(),
-            version_choices: BTreeMap::new(),
-            expanded_skills: BTreeSet::new(),
-            acknowledge_invalid: false,
             first_import: None,
             menu: None,
             preset_edit: None,
@@ -373,35 +360,6 @@ impl NativeView {
     fn reveal_logs(&self, cx: &mut Context<Self>) {
         cx.reveal_path(&PathBuf::from(&self.snapshot.bootstrap.logs_path));
     }
-
-    fn render_import_outcome(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let mut banner = div();
-        if let Some(outcome) = &self.snapshot.import_outcome {
-            banner = banner
-                .p_4()
-                .flex()
-                .flex_col()
-                .gap_2()
-                .child(format!(
-                    "Import finished: {} copied, {} already in library",
-                    outcome.imported.len(),
-                    outcome.existing.len(),
-                ))
-                .child(
-                    button("dismiss-import")
-                        .label("Dismiss result")
-                        .inactive(self.busy)
-                        .on_click(cx.listener(|view, _, _, cx| {
-                            let client = view.client.clone();
-                            view.run(
-                                async move { client.dismiss_import().await.map(|_| Effect::None) },
-                                cx,
-                            );
-                        })),
-                );
-        }
-        banner
-    }
 }
 
 impl Focusable for NativeView {
@@ -428,7 +386,6 @@ impl Render for NativeView {
                 .into_any_element()
         } else {
             let page = match &self.route {
-                Route::Discovery => self.render_discovery(cx).into_any_element(),
                 Route::Library => self.render_library(window, cx),
                 Route::Skill(id) => self.render_skill(&id.clone(), cx),
                 Route::Workspace(id) => self.render_workspace(&id.clone(), cx),

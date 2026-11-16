@@ -142,14 +142,14 @@ fn readers<'a>(
 }
 
 /// Where an agent's or Universal's page goes once `agents` no longer lists it: a universal
-/// agent's page becomes Universal's, and the page of an agent that is no longer detected opens
-/// Discovery, as a removed workspace's does.
+/// agent's page becomes Universal's, and the page of an agent that is no longer detected, or
+/// Universal's with no universal agent left, opens Library, as a removed workspace's does.
 pub(super) fn agent_fallback(agents: &[AgentOption], home: &str, route: Route) -> Route {
     let (universal, others) = split_universal(detected_agents(agents), home);
     match route {
         Route::Agent(id) if universal.iter().any(|agent| agent.id == id) => Route::Universal,
-        Route::Agent(id) if !others.iter().any(|agent| agent.id == id) => Route::Discovery,
-        Route::Universal if universal.is_empty() => Route::Discovery,
+        Route::Agent(id) if !others.iter().any(|agent| agent.id == id) => Route::Library,
+        Route::Universal if universal.is_empty() => Route::Library,
         route => route,
     }
 }

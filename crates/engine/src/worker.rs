@@ -267,11 +267,6 @@ impl Engine {
         self.call(move |state| state.prepare_version(&plan, version))
             .await
     }
-    /// Dismisses the retained terminal outcome.
-    pub async fn dismiss_import(&self) -> AppResult<()> {
-        self.call(|state| state.set_setting("import_outcome", &Option::<ImportOutcome>::None))
-            .await
-    }
     /// Reads a bounded contained skill preview.
     pub async fn preview_skill(
         &self,
@@ -366,7 +361,6 @@ impl State {
             scanning,
             updates,
             sync,
-            import_outcome: self.setting("import_outcome")?.flatten(),
             // A snapshot is a worker job, so no tracked change is in flight while it runs.
             activation: None,
             preferences: self.setting("preferences")?.unwrap_or_default(),

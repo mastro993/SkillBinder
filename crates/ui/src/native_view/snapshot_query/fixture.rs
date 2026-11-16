@@ -68,7 +68,6 @@ impl Fixture {
                 updates: BTreeMap::new(),
                 checking: false,
                 sync: SyncSnapshot::default(),
-                import_outcome: None,
                 activation: None,
                 preferences: Preferences::default(),
             },

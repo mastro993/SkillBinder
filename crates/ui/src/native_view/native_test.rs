@@ -125,12 +125,21 @@ impl NativeView {
                 self.navigate(Route::Settings, window, cx);
             }
             2 => self.navigate(Route::Library, window, cx),
-            3 => self.navigate(Route::Discovery, window, cx),
+            3 => self.open_import_dialog(window, cx),
             4 => {
+                if !matches!(self.dialog, DialogState::ImportSkills(_))
+                    || !window.has_active_dialog(cx)
+                {
+                    return Err("Scan for skills did not open the Import skills dialog".into());
+                }
+                self.dialog = DialogState::None;
+                self.sync_dialog(window, cx);
+            }
+            5 => {
                 window.focus(&self.focus, cx);
                 self.dialog = DialogState::RemoveWorkspace(WorkspaceId::new());
             }
-            5 => {
+            6 => {
                 if !window.has_active_dialog(cx) || self.focus.is_focused(window) {
                     return Err("Native dialog did not take focus".into());
                 }
@@ -139,14 +148,14 @@ impl NativeView {
                     cx,
                 );
             }
-            6 => {
+            7 => {
                 if !window.has_active_dialog(cx) || matches!(self.dialog, DialogState::None) {
                     return Err("Dialog confirmation bypassed the explicit action".into());
                 }
                 self.dialog = DialogState::None;
                 self.sync_dialog(window, cx);
             }
-            7 => {
+            8 => {
                 if window.has_active_dialog(cx) || !self.focus.is_focused(window) {
                     return Err("Native dialog did not restore focus".into());
                 }

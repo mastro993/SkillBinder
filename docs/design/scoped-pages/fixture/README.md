@@ -10,7 +10,7 @@ It was first built on 2026-11-09 from `feat/skill-activation-redesign` at `18f5e
 
 | File | What it does |
 |---|---|
-| `make-fixture.sh <root> [init\|finish\|problems]` | Builds the files. `init` creates the home, the workspaces, the Git source and the skills locks before the first launch. `finish` adds the 2 skills only Discovery lists, after the UI setup. `problems` makes the optional edited and foreign copies. |
+| `make-fixture.sh <root> [init\|finish\|problems]` | Builds the files. `init` creates the home, the workspaces, the Git source and the skills locks before the first launch. `finish` adds the 2 found skills not in library, after the UI setup. `problems` makes the optional edited and foreign copies. |
 | `restore.sh $FX [problems]` | Replaces `$FX/root` with a fresh copy of `$FX/seed` at the same absolute path. With `problems`, it also applies the edited and foreign copies. It refuses to run while the app is open on that root. |
 | `verify.js <prototype.html> <root>` | Checks a root against the prototypes' data: counts, descriptions, folders, preset and workspace holdings, colors and sources. Pass any bundle from `../prototypes/`; it prints `OK: …` for a good seed. Needs `node` and `sqlite3`. |
 
@@ -24,13 +24,13 @@ The seed stores absolute paths, so it works only at the `$FX/root` it was built 
 4. Library: untick a11y-audit, copy-editor, data-viz, k8s-debug and prompt-tuning. Set the code-review agents menu to "All agents".
 5. Presets: add "Frontend" and "Backend". For each, open the right-click menu › Color › Custom, set the hex field (`set_text`) to `#3B82F6` or `#F59E0B`, and press Enter.
 6. Add the workspaces acme-web, api-server and docs-site, in that order, with the MCP command `add_workspace {"path": "$FX/root/home/code/<name>"}` for each.
-7. Discovery: Select all (6) › Review import › Import.
+7. Library: Scan for skills › Import 6 skills.
 8. On the acme-web page, set code-review and e2e-playwright to "All agents". On api-server, set sql-helper and docker-compose to "All agents".
 9. Preset holdings:
    1. Activate Frontend. Tick a11y-audit, code-review, frontend-design and tailwind-helper. Set data-viz's menu to Cursor, and storybook's menu to Claude Code, then Cursor.
    2. Activate Backend. Tick code-review and sql-helper. Set api-docs to Universal, docker-compose to Claude Code then Universal, and k8s-debug to Claude Code.
    3. Activate Default.
-10. Add the folders Web, Backend and Writing, and file the skills with the row menu › Move to folder as the table below lists. Dismiss the import result.
+10. Add the folders Web, Backend and Writing, and file the skills with the row menu › Move to folder as the table below lists.
 11. Quit the app, then:
     1. `$scripts/make-fixture.sh $FX/root finish`
     2. `sqlite3 $FX/root/data/skillbinder.db 'pragma wal_checkpoint(TRUNCATE)' && rm -rf $FX/root/data/logs/*`
@@ -47,7 +47,7 @@ target/debug/skillbinder --mcp --data-dir $FX/root/data --home $FX/root/home
 
 - With `--home`, the engine sees an empty environment (`EngineConfig::isolated`), so `XDG_*` and `CLAUDE_CONFIG_DIR` in your shell never leak in.
 - Quit with `pkill -TERM -f "skillbinder --mcp --data-dir $FX/root/data"`, then restore before the next run. Any click that changes something (activation, theme toggle, update) persists in `root/`.
-- At launch the app scans, finds 2 skills for Discovery, and checks the sources after the scan. Exactly k8s-debug, pdf-tools and storybook then get the update glyph. Do not click "Update all": it applies the updates. Default is the active preset. The theme follows the system until the sidebar toggle switches it.
+- At launch the app scans, finds 2 skills not in library, which Scan for skills counts, and checks the sources after the scan. Exactly k8s-debug, pdf-tools and storybook then get the update glyph. Do not click "Update all": it applies the updates. Default is the active preset. The theme follows the system until the sidebar toggle switches it.
 - Use the clean seed for the Library, workspace and agent pages. Use `problems` for the picker and progress problem states.
 
 ## Driving tips
@@ -72,8 +72,8 @@ Element ids `preset-default`, `agents-universal`, `agent-claude-code`, `agent-cu
 | api-server, uses `.claude/skills` | sql-helper and docker-compose for all; api-docs for `.claude/skills` (3). |
 | docs-site, uses none; offers the 12 directories of the detected agents | Holds nothing; the folder has only a README (0). Its agents menu offers `.agents/skills` (Universal), `.claude/skills` ("Claude Code, Cline, Cursor, fx, Warp"), `.cline/skills`, `.clinerules/skills`, `.codex/skills`, `.cursor/skills`, `.dexto/skills`, `.fx/skills`, `.kimi-code/skills`, `.pi/skills`, `.warp/skills` and `.windsurf/skills`. |
 | Active 13, inactive 5 | Inactive: a11y-audit, copy-editor, data-viz, k8s-debug, prompt-tuning. |
-| Sidebar counts | Library 18. Default 7, Frontend 6, Backend 5. acme-web 5, api-server 3, docs-site 0. Universal 3, Claude Code 6, Cursor 3, Windsurf 1. Discovery 2. |
-| Discovery 2 | `figma-export` and `react-hooks` in `acme-web/.claude/skills`, not in the library. The prototypes give only the count, so the names are the fixture's. |
+| Sidebar counts | Library 18. Default 7, Frontend 6, Backend 5. acme-web 5, api-server 3, docs-site 0. Universal 3, Claude Code 6, Cursor 3, Windsurf 1. |
+| Discovery 2 (the prototypes' sidebar row) | Scan for skills 2: `figma-export` and `react-hooks` in `acme-web/.claude/skills`, not in the library. The prototypes give only the count, so the names are the fixture's. |
 | Edited: release-notes in `~/.claude`, storybook in acme-web `.claude`; foreign: tailwind-helper in `~/.cursor` | Only after `restore.sh $FX problems`. |
 
 ## Known differences
@@ -84,3 +84,4 @@ The prototypes' agents, Universal members, directory names and order used to dif
 2. **Preset colors.** The app's palette has no amber, and its Blue is `#2563eb` / `#60a5fa`. The fixture uses custom colors equal to the prototype tints, which the app draws the same in both themes.
 3. **Edited and foreign copies** are opt-in, and the app learns about them lazily: a copy is marked Edited only when the engine tries to rewrite or remove it. The foreign `~/.cursor/skills/tailwind-helper` raises the current app's Cursor count from 3 to 4, and switching to Frontend reports it as a conflict.
 4. **Sync.** The library repository has no commits or remote, so the native Sync row shows an attention dot; the prototypes' sidebar has no Sync row.
+5. **Discovery.** The prototypes' sidebar still has a Discovery row counting 2. The native sidebar has none (ADR 0008); Library's Scan for skills shows that count.

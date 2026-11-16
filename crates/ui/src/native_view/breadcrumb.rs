@@ -32,7 +32,6 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
         Route::Workspace(_)
         | Route::Agent(_)
         | Route::Universal
-        | Route::Discovery
         | Route::Library
         | Route::Sync
         | Route::Settings => None,
@@ -44,7 +43,6 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
 /// own title instead of the breadcrumb.
 fn title(route: &Route) -> String {
     match route {
-        Route::Discovery => "Discovery".to_owned(),
         Route::Skill(id) => id.to_string(),
         Route::Sync => "Sync".to_owned(),
         Route::Settings => "Settings".to_owned(),
@@ -86,7 +84,6 @@ mod tests {
     #[test]
     fn pages_without_a_section_are_their_title_alone() {
         for route in [
-            Route::Discovery,
             Route::Library,
             Route::Workspace(WorkspaceId::new()),
             Route::Agent("codex".to_owned()),

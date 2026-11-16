@@ -94,7 +94,7 @@ pub enum ImportDecision {
 /// A reviewed row in an immutable import plan.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImportItem {
-    /// Discovery identity.
+    /// The found version the row imports.
     pub candidate_id: CandidateId,
     /// The library skill the row imports or matches.
     pub skill_id: SkillId,

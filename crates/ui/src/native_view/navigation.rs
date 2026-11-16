@@ -1,8 +1,8 @@
 use gpui_kit::{Context, Window};
 use skillbinder_proto::*;
 
-use super::route::Route;
-use super::{NativeView, agent_page};
+use super::NativeView;
+use super::route::{self, Route};
 
 impl NativeView {
     /// Opens `route` and records the current one for Back.
@@ -25,8 +25,8 @@ impl NativeView {
         }
     }
 
-    /// Shows `route` without touching history; a deleted skill falls back to Library, and a
-    /// removed workspace or an agent no longer detected to Discovery.
+    /// Shows `route` without touching history; a deleted skill's page opens Library, and other
+    /// pages follow [`route::fallback`].
     pub(super) fn show(&mut self, route: Route, window: &mut Window, cx: &mut Context<Self>) {
         let skill_exists = |id: &SkillId| {
             self.snapshot
@@ -34,12 +34,9 @@ impl NativeView {
                 .as_ref()
                 .is_some_and(|library| library.library.skills.iter().any(|s| &s.id == id))
         };
-        let workspace_exists =
-            |id: &WorkspaceId| self.snapshot.workspaces.iter().any(|p| &p.id == id);
         let route = match route {
             Route::Skill(id) if !skill_exists(&id) => Route::Library,
-            Route::Workspace(id) if !workspace_exists(&id) => Route::Discovery,
-            route => agent_page::agent_fallback(&self.snapshot.agents, &self.snapshot.home, route),
+            route => route::fallback(&self.snapshot, route),
         };
         if self.route != route {
             self.leave_page();
@@ -56,10 +53,6 @@ impl NativeView {
 
     /// Drops the shown page's transient state and scrolls the next page to its top.
     pub(super) fn leave_page(&mut self) {
-        self.selected_skills.clear();
-        self.version_choices.clear();
-        self.expanded_skills.clear();
-        self.acknowledge_invalid = false;
         self.preview = None;
         self.update_outcome = None;
         self.skill_load = None;

@@ -1,6 +1,4 @@
-use crate::{
-    ImportOutcome, LibrarySnapshot, ScanSnapshot, SkillId, SkillUpdate, SyncSnapshot, Workspace,
-};
+use crate::{LibrarySnapshot, ScanSnapshot, SkillId, SkillUpdate, SyncSnapshot, Workspace};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -148,8 +146,6 @@ pub struct AppSnapshot {
     pub checking: bool,
     /// Git connection and status.
     pub sync: SyncSnapshot,
-    /// Last durable import result, until dismissed.
-    pub import_outcome: Option<ImportOutcome>,
     /// How far the change that writes and removes copies has got while it runs, or `None`.
     pub activation: Option<crate::ActivationProgress>,
     /// Local appearance preferences.

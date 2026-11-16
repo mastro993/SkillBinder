@@ -1,11 +1,12 @@
 //! Navigable routes and the in-memory back/forward history between them.
 
-use skillbinder_proto::{SkillId, WorkspaceId};
+use super::agent_page::agent_fallback;
+use skillbinder_proto::{AppSnapshot, SkillId, WorkspaceId};
 
 /// A navigable page.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) enum Route {
-    Discovery,
+    #[default]
     Library,
     /// A library skill's page, with its files: `skill/{id}`.
     Skill(SkillId),
@@ -18,6 +19,15 @@ pub(super) enum Route {
     Universal,
     Sync,
     Settings,
+}
+
+/// The page `snapshot` shows for `route`: a removed workspace's page opens Library, and an
+/// agent's or Universal's page follows [`agent_fallback`].
+pub(super) fn fallback(snapshot: &AppSnapshot, route: Route) -> Route {
+    match route {
+        Route::Workspace(id) if !snapshot.workspaces.iter().any(|w| w.id == id) => Route::Library,
+        route => agent_fallback(&snapshot.agents, &snapshot.home, route),
+    }
 }
 
 /// Routes behind and ahead of the current one.
@@ -57,19 +67,39 @@ impl History {
 
 #[cfg(test)]
 mod tests {
-    use super::{History, Route};
+    use super::super::snapshot_query::fixture::Fixture;
+    use super::{History, Route, fallback};
     use skillbinder_proto::WorkspaceId;
+
+    #[test]
+    fn the_app_starts_on_library() {
+        assert_eq!(Route::default(), Route::Library);
+    }
+
+    #[test]
+    fn pages_whose_workspace_or_agents_are_gone_open_library() {
+        let snapshot = Fixture::new().workspace("app", &[".agents/skills"]).build();
+        let workspace = |name: &str| Route::Workspace(WorkspaceId(name.to_owned()));
+        assert_eq!(fallback(&snapshot, workspace("app")), workspace("app"));
+        assert_eq!(fallback(&snapshot, workspace("gone")), Route::Library);
+        assert_eq!(
+            fallback(&snapshot, Route::Agent("cursor".to_owned())),
+            Route::Library
+        );
+        assert_eq!(fallback(&snapshot, Route::Universal), Route::Library);
+        assert_eq!(fallback(&snapshot, Route::Sync), Route::Sync);
+    }
 
     #[test]
     fn back_and_forward_walk_the_visited_routes() {
         let mut history = History::default();
         let library = Route::Library;
-        history.push(Route::Discovery);
+        history.push(Route::Sync);
         history.push(library.clone());
         assert_eq!(history.back(Route::Settings), Some(library.clone()));
-        assert_eq!(history.back(library.clone()), Some(Route::Discovery));
-        assert_eq!(history.back(Route::Discovery), None);
-        assert_eq!(history.forward(Route::Discovery), Some(library.clone()));
+        assert_eq!(history.back(library.clone()), Some(Route::Sync));
+        assert_eq!(history.back(Route::Sync), None);
+        assert_eq!(history.forward(Route::Sync), Some(library.clone()));
         assert_eq!(history.forward(library), Some(Route::Settings));
         assert!(!history.can_go_forward());
     }
@@ -78,7 +108,7 @@ mod tests {
     fn workspace_pages_join_the_history() {
         let mut history = History::default();
         let workspace = Route::Workspace(WorkspaceId::new());
-        history.push(Route::Discovery);
+        history.push(Route::Library);
         history.push(Route::Universal);
         assert_eq!(history.back(workspace.clone()), Some(Route::Universal));
         assert_eq!(history.forward(Route::Universal), Some(workspace));
@@ -87,10 +117,10 @@ mod tests {
     #[test]
     fn navigating_after_going_back_drops_the_forward_routes() {
         let mut history = History::default();
-        history.push(Route::Discovery);
+        history.push(Route::Library);
         history.back(Route::Sync);
         assert!(history.can_go_forward());
-        history.push(Route::Discovery);
+        history.push(Route::Library);
         assert!(!history.can_go_forward());
         assert!(history.can_go_back());
     }

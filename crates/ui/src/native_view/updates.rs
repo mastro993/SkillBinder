@@ -1,33 +1,15 @@
-use std::{collections::BTreeSet, future::Future, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 use gpui_kit::Context;
 use skillbinder_proto::*;
 
 use super::library_folders::FolderEdit;
-use super::route::Route;
+use super::route::{self, Route};
 use super::sidebar_presets::PresetEdit;
-use super::{DialogState, Effect, NativeView, agent_page, sidebar};
+use super::{DialogState, Effect, NativeView, sidebar};
 
 impl NativeView {
     pub(super) fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
-        // Keys and candidate identities follow slugs and content, so a rescan keeps the choices
-        // it still finds.
-        let listed: Vec<_> = latest
-            .scan
-            .iter()
-            .flat_map(|scan| &scan.candidates)
-            .filter(|candidate| candidate.in_library().is_none())
-            .collect();
-        let keys: BTreeSet<_> = listed
-            .iter()
-            .map(|candidate| candidate.key.as_str())
-            .collect();
-        self.selected_skills
-            .retain(|key| keys.contains(key.as_str()));
-        self.expanded_skills
-            .retain(|key| keys.contains(key.as_str()));
-        self.version_choices
-            .retain(|_, id| listed.iter().any(|candidate| &candidate.id == id));
         // Onboarding's import step is over once onboarding is complete.
         if latest.bootstrap.step == OnboardingStep::Complete {
             self.first_import = None;
@@ -66,11 +48,8 @@ impl NativeView {
                 self.folder_edit = None;
             }
         }
+        self.route = route::fallback(&latest, self.route.clone());
         let workspace_exists = |id: &WorkspaceId| latest.workspaces.iter().any(|p| &p.id == id);
-        if matches!(&self.route, Route::Workspace(id) if !workspace_exists(id)) {
-            self.route = Route::Discovery;
-        }
-        self.route = agent_page::agent_fallback(&latest.agents, &latest.home, self.route.clone());
         if self.route != shown {
             self.leave_page();
         }

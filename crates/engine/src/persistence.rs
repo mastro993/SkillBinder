@@ -427,8 +427,8 @@ fn record_outcome(connection: &mut SqliteConnection, outcome: &ImportOutcome) ->
     diesel::update(operation_plans::table.find(plan))
         .set(operation_plans::consumed.eq(1))
         .execute(connection)
-        .map_err(|_| AppError::storage())?;
-    put_setting(connection, "import_outcome", &serialized)
+        .map(drop)
+        .map_err(|_| AppError::storage())
 }
 
 #[cfg(not(test))]
