@@ -49,10 +49,7 @@ pub(super) fn scan(
             break;
         }
         if !location.path.is_dir() {
-            log.record(format!(
-                "Missing discovery location {}",
-                location.path.display()
-            ));
+            log.record(format!("Missing scan location {}", location.path.display()));
             continue;
         }
         let walk = Walk {
@@ -137,10 +134,8 @@ impl Traversal<'_> {
         let inspection = match payload::inspect(&canonical) {
             Ok(inspection) => inspection,
             Err(error) => {
-                self.log.record(format!(
-                    "Discovery inspection {}: {error}",
-                    canonical.display()
-                ));
+                self.log
+                    .record(format!("Scan inspection {}: {error}", canonical.display()));
                 return;
             }
         };

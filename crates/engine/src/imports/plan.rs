@@ -4,10 +4,10 @@
 
 use super::{Prepared, placement, reinspect};
 use crate::{
-    discovery::{Found, ImportSource, Selected, registry},
     library::normalized,
     payload::Inspection,
     persistence,
+    scan::{Found, ImportSource, Selected, registry},
     schema::operation_plans,
     worker::State,
 };

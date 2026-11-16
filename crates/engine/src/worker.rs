@@ -1,12 +1,12 @@
 use crate::{
     activation::Progress,
     database,
-    discovery::{LibraryIndex, Scans},
     git::Git,
     grants::GrantedDirectory,
     lifecycle::EngineConfig,
     logging::Logger,
     reconcile::RECONCILED_HEAD,
+    scan::{LibraryIndex, Scans},
     shutdown::Shutdown,
     sources::Updates,
 };
@@ -355,7 +355,7 @@ impl State {
             bootstrap,
             library,
             home: self.config.home.display().to_string(),
-            agents: crate::discovery::registry::agent_options(&self.config)?,
+            agents: crate::scan::registry::agent_options(&self.config)?,
             workspaces: self.workspaces()?,
             scan,
             scanning,

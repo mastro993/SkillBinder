@@ -5,8 +5,8 @@
 
 use crate::{
     activation::{self, Holder},
-    discovery::{self, Selected},
     library_store,
+    scan::{self, Selected},
     schema::{presets, workspaces},
     workspaces::activation as workspace_skills,
 };
@@ -107,7 +107,7 @@ pub(super) fn place(
 /// found a version in, which SkillBinder can adopt or replace.
 fn managed_copy(directory: &str, slug: &str, found: &Selected) -> Option<String> {
     let target = Path::new(directory).join(slug);
-    let folder = discovery::folder(&target)?;
+    let folder = scan::folder(&target)?;
     found
         .folders
         .contains(&folder)

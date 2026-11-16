@@ -89,16 +89,14 @@ impl Walk<'_> {
             }
             if depth > budget.max_depth || budget.entries >= budget.max_entries {
                 self.log
-                    .record(format!("Discovery traversal limit at {}", path.display()));
+                    .record(format!("Scan traversal limit at {}", path.display()));
                 continue;
             }
             let canonical = match paths::resolve(self.boundary, &path) {
                 Ok(path) => path,
                 Err(error) => {
-                    self.log.record(format!(
-                        "Unreadable discovery path {}: {error}",
-                        path.display()
-                    ));
+                    self.log
+                        .record(format!("Unreadable scan path {}: {error}", path.display()));
                     continue;
                 }
             };
@@ -136,7 +134,7 @@ impl Walk<'_> {
             Ok(children) => children,
             Err(error) => {
                 self.log.record(format!(
-                    "Unreadable discovery directory {}: {error}",
+                    "Unreadable scan directory {}: {error}",
                     canonical.display()
                 ));
                 return None;
@@ -154,8 +152,7 @@ impl Walk<'_> {
             let child = match child {
                 Ok(child) => child,
                 Err(error) => {
-                    self.log
-                        .record(format!("Unreadable discovery entry: {error}"));
+                    self.log.record(format!("Unreadable scan entry: {error}"));
                     continue;
                 }
             };
@@ -164,7 +161,7 @@ impl Walk<'_> {
             skill |= name == "SKILL.md";
             if excluded(&name, self.workspace) {
                 self.log.record(format!(
-                    "Excluded discovery directory {}",
+                    "Excluded scan directory {}",
                     child.path().display()
                 ));
                 continue;

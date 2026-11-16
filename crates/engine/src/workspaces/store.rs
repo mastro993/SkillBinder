@@ -7,11 +7,11 @@ use super::{
 };
 use crate::{
     database,
-    discovery::registry::{agent_options, global_skill_dirs, workspace_skill_dirs},
     library::validate_name,
     library_store::{self, from_text, to_text},
     logging::Logger,
     persistence::{now, sync_directory},
+    scan::registry::{agent_options, global_skill_dirs, workspace_skill_dirs},
     schema::workspaces,
     worker::State,
 };
@@ -193,7 +193,7 @@ impl State {
                 })
             })
             .collect::<AppResult<Vec<_>>>()?;
-        let preferences = crate::discovery::registry::preferences(&self.config)?;
+        let preferences = crate::scan::registry::preferences(&self.config)?;
         crate::activation::mark_overlaps(&mut workspaces, library, agents, &preferences);
         Ok(workspaces)
     }

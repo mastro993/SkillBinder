@@ -2,12 +2,12 @@ pub(crate) mod placement;
 mod plan;
 
 use crate::{
-    discovery::ImportSource,
     library::normalized,
     library_store::SavedSkill,
     payload::{self, Inspection},
     persistence::{self, Journal, Move, RecordChange},
     records::Record,
+    scan::ImportSource,
     schema::{idempotency_records, operation_plans},
     worker::State,
 };

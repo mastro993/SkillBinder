@@ -17,7 +17,7 @@ pub(crate) use copies::STAGING_PREFIX;
 pub(crate) use progress::Progress;
 pub(crate) use store::{Holder, Pair, claim, forget};
 
-use crate::{database, discovery::registry, payload, worker::State};
+use crate::{database, payload, scan::registry, worker::State};
 use pass::{Scope, managed};
 use plan::{Disk, Issue, Row};
 use skillbinder_proto::*;
@@ -309,7 +309,7 @@ pub(crate) fn mark_overlaps(
     workspaces: &mut [Workspace],
     library: &Library,
     agents: &[AgentOption],
-    preferences: &crate::discovery::registry::Preferences,
+    preferences: &crate::scan::registry::Preferences,
 ) {
     let global = targets::desired(library, agents);
     for workspace in workspaces {

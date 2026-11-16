@@ -70,7 +70,7 @@ fn walk(boundary: &Path, path: &Path, absent: bool) -> io::Result<PathBuf> {
         if metadata.file_type().is_symlink() {
             hops += 1;
             if hops > 16 {
-                return Err(io::Error::other("Discovery links exceed 16 hops."));
+                return Err(io::Error::other("Scan links exceed 16 hops."));
             }
             let target = fs::read_link(&current)?;
             current.pop();
@@ -90,6 +90,6 @@ fn walk(boundary: &Path, path: &Path, absent: bool) -> io::Result<PathBuf> {
 fn refused() -> io::Error {
     io::Error::new(
         io::ErrorKind::PermissionDenied,
-        "Discovery path leaves its boundary.",
+        "Scan path leaves its boundary.",
     )
 }

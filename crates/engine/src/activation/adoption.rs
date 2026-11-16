@@ -8,7 +8,7 @@
 
 use super::pass::Scope;
 use super::{held_copy, store};
-use crate::{database, discovery::registry, library_store, persistence, worker::State};
+use crate::{database, library_store, persistence, scan::registry, worker::State};
 use skillbinder_proto::{AppResult, OnboardingStep, Targets};
 use std::{
     collections::{BTreeMap, BTreeSet},

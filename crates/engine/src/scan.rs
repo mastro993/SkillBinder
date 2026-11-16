@@ -219,7 +219,7 @@ impl Scans {
     ) -> AppResult<()> {
         self.start_with(config, workspaces, library, log, replace, |work| {
             std::thread::Builder::new()
-                .name("skillbinder-discovery".into())
+                .name("skillbinder-scan".into())
                 .spawn(work)
                 .map(|_| ())
         })
@@ -256,7 +256,7 @@ impl Scans {
             scans.finish(generation, result, &log);
         }));
         if let Err(error) = launched {
-            failure_log.record(format!("Discovery worker could not start: {error}"));
+            failure_log.record(format!("Scan worker could not start: {error}"));
             self.finish(
                 generation,
                 Err(AppError::new(

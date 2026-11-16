@@ -1,4 +1,4 @@
-//! Discovery behavior against actual managed files and bounded directory links.
+//! Scan behavior against actual managed files and bounded directory links.
 #![expect(
     clippy::unwrap_used,
     reason = "Assertions describe isolated fixture failures."
