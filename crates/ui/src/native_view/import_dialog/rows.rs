@@ -143,8 +143,8 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// A checkbox ticking or unticking the skills `keys`, ticked once all of them are. Kit's
-    /// checkbox has no partial state, so a partly ticked group reads unticked and ticks them all.
+    /// A checkbox ticking or unticking the skills `keys`: ticked once all of them are, partly
+    /// ticked while only some are, when a click ticks them all.
     fn ticking(
         &self,
         id: impl Into<gpui_kit::ElementId>,
@@ -156,6 +156,7 @@ impl NativeView {
         let weak = cx.entity().downgrade();
         checkbox(id)
             .checked(count.full())
+            .indeterminate(count.partial())
             .inactive(count.able == 0)
             .on_change(move |on, _, cx| {
                 let on = *on;

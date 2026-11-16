@@ -59,6 +59,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("list-view", "ListViewIcon"),
     icon!("loading", "Loading03Icon"),
     icon!("magic-wand", "MagicWand01Icon"),
+    icon!("minus", "MinusSignIcon"),
     icon!("moon", "Moon02Icon"),
     icon!("music", "MusicNote01Icon"),
     icon!("note", "Note01Icon"),
@@ -254,5 +255,15 @@ mod tests {
             ));
         }
         assert!(Assets.load("icons/circle-check.svg").is_err());
+    }
+
+    #[test]
+    fn the_checkbox_glyphs_are_mapped() {
+        for name in ["check", "minus"] {
+            assert!(matches!(
+                Assets.load(&format!("icons/{name}.svg")),
+                Ok(Some(_))
+            ));
+        }
     }
 }

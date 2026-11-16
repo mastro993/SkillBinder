@@ -170,6 +170,28 @@ fn ticks_stop_at_one_import_and_import_needs_one_to_500_with_invalid_acknowledge
 }
 
 #[test]
+fn a_checkbox_over_rows_reads_partly_ticked_until_one_import_is_ticked() {
+    let candidates: Vec<Candidate> = ["a", "b"]
+        .iter()
+        .map(|slug| version(slug, &format!("/h/{slug}"), true, ""))
+        .collect();
+    let items = candidates
+        .iter()
+        .map(|candidate| item(candidate, ValidationStatus::Valid))
+        .collect();
+    let found = found(candidates, items);
+    let groups = groups(&found, &[]);
+    let count = |ticked: &[&str]| {
+        let ticked = ticked.iter().map(|key| (*key).to_owned()).collect();
+        Count::of(&ticked, rows(&groups))
+    };
+
+    assert!(!count(&[]).partial() && !count(&[]).full());
+    assert!(count(&["a"]).partial() && !count(&["a"]).full());
+    assert!(!count(&["a", "b"]).partial() && count(&["a", "b"]).full());
+}
+
+#[test]
 fn search_matches_the_slug_or_the_description() {
     let review = version("code-review", "/h/.agents/skills/code-review", true, "");
     let found = found(vec![review], Vec::new());

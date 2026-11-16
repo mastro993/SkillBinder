@@ -174,6 +174,11 @@ impl Count {
     pub(super) fn full(self) -> bool {
         self.ticked > 0 && self.ticked >= self.able.min(MAX_IMPORT)
     }
+
+    /// Whether the checkbox reads partly ticked: some are ticked, but not one import's worth.
+    pub(super) fn partial(self) -> bool {
+        self.ticked > 0 && !self.full()
+    }
 }
 
 /// What Import takes: the ticked importable skills' planned versions, and whether one is invalid.

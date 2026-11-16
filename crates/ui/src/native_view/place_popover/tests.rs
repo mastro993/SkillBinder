@@ -144,7 +144,7 @@ impl Render for Host {
             .track_focus(&self.focus)
             .size_full()
             // As the Library's list does.
-            .on_scroll_wheel(cx.listener(|host, _, window, cx| host.close(window, cx)))
+            .on_scroll(cx.listener(|host, _, window, cx| host.close(window, cx)))
             .child(trigger)
             .children(popover)
     }

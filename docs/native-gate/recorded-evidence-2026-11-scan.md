@@ -18,4 +18,13 @@ On 2026-11-16, a macOS ARM64 MCP session checked Scan for skills and the Import 
 - **Background scans.** A managed copy, `~/.agents/skills/api-design`, deleted by hand was written again when the window regained focus, with no Scan for skills clicked.
 - **Discovery.** Ticking one of two new skills on Discovery and pressing Review import opened the Import skills dialog with only that skill ticked; Import imported it alone.
 
-Design check, by eye beside `docs/design/scan-import/prototypes/import-dialog.html` (variant C) and `library-entry.html` (variant B), not a pixel comparison. Layout, hierarchy, copy, icons, and states follow the prototypes. Kit's checkbox has no partial state, so a partly ticked group or Select all reads unticked. The empty state is centered, as the existing `empty_state` helper draws it, where the prototype puts it at the top left. The rows' changed-row flash after a refresh (D11) is not built.
+Design check, by eye beside `docs/design/scan-import/prototypes/import-dialog.html` (variant C) and `library-entry.html` (variant B), not a pixel comparison. Layout, hierarchy, copy, icons, and states follow the prototypes. The empty state is centered, as the existing `empty_state` helper draws it, where the prototype puts it at the top left. The rows' changed-row flash after a refresh (D11) is not built.
+
+### Partly ticked checkboxes on GPUI Kit 0.10.0
+
+On 2026-11-16, after the move to GPUI Kit 0.10.0 and GPUI Pre 0.3.12 from the project's `gpui-mcp` fork, a second macOS ARM64 MCP session ran the `native-test` debug build on a fresh synthetic world, set up as above. This is a native interaction check, separate from compilation and the domain tests.
+
+- **Partial state.** Scan for skills opened with every importable valid skill ticked and `broken-frontmatter` unticked, so Select all and Your agents showed Kit's dash. A click on the partly ticked Select all ticked all 11, `broken-frontmatter` included: both checkboxes read ticked, the footer showed "Import skills with invalid metadata", and the button read "Import 11 skills". Unticking `api-design` brought the dash back on both and "Import 10 skills".
+- **Import.** With the acknowledgement checked, Import closed the dialog, the strip ended with "Imported 10 skills", the library held the 10 ticked skills without `api-design`, and the header count went to 2.
+- **Glyph.** Kit draws the dash with its `minus` icon, which the application now maps to the retained Hugeicons `MinusSignIcon`. Before the mapping, the partly ticked box drew as a filled square with no dash.
+

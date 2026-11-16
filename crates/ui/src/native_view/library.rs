@@ -60,7 +60,7 @@ impl NativeView {
                             .size_full()
                             .overflow_y_scroll()
                             .track_scroll(&self.content_scroll.handle)
-                            .on_scroll_wheel(cx.listener(|view, _, window, cx| {
+                            .on_scroll(cx.listener(|view, _, window, cx| {
                                 view.close_place_popover(window, cx);
                             }))
                             .gap(px(PAGE_GAP))
