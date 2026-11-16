@@ -39,7 +39,7 @@ impl NativeView {
 /// How the review names skill directory `directory`, whose copy an import replaces: the Agents
 /// rows whose agents read it, or a workspace's name with the agents that read that workspace
 /// directory, or else the directory with home shortened to `~`.
-fn replaced_in(
+pub(super) fn replaced_in(
     directory: &str,
     agents: &[AgentOption],
     workspaces: &[Workspace],

@@ -323,7 +323,7 @@ pub(super) fn name_field(
         .into_any_element()
 }
 
-fn format_count(value: usize) -> String {
+pub(super) fn format_count(value: usize) -> String {
     let digits = value.to_string();
     let mut formatted = String::with_capacity(digits.len() + digits.len() / 3);
     for (index, digit) in digits.chars().enumerate() {

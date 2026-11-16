@@ -16,6 +16,7 @@ use std::{
     },
     time::Duration,
 };
+use tokio::sync::oneshot;
 
 /// The location a candidate imports from, inspected during the scan. Every location of
 /// a candidate has the same content and validation report, so the first one found is used.
@@ -84,14 +85,6 @@ impl Found {
                 "Run a complete scan before preparing an import.",
             ));
         }
-        if ids.is_empty()
-            || ids.len() > MAX_IMPORT
-            || ids.iter().collect::<BTreeSet<_>>().len() != ids.len()
-        {
-            return Err(AppError::validation(
-                "Choose between 1 and 500 distinct candidates.",
-            ));
-        }
         let mut found: BTreeMap<&str, Places> = BTreeMap::new();
         for candidate in &self.snapshot.candidates {
             let (agents, workspaces, folders) = found.entry(candidate.key.as_str()).or_default();
@@ -143,6 +136,8 @@ struct ScanState {
     last: Option<Found>,
     /// Generation and cancellation flag of the running scan.
     running: Option<(u64, Arc<AtomicBool>)>,
+    /// Told once no scan is running.
+    waiters: Vec<oneshot::Sender<()>>,
     generations: u64,
     /// Scans completed since launch.
     completed: u64,
@@ -198,12 +193,30 @@ impl Scans {
 
     /// The found skills `ids` choose in the last scan, which must have completed.
     pub(crate) fn selected(&self, ids: &[CandidateId]) -> AppResult<Vec<Selected>> {
+        self.last(|found| found.selected(ids))
+    }
+
+    /// `read` of the last completed scan.
+    pub(crate) fn last<T>(&self, read: impl FnOnce(&Found) -> AppResult<T>) -> AppResult<T> {
         let state = self.lock()?;
         let found = state
             .last
             .as_ref()
             .ok_or_else(|| AppError::stale("Run a complete scan before preparing an import."))?;
-        found.selected(ids)
+        read(found)
+    }
+
+    /// Resolves once no scan is running: at once when none is, else when the running one, or the
+    /// one that replaced it, completes or is cancelled.
+    pub(crate) fn settled(&self) -> AppResult<oneshot::Receiver<()>> {
+        let mut state = self.lock()?;
+        let (sender, receiver) = oneshot::channel();
+        if state.running.is_some() {
+            state.waiters.push(sender);
+        } else {
+            let _ = sender.send(());
+        }
+        Ok(receiver)
     }
 
     /// Starts a scan. With `replace`, a running scan is cancelled and replaced; without it, a
@@ -282,6 +295,9 @@ impl Scans {
         let Some((_, cancel)) = state.running.take() else {
             return;
         };
+        for waiter in state.waiters.drain(..) {
+            let _ = waiter.send(());
+        }
         if cancel.load(Ordering::Acquire) {
             return;
         }

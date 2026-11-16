@@ -108,23 +108,6 @@ async fn scan_deduplicates_shared_readers_and_stays_inside_known_workspace_locat
 }
 
 #[tokio::test]
-async fn a_skill_the_last_scan_no_longer_finds_cannot_be_prepared() {
-    let fixture = Fixture::new();
-    let source = fixture.skill("alpha", "A");
-    let engine = fixture.ready().await;
-    fixture.register(&engine).await;
-    let scan = fixture.scan(&engine).await;
-    let found = scan.candidates[0].id.clone();
-    fs::remove_dir_all(&source).unwrap();
-    assert!(fixture.scan(&engine).await.candidates.is_empty());
-    assert_eq!(
-        category(engine.prepare_import(vec![found], false).await),
-        ErrorCategory::Stale
-    );
-    engine.shutdown().await.unwrap();
-}
-
-#[tokio::test]
 async fn import_preserves_source_bytes_and_replays_after_restart() {
     let fixture = Fixture::new();
     let source = fixture.skill("alpha", "Stable original source");
@@ -132,17 +115,19 @@ async fn import_preserves_source_bytes_and_replays_after_restart() {
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
-    let plan = engine
-        .prepare_import(vec![scan.candidates[0].id.clone()], false)
-        .await
-        .unwrap();
+    let ids = vec![scan.candidates[0].id.clone()];
+    let plan = support::prepare(&engine, &ids).await;
     assert_eq!(plan.items[0].decision, ImportDecision::NewSkill);
-    let first = engine.apply_import(plan.id.clone()).await.unwrap();
+    let first = support::apply(&engine, &plan).await;
     assert_eq!(fs::read(source.join("SKILL.md")).unwrap(), original);
-    assert_eq!(engine.apply_import(plan.id.clone()).await.unwrap(), first);
+    let replay = engine.apply_import(plan.id.clone(), ids.clone(), false);
+    assert_eq!(replay.await.unwrap(), first);
     engine.shutdown().await.unwrap();
     let engine = fixture.open();
-    assert_eq!(engine.apply_import(plan.id).await.unwrap(), first);
+    assert_eq!(
+        engine.apply_import(plan.id, ids, false).await.unwrap(),
+        first
+    );
     assert_eq!(
         engine.snapshot().await.unwrap().import_outcome,
         Some(first.clone())
@@ -159,40 +144,6 @@ async fn import_preserves_source_bytes_and_replays_after_restart() {
     );
     engine.dismiss_import().await.unwrap();
     assert_eq!(engine.snapshot().await.unwrap().import_outcome, None);
-    engine.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn changed_source_refuses_whole_prepared_import() {
-    let fixture = Fixture::new();
-    let source = fixture.skill("alpha", "Original");
-    let engine = fixture.ready().await;
-    fixture.register(&engine).await;
-    let scan = fixture.scan(&engine).await;
-    let plan = engine
-        .prepare_import(vec![scan.candidates[0].id.clone()], false)
-        .await
-        .unwrap();
-    fs::write(
-        source.join("SKILL.md"),
-        b"---\nname: alpha\ndescription: Changed\n---\nChanged\n",
-    )
-    .unwrap();
-    assert_eq!(
-        category(engine.apply_import(plan.id).await),
-        ErrorCategory::Stale
-    );
-    assert!(
-        engine
-            .snapshot()
-            .await
-            .unwrap()
-            .library
-            .unwrap()
-            .library
-            .skills
-            .is_empty()
-    );
     engine.shutdown().await.unwrap();
 }
 
@@ -228,7 +179,7 @@ async fn preview_rejects_escape_and_bounds_binary_content() {
 }
 
 #[tokio::test]
-async fn a_different_skill_with_a_held_slug_is_refused() {
+async fn a_different_skill_with_a_held_slug_is_not_offered() {
     let fixture = Fixture::new();
     let source = fixture.skill("shared", "First copy");
     let engine = fixture.ready().await;
@@ -241,39 +192,14 @@ async fn a_different_skill_with_a_held_slug_is_refused() {
         b"---\nname: shared\ndescription: Changed\n---\nSecond copy\n",
     )
     .unwrap();
-    let second_scan = fixture.scan(&engine).await;
-    assert_eq!(
-        category(
-            engine
-                .prepare_import(vec![second_scan.candidates[0].id.clone()], false)
-                .await
-        ),
-        ErrorCategory::Validation
-    );
+    let found = engine.prepare_found_import(Vec::new()).await.unwrap();
+    assert_eq!(found.scan.candidates[0].held, Some(first));
+    assert!(found.plan.items.is_empty());
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(library.library.skills.len(), 1);
     let managed =
         Path::new(&engine.bootstrap().await.unwrap().library_path).join("skills/shared/SKILL.md");
     assert!(fs::read_to_string(managed).unwrap().contains("First copy"));
-    engine.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn a_skill_without_files_is_refused_even_when_acknowledged() {
-    let fixture = Fixture::new();
-    let source = fixture.skill("empty", "Soon gone");
-    let engine = fixture.ready().await;
-    fixture.register(&engine).await;
-    let scan = fixture.scan(&engine).await;
-    fs::remove_file(source.join("SKILL.md")).unwrap();
-    assert_eq!(
-        category(
-            engine
-                .prepare_import(vec![scan.candidates[0].id.clone()], true)
-                .await
-        ),
-        ErrorCategory::Validation
-    );
     engine.shutdown().await.unwrap();
 }
 
@@ -285,17 +211,15 @@ async fn an_unreconciled_skill_directory_blocks_an_install_of_its_slug() {
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
     let ids = vec![scan.candidates[0].id.clone()];
-    let plan = engine.prepare_import(ids.clone(), false).await.unwrap();
+    let plan = support::prepare(&engine, &ids).await;
     let skills = fixture.data.join("library/skills");
     support::write_skill(&skills, "alpha", "Appeared outside the app");
     assert_eq!(
-        category(engine.apply_import(plan.id).await),
+        category(engine.apply_import(plan.id, ids, false).await),
         ErrorCategory::Stale
     );
-    assert_eq!(
-        category(engine.prepare_import(ids, false).await),
-        ErrorCategory::Validation
-    );
+    let found = engine.prepare_found_import(Vec::new()).await.unwrap();
+    assert!(found.plan.items.is_empty(), "its slug is held");
     engine.shutdown().await.unwrap();
     let engine = fixture.open();
     let library = engine.snapshot().await.unwrap().library.unwrap();

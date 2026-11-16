@@ -101,8 +101,7 @@ pub async fn import_found(fixture: &Fixture, engine: &Engine) {
         .into_iter()
         .map(|candidate| candidate.id)
         .collect();
-    let plan = engine.prepare_import(ids, false).await.unwrap();
-    engine.apply_import(plan.id).await.unwrap();
+    crate::support::import(engine, ids).await;
 }
 
 pub fn skill(slug: &str) -> SkillId {

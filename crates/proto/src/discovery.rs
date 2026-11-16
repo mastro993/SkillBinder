@@ -130,6 +130,14 @@ pub struct ImportPlan {
     /// Immutable reviewed rows.
     pub items: Vec<ImportItem>,
 }
+/// What Scan for skills prepares: the fresh scan it ran, and one plan for every skill it offers.
+#[derive(Clone, Debug)]
+pub struct FoundImport {
+    /// The completed scan the plan came from, which lists every version and location.
+    pub scan: ScanSnapshot,
+    /// One item per found skill not in library with an importable version, invalid ones marked.
+    pub plan: ImportPlan,
+}
 /// Durable terminal import outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ImportOutcome {

@@ -38,12 +38,9 @@ async fn a_folder_named_like_the_skill_that_holds_none_is_never_replaced() {
         .iter()
         .find(|candidate| candidate.slug == "writing")
         .unwrap();
-    let plan = engine
-        .prepare_import(vec![writing.id.clone()], false)
-        .await
-        .unwrap();
+    let plan = support::prepare(&engine, std::slice::from_ref(&writing.id)).await;
     assert_eq!(replaces(&plan), [("writing".to_owned(), vec![])]);
-    engine.apply_import(plan.id).await.unwrap();
+    support::apply(&engine, &plan).await;
 
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(held_in(&library, "default"), []);
@@ -75,12 +72,9 @@ async fn a_workspace_folder_named_like_the_skill_that_holds_none_is_left_alone()
         .iter()
         .find(|candidate| candidate.slug == "lint")
         .unwrap();
-    let plan = engine
-        .prepare_import(vec![lint.id.clone()], false)
-        .await
-        .unwrap();
+    let plan = support::prepare(&engine, std::slice::from_ref(&lint.id)).await;
     assert_eq!(replaces(&plan), [("lint".to_owned(), vec![])]);
-    engine.apply_import(plan.id).await.unwrap();
+    support::apply(&engine, &plan).await;
 
     let snapshot = engine.snapshot().await.unwrap();
     let held = &snapshot.workspaces[0].skills[&skill("lint")];

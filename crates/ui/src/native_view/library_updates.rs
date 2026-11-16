@@ -67,24 +67,9 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Library's "Import", which opens Discovery, where copies found on this device are reviewed
-    /// before they join the library.
-    fn import_button(&self, cx: &mut Context<Self>) -> AnyElement {
-        button("library-import")
-            .small()
-            .ghost()
-            .icon(app_icon("import"))
-            .accessibility_label("Import")
-            .tooltip("Import")
-            .on_click(cx.listener(|view, _, window, cx| {
-                view.navigate(Route::Discovery, window, cx);
-            }))
-            .into_any_element()
-    }
-
-    /// Library's header update control, then Import.
+    /// Library's header update control, then Scan for skills.
     pub(super) fn library_header_actions(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        vec![self.library_update_button(cx), self.import_button(cx)]
+        vec![self.library_update_button(cx), self.scan_button(cx)]
     }
 
     /// The header's update control. It checks when nothing is known, updates when a skill has an
@@ -219,8 +204,13 @@ impl NativeView {
 
     /// The check glyph turning once a second while a check runs.
     fn spinning_refresh() -> impl IntoElement {
+        Self::spinner("library-check-spin")
+    }
+
+    /// The app's loading glyph, turning once a second; `id` keys its animation.
+    pub(super) fn spinner(id: &'static str) -> impl IntoElement {
         app_icon("refresh-04").with_animation(
-            "library-check-spin",
+            id,
             Animation::new(std::time::Duration::from_secs(1)).repeat(),
             |icon, delta| icon.rotate(gpui_kit::radians(delta * std::f32::consts::TAU)),
         )

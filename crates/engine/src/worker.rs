@@ -245,13 +245,26 @@ impl Engine {
     pub fn check_running(&self) -> AppResult<bool> {
         self.owner.updates.running()
     }
-    /// Re-inspects selected opaque candidates into an immutable review plan.
-    pub async fn prepare_import(
+    /// Scans the agents' global skill directories and every workspace to completion, replacing a
+    /// running scan, then plans every found skill not in library: the version `versions` chooses
+    /// for it, else the preferred one (ADR 0009).
+    pub async fn prepare_found_import(&self, versions: Vec<CandidateId>) -> AppResult<FoundImport> {
+        self.start_scan().await?;
+        self.owner
+            .scans
+            .settled()?
+            .await
+            .map_err(|_| AppError::storage())?;
+        self.call(move |state| state.prepare_found(&versions)).await
+    }
+    /// Plans `version` in place of the version plan `plan` holds of that skill, under a new plan
+    /// id that keeps the first plan's library revision and expiry.
+    pub async fn prepare_import_version(
         &self,
-        ids: Vec<CandidateId>,
-        acknowledge_invalid: bool,
+        plan: PlanId,
+        version: CandidateId,
     ) -> AppResult<ImportPlan> {
-        self.call(move |state| state.prepare_import(ids, acknowledge_invalid))
+        self.call(move |state| state.prepare_version(&plan, version))
             .await
     }
     /// Dismisses the retained terminal outcome.

@@ -2,10 +2,11 @@
 //! the import of the chosen ones.
 
 use super::controls::{Inactive, app_icon, button, checkbox};
-use super::discovery_versions::{FoundSkill, found_skills, importable};
-use super::library_dates as dates;
+use super::import_dialog::Seed;
+use super::import_dialog::versions::{
+    FoundSkill, found_skills, importable, version_details, version_label,
+};
 use super::{Effect, NativeView};
-use chrono::Utc;
 use gpui_kit::component::{
     ActiveTheme, Sizable, button::ButtonVariants, h_flex, radio::Radio, tag::Tag, v_flex,
 };
@@ -28,16 +29,6 @@ impl NativeView {
                 }))
                 .into_any_element(),
         ]
-    }
-
-    /// Found skills that are not in library, which Discovery lists.
-    pub(super) fn not_in_library(&self) -> Vec<&Candidate> {
-        self.snapshot.scan.as_ref().map_or_else(Vec::new, |scan| {
-            scan.candidates
-                .iter()
-                .filter(|candidate| candidate.in_library().is_none())
-                .collect()
-        })
     }
 
     /// The versions the selected found skills import.
@@ -126,12 +117,11 @@ impl NativeView {
             );
         }
         let acknowledge = self.acknowledge_invalid;
-        let ids: Vec<CandidateId> = chosen.iter().map(|version| version.id.clone()).collect();
-        let too_many = ids.len() > MAX_IMPORT;
+        let too_many = chosen.len() > MAX_IMPORT;
         if too_many {
             page = page.child(format!(
                 "{} skills selected. Import at most {MAX_IMPORT} at a time.",
-                ids.len()
+                chosen.len()
             ));
         }
         page.child(
@@ -139,24 +129,20 @@ impl NativeView {
                 .label("Review import")
                 .primary()
                 .inactive(
-                    self.busy
+                    self.blocked()
                         || !finished
-                        || ids.is_empty()
+                        || chosen.is_empty()
                         || too_many
                         || (has_invalid && !acknowledge),
                 )
-                .on_click(cx.listener(move |view, _, _, cx| {
-                    let client = view.client.clone();
-                    let ids = ids.clone();
-                    view.run(
-                        async move {
-                            client
-                                .prepare_import(ids, acknowledge)
-                                .await
-                                .map(Effect::Plan)
-                        },
-                        cx,
-                    );
+                // The Import skills dialog scans again and imports the same choices.
+                .on_click(cx.listener(move |view, _, window, cx| {
+                    let seed = Seed {
+                        ticked: Some(view.selected_skills.clone()),
+                        choices: view.version_choices.clone(),
+                        acknowledge_invalid: acknowledge,
+                    };
+                    view.open_import_dialog(seed, window, cx);
                 })),
         )
     }
@@ -199,7 +185,7 @@ impl NativeView {
             .children(shown.map(|version| version.description.clone()));
         if skill.versions.len() == 1 {
             return row
-                .children(shown.map(|version| version_details(version, cx)))
+                .children(shown.map(|version| version_details(version, &self.snapshot, cx)))
                 .into_any_element();
         }
         let expanded = self.expanded_skills.contains(skill.key);
@@ -238,22 +224,9 @@ impl NativeView {
     ) -> AnyElement {
         let weak = cx.entity().downgrade();
         let (key, id) = (key.to_owned(), version.id.clone());
-        let modified = version
-            .modified
-            .and_then(dates::from_unix)
-            .map(|time| format!("Modified {}", dates::relative(time, Utc::now())));
-        let summary = [
-            Some(modified.unwrap_or_else(|| "Modified at an unknown time".to_owned())),
-            (version.validation != ValidationStatus::Valid)
-                .then(|| format!("{:?}", version.validation)),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
-        .join(" · ");
         let radio = Radio::new(format!("version-{}", version.id))
             .checked(chosen.is_some_and(|chosen| chosen.id == version.id))
-            .label(summary)
+            .label(version_label(version))
             .disabled(!finished || !importable(version))
             .on_click(move |_, _, cx| {
                 let _ = weak.update(cx, |view, cx| {
@@ -271,33 +244,11 @@ impl NativeView {
                         .then(|| Tag::secondary().small().child("Matches source")),
                 ),
             )
-            .child(div().pl_6().child(version_details(version, cx)))
+            .child(
+                div()
+                    .pl_6()
+                    .child(version_details(version, &self.snapshot, cx)),
+            )
             .into_any_element()
     }
-}
-
-/// A version's locations with their readers, size, and validation messages.
-fn version_details(version: &Candidate, cx: &Context<NativeView>) -> AnyElement {
-    v_flex()
-        .gap_1()
-        .text_sm()
-        .text_color(cx.theme().muted_foreground)
-        .children(version.locations.iter().map(|location| {
-            div().child(format!(
-                "{} · {}",
-                location.display_path,
-                location.readers.join(", ")
-            ))
-        }))
-        .child(format!(
-            "{} files · {} bytes",
-            version.file_count, version.total_bytes
-        ))
-        .children(
-            version
-                .messages
-                .iter()
-                .map(|message| div().child(format!("{:?}: {}", message.status, message.message))),
-        )
-        .into_any_element()
 }

@@ -1,15 +1,13 @@
-use super::controls::{Inactive, button};
+use super::controls::button;
 use super::copy_dialogs::CopiesListing;
-use super::progress_strip::{Activity, Landing};
 use super::{DialogState, NativeView};
 use gpui_kit::component::{
     IconName, Sizable, WindowExt, button::ButtonVariants, dialog::Dialog, h_flex,
 };
 use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Pixels, SharedString, Size, Styled, Text,
-    Window, div, prelude::FluentBuilder,
+    Window, prelude::FluentBuilder,
 };
-use skillbinder_proto::*;
 
 impl DialogState {
     /// Whether this dialog stays up while an operation runs, `busy`: every dialog but the review
@@ -35,8 +33,12 @@ impl NativeView {
                 view.update(cx, |view, cx| {
                     let close_view = cx.entity().downgrade();
                     let locked = view.dialog_locked();
-                    // A click outside the picker keeps it, so a long selection is not lost.
-                    let picking = matches!(view.dialog, DialogState::AddSkill(_));
+                    // A click outside the picker or the Import skills dialog keeps it, so a long
+                    // selection is not lost.
+                    let picking = matches!(
+                        view.dialog,
+                        DialogState::AddSkill(_) | DialogState::ImportSkills(_)
+                    );
                     view.build_dialog(dialog, window.viewport_size(), cx)
                         .overlay_closable(!locked && !picking)
                         .close_button(false)
@@ -109,68 +111,6 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Review of an import plan.
-    fn import_plan_dialog(
-        &self,
-        dialog: Dialog,
-        plan: &ImportPlan,
-        cx: &mut Context<Self>,
-    ) -> Dialog {
-        let busy = self.busy;
-        let plan_id = plan.id.clone();
-        let body = div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(format!(
-                "Review {} selected sources before copying them into the managed library.",
-                plan.items.len()
-            ))
-            .child(self.import_review(plan));
-        dialog
-            .title(self.dialog_title("Review import", cx))
-            .child(body)
-            .footer(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(
-                        button("import-close")
-                            .label("Back")
-                            .inactive(busy)
-                            .on_click(
-                                cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                            ),
-                    )
-                    .child({
-                        let weak = cx.entity().downgrade();
-                        let skills = plan.items.len();
-                        button("import-apply")
-                            .label("Import")
-                            .primary()
-                            .inactive(busy)
-                            .on_click(move |_, _, cx| {
-                                let _ = weak.update(cx, |view, cx| {
-                                    let client = view.client.clone();
-                                    let plan_id = plan_id.clone();
-                                    // The strip takes over from the review.
-                                    view.dialog = DialogState::None;
-                                    view.block(
-                                        Activity::Importing { skills },
-                                        async move {
-                                            let outcome = client.apply_import(plan_id).await?;
-                                            Ok(Landing {
-                                                imported: outcome.imported.len(),
-                                            })
-                                        },
-                                        cx,
-                                    );
-                                });
-                            })
-                    }),
-            )
-    }
-
     fn build_dialog(
         &self,
         dialog: Dialog,
@@ -180,7 +120,9 @@ impl NativeView {
         match &self.dialog {
             DialogState::None => dialog,
             DialogState::AddSkill(picker) => self.skill_picker_dialog(dialog, picker, viewport, cx),
-            DialogState::ImportPlan(plan) => self.import_plan_dialog(dialog, plan, cx),
+            DialogState::ImportSkills(state) => {
+                self.import_skills_dialog(dialog, state, viewport, cx)
+            }
             DialogState::DeletePreset(preview) => self.delete_preset_dialog(dialog, preview, cx),
             DialogState::Copies(CopiesListing::Attention(review)) => {
                 self.review_dialog(dialog, review, cx)

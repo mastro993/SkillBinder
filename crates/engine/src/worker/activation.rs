@@ -24,13 +24,15 @@ impl Engine {
     ) -> impl Future<Output = AppResult<()>> + Send + 'static {
         self.tracked(move |state| state.add_skills(change))
     }
-    /// Applies a reviewed plan, or returns its durable previous outcome, counting the pairs its
-    /// passes bring in line, like [`Self::change_organization`].
+    /// Applies a reviewed plan to the ticked skills `selection`, or returns its durable previous
+    /// outcome, counting the pairs its passes bring in line, like [`Self::change_organization`].
     pub fn apply_import(
         &self,
         plan: PlanId,
+        selection: Vec<CandidateId>,
+        acknowledge_invalid: bool,
     ) -> impl Future<Output = AppResult<ImportOutcome>> + Send + 'static {
-        self.tracked(move |state| state.apply_import(plan))
+        self.tracked(move |state| state.apply_import(plan, selection, acknowledge_invalid))
     }
     /// Clears the progress record now, then runs `operation` as one job whose passes count into
     /// it, including a second pass such as an import's adoption.

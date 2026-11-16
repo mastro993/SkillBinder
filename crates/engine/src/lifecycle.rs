@@ -137,7 +137,8 @@ impl State {
             ));
         }
         if let Some(plan) = plan {
-            self.apply_import(plan)?;
+            let skills = self.planned_skills(&plan)?;
+            self.apply_import(plan, skills, false)?;
         }
         self.set_setting("onboarding", &OnboardingStep::Complete)?;
         self.adopt_agent_copies();

@@ -181,10 +181,7 @@ impl Later {
             .iter()
             .find(|candidate| candidate.slug == "lint" && candidate.preferred)
             .unwrap();
-        self.engine
-            .prepare_import(vec![lint.id.clone()], false)
-            .await
-            .unwrap()
+        support::prepare(&self.engine, std::slice::from_ref(&lint.id)).await
     }
 }
 
@@ -196,7 +193,7 @@ async fn a_later_import_activates_in_the_active_preset_and_each_workspace_where_
         replaces(&plan),
         [("lint".to_owned(), vec![named(&later.dir(".agents/skills"))])]
     );
-    later.engine.apply_import(plan.id).await.unwrap();
+    support::apply(&later.engine, &plan).await;
 
     let snapshot = later.engine.snapshot().await.unwrap();
     let library = snapshot.library.unwrap();
@@ -238,7 +235,7 @@ async fn a_copy_changed_after_review_is_never_overwritten() {
     let plan = later.review().await;
     let changed = later.dir(".agents/skills/lint");
     write_skill(&later.dir(".agents/skills"), "lint", "Edited after review");
-    later.engine.apply_import(plan.id).await.unwrap();
+    support::apply(&later.engine, &plan).await;
 
     let library = later.engine.snapshot().await.unwrap().library.unwrap();
     assert!(body(&changed).contains("Edited after review"));

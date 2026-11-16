@@ -109,7 +109,7 @@ impl NativeView {
             .as_ref()
             .map(|library| library.library.skills.len());
         // Scans run on every refresh, so they show no loading state here.
-        let found = super::discovery_versions::found_skills(&self.not_in_library()).len();
+        let found = self.found_count();
         let discovery = match found {
             0 => None,
             found => Some(count(found, cx)),

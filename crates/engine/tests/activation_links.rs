@@ -40,8 +40,7 @@ async fn imported(home: &Path, data: &Path) -> Engine {
         .into_iter()
         .map(|candidate| candidate.id)
         .collect();
-    let plan = engine.prepare_import(ids, false).await.unwrap();
-    engine.apply_import(plan.id).await.unwrap();
+    support::import(&engine, ids).await;
     engine
 }
 

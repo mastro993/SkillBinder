@@ -5,7 +5,8 @@
 use diesel::{connection::SimpleConnection, prelude::*};
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    AppResult, Candidate, ErrorCategory, OnboardingStep, ScanSnapshot, SkillId, Workspace,
+    AppResult, Candidate, CandidateId, ErrorCategory, ImportOutcome, ImportPlan, OnboardingStep,
+    ScanSnapshot, SkillId, Workspace,
 };
 use std::{
     fs,
@@ -82,14 +83,43 @@ impl Fixture {
 
     #[allow(dead_code, reason = "Not every test crate installs a skill.")]
     pub async fn import_one(&self, engine: &Engine, candidate: &Candidate) -> SkillId {
-        let plan = engine
-            .prepare_import(vec![candidate.id.clone()], false)
-            .await
-            .unwrap();
-        let outcome = engine.apply_import(plan.id).await.unwrap();
+        let outcome = import(engine, vec![candidate.id.clone()]).await;
         assert_eq!(outcome.imported.len(), 1);
         outcome.imported[0].clone()
     }
+}
+
+/// Scan for skills choosing the versions `ids`, its plan narrowed to them.
+#[allow(dead_code, reason = "Not every test crate imports skills.")]
+pub async fn prepare(engine: &Engine, ids: &[CandidateId]) -> ImportPlan {
+    let mut plan = engine
+        .prepare_found_import(ids.to_vec())
+        .await
+        .unwrap()
+        .plan;
+    plan.items.retain(|item| ids.contains(&item.candidate_id));
+    assert_eq!(
+        plan.items.len(),
+        ids.len(),
+        "every chosen version is planned"
+    );
+    plan
+}
+
+/// Imports every skill `plan` lists.
+#[allow(dead_code, reason = "Not every test crate imports skills.")]
+pub async fn apply(engine: &Engine, plan: &ImportPlan) -> ImportOutcome {
+    let ids = plan.items.iter().map(|item| item.candidate_id.clone());
+    engine
+        .apply_import(plan.id.clone(), ids.collect(), false)
+        .await
+        .unwrap()
+}
+
+/// Imports the found versions `ids` through Scan for skills.
+#[allow(dead_code, reason = "Not every test crate imports skills.")]
+pub async fn import(engine: &Engine, ids: Vec<CandidateId>) -> ImportOutcome {
+    apply(engine, &prepare(engine, &ids).await).await
 }
 
 /// Writes `<directory>/<slug>/SKILL.md` with a body that sets its content digest.

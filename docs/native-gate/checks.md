@@ -8,7 +8,7 @@ Use Rust 1.100.0 from `rust-toolchain.toml` and Git 2.39 or newer.
 - Windows: Visual Studio MSVC C++ tools, Windows SDK 10.0.20348.0 or newer, and CMake.
 - Linux: C/C++ toolchain, Clang, CMake, Ninja, `pkg-config`, Fontconfig, Wayland, X11/XCB, XKBCommon, OpenSSL, and Vulkan libraries. Native directory selection requires a working desktop portal. The CI workflow lists Ubuntu package names.
 
-GPUI Kit pins GPUI Pre 0.3.7 and enables the platform's `font-kit`, `wayland`, `x11`, and `runtime_shaders` features. Feature unification also enables X11 and Wayland in the shared GPUI backend. Linux startup requires an available desktop session and reports a clear error if neither display is available.
+GPUI Kit pins GPUI Pre 0.3.12 and enables the platform's `font-kit`, `wayland`, `x11`, and `runtime_shaders` features. Feature unification also enables X11 and Wayland in the shared GPUI backend. Linux startup requires an available desktop session and reports a clear error if neither display is available.
 
 ## Automated checks
 
@@ -53,11 +53,11 @@ The task refuses a directory that is not empty and prints the launch command, th
 
 ### Run the opt-in MCP bridge
 
-Install the pinned upstream server separately:
+Install the server from the pinned `gpui-mcp` fork separately:
 
 ```sh
-cargo install --git https://github.com/themixednuts/gpui-mcp \
-  --rev 9dda8e5cb49990261e3fdaa26abe38112d30dafb \
+cargo install --git https://github.com/mastro993/gpui-mcp \
+  --rev af32f601b7bedc8d0af16874f3b1a6c67133d2f8 \
   --locked gpui-mcp-server
 ```
 

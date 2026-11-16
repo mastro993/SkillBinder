@@ -319,15 +319,22 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.start_scan().await)
             .await
     }
-    /// Prepares selected candidate identities for review.
-    pub async fn prepare_import(
+    /// Scans to completion, replacing a running scan, and prepares one import plan for every found
+    /// skill not in library, taking the versions `versions` chooses. The fresh scan is published,
+    /// so the count of found skills follows it.
+    pub async fn prepare_found_import(&self, versions: Vec<CandidateId>) -> AppResult<FoundImport> {
+        let prepared = self.shared.engine.prepare_found_import(versions).await;
+        self.refresh_preserving_outcome(prepared).await
+    }
+    /// Plans another version of one skill in `plan`, keeping its revision and expiry.
+    pub async fn prepare_import_version(
         &self,
-        ids: Vec<CandidateId>,
-        acknowledge_invalid: bool,
+        plan: PlanId,
+        version: CandidateId,
     ) -> AppResult<ImportPlan> {
         self.shared
             .engine
-            .prepare_import(ids, acknowledge_invalid)
+            .prepare_import_version(plan, version)
             .await
     }
     /// Dismisses the last retained import result.
