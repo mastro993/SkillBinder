@@ -57,7 +57,7 @@ Install the server from the pinned `gpui-mcp` fork separately:
 
 ```sh
 cargo install --git https://github.com/mastro993/gpui-mcp \
-  --rev 74ba4a2961d745502642be60c89c2e0c96d6cca3 \
+  --rev af32f601b7bedc8d0af16874f3b1a6c67133d2f8 \
   --locked gpui-mcp-server
 ```
 
