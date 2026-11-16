@@ -4,7 +4,7 @@
 
 use super::{Prepared, placement, reinspect};
 use crate::{
-    discovery::{Found, Selected, registry},
+    discovery::{Found, ImportSource, Selected, registry},
     library::normalized,
     payload::Inspection,
     persistence,
@@ -102,7 +102,7 @@ impl State {
 
     /// Re-inspects `selected` into an immutable plan, with where each new skill becomes active
     /// and the copies of other versions it replaces there. A source that turned blocked or empty
-    /// since the scan is left out.
+    /// or changed since the scan is left out.
     pub(super) fn prepare_plan(&mut self, selected: Vec<Selected>) -> AppResult<ImportPlan> {
         let mut planner = self.planner()?;
         let mut prepared = Prepared {
@@ -164,8 +164,14 @@ impl State {
         })
     }
 
+    /// Stores `prepared`, first removing expired plans: nothing applies them, and replaying a
+    /// completed import reads its idempotency record, not its plan.
     fn store(&self, prepared: &Prepared) -> AppResult<()> {
         let review = &prepared.review;
+        let now = i64::try_from(persistence::now()).map_err(|_| AppError::storage())?;
+        diesel::delete(operation_plans::table.filter(operation_plans::expires_at.lt(now)))
+            .execute(&mut *self.database.borrow_mut())
+            .map_err(|_| AppError::storage())?;
         diesel::insert_into(operation_plans::table)
             .values((
                 operation_plans::id.eq(review.id.as_str()),
@@ -181,14 +187,12 @@ impl State {
 }
 
 impl Planner {
-    /// Re-inspects `found` into a planned row, or `None` when it turned blocked or empty: Git
-    /// tracks files, not directories, so a skill without files would never sync.
+    /// Re-inspects `found` into a planned row, or `None` when [`plannable`] leaves it out.
     fn plan(&mut self, found: &Selected) -> AppResult<Option<Planned>> {
         let source = &found.source;
-        let inspection = reinspect(source)?;
-        if inspection.status == ValidationStatus::Blocked || inspection.manifest.file_count() == 0 {
+        let Some(inspection) = plannable(source)? else {
             return Ok(None);
-        }
+        };
         let digest = &inspection.manifest.digest;
         let name = normalized(&inspection.slug);
         let (skill_id, decision) = match self.digests.get(digest) {
@@ -281,3 +285,20 @@ fn offered(
     }
     Ok(ids)
 }
+
+/// Re-inspects `source` for a plan, or `None` when it turned blocked or empty since the scan
+/// (Git tracks files, not directories, so a skill without files would never sync) or no longer
+/// is the directory the scan found. Leaving such a skill out keeps it from failing the others.
+fn plannable(source: &ImportSource) -> AppResult<Option<Inspection>> {
+    let inspection = match reinspect(source) {
+        Ok(inspection) => inspection,
+        Err(error) if error.category == ErrorCategory::Stale => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let importable =
+        inspection.status != ValidationStatus::Blocked && inspection.manifest.file_count() > 0;
+    Ok(importable.then_some(inspection))
+}
+
+#[cfg(test)]
+mod tests;
