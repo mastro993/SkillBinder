@@ -1,0 +1,111 @@
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  // The kit library shares 8 slugs with the found fixture; those stay found, not in library.
+  const FOUND_SLUGS = new Set(FOUND.skills.map((k) => k.slug));
+  const BASE = DATA.skills.filter((s) => !FOUND_SLUGS.has(s.slug)).map((s) => ({ ...s, agents: DATA.presetHolds(s.slug), ws: [] }));
+  const S = { variant: 'a', state: '22', fail: false, found: [], lib: [], folder: null, query: '' };
+  let frame = null;
+  const soon = () => toast(win, 'Not in this prototype');
+
+  renderSidebar(side, { active: 'library', onNav: (k) => { if (k !== 'library') soon(); }, onPreset: soon });
+  DATA.on(sideCount);
+
+  function setState(id) {
+    Object.assign(S, { state: id, folder: null, query: '', lib: id === 'empty' ? [] : BASE.slice(),
+      found: id === '0' ? [] : id === '120' ? FOUND.skills.concat(FOUND.many(98)) : FOUND.skills.slice() });
+    draw();
+  }
+  setState('22');
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Corner badge', desc: 'Kit Badge on the button corner, 99+ cap (HoneyBook, Deel); empty state centered in the list card (ManyChat, Customer.io).' },
+    { id: 'b', label: 'Inline count', desc: 'A quiet muted count beside the glyph (Plane); empty state top-left inside the list frame (Customer.io).' },
+  ], (id) => { S.variant = id; draw(); });
+  bar.extra.append(
+    seg([{ id: '22', label: '22' }, { id: '0', label: 'None' }, { id: '120', label: '120' }, { id: 'empty', label: 'Empty library' }], S.state, setState),
+    seg([{ id: 'ok', label: 'Scan works' }, { id: 'fail', label: 'Scan fails', tip: 'The first scan fails; Retry works' }], 'ok', (v) => { S.fail = v === 'fail'; }));
+  bar.set(document.body.dataset.firstVariant || 'a');
+
+  function sideCount() {
+    const c = side.querySelector('[data-nav="library"] .sb-nav-count');
+    if (c) c.textContent = S.lib.length;
+  }
+  function draw() {
+    drawHeader();
+    const search = searchInput({ value: S.query, onInput: (q) => { S.query = q; drawList(); } });
+    frame = h('div', { class: 'le-frame' });
+    page.replaceChildren(h('div', { class: 'sb-toolbar' }, search), frame);
+    drawList();
+    sideCount();
+  }
+
+  // ---- header: folder tabs, the update control, then Scan for skills ------------------------
+  function drawHeader() {
+    const n = S.found.length;
+    const a = S.variant === 'a';
+    const folders = [...new Set(S.lib.map((s) => s.folder).filter(Boolean))].sort();
+    const upd = S.lib.some((s) => s.hasUpdate);
+    const update = upd
+      ? h('button', { class: 'sb-btn sb-btn-icon le-upd', 'data-tip': 'Update skills', 'aria-label': 'Update skills', onclick: soon }, ic('upload-circle', 16))
+      : h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Check for skill updates', 'aria-label': 'Check for skill updates', onclick: (e) => {
+        const b = e.currentTarget;
+        b.replaceChildren(spinner(16));
+        setTimeout(() => { b.replaceChildren(ic('refresh-04', 16)); toast(win, 'Up to date', { icon: 'check-circle' }); }, 900);
+      } }, ic('refresh-04', 16));
+    const scan = h('button', { class: a ? 'sb-btn sb-btn-icon le-scan' : 'sb-btn le-scan le-scan-b',
+      'data-tip': 'Scan for skills', 'aria-label': 'Scan for skills', 'data-tip-pos': 'end', onclick: openScan },
+    ic('folder-search', 16), n ? h('span', { class: a ? 'le-badge' : 'le-count' }, a && n > 99 ? '99+' : String(n)) : null);
+    hdr.replaceChildren(
+      tabs([{ id: null, label: 'All skills' }, ...folders.map((f) => ({ id: f, label: f }))], S.folder, (f) => { S.folder = f; draw(); }),
+      h('div', { class: 'sb-header-actions' }, update, scan));
+  }
+
+  // ---- list, no match, and the empty library -----------------------------------------------
+  function drawList() {
+    if (!S.lib.length) { frame.replaceChildren(emptyLibrary()); return; }
+    const q = S.query.trim().toLowerCase();
+    const shown = S.lib.filter((s) => (!S.folder || s.folder === S.folder) && (!q || s.slug.includes(q) || s.desc.toLowerCase().includes(q)));
+    frame.replaceChildren(shown.length ? h('div', { class: 'sb-card le-list' }, shown.map(row))
+      : h('div', { class: 'sb-card le-fill' }, emptyState({ icon: 'search', title: 'No skills match',
+        action: h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => { S.query = ''; S.folder = null; draw(); } }, 'Clear filters') })));
+  }
+  function row(s) {
+    return h('div', { class: `sb-row${s.agents.length || s.ws.length ? '' : ' is-dim'}` },
+      h('div', { class: 'sb-row-main' },
+        h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug),
+          s.hasUpdate ? h('span', { class: 'le-upd-mark', 'data-tip': 'Update available', html: icon('upload-circle', 14) }) : null),
+        h('div', { class: 'sb-desc' }, s.desc)),
+      h('div', { class: 'sb-row-end' }, s.ws.map((w) => h('span', { class: 'sb-chip' }, ic('code-folder', 13), w)),
+        s.agents.length ? avatarStack(s.agents) : null));
+  }
+  function emptyLibrary() {
+    const go = h('button', { class: 'sb-btn sb-btn-primary', onclick: openScan }, ic('folder-search', 15), 'Scan for skills');
+    if (S.variant === 'a') {
+      return h('div', { class: 'sb-card le-fill le-empty-a' }, emptyState({ icon: 'folder-search', title: 'No skills in your library yet', action: go }));
+    }
+    return h('div', { class: 'sb-card le-fill le-empty-b' },
+      h('div', { class: 'le-empty-head' }, h('span', { class: 'le-empty-ic', html: icon('folder-search', 16) }), 'No skills in your library yet'), go);
+  }
+
+  // ---- Scan for skills: the dialog, then the blocking import ---------------------------------
+  function openScan() {
+    SCAN.dialog(win, {
+      scan: (attempt) => (S.fail && !attempt ? 'error' : S.found),
+      onImport: (sel) => progressDialog(win, { plan: SCAN.plan(sel) }).then(() => {
+        const got = new Set(sel.map((x) => x.slug));
+        S.found = S.found.filter((k) => !got.has(k.slug));
+        S.lib = S.lib.concat(sel.map(({ slug, desc, version }) => ({ slug, desc, folder: null, hasUpdate: false, agents: SCAN.agents(version),
+          ws: version.locations.filter((l) => l.readers.includes('(')).map((l) => l.readers.split(' (')[0]) })))
+          .sort((x, y) => x.slug.localeCompare(y.slug));
+        draw();
+      }),
+    });
+  }
+})();
+</script>
+</body>
+</html>

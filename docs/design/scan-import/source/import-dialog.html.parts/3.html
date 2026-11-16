@@ -1,0 +1,113 @@
+  // C: groups by the skill's first location: Your agents first, then each workspace by name.
+  function placeOf(k) {
+    const loc = k.versions.find((v) => v.id === FOUND.preferred(k)).locations[0];
+    return loc.path.startsWith('~/.') ? '' : loc.readers.replace(/ \(.*\)$/, '');
+  }
+  function grouped(shown) {
+    const groups = new Map();
+    S.skills.forEach((k) => { const p = placeOf(k); groups.set(p, [...(groups.get(p) || []), k]); });
+    return [...groups.keys()].sort().flatMap((p) => {
+      const all = groups.get(p);
+      const rows = all.filter((k) => shown.includes(k));
+      if (!rows.length) return [];
+      const able = all.filter(canTick);
+      const n = able.filter((k) => S.ticks.has(k.slug)).length;
+      return [h('div', { class: 'im-ghead' }, checkbox({
+        checked: n > 0 && n === able.length, indeterminate: n > 0 && n < able.length, disabled: !able.length,
+        label: [ic(p ? 'code-folder' : 'robot', 14), p || 'Your agents', h('span', { class: 'sb-chip-count' }, all.length)],
+        onChange: (on) => tickAll(all, on),
+      })), ...rows.map(row)];
+    });
+  }
+
+  // B: a compact row (slug, one-line meta, a warning glyph); a click focuses it for the right pane.
+  function compactRow(k) {
+    const v = chosen(k);
+    const ok = canTick(k);
+    const why = !ok ? v.messages : [!FOUND.valid(v) ? 'Invalid' : null, ...v.replaces.map((p) => `Replaces the copy in ${p}.`)].filter(Boolean);
+    const meta = [v.locations.map((l) => l.readers).join(', '), k.versions.length > 1 ? `${k.versions.length} versions` : null]
+      .filter(Boolean).join(' · ');
+    return h('div', {
+      class: `sb-row${ok ? '' : ' is-dim'}${S.focus === k.slug ? ' is-focus' : ''}${S.busy.has(k.slug) ? ' is-busy' : ''}${S.changed === k.slug ? ' is-changed' : ''}`,
+      'data-slug': k.slug, onclick: (e) => { if (!e.target.closest('input')) { S.focus = k.slug; update(); } },
+    },
+    tick(k),
+    h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, k.slug),
+        why.length ? h('span', { class: 'im-glyph', role: 'img', 'aria-label': why.join(' '), 'data-tip': why.join('\n'), html: icon('alert-circle', 13) }) : null,
+        S.busy.has(k.slug) ? spinner(13) : null),
+      h('div', { class: 'im-meta1' }, meta)));
+  }
+  function renderRight() {
+    const k = S.skills.find((x) => x.slug === S.focus);
+    if (!k) { els.right.replaceChildren(); return; }
+    const v = chosen(k);
+    const top = els.right.scrollTop;
+    els.right.replaceChildren(
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'im-r-title' }, k.slug), tag(v), S.busy.has(k.slug) ? spinner(13) : null),
+      k.desc ? h('div', { class: 'im-r-desc' }, k.desc) : null,
+      k.versions.length > 1 ? h('div', { class: 'im-versions' }, k.versions.map((x) => versionChoice(k, x))) : details(v));
+    els.right.scrollTop = top;
+  }
+
+  // ---- footer and import ------------------------------------------------------------------------
+  function renderFoot() {
+    const n = S.ticks.size;
+    const left = h('div', { class: 'im-foot-left' },
+      over() ? warn(`Import at most ${FOUND.MAX} at a time.`, 14) : null,
+      needsAck() ? checkbox({ checked: S.ack, label: 'Import skills with invalid metadata', onChange: (on) => { S.ack = on; update(); } }) : null);
+    dlg.setFooter(left, cancelBtn(),
+      h('button', { class: 'sb-btn sb-btn-primary', disabled: blocked(), onclick: doImport },
+        S.refreshing ? spinner(14) : null, n ? `Import ${skillsN(n)}` : 'Import skills'));
+  }
+  const TARGETS = { 'Claude Code': 'claude', Universal: 'universal', Cursor: 'cursor', Windsurf: 'windsurf' };
+  function pairOf(k) {
+    const { readers } = chosen(k).locations[0];
+    const ws = /^(.*) \((.*)\)$/.exec(readers);
+    return ws ? { slug: k.slug, op: 'add', ws: ws[1], target: 'claude' } : { slug: k.slug, op: 'add', target: TARGETS[readers] || 'claude' };
+  }
+  function doImport() {
+    if (blocked()) return;
+    if (S.expires) { refreshPlan(); return; }
+    const picked = S.skills.filter((k) => S.ticks.has(k.slug));
+    const n = picked.length;
+    dlg.close();
+    progressDialog(win, { title: `Importing ${skillsN(n)}`, plan: { pairs: picked.map(pairOf), toast: `Imported ${skillsN(n)}` } })
+      .then(() => {
+        picked.forEach((k) => S.imported.add(k.slug));
+        drawHeader();
+        drawLibrary();
+      });
+  }
+  // The plan expired: prepare it again with the same ticks, show the refreshed rows, and wait for a second Import.
+  function refreshPlan() {
+    S.expires = false;
+    drawExpiry();
+    S.refreshing = true;
+    update();
+    setTimeout(() => {
+      if (!els.list) return;
+      // What changed meanwhile: a copy of a ticked skill appeared in Windsurf, so importing now replaces it.
+      const k = S.skills.find((x) => S.ticks.has(x.slug) && x.versions.length === 1 && !chosen(x).replaces.length);
+      if (k) chosen(k).replaces.push('Windsurf');
+      Object.assign(S, { refreshing: false, note: true, changed: k ? k.slug : null, focus: k ? k.slug : S.focus });
+      update();
+      const row = k && els.list.querySelector(`[data-slug="${k.slug}"]`);
+      if (row && (row.offsetTop < els.list.scrollTop || row.offsetTop > els.list.scrollTop + els.list.clientHeight - 60)) els.list.scrollTop = row.offsetTop - 80;
+      setTimeout(() => { S.changed = null; }, 1800);
+    }, 700);
+  }
+
+  // First view: <body data-first-variant="b" data-first-state="invalid">.
+  const first = document.body.dataset;
+  if (first.firstState && STATES.some((s) => s.id === first.firstState)) {
+    S.state = first.firstState;
+    drawStates();
+    drawHeader();
+  }
+  ready = true;
+  bar.set(first.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>
