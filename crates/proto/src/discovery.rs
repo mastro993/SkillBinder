@@ -138,6 +138,17 @@ pub struct FoundImport {
     /// One item per found skill not in library with an importable version, invalid ones marked.
     pub plan: ImportPlan,
 }
+/// The skills an import applies from a prepared plan: the ticked ones, and whether invalid
+/// metadata among them was acknowledged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImportSelection {
+    /// The prepared plan.
+    pub plan: PlanId,
+    /// The ticked skills' planned versions.
+    pub skills: Vec<CandidateId>,
+    /// Whether importing skills with invalid metadata was acknowledged.
+    pub acknowledge_invalid: bool,
+}
 /// Durable terminal import outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ImportOutcome {

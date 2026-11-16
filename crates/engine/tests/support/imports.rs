@@ -9,7 +9,8 @@
 use crate::support::{Fixture, write_skill};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    CopyState, ImportPlan, LibrarySnapshot, OnboardingStep, PresetId, SkillId, Targets,
+    Bootstrap, CopyState, ImportPlan, ImportSelection, LibrarySnapshot, OnboardingStep, PresetId,
+    SkillId, Targets,
 };
 use std::{
     fs,
@@ -30,6 +31,27 @@ pub async fn created(fixture: &Fixture) -> Engine {
     let created = engine.create_library().await.unwrap();
     assert_eq!(created.step, OnboardingStep::Import);
     engine
+}
+
+/// Onboarding's plan of every skill found in your agents.
+pub async fn found(engine: &Engine) -> ImportPlan {
+    engine.prepare_found_import(Vec::new()).await.unwrap().plan
+}
+
+/// Finishes onboarding importing the skills `slugs` of `plan`, ticked and acknowledged.
+pub async fn onboard(engine: &Engine, plan: &ImportPlan, slugs: &[&str]) -> Bootstrap {
+    let skills = plan
+        .items
+        .iter()
+        .filter(|item| slugs.contains(&item.slug.as_str()))
+        .map(|item| item.candidate_id.clone())
+        .collect();
+    let import = ImportSelection {
+        plan: plan.id.clone(),
+        skills,
+        acknowledge_invalid: true,
+    };
+    engine.complete_onboarding(Some(import)).await.unwrap()
 }
 
 /// Writes a skill whose files look edited long ago, so a copy rewritten since reads newer.

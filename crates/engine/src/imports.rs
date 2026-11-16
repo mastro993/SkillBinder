@@ -1,4 +1,3 @@
-mod first;
 pub(crate) mod placement;
 mod plan;
 
@@ -101,16 +100,6 @@ impl State {
             .map_err(|_| AppError::storage())?
             .ok_or_else(|| AppError::stale("Import plan is unavailable. Prepare it again."))?;
         serde_json::from_str(&serialized).map_err(|_| AppError::storage())
-    }
-    /// The found skills plan `id` holds, which onboarding's first import applies whole.
-    pub(crate) fn planned_skills(&self, id: &PlanId) -> AppResult<Vec<CandidateId>> {
-        let prepared = self.prepared(id)?;
-        Ok(prepared
-            .review
-            .items
-            .into_iter()
-            .map(|item| item.candidate_id)
-            .collect())
     }
     /// Applies plan `id` to the ticked skills `selection`, re-inspecting only those, so a change
     /// to a skill left out never refuses it. A plan already applied returns its stored result.

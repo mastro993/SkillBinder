@@ -36,7 +36,7 @@ impl Engine {
     }
     /// Clears the progress record now, then runs `operation` as one job whose passes count into
     /// it, including a second pass such as an import's adoption.
-    fn tracked<T: Send + 'static>(
+    pub(super) fn tracked<T: Send + 'static>(
         &self,
         operation: impl FnOnce(&mut State) -> AppResult<T> + Send + 'static,
     ) -> impl Future<Output = AppResult<T>> + Send + 'static {

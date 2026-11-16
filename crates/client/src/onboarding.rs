@@ -20,15 +20,16 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.create_library().await)
             .await
     }
-    /// Prepares the review of the library's first import from your agents' skills, or `None`
-    /// when there is nothing to import.
-    pub async fn prepare_first_import(&self) -> AppResult<Option<ImportPlan>> {
-        self.shared.engine.prepare_first_import().await
-    }
-    /// Applies the reviewed first import, if any, and finishes onboarding, then refreshes the app
-    /// as on launch, so Discovery and the agents show what the import changed.
-    pub async fn complete_onboarding(&self, plan: Option<PlanId>) -> AppResult<Bootstrap> {
-        let completed = self.shared.engine.complete_onboarding(plan).await;
+    /// Applies the ticked skills of onboarding's import, if any, publishing its progress while it
+    /// runs, and finishes onboarding, then refreshes the app as on launch, so the library and the
+    /// agents show what the import changed.
+    pub async fn complete_onboarding(
+        &self,
+        import: Option<ImportSelection>,
+    ) -> AppResult<Bootstrap> {
+        let completed = self
+            .tracked(self.shared.engine.complete_onboarding(import))
+            .await;
         let boot = self.refresh_preserving_outcome(completed).await?;
         self.refresh_app();
         Ok(boot)

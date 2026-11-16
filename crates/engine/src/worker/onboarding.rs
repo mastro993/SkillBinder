@@ -1,9 +1,10 @@
-//! The engine's onboarding operations: the steps before the library exists, its creation, and the
-//! review of its first import.
+//! The engine's onboarding operations: the steps before the library exists, its creation, and its
+//! first import.
 
 use super::Engine;
 use crate::git::Git;
 use skillbinder_proto::*;
+use std::future::Future;
 
 impl Engine {
     /// Rechecks prerequisites and persisted onboarding progress.
@@ -23,14 +24,12 @@ impl Engine {
     pub async fn create_library(&self) -> AppResult<Bootstrap> {
         self.call(|state| state.create_library()).await
     }
-    /// Scans your agents' global skill directories and prepares the review of the library's first
-    /// import, or `None` when nothing there can be imported.
-    pub async fn prepare_first_import(&self) -> AppResult<Option<ImportPlan>> {
-        self.call(|state| state.prepare_first_import()).await
-    }
-    /// Applies the reviewed first import, if any, and finishes onboarding.
-    pub async fn complete_onboarding(&self, plan: Option<PlanId>) -> AppResult<Bootstrap> {
-        self.call(move |state| state.complete_onboarding(plan))
-            .await
+    /// Applies the ticked skills of onboarding's import, if any, and finishes onboarding,
+    /// counting the pairs the import brings in line, like [`Self::apply_import`].
+    pub fn complete_onboarding(
+        &self,
+        import: Option<ImportSelection>,
+    ) -> impl Future<Output = AppResult<Bootstrap>> + Send + 'static {
+        self.tracked(move |state| state.complete_onboarding(import))
     }
 }

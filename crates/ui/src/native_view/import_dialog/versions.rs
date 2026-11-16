@@ -157,14 +157,20 @@ fn location_label(location: &CandidateLocation, snapshot: &AppSnapshot) -> Strin
     }
 }
 
-/// A line of `text` after the alert glyph, both in `color`.
+/// A line of `text` after the alert glyph, both in `color`, wrapping beside the glyph.
 pub(in crate::native_view) fn warning(text: String, color: Hsla) -> AnyElement {
     h_flex()
+        .items_start()
         .gap(px(6.))
         .text_size(px(12.))
         .text_color(color)
-        .child(app_icon("alert-circle").size(px(12.)).flex_none())
-        .child(text)
+        .child(
+            app_icon("alert-circle")
+                .size(px(12.))
+                .flex_none()
+                .mt(px(2.)),
+        )
+        .child(div().min_w_0().flex_1().child(text))
         .into_any_element()
 }
 

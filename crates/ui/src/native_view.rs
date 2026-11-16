@@ -115,10 +115,6 @@ enum DialogState {
 enum Effect {
     None,
     CloseDialog,
-    /// Onboarding's review of the library's first import, or `None` with nothing to import.
-    FirstImport(Option<ImportPlan>),
-    /// Onboarding's first import failed, so its review is prepared again before importing.
-    FirstImportFailed(AppError),
     DeletePreview(DeletePreview),
     Updated(UpdateOutcome),
     /// A skill was reinstalled, so its page shows its restored content.
@@ -150,7 +146,7 @@ pub struct NativeView {
     /// The keys of the found skills whose versions Discovery lists.
     expanded_skills: BTreeSet<String>,
     acknowledge_invalid: bool,
-    /// Onboarding's review of the library's first import, once prepared.
+    /// Onboarding's import step, once it shows.
     first_import: Option<onboarding_import::FirstImport>,
     /// The open context menu.
     menu: Option<menu::OpenMenu>,
@@ -423,7 +419,12 @@ impl Render for NativeView {
                 .flex()
                 .flex_col()
                 .child(self.render_header(false, window, cx))
-                .child(div().flex_1().min_h_0().child(self.render_onboarding(cx)))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_h_0()
+                        .child(self.render_onboarding(window, cx)),
+                )
                 .into_any_element()
         } else {
             let page = match &self.route {

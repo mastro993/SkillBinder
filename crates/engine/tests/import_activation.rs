@@ -36,12 +36,12 @@ async fn first_boot_adopts_matching_copies_without_writing_and_fills_default_per
     fs::create_dir_all(fixture.home.join(".cursor/skills")).unwrap();
     let engine = created(&fixture).await;
 
-    let plan = engine.prepare_first_import().await.unwrap().unwrap();
+    let plan = found(&engine).await;
     assert_eq!(
         replaces(&plan),
         [("pdf".to_owned(), vec![]), ("review".to_owned(), vec![])]
     );
-    let done = engine.complete_onboarding(Some(plan.id)).await.unwrap();
+    let done = onboard(&engine, &plan, &["pdf", "review"]).await;
     assert_eq!(done.step, OnboardingStep::Complete);
 
     let library = engine.snapshot().await.unwrap().library.unwrap();
@@ -79,6 +79,34 @@ async fn first_boot_adopts_matching_copies_without_writing_and_fills_default_per
 }
 
 #[tokio::test]
+async fn first_boot_leaves_an_unticked_skill_out_of_the_library_and_default() {
+    let fixture = Fixture::new();
+    let claude = fixture.home.join(".claude/skills");
+    write_skill(&claude, "pdf", "Pdf");
+    write_skill(&claude, "review", "Review");
+    let engine = created(&fixture).await;
+
+    let plan = found(&engine).await;
+    assert_eq!(replaces(&plan).len(), 2, "both skills are offered");
+    onboard(&engine, &plan, &["pdf"]).await;
+
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    let held: Vec<_> = library
+        .library
+        .skills
+        .iter()
+        .map(|s| s.id.clone())
+        .collect();
+    assert_eq!(held, [skill("pdf")], "the unticked skill is not imported");
+    assert_eq!(
+        held_in(&library, "default"),
+        [(skill("pdf"), agents(&["claude-code".to_owned()]))]
+    );
+    assert_eq!(copies(&library), [applied(&claude, "pdf")]);
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn first_boot_replaces_another_version_and_its_review_states_it() {
     let fixture = Fixture::new();
     let (universal_dir, cursor, claude) = (
@@ -90,16 +118,19 @@ async fn first_boot_replaces_another_version_and_its_review_states_it() {
     write_skill(&cursor, "pdf", "Newest");
     // The older version loses the preference and is replaced where it was found.
     old_skill(&claude, "pdf", "Older");
-    // Invalid metadata needs acknowledging, so first boot leaves the skill to Discovery.
+    // Invalid metadata needs acknowledging; left unticked, the skill stays found.
     let broken = claude.join("broken");
     fs::create_dir_all(&broken).unwrap();
     fs::write(broken.join("SKILL.md"), "---\nname: [broken\n---\n").unwrap();
     let engine = created(&fixture).await;
 
-    let plan = engine.prepare_first_import().await.unwrap().unwrap();
+    let plan = found(&engine).await;
     assert_eq!(
         replaces(&plan),
-        [("pdf".to_owned(), vec![named(&claude)])],
+        [
+            ("pdf".to_owned(), vec![named(&claude)]),
+            ("broken".to_owned(), vec![])
+        ],
         "the review states the replacement"
     );
     assert_eq!(
@@ -107,7 +138,7 @@ async fn first_boot_replaces_another_version_and_its_review_states_it() {
         "---\nname: pdf\ndescription: Test fixture\n---\nOlder\n",
         "nothing changes before the import"
     );
-    engine.complete_onboarding(Some(plan.id)).await.unwrap();
+    onboard(&engine, &plan, &["pdf"]).await;
 
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(body(&claude.join("pdf")), body(&universal_dir.join("pdf")));
@@ -128,7 +159,7 @@ async fn first_boot_replaces_another_version_and_its_review_states_it() {
             .candidates
             .iter()
             .any(|candidate| candidate.slug == "broken" && candidate.in_library().is_none()),
-        "the invalid skill stays in Discovery"
+        "the unticked invalid skill stays found"
     );
     engine.shutdown().await.unwrap();
 }
@@ -248,10 +279,10 @@ async fn a_copy_changed_after_review_is_never_overwritten() {
 }
 
 #[tokio::test]
-async fn first_boot_with_nothing_found_has_no_review_and_workspaces_wait_for_it() {
+async fn first_boot_with_nothing_found_offers_nothing_and_workspaces_wait_for_it() {
     let fixture = Fixture::new();
     let engine = created(&fixture).await;
-    assert!(engine.prepare_first_import().await.unwrap().is_none());
+    assert_eq!(found(&engine).await.items.len(), 0);
     let grant = engine
         .grant_directory(fixture.workspace.clone())
         .await
@@ -262,9 +293,5 @@ async fn first_boot_with_nothing_found_has_no_review_and_workspaces_wait_for_it(
     );
     engine.complete_onboarding(None).await.unwrap();
     add_workspace(&engine, &fixture.workspace).await;
-    assert!(
-        engine.prepare_first_import().await.is_err(),
-        "the first import is only reviewed during onboarding"
-    );
     engine.shutdown().await.unwrap();
 }

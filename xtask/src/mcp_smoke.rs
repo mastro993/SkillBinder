@@ -193,7 +193,8 @@ pub(crate) fn run(mut args: impl Iterator<Item = OsString>) -> anyhow::Result<()
 }
 
 fn exercise_ui(rpc: &mut Rpc) -> anyhow::Result<()> {
-    // Create library leads to the review of the library's first import, prepared at once.
+    // Create library leads to the import step, which scans at once; the empty fixture home holds
+    // nothing to import, so its Continue finishes onboarding.
     for title in [
         "Keep sources separate",
         "Sync is optional",

@@ -1,9 +1,9 @@
 //! The dialog's frame: a large Kit dialog titled Import skills, holding Scanning…, the reason a
 //! scan failed with Retry, No new skills found., or the list with its footer (D1, D10, D12).
 
+use super::super::NativeView;
 use super::super::controls::{Inactive, app_icon, checkbox, text_button};
-use super::super::{DialogState, NativeView};
-use super::list::{groups, selection, status};
+use super::list::{Selection, import_label, status};
 use super::{ImportDialog, Phase};
 use gpui_kit::component::{
     ActiveTheme, Size, button::ButtonVariants, dialog::Dialog, h_flex, input::Input, v_flex,
@@ -87,13 +87,7 @@ impl NativeView {
                             .justify_between()
                             .items_center()
                             .gap(px(12.))
-                            .child(
-                                div().id("import-search").w(px(280.)).flex_none().child(
-                                    Input::new(&state.search)
-                                        .prefix(app_icon("search").size(px(15.)).text_color(muted))
-                                        .bg(cx.theme().background),
-                                ),
-                            )
+                            .child(self.import_search(state, cx))
                             .child(
                                 div()
                                     .id("import-status")
@@ -102,25 +96,37 @@ impl NativeView {
                                     .child(status(&found.scan)),
                             ),
                     )
-                    .when(state.changed, |body| {
-                        body.child(
-                            h_flex()
-                                .id("import-changed")
-                                .gap(px(6.))
-                                .text_size(px(12.))
-                                .text_color(cx.theme().warning)
-                                .child(app_icon("refresh-03").size(px(14.)))
-                                .child(
-                                    "The list changed since the scan. Check it and import again.",
-                                ),
-                        )
-                    })
+                    .when(state.changed, |body| body.child(changed_line(cx)))
                     .child(self.import_list(state, found, cx));
                 dialog
                     .child(body)
                     .footer(self.import_footer(state, found, cx))
             }
         }
+    }
+
+    /// The search field (D2).
+    pub(in crate::native_view) fn import_search(
+        &self,
+        state: &ImportDialog,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = cx.theme();
+        div()
+            .id("import-search")
+            .w(px(280.))
+            .max_w_full()
+            .flex_none()
+            .child(
+                Input::new(&state.search)
+                    .prefix(
+                        app_icon("search")
+                            .size(px(15.))
+                            .text_color(theme.muted_foreground),
+                    )
+                    .bg(theme.background),
+            )
+            .into_any_element()
     }
 
     /// The footer: the cap note or the acknowledgement on the left, Cancel and Import on the right.
@@ -130,11 +136,28 @@ impl NativeView {
         found: &skillbinder_proto::FoundImport,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let ticked = state.ticked.clone().unwrap_or_default();
-        let chosen = selection(&groups(found, &self.snapshot.workspaces), &ticked);
-        let count = chosen.ids.len();
-        let left = if chosen.over() {
-            Some(
+        let chosen = state.chosen(found, &self.snapshot.workspaces);
+        let left = self.import_notice(state, &chosen, cx);
+        let label = import_label(chosen.ids.len());
+        let import = text_button("import-apply", label, Size::Medium)
+            .primary()
+            .loading(state.refreshing())
+            .inactive(state.busy() || self.blocked() || !chosen.ready(state.acknowledge_invalid))
+            .on_click(cx.listener(|view, _, _, cx| view.import_ticked(cx)))
+            .into_any_element();
+        footer(left, vec![self.cancel_button("Cancel", cx), import])
+    }
+
+    /// The cap note while more than one import is ticked (D8), else the acknowledgement while an
+    /// invalid skill is ticked (D6).
+    pub(in crate::native_view) fn import_notice(
+        &self,
+        state: &ImportDialog,
+        chosen: &Selection,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        if chosen.over() {
+            return Some(
                 h_flex()
                     .id("import-cap")
                     .gap(px(6.))
@@ -143,40 +166,24 @@ impl NativeView {
                     .child(alert_glyph(cx.theme().warning))
                     .child(format!("Import at most {MAX_IMPORT} at a time."))
                     .into_any_element(),
-            )
-        } else if chosen.invalid {
-            let weak = cx.entity().downgrade();
-            Some(
-                checkbox("import-acknowledge")
-                    .checked(state.acknowledge_invalid)
-                    .label("Import skills with invalid metadata")
-                    .on_change(move |checked, _, cx| {
-                        let checked = *checked;
-                        let _ = weak.update(cx, |view, cx| {
-                            if let DialogState::ImportSkills(dialog) = &mut view.dialog {
-                                dialog.acknowledge_invalid = checked;
-                            }
-                            cx.notify();
-                        });
-                    })
-                    .into_any_element(),
-            )
-        } else {
-            None
-        };
-        let busy = state.pending.is_some() || state.choosing.is_some();
-        let label = match count {
-            0 => "Import skills".to_owned(),
-            1 => "Import 1 skill".to_owned(),
-            count => format!("Import {count} skills"),
-        };
-        let import = text_button("import-apply", label, Size::Medium)
-            .primary()
-            .loading(state.refreshing())
-            .inactive(busy || self.blocked() || !chosen.ready(state.acknowledge_invalid))
-            .on_click(cx.listener(|view, _, _, cx| view.import_ticked(cx)))
-            .into_any_element();
-        footer(left, vec![self.cancel_button("Cancel", cx), import])
+            );
+        }
+        if !chosen.invalid {
+            return None;
+        }
+        let weak = cx.entity().downgrade();
+        Some(
+            checkbox("import-acknowledge")
+                .checked(state.acknowledge_invalid)
+                .label("Import skills with invalid metadata")
+                .on_change(move |checked, _, cx| {
+                    let checked = *checked;
+                    let _ = weak.update(cx, |view, cx| {
+                        view.edit_import(|dialog| dialog.acknowledge_invalid = checked, cx);
+                    });
+                })
+                .into_any_element(),
+        )
     }
 
     fn cancel_button(&self, label: &'static str, cx: &mut Context<Self>) -> AnyElement {
@@ -196,6 +203,18 @@ impl NativeView {
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
             .into_any_element()
     }
+}
+
+/// The line saying Import was refused because the list changed (D11).
+pub(in crate::native_view) fn changed_line(cx: &gpui_kit::App) -> AnyElement {
+    h_flex()
+        .id("import-changed")
+        .gap(px(6.))
+        .text_size(px(12.))
+        .text_color(cx.theme().warning)
+        .child(app_icon("refresh-03").size(px(14.)))
+        .child("The list changed since the scan. Check it and import again.")
+        .into_any_element()
 }
 
 /// The inactive Import button while there is no list.
@@ -219,7 +238,7 @@ fn footer(left: Option<AnyElement>, buttons: Vec<AnyElement>) -> AnyElement {
 }
 
 /// The alert glyph in `color`.
-pub(super) fn alert_glyph(color: gpui_kit::Hsla) -> AnyElement {
+pub(in crate::native_view) fn alert_glyph(color: gpui_kit::Hsla) -> AnyElement {
     app_icon("alert-circle")
         .size(px(14.))
         .text_color(color)
