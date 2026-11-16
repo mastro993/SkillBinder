@@ -33,17 +33,17 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/scan-import
 | Import skills dialog | Kit `dialog`, as the existing import plan dialog in `dialogs.rs` uses it, sized like the Add skill picker (`skill_picker.rs`) |
 | Search field | Kit `Input`, as in the picker's search |
 | Select all, group, row, and acknowledgement checkboxes | Kit `Checkbox` (tri-state for Select all and groups) |
-| Versions disclosure | Kit ghost `Button` with the arrow-right glyph turning to arrow-down, as Discovery's "N versions" does today (`discovery.rs`) |
+| Versions disclosure | Kit ghost `Button` with the chevron-right glyph turning to arrow-down, as Discovery's "N versions" does today (`discovery.rs`) |
 | Version choice | Kit `Radio`, as in `discovery.rs::version_choice` |
 | "Matches source" tag | The secondary tag Discovery uses today |
 | Replacement line, validation messages | `import_review.rs` lines with the warning-colored alert-circle glyph |
 | Group glyphs | Hugeicons robot (your agents), code-folder (workspace) |
 | Spinner | The app's existing loading glyph animation (`library_updates.rs`) |
 | Onboarding summary card | A bordered card in onboarding's column, with Kit `Avatar`s in a stack (`library_avatars.rs`) |
-| Review list disclosure | Kit ghost `Button` with a chevron, as above |
+| Review list disclosure | Kit ghost `Button` with the chevron-right glyph, as above |
 | Progress | The existing progress strip, `Activity::Importing` (`progress_strip.rs`) |
 
-No new icon: folder-search, robot, code-folder, alert-circle, arrow-right, and arrow-down are all in `assets/hugeicons/`.
+No new artwork: folder-search, robot, code-folder, alert-circle, chevron-right, and arrow-down are all retained in `assets/hugeicons/`. All but folder-search are already registered in `crates/ui/src/assets.rs`; slice 1 adds `icon!("folder-search", "FolderSearchIcon")` there, since an unregistered path fails explicitly.
 
 ## Tokens
 
@@ -62,7 +62,7 @@ Every color, size, radius, and spacing uses existing `skillbinder_theme` and Kit
 | Select all | Select all · N selected not shown |
 | Group headers | Your agents · <workspace name> |
 | Location | <path> · <readers> |
-| Size | N files · B KB |
+| Size | N files · B bytes (as Discovery shows it today) |
 | Versions | N versions · Modified <relative time> · Invalid · Blocked · Matches source |
 | Replacement | Replaces the copy in <place>. |
 | Acknowledgement | Import skills with invalid metadata |

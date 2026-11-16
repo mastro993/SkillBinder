@@ -13,7 +13,7 @@
  *   importable(v) -> not blocked and not empty      valid(v) -> valid or warnings
  *   initialTicks(skills, choice) -> Set of slugs: importable + valid chosen version, first 500
  *   status(skills) -> "N found · M already in library"
- *   size(v) -> "N files · 12.4 KB"   modified(v) -> "Modified 3 days ago"
+ *   size(v) -> "N files · 12400 bytes"   modified(v) -> "Modified 3 days ago"
  */
 (function () {
   'use strict';
@@ -85,8 +85,7 @@
     return ticks;
   }
   const status = (list) => `${list.length} found · ${FOUND.inLibrary} already in library`;
-  const kb = (b) => (b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${(b / 1e3).toFixed(1)} KB`);
-  const size = (x) => `${x.files} ${x.files === 1 ? 'file' : 'files'} · ${kb(x.bytes)}`;
+  const size = (x) => `${x.files} ${x.files === 1 ? 'file' : 'files'} · ${x.bytes} bytes`;
   const ago = (d) => (d === 0 ? 'today' : d === 1 ? 'yesterday' : d < 30 ? `${d} days ago` : d < 365 ? (Math.round(d / 30) === 1 ? 'a month ago' : `${Math.round(d / 30)} months ago`) : 'over a year ago');
   const modified = (x) => `Modified ${ago(x.modified)}`;
 

@@ -41,7 +41,7 @@ Decisions:
 4. Select all ticks every importable skill, up to 500. With more than 500 found, the rows after the first 500 importable ones start unticked, and ticking past 500 shows "Import at most 500 at a time." and disables Import.
 5. Choosing another version prepares the plan again and keeps every tick; the row shows that version's replacements.
 6. The primary button reads "Import N skills" for N ticked, and is inactive at zero. Cancel, Escape, or closing the dialog imports nothing.
-7. Import closes the dialog and runs the import under the progress strip, which ends with "Imported N skills" (unchanged). When the plan has expired, the dialog stays open, prepares the plan again with the same ticks, and shows the refreshed rows; the user presses Import again.
+7. Import closes the dialog and runs the import under the progress strip, which ends with "Imported N skills" (unchanged). When Import is refused because the plan expired, the library changed after review, or a ticked skill's source changed, the dialog stays open, prepares the plan again with the same ticks, and shows the refreshed rows; the user presses Import again.
 8. A background scan that completes while the dialog is open does not change it; the dialog shows its own plan.
 
 ### Onboarding
@@ -79,9 +79,10 @@ flowchart LR
 ```
 
 - One engine preparation, `prepare_found_import`, serves both entry points: it runs a scan to completion, replacing a running one, then plans every offered skill from it, holding invalid ones marked (ADR 0009, decisions 2 and 4). It replaces `prepare_first_import` and its synchronous `scan_global`, and `prepare_import`'s selection-based path.
-- `apply_import` takes the plan id, the ticked skills, and the invalid acknowledgement, and refuses a skill not in the plan, more than 500, or an unacknowledged invalid one; it keeps every existing refusal and idempotent replay (ADR 0009). `complete_onboarding` takes the same selection.
-- A plan expired at Import is prepared again by the dialog and shown before applying, so replacements are never applied unseen (ADR 0006, ADR 0009).
+- `apply_import` takes the plan id, the ticked skills, and the invalid acknowledgement, and refuses a skill not in the plan, more than 500, or an unacknowledged invalid one. It re-inspects and stages only the ticked skills, so an unticked skill's change never refuses the import, and keeps every other refusal and idempotent replay (ADR 0009). `complete_onboarding` takes the same selection.
+- A plan refused at Import as expired, as a changed library, or as a changed ticked source is prepared again by the dialog and shown before applying, so replacements are never applied unseen (ADR 0006, ADR 0009). A version change re-inspects only that skill and carries the other items over, under a new plan id and expiry.
 - The selection state (`selected_skills`, `version_choices`, `expanded_skills`, `acknowledge_invalid` in `native_view.rs`) moves into the dialog's own state, created when it opens and dropped when it closes, replacing the reset in `navigation.rs::leave_page` and the pruning in `updates.rs::receive` (decision 4).
+- `crates/ui/src/assets.rs` registers `icon!("folder-search", "FolderSearchIcon")`; the glyph is retained in `assets/hugeicons/` but not yet in the `icon!` table, so `app_icon("folder-search")` would fail until it is.
 - The count on Scan for skills reuses the sidebar's existing computation, `found_skills(&not_in_library()).len()` over `snapshot.scan` (decision 3); background scans are untouched (decision 1).
 - Removed: `Route::Discovery`, `discovery.rs`, the `import_plan_dialog`, `render_import_outcome`, `dismiss_import`, the `import_outcome` setting, and the Discovery sidebar row; the fallbacks in `updates.rs`, `navigation.rs`, and `agent_page.rs` target `Route::Library`. The native test step that opens Discovery opens Scan for skills instead.
 - Renamed, with no behavior change: the engine's and proto's `discovery` modules become `scan`, and the scan thread `skillbinder-scan`, so code no longer names the retired view (glossary).
@@ -107,7 +108,7 @@ Docs each slice updates: `docs/features/native/discovery-and-imports.md` (become
 4. Choosing another version updates that row's replacements and keeps every tick.
 5. An invalid skill imports only with the acknowledgement checked; a blocked one cannot be ticked.
 6. With more than 500 importable skills, 500 start ticked and ticking a 501st disables Import with "Import at most 500 at a time."
-7. An Import after the plan expired shows the refreshed list instead of importing; a second Import imports.
+7. An Import after the plan expired, or after a ticked skill's folder changed, shows the refreshed list instead of importing; a second Import imports. A change to an unticked skill's folder does not stop the import.
 8. A scan with nothing to import shows "No new skills found."
 9. Onboarding shows the summary of your agents' skills; Review list expands the same rows; unticking one leaves it out of the library and out of Default.
 10. A library with no skills shows "No skills in your library yet" with Scan for skills.

@@ -25,9 +25,9 @@ The user settled these on 2026-11-16. Behavior comes from [the spec](../../specs
 - **D6** Select all ticks every importable skill, including invalid ones, as Discovery's did. When an invalid skill is ticked, the footer's left side shows the checkbox "Import skills with invalid metadata", and Import stays inactive until it is checked.
 - **D7** While the search hides ticked rows, the Select all row adds "N selected not shown". Select all, the group checkboxes, and Import cover every ticked skill, hidden ones included.
 - **D8** With more than 500 ticked, the footer's left side reads "Import at most 500 at a time." and Import is disabled.
-- **D9** Choosing another version shows a brief busy state on that row while the plan is prepared again. Every tick is kept, and the row's replacements update.
+- **D9** Choosing another version shows a brief busy state on that row while that skill alone is prepared again (ADR 0009). Every tick is kept, and the row's replacements update.
 - **D10** The footer holds Cancel and a primary "Import N skills", which is inactive at 0. Cancel, Escape, and the close button import nothing. Clicking outside the dialog does nothing.
-- **D11** Import closes the dialog, and the app's blocking progress strip runs to its end, "Imported N skills". If the plan has expired, the dialog stays open and refreshes its rows with the same ticks. One line reads "The list changed since the scan. Check it and import again.", and the changed rows flash once.
+- **D11** Import closes the dialog, and the app's blocking progress strip runs to its end, "Imported N skills". If Import is refused because the plan expired, the library changed after review, or a ticked skill's source changed, the dialog stays open and refreshes its rows with the same ticks. One line reads "The list changed since the scan. Check it and import again.", and the changed rows flash once. A change to an unticked skill never refuses the import.
 - **D12** Nothing to import: "No new skills found." with Close, in the same frame. A failure: "Couldn't scan: <reason>" with Retry and Close.
 - **D13** A background scan that completes while the dialog is open does not change it.
 
