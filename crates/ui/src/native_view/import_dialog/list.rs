@@ -195,19 +195,28 @@ pub(super) fn selection(groups: &[Group<'_>], ticked: &BTreeSet<String>) -> Sele
     }
 }
 
-pub(super) struct Selection {
+pub(in crate::native_view) struct Selection {
     pub ids: Vec<CandidateId>,
     pub invalid: bool,
 }
 
 impl Selection {
-    pub(super) fn over(&self) -> bool {
+    pub(in crate::native_view) fn over(&self) -> bool {
         self.ids.len() > MAX_IMPORT
     }
 
     /// Whether Import can run, with the invalid metadata acknowledged or not.
-    pub(super) fn ready(&self, acknowledged: bool) -> bool {
+    pub(in crate::native_view) fn ready(&self, acknowledged: bool) -> bool {
         !self.ids.is_empty() && !self.over() && (acknowledged || !self.invalid)
+    }
+}
+
+/// The Import button's label for `count` ticked skills (D10, O4).
+pub(in crate::native_view) fn import_label(count: usize) -> String {
+    match count {
+        0 => "Import skills".to_owned(),
+        1 => "Import 1 skill".to_owned(),
+        count => format!("Import {count} skills"),
     }
 }
 

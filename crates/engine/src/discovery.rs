@@ -118,18 +118,6 @@ impl Found {
     }
 }
 
-/// Scans only the agents' global skill directories, at once on the calling thread, as first boot
-/// does before any workspace exists.
-pub(crate) fn scan_global(
-    config: &EngineConfig,
-    library: &LibraryIndex,
-    cancel: &AtomicBool,
-    log: &Logger,
-) -> AppResult<Found> {
-    let locations = registry::locations(config, &[], log)?;
-    traversal::scan(locations, library, cancel, log)
-}
-
 #[derive(Default)]
 struct ScanState {
     /// The last completed scan, kept while the next one runs.

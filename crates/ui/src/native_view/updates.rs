@@ -6,7 +6,7 @@ use skillbinder_proto::*;
 use super::library_folders::FolderEdit;
 use super::route::Route;
 use super::sidebar_presets::PresetEdit;
-use super::{DialogState, Effect, NativeView, agent_page, onboarding_import, sidebar};
+use super::{DialogState, Effect, NativeView, agent_page, sidebar};
 
 impl NativeView {
     pub(super) fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
@@ -28,6 +28,10 @@ impl NativeView {
             .retain(|key| keys.contains(key.as_str()));
         self.version_choices
             .retain(|_, id| listed.iter().any(|candidate| &candidate.id == id));
+        // Onboarding's import step is over once onboarding is complete.
+        if latest.bootstrap.step == OnboardingStep::Complete {
+            self.first_import = None;
+        }
         let shown = self.route.clone();
         if let Some(library) = &latest.library {
             let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);
@@ -119,14 +123,6 @@ impl NativeView {
                         match effect {
                             Effect::None => {}
                             Effect::CloseDialog => view.dialog = DialogState::None,
-                            Effect::FirstImport(plan) => {
-                                view.first_import =
-                                    Some(onboarding_import::FirstImport::from(plan));
-                            }
-                            Effect::FirstImportFailed(error) => {
-                                view.first_import = None;
-                                view.error = Some(error);
-                            }
                             Effect::DeletePreview(preview) => {
                                 view.show_dialog(DialogState::DeletePreset(preview))
                             }

@@ -3,14 +3,19 @@ use super::{Effect, NativeView};
 use gpui_kit::component::button::ButtonVariants;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
+    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder,
 };
 use skillbinder_proto::OnboardingStep;
 
 impl NativeView {
-    pub(super) fn render_onboarding(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_onboarding(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let step = self.snapshot.bootstrap.step;
         if step == OnboardingStep::Import {
+            self.start_first_import(window, cx);
             return div()
                 .size_full()
                 .flex()
@@ -28,7 +33,7 @@ impl NativeView {
             ),
             OnboardingStep::Boundaries => (
                 "Keep sources separate",
-                "Discovery reads your agents' skills and your workspaces. Importing a skill copies it into your private library.",
+                "SkillBinder reads your agents' skills and your workspaces. Importing a skill copies it into your private library.",
             ),
             OnboardingStep::SyncChoice => (
                 "Sync is optional",
@@ -144,14 +149,12 @@ impl NativeView {
                                 let client = client.clone();
                                 view.run(
                                     async move {
-                                        if next != OnboardingStep::Import {
+                                        if next == OnboardingStep::Import {
+                                            client.create_library().await?;
+                                        } else {
                                             client.set_onboarding(next).await?;
-                                            return Ok(Effect::None);
                                         }
-                                        // The library exists before its first import is reviewed.
-                                        client.create_library().await?;
-                                        let plan = client.prepare_first_import().await?;
-                                        Ok(Effect::FirstImport(plan))
+                                        Ok(Effect::None)
                                     },
                                     cx,
                                 );

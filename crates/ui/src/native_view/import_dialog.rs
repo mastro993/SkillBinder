@@ -1,20 +1,23 @@
 //! The Import skills dialog (ADR 0008, design D1 to D13): it scans afresh, prepares one plan for
 //! every found skill not in library (ADR 0009), and imports the ticked ones. Library's Scan for
 //! skills and its empty state open it; Discovery's Review import opens it with Discovery's ticks.
+//! Onboarding's import step holds the same state and embeds its list (O3).
 
 mod entry;
 mod frame;
-mod list;
+pub(super) mod list;
 mod rows;
 #[cfg(test)]
 mod tests;
 pub(super) mod versions;
 
+pub(super) use frame::{alert_glyph, changed_line};
+
 use super::progress_strip::{Activity, Landing};
 use super::{DialogState, NativeView};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::{AppContext, Context, Entity, Subscription, Window};
-use list::{groups, rows, selection};
+use list::{Selection, groups, rows, selection};
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -60,9 +63,51 @@ pub(super) struct ImportDialog {
     pub changed: bool,
     /// The preparation the dialog waits for.
     pending: Option<u64>,
+    /// Whether the list shows each place's header; onboarding's lists one place, so it shows
+    /// none (O3).
+    pub headed: bool,
 }
 
 impl ImportDialog {
+    /// A dialog in its Scanning state, opening with `seed`.
+    pub(super) fn new(
+        seed: Seed,
+        headed: bool,
+        window: &mut Window,
+        cx: &mut Context<NativeView>,
+    ) -> Self {
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search found skills"));
+        let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
+            if matches!(event, InputEvent::Change) {
+                cx.notify();
+            }
+        });
+        Self {
+            phase: Phase::Scanning,
+            ticked: seed.ticked,
+            choices: seed.choices,
+            expanded: BTreeSet::new(),
+            acknowledge_invalid: seed.acknowledge_invalid,
+            search,
+            _search: subscription,
+            choosing: None,
+            changed: false,
+            pending: None,
+            headed,
+        }
+    }
+
+    /// What Import takes from `found` with the dialog's ticks.
+    pub(super) fn chosen(&self, found: &FoundImport, workspaces: &[Workspace]) -> Selection {
+        let ticked = self.ticked.clone().unwrap_or_default();
+        selection(&groups(found, workspaces), &ticked)
+    }
+
+    /// Whether a preparation or a version choice is in flight.
+    pub(super) fn busy(&self) -> bool {
+        self.pending.is_some() || self.choosing.is_some()
+    }
+
     /// Whether the shown list is being prepared again.
     pub(super) fn refreshing(&self) -> bool {
         self.pending.is_some() && matches!(self.phase, Phase::Ready(_))
@@ -95,31 +140,16 @@ impl NativeView {
         if self.blocked() {
             return;
         }
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search found skills"));
-        let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) {
-                cx.notify();
-            }
-        });
-        self.show_dialog(DialogState::ImportSkills(Box::new(ImportDialog {
-            phase: Phase::Scanning,
-            ticked: seed.ticked,
-            choices: seed.choices,
-            expanded: BTreeSet::new(),
-            acknowledge_invalid: seed.acknowledge_invalid,
-            search,
-            _search: subscription,
-            choosing: None,
-            changed: false,
-            pending: None,
-        })));
+        let dialog = ImportDialog::new(seed, true, window, cx);
+        self.show_dialog(DialogState::ImportSkills(Box::new(dialog)));
         self.prepare_found(cx);
     }
 
+    /// The open dialog, else onboarding's import step, which never shows beside it.
     fn import_dialog_mut(&mut self) -> Option<&mut ImportDialog> {
         match &mut self.dialog {
             DialogState::ImportSkills(dialog) => Some(dialog),
-            _ => None,
+            _ => self.first_import.as_mut().map(|first| &mut first.list),
         }
     }
 
@@ -240,34 +270,39 @@ impl NativeView {
         cx.notify();
     }
 
-    /// Imports the ticked skills under the progress strip, closing the dialog; an expired plan is
+    /// The ticked skills Import applies, or `None` while it is unavailable; an expired plan is
     /// prepared again with the same ticks instead (D11).
-    fn import_ticked(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn ticked_import(&mut self, cx: &mut Context<Self>) -> Option<ImportSelection> {
         if self.blocked() {
-            return;
+            return None;
         }
         let workspaces = self.snapshot.workspaces.clone();
-        let Some(dialog) = self.import_dialog_mut() else {
-            return;
-        };
+        let dialog = self.import_dialog_mut()?;
         let Phase::Ready(found) = &dialog.phase else {
-            return;
+            return None;
         };
-        let ticked = dialog.ticked.clone().unwrap_or_default();
-        let chosen = selection(&groups(found, &workspaces), &ticked);
-        let acknowledged = dialog.acknowledge_invalid;
-        if !chosen.ready(acknowledged) || dialog.pending.is_some() || dialog.choosing.is_some() {
-            return;
+        let chosen = dialog.chosen(found, &workspaces);
+        if !chosen.ready(dialog.acknowledge_invalid) || dialog.busy() {
+            return None;
         }
         let now = u64::try_from(chrono::Utc::now().timestamp()).unwrap_or(u64::MAX);
         if now >= found.plan.expires_at {
             dialog.changed = true;
             self.prepare_found(cx);
-            return;
+            return None;
         }
-        let plan = found.plan.id.clone();
-        let skills = chosen.ids.len();
-        let ids = chosen.ids;
+        Some(ImportSelection {
+            plan: found.plan.id.clone(),
+            skills: chosen.ids,
+            acknowledge_invalid: dialog.acknowledge_invalid,
+        })
+    }
+
+    /// Imports the ticked skills under the progress strip, closing the dialog.
+    fn import_ticked(&mut self, cx: &mut Context<Self>) {
+        let Some(import) = self.ticked_import(cx) else {
+            return;
+        };
         if let DialogState::ImportSkills(dialog) =
             std::mem::replace(&mut self.dialog, DialogState::None)
         {
@@ -275,9 +310,13 @@ impl NativeView {
         }
         let client = self.client.clone();
         self.block(
-            Activity::Importing { skills },
+            Activity::Importing {
+                skills: import.skills.len(),
+            },
             async move {
-                let outcome = client.apply_import(plan, ids, acknowledged).await?;
+                let outcome = client
+                    .apply_import(import.plan, import.skills, import.acknowledge_invalid)
+                    .await?;
                 Ok(Landing {
                     imported: outcome.imported.len(),
                 })
@@ -286,17 +325,23 @@ impl NativeView {
         );
     }
 
-    /// Reopens the dialog whose import `error` refused because the list changed, preparing it
-    /// again with the same ticks; `false` for any other error, which the error box shows.
+    /// Reopens the dialog, or keeps onboarding's list, whose import `error` refused because the
+    /// list changed, preparing it again with the same ticks; `false` for any other error, which
+    /// the error box shows.
     pub(super) fn reopen_import(&mut self, error: &AppError, cx: &mut Context<Self>) -> bool {
-        let Some(mut dialog) = self.importing.take() else {
-            return false;
-        };
+        let importing = self.importing.take();
         if error.category != ErrorCategory::Stale {
             return false;
         }
+        match importing {
+            Some(dialog) => self.show_dialog(DialogState::ImportSkills(dialog)),
+            None if self.first_import.is_none() => return false,
+            None => {}
+        }
+        let Some(dialog) = self.import_dialog_mut() else {
+            return false;
+        };
         dialog.changed = true;
-        self.show_dialog(DialogState::ImportSkills(dialog));
         self.prepare_found(cx);
         true
     }

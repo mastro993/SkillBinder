@@ -1,4 +1,6 @@
-use super::list::{Count, Place, default_ticks, groups, rows, selection, tick_all, tickable};
+use super::list::{
+    Count, Place, default_ticks, groups, import_label, rows, selection, tick_all, tickable,
+};
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -200,4 +202,13 @@ fn search_matches_the_slug_or_the_description() {
 
     assert!(row.matches("review") && row.matches("about") && row.matches(""));
     assert!(!row.matches("lint"));
+}
+
+#[test]
+fn import_counts_the_ticked_skills() {
+    let labels: Vec<String> = [0, 1, 12].into_iter().map(import_label).collect();
+    assert_eq!(
+        labels,
+        ["Import skills", "Import 1 skill", "Import 12 skills"]
+    );
 }

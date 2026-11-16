@@ -38,9 +38,9 @@ async fn first_boot_over_a_library_left_from_before_adopts_the_identical_copies(
     write_skill(&claude, "other", "Other");
     let engine = created(&fixture).await;
 
-    let plan = engine.prepare_first_import().await.unwrap().unwrap();
+    let plan = found(&engine).await;
     assert_eq!(replaces(&plan), [("other".to_owned(), vec![])]);
-    engine.complete_onboarding(Some(plan.id)).await.unwrap();
+    onboard(&engine, &plan, &["other"]).await;
     let library = engine.snapshot().await.unwrap().library.unwrap();
     let claude_code = agents(&ids(&["claude-code"]));
     assert_eq!(

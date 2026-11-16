@@ -1,5 +1,6 @@
 //! What importing never activates or replaces: a folder the scan found no skill in, a skill
-//! nested deeper or reached through a link, and, at first boot, a slug the library already holds.
+//! nested deeper or reached through a link, which onboarding offers and imports inactive, and, at
+//! first boot, a slug the library already holds.
 //! Every directory is isolated.
 #![cfg(unix)]
 #![expect(
@@ -27,20 +28,12 @@ async fn a_folder_named_like_the_skill_that_holds_none_is_never_replaced() {
     write_skill(&claude.join("tools"), "writing", "Writing");
     let engine = created(&fixture).await;
 
+    let plan = found(&engine).await;
     assert!(
-        engine.prepare_first_import().await.unwrap().is_none(),
-        "nested skills become active nowhere, so first boot leaves them to Discovery"
+        replaces(&plan).contains(&("writing".to_owned(), vec![])),
+        "nested skills become active nowhere, and onboarding still offers them"
     );
-    engine.complete_onboarding(None).await.unwrap();
-    let found = fixture.scan(&engine).await;
-    let writing = found
-        .candidates
-        .iter()
-        .find(|candidate| candidate.slug == "writing")
-        .unwrap();
-    let plan = support::prepare(&engine, std::slice::from_ref(&writing.id)).await;
-    assert_eq!(replaces(&plan), [("writing".to_owned(), vec![])]);
-    support::apply(&engine, &plan).await;
+    onboard(&engine, &plan, &["writing"]).await;
 
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(held_in(&library, "default"), []);
@@ -89,7 +82,7 @@ async fn a_workspace_folder_named_like_the_skill_that_holds_none_is_left_alone()
 }
 
 #[tokio::test]
-async fn a_linked_copy_stays_in_discovery_at_first_boot_and_is_never_activated() {
+async fn a_linked_copy_imported_at_first_boot_is_never_activated() {
     let fixture = Fixture::new();
     // A skill developed in a folder of its own, which Claude Code reads through a link.
     let outside = fixture.home.join("dev");
@@ -99,17 +92,12 @@ async fn a_linked_copy_stays_in_discovery_at_first_boot_and_is_never_activated()
     symlink(outside.join("linked"), claude.join("linked")).unwrap();
     let engine = created(&fixture).await;
 
-    assert!(engine.prepare_first_import().await.unwrap().is_none());
-    engine.complete_onboarding(None).await.unwrap();
-    let found = fixture.scan(&engine).await;
-    let linked = found
-        .candidates
-        .iter()
-        .find(|candidate| candidate.slug == "linked" && candidate.in_library().is_none())
-        .unwrap();
-    fixture.import_one(&engine, linked).await;
+    let plan = found(&engine).await;
+    assert_eq!(replaces(&plan), [("linked".to_owned(), vec![])]);
+    onboard(&engine, &plan, &["linked"]).await;
 
     let library = engine.snapshot().await.unwrap().library.unwrap();
+    assert_eq!(library.library.skills[0].id, skill("linked"));
     assert_eq!(held_in(&library, "default"), []);
     assert_eq!(library.copies, []);
     let link = fs::symlink_metadata(claude.join("linked")).unwrap();
@@ -118,7 +106,7 @@ async fn a_linked_copy_stays_in_discovery_at_first_boot_and_is_never_activated()
 }
 
 #[tokio::test]
-async fn first_boot_leaves_a_slug_the_library_already_holds_to_discovery() {
+async fn first_boot_does_not_offer_a_slug_the_library_already_holds() {
     let fixture = Fixture::new();
     // A library left from an earlier install holds `review`, blocked by a link out of it.
     let held = write_skill(&fixture.data.join("library/skills"), "review", "Earlier");
@@ -131,9 +119,9 @@ async fn first_boot_leaves_a_slug_the_library_already_holds_to_discovery() {
     write_skill(&claude, "other", "Other");
     let engine = created(&fixture).await;
 
-    let plan = engine.prepare_first_import().await.unwrap().unwrap();
+    let plan = found(&engine).await;
     assert_eq!(replaces(&plan), [("other".to_owned(), vec![])]);
-    engine.complete_onboarding(Some(plan.id)).await.unwrap();
+    onboard(&engine, &plan, &["other"]).await;
     let library = engine.snapshot().await.unwrap().library.unwrap();
     assert_eq!(
         held_in(&library, "default"),

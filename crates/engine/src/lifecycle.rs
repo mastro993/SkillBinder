@@ -1,5 +1,7 @@
 use crate::{persistence, worker::State};
-use skillbinder_proto::{AppError, AppResult, Bootstrap, ErrorCategory, OnboardingStep, PlanId};
+use skillbinder_proto::{
+    AppError, AppResult, Bootstrap, ErrorCategory, ImportSelection, OnboardingStep,
+};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -126,7 +128,10 @@ impl State {
     }
     /// Finishes onboarding once the library exists, first applying the reviewed first import, if
     /// any; a failed import leaves onboarding at its import review.
-    pub(crate) fn complete_onboarding(&mut self, plan: Option<PlanId>) -> AppResult<Bootstrap> {
+    pub(crate) fn complete_onboarding(
+        &mut self,
+        import: Option<ImportSelection>,
+    ) -> AppResult<Bootstrap> {
         let boot = self.bootstrap()?;
         if boot.step == OnboardingStep::Complete {
             return Ok(boot);
@@ -136,9 +141,8 @@ impl State {
                 "Create the library before finishing setup.",
             ));
         }
-        if let Some(plan) = plan {
-            let skills = self.planned_skills(&plan)?;
-            self.apply_import(plan, skills, false)?;
+        if let Some(import) = import {
+            self.apply_import(import.plan, import.skills, import.acknowledge_invalid)?;
         }
         self.set_setting("onboarding", &OnboardingStep::Complete)?;
         self.adopt_agent_copies();

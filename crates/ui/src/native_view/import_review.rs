@@ -1,40 +1,9 @@
-//! The review of an import plan, which Discovery's Review import dialog and onboarding's first
-//! import show alike: each skill's source, destination, and findings, and each copy of another
-//! version the import replaces where the skill becomes active.
+//! How an import's review names places: where a copy it replaces is, and who reads a skill
+//! directory.
 
-use super::NativeView;
 use super::library_copies::{agent_rows, shown_dir};
 use super::workspace_targets::dir_rows;
-use gpui_kit::component::v_flex;
-use gpui_kit::{IntoElement, ParentElement, Styled};
-use skillbinder_proto::{AgentOption, ImportPlan, Workspace};
-
-impl NativeView {
-    /// One block per reviewed skill, listing the copies its import replaces.
-    pub(super) fn import_review(&self, plan: &ImportPlan) -> impl IntoElement + use<> {
-        let snapshot = &self.snapshot;
-        let mut body = v_flex().gap_2();
-        for item in &plan.items {
-            body = body.child(format!(
-                "{} — {:?} — {} → {} ({} bytes)",
-                item.slug, item.decision, item.source, item.destination, item.total_bytes
-            ));
-            for message in &item.messages {
-                body = body.child(format!("{:?}: {}", message.status, message.message));
-            }
-            for directory in &item.replaces {
-                let place = replaced_in(
-                    directory,
-                    &snapshot.agents,
-                    &snapshot.workspaces,
-                    &snapshot.home,
-                );
-                body = body.child(format!("Replaces the copy in {place}."));
-            }
-        }
-        body
-    }
-}
+use skillbinder_proto::{AgentOption, Workspace};
 
 /// How the review names skill directory `directory`, whose copy an import replaces: the Agents
 /// rows whose agents read it, or a workspace's name with the agents that read that workspace

@@ -1,6 +1,6 @@
 //! The dialog's list (D3 to D7): Select all, then each place's group header with its tri-state
-//! checkbox, glyph, name, and count, then its rows. A row is ticked with its checkbox or a click
-//! anywhere on it outside its versions.
+//! checkbox, glyph, name, and count, which onboarding's list leaves out (O3), then its rows. A
+//! row is ticked with its checkbox or a click anywhere on it outside its versions.
 
 use super::super::NativeView;
 use super::super::controls::{Inactive, app_icon, checkbox};
@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 
 impl NativeView {
     /// The bordered, scrolling list of the rows the search matches.
-    pub(super) fn import_list(
+    pub(in crate::native_view) fn import_list(
         &self,
         state: &ImportDialog,
         found: &FoundImport,
@@ -40,7 +40,9 @@ impl NativeView {
                 continue;
             }
             matched = true;
-            list = list.child(self.group_head(index, group, &ticked, cx));
+            if state.headed {
+                list = list.child(self.group_head(index, group, &ticked, cx));
+            }
             for row in shown {
                 list = list.child(self.import_row(state, row, &ticked, cx));
             }
