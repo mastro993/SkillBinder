@@ -410,7 +410,7 @@ fn bounded(path: &Path, boundary: &Path) -> Result<Place, String> {
     let canonical_boundary = fs::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
     let Some(relative) = paths::inside(&canonical_boundary, path) else {
         return Err(format!(
-            "Discovery location outside its boundary: {}",
+            "Scan location outside its boundary: {}",
             path.display()
         ));
     };
@@ -419,7 +419,7 @@ fn bounded(path: &Path, boundary: &Path) -> Result<Place, String> {
         Ok(canonical) => canonical,
         Err(error) => {
             return Err(format!(
-                "Unreadable discovery location {}: {error}",
+                "Unreadable scan location {}: {error}",
                 path.display()
             ));
         }

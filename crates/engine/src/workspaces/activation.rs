@@ -3,10 +3,9 @@
 //! workspace makes the library skills it already holds active where they are.
 
 use crate::{
-    database,
-    discovery::{paths::resolve_absent, registry},
-    library_store,
+    database, library_store,
     lifecycle::EngineConfig,
+    scan::{paths::resolve_absent, registry},
     schema::{workspace_dirs, workspace_skills},
     worker::State,
 };

@@ -3,7 +3,7 @@
 //! directory counted once however many agents share it.
 
 use super::store::{Holder, Pair};
-use crate::discovery::registry::{Loaded, Preferences};
+use crate::scan::registry::{Loaded, Preferences};
 use skillbinder_proto::{AgentOption, Library, Overlap, SameSlug, SkillId, Workspace, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},

@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use super::*;
-use crate::discovery::ImportSource;
+use crate::scan::ImportSource;
 use std::{fs, path::Path};
 
 fn source(directory: &Path) -> ImportSource {

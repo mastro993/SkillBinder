@@ -64,7 +64,7 @@ impl State {
     /// Whether recorded `directory` still resolves to itself inside `boundary`, its workspace's
     /// folder or home, as the scan resolves it: not once a link leads it elsewhere.
     pub(super) fn current(&self, boundary: &Path, directory: &Path) -> bool {
-        crate::discovery::paths::resolve_absent(boundary, directory)
+        crate::scan::paths::resolve_absent(boundary, directory)
             .is_ok_and(|resolved| resolved == directory)
     }
 

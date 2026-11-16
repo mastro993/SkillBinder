@@ -2,7 +2,6 @@
 
 mod activation;
 mod database;
-mod discovery;
 mod folders;
 mod git;
 mod grants;
@@ -15,6 +14,7 @@ mod payload;
 mod persistence;
 mod reconcile;
 mod records;
+mod scan;
 mod schema;
 mod shutdown;
 mod sources;

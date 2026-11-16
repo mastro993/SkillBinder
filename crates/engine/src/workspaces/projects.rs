@@ -2,7 +2,7 @@
 //! that has an agent skill directory, or the folder alone when none has one. An agent folder,
 //! such as the home folder, is never a workspace.
 
-use crate::discovery::paths::resolve_absent;
+use crate::scan::paths::resolve_absent;
 use std::{
     collections::BTreeSet,
     fs,
