@@ -1,0 +1,189 @@
+  // ---- dialog frame and states ---------------------------------------------------------------
+  // Only Scan for skills animates it in; demo switches swap it in place.
+  function openImport(animate) {
+    if (dlg) dlg.close();
+    dlg = openDialog(win, { title: 'Import skills', onClose: () => { clearTimeout(scanTimer); dlg = null; els = {}; } });
+    const d = dlg;
+    d.scrim.classList.add('im-scrim');
+    d.el.classList.add('im-dialog');
+    if (!animate) [d.scrim, d.el].forEach((el) => { el.style.animation = 'none'; });
+    d.el.querySelector('.sb-dialog-header > .sb-btn').setAttribute('data-tip', 'Close');
+    // A click on the scrim does nothing, as the approved picker; ×, Esc and Cancel close it.
+    d.scrim.addEventListener('mousedown', (e) => { if (e.target === d.scrim) e.stopImmediatePropagation(); }, true);
+  }
+  function open(state) {
+    openImport(false);
+    show(state);
+  }
+  function switchVariant() {
+    const listing = !!els.list;
+    openImport(false);
+    if (listing) drawList(S.focus); else show(S.state);
+  }
+  function scan(result) {
+    showScanning();
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => { if (dlg) show(result); }, 1100);
+  }
+  function show(state) {
+    if (state === 'scanning') showScanning();
+    else if (state === 'error') showError();
+    else showList(state);
+  }
+  const cancelBtn = (label = 'Cancel', cls = 'sb-btn-outline') =>
+    h('button', { class: `sb-btn ${cls}`, onclick: () => dlg.close() }, label);
+
+  function showScanning() {
+    els = {};
+    dlg.setBody(h('div', { class: 'im-center' }, spinner(16), 'Scanning…'));
+    dlg.setFooter(cancelBtn(), h('button', { class: 'sb-btn sb-btn-primary', disabled: true }, 'Import skills'));
+  }
+  function showError() {
+    els = {};
+    dlg.setBody(h('div', { class: 'im-center is-error' }, h('span', { class: 'im-err-ic', html: icon('alert-circle', 16) }),
+      "Couldn't scan: ~/code/api-server can't be read."));
+    dlg.setFooter(cancelBtn('Close'), h('button', { class: 'sb-btn sb-btn-primary', 'data-autofocus': '',
+      onclick: () => { S.state = 'list'; drawStates(); drawHeader(); scan('list'); } }, 'Retry'));
+  }
+  function showNone() {
+    els = {};
+    dlg.setBody(h('div', { class: 'im-center' }, 'No new skills found.'));
+    dlg.setFooter(cancelBtn('Close', 'sb-btn-primary'));
+  }
+
+  function showList(state) {
+    S.skills = copy(sourceOf(state)).filter((k) => !S.imported.has(k.slug));
+    if (!S.skills.length) { showNone(); return; }
+    S.choice = {};
+    S.skills.forEach((k) => { S.choice[k.slug] = FOUND.preferred(k); });
+    Object.assign(S, { ticks: FOUND.initialTicks(S.skills, S.choice), expanded: new Set(), ack: false, query: '',
+      busy: new Set(), refreshing: false, note: false, changed: null, focus: S.skills[0].slug });
+    let target = null;
+    if (state === 'versions') { ['gh-stack', 'caveman'].forEach((s) => S.expanded.add(s)); S.focus = 'gh-stack'; }
+    if (state === 'invalid' && S.skills.some((k) => k.slug === 'legacy-deploy')) {
+      S.ticks.add('legacy-deploy');
+      S.focus = target = 'legacy-deploy';
+    }
+    drawList(target);
+  }
+  // The list's frame for the current variant; switching variants keeps ticks, versions and search.
+  function drawList(target) {
+    const search = searchInput({ placeholder: 'Search found skills', value: S.query, onInput: (q) => { S.query = q; update(); } });
+    els = {
+      status: h('span', { class: 'im-status' }, `${S.skills.length} found · ${FOUND.inLibrary + S.imported.size} already in library`),
+      note: h('div', { class: 'im-note', hidden: true }, ic('refresh-03', 14), 'The list changed since the scan. Check it and import again.'),
+      list: h('div', { class: `sb-card im-list${S.variant === 'b' ? ' im-compact' : ''}` }),
+      right: S.variant === 'b' ? h('div', { class: 'im-right' }) : null,
+    };
+    const tools = h('div', { class: 'im-tools' }, search, els.status);
+    dlg.setBody(els.right
+      ? h('div', { class: 'im-split' }, h('div', { class: 'im-left' }, tools, els.note, els.list), els.right)
+      : [tools, els.note, els.list]);
+    update();
+    const row = target && els.list.querySelector(`[data-slug="${target}"]`);
+    if (row) els.list.scrollTop = row.offsetTop - 80;
+  }
+
+  // ---- selection --------------------------------------------------------------------------------
+  function setTick(slug, on) {
+    if (on) S.ticks.add(slug); else S.ticks.delete(slug);
+    update();
+  }
+  // Select all ticks every importable skill, up to 500, including rows the search hides.
+  function tickAll(list, on) {
+    if (on) {
+      for (const k of list.filter(canTick)) {
+        if (S.ticks.size >= FOUND.MAX) break;
+        S.ticks.add(k.slug);
+      }
+    } else list.forEach((k) => S.ticks.delete(k.slug));
+    update();
+  }
+  // Choosing another version prepares the plan again: the row is busy briefly and every tick stays.
+  function choose(slug, id) {
+    if (S.choice[slug] === id) return;
+    S.choice[slug] = id;
+    S.busy.add(slug);
+    update();
+    setTimeout(() => { S.busy.delete(slug); update(); }, 600);
+  }
+
+  // ---- list ----------------------------------------------------------------------------------------
+  function update() {
+    if (!dlg || !els.list) return;
+    els.note.hidden = !S.note;
+    els.list.classList.toggle('is-busy', S.refreshing);
+    const top = els.list.scrollTop;
+    const shown = S.skills.filter(matches);
+    if (S.variant === 'b' && shown.length && !shown.some((k) => k.slug === S.focus)) S.focus = shown[0].slug;
+    const rows = !shown.length ? [emptyState({ icon: 'search', title: `No skills match '${S.query.trim()}'` })]
+      : S.variant === 'c' ? grouped(shown) : shown.map(S.variant === 'b' ? compactRow : row);
+    els.list.replaceChildren(head(shown), ...rows);
+    els.list.scrollTop = top;
+    if (els.right) renderRight();
+    renderFoot();
+  }
+  function head(shown) {
+    const n = S.ticks.size;
+    const full = n > 0 && n >= cap();
+    const hidden = S.skills.filter((k) => S.ticks.has(k.slug) && !shown.includes(k)).length;
+    return h('div', { class: 'im-head' },
+      checkbox({ checked: full, indeterminate: n > 0 && !full, label: 'Select all', onChange: (on) => tickAll(S.skills, on) }),
+      hidden ? h('span', { class: 'im-head-hint' }, `${hidden} selected not shown`) : null);
+  }
+  function tick(k, cls = '') {
+    const cb = checkbox({ checked: S.ticks.has(k.slug), disabled: !canTick(k), onChange: (on) => setTick(k.slug, on) });
+    cb.setAttribute('aria-label', k.slug);
+    if (cls) cb.classList.add(cls);
+    return cb;
+  }
+  function tag(v) {
+    if (v.validation === 'invalid') return h('span', { class: 'sb-tag sb-tag-warning' }, 'Invalid');
+    if (v.validation === 'blocked') return h('span', { class: 'sb-tag' }, 'Blocked');
+    return null;
+  }
+  const warn = (text, size = 12) => h('div', { class: 'im-warn' }, ic('alert-circle', size), text);
+  const replaceLines = (v) => v.replaces.map((p) => warn(`Replaces the copy in ${p}.`));
+  // A version's locations "path · readers", size, validation messages and replacements.
+  function details(v) {
+    return h('div', { class: 'im-lines' },
+      h('div', { class: 'im-line' }, v.locations.map((l) => h('span', `${l.path} · ${l.readers}`)), h('span', FOUND.size(v))),
+      v.messages.map((m) => warn(m)), replaceLines(v));
+  }
+  function versionChoice(k, v) {
+    const label = [FOUND.modified(v), v.validation === 'invalid' ? 'Invalid' : v.validation === 'blocked' ? 'Blocked' : null]
+      .filter(Boolean).join(' · ');
+    return h('div', { class: 'im-ver' },
+      h('label', { class: 'im-ver-top' },
+        h('input', { type: 'radio', class: 'im-radio', name: `ver-${k.slug}`, checked: S.choice[k.slug] === v.id,
+          disabled: !FOUND.importable(v) || S.busy.has(k.slug), onchange: () => choose(k.slug, v.id) }),
+        h('span', label), v.matchesSource ? h('span', { class: 'sb-tag sb-tag-outline' }, 'Matches source') : null),
+      details(v));
+  }
+  function versions(k) {
+    const open = S.expanded.has(k.slug);
+    return [
+      h('button', { class: 'sb-btn sb-btn-xs im-vtoggle', 'aria-expanded': String(open), onclick: () => {
+        if (!S.expanded.delete(k.slug)) S.expanded.add(k.slug);
+        update();
+      } }, ic('chevron-right', 13), `${k.versions.length} versions`),
+      open ? h('div', { class: 'im-versions' }, k.versions.map((v) => versionChoice(k, v)))
+        : h('div', { class: 'im-lines' }, chosen(k).messages.map((m) => warn(m)), replaceLines(chosen(k))),
+    ];
+  }
+  // A and C: a flat row with every detail inline; a click on the row ticks it.
+  function row(k) {
+    const v = chosen(k);
+    const ok = canTick(k);
+    const busy = S.busy.has(k.slug);
+    return h('div', {
+      class: `sb-row${ok ? '' : ' is-dim'}${busy ? ' is-busy' : ''}${S.changed === k.slug ? ' is-changed' : ''}`, 'data-slug': k.slug,
+      onclick: (e) => { if (ok && !e.target.closest('input, button, label, .im-versions')) setTick(k.slug, !S.ticks.has(k.slug)); },
+    },
+    tick(k),
+    h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, k.slug), tag(v), busy ? spinner(13) : null),
+      k.desc ? h('div', { class: 'sb-desc' }, k.desc) : null,
+      k.versions.length > 1 ? versions(k) : details(v)));
+  }
+

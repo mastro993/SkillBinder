@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding import</title>
+<!-- Scan and import: onboarding's last step, "Import your skills".
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py onboarding.html ../prototypes/onboarding.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+.ob-lights { position: absolute; top: 0; left: 8px; }
+.ob-main { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+/* The app's column: 384 wide, centered, 16 apart, scrolling the list so the buttons stay in view. */
+.ob-col { width: 384px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 16px; padding: 28px 0 24px; }
+.ob-head { display: flex; flex-direction: column; gap: 4px; }
+.ob-eyebrow { font-size: 12px; font-weight: 600; color: var(--sb-muted-fg); }
+.ob-title { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+.ob-lead { color: var(--sb-muted-fg); line-height: 1.5; }
+.ob-line { display: flex; align-items: center; gap: 8px; color: var(--sb-muted-fg); }
+.ob-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.ob-sum { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card); }
+.ob-sum-text { flex: 1; min-width: 0; font-weight: 500; }
+.ob-disc { align-self: flex-start; margin: -8px 0 -4px -8px; color: var(--sb-muted-fg); }
+.ob-disc .sb-ic { transition: transform .12s; }
+.ob-disc[aria-expanded="true"] .sb-ic { transform: rotate(90deg); }
+.ob-done { color: var(--sb-success); }
+.sb-vbar .sb-seg { flex-wrap: wrap; }
+</style>
+</head>
+<body data-first-variant="b">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <div class="sb-lights ob-lights"><i></i><i></i><i></i></div>
+    <main class="ob-main" id="page"></main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="found.js"></script>
+<script src="scan-list.js"></script>

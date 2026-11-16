@@ -1,0 +1,119 @@
+<style>.ob-busy > .sb-vbar { pointer-events: none; opacity: .5; }</style>
+<script>
+(function () {
+  'use strict';
+  const proto = document.getElementById('proto');
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const SKILLS = FOUND.agentsOnly(FOUND.skills);
+  const LEAD = 'Importing copies these skills from your agents into your library, each staying active for the agents that have it. You can import others later with Scan for skills in Library.';
+  const NOTHING = 'No skills to import were found in your agents.';
+  const ERROR = "Couldn't read ~/.cursor/skills: permission denied.";
+  const O = { variant: 'a', state: 'list', list: null, open: false, dlg: null, btns: null, busy: false };
+
+  const stateSeg = seg([
+    { id: 'scanning', label: 'Scanning' }, { id: 'list', label: 'List' }, { id: 'nothing', label: 'Nothing found' },
+    { id: 'error', label: 'Error' }, { id: 'importing', label: 'Importing' }, { id: 'done', label: 'Done' },
+  ], O.state, (id) => go(id));
+
+  const btn = (label, onclick, primary, disabled) =>
+    h('button', { class: `sb-btn ${primary ? 'sb-btn-primary' : 'sb-btn-outline'}`, onclick, disabled }, label);
+  const lead = () => h('div', { class: 'ob-lead' }, LEAD);
+  function setState(id) {
+    O.state = id;
+    stateSeg.querySelectorAll('button').forEach((b) => b.classList.toggle('is-active', b.dataset.id === id));
+  }
+
+  // Every state starts from a fresh scan result, so the ticks are the initial ones.
+  function go(state) {
+    if (O.busy) return;
+    setState(state);
+    if (O.dlg) { O.dlg.close(); O.dlg = null; }
+    win.querySelectorAll(':scope > .sb-toast').forEach((t) => t.remove());
+    O.list = SCAN.list(SKILLS, { onChange: drawBtns });
+    O.open = false;
+    draw();
+    if (state === 'importing') runImport(O.list.selection());
+    else if (O.variant === 'c' && state !== 'done') openDlg(state, state !== 'scanning');
+  }
+
+  function draw() {
+    const s = O.state;
+    let body;
+    if (s === 'done') body = [];
+    else if (O.variant === 'c') body = [lead()];
+    else if (s === 'scanning') body = [lead(), h('div', { class: 'ob-line' }, spinner(16), 'Scanning…')];
+    else if (s === 'nothing') body = [h('div', { class: 'ob-lead' }, NOTHING)];
+    else if (s === 'error') body = [h('div', { class: 'ob-line' }, ic('alert-circle', 16), ERROR)];
+    else body = [lead(), ...(O.variant === 'a' ? [O.list.el] : summary())];
+    O.btns = h('div', { class: 'ob-btns' });
+    page.replaceChildren(h('div', { class: 'ob-col' },
+      h('div', { class: 'ob-head' }, h('div', { class: 'ob-eyebrow' }, 'SkillBinder'),
+        h('div', { class: 'ob-title', role: 'heading', 'aria-level': '1' }, s === 'done' ? 'Your library is ready.' : 'Import your skills')),
+      body, O.btns));
+    drawBtns();
+  }
+
+  function drawBtns() {
+    const s = O.state;
+    const skip = btn('Skip', finish);
+    let row;
+    if (s === 'done') row = [btn('Open Library', () => toast(win, 'Not in this prototype'), true)];
+    else if (O.variant === 'c') row = [skip, btn('Review skills', () => openDlg(s === 'scanning' ? 'list' : s, false), true)];
+    else if (s === 'nothing') row = [btn('Continue', finish, true)];
+    else if (s === 'error') row = [skip, btn('Retry', retry, true)];
+    else if (s === 'scanning') row = [skip, btn('Import skills', null, true, true)];
+    else row = [skip, btn(O.list.label(), () => runImport(O.list.selection()), true, !O.list.ready())];
+    O.btns.replaceChildren(...row);
+  }
+
+  // B: the count and your agents, with the list behind a disclosure.
+  function summary() {
+    const ids = DATA.targets.map((t) => t.id).filter((id) => SKILLS.some((k) => k.versions.some((v) => SCAN.agents(v).includes(id))));
+    const names = ids.map((id) => DATA.target(id).name).join(', ');
+    return [
+      h('div', { class: 'ob-sum' }, avatarStack(ids), h('div', { class: 'ob-sum-text' }, `${SKILLS.length} skills found in ${names}`)),
+      h('button', { class: 'sb-btn sb-btn-sm ob-disc', 'aria-expanded': String(O.open), onclick: () => { O.open = !O.open; draw(); } },
+        ic('chevron-right', 14), 'Review list'),
+      O.open ? O.list.el : null,
+    ];
+  }
+
+  function retry() {
+    go('scanning');
+    setTimeout(() => { if (O.state === 'scanning') go('list'); }, 1100);
+  }
+  function finish() {
+    setState('done');
+    draw();
+  }
+  function openDlg(mode, instant) {
+    O.dlg = SCAN.dialog(win, {
+      status: false, instant, nothing: NOTHING, done: 'Continue', onDone: finish, onImport: runImport,
+      scan: (i) => (mode === 'scanning' ? 'wait' : mode === 'error' && !i ? 'error' : mode === 'nothing' ? [] : SKILLS),
+    });
+  }
+  // Import finishes onboarding: the blocking progress, its toast, then the library is ready.
+  function runImport(sel) {
+    if (!sel.length) return;
+    O.busy = true;
+    proto.classList.add('ob-busy');
+    setState('importing');
+    progressDialog(win, { plan: SCAN.plan(sel) }).then(() => {
+      O.busy = false;
+      proto.classList.remove('ob-busy');
+      finish();
+    });
+  }
+
+  const bar = variantBar(proto, [
+    { id: 'a', label: 'Inline list', desc: 'The full list on the step, Skip and a counted Import (Cosmos page, Loops).' },
+    { id: 'b', label: 'Summary first', desc: 'Count and agents first; Review list expands the same list inline (Cosmos, Literal).' },
+    { id: 'c', label: 'Dialog over onboarding', desc: 'The step leads to Review skills, which opens the Import skills dialog over it (HoneyBook, Workable).' },
+  ], (id) => { O.variant = id; go(O.state === 'importing' ? 'list' : O.state); });
+  bar.extra.append(stateSeg);
+  bar.set(document.body.dataset.firstVariant || "a");
+})();
+</script>
+</body>
+</html>

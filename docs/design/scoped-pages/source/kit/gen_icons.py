@@ -17,7 +17,7 @@ HUGE = {
     "chevron-right": "ArrowRight01Icon", "list-view": "ListViewIcon", "grid-view": "GridViewIcon",
     "libraries": "LibrariesIcon", "compass": "Compass01Icon", "settings": "Settings01Icon",
     "import": "ImportIcon", "unplug": "UnplugIcon", "book": "Book02Icon", "code": "SourceCodeIcon",
-    "robot": "Robot01Icon", "pencil-edit": "PencilEdit02Icon", "git-branch": "GitBranchIcon",
+    "robot": "Robot01Icon", "pencil-edit": "PencilEdit02Icon", "git-branch": "GitBranchIcon", "folder-search": "FolderSearchIcon",
 }
 # The fixture's agents (Universal's members and the workspace directories' first readers): the
 # full-color logo where the repo has one, as the app's avatars use, else the monochrome one.

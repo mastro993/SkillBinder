@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import skills dialog</title>
+<!-- Import skills dialog prototype (docs/specs/scan-and-import.md): three layouts for choosing found skills.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py import-dialog.html ../prototypes/import-dialog.html
+     First view: <body data-first-variant="b" data-first-state="invalid">. -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+.sb-nav-row[data-nav="discovery"] { display: none; }
+.im-ctx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 12.5px/1.4 var(--sb-font); color: var(--sb-muted-fg); }
+.im-busy > .sb-vbar { pointer-events: none; opacity: .5; }
+
+/* Library header: Scan for skills with its count (Kit Badge) */
+.im-scan { position: relative; }
+.im-badge {
+  position: absolute; top: -3px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px;
+  display: grid; place-items: center; border-radius: 999px; background: var(--sb-fg); color: var(--sb-bg);
+  font-size: 10px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--sb-bg); pointer-events: none;
+}
+
+/* Dialog frame: the approved picker's size, so loading, list, empty and error never resize it */
+.sb-scrim.im-scrim { align-items: center; padding: 10px; }
+.sb-dialog.im-dialog { width: 92%; height: 90%; max-width: none; max-height: none; }
+.im-dialog .sb-dialog-header { padding-bottom: 6px; }
+.im-dialog .sb-dialog-body { display: flex; flex-direction: column; gap: 8px; overflow: hidden; padding-bottom: 12px; }
+.im-dialog .sb-dialog-footer { justify-content: flex-end; padding-top: 10px; padding-bottom: 12px; border-top: 1px solid var(--sb-border); }
+.im-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; text-align: center; color: var(--sb-muted-fg); }
+.im-center.is-error { color: var(--sb-fg); }
+.im-err-ic { display: grid; color: var(--sb-danger); }
+
+.im-tools { display: flex; align-items: center; gap: 8px; }
+.im-tools .sb-search { flex: 1 1 auto; width: auto; max-width: 260px; }
+.im-status { margin-left: auto; font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; }
+.im-note { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: color-mix(in srgb, var(--sb-info) 55%, var(--sb-fg)); }
+
+.im-list { position: relative; flex: 1; min-height: 0; overflow: auto; }
+.im-list.is-busy { opacity: .5; pointer-events: none; }
+.im-head {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px;
+  border-bottom: 1px solid var(--sb-border); border-radius: 9px 9px 0 0; background: var(--sb-card);
+}
+.im-head .sb-check-label { font-size: 12.5px; font-weight: 500; }
+.im-head-hint { margin-left: auto; font-size: 12px; color: var(--sb-muted-fg); }
+.im-list .sb-row { align-items: flex-start; min-height: 0; padding: 9px 12px; gap: 10px; }
+.im-list .sb-row > .sb-checkbox { margin-top: 2px; }
+.im-head + .sb-row::before, .im-ghead + .sb-row::before { display: none; }
+.im-list .sb-slug { font-size: 13.5px; }
+.im-list .sb-desc { font-size: 12px; }
+.im-list .sb-row.is-busy .sb-row-main { opacity: .55; }
+.im-list .sb-row.is-changed { animation: im-flash 1.8s ease-out; }
+@keyframes im-flash { from { background: color-mix(in srgb, var(--sb-info) 18%, var(--sb-card)); } }
+.im-list .sb-empty { padding: 28px 16px; }
+
+.im-lines { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; font-size: 11.5px; color: var(--sb-muted-fg); }
+.im-line { display: flex; align-items: center; flex-wrap: wrap; column-gap: 12px; row-gap: 0; min-width: 0; }
+.im-warn { display: flex; align-items: center; gap: 5px; color: color-mix(in srgb, var(--sb-warning) 60%, var(--sb-fg)); }
+.im-warn > .sb-ic { flex: none; }
+.im-vtoggle { align-self: flex-start; margin: 3px 0 0 -6px; color: var(--sb-muted-fg); }
+.im-vtoggle > .sb-ic { transition: transform .12s; }
+.im-vtoggle[aria-expanded="true"] > .sb-ic { transform: rotate(90deg); }
+
+/* Kit Radio */
+.im-radio {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none; width: 16px; height: 16px; display: inline-grid; place-content: center;
+  border: 1px solid var(--sb-input); border-radius: 50%; background: var(--sb-bg); cursor: pointer;
+}
+.im-radio::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sb-primary-fg); opacity: 0; }
+.im-radio:checked { background: var(--sb-primary); border-color: var(--sb-primary); }
+.im-radio:checked::after { opacity: 1; }
+.im-radio:disabled { opacity: .45; cursor: default; }
+.im-versions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.im-ver-top { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; }
+.im-ver .im-lines { padding-left: 24px; margin-top: 1px; }
+
+/* B: two panes */
+.im-split { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.im-left { flex: 1 1 56%; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.im-right {
+  flex: 0 0 42%; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-sidebar);
+}
+.im-right .sb-row-title { flex-wrap: wrap; }
+.im-r-title { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.im-r-desc { font-size: 12.5px; color: var(--sb-muted-fg); }
+.im-right .im-lines { margin-top: 6px; font-size: 12px; gap: 4px; }
+.im-right .im-line { flex-direction: column; align-items: flex-start; }
+.im-compact .sb-row { align-items: center; padding: 6px 12px; cursor: pointer; }
+.im-compact .sb-row > .sb-checkbox { margin-top: 0; }
+.im-compact .sb-row.is-focus { background: var(--sb-sel); }
+.im-meta1 { font-size: 11.5px; color: var(--sb-muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.im-glyph { display: grid; flex: none; color: color-mix(in srgb, var(--sb-warning) 60%, var(--sb-fg)); }
+
+/* C: grouped by place */
+.im-ghead {
+  position: sticky; top: 34px; z-index: 1; display: flex; align-items: center; height: 30px; padding: 0 12px;
+  border-bottom: 1px solid var(--sb-border); background: color-mix(in srgb, var(--sb-fg) 4%, var(--sb-card));
+}
+.im-ghead .sb-check-label { gap: 8px; font-size: 12px; font-weight: 600; }
+.im-ghead .sb-chip-count { font-size: 11.5px; }
+.sb-row + .im-ghead { border-top: 1px solid var(--sb-border); }
+
+.im-foot-left { display: flex; flex-direction: column; gap: 3px; min-width: 0; margin-right: auto; }
+.im-foot-left .sb-check-label { font-size: 12.5px; }
+.im-foot-left .im-warn { font-size: 12.5px; }
+</style>
+</head>
+<body data-first-variant="c">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="found.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const MANY = FOUND.many(620);
+  const STATES = [
+    { id: 'scanning', label: 'Scanning' }, { id: 'list', label: 'List' }, { id: 'versions', label: 'Versions' },
+    { id: 'invalid', label: 'Invalid' }, { id: 'many', label: 'Many' }, { id: 'none', label: 'Nothing new' }, { id: 'error', label: 'Error' },
+  ];
+  // Dialog state, created when it opens. ticks: slugs; choice: slug -> version id; busy: slugs re-preparing.
+  const S = {
+    variant: 'a', state: 'list', expires: false, imported: new Set(),
+    skills: [], ticks: new Set(), choice: {}, expanded: new Set(), ack: false, query: '', focus: null,
+    busy: new Set(), refreshing: false, note: false, changed: null,
+  };
+  let dlg = null;
+  let els = {};
+  let scanTimer = 0;
+  let ready = false;
+  SB.settings.problems = 0;
+
+  const skillsN = (n) => `${n} skill${n === 1 ? '' : 's'}`;
+  const sourceOf = (state) => (state === 'many' ? MANY : state === 'none' ? [] : FOUND.skills);
+  const badgeCount = () => sourceOf(S.state).filter((k) => !S.imported.has(k.slug)).length;
+  const chosen = (k) => k.versions.find((v) => v.id === S.choice[k.slug]);
+  const canTick = (k) => FOUND.importable(chosen(k));
+  const importables = () => S.skills.filter(canTick);
+  const cap = () => Math.min(importables().length, FOUND.MAX);
+  const needsAck = () => S.skills.some((k) => S.ticks.has(k.slug) && !FOUND.valid(chosen(k)));
+  const over = () => S.ticks.size > FOUND.MAX;
+  const blocked = () => !S.ticks.size || over() || (needsAck() && !S.ack) || S.busy.size > 0 || S.refreshing;
+  function matches(k) {
+    const q = S.query.trim().toLowerCase();
+    return !q || k.slug.includes(q) || k.desc.toLowerCase().includes(q);
+  }
+  const copy = (list) => list.map((k) => ({ ...k, versions: k.versions.map((v) => ({ ...v, replaces: [...v.replaces] })) }));
+
+  // ---- Library behind the dialog ---------------------------------------------------------
+  renderSidebar(side, { active: 'library', onNav: () => toast(win, 'Not in this prototype') });
+  function drawHeader() {
+    const n = badgeCount();
+    hdr.replaceChildren(h('span', { class: 'sb-title' }, 'Library'), h('div', { class: 'sb-header-actions' },
+      h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Check for updates', 'aria-label': 'Check for updates',
+        onclick: () => toast(win, 'Not in this prototype') }, ic('refresh-04', 16)),
+      h('button', { class: 'sb-btn sb-btn-icon im-scan', 'data-tip': 'Scan for skills', 'aria-label': 'Scan for skills',
+        onclick: () => { openImport(true); scan(S.state === 'scanning' ? 'list' : S.state); } },
+      ic('folder-search', 16), n ? h('span', { class: 'im-badge' }, n) : null)));
+  }
+  function drawLibrary() {
+    const rows = [...DATA.skills, ...[...S.imported].map((slug) => [...FOUND.skills, ...MANY].find((k) => k.slug === slug))]
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+    page.replaceChildren(h('div', { class: 'sb-card' }, rows.map((s) => h('div', { class: 'sb-row' },
+      h('div', { class: 'sb-row-main' }, h('span', { class: 'sb-slug' }, s.slug), h('div', { class: 'sb-desc' }, s.desc))))));
+  }
+  drawHeader();
+  drawLibrary();
+
+  // ---- variant bar, states, demo control ----------------------------------------------------
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Checklist', desc: 'One list, every detail inline; count in the primary · like Cosmos "We found N boards", versions as Shopify variants.' },
+    { id: 'b', label: 'Two panes', desc: 'Compact checklist on the left, the focused skill\'s details and versions on the right · like the approved picker C and Devin\'s two-line rows.' },
+    { id: 'c', label: 'Grouped by place', desc: 'Rows grouped under Your agents and each workspace, each group ticks at once · like StackAI\'s nested table and QuickBooks\' flagged rows.' },
+  ], (id) => { S.variant = id; if (ready) switchVariant(); }); // ready: the code below has run
+  const stateRow = h('div', { class: 'im-ctx' });
+  bar.el.append(stateRow);
+  function drawStates() {
+    stateRow.replaceChildren(h('span', 'State'), seg(STATES, S.state, (id) => { S.state = id; drawHeader(); open(id); }));
+  }
+  function drawExpiry() {
+    bar.extra.replaceChildren(seg([{ id: 'fresh', label: 'Plan fresh' },
+      { id: 'expired', label: 'Plan expired', tip: 'The next Import finds the plan expired' }],
+    S.expires ? 'expired' : 'fresh', (v) => { S.expires = v === 'expired'; }));
+  }
+  drawStates();
+  drawExpiry();
+
+  // Demo switches wait while the blocking import runs in the window.
+  const proto = document.getElementById('proto');
+  const blocking = (el) => !el.matches('aside, main, .sb-toast, .sb-tooltip, .sb-menu') && !(dlg && el === dlg.scrim);
+  new MutationObserver(() => proto.classList.toggle('im-busy', [...win.children].some(blocking)))
+    .observe(win, { childList: true });
+

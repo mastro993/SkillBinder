@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library entry</title>
+<!-- Scan and import: Library's Scan for skills button with its count, and Library's empty state.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py library-entry.html ../prototypes/library-entry.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+.sb-nav-row[data-nav="discovery"] { display: none; }
+.le-scan { position: relative; }
+/* A: Kit Badge on the button's corner. */
+.le-badge {
+  position: absolute; top: -5px; right: -9px; min-width: 16px; height: 16px; padding: 0 4px; pointer-events: none;
+  border-radius: 999px; background: var(--sb-primary); color: var(--sb-primary-fg); box-shadow: 0 0 0 2px var(--sb-bg);
+  font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums;
+}
+/* B: a quiet count beside the glyph. */
+.sb-btn.le-scan-b { gap: 5px; padding: 0 8px 0 6px; color: var(--sb-muted-fg); }
+.sb-btn.le-scan-b:hover { color: var(--sb-fg); }
+.le-count { font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sb-btn-icon.le-upd, .le-upd-mark { color: var(--sb-info); }
+.le-upd-mark { display: grid; }
+.le-frame { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.le-frame > .le-list { flex: 0 1 auto; overflow: auto; }
+.le-frame > .le-fill { flex: 1; }
+.le-list .sb-row { min-height: 52px; }
+.le-empty-a { display: flex; align-items: center; justify-content: center; }
+.le-empty-b { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; }
+.le-empty-head { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+.le-empty-ic { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; background: var(--sb-muted); }
+</style>
+</head>
+<body data-first-variant="b">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="found.js"></script>
+<script src="scan-list.js"></script>
