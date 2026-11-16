@@ -221,7 +221,7 @@ impl NativeView {
                 cx,
             )
             .into_any_element(),
-            None => div().into_any_element(),
+            None => self.library_empty(cx),
         }
     }
 }

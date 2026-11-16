@@ -8,9 +8,9 @@ mod copy_dialogs;
 mod custom_color;
 mod dialogs;
 mod discovery;
-mod discovery_versions;
 mod folder_reorder;
 mod hover_scroll;
+mod import_dialog;
 mod import_review;
 mod library;
 mod library_avatars;
@@ -93,7 +93,7 @@ use skillbinder_client::Client;
 use skillbinder_proto::*;
 
 enum DialogState {
-    ImportPlan(ImportPlan),
+    ImportSkills(Box<import_dialog::ImportDialog>),
     DeletePreset(DeletePreview),
     /// The copies of one skill that are not applied, every copy that asks the user, or the
     /// review of the copies that need the user after a blocking change.
@@ -115,7 +115,6 @@ enum DialogState {
 enum Effect {
     None,
     CloseDialog,
-    Plan(ImportPlan),
     /// Onboarding's review of the library's first import, or `None` with nothing to import.
     FirstImport(Option<ImportPlan>),
     /// Onboarding's first import failed, so its review is prepared again before importing.
@@ -142,7 +141,9 @@ pub struct NativeView {
     syncing: bool,
     error: Option<AppError>,
     dialog: DialogState,
-    /// The keys of the found skills chosen for import.
+    /// The Import skills dialog while its import runs, reopened if the list changed (D11).
+    importing: Option<Box<import_dialog::ImportDialog>>,
+    /// Discovery's keys of the found skills chosen for import.
     selected_skills: BTreeSet<String>,
     /// The version the user chose for a found skill, by key, instead of its preferred one.
     version_choices: BTreeMap<String, CandidateId>,
@@ -308,6 +309,7 @@ impl NativeView {
             syncing: false,
             error: None,
             dialog: DialogState::None,
+            importing: None,
             selected_skills: BTreeSet::new(),
             version_choices: BTreeMap::new(),
             expanded_skills: BTreeSet::new(),

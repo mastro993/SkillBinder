@@ -112,7 +112,7 @@ async fn same_slug_with_different_content_stays_separate() {
     );
     let both = scan.candidates.iter().map(|c| c.id.clone()).collect();
     assert_eq!(
-        category(engine.prepare_import(both, false).await),
+        category(engine.prepare_found_import(both).await),
         ErrorCategory::Validation,
         "one library cannot hold two skills with the same slug"
     );
@@ -129,10 +129,7 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
     fixture.register(&engine).await;
     let scan = fixture.scan(&engine).await;
     let candidate = &scan.candidates[0];
-    let plan = engine
-        .prepare_import(vec![candidate.id.clone()], false)
-        .await
-        .unwrap();
+    let plan = support::prepare(&engine, std::slice::from_ref(&candidate.id)).await;
     assert_eq!(plan.items.len(), 1);
     assert_eq!(plan.items[0].decision, ImportDecision::NewSkill);
     assert!(
@@ -141,7 +138,7 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
             .iter()
             .any(|location| location.display_path == plan.items[0].source)
     );
-    let outcome = engine.apply_import(plan.id).await.unwrap();
+    let outcome = support::apply(&engine, &plan).await;
     assert_eq!(outcome.imported.len(), 1);
 
     let rescan = fixture.scan(&engine).await;
@@ -343,7 +340,7 @@ async fn versions_of_a_slug_prefer_the_one_its_lock_published() {
         fs::canonicalize(&published).unwrap().display().to_string()
     );
     let both = vec![first.id.clone(), second.id.clone()];
-    let refused = engine.prepare_import(both, false).await.unwrap_err();
+    let refused = engine.prepare_found_import(both).await.unwrap_err();
     assert_eq!(refused.message, "Choose one version of review to import.");
     engine.shutdown().await.unwrap();
 }

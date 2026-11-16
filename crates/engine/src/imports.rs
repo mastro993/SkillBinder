@@ -1,9 +1,9 @@
 mod first;
 pub(crate) mod placement;
+mod plan;
 
 use crate::{
-    discovery::registry,
-    discovery::{ImportSource, Selected},
+    discovery::ImportSource,
     library::normalized,
     library_store::SavedSkill,
     payload::{self, Inspection},
@@ -15,13 +15,10 @@ use crate::{
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::*;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
-};
+use std::{collections::BTreeSet, fs};
 
 #[derive(Serialize, Deserialize)]
-struct Prepared {
+pub(crate) struct Prepared {
     review: ImportPlan,
     sources: Vec<Inspection>,
     /// Where each row's skill was published, as its lock file recorded at review.
@@ -31,129 +28,98 @@ struct Prepared {
     #[serde(default)]
     placements: Vec<placement::Placement>,
 }
-impl State {
-    pub(crate) fn prepare_import(
-        &mut self,
-        ids: Vec<CandidateId>,
-        acknowledge_invalid: bool,
-    ) -> AppResult<ImportPlan> {
-        self.require_recovered()?;
-        let selected = self.scans.selected(&ids)?;
-        self.prepare_reviewed(selected, acknowledge_invalid)
-    }
-    /// Re-inspects selected sources into an immutable review plan, with where each new skill
-    /// becomes active and the copies of other versions it replaces there.
-    fn prepare_reviewed(
-        &mut self,
-        selected: Vec<Selected>,
-        acknowledge_invalid: bool,
-    ) -> AppResult<ImportPlan> {
-        let (library, revision) = self.revised_library()?;
-        let agents = registry::agent_options(&self.config)?;
-        let workspaces = self.workspaces_for(&library, &agents)?;
-        // Slugs by normalized name, so names that differ only in case collide, and by digest.
-        let mut names: BTreeMap<String, SkillId> = BTreeMap::new();
-        let mut digests: BTreeMap<String, SkillId> = BTreeMap::new();
-        for skill in library.skills {
-            names.insert(normalized(skill.id.as_str()), skill.id.clone());
-            digests.insert(skill.digest, skill.id);
+impl Prepared {
+    /// The plan narrowed to the ticked skills `selection`, in plan order: between 1 and
+    /// [`MAX_IMPORT`] distinct skills of the plan, and an invalid one only when acknowledged.
+    fn select(self, selection: &[CandidateId], acknowledge_invalid: bool) -> AppResult<Self> {
+        if selection.is_empty() {
+            return Err(AppError::validation("Choose skills to import."));
         }
-        // A directory not yet reconciled still holds its name.
-        for slug in self.skill_dirs()? {
-            names.entry(normalized(&slug)).or_insert(SkillId(slug));
+        if selection.len() > MAX_IMPORT {
+            return Err(AppError::validation("Import at most 500 at a time."));
         }
-        let mut batch = BTreeSet::new();
-        let mut items = Vec::new();
-        let mut sources = Vec::new();
-        let mut origins = Vec::new();
-        let mut placements = Vec::new();
-        for found in selected {
-            let (candidate_id, source) = (found.id.clone(), &found.source);
-            let inspection = reinspect(source)?;
-            if inspection.status == ValidationStatus::Blocked {
-                return Err(AppError::validation("Blocked payloads cannot be imported."));
-            }
-            // Git tracks files, not directories, so a skill without files would never sync.
-            if inspection.manifest.file_count() == 0 {
-                return Err(AppError::validation(
-                    "A skill without files cannot be imported.",
-                ));
-            }
-            if inspection.status == ValidationStatus::Invalid && !acknowledge_invalid {
-                return Err(AppError::validation(
-                    "Acknowledge invalid skill metadata before preparing an import.",
-                ));
-            }
-            let digest = &inspection.manifest.digest;
-            let name = normalized(&inspection.slug);
-            let (skill_id, decision) = match digests.get(digest) {
-                Some(id) => (id.clone(), ImportDecision::Existing),
-                None => {
-                    if let Some(held) = names.get(&name) {
-                        return Err(AppError::validation(if batch.contains(&name) {
-                            format!("Choose one version of {held} to import.")
-                        } else {
-                            format!("The library already holds a different skill named {held}.")
-                        }));
-                    }
-                    let id = SkillId(inspection.slug.clone());
-                    batch.insert(name.clone());
-                    names.insert(name, id.clone());
-                    digests.insert(digest.clone(), id.clone());
-                    (id, ImportDecision::NewSkill)
-                }
-            };
-            // A skill already in library stays where it is active; only a new one is placed.
-            let placement = match decision {
-                ImportDecision::NewSkill => {
-                    placement::place(skill_id.as_str(), digest, &found, &agents, &workspaces)
-                }
-                ImportDecision::Existing => placement::Placement::default(),
-            };
-            items.push(ImportItem {
-                candidate_id,
-                destination: format!("skills/{skill_id}"),
-                skill_id,
-                slug: inspection.slug.clone(),
-                source: source.display_path.clone(),
-                decision,
-                validation: inspection.status,
-                messages: inspection.messages.clone(),
-                total_bytes: inspection.manifest.total_bytes(),
-                replaces: placement.replaced.keys().cloned().collect(),
-            });
-            placements.push(placement);
-            origins.push(crate::sources::lock::source(
-                &source.locks,
-                &inspection.slug,
+        let ticked: BTreeSet<&CandidateId> = selection.iter().collect();
+        if ticked.len() != selection.len() {
+            return Err(AppError::validation("Choose each skill once."));
+        }
+        let items = &self.review.items;
+        if ticked
+            .iter()
+            .any(|id| !items.iter().any(|item| &item.candidate_id == *id))
+        {
+            return Err(AppError::validation(
+                "A chosen skill is not in this import. Scan again.",
             ));
-            sources.push(inspection);
         }
-        let review = ImportPlan {
-            id: PlanId::new(),
-            expires_at: persistence::now() + 300,
-            revision,
-            items,
-        };
-        let prepared = Prepared {
-            review: review.clone(),
+        let keep: Vec<bool> = items
+            .iter()
+            .map(|item| ticked.contains(&item.candidate_id))
+            .collect();
+        if items
+            .iter()
+            .zip(&keep)
+            .any(|(item, kept)| *kept && item.validation == ValidationStatus::Invalid)
+            && !acknowledge_invalid
+        {
+            return Err(AppError::validation(
+                "Acknowledge invalid skill metadata before importing.",
+            ));
+        }
+        let Self {
+            mut review,
             sources,
             origins,
             placements,
-        };
-        diesel::insert_into(operation_plans::table)
-            .values((
-                operation_plans::id.eq(review.id.as_str()),
-                operation_plans::payload
-                    .eq(serde_json::to_string(&prepared).map_err(|_| AppError::storage())?),
-                operation_plans::expires_at.eq(review.expires_at as i64),
-                operation_plans::consumed.eq(0),
-            ))
-            .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
-        Ok(review)
+        } = self;
+        let kept = |index: usize| keep.get(index).copied().unwrap_or(false);
+        review.items = narrow(review.items, kept);
+        Ok(Self {
+            review,
+            sources: narrow(sources, kept),
+            origins: narrow(origins, kept),
+            placements: narrow(placements, kept),
+        })
     }
-    pub(crate) fn apply_import(&mut self, id: PlanId) -> AppResult<ImportOutcome> {
+}
+
+/// The entries of `list` whose index `kept` keeps.
+fn narrow<T>(list: Vec<T>, kept: impl Fn(usize) -> bool) -> Vec<T> {
+    list.into_iter()
+        .enumerate()
+        .filter_map(|(index, entry)| kept(index).then_some(entry))
+        .collect()
+}
+
+impl State {
+    /// The stored plan `id`.
+    pub(crate) fn prepared(&self, id: &PlanId) -> AppResult<Prepared> {
+        let serialized = operation_plans::table
+            .find(id.as_str())
+            .select(operation_plans::payload)
+            .first::<String>(&mut *self.database.borrow_mut())
+            .optional()
+            .map_err(|_| AppError::storage())?
+            .ok_or_else(|| AppError::stale("Import plan is unavailable. Prepare it again."))?;
+        serde_json::from_str(&serialized).map_err(|_| AppError::storage())
+    }
+    /// The found skills plan `id` holds, which onboarding's first import applies whole.
+    pub(crate) fn planned_skills(&self, id: &PlanId) -> AppResult<Vec<CandidateId>> {
+        let prepared = self.prepared(id)?;
+        Ok(prepared
+            .review
+            .items
+            .into_iter()
+            .map(|item| item.candidate_id)
+            .collect())
+    }
+    /// Applies plan `id` to the ticked skills `selection`, re-inspecting only those, so a change
+    /// to a skill left out never refuses it. A plan already applied returns its stored result.
+    pub(crate) fn apply_import(
+        &mut self,
+        id: PlanId,
+        selection: Vec<CandidateId>,
+        acknowledge_invalid: bool,
+    ) -> AppResult<ImportOutcome> {
         self.require_recovered()?;
         if let Some(result) = idempotency_records::table
             .find(id.as_str())
@@ -164,15 +130,9 @@ impl State {
         {
             return serde_json::from_str(&result).map_err(|_| AppError::storage());
         }
-        let serialized = operation_plans::table
-            .find(id.as_str())
-            .select(operation_plans::payload)
-            .first::<String>(&mut *self.database.borrow_mut())
-            .optional()
-            .map_err(|_| AppError::storage())?
-            .ok_or_else(|| AppError::stale("Import plan is unavailable. Prepare it again."))?;
-        let prepared: Prepared =
-            serde_json::from_str(&serialized).map_err(|_| AppError::storage())?;
+        let prepared = self
+            .prepared(&id)?
+            .select(&selection, acknowledge_invalid)?;
         if persistence::now() >= prepared.review.expires_at {
             return Err(AppError::stale("Import plan expired. Review it again."));
         }
@@ -285,7 +245,7 @@ impl State {
 }
 
 /// Re-inspects a reviewed source, refusing one whose path or directory changed since the scan.
-fn reinspect(source: &ImportSource) -> AppResult<Inspection> {
+pub(super) fn reinspect(source: &ImportSource) -> AppResult<Inspection> {
     let previous = &source.inspection;
     let resolved = fs::canonicalize(&source.display_path)
         .map_err(|_| AppError::stale("Selected source path no longer exists."))?;

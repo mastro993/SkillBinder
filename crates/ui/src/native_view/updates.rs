@@ -114,11 +114,11 @@ impl NativeView {
                 view.creating_folder = None;
                 match result {
                     Ok(Ok(effect)) => {
+                        view.importing = None;
                         view.receive(view.client.snapshot(), cx);
                         match effect {
                             Effect::None => {}
                             Effect::CloseDialog => view.dialog = DialogState::None,
-                            Effect::Plan(plan) => view.show_dialog(DialogState::ImportPlan(plan)),
                             Effect::FirstImport(plan) => {
                                 view.first_import =
                                     Some(onboarding_import::FirstImport::from(plan));
@@ -151,10 +151,13 @@ impl NativeView {
                         view.prompt_copies();
                     }
                     Ok(Err(error)) => {
-                        view.error = Some(error);
+                        if !view.reopen_import(&error, cx) {
+                            view.error = Some(error);
+                        }
                         view.fail_strip(cx);
                     }
                     Err(_) => {
+                        view.importing = None;
                         view.error = Some(AppError::storage());
                         view.fail_strip(cx);
                     }

@@ -31,7 +31,7 @@ Review opens Kit's dialog titled `<n> need attention`, 420 points wide and 56 po
 
 ## Hand-over from dialogs
 
-When Delete preset deletes the active preset, it closes its confirmation and the strip takes over. Deleting a preset that is not active writes nothing and keeps the confirmation's own flow. Import closes Review import, and the strip takes over; the import's result banner still reports it until dismissed.
+When Delete preset deletes the active preset, it closes its confirmation and the strip takes over. Deleting a preset that is not active writes nothing and keeps the confirmation's own flow. Import closes the Import skills dialog, and the strip takes over; the import's result banner still reports it until dismissed.
 
 ## Accessibility
 

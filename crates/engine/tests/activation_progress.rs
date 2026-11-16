@@ -45,8 +45,7 @@ impl Agents {
             .into_iter()
             .map(|candidate| candidate.id)
             .collect();
-        let plan = engine.prepare_import(ids, false).await.unwrap();
-        engine.apply_import(plan.id).await.unwrap();
+        support::import(&engine, ids).await;
         let imported = engine.activation_progress().unwrap().unwrap();
         // Importing made the skills active in the workspace they were found in; these journeys
         // start with none active, so the workspace goes and leaves its copies unmanaged.

@@ -31,25 +31,26 @@ async fn expired_review_has_no_effect_and_completed_review_replays_after_expiry(
     let source_bytes = std::fs::read(source.join("SKILL.md"))?;
     let engine = fixture.ready().await;
     fixture.register(&engine).await;
-    let scan = fixture.scan(&engine).await;
-    let ids = vec![scan.candidates[0].id.clone()];
-    let expired = engine.prepare_import(ids.clone(), false).await?;
+    let expired = engine.prepare_found_import(Vec::new()).await?.plan;
+    let ids = vec![expired.items[0].candidate_id.clone()];
     expire(&fixture, &expired.id)?;
     assert!(
         engine
-            .apply_import(expired.id)
+            .apply_import(expired.id, ids.clone(), false)
             .await
             .is_err_and(|error| error.category == ErrorCategory::Stale)
     );
     assert!(!fixture.data.join("library/skills/review").exists());
     let library = engine.snapshot().await?.library.ok_or("library missing")?;
     assert!(library.library.skills.is_empty(), "nothing is recorded");
-    let valid = engine.prepare_import(ids, false).await?;
-    let outcome = engine.apply_import(valid.id.clone()).await?;
+    let valid = engine.prepare_found_import(Vec::new()).await?.plan;
+    let outcome = engine
+        .apply_import(valid.id.clone(), ids.clone(), false)
+        .await?;
     engine.shutdown().await?;
     expire(&fixture, &valid.id)?;
     let engine = fixture.open();
-    assert_eq!(engine.apply_import(valid.id).await?, outcome);
+    assert_eq!(engine.apply_import(valid.id, ids, false).await?, outcome);
     assert_eq!(std::fs::read(source.join("SKILL.md"))?, source_bytes);
     engine.shutdown().await?;
     Ok(())

@@ -25,11 +25,22 @@ impl Client {
         }
         Ok(library)
     }
-    /// Applies a plan with durable replay and outcome retention, publishing its progress while it
-    /// runs, then scans again so the imported skills are found in the library; that scan's
-    /// completion checks their sources.
-    pub async fn apply_import(&self, plan: PlanId) -> AppResult<ImportOutcome> {
-        let applied = self.tracked(self.shared.engine.apply_import(plan)).await;
+    /// Applies a plan to the ticked skills `selection` with durable replay and outcome retention,
+    /// publishing its progress while it runs, then scans again so the imported skills are found
+    /// in the library; that scan's completion checks their sources.
+    pub async fn apply_import(
+        &self,
+        plan: PlanId,
+        selection: Vec<CandidateId>,
+        acknowledge_invalid: bool,
+    ) -> AppResult<ImportOutcome> {
+        let applied = self
+            .tracked(
+                self.shared
+                    .engine
+                    .apply_import(plan, selection, acknowledge_invalid),
+            )
+            .await;
         let outcome = self.refresh_preserving_outcome(applied).await?;
         self.spawn_scan();
         Ok(outcome)

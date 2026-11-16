@@ -3,9 +3,8 @@
 //! agents keep loading what they loaded before. Onboarding scans no workspaces.
 
 use super::placement;
-use crate::{discovery, discovery::registry, library::normalized, worker::State};
+use crate::{discovery, discovery::registry, worker::State};
 use skillbinder_proto::*;
-use std::collections::BTreeSet;
 
 impl State {
     /// The review of first boot's import: the preferred version of each skill found in your
@@ -30,14 +29,7 @@ impl State {
         if self.shutdown.cancelled() {
             return Err(crate::shutdown::Shutdown::error());
         }
-        let library = self.read_library()?;
-        let held: BTreeSet<String> = library
-            .skills
-            .into_iter()
-            .map(|skill| skill.id.0)
-            .chain(self.skill_dirs()?)
-            .map(|slug| normalized(&slug))
-            .collect();
+        let held = self.held_names()?;
         let ids: Vec<CandidateId> = found
             .snapshot
             .candidates
@@ -49,24 +41,22 @@ impl State {
             .collect();
         let agents = registry::agent_options(&self.config)?;
         let mut placed = Vec::new();
-        for chunk in ids.chunks(MAX_IMPORT) {
-            for selected in found.selected(chunk)? {
-                let inspection = &selected.source.inspection;
-                let placement = placement::place(
-                    &inspection.slug,
-                    &inspection.manifest.digest,
-                    &selected,
-                    &agents,
-                    &[],
-                );
-                if !placement.agents.is_empty() && placed.len() < MAX_IMPORT {
-                    placed.push(selected);
-                }
+        for selected in found.selected(&ids)? {
+            let inspection = &selected.source.inspection;
+            let placement = placement::place(
+                &inspection.slug,
+                &inspection.manifest.digest,
+                &selected,
+                &agents,
+                &[],
+            );
+            if !placement.agents.is_empty() && placed.len() < MAX_IMPORT {
+                placed.push(selected);
             }
         }
         if placed.is_empty() {
             return Ok(None);
         }
-        self.prepare_reviewed(placed, false).map(Some)
+        self.prepare_plan(placed).map(Some)
     }
 }

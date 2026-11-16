@@ -97,6 +97,5 @@ pub async fn import(fixture: &Fixture, engine: &Engine, slugs: &[&str]) {
         .into_iter()
         .map(|candidate| candidate.id)
         .collect();
-    let plan = engine.prepare_import(ids, false).await.unwrap();
-    engine.apply_import(plan.id).await.unwrap();
+    crate::support::import(engine, ids).await;
 }
