@@ -73,7 +73,7 @@ Element ids `preset-default`, `agents-universal`, `agent-claude-code`, `agent-cu
 | docs-site, uses none; offers the 12 directories of the detected agents | Holds nothing; the folder has only a README (0). Its agents menu offers `.agents/skills` (Universal), `.claude/skills` ("Claude Code, Cline, Cursor, fx, Warp"), `.cline/skills`, `.clinerules/skills`, `.codex/skills`, `.cursor/skills`, `.dexto/skills`, `.fx/skills`, `.kimi-code/skills`, `.pi/skills`, `.warp/skills` and `.windsurf/skills`. |
 | Active 13, inactive 5 | Inactive: a11y-audit, copy-editor, data-viz, k8s-debug, prompt-tuning. |
 | Sidebar counts | Library 18. Default 7, Frontend 6, Backend 5. acme-web 5, api-server 3, docs-site 0. Universal 3, Claude Code 6, Cursor 3, Windsurf 1. |
-| Discovery 2 | Scan for skills 2: `figma-export` and `react-hooks` in `acme-web/.claude/skills`, not in the library. The prototypes give only the count, so the names are the fixture's. |
+| Discovery 2 (the prototypes' sidebar row) | Scan for skills 2: `figma-export` and `react-hooks` in `acme-web/.claude/skills`, not in the library. The prototypes give only the count, so the names are the fixture's. |
 | Edited: release-notes in `~/.claude`, storybook in acme-web `.claude`; foreign: tailwind-helper in `~/.cursor` | Only after `restore.sh $FX problems`. |
 
 ## Known differences
