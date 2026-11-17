@@ -10,6 +10,11 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.bootstrap().await)
             .await
     }
+    /// Skips the Git step, so onboarding goes on without Git.
+    pub async fn skip_git(&self) -> AppResult<Bootstrap> {
+        self.refresh_preserving_outcome(self.shared.engine.skip_git().await)
+            .await
+    }
     /// Applies the ticked skills of onboarding's import, if any, publishing its progress while it
     /// runs, and finishes onboarding, then refreshes the app as on launch, so the library and the
     /// agents show what the import changed.

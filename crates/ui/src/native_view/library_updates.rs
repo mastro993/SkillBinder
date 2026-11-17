@@ -2,6 +2,7 @@
 //! the last update's result, and why a check or update failed.
 
 use super::controls::{Inactive, app_icon, button};
+use super::without_git::{CHECK_NEEDS_GIT, needs_git};
 use super::{Effect, NativeView, Route, snapshot_query};
 use gpui_kit::component::{
     ActiveTheme, Sizable, Size, button::ButtonVariants, progress::ProgressCircle, tooltip::Tooltip,
@@ -55,9 +56,15 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let skill = id.clone();
-        button(format!("update-{key}-{id}"))
-            .label("Update")
-            .small()
+        let update = button(format!("update-{key}-{id}")).label("Update").small();
+        if self.git_missing() {
+            return needs_git(
+                format!("update-{key}-{id}-needs-git"),
+                CHECK_NEEDS_GIT,
+                update,
+            );
+        }
+        update
             .inactive(self.busy)
             .on_click(cx.listener(move |view, _, _, cx| {
                 // The row or card under the button would open the skill's page.
@@ -102,6 +109,13 @@ impl NativeView {
                 .tooltip(|window, cx| Tooltip::new("Checking skill updates").build(window, cx))
                 .child(Self::spinning_refresh())
                 .into_any_element();
+        }
+        if self.git_missing() {
+            let check = button("library-check-updates")
+                .small()
+                .ghost()
+                .icon(app_icon("refresh-04"));
+            return needs_git("library-check-updates-needs-git", CHECK_NEEDS_GIT, check);
         }
         if available(&self.snapshot).is_empty() {
             button("library-check-updates")

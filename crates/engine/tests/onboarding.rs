@@ -11,7 +11,7 @@ mod support;
 use diesel::{connection::SimpleConnection, prelude::*};
 use skillbinder_proto::{
     Bootstrap, ErrorCategory,
-    OnboardingStep::{self, DataLocation, Import},
+    OnboardingStep::{self, DataLocation, Git, Import},
 };
 use std::{fs, path::Path};
 use support::{Fixture, category};
@@ -77,6 +77,31 @@ async fn unwritable_data_holds_onboarding_until_it_is_writable() {
     let boot = engine.bootstrap().await.unwrap();
     assert_eq!(steps(&boot), [(Import, false)]);
     assert!(is_library(&boot.library_path));
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn without_git_skip_leads_on_and_onboarding_finishes_with_a_library_that_has_no_git() {
+    let fixture = Fixture::new();
+    let engine = fixture.open_without_git();
+    let boot = engine.bootstrap().await.unwrap();
+    assert_eq!(steps(&boot), [(Git, false), (Import, false)]);
+    assert!(!Path::new(&boot.library_path).exists());
+    assert_eq!(
+        category(engine.finish_onboarding(None).await),
+        ErrorCategory::Validation
+    );
+
+    let skipped = engine.skip_git().await.unwrap();
+    assert_eq!(steps(&skipped), [(Git, true), (Import, false)]);
+    engine.shutdown().await.unwrap();
+
+    let engine = fixture.open_without_git();
+    let boot = engine.finish_onboarding(None).await.unwrap();
+    assert_eq!(steps(&boot), [(Git, true), (Import, true)]);
+    let library = Path::new(&boot.library_path);
+    assert!(library.join("skills").is_dir());
+    assert!(!library.join(".git").exists());
     engine.shutdown().await.unwrap();
 }
 

@@ -17,7 +17,8 @@ impl NativeView {
                     .child(format!("{path} isn't writable."))
                     .into_any_element(),
             ],
-            actions: vec![self.check_again(cx)],
+            leading: None,
+            actions: vec![self.check_again(true, cx)],
         }
     }
 }

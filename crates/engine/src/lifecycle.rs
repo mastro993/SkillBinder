@@ -1,16 +1,17 @@
 use crate::{
+    git::Git,
     onboarding::{self, Facts},
     persistence,
+    shutdown::Shutdown,
     worker::State,
 };
 use skillbinder_proto::{AppError, AppResult, Bootstrap, ImportSelection, OnboardingStep};
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeMap, path::PathBuf};
 
 /// Device setting saved once onboarding's import is applied or skipped.
 const FINISHED: &str = "onboarding_finished";
+/// Device setting saved once the Git step is skipped.
+const GIT_SKIPPED: &str = "git_skipped";
 /// Device setting that stored the onboarding position before steps were derived from facts.
 const LEGACY_POSITION: &str = "onboarding";
 
@@ -21,6 +22,15 @@ pub enum GitProfile {
     User,
     /// Only the configured home's, never the user's or the system's.
     Home,
+}
+
+/// Where the engine looks for Git.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum GitSearch {
+    /// Every absolute `PATH` entry, then the usual install locations.
+    System,
+    /// Only this directory, so a fixture can run without Git and gain it later.
+    Directory(PathBuf),
 }
 
 /// Filesystem boundaries captured once at application startup.
@@ -34,6 +44,8 @@ pub struct EngineConfig {
     pub environment: BTreeMap<String, String>,
     /// Whose Git configuration Git commands read.
     pub git: GitProfile,
+    /// Where Git is looked for.
+    pub git_search: GitSearch,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
@@ -44,6 +56,7 @@ impl EngineConfig {
             home: dirs.home_dir().to_path_buf(),
             environment: std::env::vars().collect(),
             git: GitProfile::User,
+            git_search: GitSearch::System,
         })
     }
     /// Creates an isolated engine configuration for tests or native fixtures. Git reads only
@@ -54,13 +67,16 @@ impl EngineConfig {
             home,
             environment: BTreeMap::new(),
             git: GitProfile::Home,
+            git_search: GitSearch::System,
         }
     }
-    pub(crate) fn git_home(&self) -> Option<&Path> {
-        match self.git {
+    /// The usable Git where [`Self::git_search`] says to look, if any.
+    pub(crate) fn find_git(&self, shutdown: Shutdown) -> Option<Git> {
+        let home = match self.git {
             GitProfile::User => None,
-            GitProfile::Home => Some(&self.home),
-        }
+            GitProfile::Home => Some(self.home.as_path()),
+        };
+        Git::discover(&self.git_search, home, shutdown).ok()
     }
 }
 impl State {
@@ -70,6 +86,7 @@ impl State {
             onboarding: onboarding::derive(Facts {
                 storage_writable,
                 git_found: self.git.is_some(),
+                git_skipped: self.setting(GIT_SKIPPED)?.unwrap_or(false),
                 finished: self.onboarding_finished()?,
             }),
             git_version: self.git.as_ref().map(|git| git.version().to_owned()),
@@ -94,19 +111,25 @@ impl State {
         }
         self.remove_setting(LEGACY_POSITION)
     }
-    /// Creates the library on the way into onboarding's import, once the earlier steps are done.
-    /// Repeating it, or calling it at any other step, changes nothing.
-    pub(crate) fn ensure_library(&self) -> AppResult<()> {
-        if self.bootstrap()?.onboarding.current() != Some(OnboardingStep::Import) {
-            return Ok(());
+    /// Skips the Git step, so onboarding goes on without Git (ADR 0011). Repeating it is harmless.
+    pub(crate) fn skip_git(&self) -> AppResult<Bootstrap> {
+        self.set_setting(GIT_SKIPPED, &true)?;
+        self.ensure_library()?;
+        self.bootstrap()
+    }
+    /// Looks for Git again while none was found.
+    pub(crate) fn recheck_git(&mut self) {
+        if self.git.is_none() {
+            self.git = self.config.find_git(self.shutdown.clone());
         }
-        let git = self
-            .git
-            .as_ref()
-            .ok_or_else(|| AppError::validation("Install Git 2.39 or newer, then recheck."))?;
+    }
+    /// Creates the library as a plain directory on the way into onboarding's import, once the
+    /// earlier steps are done. Repeating it, or calling it at any other step, changes nothing.
+    pub(crate) fn ensure_library(&self) -> AppResult<()> {
         let target = self.library_dir();
-        if target.exists() {
-            return git.initialize(&target);
+        if target.exists() || self.bootstrap()?.onboarding.current() != Some(OnboardingStep::Import)
+        {
+            return Ok(());
         }
         let staged = self
             .config
@@ -114,9 +137,17 @@ impl State {
             .join("staging")
             .join(format!("initialize-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(staged.join("skills")).map_err(|_| AppError::storage())?;
-        git.initialize(&staged)?;
         std::fs::rename(&staged, &target).map_err(|_| AppError::storage())?;
         persistence::sync_directory(&self.config.data_dir)
+    }
+    /// Makes an existing library a repository whenever Git is found and it is not one yet
+    /// (ADR 0011). Its skills and records stay uncommitted until Sync or Push.
+    pub(crate) fn ensure_repository(&self) -> AppResult<()> {
+        let library = self.library_dir();
+        match &self.git {
+            Some(git) if library.is_dir() => git.initialize(&library),
+            _ => Ok(()),
+        }
     }
     /// Finishes onboarding at its import, first applying the reviewed first import, if any; a
     /// failed import leaves onboarding at its import. Refused while an earlier step is not done.

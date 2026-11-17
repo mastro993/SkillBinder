@@ -3,7 +3,7 @@
     reason = "Test assertions report fixture and operation failures."
 )]
 use diesel::{connection::SimpleConnection, prelude::*};
-use skillbinder_engine::{Engine, EngineConfig};
+use skillbinder_engine::{Engine, EngineConfig, GitSearch};
 use skillbinder_proto::{
     AppResult, Candidate, CandidateId, ErrorCategory, ImportOutcome, ImportPlan, ScanSnapshot,
     SkillId, Workspace,
@@ -39,6 +39,23 @@ impl Fixture {
 
     pub fn open(&self) -> Engine {
         Engine::open(EngineConfig::isolated(self.data.clone(), self.home.clone())).unwrap()
+    }
+
+    /// Where an engine opened by [`Self::open_without_git`] looks for Git: empty until a test
+    /// puts Git there.
+    #[allow(dead_code, reason = "Not every test crate runs without Git.")]
+    pub fn git_bin(&self) -> PathBuf {
+        self.workspace.with_file_name("bin")
+    }
+
+    /// Opens the engine as on a computer without Git: it looks for Git only in [`Self::git_bin`].
+    #[allow(dead_code, reason = "Not every test crate runs without Git.")]
+    pub fn open_without_git(&self) -> Engine {
+        let bin = self.git_bin();
+        fs::create_dir_all(&bin).unwrap();
+        let mut config = EngineConfig::isolated(self.data.clone(), self.home.clone());
+        config.git_search = GitSearch::Directory(bin);
+        Engine::open(config).unwrap()
     }
 
     /// A second connection to the engine's database, with the engine's busy timeout.

@@ -252,7 +252,7 @@ impl NativeView {
             items.push(
                 MenuItem::new("update-skill", "Update")
                     .icon("refresh")
-                    .disabled(self.busy)
+                    .disabled(self.busy || self.git_missing())
                     .on_select(menu_action(
                         view.clone(),
                         skill.clone(),

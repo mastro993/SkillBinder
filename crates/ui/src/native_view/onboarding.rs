@@ -71,6 +71,8 @@ pub(super) struct StepView {
     title: &'static str,
     /// What sits under the title: the lead, then the step's content.
     body: Vec<AnyElement>,
+    /// The button at the left of the button row, after Back, such as Skip.
+    leading: Option<AnyElement>,
     /// The buttons at the right of the button row, the primary last.
     actions: Vec<AnyElement>,
 }
@@ -87,11 +89,12 @@ impl NativeView {
         };
         let view = match place.step {
             OnboardingStep::DataLocation => self.data_location_step(cx),
-            OnboardingStep::Git => self.git_step(cx),
+            OnboardingStep::Git => self.git_step(place.forward.is_some(), cx),
             // The engine does not offer it yet.
             OnboardingStep::Agents => StepView {
                 title: "Choose your agents",
                 body: Vec::new(),
+                leading: None,
                 actions: Vec::new(),
             },
             OnboardingStep::Import => self.import_step(window, cx),
@@ -153,23 +156,33 @@ impl NativeView {
                     )
                     .children(view.body)
                     .child(
-                        h_flex().gap(px(8.)).children(back).child(
-                            h_flex()
-                                .flex_1()
-                                .justify_end()
-                                .gap(px(8.))
-                                .children(view.actions)
-                                .children(forward),
-                        ),
+                        h_flex()
+                            .gap(px(8.))
+                            .children(back)
+                            .children(view.leading)
+                            .child(
+                                h_flex()
+                                    .flex_1()
+                                    .justify_end()
+                                    .gap(px(8.))
+                                    .children(view.actions)
+                                    .children(forward),
+                            ),
                     ),
             )
             .into_any_element()
     }
 
-    /// The primary Check again, which rechecks Git and storage.
-    fn check_again(&self, cx: &mut Context<Self>) -> AnyElement {
-        text_button("onboarding-check-again", "Check again", Size::Medium)
-            .primary()
+    /// Check again, which rechecks Git and storage; primary unless the step is done, when
+    /// Continue is.
+    fn check_again(&self, primary: bool, cx: &mut Context<Self>) -> AnyElement {
+        let button = text_button("onboarding-check-again", "Check again", Size::Medium);
+        let button = if primary {
+            button.primary()
+        } else {
+            button.outline()
+        };
+        button
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {
                 let client = view.client.clone();

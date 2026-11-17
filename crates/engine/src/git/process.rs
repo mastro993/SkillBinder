@@ -315,7 +315,12 @@ fn permits_user_credential_helper_configuration() {
         "[credential]\n\thelper = harmless-fixture\n",
     )
     .unwrap();
-    let git = super::Git::discover(None, super::Shutdown::default()).unwrap();
+    let git = super::Git::discover(
+        &crate::lifecycle::GitSearch::System,
+        None,
+        super::Shutdown::default(),
+    )
+    .unwrap();
     let wrapper = root.path().join("git-wrapper");
     std::fs::write(
         &wrapper,
@@ -361,7 +366,12 @@ fn reads_only_the_given_home_configuration() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path().canonicalize().unwrap();
     std::fs::write(home.join(".gitconfig"), "[user]\n\tname = Fixture\n").unwrap();
-    let git = super::Git::discover(Some(&home), super::Shutdown::default()).unwrap();
+    let git = super::Git::discover(
+        &crate::lifecycle::GitSearch::System,
+        Some(&home),
+        super::Shutdown::default(),
+    )
+    .unwrap();
     let args = ["config", "--list", "--show-scope", "--show-origin"];
     let output = run(&git.program, None, &args, Duration::from_secs(30), None).unwrap();
     let listed = String::from_utf8(output.stdout).unwrap();

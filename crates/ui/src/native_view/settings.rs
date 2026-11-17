@@ -19,7 +19,7 @@ impl NativeView {
                     .bootstrap
                     .git_version
                     .as_deref()
-                    .unwrap_or("Unavailable")
+                    .unwrap_or("Not installed")
             ))
             .child(format!(
                 "Storage writable: {}",
