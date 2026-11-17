@@ -100,30 +100,19 @@ impl Installer {
         self.failed
     }
 
-    /// Starts the installer detached, again if one is already running, so a cancelled installer
-    /// can be started again. Refused where the user installs Git themselves.
+    /// Starts the installer detached, again once the one started last has exited, so a
+    /// cancelled installer can be started again; while it still runs, it is waited on instead.
+    /// Refused where the user installs Git themselves.
     pub(crate) fn start(&mut self) -> AppResult<()> {
-        // An earlier installer still running goes on by itself.
         self.poll();
         let launch = self
             .launch
             .as_ref()
             .ok_or_else(|| failure("Install Git from its download page."))?;
-        let mut command = Command::new(&launch.program);
-        command.args(launch.args);
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            // winget shows its progress and agreements in a console of its own.
-            const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
-            command.creation_flags(CREATE_NEW_CONSOLE);
+        if self.running.is_some() {
+            return Ok(());
         }
-        #[cfg(not(windows))]
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        let child = command
+        let child = command(launch)
             .spawn()
             .map_err(|_| failure("The Git installer could not start."))?;
         self.running = Some(child);
@@ -179,6 +168,51 @@ fn winget(path: Option<OsString>, local_app_data: Option<OsString>) -> Option<Pa
         .filter(|directory| directory.is_absolute())
         .map(|directory| directory.join("winget.exe"))
         .find(|winget| std::fs::symlink_metadata(winget).is_ok())
+}
+
+/// The process that runs `launch` detached, with no input or output of the app's.
+#[cfg(not(windows))]
+fn command(launch: &Launch) -> Command {
+    let mut command = Command::new(&launch.program);
+    command
+        .args(launch.args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    command
+}
+
+/// The process that runs `launch` in a console of its own, where winget shows its progress and
+/// asks for its agreements: `start` gives it that console's handles, which a process the app
+/// starts directly would not get, since the app's own handles would be passed instead. `cmd`
+/// itself opens no window.
+#[cfg(windows)]
+fn command(launch: &Launch) -> Command {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let shell = std::env::var_os("SystemRoot").map_or_else(
+        || PathBuf::from("cmd.exe"),
+        |root| PathBuf::from(root).join(r"System32\cmd.exe"),
+    );
+    let mut command = Command::new(shell);
+    command
+        .raw_arg(start_line(launch))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW);
+    command
+}
+
+/// `cmd`'s arguments that start `launch` in a console of its own and wait for it, so its exit
+/// status is `cmd`'s.
+#[cfg(any(windows, test))]
+fn start_line(launch: &Launch) -> String {
+    format!(
+        "/c start \"\" /wait \"{}\" {}",
+        launch.program.display(),
+        launch.args.join(" ")
+    )
 }
 
 /// The command that installs Git with the package manager of the distribution `os_release`
@@ -367,6 +401,32 @@ mod tests {
         assert!(
             !apple.failed(),
             "its exit status says nothing about the install"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_installer_still_running_is_waited_on_instead_of_started_twice() {
+        let mut installer = shell(&["-c", "sleep 1"], true);
+        installer.start().unwrap();
+        let first = installer.running.as_ref().map(Child::id);
+
+        installer.start().unwrap();
+
+        assert_eq!(installer.running.as_ref().map(Child::id), first);
+        settle(&mut installer);
+    }
+
+    #[test]
+    fn windows_starts_winget_through_start_so_it_gets_a_console_of_its_own() {
+        let launch = Launch {
+            program: r"C:\Users\Jo Doe\AppData\Local\Microsoft\WindowsApps\winget.exe".into(),
+            args: &["install", "--id", "Git.Git", "-e", "--source", "winget"],
+            reports_failure: true,
+        };
+        assert_eq!(
+            start_line(&launch),
+            r#"/c start "" /wait "C:\Users\Jo Doe\AppData\Local\Microsoft\WindowsApps\winget.exe" install --id Git.Git -e --source winget"#
         );
     }
 

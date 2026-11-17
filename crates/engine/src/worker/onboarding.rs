@@ -21,8 +21,9 @@ impl Engine {
     pub async fn skip_git(&self) -> AppResult<Bootstrap> {
         self.call(|state| state.skip_git()).await
     }
-    /// Starts the system's Git installer detached (ADR 0011), again if one is running, so a
-    /// cancelled installer can be started again. Refused where the user installs Git themselves.
+    /// Starts the system's Git installer detached (ADR 0011), again once the one started last
+    /// has exited, so a cancelled installer can be started again; while it still runs, it is
+    /// waited on instead. Refused where the user installs Git themselves.
     pub async fn install_git(&self) -> AppResult<Bootstrap> {
         self.call(|state| {
             state.installer.start()?;

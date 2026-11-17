@@ -40,7 +40,8 @@ pub(super) struct GitSetup {
 }
 
 impl GitSetup {
-    /// Install Git always starts the installer again, so a cancelled one can be restarted;
+    /// Install Git always waits on the installer, which the engine starts again unless it still
+    /// runs, so a cancelled one can be restarted;
     /// Download Git and Copy wait on the check unless something is waited on already.
     pub(super) fn act(&mut self, action: Action) {
         match action {

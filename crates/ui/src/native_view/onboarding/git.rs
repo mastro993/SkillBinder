@@ -28,6 +28,8 @@ impl NativeView {
                 .ghost()
                 .inactive(found || self.blocked())
                 .on_click(cx.listener(|view, _, _, cx| {
+                    // Skipped, nothing waits on Git until Settings installs it.
+                    view.git_setup.waiting = None;
                     let client = view.client.clone();
                     view.run(
                         async move { client.skip_git().await.map(|_| Effect::None) },

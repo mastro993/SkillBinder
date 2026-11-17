@@ -5,7 +5,9 @@ use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
 
 impl NativeView {
-    pub(super) fn render_settings(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    pub(super) fn render_settings(&mut self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        // A wait on Git resumes its check when Settings opens again.
+        self.watch_git(cx);
         div()
             .flex()
             .flex_col()
