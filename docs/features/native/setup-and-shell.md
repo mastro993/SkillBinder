@@ -2,7 +2,7 @@
 
 ## Setup and lifecycle
 
-Onboarding is an ordered list of steps derived from saved facts, never a stored position (ADR 0010). Each step applies on this device or not, and is done or not; the current step is the first that applies and is not done, so a relaunch opens it. Only the steps that apply are shown and counted: each reads "SkillBinder · Step N of M" above its title, with Back at the left of its button row on every step but the first that applies, returning to the previous one in memory. Three steps apply today:
+Onboarding is an ordered list of steps derived from saved facts, never a stored position (ADR 0010). Each step applies on this device or not, and is done or not; the current step is the first that applies and is not done, so a relaunch opens it. Only the steps that apply are shown and counted: each reads "SkillBinder · Step N of M" above its title, with Back at the left of its button row on every step but the first that applies, returning to the previous one in memory; a done step gone back to adds Continue, which leads to the next one. Three steps apply today:
 
 - **Data location** applies while application data is not writable: "SkillBinder can't save its data" reads "<path> isn't writable." in the danger color, with Check again and no Skip. It drops out once storage is writable.
 - **Git** applies while no Git 2.39 or newer is found: "Install Git" reads "SkillBinder needs Git 2.39 or newer. Install it, then check again." with Check again and no Skip. It drops out once Git is found.

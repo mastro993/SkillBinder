@@ -27,6 +27,8 @@ struct Place {
     count: usize,
     /// The step Back returns to.
     back: Option<OnboardingStep>,
+    /// The step Continue leads to, while the shown step is done.
+    forward: Option<OnboardingStep>,
 }
 
 impl Place {
@@ -36,7 +38,8 @@ impl Place {
 }
 
 /// Where the frame stands: the step gone `back_to`, while it applies before the first step not
-/// done, or else that step; `None` once every step is done.
+/// done, or else that step; `None` once every step is done. Going forward to the first step not
+/// done shows it, since `back_to` then no longer comes before it.
 fn place(onboarding: &Onboarding, back_to: Option<OnboardingStep>) -> Option<Place> {
     let steps = &onboarding.steps;
     let current = steps.iter().position(|status| !status.done)?;
@@ -55,6 +58,10 @@ fn place(onboarding: &Onboarding, back_to: Option<OnboardingStep>) -> Option<Pla
         back: shown
             .checked_sub(1)
             .and_then(|previous| steps.get(previous))
+            .map(|status| status.step),
+        forward: (shown < current)
+            .then(|| steps.get(shown + 1))
+            .flatten()
             .map(|status| status.step),
     })
 }
@@ -97,6 +104,16 @@ impl NativeView {
             text_button("onboarding-back", "Back", Size::Medium)
                 .outline()
                 .icon(app_icon("chevron-left"))
+                .inactive(self.blocked())
+                .on_click(cx.listener(move |view, _, _, cx| {
+                    view.onboarding_back_to = Some(step);
+                    cx.notify();
+                }))
+        });
+        // A done step gone back to leads on to the next one.
+        let forward = place.forward.map(|step| {
+            text_button("onboarding-continue", "Continue", Size::Medium)
+                .primary()
                 .inactive(self.blocked())
                 .on_click(cx.listener(move |view, _, _, cx| {
                     view.onboarding_back_to = Some(step);
@@ -146,7 +163,8 @@ impl NativeView {
                                 .flex_1()
                                 .justify_end()
                                 .gap(px(8.))
-                                .children(view.actions),
+                                .children(view.actions)
+                                .children(forward),
                         ),
                     ),
             )
