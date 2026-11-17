@@ -9,28 +9,7 @@ Captured from archived revision `83d55ef789a7cf256021f6620742e0e9021a8312`. Copy
 
 ## Onboarding
 
-| Step | Title | Subtitle |
-| --- | --- | --- |
-| `prerequisites` | Check your setup | Required local tools must be ready before any library is created. |
-| `boundaries` | Know what SkillBinder owns | Clear lines keep source skills, managed content, and device state safe. |
-| `syncChoice` | Choose how to begin | Remote sync is optional. Start offline and connect one later. |
-| `ready` | Create your library | One last review before SkillBinder writes durable state. |
-
-- Eyebrow: `SkillBinder setup`; progress: `<step> / 4`. Prerequisite cards: `Version history`, `Local data`; action: `Recheck`. Buttons: `Back`, `Continue`, `Continue local-only`, `Create local library`, pending `Creating library…`.
-- Boundary cards preserve these heading and description pairs:
-
-| Heading | Description |
-| --- | --- |
-| Managed copies | Imports create canonical copies. Original skill folders stay unchanged. |
-| Portable library | Canonical skills, portable IDs, organization, and history move together in the Git library. |
-| Machine-local state | Device paths, settings, credentials, and deployment state stay on this machine and outside Git. |
-| Bounded discovery | Known agent locations and known skill folders in your project roots. |
-| Local Git history | Every library has version history through your supported system Git. |
-| No account or token | SkillBinder has no hosted account and stores no Git credentials. |
-| Explicit sync | Remote sync stays optional and never runs in the background. |
-- Superseded (ADR 0010): the steps above, the native Boundaries step (`Keep sources separate`), `Sync is optional`, and `Create your library` are removed. Onboarding shows only the steps that apply under the eyebrow `SkillBinder · Step N of M`, with `Back` at the left of the button row. While data is not writable: `SkillBinder can't save its data`, `<path> isn't writable.`, `Check again`. While Git is missing: `Install Git`, `SkillBinder needs Git 2.39 or newer. Install it, then check again.`, `Check again`.
-- Added after the baseline: once the library is created on the way into it, a step titled `Import your skills` scans your agents and imports the ticked skills (design O1, O2, O4, O5, O7). Scanning: the lead, `Scanning…`, `Skip`, and an inactive `Import skills`. A failed scan: `Couldn't scan: <reason>` with `Skip` and `Retry`. With nothing to import: `No skills to import were found in your agents.` with `Continue`. Otherwise: `Importing copies these skills from your agents into your library, each staying active for the agents that have it. You can import others later with Scan for skills in Library.`, a summary card reading `<n> skills found in <agents>`, a ghost `Review list` that opens the Import skills dialog with no status line, no group header, and a footer `Done` (design O7), and `Skip` and `Import <n> skills`.
-- Choice: `Start local-only`, `Recommended`. Ready heading: `Ready for a local library`. Bootstrap pending: `Checking this device…`; error: `SkillBinder could not start setup`, `Retry`. Source: `apps/frontend/src/features/onboarding/screens/onboarding-view.tsx`.
+The onboarding strings, with the steps that replaced them, are in [Onboarding](ui-copy/onboarding.md).
 
 ## Discovery and import
 

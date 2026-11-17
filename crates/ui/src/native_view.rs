@@ -53,6 +53,7 @@ mod sync;
 mod toasts;
 mod undo;
 mod updates;
+mod without_git;
 mod workspace_dialogs;
 mod workspace_icons;
 mod workspace_page;

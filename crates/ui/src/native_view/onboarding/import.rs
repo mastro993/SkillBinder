@@ -40,6 +40,7 @@ impl NativeView {
             return StepView {
                 title: TITLE,
                 body: Vec::new(),
+                leading: None,
                 actions: Vec::new(),
             };
         };
@@ -103,6 +104,7 @@ impl NativeView {
         StepView {
             title: TITLE,
             body,
+            leading: None,
             actions: buttons,
         }
     }

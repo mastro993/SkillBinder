@@ -94,7 +94,7 @@ impl Engine {
         let updates = Updates::default();
         let progress = Progress::default();
         let shutdown = Shutdown::default();
-        let git = Git::discover(config.git_home(), shutdown.clone()).ok();
+        let git = config.find_git(shutdown.clone());
         let mut state = State {
             config,
             database,
@@ -116,7 +116,10 @@ impl Engine {
             .name("skillbinder-engine".into())
             .spawn(move || {
                 // Engine::open returns before this runs; queued requests wait for it.
-                if let Err(error) = state.ensure_library() {
+                if let Err(error) = state
+                    .ensure_library()
+                    .and_then(|()| state.ensure_repository())
+                {
                     state
                         .log
                         .record(format!("Library creation will retry: {error}"));
@@ -343,6 +346,7 @@ impl State {
         let mut sync: SyncSnapshot = self.setting("sync")?.unwrap_or_default();
         if library.is_some()
             && let Some(git) = &self.git
+            && self.library_dir().join(".git").exists()
         {
             let remote: Option<RemoteConfig> = self.setting("remote")?.flatten();
             let mut current = git.status(&self.library_dir(), remote.as_ref(), false)?;

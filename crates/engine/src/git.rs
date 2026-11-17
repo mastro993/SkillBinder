@@ -1,5 +1,6 @@
 //! Bounded Git operations for the library's skill directories and their records.
 mod adoption;
+mod discovery;
 mod objects;
 mod process;
 mod source;
@@ -33,44 +34,6 @@ pub struct Git {
 }
 
 impl Git {
-    /// Finds Git only in absolute PATH entries and requires version 2.39 or newer. With `home`,
-    /// its commands read only that home's Git configuration, never the user's or the system's.
-    pub(crate) fn discover(home: Option<&Path>, shutdown: Shutdown) -> AppResult<Self> {
-        let path = std::env::var_os("PATH").ok_or_else(|| failure("Git was not found."))?;
-        for directory in std::env::split_paths(&path).filter(|p| p.is_absolute()) {
-            let executable = directory.join(if cfg!(windows) { "git.exe" } else { "git" });
-            if !executable.is_file() {
-                continue;
-            }
-            let program = process::Program {
-                executable: executable
-                    .canonicalize()
-                    .map_err(|_| failure("Git could not be resolved."))?,
-                home: home.map(Path::to_owned),
-            };
-            let output = process::run(
-                &program,
-                None,
-                &["--version"],
-                Duration::from_secs(30),
-                None,
-            )?;
-            let raw = String::from_utf8(output.stdout)
-                .map_err(|_| failure("Git version is unreadable."))?;
-            let version = validation::version(&raw)?;
-            if !output.status.success() {
-                return Err(failure("Git verification failed."));
-            }
-            return Ok(Self {
-                program,
-                version,
-                shutdown,
-            });
-        }
-        Err(failure(
-            "Install Git 2.39 or newer and restart SkillBinder.",
-        ))
-    }
     /// Reports the verified installed version.
     pub fn version(&self) -> &str {
         &self.version

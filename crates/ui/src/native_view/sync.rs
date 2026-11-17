@@ -19,8 +19,12 @@ impl NativeView {
     }
 
     pub(super) fn render_sync(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let page = div().flex().flex_col().gap_4();
+        if self.git_missing() {
+            return page.child("Sync needs Git.");
+        }
         let sync = &self.snapshot.sync;
-        let mut page = div().flex().flex_col().gap_4().child(format!(
+        let mut page = page.child(format!(
             "Status: {:?} · {} ahead · {} behind{}",
             sync.state,
             sync.ahead,

@@ -206,8 +206,10 @@ impl Client {
             }
         });
     }
-    /// Refreshes the app in the background, on launch and when the window regains focus: scans
-    /// the agents' global skill directories and every workspace, then refreshes the remote's Git status.
+    /// Refreshes the app in the background, on launch and when the window regains focus: looks
+    /// for Git while none was found, making the library a repository once Git is, scans the
+    /// agents' global skill directories and every workspace, then refreshes the remote's Git
+    /// status.
     /// The scan's completion checks the sources not checked within the hour.
     /// A running scan is kept rather than replaced, so frequent focus changes cannot keep a slow
     /// scan from completing.
@@ -217,8 +219,12 @@ impl Client {
             return;
         }
         let remote = snapshot.sync.remote.is_some();
+        let git_missing = snapshot.bootstrap.git_version.is_none();
         let client = self.clone();
         self.shared.runtime.spawn(async move {
+            if git_missing && let Err(error) = client.shared.engine.bootstrap().await {
+                client.background_error(error);
+            }
             let scanned = client.shared.engine.refresh_scan().await;
             if let Err(error) = client.refresh_preserving_outcome(scanned).await {
                 client.background_error(error);

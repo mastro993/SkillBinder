@@ -2,6 +2,7 @@
 //! card, the note on their page, and Reinstall.
 
 use super::controls::{Inactive, app_icon, button};
+use super::without_git::{REINSTALL_NEEDS_GIT, needs_git};
 use super::{Effect, NativeView};
 use gpui_kit::component::{ActiveTheme, Sizable, tooltip::Tooltip};
 use gpui_kit::{
@@ -57,9 +58,15 @@ impl NativeView {
     ) -> Option<AnyElement> {
         (self.drift(id)? == Drift::Restorable).then(|| {
             let skill = id.clone();
-            button(format!("reinstall-{id}"))
-                .label("Reinstall")
-                .small()
+            let reinstall = button(format!("reinstall-{id}")).label("Reinstall").small();
+            if self.git_missing() {
+                return needs_git(
+                    format!("reinstall-{id}-needs-git"),
+                    REINSTALL_NEEDS_GIT,
+                    reinstall,
+                );
+            }
+            reinstall
                 .inactive(self.busy)
                 .on_click(cx.listener(move |view, _, _, cx| {
                     let client = view.client.clone();

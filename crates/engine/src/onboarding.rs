@@ -16,6 +16,7 @@ const ORDER: [OnboardingStep; 4] = [
 pub(crate) struct Facts {
     pub storage_writable: bool,
     pub git_found: bool,
+    pub git_skipped: bool,
     pub finished: bool,
 }
 
@@ -47,7 +48,7 @@ fn applies(step: OnboardingStep, facts: Facts) -> bool {
 fn done(step: OnboardingStep, facts: Facts) -> bool {
     match step {
         OnboardingStep::DataLocation => facts.storage_writable,
-        OnboardingStep::Git => facts.git_found,
+        OnboardingStep::Git => facts.git_found || facts.git_skipped,
         OnboardingStep::Agents => false,
         OnboardingStep::Import => facts.finished,
     }
@@ -61,10 +62,18 @@ mod tests {
     #[test]
     fn only_the_steps_whose_fact_is_missing_apply_and_the_first_not_done_is_current() {
         let cases = [
-            (true, true, false, &[(Import, false)][..], Some(Import)),
+            (
+                true,
+                true,
+                false,
+                false,
+                &[(Import, false)][..],
+                Some(Import),
+            ),
             (
                 false,
                 true,
+                false,
                 false,
                 &[(DataLocation, false), (Import, false)],
                 Some(DataLocation),
@@ -73,22 +82,33 @@ mod tests {
                 true,
                 false,
                 false,
+                false,
                 &[(Git, false), (Import, false)],
                 Some(Git),
             ),
             (
+                true,
+                false,
+                true,
+                false,
+                &[(Git, true), (Import, false)],
+                Some(Import),
+            ),
+            (
+                false,
                 false,
                 false,
                 false,
                 &[(DataLocation, false), (Git, false), (Import, false)],
                 Some(DataLocation),
             ),
-            (true, true, true, &[(Import, true)], None),
+            (true, true, false, true, &[(Import, true)], None),
         ];
-        for (storage_writable, git_found, finished, steps, current) in cases {
+        for (storage_writable, git_found, git_skipped, finished, steps, current) in cases {
             let onboarding = derive(Facts {
                 storage_writable,
                 git_found,
+                git_skipped,
                 finished,
             });
             let derived: Vec<_> = onboarding
@@ -98,7 +118,7 @@ mod tests {
                 .collect();
             assert_eq!(
                 derived, steps,
-                "writable {storage_writable}, Git {git_found}"
+                "writable {storage_writable}, Git {git_found}, skipped {git_skipped}"
             );
             assert_eq!(onboarding.current(), current);
             assert_eq!(onboarding.finished, finished);

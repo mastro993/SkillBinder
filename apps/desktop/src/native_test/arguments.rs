@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, bail, ensure};
-use skillbinder_engine::EngineConfig;
+use skillbinder_engine::{EngineConfig, GitSearch};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NativeMode {
@@ -20,10 +20,11 @@ pub(crate) fn parse_launch(
     let mut args = args.into_iter();
     let mut data = None;
     let mut home = None;
+    let mut git = None;
     let mut mode = NativeMode::Interactive;
     while let Some(argument) = args.next() {
         match argument.to_str() {
-            Some("--data-dir") | Some("--home") => {
+            Some("--data-dir") | Some("--home") | Some("--git-dir") => {
                 let value = args.next().ok_or_else(|| {
                     anyhow::anyhow!("Missing value for {}", argument.to_string_lossy())
                 })?;
@@ -38,11 +39,16 @@ pub(crate) fn parse_launch(
                     "Empty value for {}",
                     argument.to_string_lossy()
                 );
-                if argument == "--data-dir" {
-                    ensure!(data.replace(path).is_none(), "Duplicate --data-dir");
-                } else {
-                    ensure!(home.replace(path).is_none(), "Duplicate --home");
-                }
+                let slot = match argument.to_str() {
+                    Some("--data-dir") => &mut data,
+                    Some("--home") => &mut home,
+                    _ => &mut git,
+                };
+                ensure!(
+                    slot.replace(path).is_none(),
+                    "Duplicate {}",
+                    argument.to_string_lossy()
+                );
             }
             Some("--smoke-test") if mode == NativeMode::Interactive => mode = NativeMode::Smoke,
             Some("--mcp") if mode == NativeMode::Interactive => mode = NativeMode::Mcp,
@@ -68,7 +74,12 @@ pub(crate) fn parse_launch(
         home != resolved_path(&platform.home)?,
         "--home cannot use the real home"
     );
-    Ok((EngineConfig::isolated(data, home), mode))
+    let mut config = EngineConfig::isolated(data, home);
+    // Only this directory is searched, so a check can start without Git and add it later.
+    if let Some(git) = git {
+        config.git_search = GitSearch::Directory(resolved_path(&git)?);
+    }
+    Ok((config, mode))
 }
 
 fn resolved_path(path: &Path) -> anyhow::Result<PathBuf> {
@@ -105,6 +116,16 @@ mod tests {
         let fixture = fixture.to_str().context("fixture path is not UTF-8")?;
         assert_eq!(parse(&["--data-dir", fixture])?.1, NativeMode::Interactive);
         assert_eq!(parse(&["--data-dir", fixture, "--mcp"])?.1, NativeMode::Mcp);
+        assert_eq!(
+            parse(&["--data-dir", fixture, "--git-dir", fixture])?
+                .0
+                .git_search,
+            GitSearch::Directory(resolved_path(Path::new(fixture))?)
+        );
+        assert_eq!(
+            parse(&["--data-dir", fixture])?.0.git_search,
+            GitSearch::System
+        );
         for args in [
             vec![],
             vec!["--mcp"],
@@ -115,6 +136,14 @@ mod tests {
             vec!["--data-dir"],
             vec!["--data-dir", "--mcp"],
             vec!["--data-dir", fixture, "--data-dir", fixture],
+            vec![
+                "--data-dir",
+                fixture,
+                "--git-dir",
+                fixture,
+                "--git-dir",
+                fixture,
+            ],
         ] {
             assert!(parse(&args).is_err(), "accepted {args:?}");
         }
