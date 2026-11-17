@@ -1,7 +1,7 @@
 //! The Import skills dialog (ADR 0008, design D1 to D13): it scans afresh, prepares one plan for
 //! every found skill not in library (ADR 0009), and imports the ticked ones. Library's Scan for
-//! skills and its empty state open it. Onboarding's import step holds the same state and embeds
-//! its list (O3).
+//! skills and its empty state open it. Onboarding's import step holds the same state, which its
+//! Review list opens ending with Done (O7).
 
 mod entry;
 mod frame;
@@ -22,6 +22,31 @@ use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use versions::found_skills;
+
+/// How the dialog ends (O7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum End {
+    /// Library's: Cancel, and "Import N skills", which imports the ticked skills.
+    Import,
+    /// Onboarding's Review list: Done alone, which keeps the ticks and chosen versions for the
+    /// step, whose Import is the one that imports.
+    Done,
+}
+
+impl End {
+    /// Whether the list names its places, with the status line and each place's header.
+    pub(super) fn names_places(self) -> bool {
+        self == Self::Import
+    }
+
+    /// The footer's primary button with `ticked` skills ticked.
+    pub(super) fn primary(self, ticked: usize) -> String {
+        match self {
+            Self::Import => list::import_label(ticked),
+            Self::Done => "Done".to_owned(),
+        }
+    }
+}
 
 /// Numbers each preparation, so the answer to one a dialog no longer waits for is dropped.
 static PREPARATIONS: AtomicU64 = AtomicU64::new(0);
@@ -54,14 +79,13 @@ pub(super) struct ImportDialog {
     pub changed: bool,
     /// The preparation the dialog waits for.
     pending: Option<u64>,
-    /// Whether the list shows each place's header; onboarding's lists one place, so it shows
-    /// none (O3).
-    pub headed: bool,
+    /// How it ends; onboarding's lists your agents alone, so it names no place.
+    pub end: End,
 }
 
 impl ImportDialog {
     /// A dialog in its Scanning state, with nothing ticked until its first list shows.
-    pub(super) fn new(headed: bool, window: &mut Window, cx: &mut Context<NativeView>) -> Self {
+    pub(super) fn new<T: 'static>(end: End, window: &mut Window, cx: &mut Context<T>) -> Self {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search found skills"));
         let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
@@ -79,7 +103,7 @@ impl ImportDialog {
             choosing: None,
             changed: false,
             pending: None,
-            headed,
+            end,
         }
     }
 
@@ -97,6 +121,19 @@ impl ImportDialog {
     /// Whether the shown list is being prepared again.
     pub(super) fn refreshing(&self) -> bool {
         self.pending.is_some() && matches!(self.phase, Phase::Ready(_))
+    }
+}
+
+/// The list an edit or an answer goes to: the open Import skills dialog, else onboarding's
+/// list, which never shows beside it. That list outlives Review list's dialog, which shows it,
+/// so ticks need no copying and a version planned after Done still reaches the step (O7).
+pub(super) fn edited<'a>(
+    dialog: &'a mut DialogState,
+    first: Option<&'a mut ImportDialog>,
+) -> Option<&'a mut ImportDialog> {
+    match dialog {
+        DialogState::ImportSkills(dialog) => Some(dialog),
+        _ => first,
     }
 }
 
@@ -121,17 +158,14 @@ impl NativeView {
         if self.blocked() {
             return;
         }
-        let dialog = ImportDialog::new(true, window, cx);
+        let dialog = ImportDialog::new(End::Import, window, cx);
         self.show_dialog(DialogState::ImportSkills(Box::new(dialog)));
         self.prepare_found(cx);
     }
 
-    /// The open dialog, else onboarding's import step, which never shows beside it.
+    /// The list an edit or an answer goes to, as [`edited`] says.
     fn import_dialog_mut(&mut self) -> Option<&mut ImportDialog> {
-        match &mut self.dialog {
-            DialogState::ImportSkills(dialog) => Some(dialog),
-            _ => self.first_import.as_mut().map(|first| &mut first.list),
-        }
+        edited(&mut self.dialog, self.first_import.as_mut())
     }
 
     /// Scans and prepares the plan, with the dialog's version choices. A shown list stays while

@@ -37,7 +37,9 @@ impl NativeView {
                     // selection is not lost.
                     let picking = matches!(
                         view.dialog,
-                        DialogState::AddSkill(_) | DialogState::ImportSkills(_)
+                        DialogState::AddSkill(_)
+                            | DialogState::ImportSkills(_)
+                            | DialogState::FirstImport
                     );
                     view.build_dialog(dialog, window.viewport_size(), cx)
                         .overlay_closable(!locked && !picking)
@@ -123,6 +125,10 @@ impl NativeView {
             DialogState::ImportSkills(state) => {
                 self.import_skills_dialog(dialog, state, viewport, cx)
             }
+            DialogState::FirstImport => match &self.first_import {
+                Some(list) => self.import_skills_dialog(dialog, list, viewport, cx),
+                None => dialog,
+            },
             DialogState::DeletePreset(preview) => self.delete_preset_dialog(dialog, preview, cx),
             DialogState::Copies(CopiesListing::Attention(review)) => {
                 self.review_dialog(dialog, review, cx)

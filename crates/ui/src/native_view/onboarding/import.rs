@@ -1,7 +1,7 @@
-//! Onboarding's last step (design O1 to O6): once the library exists, it scans your agents and
-//! sums up what it found, with the Import skills dialog's list behind Review list. Import applies
-//! the ticked skills into the Default preset under the progress strip and finishes onboarding
-//! into Library; Skip finishes it importing nothing.
+//! Onboarding's last step (design O1, O2, O4, O5, O7): once the library exists, it scans your
+//! agents and sums up what it found; Review list opens the Import skills dialog over the step's
+//! own list, ending with Done. Import applies the ticked skills into the Default preset under
+//! the progress strip and finishes onboarding into Library; Skip finishes it importing nothing.
 
 mod summary;
 #[cfg(test)]
@@ -9,11 +9,11 @@ mod tests;
 
 use super::super::controls::{Inactive, app_icon, text_button};
 use super::super::import_dialog::list::import_label;
-use super::super::import_dialog::{ImportDialog, Phase, alert_glyph, changed_line};
+use super::super::import_dialog::{End, ImportDialog, Phase, alert_glyph, changed_line};
 use super::super::progress_strip::{Activity, Landing};
-use super::super::{Effect, NativeView, Route};
+use super::super::{DialogState, Effect, NativeView, Route};
 use super::StepView;
-use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
 };
@@ -22,23 +22,13 @@ use skillbinder_proto::FoundImport;
 const TITLE: &str = "Import your skills";
 const LEAD: &str = "Importing copies these skills from your agents into your library, each staying active for the agents that have it. You can import others later with Scan for skills in Library.";
 
-/// Onboarding's import step: the list it prepares, and whether Review list shows it.
-pub(in crate::native_view) struct FirstImport {
-    pub list: ImportDialog,
-    /// Review list is expanded; it starts collapsed (O3).
-    pub reviewing: bool,
-}
-
 impl NativeView {
     /// Starts the step's scan the first time the step shows.
     fn start_first_import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.first_import.is_some() {
             return;
         }
-        self.first_import = Some(FirstImport {
-            list: ImportDialog::new(false, window, cx),
-            reviewing: false,
-        });
+        self.first_import = Some(ImportDialog::new(End::Done, window, cx));
         self.prepare_found(cx);
     }
 
@@ -46,12 +36,11 @@ impl NativeView {
     /// summary and Review list, then the buttons (O1 to O5).
     pub(super) fn import_step(&mut self, window: &mut Window, cx: &mut Context<Self>) -> StepView {
         self.start_first_import(window, cx);
-        let Some(first) = &self.first_import else {
+        let Some(list) = &self.first_import else {
             return StepView {
                 title: TITLE,
                 body: Vec::new(),
                 actions: Vec::new(),
-                fill: false,
             };
         };
         let muted = cx.theme().muted_foreground;
@@ -66,7 +55,7 @@ impl NativeView {
                 .into_any_element()
         };
         let lead = || div().text_color(muted).child(LEAD).into_any_element();
-        let (body, buttons) = match &first.list.phase {
+        let (body, buttons) = match &list.phase {
             Phase::Scanning => (
                 vec![
                     lead(),
@@ -104,74 +93,52 @@ impl NativeView {
                 vec![self.finish_button("onboarding-next", "Continue", true, cx)],
             ),
             Phase::Ready(found) => (
-                self.first_import_review(first, found, cx),
+                self.first_import_summary(list, found, cx),
                 vec![
                     self.finish_button("onboarding-skip", "Skip", false, cx),
                     self.import_button(Some(found), cx),
                 ],
             ),
         };
-        // While Review list is expanded the column takes the window's height, so the list fills
-        // what is left and scrolls.
         StepView {
             title: TITLE,
             body,
             actions: buttons,
-            fill: first.reviewing && matches!(first.list.phase, Phase::Ready(_)),
         }
     }
 
-    /// The lead, the summary card, and Review list with, while it is expanded, the search, the
-    /// list, and the cap note or the acknowledgement.
-    fn first_import_review(
+    /// The lead, the summary card, and Review list, which opens the Import skills dialog over
+    /// the step's own list (O7), then the line saying the list changed, if it did.
+    fn first_import_summary(
         &self,
-        first: &FirstImport,
+        list: &ImportDialog,
         found: &FoundImport,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
-        let theme = cx.theme();
-        let muted = theme.muted_foreground;
-        let reviewing = first.reviewing;
-        let disclosure = text_button("onboarding-review", "Review list", Size::Small)
+        let muted = cx.theme().muted_foreground;
+        let review = text_button("onboarding-review", "Review list", Size::Small)
             .ghost()
-            .icon(app_icon(if reviewing {
-                "arrow-down"
-            } else {
-                "chevron-right"
-            }))
+            .icon(app_icon("chevron-right"))
             .text_color(muted)
+            .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {
-                if let Some(first) = view.first_import.as_mut() {
-                    first.reviewing = !first.reviewing;
-                }
+                view.show_dialog(DialogState::FirstImport);
                 cx.notify();
             }));
-        let mut review = vec![
+        let mut summary = vec![
             div().text_color(muted).child(LEAD).into_any_element(),
             self.summary_card(&found.scan, cx),
-            h_flex().child(disclosure).into_any_element(),
+            h_flex().child(review).into_any_element(),
         ];
-        if first.list.changed {
-            review.push(changed_line(cx));
+        if list.changed {
+            summary.push(changed_line(cx));
         }
-        if reviewing {
-            let chosen = first.list.chosen(found, &self.snapshot.workspaces);
-            review.push(self.import_search(&first.list, cx));
-            review.push(
-                v_flex()
-                    .flex_1()
-                    .min_h(px(160.))
-                    .child(self.import_list(&first.list, found, cx))
-                    .into_any_element(),
-            );
-            review.extend(self.import_notice(&first.list, &chosen, cx));
-        }
-        review
+        summary
     }
 
     /// The primary "Import N skills", inactive with no list or while Import is unavailable.
     fn import_button(&self, found: Option<&FoundImport>, cx: &mut Context<Self>) -> AnyElement {
-        let list = self.first_import.as_ref().map(|first| &first.list);
+        let list = self.first_import.as_ref();
         let (label, ready) = match (found, list) {
             (Some(found), Some(list)) => {
                 let chosen = list.chosen(found, &self.snapshot.workspaces);

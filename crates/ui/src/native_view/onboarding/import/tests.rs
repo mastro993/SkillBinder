@@ -1,5 +1,12 @@
+use super::super::super::DialogState;
+use super::super::super::import_dialog::list::import_label;
+use super::super::super::import_dialog::{End, ImportDialog, Phase, edited};
 use super::super::super::library_copies::{AgentRow, Reader};
 use super::summary::summary;
+use gpui_kit::{
+    AppContext, Bounds, Context, IntoElement, Render, TestAppContext, Window, WindowBounds,
+    WindowOptions, div, px, size,
+};
 use skillbinder_proto::*;
 
 /// A found version of `slug` in the global skill directory the agents `agents` read.
@@ -75,4 +82,108 @@ fn the_summary_counts_each_found_skill_once_and_names_its_agents_in_section_orde
         summary(&elsewhere, &rows).text(),
         "1 skill found in your agents"
     );
+}
+
+/// Holds onboarding's list and a Library dialog, as the native view does, in a test window.
+struct Lists {
+    first: Option<ImportDialog>,
+    library: Option<Box<ImportDialog>>,
+}
+
+impl Render for Lists {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+    }
+}
+
+/// `a` with one version and `b` with two, the plan importing `b2`, the one chosen in the dialog.
+fn two_skills() -> FoundImport {
+    let a = found_in("a", &["codex"]);
+    let mut b1 = found_in("b", &["codex"]);
+    b1.id = CandidateId("b1".to_owned());
+    let mut b2 = found_in("b", &["codex"]);
+    b2.id = CandidateId("b2".to_owned());
+    let items = [(&a, "a"), (&b2, "b")].map(|(candidate, slug)| ImportItem {
+        candidate_id: candidate.id.clone(),
+        skill_id: SkillId(slug.to_owned()),
+        slug: slug.to_owned(),
+        source: format!("~/{slug}"),
+        destination: format!("skills/{slug}"),
+        decision: ImportDecision::NewSkill,
+        validation: ValidationStatus::Valid,
+        messages: Vec::new(),
+        total_bytes: 1,
+        replaces: Vec::new(),
+    });
+    FoundImport {
+        scan: scan(vec![a.clone(), b1, b2.clone()]),
+        plan: ImportPlan {
+            id: PlanId("plan".to_owned()),
+            expires_at: u64::MAX,
+            revision: String::new(),
+            items: items.into(),
+        },
+    }
+}
+
+#[gpui_kit::test]
+fn review_list_edits_the_steps_own_list_which_keeps_ticks_and_versions_after_done(
+    cx: &mut TestAppContext,
+) {
+    cx.update(crate::init);
+    let options = WindowOptions {
+        window_bounds: Some(WindowBounds::Windowed(Bounds::new(
+            Default::default(),
+            size(px(800.), px(600.)),
+        ))),
+        ..Default::default()
+    };
+    let (_, lists) = cx
+        .update(|cx| {
+            gpui_kit::open_window(options, cx, |window, cx| {
+                cx.new(|cx| {
+                    let mut first = ImportDialog::new(End::Done, window, cx);
+                    first.phase = Phase::Ready(Box::new(two_skills()));
+                    first.ticked = Some(["a", "b"].map(str::to_owned).into());
+                    let library = ImportDialog::new(End::Import, window, cx);
+                    Lists {
+                        first: Some(first),
+                        library: Some(Box::new(library)),
+                    }
+                })
+            })
+        })
+        .unwrap_or_else(|error| panic!("open test window: {error}"));
+    cx.update(|cx| {
+        lists.update(cx, |lists, _| {
+            // Review list's dialog is open over the step: unticking `a` edits the step's list.
+            let mut review = DialogState::FirstImport;
+            let Some(list) = edited(&mut review, lists.first.as_mut()) else {
+                panic!("Review list's dialog edits nothing");
+            };
+            assert_eq!(list.end, End::Done);
+            list.ticked.as_mut().map(|ticked| ticked.remove("a"));
+            // Done closed it; an answer arriving now still reaches the step's list.
+            let mut closed = DialogState::None;
+            let late = edited(&mut closed, lists.first.as_mut()).map(|list| list.end);
+            assert_eq!(late, Some(End::Done));
+            // Library's dialog takes its own edits.
+            let Some(library) = lists.library.take() else {
+                panic!("no Library dialog");
+            };
+            let mut scanning = DialogState::ImportSkills(library);
+            let open = edited(&mut scanning, None).map(|list| list.end);
+            assert_eq!(open, Some(End::Import));
+        });
+        let lists = lists.read(cx);
+        let Some(first) = &lists.first else {
+            panic!("the step lost its list");
+        };
+        let Phase::Ready(found) = &first.phase else {
+            panic!("the step lost its scan");
+        };
+        let chosen = first.chosen(found, &[]);
+        assert_eq!(import_label(chosen.ids.len()), "Import 1 skill");
+        assert_eq!(chosen.ids, [CandidateId("b2".to_owned())]);
+    });
 }
