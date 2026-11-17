@@ -1,0 +1,47 @@
+/* Onboarding prototypes: shared styles on top of the scoped-pages kit (kit.css first). */
+.ob-lights { position: absolute; top: 0; left: 8px; }
+.ob-main { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+/* The app's onboarding column: 384 wide, centered, 16 apart (scan-import O1). */
+.ob-col { width: 384px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 16px; padding: 28px 0 24px; }
+.ob-head { display: flex; flex-direction: column; gap: 4px; }
+.ob-eyebrow { font-size: 12px; font-weight: 600; color: var(--sb-muted-fg); }
+.ob-title { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+.ob-lead { color: var(--sb-muted-fg); line-height: 1.5; }
+.ob-line { display: flex; align-items: center; gap: 8px; color: var(--sb-muted-fg); }
+.ob-line.is-ok { color: var(--sb-success); }
+.ob-line.is-bad { color: var(--sb-danger); }
+.ob-btns { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.ob-btns .ob-left { margin-right: auto; }
+.ob-sum { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card); }
+.ob-sum-text { flex: 1; min-width: 0; font-weight: 500; }
+
+/* Agent rows (A2, S1): logo, name, folder; a checkbox or a switch. */
+.ob-list { border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); overflow: auto; --sb-ring-bg: var(--sb-card); }
+.ob-agent { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 52px; cursor: default; }
+.ob-agent + .ob-agent { border-top: 1px solid var(--sb-border); }
+.ob-agent:hover { background: var(--sb-hover); --sb-ring-bg: var(--sb-hover); }
+.ob-agent-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ob-agent-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ob-agent-sub { font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ob-agent-sub code { font-family: var(--sb-mono); font-size: 11.5px; }
+
+/* GPUI Kit Switch stand-in. */
+.ob-switch { position: relative; flex: none; width: 32px; height: 18px; border-radius: 9px; border: 0; padding: 0; background: var(--sb-input); cursor: pointer; transition: background .15s; }
+.ob-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--sb-bg); box-shadow: 0 1px 2px rgb(0 0 0 / .2); transition: transform .15s; }
+.ob-switch[aria-checked="true"] { background: var(--sb-primary); }
+.ob-switch[aria-checked="true"]::after { transform: translateX(14px); }
+.ob-switch:disabled { opacity: .5; cursor: default; }
+.ob-switch:focus-visible { outline: 2px solid var(--sb-ring); outline-offset: 2px; }
+
+/* Command box (T4). */
+.ob-cmd { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--sb-border); border-radius: 8px; background: var(--sb-muted); }
+.ob-cmd code { flex: 1; min-width: 0; font-family: var(--sb-mono); font-size: 12.5px; white-space: nowrap; overflow: auto; }
+
+/* Step counter pieces the frame variants share. */
+.ob-dots { display: flex; gap: 6px; }
+.ob-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--sb-input); }
+.ob-dots i.is-on { background: var(--sb-fg); }
+.ob-anim { animation: ob-in .18s ease-out; }
+@keyframes ob-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ob-anim { animation: none; } }
+.sb-vbar .sb-seg { flex-wrap: wrap; }

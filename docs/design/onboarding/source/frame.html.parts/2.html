@@ -1,0 +1,239 @@
+<script>
+(function () {
+  'use strict';
+  const proto = document.getElementById('proto');
+  const win = document.getElementById('win');
+  const stage = document.getElementById('stage');
+  const btn = OB.btn;
+  const PATH = '~/Library/Application Support/SkillBinder';
+  const NOTHING = 'No skills to import were found in your agents.';
+  const AGENT_ID = { Universal: 'universal', 'Claude Code': 'claude', Cursor: 'cursor', Windsurf: 'windsurf' };
+  const FOUND_ALL = FOUND.agentsOnly(FOUND.skills);
+  // name: the rail label (C); title and lead: the step's head.
+  const STEP = {
+    data: { name: 'App data', title: "SkillBinder can't save its data" },
+    git: { name: 'Install Git', title: 'Install Git',
+      lead: 'Git syncs your library between computers and updates skills from their sources. Everything else works without it, and you can install it later in Settings.' },
+    agents: { name: 'Your agents', title: 'Choose your agents',
+      lead: 'SkillBinder adds and removes skills only in the agents you choose. You can change this later in Settings.' },
+    import: { name: 'Import skills', title: 'Import your skills',
+      lead: 'Importing copies these skills from your agents into your library, each staying active for the agents that have it. You can import others later with Scan for skills in Library.' },
+    end: { title: 'Your library is ready.' },
+  };
+  const ORDER = ['data', 'git', 'agents', 'import'];
+  let V = 'a';
+  let R = null;
+  let last = null;
+
+  // ---- step list (ADR 0010): applies + done from facts; current = first that applies and is not done.
+  const applies = (s) => ({ data: R.data === 'bad', git: R.git !== 'found', agents: true, import: true }[s]);
+  const done = (s) => ({ data: false, git: R.git === 'skipped', agents: !!R.saved, import: R.finished }[s]);
+  const steps = () => ORDER.filter(applies);
+  const firstOpen = () => (R.finished ? 'end' : steps().find((s) => !done(s)));
+
+  function reset(scenario) {
+    R = { data: scenario === 'data' ? 'bad' : 'ok', git: scenario === 'nogit' ? 'missing' : 'found',
+      wait: null, cancel: null, chosen: new Set(OB.AGENTS.map((a) => a.id)), saved: null,
+      finished: false, list: null, listKey: null, skills: [], importBtn: null, dlg: null, dir: 1 };
+    R.cur = firstOpen();
+    last = null;
+  }
+  function stopWait() {
+    if (R.cancel) R.cancel();
+    R.cancel = null;
+    R.wait = null;
+  }
+  function go(step, dir) {
+    stopWait();
+    R.cur = step;
+    R.dir = dir;
+    draw();
+  }
+  function next() {
+    const s = steps();
+    go(s[s.indexOf(R.cur) + 1] || 'end', 1);
+  }
+  function back() {
+    const s = steps();
+    go(s[s.indexOf(R.cur) - 1], -1);
+  }
+  // Quitting and reopening (F4): unsaved ticks are lost, saved facts are kept.
+  function relaunch() {
+    closeOverlays();
+    stopWait();
+    R.chosen = new Set(R.saved || OB.AGENTS.map((a) => a.id));
+    R.listKey = null;
+    R.cur = firstOpen();
+    last = null;
+    draw();
+  }
+  function closeOverlays() {
+    if (R && R.dlg) R.dlg.close();
+    win.querySelectorAll(':scope > .sb-toast').forEach((t) => t.remove());
+  }
+
+  // ---- step actions
+  function checkData() {
+    R.wait = 'checking';
+    draw();
+    R.cancel = OB.waitFor(900, () => { R.data = 'ok'; go(firstOpen(), 1); });
+  }
+  // The step polls; here Git appears 3 s after Install Git, reads ready, then drops out of the list.
+  function installGit() {
+    R.wait = 'installer';
+    draw();
+    R.cancel = OB.waitFor(3000, () => {
+      R.wait = 'ready';
+      draw();
+      R.cancel = OB.waitFor(1000, () => { R.git = 'found'; go(firstOpen(), 1); });
+    });
+  }
+  function skipGit() {
+    R.git = 'skipped';
+    next();
+  }
+  function saveAgents() {
+    R.saved = [...R.chosen];
+    next();
+  }
+  function finish() {
+    R.finished = true;
+    go('end', 1);
+  }
+  function runImport() {
+    const sel = R.list.selection();
+    proto.classList.add('ob-busy');
+    progressDialog(win, { plan: SCAN.plan(sel), problems: 0 }).then(() => {
+      proto.classList.remove('ob-busy');
+      finish();
+    });
+  }
+
+  // The scan covers only your agents' folders, so the found skills follow the saved choice.
+  function ensureList() {
+    const key = [...R.chosen].sort().join();
+    if (key === R.listKey) return;
+    R.listKey = key;
+    R.skills = FOUND_ALL.map((k) => ({ ...k, versions: k.versions
+      .map((x) => ({ ...x, locations: x.locations.filter((l) => R.chosen.has(AGENT_ID[l.readers])) }))
+      .filter((x) => x.locations.length) })).filter((k) => k.versions.length);
+    R.list = R.skills.length ? SCAN.list(R.skills, { onChange: syncImport }) : null;
+  }
+  function syncImport() {
+    if (!R.importBtn || !R.list) return;
+    R.importBtn.textContent = R.list.label();
+    R.importBtn.disabled = !R.list.ready();
+  }
+  function review() {
+    const doneBtn = btn('Done', () => R.dlg.close(), 'primary');
+    R.dlg = openDialog(win, { title: 'Import skills', body: R.list.el, footer: [h('span', { class: 'sb-spacer' }), doneBtn],
+      onClose: () => { R.dlg = null; syncImport(); } });
+    R.dlg.el.classList.add('sc-dialog');
+    R.dlg.scrim.classList.add('sc-scrim');
+  }
+  function summary() {
+    const ids = DATA.targets.map((t) => t.id).filter((id) => R.skills.some((k) => k.versions.some((x) => SCAN.agents(x).includes(id))));
+    const names = ids.map((id) => DATA.target(id).name).join(', ');
+    return h('div', { class: 'ob-sum' }, avatarStack(ids), h('div', { class: 'ob-sum-text' }, `${R.skills.length} skills found in ${names}`));
+  }
+
+  // ---- step content: body nodes and the forward actions (Back belongs to the frame).
+  const line = (cls, icon, ...text) => h('div', { class: `ob-line ${cls}` }, icon, h('span', ...text));
+  function content(s) {
+    if (s === 'end') return { body: [], acts: [btn('Open Library', () => toast(win, 'Not in this prototype'), 'primary')] };
+    if (s === 'data') {
+      const checking = R.wait === 'checking';
+      return {
+        body: [checking ? line('', spinner(16), 'Checking…') : line('is-bad', ic('alert-circle', 16), h('code', { class: 'fr-path' }, PATH), " isn't writable.")],
+        acts: [btn('Check again', checkData, 'primary', checking)],
+      };
+    }
+    if (s === 'git') {
+      const st = R.wait === 'installer' ? line('', spinner(16), "Finish in Apple's installer.")
+        : R.wait === 'ready' ? line('is-ok', ic('check-circle', 16), `Git ${OB.GIT.ok} is ready`) : null;
+      return {
+        body: [st],
+        acts: [btn('Skip', skipGit), btn('Download Git', () => toast(win, 'Opens git-scm.com')),
+          btn('Install Git', installGit, 'primary', !!R.wait)],
+      };
+    }
+    if (s === 'agents') {
+      return {
+        body: [h('div', { class: 'ob-list' }, OB.AGENTS.map((a) => OB.checkboxRow(a, R.chosen.has(a.id),
+          (on) => (on ? R.chosen.add(a.id) : R.chosen.delete(a.id)))))],
+        acts: [btn('Continue', saveAgents, 'primary')],
+      };
+    }
+    ensureList();
+    if (!R.list) return { lead: false, body: [h('div', { class: 'ob-lead' }, NOTHING)], acts: [btn('Continue', finish, 'primary')] };
+    R.importBtn = btn(R.list.label(), runImport, 'primary', !R.list.ready());
+    return {
+      body: [summary(), h('button', { class: 'sb-btn sb-btn-sm fr-review', onclick: review }, 'Review list')],
+      acts: [btn('Skip', finish), R.importBtn],
+    };
+  }
+
+  // ---- frames
+  function draw() {
+    const s = R.cur;
+    const list = steps();
+    const i = list.indexOf(s);
+    const n = list.length;
+    const c = content(s);
+    const anim = s !== last ? `ob-anim${R.dir < 0 ? ' fr-back' : ''}` : '';
+    last = s;
+    const hasBack = i > 0;
+    const count = i < 0 ? null : `Step ${i + 1} of ${n}`;
+    const title = h('div', { class: 'ob-title', role: 'heading', 'aria-level': '1' }, STEP[s].title);
+    const lead = c.lead === false || !STEP[s].lead ? null : h('div', { class: 'ob-lead' }, STEP[s].lead);
+    const lights = (cls) => h('div', { class: `sb-lights ${cls}` }, h('i'), h('i'), h('i'));
+    let view;
+    if (V === 'a') {
+      const backBtn = hasBack ? btn('Back', back) : null;
+      if (backBtn) backBtn.classList.add('ob-left');
+      view = [lights('ob-lights'), h('main', { class: 'ob-main' }, h('div', { class: `ob-col ${anim}` },
+        h('div', { class: 'ob-head' }, h('div', { class: 'ob-eyebrow' }, count ? `SkillBinder · ${count}` : 'SkillBinder'), title, lead),
+        c.body, h('div', { class: 'ob-btns' }, backBtn, c.acts)))];
+    } else if (V === 'b') {
+      const bar = h('div', { class: 'fr-bar', role: 'progressbar', 'aria-valuemin': 1, 'aria-valuemax': n,
+        'aria-valuenow': i < 0 ? n : i + 1, 'aria-valuetext': count || 'Done', 'data-tip': count || 'Done' },
+      list.map((_, j) => h('i', { class: i < 0 || j <= i ? 'is-on' : '' })));
+      const backBtn = h('button', { class: 'sb-btn sb-btn-icon', 'aria-label': 'Back', 'data-tip': 'Back', onclick: back,
+        style: hasBack ? null : 'visibility:hidden', tabindex: hasBack ? null : '-1' }, ic('arrow-left', 16));
+      view = [lights('ob-lights'), h('main', { class: 'ob-main' }, h('div', { class: 'ob-col' },
+        h('div', { class: 'fr-top' }, backBtn, bar),
+        h('div', { class: `fr-step ${anim}` }, h('div', { class: 'ob-head' }, h('div', { class: 'ob-eyebrow' }, 'SkillBinder'), title, lead),
+          c.body, h('div', { class: 'ob-btns' }, c.acts))))];
+    } else {
+      const rail = h('aside', { class: 'fr-rail' }, lights(''), h('div', { class: 'fr-brand' }, 'SkillBinder'),
+        h('ol', { class: 'fr-steps', 'aria-label': 'Steps' }, list.map((x, j) => {
+          const ok = done(x) || s === 'end';
+          return h('li', { class: x === s ? 'is-current' : '', 'aria-current': x === s ? 'step' : null },
+            h('span', { class: `fr-mark${ok ? ' is-done' : ''}` }, ok ? ic('check', 12) : String(j + 1)), STEP[x].name);
+        })));
+      view = [rail, h('section', { class: 'fr-pane' },
+        h('div', { class: `fr-body ${anim}` }, h('div', { class: 'ob-head' }, title, lead), c.body),
+        h('div', { class: 'fr-foot' }, hasBack ? btn('Back', back) : null, h('span', { class: 'sb-spacer' }), c.acts))];
+    }
+    stage.replaceChildren(...view);
+  }
+
+  // ---- variant and state bars
+  const first = document.body.dataset.firstState || 'nogit';
+  reset(first);
+  const stateSeg = seg([
+    { id: 'nogit', label: 'Without Git' }, { id: 'git', label: 'With Git' }, { id: 'data', label: "Can't save data" },
+  ], first, (id) => { closeOverlays(); stopWait(); reset(id); draw(); });
+  const relaunchBtn = h('button', { class: 'sb-btn sb-btn-sm sb-btn-outline', onclick: relaunch,
+    'data-tip': 'Quit and reopen: opens the first step that applies and is not done' }, 'Relaunch');
+  const bar = variantBar(proto, [
+    { id: 'a', label: 'Counter eyebrow', desc: 'Centered column; "SkillBinder · Step 1 of 3" eyebrow; Back left, the step\'s actions right (OpenAI Platform footer, Klaviyo).' },
+    { id: 'b', label: 'Progress bar', desc: 'Centered column under a thin bar, one segment per step that applies, with an icon Back; the count lives in its tooltip (Klaviyo segmented progress).' },
+    { id: 'c', label: 'Step list', desc: 'Split window: a rail lists the steps, checking done ones; the step on the right with Back and its actions in a footer (Figma Dev Mode).' },
+  ], (id) => { V = id; draw(); });
+  bar.extra.append(stateSeg, relaunchBtn);
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>

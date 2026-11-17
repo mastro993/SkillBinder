@@ -35,13 +35,14 @@ The user settled these on 2026-11-16. Behavior comes from [the spec](../../specs
 
 - **O1** The step keeps the onboarding page: "SkillBinder", the title "Import your skills", and the lead "Importing copies these skills from your agents into your library, each staying active for the agents that have it. You can import others later with Scan for skills in Library."
 - **O2** A summary card shows a stack of the found skills' agents (Kit Avatars, up to four) and "N skills found in <agents>", naming the agents in the Agents section's order.
-- **O3** Under it, a "Review list" disclosure with a chevron expands the dialog's list inline: search, Select all, rows, versions, replacements, and the acknowledgement, with the same rules (D4 to D9). It is collapsed at first. Your agents form one place, so the list shows no group header. There is no status line, because a new library holds nothing.
+- **O3** *Replaced by O7 (not built yet, see [the onboarding spec](../../specs/onboarding.md)).* Under it, a "Review list" disclosure with a chevron expands the dialog's list inline: search, Select all, rows, versions, replacements, and the acknowledgement, with the same rules (D4 to D9). It is collapsed at first. Your agents form one place, so the list shows no group header. There is no status line, because a new library holds nothing.
 - **O4** The buttons are Skip and a primary "Import N skills", where N counts the ticked skills. N can be smaller than the summary's count, because invalid, blocked, and empty skills start unticked; Review list shows which ones.
 - **O5** States: Scanning (a spinner and "Scanning…" in place of the card); nothing found ("No skills to import were found in your agents." with Continue); error (one line with the reason, then Retry, with Skip still offered). Import runs the progress strip, then finishes onboarding into Library.
-- **O6** The source boundaries step reads "SkillBinder reads your agents' skills and your workspaces. Importing a skill copies it into your private library."
+- **O6** *Removed with the source boundaries step (ADR 0010).* The source boundaries step reads "SkillBinder reads your agents' skills and your workspaces. Importing a skill copies it into your private library."
+- **O7** Review list is a ghost button under the summary card that opens the Import skills dialog over onboarding (variant C's dialog), titled "Import skills", with no status line and no group header, since your agents are one place. Its footer holds the acknowledgement or the cap note on the left and a primary "Done" on the right; Done, Escape, and closing all keep the ticks and chosen versions and return to the step, whose "Import N skills" is the only button that imports. The user chose this on 2026-11-16 over the inline list, which stretched the onboarding column below the card.
 
 ## Rejected variants
 
 - Import dialog A "Checklist" (one flat list) and B "Two panes" (a details pane for the focused row).
 - Library entry A "Corner badge" (a Kit Badge on the button's corner, capped at 99+, with the empty state centered).
-- Onboarding A "Inline list" (the full list always shown) and C "Dialog over onboarding" (a Review skills button opening the dialog).
+- Onboarding A "Inline list" (the full list always shown). C "Dialog over onboarding" was first rejected, then adopted for Review list (O7).

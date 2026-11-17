@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings agents</title>
+<!-- Onboarding follow-up: Settings with the Agents section (S1–S3) above Application.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py settings.html ../prototypes/settings.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="ob.css">
+<style>
+.sb-nav-row[data-nav="discovery"] { display: none; }
+.st-sec { display: flex; flex-direction: column; gap: 8px; }
+.st-sec + .st-sec { margin-top: 8px; }
+.st-h { font-size: 13px; font-weight: 600; }
+.st-sub { font-size: 12px; font-weight: 500; color: var(--sb-muted-fg); margin-top: 2px; }
+.st-note-line { font-size: 12px; color: var(--sb-muted-fg); }
+.st-logs { align-self: flex-start; }
+
+/* Application: label · value rows (A, B; C styles them as its table). */
+.st-kv { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 8px 12px; }
+.st-kv + .st-kv { border-top: 1px solid var(--sb-border); }
+.st-k { flex: none; width: 128px; color: var(--sb-muted-fg); }
+.st-v { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.st-v-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.st-v-line > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-v-line .sb-btn { margin-left: auto; }
+.st-mono { font-family: var(--sb-mono); font-size: 12px; }
+.st-wait { color: var(--sb-muted-fg); }
+
+/* B: tinted rows that are on, muted rows that are off, an info note row. */
+.st-tint .ob-agent { background: color-mix(in srgb, var(--sb-fg) 3%, var(--sb-card)); }
+.st-tint .ob-agent:hover { background: var(--sb-hover); }
+.st-muted .ob-agent-name, .st-muted .sb-avatar { opacity: .6; }
+.st-info { padding: 9px 12px; border-top: 1px solid var(--sb-border); font-size: 12px; color: var(--sb-muted-fg); background: var(--sb-muted); }
+
+/* C: one table style for agents and Application. */
+.st-t-head, .st-t-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 64px 32px; align-items: center; gap: 12px; padding: 0 12px; }
+.st-t-head { height: 30px; font-size: 11.5px; color: var(--sb-muted-fg); border-bottom: 1px solid var(--sb-border); }
+.st-t-row { min-height: 48px; padding-top: 7px; padding-bottom: 7px; }
+.st-t-row + .st-t-row { border-top: 1px solid var(--sb-border); }
+label.st-t-row:hover { background: var(--sb-hover); --sb-ring-bg: var(--sb-hover); }
+.st-t-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.st-t-name > .ob-agent-text { flex: 1; }
+.st-t-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sb-muted-fg); }
+.st-t-row .ob-switch { justify-self: end; }
+.st-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; }
+.st-status.is-on { color: var(--sb-fg); }
+.st-status.is-on::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sb-success); }
+.st-t-wide { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.st-t-git { grid-column: 3 / -1; justify-self: end; }
+.st-t-glyph { width: 24px; height: 24px; display: grid; place-items: center; flex: none; color: var(--sb-muted-fg); }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="default">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:620px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"><div class="sb-crumbs"><span>Settings</span></div></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="ob.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const page = document.getElementById('page');
+  const LIBRARY = '~/Library/Application Support/SkillBinder/library';
+  const OFF_NOTE = 'Its skills stay in place.';
+  const START_ON = ['universal', 'claude', 'cursor'];
+  const S = { variant: 'a', state: 'default', platform: 'mac', on: new Set(), agents: [], git: 'ok' };
+  let cancelWait = () => {};
+  SB.settings.problems = 0;
+
+  renderSidebar(side, { active: 'settings', onNav: (k) => { if (k !== 'settings') toast(win, 'Not in this prototype'); } });
+
+  function setState(id) {
+    cancelWait();
+    S.state = id;
+    S.agents = id === 'none' ? [] : OB.AGENTS;
+    S.on = new Set(START_ON.filter((x) => !(id === 'off' && x === 'cursor')));
+    S.was = new Set(START_ON); // agents SkillBinder managed; only these get the off note
+    S.git = id === 'git' ? 'missing' : 'ok';
+    draw();
+  }
+
+  // ---- agents: on runs the active preset under the blocking progress; off saves at once ------
+  function planFor(a) {
+    const slugs = DATA.skills.map((s) => s.slug).filter((slug) => {
+      const raw = DATA.presetRaw(slug);
+      return raw === 'all' || (Array.isArray(raw) && raw.includes(a.id));
+    });
+    const pairs = slugs.map((slug, i) => ({ slug, target: a.name, op: 'add', problem: i === slugs.length - 1 ? 'different' : undefined }));
+    return { kind: 'agent', title: `Adding skills to ${a.name}`, toast: `${a.name} is on`, adds: slugs, removes: [], pairs };
+  }
+  function toggle(a, on) {
+    if (!on) { S.on.delete(a.id); draw(); return; }
+    progressDialog(win, { plan: planFor(a) }).then(() => { S.on.add(a.id); S.was.add(a.id); draw(); });
+  }
+  const note = () => h('span', { class: 'ob-agent-sub' }, OFF_NOTE);
+  const emptyList = () => h('div', { class: 'ob-list' }, h('div', { class: 'st-kv st-note-line' }, 'No agents found on this computer.'));
+
+  // A: one list, the note in place of the folder when off.
+  function agentsA() {
+    if (!S.agents.length) return emptyList();
+    return h('div', { class: 'ob-list' }, S.agents.map((a) => {
+      const on = S.on.has(a.id);
+      return OB.switchRow(a, on, (v) => toggle(a, v), { note: on || !S.was.has(a.id) ? null : note() });
+    }));
+  }
+
+  // B: On and Off groups; the Off group ends with the info note row.
+  function agentsB() {
+    if (!S.agents.length) return emptyList();
+    const on = S.agents.filter((a) => S.on.has(a.id));
+    const off = S.agents.filter((a) => !S.on.has(a.id));
+    const row = (a, v) => OB.switchRow(a, v, (x) => toggle(a, x));
+    return [
+      on.length ? h('div', { class: 'st-sub' }, 'On') : null,
+      on.length ? h('div', { class: 'ob-list st-tint' }, on.map((a) => row(a, true))) : null,
+      off.length ? h('div', { class: 'st-sub' }, 'Off') : null,
+      off.length ? h('div', { class: 'ob-list st-muted' }, off.map((a) => row(a, false)),
+        h('div', { class: 'st-info' }, 'Agents that are off keep their skills.')) : null,
+    ];
+  }
+
+  // C: a table; Universal names its agents under its name, the folder has its own column.
+  function agentsC() {
+    if (!S.agents.length) return emptyList();
+    return h('div', { class: 'ob-list' },
+      h('div', { class: 'st-t-head' }, h('span', 'Agent'), h('span', 'Folder'), h('span', 'Status'), h('span')),
+      S.agents.map((a) => {
+        const on = S.on.has(a.id);
+        const sub = !on ? note() : a.members ? h('span', { class: 'ob-agent-sub', 'data-tip': a.members.join(', ') }, a.members.join(', ')) : null;
+        return h('label', { class: 'st-t-row' },
+          h('span', { class: 'st-t-name' }, OB.logo(a), h('span', { class: 'ob-agent-text' }, h('span', { class: 'ob-agent-name' }, a.name), sub)),
+          h('code', { class: 'st-t-cell st-mono' }, a.path),
+          h('span', { class: `st-status${on ? ' is-on' : ''}` }, on ? 'On' : 'Off'),
+          OB.sw(on, (v) => toggle(a, v), a.name));
+      }));
+  }
+
+  // ---- Git (S3): Not installed → Install Git → waiting inline → found ----------------------
+  function installGit() {
+    S.git = 'waiting';
+    draw();
+    cancelWait = OB.waitFor(2500, found);
+  }
+  function found() {
+    S.git = 'ok';
+    draw();
+    toast(win, `Git ${OB.GIT.ok} is ready`, { icon: 'check-circle' });
+  }
+  function gitParts() {
+    if (S.git === 'ok') return { text: h('span', { class: 'st-mono' }, OB.GIT.ok) };
+    if (S.git === 'waiting') {
+      return { text: h('span', { class: 'sb-hstack st-wait', style: 'gap:6px' }, spinner(14),
+        S.platform === 'win' ? 'Installing Git…' : "Finish in Apple's installer.") };
+    }
+    if (S.platform === 'linux') {
+      const box = OB.cmdBox(OB.CMD.apt, win);
+      box.querySelector('button').addEventListener('click', () => { cancelWait(); cancelWait = OB.waitFor(3000, found); });
+      return { text: h('span', 'Not installed'), below: box };
+    }
+    return { text: h('span', 'Not installed'), action: OB.btn('Install Git', installGit) };
+  }
+  function gitRow() {
+    const g = gitParts();
+    if (S.variant === 'c') {
+      const status = S.git === 'ok' ? h('span', { class: 'st-status is-on' }, 'Ready') : null;
+      return h('div', { class: 'st-t-row' },
+        h('span', { class: 'st-t-name' }, h('span', { class: 'st-t-glyph', html: icon('git-branch', 16) }), h('span', { class: 'ob-agent-name' }, 'Git')),
+        g.action || status ? [h('span', { class: 'st-t-cell' }, g.text), g.action ? h('span', { class: 'st-t-git' }, g.action) : status]
+          : h('span', { class: 'st-t-wide' }, h('span', { class: 'st-t-cell' }, g.text), g.below));
+    }
+    return h('div', { class: 'st-kv' }, h('span', { class: 'st-k' }, 'Git'),
+      h('span', { class: 'st-v' }, h('span', { class: 'st-v-line' }, g.text, g.action), g.below));
+  }
+  function kv(k, v, mono) {
+    const val = h('span', { class: mono ? 'st-mono' : null, 'data-tip': mono ? v : null }, v);
+    if (S.variant === 'c') {
+      return h('div', { class: 'st-t-row' },
+        h('span', { class: 'st-t-name' }, h('span', { class: 'st-t-glyph' }), h('span', { class: 'ob-agent-name' }, k)),
+        h('span', { class: 'st-t-wide' }, h('span', { class: 'st-t-cell' }, val)));
+    }
+    return h('div', { class: 'st-kv' }, h('span', { class: 'st-k' }, k), h('span', { class: 'st-v' }, h('span', { class: 'st-v-line' }, val)));
+  }
+
+  // ---- page ------------------------------------------------------------------------------
+  function draw() {
+    const agents = { a: agentsA, b: agentsB, c: agentsC }[S.variant]();
+    page.replaceChildren(
+      h('section', { class: 'st-sec' }, h('div', { class: 'st-h' }, 'Agents'), agents),
+      h('section', { class: 'st-sec' }, h('div', { class: 'st-h' }, 'Application'),
+        h('div', { class: 'ob-list' }, kv('Managed library', LIBRARY, true), gitRow(), kv('Storage writable', 'Yes'), kv('Remote', 'Local only')),
+        h('button', { class: 'sb-btn sb-btn-outline st-logs', onclick: () => toast(win, 'Not in this prototype') }, 'Reveal logs')));
+    syncSidebar();
+  }
+
+  // The sidebar's Agents section lists only agents that are on (chosen agents, spec).
+  function syncSidebar() {
+    const counts = DATA.sidebarCounts().agents;
+    side.querySelectorAll('[data-nav^="agent:"]').forEach((r) => r.remove());
+    const head = [...side.querySelectorAll('.sb-nav-section')].find((s) => s.textContent.trim() === 'Agents');
+    if (!head) return;
+    const rows = S.agents.filter((a) => S.on.has(a.id)).map((a) => h('button', { class: 'sb-nav-row', 'data-nav': `agent:${a.id}`,
+      'data-tip': a.members ? a.members.join(', ') : null, onclick: () => toast(win, 'Not in this prototype') },
+    h('span', { class: 'sb-nav-ic', html: icon(a.logo, 15) }), h('span', { class: 'sb-nav-label' }, a.name),
+    h('span', { class: 'sb-nav-count' }, counts[a.id] != null ? counts[a.id] : planFor(a).adds.length)));
+    head.hidden = !rows.length;
+    head.after(...rows);
+  }
+
+  // ---- variant and state bars (last: every helper above is defined) ------------------------
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Switch list', desc: 'One bordered list: logo · name/folder · trailing switch; "Its skills stay in place." replaces the folder line once a managed agent is turned off (Linear Coding tools).' },
+    { id: 'b', label: 'Grouped sections', desc: 'On and Off groups, rows move between them; tinted On rows and an info note row under Off (Qatalog Enabled Connectors).' },
+    { id: 'c', label: 'Status table', desc: 'Table rows with a Status column and the switch last; Git is a row in the same table with Install Git in place of a switch (Unify Integrations).' },
+  ], (id) => { S.variant = id; if (S.agents.length || S.state === 'none') draw(); });
+  bar.extra.append(
+    seg([{ id: 'default', label: 'Default' }, { id: 'git', label: 'Git missing' }, { id: 'off', label: 'Turned off', tip: 'Cursor was just turned off' },
+      { id: 'none', label: 'No agents', tip: 'No agent found on this computer' }], document.body.dataset.firstState || 'default', setState),
+    seg([{ id: 'mac', label: 'macOS' }, { id: 'win', label: 'Windows' }, { id: 'linux', label: 'Linux' }], S.platform,
+      (v) => { S.platform = v; if (S.git !== 'ok') { cancelWait(); S.git = 'missing'; draw(); } }),
+    demoControls());
+  bar.set(document.body.dataset.firstVariant || 'a');
+  setState(document.body.dataset.firstState || 'default');
+})();
+</script>
+</body>
+</html>

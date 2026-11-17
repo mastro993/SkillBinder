@@ -165,7 +165,7 @@
   }
 
   // ---- widgets ------------------------------------------------------------------
-  const LOGOS = new Set(['claude-code', 'cline', 'codex', 'cursor', 'fx', 'kimi-code-cli', 'pi', 'warp', 'windsurf']);
+  const LOGOS = new Set(['claude-code', 'cline', 'codex', 'cursor', 'fx', 'kimi-code-cli', 'pi', 'warp', 'windsurf', 'github-copilot']);
   const resolveItem = (item) => (typeof item === 'string' ? D.target(item) || D.wsDir(item) : item);
   const tipOf = (item) => [item.name, item.members ? item.members.join(', ') : item.tip].filter(Boolean).join('\n');
 
