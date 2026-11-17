@@ -19,3 +19,5 @@ All your agents now means every chosen agent's global skill directory, including
 - Detection still decides which agents can be chosen: an agent whose directory does not exist is not offered.
 - Found skills in unchosen agents' directories are not offered for import.
 - Specific agent lists in presets and workspaces can name an unchosen agent; they apply again when it is chosen again.
+- A workspace skill directory stays in use while any chosen agent reads it, such as `.claude/skills` chosen for Cursor after Claude Code is turned off. One that no chosen agent reads loses its managed copies to unmanaged, like the agent's global skill directory, and is used again when such an agent is chosen.
+- Choosing agents in onboarding, and every Settings switch, count as asking, so an agent the user declined is never asked about again.
