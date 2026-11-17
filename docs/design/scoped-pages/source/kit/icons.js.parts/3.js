@@ -8,7 +8,7 @@ window.NEW_ICONS = {
 };
 
 (function () {
-  const COLOR_LOGOS = new Set(['claude-code', 'codex', 'kimi-code-cli']);
+  const COLOR_LOGOS = new Set(['claude-code', 'codex', 'kimi-code-cli', 'gemini-cli', 'kiro-cli']);
   let uid = 0;
 
   function sized(svg, size, cls) {

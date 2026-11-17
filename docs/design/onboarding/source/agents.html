@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choose your agents</title>
+<!-- Onboarding: the "Choose your agents" step (decisions A1–A3).
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py agents.html ../prototypes/agents.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="ob.css">
+<style>
+/* Lists scroll inside a max height (a half row peeks) so the buttons stay in view. */
+.ob-list, .ag-scroll { max-height: 312px; }
+.ag-grid { max-height: 360px; }
+.ag-plain { display: flex; flex-direction: column; min-height: 0; }
+.ag-scroll { min-height: 0; overflow: auto; }
+.ag-plain .ob-agent { border-radius: 8px; }
+.ag-plain .ob-agent + .ob-agent { border-top: 0; }
+.ag-all { display: flex; align-items: center; gap: 10px; padding: 6px 12px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--sb-border); font-weight: 500; cursor: default; }
+.ag-count { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--sb-muted-fg); font-variant-numeric: tabular-nums; }
+.ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; overflow: auto; padding: 2px; margin: -2px; }
+.ag-tile {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 12px;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card); cursor: default;
+}
+.ag-tile.is-wide { grid-column: 1 / -1; }
+.ag-tile > .ob-agent-text { align-self: stretch; }
+.ag-tile:hover { background: var(--sb-hover); --sb-ring-bg: var(--sb-hover); }
+.ag-tile.is-on { border-color: var(--sb-primary); box-shadow: 0 0 0 1px var(--sb-primary); }
+.ag-tile:has(.ag-sr:focus-visible) { outline: 2px solid var(--sb-ring); outline-offset: 2px; }
+.ag-sr { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.ag-mark {
+  position: absolute; top: 12px; right: 12px; width: 16px; height: 16px; display: grid; place-items: center;
+  border: 1px solid var(--sb-input); border-radius: 50%; color: transparent;
+}
+.ag-tile.is-on .ag-mark { background: var(--sb-primary); border-color: var(--sb-primary); color: var(--sb-primary-fg); }
+</style>
+</head>
+<body data-first-variant="c" data-first-state="list">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <div class="sb-lights ob-lights"><i></i><i></i><i></i></div>
+    <main class="ob-main" id="page"></main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="ob.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const LEAD = 'SkillBinder adds and removes skills only in the agents you choose. You can change this later in Settings.';
+  const NONE = 'No agents found on this computer. SkillBinder will ask when it finds one.';
+  // Many: Universal first, then every other found agent by name (A2), enough rows to scroll.
+  const MORE = [{ id: 'opencode', name: 'OpenCode', path: '~/.config/opencode/skills', logo: 'square-terminal' }];
+  const MANY = [OB.AGENTS[0], ...[...OB.AGENTS.slice(1), ...OB.NEW, ...MORE].sort((a, b) => a.name.localeCompare(b.name))];
+  const O = { variant: 'a', state: document.body.dataset.firstState || 'list', agents: [], on: new Set() };
+
+  // Every state starts from a fresh detection: all ticked (A2), except Zero ticked.
+  function reset(state) {
+    O.state = state;
+    O.agents = state === 'many' ? MANY : state === 'none' ? [] : OB.AGENTS;
+    O.on = new Set(state === 'zero' ? [] : O.agents.map((a) => a.id));
+  }
+
+  function draw() {
+    win.querySelectorAll(':scope > .sb-toast').forEach((t) => t.remove());
+    const body = O.agents.length
+      ? [h('div', { class: 'ob-lead' }, LEAD), VIEWS[O.variant]()]
+      : [h('div', { class: 'ob-lead' }, NONE)];
+    page.replaceChildren(h('div', { class: 'ob-col ob-anim' },
+      h('div', { class: 'ob-head' }, h('div', { class: 'ob-eyebrow' }, 'SkillBinder · Step 1 of 2'),
+        h('div', { class: 'ob-title', role: 'heading', 'aria-level': '1' }, 'Choose your agents')),
+      body,
+      // First step: no Back (F2). Zero ticked is allowed, so Continue is never disabled (A3).
+      h('div', { class: 'ob-btns' }, OB.btn('Continue', () => toast(win, 'Saved · next: Import your skills', { icon: 'check' }), 'primary'))));
+  }
+
+  // A Kit Checkbox named after its agent; the row around it is its label, so the whole row toggles.
+  function box(a, after) {
+    const cb = checkbox({ checked: O.on.has(a.id), onChange: (v) => { if (v) O.on.add(a.id); else O.on.delete(a.id); if (after) after(cb); } });
+    cb.setAttribute('aria-label', a.name);
+    return cb;
+  }
+
+  function sub(a, tipPath) {
+    if (a.members) return h('span', { class: 'ob-agent-sub', 'data-tip': a.members.join(', ') }, a.members.join(', '));
+    return h('span', { class: 'ob-agent-sub', 'data-tip': tipPath ? a.path : null }, h('code', {}, a.path));
+  }
+
+  // A: bordered list card, trailing checkbox.
+  const framed = () => h('div', { class: 'ob-list' }, O.agents.map((a) => OB.agentRow(a, box(a))));
+
+  // B: borderless rows, leading checkbox, tri-state Select all with an "N of M" count.
+  function leading() {
+    const boxes = [];
+    const all = checkbox({ onChange: (v) => {
+      O.agents.forEach((a) => (v ? O.on.add(a.id) : O.on.delete(a.id)));
+      boxes.forEach((b) => { b.checked = v; });
+      sync();
+    } });
+    const count = h('span', { class: 'ag-count' });
+    function sync() {
+      const n = O.on.size;
+      const m = O.agents.length;
+      all.checked = n === m;
+      all.indeterminate = n > 0 && n < m;
+      count.textContent = `${n} of ${m}`;
+    }
+    const rows = O.agents.map((a) => {
+      const cb = box(a, sync);
+      boxes.push(cb);
+      const row = OB.agentRow(a, null);
+      row.prepend(cb);
+      return row;
+    });
+    sync();
+    return h('div', { class: 'ag-plain' },
+      h('label', { class: 'ag-all' }, all, 'Select all', count),
+      h('div', { class: 'ag-scroll' }, rows));
+  }
+
+  // C: two-column tiles (logo and check on top, name and folder below); Universal spans the row with its members' logos.
+  function tiles() {
+    return h('div', { class: 'ag-grid' }, O.agents.map((a) => {
+      const cb = box(a, (c) => tile.classList.toggle('is-on', c.checked));
+      cb.classList.add('ag-sr');
+      const tile = h('label', { class: `ag-tile${a.members ? ' is-wide' : ''}${O.on.has(a.id) ? ' is-on' : ''}` }, cb,
+        a.members ? avatar(a, { size: 24, stack: true, tip: false }) : OB.logo(a),
+        h('span', { class: 'ob-agent-text' }, h('span', { class: 'ob-agent-name' }, a.name), sub(a, true)),
+        h('span', { class: 'ag-mark', 'aria-hidden': 'true' }, ic('check', 11)));
+      return tile;
+    }));
+  }
+
+  const VIEWS = { a: framed, b: leading, c: tiles };
+
+  const stateSeg = seg([
+    { id: 'list', label: 'List' }, { id: 'many', label: 'Many' },
+    { id: 'none', label: 'None found' }, { id: 'zero', label: 'Zero ticked' },
+  ], O.state, (id) => { reset(id); draw(); });
+
+  reset(O.state);
+  // Ticks carry over when switching variants.
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Framed list', desc: 'Bordered list card: logo, name and folder, trailing checkbox; every row starts ticked (Fabric, HubSpot).' },
+    { id: 'b', label: 'Select all', desc: 'Borderless rows with leading checkboxes under a tri-state Select all and an "N of M" count (HubSpot "2 of 4").' },
+    { id: 'c', label: 'Logo tiles', desc: "Two-column tiles, chosen ones outlined with a check; Universal spans the row with its members' logos (Dropbox Dash)." },
+  ], (id) => { O.variant = id; draw(); });
+  bar.extra.append(stateSeg);
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>

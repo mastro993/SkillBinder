@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding frame</title>
+<!-- Onboarding frame: how the steps are presented and moved between (decisions F1–F5).
+     Build: python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/onboarding/source/frame.html docs/design/onboarding/prototypes/frame.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="ob.css">
+<style>
+.ob-busy > .sb-vbar { pointer-events: none; opacity: .5; }
+#stage { display: contents; }
+.ob-col > .ob-list, .fr-step > .ob-list, .fr-body > .ob-list { flex: 0 1 auto; min-height: 0; }
+.ob-anim.fr-back { animation-name: fr-back; }
+@keyframes fr-back { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.fr-review { align-self: flex-start; margin: -8px 0 -4px -8px; color: var(--sb-muted-fg); }
+.fr-path { font-family: var(--sb-mono); font-size: 12px; }
+
+/* B: a thin bar, one segment per step that applies, with an icon Back before it. */
+.fr-top { display: flex; align-items: center; gap: 8px; margin-left: -6px; }
+.fr-bar { flex: 1; display: flex; gap: 4px; padding: 8px 0; }
+.fr-bar i { flex: 1; height: 4px; border-radius: 2px; background: var(--sb-input); transition: background .2s; }
+.fr-bar i.is-on { background: var(--sb-fg); }
+.fr-step { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+
+/* C: a rail of step names beside the step; Back and the actions in the pane's footer. */
+.fr-rail { width: 184px; flex: none; display: flex; flex-direction: column; padding: 0 10px; background: var(--sb-sidebar); border-right: 1px solid var(--sb-border); }
+.fr-brand { padding: 8px 8px 12px; font-weight: 600; }
+.fr-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.fr-steps li { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; color: var(--sb-muted-fg); }
+.fr-steps li.is-current { background: var(--sb-sel); color: var(--sb-fg); font-weight: 500; }
+.fr-mark { flex: none; width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--sb-input); border-radius: 50%; font-size: 11px; font-weight: 600; }
+.is-current .fr-mark { border-color: var(--sb-fg); }
+.fr-mark.is-done { background: var(--sb-fg); border-color: var(--sb-fg); color: var(--sb-bg); }
+.fr-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fr-body { flex: 1; min-height: 0; max-width: 448px; display: flex; flex-direction: column; gap: 16px; padding: 48px 32px 16px; }
+.fr-foot { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--sb-border); }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="nogit">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <div id="stage"></div>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="ob.js"></script>
+<script src="../../scan-import/source/found.js"></script>
+<script src="../../scan-import/source/scan-list.js"></script>

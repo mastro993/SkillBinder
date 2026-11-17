@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Git step</title>
+<!-- Onboarding: the "Install Git" step (decisions T1–T7).
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py git.html ../prototypes/git.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="ob.css">
+<style>
+.gt-body { display: flex; flex-direction: column; gap: 12px; }
+.gt-btns-wait .sb-btn-primary { min-width: 92px; }
+/* B: Git as one status card. */
+.gt-card { border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card); }
+.gt-row { display: flex; align-items: center; gap: 10px; padding: 12px; min-height: 60px; }
+.gt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gt-name { font-weight: 500; }
+.gt-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-muted-fg); }
+.gt-sub.is-ok, .gt-ok { color: var(--sb-success); }
+.gt-sub.is-bad { color: var(--sb-danger); }
+.gt-acts { display: flex; gap: 6px; flex: none; }
+.gt-more { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.gt-note { font-size: 12px; color: var(--sb-muted-fg); }
+/* C: one recommended path, other ways behind a disclosure, status in the footer. */
+.gt-big { height: 40px; font-size: 14px; }
+.gt-disc { align-self: flex-start; margin: -4px 0 -4px -8px; color: var(--sb-muted-fg); }
+.gt-disc .sb-ic { transition: transform .12s; }
+.gt-disc[aria-expanded="true"] .sb-ic { transform: rotate(90deg); }
+.gt-other { display: flex; gap: 8px; }
+.gt-status { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.4; }
+.gt-status .sb-ic { flex: none; }
+</style>
+</head>
+<body data-first-variant="a">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:520px">
+    <div class="sb-lights ob-lights"><i></i><i></i><i></i></div>
+    <main class="ob-main" id="page"></main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="ob.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const { GIT, CMD, btn } = OB;
+  const LEAD = 'Git syncs your library between computers and updates skills from their sources. Everything else works without it, and you can install it later in Settings.';
+  const AGENTS_LEAD = 'SkillBinder adds and removes skills only in the agents you choose. You can change this later in Settings.';
+  const NEEDS = 'SkillBinder needs 2.39 or newer.';
+  const FAILED = "Couldn't install with winget.";
+  // os: mac | win | nowinget | apt | linux.  state: missing | waiting | failed | found | old.
+  // via: what the step waits on (install = the system installer runs; check = only the 3 s check).
+  const S = { variant: 'a', os: 'mac', state: 'missing', via: 'install', step: 'git', gitFound: false, wingetFailed: false, other: false, timers: [] };
+
+  const stateSeg = seg([
+    { id: 'missing', label: 'Missing' }, { id: 'waiting', label: 'Waiting' }, { id: 'failed', label: 'Failed', tip: 'Windows: winget failed' },
+    { id: 'found', label: 'Found' }, { id: 'old', label: 'Too old' },
+  ], S.state, (id) => pick(id));
+  const osSeg = seg([
+    { id: 'mac', label: 'macOS' }, { id: 'win', label: 'Windows' }, { id: 'nowinget', label: 'Windows without winget' },
+    { id: 'apt', label: 'Linux (apt)' }, { id: 'linux', label: 'Linux (unknown)' },
+  ], S.os, (id) => { S.os = id; pick(S.state === 'failed' && id !== 'win' ? 'missing' : S.state); });
+  const mark = (el, id) => el.querySelectorAll('button').forEach((b) => b.classList.toggle('is-active', b.dataset.id === id));
+
+  // ---- the decided rules -------------------------------------------------------
+  // T2/T3: an installer runs only on macOS and on Windows with a working winget.
+  const canInstall = () => S.os === 'mac' || (S.os === 'win' && !S.wingetFailed);
+  // T3/T4/T5: the primary is Install Git, else Download Git; Linux with a package manager has Copy instead.
+  const primaryKind = () => (canInstall() ? 'install' : S.os === 'apt' ? null : 'download');
+  const hasCmd = () => S.os === 'apt';
+  function waitText() {
+    if (S.via === 'check') return 'Checking for Git…';
+    return S.os === 'mac' ? "Finish in Apple's installer." : 'Installing Git…';
+  }
+  // One status line per state (T2, T3, T6, T7); null while Git is simply missing.
+  function status() {
+    switch (S.state) {
+      case 'waiting': return { icon: spinner(15), text: waitText() };
+      case 'failed': return { icon: ic('alert-circle', 15), text: FAILED, cls: 'is-bad' };
+      case 'found': return { icon: ic('check-circle', 15), text: `Git ${GIT.ok} is ready`, cls: 'is-ok' };
+      case 'old': return { icon: ic('alert-circle', 15), text: `Git ${GIT.old} is too old. ${NEEDS}` };
+      default: return null;
+    }
+  }
+  const statusLine = (st, extra = '') => st && h('div', { class: `ob-line ${st.cls || ''} ${extra}` }, st.icon, h('span', {}, st.text));
+
+  // ---- actions -----------------------------------------------------------------
+  function clearTimers() { S.timers.forEach((c) => c()); S.timers = []; }
+  function pick(state, anim) { // the state bar: a still view, nothing simulated except Found's auto-advance
+    clearTimers();
+    win.querySelectorAll(':scope > .sb-toast').forEach((t) => t.remove());
+    if (state === 'failed') { S.os = 'win'; mark(osSeg, 'win'); }
+    S.step = 'git';
+    S.wingetFailed = state === 'failed';
+    S.via = canInstall() ? 'install' : 'check';
+    setState(state, anim);
+  }
+  function setState(state, anim) {
+    S.state = state;
+    mark(stateSeg, state);
+    draw(anim);
+    if (state === 'found') S.timers.push(OB.waitFor(1000, () => next(true)));
+  }
+  function wait(via) { // the 3 s check finds Git a moment later (simulated)
+    clearTimers();
+    S.via = via;
+    setState('waiting');
+    S.timers.push(OB.waitFor(2500, () => setState('found')));
+  }
+  const install = () => wait('install');
+  function download() {
+    toast(win, 'Opens git-scm.com');
+    if (S.state !== 'waiting') wait('check');
+  }
+  function copyBox() {
+    const box = OB.cmdBox(CMD.apt, win);
+    box.querySelector('button').addEventListener('click', () => { if (S.state !== 'waiting') wait('check'); });
+    return box;
+  }
+  function skip() { clearTimers(); next(false); }
+  // F1/F2: once Git is found the step drops out (two steps, no Back); skipped, it stays first and Back returns to it.
+  function next(found) {
+    S.step = 'agents';
+    S.gitFound = found;
+    draw(true);
+  }
+
+  // ---- frame -------------------------------------------------------------------
+  function frame(eyebrow, title, body, btns, anim) {
+    page.replaceChildren(h('div', { class: `ob-col${anim ? ' ob-anim' : ''}` },
+      h('div', { class: 'ob-head' }, h('div', { class: 'ob-eyebrow' }, eyebrow),
+        h('div', { class: 'ob-title', role: 'heading', 'aria-level': '1' }, title)),
+      body, h('div', { class: 'ob-btns' }, btns)));
+  }
+  function draw(anim) {
+    if (S.step === 'agents') return drawAgents(anim);
+    const v = { a: drawA, b: drawB, c: drawC }[S.variant]();
+    frame('SkillBinder · Step 1 of 3', S.state === 'old' ? 'Update Git' : 'Install Git', v.body, v.btns, anim);
+  }
+  function drawAgents(anim) {
+    const n = S.gitFound ? 'Step 1 of 2' : 'Step 2 of 3';
+    const back = S.gitFound ? null : h('button', { class: 'sb-btn ob-left', onclick: () => pick('missing', true) }, ic('arrow-left', 15), 'Back');
+    frame(`SkillBinder · ${n}`, 'Choose your agents', [h('div', { class: 'ob-lead' }, AGENTS_LEAD),
+      h('div', { class: 'ob-line sb-small' }, 'Next step · not in this prototype')],
+    [back, btn('Continue', () => toast(win, 'Not in this prototype'), 'primary')], anim);
+  }
+  const waiting = () => S.state === 'waiting' || S.state === 'found';
+  const lead = () => h('div', { class: 'ob-lead' }, LEAD);
+
+  // A: the platform action is the footer's primary; one status line under the lead (Clerk "Watching for users").
+  function drawA() {
+    const p = primaryKind();
+    const btns = [btn('Skip', skip, 'ghost')];
+    btns[0].classList.add('ob-left');
+    if (p === 'install') btns.push(btn('Download Git', download), btn('Install Git', install, 'primary', S.state === 'found'));
+    else if (p === 'download') btns.push(btn('Download Git', download, 'primary', S.state === 'found'));
+    else btns.push(btn('Download Git', download, 'outline', S.state === 'found'));
+    return { body: [lead(), statusLine(status()), hasCmd() ? copyBox() : null], btns };
+  }
+
+  // B: Git as a status card holding its own actions; the footer is only Skip and Continue (Unify rows, Cursor waiting card).
+  function drawB() {
+    const p = primaryKind();
+    const st = S.state;
+    let sub;
+    if (st === 'waiting') sub = h('div', { class: 'gt-sub' }, spinner(13), waitText());
+    else if (st === 'failed') sub = h('div', { class: 'gt-sub is-bad' }, FAILED);
+    else if (st === 'found') sub = h('div', { class: 'gt-sub is-ok' }, `${GIT.ok} is ready`);
+    else if (st === 'old') sub = h('div', { class: 'gt-sub' }, `${GIT.old} · too old`);
+    else sub = h('div', { class: 'gt-sub' }, 'Not installed');
+    let acts = null;
+    if (st === 'found') acts = h('span', { class: 'gt-ok' }, ic('check-circle', 18));
+    else if (st !== 'waiting') {
+      const sm = (b) => { b.classList.add('sb-btn-sm'); return b; };
+      acts = h('div', { class: 'gt-acts' },
+        p === 'install' ? [sm(btn('Download Git', download)), sm(btn('Install Git', install, 'primary'))]
+          : sm(btn('Download Git', download, p === 'download' ? 'primary' : 'outline')));
+    }
+    const more = [st === 'old' ? h('div', { class: 'gt-note' }, NEEDS) : null, hasCmd() && st !== 'found' ? copyBox() : null].filter(Boolean);
+    const card = h('div', { class: 'gt-card' },
+      h('div', { class: 'gt-row' }, h('span', { class: 'sb-avatar', style: 'width:32px;height:32px' }, ic('git-branch', 18)),
+        h('div', { class: 'gt-text' }, h('div', { class: 'gt-name' }, 'Git'), sub), acts),
+      more.length ? h('div', { class: 'gt-more' }, more) : null);
+    return { body: [lead(), card], btns: [st === 'found' ? null : btn('Skip', skip), btn('Continue', () => next(true), 'primary', st !== 'found')] };
+  }
+
+  // C: one recommended path shown big; Other ways holds the rest; live status in the footer (Sentry "Waiting for…").
+  function drawC() {
+    const p = primaryKind();
+    const busy = waiting();
+    let rec;
+    if (p === 'install') rec = btn('Install Git', install, 'primary', busy);
+    else if (p === 'download') rec = btn('Download Git', download, 'primary', S.state === 'found');
+    else rec = copyBox();
+    if (p) rec.classList.add('sb-btn-block', 'gt-big');
+    // Other ways: Download Git wherever it isn't the recommendation (T5); Linux without a package manager has none (T4).
+    const others = p === 'download' ? [] : [btn('Download Git', download)];
+    const disc = others.length ? [
+      h('button', { class: 'sb-btn sb-btn-sm gt-disc', 'aria-expanded': String(S.other), onclick: () => { S.other = !S.other; draw(); } },
+        ic('chevron-right', 14), 'Other ways'),
+      S.other ? h('div', { class: 'gt-other' }, others) : null,
+    ] : [];
+    const st = status();
+    const line = st ? statusLine(st, 'gt-status') : h('div', { class: 'gt-status' });
+    return { body: [lead(), h('div', { class: 'gt-body' }, rec, disc)], btns: [line, btn('Skip', skip)] };
+  }
+
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Primary action', desc: 'Install Git is the footer primary, Download Git beside it, Skip apart; one status line under the lead (Clerk "Watching for users").' },
+    { id: 'b', label: 'Status card', desc: 'A Git card with its status and the Install action inside; the footer is only Skip and Continue (Unify connection rows, Cursor connecting card).' },
+    { id: 'c', label: 'Recommended + other ways', desc: 'One recommended path shown big, Download Git under Other ways, live status at the footer\'s left (Sentry "Waiting for…").' },
+  ], (id) => { S.variant = id; if (stateSeg.isConnected) draw(); });
+  bar.extra.append(stateSeg);
+  bar.el.firstChild.after(h('div', { class: 'sb-vbar-top' }, h('span', { class: 'sb-muted sb-small' }, 'Computer'), osSeg));
+
+  const b = document.body.dataset;
+  if (b.firstOs) { S.os = b.firstOs; mark(osSeg, S.os); }
+  bar.set(b.firstVariant || 'a');
+  pick(b.firstState || 'missing');
+})();
+</script>
+</body>
+</html>

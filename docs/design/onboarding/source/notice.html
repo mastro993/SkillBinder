@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New agent notice</title>
+<!-- Onboarding redesign: the notice for agents found after onboarding (decisions N1–N4), over Library.
+     Build: python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/onboarding/source/notice.html docs/design/onboarding/prototypes/notice.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="ob.css">
+<style>
+.sb-nav-row[data-nav="discovery"] { display: none; }
+/* Windsurf is in the kit's fixture; here it is found later, so its row shows only once managed. */
+#win:not(.has-windsurf) [data-nav="agent:windsurf"] { display: none; }
+.nt-flash { animation: nt-flash 1.8s ease-out; }
+@keyframes nt-flash { from { background: var(--sb-sel); color: var(--sb-fg); } }
+.nt-list { flex: 0 1 auto; overflow: auto; }
+.nt-list .sb-row { min-height: 48px; }
+
+/* The notice: a Kit notification, absolute inside the window, above the page and below dialogs. */
+.nt { position: absolute; z-index: 65; }
+.nt-card {
+  width: 292px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-popover); color: var(--sb-popover-fg);
+  box-shadow: var(--sb-shadow-lg); --sb-ring-bg: var(--sb-popover); animation: nt-in .2s ease-out;
+}
+@keyframes nt-in { from { opacity: 0; transform: translateY(6px); } }
+.nt-found { font-weight: 600; }
+.nt-ask { color: var(--sb-muted-fg); }
+.nt-btns { display: flex; align-items: center; gap: 8px; }
+.nt-x { position: absolute; top: 8px; right: 8px; }
+
+/* A: corner card, logos on top, buttons right-aligned. */
+.nt-a { right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.nt-a .nt-btns { justify-content: flex-end; margin-top: 2px; }
+
+/* B: top-right card, title + body, primary then a text action, close in the corner. */
+.nt-b { top: 52px; right: 12px; width: 320px; display: flex; flex-direction: column; gap: 2px; padding: 12px 40px 12px 14px; }
+.nt-b .nt-btns { margin-top: 10px; gap: 4px; }
+.nt-b .nt-text { color: var(--sb-fg); }
+
+/* C: one-line snackbar centered on the page. */
+.nt-c {
+  bottom: 16px; left: calc(var(--sb-sidebar-w, 170px) + (100% - var(--sb-sidebar-w, 170px)) / 2); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 6px 0 10px; white-space: nowrap;
+  border-radius: 8px; background: var(--sb-fg); color: var(--sb-bg); box-shadow: var(--sb-shadow-lg); --sb-ring-bg: var(--sb-fg);
+  animation: sb-rise .2s ease-out;
+}
+.nt-c .nt-found { font-weight: 500; margin-right: 4px; }
+.nt-c .nt-btns { gap: 2px; }
+.nt-c .sb-toast-action.is-quiet { background: transparent; }
+.nt-c .sb-toast-action.is-quiet:hover { background: color-mix(in srgb, var(--sb-bg) 16%, transparent); }
+.nt-c .sb-btn-icon { color: color-mix(in srgb, var(--sb-bg) 65%, transparent); }
+.nt-c .sb-btn-icon:hover { color: var(--sb-bg); background: color-mix(in srgb, var(--sb-bg) 16%, transparent); }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="two">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:520px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="ob.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const NEW = OB.NEW;
+  // agents: the ones the notice lists; managed: ids turned on through it; run: guards a stale blocked run.
+  const S = { variant: 'a', state: document.body.dataset.firstState || 'two', agents: [], managed: new Set(), answered: false, blocked: false, run: 0, list: null };
+  const soon = () => toast(win, 'Not in this prototype');
+
+  renderSidebar(side, { active: 'library', onNav: (k) => { if (k !== 'library') soon(); }, onPreset: soon });
+  DATA.on(() => { syncSide(); drawList(); });
+
+  // ---- sidebar: managed agents join the Agents section, in name order (before Windsurf) -------
+  function syncSide(flash) {
+    win.classList.toggle('has-windsurf', S.managed.has('windsurf'));
+    side.querySelectorAll('.nt-added').forEach((e) => e.remove());
+    const anchor = side.querySelector('[data-nav="agent:windsurf"]');
+    NEW.filter((a) => a.id !== 'windsurf' && S.managed.has(a.id)).forEach((a) => anchor.before(h('button', {
+      class: 'sb-nav-row nt-added', 'data-nav': `agent:${a.id}`, onclick: soon,
+    }, h('span', { class: 'sb-nav-ic', html: icon(a.logo, 15) }), h('span', { class: 'sb-nav-label' }, a.name),
+    h('span', { class: 'sb-nav-count' }, String(forAll().length)))));
+    if (flash) flash.forEach((a) => side.querySelector(`[data-nav="agent:${a.id}"]`).classList.add('nt-flash'));
+  }
+
+  // ---- Library behind the notice: header, search, rows with the agents that hold each skill ----
+  const forAll = () => DATA.skills.filter((s) => DATA.presetRaw(s.slug) === 'all').map((s) => s.slug);
+  function holders(slug) {
+    const ids = DATA.presetHolds(slug).filter((id) => id !== 'windsurf' || S.managed.has('windsurf'));
+    const extra = DATA.presetRaw(slug) === 'all' ? NEW.filter((a) => a.id !== 'windsurf' && S.managed.has(a.id)) : [];
+    return ids.map((id) => DATA.target(id)).concat(extra);
+  }
+  function draw() {
+    const folders = [...new Set(DATA.skills.map((s) => s.folder).filter(Boolean))].sort();
+    hdr.replaceChildren(
+      tabs([{ id: null, label: 'All skills' }, ...folders.map((f) => ({ id: f, label: f }))], null, soon),
+      h('div', { class: 'sb-header-actions' }, h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Scan for skills', 'aria-label': 'Scan for skills', 'data-tip-pos': 'end', onclick: soon }, ic('folder-search', 16))));
+    S.list = h('div', { class: 'sb-card nt-list' });
+    page.replaceChildren(h('div', { class: 'sb-toolbar' }, searchInput({ onInput: soon })), S.list);
+    drawList();
+  }
+  function drawList() {
+    if (!S.list) return;
+    S.list.replaceChildren(...DATA.skills.map((s) => {
+      const who = holders(s.slug);
+      return h('div', { class: `sb-row${who.length ? '' : ' is-dim'}` },
+        h('div', { class: 'sb-row-main' }, h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug)), h('div', { class: 'sb-desc' }, s.desc)),
+        h('div', { class: 'sb-row-end' }, who.length ? avatarStack(who) : null));
+    }));
+  }
+
+  // ---- states --------------------------------------------------------------------------------
+  function setState(id) {
+    const run = ++S.run;
+    Object.assign(S, { state: id, managed: new Set(), answered: false, blocked: id === 'blocked',
+      agents: id === 'two' ? NEW.slice(0, 2) : id === 'three' ? NEW.slice() : NEW.slice(0, 1) });
+    DATA.reset();
+    win.querySelectorAll(':scope > .sb-toast').forEach((e) => e.remove());
+    draw();
+    drawNotice();
+    // N4: the notice waits while the progress strip blocks the app, then appears.
+    if (id === 'blocked') {
+      progressDialog(win, { plan: DATA.switchPreset('frontend'), problems: 0, toast: '' })
+        .then(() => { if (run === S.run) { S.blocked = false; drawNotice(); } });
+    }
+  }
+
+  // ---- answers (N3: any answer marks every listed agent as asked; the notice never returns) ----
+  function answer() { S.answered = true; drawNotice(); }
+  const notNow = answer;
+  function review() { answer(); toast(win, 'Opens Settings › Agents'); }
+  function manage() {
+    const list = S.agents;
+    const run = S.run;
+    answer();
+    const slugs = forAll();
+    const names = list.map((a) => a.name);
+    const done = list.length === 1 ? `${names[0]} is on` : list.length === 2 ? `${names.join(' and ')} are on` : `${list.length} agents are on`;
+    progressDialog(win, { speed: 1800, problems: 0, plan: {
+      title: `Applying ${DATA.activePreset().name} to ${list.length === 1 ? names[0] : `${list.length} agents`}`, toast: done,
+      pairs: list.flatMap((a) => slugs.map((slug) => ({ slug, target: a.name, op: 'add' }))),
+    } }).then(() => {
+      if (run !== S.run) return;
+      list.forEach((a) => S.managed.add(a.id));
+      syncSide(list);
+      drawList();
+    });
+  }
+
+  // ---- the notice ----------------------------------------------------------------------------
+  const many = () => S.agents.length > 1;
+  const found = () => OB.foundLine(S.agents.map((a) => a.name));
+  const ask = () => `Let SkillBinder manage ${many() ? 'their' : 'its'} skills?`;
+  const closeBtn = (cls) => h('button', { class: `sb-btn sb-btn-icon sb-btn-sm ${cls}`, 'aria-label': 'Close', 'data-tip': 'Close', onclick: notNow }, ic('close', 14));
+  // [secondary, primary] for one agent or several (N2).
+  const pair = () => (many() ? [['Review…', review], ['Manage all', manage]] : [['Not now', notNow], ['Manage', manage]]);
+
+  function cornerCard() {
+    const [[no, onNo], [yes, onYes]] = pair();
+    return h('div', { class: 'nt nt-card nt-a', role: 'alertdialog', 'aria-label': found() },
+      avatarStack(S.agents, { size: 24 }),
+      h('div', h('div', { class: 'nt-found' }, found()), h('div', { class: 'nt-ask' }, ask())),
+      h('div', { class: 'nt-btns' }, OB.btn(no, onNo, 'outline'), OB.btn(yes, onYes, 'primary')),
+      many() ? closeBtn('nt-x') : null);
+  }
+  function topCard() {
+    const [[no, onNo], [yes, onYes]] = pair();
+    const text = h('button', { class: 'sb-btn sb-btn-ghost nt-text', onclick: onNo }, no);
+    return h('div', { class: 'nt nt-card nt-b', role: 'alertdialog', 'aria-label': found() },
+      h('div', { class: 'nt-found' }, found()), h('div', { class: 'nt-ask' }, ask()),
+      h('div', { class: 'nt-btns' }, OB.btn(yes, onYes, 'primary'), text),
+      closeBtn('nt-x'));
+  }
+  function snackbar() {
+    const [[no, onNo], [yes, onYes]] = pair();
+    return h('div', { class: 'nt nt-c', role: 'alertdialog', 'aria-label': found() },
+      avatarStack(S.agents, { size: 18 }),
+      h('span', { class: 'nt-found' }, found()),
+      h('div', { class: 'nt-btns' },
+        h('button', { class: 'sb-toast-action', onclick: onYes }, yes),
+        h('button', { class: 'sb-toast-action is-quiet', onclick: onNo }, no),
+        many() ? closeBtn('') : null));
+  }
+  function drawNotice() {
+    win.querySelectorAll(':scope > .nt').forEach((e) => e.remove());
+    if (S.answered || S.blocked) return;
+    win.append({ a: cornerCard, b: topCard, c: snackbar }[S.variant]());
+  }
+
+  setState(S.state);
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Corner card', desc: "Bottom-right card that waits for an answer: the agents' logos, the found line, the question, buttons right-aligned (beehiiv)." },
+    { id: 'b', label: 'Top-right card', desc: 'Top-right card under the header: found line as title, question as body, primary + text action, close in the corner (HoneyBook).' },
+    { id: 'c', label: 'Snackbar', desc: 'One-line dark bar centered at the bottom: logos, found line, inline actions, close (Quicken).' },
+  ], (id) => { S.variant = id; drawNotice(); });
+  bar.extra.append(
+    seg([{ id: 'one', label: 'One agent' }, { id: 'two', label: 'Two agents' }, { id: 'three', label: 'Three+' },
+      { id: 'blocked', label: 'Blocked', tip: 'A preset switch is running; the notice waits for it' }], S.state, setState),
+    h('button', { class: 'sb-btn sb-btn-sm sb-btn-outline', onclick: () => setState(S.state) }, 'Replay'));
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>
