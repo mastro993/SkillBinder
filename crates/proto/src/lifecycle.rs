@@ -39,6 +39,18 @@ impl Onboarding {
             .map(|status| status.step)
     }
 }
+/// How Git can be installed on this computer (ADR 0011).
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum GitInstall {
+    /// Apple's Command Line Tools installer, `xcode-select --install`.
+    AppleInstaller,
+    /// `winget install --id Git.Git -e --source winget`, which asks for permission itself.
+    Winget,
+    /// The package manager's command for the user to copy and run, such as `sudo apt install git`.
+    Command(String),
+    /// Only Git's download page.
+    DownloadOnly,
+}
 /// Bootstrap result used before enabling product screens.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bootstrap {
@@ -46,6 +58,12 @@ pub struct Bootstrap {
     pub onboarding: Onboarding,
     /// Trusted Git executable version, if supported.
     pub git_version: Option<String>,
+    /// The version of a Git older than 2.39, found while no usable one is.
+    pub outdated_git: Option<String>,
+    /// How Git can be installed on this computer.
+    pub git_install: GitInstall,
+    /// winget, started to install Git, exited without installing it.
+    pub git_install_failed: bool,
     /// Whether application data can be written.
     pub storage_writable: bool,
     /// App-owned application data location.

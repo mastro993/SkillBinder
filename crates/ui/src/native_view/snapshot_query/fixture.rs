@@ -5,7 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use skillbinder_proto::{
-    AgentDir, AgentOption, AppSnapshot, Bootstrap, DirRole, Drift, FolderId, Library,
+    AgentDir, AgentOption, AppSnapshot, Bootstrap, DirRole, Drift, FolderId, GitInstall, Library,
     LibrarySnapshot, Onboarding, OnboardingStep, Preferences, Preset, PresetIcon, PresetId,
     SameSlug, Skill, SkillDetails, SkillId, SkillUpdate, StepStatus, SyncSnapshot, Targets,
     UpdateCheck, Workspace, WorkspaceId, WorkspaceTargets,
@@ -56,6 +56,9 @@ impl Fixture {
                         finished: true,
                     },
                     git_version: None,
+                    outdated_git: None,
+                    git_install: GitInstall::DownloadOnly,
+                    git_install_failed: false,
                     storage_writable: true,
                     data_path: String::new(),
                     library_path: String::new(),

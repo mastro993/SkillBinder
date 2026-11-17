@@ -18,8 +18,8 @@ use gpui_kit::{
 use skillbinder_proto::{Onboarding, OnboardingStep};
 
 /// The step the frame shows and where it stands among the steps that apply.
-#[derive(Debug, PartialEq, Eq)]
-struct Place {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Place {
     step: OnboardingStep,
     /// Its position among the steps that apply, from 1.
     number: usize,
@@ -66,6 +66,15 @@ fn place(onboarding: &Onboarding, back_to: Option<OnboardingStep>) -> Option<Pla
     })
 }
 
+/// Where the frame shows the Git step, if it does. Once Git is found, the frame stays there while
+/// "Git <version> is ready" shows (T6), though the step then no longer applies.
+pub(super) fn git_step_shown(
+    onboarding: &Onboarding,
+    back_to: Option<OnboardingStep>,
+) -> Option<Place> {
+    place(onboarding, back_to).filter(|place| place.step == OnboardingStep::Git)
+}
+
 /// A step's part of the frame.
 pub(super) struct StepView {
     title: &'static str,
@@ -83,8 +92,11 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let Some(place) = place(&self.snapshot.bootstrap.onboarding, self.onboarding_back_to)
-        else {
+        let shown = self
+            .git_ready
+            .clone()
+            .or_else(|| place(&self.snapshot.bootstrap.onboarding, self.onboarding_back_to));
+        let Some(place) = shown else {
             return div().into_any_element();
         };
         let view = match place.step {
@@ -173,16 +185,10 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Check again, which rechecks Git and storage; primary unless the step is done, when
-    /// Continue is.
-    fn check_again(&self, primary: bool, cx: &mut Context<Self>) -> AnyElement {
-        let button = text_button("onboarding-check-again", "Check again", Size::Medium);
-        let button = if primary {
-            button.primary()
-        } else {
-            button.outline()
-        };
-        button
+    /// Check again, which rechecks Git and storage.
+    fn check_again(&self, cx: &mut Context<Self>) -> AnyElement {
+        text_button("onboarding-check-again", "Check again", Size::Medium)
+            .primary()
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {
                 let client = view.client.clone();

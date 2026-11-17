@@ -13,7 +13,7 @@ mod support;
 use device::git;
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    OrganizationChange, PresetId, RemoteConfig, SkillId, SyncAction, SyncState,
+    OnboardingStep, OrganizationChange, PresetId, RemoteConfig, SkillId, SyncAction, SyncState,
 };
 use std::{fs, path::Path};
 use support::Fixture;
@@ -107,5 +107,35 @@ async fn git_installed_while_the_app_runs_is_found_on_a_recheck_and_makes_the_li
     let library = fixture.data.join("library");
     assert!(is_repository(&library));
     assert_eq!(git(&library, &["rev-list", "--all"]), "");
+    engine.shutdown().await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn an_outdated_git_is_reported_until_an_update_replaces_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = Fixture::new();
+    let outdated = fixture.git_bin().join("git");
+    let engine = fixture.open_without_git();
+    fs::write(&outdated, "#!/bin/sh\necho 'git version 2.30.1'\n").unwrap();
+    fs::set_permissions(&outdated, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let boot = engine.bootstrap().await.unwrap();
+
+    assert_eq!(boot.git_version, None);
+    assert_eq!(boot.outdated_git.as_deref(), Some("2.30.1"));
+    assert_eq!(boot.onboarding.current(), Some(OnboardingStep::Git));
+
+    fs::remove_file(&outdated).unwrap();
+    let system_git = std::env::split_paths(&std::env::var_os("PATH").unwrap())
+        .map(|directory| directory.join("git"))
+        .find(|git| git.is_file())
+        .unwrap();
+    std::os::unix::fs::symlink(system_git, &outdated).unwrap();
+
+    let boot = engine.bootstrap().await.unwrap();
+
+    assert!(boot.git_version.is_some());
+    assert_eq!(boot.outdated_git, None);
     engine.shutdown().await.unwrap();
 }

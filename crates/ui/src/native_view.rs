@@ -8,6 +8,7 @@ mod copy_dialogs;
 mod custom_color;
 mod dialogs;
 mod folder_reorder;
+mod git_setup;
 mod hover_scroll;
 mod import_dialog;
 mod import_review;
@@ -144,6 +145,12 @@ pub struct NativeView {
     first_import: Option<import_dialog::ImportDialog>,
     /// The onboarding step Back returned to, shown while it comes before the first step not done.
     onboarding_back_to: Option<OnboardingStep>,
+    /// Where the Git step showed when Git was found, kept while "Git <version> is ready" shows.
+    git_ready: Option<onboarding::Place>,
+    /// What installing Git waits on, in the Git step or Settings.
+    git_setup: git_setup::GitSetup,
+    /// The app checks for Git every 3 seconds.
+    git_checking: bool,
     /// The open context menu.
     menu: Option<menu::OpenMenu>,
     /// Inline preset name editing in the sidebar.
@@ -241,6 +248,10 @@ impl NativeView {
                 view.left_focus = true;
             } else if std::mem::take(&mut view.left_focus) {
                 view.client.refresh_app();
+                // Before the library exists the app refresh does not look for Git.
+                if view.checks_git() {
+                    view.client.check_git();
+                }
             }
         });
         let mut receiver = client.subscribe();
@@ -304,6 +315,9 @@ impl NativeView {
             importing: None,
             first_import: None,
             onboarding_back_to: None,
+            git_ready: None,
+            git_setup: git_setup::GitSetup::default(),
+            git_checking: false,
             menu: None,
             preset_edit: None,
             preset_reorder: RowReorder::default().pinned(1),

@@ -1,5 +1,5 @@
-use super::{Place, place};
-use skillbinder_proto::OnboardingStep::{self, Agents, DataLocation, Import};
+use super::{Place, git_step_shown, place};
+use skillbinder_proto::OnboardingStep::{self, Agents, DataLocation, Git, Import};
 use skillbinder_proto::{Onboarding, StepStatus};
 
 fn onboarding(steps: &[(OnboardingStep, bool)]) -> Onboarding {
@@ -74,4 +74,36 @@ fn the_eyebrow_names_the_app_and_the_step_among_those_that_apply() {
         forward: None,
     };
     assert_eq!(place.eyebrow(), "SkillBinder · Step 2 of 3");
+}
+
+#[test]
+fn the_git_step_is_shown_as_the_current_step_or_gone_back_to_once_skipped() {
+    let current = Place {
+        step: Git,
+        number: 1,
+        count: 2,
+        back: None,
+        forward: None,
+    };
+    let gone_back_to = Place {
+        forward: Some(Import),
+        ..current.clone()
+    };
+    let cases = [
+        (&[(Git, false), (Import, false)][..], None, Some(current)),
+        (
+            &[(Git, true), (Import, false)],
+            Some(Git),
+            Some(gone_back_to),
+        ),
+        (&[(Git, true), (Import, false)], None, None),
+        (&[(Import, false)], None, None),
+    ];
+    for (steps, back_to, expected) in cases {
+        assert_eq!(
+            git_step_shown(&onboarding(steps), back_to),
+            expected,
+            "{steps:?} back to {back_to:?}"
+        );
+    }
 }

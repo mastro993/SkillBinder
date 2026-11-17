@@ -61,6 +61,7 @@ impl NativeView {
             self.workspace_edit = None;
         }
         self.follow_strip(&latest);
+        self.follow_git(&latest, cx);
         self.snapshot = latest;
         if self.snapshot.preferences.sidebar_width != self.sidebar_width
             && !self.resizing_sidebar
