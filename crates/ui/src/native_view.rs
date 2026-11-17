@@ -91,6 +91,9 @@ use skillbinder_proto::*;
 
 enum DialogState {
     ImportSkills(Box<import_dialog::ImportDialog>),
+    /// Onboarding's Review list: the Import skills dialog over the import step's own list, which
+    /// outlives it (O7).
+    FirstImport,
     DeletePreset(DeletePreview),
     /// The copies of one skill that are not applied, every copy that asks the user, or the
     /// review of the copies that need the user after a blocking change.
@@ -137,7 +140,7 @@ pub struct NativeView {
     /// The Import skills dialog while its import runs, reopened if the list changed (D11).
     importing: Option<Box<import_dialog::ImportDialog>>,
     /// Onboarding's import step, once it shows.
-    first_import: Option<onboarding::import::FirstImport>,
+    first_import: Option<import_dialog::ImportDialog>,
     /// The onboarding step Back returned to, shown while it comes before the first step not done.
     onboarding_back_to: Option<OnboardingStep>,
     /// The open context menu.

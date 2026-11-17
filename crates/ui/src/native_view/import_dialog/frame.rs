@@ -1,10 +1,11 @@
 //! The dialog's frame: a large Kit dialog titled Import skills, holding Scanning…, the reason a
 //! scan failed with Retry, No new skills found., or the list with its footer (D1, D10, D12).
+//! Onboarding's names no place and ends with Done (O7).
 
 use super::super::NativeView;
 use super::super::controls::{Inactive, app_icon, checkbox, text_button};
-use super::list::{Selection, import_label, status};
-use super::{ImportDialog, Phase};
+use super::list::{Selection, status};
+use super::{End, ImportDialog, Phase};
 use gpui_kit::component::{
     ActiveTheme, Size, button::ButtonVariants, dialog::Dialog, h_flex, input::Input, v_flex,
 };
@@ -52,10 +53,7 @@ impl NativeView {
                         .child("Scanning…")
                         .into_any_element(),
                 ))
-                .footer(footer(
-                    None,
-                    vec![self.cancel_button("Cancel", cx), disabled_import()],
-                )),
+                .footer(footer(None, self.scanning_buttons(state, cx))),
             Phase::Failed(reason) => dialog
                 .child(centered(
                     h_flex()
@@ -78,6 +76,13 @@ impl NativeView {
                 .child(centered("No new skills found.".into_any_element()))
                 .footer(footer(None, vec![self.close_button(cx)])),
             Phase::Ready(found) => {
+                let status_line = state.end.names_places().then(|| {
+                    div()
+                        .id("import-status")
+                        .text_size(px(12.))
+                        .text_color(muted)
+                        .child(status(&found.scan))
+                });
                 let body = v_flex()
                     .size_full()
                     .min_h_0()
@@ -88,13 +93,7 @@ impl NativeView {
                             .items_center()
                             .gap(px(12.))
                             .child(self.import_search(state, cx))
-                            .child(
-                                div()
-                                    .id("import-status")
-                                    .text_size(px(12.))
-                                    .text_color(muted)
-                                    .child(status(&found.scan)),
-                            ),
+                            .children(status_line),
                     )
                     .when(state.changed, |body| body.child(changed_line(cx)))
                     .child(self.import_list(state, found, cx));
@@ -106,11 +105,7 @@ impl NativeView {
     }
 
     /// The search field (D2).
-    pub(in crate::native_view) fn import_search(
-        &self,
-        state: &ImportDialog,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    fn import_search(&self, state: &ImportDialog, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
         div()
             .id("import-search")
@@ -129,7 +124,8 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The footer: the cap note or the acknowledgement on the left, Cancel and Import on the right.
+    /// The footer: the cap note or the acknowledgement on the left, then Cancel and Import, or
+    /// Done, on the right.
     fn import_footer(
         &self,
         state: &ImportDialog,
@@ -138,19 +134,42 @@ impl NativeView {
     ) -> AnyElement {
         let chosen = state.chosen(found, &self.snapshot.workspaces);
         let left = self.import_notice(state, &chosen, cx);
-        let label = import_label(chosen.ids.len());
-        let import = text_button("import-apply", label, Size::Medium)
+        let label = state.end.primary(chosen.ids.len());
+        let buttons = match state.end {
+            End::Import => {
+                let ready = chosen.ready(state.acknowledge_invalid);
+                let import = text_button("import-apply", label, Size::Medium)
+                    .primary()
+                    .loading(state.refreshing())
+                    .inactive(state.busy() || self.blocked() || !ready)
+                    .on_click(cx.listener(|view, _, _, cx| view.import_ticked(cx)))
+                    .into_any_element();
+                vec![self.cancel_button("Cancel", cx), import]
+            }
+            End::Done => vec![self.done_button(label, cx)],
+        };
+        footer(left, buttons)
+    }
+
+    /// The buttons while the list is prepared: Cancel and an inactive Import, or Done.
+    fn scanning_buttons(&self, state: &ImportDialog, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        match state.end {
+            End::Import => vec![self.cancel_button("Cancel", cx), disabled_import()],
+            End::Done => vec![self.done_button(state.end.primary(0), cx)],
+        }
+    }
+
+    /// The primary Done, which closes the dialog and keeps the list for onboarding's step (O7).
+    fn done_button(&self, label: String, cx: &mut Context<Self>) -> AnyElement {
+        text_button("import-done", label, Size::Medium)
             .primary()
-            .loading(state.refreshing())
-            .inactive(state.busy() || self.blocked() || !chosen.ready(state.acknowledge_invalid))
-            .on_click(cx.listener(|view, _, _, cx| view.import_ticked(cx)))
-            .into_any_element();
-        footer(left, vec![self.cancel_button("Cancel", cx), import])
+            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
+            .into_any_element()
     }
 
     /// The cap note while more than one import is ticked (D8), else the acknowledgement while an
     /// invalid skill is ticked (D6).
-    pub(in crate::native_view) fn import_notice(
+    fn import_notice(
         &self,
         state: &ImportDialog,
         chosen: &Selection,

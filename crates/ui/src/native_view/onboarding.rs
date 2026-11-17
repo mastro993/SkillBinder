@@ -13,7 +13,7 @@ use super::{Effect, NativeView};
 use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Text, Window, div, prelude::FluentBuilder, px,
+    StatefulInteractiveElement, Styled, Text, Window, div, px,
 };
 use skillbinder_proto::{Onboarding, OnboardingStep};
 
@@ -73,9 +73,6 @@ pub(super) struct StepView {
     body: Vec<AnyElement>,
     /// The buttons at the right of the button row, the primary last.
     actions: Vec<AnyElement>,
-    /// The column takes the window's height, so a list in the body fills what is left and
-    /// scrolls.
-    fill: bool,
 }
 
 impl NativeView {
@@ -96,7 +93,6 @@ impl NativeView {
                 title: "Choose your agents",
                 body: Vec::new(),
                 actions: Vec::new(),
-                fill: false,
             },
             OnboardingStep::Import => self.import_step(window, cx),
         };
@@ -132,7 +128,6 @@ impl NativeView {
                     .id("onboarding-content")
                     .w_96()
                     .max_h_full()
-                    .when(view.fill, |column| column.h_full())
                     .min_h_0()
                     .py_6()
                     .gap_4()

@@ -12,7 +12,7 @@ This folder holds the three prototypes the user approved on 2026-11-16 for [the 
 
 - **Library entry B:** Library's header ends with the update control, then Scan for skills: a ghost button with the folder-search glyph and a quiet muted count of found skills not in library (Plane's muted count). An empty library shows a top-left empty state inside the list frame, with the glyph, one line, and a primary Scan for skills (Customer.io).
 - **Import dialog C:** a large Kit dialog. The top row holds the search and the status line, then comes Select all, then the rows grouped under "Your agents" and each workspace. Each group header has a tri-state checkbox and a count (StackAI's nested table, QuickBooks' flagged rows). Rows carry their versions disclosure and replacement lines inline. The footer holds the acknowledgement or the cap note on the left, and Cancel and "Import N skills" on the right.
-- **Onboarding B:** the onboarding page with its lead, then a summary card with the agents' avatars and "N skills found in <agents>", then a collapsed "Review list" disclosure that expands the same list inline, then Skip and "Import N skills" (Cosmos, Literal). Review list now opens the Import skills dialog with a Done button instead of expanding inline (decision O7; not built yet, see [the onboarding spec](../../specs/onboarding.md)).
+- **Onboarding B:** the onboarding page with its lead, then a summary card with the agents' avatars and "N skills found in <agents>", then a collapsed "Review list" disclosure that expands the same list inline, then Skip and "Import N skills" (Cosmos, Literal). Review list now opens the Import skills dialog with a Done button instead of expanding inline (decision O7, [the onboarding spec](../../specs/onboarding.md)).
 
 Open a bundle in a browser. Its variant bar opens on the picked variant and still switches to the rejected ones. Its state bar and demo controls step through Scanning, the list, versions, invalid, many (500 cap), nothing new, error, and plan expired. The progress the prototypes show is the kit's modal stand-in. The app keeps its approved inline progress strip ([scoped-pages](../scoped-pages/README.md), #98).
 
@@ -40,7 +40,7 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/scan-import
 | Group glyphs | Hugeicons robot (your agents), code-folder (workspace) |
 | Spinner | The app's existing loading glyph animation (`library_updates.rs`) |
 | Onboarding summary card | A bordered card in onboarding's column, with Kit `Avatar`s in a stack (`library_avatars.rs`) |
-| Review list disclosure | Kit ghost `Button` with the chevron-right glyph, as above |
+| Review list | Kit ghost `Button` with the chevron-right glyph, opening the Import skills dialog with a primary Done in its footer (O7) |
 | Progress | The existing progress strip, `Activity::Importing` (`progress_strip.rs`) |
 
 No new artwork: folder-search, robot, code-folder, alert-circle, chevron-right, and arrow-down are all retained in `assets/hugeicons/`. All but folder-search are already registered in `crates/ui/src/assets.rs`; slice 1 adds `icon!("folder-search", "FolderSearchIcon")` there, since an unregistered path fails explicitly.
@@ -80,4 +80,4 @@ Every color, size, radius, and spacing uses existing `skillbinder_theme` and Kit
 - Scan for skills: click, or Enter or Space while focused, opens the dialog and starts the scan.
 - Focus order in the dialog: search, Select all, then each group checkbox followed by its rows (checkbox, versions disclosure, radios), then the acknowledgement, Cancel, and Import. Escape closes it. Enter in the search field does nothing.
 - A row's checkbox toggles on click anywhere on the row except its disclosure and radios, as in the picker.
-- Review list on onboarding toggles with click, Enter, or Space and keeps its state while the step is open.
+- Review list on onboarding opens the Import skills dialog with click, Enter, or Space; Done, Escape, and its close button return to the step, keeping the ticks and chosen versions while the step is open.

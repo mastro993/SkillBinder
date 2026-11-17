@@ -17,7 +17,6 @@ impl NativeView {
                     .into_any_element(),
             ],
             actions: vec![self.check_again(cx)],
-            fill: false,
         }
     }
 }

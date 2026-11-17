@@ -1,3 +1,4 @@
+use super::End;
 use super::list::{
     Count, Place, default_ticks, groups, import_label, rows, selection, tick_all, tickable,
 };
@@ -211,4 +212,16 @@ fn import_counts_the_ticked_skills() {
         labels,
         ["Import skills", "Import 1 skill", "Import 12 skills"]
     );
+}
+
+#[test]
+fn library_names_each_place_and_imports_while_onboarding_ends_with_done() {
+    let cases = [
+        (End::Import, true, "Import 2 skills"),
+        (End::Done, false, "Done"),
+    ];
+    for (end, names_places, primary) in cases {
+        assert_eq!(end.names_places(), names_places, "{end:?} names places");
+        assert_eq!(end.primary(2), primary, "{end:?} primary");
+    }
 }
