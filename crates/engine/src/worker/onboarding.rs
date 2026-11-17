@@ -21,6 +21,15 @@ impl Engine {
     pub async fn skip_git(&self) -> AppResult<Bootstrap> {
         self.call(|state| state.skip_git()).await
     }
+    /// Starts the system's Git installer detached (ADR 0011), again if one is running, so a
+    /// cancelled installer can be started again. Refused where the user installs Git themselves.
+    pub async fn install_git(&self) -> AppResult<Bootstrap> {
+        self.call(|state| {
+            state.installer.start()?;
+            state.bootstrap()
+        })
+        .await
+    }
     /// Applies the ticked skills of onboarding's import, if any, and finishes onboarding,
     /// counting the pairs the import brings in line, like [`Self::apply_import`].
     pub fn finish_onboarding(

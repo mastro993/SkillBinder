@@ -15,6 +15,21 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.skip_git().await)
             .await
     }
+    /// Starts the system's Git installer; the app then checks for Git until it is found.
+    pub async fn install_git(&self) -> AppResult<Bootstrap> {
+        self.refresh_preserving_outcome(self.shared.engine.install_git().await)
+            .await
+    }
+    /// Looks for Git in the background, as the Git step does every 3 seconds while it waits on
+    /// Git; failures surface as the background error.
+    pub fn check_git(&self) {
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            if let Err(error) = client.bootstrap().await {
+                client.background_error(error);
+            }
+        });
+    }
     /// Applies the ticked skills of onboarding's import, if any, publishing its progress while it
     /// runs, and finishes onboarding, then refreshes the app as on launch, so the library and the
     /// agents show what the import changed.

@@ -70,13 +70,17 @@ impl EngineConfig {
             git_search: GitSearch::System,
         }
     }
-    /// The usable Git where [`Self::git_search`] says to look, if any.
-    pub(crate) fn find_git(&self, shutdown: Shutdown) -> Option<Git> {
+    /// The usable Git where [`Self::git_search`] says to look, or else the version of an older
+    /// one found there, if any.
+    pub(crate) fn find_git(&self, shutdown: Shutdown) -> (Option<Git>, Option<String>) {
         let home = match self.git {
             GitProfile::User => None,
             GitProfile::Home => Some(self.home.as_path()),
         };
-        Git::discover(&self.git_search, home, shutdown).ok()
+        match Git::discover(&self.git_search, home, shutdown) {
+            Ok(git) => (Some(git), None),
+            Err(outdated) => (None, outdated),
+        }
     }
 }
 impl State {
@@ -90,6 +94,9 @@ impl State {
                 finished: self.onboarding_finished()?,
             }),
             git_version: self.git.as_ref().map(|git| git.version().to_owned()),
+            outdated_git: self.outdated_git.clone(),
+            git_install: self.installer.offer().clone(),
+            git_install_failed: self.installer.failed(),
             storage_writable,
             data_path: self.config.data_dir.display().to_string(),
             library_path: self.library_dir().display().to_string(),
@@ -117,10 +124,12 @@ impl State {
         self.ensure_library()?;
         self.bootstrap()
     }
-    /// Looks for Git again while none was found.
+    /// Looks for Git again while none was found, noting how the Git installer started last
+    /// ended.
     pub(crate) fn recheck_git(&mut self) {
+        self.installer.poll();
         if self.git.is_none() {
-            self.git = self.config.find_git(self.shutdown.clone());
+            (self.git, self.outdated_git) = self.config.find_git(self.shutdown.clone());
         }
     }
     /// Creates the library as a plain directory on the way into onboarding's import, once the

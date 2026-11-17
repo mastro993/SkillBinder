@@ -1,7 +1,7 @@
 use crate::{
     activation::Progress,
     database,
-    git::Git,
+    git::{Git, Installer},
     grants::GrantedDirectory,
     lifecycle::EngineConfig,
     logging::Logger,
@@ -51,6 +51,10 @@ pub(crate) struct State {
     pub config: EngineConfig,
     pub database: RefCell<SqliteConnection>,
     pub git: Option<Git>,
+    /// The version of a Git older than 2.39, found while no usable one is.
+    pub outdated_git: Option<String>,
+    /// How this computer installs Git, and the installer started last.
+    pub installer: Installer,
     pub log: Logger,
     pub scans: Scans,
     pub updates: Updates,
@@ -94,11 +98,13 @@ impl Engine {
         let updates = Updates::default();
         let progress = Progress::default();
         let shutdown = Shutdown::default();
-        let git = config.find_git(shutdown.clone());
+        let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
             config,
             database,
             git,
+            outdated_git,
+            installer: Installer::detect(),
             log,
             scans: scans.clone(),
             updates: updates.clone(),
@@ -442,6 +448,8 @@ impl State {
             config: EngineConfig::isolated(data_dir.clone(), home.clone()),
             database: RefCell::new(database::open(&data_dir.join(DATABASE)).unwrap()),
             git: None,
+            outdated_git: None,
+            installer: Installer::detect(),
             log: Logger::start(data_dir.join("logs"), &home).unwrap(),
             scans: Scans::default(),
             updates: Updates::default(),

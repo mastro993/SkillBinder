@@ -1,6 +1,12 @@
 use super::{AppError, AppResult, RemoteConfig, failure};
 
-pub(super) fn version(raw: &str) -> AppResult<String> {
+/// A Git version, and whether it is 2.39 or newer, which SkillBinder needs.
+#[derive(Debug, Eq, PartialEq)]
+pub(super) struct Version {
+    pub(super) text: String,
+    pub(super) supported: bool,
+}
+pub(super) fn version(raw: &str) -> AppResult<Version> {
     let value = raw
         .strip_prefix("git version ")
         .and_then(|s| s.split_whitespace().next())
@@ -14,10 +20,10 @@ pub(super) fn version(raw: &str) -> AppResult<String> {
         .next()
         .and_then(|s| s.parse().ok())
         .ok_or_else(|| failure("Git version is unreadable."))?;
-    if (major, minor) < (2, 39) {
-        return Err(failure("Git 2.39 or newer is required."));
-    }
-    Ok(value.to_owned())
+    Ok(Version {
+        text: value.to_owned(),
+        supported: (major, minor) >= (2, 39),
+    })
 }
 pub(super) fn remote(remote: &RemoteConfig) -> AppResult<()> {
     let invalid = || {
@@ -79,10 +85,19 @@ mod tests {
     use super::*;
     #[test]
     fn versions() {
-        assert!(version("git version 2.38.9").is_err());
+        assert_eq!(
+            version("git version 2.38.9").unwrap(),
+            Version {
+                text: "2.38.9".to_owned(),
+                supported: false
+            }
+        );
         assert_eq!(
             version("git version 2.39.0.windows.1").unwrap(),
-            "2.39.0.windows.1"
+            Version {
+                text: "2.39.0.windows.1".to_owned(),
+                supported: true
+            }
         );
         assert!(version("garbage").is_err());
     }

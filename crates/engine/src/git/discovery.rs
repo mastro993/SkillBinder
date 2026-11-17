@@ -15,20 +15,20 @@ use std::{
 
 impl Git {
     /// Finds the first Git 2.39 or newer where `search` says to look. With `home`, its commands
-    /// read only that home's Git configuration, never the user's or the system's.
+    /// read only that home's Git configuration, never the user's or the system's. Without one,
+    /// the error holds the version of the first older Git found, if any.
     pub(crate) fn discover(
         search: &GitSearch,
         home: Option<&Path>,
         shutdown: Shutdown,
-    ) -> AppResult<Self> {
+    ) -> Result<Self, Option<String>> {
         let directories = match search {
             GitSearch::System => directories(std::env::var_os("PATH").as_deref(), |name| {
                 std::env::var_os(name)
             }),
             GitSearch::Directory(directory) => vec![directory.clone()],
         };
-        let (program, version) = first_usable(directories, home)
-            .ok_or_else(|| failure("Install Git 2.39 or newer and restart SkillBinder."))?;
+        let (program, version) = first_usable(directories, home)?;
         Ok(Self {
             program,
             version,
@@ -38,31 +38,41 @@ impl Git {
 }
 
 /// The first Git in `directories` that runs and is new enough, with its version, skipping the
-/// others.
+/// others; else the version of the first older one, if any.
 fn first_usable(
     directories: Vec<PathBuf>,
     home: Option<&Path>,
-) -> Option<(process::Program, String)> {
+) -> Result<(process::Program, String), Option<String>> {
     let mut tried = BTreeSet::new();
-    directories.into_iter().find_map(|directory| {
-        let executable = directory
+    let mut outdated = None;
+    for directory in directories {
+        let Some(executable) = directory
             .join(if cfg!(windows) { "git.exe" } else { "git" })
             .canonicalize()
             .ok()
-            .filter(|executable| executable.is_file())?;
+            .filter(|executable| executable.is_file())
+        else {
+            continue;
+        };
         if !tried.insert(executable.clone()) || opens_installer(&executable) {
-            return None;
+            continue;
         }
         let program = process::Program {
             executable,
             home: home.map(Path::to_owned),
         };
-        let version = verify(&program).ok()?;
-        Some((program, version))
-    })
+        match verify(&program) {
+            Ok(version) if version.supported => return Ok((program, version.text)),
+            Ok(version) => {
+                outdated.get_or_insert(version.text);
+            }
+            Err(_) => {}
+        }
+    }
+    Err(outdated)
 }
 
-fn verify(program: &process::Program) -> AppResult<String> {
+fn verify(program: &process::Program) -> AppResult<validation::Version> {
     let output = process::run(program, None, &["--version"], Duration::from_secs(30), None)?;
     if !output.status.success() {
         return Err(failure("Git verification failed."));

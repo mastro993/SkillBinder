@@ -1,6 +1,7 @@
 //! Bounded Git operations for the library's skill directories and their records.
 mod adoption;
 mod discovery;
+mod install;
 mod objects;
 mod process;
 mod source;
@@ -8,6 +9,7 @@ mod source;
 mod tests;
 mod validation;
 
+pub(crate) use install::Installer;
 pub(crate) use source::validate as validate_source;
 
 use crate::shutdown::Shutdown;
