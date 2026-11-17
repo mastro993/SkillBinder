@@ -13,7 +13,7 @@ pub(in crate::native_view) fn workspace_skills<'a>(
     sorted(snapshot, |skill| workspace.skills.contains_key(&skill.id))
 }
 
-/// The library skills `preset` holds for any of `ids`, the detected agents reading one global
+/// The library skills `preset` holds for any of `ids`, your agents reading one global
 /// skill directory, by name.
 pub(in crate::native_view) fn agent_skills<'a>(
     snapshot: &'a AppSnapshot,

@@ -95,7 +95,7 @@ flowchart LR
 - **UI layout**: `native_view/onboarding.rs` is the frame; `onboarding/` holds `data_location.rs`, `git.rs`, `agents.rs`, and the moved `import.rs`. Settings gains `settings/agents.rs`.
 - **Tests and tooling**: engine tests replace `onboarding_requires_each_step_and_survives_restart`; `tests/support/imports.rs::onboard`, the client `ready()` helper, `apps/desktop/src/native_test.rs::prepare`, and `xtask/src/mcp_smoke.rs` walk the new steps; the onboarding baselines in `fixtures/baseline/` are recaptured.
 
-Docs each slice updates: `docs/features/native/setup-and-shell.md`, `imports.md` (First boot), `sync-and-durability.md`, `activation.md`, `workspace-activation.md`, `application-shell-continued.md`, `docs/architecture/native.md`, `README.md`, the `fixtures/contracts/ui-copy.md` superseded notes, and the glossary markers that point here.
+Docs each slice updates: `docs/features/native/onboarding.md` (split from `setup-and-shell.md`), `imports.md` (First boot), `sync-and-durability.md`, `activation.md`, `workspace-activation.md`, `application-shell-continued.md`, `docs/architecture/native.md`, `README.md`, the `fixtures/contracts/ui-copy.md` superseded notes, and the glossary markers that point here.
 
 ## Assumptions
 

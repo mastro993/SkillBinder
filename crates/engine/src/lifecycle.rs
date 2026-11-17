@@ -91,6 +91,7 @@ impl State {
                 storage_writable,
                 git_found: self.git.is_some(),
                 git_skipped: self.setting(GIT_SKIPPED)?.unwrap_or(false),
+                agents_chosen: self.agent_choices()?.is_some(),
                 finished: self.onboarding_finished()?,
             }),
             git_version: self.git.as_ref().map(|git| git.version().to_owned()),
@@ -108,7 +109,8 @@ impl State {
         Ok(self.setting(FINISHED)?.unwrap_or(false))
     }
     /// Carries data saved under the stored onboarding position over, once: a finished onboarding
-    /// stays finished, and any earlier position starts the derived steps.
+    /// stays finished, choosing every detected agent at open, and any earlier position starts the
+    /// derived steps.
     pub(crate) fn forget_onboarding_position(&self) -> AppResult<()> {
         let Some(position) = self.setting::<String>(LEGACY_POSITION)? else {
             return Ok(());

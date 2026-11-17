@@ -25,6 +25,7 @@ async fn active_without_git(fixture: &Fixture) -> Engine {
     fs::create_dir_all(&claude).unwrap();
     let engine = fixture.open_without_git();
     engine.skip_git().await.unwrap();
+    support::choose_every_agent(&engine).await;
     engine.finish_onboarding(None).await.unwrap();
     device::import(fixture, &engine, &["review"]).await;
     engine

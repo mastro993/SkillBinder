@@ -6,7 +6,7 @@
 )]
 #![allow(dead_code, reason = "Not every test crate uses every helper.")]
 
-use crate::support::{Fixture, write_skill};
+use crate::support::{Fixture, choose_every_agent, write_skill};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
     Bootstrap, CopyState, ImportPlan, ImportSelection, LibrarySnapshot, OnboardingStep, PresetId,
@@ -18,10 +18,11 @@ use std::{
     time::SystemTime,
 };
 
-/// An engine at onboarding's import, whose library was created on the way into it.
+/// An engine at onboarding's import with every agent chosen, whose library was created on the
+/// way into it.
 pub async fn created(fixture: &Fixture) -> Engine {
     let engine = fixture.open();
-    let boot = engine.bootstrap().await.unwrap();
+    let boot = choose_every_agent(&engine).await;
     assert_eq!(boot.onboarding.current(), Some(OnboardingStep::Import));
     engine
 }

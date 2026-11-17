@@ -90,6 +90,8 @@ mod tests {
             other_global_dirs: Vec::new(),
             same_slug: SameSlug::Unknown,
             detected: true,
+            chosen: true,
+            asked: true,
         }
     }
 

@@ -7,7 +7,7 @@ use crate::{
     library::normalized,
     payload::Inspection,
     persistence,
-    scan::{Found, ImportSource, Selected, registry},
+    scan::{Found, ImportSource, Selected},
     schema::operation_plans,
     worker::State,
 };
@@ -142,7 +142,7 @@ impl State {
 
     fn planner(&self) -> AppResult<Planner> {
         let (library, revision) = self.revised_library()?;
-        let agents = registry::agent_options(&self.config)?;
+        let agents = self.agents()?;
         let workspaces = self.workspaces_for(&library, &agents)?;
         let mut names = BTreeMap::new();
         let mut digests = BTreeMap::new();

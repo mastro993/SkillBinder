@@ -2,6 +2,7 @@
 //! column under "SkillBinder · Step N of M" and the step's title, with Back at the left of the
 //! button row and the step's actions at its right. Each step's view lives in its own module.
 
+mod agents;
 mod data_location;
 mod git;
 pub(super) mod import;
@@ -102,13 +103,7 @@ impl NativeView {
         let view = match place.step {
             OnboardingStep::DataLocation => self.data_location_step(cx),
             OnboardingStep::Git => self.git_step(place.forward.is_some(), cx),
-            // The engine does not offer it yet.
-            OnboardingStep::Agents => StepView {
-                title: "Choose your agents",
-                body: Vec::new(),
-                leading: None,
-                actions: Vec::new(),
-            },
+            OnboardingStep::Agents => self.agents_step(place.forward.is_some(), cx),
             OnboardingStep::Import => self.import_step(window, cx),
         };
         let back = place.back.map(|step| {
@@ -121,8 +116,12 @@ impl NativeView {
                     cx.notify();
                 }))
         });
-        // A done step gone back to leads on to the next one.
-        let forward = place.forward.map(|step| {
+        // A done step gone back to leads on to the next one, except Choose your agents, whose
+        // Continue saves the choice again.
+        let forward = place
+            .forward
+            .filter(|_| place.step != OnboardingStep::Agents);
+        let forward = forward.map(|step| {
             text_button("onboarding-continue", "Continue", Size::Medium)
                 .primary()
                 .inactive(self.blocked())

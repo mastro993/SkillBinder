@@ -17,6 +17,8 @@ pub(crate) struct Facts {
     pub storage_writable: bool,
     pub git_found: bool,
     pub git_skipped: bool,
+    /// The agents were chosen, whichever ones.
+    pub agents_chosen: bool,
     pub finished: bool,
 }
 
@@ -39,8 +41,8 @@ fn applies(step: OnboardingStep, facts: Facts) -> bool {
     match step {
         OnboardingStep::DataLocation => !facts.storage_writable,
         OnboardingStep::Git => !facts.git_found,
-        // Not offered until choosing agents is built.
-        OnboardingStep::Agents => false,
+        // With no agent found, it says SkillBinder will ask when it finds one.
+        OnboardingStep::Agents => true,
         OnboardingStep::Import => true,
     }
 }
@@ -49,7 +51,7 @@ fn done(step: OnboardingStep, facts: Facts) -> bool {
     match step {
         OnboardingStep::DataLocation => facts.storage_writable,
         OnboardingStep::Git => facts.git_found || facts.git_skipped,
-        OnboardingStep::Agents => false,
+        OnboardingStep::Agents => facts.agents_chosen,
         OnboardingStep::Import => facts.finished,
     }
 }
@@ -57,71 +59,88 @@ fn done(step: OnboardingStep, facts: Facts) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{Facts, derive};
-    use skillbinder_proto::OnboardingStep::{DataLocation, Git, Import};
+    use skillbinder_proto::OnboardingStep::{Agents, DataLocation, Git, Import};
+
+    /// Facts with writable storage and Git found, nothing settled yet.
+    const FRESH: Facts = Facts {
+        storage_writable: true,
+        git_found: true,
+        git_skipped: false,
+        agents_chosen: false,
+        finished: false,
+    };
 
     #[test]
     fn only_the_steps_whose_fact_is_missing_apply_and_the_first_not_done_is_current() {
         let cases = [
+            (FRESH, &[(Agents, false), (Import, false)][..], Some(Agents)),
             (
-                true,
-                true,
-                false,
-                false,
-                &[(Import, false)][..],
-                Some(Import),
-            ),
-            (
-                false,
-                true,
-                false,
-                false,
-                &[(DataLocation, false), (Import, false)],
+                Facts {
+                    storage_writable: false,
+                    ..FRESH
+                },
+                &[(DataLocation, false), (Agents, false), (Import, false)],
                 Some(DataLocation),
             ),
             (
-                true,
-                false,
-                false,
-                false,
-                &[(Git, false), (Import, false)],
+                Facts {
+                    git_found: false,
+                    ..FRESH
+                },
+                &[(Git, false), (Agents, false), (Import, false)],
                 Some(Git),
             ),
             (
-                true,
-                false,
-                true,
-                false,
-                &[(Git, true), (Import, false)],
+                Facts {
+                    git_found: false,
+                    git_skipped: true,
+                    ..FRESH
+                },
+                &[(Git, true), (Agents, false), (Import, false)],
+                Some(Agents),
+            ),
+            (
+                Facts {
+                    agents_chosen: true,
+                    ..FRESH
+                },
+                &[(Agents, true), (Import, false)],
                 Some(Import),
             ),
             (
-                false,
-                false,
-                false,
-                false,
-                &[(DataLocation, false), (Git, false), (Import, false)],
+                Facts {
+                    storage_writable: false,
+                    git_found: false,
+                    ..FRESH
+                },
+                &[
+                    (DataLocation, false),
+                    (Git, false),
+                    (Agents, false),
+                    (Import, false),
+                ],
                 Some(DataLocation),
             ),
-            (true, true, false, true, &[(Import, true)], None),
+            (
+                Facts {
+                    agents_chosen: true,
+                    finished: true,
+                    ..FRESH
+                },
+                &[(Agents, true), (Import, true)],
+                None,
+            ),
         ];
-        for (storage_writable, git_found, git_skipped, finished, steps, current) in cases {
-            let onboarding = derive(Facts {
-                storage_writable,
-                git_found,
-                git_skipped,
-                finished,
-            });
+        for (facts, steps, current) in cases {
+            let onboarding = derive(facts);
             let derived: Vec<_> = onboarding
                 .steps
                 .iter()
                 .map(|status| (status.step, status.done))
                 .collect();
-            assert_eq!(
-                derived, steps,
-                "writable {storage_writable}, Git {git_found}, skipped {git_skipped}"
-            );
-            assert_eq!(onboarding.current(), current);
-            assert_eq!(onboarding.finished, finished);
+            assert_eq!(derived, steps, "{facts:?}");
+            assert_eq!(onboarding.current(), current, "{facts:?}");
+            assert_eq!(onboarding.finished, facts.finished);
         }
     }
 }

@@ -1,9 +1,9 @@
-//! The engine's onboarding operations: rechecking its facts, and finishing it with its first
-//! import.
+//! The engine's onboarding operations: rechecking its facts, choosing agents, and finishing it
+//! with its first import.
 
 use super::Engine;
 use skillbinder_proto::*;
-use std::future::Future;
+use std::{collections::BTreeSet, future::Future};
 
 impl Engine {
     /// Rechecks Git and storage, creating the library once onboarding reaches its import and
@@ -20,6 +20,17 @@ impl Engine {
     /// Skips the Git step, so onboarding goes on without Git and creates the library without it.
     pub async fn skip_git(&self) -> AppResult<Bootstrap> {
         self.call(|state| state.skip_git()).await
+    }
+    /// Saves the choice of agents: of the global skill directories the step `shown`, `chosen`
+    /// become your agents' and the rest not, all counting as asked about (ADR 0012). Then creates
+    /// the library on the way into the import.
+    pub async fn choose_agents(
+        &self,
+        shown: BTreeSet<String>,
+        chosen: BTreeSet<String>,
+    ) -> AppResult<Bootstrap> {
+        self.call(move |state| state.choose_agents(shown, chosen))
+            .await
     }
     /// Starts the system's Git installer detached (ADR 0011), again once the one started last
     /// has exited, so a cancelled installer can be started again; while it still runs, it is

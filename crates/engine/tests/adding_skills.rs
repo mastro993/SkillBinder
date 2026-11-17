@@ -249,10 +249,10 @@ async fn a_refused_batch_saves_nothing() {
             ),
             "Skill no longer exists.",
         ),
-        // Windsurf is not detected.
+        // Windsurf is not one of your agents.
         (
             to_workspace(&workspace, &[".windsurf/skills"], &[all()]),
-            "Choose the skill directory of a detected agent.",
+            "Choose the skill directory of one of your agents.",
         ),
     ] {
         assert_eq!(refused(change).await, message);

@@ -110,7 +110,7 @@ pub enum SidebarSection {
     Presets,
     /// The added workspaces.
     Workspaces,
-    /// Detected agents, alphabetically.
+    /// Your agents, alphabetically.
     Agents,
 }
 /// Color scheme preference.

@@ -5,10 +5,11 @@
 use diesel::{connection::SimpleConnection, prelude::*};
 use skillbinder_engine::{Engine, EngineConfig, GitSearch};
 use skillbinder_proto::{
-    AppResult, Candidate, CandidateId, ErrorCategory, ImportOutcome, ImportPlan, ScanSnapshot,
-    SkillId, Workspace,
+    AppResult, Bootstrap, Candidate, CandidateId, ErrorCategory, ImportOutcome, ImportPlan,
+    ScanSnapshot, SkillId, Workspace,
 };
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     time::{Duration, Instant},
@@ -75,8 +76,11 @@ impl Fixture {
         write_skill(&self.workspace.join(".agents/skills"), slug, body)
     }
 
+    /// An engine past onboarding with an empty library, every registry agent's directory chosen
+    /// so agents a test creates later are yours.
     pub async fn ready(&self) -> Engine {
         let engine = self.open();
+        choose_every_agent(&engine).await;
         engine.finish_onboarding(None).await.unwrap();
         engine
     }
@@ -96,6 +100,20 @@ impl Fixture {
         assert_eq!(outcome.imported.len(), 1);
         outcome.imported[0].clone()
     }
+}
+
+/// Chooses every registry agent's global skill directory, existing or not, in onboarding's
+/// Choose your agents step.
+pub async fn choose_every_agent(engine: &Engine) -> Bootstrap {
+    let dirs: BTreeSet<String> = engine
+        .snapshot()
+        .await
+        .unwrap()
+        .agents
+        .into_iter()
+        .filter_map(|agent| agent.global_skills_dir)
+        .collect();
+    engine.choose_agents(dirs.clone(), dirs).await.unwrap()
 }
 
 /// Scan for skills choosing the versions `ids`, its plan narrowed to them.

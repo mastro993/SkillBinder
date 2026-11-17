@@ -12,7 +12,7 @@ pub(super) enum Route {
     Skill(SkillId),
     /// A workspace's page: `workspace/{id}`.
     Workspace(WorkspaceId),
-    /// A detected agent's page, by registry id: `agent/{id}`.
+    /// One of your agents' page, by registry id: `agent/{id}`.
     Agent(String),
     /// The page of the universal agents together, which read `~/.agents/skills`:
     /// `agents/universal`.

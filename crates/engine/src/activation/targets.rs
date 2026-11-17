@@ -1,8 +1,9 @@
-//! Where each skill is held: the global skill directories of the detected agents the active
+//! Where each skill is held: the global skill directories of your agents the active
 //! preset's entries name, and the workspace skill directories each workspace holds it in, each
 //! directory counted once however many agents share it.
 
 use super::store::{Holder, Pair};
+use crate::agents::chosen_agents;
 use crate::scan::registry::{Loaded, Preferences};
 use skillbinder_proto::{AgentOption, Library, Overlap, SameSlug, SkillId, Workspace, WorkspaceId};
 use std::{
@@ -53,12 +54,11 @@ impl Places {
     }
 }
 
-/// Every global skill directory and slug the active preset holds a skill in. An agent detected
-/// later is included as soon as it is detected; an agent no longer detected holds nothing.
+/// Every global skill directory and slug the active preset holds a skill in. An agent is included
+/// while it is one of your agents, including one detected later whose directory is chosen; any
+/// other agent holds nothing.
 pub(super) fn desired(library: &Library, agents: &[AgentOption]) -> BTreeSet<Pair> {
-    let detected: Vec<_> = agents
-        .iter()
-        .filter(|agent| agent.detected)
+    let yours: Vec<_> = chosen_agents(agents)
         .filter_map(|agent| Some((agent.id.as_str(), agent.resolved_skills_dir.as_deref()?)))
         .collect();
     let mut pairs = BTreeSet::new();
@@ -66,7 +66,7 @@ pub(super) fn desired(library: &Library, agents: &[AgentOption]) -> BTreeSet<Pai
         let Some(targets) = skill.presets.get(&library.active_preset) else {
             continue;
         };
-        for (agent, directory) in &detected {
+        for (agent, directory) in &yours {
             if targets.includes(agent) {
                 pairs.insert(((*directory).to_owned(), skill.id.as_str().to_owned()));
             }
@@ -113,7 +113,7 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
     places
 }
 
-/// The skills `workspace` holds that a detected agent also holds in a global skill directory it
+/// The skills `workspace` holds that one of your agents also holds in a global skill directory it
 /// reads, and how that agent treats the two copies.
 pub(crate) fn overlaps(
     workspace: &Workspace,
@@ -122,7 +122,7 @@ pub(crate) fn overlaps(
     preferences: &Preferences,
 ) -> BTreeMap<SkillId, Overlap> {
     let mut overlaps: BTreeMap<SkillId, Overlap> = BTreeMap::new();
-    for agent in agents.iter().filter(|agent| agent.detected) {
+    for agent in chosen_agents(agents) {
         let dirs: Vec<&str> = std::iter::once(agent.workspace_skills_dir.as_str())
             .chain(
                 agent
@@ -192,7 +192,8 @@ mod tests {
     use skillbinder_proto::{
         AgentDir, DirRole, PresetId, Skill, SkillId, Targets, WorkspaceTargets,
     };
-    fn agent(id: &str, directory: &str, detected: bool) -> AgentOption {
+    /// A detected agent reading `directory`, one of your agents when `chosen`.
+    fn agent(id: &str, directory: &str, chosen: bool) -> AgentOption {
         AgentOption {
             id: id.to_owned(),
             display_name: id.to_owned(),
@@ -202,7 +203,9 @@ mod tests {
             resolved_skills_dir: Some(directory.to_owned()),
             other_global_dirs: Vec::new(),
             same_slug: SameSlug::Unknown,
-            detected,
+            detected: true,
+            chosen,
+            asked: true,
         }
     }
 
@@ -247,14 +250,14 @@ mod tests {
     }
 
     #[test]
-    fn shared_directories_count_once_and_only_detected_agents_hold_skills() {
+    fn shared_directories_count_once_and_only_your_agents_hold_skills() {
         let agents = [
             agent("codex", "/h/.agents/skills", true),
             agent("cursor", "/h/.agents/skills", true),
             agent("claude-code", "/h/.claude/skills", true),
-            agent("gone", "/h/.gone/skills", false),
+            agent("windsurf", "/h/.windsurf/skills", false),
         ];
-        let only_claude = Targets::Agents(["claude-code".to_owned(), "gone".to_owned()].into());
+        let only_claude = Targets::Agents(["claude-code".to_owned(), "windsurf".to_owned()].into());
         let library = Library {
             presets: Vec::new(),
             active_preset: PresetId("work".to_owned()),

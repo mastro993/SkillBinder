@@ -1,4 +1,4 @@
-//! The sidebar Agents section: Universal first, then the other detected agents alphabetically,
+//! The sidebar Agents section: Universal first, then your other agents alphabetically,
 //! each opening its own page.
 
 use super::agent_page::page_skills;
@@ -35,7 +35,7 @@ impl NativeView {
                 self.render_agent_row(id, icon, agent.name, route, skills, cx)
             })
             .collect();
-        // The section is hidden while no agent is detected.
+        // The section is hidden while you have no agents.
         if rows.is_empty() {
             return None;
         }

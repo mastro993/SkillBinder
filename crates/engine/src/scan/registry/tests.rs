@@ -4,6 +4,14 @@
 )]
 use super::*;
 use skillbinder_proto::DirRole;
+
+/// What a scan reads when every registry agent is yours.
+fn every_agent(config: &EngineConfig, workspaces: Vec<(WorkspaceId, PathBuf)>) -> AppResult<Reach> {
+    Ok(Reach {
+        agents: agents(config)?.into_iter().map(|agent| agent.id).collect(),
+        workspaces,
+    })
+}
 #[test]
 fn registry_has_79_agents_and_shared_reader_locations() -> Result<(), Box<dyn std::error::Error>> {
     let registry: Registry = serde_json::from_str(include_str!(
@@ -12,9 +20,12 @@ fn registry_has_79_agents_and_shared_reader_locations() -> Result<(), Box<dyn st
     assert_eq!(registry.agents.len(), 79);
     let temp = tempfile::tempdir()?;
     let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-    let workspaces = vec![(WorkspaceId::new(), temp.path().join("workspace"))];
+    let reach = every_agent(
+        &config,
+        vec![(WorkspaceId::new(), temp.path().join("workspace"))],
+    )?;
     let log = Logger::start(temp.path().join("logs"), &config.home)?;
-    let locations = locations(&config, &workspaces, &log)?;
+    let locations = locations(&config, &reach, &log)?;
     assert_eq!(
         locations
             .iter()
@@ -37,9 +48,12 @@ fn the_overlay_adds_directories_without_changing_detection()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-    let workspaces = vec![(WorkspaceId::new(), temp.path().join("workspace"))];
+    let reach = every_agent(
+        &config,
+        vec![(WorkspaceId::new(), temp.path().join("workspace"))],
+    )?;
     let log = Logger::start(temp.path().join("logs"), &config.home)?;
-    let locations = locations(&config, &workspaces, &log)?;
+    let locations = locations(&config, &reach, &log)?;
     let readers = |path: PathBuf| {
         locations
             .iter()
@@ -58,7 +72,7 @@ fn the_overlay_adds_directories_without_changing_detection()
             .iter()
             .any(|reader| reader == "Codex")
     );
-    let agents = agent_options(&config)?;
+    let agents = agent_options(&config, &AgentChoices::default())?;
     let kimi = agents
         .iter()
         .find(|agent| agent.id == "kimi-code-cli")
@@ -92,6 +106,75 @@ fn the_overlay_adds_directories_without_changing_detection()
     // Overlay directories never decide which folders are agent folders.
     assert!(!workspace_skill_dirs()?.contains(".kimi-code/skills"));
     assert!(!global_skill_dirs(&config)?.contains(&config.home.join(".codex/skills")));
+    Ok(())
+}
+
+#[test]
+fn only_your_agents_global_directories_are_scanned_and_every_workspace_directory_is()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
+    let workspace = temp.path().join("workspace");
+    // Warp also reads Cursor's directory.
+    let reach = Reach {
+        agents: ["claude-code".to_owned(), "warp".to_owned()].into(),
+        workspaces: vec![(WorkspaceId::new(), workspace.clone())],
+    };
+    let log = Logger::start(temp.path().join("logs"), &config.home)?;
+    let paths: Vec<PathBuf> = locations(&config, &reach, &log)?
+        .into_iter()
+        .map(|location| location.path)
+        .collect();
+    assert!(paths.contains(&config.home.join(".claude/skills")));
+    assert!(!paths.contains(&config.home.join(".cursor/skills")));
+    assert!(!paths.contains(&config.home.join(".agents/skills")));
+    assert!(paths.contains(&workspace.join(".cursor/skills")));
+    Ok(())
+}
+
+#[test]
+fn an_agent_is_chosen_while_detected_with_its_directory_chosen()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
+    for dir in [".claude/skills", ".cursor/skills", ".agents/skills"] {
+        fs::create_dir_all(config.home.join(dir))?;
+    }
+    let shown = |dir: &str| config.home.join(dir).display().to_string();
+    let choices = AgentChoices {
+        chosen: [
+            shown(".claude/skills"),
+            shown(".agents/skills"),
+            shown(".gemini/skills"),
+        ]
+        .into(),
+        asked: [
+            shown(".claude/skills"),
+            shown(".cursor/skills"),
+            shown(".agents/skills"),
+        ]
+        .into(),
+    };
+    let agents = agent_options(&config, &choices)?;
+    let state = |id: &str| {
+        let agent = agents.iter().find(|agent| agent.id == id).unwrap();
+        (agent.detected, agent.chosen, agent.asked)
+    };
+    assert_eq!(state("claude-code"), (true, true, true));
+    assert_eq!(state("cursor"), (true, false, true), "asked, not chosen");
+    assert_eq!(
+        state("gemini-cli"),
+        (false, false, false),
+        "a chosen directory that does not exist chooses nothing"
+    );
+    // Every agent reading `~/.agents/skills` is one choice.
+    let universal = config.home.join(".agents/skills").display().to_string();
+    let readers: Vec<_> = agents
+        .iter()
+        .filter(|agent| agent.global_skills_dir.as_deref() == Some(universal.as_str()))
+        .collect();
+    assert!(readers.len() > 1);
+    assert!(readers.iter().all(|agent| agent.chosen && agent.asked));
     Ok(())
 }
 

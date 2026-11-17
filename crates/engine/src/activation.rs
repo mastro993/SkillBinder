@@ -17,7 +17,7 @@ pub(crate) use copies::STAGING_PREFIX;
 pub(crate) use progress::Progress;
 pub(crate) use store::{Holder, Pair, claim, forget};
 
-use crate::{database, payload, scan::registry, worker::State};
+use crate::{database, payload, worker::State};
 use pass::{Scope, managed};
 use plan::{Disk, Issue, Row};
 use skillbinder_proto::*;
@@ -47,7 +47,7 @@ impl State {
 
     /// Where `library` and the workspaces hold skills.
     fn places(&self, library: &Library) -> AppResult<Places> {
-        let agents = registry::agent_options(&self.config)?;
+        let agents = self.agents()?;
         let mut places = targets::workspace_places(&self.workspaces_for(library, &agents)?);
         for pair in targets::desired(library, &agents) {
             places.holders.remove(&pair);
@@ -82,7 +82,7 @@ impl State {
     /// to that holder, and the rest are forgotten, leaving their copies unmanaged.
     pub(crate) fn handover(&self, id: &WorkspaceId) -> AppResult<Handover> {
         let library = self.read_library()?;
-        let agents = registry::agent_options(&self.config)?;
+        let agents = self.agents()?;
         let (own, others): (Vec<_>, Vec<_>) = self
             .workspaces_for(&library, &agents)?
             .into_iter()
@@ -116,7 +116,7 @@ impl State {
         before: &Library,
         after: &Library,
     ) -> AppResult<PresetSwitch> {
-        let agents = registry::agent_options(&self.config)?;
+        let agents = self.agents()?;
         let (old, new) = (
             targets::desired(before, &agents),
             targets::desired(after, &agents),
@@ -137,7 +137,7 @@ impl State {
     /// Brings the copies in line after an organization change, for each skill whose directories
     /// it changed, such as by switching the active preset.
     pub(crate) fn apply_change(&self, before: &Library, after: &Library) {
-        let agents = match registry::agent_options(&self.config) {
+        let agents = match self.agents() {
             Ok(agents) => agents,
             Err(error) => return self.log.record(format!("Copies not applied: {error}")),
         };
@@ -173,15 +173,15 @@ impl State {
     }
 
     /// Tries again every directory that may not hold what it should, as each scan does: it
-    /// retries failures, writes the copies a newly detected agent needs, and notices copies that
-    /// were deleted.
+    /// retries failures, writes the copies an agent detected later needs once it is yours, and
+    /// notices copies that were deleted.
     pub(crate) fn retry_copies(&self) -> AppResult<()> {
         self.require_recovered()?;
         self.pass(Scope::Pending)
     }
 
-    /// Before each scan: retries what is not applied and serves newly detected agents, leaving
-    /// failures to the next scan.
+    /// Before each scan: retries what is not applied and serves your agents detected later,
+    /// leaving failures to the next scan.
     pub(crate) fn apply_pending(&self) {
         self.quietly(Scope::Pending);
     }

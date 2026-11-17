@@ -1,6 +1,6 @@
 //! Which of a workspace's agents it holds a library skill for. A workspace's page lists the
 //! folders its directories resolve to in each row's agents menu; Library's popover and the Add
-//! skill picker also offer detected agents' directories it does not use yet. Each directory is
+//! skill picker also offer your agents' directories it does not use yet. Each directory is
 //! one row, naming the agents that read it, since every one of them loads what it holds.
 
 use std::{
@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::agent_skills::{UNIVERSAL, universal_dir};
+use super::agent_skills::{UNIVERSAL, universal_dir, your_agents};
 use super::library_copies::{AgentRow, Reader, shown_dir};
 use super::library_targets::held_label;
 use super::snapshot_query::Entry;
@@ -28,11 +28,11 @@ pub(super) struct DirRow {
     pub row: AgentRow,
 }
 
-/// The directories the workspace uses, then those of detected agents it does not use yet, each
-/// once: `.agents/skills` first, then by name. A detected agent offers its registry directory and
-/// the directories the reviewed overlay names for it alone, such as `.kimi-code/skills`; a
-/// directory only other agents read is offered once the workspace uses it. A row names the
-/// detected agents that read it, or every registry agent that does when none is detected;
+/// The directories the workspace uses, then those of your agents it does not use yet, each once:
+/// `.agents/skills` first, then by name. One of your agents offers its registry directory and the
+/// directories the reviewed overlay names for it alone, such as `.kimi-code/skills`; a directory
+/// only other agents read is offered once the workspace uses it. A row names your agents that read
+/// it, or every registry agent that does when none of yours does;
 /// `.agents/skills` is Universal while a universal agent reads it, so its avatar opens Universal's
 /// page.
 pub(super) fn dir_rows<'a>(
@@ -40,20 +40,20 @@ pub(super) fn dir_rows<'a>(
     workspace: &'a Workspace,
     home: &str,
 ) -> Vec<DirRow> {
-    let detected: Vec<&'a AgentOption> = agents.iter().filter(|agent| agent.detected).collect();
+    let yours = your_agents(agents);
     let dirs: BTreeSet<&'a str> = workspace
         .dirs
         .iter()
         .map(String::as_str)
-        .chain(detected.iter().flat_map(|agent| offered(agent)))
+        .chain(yours.iter().flat_map(|agent| offered(agent)))
         .collect();
     let mut rows: Vec<DirRow> = dirs
         .into_iter()
         .filter_map(|dir| {
             let readers: Vec<&AgentOption> =
                 agents.iter().filter(|agent| reads(agent, dir)).collect();
-            let shown: Vec<&AgentOption> = if readers.iter().any(|agent| agent.detected) {
-                readers.into_iter().filter(|agent| agent.detected).collect()
+            let shown: Vec<&AgentOption> = if readers.iter().any(|agent| agent.chosen) {
+                readers.into_iter().filter(|agent| agent.chosen).collect()
             } else {
                 readers
             };
@@ -108,7 +108,7 @@ pub(super) fn dir_rows<'a>(
     rows
 }
 
-/// The directories a row offers for a detected agent: the registry's, then the ones the overlay
+/// The directories a row offers for one of your agents: the registry's, then the ones the overlay
 /// records as named for it alone.
 fn offered(agent: &AgentOption) -> impl Iterator<Item = &str> {
     std::iter::once(agent.workspace_skills_dir.as_str()).chain(

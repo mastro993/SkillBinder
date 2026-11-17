@@ -106,6 +106,7 @@ async fn ready_with(
             .insert((*key).to_owned(), value.display().to_string());
     }
     let engine = Engine::open(config).unwrap();
+    support::choose_every_agent(&engine).await;
     engine.finish_onboarding(None).await.unwrap();
     engine
 }

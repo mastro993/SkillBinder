@@ -1,4 +1,4 @@
-//! A detected agent's page, or Universal's: only the library skills the active preset holds for
+//! One of your agents' page, or Universal's: only the library skills the active preset holds for
 //! the agents reading that global skill directory (ADR 0007), as Library rows in one card under the
 //! search shared with Library, each with Delete. The header draws the page's head, the active
 //! preset's chip, and Add skill; every change on the page edits that preset. With no skill it shows
@@ -9,7 +9,7 @@ mod rows;
 
 pub(super) use rows::AgentPageRow;
 
-use super::agent_skills::{agent_name, detected_agents, split_universal};
+use super::agent_skills::{agent_name, split_universal, your_agents};
 use super::controls::Logo;
 use super::library_copies::{AgentRow, placements};
 use super::library_filters::empty_state;
@@ -102,7 +102,7 @@ impl NativeView {
     }
 }
 
-/// The library skills the page of the detected agents `ids` lists: those the active `preset` holds
+/// The library skills the page of your agents `ids` lists: those the active `preset` holds
 /// for any of them, by name. The sidebar counts the same list.
 pub(super) fn page_skills<'a>(
     snapshot: &'a AppSnapshot,
@@ -122,13 +122,13 @@ fn logo(row: &AgentRow, size: f32, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-/// The detected agents reading `resolved`, other than `except`, in the Agents section's order.
+/// Your agents reading `resolved`, other than `except`, in the Agents section's order.
 fn readers<'a>(
     agents: &'a [AgentOption],
     resolved: &str,
     except: Option<&str>,
 ) -> Vec<&'a AgentOption> {
-    detected_agents(agents)
+    your_agents(agents)
         .into_iter()
         .filter(|other| Some(other.id.as_str()) != except)
         .filter(|other| {
@@ -142,10 +142,10 @@ fn readers<'a>(
 }
 
 /// Where an agent's or Universal's page goes once `agents` no longer lists it: a universal
-/// agent's page becomes Universal's, and the page of an agent that is no longer detected, or
+/// agent's page becomes Universal's, and the page of an agent that is no longer yours, or
 /// Universal's with no universal agent left, opens Library, as a removed workspace's does.
 pub(super) fn agent_fallback(agents: &[AgentOption], home: &str, route: Route) -> Route {
-    let (universal, others) = split_universal(detected_agents(agents), home);
+    let (universal, others) = split_universal(your_agents(agents), home);
     match route {
         Route::Agent(id) if universal.iter().any(|agent| agent.id == id) => Route::Universal,
         Route::Agent(id) if !others.iter().any(|agent| agent.id == id) => Route::Library,

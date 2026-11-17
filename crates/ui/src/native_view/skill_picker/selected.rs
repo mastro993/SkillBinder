@@ -51,7 +51,7 @@ impl NativeView {
                 .collect(),
         };
         let theme = cx.theme();
-        let undetected =
+        let no_agents =
             matches!(resolved, Resolved::Workspace { entries, .. } if entries.is_empty());
         let header = h_flex()
             .gap(px(6.))
@@ -96,14 +96,14 @@ impl NativeView {
             .rounded(px(10.))
             .child(header)
             .child(body)
-            .when(undetected, |pane| {
+            .when(no_agents, |pane| {
                 pane.child(
                     div()
                         .px(px(12.))
                         .pb(px(8.))
                         .text_size(px(12.))
                         .text_color(theme.muted_foreground)
-                        .child("No agents are detected on this device."),
+                        .child("You have no agents."),
                 )
             })
             .child(self.picker_footer(&picker.selection, cx))

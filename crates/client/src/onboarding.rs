@@ -1,8 +1,9 @@
-//! Onboarding operations: rechecking its facts, and finishing it with its first import, after
-//! which the app refreshes as it does on launch.
+//! Onboarding operations: rechecking its facts, choosing agents, and finishing it with its first
+//! import, after which the app refreshes as it does on launch.
 
 use crate::Client;
 use skillbinder_proto::*;
+use std::collections::BTreeSet;
 
 impl Client {
     /// Rechecks Git and storage, creating the library once onboarding reaches its import.
@@ -13,6 +14,15 @@ impl Client {
     /// Skips the Git step, so onboarding goes on without Git.
     pub async fn skip_git(&self) -> AppResult<Bootstrap> {
         self.refresh_preserving_outcome(self.shared.engine.skip_git().await)
+            .await
+    }
+    /// Saves the choice of agents among the global skill directories the step `shown`.
+    pub async fn choose_agents(
+        &self,
+        shown: BTreeSet<String>,
+        chosen: BTreeSet<String>,
+    ) -> AppResult<Bootstrap> {
+        self.refresh_preserving_outcome(self.shared.engine.choose_agents(shown, chosen).await)
             .await
     }
     /// Starts the system's Git installer; the app then checks for Git until it is found.

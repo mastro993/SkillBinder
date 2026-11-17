@@ -1,5 +1,5 @@
 //! An agent's or Universal's head in the header's title slot: its logo, its name, a stack of the
-//! other detected agents reading its directory, and the directory; and the header's trailing
+//! other agents of yours reading its directory, and the directory; and the header's trailing
 //! preset chip and Add skill.
 
 use super::super::NativeView;

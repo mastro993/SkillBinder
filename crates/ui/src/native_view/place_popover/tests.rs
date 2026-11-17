@@ -25,7 +25,7 @@ const CONTROLS: [&str; 4] = [
     "place-ws-web-.claude/skills",
 ];
 
-/// Two detected agents, `web` using Claude Code's directory, `gone` the same but missing, and
+/// Two of your agents, `web` using Claude Code's directory, `gone` the same but missing, and
 /// `review`, which the active preset holds for Claude Code.
 fn snapshot() -> AppSnapshot {
     Fixture::new()

@@ -97,7 +97,7 @@ impl<'a> Places<'a> {
                     dir_rows(&snapshot.agents, workspace, &snapshot.home)
                         .into_iter()
                         // A workspace with agents offers only those; one without offers the
-                        // detected agents' directories.
+                        // directories of your agents.
                         .filter(|row| {
                             workspace.dirs.is_empty() || workspace.dirs.contains(&row.dir)
                         })
@@ -186,7 +186,7 @@ impl WorkspacePlace<'_> {
         self.workspace.missing
     }
 
-    /// The workspace uses no agent yet, so its line offers the detected agents' directories.
+    /// The workspace uses no agent yet, so its line offers your agents' directories.
     pub(super) fn uses_none(&self) -> bool {
         self.workspace.dirs.is_empty()
     }
@@ -219,7 +219,7 @@ pub(super) struct SkillPlaces<'a> {
 }
 
 impl<'a> SkillPlaces<'a> {
-    /// The active preset holds the skill for all agents, including ones detected later.
+    /// The active preset holds the skill for all your agents, including ones chosen later.
     pub(super) fn all_agents(&self) -> bool {
         self.targets == Some(&Targets::AllAgents)
     }

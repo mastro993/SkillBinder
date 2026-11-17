@@ -9,11 +9,12 @@
 mod support;
 
 use diesel::{connection::SimpleConnection, prelude::*};
+use skillbinder_engine::Engine;
 use skillbinder_proto::{
     Bootstrap, ErrorCategory,
-    OnboardingStep::{self, DataLocation, Git, Import},
+    OnboardingStep::{self, Agents, DataLocation, Git, Import},
 };
-use std::{fs, path::Path};
+use std::{collections::BTreeSet, fs, path::Path};
 use support::{Fixture, category};
 
 /// Each step that applies, with whether it is done.
@@ -45,15 +46,26 @@ struct Value {
     value: String,
 }
 
+/// Continues the Choose your agents step of a home where no agent is found.
+async fn choose_none(engine: &Engine) -> Bootstrap {
+    engine
+        .choose_agents(BTreeSet::new(), BTreeSet::new())
+        .await
+        .unwrap()
+}
+
 #[tokio::test]
-async fn with_git_and_writable_data_a_first_launch_opens_import_with_the_library_created() {
+async fn with_git_and_writable_data_a_first_launch_chooses_agents_then_creates_the_library() {
     let fixture = Fixture::new();
     let engine = fixture.open();
 
     let boot = engine.bootstrap().await.unwrap();
-
-    assert_eq!(steps(&boot), [(Import, false)]);
+    assert_eq!(steps(&boot), [(Agents, false), (Import, false)]);
     assert!(!boot.onboarding.finished);
+    assert!(!Path::new(&boot.library_path).exists());
+
+    let boot = choose_none(&engine).await;
+    assert_eq!(steps(&boot), [(Agents, true), (Import, false)]);
     assert!(is_library(&boot.library_path));
     engine.shutdown().await.unwrap();
 }
@@ -67,7 +79,14 @@ async fn unwritable_data_holds_onboarding_until_it_is_writable() {
     fs::set_permissions(&fixture.data, fs::Permissions::from_mode(0o555)).unwrap();
 
     let boot = engine.bootstrap().await.unwrap();
-    assert_eq!(steps(&boot), [(DataLocation, false), (Import, false)]);
+    assert_eq!(
+        steps(&boot),
+        [(DataLocation, false), (Agents, false), (Import, false)]
+    );
+    assert_eq!(
+        category(engine.choose_agents(BTreeSet::new(), BTreeSet::new()).await),
+        ErrorCategory::Validation
+    );
     assert_eq!(
         category(engine.finish_onboarding(None).await),
         ErrorCategory::Validation
@@ -75,8 +94,8 @@ async fn unwritable_data_holds_onboarding_until_it_is_writable() {
 
     fs::set_permissions(&fixture.data, fs::Permissions::from_mode(0o755)).unwrap();
     let boot = engine.bootstrap().await.unwrap();
-    assert_eq!(steps(&boot), [(Import, false)]);
-    assert!(is_library(&boot.library_path));
+    assert_eq!(steps(&boot), [(Agents, false), (Import, false)]);
+    assert!(is_library(&choose_none(&engine).await.library_path));
     engine.shutdown().await.unwrap();
 }
 
@@ -85,7 +104,10 @@ async fn without_git_skip_leads_on_and_onboarding_finishes_with_a_library_that_h
     let fixture = Fixture::new();
     let engine = fixture.open_without_git();
     let boot = engine.bootstrap().await.unwrap();
-    assert_eq!(steps(&boot), [(Git, false), (Import, false)]);
+    assert_eq!(
+        steps(&boot),
+        [(Git, false), (Agents, false), (Import, false)]
+    );
     assert!(!Path::new(&boot.library_path).exists());
     assert_eq!(
         category(engine.finish_onboarding(None).await),
@@ -93,12 +115,16 @@ async fn without_git_skip_leads_on_and_onboarding_finishes_with_a_library_that_h
     );
 
     let skipped = engine.skip_git().await.unwrap();
-    assert_eq!(steps(&skipped), [(Git, true), (Import, false)]);
+    assert_eq!(
+        steps(&skipped),
+        [(Git, true), (Agents, false), (Import, false)]
+    );
     engine.shutdown().await.unwrap();
 
     let engine = fixture.open_without_git();
+    choose_none(&engine).await;
     let boot = engine.finish_onboarding(None).await.unwrap();
-    assert_eq!(steps(&boot), [(Git, true), (Import, true)]);
+    assert_eq!(steps(&boot), [(Git, true), (Agents, true), (Import, true)]);
     let library = Path::new(&boot.library_path);
     assert!(library.join("skills").is_dir());
     assert!(!library.join(".git").exists());
@@ -109,14 +135,31 @@ async fn without_git_skip_leads_on_and_onboarding_finishes_with_a_library_that_h
 async fn a_relaunch_resumes_at_the_first_unsettled_step_and_repeating_a_step_is_harmless() {
     let fixture = Fixture::new();
     let engine = fixture.open();
-    let first = engine.bootstrap().await.unwrap();
-    let skills = Path::new(&first.library_path).join("skills");
-    fs::write(skills.join("marker"), "kept").unwrap();
-    assert_eq!(steps(&engine.bootstrap().await.unwrap()), [(Import, false)]);
+    assert_eq!(
+        engine.bootstrap().await.unwrap().onboarding.current(),
+        Some(Agents)
+    );
     engine.shutdown().await.unwrap();
 
     let engine = fixture.open();
-    assert_eq!(steps(&engine.bootstrap().await.unwrap()), [(Import, false)]);
+    assert_eq!(
+        engine.bootstrap().await.unwrap().onboarding.current(),
+        Some(Agents)
+    );
+    let first = choose_none(&engine).await;
+    let skills = Path::new(&first.library_path).join("skills");
+    fs::write(skills.join("marker"), "kept").unwrap();
+    assert_eq!(
+        steps(&choose_none(&engine).await),
+        [(Agents, true), (Import, false)]
+    );
+    engine.shutdown().await.unwrap();
+
+    let engine = fixture.open();
+    assert_eq!(
+        steps(&engine.bootstrap().await.unwrap()),
+        [(Agents, true), (Import, false)]
+    );
     assert!(skills.join("marker").is_file());
     assert!(
         engine
@@ -127,7 +170,7 @@ async fn a_relaunch_resumes_at_the_first_unsettled_step_and_repeating_a_step_is_
             .finished
     );
     let again = engine.finish_onboarding(None).await.unwrap();
-    assert_eq!(steps(&again), [(Import, true)]);
+    assert_eq!(steps(&again), [(Agents, true), (Import, true)]);
     engine.shutdown().await.unwrap();
 
     let engine = fixture.open();
@@ -142,13 +185,16 @@ async fn a_relaunch_resumes_at_the_first_unsettled_step_and_repeating_a_step_is_
 async fn data_saved_at_the_old_stored_position_is_read_once_then_forgotten() {
     for (position, finished) in [("Complete", true), ("Ready", false), ("Import", false)] {
         let fixture = Fixture::new();
+        fs::create_dir_all(fixture.home.join(".claude/skills")).unwrap();
         let engine = fixture.open();
-        let library = engine.bootstrap().await.unwrap().library_path;
+        let library = choose_none(&engine).await.library_path;
         engine.shutdown().await.unwrap();
+        // Data saved before onboarding derived its steps has no choice of agents.
         fixture
             .database()
             .batch_execute(&format!(
-                "INSERT INTO device_settings (key, value) VALUES ('onboarding', '\"{position}\"')"
+                "DELETE FROM device_settings WHERE key = 'agents'; \
+                 INSERT INTO device_settings (key, value) VALUES ('onboarding', '\"{position}\"')"
             ))
             .unwrap();
 
@@ -158,6 +204,23 @@ async fn data_saved_at_the_old_stored_position_is_read_once_then_forgotten() {
         assert_eq!(boot.onboarding.finished, finished, "{position}");
         assert_eq!(legacy_position(&fixture), None, "{position}");
         assert!(is_library(&library), "{position}");
+        let claude = engine
+            .snapshot()
+            .await
+            .unwrap()
+            .agents
+            .into_iter()
+            .find(|agent| agent.id == "claude-code")
+            .unwrap();
+        // A finished onboarding keeps every detected agent; an earlier one asks again.
+        assert_eq!(
+            (claude.chosen, claude.asked),
+            (finished, finished),
+            "{position}"
+        );
+        if !finished {
+            assert_eq!(boot.onboarding.current(), Some(Agents), "{position}");
+        }
         engine.shutdown().await.unwrap();
     }
 }

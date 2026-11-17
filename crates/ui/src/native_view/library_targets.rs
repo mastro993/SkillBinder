@@ -101,7 +101,7 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// All agents, then a row for Universal and each other detected agent, checked while the
+    /// All agents, then a row for Universal and each other one of your agents, checked while the
     /// active preset holds the skill for it. Choosing a row adds or removes its agents.
     fn targets_menu(&self, skill: &SkillId, cx: &mut Context<Self>) -> Vec<MenuItem> {
         let view = cx.entity().downgrade();
@@ -172,8 +172,8 @@ pub(super) fn held(targets: Option<&Targets>, ids: &[String]) -> bool {
 }
 
 /// The targets after choosing a row reading for `ids`: they leave when the skill is held for them
-/// and join otherwise. Leaving all agents keeps every other detected agent as a specific list,
-/// which never gains agents; `every` lists the detected agents.
+/// and join otherwise. Leaving all agents keeps every other one of your agents as a specific list,
+/// which never gains agents; `every` lists your agents.
 pub(super) fn toggled(targets: Option<&Targets>, ids: &[String], every: &[String]) -> Targets {
     let mut agents: BTreeSet<String> = match targets {
         None => BTreeSet::new(),

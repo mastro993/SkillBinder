@@ -24,7 +24,7 @@ pub struct Workspace {
     pub image: Option<String>,
     /// The workspace's agents: the workspace skill directories it uses, relative to its folder
     /// with slash separators, such as `.claude/skills`. They are the ones that existed when it was
-    /// added, plus any the user added for a detected agent.
+    /// added, plus any the user added for one of your agents.
     pub dirs: BTreeSet<String>,
     /// Each directory in `dirs` whose links stay inside the folder, with its path as copies name
     /// it: links resolved. One whose links lead out of the folder holds nothing.
@@ -118,4 +118,10 @@ pub struct AgentOption {
     pub same_slug: SameSlug,
     /// The global skill directory exists, so the agent is detected.
     pub detected: bool,
+    /// It is detected and the user chose its global skill directory, so it is one of your agents
+    /// (ADR 0012): SkillBinder scans, writes, and adopts copies only in your agents' directories.
+    pub chosen: bool,
+    /// The user was asked about its global skill directory, in onboarding or Settings, whatever
+    /// the answer, so it is never asked about again.
+    pub asked: bool,
 }

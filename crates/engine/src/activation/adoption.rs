@@ -8,7 +8,7 @@
 
 use super::pass::Scope;
 use super::{held_copy, store};
-use crate::{database, library_store, persistence, scan::registry, worker::State};
+use crate::{agents::chosen_agents, database, library_store, persistence, worker::State};
 use skillbinder_proto::{AppResult, Targets};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -40,7 +40,7 @@ impl State {
         if library.skills.is_empty() {
             return Ok(());
         }
-        let agents = registry::agent_options(&self.config)?;
+        let agents = self.agents()?;
         let recorded = store::load(&mut self.database.borrow_mut())?;
         // Each directory's copy of a slug, probed once however many agents share the directory.
         let mut probed = BTreeMap::<(&str, &str), Option<String>>::new();
@@ -55,7 +55,7 @@ impl State {
             }
             let slug = skill.id.as_str();
             let mut content = None;
-            for agent in agents.iter().filter(|agent| agent.detected) {
+            for agent in chosen_agents(&agents) {
                 let Some(directory) = agent.resolved_skills_dir.as_deref() else {
                     continue;
                 };

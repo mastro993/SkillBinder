@@ -7,6 +7,7 @@ pub(crate) use arguments::{NativeMode, parse_launch};
 pub(crate) use commands::register_commands;
 use skillbinder_engine::Engine;
 use skillbinder_ui::NativeView;
+use std::collections::BTreeSet;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -104,8 +105,18 @@ impl Smoke {
     }
 }
 
+/// Finishes onboarding with every detected agent chosen and nothing imported.
 pub(crate) async fn prepare(engine: &Engine) -> anyhow::Result<()> {
     if !engine.bootstrap().await?.onboarding.finished {
+        let found: BTreeSet<String> = engine
+            .snapshot()
+            .await?
+            .agents
+            .into_iter()
+            .filter(|agent| agent.detected)
+            .filter_map(|agent| agent.global_skills_dir)
+            .collect();
+        engine.choose_agents(found.clone(), found).await?;
         engine.finish_onboarding(None).await?;
     }
     Ok(())

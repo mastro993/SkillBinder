@@ -2,7 +2,7 @@ use super::fixture::{Fixture, agents, dirs, id, preset_id, set};
 use super::*;
 use skillbinder_proto::{Drift, UpdateCheck};
 
-/// Universal (Amp and Codex), Claude Code, and Cursor are detected; Zed is not. acme-web uses
+/// Universal (Amp and Codex), Claude Code, and Cursor are your agents; Zed is not. acme-web uses
 /// `.agents/skills` and `.claude/skills`, api-server `.claude/skills`, and docs-site none.
 fn base() -> Fixture {
     Fixture::new()
@@ -72,19 +72,16 @@ fn segment(active: ActiveFilter) -> LibraryFilter {
 }
 
 #[test]
-fn active_means_on_now_for_a_detected_agent_or_in_a_workspace() {
+fn active_means_on_now_for_one_of_your_agents_or_in_a_workspace() {
     // The snapshot's active preset is Frontend, but the view passes Default.
     let snapshot = library().active("frontend").build();
     let places = Places::new(&snapshot);
     let default = preset_id("default");
     let active = |slug: &str| is_active(&places, skill(&snapshot, slug), &default);
-    assert!(active("a-review"), "held for a detected agent");
+    assert!(active("a-review"), "held for one of your agents");
     assert!(!active("b-design"), "held only by a preset that is off");
     assert!(active("c-sql"), "held only by a workspace");
-    assert!(
-        !active("d-zed"),
-        "held only for an agent that is not detected"
-    );
+    assert!(!active("d-zed"), "held only for an agent that is not yours");
     assert!(!active("f-off"));
     let frontend = preset_id("frontend");
     assert!(
@@ -95,7 +92,7 @@ fn active_means_on_now_for_a_detected_agent_or_in_a_workspace() {
 }
 
 #[test]
-fn all_agents_with_none_detected_is_inactive_and_a_missing_workspace_still_holds() {
+fn all_agents_with_none_of_yours_is_inactive_and_a_missing_workspace_still_holds() {
     let snapshot = Fixture::new()
         .agent("zed", "Zed", ".zed/skills", ".zed/skills", false)
         .workspace("gone", &[".zed/skills"])
@@ -412,7 +409,7 @@ fn workspaces_come_in_sidebar_order_with_the_directories_they_hold() {
 }
 
 #[test]
-fn a_workspace_without_agents_offers_the_detected_agents_directories() {
+fn a_workspace_without_agents_offers_your_agents_directories() {
     let snapshot = library().build();
     let places = Places::new(&snapshot);
     let review = places.of(skill(&snapshot, "a-review"), &preset_id("default"));
@@ -426,7 +423,7 @@ fn a_workspace_without_agents_offers_the_detected_agents_directories() {
     assert_eq!(
         offered,
         [".agents/skills", ".claude/skills", ".cursor/skills"],
-        "Zed is not detected, so its directory is not offered"
+        "Zed is not yours, so its directory is not offered"
     );
     assert_eq!(docs.entries[0].entry.row.name, "Universal");
     assert_eq!(

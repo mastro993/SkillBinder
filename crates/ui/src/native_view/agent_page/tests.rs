@@ -5,7 +5,8 @@ use super::rows::{RemovalPlan, plan_removal};
 use super::*;
 use skillbinder_proto::{SameSlug, Targets};
 
-fn agent(id: &str, global: &str, detected: bool) -> AgentOption {
+/// An agent reading `global`, one of your agents when `yours`.
+fn agent(id: &str, global: &str, yours: bool) -> AgentOption {
     AgentOption {
         id: id.to_owned(),
         display_name: id.to_owned(),
@@ -15,7 +16,9 @@ fn agent(id: &str, global: &str, detected: bool) -> AgentOption {
         resolved_skills_dir: Some(global.to_owned()),
         other_global_dirs: Vec::new(),
         same_slug: SameSlug::Unknown,
-        detected,
+        detected: yours,
+        chosen: yours,
+        asked: yours,
     }
 }
 
@@ -50,7 +53,7 @@ fn claude() -> Place {
 }
 
 #[test]
-fn a_page_reads_for_every_detected_agent_reading_its_directory() {
+fn a_page_reads_for_every_one_of_your_agents_reading_its_directory() {
     let snapshot = fixture().build();
     assert_eq!(page_ids(&snapshot, &claude()), ["claude-code"]);
     assert_eq!(page_ids(&snapshot, &Place::Universal), ["amp", "codex"]);
@@ -67,7 +70,7 @@ fn a_page_reads_for_every_detected_agent_reading_its_directory() {
 }
 
 #[test]
-fn removing_from_all_agents_keeps_the_other_detected_agents() {
+fn removing_from_all_agents_keeps_your_other_agents() {
     let snapshot = fixture()
         .agent("zed", "Zed", ".zed/skills", ".zed/skills", false)
         .skill("review", "", None)
@@ -80,7 +83,7 @@ fn removing_from_all_agents_keeps_the_other_detected_agents() {
     assert_eq!(
         targets,
         agents(&["amp", "codex", "cursor"]),
-        "an undetected agent never joins the list"
+        "an agent that is not yours never joins the list"
     );
     assert_eq!(
         undo,
@@ -110,7 +113,7 @@ fn removing_a_shared_directory_drops_all_its_agents_together() {
 }
 
 #[test]
-fn removing_the_only_directory_leaves_an_empty_list_and_keeps_undetected_agents() {
+fn removing_the_only_directory_leaves_an_empty_list_and_keeps_other_agents() {
     let snapshot = fixture()
         .skill("review", "", None)
         .hold("review", "default", agents(&["claude-code"]))
@@ -151,7 +154,7 @@ fn a_page_without_an_active_preset_lists_nothing() {
 }
 
 #[test]
-fn pages_of_agents_no_longer_detected_open_library() {
+fn pages_of_agents_no_longer_yours_open_library() {
     let agents = [
         agent("codex", "/home/.agents/skills", true),
         agent("claude-code", "/home/.claude/skills", true),
@@ -163,9 +166,9 @@ fn pages_of_agents_no_longer_detected_open_library() {
     assert_eq!(fallback(page("codex")), Route::Universal);
     assert_eq!(fallback(page("cursor")), Route::Library);
     assert_eq!(fallback(Route::Universal), Route::Universal);
-    let undetected = [agent("codex", "/home/.agents/skills", false)];
+    let others = [agent("codex", "/home/.agents/skills", false)];
     assert_eq!(
-        agent_fallback(&undetected, "/home", Route::Universal),
+        agent_fallback(&others, "/home", Route::Universal),
         Route::Library
     );
 }

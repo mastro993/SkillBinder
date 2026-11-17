@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// directory, so agents that share one, such as the universal agents, count once.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Targets {
-    /// Every detected agent's global skill directory, including agents detected later.
+    /// Every chosen agent's global skill directory, including agents chosen later.
     #[default]
     AllAgents,
     /// Exactly these agents, by registry identity; the list never gains agents. An empty list
@@ -52,12 +52,12 @@ pub enum AddSkills {
         /// Each skill and the agents it gains, by registry identity.
         skills: BTreeMap<SkillId, BTreeSet<String>>,
     },
-    /// To workspace `id`: each skill's targets, after `dirs`, the detected agents' workspace skill
+    /// To workspace `id`: each skill's targets, after `dirs`, your agents' workspace skill
     /// directories it does not use yet, join its agents.
     Workspace {
         /// The workspace the skills join.
         id: WorkspaceId,
-        /// Directories the workspace's agents gain, each a detected agent's.
+        /// Directories the workspace's agents gain, each one of your agents'.
         dirs: BTreeSet<String>,
         /// Each skill and the targets it gains there.
         skills: BTreeMap<SkillId, WorkspaceTargets>,
