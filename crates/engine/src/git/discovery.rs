@@ -100,7 +100,9 @@ fn directories(
 
 /// Whether running `executable` would open Apple's Command Line Tools installer.
 fn opens_installer(executable: &Path) -> bool {
-    cfg!(target_os = "macos") && is_apple_stub(executable, developer_directory().as_deref())
+    cfg!(target_os = "macos")
+        && executable == Path::new("/usr/bin/git")
+        && is_apple_stub(executable, developer_directory().as_deref())
 }
 
 /// macOS's `/usr/bin/git` is a stub that opens Apple's installer unless the active developer
