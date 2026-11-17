@@ -62,6 +62,7 @@ impl NativeView {
         }
         StepView {
             title,
+            wide: false,
             body,
             leading: skip,
             actions: buttons,

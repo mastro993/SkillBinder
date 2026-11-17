@@ -11,6 +11,7 @@ impl NativeView {
         let path = &self.snapshot.bootstrap.data_path;
         StepView {
             title: "SkillBinder can't save its data",
+            wide: false,
             body: vec![
                 div()
                     .text_color(cx.theme().danger)

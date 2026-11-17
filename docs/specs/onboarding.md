@@ -49,7 +49,7 @@ When application data is not writable, a step titled "SkillBinder can't save its
 ### Your agents
 
 1. Title "Choose your agents"; lead "SkillBinder adds and removes skills only in the agents you choose. You can change this later in Settings."
-2. One tile per Agents-section row, in a two-column grid (design P3): Universal first, spanning both columns with its members' logos and naming its agents in muted text, then each other detected agent alphabetically. Each tile has the agent's logo, a round check, its name, and its global skill directory in muted text; a chosen tile is outlined. All start chosen.
+2. One tile per Agents-section row, in a three-column grid (design P3, P6): Universal first, spanning all three columns with its members' logos and naming its agents in muted text, then each other detected agent alphabetically. Each tile has the agent's logo, a round check, its name, and its global skill directory in muted text; a chosen tile is outlined. All start chosen.
 3. Continue saves the choice; zero ticked is allowed. With no agent detected it reads "No agents found on this computer. SkillBinder will ask when it finds one." with Continue.
 4. Continue creates the library if it does not exist, then opens Import.
 

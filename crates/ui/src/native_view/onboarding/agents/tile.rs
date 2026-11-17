@@ -2,7 +2,7 @@
 //! bordered box with the theme radius: the logo at its top left, Kit avatars as the import summary
 //! draws them (Universal's first three members in a stack), the check in a ring at its top right,
 //! then the name and the skill folder, or Universal's agents, in muted text. A chosen tile has a
-//! 2-point foreground outline and a filled check. Click, Enter, or Space toggles it.
+//! 1-point outline, the foreground mixed into the border, and a filled check (design P6). Click, Enter, or Space toggles it.
 
 use super::super::super::NativeView;
 use super::super::super::controls::{Logo, app_icon, tooltip};
@@ -54,11 +54,10 @@ impl NativeView {
         };
         let mono = matches!(row.reader, Reader::Agent(_));
         let id = match &row.reader {
-            Reader::Universal(_) => "onboarding-agent-universal".to_owned(),
+            // Not `onboarding-agent-universal`: that is the registry's own Universal agent.
+            Reader::Universal(_) => "onboarding-agents-universal".to_owned(),
             Reader::Agent(id) => format!("onboarding-agent-{id}"),
         };
-        // The outline takes the inner margin's place, so ticking never moves the content.
-        let outline = if chosen { 2. } else { 1. };
         let dir = row.dir.clone();
         let key_dir = dir.clone();
         div()
@@ -78,9 +77,13 @@ impl NativeView {
             .flex_col()
             .items_start()
             .gap(px(8.))
-            .p(px(PADDING + 1. - outline))
-            .border(px(outline))
-            .border_color(if chosen { foreground } else { border })
+            .p(px(PADDING))
+            .border_1()
+            .border_color(if chosen {
+                border.blend(foreground.opacity(0.45))
+            } else {
+                border
+            })
             .rounded(theme.radius_lg)
             .bg(background)
             .cursor_pointer()

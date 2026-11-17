@@ -11,9 +11,7 @@ use super::super::controls::{Inactive, text_button};
 use super::super::library_copies::{AgentRow, Reader, found_rows};
 use super::super::{Effect, NativeView};
 use super::StepView;
-use gpui_kit::component::{
-    ActiveTheme, Size, button::ButtonVariants, h_flex, scroll::ScrollableElement, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
@@ -25,8 +23,8 @@ const LEAD: &str = "SkillBinder adds and removes skills only in the agents you c
                     change this later in Settings.";
 const NONE_FOUND: &str =
     "No agents found on this computer. SkillBinder will ask when it finds one.";
-/// The grid's tallest, past which it scrolls so the buttons stay in view.
-const GRID_HEIGHT: f32 = 312.;
+/// Tiles per row; Universal spans them all (design A2, P6).
+const COLUMNS: usize = 3;
 
 /// The rows a saved choice leaves unticked: those none of whose agents is yours. Before the
 /// choice is saved every row is ticked.
@@ -84,13 +82,15 @@ impl NativeView {
             }));
         StepView {
             title: TITLE,
+            wide: true,
             body,
             leading: None,
             actions: vec![continue_button.into_any_element()],
         }
     }
 
-    /// Two columns of tiles, Universal spanning both, scrolling past [`GRID_HEIGHT`].
+    /// [`COLUMNS`] columns of tiles, Universal spanning them all. The frame scrolls the step when
+    /// they do not fit, so the grid itself never scrolls (design A4).
     fn agent_grid(
         &self,
         rows: &[AgentRow],
@@ -102,26 +102,26 @@ impl NativeView {
             let chosen = !unticked.contains(&row.dir);
             self.agent_tile(row, chosen, &home, cx)
         };
-        let (wide, pairs): (Vec<&AgentRow>, Vec<&AgentRow>) = rows
+        let (wide, others): (Vec<&AgentRow>, Vec<&AgentRow>) = rows
             .iter()
             .partition(|row| matches!(row.reader, Reader::Universal(_)));
         let mut lines: Vec<AnyElement> = wide.into_iter().map(&mut tile).collect();
-        for pair in pairs.chunks(2) {
-            let mut line = h_flex().gap(px(8.)).items_stretch();
-            for row in pair {
-                line = line.child(div().flex_1().min_w_0().flex().child(tile(row)));
-            }
-            if pair.len() == 1 {
-                line = line.child(div().flex_1());
-            }
+        for chunk in others.chunks(COLUMNS) {
+            let line = h_flex()
+                .gap(px(8.))
+                .items_stretch()
+                .children(
+                    chunk
+                        .iter()
+                        .map(|row| div().flex_1().min_w_0().flex().child(tile(row))),
+                )
+                .children((chunk.len()..COLUMNS).map(|_| div().flex_1()));
             lines.push(line.into_any_element());
         }
-        div()
+        v_flex()
             .id("onboarding-agents")
-            .max_h(px(GRID_HEIGHT))
-            .min_h_0()
-            .child(v_flex().gap(px(8.)).children(lines))
-            .overflow_y_scrollbar()
+            .gap(px(8.))
+            .children(lines)
             .into_any_element()
     }
 

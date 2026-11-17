@@ -11,10 +11,12 @@ mod tests;
 
 use super::controls::{Inactive, app_icon, text_button};
 use super::{Effect, NativeView};
-use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
+use gpui_kit::component::{
+    ActiveTheme, Size, button::ButtonVariants, h_flex, scroll::ScrollableElement, v_flex,
+};
 use gpui_kit::{
     AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Text, Window, div, px,
+    StatefulInteractiveElement, Styled, Text, Window, div, linear_color_stop, linear_gradient, px,
 };
 use skillbinder_proto::{Onboarding, OnboardingStep};
 
@@ -76,9 +78,20 @@ pub(super) fn git_step_shown(
     place(onboarding, back_to).filter(|place| place.step == OnboardingStep::Git)
 }
 
+/// The column's width: the steps' 384 points, or 576 for Choose your agents' three tile columns
+/// (design P6).
+const NARROW: f32 = 384.;
+const WIDE: f32 = 576.;
+/// The space between the step's content and its button row.
+const BUTTONS_GAP: f32 = 32.;
+/// How far the content fades out under a pinned button row.
+const FADE: f32 = 24.;
+
 /// A step's part of the frame.
 pub(super) struct StepView {
     title: &'static str,
+    /// Its column is [`WIDE`] rather than [`NARROW`].
+    wide: bool,
     /// What sits under the title: the lead, then the step's content.
     body: Vec<AnyElement>,
     /// The button at the left of the button row, after Back, such as Skip.
@@ -130,57 +143,90 @@ impl NativeView {
                     cx.notify();
                 }))
         });
-        let muted = cx.theme().muted_foreground;
-        let eyebrow = place.eyebrow();
-        div()
+        let theme = cx.theme();
+        let (muted, background) = (theme.muted_foreground, theme.background);
+        let width = px(if view.wide { WIDE } else { NARROW });
+        let head = v_flex()
+            .gap_1()
+            .child(
+                div()
+                    .text_size(px(12.))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(muted)
+                    .child(Text::new(
+                        "onboarding-eyebrow".into(),
+                        place.eyebrow().into(),
+                    )),
+            )
+            .child(
+                div()
+                    .id("onboarding-title")
+                    .role(gpui_kit::Role::Heading)
+                    .aria_label(view.title)
+                    .text_size(px(20.))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(view.title),
+            );
+        let buttons = h_flex()
+            .w(width)
+            .flex_none()
+            .pt(px(BUTTONS_GAP - FADE))
+            .pb_6()
+            .gap(px(8.))
+            .children(back)
+            .children(view.leading)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .justify_end()
+                    .gap(px(8.))
+                    .children(view.actions)
+                    .children(forward),
+            );
+        // The content and buttons sit centered together. Content taller than the window scrolls
+        // at the window's edge, never inside the column, and fades out under the buttons, which
+        // stay in view (design A4).
+        let content = div()
+            .id("onboarding-scroll")
+            .w_full()
+            .min_h_0()
+            .child(
+                h_flex().w_full().justify_center().child(
+                    v_flex()
+                        .id("onboarding-content")
+                        .w(width)
+                        .pt_6()
+                        .pb(px(FADE))
+                        .gap_4()
+                        .child(head)
+                        .children(view.body),
+                ),
+            )
+            .overflow_y_scrollbar();
+        let fade = div()
+            .absolute()
+            .bottom_0()
+            .left_0()
+            .right_0()
+            .h(px(FADE))
+            .bg(linear_gradient(
+                180.,
+                linear_color_stop(background.opacity(0.), 0.),
+                linear_color_stop(background, 1.),
+            ));
+        v_flex()
             .size_full()
-            .flex()
             .items_center()
             .justify_center()
             .child(
                 v_flex()
-                    .id("onboarding-content")
-                    .w_96()
-                    .max_h_full()
+                    .relative()
+                    .w_full()
                     .min_h_0()
-                    .py_6()
-                    .gap_4()
-                    .child(
-                        v_flex()
-                            .gap_1()
-                            .child(
-                                div()
-                                    .text_size(px(12.))
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(muted)
-                                    .child(Text::new("onboarding-eyebrow".into(), eyebrow.into())),
-                            )
-                            .child(
-                                div()
-                                    .id("onboarding-title")
-                                    .role(gpui_kit::Role::Heading)
-                                    .aria_label(view.title)
-                                    .text_size(px(20.))
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child(view.title),
-                            ),
-                    )
-                    .children(view.body)
-                    .child(
-                        h_flex()
-                            .gap(px(8.))
-                            .children(back)
-                            .children(view.leading)
-                            .child(
-                                h_flex()
-                                    .flex_1()
-                                    .justify_end()
-                                    .gap(px(8.))
-                                    .children(view.actions)
-                                    .children(forward),
-                            ),
-                    ),
+                    .child(content)
+                    .child(fade),
             )
+            .child(buttons)
             .into_any_element()
     }
 

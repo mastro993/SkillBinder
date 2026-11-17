@@ -39,6 +39,7 @@ impl NativeView {
         let Some(list) = &self.first_import else {
             return StepView {
                 title: TITLE,
+                wide: false,
                 body: Vec::new(),
                 leading: None,
                 actions: Vec::new(),
@@ -103,6 +104,7 @@ impl NativeView {
         };
         StepView {
             title: TITLE,
+            wide: false,
             body,
             leading: None,
             actions: buttons,
