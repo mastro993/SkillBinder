@@ -57,6 +57,12 @@ impl State {
         let value = serde_json::to_string(value).map_err(|_| AppError::storage())?;
         put_setting(&mut self.database.borrow_mut(), key, &value)
     }
+    pub(crate) fn remove_setting(&self, key: &str) -> AppResult<()> {
+        diesel::delete(device_settings::table.find(key))
+            .execute(&mut *self.database.borrow_mut())
+            .map(drop)
+            .map_err(|_| AppError::storage())
+    }
     pub(crate) fn library_dir(&self) -> PathBuf {
         self.config.data_dir.join("library")
     }

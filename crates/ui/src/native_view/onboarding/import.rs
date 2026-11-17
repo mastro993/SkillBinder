@@ -7,31 +7,31 @@ mod summary;
 #[cfg(test)]
 mod tests;
 
-use super::controls::{Inactive, app_icon, text_button};
-use super::import_dialog::list::import_label;
-use super::import_dialog::{ImportDialog, Phase, alert_glyph, changed_line};
-use super::progress_strip::{Activity, Landing};
-use super::{Effect, NativeView, Route};
+use super::super::controls::{Inactive, app_icon, text_button};
+use super::super::import_dialog::list::import_label;
+use super::super::import_dialog::{ImportDialog, Phase, alert_glyph, changed_line};
+use super::super::progress_strip::{Activity, Landing};
+use super::super::{Effect, NativeView, Route};
+use super::StepView;
 use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
 };
 use skillbinder_proto::FoundImport;
 
+const TITLE: &str = "Import your skills";
 const LEAD: &str = "Importing copies these skills from your agents into your library, each staying active for the agents that have it. You can import others later with Scan for skills in Library.";
 
 /// Onboarding's import step: the list it prepares, and whether Review list shows it.
-pub(super) struct FirstImport {
+pub(in crate::native_view) struct FirstImport {
     pub list: ImportDialog,
     /// Review list is expanded; it starts collapsed (O3).
     pub reviewing: bool,
 }
 
 impl NativeView {
-    /// Starts the step's scan the first time the step shows, after Create library or on a launch
-    /// at the step.
-    pub(super) fn start_first_import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Starts the step's scan the first time the step shows.
+    fn start_first_import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.first_import.is_some() {
             return;
         }
@@ -42,11 +42,17 @@ impl NativeView {
         self.prepare_found(cx);
     }
 
-    /// The step's column: the heading, then Scanning…, the reason a scan failed, nothing found,
-    /// or the lead with the summary and Review list, then the buttons (O1 to O5).
-    pub(super) fn render_first_import(&self, cx: &mut Context<Self>) -> AnyElement {
+    /// The step: Scanning…, the reason a scan failed, nothing found, or the lead with the
+    /// summary and Review list, then the buttons (O1 to O5).
+    pub(super) fn import_step(&mut self, window: &mut Window, cx: &mut Context<Self>) -> StepView {
+        self.start_first_import(window, cx);
         let Some(first) = &self.first_import else {
-            return div().into_any_element();
+            return StepView {
+                title: TITLE,
+                body: Vec::new(),
+                actions: Vec::new(),
+                fill: false,
+            };
         };
         let muted = cx.theme().muted_foreground;
         let line = |glyph: AnyElement, text: String| {
@@ -107,38 +113,12 @@ impl NativeView {
         };
         // While Review list is expanded the column takes the window's height, so the list fills
         // what is left and scrolls.
-        let reviewing = first.reviewing && matches!(first.list.phase, Phase::Ready(_));
-        v_flex()
-            .id("onboarding-content")
-            .w_96()
-            .max_h_full()
-            .when(reviewing, |column| column.h_full())
-            .min_h_0()
-            .py_6()
-            .gap_4()
-            .child(
-                v_flex()
-                    .gap_1()
-                    .child(
-                        div()
-                            .text_size(px(12.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(muted)
-                            .child("SkillBinder"),
-                    )
-                    .child(
-                        div()
-                            .id("onboarding-title")
-                            .role(gpui_kit::Role::Heading)
-                            .aria_label("Import your skills")
-                            .text_size(px(20.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("Import your skills"),
-                    ),
-            )
-            .children(body)
-            .child(h_flex().justify_end().gap(px(8.)).children(buttons))
-            .into_any_element()
+        StepView {
+            title: TITLE,
+            body,
+            actions: buttons,
+            fill: first.reviewing && matches!(first.list.phase, Phase::Ready(_)),
+        }
     }
 
     /// The lead, the summary card, and Review list with, while it is expanded, the search, the
@@ -228,7 +208,7 @@ impl NativeView {
                 let client = view.client.clone();
                 view.route = Route::Library;
                 view.run(
-                    async move { client.complete_onboarding(None).await.map(|_| Effect::None) },
+                    async move { client.finish_onboarding(None).await.map(|_| Effect::None) },
                     cx,
                 );
             }))
@@ -247,7 +227,7 @@ impl NativeView {
         self.block(
             Activity::Importing { skills },
             async move {
-                client.complete_onboarding(Some(import)).await?;
+                client.finish_onboarding(Some(import)).await?;
                 Ok(Landing { imported: skills })
             },
             cx,

@@ -34,8 +34,7 @@ impl State {
     /// holds there becomes active for the directories that hold it, without writing: a copy with
     /// the library's content is adopted, and one with other content is a conflict.
     pub(crate) fn add_workspaces(&mut self, grant: &GrantId) -> AppResult<Vec<Workspace>> {
-        let step: OnboardingStep = self.setting("onboarding")?.unwrap_or_default();
-        if step != OnboardingStep::Complete {
+        if !self.onboarding_finished()? {
             return Err(AppError::validation(
                 "Finish setup before adding workspaces.",
             ));

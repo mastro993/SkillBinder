@@ -5,8 +5,8 @@
 use diesel::{connection::SimpleConnection, prelude::*};
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    AppResult, Candidate, CandidateId, ErrorCategory, ImportOutcome, ImportPlan, OnboardingStep,
-    ScanSnapshot, SkillId, Workspace,
+    AppResult, Candidate, CandidateId, ErrorCategory, ImportOutcome, ImportPlan, ScanSnapshot,
+    SkillId, Workspace,
 };
 use std::{
     fs,
@@ -60,15 +60,7 @@ impl Fixture {
 
     pub async fn ready(&self) -> Engine {
         let engine = self.open();
-        for step in [
-            OnboardingStep::Boundaries,
-            OnboardingStep::SyncChoice,
-            OnboardingStep::Ready,
-        ] {
-            engine.set_onboarding(step).await.unwrap();
-        }
-        engine.create_library().await.unwrap();
-        engine.complete_onboarding(None).await.unwrap();
+        engine.finish_onboarding(None).await.unwrap();
         engine
     }
 

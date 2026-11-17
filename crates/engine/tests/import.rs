@@ -1,4 +1,4 @@
-//! Onboarding, scanning, and installing skills end to end with isolated storage and unchanged
+//! Scanning and installing skills end to end with isolated storage and unchanged
 //! source fixtures.
 #![expect(
     clippy::unwrap_used,
@@ -10,77 +10,9 @@ mod expiry;
 mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
-use skillbinder_proto::{ErrorCategory, ImportDecision, OnboardingStep, SkillId};
+use skillbinder_proto::{ErrorCategory, ImportDecision, SkillId};
 use std::{fs, path::Path};
 use support::{Fixture, category};
-
-#[tokio::test]
-async fn onboarding_requires_each_step_and_survives_restart() {
-    let fixture = Fixture::new();
-    let engine = fixture.open();
-    assert_eq!(
-        category(engine.create_library().await),
-        ErrorCategory::Validation
-    );
-    assert_eq!(
-        category(engine.complete_onboarding(None).await),
-        ErrorCategory::Validation
-    );
-    assert_eq!(
-        category(engine.set_onboarding(OnboardingStep::Ready).await),
-        ErrorCategory::Validation
-    );
-    engine
-        .set_onboarding(OnboardingStep::Boundaries)
-        .await
-        .unwrap();
-    engine.shutdown().await.unwrap();
-    let engine = fixture.open();
-    assert_eq!(
-        engine.bootstrap().await.unwrap().step,
-        OnboardingStep::Boundaries
-    );
-    engine
-        .set_onboarding(OnboardingStep::SyncChoice)
-        .await
-        .unwrap();
-    engine.set_onboarding(OnboardingStep::Ready).await.unwrap();
-    let created = engine.create_library().await.unwrap();
-    assert_eq!(created.step, OnboardingStep::Import);
-    assert!(Path::new(&created.library_path).join("skills").is_dir());
-    // Once the library exists, its creation and the earlier steps are done.
-    assert_eq!(
-        engine.create_library().await.unwrap().library_path,
-        created.library_path
-    );
-    assert_eq!(
-        engine
-            .set_onboarding(OnboardingStep::Boundaries)
-            .await
-            .unwrap()
-            .step,
-        OnboardingStep::Import
-    );
-    engine.shutdown().await.unwrap();
-    let engine = fixture.open();
-    assert_eq!(
-        engine.bootstrap().await.unwrap().step,
-        OnboardingStep::Import
-    );
-    let complete = engine.complete_onboarding(None).await.unwrap();
-    assert_eq!(complete.step, OnboardingStep::Complete);
-    assert_eq!(
-        engine.complete_onboarding(None).await.unwrap().step,
-        OnboardingStep::Complete
-    );
-    engine.shutdown().await.unwrap();
-    let engine = fixture.open();
-    assert_eq!(
-        engine.bootstrap().await.unwrap().step,
-        OnboardingStep::Complete
-    );
-    engine.shutdown().await.unwrap();
-}
 
 #[tokio::test]
 async fn scan_deduplicates_shared_readers_and_stays_inside_known_workspace_locations() {

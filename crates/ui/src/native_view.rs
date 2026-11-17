@@ -28,7 +28,6 @@ mod menu;
 mod native_test;
 mod navigation;
 mod onboarding;
-mod onboarding_import;
 mod page_head;
 mod place_popover;
 mod preset_activation;
@@ -138,7 +137,9 @@ pub struct NativeView {
     /// The Import skills dialog while its import runs, reopened if the list changed (D11).
     importing: Option<Box<import_dialog::ImportDialog>>,
     /// Onboarding's import step, once it shows.
-    first_import: Option<onboarding_import::FirstImport>,
+    first_import: Option<onboarding::import::FirstImport>,
+    /// The onboarding step Back returned to, shown while it comes before the first step not done.
+    onboarding_back_to: Option<OnboardingStep>,
     /// The open context menu.
     menu: Option<menu::OpenMenu>,
     /// Inline preset name editing in the sidebar.
@@ -298,6 +299,7 @@ impl NativeView {
             dialog: DialogState::None,
             importing: None,
             first_import: None,
+            onboarding_back_to: None,
             menu: None,
             preset_edit: None,
             preset_reorder: RowReorder::default().pinned(1),
@@ -370,7 +372,7 @@ impl Focusable for NativeView {
 
 impl Render for NativeView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let onboarding = self.snapshot.bootstrap.step != OnboardingStep::Complete;
+        let onboarding = !self.snapshot.bootstrap.onboarding.finished;
         let body = if onboarding {
             div()
                 .size_full()

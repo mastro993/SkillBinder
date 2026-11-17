@@ -110,11 +110,17 @@ impl Engine {
         };
         state.recover()?;
         state.forget_agent_folders()?;
+        state.forget_onboarding_position()?;
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("skillbinder-engine".into())
             .spawn(move || {
                 // Engine::open returns before this runs; queued requests wait for it.
+                if let Err(error) = state.ensure_library() {
+                    state
+                        .log
+                        .record(format!("Library creation will retry: {error}"));
+                }
                 if state.library_dir().exists() {
                     state.catch_up();
                 }
@@ -329,7 +335,7 @@ impl State {
     }
     fn snapshot(&mut self) -> AppResult<AppSnapshot> {
         let bootstrap = self.bootstrap()?;
-        let library = if bootstrap.step == OnboardingStep::Complete {
+        let library = if bootstrap.onboarding.finished {
             Some(self.library_snapshot()?)
         } else {
             None

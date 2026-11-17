@@ -106,15 +106,7 @@ async fn ready_with(
             .insert((*key).to_owned(), value.display().to_string());
     }
     let engine = Engine::open(config).unwrap();
-    for step in [
-        skillbinder_proto::OnboardingStep::Boundaries,
-        skillbinder_proto::OnboardingStep::SyncChoice,
-        skillbinder_proto::OnboardingStep::Ready,
-    ] {
-        engine.set_onboarding(step).await.unwrap();
-    }
-    engine.create_library().await.unwrap();
-    engine.complete_onboarding(None).await.unwrap();
+    engine.finish_onboarding(None).await.unwrap();
     engine
 }
 

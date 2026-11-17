@@ -10,15 +10,7 @@ async fn ready(directory: &Path) -> AppResult<Engine> {
         directory.join("data"),
         directory.join("home"),
     ))?;
-    for step in [
-        OnboardingStep::Boundaries,
-        OnboardingStep::SyncChoice,
-        OnboardingStep::Ready,
-    ] {
-        engine.set_onboarding(step).await?;
-    }
-    engine.create_library().await?;
-    engine.complete_onboarding(None).await?;
+    engine.finish_onboarding(None).await?;
     Ok(engine)
 }
 

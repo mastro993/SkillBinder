@@ -1,11 +1,75 @@
-use super::controls::{Inactive, button};
+//! Onboarding's frame (design F1 to F4, P1): the steps that apply, from the engine, in a centered
+//! column under "SkillBinder · Step N of M" and the step's title, with Back at the left of the
+//! button row and the step's actions at its right. Each step's view lives in its own module.
+
+mod data_location;
+mod git;
+pub(super) mod import;
+#[cfg(test)]
+mod tests;
+
+use super::controls::{Inactive, app_icon, text_button};
 use super::{Effect, NativeView};
-use gpui_kit::component::button::ButtonVariants;
+use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder,
+    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, Text, Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::OnboardingStep;
+use skillbinder_proto::{Onboarding, OnboardingStep};
+
+/// The step the frame shows and where it stands among the steps that apply.
+#[derive(Debug, PartialEq, Eq)]
+struct Place {
+    step: OnboardingStep,
+    /// Its position among the steps that apply, from 1.
+    number: usize,
+    /// How many steps apply.
+    count: usize,
+    /// The step Back returns to.
+    back: Option<OnboardingStep>,
+}
+
+impl Place {
+    fn eyebrow(&self) -> String {
+        format!("SkillBinder · Step {} of {}", self.number, self.count)
+    }
+}
+
+/// Where the frame stands: the step gone `back_to`, while it applies before the first step not
+/// done, or else that step; `None` once every step is done.
+fn place(onboarding: &Onboarding, back_to: Option<OnboardingStep>) -> Option<Place> {
+    let steps = &onboarding.steps;
+    let current = steps.iter().position(|status| !status.done)?;
+    let shown = back_to
+        .and_then(|step| {
+            steps
+                .iter()
+                .take(current)
+                .position(|status| status.step == step)
+        })
+        .unwrap_or(current);
+    Some(Place {
+        step: steps.get(shown)?.step,
+        number: shown + 1,
+        count: steps.len(),
+        back: shown
+            .checked_sub(1)
+            .and_then(|previous| steps.get(previous))
+            .map(|status| status.step),
+    })
+}
+
+/// A step's part of the frame.
+pub(super) struct StepView {
+    title: &'static str,
+    /// What sits under the title: the lead, then the step's content.
+    body: Vec<AnyElement>,
+    /// The buttons at the right of the button row, the primary last.
+    actions: Vec<AnyElement>,
+    /// The column takes the window's height, so a list in the body fills what is left and
+    /// scrolls.
+    fill: bool,
+}
 
 impl NativeView {
     pub(super) fn render_onboarding(
@@ -13,154 +77,94 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let step = self.snapshot.bootstrap.step;
-        if step == OnboardingStep::Import {
-            self.start_first_import(window, cx);
-            return div()
-                .size_full()
-                .flex()
-                .items_center()
-                .justify_center()
-                .child(self.render_first_import(cx))
-                .into_any_element();
-        }
-        let ready = self.snapshot.bootstrap.git_version.is_some()
-            && self.snapshot.bootstrap.storage_writable;
-        let (title, detail) = match step {
-            OnboardingStep::Prerequisites => (
-                "Check this computer",
-                "SkillBinder needs Git and a writable application data location.",
-            ),
-            OnboardingStep::Boundaries => (
-                "Keep sources separate",
-                "SkillBinder reads your agents' skills and your workspaces. Importing a skill copies it into your private library.",
-            ),
-            OnboardingStep::SyncChoice => (
-                "Sync is optional",
-                "You can keep the library only on this computer and connect a Git remote later.",
-            ),
-            OnboardingStep::Ready => (
-                "Create your library",
-                "The managed library will be created in application data.",
-            ),
-            OnboardingStep::Import | OnboardingStep::Complete => {
-                ("SkillBinder", "Your library is ready.")
-            }
+        let Some(place) = place(&self.snapshot.bootstrap.onboarding, self.onboarding_back_to)
+        else {
+            return div().into_any_element();
         };
-        let client = self.client.clone();
-        let next = match step {
-            OnboardingStep::Prerequisites => OnboardingStep::Boundaries,
-            OnboardingStep::Boundaries => OnboardingStep::SyncChoice,
-            OnboardingStep::SyncChoice => OnboardingStep::Ready,
-            OnboardingStep::Ready | OnboardingStep::Import | OnboardingStep::Complete => {
-                OnboardingStep::Import
-            }
+        let view = match place.step {
+            OnboardingStep::DataLocation => self.data_location_step(cx),
+            OnboardingStep::Git => self.git_step(cx),
+            // The engine does not offer it yet.
+            OnboardingStep::Agents => StepView {
+                title: "Choose your agents",
+                body: Vec::new(),
+                actions: Vec::new(),
+                fill: false,
+            },
+            OnboardingStep::Import => self.import_step(window, cx),
         };
-        let back = match step {
-            OnboardingStep::Boundaries => Some(OnboardingStep::Prerequisites),
-            OnboardingStep::SyncChoice => Some(OnboardingStep::Boundaries),
-            OnboardingStep::Ready => Some(OnboardingStep::SyncChoice),
-            _ => None,
-        };
+        let back = place.back.map(|step| {
+            text_button("onboarding-back", "Back", Size::Medium)
+                .outline()
+                .icon(app_icon("chevron-left"))
+                .inactive(self.blocked())
+                .on_click(cx.listener(move |view, _, _, cx| {
+                    view.onboarding_back_to = Some(step);
+                    cx.notify();
+                }))
+        });
+        let muted = cx.theme().muted_foreground;
+        let eyebrow = place.eyebrow();
         div()
             .size_full()
             .flex()
             .items_center()
             .justify_center()
             .child(
-                div()
+                v_flex()
                     .id("onboarding-content")
                     .w_96()
-                    .flex()
-                    .flex_col()
+                    .max_h_full()
+                    .when(view.fill, |column| column.h_full())
+                    .min_h_0()
+                    .py_6()
                     .gap_4()
-                    .child("SkillBinder")
                     .child(
-                        div()
-                            .id("onboarding-title")
-                            .role(gpui_kit::Role::Heading)
-                            .aria_label(title)
-                            .child(title),
-                    )
-                    .child(detail)
-                    .when(step == OnboardingStep::Prerequisites, |row| {
-                        row.child(format!(
-                            "Git: {}",
-                            self.snapshot
-                                .bootstrap
-                                .git_version
-                                .as_deref()
-                                .unwrap_or("Unavailable")
-                        ))
-                        .child(format!(
-                            "Storage: {}",
-                            if self.snapshot.bootstrap.storage_writable {
-                                "Ready"
-                            } else {
-                                "Unavailable"
-                            }
-                        ))
-                        .child(
-                            button("recheck-prerequisites")
-                                .label("Check again")
-                                .inactive(self.busy)
-                                .on_click(cx.listener(|view, _, _, cx| {
-                                    let client = view.client.clone();
-                                    view.run(
-                                            async move {
-                                                client.bootstrap().await.map(|_| Effect::None)
-                                            },
-                                            cx,
-                                        );
-                                })),
-                        )
-                    })
-                    .when_some(back, |row, previous| {
-                        row.child(
-                            button("onboarding-back")
-                                .label("Back")
-                                .inactive(self.busy)
-                                .on_click(cx.listener(move |view, _, _, cx| {
-                                    let client = view.client.clone();
-                                    view.run(
-                                        async move {
-                                            client
-                                                .set_onboarding(previous)
-                                                .await
-                                                .map(|_| Effect::None)
-                                        },
-                                        cx,
-                                    );
-                                })),
-                        )
-                    })
-                    .child(
-                        button("onboarding-next")
-                            .label(if step == OnboardingStep::Ready {
-                                "Create library"
-                            } else {
-                                "Continue"
-                            })
-                            .primary()
-                            .inactive(
-                                self.busy || (step == OnboardingStep::Prerequisites && !ready),
+                        v_flex()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_size(px(12.))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(muted)
+                                    .child(Text::new("onboarding-eyebrow".into(), eyebrow.into())),
                             )
-                            .on_click(cx.listener(move |view, _, _, cx| {
-                                let client = client.clone();
-                                view.run(
-                                    async move {
-                                        if next == OnboardingStep::Import {
-                                            client.create_library().await?;
-                                        } else {
-                                            client.set_onboarding(next).await?;
-                                        }
-                                        Ok(Effect::None)
-                                    },
-                                    cx,
-                                );
-                            })),
+                            .child(
+                                div()
+                                    .id("onboarding-title")
+                                    .role(gpui_kit::Role::Heading)
+                                    .aria_label(view.title)
+                                    .text_size(px(20.))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(view.title),
+                            ),
+                    )
+                    .children(view.body)
+                    .child(
+                        h_flex().gap(px(8.)).children(back).child(
+                            h_flex()
+                                .flex_1()
+                                .justify_end()
+                                .gap(px(8.))
+                                .children(view.actions),
+                        ),
                     ),
             )
+            .into_any_element()
+    }
+
+    /// The primary Check again, which rechecks Git and storage.
+    fn check_again(&self, cx: &mut Context<Self>) -> AnyElement {
+        text_button("onboarding-check-again", "Check again", Size::Medium)
+            .primary()
+            .inactive(self.blocked())
+            .on_click(cx.listener(|view, _, _, cx| {
+                let client = view.client.clone();
+                view.run(
+                    async move { client.bootstrap().await.map(|_| Effect::None) },
+                    cx,
+                );
+            }))
             .into_any_element()
     }
 }

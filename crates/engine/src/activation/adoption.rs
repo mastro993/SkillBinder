@@ -9,7 +9,7 @@
 use super::pass::Scope;
 use super::{held_copy, store};
 use crate::{database, library_store, persistence, scan::registry, worker::State};
-use skillbinder_proto::{AppResult, OnboardingStep, Targets};
+use skillbinder_proto::{AppResult, Targets};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
@@ -32,10 +32,7 @@ impl State {
     fn try_adopt_agent_copies(&self) -> AppResult<()> {
         if self.recovery_required
             || self.setting::<bool>(ADOPTED)?.unwrap_or(false)
-            || self
-                .setting::<OnboardingStep>("onboarding")?
-                .unwrap_or_default()
-                != OnboardingStep::Complete
+            || !self.onboarding_finished()?
         {
             return Ok(());
         }

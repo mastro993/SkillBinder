@@ -23,7 +23,7 @@ impl Engine {
                 if state.updates.running()? {
                     return Ok(Err(()));
                 }
-                if state.bootstrap()?.step != OnboardingStep::Complete {
+                if !state.onboarding_finished()? {
                     return Ok(Ok(None));
                 }
                 if !state.recovery_required

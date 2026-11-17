@@ -1,11 +1,18 @@
-use crate::{persistence, worker::State};
-use skillbinder_proto::{
-    AppError, AppResult, Bootstrap, ErrorCategory, ImportSelection, OnboardingStep,
+use crate::{
+    onboarding::{self, Facts},
+    persistence,
+    worker::State,
 };
+use skillbinder_proto::{AppError, AppResult, Bootstrap, ImportSelection, OnboardingStep};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
+
+/// Device setting saved once onboarding's import is applied or skipped.
+const FINISHED: &str = "onboarding_finished";
+/// Device setting that stored the onboarding position before steps were derived from facts.
+const LEGACY_POSITION: &str = "onboarding";
 
 /// Whose Git configuration the engine's Git commands read.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -58,51 +65,40 @@ impl EngineConfig {
 }
 impl State {
     pub(crate) fn bootstrap(&self) -> AppResult<Bootstrap> {
-        let step = self.setting("onboarding")?.unwrap_or_default();
+        let storage_writable = persistence::writable(&self.config.data_dir);
         Ok(Bootstrap {
-            step,
+            onboarding: onboarding::derive(Facts {
+                storage_writable,
+                git_found: self.git.is_some(),
+                finished: self.onboarding_finished()?,
+            }),
             git_version: self.git.as_ref().map(|git| git.version().to_owned()),
-            storage_writable: persistence::writable(&self.config.data_dir),
+            storage_writable,
+            data_path: self.config.data_dir.display().to_string(),
             library_path: self.library_dir().display().to_string(),
             logs_path: self.config.data_dir.join("logs").display().to_string(),
         })
     }
-    /// Moves between the steps before the library exists; once it does, they are done.
-    pub(crate) fn set_onboarding(&mut self, next: OnboardingStep) -> AppResult<Bootstrap> {
-        let current = self.bootstrap()?;
-        if current.step >= OnboardingStep::Import {
-            return Ok(current);
-        }
-        if next >= OnboardingStep::Import || (next as u8) > (current.step as u8) + 1 {
-            return Err(AppError::validation(
-                "Complete the current setup step first.",
-            ));
-        }
-        if next > OnboardingStep::Prerequisites
-            && (current.git_version.is_none() || !current.storage_writable)
-        {
-            return Err(AppError::new(
-                ErrorCategory::Storage,
-                "Git 2.39 or newer and writable storage are required.",
-                "Install Git or fix storage access, then recheck.",
-            ));
-        }
-        self.set_setting("onboarding", &next)?;
-        self.bootstrap()
+    /// Whether onboarding finished: its import was applied or skipped.
+    pub(crate) fn onboarding_finished(&self) -> AppResult<bool> {
+        Ok(self.setting(FINISHED)?.unwrap_or(false))
     }
-    /// Creates the library at the Ready step, then onboarding reviews its first import.
-    pub(crate) fn create_library(&mut self) -> AppResult<Bootstrap> {
-        let boot = self.bootstrap()?;
-        if boot.step >= OnboardingStep::Import {
-            return Ok(boot);
+    /// Carries data saved under the stored onboarding position over, once: a finished onboarding
+    /// stays finished, and any earlier position starts the derived steps.
+    pub(crate) fn forget_onboarding_position(&self) -> AppResult<()> {
+        let Some(position) = self.setting::<String>(LEGACY_POSITION)? else {
+            return Ok(());
+        };
+        if position == "Complete" {
+            self.set_setting(FINISHED, &true)?;
         }
-        if boot.step != OnboardingStep::Ready {
-            return Err(AppError::validation(
-                "Finish all setup steps before creating the library.",
-            ));
-        }
-        if !boot.storage_writable {
-            return Err(AppError::storage());
+        self.remove_setting(LEGACY_POSITION)
+    }
+    /// Creates the library on the way into onboarding's import, once the earlier steps are done.
+    /// Repeating it, or calling it at any other step, changes nothing.
+    pub(crate) fn ensure_library(&self) -> AppResult<()> {
+        if self.bootstrap()?.onboarding.current() != Some(OnboardingStep::Import) {
+            return Ok(());
         }
         let git = self
             .git
@@ -110,41 +106,38 @@ impl State {
             .ok_or_else(|| AppError::validation("Install Git 2.39 or newer, then recheck."))?;
         let target = self.library_dir();
         if target.exists() {
-            git.initialize(&target)?;
-        } else {
-            let staged = self
-                .config
-                .data_dir
-                .join("staging")
-                .join(format!("initialize-{}", uuid::Uuid::new_v4()));
-            std::fs::create_dir_all(staged.join("skills")).map_err(|_| AppError::storage())?;
-            git.initialize(&staged)?;
-            std::fs::rename(&staged, &target).map_err(|_| AppError::storage())?;
-            persistence::sync_directory(&self.config.data_dir)?;
+            return git.initialize(&target);
         }
-        self.catch_up();
-        self.set_setting("onboarding", &OnboardingStep::Import)?;
-        self.bootstrap()
+        let staged = self
+            .config
+            .data_dir
+            .join("staging")
+            .join(format!("initialize-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(staged.join("skills")).map_err(|_| AppError::storage())?;
+        git.initialize(&staged)?;
+        std::fs::rename(&staged, &target).map_err(|_| AppError::storage())?;
+        persistence::sync_directory(&self.config.data_dir)
     }
-    /// Finishes onboarding once the library exists, first applying the reviewed first import, if
-    /// any; a failed import leaves onboarding at its import review.
-    pub(crate) fn complete_onboarding(
+    /// Finishes onboarding at its import, first applying the reviewed first import, if any; a
+    /// failed import leaves onboarding at its import. Refused while an earlier step is not done.
+    pub(crate) fn finish_onboarding(
         &mut self,
         import: Option<ImportSelection>,
     ) -> AppResult<Bootstrap> {
         let boot = self.bootstrap()?;
-        if boot.step == OnboardingStep::Complete {
+        if boot.onboarding.finished {
             return Ok(boot);
         }
-        if boot.step != OnboardingStep::Import {
+        if boot.onboarding.current() != Some(OnboardingStep::Import) {
             return Err(AppError::validation(
-                "Create the library before finishing setup.",
+                "Finish the earlier setup steps first.",
             ));
         }
+        self.ensure_library()?;
         if let Some(import) = import {
             self.apply_import(import.plan, import.skills, import.acknowledge_invalid)?;
         }
-        self.set_setting("onboarding", &OnboardingStep::Complete)?;
+        self.set_setting(FINISHED, &true)?;
         self.adopt_agent_copies();
         self.bootstrap()
     }
