@@ -115,9 +115,10 @@ impl Engine {
             lock,
         };
         state.recover()?;
-        state.forget_agent_folders()?;
         state.forget_onboarding_position()?;
+        // Forgetting an agent folder hands its copies to your agents, so they are chosen first.
         state.choose_agents_of_finished_onboarding()?;
+        state.forget_agent_folders()?;
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("skillbinder-engine".into())
