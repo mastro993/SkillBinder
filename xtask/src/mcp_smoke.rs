@@ -193,23 +193,16 @@ pub(crate) fn run(mut args: impl Iterator<Item = OsString>) -> anyhow::Result<()
 }
 
 fn exercise_ui(rpc: &mut Rpc) -> anyhow::Result<()> {
-    // Create library leads to the import step, which scans at once; the empty fixture home holds
-    // nothing to import, so its Continue finishes onboarding.
-    for title in [
-        "Keep sources separate",
-        "Sync is optional",
-        "Create your library",
-        "Import your skills",
-    ] {
-        rpc.tool("click_element", json!({"id":"onboarding-next"}))?;
-        wait_tree(rpc, |tree| {
-            tree["nodes"]["onboarding-title"]["label"] == title
-                && tree["nodes"]["onboarding-next"]["actions"]
-                    .as_array()
-                    .is_some_and(|actions| actions.contains(&json!("click")))
-        })
-        .with_context(|| format!("Onboarding did not reach {title}"))?;
-    }
+    // With Git found and writable data, onboarding opens straight on its import step, which scans
+    // at once; the empty fixture home holds nothing to import, so its Continue finishes it.
+    wait_tree(rpc, |tree| {
+        input_text(tree, "onboarding-eyebrow") == Some("SkillBinder · Step 1 of 1")
+            && tree["nodes"]["onboarding-title"]["label"] == "Import your skills"
+            && tree["nodes"]["onboarding-next"]["actions"]
+                .as_array()
+                .is_some_and(|actions| actions.contains(&json!("click")))
+    })
+    .context("Onboarding did not open on Import your skills")?;
     rpc.tool("click_element", json!({"id":"onboarding-next"}))?;
     wait_tree(rpc, |tree| {
         tree["nodes"]["nav-sync"]["actions"]

@@ -11,3 +11,5 @@ The native capture API reported a screen-recording permission denial and used it
 `behavior/` preserves declarative development-mode interaction evidence. Its screenshots remain outside the repository because they duplicate canonical states and contain development typography. References to those external screenshots are historical evidence locations.
 
 The evidence does not prove native filesystem effects, a real directory-picker journey, IME behavior, operating-system preference changes, or Windows and Linux behavior. `xtask verify` checks hashes and JSON integrity, not visual correctness.
+
+The `onboarding-*` captures show the four-step onboarding of the baseline revision. ADR 0010 supersedes it: the native onboarding shows only the steps that apply, and its states are recorded as native evidence under `docs/native-gate/`. The captures stay unchanged, since `xtask verify` checks their hashes as preserved evidence.

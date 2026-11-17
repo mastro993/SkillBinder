@@ -13,9 +13,7 @@ mod support;
 
 use imports::*;
 use skillbinder_engine::Engine;
-use skillbinder_proto::{
-    CopyState, ImportPlan, OnboardingStep, OrganizationChange, WorkspaceTargets,
-};
+use skillbinder_proto::{CopyState, ImportPlan, OrganizationChange, WorkspaceTargets};
 use std::{fs, path::PathBuf};
 use support::{Fixture, add_workspace, write_skill};
 
@@ -42,7 +40,7 @@ async fn first_boot_adopts_matching_copies_without_writing_and_fills_default_per
         [("pdf".to_owned(), vec![]), ("review".to_owned(), vec![])]
     );
     let done = onboard(&engine, &plan, &["pdf", "review"]).await;
-    assert_eq!(done.step, OnboardingStep::Complete);
+    assert!(done.onboarding.finished);
 
     let library = engine.snapshot().await.unwrap().library.unwrap();
     let mut pdf = universal(&engine, &fixture.home).await;
@@ -291,7 +289,7 @@ async fn first_boot_with_nothing_found_offers_nothing_and_workspaces_wait_for_it
         engine.add_workspaces(grant.id).await.is_err(),
         "onboarding scans no workspaces"
     );
-    engine.complete_onboarding(None).await.unwrap();
+    engine.finish_onboarding(None).await.unwrap();
     add_workspace(&engine, &fixture.workspace).await;
     engine.shutdown().await.unwrap();
 }

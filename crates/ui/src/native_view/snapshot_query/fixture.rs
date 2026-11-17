@@ -6,9 +6,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use skillbinder_proto::{
     AgentDir, AgentOption, AppSnapshot, Bootstrap, DirRole, Drift, FolderId, Library,
-    LibrarySnapshot, OnboardingStep, Preferences, Preset, PresetIcon, PresetId, SameSlug, Skill,
-    SkillDetails, SkillId, SkillUpdate, SyncSnapshot, Targets, UpdateCheck, Workspace, WorkspaceId,
-    WorkspaceTargets,
+    LibrarySnapshot, Onboarding, OnboardingStep, Preferences, Preset, PresetIcon, PresetId,
+    SameSlug, Skill, SkillDetails, SkillId, SkillUpdate, StepStatus, SyncSnapshot, Targets,
+    UpdateCheck, Workspace, WorkspaceId, WorkspaceTargets,
 };
 
 /// The fixture's home folder.
@@ -48,9 +48,16 @@ impl Fixture {
                 generation: 0,
                 background_error: None,
                 bootstrap: Bootstrap {
-                    step: OnboardingStep::Complete,
+                    onboarding: Onboarding {
+                        steps: vec![StepStatus {
+                            step: OnboardingStep::Import,
+                            done: true,
+                        }],
+                        finished: true,
+                    },
                     git_version: None,
                     storage_writable: true,
+                    data_path: String::new(),
                     library_path: String::new(),
                     logs_path: String::new(),
                 },

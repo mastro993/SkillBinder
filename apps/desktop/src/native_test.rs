@@ -6,7 +6,6 @@ mod workspaces;
 pub(crate) use arguments::{NativeMode, parse_launch};
 pub(crate) use commands::register_commands;
 use skillbinder_engine::Engine;
-use skillbinder_proto::OnboardingStep;
 use skillbinder_ui::NativeView;
 use std::sync::{
     Arc, Mutex,
@@ -106,17 +105,8 @@ impl Smoke {
 }
 
 pub(crate) async fn prepare(engine: &Engine) -> anyhow::Result<()> {
-    if engine.bootstrap().await?.step == OnboardingStep::Complete {
-        return Ok(());
+    if !engine.bootstrap().await?.onboarding.finished {
+        engine.finish_onboarding(None).await?;
     }
-    for step in [
-        OnboardingStep::Boundaries,
-        OnboardingStep::SyncChoice,
-        OnboardingStep::Ready,
-    ] {
-        engine.set_onboarding(step).await?;
-    }
-    engine.create_library().await?;
-    engine.complete_onboarding(None).await?;
     Ok(())
 }

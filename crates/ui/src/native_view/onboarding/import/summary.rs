@@ -1,12 +1,12 @@
 //! The summary card (O2): the avatars of the Agents rows whose global skill directories hold the
 //! found skills, up to four, and "N skills found in <agents>", in the Agents section's order.
 
-use super::super::NativeView;
-use super::super::controls::Logo;
-use super::super::import_dialog::versions::found_skills;
-use super::super::library_avatars::{Ring, stack};
-use super::super::library_copies::{AgentRow, agent_rows};
-use super::super::sidebar_row::format_count;
+use super::super::super::NativeView;
+use super::super::super::controls::Logo;
+use super::super::super::import_dialog::versions::found_skills;
+use super::super::super::library_avatars::{Ring, stack};
+use super::super::super::library_copies::{AgentRow, agent_rows};
+use super::super::super::sidebar_row::format_count;
 use gpui_kit::component::{ActiveTheme, h_flex};
 use gpui_kit::{
     AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled, Text,

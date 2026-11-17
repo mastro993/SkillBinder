@@ -18,18 +18,11 @@ use std::{
     time::SystemTime,
 };
 
-/// An engine whose library was just created, so onboarding reviews its first import.
+/// An engine at onboarding's import, whose library was created on the way into it.
 pub async fn created(fixture: &Fixture) -> Engine {
     let engine = fixture.open();
-    for step in [
-        OnboardingStep::Boundaries,
-        OnboardingStep::SyncChoice,
-        OnboardingStep::Ready,
-    ] {
-        engine.set_onboarding(step).await.unwrap();
-    }
-    let created = engine.create_library().await.unwrap();
-    assert_eq!(created.step, OnboardingStep::Import);
+    let boot = engine.bootstrap().await.unwrap();
+    assert_eq!(boot.onboarding.current(), Some(OnboardingStep::Import));
     engine
 }
 
@@ -51,7 +44,7 @@ pub async fn onboard(engine: &Engine, plan: &ImportPlan, slugs: &[&str]) -> Boot
         skills,
         acknowledge_invalid: true,
     };
-    engine.complete_onboarding(Some(import)).await.unwrap()
+    engine.finish_onboarding(Some(import)).await.unwrap()
 }
 
 /// Writes a skill whose files look edited long ago, so a copy rewritten since reads newer.

@@ -2,33 +2,54 @@ use crate::{LibrarySnapshot, ScanSnapshot, SkillId, SkillUpdate, SyncSnapshot, W
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Ordered, resumable onboarding steps.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+/// An onboarding step, in the order onboarding shows them.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum OnboardingStep {
-    /// Git and writable storage verification.
-    #[default]
-    Prerequisites,
-    /// Explain source and managed-library boundaries.
-    Boundaries,
-    /// Offer local-only setup; synchronization remains optional.
-    SyncChoice,
-    /// Final creation confirmation.
-    Ready,
-    /// The library exists; review importing the skills found in your agents' global skill
-    /// directories, or skip it.
+    /// Application data is not writable.
+    DataLocation,
+    /// No usable Git was found.
+    Git,
+    /// Choose the agents SkillBinder manages.
+    Agents,
+    /// Import the skills found in your agents' global skill directories, or skip it.
     Import,
-    /// Onboarding finished: the library exists, and its first import was applied or skipped.
-    Complete,
+}
+/// An onboarding step that applies on this device, and whether its fact is settled.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct StepStatus {
+    /// The step.
+    pub step: OnboardingStep,
+    /// Its fact is settled, so onboarding moves past it.
+    pub done: bool,
+}
+/// Onboarding derived from saved facts, never from a stored position.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Onboarding {
+    /// The steps that apply on this device, in order.
+    pub steps: Vec<StepStatus>,
+    /// The import step is done: the library exists and its first import was applied or skipped.
+    pub finished: bool,
+}
+impl Onboarding {
+    /// The first step that is not done, or `None` once every step is.
+    pub fn current(&self) -> Option<OnboardingStep> {
+        self.steps
+            .iter()
+            .find(|status| !status.done)
+            .map(|status| status.step)
+    }
 }
 /// Bootstrap result used before enabling product screens.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bootstrap {
-    /// Last durable onboarding step.
-    pub step: OnboardingStep,
+    /// Onboarding's steps and whether it finished.
+    pub onboarding: Onboarding,
     /// Trusted Git executable version, if supported.
     pub git_version: Option<String>,
     /// Whether application data can be written.
     pub storage_writable: bool,
+    /// App-owned application data location.
+    pub data_path: String,
     /// App-owned managed library location.
     pub library_path: String,
     /// App-owned diagnostics location.

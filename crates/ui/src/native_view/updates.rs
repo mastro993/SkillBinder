@@ -11,7 +11,7 @@ use super::{DialogState, Effect, NativeView, sidebar};
 impl NativeView {
     pub(super) fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
         // Onboarding's import step is over once onboarding is complete.
-        if latest.bootstrap.step == OnboardingStep::Complete {
+        if latest.bootstrap.onboarding.finished {
             self.first_import = None;
         }
         let shown = self.route.clone();

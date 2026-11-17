@@ -10,6 +10,7 @@ mod library;
 mod library_store;
 mod lifecycle;
 mod logging;
+mod onboarding;
 mod payload;
 mod persistence;
 mod reconcile;

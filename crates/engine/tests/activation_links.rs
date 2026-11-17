@@ -15,7 +15,7 @@ mod support;
 
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::{
-    CopyState, LibrarySnapshot, OnboardingStep, OrganizationChange, PresetId, SkillId, Targets,
+    CopyState, LibrarySnapshot, OrganizationChange, PresetId, SkillId, Targets,
 };
 use std::{fs, os::unix::fs::symlink, path::Path};
 use support::{scan, write_skill};
@@ -25,15 +25,7 @@ use support::{scan, write_skill};
 async fn imported(home: &Path, data: &Path) -> Engine {
     write_skill(&home.join(".agents/skills"), "review", "Library version");
     let engine = Engine::open(EngineConfig::isolated(data.to_owned(), home.to_owned())).unwrap();
-    for step in [
-        OnboardingStep::Boundaries,
-        OnboardingStep::SyncChoice,
-        OnboardingStep::Ready,
-    ] {
-        engine.set_onboarding(step).await.unwrap();
-    }
-    engine.create_library().await.unwrap();
-    engine.complete_onboarding(None).await.unwrap();
+    engine.finish_onboarding(None).await.unwrap();
     let ids = scan(&engine)
         .await
         .candidates
