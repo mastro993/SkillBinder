@@ -9,13 +9,10 @@ use super::super::library_items::SkillItem;
 use super::super::library_targets::{held, toggled};
 use super::super::skill_picker::{Place, Resolved};
 use super::super::undo::{Removal, Undo};
+use super::super::workspace_page::remove_button;
 use super::super::{Effect, NativeView};
-use gpui_kit::component::h_flex;
-use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
-    StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
-};
-use skillbinder_design::{Button, icon};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, prelude::FluentBuilder};
+use skillbinder_design::row_end;
 use skillbinder_proto::{AppSnapshot, OrganizationChange, PresetId, SkillId, Targets};
 
 /// What an agent page's row shows beyond a Library row.
@@ -40,30 +37,14 @@ impl NativeView {
         let unsettled = item
             .placement
             .map_or(0, |placement| placement.unsettled.len());
-        let label = format!("Remove from {}", row.name);
         let (place, skill) = (row.place.clone(), id.clone());
-        let remove = Button::new(format!("agent-remove-{id}"))
-            .ghost()
-            .small()
-            .icon(icon("delete"))
-            .tooltip(label.clone())
-            .accessibility_label(label)
+        let remove = remove_button(format!("agent-remove-{id}"), row.name)
             .inactive(self.blocked())
             .on_click(cx.listener(move |view, _, _, cx| {
                 cx.stop_propagation();
                 view.remove_from_agents(&place, skill.clone(), cx);
             }));
-        h_flex()
-            .id(format!("agent-row-end-{id}"))
-            .flex_none()
-            .items_center()
-            .gap(px(8.))
-            .on_click(|_, _, cx| cx.stop_propagation())
-            .on_key_down(|event: &KeyDownEvent, _, cx| {
-                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                    cx.stop_propagation();
-                }
-            })
+        row_end(format!("agent-row-end-{id}"))
             .when(unsettled > 0, |end| {
                 end.child(self.unsettled_glyph(id, unsettled, cx))
             })

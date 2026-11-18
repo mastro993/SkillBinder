@@ -8,13 +8,10 @@ use std::collections::BTreeSet;
 use super::copy_dialogs::CopiesListing;
 use super::workspace_targets::folders;
 use super::{DialogState, Effect, NativeView};
-use gpui_kit::component::{ActiveTheme, dialog::Dialog, h_flex};
-use gpui_kit::{Context, ParentElement, Styled, div, px};
-use skillbinder_design::Button;
+use gpui_kit::component::dialog::Dialog;
+use gpui_kit::{Context, ParentElement};
+use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize, Text};
 use skillbinder_proto::{CopyChoice, CopyState, ManagedCopy, SkillId};
-
-/// The prompt's width.
-const WIDTH: f32 = 320.;
 
 /// The copies of one skill a removal left asking in one place.
 pub(super) struct Changed {
@@ -86,7 +83,6 @@ impl NativeView {
             .chain(names)
             .collect::<Vec<_>>()
             .join(" · ");
-        let title = self.dialog_title("You changed this skill here", cx);
         let answer = |id: &'static str, label: &'static str, choice: CopyChoice| {
             let copies = copies.clone();
             Button::new(id)
@@ -105,20 +101,13 @@ impl NativeView {
                     );
                 }))
         };
-        dialog
-            .w(px(WIDTH))
-            .title(title)
-            .child(
-                div()
-                    .text_size(px(13.))
-                    .text_color(cx.theme().muted_foreground)
-                    .child(detail),
-            )
-            .footer(
-                h_flex()
-                    .gap_2()
-                    .child(answer("changed-keep", "Keep", CopyChoice::Keep))
-                    .child(answer("changed-remove", "Remove", CopyChoice::Replace).danger()),
-            )
+        let footer = DialogFooter::new()
+            .secondary(answer("changed-keep", "Keep", CopyChoice::Keep))
+            .primary(answer("changed-remove", "Remove", CopyChoice::Replace).danger());
+        let header = DialogHeader::new("You changed this skill here");
+        self.dialog_frame(DialogSize::Compact, header, cx)
+            .footer(footer)
+            .apply(dialog, cx)
+            .child(Text::new(detail).muted())
     }
 }

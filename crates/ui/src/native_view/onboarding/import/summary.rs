@@ -4,12 +4,9 @@
 use super::super::super::NativeView;
 use super::super::super::controls::reader_logo;
 use super::super::super::import_dialog::versions::found_skills;
-use super::super::super::library_avatars::{Ring, stack};
 use super::super::super::library_copies::{AgentRow, agent_rows};
-use gpui_kit::component::{ActiveTheme, h_flex};
-use gpui_kit::{AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, px};
-use skillbinder_design::tokens::text;
-use skillbinder_design::{Logo, Text, format_count};
+use gpui_kit::{AnyElement, IntoElement};
+use skillbinder_design::{AvatarStack, CardList, ListRow, Logo, Text, format_count};
 use skillbinder_proto::{Candidate, ScanSnapshot};
 use std::collections::BTreeSet;
 
@@ -60,8 +57,8 @@ impl Summary<'_> {
 }
 
 impl NativeView {
-    /// The bordered summary card of `scan`.
-    pub(super) fn summary_card(&self, scan: &ScanSnapshot, cx: &mut Context<Self>) -> AnyElement {
+    /// The summary card of `scan`, one row.
+    pub(super) fn summary_card(&self, scan: &ScanSnapshot) -> AnyElement {
         let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
         let summary = summary(scan, &rows);
         let logos: Vec<Logo> = summary
@@ -69,27 +66,11 @@ impl NativeView {
             .iter()
             .map(|row| reader_logo(&row.reader))
             .collect();
-        let theme = cx.theme();
-        let ring = Ring {
-            rest: theme.background,
-            hovered: None,
-        };
-        h_flex()
-            .id("onboarding-summary")
-            .items_center()
-            .gap(px(10.))
-            .p(px(12.))
-            .border_1()
-            .border_color(theme.border)
-            .rounded(px(10.))
-            .bg(theme.background)
-            .child(stack(&logos, ring, cx))
-            .child(
-                Text::labeled("summary", summary.text())
-                    .level(text::TITLE_SM)
-                    .flex_1()
-                    .min_w_0(),
-            )
+        let row = ListRow::new("onboarding-summary-row")
+            .leading(AvatarStack::new(logos))
+            .title(Text::labeled("summary", summary.text()));
+        CardList::new("onboarding-summary")
+            .row(row)
             .into_any_element()
     }
 }

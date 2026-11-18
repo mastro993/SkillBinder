@@ -5,8 +5,13 @@
 pub(super) mod frames;
 
 use super::library_copies::Reader;
-use gpui_kit::component::Icon;
-use skillbinder_design::{Logo, icon};
+use gpui_kit::component::{ActiveTheme, Icon};
+use gpui_kit::{
+    AnyElement, App, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement,
+    Styled, div,
+};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{Logo, icon, tooltip};
 
 /// An agent's official logo, or the square terminal glyph for agents without bundled artwork.
 pub(super) fn agent_icon(id: &str) -> Icon {
@@ -27,6 +32,30 @@ pub(super) fn reader_logo(reader: &Reader) -> Logo {
     match reader {
         Reader::Universal(_) => Logo::Glyph("icons/layers.svg"),
         Reader::Agent(id) => agent_logo(id),
+    }
+}
+
+/// The line under an Agents row's name, `id`: its folder in monospace when `mono`, else
+/// Universal's agents or a note, whose whole text the tooltip shows once it is cut short.
+pub(super) fn agent_detail(id: String, detail: String, mono: bool, cx: &App) -> AnyElement {
+    let theme = cx.theme();
+    let line = div()
+        .id(id)
+        .min_w_0()
+        .truncate()
+        .text_color(theme.muted_foreground);
+    if mono {
+        text::MONO_SM
+            .apply(line)
+            .font_family(theme.mono_font_family.clone())
+            .child(detail)
+            .into_any_element()
+    } else {
+        text::CAPTION
+            .apply(line)
+            .child(detail.clone())
+            .tooltip(tooltip(detail))
+            .into_any_element()
     }
 }
 

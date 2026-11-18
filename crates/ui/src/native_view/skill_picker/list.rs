@@ -6,20 +6,18 @@ use super::super::NativeView;
 use super::super::library_items::update_glyph;
 use super::super::snapshot_query::{has_update, searched};
 use super::SkillPicker;
-use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::text;
+use skillbinder_design::tokens::space;
 use skillbinder_design::{
-    Button, Checkbox, EmptyState, SearchField, SegmentedFilter, Text, tooltip,
+    Button, CardList, Checkbox, EmptyState, ListRow, SearchField, SegmentedFilter, Text, tooltip,
 };
 use skillbinder_proto::{FolderId, Skill, SkillId};
 use std::collections::BTreeSet;
 
-/// How faded a skill the place holds already is.
-const HERE: f32 = 0.5;
 /// The search field's width.
 const SEARCH_WIDTH: f32 = 280.;
 
@@ -35,40 +33,31 @@ impl NativeView {
         let skills = searched(&self.snapshot, picker.folder.as_ref(), &search);
         let field = SearchField::new("picker-search", &picker.search).width(SEARCH_WIDTH);
         let filter = (!self.folders().is_empty()).then(|| self.folder_filter(picker, &search, cx));
-        let rows: Vec<AnyElement> = skills
+        let rows: Vec<ListRow> = skills
             .iter()
-            .enumerate()
-            .map(|(index, skill)| self.picker_row(picker, skill, here, index == 0, cx))
+            .map(|skill| self.picker_row(picker, skill, here, cx))
             .collect();
-        let list = if rows.is_empty() {
-            self.picker_empty(cx)
-        } else {
-            v_flex().children(rows).into_any_element()
-        };
+        let empty = rows.is_empty().then(|| self.picker_empty(cx));
+        let list = CardList::new("picker-list")
+            .flex_1()
+            .min_h_0()
+            .scrolls()
+            .rows(rows)
+            .when_some(empty, CardList::empty);
         v_flex()
             .flex_1()
             .min_w_0()
             .min_h_0()
-            .gap(px(12.))
+            .gap(px(space::LG))
             .child(
                 h_flex()
-                    .gap(px(8.))
+                    .gap(px(space::MD))
                     .flex_wrap()
                     .items_center()
                     .child(field)
                     .children(filter),
             )
-            .child(
-                div()
-                    .id("picker-list")
-                    .flex_1()
-                    .min_h_0()
-                    .border_1()
-                    .border_color(cx.theme().border)
-                    .rounded(px(10.))
-                    .child(list)
-                    .overflow_y_scrollbar(),
-            )
+            .child(list)
             .into_any_element()
     }
 
@@ -114,9 +103,8 @@ impl NativeView {
         picker: &SkillPicker,
         skill: &Skill,
         here: &BTreeSet<SkillId>,
-        first: bool,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
+    ) -> ListRow {
         let slug = skill.id.to_string();
         let held = here.contains(&skill.id);
         let picked = picker.selection.contains(&skill.id);
@@ -143,52 +131,31 @@ impl NativeView {
                 let _ = weak.update(cx, |view, cx| toggle(view, cx));
             });
         let name = h_flex()
-            .gap(px(6.))
+            .gap(px(space::SM))
             .min_w_0()
-            .child(
-                Text::labeled("slug", slug.clone())
-                    .level(text::TITLE_SM)
-                    .truncate(),
-            )
+            .child(Text::labeled("slug", slug.clone()).truncate())
             .when(has_update(&self.snapshot, &skill.id), |name| {
                 name.child(update_glyph(&skill.id))
             });
-        let row = h_flex()
-            .id(format!("picker-skill-{slug}"))
+        let row = ListRow::new(format!("picker-skill-{slug}"))
             .items_start()
-            .gap(px(10.))
-            .px(px(12.))
-            .py(px(10.))
-            .when(!first, |row| row.border_t_1().border_color(theme.border))
-            .when(picked, |row| row.bg(theme.muted))
-            .child(
+            .leading(
                 div()
                     .id(format!("picker-check-box-{slug}"))
-                    .pt(px(2.))
+                    .pt(px(space::XXS))
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .child(check),
             )
-            .child(
-                v_flex().min_w_0().flex_1().gap(px(2.)).child(name).child(
-                    div()
-                        .text_size(px(12.))
-                        .text_color(theme.muted_foreground)
-                        .truncate()
-                        .child(description),
-                ),
-            );
+            .title(name)
+            .subtitle(description)
+            .when(picked, |row| row.bg(theme.muted));
         if held {
-            return row
-                .opacity(HERE)
-                .tooltip(tooltip("Already here"))
-                .into_any_element();
+            return row.dimmed(true).tooltip(tooltip("Already here"));
         }
-        let hover = theme.muted;
         let toggle = pick(skill.id.clone());
-        row.cursor_pointer()
-            .hover(move |style| style.bg(hover))
+        row.hover(true)
+            .cursor_pointer()
             .on_click(cx.listener(move |view, _, _, cx| toggle(view, cx)))
-            .into_any_element()
     }
 
     /// Why the list is empty: the library holds no skill, or nothing matches, with Clear search.

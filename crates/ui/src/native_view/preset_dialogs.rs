@@ -4,8 +4,9 @@
 use super::progress_strip::{Activity, Landing};
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::dialog::Dialog;
-use gpui_kit::{Context, ParentElement, Styled, div};
-use skillbinder_design::Button;
+use gpui_kit::{Context, ParentElement, Styled, div, px};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize};
 use skillbinder_proto::{DeletePreview, OrganizationChange, PresetSwitch, SkillId};
 
 impl NativeView {
@@ -23,65 +24,54 @@ impl NativeView {
             .switch
             .is_some()
             .then(|| preview.preset.name.clone());
-        dialog
-            .title(self.dialog_title("Delete preset", cx))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .child(format!(
-                        "Delete {}? Its {} skills stay in the library.",
-                        preview.preset.name, preview.affected_skills
-                    ))
-                    .children(preview.switch.as_ref().map(switch_note)),
-            )
-            .footer(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(
-                        Button::new("delete-cancel")
-                            .label("Cancel")
-                            .inactive(busy)
-                            .on_click(
-                                cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                            ),
-                    )
-                    .child(
-                        Button::new("delete-confirm")
-                            .label("Delete preset")
-                            .inactive(busy)
-                            .on_click(cx.listener(move |view, _, _, cx| {
-                                let client = view.client.clone();
-                                let change = OrganizationChange::DeletePreset {
-                                    id: id.clone(),
-                                    revision: revision.clone(),
-                                };
-                                let Some(preset) = active.clone() else {
-                                    return view.run(
-                                        async move {
-                                            client
-                                                .change_organization(change)
-                                                .await
-                                                .map(|_| Effect::CloseDialog)
-                                        },
-                                        cx,
-                                    );
-                                };
-                                // The strip takes over from the confirmation.
-                                view.dialog = DialogState::None;
-                                view.block(
-                                    Activity::DeletingActive { preset },
-                                    async move {
-                                        client.change_organization(change).await?;
-                                        Ok(Landing::default())
-                                    },
-                                    cx,
-                                );
-                            })),
-                    ),
-            )
+        let delete = Button::new("delete-confirm")
+            .label("Delete preset")
+            .danger()
+            .inactive(busy)
+            .on_click(cx.listener(move |view, _, _, cx| {
+                let client = view.client.clone();
+                let change = OrganizationChange::DeletePreset {
+                    id: id.clone(),
+                    revision: revision.clone(),
+                };
+                let Some(preset) = active.clone() else {
+                    return view.run(
+                        async move {
+                            client
+                                .change_organization(change)
+                                .await
+                                .map(|_| Effect::CloseDialog)
+                        },
+                        cx,
+                    );
+                };
+                // The strip takes over from the confirmation.
+                view.dialog = DialogState::None;
+                view.block(
+                    Activity::DeletingActive { preset },
+                    async move {
+                        client.change_organization(change).await?;
+                        Ok(Landing::default())
+                    },
+                    cx,
+                );
+            }));
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap(px(space::MD))
+            .child(format!(
+                "Delete {}? Its {} skills stay in the library.",
+                preview.preset.name, preview.affected_skills
+            ))
+            .children(preview.switch.as_ref().map(switch_note));
+        let footer = DialogFooter::new()
+            .secondary(self.dialog_cancel("delete-cancel", cx))
+            .primary(delete);
+        self.dialog_frame(DialogSize::Standard, DialogHeader::new("Delete preset"), cx)
+            .footer(footer)
+            .apply(dialog, cx)
+            .child(body)
     }
 }
 

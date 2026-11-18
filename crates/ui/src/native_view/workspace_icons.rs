@@ -2,15 +2,15 @@
 
 use super::preset_colors::preset_tint;
 use super::preset_icons::{IconGrid, option_glyph};
-use super::sidebar_row::{RowIcon, icon_color};
+use super::sidebar_row::RowIcon;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, App, Entity, InteractiveElement, IntoElement, ParentElement, Role,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
-use skillbinder_design::icon;
-use skillbinder_design::menu::{HIGHLIGHT_INK, LABEL_SIZE, LINE_INK, SEPARATOR_MARGIN};
-use skillbinder_design::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
+use skillbinder_design::icon_color;
+use skillbinder_design::sidebar::ICON_SIZE;
+use skillbinder_design::{icon, menu};
 use skillbinder_proto::{PresetIcon, Workspace};
 use std::{path::PathBuf, rc::Rc};
 
@@ -34,7 +34,7 @@ pub(super) fn menu_icon(workspace: &Workspace, cx: &App) -> AnyElement {
     let tint = workspace
         .color
         .map(|color| preset_tint(color, cx.theme().is_dark()));
-    row_icon(workspace).element(tint, icon_color(cx))
+    row_icon(workspace).element(tint, icon_color(cx.theme()))
 }
 
 /// The workspace's glyph or image `size` px square, its glyph tinted or muted, as a Library chip
@@ -53,10 +53,7 @@ pub(super) fn icon_picker(
     choose: ChooseImage,
     cx: &mut App,
 ) -> AnyElement {
-    let theme = cx.theme();
-    let line = theme.foreground.alpha(LINE_INK);
-    let highlight = theme.foreground.alpha(HIGHLIGHT_INK);
-    let radius = theme.radius;
+    let highlight = menu::highlight(cx.theme());
     let label = if has_image {
         "Change Image…"
     } else {
@@ -68,27 +65,12 @@ pub(super) fn icon_picker(
         .flex()
         .flex_col()
         .child(grid.into_any_element())
+        .child(menu::separator())
         .child(
-            div()
-                .flex_shrink_0()
-                .h(px(1.))
-                .my(px(SEPARATOR_MARGIN))
-                .bg(line),
-        )
-        .child(
-            div()
-                .id("workspace-icon-image")
+            menu::row(div().id("workspace-icon-image"))
                 .role(Role::MenuItem)
                 .aria_label(label)
                 .tab_index(0)
-                .flex()
-                .flex_shrink_0()
-                .items_center()
-                .gap(px(ICON_GAP))
-                .h(px(ROW_HEIGHT))
-                .px(px(ROW_PADDING))
-                .rounded(radius)
-                .text_size(px(LABEL_SIZE))
                 .cursor_pointer()
                 .hover(move |style| style.bg(highlight))
                 .focus(move |style| style.bg(highlight))
@@ -103,7 +85,7 @@ pub(super) fn icon_picker(
                     icon("image")
                         .size(px(ICON_SIZE))
                         .flex_shrink_0()
-                        .text_color(icon_color(cx)),
+                        .text_color(icon_color(cx.theme())),
                 )
                 .child(label),
         )

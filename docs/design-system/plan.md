@@ -139,11 +139,11 @@ crates/design/
 | DialogFooter | molecule | `secondary`, `primary` (variant may be danger), `leading` | spacing md | 7 footer builds, `import_dialog::footer` | Button |
 | KeyValueList | molecule | `rows: [(label, value)]` | caption, body-sm | Settings and Sync `format!` rows | Kit DescriptionList |
 | CodeBlock | molecule | `text`, `on_copy` | code-block | `git_command_box` | Kit Clipboard |
-| AvatarStack | molecule | `logos`, `limit`, `ring` | avatar-overflow | `stack`, `stack_of`, `named_stack` | Kit Avatar(Group), Logo |
+| AvatarStack | molecule | `logos`, `limit`, `ring`, `hover_ring`, `names` | avatar-overflow | `stack`, `stack_of`, `named_stack` | Kit Avatar, Logo (Kit AvatarGroup shows `⋯`, not `+N`) |
 | CardList | organism | `rows`, `empty` | card, hairline, elevation flat | 5 card containers with 4 radii | Surface, ListRow, EmptyState |
-| DialogFrame | organism | `size: compact 320 \| standard 420 \| window`, header/body/footer | dialog, elevation modal | sizing in `import_dialog/frame.rs:19-34`, `skill_picker/dialog.rs:17-66`, `copy_changed.rs:17`, `copies_review/render.rs:22` | Kit Dialog, DialogHeader, DialogFooter |
+| DialogFrame | organism | `size: compact 320 \| standard 420 \| window(viewport)`, header/body/footer, applied to the `Dialog` Kit hands the builder | dialog, elevation modal | sizing in `import_dialog/frame.rs:19-34`, `skill_picker/dialog.rs:17-66`, `copy_changed.rs:17`, `copies_review/render.rs:22` | Kit Dialog, DialogHeader, DialogFooter |
 | Menu | organism | `items: MenuItem`, `submenu`, `panel` | popover, elevation overlay | `menu.rs` (moved), `workspace_page/agents.rs` menu, `workspace_icons.rs` item | Surface, Icon, Separator |
-| PopoverPanel | organism | `anchor`, `content` | popover, elevation overlay | place popover surface, progress pill surface | Surface, Kit Positioner |
+| PopoverPanel | organism | `anchor(bounds, placement, align)`, children | popover, elevation overlay | place popover surface and placement | Surface, Kit Positioner |
 
 The full opportunity list, with every call site, is in [opportunities.md](opportunities.md).
 

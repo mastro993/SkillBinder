@@ -4,7 +4,6 @@
 
 use super::super::NativeView;
 use super::super::controls::agent_logo;
-use super::super::library_avatars::{Ring, stack_of};
 use super::super::library_places::preset_chip;
 use super::super::skill_picker::{Place, Resolved};
 use super::{logo, names, readers};
@@ -13,7 +12,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div,
 };
-use skillbinder_design::{IconSize, Logo, tooltip};
+use skillbinder_design::{AvatarStack, IconSize, Logo, tooltip};
 
 /// Agents the member stack shows before the rest collapse into `+N`.
 const MEMBERS: usize = 3;
@@ -36,14 +35,14 @@ impl NativeView {
         let members = readers(&self.snapshot.agents, &row.resolved, except);
         let stack = (!members.is_empty()).then(|| {
             let logos: Vec<Logo> = members.iter().map(|agent| agent_logo(&agent.id)).collect();
-            let ring = Ring {
-                rest: cx.theme().background,
-                hovered: None,
-            };
             div()
                 .id("agent-members")
                 .flex_none()
-                .child(stack_of(&logos, MEMBERS, ring, cx))
+                .child(
+                    AvatarStack::new(logos)
+                        .limit(MEMBERS)
+                        .ring(cx.theme().background),
+                )
                 .tooltip(tooltip(format!(
                     "{label} {}",
                     names(&members, home).join(", ")

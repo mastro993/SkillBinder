@@ -4,7 +4,6 @@
 use std::{path::PathBuf, rc::Rc};
 
 use super::NativeView;
-use super::menu::{MenuItem, OpenMenu};
 use gpui_kit::component::{ActiveTheme, Icon, input::InputState};
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, Entity, Hsla, InteractiveElement, IntoElement,
@@ -19,9 +18,8 @@ use skillbinder_design::tokens::text;
 use skillbinder_design::{
     Button, IconSize, InlineNameField, Level, NameFieldSize, Spinner, Surface, Text, icon,
 };
+use skillbinder_design::{MenuItem, OpenMenu, icon_color};
 
-/// Unselected icons sit a step below their label, as in the reference design.
-const ICON_OPACITY: f32 = 0.65;
 /// Space between a row's label and a marker after it, such as the active preset's check.
 const MARKER_GAP: f32 = 4.0;
 /// How far an image icon's corners are rounded inside the row icon slot.
@@ -116,7 +114,11 @@ pub(super) fn row_with_marker(
     } else {
         theme.muted_foreground
     };
-    let neutral = if selected { text } else { icon_color(cx) };
+    let neutral = if selected {
+        text
+    } else {
+        icon_color(cx.theme())
+    };
     let hover = hover_fill(cx);
     div()
         .id(id.into())
@@ -154,11 +156,6 @@ pub(super) fn row_with_marker(
 /// The fill of an unselected row under the pointer, or whose context menu is open.
 fn hover_fill(cx: &App) -> Hsla {
     cx.theme().sidebar_accent.opacity(0.5)
-}
-
-/// Icon color of unselected rows, shared by the row menus.
-pub(super) fn icon_color(cx: &App) -> Hsla {
-    cx.theme().muted_foreground.opacity(ICON_OPACITY)
 }
 
 /// Runs `action` on click, and on Enter or Space while the row has keyboard focus.

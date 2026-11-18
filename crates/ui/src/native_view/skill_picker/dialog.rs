@@ -1,5 +1,5 @@
-//! The picker's frame: a Kit dialog about 92% by 90% of the window, titled `Add skill to` and the
-//! place's chip, then the library pane and the Selected pane side by side.
+//! The picker's frame: a window-sized dialog titled `Add skill to` and the place's chip, then the
+//! library pane and the Selected pane side by side.
 
 use super::super::NativeView;
 use super::super::controls::reader_logo;
@@ -7,18 +7,13 @@ use super::super::library_copies::{Reader, shown_dir};
 use super::super::library_places::preset_chip;
 use super::super::workspace_icons::sized_icon;
 use super::{Resolved, SkillPicker};
-use gpui_kit::component::{ActiveTheme, dialog::Dialog, h_flex};
+use gpui_kit::component::{dialog::Dialog, h_flex};
 use gpui_kit::{
-    AnyElement, App, Context, FontWeight, InteractiveElement, IntoElement, ParentElement, Pixels,
-    Size, StatefulInteractiveElement, Styled, div, px,
+    AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement, Pixels, Size,
+    StatefulInteractiveElement, Styled, div, px,
 };
-use skillbinder_design::{Chip, ChipVariant, IconSize, Text, tooltip};
-
-/// The dialog's share of the window's width and height.
-const WIDTH: f32 = 0.92;
-const HEIGHT: f32 = 0.9;
-/// The gap between the panes.
-const PANE_GAP: f32 = 16.;
+use skillbinder_design::tokens::{icon, space, text};
+use skillbinder_design::{Chip, ChipVariant, DialogHeader, DialogSize, IconSize, Text, tooltip};
 
 impl NativeView {
     /// The picker in `dialog`, sized from the window's `viewport`.
@@ -38,17 +33,11 @@ impl NativeView {
             .as_ref()
             .and_then(|library| self.active_preset(library));
         let here = resolved.holding(&self.snapshot, preset.map(|preset| &preset.id));
-        let theme = cx.theme();
         let mut title = h_flex()
-            .gap(px(8.))
+            .gap(px(space::MD))
             .items_center()
-            .child(
-                div()
-                    .text_size(px(16.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(Text::labeled("title", "Add skill")),
-            )
-            .child(div().text_color(theme.muted_foreground).child("to"))
+            .child(Text::labeled("title", "Add skill"))
+            .child(Text::new("to").level(text::BODY_MD).muted())
             .child(place_chip(&resolved, &self.snapshot.home, cx));
         if matches!(resolved, Resolved::Agents { .. }) {
             title = title.child(preset_chip("place-preset", preset, cx));
@@ -58,15 +47,16 @@ impl NativeView {
             .size_full()
             .min_h_0()
             .items_stretch()
-            .gap(px(PANE_GAP))
+            .gap(px(space::XL))
             .child(self.picker_list(picker, &here, cx))
             .child(self.picker_selected(picker, &resolved, cx));
-        dialog
-            .w(viewport.width * WIDTH)
-            .h(viewport.height * HEIGHT)
-            .margin_top(viewport.height * ((1. - HEIGHT) / 2.))
-            .title(self.dialog_heading(title, cx))
-            .child(body)
+        self.dialog_frame(
+            DialogSize::Window(viewport),
+            DialogHeader::custom(title),
+            cx,
+        )
+        .apply(dialog, cx)
+        .child(body)
     }
 }
 
@@ -75,7 +65,7 @@ impl NativeView {
 fn place_chip(resolved: &Resolved<'_>, home: &str, cx: &App) -> AnyElement {
     let (glyph, name, detail) = match resolved {
         Resolved::Workspace { workspace, .. } => (
-            sized_icon(workspace, 14., cx),
+            sized_icon(workspace, icon::SM, cx),
             workspace.name.clone(),
             workspace.path.clone(),
         ),

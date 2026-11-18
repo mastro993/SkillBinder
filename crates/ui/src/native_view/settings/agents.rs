@@ -8,18 +8,14 @@
 #[cfg(test)]
 mod tests;
 
-use super::super::controls::reader_logo;
-use super::super::library_avatars::{Ring, avatar};
+use super::super::controls::{agent_detail, reader_logo};
 use super::super::library_copies::{AgentRow, Reader, found_rows, shown_dir};
 use super::super::progress_strip::{Activity, Landing};
 use super::super::{Effect, NativeView};
-use gpui_kit::component::{ActiveTheme, Disableable, h_flex, switch::Switch, v_flex};
-use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
-};
-use skillbinder_design::tokens::text;
-use skillbinder_design::{Text, tooltip};
+use gpui_kit::component::{Disableable, switch::Switch};
+use gpui_kit::{AnyElement, Context, IntoElement, Styled, px};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{AvatarStack, CardList, ListRow, Notice, Text};
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
@@ -58,42 +54,21 @@ impl NativeView {
     /// The Agents list, or the line saying no agent was found, inside the list frame.
     pub(super) fn agents_section(&self, cx: &mut Context<Self>) -> AnyElement {
         let rows = found_rows(&self.snapshot.agents, &self.snapshot.home);
-        let theme = cx.theme();
-        let list = v_flex()
-            .id("settings-agents")
-            .border_1()
-            .border_color(theme.border)
-            .rounded(theme.radius_lg)
-            .overflow_hidden();
-        if rows.is_empty() {
-            let muted = theme.muted_foreground;
-            return list
-                .child(div().p(px(12.)).text_color(muted).child(NONE_FOUND))
-                .into_any_element();
-        }
-        let lines: Vec<AnyElement> = rows
+        let lines: Vec<ListRow> = rows
             .iter()
-            .enumerate()
-            .map(|(index, row)| self.agent_switch_row(row, index > 0, cx))
+            .map(|row| self.agent_switch_row(row, cx))
             .collect();
-        list.children(lines).into_any_element()
+        CardList::new("settings-agents")
+            .rows(lines)
+            .empty(Notice::new("settings-agents-none", NONE_FOUND).p(px(space::LG)))
+            .into_any_element()
     }
 
-    /// One row: logo, name, folder line, and the switch; `divided` draws the line above it.
-    fn agent_switch_row(
-        &self,
-        row: &AgentRow,
-        divided: bool,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    /// One row: logo, name, folder line, and the switch.
+    fn agent_switch_row(&self, row: &AgentRow, cx: &mut Context<Self>) -> ListRow {
         let on = chosen(row, &self.snapshot.agents);
         let detail = detail(row, on, &self.agents_turned_off, &self.snapshot.home);
         let mono = matches!(row.reader, Reader::Agent(_)) && detail != TURNED_OFF;
-        let theme = cx.theme();
-        let ring = Ring {
-            rest: theme.background,
-            hovered: None,
-        };
         let id = row_id(row);
         let switched = row.clone();
         let toggle = Switch::new(format!("{id}-switch"))
@@ -107,41 +82,11 @@ impl NativeView {
                     view.turn_off_agent(&switched, cx);
                 }
             }));
-        h_flex()
-            .gap(px(12.))
-            .px(px(12.))
-            .py(px(10.))
-            .when(divided, |line| line.border_t_1().border_color(theme.border))
-            .child(
-                div()
-                    .flex_none()
-                    .child(avatar(reader_logo(&row.reader), ring, cx)),
-            )
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap(px(2.))
-                    .child(
-                        Text::labeled(format!("{id}-name"), row.name.clone())
-                            .level(text::TITLE_SM)
-                            .truncate(),
-                    )
-                    .child(
-                        div()
-                            .id(format!("{id}-detail"))
-                            .truncate()
-                            .text_size(px(12.))
-                            .text_color(theme.muted_foreground)
-                            .when(mono, |text| {
-                                text.font_family(theme.mono_font_family.clone())
-                            })
-                            .child(detail.clone())
-                            .when(!mono, |text| text.tooltip(tooltip(detail))),
-                    ),
-            )
-            .child(toggle)
-            .into_any_element()
+        ListRow::new(id.clone())
+            .leading(AvatarStack::new([reader_logo(&row.reader)]))
+            .title(Text::labeled(format!("{id}-name"), row.name.clone()).truncate())
+            .subtitle(agent_detail(format!("{id}-detail"), detail, mono, cx))
+            .trailing(toggle)
     }
 
     /// Turns on the agents of `rows` under the progress strip, which ends in the toast naming

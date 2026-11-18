@@ -1,7 +1,12 @@
 //! How a menu draws: the backdrop, the menu, submenu, and panel surfaces, and their rows.
 
-use super::super::sidebar_row::icon_color;
-use super::{Kind, Leading, Menu, MenuItem};
+use super::style::panel;
+use super::{DISABLED_OPACITY, PADDING, SUBMENU_OVERLAP, TRAILING_SIZE, WINDOW_MARGIN};
+use super::{Kind, Leading, Menu, MenuItem, highlight, row as menu_row, separator};
+use crate::sidebar::ICON_SIZE;
+use crate::tokens::color;
+use crate::{Level, Surface, faded};
+use crate::{icon, icon_color};
 use gpui_kit::base::{Align, Placement, Positioner, TestSupportExt};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
@@ -10,13 +15,6 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, Toggled, Window, canvas, div, point,
     prelude::FluentBuilder, px, size,
 };
-use skillbinder_design::menu::{
-    DISABLED_OPACITY, HIGHLIGHT_INK, LABEL_SIZE, LINE_INK, MIN_WIDTH, PADDING, RADIUS,
-    SEPARATOR_MARGIN, SUBMENU_OVERLAP, TRAILING_SIZE, WINDOW_MARGIN,
-};
-use skillbinder_design::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
-use skillbinder_design::tokens::color;
-use skillbinder_design::{Level, Surface, faded, icon};
 
 impl Render for Menu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -33,7 +31,7 @@ impl Render for Menu {
             .collect();
         // Fades in while sliding down onto its place; the shadow ramps up late, as it would
         // otherwise show through the half-transparent surface.
-        let menu = panel(div().id("menu").test_support(), cx)
+        let menu = panel(div().id("menu").test_support(), cx.theme())
             .role(Role::Menu)
             .track_focus(&self.focus)
             .on_key_down(cx.listener(Self::key_down))
@@ -85,7 +83,7 @@ impl Menu {
                     .enumerate()
                     .map(|(ix, item)| self.row(ix, Some(parent), item, has_leading, cx))
                     .collect();
-                panel(div().id("menu-submenu"), cx)
+                panel(div().id("menu-submenu"), cx.theme())
                     .role(Role::Menu)
                     .children(rows)
                     .children(self.render_third_level(window, cx))
@@ -147,20 +145,15 @@ impl Menu {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let (line, muted) = (theme.foreground.alpha(LINE_INK), theme.muted_foreground);
+        let muted = theme.muted_foreground;
         let (foreground, glyph) = if item.danger {
             (color::DANGER_TEXT.of(theme), color::DANGER_TEXT.of(theme))
         } else {
-            (theme.popover_foreground, icon_color(cx))
+            (theme.popover_foreground, icon_color(theme))
         };
-        let (highlight, radius) = (theme.foreground.alpha(HIGHLIGHT_INK), theme.radius);
+        let highlight = highlight(theme);
         if matches!(item.kind, Kind::Separator) {
-            return div()
-                .flex_shrink_0()
-                .h(px(1.))
-                .my(px(SEPARATOR_MARGIN))
-                .bg(line)
-                .into_any_element();
+            return separator().into_any_element();
         }
         let submenu = self.submenu.as_ref();
         let (highlighted, active) = match parent {
@@ -195,8 +188,7 @@ impl Menu {
         let check = (item.checked == Some(true)).then(|| icon("check").text_color(foreground));
         let chevron =
             (opens_beside || opens_panel).then(|| icon("chevron-right").text_color(muted));
-        let row = div()
-            .id(SharedString::from(format!("menu-item-{}", item.id)))
+        let row = menu_row(div().id(SharedString::from(format!("menu-item-{}", item.id))))
             .test_support()
             .role(if item.checked.is_some() {
                 Role::MenuItemCheckBox
@@ -216,13 +208,6 @@ impl Menu {
                 row.aria_expanded(expanded)
             })
             .when(active, |row| row.aria_active_descendant())
-            .flex()
-            .flex_shrink_0()
-            .items_center()
-            .gap(px(ICON_GAP))
-            .h(px(ROW_HEIGHT))
-            .px(px(ROW_PADDING))
-            .rounded(radius)
             .text_color(foreground)
             .when(highlighted, |row| row.bg(highlight))
             .when(item.disabled, |row| row.opacity(DISABLED_OPACITY))
@@ -287,7 +272,7 @@ impl Menu {
 /// The surface of a panel labelled after `item`, the row that opens it, holding `content`.
 /// Keys used in the panel stay in it; Escape still reaches the menu.
 fn content_panel(item: &MenuItem, content: AnyElement, cx: &App) -> Stateful<Div> {
-    panel(div().id("menu-panel"), cx)
+    panel(div().id("menu-panel"), cx.theme())
         .role(Role::Group)
         .aria_label(item.label.clone())
         .on_key_down(|event, _, cx| {
@@ -313,19 +298,4 @@ fn beside(row: Bounds<Pixels>) -> Option<Bounds<Pixels>> {
         point(row.left() - inset, row.top() - inset),
         size(row.size.width + inset * 2., row.size.height),
     ))
-}
-
-/// The overlay surface shared by a menu, its submenu, and a panel. Its ring is a shadow, which a
-/// submenu overlapping the menu covers, where a border would be drawn over it.
-fn panel<E: Styled>(panel: E, cx: &App) -> E {
-    let theme = cx.theme();
-    Surface::new(Level::Overlay)
-        .radius(RADIUS)
-        .apply(panel, theme)
-        .flex()
-        .flex_col()
-        .min_w(px(MIN_WIDTH))
-        .p(px(PADDING))
-        .text_size(px(LABEL_SIZE))
-        .text_color(theme.popover_foreground)
 }

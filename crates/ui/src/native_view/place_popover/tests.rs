@@ -106,11 +106,7 @@ impl Render for Host {
             }
             .render(window, cx);
             let label = "Where review is on".to_owned();
-            Some(
-                popover
-                    .surface(label, content, Self::close, cx)
-                    .into_any_element(),
-            )
+            Some(popover.surface(label, content, Self::close, cx))
         });
         // Like the Library's trigger, it records where it is while the popover is open, so a
         // press on it is not a press outside.

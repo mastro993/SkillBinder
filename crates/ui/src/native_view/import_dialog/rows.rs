@@ -6,15 +6,13 @@ use super::super::NativeView;
 use super::super::library_updates::spinner;
 use super::ImportDialog;
 use super::list::{Count, Group, Place, Row, groups, rows, tick_all, tickable};
-use gpui_kit::component::{
-    ActiveTheme, Sizable, h_flex, scroll::ScrollableElement, tag::Tag, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag};
 use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::{space, text};
-use skillbinder_design::{Checkbox, EmptyState, IconSize, SectionHeader};
+use skillbinder_design::tokens::{opacity, space, text};
+use skillbinder_design::{CardList, Checkbox, EmptyState, IconSize, ListRow, SectionHeader, Text};
 use skillbinder_proto::{FoundImport, ValidationStatus};
 use std::collections::BTreeSet;
 
@@ -29,7 +27,12 @@ impl NativeView {
         let search = state.search.read(cx).value().trim().to_lowercase();
         let groups = groups(found, &self.snapshot.workspaces);
         let ticked = state.ticked.clone().unwrap_or_default();
-        let mut list = v_flex().child(self.select_all(&groups, &ticked, &search, cx));
+        let mut list = CardList::new("import-list")
+            .flex_1()
+            .min_h_0()
+            .scrolls()
+            .when(state.refreshing(), |list| list.opacity(opacity::INACTIVE))
+            .child(self.select_all(&groups, &ticked, &search, cx));
         let mut matched = false;
         for (index, group) in groups.iter().enumerate() {
             let shown: Vec<&Row<'_>> = group
@@ -45,24 +48,14 @@ impl NativeView {
                 list = list.child(self.group_head(index, group, &ticked, cx));
             }
             for row in shown {
-                list = list.child(self.import_row(state, row, &ticked, cx));
+                list = list.row(self.import_row(state, row, &ticked, cx));
             }
         }
         if !matched {
             let title = format!("No skills match '{search}'");
             list = list.child(EmptyState::new("import-empty", title).icon("search"));
         }
-        div()
-            .id("import-list")
-            .flex_1()
-            .min_h_0()
-            .border_1()
-            .border_color(cx.theme().border)
-            .rounded(px(10.))
-            .when(state.refreshing(), |list| list.opacity(0.6))
-            .child(list)
-            .overflow_y_scrollbar()
-            .into_any_element()
+        list.into_any_element()
     }
 
     /// Select all, with how many ticked skills the search hides.
@@ -80,21 +73,18 @@ impl NativeView {
         let keys = tickable(rows(groups));
         h_flex()
             .id("import-select-all")
-            .px(px(12.))
-            .py(px(8.))
-            .gap(px(10.))
+            .px(px(space::LG))
+            .py(px(space::MD))
+            .gap(px(space::LG))
             .child(
                 self.ticking("import-check-all", count, &keys, cx)
                     .label("Select all"),
             )
             .when(hidden > 0, |head| {
                 head.child(
-                    skillbinder_design::Text::labeled(
-                        "hidden",
-                        format!("{hidden} selected not shown"),
-                    )
-                    .level(text::CAPTION)
-                    .muted(),
+                    Text::labeled("hidden", format!("{hidden} selected not shown"))
+                        .level(text::CAPTION)
+                        .muted(),
                 )
             })
             .into_any_element()
@@ -123,15 +113,13 @@ impl NativeView {
             h_flex()
                 .gap(px(space::SM))
                 .child(skillbinder_design::icon(icon).with_size(IconSize::Sm))
-                .child(Text::new("name".into(), name.into())),
+                .child(Text::new(name)),
         )
         .count(group.rows.len());
         h_flex()
             .id(format!("import-group-{index}"))
-            .px(px(12.))
-            .py(px(8.))
-            .border_t_1()
-            .border_color(theme.border)
+            .px(px(space::LG))
+            .py(px(space::MD))
             .bg(theme.muted)
             .child(
                 self.ticking(format!("import-check-group-{index}"), count, &keys, cx)
@@ -170,7 +158,7 @@ impl NativeView {
         row: &Row<'_>,
         ticked: &BTreeSet<String>,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
+    ) -> ListRow {
         let key = row.key().to_owned();
         let able = row.tickable();
         let shown = row.shown();
@@ -186,17 +174,11 @@ impl NativeView {
                 let _ = weak.update(cx, |view, cx| view.toggle_import(key, cx));
             });
         let versions = self.row_versions(state, row, cx);
-        let theme = cx.theme();
         let blocked = shown.is_some_and(|v| v.validation == ValidationStatus::Blocked);
         let title = h_flex()
-            .gap(px(6.))
+            .gap(px(space::SM))
             .items_center()
-            .child(
-                div()
-                    .text_size(px(14.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(Text::new("slug".into(), slug.into())),
-            )
+            .child(Text::labeled("slug", slug))
             .when(row.invalid(), |title| {
                 title.child(Tag::warning().small().child("Invalid"))
             })
@@ -209,46 +191,26 @@ impl NativeView {
         let description = shown
             .map(|version| version.description.clone())
             .unwrap_or_default();
-        let main = v_flex()
-            .min_w_0()
-            .flex_1()
-            .gap(px(4.))
-            .child(title)
-            .when(!description.is_empty(), |main| {
-                main.child(
-                    div()
-                        .text_size(px(12.))
-                        .text_color(theme.muted_foreground)
-                        .truncate()
-                        .child(description),
-                )
-            })
-            .child(versions);
         let clicked = key.clone();
-        h_flex()
-            .id(format!("import-row-{key}"))
+        ListRow::new(format!("import-row-{key}"))
             .items_start()
-            .gap(px(10.))
-            .px(px(12.))
-            .py(px(10.))
-            .border_t_1()
-            .border_color(theme.border)
-            .when(!able, |row| row.opacity(0.6))
+            .leading(
+                div()
+                    .id(format!("import-check-box-{key}"))
+                    .pt(px(space::XXS))
+                    .on_click(|_, _, cx| cx.stop_propagation())
+                    .child(check),
+            )
+            .title(title)
+            .when(!description.is_empty(), |row| row.subtitle(description))
+            .child(versions)
+            .dimmed(!able)
             .when(able, |row| {
                 row.cursor_pointer()
                     .on_click(cx.listener(move |view, _, _, cx| {
                         view.toggle_import(clicked.clone(), cx);
                     }))
             })
-            .child(
-                div()
-                    .id(format!("import-check-box-{key}"))
-                    .pt(px(2.))
-                    .on_click(|_, _, cx| cx.stop_propagation())
-                    .child(check),
-            )
-            .child(main)
-            .into_any_element()
     }
 
     fn toggle_import(&mut self, key: String, cx: &mut Context<Self>) {

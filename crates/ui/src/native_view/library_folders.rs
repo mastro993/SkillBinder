@@ -2,7 +2,6 @@
 //! skill menu that moves a skill between folders.
 
 use super::folder_reorder::{FolderDrag, draggable};
-use super::menu::MenuItem;
 use super::sidebar_presets::menu_action;
 use super::sidebar_row::with_menu;
 use super::{DialogState, Effect, NativeView, Route};
@@ -16,7 +15,10 @@ use gpui_kit::{
     AnyElement, ClickEvent, Context, Div, Entity, InteractiveElement, IntoElement, ParentElement,
     Stateful, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::{Button, FOLDER_TAB_SIZE, InlineNameField, icon};
+use skillbinder_design::MenuItem;
+use skillbinder_design::{
+    Button, DialogFooter, DialogHeader, DialogSize, FOLDER_TAB_SIZE, InlineNameField, icon,
+};
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
 use std::cell::Cell;
 
@@ -376,41 +378,31 @@ impl NativeView {
             id: id.clone(),
             revision: revision.to_owned(),
         };
-        dialog
-            .title(self.dialog_title("Delete folder", cx))
-            .child(div().child(format!(
+        let delete = Button::new("folder-delete-confirm")
+            .label("Delete folder")
+            .danger()
+            .inactive(self.busy)
+            .on_click(cx.listener(move |view, _, _, cx| {
+                let (client, change) = (view.client.clone(), change.clone());
+                view.run(
+                    async move {
+                        client
+                            .change_organization(change)
+                            .await
+                            .map(|_| Effect::CloseDialog)
+                    },
+                    cx,
+                );
+            }));
+        let footer = DialogFooter::new()
+            .secondary(self.dialog_cancel("folder-delete-cancel", cx))
+            .primary(delete);
+        self.dialog_frame(DialogSize::Standard, DialogHeader::new("Delete folder"), cx)
+            .footer(footer)
+            .apply(dialog, cx)
+            .child(format!(
                 "Delete {name}? Its {skills} skills stay in the library."
-            )))
-            .footer(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(
-                        Button::new("folder-delete-cancel")
-                            .label("Cancel")
-                            .inactive(self.busy)
-                            .on_click(
-                                cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                            ),
-                    )
-                    .child(
-                        Button::new("folder-delete-confirm")
-                            .label("Delete folder")
-                            .inactive(self.busy)
-                            .on_click(cx.listener(move |view, _, _, cx| {
-                                let (client, change) = (view.client.clone(), change.clone());
-                                view.run(
-                                    async move {
-                                        client
-                                            .change_organization(change)
-                                            .await
-                                            .map(|_| Effect::CloseDialog)
-                                    },
-                                    cx,
-                                );
-                            })),
-                    ),
-            )
+            ))
     }
 }
 

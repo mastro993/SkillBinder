@@ -6,7 +6,6 @@
 
 use super::NativeView;
 use super::controls::reader_logo;
-use super::library_avatars::{Ring, stack};
 use super::library_items::ITEM_GROUP;
 use super::preset_colors::preset_tint;
 use super::sidebar_row::dot;
@@ -21,7 +20,7 @@ use gpui_kit::{
 };
 use skillbinder_design::menu::HIGHLIGHT_INK;
 use skillbinder_design::{
-    Chip, ChipVariant, IconSize, Level, Logo, Separator, Text, dashed, icon, tooltip,
+    AvatarStack, Chip, ChipVariant, IconSize, Level, Logo, Separator, Text, dashed, icon, tooltip,
 };
 use skillbinder_proto::Preset;
 
@@ -115,10 +114,7 @@ fn active_button(
             fill
         }
     };
-    let ring = Ring {
-        rest: behind(Level::Flat.fill(theme)),
-        hovered: Some(behind(theme.muted)),
-    };
+    let (rest, hovered) = (behind(Level::Flat.fill(theme)), behind(theme.muted));
     let held: Vec<_> = places.held_agents().collect();
     let workspaces: Vec<_> = places.holding_workspaces().collect();
     let agents = (!held.is_empty()).then(|| {
@@ -136,7 +132,11 @@ fn active_button(
         };
         div()
             .id(format!("place-agents-{}", places.skill))
-            .child(stack(&logos, ring, cx))
+            .child(
+                AvatarStack::new(logos)
+                    .ring(rest)
+                    .hover_ring(ITEM_GROUP, hovered),
+            )
             .tooltip(tooltip(format!("Your agents\n{names}")))
     });
     button

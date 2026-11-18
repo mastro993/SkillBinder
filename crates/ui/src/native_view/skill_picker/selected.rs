@@ -9,11 +9,13 @@ use super::super::snapshot_query::Entry;
 use super::{Pills, Resolved, Selection, SkillPicker};
 use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px, relative,
+    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px, relative,
 };
-use skillbinder_design::tokens::space;
-use skillbinder_design::{Button, Notice, SectionHeader, Status, ToggleChip, tooltip};
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{
+    Button, DialogFooter, Level, Notice, SectionHeader, Status, Surface, Text, ToggleChip, tooltip,
+};
 use skillbinder_proto::{SkillId, Workspace};
 use std::collections::BTreeSet;
 
@@ -71,19 +73,16 @@ impl NativeView {
                 .id("picker-cards")
                 .flex_1()
                 .min_h_0()
-                .child(v_flex().gap(px(8.)).p(px(12.)).children(cards))
+                .child(v_flex().gap(px(space::MD)).p(px(space::LG)).children(cards))
                 .overflow_y_scrollbar()
                 .into_any_element()
         };
-        v_flex()
+        Surface::new(Level::Flat)
+            .apply(v_flex(), theme)
             .id("picker-selected")
             .w(relative(PANE))
             .flex_none()
             .min_h_0()
-            .bg(theme.sidebar)
-            .border_1()
-            .border_color(theme.border)
-            .rounded(px(10.))
             .child(header)
             .child(body)
             .when(no_agents, |pane| {
@@ -116,24 +115,20 @@ impl NativeView {
             let id = id.clone();
             view.edit_picker(|picker, uses| picker.selection.pick(id, uses), cx);
         }));
-        v_flex()
+        Surface::new(Level::Flat)
+            .apply(v_flex(), theme)
             .id(format!("picker-selected-{skill}"))
-            .gap(px(8.))
-            .p(px(10.))
-            .bg(theme.background)
-            .border_1()
-            .border_color(theme.border)
-            .rounded(px(8.))
+            .gap(px(space::MD))
+            .p(px(space::LG))
             .child(
                 h_flex()
                     .justify_between()
-                    .gap(px(8.))
+                    .gap(px(space::MD))
                     .child(
-                        div()
+                        Text::labeled("slug", skill.to_string())
+                            .level(text::TITLE_SM)
                             .min_w_0()
-                            .truncate()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(Text::new("slug".into(), skill.to_string().into())),
+                            .truncate(),
                     )
                     .child(deselect),
             )
@@ -189,7 +184,7 @@ impl NativeView {
             .flex()
             .flex_wrap()
             .items_center()
-            .gap(px(4.))
+            .gap(px(space::XS))
             .children(row)
             .into_any_element()
     }
@@ -210,17 +205,15 @@ impl NativeView {
             .inactive(blocked.is_some() || self.blocked())
             .when_some(blocked, |add, reason| add.tooltip(reason))
             .on_click(cx.listener(|view, _, _, cx| view.add_picked(cx)));
-        h_flex()
-            .gap(px(8.))
-            .p(px(12.))
+        let cancel = Button::new("picker-cancel")
+            .label("Cancel")
+            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)));
+        DialogFooter::new()
+            .secondary(cancel)
+            .primary(add)
+            .p(px(space::LG))
             .border_t_1()
             .border_color(cx.theme().border)
-            .child(
-                Button::new("picker-cancel")
-                    .label("Cancel")
-                    .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx))),
-            )
-            .child(add)
             .into_any_element()
     }
 }

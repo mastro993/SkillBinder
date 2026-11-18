@@ -8,7 +8,6 @@ use std::collections::BTreeSet;
 
 use super::NativeView;
 use super::library_copies::{AgentRow, Reader, agent_rows};
-use super::menu::{MenuItem, OpenMenu};
 use super::sidebar_presets::menu_action;
 use gpui_kit::component::{Sizable, h_flex};
 use gpui_kit::{
@@ -16,6 +15,7 @@ use gpui_kit::{
     MouseDownEvent, ParentElement, Styled, prelude::FluentBuilder, px,
 };
 use skillbinder_design::sidebar::ICON_SIZE;
+use skillbinder_design::{MenuItem, OpenMenu};
 use skillbinder_proto::{OrganizationChange, SkillId, Targets};
 
 impl NativeView {

@@ -13,7 +13,6 @@ mod hover_scroll;
 mod import_dialog;
 mod import_review;
 mod library;
-mod library_avatars;
 mod library_copies;
 mod library_dates;
 mod library_drift;
@@ -24,7 +23,6 @@ mod library_places;
 mod library_targets;
 mod library_updates;
 mod library_validation;
-mod menu;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod navigation;
@@ -164,7 +162,7 @@ pub struct NativeView {
     /// The app checks for Git every 3 seconds.
     git_checking: bool,
     /// The open context menu.
-    menu: Option<menu::OpenMenu>,
+    menu: Option<skillbinder_design::OpenMenu>,
     /// Inline preset name editing in the sidebar.
     preset_edit: Option<PresetEdit>,
     preset_reorder: RowReorder<PresetId>,
@@ -481,7 +479,7 @@ impl Render for NativeView {
                 )
             })
             .children(self.render_place_popover(window, cx))
-            .children(self.menu.as_ref().map(menu::OpenMenu::render))
+            .children(self.menu.as_ref().map(skillbinder_design::OpenMenu::render))
             .children(self.render_strip(window, cx))
     }
 }
