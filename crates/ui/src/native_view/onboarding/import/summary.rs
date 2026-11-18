@@ -2,16 +2,14 @@
 //! found skills, up to four, and "N skills found in <agents>", in the Agents section's order.
 
 use super::super::super::NativeView;
-use super::super::super::controls::Logo;
+use super::super::super::controls::reader_logo;
 use super::super::super::import_dialog::versions::found_skills;
 use super::super::super::library_avatars::{Ring, stack};
 use super::super::super::library_copies::{AgentRow, agent_rows};
-use super::super::super::sidebar_row::format_count;
 use gpui_kit::component::{ActiveTheme, h_flex};
-use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled, Text,
-    div, px,
-};
+use gpui_kit::{AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, px};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{Logo, Text, format_count};
 use skillbinder_proto::{Candidate, ScanSnapshot};
 use std::collections::BTreeSet;
 
@@ -69,7 +67,7 @@ impl NativeView {
         let logos: Vec<Logo> = summary
             .agents
             .iter()
-            .map(|row| Logo::reader(&row.reader))
+            .map(|row| reader_logo(&row.reader))
             .collect();
         let theme = cx.theme();
         let ring = Ring {
@@ -87,11 +85,10 @@ impl NativeView {
             .bg(theme.background)
             .child(stack(&logos, ring, cx))
             .child(
-                div()
+                Text::labeled("summary", summary.text())
+                    .level(text::TITLE_SM)
                     .flex_1()
-                    .min_w_0()
-                    .font_weight(FontWeight::MEDIUM)
-                    .child(Text::new("summary".into(), summary.text().into())),
+                    .min_w_0(),
             )
             .into_any_element()
     }

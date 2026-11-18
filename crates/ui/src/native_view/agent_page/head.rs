@@ -3,7 +3,7 @@
 //! preset chip and Add skill.
 
 use super::super::NativeView;
-use super::super::controls::{Logo, tooltip};
+use super::super::controls::agent_logo;
 use super::super::library_avatars::{Ring, stack_of};
 use super::super::library_places::preset_chip;
 use super::super::skill_picker::{Place, Resolved};
@@ -13,6 +13,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div,
 };
+use skillbinder_design::{IconSize, Logo, tooltip};
 
 /// Agents the member stack shows before the rest collapse into `+N`.
 const MEMBERS: usize = 3;
@@ -34,7 +35,7 @@ impl NativeView {
         let home = &self.snapshot.home;
         let members = readers(&self.snapshot.agents, &row.resolved, except);
         let stack = (!members.is_empty()).then(|| {
-            let logos: Vec<Logo> = members.iter().map(|agent| Logo::agent(&agent.id)).collect();
+            let logos: Vec<Logo> = members.iter().map(|agent| agent_logo(&agent.id)).collect();
             let ring = Ring {
                 rest: cx.theme().background,
                 hovered: None,
@@ -49,7 +50,13 @@ impl NativeView {
                 )))
                 .into_any_element()
         });
-        self.page_head(logo(&row, 16., cx), row.name.clone(), stack, &row.dir, cx)
+        self.page_head(
+            logo(&row, IconSize::Md, cx),
+            row.name.clone(),
+            stack,
+            &row.dir,
+            cx,
+        )
     }
 
     /// The active preset's chip, where every change on the page is saved, and Add skill.

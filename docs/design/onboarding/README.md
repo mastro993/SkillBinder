@@ -57,7 +57,7 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/onboarding/
 | Element | Renders with |
 |---|---|
 | Step frame, eyebrow, title, lead | The existing onboarding column in `crates/ui/src/native_view/onboarding.rs` |
-| Back, Skip, Continue, Install Git, Download Git, Copy, Check again | Kit `Button` through `controls.rs` (`text_button`); Back keeps the arrow-left glyph |
+| Back, Skip, Continue, Install Git, Download Git, Copy, Check again | the design system's `Button` (Kit `Button` with its label); Back keeps the arrow-left glyph |
 | Step slide | GPUI animation with the theme's fast duration, skipped under reduced motion |
 | Status lines (waiting, found, failed, too old) | The import step's status line with the app's loading glyph animation (`library_updates.rs`), check-circle, or alert-circle |
 | Linux command box | A bordered row in the muted surface with monospace text and a small Kit `Button` "Copy"; copying uses GPUI's clipboard |

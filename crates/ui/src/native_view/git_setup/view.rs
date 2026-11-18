@@ -2,14 +2,15 @@
 //! command box with Copy, and the Install Git and Download Git buttons.
 
 use super::super::NativeView;
-use super::super::controls::{Inactive, app_icon, text_button};
 use super::super::import_dialog::alert_glyph;
+use super::super::library_updates::spinner;
 use super::{Action, GitFacts, Status};
-use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
 use skillbinder_design::tokens::color;
+use skillbinder_design::{Button, ButtonSize, IconSize, icon};
 
 impl NativeView {
     /// What the snapshot says about Git.
@@ -18,23 +19,19 @@ impl NativeView {
     }
 
     /// The one status line, if any: the loading glyph while waiting, check-circle once Git is
-    /// found, and alert-circle when winget failed or Git is too old. `spin` keys the spinner.
+    /// found, and alert-circle when winget failed or Git is too old.
     pub(in crate::native_view) fn git_status_line(
         &self,
         id: &'static str,
-        spin: &'static str,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let status = self.git_facts().status(self.git_setup.waiting)?;
         let theme = cx.theme();
         let (glyph, color) = match &status {
-            Status::Waiting(_) => (
-                Self::spinner(spin).into_any_element(),
-                theme.muted_foreground,
-            ),
+            Status::Waiting(_) => (spinner().into_any_element(), theme.muted_foreground),
             Status::Ready(_) => (
-                app_icon("check-circle")
-                    .size(px(14.))
+                icon("check-circle")
+                    .with_size(IconSize::Sm)
                     .text_color(color::SUCCESS_TEXT.of(theme))
                     .into_any_element(),
                 color::SUCCESS_TEXT.of(theme),
@@ -95,16 +92,12 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let (id, label, size) = match action {
-            Action::Install => ("git-install", "Install Git", Size::Medium),
-            Action::Download => ("git-download", "Download Git", Size::Medium),
-            Action::Copy => ("git-copy", "Copy", Size::Small),
+            Action::Install => ("git-install", "Install Git", ButtonSize::Md),
+            Action::Download => ("git-download", "Download Git", ButtonSize::Md),
+            Action::Copy => ("git-copy", "Copy", ButtonSize::Sm),
         };
-        let button = text_button(id, label, size);
-        let button = if primary {
-            button.primary()
-        } else {
-            button.outline()
-        };
+        let button = Button::new(id).label(label).button_size(size);
+        let button = if primary { button.primary() } else { button };
         button
             .inactive(found || self.blocked())
             .on_click(cx.listener(move |view, _, _, cx| view.git_action(action, cx)))

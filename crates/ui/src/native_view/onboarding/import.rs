@@ -7,17 +7,18 @@ mod summary;
 #[cfg(test)]
 mod tests;
 
-use super::super::controls::{Inactive, app_icon, text_button};
 use super::super::import_dialog::list::import_label;
 use super::super::import_dialog::{End, ImportDialog, Phase, alert_glyph, changed_line};
+use super::super::library_updates::spinner;
 use super::super::progress_strip::{Activity, Landing};
 use super::super::{DialogState, Effect, NativeView, Route};
 use super::StepView;
-use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex};
+use gpui_kit::component::{ActiveTheme, h_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
 };
 use skillbinder_design::tokens::color;
+use skillbinder_design::{Button, icon};
 use skillbinder_proto::FoundImport;
 
 const TITLE: &str = "Import your skills";
@@ -62,10 +63,7 @@ impl NativeView {
             Phase::Scanning => (
                 vec![
                     lead(),
-                    line(
-                        Self::spinner("onboarding-scanning").into_any_element(),
-                        "Scanning…".to_owned(),
-                    ),
+                    line(spinner().into_any_element(), "Scanning…".to_owned()),
                 ],
                 vec![
                     self.finish_button("onboarding-skip", "Skip", false, cx),
@@ -79,7 +77,8 @@ impl NativeView {
                 )],
                 vec![
                     self.finish_button("onboarding-skip", "Skip", false, cx),
-                    text_button("onboarding-retry", "Retry", Size::Medium)
+                    Button::new("onboarding-retry")
+                        .label("Retry")
                         .primary()
                         .inactive(self.blocked())
                         .on_click(cx.listener(|view, _, _, cx| view.prepare_found(cx)))
@@ -121,9 +120,11 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let muted = cx.theme().muted_foreground;
-        let review = text_button("onboarding-review", "Review list", Size::Small)
+        let review = Button::new("onboarding-review")
+            .label("Review list")
+            .small()
             .ghost()
-            .icon(app_icon("chevron-right"))
+            .icon(icon("chevron-right"))
             .text_color(muted)
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {
@@ -152,7 +153,8 @@ impl NativeView {
             }
             _ => (import_label(0), false),
         };
-        text_button("onboarding-import", label, Size::Medium)
+        Button::new("onboarding-import")
+            .label(label)
             .primary()
             .loading(list.is_some_and(ImportDialog::refreshing))
             .inactive(!ready || self.blocked())
@@ -168,12 +170,8 @@ impl NativeView {
         primary: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let button = text_button(id, label, Size::Medium);
-        let button = if primary {
-            button.primary()
-        } else {
-            button.outline()
-        };
+        let button = Button::new(id).label(label);
+        let button = if primary { button.primary() } else { button };
         button
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {

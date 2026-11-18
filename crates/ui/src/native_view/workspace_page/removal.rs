@@ -3,14 +3,14 @@
 //! toast then offers Undo, as [`super::super::undo`] describes.
 
 use super::super::NativeView;
-use super::super::controls::{Inactive, app_icon, button};
 use super::super::library_items::SkillItem;
 use super::WorkspaceRow;
-use gpui_kit::component::{Sizable, button::ButtonVariants, dialog::Dialog, h_flex};
+use gpui_kit::component::{dialog::Dialog, h_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
     StatefulInteractiveElement, Styled, Text, prelude::FluentBuilder, px,
 };
+use skillbinder_design::{Button, icon};
 use skillbinder_proto::{SkillId, WorkspaceId};
 
 impl NativeView {
@@ -62,10 +62,10 @@ impl NativeView {
     ) -> AnyElement {
         let label = format!("Remove from {name}");
         let (workspace, id) = (workspace.clone(), skill.clone());
-        button(format!("workspace-remove-{skill}"))
+        Button::new(format!("workspace-remove-{skill}"))
             .ghost()
             .small()
-            .icon(app_icon("delete"))
+            .icon(icon("delete"))
             .tooltip(label.clone())
             .accessibility_label(label)
             .inactive(missing || self.blocked())
@@ -96,7 +96,7 @@ impl NativeView {
             h_flex()
                 .gap_2()
                 .child(
-                    button("remove-skill-cancel")
+                    Button::new("remove-skill-cancel")
                         .label("Cancel")
                         .inactive(self.busy)
                         .on_click(
@@ -104,7 +104,7 @@ impl NativeView {
                         ),
                 )
                 .child(
-                    button("remove-skill-confirm")
+                    Button::new("remove-skill-confirm")
                         .label("Remove")
                         .danger()
                         .inactive(self.blocked())

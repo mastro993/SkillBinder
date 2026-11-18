@@ -1,13 +1,13 @@
 //! Optimistic preset creation and cloning: show the new row at once, then replace it with the
 //! saved preset or remove it and report the failure in an error toast.
 
-use super::super::controls::app_icon;
 use super::super::preset_colors::preset_tint;
 use super::super::preset_icons::icon_glyph;
 use super::super::sidebar_row::{RowIcon, count, row};
 use super::{NativeView, OptimisticPreset};
 use gpui_kit::component::{ActiveTheme, WindowExt, notification::Notification};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window};
+use skillbinder_design::icon;
 use skillbinder_design::tokens::color;
 use skillbinder_proto::{AppError, OrganizationChange, Preset, PresetIcon, PresetId};
 use std::collections::BTreeSet;
@@ -162,13 +162,13 @@ impl NativeView {
             .map(|color| preset_tint(color, cx.theme().mode.is_dark()));
         row(
             format!("preset-optimistic-{}", preset.id),
-            RowIcon::Glyph(Box::new(app_icon(icon_glyph(preset.icon)))),
+            RowIcon::Glyph(Box::new(icon(icon_glyph(preset.icon)))),
             tint,
             preset.name.clone(),
             false,
             cx,
         )
-        .child(count(optimistic.skills, cx))
+        .child(count(optimistic.skills))
         .into_any_element()
     }
 }
@@ -205,7 +205,7 @@ pub(super) fn error_toast(
     error: &AppError,
     cx: &mut Context<NativeView>,
 ) {
-    let glyph = app_icon("alert-circle").text_color(color::DANGER_TEXT.of(cx.theme()));
+    let glyph = icon("alert-circle").text_color(color::DANGER_TEXT.of(cx.theme()));
     window.push_notification(
         Notification::new()
             .icon(glyph)

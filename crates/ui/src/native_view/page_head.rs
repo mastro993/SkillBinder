@@ -3,21 +3,20 @@
 //! truncating with an ellipsis. Below it, the page's skills in one card under the search shared
 //! with Library.
 
-use super::controls::app_icon;
-use super::controls::text::sized;
 use super::library_copies::shown_dir;
 use super::library_filters::{empty_state, glyph};
 use super::skill_picker::Place;
 use super::snapshot_query::matching;
 use super::workspace_icons::menu_icon;
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, h_flex, input::Input, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, input::Input, v_flex};
 use gpui_kit::{
-    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
-    Text, Window, div, px,
+    AnyElement, Context, Div, InteractiveElement, IntoElement, ParentElement, Styled, Window, div,
+    px,
 };
 use skillbinder_design::page::{GAP, GUTTER};
-use skillbinder_design::tokens::{icon, text};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{IconSize, Text, icon};
 use skillbinder_proto::Skill;
 
 /// The glyph's square.
@@ -55,7 +54,7 @@ impl NativeView {
         name: String,
         extra: Option<AnyElement>,
         path: &str,
-        cx: &Context<Self>,
+        _cx: &Context<Self>,
     ) -> AnyElement {
         h_flex()
             .id("page-head")
@@ -69,21 +68,17 @@ impl NativeView {
                     .child(icon),
             )
             .child(
-                sized(div(), text::TITLE_SM.size)
-                    .flex_none()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(Text::new("page-name".into(), name.into())),
+                Text::labeled("page-name", name)
+                    .level(text::TITLE_SM)
+                    .flex_none(),
             )
             .children(extra)
             .child(
-                sized(div(), 12.)
+                Text::labeled("page-path", shown_dir(path, &self.snapshot.home))
+                    .level(text::CAPTION)
+                    .muted()
                     .min_w_0()
-                    .truncate()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(Text::new(
-                        "page-path".into(),
-                        shown_dir(path, &self.snapshot.home).into(),
-                    )),
+                    .truncate(),
             )
             .into_any_element()
     }
@@ -107,8 +102,8 @@ impl NativeView {
         let search = div().w(px(SEARCH_WIDTH)).max_w_full().child(
             Input::new(&self.search)
                 .prefix(
-                    app_icon("search")
-                        .size(px(icon::SM))
+                    icon("search")
+                        .with_size(IconSize::Sm)
                         .text_color(cx.theme().muted_foreground),
                 )
                 .bg(cx.theme().background),

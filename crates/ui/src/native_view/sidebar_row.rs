@@ -4,25 +4,22 @@
 use std::{path::PathBuf, rc::Rc};
 
 use super::NativeView;
-use super::controls::text::tabular;
-use super::controls::{app_icon, button};
 use super::menu::{MenuItem, OpenMenu};
 use gpui_kit::component::{
     ActiveTheme, Icon, Sizable,
-    button::{Button, ButtonVariants},
     input::{Input, InputState},
-    spinner::Spinner,
 };
 use gpui_kit::{
-    AnyElement, App, Context, Div, ElementId, Entity, FontWeight, Hsla, InteractiveElement,
-    IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit, ParentElement, SharedString,
-    Stateful, StatefulInteractiveElement, Styled, StyledImage, Window, black, div, img,
+    AnyElement, App, Context, Div, ElementId, Entity, Hsla, InteractiveElement, IntoElement,
+    KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit, ParentElement, SharedString, Stateful,
+    StatefulInteractiveElement, Styled, StyledImage, Window, black, div, img,
     prelude::FluentBuilder, px, white,
 };
 use skillbinder_design::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
 };
-use skillbinder_design::{Level, Surface};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{Button, IconSize, Level, Spinner, Surface, Text, icon};
 
 /// Unselected icons sit a step below their label, as in the reference design.
 const ICON_OPACITY: f32 = 0.65;
@@ -132,8 +129,7 @@ pub(super) fn row_with_marker(
         .px(px(ROW_PADDING))
         .rounded(px(RADIUS))
         .cursor_pointer()
-        .text_size(px(LABEL_SIZE))
-        .font_weight(FontWeight::MEDIUM)
+        .map(|row| text::BODY_MD.apply(row))
         .text_color(text)
         // The selection is a raised pill on the canvas.
         .when(selected, |row| {
@@ -227,9 +223,9 @@ pub(super) fn with_menu(
         )
 }
 
-/// A trailing count with tabular figures and thousands separators.
-pub(super) fn count(value: usize, cx: &App) -> AnyElement {
-    detail(format_count(value), cx)
+/// A trailing count with thousands separators.
+pub(super) fn count(value: usize) -> AnyElement {
+    Text::count(value).flex_shrink_0().into_any_element()
 }
 
 /// A check after the name of the preset whose configuration is active, in its icon color, at a
@@ -240,22 +236,7 @@ pub(super) fn active_marker(id: &str, tint: Option<Hsla>, cx: &App) -> AnyElemen
         .id(format!("preset-active-{id}"))
         .flex_shrink_0()
         .aria_label("Active preset")
-        .child(
-            app_icon("check-bold")
-                .size(px(DETAIL_SIZE))
-                .text_color(color),
-        )
-        .into_any_element()
-}
-
-/// A short muted trailing text with tabular figures.
-fn detail(text: impl Into<SharedString>, cx: &App) -> AnyElement {
-    div()
-        .flex_shrink_0()
-        .text_size(px(DETAIL_SIZE))
-        .font_features(tabular())
-        .text_color(cx.theme().muted_foreground.opacity(ICON_OPACITY))
-        .child(text.into())
+        .child(icon("check-bold").size(px(DETAIL_SIZE)).text_color(color))
         .into_any_element()
 }
 
@@ -270,21 +251,19 @@ pub(super) fn dot(color: Hsla) -> AnyElement {
 }
 
 /// A trailing activity spinner.
-pub(super) fn spinner(cx: &App) -> AnyElement {
-    Spinner::new()
-        .icon(app_icon("refresh-03"))
-        .color(cx.theme().muted_foreground)
-        .with_size(px(DETAIL_SIZE))
+pub(super) fn spinner() -> AnyElement {
+    Spinner::new(IconSize::Xs)
+        .glyph("refresh-03")
         .into_any_element()
 }
 
 /// The plus button of a section header.
 pub(super) fn add_button(id: &'static str, label: &'static str, cx: &App) -> Button {
-    button(id)
+    Button::new(id)
         .ghost()
-        .xsmall()
+        .small()
         .icon(
-            app_icon("plus")
+            icon("plus")
                 .size(px(ICON_SIZE))
                 .text_color(cx.theme().muted_foreground),
         )
@@ -331,30 +310,10 @@ pub(super) fn name_field(
         .into_any_element()
 }
 
-pub(super) fn format_count(value: usize) -> String {
-    let digits = value.to_string();
-    let mut formatted = String::with_capacity(digits.len() + digits.len() / 3);
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            formatted.push(',');
-        }
-        formatted.push(digit);
-    }
-    formatted
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{format_count, image_ink};
+    use super::image_ink;
     use gpui_kit::{black, hsla, white};
-
-    #[test]
-    fn counts_group_thousands() {
-        assert_eq!(format_count(0), "0");
-        assert_eq!(format_count(999), "999");
-        assert_eq!(format_count(5423), "5,423");
-        assert_eq!(format_count(1_234_567), "1,234,567");
-    }
 
     #[test]
     fn image_fallbacks_contrast_with_their_tinted_tile() {

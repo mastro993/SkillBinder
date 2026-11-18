@@ -2,17 +2,15 @@
 
 use std::{rc::Rc, time::Duration};
 
-use super::controls::{Inactive, app_icon, button};
 use super::sidebar_row::{RowIcon, activate, count, dot, icon_color, row, spinner};
 use super::{NativeView, Route};
-use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable, ThemeMode, TitleBar, button::ButtonVariants, h_flex,
-};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, ThemeMode, TitleBar, h_flex};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, AppContext, Axis, Context, Div, ElementId, EmptyView,
     InteractiveElement, IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled,
     Window, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::Button;
 use skillbinder_design::sidebar::{ICON_SIZE, INSET, ROW_GAP, ROW_HEIGHT, SECTION_GAP};
 use skillbinder_proto::{Appearance, SyncSnapshot, SyncState};
 
@@ -121,7 +119,7 @@ impl NativeView {
             }
         };
         let sync = if self.syncing {
-            Some(spinner(cx))
+            Some(spinner())
         } else {
             needs_sync(&snapshot.sync).then(|| dot(cx.theme().blue))
         };
@@ -150,7 +148,7 @@ impl NativeView {
                     .border_color(divider(above))
                     .child(
                         self.nav_row(Route::Library, "libraries", "Library", cx)
-                            .when_some(skills, |row, skills| row.child(count(skills, cx))),
+                            .when_some(skills, |row, skills| row.child(count(skills))),
                     ),
             )
             .map(|sidebar| match &snapshot.library {
@@ -200,7 +198,7 @@ impl NativeView {
         activate(
             row(
                 format!("nav-{}", label.to_lowercase()),
-                RowIcon::Glyph(Box::new(app_icon(icon))),
+                RowIcon::Glyph(Box::new(skillbinder_design::icon(icon))),
                 None,
                 label,
                 selected,
@@ -245,10 +243,10 @@ impl NativeView {
     /// Back and forward, right-aligned in the sidebar's header row.
     fn render_history_controls(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let control = |id: &'static str, icon: &str, label: &'static str, enabled: bool| {
-            button(id)
+            Button::new(id)
                 .ghost()
                 .small()
-                .icon(app_icon(icon).size_4())
+                .icon(skillbinder_design::icon(icon).size_4())
                 .accessibility_label(label)
                 .inactive(!enabled)
         };
@@ -315,7 +313,7 @@ fn appearance_toggle(cx: &mut Context<NativeView>) -> impl IntoElement + use<> {
     } else {
         (IconName::Sun, "Switch to dark theme")
     };
-    button("sidebar-appearance")
+    Button::new("sidebar-appearance")
         .ghost()
         .flex_shrink_0()
         .size(px(ROW_HEIGHT))

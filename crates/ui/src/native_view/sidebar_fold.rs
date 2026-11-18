@@ -4,9 +4,8 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use super::NativeView;
-use super::controls::app_icon;
 use super::sidebar_row::activate;
-use gpui_kit::component::{ActiveTheme, button::Button};
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, Context, Div, ElementId, InteractiveElement, IntoElement,
     ParentElement, StatefulInteractiveElement, Styled, div, px, radians,
@@ -14,6 +13,7 @@ use gpui_kit::{
 use skillbinder_design::sidebar::{
     DETAIL_SIZE, ICON_SIZE, ROW_GAP, ROW_HEIGHT, ROW_PADDING, SECTION_GAP, SECTION_HEIGHT,
 };
+use skillbinder_design::{Button, icon};
 use skillbinder_proto::SidebarSection;
 
 const FOLD_MOTION: Duration = Duration::from_millis(180);
@@ -101,7 +101,7 @@ impl NativeView {
     /// A chevron pointing down while the section is open, turning right as it folds.
     fn section_chevron(&self, section: SidebarSection, cx: &Context<Self>) -> AnyElement {
         let folded = self.folded_sections.contains(&section);
-        let icon = app_icon("arrow-down")
+        let icon = icon("arrow-down")
             .size(px(DETAIL_SIZE))
             .text_color(cx.theme().muted_foreground.opacity(0.8));
         let turned = |folding: f32| radians(-FRAC_PI_2 * folding);

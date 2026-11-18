@@ -3,7 +3,6 @@
 
 use std::{cell::Cell, rc::Rc, time::Instant};
 
-use super::controls::app_icon;
 use super::menu::MenuItem;
 use super::preset_colors::{color_menu, preset_tint};
 use super::preset_icons::IconGrid;
@@ -24,8 +23,8 @@ use gpui_kit::{
     MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_design::sidebar::{ICON_SIZE, INSET, ROW_GAP};
-use skillbinder_design::tokens::color;
+use skillbinder_design::sidebar::{INSET, ROW_GAP};
+use skillbinder_design::{Status, StatusGlyph};
 use skillbinder_proto::{
     AppSnapshot, PresetColor, PresetIcon, SidebarSection, Workspace, WorkspaceId,
 };
@@ -137,13 +136,15 @@ impl NativeView {
         };
         let active = skill_count(&self.snapshot, workspace);
         let trailing = if workspace.missing {
-            app_icon("alert-circle")
-                .size(px(ICON_SIZE))
-                .flex_shrink_0()
-                .text_color(color::WARNING_TEXT.of(cx.theme()))
-                .into_any_element()
+            StatusGlyph::new(
+                format!("workspace-missing-{}", workspace.id),
+                Status::Warning,
+                "alert-circle",
+                "The workspace folder is missing.",
+            )
+            .into_any_element()
         } else {
-            count(active, cx)
+            count(active)
         };
         let (index, len) = (placement.index, placement.len);
         let row = activate(

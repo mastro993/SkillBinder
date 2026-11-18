@@ -1,6 +1,5 @@
 //! Workspace appearance: its tinted glyph or stored image icon, and the choices its menu offers.
 
-use super::controls::app_icon;
 use super::preset_colors::preset_tint;
 use super::preset_icons::{IconGrid, option_glyph};
 use super::sidebar_row::{RowIcon, icon_color};
@@ -9,6 +8,7 @@ use gpui_kit::{
     AnyElement, App, Entity, InteractiveElement, IntoElement, ParentElement, Role,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
+use skillbinder_design::icon;
 use skillbinder_design::menu::{HIGHLIGHT_INK, LABEL_SIZE, LINE_INK, SEPARATOR_MARGIN};
 use skillbinder_design::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
 use skillbinder_proto::{PresetIcon, Workspace};
@@ -19,7 +19,7 @@ pub(super) type ChooseImage = Rc<dyn Fn(&mut Window, &mut App)>;
 
 /// The workspace's row icon: its stored image when it has one, otherwise its glyph.
 pub(super) fn row_icon(workspace: &Workspace) -> RowIcon {
-    let glyph = Box::new(app_icon(option_glyph(workspace.icon)));
+    let glyph = Box::new(icon(option_glyph(workspace.icon)));
     match &workspace.image {
         Some(path) => RowIcon::Image {
             path: PathBuf::from(path),
@@ -100,7 +100,7 @@ pub(super) fn icon_picker(
                     }
                 })
                 .child(
-                    app_icon("image")
+                    icon("image")
                         .size(px(ICON_SIZE))
                         .flex_shrink_0()
                         .text_color(icon_color(cx)),

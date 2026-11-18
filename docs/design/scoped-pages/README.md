@@ -39,8 +39,8 @@ The Undo toasts on the workspace and agent pages follow from Kit first ([decisio
 
 | Element | Kit component |
 |---|---|
-| Buttons: Add skill, Clear filters, Review and Close, dialog buttons | `Button` (through `controls::button()`) |
-| Checkboxes | `Checkbox` (through `controls::checkbox()`), with its Hugeicons tick |
+| Buttons: Add skill, Clear filters, Review and Close, dialog buttons | `Button` (through the design system's `Button`) |
+| Checkboxes | `Checkbox` (through the design system's `Checkbox`), with its Hugeicons tick |
 | Search fields | `Input` |
 | All · Active · Inactive filter, List/Grid switch | segmented `TabBar` |
 | Updates chip | `Toggle`, styled as the prototype's outlined chip, with a focus ring for keyboard focus only |

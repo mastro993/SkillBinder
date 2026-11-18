@@ -3,15 +3,15 @@
 //! can still be replaced, and a directory that could not be written can be retried. New copies
 //! that ask open the dialog once; a skill's warning glyph reopens it for that skill.
 
-use super::controls::{Inactive, button};
 use super::copies_review::Review;
 use super::copy_changed::Changed;
 use super::library_copies::shown_dir;
 use super::{DialogState, Effect, NativeView};
-use gpui_kit::component::{Sizable, button::ButtonVariants, dialog::Dialog, h_flex, v_flex};
+use gpui_kit::component::{dialog::Dialog, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::Button;
 use skillbinder_proto::{CopyChoice, CopyState, ManagedCopy, SkillId};
 
 /// Which copies the copies dialog lists.
@@ -133,7 +133,7 @@ impl NativeView {
             .title(self.dialog_title("Skill copies", cx))
             .child(v_flex().gap_3().children(rows))
             .footer(
-                button("copies-close")
+                Button::new("copies-close")
                     .label("Close")
                     .inactive(self.busy)
                     .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx))),
@@ -149,7 +149,7 @@ impl NativeView {
                 Action::Retry => ("retry", "Retry"),
             };
             let copy = copy.clone();
-            button(format!("copy-{index}-{key}"))
+            Button::new(format!("copy-{index}-{key}"))
                 .label(label)
                 .small()
                 .when(key == "replace", |button| button.primary())

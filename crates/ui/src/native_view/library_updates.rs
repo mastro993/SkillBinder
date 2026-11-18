@@ -1,17 +1,14 @@
 //! Skill updates in Library: the Update buttons of skills whose source has an update, Update all,
 //! the last update's result, and why a check or update failed.
 
-use super::controls::{Inactive, app_icon, button};
 use super::without_git::{CHECK_NEEDS_GIT, needs_git};
 use super::{Effect, NativeView, Route, snapshot_query};
-use gpui_kit::component::{
-    ActiveTheme, Sizable, Size, button::ButtonVariants, progress::ProgressCircle, tooltip::Tooltip,
-    v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, Size, progress::ProgressCircle, v_flex};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px,
 };
+use skillbinder_design::{Button, IconSize, Spinner, icon, tooltip};
 use skillbinder_proto::{AppSnapshot, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
@@ -56,7 +53,9 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let skill = id.clone();
-        let update = button(format!("update-{key}-{id}")).label("Update").small();
+        let update = Button::new(format!("update-{key}-{id}"))
+            .label("Update")
+            .small();
         if self.git_missing() {
             return needs_git(
                 format!("update-{key}-{id}-needs-git"),
@@ -89,9 +88,7 @@ impl NativeView {
                 .items_center()
                 .justify_center()
                 .size(px(24.))
-                .tooltip(move |window, cx| {
-                    Tooltip::new(format!("Updating {done} of {total} skills")).build(window, cx)
-                })
+                .tooltip(tooltip(format!("Updating {done} of {total} skills")))
                 .child(
                     ProgressCircle::new("library-update-circle")
                         .value(Self::percent(done, total))
@@ -106,31 +103,31 @@ impl NativeView {
                 .items_center()
                 .justify_center()
                 .size(px(24.))
-                .tooltip(|window, cx| Tooltip::new("Checking skill updates").build(window, cx))
-                .child(Self::spinning_refresh())
+                .tooltip(tooltip("Checking skill updates"))
+                .child(spinner())
                 .into_any_element();
         }
         if self.git_missing() {
-            let check = button("library-check-updates")
+            let check = Button::new("library-check-updates")
                 .small()
                 .ghost()
-                .icon(app_icon("refresh-04"));
+                .icon(icon("refresh-04"));
             return needs_git("library-check-updates-needs-git", CHECK_NEEDS_GIT, check);
         }
         if available(&self.snapshot).is_empty() {
-            button("library-check-updates")
+            Button::new("library-check-updates")
                 .small()
                 .ghost()
-                .icon(app_icon("refresh-04"))
+                .icon(icon("refresh-04"))
                 .inactive(self.busy)
                 .tooltip("Check for skill updates")
                 .on_click(cx.listener(|view, _, _, cx| view.check_for_updates(cx)))
                 .into_any_element()
         } else {
-            button("library-update-skills")
+            Button::new("library-update-skills")
                 .small()
                 .ghost()
-                .icon(app_icon("upload-circle"))
+                .icon(icon("upload-circle"))
                 .inactive(self.busy)
                 .tooltip("Update skills")
                 .on_click(cx.listener(|view, _, _, cx| view.update_available(cx)))
@@ -216,20 +213,6 @@ impl NativeView {
         }
     }
 
-    /// The check glyph turning once a second while a check runs.
-    fn spinning_refresh() -> impl IntoElement {
-        Self::spinner("library-check-spin")
-    }
-
-    /// The app's loading glyph, turning once a second; `id` keys its animation.
-    pub(super) fn spinner(id: &'static str) -> impl IntoElement {
-        app_icon("refresh-04").with_animation(
-            id,
-            Animation::new(std::time::Duration::from_secs(1)).repeat(),
-            |icon, delta| icon.rotate(gpui_kit::radians(delta * std::f32::consts::TAU)),
-        )
-    }
-
     /// A skill page's activation, its Reinstall button, while it can restore the skill's recorded
     /// content, and its Update button, while the skill has an update.
     pub(super) fn skill_header_actions(
@@ -285,6 +268,11 @@ impl NativeView {
                 .into_any_element(),
         )
     }
+}
+
+/// The check glyph turning while a check, a scan, or a Git setup runs.
+pub(super) fn spinner() -> Spinner {
+    Spinner::new(IconSize::Md).glyph("refresh-04")
 }
 
 #[cfg(test)]

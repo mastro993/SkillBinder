@@ -5,11 +5,11 @@
 
 use std::collections::BTreeSet;
 
-use super::controls::button;
 use super::copy_changed::Changed;
 use super::{Effect, NativeView};
 use gpui_kit::Context;
 use gpui_kit::component::notification::Notification;
+use skillbinder_design::Button;
 use skillbinder_proto::{
     AppSnapshot, CopyState, ManagedCopy, OrganizationChange, PresetId, SkillId, Targets,
     WorkspaceId, WorkspaceTargets,
@@ -205,8 +205,9 @@ impl NativeView {
         toast
             .action(move |_, _, cx| {
                 let (view, undo) = (view.clone(), undo.clone());
-                button("toast-undo").label("Undo").on_click(cx.listener(
-                    move |toast, _, window, cx| {
+                Button::new("toast-undo")
+                    .label("Undo")
+                    .on_click(cx.listener(move |toast, _, window, cx| {
                         let undo = undo.clone();
                         let done = view
                             .update(cx, |view, cx| view.restore(undo, cx))
@@ -214,8 +215,8 @@ impl NativeView {
                         if done {
                             toast.dismiss(window, cx);
                         }
-                    },
-                ))
+                    }))
+                    .into_kit()
             })
             .autohide(true)
     }

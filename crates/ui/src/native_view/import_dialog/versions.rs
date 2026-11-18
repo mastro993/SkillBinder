@@ -2,21 +2,19 @@
 //! versions, and how a version reads in a list.
 
 use super::super::NativeView;
-use super::super::controls::{app_icon, button};
 use super::super::import_review::{place_name, replaced_in};
 use super::super::library_copies::shown_dir;
 use super::super::library_dates as dates;
 use super::ImportDialog;
 use super::list::Row;
 use chrono::Utc;
-use gpui_kit::component::{
-    ActiveTheme, Sizable, button::ButtonVariants, h_flex, radio::Radio, tag::Tag, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, radio::Radio, tag::Tag, v_flex};
 use gpui_kit::{
     AnyElement, App, Context, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::tokens::color;
+use skillbinder_design::{Button, IconSize, icon};
 use skillbinder_proto::{AppSnapshot, Candidate, CandidateLocation, ValidationStatus};
 use std::{collections::BTreeMap, path::Path};
 
@@ -133,8 +131,8 @@ fn warning(text: String, color: Hsla) -> AnyElement {
         .text_size(px(12.))
         .text_color(color)
         .child(
-            app_icon("alert-circle")
-                .size(px(12.))
+            icon("alert-circle")
+                .with_size(IconSize::Xs)
                 .flex_none()
                 .mt(px(2.)),
         )
@@ -167,15 +165,15 @@ impl NativeView {
         let key = row.key().to_owned();
         let expanded = state.expanded.contains(&key);
         let toggled = key.clone();
-        let toggle = button(format!("import-versions-{key}"))
+        let toggle = Button::new(format!("import-versions-{key}"))
             .label(format!("{} versions", versions.len()))
-            .icon(app_icon(if expanded {
+            .icon(icon(if expanded {
                 "arrow-down"
             } else {
                 "chevron-right"
             }))
             .ghost()
-            .xsmall()
+            .small()
             .on_click(cx.listener(move |view, _, _, cx| {
                 cx.stop_propagation();
                 let key = toggled.clone();

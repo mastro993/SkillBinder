@@ -1,13 +1,8 @@
 //! Library skills whose validation reports warnings or fails, such as one pulled from another
 //! device with invalid `SKILL.md` frontmatter: the glyph on their row or card.
 
-use super::controls::app_icon;
-use gpui_kit::component::{ActiveTheme, Sizable, tooltip::Tooltip};
-use gpui_kit::{
-    AnyElement, App, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement,
-    Styled, div,
-};
-use skillbinder_design::tokens::color;
+use gpui_kit::{AnyElement, IntoElement};
+use skillbinder_design::{Status, StatusGlyph};
 use skillbinder_proto::{SkillDetails, SkillId, ValidationStatus};
 
 /// The color of a validation glyph.
@@ -50,22 +45,14 @@ fn mark(details: Option<&SkillDetails>) -> Option<Mark> {
 
 /// The alert glyph of a skill whose validation reports warnings or fails: warning-colored for
 /// warnings, danger-colored while it is invalid or blocked.
-pub(super) fn validation_glyph(
-    id: &SkillId,
-    details: Option<&SkillDetails>,
-    cx: &App,
-) -> Option<AnyElement> {
+pub(super) fn validation_glyph(id: &SkillId, details: Option<&SkillDetails>) -> Option<AnyElement> {
     let Mark { tone, tooltip } = mark(details)?;
-    let color = match tone {
-        Tone::Warning => color::WARNING_TEXT.of(cx.theme()),
-        Tone::Danger => color::DANGER_TEXT.of(cx.theme()),
+    let status = match tone {
+        Tone::Warning => Status::Warning,
+        Tone::Danger => Status::Danger,
     };
     Some(
-        div()
-            .id(format!("validation-{id}"))
-            .flex_shrink_0()
-            .child(app_icon("alert-circle").small().text_color(color))
-            .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
+        StatusGlyph::new(format!("validation-{id}"), status, "alert-circle", tooltip)
             .into_any_element(),
     )
 }

@@ -1,8 +1,6 @@
 //! Agent avatars in an overlapping stack, which Library's placement button and a workspace page's
 //! agents button show, and the warning glyph of a skill's copies that are not applied.
 
-use super::controls::text::sized;
-use super::controls::{Logo, app_icon, tooltip};
 use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::library_items::ITEM_GROUP;
 use super::{DialogState, NativeView};
@@ -11,8 +9,8 @@ use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
     ParentElement, StatefulInteractiveElement, Styled, Text, div, px, white,
 };
-use skillbinder_design::tokens::color;
 use skillbinder_design::tokens::text;
+use skillbinder_design::{Logo, Status, StatusGlyph, tooltip};
 use skillbinder_proto::SkillId;
 
 /// An avatar's visible circle.
@@ -67,7 +65,7 @@ pub(super) fn avatar(logo: Logo, ring: Ring, cx: &App) -> Avatar {
 /// The `+N` circle after the shown avatars; its text is `more`.
 fn more(count: usize, ring: Ring, cx: &App) -> Div {
     let theme = cx.theme();
-    ring.around(sized(div(), text::MICRO.size))
+    ring.around(text::MICRO.apply(div()))
         .flex()
         .flex_none()
         .items_center()
@@ -147,21 +145,18 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let skill = id.clone();
-        div()
-            .id(format!("unsettled-{id}"))
-            .flex_shrink_0()
-            .cursor_pointer()
-            .child(
-                app_icon("alert-circle")
-                    .small()
-                    .text_color(color::WARNING_TEXT.of(cx.theme())),
-            )
-            .on_click(cx.listener(move |view, _, _, cx| {
-                cx.stop_propagation();
-                view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
-                cx.notify();
-            }))
-            .tooltip(tooltip(unsettled_summary(count)))
-            .into_any_element()
+        StatusGlyph::new(
+            format!("unsettled-{id}"),
+            Status::Warning,
+            "alert-circle",
+            unsettled_summary(count),
+        )
+        .cursor_pointer()
+        .on_click(cx.listener(move |view, _, _, cx| {
+            cx.stop_propagation();
+            view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
+            cx.notify();
+        }))
+        .into_any_element()
     }
 }

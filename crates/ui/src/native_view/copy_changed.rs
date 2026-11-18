@@ -5,12 +5,12 @@
 
 use std::collections::BTreeSet;
 
-use super::controls::{Inactive, button};
 use super::copy_dialogs::CopiesListing;
 use super::workspace_targets::folders;
 use super::{DialogState, Effect, NativeView};
-use gpui_kit::component::{ActiveTheme, button::ButtonVariants, dialog::Dialog, h_flex};
+use gpui_kit::component::{ActiveTheme, dialog::Dialog, h_flex};
 use gpui_kit::{Context, ParentElement, Styled, div, px};
+use skillbinder_design::Button;
 use skillbinder_proto::{CopyChoice, CopyState, ManagedCopy, SkillId};
 
 /// The prompt's width.
@@ -89,7 +89,7 @@ impl NativeView {
         let title = self.dialog_title("You changed this skill here", cx);
         let answer = |id: &'static str, label: &'static str, choice: CopyChoice| {
             let copies = copies.clone();
-            button(id)
+            Button::new(id)
                 .label(label)
                 .inactive(self.busy)
                 .on_click(cx.listener(move |view, _, _, cx| {

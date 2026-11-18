@@ -1,14 +1,14 @@
 //! A library skill's page: its `SKILL.md`, Markdown rendered.
 
-use super::controls::{Inactive, button};
 use super::copy_dialogs::{CopiesListing, unsettled_summary};
 use super::{DialogState, NativeView};
 use gpui_kit::component::{
-    ActiveTheme, Sizable, h_flex,
+    ActiveTheme, h_flex,
     text::{FrontmatterPlugin, MarkdownExtensions, TextView},
     v_flex,
 };
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
+use skillbinder_design::Button;
 use skillbinder_design::tokens::color;
 use skillbinder_proto::{AppError, SkillId};
 
@@ -63,7 +63,7 @@ impl NativeView {
                 .text_color(color::WARNING_TEXT.of(cx.theme()))
                 .child(unsettled_summary(count))
                 .child(
-                    button("copies-review")
+                    Button::new("copies-review")
                         .label("Review")
                         .small()
                         .inactive(self.busy)

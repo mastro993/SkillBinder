@@ -2,7 +2,7 @@
 //! each opening its own page.
 
 use super::agent_page::page_skills;
-use super::controls::{agent_icon, app_icon};
+use super::controls::agent_icon;
 use super::library_copies::{AgentRow, Reader, agent_rows};
 use super::library_targets::sharing;
 use super::sidebar_row::{RowIcon, activate, count, row};
@@ -11,6 +11,7 @@ use gpui_kit::component::Icon;
 use gpui_kit::{
     AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
+use skillbinder_design::icon;
 use skillbinder_design::sidebar::ROW_GAP;
 use skillbinder_proto::{AppSnapshot, PresetId, SidebarSection};
 
@@ -21,11 +22,9 @@ impl NativeView {
             .into_iter()
             .map(|(agent, skills)| {
                 let (id, icon, route): (ElementId, Icon, Route) = match &agent.reader {
-                    Reader::Universal(_) => (
-                        "agents-universal".into(),
-                        app_icon("layers"),
-                        Route::Universal,
-                    ),
+                    Reader::Universal(_) => {
+                        ("agents-universal".into(), icon("layers"), Route::Universal)
+                    }
                     Reader::Agent(id) => (
                         format!("agent-{id}").into(),
                         agent_icon(id),
@@ -82,7 +81,7 @@ impl NativeView {
             cx,
             move |view, window, cx| view.navigate(route.clone(), window, cx),
         )
-        .child(count(skills, cx))
+        .child(count(skills))
         .into_any_element()
     }
 }

@@ -1,11 +1,11 @@
-//! The gallery, built only with `native-test`: every token drawn in the current mode, with Light
-//! and Dark buttons to switch it, so a native check can capture both. Components join it as the
-//! design-system slices add them.
+//! The gallery, built only with `native-test`: every token and component drawn in the current
+//! mode, with Light and Dark buttons to switch it, so a native check can capture both.
+
+mod atoms;
 
 use crate::tokens::{color, radius, space, text};
-use crate::{Level, Surface, TypeLevel, set_mode};
-use gpui_kit::component::button::Button;
-use gpui_kit::component::{ActiveTheme, Selectable, Theme, ThemeMode};
+use crate::{Button, Level, Surface, TypeLevel, set_mode};
+use gpui_kit::component::{ActiveTheme, Theme, ThemeMode};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
     AnyElement, App, Div, Hsla, InteractiveElement, IntoElement, ParentElement, RenderOnce,
@@ -42,7 +42,8 @@ const THEME_COLORS: &[(&str, Read)] = &[
 pub struct Gallery;
 
 impl RenderOnce for Gallery {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let atoms = atoms::atoms(window, cx);
         let theme = cx.theme();
         let dark = theme.is_dark();
         let colors = THEME_COLORS
@@ -136,6 +137,7 @@ impl RenderOnce for Gallery {
                             .child(div().h(px(space::MD)).w(px(*value)).bg(theme.primary))
                     })),
             ))
+            .children(atoms)
     }
 }
 

@@ -3,13 +3,12 @@
 //! and saves at once.
 
 use super::NativeView;
-use super::controls::{Inactive, checkbox};
 use super::progress_strip::{Activity, Landing};
-use gpui_kit::component::Sizable;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div,
 };
+use skillbinder_design::Checkbox;
 use skillbinder_proto::{LibrarySnapshot, OrganizationChange, Preset, PresetId, SkillId};
 
 impl NativeView {
@@ -96,7 +95,7 @@ impl NativeView {
             .flex_shrink_0()
             .on_click(|_, _, cx| cx.stop_propagation())
             .child(
-                checkbox(format!("activation-checkbox-{skill}"))
+                Checkbox::new(format!("activation-checkbox-{skill}"))
                     .checked(checked)
                     .label("Active")
                     .small()

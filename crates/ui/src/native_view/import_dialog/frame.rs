@@ -3,18 +3,16 @@
 //! Onboarding's names no place and ends with Done (O7).
 
 use super::super::NativeView;
-use super::super::controls::{Inactive, app_icon, checkbox, text_button};
+use super::super::library_updates::spinner;
 use super::list::{Selection, status};
 use super::{End, ImportDialog, Phase};
-use gpui_kit::component::{
-    ActiveTheme, Size, button::ButtonVariants, dialog::Dialog, h_flex, input::Input, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, dialog::Dialog, h_flex, input::Input, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Pixels, Size as Area,
     Styled, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::tokens::color;
-use skillbinder_design::tokens::icon;
+use skillbinder_design::{Button, Checkbox, IconSize, icon};
 use skillbinder_proto::MAX_IMPORT;
 
 /// The dialog's share of the window's width and height, as the Add skill picker's.
@@ -51,7 +49,7 @@ impl NativeView {
                 .child(centered(
                     h_flex()
                         .gap(px(8.))
-                        .child(Self::spinner("import-scanning"))
+                        .child(spinner())
                         .child("Scanning…")
                         .into_any_element(),
                 ))
@@ -68,7 +66,8 @@ impl NativeView {
                     None,
                     vec![
                         self.cancel_button("Close", cx),
-                        text_button("import-retry", "Retry", Size::Medium)
+                        Button::new("import-retry")
+                            .label("Retry")
                             .primary()
                             .on_click(cx.listener(|view, _, _, cx| view.prepare_found(cx)))
                             .into_any_element(),
@@ -117,8 +116,8 @@ impl NativeView {
             .child(
                 Input::new(&state.search)
                     .prefix(
-                        app_icon("search")
-                            .size(px(icon::SM))
+                        icon("search")
+                            .with_size(IconSize::Sm)
                             .text_color(theme.muted_foreground),
                     )
                     .bg(theme.background),
@@ -140,7 +139,8 @@ impl NativeView {
         let buttons = match state.end {
             End::Import => {
                 let ready = chosen.ready(state.acknowledge_invalid);
-                let import = text_button("import-apply", label, Size::Medium)
+                let import = Button::new("import-apply")
+                    .label(label)
                     .primary()
                     .loading(state.refreshing())
                     .inactive(state.busy() || self.blocked() || !ready)
@@ -163,7 +163,8 @@ impl NativeView {
 
     /// The primary Done, which closes the dialog and keeps the list for onboarding's step (O7).
     fn done_button(&self, label: String, cx: &mut Context<Self>) -> AnyElement {
-        text_button("import-done", label, Size::Medium)
+        Button::new("import-done")
+            .label(label)
             .primary()
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
             .into_any_element()
@@ -194,7 +195,7 @@ impl NativeView {
         }
         let weak = cx.entity().downgrade();
         Some(
-            checkbox("import-acknowledge")
+            Checkbox::new("import-acknowledge")
                 .checked(state.acknowledge_invalid)
                 .label("Import skills with invalid metadata")
                 .on_change(move |checked, _, cx| {
@@ -208,18 +209,15 @@ impl NativeView {
     }
 
     fn cancel_button(&self, label: &'static str, cx: &mut Context<Self>) -> AnyElement {
-        text_button(
-            format!("import-{}", label.to_lowercase()),
-            label,
-            Size::Medium,
-        )
-        .outline()
-        .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
-        .into_any_element()
+        Button::new(format!("import-{}", label.to_lowercase()))
+            .label(label)
+            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
+            .into_any_element()
     }
 
     fn close_button(&self, cx: &mut Context<Self>) -> AnyElement {
-        text_button("import-close", "Close", Size::Medium)
+        Button::new("import-close")
+            .label("Close")
             .primary()
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
             .into_any_element()
@@ -233,14 +231,15 @@ pub(in crate::native_view) fn changed_line(cx: &gpui_kit::App) -> AnyElement {
         .gap(px(6.))
         .text_size(px(12.))
         .text_color(color::WARNING_TEXT.of(cx.theme()))
-        .child(app_icon("refresh-03").size(px(14.)))
+        .child(icon("refresh-03").with_size(IconSize::Sm))
         .child("The list changed since the scan. Check it and import again.")
         .into_any_element()
 }
 
 /// The inactive Import button while there is no list.
 fn disabled_import() -> AnyElement {
-    text_button("import-apply", "Import skills", Size::Medium)
+    Button::new("import-apply")
+        .label("Import skills")
         .primary()
         .inactive(true)
         .into_any_element()
@@ -260,8 +259,8 @@ fn footer(left: Option<AnyElement>, buttons: Vec<AnyElement>) -> AnyElement {
 
 /// The alert glyph in `color`.
 pub(in crate::native_view) fn alert_glyph(color: gpui_kit::Hsla) -> AnyElement {
-    app_icon("alert-circle")
-        .size(px(14.))
+    icon("alert-circle")
+        .with_size(IconSize::Sm)
         .text_color(color)
         .into_any_element()
 }

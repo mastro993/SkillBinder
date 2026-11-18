@@ -1,22 +1,17 @@
 //! How the review list draws: Kit's dialog, 420 wide and 56 px from the window's top edge, with
 //! the copies in a card and Done.
 
-use super::super::controls::{app_icon, text_button};
 use super::super::copy_dialogs::CopiesListing;
 use super::super::import_review::place_name;
 use super::super::{DialogState, Effect, NativeView};
 use super::{Answer, Choice, Item, Review, Row, attention_label};
-use gpui_kit::component::{
-    ActiveTheme, Size,
-    button::{Button, ButtonVariants},
-    dialog::Dialog,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, dialog::Dialog};
 use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
     Text, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::{color, icon, text};
-use skillbinder_design::{Level, Surface};
+use skillbinder_design::tokens::{color, text};
+use skillbinder_design::{Button, ButtonVariant, IconSize, Level, Surface, icon};
 use skillbinder_proto::{CopyChoice, ManagedCopy};
 
 /// Width of the review dialog.
@@ -70,11 +65,9 @@ impl NativeView {
             .child(card)
             .footer(
                 div().flex().child(
-                    text_button("copies-review-done", "Done", Size::Medium)
-                        .outline()
-                        .on_click(
-                            cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                        ),
+                    Button::new("copies-review-done").label("Done").on_click(
+                        cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
+                    ),
                 ),
             )
     }
@@ -148,8 +141,8 @@ impl NativeView {
                     .line_height(px(text::CAPTION_SM.size * text::CAPTION_SM.line_height))
                     .text_color(muted)
                     .child(
-                        app_icon("alert-circle")
-                            .size(px(icon::SM))
+                        icon("alert-circle")
+                            .with_size(IconSize::Sm)
                             .text_color(warning),
                     )
                     .child(Text::new(
@@ -165,7 +158,7 @@ impl NativeView {
                 .gap(px(4.))
                 .text_size(px(12.))
                 .text_color(muted)
-                .child(app_icon("check").size(px(14.)))
+                .child(icon("check").with_size(IconSize::Sm))
                 .child(Text::new(
                     ("copies-review-settled", index).into(),
                     word.into(),
@@ -208,17 +201,30 @@ impl NativeView {
         copy: ManagedCopy,
         cx: &mut Context<Self>,
     ) -> Div {
-        let button = |id, answer: Answer, look: fn(Button) -> Button, cx: &mut Context<Self>| {
+        let button = |id, answer: Answer, look: ButtonVariant, cx: &mut Context<Self>| {
             let copy = copy.clone();
-            look(text_button((id, index), answer.label(), Size::Small))
+            Button::new((id, index))
+                .variant(look)
+                .label(answer.label())
+                .small()
                 .on_click(cx.listener(move |view, _, _, cx| view.answer_review(answer, &copy, cx)))
         };
         div()
             .flex()
             .items_center()
             .gap(px(8.))
-            .child(button("copies-review-yes", choice.yes, Button::primary, cx))
-            .child(button("copies-review-no", choice.no, Button::outline, cx))
+            .child(button(
+                "copies-review-yes",
+                choice.yes,
+                ButtonVariant::Primary,
+                cx,
+            ))
+            .child(button(
+                "copies-review-no",
+                choice.no,
+                ButtonVariant::Secondary,
+                cx,
+            ))
     }
 
     /// Records `answer` for `copy` and carries it out; the row settles once the copy no longer

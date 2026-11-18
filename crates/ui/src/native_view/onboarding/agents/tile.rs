@@ -1,23 +1,24 @@
 //! One tile of Choose your agents (design P3). Kit has no selectable tile, so it is a focusable
 //! bordered box with the theme radius: the logo at its top left, Kit avatars as the import summary
-//! draws them (Universal's first three members in a stack), the check in a ring at its top right,
+//! draws them (Universal's first three members in a stack), Kit's checkbox box at its top right,
 //! then the name and the skill folder, or Universal's agents, in muted text. A chosen tile has a
-//! 1-point outline, the foreground mixed into the border, and a filled check (design P6). Click, Enter, or Space toggles it.
+//! 1-point outline, the foreground mixed into the border, and a checked box (design P6). The tile
+//! is the checkbox: click, Enter, or Space toggles it.
 
 use super::super::super::NativeView;
-use super::super::super::controls::{Logo, app_icon, tooltip};
+use super::super::super::controls::{agent_logo, reader_logo};
 use super::super::super::library_avatars::{Ring, avatar, stack_of};
 use super::super::super::library_copies::{AgentRow, Reader, shown_dir};
 use gpui_kit::component::{ActiveTheme, v_flex};
 use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
-    Role, StatefulInteractiveElement, Styled, Text, Toggled, div, prelude::FluentBuilder, px,
+    AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Role,
+    StatefulInteractiveElement, Styled, Toggled, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::text;
+use skillbinder_design::{Checkbox, Logo, Text, tooltip};
 
 /// The tile's inner margin, inside its outline.
 const PADDING: f32 = 12.;
-/// The check ring's diameter.
-const CHECK: f32 = 16.;
 /// How many of Universal's members its logo stack shows.
 const MEMBERS: usize = 3;
 
@@ -43,12 +44,12 @@ impl NativeView {
                     .ids
                     .iter()
                     .take(MEMBERS)
-                    .map(|id| Logo::agent(id))
+                    .map(|id| agent_logo(id))
                     .collect();
                 (stack_of(&logos, MEMBERS, ring, cx), names.join(", "))
             }
             Reader::Agent(_) => (
-                div().child(avatar(Logo::reader(&row.reader), ring, cx)),
+                div().child(avatar(reader_logo(&row.reader), ring, cx)),
                 shown_dir(&row.dir, home),
             ),
         };
@@ -95,13 +96,9 @@ impl NativeView {
                     .min_w_0()
                     .gap(px(2.))
                     .child(
-                        div()
-                            .truncate()
-                            .font_weight(FontWeight::MEDIUM)
-                            .child(Text::new(
-                                format!("{id}-name").into(),
-                                row.name.clone().into(),
-                            )),
+                        Text::labeled(format!("{id}-name"), row.name.clone())
+                            .level(text::TITLE_SM)
+                            .truncate(),
                     )
                     .child(
                         div()
@@ -116,7 +113,7 @@ impl NativeView {
                             .when(!mono, |text| text.tooltip(tooltip(detail))),
                     ),
             )
-            .child(check(chosen, cx))
+            .child(check(&id, chosen))
             .on_click(cx.listener(move |view, _, _, cx| view.toggle_agent(&dir, cx)))
             .on_key_down(cx.listener(move |view, event: &KeyDownEvent, _, cx| {
                 if matches!(event.keystroke.key.as_str(), "enter" | "space") {
@@ -128,28 +125,12 @@ impl NativeView {
     }
 }
 
-/// The round check at the tile's top right: filled with the check glyph while `chosen`, else an
-/// empty ring.
-fn check(chosen: bool, cx: &Context<NativeView>) -> impl IntoElement {
-    let theme = cx.theme();
-    div()
+/// The check at the tile's top right: Kit's checkbox box alone, since the tile is the checkbox.
+fn check(id: &str, chosen: bool) -> impl IntoElement {
+    Checkbox::new(format!("{id}-check"))
+        .checked(chosen)
+        .indicator()
         .absolute()
         .top(px(PADDING))
         .right(px(PADDING))
-        .size(px(CHECK))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded_full()
-        .border_1()
-        .map(|ring| {
-            if chosen {
-                ring.bg(theme.foreground)
-                    .border_color(theme.foreground)
-                    .text_color(theme.background)
-                    .child(app_icon("check-bold").size(px(11.)))
-            } else {
-                ring.border_color(theme.input)
-            }
-        })
 }

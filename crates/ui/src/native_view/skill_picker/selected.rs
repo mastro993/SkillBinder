@@ -3,22 +3,17 @@
 //! workspace uses; the other pills tick directories, and pills reading one folder are one pill.
 
 use super::super::NativeView;
-use super::super::controls::{Inactive, Logo, app_icon, button, text_button, tooltip};
-use super::super::library_places::{dashed, place_pill};
+use super::super::controls::reader_logo;
+use super::super::library_places::place_pill;
 use super::super::snapshot_query::Entry;
 use super::{Pills, Resolved, Selection, SkillPicker};
-use gpui_kit::base::Toggle;
-use gpui_kit::component::{
-    ActiveTheme, IconName, Sizable, Size, button::ButtonVariants, h_flex,
-    scroll::ScrollableElement, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, scroll::ScrollableElement, v_flex};
 use gpui_kit::{
-    AnyElement, App, ClickEvent, Context, FontWeight, InteractiveElement, IntoElement,
-    ParentElement, StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
-    relative,
+    AnyElement, ClickEvent, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px, relative,
 };
-use skillbinder_design::MEDIUM;
-use skillbinder_design::tokens::color;
+use skillbinder_design::tokens::{color, space};
+use skillbinder_design::{Button, IconSize, ToggleChip, icon, tooltip};
 use skillbinder_proto::{SkillId, Workspace};
 use std::collections::BTreeSet;
 
@@ -121,16 +116,15 @@ impl NativeView {
     ) -> AnyElement {
         let theme = cx.theme();
         let id = skill.clone();
-        let deselect = button(format!("picker-deselect-{skill}"))
-            .ghost()
-            .small()
-            .icon(IconName::Close)
-            .tooltip("Deselect")
-            .accessibility_label(format!("Deselect {skill}"))
-            .on_click(cx.listener(move |view, _, _, cx| {
-                let id = id.clone();
-                view.edit_picker(|picker, uses| picker.selection.pick(id, uses), cx);
-            }));
+        let deselect = Button::close(
+            format!("picker-deselect-{skill}"),
+            format!("Deselect {skill}"),
+        )
+        .tooltip("Deselect")
+        .on_click(cx.listener(move |view, _, _, cx| {
+            let id = id.clone();
+            view.edit_picker(|picker, uses| picker.selection.pick(id, uses), cx);
+        }));
         v_flex()
             .id(format!("picker-selected-{skill}"))
             .gap(px(8.))
@@ -159,7 +153,7 @@ impl NativeView {
                         .gap(px(6.))
                         .text_size(px(12.))
                         .text_color(color::WARNING_TEXT.of(theme))
-                        .child(app_icon("alert-circle").size(px(14.)))
+                        .child(icon("alert-circle").with_size(IconSize::Sm))
                         .child("Pick an agent"),
                 )
             })
@@ -190,13 +184,13 @@ impl NativeView {
             })
         };
         let press = edit(skill.clone(), None);
-        let all = all_pill(format!("picker-pill-{skill}-all"), pills.all, cx)
+        let all = all_pill(format!("picker-pill-{skill}-all"), pills.all)
             .on_change(move |_, event, window, cx| press(event, window, cx));
         let mut row = vec![all.into_any_element()];
         for entry in entries {
             let ticked = pills.ticked(&entry.keys);
             let id = format!("picker-pill-{skill}-{}", entry.keys.join("+"));
-            let logo = Logo::reader(&entry.row.reader);
+            let logo = reader_logo(&entry.row.reader);
             let pill = place_pill(id, logo, ticked, false, pill_tooltip(entry, workspace), cx);
             let press = edit(skill.clone(), Some(entry.keys.clone()));
             row.push(
@@ -222,7 +216,8 @@ impl NativeView {
             format!("Add {count}")
         };
         let blocked = selection.blocked();
-        let add = text_button("picker-add", label, Size::Medium)
+        let add = Button::new("picker-add")
+            .label(label)
             .primary()
             .flex_1()
             .inactive(blocked.is_some() || self.blocked())
@@ -234,8 +229,8 @@ impl NativeView {
             .border_t_1()
             .border_color(cx.theme().border)
             .child(
-                text_button("picker-cancel", "Cancel", Size::Medium)
-                    .outline()
+                Button::new("picker-cancel")
+                    .label("Cancel")
                     .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx))),
             )
             .child(add)
@@ -259,32 +254,13 @@ fn pill_tooltip(entry: &Entry, workspace: &Workspace) -> String {
     lines.join("\n")
 }
 
-/// The All pill: Kit's base toggle reading `All`, solid while on and dashed while off, like a
+/// The All pill: a toggle chip reading `All`, accent while on and dashed while off, like a
 /// directory pill.
-fn all_pill(id: String, on: bool, cx: &App) -> Toggle {
-    let theme = cx.theme();
-    let (foreground, hover) = (theme.foreground, theme.muted);
-    Toggle::new(id)
-        .pressed(on)
+fn all_pill(id: String, on: bool) -> ToggleChip {
+    ToggleChip::new(id, on)
+        .dashed()
         .accessibility_label("All")
-        .flex_none()
-        .h(px(24.))
-        .px(px(10.))
-        .rounded_full()
-        .text_size(px(12.))
-        .font_weight(MEDIUM)
-        .map(|pill| {
-            if on {
-                pill.border_1()
-                    .border_color(foreground)
-                    .bg(theme.background)
-                    .text_color(foreground)
-            } else {
-                dashed(pill, cx).text_color(theme.muted_foreground)
-            }
-        })
-        .cursor_pointer()
-        .hover(move |style| style.bg(hover))
+        .h(px(space::CONTROL_SM))
         .child("All")
         .tooltip(tooltip("Includes agents added later"))
 }

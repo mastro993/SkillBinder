@@ -2,16 +2,17 @@
 //! place's chip, then the library pane and the Selected pane side by side.
 
 use super::super::NativeView;
-use super::super::controls::{Logo, tooltip};
+use super::super::controls::reader_logo;
 use super::super::library_copies::{Reader, shown_dir};
-use super::super::library_places::{chip, preset_chip};
+use super::super::library_places::preset_chip;
 use super::super::workspace_icons::sized_icon;
 use super::{Resolved, SkillPicker};
 use gpui_kit::component::{ActiveTheme, dialog::Dialog, h_flex};
 use gpui_kit::{
     AnyElement, App, Context, FontWeight, InteractiveElement, IntoElement, ParentElement, Pixels,
-    Size, StatefulInteractiveElement, Styled, Text, div, px,
+    Size, StatefulInteractiveElement, Styled, div, px,
 };
+use skillbinder_design::{Chip, ChipVariant, IconSize, Text, tooltip};
 
 /// The dialog's share of the window's width and height.
 const WIDTH: f32 = 0.92;
@@ -45,7 +46,7 @@ impl NativeView {
                 div()
                     .text_size(px(16.))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .child(Text::new("title".into(), "Add skill".into())),
+                    .child(Text::labeled("title", "Add skill")),
             )
             .child(div().text_color(theme.muted_foreground).child("to"))
             .child(place_chip(&resolved, &self.snapshot.home, cx));
@@ -84,7 +85,7 @@ fn place_chip(resolved: &Resolved<'_>, home: &str, cx: &App) -> AnyElement {
                 Reader::Universal(names) => format!("{dir}\nUsed by {}", names.join(", ")),
                 Reader::Agent(_) => dir,
             };
-            let logo = Logo::reader(&row.reader).element(14., false);
+            let logo = reader_logo(&row.reader).element(IconSize::Sm, false);
             (logo, row.name.clone(), detail)
         }
     };
@@ -92,9 +93,9 @@ fn place_chip(resolved: &Resolved<'_>, home: &str, cx: &App) -> AnyElement {
         .id("picker-place")
         .flex_none()
         .child(
-            chip(cx)
+            Chip::new(ChipVariant::Outline)
                 .child(glyph)
-                .child(Text::new("name".into(), name.into())),
+                .child(Text::labeled("name", name)),
         )
         .tooltip(tooltip(detail))
         .into_any_element()

@@ -1,15 +1,12 @@
 //! Library skills whose content differs from their record: the warning glyph on their row or
 //! card, the note on their page, and Reinstall.
 
-use super::controls::{Inactive, app_icon, button};
 use super::without_git::{REINSTALL_NEEDS_GIT, needs_git};
 use super::{Effect, NativeView};
-use gpui_kit::component::{ActiveTheme, Sizable, tooltip::Tooltip};
-use gpui_kit::{
-    AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div,
-};
+use gpui_kit::component::ActiveTheme;
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 use skillbinder_design::tokens::color;
+use skillbinder_design::{Button, Status, StatusGlyph};
 use skillbinder_proto::{Drift, SkillId};
 
 /// Why a drifted skill's page warns, and what Reinstall would do.
@@ -26,17 +23,14 @@ fn note(drift: Drift) -> &'static str {
 }
 
 /// The warning glyph of a drifted skill's row or card.
-pub(super) fn drift_glyph(id: &SkillId, cx: &App) -> AnyElement {
-    div()
-        .id(format!("drift-{id}"))
-        .flex_shrink_0()
-        .child(
-            app_icon("alert-circle")
-                .small()
-                .text_color(color::WARNING_TEXT.of(cx.theme())),
-        )
-        .tooltip(|window, cx| Tooltip::new("Changed outside SkillBinder").build(window, cx))
-        .into_any_element()
+pub(super) fn drift_glyph(id: &SkillId) -> AnyElement {
+    StatusGlyph::new(
+        format!("drift-{id}"),
+        Status::Warning,
+        "alert-circle",
+        "Changed outside SkillBinder",
+    )
+    .into_any_element()
 }
 
 impl NativeView {
@@ -59,7 +53,9 @@ impl NativeView {
     ) -> Option<AnyElement> {
         (self.drift(id)? == Drift::Restorable).then(|| {
             let skill = id.clone();
-            let reinstall = button(format!("reinstall-{id}")).label("Reinstall").small();
+            let reinstall = Button::new(format!("reinstall-{id}"))
+                .label("Reinstall")
+                .small();
             if self.git_missing() {
                 return needs_git(
                     format!("reinstall-{id}-needs-git"),

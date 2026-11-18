@@ -11,7 +11,6 @@ pub(super) use menu::menu_action;
 use menu::preset_menu;
 use std::{cell::Cell, collections::BTreeMap, time::Instant};
 
-use super::controls::app_icon;
 use super::preset_colors::preset_tint;
 use super::preset_icons::icon_glyph;
 use super::sidebar_reorder::{RowDrag, RowDragPreview};
@@ -28,6 +27,7 @@ use gpui_kit::{
     IntoElement, MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled,
     Window, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::icon;
 use skillbinder_design::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 use skillbinder_proto::{
     LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
@@ -194,7 +194,7 @@ impl NativeView {
         let row = activate(
             row_with_marker(
                 format!("preset-{id}"),
-                RowIcon::Glyph(Box::new(app_icon(glyph))),
+                RowIcon::Glyph(Box::new(icon(glyph))),
                 tint,
                 label.clone(),
                 marker,
@@ -219,7 +219,7 @@ impl NativeView {
             .when(active, |row| {
                 row.bg(active_preset_fill(tint, cx)).shadow_none()
             })
-            .child(count(skills, cx))
+            .child(count(skills))
             .relative()
             .top(px(placement.offset))
             .when(placement.floating, |row| row.opacity(0.0));
@@ -229,7 +229,7 @@ impl NativeView {
         row.on_drag(
             RowDrag {
                 id,
-                icon: RowIcon::Glyph(Box::new(app_icon(glyph))),
+                icon: RowIcon::Glyph(Box::new(icon(glyph))),
                 label,
                 tint,
                 count: Some(skills),
@@ -262,7 +262,7 @@ impl NativeView {
         let glyph = icon_glyph(preset.map_or_else(PresetIcon::default, |preset| preset.icon));
         name_field(
             "preset-name-field",
-            RowIcon::Glyph(Box::new(app_icon(glyph))),
+            RowIcon::Glyph(Box::new(icon(glyph))),
             tint,
             &self.preset_name,
             cx,

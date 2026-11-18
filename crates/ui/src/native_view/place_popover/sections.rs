@@ -6,8 +6,7 @@
 //! progress strip is up. A missing workspace's pills are disabled: they never do anything and
 //! take no focus.
 
-use super::super::controls::text::sized;
-use super::super::controls::{Logo, focus_ring, tooltip};
+use super::super::controls::reader_logo;
 use super::super::library_copies::Reader;
 use super::super::library_places::{place_pill, preset_chip, section_label};
 use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
@@ -17,12 +16,12 @@ use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, Toggle, spring};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, FocusHandle, InteractiveElement, IntoElement,
-    ParentElement, Pixels, StatefulInteractiveElement, Styled, Text, Window, div,
-    prelude::FluentBuilder, px, transparent_black,
+    ParentElement, Pixels, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder,
+    px, transparent_black,
 };
 use skillbinder_design::menu::LINE_INK;
 use skillbinder_design::tokens::{radius, text};
-use skillbinder_design::{Level, Surface};
+use skillbinder_design::{IconSize, Level, Surface, Text, focus_ring, tooltip};
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
 /// The view showing the popover, which saves what its controls change.
@@ -68,7 +67,8 @@ impl Sections<'_> {
         let spring_move = cx.theme().motion_tokens().spring_move;
         let key = ("place-all-agents-thumb", self.places.skill.0.clone());
         let thumb = spring(key, travel, spring_move, window, cx);
-        sized(v_flex(), 13.)
+        text::BODY_SM
+            .apply(v_flex())
             .gap(px(10.))
             .child(self.agents(thumb, window, cx))
             .when(!self.places.workspaces.is_empty(), |content| {
@@ -110,7 +110,7 @@ impl Sections<'_> {
                     None => entry.row.name.clone(),
                 };
                 let focus = self.popover.key(&id, cx);
-                let logo = Logo::reader(&entry.row.reader);
+                let logo = reader_logo(&entry.row.reader);
                 let pill = place_pill(id, logo, held.held, self.blocked, tooltip, cx);
                 let save = self.save_agents(places.toggled(entry));
                 pressable(pill, &focus, save, window, cx)
@@ -118,9 +118,9 @@ impl Sections<'_> {
             .collect();
         let pills = if pills.is_empty() {
             vec![
-                sized(div().id("no-agents"), text::CAPTION_SM.size)
-                    .text_color(cx.theme().muted_foreground)
-                    .child("You have no agents")
+                Text::labeled("no-agents", "You have no agents")
+                    .level(text::CAPTION_SM)
+                    .muted()
                     .into_any_element(),
             ]
         } else {
@@ -133,7 +133,7 @@ impl Sections<'_> {
                     .justify_between()
                     .gap(px(8.))
                     .min_h(px(22.))
-                    .child(section_label("agents-label", "Your agents", cx))
+                    .child(section_label("agents-label", "Your agents"))
                     .child(preset_chip("place-preset", self.preset, cx)),
             )
             .child(place_line(
@@ -161,11 +161,11 @@ impl Sections<'_> {
             .pt(px(10.))
             .border_t_1()
             .border_color(cx.theme().foreground.alpha(LINE_INK))
-            .child(h_flex().min_h(px(22.)).child(section_label(
-                "workspaces-label",
-                "Workspaces",
-                cx,
-            )))
+            .child(
+                h_flex()
+                    .min_h(px(22.))
+                    .child(section_label("workspaces-label", "Workspaces")),
+            )
             .children(
                 self.places
                     .workspaces
@@ -192,7 +192,7 @@ impl Sections<'_> {
             };
             let id = format!("place-ws-{}-{}", workspace.id, entry.keys.join("+"));
             let focus = (!place.missing()).then(|| self.popover.key(&id, cx));
-            let logo = Logo::reader(&entry.row.reader);
+            let logo = reader_logo(&entry.row.reader);
             let inert = self.blocked || focus.is_none();
             let pill = place_pill(id, logo, held.held, inert, tooltip, cx);
             // A missing workspace's pill takes no focus and no press.
@@ -213,23 +213,20 @@ impl Sections<'_> {
                 h_flex()
                     .min_w_0()
                     .gap(px(6.))
-                    .child(sized_icon(workspace, 14., cx))
+                    .child(sized_icon(workspace, IconSize::Sm.points(), cx))
                     .child(
                         div()
                             .min_w_0()
                             .truncate()
-                            .child(Text::new("name".into(), workspace.name.clone().into())),
+                            .child(Text::labeled("name", workspace.name.clone())),
                     ),
             )
             .when(place.uses_none(), |name| {
                 name.child(
-                    sized(
-                        div().id(format!("none-{}", workspace.id)),
-                        text::CAPTION_SM.size,
-                    )
-                    .pl(px(20.))
-                    .text_color(cx.theme().muted_foreground)
-                    .child("No agents yet"),
+                    Text::labeled(format!("none-{}", workspace.id), "No agents yet")
+                        .level(text::CAPTION_SM)
+                        .muted()
+                        .pl(px(20.)),
                 )
             });
         let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));

@@ -1,9 +1,9 @@
 //! Adding a workspace through the native directory picker, and the remove confirmation.
 
-use super::controls::{Inactive, button};
 use super::{Effect, NativeView};
 use gpui_kit::component::dialog::Dialog;
 use gpui_kit::{Context, ParentElement, PathPromptOptions, Styled, div};
+use skillbinder_design::Button;
 use skillbinder_proto::*;
 use std::path::PathBuf;
 
@@ -122,7 +122,7 @@ impl NativeView {
                     .flex()
                     .gap_2()
                     .child(
-                        button("remove-cancel")
+                        Button::new("remove-cancel")
                             .label("Cancel")
                             .inactive(self.busy)
                             .on_click(cx.listener(|view, _, window, cx| {
@@ -130,7 +130,7 @@ impl NativeView {
                             })),
                     )
                     .child(
-                        button("remove-confirm")
+                        Button::new("remove-confirm")
                             .label("Remove workspace")
                             .inactive(self.busy)
                             .on_click(cx.listener(move |view, _, _, cx| {

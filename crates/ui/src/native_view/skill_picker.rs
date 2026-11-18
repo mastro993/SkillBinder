@@ -9,22 +9,18 @@ mod selected;
 #[cfg(test)]
 mod tests;
 
-use super::controls::{Inactive, app_icon, text_button};
 use super::library_copies::{AgentRow, Reader, agent_rows};
 use super::library_targets::sharing;
 use super::progress_strip::{Activity, Landing};
 use super::snapshot_query::{Entry, agent_skills, workspace_skills};
 use super::workspace_targets::dir_rows;
 use super::{DialogState, NativeView};
-use gpui_kit::component::{
-    Size,
-    button::ButtonVariants,
-    input::{InputEvent, InputState},
-};
+use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::{
     AnyElement, AppContext, Context, Entity, IntoElement, Subscription, Window,
     prelude::FluentBuilder,
 };
+use skillbinder_design::{Button, icon};
 use skillbinder_proto::{AddSkills, AppSnapshot, FolderId, PresetId, SkillId, Workspace};
 use skillbinder_proto::{WorkspaceId, WorkspaceTargets};
 use std::{collections::BTreeSet, sync::Arc};
@@ -336,9 +332,11 @@ impl NativeView {
             Place::Workspace(id) => self.workspace(id).is_some_and(|w| w.missing),
             Place::Agent(_) | Place::Universal => false,
         };
-        let button = text_button(id, "Add skill", Size::Small)
+        let button = Button::new(id)
+            .label("Add skill")
+            .small()
             .primary()
-            .icon(app_icon("plus"))
+            .icon(icon("plus"))
             .inactive(missing || self.blocked())
             .when(missing, |button| {
                 button.tooltip("The workspace folder is missing.")

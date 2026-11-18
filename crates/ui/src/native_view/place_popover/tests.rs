@@ -1,7 +1,6 @@
 //! The popover's keyboard journeys in a GPUI test window, drawn by a stand-in for the native view
 //! with the popover's own content, box, and focus.
 
-use super::super::controls::FOCUS_RING;
 use super::super::snapshot_query::Places;
 use super::super::snapshot_query::fixture::{Fixture, agents, id, preset_id};
 use super::PlacePopover;
@@ -13,6 +12,7 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, TestAppContext, VisualTestContext, Window, WindowBounds,
     WindowOptions, canvas, div, point, prelude::FluentBuilder, px, size,
 };
+use skillbinder_design::FOCUS_RING;
 use skillbinder_proto::{AppSnapshot, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 use std::sync::Arc;
 

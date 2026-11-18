@@ -10,7 +10,7 @@ mod rows;
 pub(super) use rows::AgentPageRow;
 
 use super::agent_skills::{agent_name, split_universal, your_agents};
-use super::controls::Logo;
+use super::controls::reader_logo;
 use super::library_copies::{AgentRow, placements};
 use super::library_filters::empty_state;
 use super::library_items::{RowEnd, SkillItem};
@@ -20,6 +20,7 @@ use super::snapshot_query::{agent_skills, has_update};
 use super::{NativeView, Route};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{AnyElement, App, Context, IntoElement, ParentElement, Styled, div, px};
+use skillbinder_design::IconSize;
 use skillbinder_proto::{AgentOption, AppSnapshot, CopyState, PresetId, Skill};
 
 impl NativeView {
@@ -92,7 +93,7 @@ impl NativeView {
     fn empty_agent(&self, place: &Place, row: &AgentRow, cx: &mut Context<Self>) -> AnyElement {
         let add = self.add_skill_button(place.clone(), "add-skill-empty", cx);
         empty_state(
-            logo(row, 20., cx),
+            logo(row, IconSize::Lg, cx),
             format!("No skills on for {}", row.name),
             cx,
         )
@@ -114,11 +115,11 @@ pub(super) fn page_skills<'a>(
 
 /// `row`'s logo at `size`, bare: Universal's `layers` glyph, an agent's color art where it has
 /// one, else its monochrome logo or the square terminal glyph, in the text color.
-fn logo(row: &AgentRow, size: f32, cx: &App) -> AnyElement {
+fn logo(row: &AgentRow, size: IconSize, cx: &App) -> AnyElement {
     div()
         .flex()
         .text_color(cx.theme().foreground)
-        .child(Logo::reader(&row.reader).element(size, false))
+        .child(reader_logo(&row.reader).element(size, false))
         .into_any_element()
 }
 

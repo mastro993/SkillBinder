@@ -1,11 +1,11 @@
 //! Deleting a preset: its skills stay in the library, and deleting the active preset activates
 //! the Default preset, so the confirmation states the skills that switch adds and removes.
 
-use super::controls::{Inactive, button};
 use super::progress_strip::{Activity, Landing};
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::dialog::Dialog;
 use gpui_kit::{Context, ParentElement, Styled, div};
+use skillbinder_design::Button;
 use skillbinder_proto::{DeletePreview, OrganizationChange, PresetSwitch, SkillId};
 
 impl NativeView {
@@ -41,7 +41,7 @@ impl NativeView {
                     .flex()
                     .gap_2()
                     .child(
-                        button("delete-cancel")
+                        Button::new("delete-cancel")
                             .label("Cancel")
                             .inactive(busy)
                             .on_click(
@@ -49,7 +49,7 @@ impl NativeView {
                             ),
                     )
                     .child(
-                        button("delete-confirm")
+                        Button::new("delete-confirm")
                             .label("Delete preset")
                             .inactive(busy)
                             .on_click(cx.listener(move |view, _, _, cx| {

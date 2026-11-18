@@ -4,18 +4,18 @@
 
 use std::collections::BTreeSet;
 
-use super::super::controls::{Inactive, app_icon, button};
 use super::super::library_copies::{AgentRow, agent_rows};
 use super::super::library_items::SkillItem;
 use super::super::library_targets::{held, toggled};
 use super::super::skill_picker::{Place, Resolved};
 use super::super::undo::{Removal, Undo};
 use super::super::{Effect, NativeView};
-use gpui_kit::component::{Sizable, button::ButtonVariants, h_flex};
+use gpui_kit::component::h_flex;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
     StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
 };
+use skillbinder_design::{Button, icon};
 use skillbinder_proto::{AppSnapshot, OrganizationChange, PresetId, SkillId, Targets};
 
 /// What an agent page's row shows beyond a Library row.
@@ -42,10 +42,10 @@ impl NativeView {
             .map_or(0, |placement| placement.unsettled.len());
         let label = format!("Remove from {}", row.name);
         let (place, skill) = (row.place.clone(), id.clone());
-        let remove = button(format!("agent-remove-{id}"))
+        let remove = Button::new(format!("agent-remove-{id}"))
             .ghost()
             .small()
-            .icon(app_icon("delete"))
+            .icon(icon("delete"))
             .tooltip(label.clone())
             .accessibility_label(label)
             .inactive(self.blocked())
