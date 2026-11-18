@@ -16,11 +16,17 @@ use gpui_kit::{
     Stateful, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::MenuItem;
+use skillbinder_design::tokens::space;
 use skillbinder_design::{
-    Button, DialogFooter, DialogHeader, DialogSize, FOLDER_TAB_SIZE, InlineNameField, icon,
+    Button, DialogFooter, DialogHeader, DialogSize, FOLDER_TAB_SIZE, IconSize, InlineNameField,
+    Separator, icon,
 };
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
 use std::cell::Cell;
+
+/// The width of the inline field naming a folder in the header, measured from the approved
+/// Library prototype.
+const NAME_FIELD_WIDTH: f32 = 160.;
 
 /// Which folder name the inline header field edits.
 #[derive(Clone, PartialEq, Eq)]
@@ -65,15 +71,13 @@ impl NativeView {
             .id("folder-tabs")
             .min_w_0()
             .overflow_x_scroll()
-            .gap_1()
+            .gap(px(space::XS))
             .child(self.tab_button(None, "All skills", cx))
             .child(
-                div()
+                Separator::vertical()
                     .flex_shrink_0()
-                    .w(px(1.))
-                    .h(px(16.))
-                    .mx_1()
-                    .bg(cx.theme().border),
+                    .h(px(IconSize::Md.points()))
+                    .mx(px(space::XS)),
             );
         if let Some(folders) = self.render_folder_run(window, cx) {
             strip = strip.child(folders);
@@ -286,7 +290,7 @@ impl NativeView {
     pub(super) fn folder_name_field(&self, cx: &mut Context<Self>) -> AnyElement {
         let view = cx.entity().downgrade();
         InlineNameField::new("folder-name-field", &self.folder_name)
-            .w(px(160.))
+            .w(px(NAME_FIELD_WIDTH))
             .on_cancel(move |window, cx| {
                 let _ = view.update(cx, |view, cx| view.end_folder_edit(window, cx));
             })

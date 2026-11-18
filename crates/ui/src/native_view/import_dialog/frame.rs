@@ -17,7 +17,7 @@ use skillbinder_design::{
 };
 use skillbinder_proto::MAX_IMPORT;
 
-/// The search field's width.
+/// The search field's width: layout measured from the approved Import skills prototype.
 const SEARCH_WIDTH: f32 = 280.;
 
 impl NativeView {

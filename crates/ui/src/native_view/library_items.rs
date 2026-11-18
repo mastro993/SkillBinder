@@ -21,7 +21,7 @@ use skillbinder_design::library::{
     DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
     TILE_MIN_HEIGHT, TILE_PADDING,
 };
-use skillbinder_design::tokens::{opacity, text};
+use skillbinder_design::tokens::{opacity, space, text};
 use skillbinder_design::{Chip, ChipVariant, Level, Separator, Status, StatusGlyph, Surface, Text};
 use skillbinder_proto::{Skill, SkillDetails, SkillId};
 
@@ -137,7 +137,7 @@ impl NativeView {
                 v_flex()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(2.))
+                    .gap(px(space::XXS))
                     .child(self.title_line(item, cx))
                     .child(description(item, 1, cx)),
             )
@@ -175,8 +175,8 @@ impl NativeView {
             .child(
                 div()
                     .mt_auto()
-                    .pt(px(6.))
-                    .min_h(px(32.))
+                    .pt(px(space::SM))
+                    .min_h(px(space::CONTROL_MD))
                     .flex()
                     .items_center()
                     .child(self.row_end(item, true, narrow, cx)),
@@ -197,7 +197,7 @@ impl NativeView {
             .child(item.name());
         h_flex()
             .min_w_0()
-            .gap(px(6.))
+            .gap(px(space::SM))
             .child(slug)
             .children(name_marks(item, cx))
             .when_some(item.folder, |line, folder| {
@@ -219,7 +219,7 @@ impl NativeView {
                 h_flex()
                     .flex_none()
                     .items_center()
-                    .gap(px(8.))
+                    .gap(px(space::MD))
                     .when(unsettled > 0, |end| {
                         end.child(self.unsettled_glyph(&item.skill.id, unsettled, cx))
                     })

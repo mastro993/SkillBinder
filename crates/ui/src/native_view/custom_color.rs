@@ -10,6 +10,8 @@ use gpui_kit::{
     IntoElement, ParentElement, SharedString, Styled, Subscription, Window, div,
     prelude::FluentBuilder, px,
 };
+use skillbinder_design::IconSize;
+use skillbinder_design::tokens::space;
 
 /// One row of shades per hue, as GPUI Kit's own color picker lays them out.
 const HUES: [ColorName; 9] = [
@@ -25,8 +27,6 @@ const HUES: [ColorName; 9] = [
 ];
 /// Darkest to lightest.
 const SHADES: [usize; 11] = [950, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50];
-const SWATCH_SIZE: f32 = 20.0;
-const SWATCH_GAP: f32 = 4.0;
 
 /// GPUI Kit's headless color picker, holding a preset's color while its menu is open.
 pub(super) struct CustomColor {
@@ -83,20 +83,20 @@ impl CustomColor {
         let (hex, radius) = (picker.hex_input().clone(), cx.theme().radius);
         let rows = HUES.map(|hue| {
             h_flex()
-                .gap(px(SWATCH_GAP))
+                .gap(px(space::XS))
                 .children(SHADES.map(|shade| self.swatch(hue.scale(shade), value, cx)))
         });
         v_flex()
-            .gap(px(SWATCH_GAP))
+            .gap(px(space::XS))
             .children(rows)
             .child(
                 h_flex()
-                    .mt_2()
-                    .gap_2()
+                    .mt(px(space::MD))
+                    .gap(px(space::MD))
                     .child(
                         div()
                             .flex_shrink_0()
-                            .size(px(SWATCH_SIZE))
+                            .size(px(IconSize::Lg.points()))
                             .rounded(radius)
                             .when_some(shown, |preview, color| {
                                 preview.bg(color).border_1().border_color(color.darken(0.2))
@@ -116,7 +116,7 @@ impl CustomColor {
             color,
         )
         .selected(value == Some(color))
-        .size(px(SWATCH_SIZE))
+        .size(px(IconSize::Lg.points()))
         .bg(color)
         .border_1()
         .border_color(color.darken(0.1))

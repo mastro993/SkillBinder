@@ -13,6 +13,7 @@ use gpui_kit::{
     AnyElement, App, Context, ElementId, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{Button, Notice, Status, icon};
 use skillbinder_proto::{AppSnapshot, Candidate, CandidateLocation, ValidationStatus};
 use std::{collections::BTreeMap, path::Path};
@@ -70,16 +71,16 @@ fn version_label(version: &Candidate) -> String {
 
 /// A version's locations as "directory · readers", its size, and its validation messages.
 fn version_details(version: &Candidate, snapshot: &AppSnapshot, cx: &App) -> AnyElement {
-    v_flex()
+    text::CAPTION
+        .apply(v_flex())
         .min_w_0()
-        .gap(px(2.))
-        .text_size(px(12.))
+        .gap(px(space::XXS))
         .text_color(cx.theme().muted_foreground)
         .child(
             h_flex()
                 .min_w_0()
                 .flex_wrap()
-                .gap_x(px(12.))
+                .gap_x(px(space::LG))
                 .children(version.locations.iter().map(|location| {
                     div()
                         .min_w_0()
@@ -153,7 +154,7 @@ impl NativeView {
         };
         if versions.len() == 1 {
             return v_flex()
-                .gap(px(2.))
+                .gap(px(space::XXS))
                 .children(shown.map(|version| version_details(version, snapshot, cx)))
                 .children(replaced())
                 .into_any_element();
@@ -184,7 +185,7 @@ impl NativeView {
             }));
         let mut list = v_flex()
             .id(format!("import-versions-list-{key}"))
-            .gap(px(6.))
+            .gap(px(space::SM))
             .on_click(|_, _, cx| cx.stop_propagation())
             .child(h_flex().child(toggle));
         if !expanded {
@@ -215,9 +216,9 @@ impl NativeView {
             let planned = row.item.is_some_and(|item| item.candidate_id == version.id);
             list = list.child(
                 v_flex()
-                    .gap(px(2.))
+                    .gap(px(space::XXS))
                     .child(
-                        h_flex().gap(px(8.)).child(radio).children(
+                        h_flex().gap(px(space::MD)).child(radio).children(
                             version
                                 .matches_source
                                 .then(|| Tag::secondary().small().child("Matches source")),
@@ -225,8 +226,8 @@ impl NativeView {
                     )
                     .child(
                         v_flex()
-                            .pl(px(24.))
-                            .gap(px(2.))
+                            .pl(px(space::XXL))
+                            .gap(px(space::XXS))
                             .child(version_details(version, snapshot, cx))
                             .when(planned, |details| details.children(replaced())),
                     ),

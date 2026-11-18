@@ -14,7 +14,7 @@ use super::library_copies::{AgentRow, found_rows};
 use super::route::Route;
 use gpui_kit::component::{ActiveTheme, WindowExt, h_flex, notification::Notification, v_flex};
 use gpui_kit::{Anchor, Context, IntoElement, ParentElement, Styled, Window, div, px};
-use skillbinder_design::tokens::text;
+use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{AvatarStack, Button, Logo, Text};
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
@@ -143,7 +143,7 @@ impl NativeView {
                     )
                 };
                 v_flex()
-                    .gap(px(10.))
+                    .gap(px(space::MD))
                     .child(
                         // Kit's own close button shows only under the pointer, and its content
                         // clips anything outside it, so with several agents the logo row keeps
@@ -174,7 +174,7 @@ impl NativeView {
                     .child(
                         h_flex()
                             .justify_end()
-                            .gap(px(8.))
+                            .gap(px(space::MD))
                             .child(no)
                             .child(yes.primary()),
                     )

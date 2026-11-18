@@ -20,7 +20,7 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, Window, canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::menu::{self, DISABLED_OPACITY, MIN_WIDTH};
-use skillbinder_design::tokens::{space, text};
+use skillbinder_design::tokens::{radius, space, text};
 use skillbinder_design::{AvatarStack, Checkbox, IconSize, Level, Logo, focus_ring, icon, tooltip};
 
 use skillbinder_proto::{SkillId, Workspace, WorkspaceId, WorkspaceTargets};
@@ -66,11 +66,11 @@ impl NativeView {
             .flex()
             .flex_none()
             .items_center()
-            .gap(px(6.))
-            .h(px(28.))
+            .gap(px(space::SM))
+            .h(px(space::CONTROL_SM))
             .pl(px(space::XS))
-            .pr(px(6.))
-            .rounded(px(6.))
+            .pr(px(space::SM))
+            .rounded(px(radius::SM))
             .text_color(theme.muted_foreground)
             .tab_index(0)
             .role(Role::Button)

@@ -28,7 +28,10 @@ use gpui_kit::{
     Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::icon;
-use skillbinder_design::sidebar::{INSET, ROW_GAP, SECTION_GAP};
+use skillbinder_design::sidebar::{
+    INSET, PRESET_NEUTRAL_OPACITY, PRESET_TINT_OPACITY, PRESET_TINT_OPACITY_DARK, ROW_GAP,
+    SECTION_GAP,
+};
 use skillbinder_proto::{
     LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
 };
@@ -182,10 +185,9 @@ impl NativeView {
         skills: usize,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let dark = cx.theme().mode.is_dark();
         let id = preset.id.clone();
         let label: SharedString = self.preset_display_name(preset).to_owned().into();
-        let tint = preset.color.map(|color| preset_tint(color, dark));
+        let tint = preset.color.map(|color| preset_tint(color, cx.theme()));
         let glyph = icon_glyph(preset.icon);
         let marker = active.then(|| active_marker(id.as_str(), tint, cx));
         let (menu_preset, index, len) = (preset.clone(), placement.index, placement.len);
@@ -258,7 +260,7 @@ impl NativeView {
         let theme = cx.theme();
         let tint = preset
             .and_then(|preset| preset.color)
-            .map(|color| preset_tint(color, theme.mode.is_dark()));
+            .map(|color| preset_tint(color, theme));
         let glyph = icon_glyph(preset.map_or_else(PresetIcon::default, |preset| preset.icon));
         name_field(
             "preset-name-field",
@@ -392,14 +394,6 @@ fn shown_preset_name<'a>(
         .map_or(preset.name.as_str(), |(_, name)| name.as_str())
 }
 
-/// Opacity of an active preset's color fill: fainter than the route selection fill in both
-/// themes, and lighter still in the light theme, whose selection fill is dark against its surface.
-const PRESET_TINT_OPACITY: f32 = 0.07;
-const PRESET_TINT_OPACITY_DARK: f32 = 0.15;
-/// Opacity of the route selection fill for an active preset with no color, kept fainter than a
-/// selected navigation row like the tinted fill.
-const PRESET_NEUTRAL_OPACITY: f32 = 0.6;
-
 /// The active preset's row fill: its color at a low opacity, or a fainter selection fill when it
 /// has no color.
 fn active_preset_fill(tint: Option<Hsla>, cx: &App) -> Hsla {
@@ -407,7 +401,7 @@ fn active_preset_fill(tint: Option<Hsla>, cx: &App) -> Hsla {
     let Some(color) = tint else {
         return theme.sidebar_accent.opacity(PRESET_NEUTRAL_OPACITY);
     };
-    let opacity = if theme.mode.is_dark() {
+    let opacity = if theme.is_dark() {
         PRESET_TINT_OPACITY_DARK
     } else {
         PRESET_TINT_OPACITY

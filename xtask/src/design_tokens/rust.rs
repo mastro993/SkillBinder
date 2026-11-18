@@ -18,11 +18,16 @@ const ICONS: &[(&str, f32, &str)] = &[
     ("lg", 20.0, "A large glyph, such as an empty state's."),
 ];
 
-/// Whole-element opacities, from `DESIGN.md`'s Components and Do's and Don'ts sections. The
-/// DESIGN.md format has no token group for them, so they are listed here.
+/// Whole-element opacities, from `DESIGN.md`'s Elevation & Depth, Components, and Do's and
+/// Don'ts sections. The DESIGN.md format has no token group for them, so they are listed here.
 const OPACITIES: &[(&str, f32, &str)] = &[
     ("inactive", 0.5, "An inactive row or control."),
     ("disabled", 0.4, "A disabled control or menu row."),
+    (
+        "wash",
+        0.7,
+        "The page color over the window while a change blocks it.",
+    ),
 ];
 
 const HEADER: &str = "\

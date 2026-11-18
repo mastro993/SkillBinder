@@ -15,6 +15,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
 use skillbinder_design::Button;
+use skillbinder_design::tokens::space;
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
@@ -109,7 +110,7 @@ impl NativeView {
         let mut lines: Vec<AnyElement> = wide.into_iter().map(&mut tile).collect();
         for chunk in others.chunks(COLUMNS) {
             let line = h_flex()
-                .gap(px(8.))
+                .gap(px(space::MD))
                 .items_stretch()
                 .children(
                     chunk
@@ -121,7 +122,7 @@ impl NativeView {
         }
         v_flex()
             .id("onboarding-agents")
-            .gap(px(8.))
+            .gap(px(space::MD))
             .children(lines)
             .into_any_element()
     }

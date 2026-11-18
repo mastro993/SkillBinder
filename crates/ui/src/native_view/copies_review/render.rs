@@ -14,7 +14,8 @@ use skillbinder_design::{
 };
 use skillbinder_proto::{CopyChoice, ManagedCopy};
 
-/// Distance from the window's top edge to the review dialog.
+/// Distance from the window's top edge to the review dialog: layout measured from the approved
+/// scoped-page prototype.
 const TOP: f32 = 56.;
 
 impl NativeView {

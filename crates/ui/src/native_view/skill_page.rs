@@ -40,7 +40,7 @@ impl NativeView {
     /// applied, then its `SKILL.md`.
     pub(super) fn render_skill(&self, id: &SkillId, cx: &mut Context<Self>) -> AnyElement {
         v_flex()
-            .gap_4()
+            .gap(px(space::XL))
             .children(self.render_update_outcome(cx))
             .children(self.render_drift_note(id))
             .children(self.render_update_notes(id))

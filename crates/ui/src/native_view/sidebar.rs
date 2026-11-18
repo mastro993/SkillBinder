@@ -5,16 +5,18 @@ use std::{rc::Rc, time::Duration};
 
 use super::sidebar_row::{RowIcon, activate, count, dot, row, spinner};
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Icon, IconName, ThemeMode, TitleBar, h_flex};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable, ThemeMode, TitleBar, h_flex};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, AppContext, Axis, Context, Div, ElementId, EmptyView,
     InteractiveElement, IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled,
     Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::Button;
 use skillbinder_design::sidebar::{ICON_SIZE, INSET, ROW_GAP, ROW_HEIGHT, SECTION_GAP};
+use skillbinder_design::{Button, IconSize};
 use skillbinder_proto::{Appearance, SyncSnapshot, SyncState};
 
+/// How narrow and wide a drag resizes the sidebar: layout measured from the approved sidebar
+/// prototype.
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
 const SIDEBAR_MOTION: Duration = Duration::from_millis(220);
@@ -247,7 +249,7 @@ impl NativeView {
             Button::new(id)
                 .ghost()
                 .small()
-                .icon(skillbinder_design::icon(icon).size_4())
+                .icon(skillbinder_design::icon(icon).with_size(IconSize::Md))
                 .accessibility_label(label)
                 .inactive(!enabled)
         };

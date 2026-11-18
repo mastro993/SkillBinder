@@ -13,7 +13,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Role,
     StatefulInteractiveElement, Styled, Toggled, div, px,
 };
-use skillbinder_design::tokens::{space, text};
+use skillbinder_design::tokens::{opacity, space, text};
 use skillbinder_design::{AvatarStack, Checkbox, Logo, Text};
 
 /// The tile's inner margin, inside its outline.
@@ -74,7 +74,7 @@ impl NativeView {
             .p(px(PADDING))
             .border_1()
             .border_color(if chosen {
-                border.blend(foreground.opacity(0.45))
+                border.blend(foreground.opacity(opacity::INACTIVE))
             } else {
                 border
             })

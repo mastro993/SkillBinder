@@ -157,9 +157,7 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let preset = &optimistic.preset;
-        let tint = preset
-            .color
-            .map(|color| preset_tint(color, cx.theme().mode.is_dark()));
+        let tint = preset.color.map(|color| preset_tint(color, cx.theme()));
         row(
             format!("preset-optimistic-{}", preset.id),
             RowIcon::Glyph(Box::new(icon(icon_glyph(preset.icon)))),
