@@ -1,8 +1,17 @@
+//! Settings: your agents (design S1, S2), then the application's facts and the Git row (S3).
+
+mod agents;
+
 use super::NativeView;
 use super::controls::button;
 use super::git_setup::Action;
 use gpui_kit::component::{h_flex, v_flex};
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
+use gpui_kit::{AnyElement, Context, FontWeight, IntoElement, ParentElement, Styled, div, px};
+
+/// A section's heading.
+fn heading(text: &'static str) -> impl IntoElement {
+    div().font_weight(FontWeight::SEMIBOLD).child(text)
+}
 
 impl NativeView {
     pub(super) fn render_settings(&mut self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
@@ -12,7 +21,9 @@ impl NativeView {
             .flex()
             .flex_col()
             .gap_4()
-            .child("Application")
+            .child(heading("Agents"))
+            .child(self.agents_section(cx))
+            .child(heading("Application"))
             .child(format!(
                 "Managed library: {}",
                 self.snapshot.bootstrap.library_path

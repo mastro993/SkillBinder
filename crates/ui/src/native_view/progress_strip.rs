@@ -32,6 +32,9 @@ pub(super) enum Activity {
     Importing { skills: usize },
     /// Adding these library skills, by slug, to a workspace or your agents.
     Adding { skills: Vec<String> },
+    /// Turning on the agents of these Agents rows, by name, which applies the active preset to
+    /// them.
+    TurningOn { agents: Vec<String> },
 }
 
 impl Activity {
@@ -40,7 +43,7 @@ impl Activity {
         match self {
             Self::Switching { .. } | Self::DeletingActive { .. } => "Switching…",
             Self::Importing { .. } => "Importing…",
-            Self::Adding { .. } => "Adding…",
+            Self::Adding { .. } | Self::TurningOn { .. } => "Adding…",
         }
     }
 
@@ -51,6 +54,10 @@ impl Activity {
             Self::DeletingActive { .. } => "Switching to Default".to_owned(),
             Self::Importing { skills: count } => skills("Importing", *count),
             Self::Adding { skills } => named("Adding", skills),
+            Self::TurningOn { agents } => match agents.as_slice() {
+                [agent] => format!("Adding skills to {agent}"),
+                agents => format!("Adding skills to {} agents", agents.len()),
+            },
         }
     }
 
@@ -61,6 +68,11 @@ impl Activity {
             Self::DeletingActive { preset } => format!("Deleted {preset} · Switched to Default"),
             Self::Importing { .. } => skills("Imported", landing.imported),
             Self::Adding { skills } => named("Added", skills),
+            Self::TurningOn { agents } => match agents.as_slice() {
+                [agent] => format!("{agent} is on"),
+                [first, second] => format!("{first} and {second} are on"),
+                agents => format!("{} agents are on", agents.len()),
+            },
         }
     }
 }

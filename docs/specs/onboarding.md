@@ -105,6 +105,8 @@ Docs each slice updates: `docs/features/native/onboarding.md` (split from `setup
 - The data location check stays as a step that applies only when storage is not writable.
 - Turning an agent on or off needs no confirmation; a managed agent turned off shows "Its skills stay in place."
 - Closing the new-agent notice counts as Not now.
+- "Its skills stay in place." shows for an agent turned off since the app started; after a restart the row shows its folder again. If wrong: persist a set of turned-off directories.
+- The notice names the universal agents Universal, as the sidebar and Settings do.
 - Developer data at `Complete` keeps every detected agent chosen; anything earlier restarts onboarding, keeping an existing library directory.
 - The Git step polls every 3 seconds while open. If wrong: only Check again and focus.
 

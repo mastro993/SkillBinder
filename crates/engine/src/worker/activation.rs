@@ -34,6 +34,15 @@ impl Engine {
     ) -> impl Future<Output = AppResult<ImportOutcome>> + Send + 'static {
         self.tracked(move |state| state.apply_import(plan, selection, acknowledge_invalid))
     }
+    /// Turns the agents reading the global skill directories `dirs` on or off after onboarding,
+    /// counting the pairs turning them on brings in line, like [`Self::change_organization`].
+    pub fn set_agents_chosen(
+        &self,
+        dirs: std::collections::BTreeSet<String>,
+        chosen: bool,
+    ) -> impl Future<Output = AppResult<()>> + Send + 'static {
+        self.tracked(move |state| state.set_agents_chosen(dirs, chosen))
+    }
     /// Clears the progress record now, then runs `operation` as one job whose passes count into
     /// it, including a second pass such as an import's adoption.
     pub(super) fn tracked<T: Send + 'static>(

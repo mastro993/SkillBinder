@@ -3,6 +3,7 @@
 //! skill directory, so agents that share one, such as the universal agents, are one choice.
 
 use crate::{
+    persistence,
     scan::registry::{self, Reach},
     worker::State,
 };
@@ -88,6 +89,43 @@ impl State {
         self.ensure_library()?;
         self.ensure_repository()?;
         self.bootstrap()
+    }
+
+    /// Turns the agents reading the global skill directories `dirs` on or off after onboarding,
+    /// from Settings or the new agent notice, each counting as asked about (ADR 0012). On applies
+    /// the active preset to them, adopting copies with the library's content and asking about the
+    /// others; off leaves their copies in place, unmanaged. Off for agents that are off already
+    /// only records the answer, as Not now does.
+    pub(crate) fn set_agents_chosen(&self, dirs: BTreeSet<String>, chosen: bool) -> AppResult<()> {
+        self.require_recovered()?;
+        if !self.onboarding_finished()? {
+            return Err(AppError::validation(
+                "Choose your agents during setup first.",
+            ));
+        }
+        let found: BTreeSet<String> = self
+            .agents()?
+            .into_iter()
+            .filter(|agent| agent.detected)
+            .filter_map(|agent| agent.global_skills_dir)
+            .collect();
+        if dirs.is_empty() || !dirs.is_subset(&found) {
+            return Err(AppError::validation(
+                "Choose among the agents found on this computer.",
+            ));
+        }
+        let mut choices = self.agent_choices()?.unwrap_or_default();
+        choices.asked.extend(dirs.iter().cloned());
+        if chosen {
+            choices.chosen.extend(dirs);
+            return self.change_places(|state| state.set_setting(AGENTS, &choices));
+        }
+        choices.chosen.retain(|dir| !dirs.contains(dir));
+        let after = registry::agent_options(&self.config, &choices)?;
+        let value = serde_json::to_string(&choices).map_err(|_| AppError::storage())?;
+        self.release_places(&after, |connection| {
+            persistence::put_setting(connection, AGENTS, &value)
+        })
     }
 
     /// Makes every detected agent yours, and asked about, when onboarding finished before agents
