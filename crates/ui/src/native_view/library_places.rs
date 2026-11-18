@@ -20,7 +20,6 @@ use gpui_kit::{
     prelude::FluentBuilder, px,
 };
 use skillbinder_design::menu::HIGHLIGHT_INK;
-use skillbinder_design::tokens::text;
 use skillbinder_design::{
     Chip, ChipVariant, IconSize, Level, Logo, Separator, Text, dashed, icon, tooltip,
 };
@@ -320,9 +319,4 @@ pub(super) fn place_pill(
         })
         .child(mark)
         .tooltip(tooltip(text))
-}
-
-/// A `caption-sm` muted section label, its text `id`.
-pub(super) fn section_label(id: &'static str, label: &'static str) -> Text {
-    Text::labeled(id, label).level(text::CAPTION_SM).muted()
 }

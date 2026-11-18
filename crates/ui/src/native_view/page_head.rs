@@ -4,27 +4,24 @@
 //! with Library.
 
 use super::library_copies::shown_dir;
-use super::library_filters::{empty_state, glyph};
 use super::skill_picker::Place;
 use super::snapshot_query::matching;
 use super::workspace_icons::menu_icon;
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, input::Input, v_flex};
+use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, Div, InteractiveElement, IntoElement, ParentElement, Styled, Window, div,
     px,
 };
 use skillbinder_design::page::{GAP, GUTTER};
 use skillbinder_design::tokens::text;
-use skillbinder_design::{IconSize, Text, icon};
+use skillbinder_design::{EmptyState, SearchField, Text};
 use skillbinder_proto::Skill;
 
 /// The glyph's square.
 const ICON: f32 = 18.;
 /// The search field's width on a scoped page.
 const SEARCH_WIDTH: f32 = 220.;
-/// The empty state's distance from the top of a scoped page.
-pub(super) const EMPTY_TOP: f32 = 36.;
 
 impl NativeView {
     /// The header's title slot: Library's folder tabs, a scoped page's head, or the breadcrumb.
@@ -99,22 +96,11 @@ impl NativeView {
     ) -> AnyElement {
         let typed = self.search.read(cx).value().trim().to_owned();
         let shown = matching(&self.snapshot, held, &typed.to_lowercase());
-        let search = div().w(px(SEARCH_WIDTH)).max_w_full().child(
-            Input::new(&self.search)
-                .prefix(
-                    icon("search")
-                        .with_size(IconSize::Sm)
-                        .text_color(cx.theme().muted_foreground),
-                )
-                .bg(cx.theme().background),
-        );
+        let search = SearchField::new("page-search", &self.search).width(SEARCH_WIDTH);
         let results = if shown.is_empty() {
-            empty_state(
-                glyph("search", cx),
-                format!("No skills match '{typed}'"),
-                cx,
-            )
-            .into_any_element()
+            EmptyState::new("page-empty", format!("No skills match '{typed}'"))
+                .icon("search")
+                .into_any_element()
         } else {
             list(self, &shown, cx)
         };

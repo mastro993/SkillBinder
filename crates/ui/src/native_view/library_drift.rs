@@ -3,10 +3,8 @@
 
 use super::without_git::{REINSTALL_NEEDS_GIT, needs_git};
 use super::{Effect, NativeView};
-use gpui_kit::component::ActiveTheme;
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
-use skillbinder_design::tokens::color;
-use skillbinder_design::{Button, Status, StatusGlyph};
+use gpui_kit::{AnyElement, Context, IntoElement};
+use skillbinder_design::{Button, Notice, NoticeSize, Status, StatusGlyph};
 use skillbinder_proto::{Drift, SkillId};
 
 /// Why a drifted skill's page warns, and what Reinstall would do.
@@ -83,13 +81,12 @@ impl NativeView {
     }
 
     /// A drifted skill's page note.
-    pub(super) fn render_drift_note(&self, id: &SkillId, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_drift_note(&self, id: &SkillId) -> Option<AnyElement> {
         let drift = self.drift(id)?;
         Some(
-            div()
-                .text_sm()
-                .text_color(color::WARNING_TEXT.of(cx.theme()))
-                .child(note(drift))
+            Notice::new("drift-note", note(drift))
+                .status(Status::Warning)
+                .size(NoticeSize::Md)
                 .into_any_element(),
         )
     }

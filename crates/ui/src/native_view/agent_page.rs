@@ -12,15 +12,13 @@ pub(super) use rows::AgentPageRow;
 use super::agent_skills::{agent_name, split_universal, your_agents};
 use super::controls::reader_logo;
 use super::library_copies::{AgentRow, placements};
-use super::library_filters::empty_state;
 use super::library_items::{RowEnd, SkillItem};
-use super::page_head::EMPTY_TOP;
 use super::skill_picker::{Place, Resolved};
 use super::snapshot_query::{agent_skills, has_update};
 use super::{NativeView, Route};
 use gpui_kit::component::ActiveTheme;
-use gpui_kit::{AnyElement, App, Context, IntoElement, ParentElement, Styled, div, px};
-use skillbinder_design::IconSize;
+use gpui_kit::{AnyElement, App, Context, IntoElement, ParentElement, Styled, div};
+use skillbinder_design::{EmptyState, IconSize};
 use skillbinder_proto::{AgentOption, AppSnapshot, CopyState, PresetId, Skill};
 
 impl NativeView {
@@ -92,14 +90,10 @@ impl NativeView {
     /// The page's logo, "No skills on for <name>", and Add skill.
     fn empty_agent(&self, place: &Place, row: &AgentRow, cx: &mut Context<Self>) -> AnyElement {
         let add = self.add_skill_button(place.clone(), "add-skill-empty", cx);
-        empty_state(
-            logo(row, IconSize::Lg, cx),
-            format!("No skills on for {}", row.name),
-            cx,
-        )
-        .pt(px(EMPTY_TOP))
-        .child(div().mt(px(8.)).child(add))
-        .into_any_element()
+        EmptyState::new("agent-empty", format!("No skills on for {}", row.name))
+            .media(logo(row, IconSize::Lg, cx))
+            .action(add)
+            .into_any_element()
     }
 }
 

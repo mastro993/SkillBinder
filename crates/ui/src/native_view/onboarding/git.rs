@@ -3,7 +3,7 @@
 //! and Install Git at the right. Once Git is found it reads "Git <version> is ready" and moves on
 //! by itself.
 
-use super::super::git_setup::Action;
+use super::super::git_setup::GitButton;
 use super::super::{Effect, NativeView};
 use super::StepView;
 use gpui_kit::component::ActiveTheme;
@@ -45,7 +45,7 @@ impl NativeView {
                 .child(LEAD)
                 .into_any_element(),
         ];
-        body.extend(self.git_status_line("onboarding-git-line", cx));
+        body.extend(self.git_status_line("onboarding-git-line"));
         body.extend(
             actions
                 .command
@@ -53,13 +53,13 @@ impl NativeView {
         );
         let primary = !skipped;
         let mut buttons = vec![self.git_button(
-            Action::Download,
+            GitButton::Download,
             primary && actions.download_primary,
             found,
             cx,
         )];
         if actions.install {
-            buttons.push(self.git_button(Action::Install, primary, found, cx));
+            buttons.push(self.git_button(GitButton::Install, primary, found, cx));
         }
         StepView {
             title,

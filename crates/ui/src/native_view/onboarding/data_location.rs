@@ -3,9 +3,8 @@
 
 use super::super::NativeView;
 use super::StepView;
-use gpui_kit::component::ActiveTheme;
-use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
-use skillbinder_design::tokens::color;
+use gpui_kit::{Context, IntoElement};
+use skillbinder_design::{Notice, NoticeSize, Status};
 
 impl NativeView {
     pub(super) fn data_location_step(&self, cx: &mut Context<Self>) -> StepView {
@@ -14,9 +13,9 @@ impl NativeView {
             title: "SkillBinder can't save its data",
             wide: false,
             body: vec![
-                div()
-                    .text_color(color::DANGER_TEXT.of(cx.theme()))
-                    .child(format!("{path} isn't writable."))
+                Notice::new("data-location-note", format!("{path} isn't writable."))
+                    .status(Status::Danger)
+                    .size(NoticeSize::Md)
                     .into_any_element(),
             ],
             leading: None,

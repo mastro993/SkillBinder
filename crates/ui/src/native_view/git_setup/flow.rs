@@ -1,11 +1,11 @@
 //! The Git install flow's actions and checks: Install Git starts the system's installer through
-//! the engine, Download Git opens Git's download page, and Copy puts the package manager's command
-//! on the clipboard. Then the app checks for Git every 3 seconds, and on focus, until it is found.
+//! the engine, Download Git opens Git's download page, and Copy, whose command box puts the
+//! package manager's command on the clipboard, only starts the wait. Then the app checks for Git every 3 seconds, and on focus, until it is found.
 
 use super::super::{NativeView, Route, onboarding};
 use super::{Action, CHECK_EVERY, DOWNLOAD_URL, READY_FOR, Status};
-use gpui_kit::{ClipboardItem, Context};
-use skillbinder_proto::{AppSnapshot, GitInstall};
+use gpui_kit::Context;
+use skillbinder_proto::AppSnapshot;
 
 impl NativeView {
     /// Takes `action`, then waits on Git.
@@ -13,11 +13,7 @@ impl NativeView {
         match action {
             Action::Install => self.install_git(cx),
             Action::Download => cx.open_url(DOWNLOAD_URL),
-            Action::Copy => {
-                if let GitInstall::Command(command) = &self.snapshot.bootstrap.git_install {
-                    cx.write_to_clipboard(ClipboardItem::new_string(command.clone()));
-                }
-            }
+            Action::Copy => {}
         }
         self.git_setup.act(action);
         self.watch_git(cx);

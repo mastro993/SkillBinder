@@ -61,7 +61,7 @@ As today (design O1, O2, O4, O5), scanning only your agents' global skill direct
 
 1. Sync shows "Sync needs Git." with Install Git, and no remote controls.
 2. Library's update control and a skill's Reinstall and Update are unavailable with the tooltip "Install Git to check for updates" or "Install Git to reinstall".
-3. Settings shows "Git: Not installed" with Install Git, which behaves as the step's primary action and shows its waiting state in Settings.
+3. Settings' Git row shows "Not installed" with Install Git, which behaves as the step's primary action and shows its waiting state in Settings.
 4. When Git is found, the library becomes a repository; everything stays uncommitted until Sync or Push.
 
 ### Chosen agents after onboarding

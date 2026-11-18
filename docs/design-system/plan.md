@@ -128,17 +128,17 @@ crates/design/
 | StatusGlyph | atom | `tone: info \| warning \| danger \| success`, `icon`, `tooltip` | `*-text`, icon Sm | update, drift, validation and unsettled glyphs | Icon, Tooltip |
 | Surface | atom | `level: flat \| raised \| overlay \| modal`, `radius` | background, popover, elevation | `library::surface`, `menu::surface`, `menu::shadow`, drag previews | none |
 | Logo | atom | `Glyph \| Mono \| Color(path)`, `size`, `gray` | icon scale | `controls::Logo` (generic part) | Icon, img |
-| SearchField | molecule | `state`, `placeholder`, `width` | input, icon Sm | 4 search fields | Kit Input, Icon |
+| SearchField | molecule | `state` (which holds the placeholder), `width` | input, icon Sm | 4 search fields | Kit Input, Icon |
 | SectionHeader | molecule | `label`, `count`, `action` | section-header | `section_label`, sidebar `section_header`, 4 dialog group headers | Text, Count |
-| Notice | molecule | `tone`, `text`, `size: sm \| md` | notice-*, icon Sm | 8 notice lines, `alert_glyph`, `versions::warning`, global error box | Icon, Text, Kit Alert (blocking) |
-| EmptyState | molecule | `icon`, `title`, `action` | muted-foreground, `3xl` top | `empty_state` + 3 appended actions | Kit Empty, Button |
-| InlineNameField | molecule | `state`, `size: sm \| md` | input | `sidebar_row::name_field`, `library_folders::folder_name_field` | Kit Input |
-| SegmentedFilter | molecule | `items: [(label, count)]`, `selected` | tab_bar_segmented, Count | Library filters, picker folder chips | Kit TabBar, Count |
+| Notice | molecule | `status` (none for muted), `text`, `glyph`, `size: sm \| md` | notice-*, icon Sm | 8 notice lines, `alert_glyph`, `versions::warning`, global error box | Icon, Text, Kit Alert (blocking) |
+| EmptyState | molecule | `icon` or `media`, `title`, `description`, `action` | muted-foreground, `3xl` top | `empty_state` + 3 appended actions | Kit Empty, Button |
+| InlineNameField | molecule | `state`, `size: sm \| md`, `leading`, `on_cancel` | input | `sidebar_row::name_field`, `library_folders::folder_name_field` | Kit Input |
+| SegmentedFilter | molecule | `items: [(label, count)]`, `selected`, `on_select` | tab_bar_segmented, Count | Library filters, picker folder chips | Kit TabBar, Count |
 | ListRow | molecule | `leading`, `title`, `subtitle`, `trailing`, `dimmed`, `hover`, `divider` | list-row*, hairline | 5 row builders | Text, Separator |
 | DialogHeader | molecule | `title`, `description`, `close` | dialog-title, body-sm | `dialog_title`, `dialog_heading`, picker title | Text, CloseButton |
 | DialogFooter | molecule | `secondary`, `primary` (variant may be danger), `leading` | spacing md | 7 footer builds, `import_dialog::footer` | Button |
 | KeyValueList | molecule | `rows: [(label, value)]` | caption, body-sm | Settings and Sync `format!` rows | Kit DescriptionList |
-| CodeBlock | molecule | `text`, `copy` | code-block | `git_command_box` | Kit Clipboard |
+| CodeBlock | molecule | `text`, `on_copy` | code-block | `git_command_box` | Kit Clipboard |
 | AvatarStack | molecule | `logos`, `limit`, `ring` | avatar-overflow | `stack`, `stack_of`, `named_stack` | Kit Avatar(Group), Logo |
 | CardList | organism | `rows`, `empty` | card, hairline, elevation flat | 5 card containers with 4 radii | Surface, ListRow, EmptyState |
 | DialogFrame | organism | `size: compact 320 \| standard 420 \| window`, header/body/footer | dialog, elevation modal | sizing in `import_dialog/frame.rs:19-34`, `skill_picker/dialog.rs:17-66`, `copy_changed.rs:17`, `copies_review/render.rs:22` | Kit Dialog, DialogHeader, DialogFooter |

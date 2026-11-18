@@ -8,7 +8,8 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px,
 };
-use skillbinder_design::{Button, IconSize, Spinner, icon, tooltip};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, IconSize, Notice, NoticeSize, Spinner, icon, tooltip};
 use skillbinder_proto::{AppSnapshot, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
@@ -241,11 +242,7 @@ impl NativeView {
     }
 
     /// Why skill `id`'s last check or update failed, if either did.
-    pub(super) fn render_update_notes(
-        &self,
-        id: &SkillId,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
+    pub(super) fn render_update_notes(&self, id: &SkillId) -> Option<AnyElement> {
         let update = self.snapshot.updates.get(id)?;
         let check = match &update.check {
             UpdateCheck::Failed(message) => Some(message.clone()),
@@ -260,11 +257,13 @@ impl NativeView {
         }
         Some(
             v_flex()
-                .gap_1()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .children(check)
-                .children(failure)
+                .gap(px(space::XS))
+                .children(
+                    check.map(|check| Notice::new("update-check-note", check).size(NoticeSize::Md)),
+                )
+                .children(failure.map(|failure| {
+                    Notice::new("update-failure-note", failure).size(NoticeSize::Md)
+                }))
                 .into_any_element(),
         )
     }

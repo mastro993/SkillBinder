@@ -8,22 +8,19 @@ mod removal;
 
 use super::NativeView;
 use super::library_copies::{agent_rows, placements};
-use super::library_filters::empty_state;
 use super::library_items::{RowEnd, SkillItem};
 use super::library_targets::{held, sharing};
-use super::page_head::EMPTY_TOP;
 use super::skill_picker::Place;
 use super::snapshot_query::{Entry, has_update, workspace_skills};
 use super::workspace_icons::sized_icon;
 use super::workspace_targets::folders;
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex};
+use gpui_kit::component::{ActiveTheme, Sizable};
 use gpui_kit::{
     AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::color;
-use skillbinder_design::tokens::{radius, text};
-use skillbinder_design::{IconSize, Text, icon, tooltip};
+use skillbinder_design::tokens::radius;
+use skillbinder_design::{EmptyState, IconSize, Notice, NoticeSize, Status, tooltip};
 use skillbinder_proto::{CopyState, Overlap, SkillId, Targets, Workspace, WorkspaceId};
 
 /// What a workspace page's row shows beyond a Library row.
@@ -46,7 +43,7 @@ impl NativeView {
         let held = workspace_skills(&self.snapshot, workspace);
         let page = self
             .scoped_page()
-            .when(workspace.missing, |page| page.child(missing_note(cx)))
+            .when(workspace.missing, |page| page.child(missing_note()))
             .children(self.render_update_outcome(cx));
         if held.is_empty() {
             return page
@@ -119,20 +116,15 @@ impl NativeView {
             "add-skill-empty",
             cx,
         );
-        empty_state(
-            sized_icon(workspace, 20., cx),
+        EmptyState::new(
+            "workspace-empty",
             format!("No skills in {}", workspace.name),
-            cx,
         )
-        .pt(px(EMPTY_TOP))
+        .media(sized_icon(workspace, IconSize::Lg.points(), cx))
         .when(workspace.dirs.is_empty(), |empty| {
-            empty.child(
-                Text::labeled("no-agents-here", "No agents here yet")
-                    .level(text::BODY_SM)
-                    .muted(),
-            )
+            empty.description("No agents here yet")
         })
-        .child(div().mt(px(8.)).child(add))
+        .action(add)
         .into_any_element()
     }
 
@@ -165,17 +157,10 @@ fn edited_in(
 }
 
 /// The note under the header while the workspace folder is missing.
-fn missing_note(cx: &App) -> AnyElement {
-    h_flex()
-        .id("workspace-missing")
-        .gap(px(6.))
-        .text_size(px(13.))
-        .child(
-            icon("alert-circle")
-                .with_size(IconSize::Md)
-                .text_color(color::WARNING_TEXT.of(cx.theme())),
-        )
-        .child("The workspace folder is missing.")
+fn missing_note() -> AnyElement {
+    Notice::new("workspace-missing", "The workspace folder is missing.")
+        .status(Status::Warning)
+        .size(NoticeSize::Md)
         .into_any_element()
 }
 

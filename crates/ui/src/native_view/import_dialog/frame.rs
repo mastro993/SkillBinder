@@ -3,21 +3,22 @@
 //! Onboarding's names no place and ends with Done (O7).
 
 use super::super::NativeView;
-use super::super::library_updates::spinner;
 use super::list::{Selection, status};
 use super::{End, ImportDialog, Phase};
-use gpui_kit::component::{ActiveTheme, Sizable, dialog::Dialog, h_flex, input::Input, v_flex};
+use gpui_kit::component::{dialog::Dialog, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Pixels, Size as Area,
     Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::color;
-use skillbinder_design::{Button, Checkbox, IconSize, icon};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, Checkbox, Notice, NoticeSize, SearchField, Status};
 use skillbinder_proto::MAX_IMPORT;
 
 /// The dialog's share of the window's width and height, as the Add skill picker's.
 const WIDTH: f32 = 0.92;
 const HEIGHT: f32 = 0.9;
+/// The search field's width.
+const SEARCH_WIDTH: f32 = 280.;
 
 impl NativeView {
     /// The open Import skills dialog in `dialog`, sized from the window's `viewport`.
@@ -33,33 +34,28 @@ impl NativeView {
             .h(viewport.height * HEIGHT)
             .margin_top(viewport.height * ((1. - HEIGHT) / 2.))
             .title(self.dialog_title("Import skills", cx));
-        let muted = cx.theme().muted_foreground;
         let centered = |content: AnyElement| {
             h_flex()
                 .id("import-message")
                 .size_full()
                 .justify_center()
                 .items_center()
-                .gap(px(8.))
-                .text_color(muted)
                 .child(content)
         };
         match &state.phase {
             Phase::Scanning => dialog
                 .child(centered(
-                    h_flex()
-                        .gap(px(8.))
-                        .child(spinner())
-                        .child("Scanning…")
+                    Notice::new("import-scanning", "Scanning…")
+                        .turning("refresh-04")
+                        .size(NoticeSize::Md)
                         .into_any_element(),
                 ))
                 .footer(footer(None, self.scanning_buttons(state, cx))),
             Phase::Failed(reason) => dialog
                 .child(centered(
-                    h_flex()
-                        .gap(px(8.))
-                        .child(alert_glyph(color::DANGER_TEXT.of(cx.theme())))
-                        .child(format!("Couldn't scan: {reason}"))
+                    Notice::new("import-failed", format!("Couldn't scan: {reason}"))
+                        .status(Status::Danger)
+                        .size(NoticeSize::Md)
                         .into_any_element(),
                 ))
                 .footer(footer(
@@ -74,29 +70,30 @@ impl NativeView {
                     ],
                 )),
             Phase::Empty => dialog
-                .child(centered("No new skills found.".into_any_element()))
+                .child(centered(
+                    Notice::new("import-empty", "No new skills found.")
+                        .size(NoticeSize::Md)
+                        .into_any_element(),
+                ))
                 .footer(footer(None, vec![self.close_button(cx)])),
             Phase::Ready(found) => {
-                let status_line = state.end.names_places().then(|| {
-                    div()
-                        .id("import-status")
-                        .text_size(px(12.))
-                        .text_color(muted)
-                        .child(status(&found.scan))
-                });
+                let status_line = state
+                    .end
+                    .names_places()
+                    .then(|| Notice::new("import-status", status(&found.scan)));
                 let body = v_flex()
                     .size_full()
                     .min_h_0()
-                    .gap(px(12.))
+                    .gap(px(space::LG))
                     .child(
                         h_flex()
                             .justify_between()
                             .items_center()
-                            .gap(px(12.))
-                            .child(self.import_search(state, cx))
+                            .gap(px(space::LG))
+                            .child(self.import_search(state))
                             .children(status_line),
                     )
-                    .when(state.changed, |body| body.child(changed_line(cx)))
+                    .when(state.changed, |body| body.child(changed_line()))
                     .child(self.import_list(state, found, cx));
                 dialog
                     .child(body)
@@ -106,22 +103,9 @@ impl NativeView {
     }
 
     /// The search field (D2).
-    fn import_search(&self, state: &ImportDialog, cx: &mut Context<Self>) -> AnyElement {
-        let theme = cx.theme();
-        div()
-            .id("import-search")
-            .w(px(280.))
-            .max_w_full()
-            .flex_none()
-            .child(
-                Input::new(&state.search)
-                    .prefix(
-                        icon("search")
-                            .with_size(IconSize::Sm)
-                            .text_color(theme.muted_foreground),
-                    )
-                    .bg(theme.background),
-            )
+    fn import_search(&self, state: &ImportDialog) -> AnyElement {
+        SearchField::new("import-search", &state.search)
+            .width(SEARCH_WIDTH)
             .into_any_element()
     }
 
@@ -180,14 +164,13 @@ impl NativeView {
     ) -> Option<AnyElement> {
         if chosen.over() {
             return Some(
-                h_flex()
-                    .id("import-cap")
-                    .gap(px(6.))
-                    .text_size(px(13.))
-                    .text_color(color::WARNING_TEXT.of(cx.theme()))
-                    .child(alert_glyph(color::WARNING_TEXT.of(cx.theme())))
-                    .child(format!("Import at most {MAX_IMPORT} at a time."))
-                    .into_any_element(),
+                Notice::new(
+                    "import-cap",
+                    format!("Import at most {MAX_IMPORT} at a time."),
+                )
+                .status(Status::Warning)
+                .size(NoticeSize::Md)
+                .into_any_element(),
             );
         }
         if !chosen.invalid {
@@ -225,15 +208,14 @@ impl NativeView {
 }
 
 /// The line saying Import was refused because the list changed (D11).
-pub(in crate::native_view) fn changed_line(cx: &gpui_kit::App) -> AnyElement {
-    h_flex()
-        .id("import-changed")
-        .gap(px(6.))
-        .text_size(px(12.))
-        .text_color(color::WARNING_TEXT.of(cx.theme()))
-        .child(icon("refresh-03").with_size(IconSize::Sm))
-        .child("The list changed since the scan. Check it and import again.")
-        .into_any_element()
+pub(in crate::native_view) fn changed_line() -> AnyElement {
+    Notice::new(
+        "import-changed",
+        "The list changed since the scan. Check it and import again.",
+    )
+    .status(Status::Warning)
+    .glyph("refresh-03")
+    .into_any_element()
 }
 
 /// The inactive Import button while there is no list.
@@ -254,13 +236,5 @@ fn footer(left: Option<AnyElement>, buttons: Vec<AnyElement>) -> AnyElement {
         .gap(px(12.))
         .child(div().min_w_0().children(left))
         .child(h_flex().gap(px(8.)).children(buttons))
-        .into_any_element()
-}
-
-/// The alert glyph in `color`.
-pub(in crate::native_view) fn alert_glyph(color: gpui_kit::Hsla) -> AnyElement {
-    icon("alert-circle")
-        .with_size(IconSize::Sm)
-        .text_color(color)
         .into_any_element()
 }

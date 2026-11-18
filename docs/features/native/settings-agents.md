@@ -4,12 +4,16 @@ After onboarding, the user changes their agents in Settings, and is asked about 
 
 ## Settings › Agents
 
-Settings opens with an "Agents" heading above "Application", then a bordered list with one row per Agents row of every detected agent, chosen or not: Universal first, then each other agent alphabetically. An agent whose global skill directory does not exist is not listed. Each row has the agent's Kit avatar (Universal's layers glyph), its name, its global skill directory in muted monospace or, for Universal, its agents' names with a tooltip, and a trailing Kit switch, on while the row's directory is chosen. With no agent found the list reads "No agents found on this computer." Click, Enter, or Space toggles a switch.
+Settings opens with an "Agents" section header (the design system's `SectionHeader`, `caption-sm` muted) above "Application", then a bordered list with one row per Agents row of every detected agent, chosen or not: Universal first, then each other agent alphabetically. An agent whose global skill directory does not exist is not listed. Each row has the agent's Kit avatar (Universal's layers glyph), its name, its global skill directory in muted monospace or, for Universal, its agents' names with a tooltip, and a trailing Kit switch, on while the row's directory is chosen. With no agent found the list reads "No agents found on this computer." Click, Enter, or Space toggles a switch.
 
 - **On** applies the active preset to the agents reading that directory under the blocking progress strip, `Adding…`, whose tooltip reads "Adding skills to <agent>" ([Activation progress](activation-progress.md)). Copies with the library's content are adopted and others ask, as any change that writes copies does ([Activation](activation.md)). Every switch is disabled, and the notice taken down, until the strip ends, in the toast "<Agent> is on", or in "Done · <N> need attention".
 - **Off** saves at once, without the strip. The agents' copies stay in place, unmanaged: SkillBinder no longer updates or removes them, and later preset changes leave them alone. Until the app quits, the row reads "Its skills stay in place." in place of its folder line; an agent that was never on keeps its folder line.
 
 Either answer counts the directory as asked, so the notice never asks about it.
+
+## Settings › Application
+
+Under the "Application" section header, the design system's `KeyValueList` lists the application's facts in a flat card, each label in a 128-point `caption` muted column and rows divided by a hairline: Managed library (its path in monospace), Git (its version, or the Git row above), Storage writable (Yes or No), and Remote (its URL, or "Local only"). Reveal logs follows the card. The Sync page lists its facts the same way: Status (the state, ahead, behind, and local changes), and with a remote its URL in monospace, Branch, and Last checked.
 
 ## The new agent notice
 

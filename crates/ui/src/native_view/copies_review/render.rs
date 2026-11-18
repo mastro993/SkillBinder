@@ -10,8 +10,7 @@ use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
     Text, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::{color, text};
-use skillbinder_design::{Button, ButtonVariant, IconSize, Level, Surface, icon};
+use skillbinder_design::{Button, ButtonVariant, IconSize, Level, Notice, Status, Surface, icon};
 use skillbinder_proto::{CopyChoice, ManagedCopy};
 
 /// Width of the review dialog.
@@ -83,7 +82,6 @@ impl NativeView {
     ) -> AnyElement {
         let theme = cx.theme();
         let (muted, hover, line) = (theme.muted_foreground, theme.muted, theme.border);
-        let warning = color::WARNING_TEXT.of(theme);
         let snapshot = &self.snapshot;
         let place = place_name(
             &item.0,
@@ -132,23 +130,9 @@ impl NativeView {
                     ),
             )
             .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(6.))
-                    .min_h(px(REASON_LINE))
-                    .text_size(px(text::CAPTION_SM.size))
-                    .line_height(px(text::CAPTION_SM.size * text::CAPTION_SM.line_height))
-                    .text_color(muted)
-                    .child(
-                        icon("alert-circle")
-                            .with_size(IconSize::Sm)
-                            .text_color(warning),
-                    )
-                    .child(Text::new(
-                        ("copies-review-reason", index).into(),
-                        reason.into(),
-                    )),
+                Notice::new(("copies-review-reason", index), reason)
+                    .status(Status::Warning)
+                    .min_h(px(REASON_LINE)),
             );
         let end = match row {
             Row::Ask(choice, copy) => self.review_answers(index, choice, copy, cx),

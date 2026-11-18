@@ -5,13 +5,14 @@ use super::NativeView;
 use super::library_copies::placements;
 use super::library_items::{RowEnd, SkillItem};
 use super::snapshot_query::{Places, Query, filter_counts, has_update, library_skills};
-use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::component::v_flex;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
 use skillbinder_design::library::{GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE};
 use skillbinder_design::page::{GAP, GUTTER, INSET};
+use skillbinder_design::{Notice, NoticeSize};
 use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
 
 impl NativeView {
@@ -37,7 +38,7 @@ impl NativeView {
         let toolbar = self.library_toolbar(counts, window, cx);
         let results = self.library_results(library, &places, &active, &shown, &typed, width, cx);
         let notes: Vec<AnyElement> = self
-            .empty_scope_note(library, cx)
+            .empty_scope_note(library)
             .into_iter()
             .chain(self.render_update_outcome(cx))
             .collect();
@@ -76,11 +77,7 @@ impl NativeView {
     }
 
     /// A notice under the header while the active preset holds no skills.
-    fn empty_scope_note(
-        &self,
-        library: &LibrarySnapshot,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
+    fn empty_scope_note(&self, library: &LibrarySnapshot) -> Option<AnyElement> {
         let active = self.active_preset_id()?;
         let holds = library
             .library
@@ -91,11 +88,12 @@ impl NativeView {
             return None;
         }
         Some(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child(format!("No skills active in {}", self.active_preset_name()))
-                .into_any_element(),
+            Notice::new(
+                "library-none-active",
+                format!("No skills active in {}", self.active_preset_name()),
+            )
+            .size(NoticeSize::Md)
+            .into_any_element(),
         )
     }
 

@@ -11,7 +11,7 @@ mod rows;
 mod tests;
 pub(super) mod versions;
 
-pub(super) use frame::{alert_glyph, changed_line};
+pub(super) use frame::changed_line;
 
 use super::progress_strip::{Activity, Landing};
 use super::{DialogState, NativeView};

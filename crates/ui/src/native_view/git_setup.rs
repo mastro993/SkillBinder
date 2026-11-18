@@ -24,6 +24,22 @@ pub(super) enum Action {
     Copy,
 }
 
+/// A button that gets Git; Copy lives in the command box.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum GitButton {
+    Install,
+    Download,
+}
+
+impl GitButton {
+    fn action(self) -> Action {
+        match self {
+            Self::Install => Action::Install,
+            Self::Download => Action::Download,
+        }
+    }
+}
+
 /// What the app waits on after an action.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Waiting {
