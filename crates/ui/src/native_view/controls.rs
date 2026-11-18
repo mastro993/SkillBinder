@@ -17,7 +17,7 @@ use gpui_kit::{
     AnyElement, AnyView, App, ElementId, FocusHandle, InteractiveElement, IntoElement,
     ParentElement, SharedString, Styled, StyledImage, Window, div, img, prelude::FluentBuilder, px,
 };
-use skillbinder_theme::MEDIUM;
+use skillbinder_design::MEDIUM;
 
 /// Button that shows a hand cursor while it is enabled.
 pub(super) fn button(id: impl Into<ElementId>) -> Button {

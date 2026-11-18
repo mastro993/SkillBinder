@@ -14,8 +14,8 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, MouseButton,
     MouseDownEvent, ParentElement, StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
 };
+use skillbinder_design::sidebar::ICON_SIZE;
 use skillbinder_proto::{OrganizationChange, SkillId, Targets};
-use skillbinder_theme::sidebar::ICON_SIZE;
 
 impl NativeView {
     /// The agents the active preset holds `skill` for, while it holds it.

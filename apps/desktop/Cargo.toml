@@ -19,7 +19,7 @@ skillbinder-client.workspace = true
 skillbinder-proto.workspace = true
 tokio.workspace = true
 fs2.workspace = true
-skillbinder-theme.workspace = true
+skillbinder-design.workspace = true
 skillbinder-ui.workspace = true
 
 [lints]

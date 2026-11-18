@@ -28,10 +28,10 @@ use gpui_kit::{
     IntoElement, MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled,
     Window, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 use skillbinder_proto::{
     LibrarySnapshot, OrganizationChange, Preset, PresetIcon, PresetId, SidebarSection,
 };
-use skillbinder_theme::sidebar::{INSET, ROW_GAP, SECTION_GAP};
 
 /// A preset shown while its creation or clone is being saved.
 pub(super) struct OptimisticPreset {

@@ -3,7 +3,7 @@
 use gpui_kit::component::{ColorName, Colorize};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{Bounds, Hsla, TestAppContext, point, px, rgb};
-use skillbinder_theme::menu::{PADDING, SUBMENU_OVERLAP};
+use skillbinder_design::menu::{PADDING, SUBMENU_OVERLAP};
 
 use super::Harness;
 

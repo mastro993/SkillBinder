@@ -30,7 +30,7 @@ fn window_chrome() -> WindowOptions {
         let base = TitleBar::window_options();
         WindowOptions {
             titlebar: base.titlebar.map(|titlebar| {
-                let (x, y) = skillbinder_theme::TRAFFIC_LIGHTS_ORIGIN;
+                let (x, y) = skillbinder_design::TRAFFIC_LIGHTS_ORIGIN;
                 TitlebarOptions {
                     title: Some("SkillBinder".into()),
                     traffic_light_position: Some(point(px(x), px(y))),
@@ -208,7 +208,7 @@ fn run() -> anyhow::Result<()> {
                 if smoke.is_some() {
                     eprintln!("Native smoke: creating view");
                 }
-                skillbinder_theme::follow_window(window, cx);
+                skillbinder_design::follow_window(window, cx);
                 let view = cx.new(|cx| skillbinder_ui::NativeView::new(client, window, cx));
                 #[cfg(feature = "native-test")]
                 if mode == native_test::NativeMode::Mcp {

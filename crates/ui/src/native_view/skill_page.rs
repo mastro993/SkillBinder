@@ -9,6 +9,7 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{AppError, SkillId};
 
 /// The file a skill page shows.
@@ -59,7 +60,7 @@ impl NativeView {
             h_flex()
                 .gap_2()
                 .text_sm()
-                .text_color(cx.theme().warning)
+                .text_color(color::WARNING_TEXT.of(cx.theme()))
                 .child(unsettled_summary(count))
                 .child(
                     button("copies-review")

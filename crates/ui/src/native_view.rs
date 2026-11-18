@@ -429,6 +429,8 @@ impl Render for NativeView {
             };
             self.render_shell(page, window, cx)
         };
+        #[cfg(feature = "native-test")]
+        let body = self.gallery().unwrap_or(body);
         self.sync_dialog(window, cx);
         self.sync_overlay_focus(window, cx);
         self.push_toast(window, cx);
@@ -458,7 +460,7 @@ impl Render for NativeView {
                 }))
             })
             .size_full()
-            .font_family(skillbinder_theme::system_font())
+            .font_family(skillbinder_design::system_font())
             .bg(colors.background)
             .text_color(colors.foreground)
             .child(body)

@@ -73,7 +73,7 @@ No new artwork. Every glyph is retained in `assets/hugeicons/` (arrow-left, chec
 
 ## Tokens
 
-All existing `skillbinder_theme` and Kit tokens: muted foreground for the eyebrow, leads, folders, and notes; the success color for found; the danger color for failures and the data location line; the theme border, radius, and card color for tiles, lists, the command box, and the notice; the foreground color for a chosen tile's outline and check. Nothing is new.
+All existing `skillbinder_design` and Kit tokens: muted foreground for the eyebrow, leads, folders, and notes; the success color for found; the danger color for failures and the data location line; the theme border, radius, and card color for tiles, lists, the command box, and the notice; the foreground color for a chosen tile's outline and check. Nothing is new.
 
 ## Copy
 

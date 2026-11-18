@@ -23,6 +23,8 @@ use gpui_kit::{
     AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::color;
+use skillbinder_design::tokens::{icon, radius};
 use skillbinder_proto::{CopyState, Overlap, SkillId, Targets, Workspace, WorkspaceId};
 
 /// What a workspace page's row shows beyond a Library row.
@@ -171,8 +173,8 @@ fn missing_note(cx: &App) -> AnyElement {
         .text_size(px(13.))
         .child(
             app_icon("alert-circle")
-                .size(px(15.))
-                .text_color(cx.theme().warning),
+                .size(px(icon::MD))
+                .text_color(color::WARNING_TEXT.of(cx.theme())),
         )
         .child("The workspace folder is missing.")
         .into_any_element()
@@ -225,9 +227,9 @@ fn mark(
         .items_center()
         .justify_center()
         .size(px(18.))
-        .rounded(px(5.))
+        .rounded(px(radius::XS))
         .aria_label(label)
-        .child(app_icon(icon).size(px(13.)))
+        .child(app_icon(icon).size(px(icon::SM)))
         .tooltip(tooltip(text))
 }
 

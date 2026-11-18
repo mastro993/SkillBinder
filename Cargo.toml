@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/desktop", "crates/proto", "crates/engine", "crates/client", "crates/ui", "crates/theme", "xtask"]
+members = ["apps/desktop", "crates/proto", "crates/engine", "crates/client", "crates/ui", "crates/design", "xtask"]
 default-members = ["apps/desktop"]
 resolver = "3"
 
@@ -39,7 +39,7 @@ rustix = { version = "1.1.5", features = ["fs", "process"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }
 skillbinder-client = { path = "crates/client" }
-skillbinder-theme = { path = "crates/theme" }
+skillbinder-design = { path = "crates/design" }
 skillbinder-ui = { path = "crates/ui" }
 
 [workspace.lints.rust]

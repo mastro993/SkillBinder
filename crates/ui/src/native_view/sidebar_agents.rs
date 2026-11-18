@@ -11,8 +11,8 @@ use gpui_kit::component::Icon;
 use gpui_kit::{
     AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
+use skillbinder_design::sidebar::ROW_GAP;
 use skillbinder_proto::{AppSnapshot, PresetId, SidebarSection};
-use skillbinder_theme::sidebar::ROW_GAP;
 
 impl NativeView {
     pub(super) fn render_agents(&self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {

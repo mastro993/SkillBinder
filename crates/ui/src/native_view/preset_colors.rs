@@ -9,10 +9,12 @@ use super::sidebar_row::icon_color;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, App, Context, Hsla, IntoElement, ParentElement, Rgba, Styled, WeakEntity, Window,
-    div, px, rgb,
+    div, px,
 };
+use skillbinder_design::Tone;
+use skillbinder_design::sidebar::{DOT_SIZE, ICON_SIZE};
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{PresetColor, PresetIcon, Rgb};
-use skillbinder_theme::sidebar::{DOT_SIZE, ICON_SIZE};
 
 fn color_name(color: PresetColor) -> &'static str {
     match color {
@@ -28,24 +30,24 @@ fn color_name(color: PresetColor) -> &'static str {
     }
 }
 
-/// How `color` is drawn: palette colors use tones that keep contrast on the dark and light
-/// sidebar surfaces, and a custom color is the same in both.
+/// How `color` is drawn: palette colors use the `preset-*` tones, which keep contrast on the dark
+/// and light sidebar surfaces, and a custom color is the same in both.
 pub(super) fn preset_tint(color: PresetColor, dark: bool) -> Hsla {
-    let (dark_tone, light_tone) = match color {
-        PresetColor::Gray => (0xa3a3a3, 0x737373),
-        PresetColor::Red => (0xf87171, 0xdc2626),
-        PresetColor::Orange => (0xfb923c, 0xea580c),
-        PresetColor::Yellow => (0xfacc15, 0xca8a04),
-        PresetColor::Green => (0x4ade80, 0x16a34a),
-        PresetColor::Blue => (0x60a5fa, 0x2563eb),
-        PresetColor::Purple => (0xc084fc, 0x9333ea),
-        PresetColor::Pink => (0xf472b6, 0xdb2777),
+    let tone = match color {
+        PresetColor::Gray => color::PRESET_GRAY,
+        PresetColor::Red => color::PRESET_RED,
+        PresetColor::Orange => color::PRESET_ORANGE,
+        PresetColor::Yellow => color::PRESET_YELLOW,
+        PresetColor::Green => color::PRESET_GREEN,
+        PresetColor::Blue => color::PRESET_BLUE,
+        PresetColor::Purple => color::PRESET_PURPLE,
+        PresetColor::Pink => color::PRESET_PINK,
         PresetColor::Custom(rgb) => {
             let srgb = rgb.get();
-            (srgb, srgb)
+            Tone::new(srgb, srgb)
         }
     };
-    rgb(if dark { dark_tone } else { light_tone }).into()
+    tone.get(dark)
 }
 
 /// `color` as an opaque sRGB color; any transparency is dropped.

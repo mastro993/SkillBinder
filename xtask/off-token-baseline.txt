@@ -1,0 +1,5 @@
+# Raw px(<number>), rgb(0x…), hsla(…), and .opacity(<number>) / .alpha(<number>) calls, and
+# numeric f32/f64 constants, in crates/ui/src outside tests, which `cargo run -p xtask -- verify`
+# counts. The count may only go down: take values from crates/design's tokens, then run
+# `cargo run -p xtask -- off-token`.
+323

@@ -24,10 +24,11 @@ use gpui_kit::{
     MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
+use skillbinder_design::sidebar::{ICON_SIZE, INSET, ROW_GAP};
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{
     AppSnapshot, PresetColor, PresetIcon, SidebarSection, Workspace, WorkspaceId,
 };
-use skillbinder_theme::sidebar::{ICON_SIZE, INSET, ROW_GAP};
 
 impl NativeView {
     pub(super) fn render_workspaces(
@@ -139,7 +140,7 @@ impl NativeView {
             app_icon("alert-circle")
                 .size(px(ICON_SIZE))
                 .flex_shrink_0()
-                .text_color(cx.theme().warning)
+                .text_color(color::WARNING_TEXT.of(cx.theme()))
                 .into_any_element()
         } else {
             count(active, cx)

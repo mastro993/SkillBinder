@@ -1,10 +1,10 @@
 //! Native-test controls: the smoke steps, the holds a native check uses to wait for a strip or
-//! toast state that real timing passes too fast to catch, and adding a workspace without the
-//! system folder panel, which a native check cannot drive.
+//! toast state that real timing passes too fast to catch, adding a workspace without the system
+//! folder panel, which a native check cannot drive, and showing the design-system gallery.
 
 use super::{DialogState, NativeView, Route};
 use gpui_kit::component::{WindowExt, notification::Notification};
-use gpui_kit::{Context, Focusable, SharedString, Window};
+use gpui_kit::{AnyElement, Context, Focusable, IntoElement, SharedString, Window};
 use skillbinder_proto::WorkspaceId;
 use std::{path::PathBuf, time::Instant};
 
@@ -15,6 +15,8 @@ pub(super) struct Holds {
     toast: bool,
     /// The message of the toast the toast hold keeps up, until it closes.
     held_toast: Option<SharedString>,
+    /// Whether the design-system gallery replaces the window's content.
+    gallery: bool,
 }
 
 /// How a held progress strip shows. A held strip never ends.
@@ -66,6 +68,19 @@ impl NativeView {
         }
         self.add_workspace_folder(async move { Ok(Some(folder)) }, cx);
         true
+    }
+
+    /// Shows the design-system gallery in place of the window's content, or the app again.
+    pub fn show_gallery(&mut self, show: bool, cx: &mut Context<Self>) {
+        self.holds.gallery = show;
+        cx.notify();
+    }
+
+    /// The gallery, while a native check shows it.
+    pub(super) fn gallery(&self) -> Option<AnyElement> {
+        self.holds
+            .gallery
+            .then(|| skillbinder_design::Gallery.into_any_element())
     }
 
     /// Whether a hold keeps the strip from ending.

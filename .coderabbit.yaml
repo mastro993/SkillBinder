@@ -143,10 +143,11 @@ reviews:
           and block dismissal while an operation is pending.
         - Visual fidelity and polish are deferred. Do not request styling, spacing, or color changes
           unless they break function or accessibility.
-    - path: "crates/theme/**"
+    - path: "crates/design/**"
       instructions: |
-        Colors, typography, dimensions, and motion only. Values trace to
-        fixtures/contracts/design-tokens.json. No application logic.
+        The design system: tokens and generic components on GPUI Kit only. tokens.rs and
+        themes/skillbinder.json are generated from DESIGN.md by `cargo run -p xtask -- design-tokens`;
+        flag hand edits to them. No application logic or app imports.
     - path: "apps/desktop/**"
       instructions: |
         Native lifecycle, configuration, Tokio runtime, engine lifetime, process lock, and orderly

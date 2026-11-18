@@ -13,8 +13,8 @@ use gpui_kit::{
     InteractiveElement, IntoElement, ParentElement, Stateful, StatefulInteractiveElement, Styled,
     Window, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::sidebar::{ICON_SIZE, INSET, ROW_GAP, ROW_HEIGHT, SECTION_GAP};
 use skillbinder_proto::{Appearance, SyncSnapshot, SyncState};
-use skillbinder_theme::sidebar::{ICON_SIZE, INSET, ROW_GAP, ROW_HEIGHT, SECTION_GAP};
 
 const SIDEBAR_MIN_WIDTH: f32 = 192.0;
 const SIDEBAR_MAX_WIDTH: f32 = 400.0;
@@ -133,7 +133,7 @@ impl NativeView {
             .flex_shrink_0()
             .w(px(self.sidebar_width))
             .h_full()
-            .pt(px(skillbinder_theme::HEADER_HEIGHT + INSET))
+            .pt(px(skillbinder_design::HEADER_HEIGHT + INSET))
             .px(px(INSET))
             .pb(px(INSET))
             .bg(background)
@@ -227,14 +227,14 @@ impl NativeView {
             .top_0()
             .left_0()
             .right_0()
-            .h(px(skillbinder_theme::HEADER_HEIGHT));
+            .h(px(skillbinder_design::HEADER_HEIGHT));
         if cfg!(target_os = "macos") {
             header
                 .child(
                     TitleBar::new()
                         .border_0()
                         .bg(gpui_kit::transparent_black())
-                        .h(px(skillbinder_theme::HEADER_HEIGHT))
+                        .h(px(skillbinder_design::HEADER_HEIGHT))
                         .pl_0()
                         .child(controls),
                 )
@@ -340,7 +340,7 @@ pub(super) fn apply_appearance(
     window: &mut Window,
     cx: &mut gpui_kit::App,
 ) {
-    skillbinder_theme::set_mode(
+    skillbinder_design::set_mode(
         match appearance {
             Appearance::System => None,
             Appearance::Light => Some(ThemeMode::Light),

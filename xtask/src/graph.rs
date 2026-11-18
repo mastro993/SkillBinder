@@ -24,7 +24,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "skillbinder-client",
             "skillbinder-engine",
             "skillbinder-proto",
-            "skillbinder-theme",
+            "skillbinder-design",
             "skillbinder-ui",
             "tokio",
         ],
@@ -63,7 +63,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
         &[],
     ),
     ("skillbinder-proto", &["serde", "serde_json", "uuid"], &[]),
-    ("skillbinder-theme", &["gpui-kit"], &[]),
+    ("skillbinder-design", &["gpui-kit"], &["gpui-kit"]),
     (
         "skillbinder-ui",
         &[
@@ -72,13 +72,21 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "gpui-kit",
             "skillbinder-client",
             "skillbinder-proto",
-            "skillbinder-theme",
+            "skillbinder-design",
         ],
         &["gpui-kit"],
     ),
     (
         "xtask",
-        &["anyhow", "serde", "serde_json", "sha2", "tempfile", "toml"],
+        &[
+            "anyhow",
+            "serde",
+            "serde_json",
+            "sha2",
+            "tempfile",
+            "toml",
+            "yaml-rust2",
+        ],
         &[],
     ),
 ];
@@ -89,7 +97,8 @@ const NATIVE_TEST: &[(&str, &[&str])] = &[
         "skillbinder",
         &["dep:gpui-mcp", "dep:log", "skillbinder-ui/native-test"],
     ),
-    ("skillbinder-ui", &[]),
+    ("skillbinder-design", &[]),
+    ("skillbinder-ui", &["skillbinder-design/native-test"]),
 ];
 
 /// Members that own I/O and may replace the workspace `clippy.toml` with their own.
@@ -337,7 +346,8 @@ mod tests {
                 .any(|dep| dep.starts_with("skillbinder") || dep.starts_with("gpui"))
         );
         assert!(!normal("skillbinder-ui").contains(&"skillbinder-engine"));
-        assert!(!normal("skillbinder-theme").contains(&"skillbinder-engine"));
+        // The design system builds on GPUI Kit alone, so a component cannot import the app.
+        assert_eq!(normal("skillbinder-design"), ["gpui-kit"]);
         assert!(!OWNS_IO.contains(&"skillbinder-ui"));
     }
 

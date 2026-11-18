@@ -17,6 +17,7 @@ use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
 };
+use skillbinder_design::tokens::color;
 use skillbinder_proto::FoundImport;
 
 const TITLE: &str = "Import your skills";
@@ -73,7 +74,7 @@ impl NativeView {
             ),
             Phase::Failed(reason) => (
                 vec![line(
-                    alert_glyph(cx.theme().danger),
+                    alert_glyph(color::DANGER_TEXT.of(cx.theme())),
                     format!("Couldn't scan: {reason}"),
                 )],
                 vec![

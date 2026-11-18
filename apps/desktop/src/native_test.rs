@@ -1,6 +1,7 @@
 use gpui_kit::{Entity, Window};
 mod arguments;
 mod commands;
+mod gallery;
 mod holds;
 mod workspaces;
 pub(crate) use arguments::{NativeMode, parse_launch};

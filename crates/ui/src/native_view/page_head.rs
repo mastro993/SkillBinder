@@ -16,8 +16,9 @@ use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
     Text, Window, div, px,
 };
+use skillbinder_design::library::{PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP};
+use skillbinder_design::tokens::{icon, text};
 use skillbinder_proto::Skill;
-use skillbinder_theme::library::{PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP};
 
 /// The glyph's square.
 const ICON: f32 = 18.;
@@ -68,7 +69,7 @@ impl NativeView {
                     .child(icon),
             )
             .child(
-                sized(div(), 13.5)
+                sized(div(), text::TITLE_SM.size)
                     .flex_none()
                     .font_weight(FontWeight::SEMIBOLD)
                     .child(Text::new("page-name".into(), name.into())),
@@ -112,7 +113,7 @@ impl NativeView {
             Input::new(&self.search)
                 .prefix(
                     app_icon("search")
-                        .size(px(15.))
+                        .size(px(icon::SM))
                         .text_color(cx.theme().muted_foreground),
                 )
                 .bg(cx.theme().background),

@@ -20,12 +20,14 @@ use gpui_kit::{
     ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, canvas, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{Skill, SkillDetails, SkillId};
-use skillbinder_theme::MEDIUM;
-use skillbinder_theme::library::{
+use skillbinder_design::MEDIUM;
+use skillbinder_design::library::{
     CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
     TILE_MIN_HEIGHT, TILE_PADDING, TILE_RADIUS,
 };
+use skillbinder_design::tokens::color;
+use skillbinder_design::tokens::text;
+use skillbinder_proto::{Skill, SkillDetails, SkillId};
 
 /// The hover group of a row or tile, whose dashed `+` shows while it is hovered.
 pub(super) const ITEM_GROUP: &str = "skill-item";
@@ -297,7 +299,7 @@ fn divider(cx: &App) -> AnyElement {
 
 /// The list card's surface, which the agent avatars ring themselves in.
 pub(super) fn surface(cx: &App) -> Hsla {
-    skillbinder_theme::library::surface(cx.theme())
+    skillbinder_design::library::surface(cx.theme())
 }
 
 /// The glyphs after a skill's name, for its update, drift, and validation, then on a workspace's
@@ -305,7 +307,8 @@ pub(super) fn surface(cx: &App) -> Hsla {
 fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     let id = &item.skill.id;
     let marks = [
-        item.update.then(|| update_glyph(id, cx.theme().info)),
+        item.update
+            .then(|| update_glyph(id, color::INFO_TEXT.of(cx.theme()))),
         item.drifted.then(|| drift_glyph(id, cx)),
         validation_glyph(id, item.details, cx),
     ]
@@ -347,16 +350,19 @@ pub(super) fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
 
 /// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
 fn description(item: &SkillItem<'_>, lines: usize, cx: &App) -> impl IntoElement {
-    sized(div().id(format!("desc-{}", item.name())), 12.5)
-        .min_w_0()
-        .text_color(cx.theme().muted_foreground)
-        .when(item.dimmed(), |text| text.opacity(DIM))
-        .map(|text| {
-            if lines == 1 {
-                text.truncate()
-            } else {
-                text.line_clamp(lines).text_ellipsis()
-            }
-        })
-        .child(item.description().to_owned())
+    sized(
+        div().id(format!("desc-{}", item.name())),
+        text::CAPTION.size,
+    )
+    .min_w_0()
+    .text_color(cx.theme().muted_foreground)
+    .when(item.dimmed(), |text| text.opacity(DIM))
+    .map(|text| {
+        if lines == 1 {
+            text.truncate()
+        } else {
+            text.line_clamp(lines).text_ellipsis()
+        }
+    })
+    .child(item.description().to_owned())
 }

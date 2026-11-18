@@ -5,6 +5,7 @@ use super::super::NativeView;
 use super::StepView;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
+use skillbinder_design::tokens::color;
 
 impl NativeView {
     pub(super) fn data_location_step(&self, cx: &mut Context<Self>) -> StepView {
@@ -14,7 +15,7 @@ impl NativeView {
             wide: false,
             body: vec![
                 div()
-                    .text_color(cx.theme().danger)
+                    .text_color(color::DANGER_TEXT.of(cx.theme()))
                     .child(format!("{path} isn't writable."))
                     .into_any_element(),
             ],

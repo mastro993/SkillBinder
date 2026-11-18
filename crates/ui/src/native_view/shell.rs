@@ -15,8 +15,8 @@ use gpui_kit::{
     AnyElement, Context, DragMoveEvent, InteractiveElement, IntoElement, MouseButton,
     ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::HEADER_HEIGHT;
 use skillbinder_proto::{AppError, Preferences};
-use skillbinder_theme::HEADER_HEIGHT;
 
 gpui_kit::actions!(
     skillbinder,

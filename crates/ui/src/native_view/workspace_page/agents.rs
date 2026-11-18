@@ -21,10 +21,11 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Role,
     StatefulInteractiveElement, Styled, Window, canvas, div, prelude::FluentBuilder, px,
 };
-use skillbinder_proto::{SkillId, Workspace, WorkspaceId, WorkspaceTargets};
-use skillbinder_theme::menu::{
+use skillbinder_design::menu::{
     DISABLED_OPACITY, HIGHLIGHT_INK, LINE_INK, MIN_WIDTH, SEPARATOR_MARGIN, surface as menu_surface,
 };
+use skillbinder_design::tokens::space;
+use skillbinder_proto::{SkillId, Workspace, WorkspaceId, WorkspaceTargets};
 
 /// The menu's padding, around its rows.
 const MENU_PADDING: f32 = 4.;
@@ -73,7 +74,7 @@ impl NativeView {
             .items_center()
             .gap(px(6.))
             .h(px(28.))
-            .pl(px(5.))
+            .pl(px(space::XS))
             .pr(px(6.))
             .rounded(px(6.))
             .text_color(theme.muted_foreground)
@@ -211,7 +212,7 @@ impl NativeView {
             .track_focus(&focus)
             .flex()
             .items_center()
-            .gap(px(9.))
+            .gap(px(space::MD))
             .px(px(8.))
             .py(px(6.))
             .rounded(px(6.))

@@ -13,6 +13,8 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Pixels, Size as Area,
     Styled, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::color;
+use skillbinder_design::tokens::icon;
 use skillbinder_proto::MAX_IMPORT;
 
 /// The dialog's share of the window's width and height, as the Add skill picker's.
@@ -58,7 +60,7 @@ impl NativeView {
                 .child(centered(
                     h_flex()
                         .gap(px(8.))
-                        .child(alert_glyph(cx.theme().danger))
+                        .child(alert_glyph(color::DANGER_TEXT.of(cx.theme())))
                         .child(format!("Couldn't scan: {reason}"))
                         .into_any_element(),
                 ))
@@ -116,7 +118,7 @@ impl NativeView {
                 Input::new(&state.search)
                     .prefix(
                         app_icon("search")
-                            .size(px(15.))
+                            .size(px(icon::SM))
                             .text_color(theme.muted_foreground),
                     )
                     .bg(theme.background),
@@ -181,8 +183,8 @@ impl NativeView {
                     .id("import-cap")
                     .gap(px(6.))
                     .text_size(px(13.))
-                    .text_color(cx.theme().warning)
-                    .child(alert_glyph(cx.theme().warning))
+                    .text_color(color::WARNING_TEXT.of(cx.theme()))
+                    .child(alert_glyph(color::WARNING_TEXT.of(cx.theme())))
                     .child(format!("Import at most {MAX_IMPORT} at a time."))
                     .into_any_element(),
             );
@@ -230,7 +232,7 @@ pub(in crate::native_view) fn changed_line(cx: &gpui_kit::App) -> AnyElement {
         .id("import-changed")
         .gap(px(6.))
         .text_size(px(12.))
-        .text_color(cx.theme().warning)
+        .text_color(color::WARNING_TEXT.of(cx.theme()))
         .child(app_icon("refresh-03").size(px(14.)))
         .child("The list changed since the scan. Check it and import again.")
         .into_any_element()

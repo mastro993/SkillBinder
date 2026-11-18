@@ -9,6 +9,7 @@ use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
+use skillbinder_design::tokens::color;
 
 impl NativeView {
     /// What the snapshot says about Git.
@@ -34,11 +35,14 @@ impl NativeView {
             Status::Ready(_) => (
                 app_icon("check-circle")
                     .size(px(14.))
-                    .text_color(theme.success)
+                    .text_color(color::SUCCESS_TEXT.of(theme))
                     .into_any_element(),
-                theme.success,
+                color::SUCCESS_TEXT.of(theme),
             ),
-            Status::Failed => (alert_glyph(theme.danger), theme.danger),
+            Status::Failed => (
+                alert_glyph(color::DANGER_TEXT.of(theme)),
+                color::DANGER_TEXT.of(theme),
+            ),
             Status::TooOld(_) => (alert_glyph(theme.muted_foreground), theme.muted_foreground),
         };
         Some(

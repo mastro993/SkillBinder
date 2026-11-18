@@ -47,7 +47,7 @@ No new artwork: folder-search, robot, code-folder, alert-circle, chevron-right, 
 
 ## Tokens
 
-Every color, size, radius, and spacing uses existing `skillbinder_theme` and Kit tokens: muted foreground for the count, the status line, and locations; the warning color for replacement lines; the danger color for blocked messages; the theme's border and radius for the list frame and the onboarding card; and row height and padding from the Library rows. Nothing is new.
+Every color, size, radius, and spacing uses existing `skillbinder_design` and Kit tokens: muted foreground for the count, the status line, and locations; the warning color for replacement lines; the danger color for blocked messages; the theme's border and radius for the list frame and the onboarding card; and row height and padding from the Library rows. Nothing is new.
 
 ## Copy
 

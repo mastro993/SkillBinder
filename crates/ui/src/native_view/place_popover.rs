@@ -29,8 +29,8 @@ use gpui_kit::{
     TestSupportExt, Window, deferred, div, point, px,
 };
 use sections::{Placer, Sections};
+use skillbinder_design::menu::{RADIUS, WINDOW_MARGIN, surface as menu_surface};
 use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
-use skillbinder_theme::menu::{RADIUS, WINDOW_MARGIN, surface as menu_surface};
 
 pub(super) use focus::key_bindings;
 
