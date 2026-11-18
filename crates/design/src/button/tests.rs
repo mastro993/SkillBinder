@@ -2,7 +2,9 @@
 
 use crate::test_window::{Drawn, read};
 use crate::{Button, ButtonVariant};
-use gpui_kit::{IntoElement, ParentElement, Role, Styled, TestAppContext, div, px};
+use gpui_kit::{
+    InteractiveElement, IntoElement, ParentElement, Role, Styled, TestAppContext, div, px,
+};
 
 const IDS: [&str; 4] = ["primary", "secondary", "ghost", "danger"];
 
@@ -77,5 +79,29 @@ fn an_inactive_button_is_disabled_and_an_icon_button_takes_its_name(cx: &mut Tes
     assert_eq!(
         read(&frame, "refresh"),
         (Role::Button, Some("Check for updates".into()), false)
+    );
+}
+
+#[gpui_kit::test]
+fn a_trailing_child_follows_the_label(cx: &mut TestAppContext) {
+    let drawn = Drawn::show(cx, |_, _| {
+        div()
+            .flex()
+            .child(
+                Button::new("targets")
+                    .debug_selector(|| "targets".to_owned())
+                    .label("All agents")
+                    .child(div().debug_selector(|| "caret".to_owned()).size(px(8.))),
+            )
+            .into_any_element()
+    });
+    drawn.frame(cx);
+    let (Some(button), Some(caret)) = (drawn.bounds(cx, "targets"), drawn.bounds(cx, "caret"))
+    else {
+        panic!("the button and its caret are drawn");
+    };
+    assert!(
+        caret.center().x > button.center().x,
+        "the caret draws after the label: {caret:?} in {button:?}"
     );
 }

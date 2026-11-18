@@ -58,6 +58,7 @@ pub struct Button {
     variant: ButtonVariant,
     size: ButtonSize,
     label: Option<SharedString>,
+    children: Vec<AnyElement>,
     inactive: bool,
 }
 
@@ -69,6 +70,7 @@ impl Button {
             variant: ButtonVariant::default(),
             size: ButtonSize::default(),
             label: None,
+            children: Vec::new(),
             inactive: false,
         }
     }
@@ -174,6 +176,7 @@ impl Button {
             .when_some(self.label, |button, label| {
                 button.child(Text::new(label).level(level))
             })
+            .children(self.children)
     }
 
     fn map_base(self, build: impl FnOnce(KitButton) -> KitButton) -> Self {
@@ -198,7 +201,7 @@ impl InteractiveElement for Button {
 
 impl ParentElement for Button {
     fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
-        self.base.extend(elements);
+        self.children.extend(elements);
     }
 }
 

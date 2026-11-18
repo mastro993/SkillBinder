@@ -174,11 +174,7 @@ fn working_pill(
     cx: &mut App,
 ) -> Stateful<Div> {
     let theme = cx.theme();
-    let (_ink, muted, color) = (
-        theme.popover_foreground,
-        theme.muted_foreground,
-        theme.primary,
-    );
+    let (muted, color) = (theme.muted_foreground, theme.primary);
     let line = progress_line(label, percent, color, window, cx);
     pill("activation-strip", cx)
         .pl(px(12.))
