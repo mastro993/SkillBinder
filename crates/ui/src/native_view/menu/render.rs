@@ -13,17 +13,18 @@ use gpui_kit::{
 };
 use skillbinder_design::menu::{
     DISABLED_OPACITY, HIGHLIGHT_INK, LABEL_SIZE, LINE_INK, MIN_WIDTH, PADDING, RADIUS,
-    SEPARATOR_MARGIN, SUBMENU_OVERLAP, TRAILING_SIZE, WINDOW_MARGIN, shadow, surface,
+    SEPARATOR_MARGIN, SUBMENU_OVERLAP, TRAILING_SIZE, WINDOW_MARGIN,
 };
 use skillbinder_design::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
 use skillbinder_design::tokens::color;
+use skillbinder_design::{Level, Surface, faded};
 
 impl Render for Menu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let motion = &cx.theme().motion;
         let (duration, easing) = (motion.duration_fast, motion.easing_enter.clone());
         let travel = f32::from(motion.distance_short.to_pixels(window.rem_size()));
-        let ring = cx.theme().foreground.alpha(LINE_INK);
+        let shadow = Surface::new(Level::Overlay).shadow(cx.theme());
         let has_leading = self.items.iter().any(|item| item.leading.is_some());
         let rows: Vec<AnyElement> = self
             .items
@@ -45,7 +46,7 @@ impl Render for Menu {
                 move |menu, delta| {
                     menu.top(px(-travel * (1. - delta)))
                         .opacity(delta)
-                        .shadow(shadow(ring, delta.powi(3)))
+                        .shadow(faded(&shadow, delta.powi(3)))
                 },
             );
         // Over the whole window, so a press outside the menu closes it instead of reaching
@@ -77,7 +78,6 @@ impl Menu {
         let parent = self.submenu.as_ref()?.parent;
         let item = self.items.get(parent)?;
         let trigger = beside(self.row_bounds.borrow().get(parent).copied()?)?;
-        let ring = cx.theme().foreground.alpha(LINE_INK);
         let surface = match &item.kind {
             Kind::Submenu(items) => {
                 let has_leading = items.iter().any(|item| item.leading.is_some());
@@ -101,14 +101,9 @@ impl Menu {
                 .offset(px(-SUBMENU_OVERLAP))
                 .margin(px(WINDOW_MARGIN))
                 .occlude()
-                .child(
-                    surface
-                        .test_support()
-                        .shadow(shadow(ring, 1.))
-                        .on_hover(cx.listener(|menu, hovered: &bool, _, cx| {
-                            menu.hover_submenu(None, *hovered, cx)
-                        })),
-                ),
+                .child(surface.test_support().on_hover(cx.listener(
+                    |menu, hovered: &bool, _, cx| menu.hover_submenu(None, *hovered, cx),
+                ))),
         )
     }
 
@@ -129,7 +124,6 @@ impl Menu {
             return None;
         };
         let trigger = beside(self.panel_row.get())?;
-        let ring = cx.theme().foreground.alpha(LINE_INK);
         let surface = content_panel(item, content(window, cx), cx);
         Some(
             Positioner::side(trigger)
@@ -138,7 +132,7 @@ impl Menu {
                 .offset(px(-SUBMENU_OVERLAP))
                 .margin(px(WINDOW_MARGIN))
                 .occlude()
-                .child(surface.test_support().shadow(shadow(ring, 1.)).on_hover(
+                .child(surface.test_support().on_hover(
                     cx.listener(|menu, hovered: &bool, _, cx| menu.hover_panel(*hovered, cx)),
                 )),
         )
@@ -322,16 +316,17 @@ fn beside(row: Bounds<Pixels>) -> Option<Bounds<Pixels>> {
     ))
 }
 
-/// The surface shared by a menu, its submenu, and a panel.
+/// The overlay surface shared by a menu, its submenu, and a panel. Its ring is a shadow, which a
+/// submenu overlapping the menu covers, where a border would be drawn over it.
 fn panel<E: Styled>(panel: E, cx: &App) -> E {
     let theme = cx.theme();
-    panel
+    Surface::new(Level::Overlay)
+        .radius(RADIUS)
+        .apply(panel, theme)
         .flex()
         .flex_col()
         .min_w(px(MIN_WIDTH))
         .p(px(PADDING))
-        .rounded(px(RADIUS))
-        .bg(surface(theme))
         .text_size(px(LABEL_SIZE))
         .text_color(theme.popover_foreground)
 }

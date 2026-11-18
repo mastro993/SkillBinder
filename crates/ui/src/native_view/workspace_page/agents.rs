@@ -8,7 +8,6 @@
 use super::super::controls::text::sized;
 use super::super::controls::{Logo, app_icon, checkbox, focus_ring, tooltip};
 use super::super::library_avatars::{Ring, avatar, named_stack};
-use super::super::library_items::surface;
 use super::super::place_popover::PlacePopover;
 use super::super::snapshot_query::Entry;
 use super::super::workspace_targets::{
@@ -21,8 +20,9 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Role,
     StatefulInteractiveElement, Styled, Window, canvas, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::Level;
 use skillbinder_design::menu::{
-    DISABLED_OPACITY, HIGHLIGHT_INK, LINE_INK, MIN_WIDTH, SEPARATOR_MARGIN, surface as menu_surface,
+    DISABLED_OPACITY, HIGHLIGHT_INK, LINE_INK, MIN_WIDTH, SEPARATOR_MARGIN,
 };
 use skillbinder_design::tokens::space;
 use skillbinder_proto::{SkillId, Workspace, WorkspaceId, WorkspaceTargets};
@@ -59,7 +59,7 @@ impl NativeView {
         let theme = cx.theme();
         let fill = theme.muted;
         let ring = Ring {
-            rest: if open { fill } else { surface(cx) },
+            rest: if open { fill } else { Level::Flat.fill(theme) },
             hovered: Some(fill),
         };
         let logos: Vec<(Logo, String)> = held
@@ -196,7 +196,7 @@ impl NativeView {
         let inert = item.disabled || self.blocked();
         let highlight = theme.foreground.alpha(HIGHLIGHT_INK);
         let ring = Ring {
-            rest: menu_surface(theme),
+            rest: Level::Overlay.fill(theme),
             hovered: None,
         };
         let focus = popover.key(&item.id, cx);

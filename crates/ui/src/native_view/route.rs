@@ -21,6 +21,13 @@ pub(super) enum Route {
     Settings,
 }
 
+impl Route {
+    /// A workspace's, an agent's, or Universal's page, which lays out its own column.
+    pub(super) fn is_scoped(&self) -> bool {
+        matches!(self, Self::Workspace(_) | Self::Agent(_) | Self::Universal)
+    }
+}
+
 /// The page `snapshot` shows for `route`: a removed workspace's page opens Library, and an
 /// agent's or Universal's page follows [`agent_fallback`].
 pub(super) fn fallback(snapshot: &AppSnapshot, route: Route) -> Route {

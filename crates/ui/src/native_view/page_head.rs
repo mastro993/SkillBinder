@@ -16,7 +16,7 @@ use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
     Text, Window, div, px,
 };
-use skillbinder_design::library::{PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP};
+use skillbinder_design::page::{GAP, GUTTER};
 use skillbinder_design::tokens::{icon, text};
 use skillbinder_proto::Skill;
 
@@ -88,14 +88,9 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// A scoped page's column.
+    /// A scoped page's column, inside the panel's gutter.
     pub(super) fn scoped_page(&self) -> Div {
-        v_flex()
-            .w_full()
-            .px(px(PAGE_GUTTER))
-            .pt(px(PAGE_TOP))
-            .pb(px(PAGE_BOTTOM))
-            .gap(px(PAGE_GAP))
+        v_flex().w_full().p(px(GUTTER)).gap(px(GAP))
     }
 
     /// `page` with the search, then the `held` skills it keeps in the card `list` draws, or "No

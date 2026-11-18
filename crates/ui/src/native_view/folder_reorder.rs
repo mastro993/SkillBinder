@@ -11,6 +11,8 @@ use gpui_kit::{
     IntoElement, MouseButton, ParentElement, Pixels, Point, Render, SharedString, Stateful,
     StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::radius;
+use skillbinder_design::{Level, Surface};
 use skillbinder_proto::{FolderId, OrganizationChange};
 
 /// Space between neighbouring folder tabs.
@@ -34,15 +36,16 @@ impl FolderDrag {
 
 impl Render for FolderDrag {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+        let theme = cx.theme();
+        Surface::new(Level::Raised)
+            .radius(radius::SM)
+            .fill(theme.muted)
+            .apply(div(), theme)
             .flex()
             .items_center()
             .h(px(24.))
             .px_2()
-            .rounded(cx.theme().radius)
-            .bg(cx.theme().muted)
-            .text_color(cx.theme().foreground)
-            .shadow_lg()
+            .text_color(theme.foreground)
             .child(tab_label(&self.name))
     }
 }

@@ -42,7 +42,7 @@ impl<Id> RowDrag<Id> {
     }
 }
 
-/// The dragged row, floating under the pointer with a shadow.
+/// The dragged row, floating under the pointer: a selected row, so a raised pill.
 pub(super) struct RowDragPreview {
     icon: RowIcon,
     label: SharedString,
@@ -73,8 +73,7 @@ impl Render for RowDragPreview {
             true,
             cx,
         )
-        .w(px(self.width))
-        .shadow_lg();
+        .w(px(self.width));
         if let Some(trailing) = self.count {
             item = item.child(count(trailing, cx));
         }

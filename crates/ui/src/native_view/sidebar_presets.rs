@@ -215,7 +215,10 @@ impl NativeView {
             move |_, window, cx| preset_menu(&menu_preset, index, len, busy, window, cx),
         );
         let row = row
-            .when(active, |row| row.bg(active_preset_fill(tint, cx)))
+            // The active preset is not the route selection, so it is not raised.
+            .when(active, |row| {
+                row.bg(active_preset_fill(tint, cx)).shadow_none()
+            })
             .child(count(skills, cx))
             .relative()
             .top(px(placement.offset))

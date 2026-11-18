@@ -10,9 +10,8 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
-use skillbinder_design::library::{
-    GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE, PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP,
-};
+use skillbinder_design::library::{GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE};
+use skillbinder_design::page::{GAP, GUTTER, INSET};
 use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
 
 impl NativeView {
@@ -45,9 +44,9 @@ impl NativeView {
         // The toolbar stays put while the list under it scrolls.
         v_flex()
             .size_full()
-            .px(px(PAGE_GUTTER))
-            .pt(px(PAGE_TOP))
-            .gap(px(PAGE_GAP))
+            .px(px(GUTTER))
+            .pt(px(GUTTER))
+            .gap(px(GAP))
             .child(toolbar)
             .child(
                 div()
@@ -63,8 +62,8 @@ impl NativeView {
                             .on_scroll(cx.listener(|view, _, window, cx| {
                                 view.close_place_popover(window, cx);
                             }))
-                            .gap(px(PAGE_GAP))
-                            .pb(px(PAGE_BOTTOM))
+                            .gap(px(GAP))
+                            .pb(px(GUTTER))
                             .children(notes)
                             .child(results),
                     )
@@ -150,14 +149,15 @@ impl NativeView {
         }
     }
 
-    /// The list's width: the main column inside the page's padding.
+    /// The list's width: the page panel, inset from the window's right edge and, without the
+    /// sidebar, its left edge too, less the gutter on each side.
     fn content_width(&self, window: &Window) -> f32 {
-        let sidebar = if self.sidebar_collapsed {
-            0.
+        let (sidebar, insets) = if self.sidebar_collapsed {
+            (0., 2.)
         } else {
-            self.sidebar_width
+            (self.sidebar_width, 1.)
         };
-        f32::from(window.viewport_size().width) - sidebar - 2. * PAGE_GUTTER
+        f32::from(window.viewport_size().width) - sidebar - insets * INSET - 2. * GUTTER
     }
 }
 

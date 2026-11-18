@@ -15,8 +15,8 @@ use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
     Text, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::library::surface as card_surface;
-use skillbinder_design::tokens::{color, icon, radius, text};
+use skillbinder_design::tokens::{color, icon, text};
+use skillbinder_design::{Level, Surface};
 use skillbinder_proto::{CopyChoice, ManagedCopy};
 
 /// Width of the review dialog.
@@ -57,14 +57,11 @@ impl NativeView {
         let theme = cx.theme();
         // 13 px like the prototype's dialog body, so a row's place stays smaller than its slug
         // rather than taking the dialog's larger default.
-        let card = div()
+        let card = Surface::new(Level::Flat)
+            .apply(div(), theme)
             .flex()
             .flex_col()
             .text_size(px(13.))
-            .border_1()
-            .border_color(theme.border)
-            .rounded(px(10.))
-            .bg(card_surface(theme))
             .children(rows);
         dialog
             .w(px(WIDTH))
@@ -174,6 +171,8 @@ impl NativeView {
                     word.into(),
                 )),
         };
+        // The first and last rows round their outer corners inside the card's outline.
+        let inner = px(Surface::new(Level::Flat).inner_radius());
         div()
             .id(("copies-review-row", index))
             .relative()
@@ -182,8 +181,8 @@ impl NativeView {
             .gap(px(12.))
             .px(px(14.))
             .py(px(10.))
-            .when(index == 0, |row| row.rounded_t(px(radius::MD)))
-            .when(index + 1 == count, |row| row.rounded_b(px(radius::MD)))
+            .when(index == 0, |row| row.rounded_t(inner))
+            .when(index + 1 == count, |row| row.rounded_b(inner))
             .hover(move |style| style.bg(hover))
             .when(index > 0, |row| {
                 row.child(
