@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use super::agent_skills::{UNIVERSAL, agent_name, detected_agents, split_universal};
+use super::agent_skills::{UNIVERSAL, agent_name, found_agents, split_universal, your_agents};
 use skillbinder_proto::{AgentOption, CopyState, ManagedCopy, SkillId};
 
 /// Which Agents row a directory belongs to.
@@ -13,7 +13,7 @@ use skillbinder_proto::{AgentOption, CopyState, ManagedCopy, SkillId};
 pub(super) enum Reader {
     /// The universal agents together, by display name.
     Universal(Vec<String>),
-    /// One other detected agent, by registry id.
+    /// One other agent, by registry id.
     Agent(String),
 }
 
@@ -32,10 +32,18 @@ pub(super) struct AgentRow {
     pub resolved: String,
 }
 
-/// The Agents rows in section order: Universal first, then the other detected agents
-/// alphabetically.
+/// The Agents rows in section order: Universal first, then your other agents alphabetically.
 pub(super) fn agent_rows(agents: &[AgentOption], home: &str) -> Vec<AgentRow> {
-    let (universal, others) = split_universal(detected_agents(agents), home);
+    rows_of(your_agents(agents), home)
+}
+
+/// The rows Choose your agents offers, in the same order, for every agent found, chosen or not.
+pub(super) fn found_rows(agents: &[AgentOption], home: &str) -> Vec<AgentRow> {
+    rows_of(found_agents(agents), home)
+}
+
+fn rows_of(agents: Vec<&AgentOption>, home: &str) -> Vec<AgentRow> {
+    let (universal, others) = split_universal(agents, home);
     let directory = |agent: &AgentOption| {
         let dir = agent.global_skills_dir.clone()?;
         let resolved = agent
@@ -128,6 +136,8 @@ mod tests {
             other_global_dirs: Vec::new(),
             same_slug: SameSlug::Unknown,
             detected: true,
+            chosen: true,
+            asked: true,
         }
     }
 
@@ -140,15 +150,22 @@ mod tests {
     }
 
     #[test]
-    fn rows_list_universal_first_and_only_detected_agents() {
+    fn rows_list_universal_first_and_only_your_agents() {
         let mut missing = agent("cursor", "Cursor", "/home/.cursor/skills");
-        missing.detected = false;
+        missing.chosen = false;
         let agents = [
             agent("amp", "Amp", "/home/.agents/skills"),
             agent("claude-code", "Claude Code", "/home/.claude/skills"),
             agent("codex", "Codex", "/home/.agents/skills"),
             missing,
         ];
+        let found = found_rows(&agents, "/home");
+        let names: Vec<_> = found.iter().map(|row| row.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["Universal", "Claude Code", "Cursor"],
+            "the step offers Cursor"
+        );
         let rows = agent_rows(&agents, "/home");
         let names: Vec<_> = rows.iter().map(|row| row.name.as_str()).collect();
         assert_eq!(names, ["Universal", "Claude Code"]);

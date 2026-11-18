@@ -11,7 +11,7 @@ use crate::{
     library_store::{self, from_text, to_text},
     logging::Logger,
     persistence::{now, sync_directory},
-    scan::registry::{agent_options, global_skill_dirs, workspace_skill_dirs},
+    scan::registry::{global_skill_dirs, workspace_skill_dirs},
     schema::workspaces,
     worker::State,
 };
@@ -30,7 +30,7 @@ impl State {
     /// the folder alone when none has one. Agent folders, such as the home folder, and folders
     /// already added are skipped; when nothing is left to add, the addition is refused, naming
     /// the home folder when it is one of the skipped agent folders. Each workspace's agents are
-    /// the workspace skill directories it has that detected agents read, and each library skill it
+    /// the workspace skill directories it has that your agents read, and each library skill it
     /// holds there becomes active for the directories that hold it, without writing: a copy with
     /// the library's content is adopted, and one with other content is a conflict.
     pub(crate) fn add_workspaces(&mut self, grant: &GrantId) -> AppResult<Vec<Workspace>> {
@@ -96,10 +96,10 @@ impl State {
             ));
         }
         let slugs = library_store::slugs(&mut self.database.borrow_mut())?;
-        let detected = activation::detected_dirs(&self.config)?;
+        let yours = activation::chosen_dirs(&self.agents()?);
         let held: Vec<Held> = added
             .iter()
-            .map(|workspace| activation::held_in(Path::new(&workspace.path), &detected, &slugs))
+            .map(|workspace| activation::held_in(Path::new(&workspace.path), &yours, &slugs))
             .collect();
         // One row per statement: a single multi-row insert would exceed SQLite's bound-parameter
         // limit when a picked folder holds thousands of projects.
@@ -135,7 +135,7 @@ impl State {
     }
 
     pub(crate) fn workspaces(&self) -> AppResult<Vec<Workspace>> {
-        let agents = agent_options(&self.config)?;
+        let agents = self.agents()?;
         self.workspaces_for(&self.read_library()?, &agents)
     }
 

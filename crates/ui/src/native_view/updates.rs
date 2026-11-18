@@ -122,6 +122,11 @@ impl NativeView {
                             }
                             Effect::Activated(landing) => view.land_strip(landing, cx),
                             Effect::Removed(removal) => view.removed(removal, cx),
+                            Effect::AgentsChosen => {
+                                view.onboarding_back_to = None;
+                                view.unticked_agents = None;
+                                view.first_import = None;
+                            }
                         }
                         // A dialog the operation closed makes room for copies that now ask.
                         view.prompt_copies();

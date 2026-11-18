@@ -3,9 +3,9 @@
 //! workspace makes the library skills it already holds active where they are.
 
 use crate::{
+    agents::chosen_agents,
     database, library_store,
-    lifecycle::EngineConfig,
-    scan::{paths::resolve_absent, registry},
+    scan::paths::resolve_absent,
     schema::{workspace_dirs, workspace_skills},
     worker::State,
 };
@@ -109,36 +109,29 @@ pub(super) fn paths(folder: &Path, dirs: &BTreeSet<String>) -> BTreeMap<String, 
         .collect()
 }
 
-/// The workspace skill directories detected agents read, such as `.claude/skills`: each detected
-/// agent's registry directory and the directories the reviewed overlay records as its own, such as
+/// The workspace skill directories your agents read, such as `.claude/skills`: each one's
+/// registry directory and the directories the reviewed overlay records as its own, such as
 /// `.kimi-code/skills`. A directory only other agents read is never one, so a folder holding it is
 /// not a workspace's agent until the user chooses it.
-pub(super) fn detected_dirs(config: &EngineConfig) -> AppResult<BTreeSet<String>> {
-    Ok(registry::agent_options(config)?
-        .into_iter()
-        .filter(|agent| agent.detected)
+pub(super) fn chosen_dirs(agents: &[AgentOption]) -> BTreeSet<String> {
+    chosen_agents(agents)
         .flat_map(|agent| {
-            std::iter::once(agent.workspace_skills_dir).chain(
+            std::iter::once(agent.workspace_skills_dir.clone()).chain(
                 agent
                     .other_workspace_dirs
-                    .into_iter()
+                    .iter()
                     .filter(|dir| dir.role == DirRole::Own)
-                    .map(|dir| dir.path),
+                    .map(|dir| dir.path.clone()),
             )
         })
-        .collect())
+        .collect()
 }
 
-/// What the workspace at `folder` holds when it is added: the directories among `detected` it
-/// has, and each library skill among `slugs` it holds there, for exactly the directories that
-/// hold it. A directory only undetected agents read, such as a repository's own `skills`, is
-/// left alone.
-pub(super) fn held_in(
-    folder: &Path,
-    detected: &BTreeSet<String>,
-    slugs: &BTreeSet<String>,
-) -> Held {
-    let dirs: BTreeMap<String, PathBuf> = detected
+/// What the workspace at `folder` holds when it is added: the directories among `yours` it has,
+/// and each library skill among `slugs` it holds there, for exactly the directories that hold it.
+/// A directory only other agents read, such as a repository's own `skills`, is left alone.
+pub(super) fn held_in(folder: &Path, yours: &BTreeSet<String>, slugs: &BTreeSet<String>) -> Held {
+    let dirs: BTreeMap<String, PathBuf> = yours
         .iter()
         .filter_map(|dir| {
             let path = resolved(folder, dir).filter(|path| path.is_dir())?;
@@ -169,8 +162,8 @@ pub(crate) type WorkspaceEdit = (BTreeSet<String>, Vec<(SkillId, Option<Workspac
 impl State {
     /// Holds library skill `skill` in workspace `id` for `targets`, or, with `None` or no
     /// directories, deactivates it there, then writes or removes its copies at once. Directories
-    /// the workspace does not use yet join its agents, each a detected agent's workspace skill
-    /// directory; a workspace without agents takes the chosen ones as its agents, all of which
+    /// the workspace does not use yet join its agents, each one of your agents' workspace skill
+    /// directories; a workspace without agents takes the chosen ones as its agents, all of which
     /// then hold the skill.
     pub(crate) fn set_workspace_skill(
         &self,
@@ -204,7 +197,7 @@ impl State {
 
     /// Saves what `edit` makes of workspace `id` in one transaction, then writes or removes the
     /// copies of each skill whose directories changed in one pass. The workspace's folder must be
-    /// there, each skill in the library, and each joining directory a detected agent's.
+    /// there, each skill in the library, and each joining directory one of your agents'.
     pub(crate) fn change_workspace_skills(
         &self,
         id: &WorkspaceId,
@@ -224,9 +217,9 @@ impl State {
                 return Err(AppError::not_found("Skill no longer exists."));
             }
         }
-        if !added.is_subset(&detected_dirs(&self.config)?) {
+        if !added.is_subset(&chosen_dirs(&self.agents()?)) {
             return Err(AppError::validation(
-                "Choose the skill directory of a detected agent.",
+                "Choose the skill directory of one of your agents.",
             ));
         }
         let skills: Vec<_> = skills

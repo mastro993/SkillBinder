@@ -1,7 +1,8 @@
 use super::*;
 use skillbinder_proto::{AgentDir, SameSlug};
 
-fn agent(id: &str, name: &str, dir: &str, detected: bool) -> AgentOption {
+/// An agent reading `dir`, one of your agents when `yours`.
+fn agent(id: &str, name: &str, dir: &str, yours: bool) -> AgentOption {
     AgentOption {
         id: id.to_owned(),
         display_name: name.to_owned(),
@@ -11,7 +12,9 @@ fn agent(id: &str, name: &str, dir: &str, detected: bool) -> AgentOption {
         resolved_skills_dir: Some(format!("/home/{id}")),
         other_global_dirs: Vec::new(),
         same_slug: SameSlug::Unknown,
-        detected,
+        detected: yours,
+        chosen: yours,
+        asked: yours,
     }
 }
 
@@ -64,7 +67,7 @@ fn rows_list_each_directory_once_naming_the_agents_that_read_it() {
             (".qoder/skills", "Qoder, Qoder CN"),
             (".zed/skills", "Zed"),
         ],
-        "undetected agents count only for directories the workspace uses"
+        "agents that are not yours count only for directories the workspace uses"
     );
     assert_eq!(
         rows[0].row.reader,
@@ -79,7 +82,7 @@ fn rows_list_each_directory_once_naming_the_agents_that_read_it() {
 }
 
 #[test]
-fn rows_offer_a_detected_agents_own_directory_and_name_every_reader() {
+fn rows_offer_your_agents_own_directory_and_name_every_reader() {
     let mut kimi = agent("kimi-code-cli", "Kimi Code CLI", ".agents/skills", true);
     kimi.other_workspace_dirs = [AgentDir {
         path: ".kimi-code/skills".to_owned(),
@@ -206,7 +209,7 @@ fn the_menu_lists_only_the_directories_the_workspace_uses_one_per_folder() {
             ),
             ("Zed", vec![".zed/skills".to_owned()]),
         ],
-        "a detected agent's unused directory is the picker's, and a linked one shares a row"
+        "an unused directory of yours is the picker's, and a linked one shares a row"
     );
     assert_eq!(
         folders[0].row.reader,

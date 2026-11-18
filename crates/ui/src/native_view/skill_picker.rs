@@ -33,7 +33,7 @@ use std::{collections::BTreeSet, sync::Arc};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Place {
     Workspace(WorkspaceId),
-    /// A detected agent's global skill directory, by registry identity.
+    /// One of your agents' global skill directory, by registry identity.
     Agent(String),
     /// The universal agents' shared global skill directory.
     Universal,
@@ -231,12 +231,12 @@ pub(super) fn change(selection: &Selection, scope: Scope<'_>) -> Option<AddSkill
 
 /// The picker's place, resolved against the snapshot.
 pub(super) enum Resolved<'a> {
-    /// A workspace and a pill per folder its directories and the detected agents' resolve to.
+    /// A workspace and a pill per folder its directories and your agents' resolve to.
     Workspace {
         workspace: &'a Workspace,
         entries: Vec<Entry>,
     },
-    /// The Agents row of one of your agents, and every detected agent reading its directory.
+    /// The Agents row of one of your agents, and each of your agents reading its directory.
     Agents { row: AgentRow, ids: Vec<String> },
 }
 

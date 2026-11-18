@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choose your agents: layout</title>
+<!-- Choose your agents, second round (A4, P6): how the step lays out long lists without a scroll
+     frame mid-screen. Picked 2026-11-17: D, logo on top, app type 16, outline 1pt.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py agents-layout.html ../prototypes/agents-layout.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="ob.css">
+<style>
+/* "App type" is what the native app renders today: GPUI's 16 px default body. "Design type" is the prototypes' 13 px. */
+.ob-col.is-app { font-size: 16px; line-height: 1.62; }
+.ob-col.is-app .ob-lead { line-height: 1.62; }
+.ob-col.is-app .ob-agent-sub { font-size: 12px; }
+.ob-col.is-app .ob-agent-sub code { font-size: 12px; }
+
+.sb-vbar-top, .sb-vbar-extra { flex-wrap: wrap; row-gap: 6px; }
+.ag-frame { min-height: 0; overflow: auto; padding: 2px; margin: -2px; }
+.ag-frame.is-fixed { max-height: 312px; }
+.ag-frame.is-grow { flex: 0 1 auto; }
+.ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ag-wide { grid-column: 1 / -1; }
+.ag-tile {
+  position: relative; min-width: 0; border: 1px solid var(--sb-border); border-radius: 10px;
+  background: var(--sb-card); --sb-ring-bg: var(--sb-card); cursor: default;
+}
+.ag-tile:hover { background: var(--sb-hover); --sb-ring-bg: var(--sb-hover); }
+.ag-tile.is-on { border-color: var(--sb-fg); box-shadow: 0 0 0 1px var(--sb-fg); }
+/* Outline: "soft" is a 1-point outline in a muted foreground; "tint" keeps the hairline and tints the fill. */
+.ol-soft .ag-tile.is-on { box-shadow: none; border-color: color-mix(in srgb, var(--sb-fg) 45%, var(--sb-border)); }
+.ol-tint .ag-tile.is-on { box-shadow: none; border-color: var(--sb-border); background: color-mix(in srgb, var(--sb-fg) 5%, var(--sb-card)); --sb-ring-bg: color-mix(in srgb, var(--sb-fg) 5%, var(--sb-card)); }
+.ag-tile:focus-visible { outline: 2px solid var(--sb-ring); outline-offset: 2px; }
+.ag-mark {
+  flex: none; width: 16px; height: 16px; display: grid; place-items: center;
+  border: 1px solid var(--sb-input); border-radius: 50%; color: transparent;
+}
+.ag-tile.is-on .ag-mark { background: var(--sb-fg); border-color: var(--sb-fg); color: var(--sb-bg); }
+.ag-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ag-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A, D: logo on top, check in the corner (today). */
+.ag-stacked { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+.ag-stacked .ag-mark { position: absolute; top: 12px; right: 12px; }
+.ag-stacked .ag-text { align-self: stretch; }
+/* B: logo beside the text, check at the end. */
+.ag-side { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.ag-side .ag-text { flex: 1; }
+/* C: one line, folder in the tooltip. */
+.ag-chip { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.ag-chip .ag-name { flex: 1; }
+.ag-chip .ag-members { flex: 1; min-width: 0; color: var(--sb-muted-fg); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-chip.ag-wide .ag-name { flex: none; }
+/* B: the step scrolls at the window edge; the button row stays pinned to the window's bottom. */
+.ob-main.is-page { align-items: flex-start; overflow-y: auto; }
+.ob-col.is-page { max-height: none; margin: auto 0; padding-bottom: 0; }
+/* Continue sits 32 below the content (the column's 16 gap plus 16). */
+.ob-col > .ob-btns { margin-top: 16px; }
+.ob-col.is-page .ob-btns { position: sticky; bottom: 0; margin-top: 0; padding: 32px 0 20px; background: linear-gradient(to bottom, transparent, var(--sb-bg) 24px); }
+/* D: the page scrolls as in B, in a wider column with three tile columns. */
+.ob-col.is-wide { width: 576px; }
+.ob-col.is-wide .ag-grid { grid-template-columns: repeat(3, 1fr); }
+/* C: summary card, Review list, and the dialog's tools. */
+.ag-review { color: var(--sb-muted-fg); gap: 4px; }
+.ag-dtools { display: flex; padding: 4px 0 8px; }
+.ag-dtools .sb-search { width: 100%; }
+.ag-all { display: flex; align-items: center; gap: 10px; padding: 6px 12px 8px; border-bottom: 1px solid var(--sb-border); font-weight: 500; }
+.ag-count { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--sb-muted-fg); font-variant-numeric: tabular-nums; }
+.ag-noresult { padding: 16px 12px; color: var(--sb-muted-fg); }
+</style>
+</head>
+<body data-first-variant="d" data-first-state="list">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:728px">
+    <div class="sb-lights ob-lights"><i></i><i></i><i></i></div>
+    <main class="ob-main" id="page"></main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="ob.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const LEAD = 'SkillBinder adds and removes skills only in the agents you choose. You can change this later in Settings.';
+  const NONE = 'No agents found on this computer. SkillBinder will ask when it finds one.';
+  const MORE = [
+    { id: 'opencode', name: 'OpenCode', path: '~/.config/opencode/skills', logo: 'square-terminal' },
+    { id: 'roo', name: 'Roo Code', path: '~/.roo/skills', logo: 'square-terminal' },
+  ];
+  // Every registry agent found: Universal's 10 members, then 67 agents with folders of their own.
+  const REGISTRY = {"universal":["Cline","Codex","Dexto","fx","Kimi Code CLI","Loaf","Pi","Sarvam Code","Warp","Zed"],"others":[{"id":"adal","name":"AdaL","path":"~/.adal/skills"},{"id":"aider-desk","name":"AiderDesk","path":"~/.aider-desk/skills"},{"id":"amp","name":"Amp","path":"~/.config/agents/skills"},{"id":"antigravity","name":"Antigravity","path":"~/.gemini/antigravity/skills"},{"id":"antigravity-cli","name":"Antigravity CLI","path":"~/.gemini/antigravity-cli/skills"},{"id":"astrbot","name":"AstrBot","path":"~/.astrbot/data/skills"},{"id":"augment","name":"Augment","path":"~/.augment/skills"},{"id":"autohand-code","name":"Autohand Code CLI","path":"~/.autohand/skills"},{"id":"claude-code","name":"Claude Code","path":"~/.claude/skills"},{"id":"codestudio","name":"Code Studio","path":"~/.codestudio/skills"},{"id":"codearts-agent","name":"CodeArts Agent","path":"~/.codeartsdoer/skills"},{"id":"codebuddy","name":"CodeBuddy","path":"~/.codebuddy/skills"},{"id":"codemaker","name":"Codemaker","path":"~/.codemaker/skills"},{"id":"command-code","name":"Command Code","path":"~/.commandcode/skills"},{"id":"continue","name":"Continue","path":"~/.continue/skills"},{"id":"cortex","name":"Cortex Code","path":"~/.snowflake/cortex/skills"},{"id":"crush","name":"Crush","path":"~/.config/crush/skills"},{"id":"cursor","name":"Cursor","path":"~/.cursor/skills"},{"id":"deepagents","name":"Deep Agents","path":"~/.deepagents/agent/skills"},{"id":"devin","name":"Devin for Terminal","path":"~/.config/devin/skills"},{"id":"droid","name":"Droid","path":"~/.factory/skills"},{"id":"firebender","name":"Firebender","path":"~/.firebender/skills"},{"id":"forgecode","name":"ForgeCode","path":"~/.forge/skills"},{"id":"gemini-cli","name":"Gemini CLI","path":"~/.gemini/skills"},{"id":"github-copilot","name":"GitHub Copilot","path":"~/.copilot/skills"},{"id":"goose","name":"Goose","path":"~/.config/goose/skills"},{"id":"grok","name":"Grok Build","path":"~/.grok/skills"},{"id":"hermes-agent","name":"Hermes Agent","path":"~/.hermes/skills"},{"id":"bob","name":"IBM Bob","path":"~/.bob/skills"},{"id":"iflow-cli","name":"iFlow CLI","path":"~/.iflow/skills"},{"id":"inference-sh","name":"inference.sh","path":"~/.inferencesh/skills"},{"id":"jazz","name":"Jazz","path":"~/.jazz/skills"},{"id":"junie","name":"Junie","path":"~/.junie/skills"},{"id":"kilo","name":"Kilo Code","path":"~/.kilo/skills"},{"id":"kimchi","name":"Kimchi","path":"~/.config/kimchi/harness/skills"},{"id":"kiro-cli","name":"Kiro CLI","path":"~/.kiro/skills"},{"id":"kode","name":"Kode","path":"~/.kode/skills"},{"id":"lingma","name":"Lingma","path":"~/.lingma/skills"},{"id":"mcpjam","name":"MCPJam","path":"~/.mcpjam/skills"},{"id":"minimax-code","name":"MiniMax Code","path":"~/.minimax/skills"},{"id":"mistral-vibe","name":"Mistral Vibe","path":"~/.vibe/skills"},{"id":"moxby","name":"Moxby","path":"~/.moxby/skills"},{"id":"mux","name":"Mux","path":"~/.mux/skills"},{"id":"neovate","name":"Neovate","path":"~/.neovate/skills"},{"id":"ona","name":"Ona","path":"~/.ona/skills"},{"id":"openclaw","name":"OpenClaw","path":"~/.openclaw/skills"},{"id":"opencode","name":"OpenCode","path":"~/.config/opencode/skills"},{"id":"openhands","name":"OpenHands","path":"~/.openhands/skills"},{"id":"pochi","name":"Pochi","path":"~/.pochi/skills"},{"id":"posit-assistant","name":"Posit Assistant","path":"~/.posit/assistant/skills"},{"id":"qoder","name":"Qoder","path":"~/.qoder/skills"},{"id":"qoder-cn","name":"Qoder CN","path":"~/.qoder-cn/skills"},{"id":"qwen-code","name":"Qwen Code","path":"~/.qwen/skills"},{"id":"reasonix","name":"Reasonix","path":"~/.reasonix/skills"},{"id":"replit","name":"Replit","path":"~/.config/agents/skills"},{"id":"roo","name":"Roo Code","path":"~/.roo/skills"},{"id":"rovodev","name":"Rovo Dev","path":"~/.rovodev/skills"},{"id":"tabnine-cli","name":"Tabnine CLI","path":"~/.tabnine/agent/skills"},{"id":"terramind","name":"Terramind","path":"~/.terramind/skills"},{"id":"tinycloud","name":"Tinycloud","path":"~/.tinycloud/skills"},{"id":"trae","name":"Trae","path":"~/.trae/skills"},{"id":"trae-cn","name":"Trae CN","path":"~/.trae-cn/skills"},{"id":"universal","name":"Universal","path":"~/.config/agents/skills"},{"id":"windsurf","name":"Windsurf","path":"~/.codeium/windsurf/skills"},{"id":"zcode","name":"ZCode","path":"~/.zcode/skills"},{"id":"zencoder","name":"Zencoder","path":"~/.zencoder/skills"},{"id":"zenflow","name":"Zenflow","path":"~/.zencoder/skills"}]};
+  const known = (id) => !window.icon(id, 10).includes('sb-ic-missing');
+  const ALL = [{ ...OB.AGENTS[0], members: REGISTRY.universal },
+    ...REGISTRY.others.map((a) => ({ ...a, logo: known(a.id) ? a.id : 'square-terminal' }))];
+  const MANY = [OB.AGENTS[0], ...[...OB.AGENTS.slice(1), ...OB.NEW, ...MORE].sort((a, b) => a.name.localeCompare(b.name))];
+  const O = { variant: 'a', state: document.body.dataset.firstState || 'list', type: 'app', outline: 'soft', shape: 'top', height: 728, agents: [], on: new Set() };
+
+  function reset(state) {
+    O.state = state;
+    O.agents = state === 'many' ? MANY : state === 'all' ? ALL : state === 'none' ? [] : OB.AGENTS;
+    O.on = new Set(state === 'zero' ? [] : O.agents.map((a) => a.id));
+  }
+
+  function toggle(a, tile) {
+    if (O.on.has(a.id)) O.on.delete(a.id); else O.on.add(a.id);
+    tile.classList.toggle('is-on', O.on.has(a.id));
+    tile.setAttribute('aria-checked', String(O.on.has(a.id)));
+  }
+
+  // A focusable tile (role checkbox): click, Enter, or Space toggles it.
+  function tile(a, cls, ...children) {
+    const el = h('div', { class: `ag-tile ${cls}${a.members ? ' ag-wide' : ''}${O.on.has(a.id) ? ' is-on' : ''}`,
+      role: 'checkbox', tabindex: '0', 'aria-label': a.name, 'aria-checked': String(O.on.has(a.id)) }, ...children);
+    el.addEventListener('click', () => toggle(a, el));
+    el.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(a, el); } });
+    return el;
+  }
+  const mark = () => h('span', { class: 'ag-mark', 'aria-hidden': 'true' }, ic('check', 11));
+  const logoOf = (a) => (a.members ? avatar(a, { size: 22, stack: true, tip: false }) : avatar(a, { size: 22, tip: false }));
+  const detail = (a) => (a.members
+    ? h('span', { class: 'ob-agent-sub', 'data-tip': a.members.join(', ') }, a.members.join(', '))
+    : h('span', { class: 'ob-agent-sub' }, h('code', {}, a.path)));
+  const text = (a) => h('span', { class: 'ag-text' }, h('span', { class: 'ag-name' }, a.name), detail(a));
+
+  const stacked = (a) => tile(a, 'ag-stacked', logoOf(a), text(a), mark());
+  const side = (a) => tile(a, 'ag-side', logoOf(a), text(a), mark());
+  function chip(a) {
+    const el = a.members
+      ? tile(a, 'ag-chip', logoOf(a), h('span', { class: 'ag-name' }, a.name),
+        h('span', { class: 'ag-members', 'data-tip': a.members.join(', ') }, a.members.join(', ')), mark())
+      : tile(a, 'ag-chip', logoOf(a), h('span', { class: 'ag-name' }, a.name), mark());
+    if (!a.members) el.setAttribute('data-tip', a.path);
+    return el;
+  }
+
+  const SHAPES = { top: stacked, side: side, chip: chip };
+  // How many tiles C shows before it sums them up: Universal and three rows of two.
+  const INLINE = 7;
+
+  function grid(agents, frame) {
+    return h('div', { class: `ag-frame ${frame}` }, h('div', { class: 'ag-grid' }, agents.map(SHAPES[O.shape])));
+  }
+
+  // C past INLINE tiles: the import step's summary card (O2), and Review list opening a dialog (O7).
+  function summary() {
+    const n = O.agents.filter((a) => O.on.has(a.id)).length;
+    const logos = O.agents.filter((a) => O.on.has(a.id)).slice(0, 4);
+    return [
+      h('div', { class: 'ob-sum' }, avatarStack(logos, { size: 22, max: 4 }),
+        h('div', { class: 'ob-sum-text' }, `${n} of ${O.agents.length} agents chosen`)),
+      h('div', {}, h('button', { class: 'sb-btn sb-btn-sm ag-review', onclick: review }, 'Review list', ic('chevron-right', 14))),
+    ];
+  }
+
+  function review() {
+    let query = '';
+    const all = checkbox({ onChange: (v) => { shown().forEach((a) => (v ? O.on.add(a.id) : O.on.delete(a.id))); paint(); } });
+    const count = h('span', { class: 'ag-count' });
+    const list = h('div', { class: 'ag-dlist' });
+    const shown = () => O.agents.filter((a) => `${a.name} ${a.path} ${(a.members || []).join(' ')}`.toLowerCase().includes(query));
+    function paint() {
+      const rows = shown();
+      const on = rows.filter((a) => O.on.has(a.id)).length;
+      all.checked = rows.length > 0 && on === rows.length;
+      all.indeterminate = on > 0 && on < rows.length;
+      count.textContent = `${O.agents.filter((a) => O.on.has(a.id)).length} of ${O.agents.length}`;
+      list.replaceChildren(...(rows.length ? rows.map((a) => OB.checkboxRow(a, O.on.has(a.id), (v) => { if (v) O.on.add(a.id); else O.on.delete(a.id); paint(); }))
+        : [h('div', { class: 'ag-noresult' }, `No agents match '${query}'`)]));
+    }
+    const dlg = openDialog(win, { title: 'Choose your agents', size: 'lg', onClose: draw,
+      body: [h('div', { class: 'ag-dtools' }, searchInput({ placeholder: 'Search agents', onInput: (v) => { query = v.toLowerCase(); paint(); } })),
+        h('label', { class: 'ag-all' }, all, 'Select all', count), list] });
+    dlg.setFooter(h('span', { style: 'flex:1' }), OB.btn('Done', () => dlg.close(), 'primary'));
+    paint();
+  }
+
+  function draw() {
+    win.style.setProperty('--sb-h', `${O.height}px`);
+    win.classList.remove('ol-bold', 'ol-soft', 'ol-tint');
+    win.classList.add(`ol-${O.outline}`);
+    const paged = O.variant === 'b' || O.variant === 'd';
+    page.classList.toggle('is-page', paged);
+    let content;
+    if (O.variant === 'a') content = grid(O.agents, 'is-fixed');
+    else if (paged) content = grid(O.agents, '');
+    else content = O.agents.length > INLINE ? summary() : grid(O.agents, '');
+    const body = O.agents.length ? [h('div', { class: 'ob-lead' }, LEAD), content].flat() : [h('div', { class: 'ob-lead' }, NONE)];
+    const cls = `ob-col${O.type === 'app' ? ' is-app' : ''}${paged ? ' is-page' : ''}${O.variant === 'd' ? ' is-wide' : ''}`;
+    page.replaceChildren(h('div', { class: cls },
+      h('div', { class: 'ob-head' }, h('div', { class: 'ob-eyebrow' }, 'SkillBinder · Step 1 of 2'),
+        h('div', { class: 'ob-title', role: 'heading', 'aria-level': '1' }, 'Choose your agents')),
+      body,
+      h('div', { class: 'ob-btns' }, OB.btn('Continue', () => toast(win, 'Saved · next: Import your skills', { icon: 'check' }), 'primary'))));
+  }
+
+  const stateSeg = seg([
+    { id: 'list', label: '5 agents' }, { id: 'many', label: '11 agents' }, { id: 'all', label: 'All 79' },
+    { id: 'none', label: 'None found' }, { id: 'zero', label: 'Zero ticked' },
+  ], O.state, (id) => { reset(id); draw(); });
+  const shapeSeg = seg([
+    { id: 'top', label: 'Logo on top' }, { id: 'side', label: 'Side logo' }, { id: 'chip', label: 'Chip' },
+  ], O.shape, (id) => { O.shape = id; draw(); });
+  const typeSeg = seg([
+    { id: 'app', label: 'App type 16', tip: 'What the native app renders today' },
+    { id: 'design', label: 'Design type 13', tip: "The prototypes' type size" },
+  ], O.type, (id) => { O.type = id; draw(); });
+  const outlineSeg = seg([
+    { id: 'bold', label: 'Outline 2pt', tip: 'Approved: 2-point foreground outline' },
+    { id: 'soft', label: 'Outline 1pt', tip: '1-point muted outline' },
+    { id: 'tint', label: 'Tint', tip: 'Hairline border, tinted fill' },
+  ], O.outline, (id) => { O.outline = id; draw(); });
+  const heightSeg = seg([
+    { id: '728', label: 'Window 728', tip: 'Default window height' },
+    { id: '588', label: 'Window 588', tip: 'Smallest window height' },
+  ], String(O.height), (id) => { O.height = Number(id); draw(); });
+
+  reset(O.state);
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Frame scrolls (today)', desc: 'As built: the tiles stop at 312 and scroll inside their frame, mid-screen.' },
+    { id: 'b', label: 'Page scrolls', desc: 'No inner frame: the whole step scrolls at the window edge, and the buttons stay pinned at the bottom.' },
+    { id: 'c', label: 'Tiles, then Review list', desc: "Up to 7 tiles inline; past that, the import step's summary card and Review list opening a dialog with search and Select all (scan-import O2, O7)." },
+    { id: 'd', label: 'Page scrolls, 3 columns', desc: 'B in a 576-point column with three tile columns; Universal spans all three.' },
+  ], (id) => { O.variant = id; draw(); });
+  bar.extra.append(stateSeg, shapeSeg, typeSeg, outlineSeg, heightSeg);
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>

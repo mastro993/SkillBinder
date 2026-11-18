@@ -25,6 +25,7 @@ use support::{scan, write_skill};
 async fn imported(home: &Path, data: &Path) -> Engine {
     write_skill(&home.join(".agents/skills"), "review", "Library version");
     let engine = Engine::open(EngineConfig::isolated(data.to_owned(), home.to_owned())).unwrap();
+    support::choose_every_agent(&engine).await;
     engine.finish_onboarding(None).await.unwrap();
     let ids = scan(&engine)
         .await

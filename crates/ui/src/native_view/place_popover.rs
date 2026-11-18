@@ -2,7 +2,7 @@
 //! menu shares. "Your agents" edits the active preset:
 //! an All agents switch and one pill per skill directory of your agents. Each workspace's line
 //! edits that workspace, one pill per directory it uses, or, while it uses none, per directory the
-//! detected agents offer. Each change saves at once; the last pill off removes the skill from that
+//! your agents offer. Each change saves at once; the last pill off removes the skill from that
 //! place without asking. It stays open across changes and closes on a press outside, Escape, a
 //! scroll of the list, or leaving the page. The keyboard reaches every control, as
 //! [`focus`] describes. It is Kit's popover surface, placed by Kit's positioner from where its

@@ -115,8 +115,10 @@ impl Engine {
             lock,
         };
         state.recover()?;
-        state.forget_agent_folders()?;
         state.forget_onboarding_position()?;
+        // Forgetting an agent folder hands its copies to your agents, so they are chosen first.
+        state.choose_agents_of_finished_onboarding()?;
+        state.forget_agent_folders()?;
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("skillbinder-engine".into())
@@ -230,25 +232,18 @@ impl Engine {
         self.scan(false).await
     }
     async fn scan(&self, replace: bool) -> AppResult<()> {
-        let (config, workspaces, index, log) = self
+        let (config, reach, index, log) = self
             .call(|state| {
                 state.apply_pending();
                 Ok((
                     state.config.clone(),
-                    state
-                        .workspaces()?
-                        .into_iter()
-                        .filter(|workspace| !workspace.missing)
-                        .map(|workspace| (workspace.id, PathBuf::from(workspace.path)))
-                        .collect(),
+                    state.reach()?,
                     state.library_index()?,
                     state.log.clone(),
                 ))
             })
             .await?;
-        self.owner
-            .scans
-            .start(config, workspaces, index, log, replace)
+        self.owner.scans.start(config, reach, index, log, replace)
     }
     /// The last completed scan and whether another one is running, without waiting for a
     /// durable mutation.
@@ -371,7 +366,7 @@ impl State {
             bootstrap,
             library,
             home: self.config.home.display().to_string(),
-            agents: crate::scan::registry::agent_options(&self.config)?,
+            agents: self.agents()?,
             workspaces: self.workspaces()?,
             scan,
             scanning,

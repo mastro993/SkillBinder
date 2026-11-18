@@ -21,7 +21,7 @@ fn deferred(scans: &Scans, config: &EngineConfig, log: &Logger) -> Work {
     scans
         .start_with(
             config.clone(),
-            Vec::new(),
+            registry::Reach::default(),
             LibraryIndex::default(),
             log.clone(),
             true,
@@ -64,7 +64,7 @@ fn launch_failure_is_a_failed_scan_and_retryable_without_hanging_shutdown() {
     let scans = Scans::default();
     let result = scans.start_with(
         config.clone(),
-        Vec::new(),
+        registry::Reach::default(),
         LibraryIndex::default(),
         log.clone(),
         true,
@@ -94,7 +94,7 @@ fn a_refresh_keeps_the_running_scan() {
     scans
         .start_with(
             config.clone(),
-            Vec::new(),
+            registry::Reach::default(),
             LibraryIndex::default(),
             log.clone(),
             false,

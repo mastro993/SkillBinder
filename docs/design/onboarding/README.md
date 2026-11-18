@@ -8,13 +8,13 @@ This folder holds the five prototypes the user approved on 2026-11-17 for [the o
 |---|---|---|---|
 | Frame | `prototypes/frame.html` | A "Counter eyebrow" | ![Onboarding frame with the step counter](screenshots/frame.png) |
 | Git step | `prototypes/git.html` | A "Primary action" | ![Install Git with Install as the primary](screenshots/git.png) |
-| Choose your agents | `prototypes/agents.html` | C "Logo tiles" | ![Agents as two-column logo tiles](screenshots/agents.png) |
+| Choose your agents | `prototypes/agents.html`, then `prototypes/agents-layout.html` | C "Logo tiles", laid out as D "Page scrolls, 3 columns" | ![Agents as three-column logo tiles](screenshots/agents-layout.png) |
 | Settings › Agents | `prototypes/settings.html` | A "Switch list" | ![Settings with the Agents switch list](screenshots/settings.png) |
 | New agent notice | `prototypes/notice.html` | A "Corner card" | ![Bottom-right notice over Library](screenshots/notice.png) |
 
 - **Frame A:** scan-import's onboarding column, 384 points wide and centered. The eyebrow reads "SkillBinder · Step N of M", then the title, the lead, the step's content, and one button row: Back at its left edge, the step's actions at its right. M counts only the steps that apply, so it drops from 3 to 2 when Git is found (F1). Steps slide in from the trailing edge, and Back slides from the leading edge; reduced motion switches at once (F5). (OpenAI Platform, Klaviyo.)
 - **Git A:** the lead, then one status line under it for Waiting, Failed, Found, and Too old. The button row holds Skip at the left, then Download Git and the primary Install Git. Without an installer (Windows without winget, after a winget failure, or an unknown Linux), Download Git is the primary. On Linux with a known package manager the command box with Copy sits in the body, and the row holds Skip and Download Git. (Clerk "Watching for users".)
-- **Agents C:** a two-column grid of tiles. Each tile has the agent's logo at its top left and a round check at its top right, then the name and the skill folder in muted monospace. A chosen tile has a 2-point foreground outline and a filled check; an unchosen one has the hairline border and an empty ring. Universal spans both columns, shows a stack of its first three members' logos, and names its agents in muted text, truncated with a tooltip. The grid scrolls inside a fixed height so the buttons stay in view. (Dropbox Dash's grouped row.)
+- **Agents C, laid out as D:** a three-column grid of tiles in a column 576 points wide, wider than the other steps' 384, at the app's own type size. Each tile has the agent's logo at its top left and a round check at its top right, then the name and the skill folder in muted monospace. A chosen tile has a 1-point outline, the foreground mixed into the border, and a filled check; an unchosen one has the hairline border and an empty ring. Universal spans all three columns, shows a stack of its first three members' logos, and names its agents in muted text, truncated with a tooltip. Nothing scrolls inside the column: when the tiles do not fit, the step scrolls with the scrollbar at the window's edge, and the button row stays pinned at the window's bottom, 32 points below the content, with the content fading out under it. (Dropbox Dash's grouped row; the layout came from the second round, `prototypes/agents-layout.html`, P6.)
 - **Settings A:** an "Agents" heading above Application, then a bordered list. Each row has the logo, the name, the folder (or Universal's agents), and a trailing Kit Switch. Once a managed agent is turned off, "Its skills stay in place." replaces its folder line; an agent that was never on keeps its folder line. The Git row in Application reads the version, or "Not installed" with Install Git and the waiting line inline. (Linear "Coding tools".)
 - **Notice A:** a card at the window's bottom-right corner, over the page: the agents' logo stack, the found line in medium weight, the question in muted text, and right-aligned buttons. With several agents a close button sits in its corner. (beehiiv's persistent corner card.)
 
@@ -41,7 +41,7 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/onboarding/
 | Git | Found | Check finds Git 2.39+ | "Git 2.47.1 is ready" with check-circle in the success color; moves on after about a second |
 | Git | Too old | Git under 2.39 | Title "Update Git", line "Git 2.30.1 is too old. SkillBinder needs 2.39 or newer.", same actions |
 | Agents | List | Agents found | Tiles, all chosen |
-| Agents | Many | More rows than fit | The grid scrolls inside its frame |
+| Agents | Many | More rows than fit | The step scrolls at the window's edge; the button row stays pinned at the bottom |
 | Agents | None found | No agent found | "No agents found on this computer. SkillBinder will ask when it finds one." in place of the tiles, Continue |
 | Agents | Zero chosen | All unticked | Continue stays available |
 | Settings | Default | — | Agents list, Application rows |
@@ -62,7 +62,7 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/onboarding/
 | Status lines (waiting, found, failed, too old) | The import step's status line with the app's loading glyph animation (`library_updates.rs`), check-circle, or alert-circle |
 | Linux command box | A bordered row in the muted surface with monospace text and a small Kit `Button` "Copy"; copying uses GPUI's clipboard |
 | Download Git | GPUI `open_url` to `https://git-scm.com/downloads` |
-| Agent tile | **New app element** built from Kit pieces, since Kit has no selectable tile: a focusable bordered `div` with the theme radius, a Kit `Avatar` (`library_avatars.rs`), and the check glyph in a ring; Enter and Space toggle. Confirm before building it. |
+| Agent tile | **New app element** built from Kit pieces, since Kit has no selectable tile: a focusable bordered `div` with the theme radius, a Kit `Avatar` (`library_avatars.rs`), and the check glyph in a ring; Enter and Space toggle. Confirmed 2026-11-17 (P3, P6). |
 | Universal tile's logo stack | Kit `Avatar`s in a stack, as the import summary card does |
 | Settings Agents rows | A bordered list in `settings.rs` with Kit `Avatar` and Kit `Switch` (`gpui_kit::component::switch`) |
 | Settings Git row | The Application section's row, with a Kit `Button` and the waiting line |

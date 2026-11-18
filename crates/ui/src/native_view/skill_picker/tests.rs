@@ -2,7 +2,7 @@ use super::super::snapshot_query::fixture::{Fixture, id, set};
 use super::*;
 use skillbinder_proto::{AppSnapshot, WorkspaceTargets};
 
-/// Universal (Amp), Claude Code, and Cursor are detected; acme-web uses `.claude/skills`, and
+/// Universal (Amp), Claude Code, and Cursor are your agents; acme-web uses `.claude/skills`, and
 /// docs-site uses none.
 fn snapshot() -> AppSnapshot {
     Fixture::new()

@@ -212,12 +212,12 @@ impl Scans {
     pub(crate) fn start(
         &self,
         config: EngineConfig,
-        workspaces: Vec<(WorkspaceId, PathBuf)>,
+        reach: registry::Reach,
         library: LibraryIndex,
         log: Logger,
         replace: bool,
     ) -> AppResult<()> {
-        self.start_with(config, workspaces, library, log, replace, |work| {
+        self.start_with(config, reach, library, log, replace, |work| {
             std::thread::Builder::new()
                 .name("skillbinder-scan".into())
                 .spawn(work)
@@ -228,7 +228,7 @@ impl Scans {
     fn start_with(
         &self,
         config: EngineConfig,
-        workspaces: Vec<(WorkspaceId, PathBuf)>,
+        reach: registry::Reach,
         library: LibraryIndex,
         log: Logger,
         replace: bool,
@@ -251,7 +251,7 @@ impl Scans {
         let scans = self.clone();
         let failure_log = log.clone();
         let launched = launch(Box::new(move || {
-            let result = registry::locations(&config, &workspaces, &log)
+            let result = registry::locations(&config, &reach, &log)
                 .and_then(|locations| traversal::scan(locations, &library, &cancel, &log));
             scans.finish(generation, result, &log);
         }));

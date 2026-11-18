@@ -5,6 +5,7 @@
 
 use crate::{
     activation::{self, Holder},
+    agents::chosen_agents,
     library_store,
     scan::{self, Selected},
     schema::{presets, workspaces},
@@ -40,8 +41,8 @@ pub(crate) struct Replaced {
     pub workspace: Option<(WorkspaceId, String)>,
 }
 
-/// Where found skill `slug`, imported with content `digest`, becomes active: each detected
-/// agent's own global skill directory, and each directory a present workspace uses, whose folder
+/// Where found skill `slug`, imported with content `digest`, becomes active: each of your
+/// agents' own global skill directory, and each directory a present workspace uses, whose folder
 /// named `slug` is one the scan found a version in and holds a copy SkillBinder can manage. A copy
 /// with `digest` is adopted and one with other content replaced. Anything else, such as a link, a
 /// Git checkout, a folder the scan found no skill in, a copy nested deeper, or a directory only
@@ -77,7 +78,7 @@ pub(super) fn place(
             }
             true
         };
-    for agent in agents.iter().filter(|agent| agent.detected) {
+    for agent in chosen_agents(agents) {
         let Some(directory) = agent.resolved_skills_dir.as_deref() else {
             continue;
         };

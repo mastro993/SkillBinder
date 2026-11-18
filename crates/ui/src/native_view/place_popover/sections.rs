@@ -118,7 +118,7 @@ impl Sections<'_> {
             vec![
                 sized(div().id("no-agents"), 11.5)
                     .text_color(cx.theme().muted_foreground)
-                    .child("No agents detected")
+                    .child("You have no agents")
                     .into_any_element(),
             ]
         } else {

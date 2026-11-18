@@ -1,4 +1,4 @@
-//! Detected agents and how the Agents section names them. The universal agents, which all read
+//! Your agents and how the Agents section names them. The universal agents, which all read
 //! `~/.agents/skills`, are listed together as Universal.
 
 use std::path::{Path, PathBuf};
@@ -8,9 +8,14 @@ use skillbinder_proto::AgentOption;
 /// The name of the universal agents together.
 pub(super) const UNIVERSAL: &str = "Universal";
 
-/// Agents whose global skill directory exists, alphabetically: the snapshot lists agents by
-/// lowercase display name.
-pub(super) fn detected_agents(agents: &[AgentOption]) -> Vec<&AgentOption> {
+/// Your agents, the detected agents whose global skill directory the user chose, alphabetically:
+/// the snapshot lists agents by lowercase display name.
+pub(super) fn your_agents(agents: &[AgentOption]) -> Vec<&AgentOption> {
+    agents.iter().filter(|agent| agent.chosen).collect()
+}
+
+/// Agents whose global skill directory exists, chosen or not, alphabetically.
+pub(super) fn found_agents(agents: &[AgentOption]) -> Vec<&AgentOption> {
     agents.iter().filter(|agent| agent.detected).collect()
 }
 
@@ -19,7 +24,7 @@ pub(super) fn universal_dir(home: &str) -> PathBuf {
     Path::new(home).join(".agents").join("skills")
 }
 
-/// Splits detected agents into the universal agents and the rest, keeping their order.
+/// Splits agents into the universal agents and the rest, keeping their order.
 pub(super) fn split_universal<'a>(
     agents: Vec<&'a AgentOption>,
     home: &str,
@@ -63,19 +68,24 @@ mod tests {
             other_global_dirs: Vec::new(),
             same_slug: SameSlug::Unknown,
             detected: true,
+            chosen: true,
+            asked: true,
         }
     }
 
     #[test]
-    fn detected_agents_are_the_agents_with_a_global_directory_in_snapshot_order() {
+    fn your_agents_are_the_chosen_agents_and_found_ones_have_a_directory_in_snapshot_order() {
         let mut missing = agent("cursor");
         missing.detected = false;
-        let agents = [agent("cline"), missing, agent("zed")];
-        let ids: Vec<_> = detected_agents(&agents)
-            .into_iter()
-            .map(|agent| agent.id.as_str())
-            .collect();
-        assert_eq!(ids, ["cline", "zed"]);
+        missing.chosen = false;
+        let mut unchosen = agent("amp");
+        unchosen.chosen = false;
+        let agents = [unchosen, agent("cline"), missing, agent("zed")];
+        let ids = |agents: Vec<&AgentOption>| -> Vec<String> {
+            agents.into_iter().map(|agent| agent.id.clone()).collect()
+        };
+        assert_eq!(ids(your_agents(&agents)), ["cline", "zed"]);
+        assert_eq!(ids(found_agents(&agents)), ["amp", "cline", "zed"]);
     }
 
     #[test]

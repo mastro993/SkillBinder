@@ -9,7 +9,7 @@ mod folders;
 #[path = "support/fixture.rs"]
 mod support;
 
-use diesel::{prelude::*, sql_types::Text};
+use diesel::{connection::SimpleConnection, prelude::*, sql_types::Text};
 use folders::add_folder;
 use skillbinder_engine::Engine;
 use skillbinder_proto::ErrorCategory;
@@ -106,6 +106,7 @@ async fn ready_with(
             .insert((*key).to_owned(), value.display().to_string());
     }
     let engine = Engine::open(config).unwrap();
+    support::choose_every_agent(&engine).await;
     engine.finish_onboarding(None).await.unwrap();
     engine
 }
@@ -305,6 +306,64 @@ async fn a_stored_home_workspace_is_forgotten_on_launch() {
         "files are not touched"
     );
     engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_home_workspace_forgotten_with_data_saved_before_agents_were_chosen_hands_copies_on() {
+    let fixture = Fixture::new();
+    let claude = fixture.home.join(".claude/skills");
+    write_skill(&claude, "review", "Claude");
+    let engine = fixture.ready().await;
+    let ids = support::scan(&engine)
+        .await
+        .candidates
+        .into_iter()
+        .map(|candidate| candidate.id)
+        .collect();
+    support::import(&engine, ids).await;
+    engine.shutdown().await.unwrap();
+    // Data from before agents were chosen, with the home folder stored as a workspace holding
+    // the copy the active preset also holds for Claude Code.
+    let home = fs::canonicalize(&fixture.home).unwrap();
+    let mut database = fixture.database();
+    diesel::sql_query(
+        "INSERT INTO workspaces(id,canonical_path,name,position,created_at) \
+         VALUES('home',?,'home',0,0)",
+    )
+    .bind::<Text, _>(home.display().to_string())
+    .execute(&mut database)
+    .unwrap();
+    database
+        .batch_execute(
+            "DELETE FROM device_settings WHERE key = 'agents'; \
+             INSERT INTO workspace_dirs(workspace_id,dir) VALUES('home','.claude/skills'); \
+             INSERT INTO workspace_skills(workspace_id,slug,dirs) VALUES('home','review',NULL); \
+             UPDATE managed_copies SET workspace_id='home', workspace_dir='.claude/skills' \
+             WHERE slug='review';",
+        )
+        .unwrap();
+    drop(database);
+
+    let engine = fixture.open();
+    assert!(engine.snapshot().await.unwrap().workspaces.is_empty());
+    engine.shutdown().await.unwrap();
+    let held: Vec<Holder> =
+        diesel::sql_query("SELECT workspace_id FROM managed_copies WHERE slug = 'review'")
+            .load(&mut fixture.database())
+            .unwrap();
+    assert_eq!(
+        held.into_iter()
+            .map(|row| row.workspace_id)
+            .collect::<Vec<_>>(),
+        [None],
+        "the copy stays managed for your agents"
+    );
+}
+
+#[derive(QueryableByName)]
+struct Holder {
+    #[diesel(sql_type = diesel::sql_types::Nullable<Text>)]
+    workspace_id: Option<String>,
 }
 
 #[tokio::test]

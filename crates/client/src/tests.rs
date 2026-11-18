@@ -1,6 +1,6 @@
 use super::*;
 use skillbinder_engine::EngineConfig;
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -10,6 +10,9 @@ async fn ready(directory: &Path) -> AppResult<Engine> {
         directory.join("data"),
         directory.join("home"),
     ))?;
+    engine
+        .choose_agents(BTreeSet::new(), BTreeSet::new())
+        .await?;
     engine.finish_onboarding(None).await?;
     Ok(engine)
 }

@@ -29,8 +29,10 @@ Rules every prototype in this folder obeys. Behavior comes from [the onboarding 
 ## Choose your agents step
 
 - **A1** Title "Choose your agents"; lead "SkillBinder adds and removes skills only in the agents you choose. You can change this later in Settings."
-- **A2** One tile per row of the sidebar's Agents section, in a two-column grid (P3): Universal first, spanning both columns with a stack of its first three members' logos and naming its agents in muted text, then each other found agent alphabetically. Each tile has the agent's logo, a round check, its name, and its skill folder (such as `~/.claude/skills`) in muted text; a chosen tile is outlined. All start chosen.
+- **A2** One tile per row of the sidebar's Agents section, in a three-column grid (P3, P6): Universal first, spanning all three columns with a stack of its first three members' logos and naming its agents in muted text, then each other found agent alphabetically. Each tile has the agent's logo, a round check, its name, and its skill folder (such as `~/.claude/skills`) in muted text; a chosen tile is outlined. All start chosen.
 - **A3** Continue saves the choice, which counts as asking about every agent the step showed, chosen or not (N1) and opens Import your skills; zero ticked is allowed. With no agent found: "No agents found on this computer. SkillBinder will ask when it finds one." with Continue.
+
+- **A4** However many agents are found, nothing scrolls inside the column: the step scrolls at the window's edge, and the button row stays in view at the window's bottom (P6).
 
 ## Settings › Agents
 
@@ -50,14 +52,16 @@ Rules every prototype in this folder obeys. Behavior comes from [the onboarding 
 
 - **P1** Frame: A "Counter eyebrow" (eyebrow "SkillBinder · Step N of M", Back at the left of the button row).
 - **P2** Git step: A "Primary action" (Install Git as the primary, one status line under the lead).
-- **P3** Choose your agents: C "Logo tiles" (two-column tiles; Universal spans the row with its members' logos). Kit has no selectable tile, so the tile is a new app element built from Kit pieces.
+- **P3** Choose your agents: C "Logo tiles" (tiles, two columns until P6; Universal spans the row with its members' logos). Kit has no selectable tile, so the tile is a new app element built from Kit pieces.
 - **P4** Settings › Agents: A "Switch list".
 - **P5** New agent notice: A "Corner card".
+- **P6** (second round, `prototypes/agents-layout.html`, after the native tiles clipped in their 312-point frame): D "Page scrolls, 3 columns", with tiles logo on top, the app's 16-point type, a 1-point outline, and 32 points above Continue.
 
 ## Rejected variants
 
 - Frame B "Progress bar" (count only in a tooltip) and C "Step list" (split window with a step rail).
 - Git B "Status card" and C "Recommended + other ways" (Download Git behind a disclosure).
 - Agents A "Framed list" (trailing checkboxes) and B "Select all" (leading checkboxes with a count).
+- Agents layout, second round: A "Frame scrolls" (the scrollbar sits mid-screen), B "Page scrolls" in two columns, and C "Tiles, then Review list" (a summary card and a dialog past seven tiles); tile shapes "Side logo" and "Chip" (folders truncate or move to a tooltip); the design's 13-point type; and the 2-point outline and the tint.
 - Settings B "Grouped sections" (On and Off groups) and C "Status table".
 - Notice B "Top-right card" and C "Snackbar" (drops the question).

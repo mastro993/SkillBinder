@@ -1,4 +1,4 @@
-//! A small app snapshot for page derivation tests: a home, detected and undetected agents, library
+//! A small app snapshot for page derivation tests: a home, your agents and others, library
 //! skills with presets and folders, workspaces, and update checks. It builds proto values field by
 //! field, so a new proto field fails to compile here until the fixture handles it.
 
@@ -92,14 +92,14 @@ impl Fixture {
     }
 
     /// A registry agent reading `workspace_dir` in a workspace and `global`, under home, as its
-    /// global skill directory, which exists when `detected`.
+    /// global skill directory, which exists and is chosen when `yours`.
     pub(crate) fn agent(
         mut self,
         id: &str,
         name: &str,
         workspace_dir: &str,
         global: &str,
-        detected: bool,
+        yours: bool,
     ) -> Self {
         let global = format!("{HOME}/{global}");
         self.snapshot.agents.push(AgentOption {
@@ -111,7 +111,9 @@ impl Fixture {
             resolved_skills_dir: Some(global),
             other_global_dirs: Vec::new(),
             same_slug: SameSlug::Unknown,
-            detected,
+            detected: yours,
+            chosen: yours,
+            asked: yours,
         });
         self
     }

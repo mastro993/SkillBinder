@@ -125,6 +125,8 @@ enum Effect {
     Activated(progress_strip::Landing),
     /// A skill was removed from one place, so the toast offers Undo.
     Removed(undo::Removal),
+    /// Choose your agents saved its choice, so onboarding moves on to an import that scans again.
+    AgentsChosen,
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -145,6 +147,9 @@ pub struct NativeView {
     first_import: Option<import_dialog::ImportDialog>,
     /// The onboarding step Back returned to, shown while it comes before the first step not done.
     onboarding_back_to: Option<OnboardingStep>,
+    /// The global skill directories Choose your agents shows unticked, from the saved choice once
+    /// it shows, until its Continue saves them.
+    unticked_agents: Option<BTreeSet<String>>,
     /// Where the Git step showed when Git was found, kept while "Git <version> is ready" shows.
     git_ready: Option<onboarding::Place>,
     /// What installing Git waits on, in the Git step or Settings.
@@ -315,6 +320,7 @@ impl NativeView {
             importing: None,
             first_import: None,
             onboarding_back_to: None,
+            unticked_agents: None,
             git_ready: None,
             git_setup: git_setup::GitSetup::default(),
             git_checking: false,

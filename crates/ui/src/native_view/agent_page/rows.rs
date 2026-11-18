@@ -126,7 +126,7 @@ pub(super) struct RemovalPlan {
 }
 
 /// Takes `place`'s directory out of `preset`'s entry for `skill`: from all agents, the entry
-/// becomes the other detected agents; from a list, the list without the agents reading the
+/// becomes your other agents; from a list, the list without the agents reading the
 /// directory. An empty list takes the skill out of the preset. `None` while the preset does not
 /// hold the skill there, since toggling would then add it, as a click on a stale page could.
 pub(super) fn plan_removal(

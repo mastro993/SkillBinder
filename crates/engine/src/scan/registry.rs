@@ -1,5 +1,5 @@
 use super::paths;
-use crate::{lifecycle::EngineConfig, logging::Logger};
+use crate::{agents::AgentChoices, lifecycle::EngineConfig, logging::Logger};
 use serde::Deserialize;
 use skillbinder_proto::{AgentDir, AgentOption, AppError, AppResult, SameSlug, WorkspaceId};
 use std::{
@@ -225,19 +225,39 @@ fn combine(seen: SameSlug, next: SameSlug) -> SameSlug {
         (SameSlug::One, SameSlug::One) => SameSlug::One,
     }
 }
-/// The agents' global skill directories and the direct skill directories of each workspace,
-/// including every directory the reviewed overlay records.
+/// What a scan reads: your agents' global skill directories, and the workspaces' skill
+/// directories, whichever agents read them.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Reach {
+    /// Your agents, by registry identity.
+    pub agents: BTreeSet<String>,
+    /// Each present workspace and its folder.
+    pub workspaces: Vec<(WorkspaceId, PathBuf)>,
+}
+
+/// Your agents' global skill directories and the direct skill directories of each workspace,
+/// including every directory the reviewed overlay records. The global skill directory of an agent
+/// that is not yours is never read, even where one of yours also reads it, such as Warp reading
+/// Cursor's.
 pub(crate) fn locations(
     config: &EngineConfig,
-    workspaces: &[(WorkspaceId, PathBuf)],
+    reach: &Reach,
     log: &Logger,
 ) -> AppResult<Vec<Location>> {
     let mut combined: BTreeMap<PathBuf, Location> = BTreeMap::new();
     let global_lock = crate::sources::lock::global_lock(config);
-    for agent in agents(config)? {
+    let agents = agents(config)?;
+    let others: BTreeSet<PathBuf> = agents
+        .iter()
+        .filter(|agent| !reach.agents.contains(&agent.id))
+        .filter_map(|agent| global_dir(agent, config))
+        .collect();
+    for agent in agents {
         let own = global_dir(&agent, config);
-        for template in agent.global_roots.iter().chain(&agent.other_global_dirs) {
-            if let Some(path) = expand(template, config) {
+        let yours = reach.agents.contains(&agent.id);
+        let globals = agent.global_roots.iter().chain(&agent.other_global_dirs);
+        for template in globals.filter(|_| yours) {
+            if let Some(path) = expand(template, config).filter(|path| !others.contains(path)) {
                 let reading = Reading::Global {
                     own: own.as_ref() == Some(&path),
                 };
@@ -252,7 +272,7 @@ pub(crate) fn locations(
                 );
             }
         }
-        for (id, boundary) in workspaces {
+        for (id, boundary) in &reach.workspaces {
             let lock = crate::sources::lock::project_lock(boundary);
             let dirs = std::iter::once(&agent.workspace_skills_dir)
                 .chain(agent.other_workspace_dirs.iter().map(|dir| &dir.path));
@@ -299,20 +319,29 @@ pub(crate) fn global_skill_dirs(config: &EngineConfig) -> AppResult<BTreeSet<Pat
     }
     Ok(dirs)
 }
-/// Every registry agent, by display name, with the skill directories it reads and whether its
-/// global skill directory exists.
-pub(crate) fn agent_options(config: &EngineConfig) -> AppResult<Vec<AgentOption>> {
+/// Every registry agent, by display name, with the skill directories it reads, whether its
+/// global skill directory exists, and whether `choices` chose and asked about that directory.
+pub(crate) fn agent_options(
+    config: &EngineConfig,
+    choices: &AgentChoices,
+) -> AppResult<Vec<AgentOption>> {
     let mut options: Vec<_> = agents(config)?
         .into_iter()
         .map(|agent| {
             let global = global_dir(&agent, config);
             let resolved = global.as_ref().map(|path| resolved_dir(path, config));
+            // An agent counts only where the scan reads its directory: inside home.
+            let detected = global
+                .as_ref()
+                .is_some_and(|path| path.is_dir() && bounded(path, &config.home).is_ok());
+            let shown = global.as_ref().map(|path| path.display().to_string());
+            let in_choices =
+                |dirs: &BTreeSet<String>| shown.as_ref().is_some_and(|dir| dirs.contains(dir));
             AgentOption {
-                // An agent counts only where the scan reads its directory: inside home.
-                detected: global
-                    .as_ref()
-                    .is_some_and(|path| path.is_dir() && bounded(path, &config.home).is_ok()),
-                global_skills_dir: global.map(|path| path.display().to_string()),
+                detected,
+                chosen: detected && in_choices(&choices.chosen),
+                asked: in_choices(&choices.asked),
+                global_skills_dir: shown,
                 resolved_skills_dir: resolved.clone(),
                 other_global_dirs: agent
                     .other_global_dirs
