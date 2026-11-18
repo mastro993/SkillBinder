@@ -344,7 +344,7 @@ A 4 px rhythm with a 6 px half step for tight controls: `2xs` 2, `xs` 4, `sm` 6,
 
 ## Elevation & Depth
 
-Three levels, each a hairline ring plus a soft drop shadow, never a heavy border. GPUI draws a blur about twice as wide as CSS, so blur values here are half the visual target.
+Four levels. Raised and overlay surfaces get a hairline ring plus a soft drop shadow, never a heavy border. GPUI draws a blur about twice as wide as CSS, so blur values here are half the visual target.
 
 - **Flat**: rows, cards inside the panel. A card has a 1 px `border` ring and no drop shadow.
 - **Raised**: the inset page panel, the selected sidebar row, the selected segment, the dragged row. Ring `rgba(0,0,0,0.08)` at 0.5 px, shadow 0 1 2 `rgba(0,0,0,0.08)`; the panel adds 0 6 16 -6 `rgba(0,0,0,0.08)`.
@@ -384,4 +384,9 @@ Radii scale with the object's size: `xs` 4 for tags and image tiles, `sm` 6 for 
 
 ## Implementation
 
-This file is the source of truth for every token. `cargo run -p xtask -- design-tokens` generates their code form in the design-system crate: a GPUI Kit theme file with the light and dark colors and radii, loaded at startup, and Rust constants for spacing, type levels, radii, icon sizes, opacity, and elevation. `cargo run -p xtask -- verify` fails while the generated files disagree with this file, so a token change is an edit here followed by the generator, in one commit. Lint this file with `npx -y @google/design.md@0.4.0 lint DESIGN.md`; the only expected warnings are orphaned `-dark` and `preset-*` colors. The build plan is in [docs/design-system/plan.md](docs/design-system/plan.md).
+This file is the source of truth for every token. `cargo run -p xtask -- design-tokens` generates their code form in the design-system crate, and every color lands in exactly one of two places:
+
+- **The GPUI Kit theme file** (light and dark, loaded at startup) takes the colors Kit has a key for: `background`, `foreground`, `sidebar`, `sidebar-foreground`, `sidebar-accent`, `muted`, `muted-foreground`, `border`, `popover`, `ring`, `primary` with its hover, active, and foreground, and the `success`, `warning`, `danger`, and `info` fills. It also takes `radius` (`rounded.sm`) and `radius.lg` (`rounded.lg`). Kit's `success.foreground`, `warning.foreground`, `danger.foreground`, and `info.foreground` keep Kit's meaning, the text on the filled status color: the generator sets each to whichever of `primary-foreground` and `foreground` contrasts more with that fill. A `-text` tone never goes there.
+- **Generated Rust constants** take everything Kit has no key for, as light and dark pairs: `hairline`, `accent-soft`, `accent-soft-foreground`, the `-text` tones, and `preset-*`. The same file holds spacing, type levels, radii, icon sizes, opacity, and elevation.
+
+The generator fails on a color with no destination rather than skipping it. `cargo run -p xtask -- verify` fails while the generated files disagree with this file, so a token change is an edit here followed by the generator, in one commit. Lint this file with `npx -y @google/design.md@0.4.0 lint DESIGN.md`; the only expected warnings are orphaned `-dark` and `preset-*` colors. The build plan is in [docs/design-system/plan.md](docs/design-system/plan.md).

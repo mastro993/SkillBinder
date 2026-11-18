@@ -49,7 +49,7 @@ What changes when you build UI:
 **Inset canvas.** The window and sidebar share a tinted canvas, and each page sits on a raised white panel inset 6 px from the window edges.
 
 - One iris accent (`#5B5BD6`) marks the primary action, focus and the current selection.
-- There are three elevation levels.
+- There are four elevation levels: flat, raised, overlay and modal.
 - Status colors are used only for status.
 
 References: [Linear](https://mobbin.com/screens/fd1b4d88-f021-49a3-98af-4cd3a87e1d29), [Obvious](https://mobbin.com/screens/5125f2f3-0f1c-4515-9292-cc4bffe5b569), [Subframe](https://mobbin.com/screens/137d7ea5-6935-4e56-a8bc-b1bda742ea55), [AirOps](https://mobbin.com/screens/32efa4cb-f67b-4dfb-8a98-3cda453e6279).
@@ -64,9 +64,9 @@ Both proposed spec changes were approved on 2026-11-18. Slice 1 implements them 
 
 1. **Theme JSON.** A Kit theme generated from `DESIGN.md` replaces Kit's defaults and the `apply_mode` overrides:
    - iris primary and a tinted canvas
-   - `-text` status tones
+   - Kit's status `*.foreground` keys stay the text on a filled status color; the `-text` tones go to generated Rust colors, not the theme
    - `radius` 6 and `radius.lg` 10
-   - the preset palette, moved here from `preset_colors.rs:36-43`
+   - the preset palette, moved from `preset_colors.rs:36-43` into the generated Rust colors
 2. **Scales.** The feature constants are rebuilt on the shared scales, with these snaps:
    - text 9.5→10, 11.5→11, 12.5→12, 13.5→14
    - spacing 5→4, 9→8, 10→8 or 12, 14→12 or 16, 36→32
@@ -88,7 +88,7 @@ crates/design/
   README.md
   themes/skillbinder.json   generated (Kit ThemeSet, light + dark)
   src/lib.rs                init, follow_window, set_mode (moved from theme)
-  src/tokens.rs             generated scales: space, radius, text, icon, opacity
+  src/tokens.rs             generated: colors Kit has no key for (light/dark), space, radius, text, icon, opacity
   src/elevation.rs          flat / raised / overlay / modal shadows
   src/text.rs  src/icon.rs  src/button.rs  …  src/dialog_frame.rs
   src/test_window.rs        test-only (was controls/frames.rs)
@@ -97,6 +97,7 @@ crates/design/
 **How tokens flow:**
 
 - `DESIGN.md` → `cargo run -p xtask -- design-tokens` → `themes/skillbinder.json` + `src/tokens.rs`. Both files are marked `linguist-generated`.
+- Each color goes to exactly one file, as listed in DESIGN.md § Implementation: Kit's theme keys, or a mode-aware Rust color for `hairline`, `accent-soft*`, `*-text` and `preset-*`. The generator fails on a color with no destination.
 - `init` loads the JSON with `ThemeRegistry::load_themes_from_str` and applies the light or dark config through `Theme::update`.
 - Components read colors from `cx.theme()` and sizes from `tokens`.
 - `xtask verify` regenerates both files in memory and fails on a difference. This is the same pattern as `clippy-policy`.

@@ -143,7 +143,7 @@ There are about 250 raw literals. The ratchet in slice 1 records the exact count
   - `sidebar` used as a card fill at `skill_picker/selected.rs:93`
 - **Shadows:** `shadow_lg` at `folder_reorder.rs:45` and `sidebar_reorder.rs:77`, the one-off `box_shadow` at `place_popover/sections.rs:298-304`, and `menu::shadow` at `menu/render.rs:47,106,140`. All of them become elevation levels.
 - **Line height:** hand-computed at `copies_review/render.rs:26,30,125,150` and `progress_strip/render.rs:168`.
-- **Dark-mode checks:** `theme.mode.is_dark()` at `sidebar_presets.rs:406` and `sidebar_workspaces.rs:131`, but `theme.is_dark()` everywhere else. Use one.
+- **Dark-mode checks:** `theme.mode.is_dark()` at `sidebar_presets.rs:185,258,407`, `sidebar_presets/optimistic.rs:161` and `sidebar_workspaces.rs:54,131`, but `theme.is_dark()` everywhere else. Use one.
 
 ## Left out
 

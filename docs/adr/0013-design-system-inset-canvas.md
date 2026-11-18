@@ -8,7 +8,7 @@ So the app gets one design system:
 - The tokens and the generic components live in one crate, `crates/design`, grown from `crates/theme` and depending on GPUI Kit only.
 - `xtask design-tokens` generates the crate's Kit theme file and its Rust scales from `DESIGN.md`, and `xtask verify` fails when the generated files are stale.
 
-The look is **Inset canvas**. The window and sidebar share a tinted canvas, and each page sits on a raised panel inset from the window edges. One iris accent marks the primary action, focus and the current selection, and three elevation levels separate surfaces. GPUI Kit components stay the building blocks, themed through Kit's theme and styled through their public API. The approved prototypes in `docs/design/` still decide layout, hierarchy, copy and behavior; `DESIGN.md` decides their sizes, colors, radii and shadows.
+The look is **Inset canvas**. The window and sidebar share a tinted canvas, and each page sits on a raised panel inset from the window edges. One iris accent marks the primary action, focus and the current selection, and four elevation levels separate surfaces. GPUI Kit components stay the building blocks, themed through Kit's theme and styled through their public API. The approved prototypes in `docs/design/` still decide layout, hierarchy, copy and behavior; `DESIGN.md` decides their sizes, colors, radii and shadows.
 
 The build plan is [docs/design-system/plan.md](../design-system/plan.md).
 
