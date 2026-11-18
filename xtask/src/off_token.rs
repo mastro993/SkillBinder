@@ -1,17 +1,19 @@
 //! The off-token ratchet: raw size, color, and alpha literals in `crates/ui` outside tests.
 //!
-//! Sizes, colors, and alphas come from the design-system tokens, so every literal is debt. `xtask
-//! verify` counts them and fails when the count rises above the checked-in baseline;
-//! `cargo run -p xtask -- off-token` lowers the baseline after a change removes some.
+//! Sizes, colors, and alphas come from the design-system tokens, so every literal is debt, and so
+//! is a numeric `f32`/`f64` constant, which would otherwise hide a literal behind a name. `xtask
+//! verify` counts them and fails unless the count equals the checked-in baseline, so the baseline
+//! drops with the literals: `cargo run -p xtask -- off-token` lowers it after a change removes some.
 use anyhow::{Context, bail, ensure};
 use std::{fs, path::Path};
 
 const CRATE_ROOT: &str = "crates/ui/src/lib.rs";
 const BASELINE: &str = "xtask/off-token-baseline.txt";
 const BASELINE_HEADER: &str = "\
-# Raw px(<number>), rgb(0x…), hsla(…), and .opacity(<number>) / .alpha(<number>) calls in
-# crates/ui/src outside tests, which `cargo run -p xtask -- verify` counts. The count may only go
-# down: take values from crates/design's tokens, then run `cargo run -p xtask -- off-token`.
+# Raw px(<number>), rgb(0x…), hsla(…), and .opacity(<number>) / .alpha(<number>) calls, and
+# numeric f32/f64 constants, in crates/ui/src outside tests, which `cargo run -p xtask -- verify`
+# counts. The count may only go down: take values from crates/design's tokens, then run
+# `cargo run -p xtask -- off-token`.
 ";
 
 /// What a literal sets.
@@ -20,9 +22,11 @@ enum Kind {
     Size,
     Color,
     Alpha,
+    Constant,
 }
 
-/// Fails when `crates/ui` has more literals than the baseline records.
+/// Fails unless `crates/ui` has exactly as many literals as the baseline records, so a change
+/// that removes literals lowers the baseline in the same commit and leaves no slack behind.
 pub fn verify(root: &Path) -> anyhow::Result<()> {
     let count = count(root)?.len();
     let baseline = baseline(root)?;
@@ -30,11 +34,10 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
         count <= baseline,
         "crates/ui has {count} raw size, color, or alpha literals, more than the {baseline} in {BASELINE}; take the new values from crates/design's tokens (`cargo run -p xtask -- off-token` lists every literal)"
     );
-    if count < baseline {
-        println!(
-            "crates/ui has {count} off-token literals, below the baseline of {baseline}; run `cargo run -p xtask -- off-token` to lower it."
-        );
-    }
+    ensure!(
+        count == baseline,
+        "crates/ui has {count} off-token literals, below the baseline of {baseline} in {BASELINE}; run `cargo run -p xtask -- off-token` to lower it"
+    );
     Ok(())
 }
 
@@ -98,6 +101,9 @@ fn count(root: &Path) -> anyhow::Result<Vec<(String, usize, Kind)>> {
             if let Some(name) = module(code) {
                 pending.push(dir.join(format!("{name}.rs")));
             }
+            if numeric_constant(code) {
+                found.push((relative.clone(), index + 1, Kind::Constant));
+            }
             for kind in literals(code) {
                 found.push((relative.clone(), index + 1, kind));
             }
@@ -156,6 +162,19 @@ fn module(code: &str) -> Option<&str> {
     code.strip_prefix("mod ")?.strip_suffix(';').map(str::trim)
 }
 
+/// Whether `code` declares an `f32` or `f64` constant holding a bare number, such as
+/// `pub(super) const GAP: f32 = 6.;`.
+fn numeric_constant(code: &str) -> bool {
+    let Some((head, value)) = code.split_once('=') else {
+        return false;
+    };
+    let head = head.trim_end();
+    let declares = head.split_whitespace().any(|word| word == "const")
+        && (head.ends_with(": f32") || head.ends_with(": f64"));
+    let value = value.trim().strip_suffix(';').unwrap_or(value.trim());
+    declares && number_then_paren(&format!("{value})"))
+}
+
 fn literals(code: &str) -> Vec<Kind> {
     let mut kinds = Vec::new();
     let calls = [
@@ -202,7 +221,7 @@ fn number_then_paren(rest: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Kind, code, item_end, literals, module};
+    use super::{Kind, code, item_end, literals, module, numeric_constant};
 
     #[test]
     fn literal_calls_count_and_token_calls_do_not() {
@@ -221,6 +240,16 @@ mod tests {
         );
         assert!(literals("let x = size_px(3.);").is_empty());
         assert!(literals("px(HEADER + 2.)").is_empty());
+    }
+
+    #[test]
+    fn numeric_constants_count_and_derived_ones_do_not() {
+        assert!(numeric_constant("const GLYPH: f32 = 13.;"));
+        assert!(numeric_constant("pub(super) const DIM: f64 = 0.5;"));
+        assert!(!numeric_constant("const GAP: f32 = space::MD;"));
+        assert!(!numeric_constant("const HALF: f32 = HEADER / 2.;"));
+        assert!(!numeric_constant("const COUNT: usize = 3;"));
+        assert!(!numeric_constant("let x: f32 = 3.;"));
     }
 
     #[test]

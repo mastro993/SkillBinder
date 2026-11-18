@@ -183,7 +183,7 @@ Build these in order. Each slice leaves the app working, adds its components wit
    - Add `xtask design-tokens` and the staleness check in `verify`.
    - Generate the theme JSON and `tokens.rs`. Load the theme in `init`; delete the `apply_mode` overrides.
    - Rebuild the `sidebar`, `menu` and `library` constants on the scales, with the approved snaps. Move the preset palette into the tokens.
-   - Add an off-token ratchet to `verify`. It counts `px(<literal>)`, `rgb(0x`, `hsla(` and alpha literals in `crates/ui`, compares the count with a checked-in baseline, and fails when the count rises.
+   - Add an off-token ratchet to `verify`. It counts `px(<literal>)`, `rgb(0x`, `hsla(` and alpha literals and numeric `f32`/`f64` constants in `crates/ui`, compares the count with a checked-in baseline, and fails unless the two are equal, so the baseline drops with the literals.
    - Add a gallery skeleton behind `native-test`, showing token swatches in light and dark.
    - Write the crate README.
    - Update `docs/architecture/native.md`, `docs/agents/issue-tracker.md` and AGENTS.md paths.

@@ -118,7 +118,7 @@ impl NativeView {
                 Input::new(&state.search)
                     .prefix(
                         app_icon("search")
-                            .size(px(icon::MD))
+                            .size(px(icon::SM))
                             .text_color(theme.muted_foreground),
                     )
                     .bg(theme.background),

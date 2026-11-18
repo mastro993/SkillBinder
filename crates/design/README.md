@@ -57,7 +57,7 @@ Components join as the design-system slices add them (#137 atoms, #138 molecules
 - Use the GPUI Kit component first, styled through its public API.
 - Plain props and callbacks in; text comes in through props.
 - The crate depends on `gpui-kit` only, which `xtask verify`'s graph policy enforces, so a component cannot import the app.
-- Every size, color, radius, alpha, and shadow comes from a token. In `crates/ui`, raw `px(<number>)`, `rgb(0x…)`, `hsla(…)`, and alpha literals count against the off-token ratchet in `xtask verify` (`xtask/off-token-baseline.txt`); it only goes down, and `cargo run -p xtask -- off-token` lists the literals and lowers the baseline.
+- Every size, color, radius, alpha, and shadow comes from a token. In `crates/ui`, raw `px(<number>)`, `rgb(0x…)`, `hsla(…)`, and alpha literals, and numeric `f32`/`f64` constants, count against the off-token ratchet in `xtask verify` (`xtask/off-token-baseline.txt`). `verify` fails unless the count equals the baseline, so it only goes down: after removing literals, run `cargo run -p xtask -- off-token`, which lists them and lowers the baseline, in the same commit. Moving a literal into a constant does not take it off the count; the allowed exceptions (layout constants measured from an approved prototype) are listed when slice 6 (#140) reaches the floor.
 - Every component has its tier (atom, molecule, organism) in its doc comment.
 
 ## Add or change a component
