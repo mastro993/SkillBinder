@@ -147,7 +147,7 @@ impl NativeView {
     }
 
     /// Turns on the agents of `rows` under the progress strip, which ends in the toast naming
-    /// them; the strip keeps every switch and the notice's buttons inactive until it ends.
+    /// them; the strip keeps every switch disabled, and the notice down, until it ends.
     pub(in crate::native_view) fn turn_on_agents(
         &mut self,
         rows: Vec<AgentRow>,
