@@ -1,17 +1,22 @@
-//! The design system: the tokens `DESIGN.md` specifies, the app's GPUI Kit theme, and feature
-//! metrics built on the token scales. See the crate README.
+//! The design system: the tokens `DESIGN.md` specifies, the app's GPUI Kit theme, the generic
+//! components, and feature metrics built on the token scales. See the crate README.
 
 #[cfg(feature = "native-test")]
 mod gallery;
 pub mod library;
 pub mod menu;
+pub mod page;
+mod shadow;
 pub mod sidebar;
+mod surface;
 pub mod tokens;
 mod tone;
 mod type_level;
 
 #[cfg(feature = "native-test")]
 pub use gallery::Gallery;
+pub use shadow::{Ink, Shadow, faded};
+pub use surface::{Level, Surface};
 pub use tone::Tone;
 pub use type_level::TypeLevel;
 

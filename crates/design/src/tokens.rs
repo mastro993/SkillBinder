@@ -4,7 +4,7 @@
 //! The design tokens: the scales `DESIGN.md` specifies, in points. Colors with a GPUI Kit theme
 //! slot are in `themes/skillbinder.json` and read through `cx.theme()`; [`color`] holds the rest.
 
-use crate::{Tone, TypeLevel};
+use crate::{Ink, Shadow, Tone, TypeLevel};
 use gpui_kit::FontWeight;
 
 /// Spacing and fixed heights (`spacing`).
@@ -227,6 +227,50 @@ pub mod opacity {
 
     /// `disabled`. A disabled control or menu row.
     pub const DISABLED: f32 = 0.4;
+}
+
+/// Shadow layers of each elevation level (`elevation`), in points.
+#[rustfmt::skip]
+pub mod elevation {
+    use super::{Ink, Shadow};
+
+    /// `flat`: none.
+    pub const FLAT: &[Shadow] = &[];
+
+    /// `raised`.
+    pub const RAISED: &[Shadow] = &[
+        Shadow::new(0.0, 0.0, 0.0, 0.5, Ink::Black(0.08)),
+        Shadow::new(0.0, 1.0, 2.0, 0.0, Ink::Black(0.08)),
+    ];
+
+    /// `raised-panel`.
+    pub const RAISED_PANEL: &[Shadow] = &[
+        Shadow::new(0.0, 0.0, 0.0, 0.5, Ink::Black(0.08)),
+        Shadow::new(0.0, 1.0, 2.0, 0.0, Ink::Black(0.08)),
+        Shadow::new(0.0, 6.0, 16.0, -6.0, Ink::Black(0.08)),
+    ];
+
+    /// `overlay`.
+    pub const OVERLAY: &[Shadow] = &[
+        Shadow::new(0.0, 0.0, 0.0, 1.0, Ink::Theme(|theme| theme.foreground, 0.1)),
+        Shadow::new(0.0, 10.0, 15.0, -3.0, Ink::Black(0.1)),
+        Shadow::new(0.0, 4.0, 6.0, -4.0, Ink::Black(0.1)),
+    ];
+
+    /// `modal`.
+    pub const MODAL: &[Shadow] = &[
+        Shadow::new(0.0, 20.0, 25.0, -5.0, Ink::Black(0.1)),
+        Shadow::new(0.0, 8.0, 10.0, -6.0, Ink::Black(0.1)),
+    ];
+
+    /// Every value with its `DESIGN.md` name, in order.
+    pub const ALL: &[(&str, &[Shadow])] = &[
+        ("flat", FLAT),
+        ("raised", RAISED),
+        ("raised-panel", RAISED_PANEL),
+        ("overlay", OVERLAY),
+        ("modal", MODAL),
+    ];
 }
 
 /// Colors GPUI Kit's theme has no slot for (`colors`), light and dark.

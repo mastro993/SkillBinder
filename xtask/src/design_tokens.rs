@@ -3,6 +3,7 @@
 //! `DESIGN.md` is the single source of truth. `cargo run -p xtask -- design-tokens` writes the
 //! files from it, and `xtask verify` fails when either one differs.
 mod rust;
+mod shadow;
 mod spec;
 mod theme_json;
 

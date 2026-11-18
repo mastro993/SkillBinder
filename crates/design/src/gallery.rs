@@ -3,7 +3,7 @@
 //! design-system slices add them.
 
 use crate::tokens::{color, radius, space, text};
-use crate::{TypeLevel, set_mode};
+use crate::{Level, Surface, TypeLevel, set_mode};
 use gpui_kit::component::button::Button;
 use gpui_kit::component::{ActiveTheme, Selectable, Theme, ThemeMode};
 use gpui_kit::prelude::FluentBuilder;
@@ -97,6 +97,31 @@ impl RenderOnce for Gallery {
                 })),
             ))
             .child(section(
+                "Elevation",
+                // On the canvas, where the page panel sits.
+                wrap()
+                    .p(px(space::XL))
+                    .rounded(px(radius::LG))
+                    .bg(theme.sidebar)
+                    .children(Level::ALL.map(|level| {
+                        let name = format!("{level:?}").to_lowercase();
+                        labeled(&name, Surface::new(level).apply(sample(), theme), theme)
+                    }))
+                    .child(labeled(
+                        "panel",
+                        Surface::panel().apply(sample(), theme),
+                        theme,
+                    ))
+                    .child(labeled(
+                        "sidebar pill",
+                        Surface::new(Level::Raised)
+                            .radius(radius::MD)
+                            .fill(theme.sidebar_accent)
+                            .apply(sample(), theme),
+                        theme,
+                    )),
+            ))
+            .child(section(
                 "Spacing",
                 div()
                     .flex()
@@ -155,6 +180,11 @@ fn labeled(name: &str, sample: Div, theme: &Theme) -> AnyElement {
         .child(sample)
         .child(caption(name, theme))
         .into_any_element()
+}
+
+/// A blank surface to show an elevation level on.
+fn sample() -> Div {
+    div().h(px(space::XXXL * 2.))
 }
 
 fn swatch(name: &str, color: Hsla, theme: &Theme) -> AnyElement {

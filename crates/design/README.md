@@ -4,19 +4,19 @@ SkillBinder's design system: the tokens and the app's generic components, built 
 
 ## Explore
 
-- **Gallery.** Build with `native-test` and run the app through the native bridge, then call its `show_gallery` command with `{"show": true}`. The window then shows every token in the current mode; its Light and Dark buttons switch the mode. `{"show": false}` shows the app again. The gallery lives in `src/gallery.rs`.
+- **Gallery.** Build with `native-test` and run the app through the native bridge, then call its `show_gallery` command with `{"show": true}`. The window then shows every token and component in the current mode, each elevation level on the canvas; its Light and Dark buttons switch the mode. `{"show": false}` shows the app again. The gallery lives in `src/gallery.rs`.
 - **Catalog.** The tables below.
 - **Tests.** `cargo test -p skillbinder-design`.
 
 ## Catalog
 
-Components join as the design-system slices add them (#137 atoms, #138 molecules, #139 rows and dialogs).
+Components join as the design-system slices add them (#136 Surface, #137 atoms, #138 molecules, #139 rows and dialogs).
 
 ### Atoms
 
 | Component | Purpose | Main props |
 | --- | --- | --- |
-| (none yet) | | |
+| `Surface` (`src/surface.rs`) | A surface at an elevation level: its fill, corners, ring, and shadow, applied to any styled element with `apply`. `Surface::panel()` is the inset page panel; `Level::fill` is a level's fill alone, for what sits behind a surface. `faded` scales a shadow's ink as a surface appears. | `Level::{Flat, Raised, Overlay, Modal}`, `radius`, `fill` |
 
 ### Molecules
 
@@ -41,7 +41,8 @@ Components join as the design-system slices add them (#137 atoms, #138 molecules
 | `tokens::text` | Type levels `title-lg`…`mono-sm` as `TypeLevel`: size, weight (medium is 520), line height. | `typography` |
 | `tokens::icon` | Icon sizes 12, 14, 16, 20. | Layout prose |
 | `tokens::opacity` | `INACTIVE` 0.5, `DISABLED` 0.4. | Components prose |
-| `sidebar`, `menu`, `library` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype. | the scales |
+| `tokens::elevation` | The shadow layers of `flat`, `raised`, `raised-panel`, `overlay`, and `modal`, as `Shadow`s in black or a Kit theme color. Read through `Surface`. | `elevation` |
+| `page`, `sidebar`, `menu`, `library` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype. `page` is the panel's inset and gutter, shared by every page. | the scales |
 
 `src/tokens.rs` and `themes/skillbinder.json` are generated; never edit them by hand. To change a token:
 
