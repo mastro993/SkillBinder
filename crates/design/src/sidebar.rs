@@ -14,8 +14,6 @@ pub const ROW_PADDING: f32 = space::MD;
 pub const ICON_SIZE: f32 = icon::MD;
 /// Space between a row icon and its label.
 pub const ICON_GAP: f32 = space::MD;
-/// Row label size.
-pub const LABEL_SIZE: f32 = text::BODY_MD.size;
 /// Section title and trailing count size.
 pub const DETAIL_SIZE: f32 = text::CAPTION.size;
 /// Height of a section title row, measured from the reference design.

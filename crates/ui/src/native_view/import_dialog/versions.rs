@@ -10,11 +10,10 @@ use super::list::Row;
 use chrono::Utc;
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, radio::Radio, tag::Tag, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, Hsla, InteractiveElement, IntoElement, ParentElement,
+    AnyElement, App, Context, ElementId, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::color;
-use skillbinder_design::{Button, IconSize, icon};
+use skillbinder_design::{Button, Notice, Status, icon};
 use skillbinder_proto::{AppSnapshot, Candidate, CandidateLocation, ValidationStatus};
 use std::{collections::BTreeMap, path::Path};
 
@@ -92,14 +91,7 @@ fn version_details(version: &Candidate, snapshot: &AppSnapshot, cx: &App) -> Any
                     version.file_count, version.total_bytes
                 )),
         )
-        .children(version.messages.iter().map(|message| {
-            let color = if message.status == ValidationStatus::Blocked {
-                color::DANGER_TEXT.of(cx.theme())
-            } else {
-                color::WARNING_TEXT.of(cx.theme())
-            };
-            warning(message.message.clone(), color)
-        }))
+        .children(messages(version))
         .into_any_element()
 }
 
@@ -123,21 +115,21 @@ fn location_label(location: &CandidateLocation, snapshot: &AppSnapshot) -> Strin
     }
 }
 
-/// A line of `text` after the alert glyph, both in `color`, wrapping beside the glyph.
-fn warning(text: String, color: Hsla) -> AnyElement {
-    h_flex()
-        .items_start()
-        .gap(px(6.))
-        .text_size(px(12.))
-        .text_color(color)
-        .child(
-            icon("alert-circle")
-                .with_size(IconSize::Xs)
-                .flex_none()
-                .mt(px(2.)),
-        )
-        .child(div().min_w_0().flex_1().child(text))
-        .into_any_element()
+/// A version's validation messages, a blocking one in the danger tone.
+fn messages(version: &Candidate) -> impl Iterator<Item = AnyElement> + '_ {
+    version.messages.iter().enumerate().map(|(index, message)| {
+        let status = if message.status == ValidationStatus::Blocked {
+            Status::Danger
+        } else {
+            Status::Warning
+        };
+        warning(("validation", index), message.message.clone(), status)
+    })
+}
+
+/// A notice of `text` in `status`'s tone.
+fn warning(id: impl Into<ElementId>, text: String, status: Status) -> AnyElement {
+    Notice::new(id, text).status(status).into_any_element()
 }
 
 impl NativeView {
@@ -152,9 +144,13 @@ impl NativeView {
         let snapshot = &self.snapshot;
         let versions = &row.skill.versions;
         let shown = row.shown();
-        let warn = color::WARNING_TEXT.of(cx.theme());
         let replaced = self.replacements(row);
-        let replaced = || replaced.iter().map(move |line| warning(line.clone(), warn));
+        let replaced = || {
+            replaced
+                .iter()
+                .enumerate()
+                .map(|(index, line)| warning(("replaces", index), line.clone(), Status::Warning))
+        };
         if versions.len() == 1 {
             return v_flex()
                 .gap(px(2.))
@@ -192,10 +188,8 @@ impl NativeView {
             .on_click(|_, _, cx| cx.stop_propagation())
             .child(h_flex().child(toggle));
         if !expanded {
-            let messages = shown.map_or(Vec::new(), |version| {
-                let messages = version.messages.iter();
-                messages.map(|m| warning(m.message.clone(), warn)).collect()
-            });
+            let messages: Vec<AnyElement> =
+                shown.map_or(Vec::new(), |version| messages(version).collect());
             return list
                 .children(messages)
                 .children(replaced())

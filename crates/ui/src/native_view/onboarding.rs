@@ -12,10 +12,11 @@ mod tests;
 use super::{Effect, NativeView};
 use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
 use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Text, Window, div, linear_color_stop, linear_gradient, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, Window, div, linear_color_stop, linear_gradient, px,
 };
-use skillbinder_design::{Button, icon};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{Button, SectionHeader, icon};
 use skillbinder_proto::{Onboarding, OnboardingStep};
 
 /// The step the frame shows and where it stands among the steps that apply.
@@ -143,27 +144,16 @@ impl NativeView {
                 }))
         });
         let theme = cx.theme();
-        let (muted, background) = (theme.muted_foreground, theme.background);
+        let background = theme.background;
         let width = px(if view.wide { WIDE } else { NARROW });
         let head = v_flex()
             .gap_1()
+            .child(SectionHeader::new("onboarding-eyebrow", place.eyebrow()))
             .child(
-                div()
-                    .text_size(px(12.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(muted)
-                    .child(Text::new(
-                        "onboarding-eyebrow".into(),
-                        place.eyebrow().into(),
-                    )),
-            )
-            .child(
-                div()
-                    .id("onboarding-title")
+                text::TITLE_LG
+                    .apply(div().id("onboarding-title"))
                     .role(gpui_kit::Role::Heading)
                     .aria_label(view.title)
-                    .text_size(px(20.))
-                    .font_weight(FontWeight::SEMIBOLD)
                     .child(view.title),
             );
         let buttons = h_flex()

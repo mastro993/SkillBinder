@@ -1,7 +1,8 @@
 use super::{Effect, NativeView};
 use gpui_kit::component::input::Input;
-use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
-use skillbinder_design::Button;
+use gpui_kit::{Context, IntoElement, ParentElement, Styled, div, px};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, KeyValueList};
 use skillbinder_proto::*;
 
 impl NativeView {
@@ -19,13 +20,13 @@ impl NativeView {
     }
 
     pub(super) fn render_sync(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let page = div().flex().flex_col().gap_4();
+        let page = div().flex().flex_col().gap(px(space::XL));
         if self.git_missing() {
             return page.child("Sync needs Git.");
         }
         let sync = &self.snapshot.sync;
-        let mut page = page.child(format!(
-            "Status: {:?} · {} ahead · {} behind{}",
+        let status = format!(
+            "{:?} · {} ahead · {} behind{}",
             sync.state,
             sync.ahead,
             sync.behind,
@@ -34,12 +35,18 @@ impl NativeView {
             } else {
                 ""
             }
-        ));
+        );
+        let mut facts = KeyValueList::new("sync-facts").row("Status", status);
         if let Some(remote) = &sync.remote {
-            page = page.child(format!("{} · {}", remote.url, remote.branch));
+            facts = facts
+                .mono("Remote", remote.url.clone())
+                .row("Branch", remote.branch.clone());
             if let Some(refreshed) = sync.refreshed_at {
-                page = page.child(format!("Last checked: {refreshed}"));
+                facts = facts.row("Last checked", refreshed.to_string());
             }
+        }
+        let mut page = page.child(facts);
+        if sync.remote.is_some() {
             for (action, label, id, enabled) in [
                 (SyncAction::Refresh, "Refresh", "sync-refresh", true),
                 (

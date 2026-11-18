@@ -7,13 +7,13 @@ use super::super::controls::reader_logo;
 use super::super::library_places::place_pill;
 use super::super::snapshot_query::Entry;
 use super::{Pills, Resolved, Selection, SkillPicker};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, scroll::ScrollableElement, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px, relative,
 };
-use skillbinder_design::tokens::{color, space};
-use skillbinder_design::{Button, IconSize, ToggleChip, icon, tooltip};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, Notice, SectionHeader, Status, ToggleChip, tooltip};
 use skillbinder_proto::{SkillId, Workspace};
 use std::collections::BTreeSet;
 
@@ -49,20 +49,14 @@ impl NativeView {
         let theme = cx.theme();
         let no_agents =
             matches!(resolved, Resolved::Workspace { entries, .. } if entries.is_empty());
-        let header = h_flex()
-            .gap(px(6.))
-            .px(px(12.))
-            .pt(px(12.))
-            .font_weight(FontWeight::SEMIBOLD)
-            .child(Text::new("selected".into(), "Selected".into()))
-            .when(!skills.is_empty(), |header| {
-                header.child(
-                    div()
-                        .font_weight(FontWeight::NORMAL)
-                        .text_color(theme.muted_foreground)
-                        .child(skills.len().to_string()),
-                )
-            });
+        let header = SectionHeader::new("selected", "Selected")
+            .px(px(space::LG))
+            .pt(px(space::LG));
+        let header = if skills.is_empty() {
+            header
+        } else {
+            header.count(skills.len())
+        };
         let body = if cards.is_empty() {
             div()
                 .flex_1()
@@ -94,12 +88,9 @@ impl NativeView {
             .child(body)
             .when(no_agents, |pane| {
                 pane.child(
-                    div()
-                        .px(px(12.))
-                        .pb(px(8.))
-                        .text_size(px(12.))
-                        .text_color(theme.muted_foreground)
-                        .child("You have no agents."),
+                    Notice::new("picker-no-agents", "You have no agents.")
+                        .px(px(space::LG))
+                        .pb(px(space::MD)),
                 )
             })
             .child(self.picker_footer(&picker.selection, cx))
@@ -149,12 +140,8 @@ impl NativeView {
             .children(pills)
             .when(warn, |card| {
                 card.child(
-                    h_flex()
-                        .gap(px(6.))
-                        .text_size(px(12.))
-                        .text_color(color::WARNING_TEXT.of(theme))
-                        .child(icon("alert-circle").with_size(IconSize::Sm))
-                        .child("Pick an agent"),
+                    Notice::new(format!("picker-pick-{skill}"), "Pick an agent")
+                        .status(Status::Warning),
                 )
             })
             .into_any_element()

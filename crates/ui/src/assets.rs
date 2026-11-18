@@ -41,6 +41,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("code-folder", "CodeFolderIcon"),
     icon!("command-line", "CommandLineIcon"),
     icon!("compass", "Compass01Icon"),
+    icon!("copy", "Copy01Icon"),
     icon!("database", "Database01Icon"),
     icon!("delete", "Delete02Icon"),
     icon!("fire", "FireIcon"),

@@ -151,3 +151,13 @@ pub(crate) fn readings(frame: &AccessibilityFrame, text: &str) -> usize {
         .filter(|node| node.label() == Some(text) || node.value() == Some(text))
         .count()
 }
+
+/// The names of the nodes assistive technology reads as `role` in `frame`.
+pub(crate) fn named(frame: &AccessibilityFrame, role: Role) -> Vec<Option<String>> {
+    frame
+        .nodes()
+        .filter_map(|(_, node)| frame.accessibility_node(node))
+        .filter(|node| node.role() == role)
+        .map(|node| node.label().map(str::to_owned))
+        .collect()
+}

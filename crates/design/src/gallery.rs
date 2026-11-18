@@ -2,6 +2,7 @@
 //! mode, with Light and Dark buttons to switch it, so a native check can capture both.
 
 mod atoms;
+mod molecules;
 
 use crate::tokens::{color, radius, space, text};
 use crate::{Button, Level, Surface, TypeLevel, set_mode};
@@ -44,6 +45,7 @@ pub struct Gallery;
 impl RenderOnce for Gallery {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let atoms = atoms::atoms(window, cx);
+        let molecules = molecules::molecules(window, cx);
         let theme = cx.theme();
         let dark = theme.is_dark();
         let colors = THEME_COLORS
@@ -138,6 +140,7 @@ impl RenderOnce for Gallery {
                     })),
             ))
             .children(atoms)
+            .children(molecules)
     }
 }
 

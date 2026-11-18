@@ -7,14 +7,17 @@
 use super::NativeView;
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
 use gpui_kit::component::tab::{Tab, TabBar};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, input::Input, v_flex};
+use gpui_kit::component::{Sizable, h_flex};
 use gpui_kit::{
-    AnyElement, App, ClickEvent, Context, Div, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div, px,
+    AnyElement, ClickEvent, Context, Div, IntoElement, ParentElement, StatefulInteractiveElement,
+    Styled, Window, div, px,
 };
 use skillbinder_design::library::TOOLBAR_HEIGHT;
-use skillbinder_design::tokens::{space, text};
-use skillbinder_design::{Button, IconSize, Text, TextTone, ToggleChip, focus_ring, icon, tooltip};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{
+    Button, EmptyState, IconSize, SearchField, SegmentedFilter, Text, TextTone, ToggleChip,
+    focus_ring, icon, tooltip,
+};
 use skillbinder_proto::LibraryView;
 
 /// The All, Active, and Inactive filters, in the order of their segments.
@@ -39,21 +42,15 @@ impl NativeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let muted = cx.theme().muted_foreground;
-        let search = div()
+        let search = SearchField::new("library-search", &self.search)
             .flex_basis(px(120.))
             .flex_grow(1.)
             .flex_shrink(1.)
-            .min_w(px(100.))
-            .child(
-                Input::new(&self.search)
-                    .prefix(icon("search").with_size(IconSize::Sm).text_color(muted))
-                    .bg(cx.theme().background),
-            );
+            .min_w(px(100.));
         h_flex()
             .flex_none()
             .h(px(TOOLBAR_HEIGHT))
-            .gap(px(8.))
+            .gap(px(space::MD))
             .child(search)
             .child(self.library_filters(counts, window, cx))
             .child(div().flex_1())
@@ -73,30 +70,27 @@ impl NativeView {
             .position(|(filter, _)| *filter == self.library_filter.active)
             .unwrap_or_default();
         let values = [counts.all, counts.active, counts.inactive];
-        let segments = FILTERS.iter().zip(values).map(|(&(_, label), value)| {
-            Tab::new()
-                .aria_label(label)
-                .cursor_pointer()
-                .child(Text::new(label).level(text::LABEL_SM))
-                .child(Text::labeled_count("count", value).ml(px(space::XS)))
+        let select = cx.listener(|view, index: &usize, window, cx| {
+            let Some(&(filter, _)) = FILTERS.get(*index) else {
+                return;
+            };
+            view.library_filter.active = filter;
+            view.close_place_popover(window, cx);
+            cx.notify();
         });
         h_flex()
             .flex_none()
             .gap(px(FILTERS_GAP))
             .child(
-                TabBar::new("library-filter")
-                    .segmented()
-                    .flex_none()
-                    .selected_index(chosen)
-                    .children(segments)
-                    .on_click(cx.listener(|view, index: &usize, window, cx| {
-                        let Some(&(filter, _)) = FILTERS.get(*index) else {
-                            return;
-                        };
-                        view.library_filter.active = filter;
-                        view.close_place_popover(window, cx);
-                        cx.notify();
-                    })),
+                SegmentedFilter::new(
+                    "library-filter",
+                    FILTERS
+                        .iter()
+                        .zip(values)
+                        .map(|(&(_, label), value)| (label, value)),
+                )
+                .selected(chosen)
+                .on_select(move |index, window, cx| select(&index, window, cx)),
             )
             .child(self.updates_chip(counts.updates, window, cx))
     }
@@ -181,55 +175,18 @@ impl NativeView {
                         .update(cx, |input, cx| input.set_value("", window, cx));
                     cx.notify();
                 }));
-            return empty_state(glyph("search", cx), "No skills match".to_owned(), cx)
-                .child(div().mt(px(8.)).child(clear))
+            return EmptyState::new("library-empty", "No skills match")
+                .icon("search")
+                .action(clear)
                 .into_any_element();
         }
         match self.shown_folder() {
-            Some(folder) => empty_state(
-                glyph("folder", cx),
-                format!("No skills in {}", folder.name),
-                cx,
-            )
-            .into_any_element(),
+            Some(folder) => {
+                EmptyState::new("library-empty", format!("No skills in {}", folder.name))
+                    .icon("folder")
+                    .into_any_element()
+            }
             None => self.library_empty(cx),
         }
     }
-}
-
-/// The retained glyph `name` as an empty state shows it.
-pub(super) fn glyph(name: &str, cx: &App) -> AnyElement {
-    icon(name)
-        .with_size(IconSize::Lg)
-        .text_color(cx.theme().foreground)
-        .into_any_element()
-}
-
-/// The empty state: `icon` in a 40 px rounded square, then its title.
-pub(super) fn empty_state(icon: AnyElement, title: String, cx: &App) -> Div {
-    let theme = cx.theme();
-    v_flex()
-        .w_full()
-        .items_center()
-        .gap(px(6.))
-        .py(px(36.))
-        .px(px(16.))
-        .text_color(theme.muted_foreground)
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(40.))
-                .mb(px(4.))
-                .rounded(px(10.))
-                .bg(theme.muted)
-                .child(icon),
-        )
-        .child(
-            text::TITLE_SM
-                .apply(div().id("empty-title"))
-                .text_color(theme.foreground)
-                .child(title),
-        )
 }

@@ -8,17 +8,13 @@ mod summary;
 mod tests;
 
 use super::super::import_dialog::list::import_label;
-use super::super::import_dialog::{End, ImportDialog, Phase, alert_glyph, changed_line};
-use super::super::library_updates::spinner;
+use super::super::import_dialog::{End, ImportDialog, Phase, changed_line};
 use super::super::progress_strip::{Activity, Landing};
 use super::super::{DialogState, Effect, NativeView, Route};
 use super::StepView;
 use gpui_kit::component::{ActiveTheme, h_flex};
-use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
-};
-use skillbinder_design::tokens::color;
-use skillbinder_design::{Button, icon};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div};
+use skillbinder_design::{Button, Notice, NoticeSize, Status, icon};
 use skillbinder_proto::FoundImport;
 
 const TITLE: &str = "Import your skills";
@@ -48,22 +44,15 @@ impl NativeView {
             };
         };
         let muted = cx.theme().muted_foreground;
-        let line = |glyph: AnyElement, text: String| {
-            h_flex()
-                .id("onboarding-import-line")
-                .items_start()
-                .gap(px(8.))
-                .text_color(muted)
-                .child(div().flex_none().mt(px(2.)).child(glyph))
-                .child(div().min_w_0().flex_1().child(text))
-                .into_any_element()
-        };
+        let line = |text: String| Notice::new("onboarding-import-line", text).size(NoticeSize::Md);
         let lead = || div().text_color(muted).child(LEAD).into_any_element();
         let (body, buttons) = match &list.phase {
             Phase::Scanning => (
                 vec![
                     lead(),
-                    line(spinner().into_any_element(), "Scanning…".to_owned()),
+                    line("Scanning…".to_owned())
+                        .turning("refresh-04")
+                        .into_any_element(),
                 ],
                 vec![
                     self.finish_button("onboarding-skip", "Skip", false, cx),
@@ -71,10 +60,11 @@ impl NativeView {
                 ],
             ),
             Phase::Failed(reason) => (
-                vec![line(
-                    alert_glyph(color::DANGER_TEXT.of(cx.theme())),
-                    format!("Couldn't scan: {reason}"),
-                )],
+                vec![
+                    line(format!("Couldn't scan: {reason}"))
+                        .status(Status::Danger)
+                        .into_any_element(),
+                ],
                 vec![
                     self.finish_button("onboarding-skip", "Skip", false, cx),
                     Button::new("onboarding-retry")
@@ -137,7 +127,7 @@ impl NativeView {
             h_flex().child(review).into_any_element(),
         ];
         if list.changed {
-            summary.push(changed_line(cx));
+            summary.push(changed_line());
         }
         summary
     }

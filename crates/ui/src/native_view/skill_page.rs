@@ -7,9 +7,9 @@ use gpui_kit::component::{
     text::{FrontmatterPlugin, MarkdownExtensions, TextView},
     v_flex,
 };
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
-use skillbinder_design::Button;
-use skillbinder_design::tokens::color;
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, Notice, NoticeSize, Status};
 use skillbinder_proto::{AppError, SkillId};
 
 /// The file a skill page shows.
@@ -42,8 +42,8 @@ impl NativeView {
         v_flex()
             .gap_4()
             .children(self.render_update_outcome(cx))
-            .children(self.render_drift_note(id, cx))
-            .children(self.render_update_notes(id, cx))
+            .children(self.render_drift_note(id))
+            .children(self.render_update_notes(id))
             .children(self.render_copies_note(id, cx))
             .child(self.render_skill_file(id, cx))
             .into_any_element()
@@ -58,10 +58,12 @@ impl NativeView {
         let skill = id.clone();
         Some(
             h_flex()
-                .gap_2()
-                .text_sm()
-                .text_color(color::WARNING_TEXT.of(cx.theme()))
-                .child(unsettled_summary(count))
+                .gap(px(space::MD))
+                .child(
+                    Notice::new("copies-note", unsettled_summary(count))
+                        .status(Status::Warning)
+                        .size(NoticeSize::Md),
+                )
                 .child(
                     Button::new("copies-review")
                         .label("Review")

@@ -1,4 +1,4 @@
-//! The picker's library pane: the search, the library folder chips, and a bordered list of the
+//! The picker's library pane: the search, the library folder filter, and a bordered list of the
 //! library skills it matches, each picked or dropped with its checkbox or a click on its row. A
 //! skill the place holds already is ticked, disabled, and muted.
 
@@ -6,20 +6,22 @@ use super::super::NativeView;
 use super::super::library_items::update_glyph;
 use super::super::snapshot_query::{has_update, searched};
 use super::SkillPicker;
-use gpui_kit::component::{
-    ActiveTheme, Sizable, h_flex, input::Input, scroll::ScrollableElement, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::{space, text};
-use skillbinder_design::{Button, Checkbox, IconSize, Text, icon, tooltip};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{
+    Button, Checkbox, EmptyState, SearchField, SegmentedFilter, Text, tooltip,
+};
 use skillbinder_proto::{FolderId, Skill, SkillId};
 use std::collections::BTreeSet;
 
 /// How faded a skill the place holds already is.
 const HERE: f32 = 0.5;
+/// The search field's width.
+const SEARCH_WIDTH: f32 = 280.;
 
 impl NativeView {
     /// The library pane; `here` holds the skills the place holds already.
@@ -31,22 +33,8 @@ impl NativeView {
     ) -> AnyElement {
         let search = picker.search.read(cx).value().trim().to_lowercase();
         let skills = searched(&self.snapshot, picker.folder.as_ref(), &search);
-        let muted = cx.theme().muted_foreground;
-        let field = div().id("picker-search").w(px(280.)).flex_none().child(
-            Input::new(&picker.search)
-                .prefix(icon("search").with_size(IconSize::Sm).text_color(muted))
-                .bg(cx.theme().background),
-        );
-        let mut chips = Vec::new();
-        if !self.folders().is_empty() {
-            let count = |folder: Option<&FolderId>| searched(&self.snapshot, folder, &search).len();
-            chips.push(self.folder_chip(picker, None, "All", count(None), cx));
-            for folder in self.folders() {
-                let id = Some(folder.id.clone());
-                let chip = self.folder_chip(picker, id, &folder.name, count(Some(&folder.id)), cx);
-                chips.push(chip);
-            }
-        }
+        let field = SearchField::new("picker-search", &picker.search).width(SEARCH_WIDTH);
+        let filter = (!self.folders().is_empty()).then(|| self.folder_filter(picker, &search, cx));
         let rows: Vec<AnyElement> = skills
             .iter()
             .enumerate()
@@ -68,7 +56,7 @@ impl NativeView {
                     .flex_wrap()
                     .items_center()
                     .child(field)
-                    .children(chips),
+                    .children(filter),
             )
             .child(
                 div()
@@ -84,42 +72,40 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// A folder chip, `All` with no `id`: its name and how many skills it holds that the search
-    /// matches. The chosen chip is filled.
-    fn folder_chip(
+    /// The folder filter: All, then each library folder, each with how many skills it holds that
+    /// the search matches.
+    fn folder_filter(
         &self,
         picker: &SkillPicker,
-        id: Option<FolderId>,
-        name: &str,
-        count: usize,
+        search: &str,
         cx: &mut Context<Self>,
-    ) -> Button {
-        let element = id.as_ref().map_or_else(
-            || "picker-folder-all".to_owned(),
-            |id| format!("picker-folder-{id}"),
-        );
-        let chosen = picker.folder == id;
-        let tint = if chosen {
-            cx.theme().primary_foreground.opacity(0.7)
-        } else {
-            cx.theme().muted_foreground
-        };
-        Button::new(element)
-            .small()
-            .rounded_full()
-            .accessibility_label(name.to_owned())
-            .map(|chip| if chosen { chip.primary() } else { chip })
-            .child(
-                h_flex()
-                    .gap(px(space::XS))
-                    .text_size(px(text::LABEL_SM.size))
-                    .child(Text::new(name.to_owned()).level(text::LABEL_SM))
-                    .child(div().text_color(tint).child(count.to_string())),
-            )
-            .on_click(cx.listener(move |view, _, _, cx| {
-                let id = id.clone();
-                view.edit_picker(|picker, _| picker.folder = id, cx);
-            }))
+    ) -> SegmentedFilter {
+        let folders: Vec<Option<FolderId>> = std::iter::once(None)
+            .chain(self.folders().iter().map(|folder| Some(folder.id.clone())))
+            .collect();
+        let items = std::iter::once("All".to_owned())
+            .chain(self.folders().iter().map(|folder| folder.name.clone()))
+            .zip(&folders)
+            .map(|(name, folder)| {
+                (
+                    name,
+                    searched(&self.snapshot, folder.as_ref(), search).len(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let chosen = folders
+            .iter()
+            .position(|folder| *folder == picker.folder)
+            .unwrap_or_default();
+        let select = cx.listener(move |view, index: &usize, _, cx| {
+            let Some(folder) = folders.get(*index).cloned() else {
+                return;
+            };
+            view.edit_picker(|picker, _| picker.folder = folder, cx);
+        });
+        SegmentedFilter::new("picker-folders", items)
+            .selected(chosen)
+            .on_select(move |index, window, cx| select(&index, window, cx))
     }
 
     /// One library skill: its checkbox, its slug with the update glyph, and its description.
@@ -217,15 +203,9 @@ impl NativeView {
         } else {
             "No skills match"
         };
-        v_flex()
-            .id("picker-empty")
-            .items_center()
-            .gap(px(10.))
-            .py(px(36.))
-            .text_color(cx.theme().muted_foreground)
-            .child(message)
+        EmptyState::new("picker-empty", message)
             .when(!library_empty, |empty| {
-                empty.child(
+                empty.action(
                     Button::new("picker-clear-search")
                         .label("Clear search")
                         .small()

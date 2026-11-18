@@ -2,11 +2,8 @@
 //! count of the found skills not in library, and Library's empty state.
 
 use super::super::NativeView;
-use super::super::library_filters::{empty_state, glyph};
-use gpui_kit::{
-    AnyElement, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder, px,
-};
-use skillbinder_design::{Button, Text, icon};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, prelude::FluentBuilder};
+use skillbinder_design::{Button, EmptyState, Text, icon};
 
 impl NativeView {
     /// Scan for skills: a ghost button with the folder-search glyph and, when any are found, the
@@ -38,12 +35,9 @@ impl NativeView {
             .on_click(cx.listener(|view, _, window, cx| {
                 view.open_import_dialog(window, cx);
             }));
-        empty_state(
-            glyph("folder-search", cx),
-            "No skills in your library yet".to_owned(),
-            cx,
-        )
-        .child(div().mt(px(8.)).child(scan))
-        .into_any_element()
+        EmptyState::new("library-empty", "No skills in your library yet")
+            .icon("folder-search")
+            .action(scan)
+            .into_any_element()
     }
 }

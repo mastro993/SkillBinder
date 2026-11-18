@@ -5,10 +5,7 @@ use std::{path::PathBuf, rc::Rc};
 
 use super::NativeView;
 use super::menu::{MenuItem, OpenMenu};
-use gpui_kit::component::{
-    ActiveTheme, Icon, Sizable,
-    input::{Input, InputState},
-};
+use gpui_kit::component::{ActiveTheme, Icon, input::InputState};
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, Entity, Hsla, InteractiveElement, IntoElement,
     KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit, ParentElement, SharedString, Stateful,
@@ -16,10 +13,12 @@ use gpui_kit::{
     prelude::FluentBuilder, px, white,
 };
 use skillbinder_design::sidebar::{
-    DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
+    DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
 };
 use skillbinder_design::tokens::text;
-use skillbinder_design::{Button, IconSize, Level, Spinner, Surface, Text, icon};
+use skillbinder_design::{
+    Button, IconSize, InlineNameField, Level, NameFieldSize, Spinner, Surface, Text, icon,
+};
 
 /// Unselected icons sit a step below their label, as in the reference design.
 const ICON_OPACITY: f32 = 0.65;
@@ -280,33 +279,13 @@ pub(super) fn name_field(
     cx: &mut Context<NativeView>,
     cancel: fn(&mut NativeView, &mut Window, &mut Context<NativeView>),
 ) -> AnyElement {
-    div()
-        .id(id)
-        .flex()
-        .flex_shrink_0()
-        .items_center()
-        .gap(px(ICON_GAP))
-        .h(px(ROW_HEIGHT))
-        .px(px(ROW_PADDING))
-        .rounded(px(RADIUS))
-        .bg(cx.theme().sidebar_accent)
-        .child(icon.element(tint, cx.theme().muted_foreground))
-        .child(
-            div().flex_1().min_w_0().child(
-                // Unpadded, so the edited name stays aligned with row labels.
-                Input::new(input)
-                    .appearance(false)
-                    .small()
-                    .px_0()
-                    .text_size(px(LABEL_SIZE)),
-            ),
-        )
-        .capture_key_down(cx.listener(move |view, event: &KeyDownEvent, window, cx| {
-            if event.keystroke.key == "escape" {
-                cancel(view, window, cx);
-                cx.stop_propagation();
-            }
-        }))
+    let view = cx.entity().downgrade();
+    InlineNameField::new(id, input)
+        .size(NameFieldSize::Md)
+        .leading(icon.element(tint, cx.theme().muted_foreground))
+        .on_cancel(move |window, cx| {
+            let _ = view.update(cx, |view, cx| cancel(view, window, cx));
+        })
         .into_any_element()
 }
 

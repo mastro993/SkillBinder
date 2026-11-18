@@ -35,7 +35,14 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 
 | Component | Purpose | Main props |
 | --- | --- | --- |
-| (none yet) | | |
+| `SearchField` (`src/search_field.rs`) | Kit's input on the `muted` fill after a `Sm` search glyph, named "Search" unless told otherwise. Its placeholder belongs to the input state. Fills its container, or takes a fixed width no wider than it. | `id`, `state`, `width`, `accessibility_label` |
+| `SectionHeader` (`src/section_header.rs`) | A `caption-sm` muted label above a group of rows, then its count, then an action at the end. `custom` wraps an element in the header's type, such as a sidebar title a click folds. Its container sets the padding. | `label` or `custom`, `count`, `action` |
+| `Notice` (`src/notice.rs`) | A `Sm` glyph and a wrapping line in a status `-text` tone, or muted, on no fill; its id names the text's label. `Notice::blocking` is Kit's alert, for a problem that stops the app. | `status: Option<Status>`, `glyph` / `turning`, `size: NoticeSize::{Sm, Md}`, `blocking(title, text)` |
+| `EmptyState` (`src/empty_state.rs`) | Kit's empty: a glyph or a logo in a `muted` tile, a `title-sm` line, an optional muted description, an optional action, `3xl` below what is above it. | `title`, `icon` / `media`, `description`, `action` |
+| `InlineNameField` (`src/inline_name_field.rs`) | Kit's borderless input in a box the shape of what it renames: a small tab on `muted`, or a sidebar row on `sidebar-accent` after its icon. Escape cancels. | `state`, `size: NameFieldSize::{Sm, Md}`, `leading`, `on_cancel` |
+| `SegmentedFilter` (`src/segmented_filter.rs`) | Kit's segmented tab bar, each segment a `label-sm` label and its `Count`. | `items: [(label, count)]`, `selected`, `on_select` |
+| `KeyValueList` (`src/key_value_list.rs`) | Kit's description list in a flat card: a 128-point `caption` muted label column, `body-sm` values (`mono-sm` for a path), rows divided by `hairline`. | `row`, `mono`, `element` |
+| `CodeBlock` (`src/code_block.rs`) | A command in `mono-sm` on the `muted` fill with Kit's clipboard button, Copy, which shows a check for a moment once it has copied. | `text`, `on_copy` |
 
 ### Organisms
 

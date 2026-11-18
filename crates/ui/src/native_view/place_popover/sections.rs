@@ -8,7 +8,7 @@
 
 use super::super::controls::reader_logo;
 use super::super::library_copies::Reader;
-use super::super::library_places::{place_pill, preset_chip, section_label};
+use super::super::library_places::{place_pill, preset_chip};
 use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::super::workspace_icons::sized_icon;
 use super::{PlacePopover, place_line};
@@ -21,7 +21,7 @@ use gpui_kit::{
 };
 use skillbinder_design::menu::LINE_INK;
 use skillbinder_design::tokens::{radius, text};
-use skillbinder_design::{IconSize, Level, Surface, Text, focus_ring, tooltip};
+use skillbinder_design::{IconSize, Level, SectionHeader, Surface, Text, focus_ring, tooltip};
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
 /// The view showing the popover, which saves what its controls change.
@@ -129,12 +129,9 @@ impl Sections<'_> {
         v_flex()
             .gap(px(8.))
             .child(
-                h_flex()
-                    .justify_between()
-                    .gap(px(8.))
+                SectionHeader::new("agents-label", "Your agents")
                     .min_h(px(22.))
-                    .child(section_label("agents-label", "Your agents"))
-                    .child(preset_chip("place-preset", self.preset, cx)),
+                    .action(preset_chip("place-preset", self.preset, cx)),
             )
             .child(place_line(
                 group.tooltip(tooltip("Includes agents added later")),
@@ -161,11 +158,7 @@ impl Sections<'_> {
             .pt(px(10.))
             .border_t_1()
             .border_color(cx.theme().foreground.alpha(LINE_INK))
-            .child(
-                h_flex()
-                    .min_h(px(22.))
-                    .child(section_label("workspaces-label", "Workspaces")),
-            )
+            .child(SectionHeader::new("workspaces-label", "Workspaces").min_h(px(22.)))
             .children(
                 self.places
                     .workspaces

@@ -3,7 +3,6 @@
 //! row is ticked with its checkbox or a click anywhere on it outside its versions.
 
 use super::super::NativeView;
-use super::super::library_filters::{empty_state, glyph};
 use super::super::library_updates::spinner;
 use super::ImportDialog;
 use super::list::{Count, Group, Place, Row, groups, rows, tick_all, tickable};
@@ -14,7 +13,8 @@ use gpui_kit::{
     AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::{Checkbox, IconSize};
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{Checkbox, EmptyState, IconSize, SectionHeader};
 use skillbinder_proto::{FoundImport, ValidationStatus};
 use std::collections::BTreeSet;
 
@@ -50,7 +50,7 @@ impl NativeView {
         }
         if !matched {
             let title = format!("No skills match '{search}'");
-            list = list.child(empty_state(glyph("search", cx), title, cx));
+            list = list.child(EmptyState::new("import-empty", title).icon("search"));
         }
         div()
             .id("import-list")
@@ -89,10 +89,12 @@ impl NativeView {
             )
             .when(hidden > 0, |head| {
                 head.child(
-                    div()
-                        .text_size(px(12.))
-                        .text_color(cx.theme().muted_foreground)
-                        .child(format!("{hidden} selected not shown")),
+                    skillbinder_design::Text::labeled(
+                        "hidden",
+                        format!("{hidden} selected not shown"),
+                    )
+                    .level(text::CAPTION)
+                    .muted(),
                 )
             })
             .into_any_element()
@@ -117,21 +119,13 @@ impl NativeView {
         let count = Count::of(ticked, &group.rows);
         let keys = tickable(&group.rows);
         let theme = cx.theme();
-        let label = h_flex()
-            .gap(px(6.))
-            .items_center()
-            .child(skillbinder_design::icon(icon).with_size(IconSize::Sm))
-            .child(
-                div()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(Text::new("name".into(), name.into())),
-            )
-            .child(
-                div()
-                    .text_size(px(12.))
-                    .text_color(theme.muted_foreground)
-                    .child(group.rows.len().to_string()),
-            );
+        let label = SectionHeader::custom(
+            h_flex()
+                .gap(px(space::SM))
+                .child(skillbinder_design::icon(icon).with_size(IconSize::Sm))
+                .child(Text::new("name".into(), name.into())),
+        )
+        .count(group.rows.len());
         h_flex()
             .id(format!("import-group-{index}"))
             .px(px(12.))

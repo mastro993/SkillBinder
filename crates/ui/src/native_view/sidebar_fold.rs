@@ -5,15 +5,16 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use super::NativeView;
 use super::sidebar_row::activate;
-use gpui_kit::component::ActiveTheme;
+use gpui_kit::component::{ActiveTheme, Sizable};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, Context, Div, ElementId, InteractiveElement, IntoElement,
+    Animation, AnimationExt, AnyElement, Context, ElementId, InteractiveElement, IntoElement,
     ParentElement, StatefulInteractiveElement, Styled, div, px, radians,
 };
 use skillbinder_design::sidebar::{
-    DETAIL_SIZE, ICON_SIZE, ROW_GAP, ROW_HEIGHT, ROW_PADDING, SECTION_GAP, SECTION_HEIGHT,
+    ICON_SIZE, ROW_GAP, ROW_HEIGHT, ROW_PADDING, SECTION_GAP, SECTION_HEIGHT,
 };
-use skillbinder_design::{Button, icon};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, IconSize, SectionHeader, icon};
 use skillbinder_proto::SidebarSection;
 
 const FOLD_MOTION: Duration = Duration::from_millis(180);
@@ -64,10 +65,14 @@ impl NativeView {
         add: Option<Button>,
         empty: bool,
         cx: &mut Context<Self>,
-    ) -> Div {
-        let color = cx.theme().muted_foreground.opacity(0.8);
+    ) -> SectionHeader {
         let folded = self.folded_sections.contains(&section);
-        let label = div().flex().flex_1().items_center().gap(px(4.0)).h_full();
+        let label = div()
+            .flex()
+            .flex_1()
+            .items_center()
+            .gap(px(space::XS))
+            .h_full();
         let title_row = if empty {
             label.child(title).into_any_element()
         } else {
@@ -84,26 +89,24 @@ impl NativeView {
             )
             .into_any_element()
         };
-        div()
-            .flex()
+        let header = SectionHeader::custom(title_row)
             .flex_shrink_0()
-            .items_center()
             .h(px(SECTION_HEIGHT))
             .mt(px(SECTION_GAP))
             .pl(px(ROW_PADDING))
-            .pr(px(ROW_PADDING - (ROW_HEIGHT - 8.0 - ICON_SIZE) / 2.0))
-            .text_size(px(DETAIL_SIZE))
-            .text_color(color)
-            .child(title_row)
-            .children(add)
+            .pr(px(ROW_PADDING - (ROW_HEIGHT - space::MD - ICON_SIZE) / 2.0));
+        match add {
+            Some(add) => header.action(add),
+            None => header,
+        }
     }
 
     /// A chevron pointing down while the section is open, turning right as it folds.
     fn section_chevron(&self, section: SidebarSection, cx: &Context<Self>) -> AnyElement {
         let folded = self.folded_sections.contains(&section);
         let icon = icon("arrow-down")
-            .size(px(DETAIL_SIZE))
-            .text_color(cx.theme().muted_foreground.opacity(0.8));
+            .with_size(IconSize::Xs)
+            .text_color(cx.theme().muted_foreground);
         let turned = |folding: f32| radians(-FRAC_PI_2 * folding);
         match self.motion(section) {
             None => icon

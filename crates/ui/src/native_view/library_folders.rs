@@ -7,17 +7,16 @@ use super::sidebar_presets::menu_action;
 use super::sidebar_row::with_menu;
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
-    ActiveTheme, Sizable,
+    ActiveTheme,
     dialog::Dialog,
     h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{InputEvent, InputState},
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, Div, Entity, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, Stateful, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder, px,
+    AnyElement, ClickEvent, Context, Div, Entity, InteractiveElement, IntoElement, ParentElement,
+    Stateful, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::{Button, FOLDER_TAB_SIZE, icon};
+use skillbinder_design::{Button, FOLDER_TAB_SIZE, InlineNameField, icon};
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
 use std::cell::Cell;
 
@@ -281,32 +280,14 @@ impl NativeView {
         self.change_organization(OrganizationChange::MoveToFolder { skill, folder }, cx);
     }
 
-    /// A borderless field in a tab-shaped fill: an input's own focus ring would draw outside it
-    /// and be clipped by the scrolling strip.
+    /// The folder's name field in place of its tab; Escape ends the edit.
     pub(super) fn folder_name_field(&self, cx: &mut Context<Self>) -> AnyElement {
-        div()
-            .id("folder-name-field")
-            .flex()
-            .flex_shrink_0()
-            .items_center()
+        let view = cx.entity().downgrade();
+        InlineNameField::new("folder-name-field", &self.folder_name)
             .w(px(160.))
-            .h(px(24.))
-            .px_2()
-            .rounded(cx.theme().radius)
-            .bg(cx.theme().muted)
-            .child(
-                Input::new(&self.folder_name)
-                    .appearance(false)
-                    .small()
-                    .px_0()
-                    .text_size(px(FOLDER_TAB_SIZE)),
-            )
-            .capture_key_down(cx.listener(|view, event: &KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" {
-                    view.end_folder_edit(window, cx);
-                    cx.stop_propagation();
-                }
-            }))
+            .on_cancel(move |window, cx| {
+                let _ = view.update(cx, |view, cx| view.end_folder_edit(window, cx));
+            })
             .into_any_element()
     }
 

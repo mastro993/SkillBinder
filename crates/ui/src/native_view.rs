@@ -83,13 +83,15 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement,
-    ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder,
+    ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder, px,
 };
 use library_folders::FolderEdit;
 use route::{History, Route};
 use sidebar_presets::PresetEdit;
 use sidebar_reorder::RowReorder;
 use skillbinder_client::Client;
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Notice, Status};
 use skillbinder_proto::*;
 
 enum DialogState {
@@ -466,19 +468,16 @@ impl Render for NativeView {
             .child(body)
             .when_some(global_error, |root, error| {
                 root.child(
-                    div()
-                        .absolute()
-                        .bottom_4()
-                        .right_4()
-                        .max_w_96()
-                        .p_4()
-                        .bg(colors.secondary)
-                        .border_1()
-                        .border_color(colors.border)
-                        .child(format!(
-                            "{} {} (Diagnostic {})",
-                            error.message, error.recovery, error.diagnostic_id
-                        )),
+                    Notice::blocking(
+                        "global-error",
+                        Status::Danger,
+                        error.message.clone(),
+                        format!("{} (Diagnostic {})", error.recovery, error.diagnostic_id),
+                    )
+                    .absolute()
+                    .bottom(px(space::XL))
+                    .right(px(space::XL))
+                    .max_w_96(),
                 )
             })
             .children(self.render_place_popover(window, cx))
