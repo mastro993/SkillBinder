@@ -121,7 +121,7 @@ There are about 250 raw literals. The ratchet in slice 1 records the exact count
   - 8 at `skill_picker/selected.rs:140`
   - 9 at `copies_review/render.rs:180-181`
   - 10 ×7, which repeats `library::CARD_RADIUS` at `import_dialog/rows.rs:60`, `skill_picker/list.rs:84`, `skill_picker/selected.rs:96`, `onboarding/import/summary.rs:86`, `copies_review/render.rs:65`
-  - `CARD_RADIUS - 1` at `library_items.rs:126` (**done**, #136: the card's ring is outside it)
+  - `CARD_RADIUS - 1` at `library_items.rs:126` (**done**, #136: `Surface::inner_radius`, inside the flat card's border)
 - **Icon and box sizes:**
   - Icons: 11, 12, 13, 14, 15, 16, 18, 20.
   - Boxes: 22 at `place_popover/sections.rs:133,162`; 24 at `folder_reorder.rs:40`, `library_folders.rs:295`, `library_places.rs:312`, `library_updates.rs:91,98,108`; 26 at `library_places.rs:57,207,311`; 28 at `place_popover.rs:332`, `preset_icons.rs:21`; 32 at `library_items.rs:189`, `progress_strip/render.rs:204`; 34 at `progress_strip/render.rs:28`.
