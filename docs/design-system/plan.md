@@ -177,7 +177,7 @@ The full opportunity list, with every call site, is in [opportunities.md](opport
 
 Build these in order. Each slice leaves the app working, adds its components with tests, adds them to the README and the gallery, and migrates the call sites listed for them in [opportunities.md](opportunities.md).
 
-1. **Foundations: tokens and the crate.**
+1. **Foundations: tokens and the crate** (#141).
    - Rename `crates/theme` to `crates/design`, along with its 32 importing files, the graph policy, `.gitattributes` and the docs.
    - Add `xtask design-tokens` and the staleness check in `verify`.
    - Generate the theme JSON and `tokens.rs`. Load the theme in `init`; delete the `apply_mode` overrides.
@@ -187,25 +187,25 @@ Build these in order. Each slice leaves the app working, adds its components wit
    - Write the crate README.
    - Update `docs/architecture/native.md`, `docs/agents/issue-tracker.md` and AGENTS.md paths.
    - *Checks:* `verify` fails after a hand edit to a generated file; light and dark render with the new palette (native screenshots); the ratchet baseline is recorded. *Depends on:* none.
-2. **Inset shell and Surface.**
+2. **Inset shell and Surface** (#136).
    - Add `Surface` and `elevation`.
    - The page becomes the raised inset panel (`shell.rs`), and the sidebar selection becomes a raised pill (`sidebar_row.rs`).
    - Cards, menus, popovers and drag previews use Surface levels.
    - *Checks:* screenshots of Library, a workspace page and Settings in light and dark, compared by eye with `DESIGN.md`; the ratchet goes down. *Depends on:* 1.
-3. **Atoms.**
+3. **Atoms** (#137).
    - Move the generic part of `controls.rs` into the crate: Text, Icon, Button, CloseButton, Checkbox, Tooltip, FocusRing, Logo.
    - Add Separator, Spinner, Count, Chip and StatusGlyph.
    - Migrate their call sites. Medium weight 500 is gone.
    - *Checks:* each atom's test covers variants, inactive and focus states, and its accessible name; `rg 'FontWeight::MEDIUM|Tooltip::new' crates/ui` is empty. *Depends on:* 1 (and on 2 for Surface inside Chip).
-4. **Molecules.**
+4. **Molecules** (#138).
    - Add SearchField, SectionHeader, Notice, EmptyState, InlineNameField, SegmentedFilter, KeyValueList and CodeBlock.
    - Migrate their call sites.
    - *Checks:* tests per molecule; Library, the Import skills dialog, onboarding, Settings and Sync still match their approved prototypes by eye. *Depends on:* 3.
-5. **Rows and dialogs.**
+5. **Rows and dialogs** (#139).
    - Add ListRow, AvatarStack, CardList, DialogHeader, DialogFooter, DialogFrame, Menu (moved) and PopoverPanel.
    - Migrate their call sites. Every destructive dialog action uses the danger button.
    - *Checks:* tests per component; menu keyboard tests still pass; dialog screenshots in both modes. *Depends on:* 4 (Menu and PopoverPanel need only 2 and 3).
-6. **Off-token sweep.**
+6. **Off-token sweep** (#140).
    - Replace the remaining literals with tokens.
    - Lower the ratchet baseline to its floor, and document the allowed exceptions (layout constants measured from a prototype).
    - *Checks:* the ratchet is at its floor; a full native pass over the approved surfaces. *Depends on:* 5.
