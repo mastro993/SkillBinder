@@ -1,12 +1,17 @@
 //! The design system: the tokens `DESIGN.md` specifies, the app's GPUI Kit theme, the generic
 //! components, and feature metrics built on the token scales. See the crate README.
 
+mod avatar_stack;
 mod button;
+mod card_list;
 mod checkbox;
 mod chip;
 mod close_button;
 mod code_block;
 mod count;
+mod dialog_footer;
+mod dialog_frame;
+mod dialog_header;
 mod empty_state;
 mod focus_ring;
 #[cfg(feature = "native-test")]
@@ -15,10 +20,12 @@ mod icon;
 mod inline_name_field;
 mod key_value_list;
 pub mod library;
+mod list_row;
 mod logo;
 pub mod menu;
 mod notice;
 pub mod page;
+mod popover_panel;
 mod search_field;
 mod section_header;
 mod segmented_filter;
@@ -36,20 +43,28 @@ mod tone;
 mod tooltip;
 mod type_level;
 
+pub use avatar_stack::AvatarStack;
 pub use button::{Button, ButtonSize, ButtonVariant};
+pub use card_list::CardList;
 pub use checkbox::Checkbox;
 pub use chip::{Chip, ChipVariant, ToggleChip, dashed};
 pub use code_block::CodeBlock;
 pub use count::format_count;
+pub use dialog_footer::DialogFooter;
+pub use dialog_frame::{DialogFrame, DialogSize};
+pub use dialog_header::DialogHeader;
 pub use empty_state::EmptyState;
 pub use focus_ring::{FOCUS_RING, focus_ring};
 #[cfg(feature = "native-test")]
 pub use gallery::Gallery;
-pub use icon::{IconSize, icon};
+pub use icon::{IconSize, icon, icon_color};
 pub use inline_name_field::{InlineNameField, NameFieldSize};
 pub use key_value_list::KeyValueList;
+pub use list_row::{ListRow, row_end};
 pub use logo::Logo;
+pub use menu::{MenuItem, OpenMenu};
 pub use notice::{Notice, NoticeSize};
+pub use popover_panel::PopoverPanel;
 pub use search_field::SearchField;
 pub use section_header::SectionHeader;
 pub use segmented_filter::SegmentedFilter;

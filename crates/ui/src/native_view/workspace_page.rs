@@ -6,6 +6,8 @@
 mod agents;
 mod removal;
 
+pub(super) use removal::remove_button;
+
 use super::NativeView;
 use super::library_copies::{agent_rows, placements};
 use super::library_items::{RowEnd, SkillItem};

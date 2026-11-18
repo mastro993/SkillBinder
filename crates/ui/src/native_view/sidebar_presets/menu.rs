@@ -1,12 +1,12 @@
 //! Context menu entries for the sidebar's preset rows.
 
-use super::super::menu::MenuItem;
 use super::super::preset_colors::color_menu;
 use super::super::preset_icons::{IconGrid, menu_glyph};
-use super::super::sidebar_row::icon_color;
 use super::super::{Effect, NativeView};
 use super::PresetEdit;
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{App, AppContext, Context, IntoElement, WeakEntity, Window};
+use skillbinder_design::{MenuItem, icon_color};
 use skillbinder_proto::{OrganizationChange, Preset, PresetColor, PresetIcon, PresetId};
 
 /// A menu handler that runs `action` on the view for one row.
@@ -105,7 +105,7 @@ pub(super) fn preset_menu(
                 cx,
             )),
         MenuItem::new("icon", "Icon")
-            .leading(move |cx| menu_glyph(icon, icon_color(cx)))
+            .leading(move |cx| menu_glyph(icon, icon_color(cx.theme())))
             .panel(focus, move |_, _| grid.clone().into_any_element()),
         MenuItem::separator(),
         // The default preset holds the first slot, so the next one cannot move up.

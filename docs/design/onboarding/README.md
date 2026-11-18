@@ -62,7 +62,7 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/onboarding/
 | Status lines (waiting, found, failed, too old) | The import step's status line with the app's loading glyph animation (`library_updates.rs`), check-circle, or alert-circle |
 | Linux command box | A bordered row in the muted surface with monospace text and a small Kit `Button` "Copy"; copying uses GPUI's clipboard |
 | Download Git | GPUI `open_url` to `https://git-scm.com/downloads` |
-| Agent tile | **New app element** built from Kit pieces, since Kit has no selectable tile: a focusable bordered `div` with the theme radius, a Kit `Avatar` (`library_avatars.rs`), and the check glyph in a ring; Enter and Space toggle. Confirmed 2026-11-17 (P3, P6). |
+| Agent tile | **New app element** built from Kit pieces, since Kit has no selectable tile: a focusable bordered `div` with the theme radius, a Kit `Avatar` (`AvatarStack`), and the check glyph in a ring; Enter and Space toggle. Confirmed 2026-11-17 (P3, P6). |
 | Universal tile's logo stack | Kit `Avatar`s in a stack, as the import summary card does |
 | Settings Agents rows | A bordered list in `settings.rs` with Kit `Avatar` and Kit `Switch` (`gpui_kit::component::switch`) |
 | Settings Git row | The Application section's row, with a Kit `Button` and the waiting line |

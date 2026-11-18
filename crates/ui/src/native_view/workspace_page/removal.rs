@@ -5,12 +5,9 @@
 use super::super::NativeView;
 use super::super::library_items::SkillItem;
 use super::WorkspaceRow;
-use gpui_kit::component::{dialog::Dialog, h_flex};
-use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
-    StatefulInteractiveElement, Styled, Text, prelude::FluentBuilder, px,
-};
-use skillbinder_design::{Button, icon};
+use gpui_kit::component::dialog::Dialog;
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, prelude::FluentBuilder};
+use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize, icon, row_end};
 use skillbinder_proto::{SkillId, WorkspaceId};
 
 impl NativeView {
@@ -26,17 +23,7 @@ impl NativeView {
         let unsettled = item
             .placement
             .map_or(0, |placement| placement.unsettled.len());
-        h_flex()
-            .id(format!("workspace-row-end-{id}"))
-            .flex_none()
-            .items_center()
-            .gap(px(8.))
-            .on_click(|_, _, cx| cx.stop_propagation())
-            .on_key_down(|event: &KeyDownEvent, _, cx| {
-                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                    cx.stop_propagation();
-                }
-            })
+        row_end(format!("workspace-row-end-{id}"))
             .when(unsettled > 0, |end| {
                 end.child(self.unsettled_glyph(id, unsettled, cx))
             })
@@ -60,14 +47,8 @@ impl NativeView {
         missing: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let label = format!("Remove from {name}");
         let (workspace, id) = (workspace.clone(), skill.clone());
-        Button::new(format!("workspace-remove-{skill}"))
-            .ghost()
-            .small()
-            .icon(icon("delete"))
-            .tooltip(label.clone())
-            .accessibility_label(label)
+        remove_button(format!("workspace-remove-{skill}"), name)
             .inactive(missing || self.blocked())
             .on_click(cx.listener(move |view, _, _, cx| {
                 cx.stop_propagation();
@@ -87,32 +68,32 @@ impl NativeView {
         let name = self
             .workspace(workspace)
             .map_or_else(|| "this workspace".to_owned(), |w| w.name.clone());
-        let title = Text::new(
-            "title".into(),
-            format!("Remove {skill} from {name}?").into(),
-        );
+        let header = DialogHeader::new(format!("Remove {skill} from {name}?"));
         let (workspace, skill) = (workspace.clone(), skill.clone());
-        dialog.title(self.dialog_heading(title, cx)).footer(
-            h_flex()
-                .gap_2()
-                .child(
-                    Button::new("remove-skill-cancel")
-                        .label("Cancel")
-                        .inactive(self.busy)
-                        .on_click(
-                            cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                        ),
-                )
-                .child(
-                    Button::new("remove-skill-confirm")
-                        .label("Remove")
-                        .danger()
-                        .inactive(self.blocked())
-                        .on_click(cx.listener(move |view, _, window, cx| {
-                            view.dismiss_dialog(window, cx);
-                            view.remove_from_workspace(workspace.clone(), skill.clone(), cx);
-                        })),
-                ),
-        )
+        let remove = Button::new("remove-skill-confirm")
+            .label("Remove")
+            .danger()
+            .inactive(self.blocked())
+            .on_click(cx.listener(move |view, _, window, cx| {
+                view.dismiss_dialog(window, cx);
+                view.remove_from_workspace(workspace.clone(), skill.clone(), cx);
+            }));
+        let footer = DialogFooter::new()
+            .secondary(self.dialog_cancel("remove-skill-cancel", cx))
+            .primary(remove);
+        self.dialog_frame(DialogSize::Standard, header, cx)
+            .footer(footer)
+            .apply(dialog, cx)
     }
+}
+
+/// The small ghost Delete button `id`, which removes a skill from the place `name`.
+pub(in crate::native_view) fn remove_button(id: String, name: &str) -> Button {
+    let label = format!("Remove from {name}");
+    Button::new(id)
+        .ghost()
+        .small()
+        .icon(icon("delete"))
+        .tooltip(label.clone())
+        .accessibility_label(label)
 }

@@ -21,24 +21,20 @@ use std::{
 
 use super::snapshot_query::Places;
 use super::{DialogState, NativeView, Route};
-use gpui_kit::base::{Align, Placement, Positioner};
-use gpui_kit::component::ActiveTheme;
+use gpui_kit::base::{Align, Placement};
 use gpui_kit::{
     AnyElement, Bounds, Context, Div, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
-    MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled,
-    TestSupportExt, Window, deferred, div, point, px,
+    MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled, Window,
+    deferred, div, point, px,
 };
 use sections::{Placer, Sections};
-use skillbinder_design::menu::{RADIUS, WINDOW_MARGIN};
-use skillbinder_design::{Level, Surface};
+use skillbinder_design::PopoverPanel;
 use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
 pub(super) use focus::key_bindings;
 
-/// The popover's width and padding, and the space between it and its trigger.
+/// The popover's width.
 const WIDTH: f32 = 300.;
-const PADDING: f32 = 12.;
-const OFFSET: f32 = 4.;
 
 /// Where the open popover's trigger and its row or tile were last painted, in window
 /// coordinates, and the trigger's bounds the popover was last placed by.
@@ -155,8 +151,6 @@ impl NativeView {
                 popover
                     .surface(label, content, Self::close_place_popover, cx)
                     .w_auto()
-                    .p_0()
-                    .into_any_element()
             }
             _ => return None,
         };
@@ -173,7 +167,7 @@ impl NativeView {
         popover: &PlacePopover,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<AnyElement> {
+    ) -> Option<PopoverPanel> {
         let library = self.snapshot.library.as_ref()?;
         let skill = library
             .library
@@ -191,11 +185,7 @@ impl NativeView {
         }
         .render(window, cx);
         let label = format!("Where {} is on", skill.id);
-        Some(
-            popover
-                .surface(label, content, Self::close_place_popover, cx)
-                .into_any_element(),
-        )
+        Some(popover.surface(label, content, Self::close_place_popover, cx))
     }
 }
 
@@ -237,19 +227,14 @@ impl PlacePopover {
 
     /// `surface` placed for the frame by `anchor`. While the popover opens it is drawn unseen,
     /// so that it holds the focus it took until its trigger has been painted and places it.
-    fn place(&self, anchor: Anchor, surface: AnyElement) -> Positioner {
+    fn place(&self, anchor: Anchor, surface: PopoverPanel) -> PopoverPanel {
         match anchor {
             Anchor::Painted(bounds) => placed(bounds, self.grid, surface),
-            Anchor::Opening => placed(
-                Bounds::default(),
-                self.grid,
-                div().opacity(0.).child(surface),
-            ),
+            Anchor::Opening => placed(Bounds::default(), self.grid, surface.opacity(0.)),
         }
     }
 
-    /// The popover's box around `content`, a dialog named `label`: an overlay surface with the
-    /// menu's corners. It holds the popover's
+    /// The popover's panel around `content`, a dialog named `label`. It holds the popover's
     /// focus, cycles its controls with Tab and Shift-Tab, and runs `close` on Escape or on a press
     /// outside it, except on its trigger, whose click toggles it.
     fn surface<V: 'static>(
@@ -258,20 +243,12 @@ impl PlacePopover {
         content: AnyElement,
         close: fn(&mut V, &mut Window, &mut Context<V>),
         cx: &Context<V>,
-    ) -> impl IntoElement + Styled + use<V> {
+    ) -> PopoverPanel {
         let outside = self.cells.trigger.clone();
-        let theme = cx.theme();
-        let surface = Surface::new(Level::Overlay)
-            .radius(RADIUS)
-            .apply(div(), theme)
-            .id("place-popover")
+        let surface = PopoverPanel::new("place-popover")
             .w(px(WIDTH))
-            .p(px(PADDING))
-            .text_color(theme.popover_foreground)
             .child(content)
-            .test_support()
             .track_focus(&self.focus)
-            .occlude()
             .role(Role::Dialog)
             .aria_label(label)
             .on_mouse_down_out(
@@ -306,17 +283,11 @@ fn anchor(trigger: Bounds<Pixels>, item: Option<Bounds<Pixels>>, grid: bool) -> 
     }
 }
 
-/// `surface` placed by Kit's positioner `OFFSET` below `anchor`, else above it, lined up with its
-/// leading edge in a grid and its trailing edge in a list, and kept the menus' margin inside the
-/// window.
-fn placed(anchor: Bounds<Pixels>, grid: bool, surface: impl IntoElement) -> Positioner {
-    Positioner::side(anchor)
-        .placement(Placement::Bottom)
-        .align(if grid { Align::Start } else { Align::End })
-        .offset(px(OFFSET))
-        .margin(px(WINDOW_MARGIN))
-        .occlude()
-        .child(surface)
+/// `surface` placed below `anchor`, else above it, lined up with its leading edge in a grid and
+/// its trailing edge in a list.
+fn placed(anchor: Bounds<Pixels>, grid: bool, surface: PopoverPanel) -> PopoverPanel {
+    let align = if grid { Align::Start } else { Align::End };
+    surface.anchor(anchor, Placement::Bottom, align)
 }
 
 /// A line of the popover: `lead`, never narrower than its content and taking the free width,

@@ -18,7 +18,7 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 | --- | --- | --- |
 | `Surface` (`src/surface.rs`) | A surface at an elevation level: its fill, corners, ring, and shadow, applied to any styled element with `apply`. `Surface::panel()` is the inset page panel; `Level::fill` is a level's fill alone, for what sits behind a surface. `faded` scales a shadow's ink as a surface appears. | `Level::{Flat, Raised, Overlay, Modal}`, `radius`, `fill` |
 | `Text` (`src/text.rs`) | A line of text at a type level, which sets its size, weight (medium is 520), and line box. `Text::new` is a plain string an enclosing accessible name reads; `Text::labeled` is a label of its own. Without a level it takes its container's, such as a button's. `TypeLevel::apply` sets a level on an element that needs its own id or events; `tabular()` is the font feature. | `level`, `tone: TextTone::{Default, Muted, Status}`, `tabular` |
-| `Icon` (`src/icon.rs`) | `icon(name)`: a retained Hugeicons glyph from the app's `icons/` assets; an unknown name fails at the asset source. `IconSize` is the icon scale, usable wherever Kit takes a `Size`. | `name`, `IconSize::{Xs, Sm, Md, Lg}` |
+| `Icon` (`src/icon.rs`) | `icon(name)`: a retained Hugeicons glyph from the app's `icons/` assets; an unknown name fails at the asset source. `IconSize` is the icon scale, usable wherever Kit takes a `Size`. `icon_color` is a sidebar or menu row's icon color. | `name`, `IconSize::{Xs, Sm, Md, Lg}` |
 | `Button` (`src/button.rs`) | Kit's button with the hand cursor while enabled and its label in the medium weight, which is also its accessible name. `into_kit` hands Kit's button to a Kit slot, such as a notification's action. | `variant: ButtonVariant::{Primary, Secondary, Ghost, Danger}`, `size: ButtonSize::{Sm, Md}`, `label`, `icon`, `inactive` |
 | `CloseButton` (`src/close_button.rs`) | `Button::close`: the small ghost button with the `close` glyph that closes a dialog, a notice, or a picked item. | `id`, accessible `label` |
 | `Checkbox` (`src/checkbox.rs`) | Kit's checkbox with the hand cursor while enabled. `indicator` draws the box alone inside an element that is itself the checkbox, such as an onboarding tile. | `checked`, `indeterminate`, `label`, `inactive`, `small` |
@@ -43,12 +43,19 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 | `SegmentedFilter` (`src/segmented_filter.rs`) | Kit's segmented tab bar, each segment a `label-sm` label and its `Count`. | `items: [(label, count)]`, `selected`, `on_select` |
 | `KeyValueList` (`src/key_value_list.rs`) | Kit's description list in a flat card: a 128-point `caption` muted label column, `body-sm` values (`mono-sm` for a path), rows divided by `hairline`. | `row`, `mono`, `element` |
 | `CodeBlock` (`src/code_block.rs`) | A command in `mono-sm` on the `muted` fill with Kit's clipboard button, Copy, which shows a check for a moment once it has copied. | `text`, `on_copy` |
+| `ListRow` (`src/list_row.rs`) | A list row at least `list-row` high: a leading icon, logo, or checkbox, a `title-sm` title over a `caption` muted subtitle, more content under them, and a trailing slot whose clicks and Enter or Space stay out of the row (`row_end` is that slot alone). Hover fills `muted`; dimmed is `opacity::INACTIVE`. | `leading`, `title`, `subtitle`, `trailing`, `dimmed`, `hover`, `divider` |
+| `AvatarStack` (`src/avatar_stack.rs`) | Kit avatars of `Logo`s overlapping in a stack, the rest as a `micro` `+N` circle whose tooltip names them, each ringed in the fill behind it. Kit's `AvatarGroup` shows an ellipsis and sizes negative margins as zero wide, so the stack places Kit's avatars itself. | `logos`, `limit`, `ring`, `hover_ring`, `names` |
+| `DialogHeader` (`src/dialog_header.rs`) | A dialog's `title-md` title, an optional `body-sm` muted description, and `Button::close` at its end, which replaces Kit's own close control. | `new(title)` or `custom`, `description`, `close` |
+| `DialogFooter` (`src/dialog_footer.rs`) | A dialog's footer: an optional note at its start, then the secondary and primary buttons at its end, 8 apart; the primary is danger for a removal. | `leading`, `secondary`, `primary` |
 
 ### Organisms
 
 | Component | Purpose | Main props |
 | --- | --- | --- |
-| (none yet) | | |
+| `CardList` (`src/card_list.rs`) | A flat card of `ListRow`s divided by inset `hairline` dividers, its first and last rows rounded inside its outline, and any other child, such as a group header, between them; what it shows with no row; optionally scrolling. | `row` / `rows`, `empty`, `scrolls` |
+| `DialogFrame` (`src/dialog_frame.rs`) | The frame every dialog shares, applied to the `Dialog` Kit hands a dialog's builder: its size, the `popover` fill, `xl` corners, `body-sm` body, a `DialogHeader`, and a `DialogFooter`. | `size: DialogSize::{Compact 320, Standard 420, Window(viewport) 92% × 90%}`, `header`, `footer` |
+| `Menu` (`src/menu.rs`) | The context menu: `OpenMenu` opens `MenuItem`s at the pointer above a backdrop, a submenu or a panel of any content beside a row, and a panel beside a submenu row, all walked with the keyboard. `menu::row`, `menu::separator`, and `menu::highlight` give a menu-like list drawn elsewhere the same rows. | `MenuItem::{new, separator}`, `icon`, `leading`, `checked`, `disabled`, `danger`, `on_select`, `submenu`, `panel` |
+| `PopoverPanel` (`src/popover_panel.rs`) | A popover's overlay surface with the menu's corners and padding, placed by Kit's positioner `OFFSET` beside its anchor and kept the menus' margin inside the window. Its owner handles focus and dismissal. | `anchor(bounds, placement, align)`, children |
 
 ## Tokens
 
@@ -62,7 +69,7 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 | `tokens::icon` | Icon sizes 12, 14, 16, 20. | Layout prose |
 | `tokens::opacity` | `INACTIVE` 0.5, `DISABLED` 0.4. | Components prose |
 | `tokens::elevation` | The shadow layers of `flat`, `raised`, `raised-panel`, `overlay`, and `modal`, as `Shadow`s in black or a Kit theme color. Read through `Surface`. | `elevation` |
-| `page`, `sidebar`, `menu`, `library` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype. `page` is the panel's inset and gutter, shared by every page. | the scales |
+| `page`, `sidebar`, `menu`, `library` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype; `menu`'s sit with the Menu organism. `page` is the panel's inset and gutter, shared by every page. | the scales |
 
 `src/tokens.rs` and `themes/skillbinder.json` are generated; never edit them by hand. To change a token:
 

@@ -1,11 +1,8 @@
 use super::copy_dialogs::CopiesListing;
 use super::{DialogState, NativeView};
-use gpui_kit::component::{WindowExt, dialog::Dialog, h_flex};
-use gpui_kit::{
-    AnyElement, Context, IntoElement, ParentElement, Pixels, SharedString, Size, Styled, Text,
-    Window, prelude::FluentBuilder,
-};
-use skillbinder_design::Button;
+use gpui_kit::component::{WindowExt, dialog::Dialog};
+use gpui_kit::{Context, Pixels, Size, Window};
+use skillbinder_design::{Button, DialogFrame, DialogHeader, DialogSize};
 
 impl DialogState {
     /// Whether this dialog stays up while an operation runs, `busy`: every dialog but the review
@@ -74,35 +71,32 @@ impl NativeView {
         }
     }
 
-    /// Title row with an app close button: GPUI Kit's built-in close control keeps the arrow cursor.
-    /// The title is a label holding its text.
-    pub(super) fn dialog_title(
+    /// The frame of a dialog of `size` under `header`, which ends with the close button while
+    /// the dialog can close.
+    pub(super) fn dialog_frame(
         &self,
-        title: impl Into<SharedString>,
+        size: DialogSize,
+        header: DialogHeader,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
-        self.dialog_heading(Text::new("title".into(), title.into()), cx)
+    ) -> DialogFrame {
+        let header = if self.dialog_locked() {
+            header
+        } else {
+            header.close(
+                "dialog-close",
+                "Close dialog",
+                cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
+            )
+        };
+        DialogFrame::new(size).header(header)
     }
 
-    /// Title row holding `title`, such as text and chips, with the app close button.
-    pub(super) fn dialog_heading(
-        &self,
-        title: impl IntoElement,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        h_flex()
-            .w_full()
-            .justify_between()
-            .gap_2()
-            .child(title)
-            .when(!self.dialog_locked(), |row| {
-                row.child(
-                    Button::close("dialog-close", "Close dialog").on_click(
-                        cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                    ),
-                )
-            })
-            .into_any_element()
+    /// The secondary Cancel button `id`, which closes the dialog.
+    pub(super) fn dialog_cancel(&self, id: &'static str, cx: &mut Context<Self>) -> Button {
+        Button::new(id)
+            .label("Cancel")
+            .inactive(self.busy)
+            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
     }
 
     fn build_dialog(

@@ -2,8 +2,9 @@
 
 use super::{Effect, NativeView};
 use gpui_kit::component::dialog::Dialog;
-use gpui_kit::{Context, ParentElement, PathPromptOptions, Styled, div};
-use skillbinder_design::Button;
+use gpui_kit::{Context, ParentElement, PathPromptOptions, Styled, div, px};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize};
 use skillbinder_proto::*;
 use std::path::PathBuf;
 
@@ -112,38 +113,39 @@ impl NativeView {
                 |workspace| workspace.name.clone(),
             );
         let id = id.clone();
-        dialog
-            .title(self.dialog_title("Remove workspace", cx))
-            .child(div().flex().flex_col().gap_2().child(format!("Remove {name}?")).child(
-                "Removes the workspace from SkillBinder. Files in the folder are not touched.",
-            ))
-            .footer(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(
-                        Button::new("remove-cancel")
-                            .label("Cancel")
-                            .inactive(self.busy)
-                            .on_click(cx.listener(|view, _, window, cx| {
-                                view.dismiss_dialog(window, cx)
-                            })),
-                    )
-                    .child(
-                        Button::new("remove-confirm")
-                            .label("Remove workspace")
-                            .inactive(self.busy)
-                            .on_click(cx.listener(move |view, _, _, cx| {
-                                let client = view.client.clone();
-                                let id = id.clone();
-                                view.run(
-                                    async move {
-                                        client.remove_workspace(id).await.map(|_| Effect::CloseDialog)
-                                    },
-                                    cx,
-                                );
-                            })),
-                    ),
-            )
+        let remove = Button::new("remove-confirm")
+            .label("Remove workspace")
+            .danger()
+            .inactive(self.busy)
+            .on_click(cx.listener(move |view, _, _, cx| {
+                let client = view.client.clone();
+                let id = id.clone();
+                view.run(
+                    async move {
+                        client
+                            .remove_workspace(id)
+                            .await
+                            .map(|_| Effect::CloseDialog)
+                    },
+                    cx,
+                );
+            }));
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap(px(space::MD))
+            .child(format!("Remove {name}?"))
+            .child("Removes the workspace from SkillBinder. Files in the folder are not touched.");
+        let footer = DialogFooter::new()
+            .secondary(self.dialog_cancel("remove-cancel", cx))
+            .primary(remove);
+        self.dialog_frame(
+            DialogSize::Standard,
+            DialogHeader::new("Remove workspace"),
+            cx,
+        )
+        .footer(footer)
+        .apply(dialog, cx)
+        .child(body)
     }
 }

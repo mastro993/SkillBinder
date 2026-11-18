@@ -19,7 +19,7 @@ use gpui_kit::{
     ParentElement, Pixels, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder,
     px, transparent_black,
 };
-use skillbinder_design::menu::LINE_INK;
+use skillbinder_design::tokens::color::HAIRLINE;
 use skillbinder_design::tokens::{radius, text};
 use skillbinder_design::{IconSize, Level, SectionHeader, Surface, Text, focus_ring, tooltip};
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
@@ -157,7 +157,7 @@ impl Sections<'_> {
             .gap(px(8.))
             .pt(px(10.))
             .border_t_1()
-            .border_color(cx.theme().foreground.alpha(LINE_INK))
+            .border_color(HAIRLINE.of(cx.theme()))
             .child(SectionHeader::new("workspaces-label", "Workspaces").min_h(px(22.)))
             .children(
                 self.places

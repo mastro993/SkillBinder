@@ -9,9 +9,11 @@ use super::library_copies::shown_dir;
 use super::{DialogState, Effect, NativeView};
 use gpui_kit::component::{dialog::Dialog, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder, px,
+    AnyElement, Context, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
+    prelude::FluentBuilder, px,
 };
-use skillbinder_design::Button;
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize, Status, StatusGlyph};
 use skillbinder_proto::{CopyChoice, CopyState, ManagedCopy, SkillId};
 
 /// Which copies the copies dialog lists.
@@ -129,15 +131,14 @@ impl NativeView {
             .enumerate()
             .map(|(index, copy)| self.copy_row(index, copy, cx))
             .collect();
-        dialog
-            .title(self.dialog_title("Skill copies", cx))
-            .child(v_flex().gap_3().children(rows))
-            .footer(
-                Button::new("copies-close")
-                    .label("Close")
-                    .inactive(self.busy)
-                    .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx))),
-            )
+        let close = Button::new("copies-close")
+            .label("Close")
+            .inactive(self.busy)
+            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)));
+        self.dialog_frame(DialogSize::Standard, DialogHeader::new("Skill copies"), cx)
+            .footer(DialogFooter::new().secondary(close))
+            .apply(dialog, cx)
+            .child(v_flex().gap(px(space::LG)).children(rows))
     }
 
     fn copy_row(&self, index: usize, copy: ManagedCopy, cx: &mut Context<Self>) -> AnyElement {
@@ -174,9 +175,9 @@ impl NativeView {
                 }))
         });
         v_flex()
-            .gap(px(6.))
-            .child(div().text_size(px(13.)).child(text))
-            .child(h_flex().gap_2().children(buttons))
+            .gap(px(space::SM))
+            .child(text)
+            .child(h_flex().gap(px(space::MD)).children(buttons))
             .into_any_element()
     }
 }
@@ -212,6 +213,31 @@ fn explain(copy: &ManagedCopy, dir: &str) -> (String, Vec<Action>) {
             vec![Action::Retry],
         ),
         CopyState::Applied => (format!("{slug} is applied in {dir}."), Vec::new()),
+    }
+}
+
+impl NativeView {
+    /// The warning glyph of a skill with copies that are not applied; clicking it lists them.
+    pub(super) fn unsettled_glyph(
+        &self,
+        id: &SkillId,
+        count: usize,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let skill = id.clone();
+        StatusGlyph::new(
+            format!("unsettled-{id}"),
+            Status::Warning,
+            "alert-circle",
+            unsettled_summary(count),
+        )
+        .cursor_pointer()
+        .on_click(cx.listener(move |view, _, _, cx| {
+            cx.stop_propagation();
+            view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
+            cx.notify();
+        }))
+        .into_any_element()
     }
 }
 

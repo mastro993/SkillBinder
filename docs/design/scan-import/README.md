@@ -39,7 +39,7 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/scan-import
 | Replacement line, validation messages | `import_review.rs` lines with the warning-colored alert-circle glyph |
 | Group glyphs | Hugeicons robot (your agents), code-folder (workspace) |
 | Spinner | The app's existing loading glyph animation (`library_updates.rs`) |
-| Onboarding summary card | A bordered card in onboarding's column, with Kit `Avatar`s in a stack (`library_avatars.rs`) |
+| Onboarding summary card | A bordered card in onboarding's column, with Kit `Avatar`s in a stack (`AvatarStack`) |
 | Review list | Kit ghost `Button` with the chevron-right glyph, opening the Import skills dialog with a primary Done in its footer (O7) |
 | Progress | The existing progress strip, `Activity::Importing` (`progress_strip.rs`) |
 

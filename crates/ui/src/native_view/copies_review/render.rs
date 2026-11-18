@@ -1,28 +1,21 @@
-//! How the review list draws: Kit's dialog, 420 wide and 56 px from the window's top edge, with
-//! the copies in a card and Done.
+//! How the review list draws: a standard dialog 56 px from the window's top edge, with the
+//! copies in a card and Done.
 
 use super::super::copy_dialogs::CopiesListing;
 use super::super::import_review::place_name;
 use super::super::{DialogState, Effect, NativeView};
 use super::{Answer, Choice, Item, Review, Row, attention_label};
 use gpui_kit::component::{ActiveTheme, Sizable, dialog::Dialog};
-use gpui_kit::{
-    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
-    Text, div, prelude::FluentBuilder, px,
+use gpui_kit::{Context, Div, ParentElement, Styled, div, px};
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{
+    Button, ButtonVariant, CardList, DialogFooter, DialogHeader, DialogSize, IconSize, ListRow,
+    Notice, Status, Text, icon,
 };
-use skillbinder_design::{Button, ButtonVariant, IconSize, Level, Notice, Status, Surface, icon};
 use skillbinder_proto::{CopyChoice, ManagedCopy};
 
-/// Width of the review dialog.
-const WIDTH: f32 = 420.;
 /// Distance from the window's top edge to the review dialog.
 const TOP: f32 = 56.;
-/// Line box of a row's slug, 14 px at line height 1.4.
-const TITLE_LINE: f32 = 19.6;
-/// Space between a row's slug line and its reason line.
-const LINE_GAP: f32 = 2.;
-/// Least height of a row's reason line.
-const REASON_LINE: f32 = 18.;
 
 impl NativeView {
     /// The review list in Kit's `dialog`: its title, the copies in a card, and Done.
@@ -45,43 +38,28 @@ impl NativeView {
             .enumerate()
             .map(|(index, (item, reason))| {
                 let row = review.row(item, copies);
-                self.review_row(index, count, (item, reason), row, cx)
+                self.review_row(index, (item, reason), row, cx)
             })
             .collect();
-        let theme = cx.theme();
-        // 13 px like the prototype's dialog body, so a row's place stays smaller than its slug
-        // rather than taking the dialog's larger default.
-        let card = Surface::new(Level::Flat)
-            .apply(div(), theme)
-            .flex()
-            .flex_col()
-            .text_size(px(13.))
-            .children(rows);
-        dialog
-            .w(px(WIDTH))
+        let done = Button::new("copies-review-done")
+            .label("Done")
+            .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)));
+        let header = DialogHeader::new(attention_label(count));
+        self.dialog_frame(DialogSize::Standard, header, cx)
+            .footer(DialogFooter::new().secondary(done))
+            .apply(dialog, cx)
             .margin_top(px(TOP))
-            .title(self.dialog_title(attention_label(count), cx))
-            .child(card)
-            .footer(
-                div().flex().child(
-                    Button::new("copies-review-done").label("Done").on_click(
-                        cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                    ),
-                ),
-            )
+            .child(CardList::new("copies-review").rows(rows))
     }
 
     /// One copy: slug and place, why it needs the user, and its answers or how it settled.
     fn review_row(
         &self,
         index: usize,
-        count: usize,
         (item, listed): (&Item, &'static str),
         row: Row,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let theme = cx.theme();
-        let (muted, hover, line) = (theme.muted_foreground, theme.muted, theme.border);
+    ) -> ListRow {
         let snapshot = &self.snapshot;
         let place = place_name(
             &item.0,
@@ -94,87 +72,34 @@ impl NativeView {
             Row::Ask(choice, _) => choice.reason,
             Row::Settled(_) => listed,
         };
-        let main = div()
+        let title = div()
             .flex()
-            .flex_col()
-            .gap(px(LINE_GAP))
-            .flex_1()
+            .items_center()
+            .gap(px(space::SM))
             .min_w_0()
+            .child(Text::labeled(("copies-review-slug", index), item.1.to_string()).flex_none())
             .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(6.))
-                    .h(px(TITLE_LINE))
+                Text::labeled(("copies-review-place", index), format!("→ {place}"))
+                    .level(text::BODY_SM)
+                    .muted()
                     .min_w_0()
-                    .child(
-                        div()
-                            .flex_none()
-                            .text_size(px(14.))
-                            .line_height(px(TITLE_LINE))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(Text::new(
-                                ("copies-review-slug", index).into(),
-                                item.1.to_string().into(),
-                            )),
-                    )
-                    .child(
-                        div()
-                            .min_w_0()
-                            .truncate()
-                            .text_color(muted)
-                            .child(Text::new(
-                                ("copies-review-place", index).into(),
-                                format!("→ {place}").into(),
-                            )),
-                    ),
-            )
-            .child(
-                Notice::new(("copies-review-reason", index), reason)
-                    .status(Status::Warning)
-                    .min_h(px(REASON_LINE)),
+                    .truncate(),
             );
         let end = match row {
             Row::Ask(choice, copy) => self.review_answers(index, choice, copy, cx),
             Row::Settled(word) => div()
                 .flex()
                 .items_center()
-                .gap(px(4.))
-                .text_size(px(12.))
-                .text_color(muted)
+                .gap(px(space::XS))
+                .text_color(cx.theme().muted_foreground)
                 .child(icon("check").with_size(IconSize::Sm))
-                .child(Text::new(
-                    ("copies-review-settled", index).into(),
-                    word.into(),
-                )),
+                .child(Text::labeled(("copies-review-settled", index), word).level(text::CAPTION)),
         };
-        // The first and last rows round their outer corners inside the card's outline.
-        let inner = px(Surface::new(Level::Flat).inner_radius());
-        div()
-            .id(("copies-review-row", index))
-            .relative()
-            .flex()
-            .items_center()
-            .gap(px(12.))
-            .px(px(14.))
-            .py(px(10.))
-            .when(index == 0, |row| row.rounded_t(inner))
-            .when(index + 1 == count, |row| row.rounded_b(inner))
-            .hover(move |style| style.bg(hover))
-            .when(index > 0, |row| {
-                row.child(
-                    div()
-                        .absolute()
-                        .top_0()
-                        .left(px(14.))
-                        .right(px(14.))
-                        .h(px(1.))
-                        .bg(line),
-                )
-            })
-            .child(main)
-            .child(end.flex_none())
-            .into_any_element()
+        ListRow::new(("copies-review-row", index))
+            .title(title)
+            .subtitle(Notice::new(("copies-review-reason", index), reason).status(Status::Warning))
+            .trailing(end)
+            .hover(true)
     }
 
     /// The row's two answers.
@@ -196,7 +121,7 @@ impl NativeView {
         div()
             .flex()
             .items_center()
-            .gap(px(8.))
+            .gap(px(space::MD))
             .child(button(
                 "copies-review-yes",
                 choice.yes,

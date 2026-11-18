@@ -140,3 +140,6 @@ impl CustomColor {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;

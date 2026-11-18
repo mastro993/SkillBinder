@@ -1,12 +1,12 @@
-use super::super::custom_color::CustomColor;
+//! The menu opened over a GPUI test window, driven by the pointer and the keyboard.
+
 use super::{MenuItem, OpenMenu, SUBMENU_CLOSE_DELAY, step};
-use gpui_kit::component::Colorize;
 use gpui_kit::test::{TestSupportExt, TestWindowExt};
 use gpui_kit::{
-    AnyWindowHandle, AppContext, Bounds, Context, FocusHandle, FrameObserver, Hsla,
+    AnyElement, AnyWindowHandle, App, AppContext, Bounds, Context, FocusHandle, FrameObserver,
     InteractiveElement, IntoElement, KeyBinding, MouseButton, MouseDownEvent, ParentElement,
-    Render, StatefulInteractiveElement, Styled, Subscription, TestAppContext, Window, WindowBounds,
-    WindowOptions, div, px, rgb, size,
+    Render, StatefulInteractiveElement, Styled, Subscription, TestAppContext, WeakEntity, Window,
+    WindowBounds, WindowOptions, div, px, size,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -43,8 +43,10 @@ type Log = Rc<RefCell<Vec<String>>>;
 /// row, and a field that goes away when it loses focus, as a Rename field does.
 struct Sidebar {
     focus: FocusHandle,
-    /// The focus of the panel's content.
+    /// The focus of the Icon panel's content.
     panel: FocusHandle,
+    /// The focus of the Custom panel's content.
+    custom: FocusHandle,
     menu: Option<OpenMenu>,
     log: Log,
     row_clicks: usize,
@@ -54,43 +56,19 @@ struct Sidebar {
 }
 
 /// Rename; a Color submenu of Gray, Red, and Blue, with Blue checked, then Custom, whose panel
-/// holds the color picker; an Icon panel whose content picks with a click or Enter; Move Up,
-/// disabled; Move Down; and Delete…, a danger row.
+/// picks "custom"; an Icon panel picking "pick"; Move Up, disabled; Move Down; and Delete…, a
+/// danger row. A panel's content picks with a click or Enter.
 fn items(
     log: &Log,
     panel: FocusHandle,
-    window: &mut Window,
-    cx: &mut Context<Sidebar>,
+    custom: FocusHandle,
+    cx: &Context<Sidebar>,
 ) -> Vec<MenuItem> {
     let on = |name: &'static str| {
         let log = log.clone();
-        move |_: &mut Window, _: &mut gpui_kit::App| log.borrow_mut().push(name.into())
+        move |_: &mut Window, _: &mut App| log.borrow_mut().push(name.into())
     };
-    let custom = CustomColor::new(
-        Hsla::from(rgb(0x2563eb)),
-        window,
-        cx,
-        |sidebar: &mut Sidebar, picked, done, window, cx| {
-            if let Some(picked) = picked {
-                let picked = format!("custom {}", picked.to_hex());
-                sidebar.log.borrow_mut().push(picked);
-            }
-            if done && let Some(menu) = sidebar.menu.as_ref() {
-                menu.close(window, cx);
-            }
-        },
-    );
     let sidebar = cx.entity().downgrade();
-    let pick = move |window: &mut Window, cx: &mut gpui_kit::App| {
-        let _ = sidebar.update(cx, |sidebar, cx| {
-            sidebar.log.borrow_mut().push("pick".into());
-            if let Some(menu) = sidebar.menu.as_ref() {
-                menu.close(window, cx);
-            }
-        });
-    };
-    let pick = Rc::new(pick);
-    let content_focus = panel.clone();
     vec![
         MenuItem::new("rename", "Rename")
             .icon("pencil-edit")
@@ -105,30 +83,17 @@ fn items(
                 })
                 .chain([
                     MenuItem::separator(),
-                    MenuItem::new("color-custom", "Custom")
-                        .panel(custom.focus().clone(), move |window, cx| {
-                            custom.panel(window, cx)
-                        }),
+                    MenuItem::new("color-custom", "Custom").panel(
+                        custom.clone(),
+                        content("custom-content", "custom", custom, sidebar.clone()),
+                    ),
                 ])
                 .collect(),
         ),
-        MenuItem::new("icon", "Icon")
-            .icon("star")
-            .panel(panel, move |_, _| {
-                let (click, key) = (pick.clone(), pick.clone());
-                div()
-                    .id("panel-content")
-                    .test_support()
-                    .track_focus(&content_focus)
-                    .size(px(80.))
-                    .on_click(move |_, window, cx| click(window, cx))
-                    .on_key_down(move |event, window, cx| {
-                        if event.keystroke.key == "enter" {
-                            key(window, cx);
-                        }
-                    })
-                    .into_any_element()
-            }),
+        MenuItem::new("icon", "Icon").icon("star").panel(
+            panel.clone(),
+            content("panel-content", "pick", panel, sidebar),
+        ),
         MenuItem::separator(),
         MenuItem::new("move-up", "Move Up")
             .icon("arrow-up")
@@ -143,6 +108,39 @@ fn items(
             .danger()
             .on_select(on("delete")),
     ]
+}
+
+/// A panel's content, `id`, focused through `focus`: a click or Enter logs `name` and closes
+/// the menu.
+fn content(
+    id: &'static str,
+    name: &'static str,
+    focus: FocusHandle,
+    sidebar: WeakEntity<Sidebar>,
+) -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
+    let pick = Rc::new(move |window: &mut Window, cx: &mut App| {
+        let _ = sidebar.update(cx, |sidebar, cx| {
+            sidebar.log.borrow_mut().push(name.into());
+            if let Some(menu) = sidebar.menu.as_ref() {
+                menu.close(window, cx);
+            }
+        });
+    });
+    move |_, _| {
+        let (click, key) = (pick.clone(), pick.clone());
+        div()
+            .id(id)
+            .test_support()
+            .track_focus(&focus)
+            .size(px(80.))
+            .on_click(move |_, window, cx| click(window, cx))
+            .on_key_down(move |event, window, cx| {
+                if event.keystroke.key == "enter" {
+                    key(window, cx);
+                }
+            })
+            .into_any_element()
+    }
 }
 
 impl Render for Sidebar {
@@ -165,7 +163,12 @@ impl Render for Sidebar {
                     .on_mouse_down(
                         MouseButton::Right,
                         cx.listener(|sidebar, event: &MouseDownEvent, window, cx| {
-                            let items = items(&sidebar.log, sidebar.panel.clone(), window, cx);
+                            let items = items(
+                                &sidebar.log,
+                                sidebar.panel.clone(),
+                                sidebar.custom.clone(),
+                                cx,
+                            );
                             sidebar.menu = Some(OpenMenu::new(
                                 "row",
                                 items,
@@ -234,6 +237,7 @@ impl Harness {
                             Sidebar {
                                 focus,
                                 panel: cx.focus_handle(),
+                                custom: cx.focus_handle(),
                                 menu: None,
                                 log: Rc::default(),
                                 row_clicks: 0,

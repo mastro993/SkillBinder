@@ -3,7 +3,6 @@
 
 use std::{cell::Cell, rc::Rc, time::Instant};
 
-use super::menu::MenuItem;
 use super::preset_colors::{color_menu, preset_tint};
 use super::preset_icons::IconGrid;
 use super::sidebar_presets::{RowPlacement, menu_action};
@@ -23,6 +22,7 @@ use gpui_kit::{
     MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
+use skillbinder_design::MenuItem;
 use skillbinder_design::sidebar::{INSET, ROW_GAP};
 use skillbinder_design::{Status, StatusGlyph};
 use skillbinder_proto::{

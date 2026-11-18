@@ -10,13 +10,12 @@ mod tests;
 
 use super::NativeView;
 use super::controls::reader_logo;
-use super::library_avatars::{Ring, stack};
 use super::library_copies::{AgentRow, found_rows};
 use super::route::Route;
 use gpui_kit::component::{ActiveTheme, WindowExt, h_flex, notification::Notification, v_flex};
 use gpui_kit::{Anchor, Context, IntoElement, ParentElement, Styled, Window, div, px};
 use skillbinder_design::tokens::text;
-use skillbinder_design::{Button, Logo, Text};
+use skillbinder_design::{AvatarStack, Button, Logo, Text};
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
@@ -114,10 +113,7 @@ impl NativeView {
             .content(move |_, _, cx| {
                 let theme = cx.theme();
                 let several = rows.len() > 1;
-                let ring = Ring {
-                    rest: theme.popover,
-                    hovered: None,
-                };
+                let ring = theme.popover;
                 let logos: Vec<Logo> = rows.iter().map(|row| reader_logo(&row.reader)).collect();
                 let names: Vec<&str> = rows.iter().map(|row| row.name.as_str()).collect();
                 let reply = |id: &'static str, label: &'static str, answer: Answer| {
@@ -154,7 +150,7 @@ impl NativeView {
                         // one at its end (N2).
                         h_flex()
                             .justify_between()
-                            .child(stack(&logos, ring, cx))
+                            .child(AvatarStack::new(logos).ring(ring))
                             .children(several.then(|| {
                                 Button::close("agent-notice-close", "Close").on_click(cx.listener(
                                     |note: &mut Notification, _, window, cx| {

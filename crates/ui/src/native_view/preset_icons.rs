@@ -1,9 +1,9 @@
 //! The curated preset glyphs, their bundled Hugeicons artwork, and the icon grid picker.
 
+use skillbinder_design::icon_color;
 use std::rc::Rc;
 
 use super::preset_colors::preset_tint;
-use super::sidebar_row::icon_color;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, App, Context, FocusHandle, Hsla, InteractiveElement, IntoElement, KeyDownEvent,
@@ -175,9 +175,9 @@ fn moved(index: usize, key: &str, len: usize) -> Option<usize> {
 impl Render for IconGrid {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let tint = self
-            .color
-            .map_or(icon_color(cx), |color| preset_tint(color, theme.is_dark()));
+        let tint = self.color.map_or(icon_color(cx.theme()), |color| {
+            preset_tint(color, theme.is_dark())
+        });
         let (highlight, ring, radius) = (
             theme.foreground.alpha(HIGHLIGHT_INK),
             theme.ring,

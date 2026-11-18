@@ -6,7 +6,7 @@
 //! skill. While a change runs, the progress strip is up, or the folder is missing, it is inert.
 
 use super::super::controls::reader_logo;
-use super::super::library_avatars::{Ring, avatar, named_stack};
+use super::super::library_items::ITEM_GROUP;
 use super::super::place_popover::PlacePopover;
 use super::super::snapshot_query::Entry;
 use super::super::workspace_targets::{
@@ -19,16 +19,11 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Role,
     StatefulInteractiveElement, Styled, Window, canvas, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::menu::{
-    DISABLED_OPACITY, HIGHLIGHT_INK, LINE_INK, MIN_WIDTH, SEPARATOR_MARGIN,
-};
+use skillbinder_design::menu::{self, DISABLED_OPACITY, MIN_WIDTH};
 use skillbinder_design::tokens::{space, text};
-use skillbinder_design::{Checkbox, IconSize, Level, Logo, focus_ring, icon, tooltip};
+use skillbinder_design::{AvatarStack, Checkbox, IconSize, Level, Logo, focus_ring, icon, tooltip};
 
 use skillbinder_proto::{SkillId, Workspace, WorkspaceId, WorkspaceTargets};
-
-/// The menu's padding, around its rows.
-const MENU_PADDING: f32 = 4.;
 
 /// One menu row: its element id, whether it is ticked, its leading avatar, its name, its tooltip,
 /// and the targets it saves, `None` asking before removing the skill.
@@ -58,14 +53,12 @@ impl NativeView {
         let inert = self.blocked() || workspace.missing;
         let theme = cx.theme();
         let fill = theme.muted;
-        let ring = Ring {
-            rest: if open { fill } else { Level::Flat.fill(theme) },
-            hovered: Some(fill),
-        };
-        let logos: Vec<(Logo, String)> = held
+        let rest = if open { fill } else { Level::Flat.fill(theme) };
+        let logos: Vec<Logo> = held
             .iter()
-            .map(|folder| (reader_logo(&folder.row.reader), folder.row.name.clone()))
+            .map(|folder| reader_logo(&folder.row.reader))
             .collect();
+        let names: Vec<String> = held.iter().map(|folder| folder.row.name.clone()).collect();
         let (toggle, key) = (skill.clone(), skill.clone());
         text::CAPTION
             .apply(div().id(format!("workspace-agents-{skill}")))
@@ -97,12 +90,12 @@ impl NativeView {
                 )
             })
             .when(!logos.is_empty(), |button| {
-                button.child(named_stack(
-                    format!("workspace-agents-more-{skill}"),
-                    &logos,
-                    ring,
-                    cx,
-                ))
+                button.child(
+                    AvatarStack::new(logos)
+                        .names(format!("workspace-agents-more-{skill}"), names)
+                        .ring(rest)
+                        .hover_ring(ITEM_GROUP, fill),
+                )
             })
             .child(label)
             .child(icon("arrow-down").with_size(IconSize::Xs))
@@ -160,15 +153,7 @@ impl NativeView {
             next: toggled(targets, &folder.keys, uses),
             disabled: false,
         });
-        let line = cx.theme().foreground.alpha(LINE_INK);
-        let separator = (!folders.is_empty()).then(|| {
-            div()
-                .h(px(1.))
-                .mx(px(8.))
-                .my(px(SEPARATOR_MARGIN))
-                .bg(line)
-                .into_any_element()
-        });
+        let separator = (!folders.is_empty()).then(|| menu::separator().into_any_element());
         let mut items = vec![self.menu_row(popover, &workspace.id, skill, all, window, cx)];
         items.extend(separator);
         items.extend(
@@ -176,7 +161,6 @@ impl NativeView {
         );
         v_flex()
             .min_w(px(MIN_WIDTH))
-            .p(px(MENU_PADDING))
             .children(items)
             .into_any_element()
     }
@@ -195,43 +179,35 @@ impl NativeView {
         let theme = cx.theme();
         // A blocked row keeps its focus, so a key still reaches the menu, and ignores presses.
         let inert = item.disabled || self.blocked();
-        let highlight = theme.foreground.alpha(HIGHLIGHT_INK);
-        let ring = Ring {
-            rest: Level::Overlay.fill(theme),
-            hovered: None,
-        };
+        let highlight = menu::highlight(theme);
+        let ring = Level::Overlay.fill(theme);
         let focus = popover.key(&item.id, cx);
         let (workspace, skill, next) = (workspace.clone(), skill.clone(), item.next);
         let press = cx.listener(move |view, _: &gpui_kit::ClickEvent, window, cx| {
             view.choose_folder(workspace.clone(), skill.clone(), next.clone(), window, cx);
         });
-        let row = MenuCheckbox::new(item.id.clone())
-            .checked(item.checked)
-            .disabled(item.disabled)
-            .role(RoleOverride::Role(Role::MenuItemCheckBox))
-            .accessibility_label(item.name.clone())
-            .track_focus(&focus)
-            .flex()
-            .items_center()
-            .gap(px(space::MD))
-            .px(px(8.))
-            .py(px(6.))
-            .rounded(px(6.))
-            .text_size(px(13.))
-            .when(item.disabled, |row| row.opacity(DISABLED_OPACITY))
-            .when(!inert, |row| {
-                row.cursor_pointer()
-                    .hover(move |style| style.bg(highlight))
-                    .on_change(move |_, event, window, cx| press(event, window, cx))
-            })
-            .child(
-                Checkbox::new(format!("{}-tick", item.id))
-                    .checked(item.checked)
-                    .small()
-                    .indicator(),
-            )
-            .children(item.logo.map(|logo| avatar(logo, ring, cx)))
-            .child(div().min_w_0().truncate().child(item.name));
+        let row = menu::row(
+            MenuCheckbox::new(item.id.clone())
+                .checked(item.checked)
+                .disabled(item.disabled)
+                .role(RoleOverride::Role(Role::MenuItemCheckBox))
+                .accessibility_label(item.name.clone())
+                .track_focus(&focus),
+        )
+        .when(item.disabled, |row| row.opacity(DISABLED_OPACITY))
+        .when(!inert, |row| {
+            row.cursor_pointer()
+                .hover(move |style| style.bg(highlight))
+                .on_change(move |_, event, window, cx| press(event, window, cx))
+        })
+        .child(
+            Checkbox::new(format!("{}-tick", item.id))
+                .checked(item.checked)
+                .small()
+                .indicator(),
+        )
+        .children(item.logo.map(|logo| AvatarStack::new([logo]).ring(ring)))
+        .child(div().min_w_0().truncate().child(item.name));
         div()
             .id(format!("{}-row", item.id))
             .child(focus_ring(row, &focus, window, cx))

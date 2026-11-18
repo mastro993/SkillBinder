@@ -123,7 +123,7 @@ impl NativeView {
             }));
         let mut summary = vec![
             div().text_color(muted).child(LEAD).into_any_element(),
-            self.summary_card(&found.scan, cx),
+            self.summary_card(&found.scan),
             h_flex().child(review).into_any_element(),
         ];
         if list.changed {

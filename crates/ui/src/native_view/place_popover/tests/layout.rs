@@ -4,7 +4,7 @@
 
 use super::super::super::library_places::place_pill;
 use super::super::super::snapshot_query::fixture::id;
-use super::super::{OFFSET, PlacePopover, WIDTH, anchor, place_line, placed};
+use super::super::{PlacePopover, WIDTH, anchor, place_line, placed};
 use gpui_kit::test::{TestSupportExt, TestWindowExt};
 use gpui_kit::{
     AnyWindowHandle, App, AppContext, Bounds, Context, Entity, FocusHandle, InteractiveElement,
@@ -12,6 +12,7 @@ use gpui_kit::{
     WindowBounds, WindowOptions, canvas, deferred, div, point, prelude::FluentBuilder, px, size,
 };
 use skillbinder_design::Logo;
+use skillbinder_design::PopoverPanel;
 use skillbinder_design::menu::WINDOW_MARGIN;
 
 const WINDOW: (f32, f32) = (1180., 728.);
@@ -70,7 +71,7 @@ fn popover(
     deferred(placed(
         anchor(trigger, tile, tile_top.is_some()),
         tile_top.is_some(),
-        div().id(name).w(px(WIDTH)).h(px(height)).test_support(),
+        PopoverPanel::new(name).w(px(WIDTH)).h(px(height)),
     ))
 }
 
@@ -169,7 +170,7 @@ fn the_popover_opens_below_its_trigger_else_above_it_or_its_tile(cx: &mut TestAp
     };
     // A row's opens below its trigger, lined up with its trailing edge.
     let row = bounds(cx, window, "row");
-    assert_eq!(row.top(), px(293. + 26. + OFFSET), "{row:?}");
+    assert_eq!(row.top(), px(293. + 26. + PopoverPanel::OFFSET), "{row:?}");
     assert_eq!(row.right(), px(1013. + 136.), "{row:?}");
     // Near the window's bottom it opens above the trigger.
     let low = bounds(cx, window, "low");
@@ -209,14 +210,7 @@ impl Render for Stage {
         let surface = popover.begin_frame().map(|anchor| {
             let content = div().h(px(200.)).into_any_element();
             let label = "Where review is on".to_owned();
-            deferred(
-                popover.place(
-                    anchor,
-                    popover
-                        .surface(label, content, Self::close, cx)
-                        .into_any_element(),
-                ),
-            )
+            deferred(popover.place(anchor, popover.surface(label, content, Self::close, cx)))
         });
         let cells = popover.cells.clone();
         stage
@@ -294,14 +288,14 @@ fn the_popover_keeps_its_focus_while_opening_then_follows_its_trigger(cx: &mut T
     assert!(!lost(cx), "the popover never lets go of its focus");
     // Placed 4 points below its trigger, which asks for no frame while it stays put.
     let top = |popover: Option<Bounds<Pixels>>| popover.map(|popover| popover.top());
-    assert_eq!(top(popover), Some(px(126. + OFFSET)));
+    assert_eq!(top(popover), Some(px(126. + PopoverPanel::OFFSET)));
     assert_eq!(frame(cx).0, 0, "a trigger that stays put asks for nothing");
     // A trigger painted elsewhere asks for the frame that moves the popover under it.
     move_trigger(cx, Some(300.));
     let (first, ..) = frame(cx);
     let (second, popover, _) = frame(cx);
     assert!(first + second > 0, "the moved trigger asks for a frame");
-    assert_eq!(top(popover), Some(px(326. + OFFSET)));
+    assert_eq!(top(popover), Some(px(326. + PopoverPanel::OFFSET)));
     // Once its trigger is no longer painted, it hides from the next frame on.
     move_trigger(cx, None);
     frame(cx);

@@ -1,8 +1,8 @@
 //! The menu and the submenu or panel beside one of its rows.
 
+use super::super::{PADDING, SUBMENU_OVERLAP};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{TestAppContext, point, px};
-use skillbinder_design::menu::{PADDING, SUBMENU_OVERLAP};
 
 use super::Harness;
 

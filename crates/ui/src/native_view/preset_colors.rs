@@ -2,10 +2,8 @@
 
 use super::NativeView;
 use super::custom_color::CustomColor;
-use super::menu::MenuItem;
 use super::preset_icons::menu_glyph;
 use super::sidebar_presets::menu_action;
-use super::sidebar_row::icon_color;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, App, Context, Hsla, IntoElement, ParentElement, Rgba, Styled, WeakEntity, Window,
@@ -14,6 +12,7 @@ use gpui_kit::{
 use skillbinder_design::Tone;
 use skillbinder_design::sidebar::{DOT_SIZE, ICON_SIZE};
 use skillbinder_design::tokens::color;
+use skillbinder_design::{MenuItem, icon_color};
 use skillbinder_proto::{PresetColor, PresetIcon, Rgb};
 
 fn color_name(color: PresetColor) -> &'static str {
@@ -120,7 +119,7 @@ pub(super) fn color_menu<T: Clone + 'static>(
 
 /// How `color` is drawn in the current theme, or the menu glyph color without one.
 fn tint(color: Option<PresetColor>, cx: &App) -> Hsla {
-    color.map_or(icon_color(cx), |color| {
+    color.map_or(icon_color(cx.theme()), |color| {
         preset_tint(color, cx.theme().is_dark())
     })
 }

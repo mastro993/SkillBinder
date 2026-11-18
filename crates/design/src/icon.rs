@@ -1,8 +1,8 @@
 //! Atom: a retained Hugeicons glyph at a size from the icon scale.
 
 use crate::tokens::icon;
-use gpui_kit::component::{Icon, Size};
-use gpui_kit::px;
+use gpui_kit::component::{Icon, Size, Theme};
+use gpui_kit::{Hsla, px};
 
 /// A size on the icon scale (`DESIGN.md` § Layout).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +43,11 @@ impl From<IconSize> for Size {
 /// does not map, so an unknown glyph never draws different artwork.
 pub fn icon(name: &str) -> Icon {
     Icon::empty().path(format!("icons/{name}.svg"))
+}
+
+/// The color of an icon leading a sidebar or menu row: `muted-foreground`.
+pub fn icon_color(theme: &Theme) -> Hsla {
+    theme.muted_foreground
 }
 
 #[cfg(test)]

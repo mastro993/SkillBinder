@@ -1,8 +1,9 @@
 //! Sidebar navigation, back/forward controls, resizing, and its open/close motion.
 
+use skillbinder_design::icon_color;
 use std::{rc::Rc, time::Duration};
 
-use super::sidebar_row::{RowIcon, activate, count, dot, icon_color, row, spinner};
+use super::sidebar_row::{RowIcon, activate, count, dot, row, spinner};
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, Icon, IconName, ThemeMode, TitleBar, h_flex};
 use gpui_kit::{
@@ -324,7 +325,7 @@ fn appearance_toggle(cx: &mut Context<NativeView>) -> impl IntoElement + use<> {
         .child(
             Icon::new(icon)
                 .size(px(ICON_SIZE))
-                .text_color(icon_color(cx)),
+                .text_color(icon_color(cx.theme())),
         )
         .accessibility_label(label)
         .tooltip(label)
