@@ -3,12 +3,12 @@
 //! and Install Git at the right. Once Git is found it reads "Git <version> is ready" and moves on
 //! by itself.
 
-use super::super::controls::{Inactive, text_button};
 use super::super::git_setup::Action;
 use super::super::{Effect, NativeView};
 use super::StepView;
-use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants};
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{Context, IntoElement, ParentElement, Styled, div};
+use skillbinder_design::Button;
 
 const LEAD: &str = "Git syncs your library between computers and updates skills from their \
                     sources. Everything else works without it, and you can install it later in \
@@ -24,7 +24,8 @@ impl NativeView {
         let found = facts.found.is_some();
         let title = facts.title();
         let skip = (!skipped).then(|| {
-            text_button("onboarding-skip-git", "Skip", Size::Medium)
+            Button::new("onboarding-skip-git")
+                .label("Skip")
                 .ghost()
                 .inactive(found || self.blocked())
                 .on_click(cx.listener(|view, _, _, cx| {
@@ -44,7 +45,7 @@ impl NativeView {
                 .child(LEAD)
                 .into_any_element(),
         ];
-        body.extend(self.git_status_line("onboarding-git-line", "onboarding-git-spin", cx));
+        body.extend(self.git_status_line("onboarding-git-line", cx));
         body.extend(
             actions
                 .command

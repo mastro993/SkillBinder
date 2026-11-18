@@ -10,13 +10,26 @@ SkillBinder's design system: the tokens and the app's generic components, built 
 
 ## Catalog
 
-Components join as the design-system slices add them (#136 Surface, #137 atoms, #138 molecules, #139 rows and dialogs).
+Components join as the design-system slices add them (#136 Surface, #137 atoms, #138 molecules, #139 rows and dialogs). A domain-free piece of `crates/ui` belongs here; `crates/ui/src/native_view/controls.rs` keeps only the domain's picks of a logo.
 
 ### Atoms
 
 | Component | Purpose | Main props |
 | --- | --- | --- |
 | `Surface` (`src/surface.rs`) | A surface at an elevation level: its fill, corners, ring, and shadow, applied to any styled element with `apply`. `Surface::panel()` is the inset page panel; `Level::fill` is a level's fill alone, for what sits behind a surface. `faded` scales a shadow's ink as a surface appears. | `Level::{Flat, Raised, Overlay, Modal}`, `radius`, `fill` |
+| `Text` (`src/text.rs`) | A line of text at a type level, which sets its size, weight (medium is 520), and line box. `Text::new` is a plain string an enclosing accessible name reads; `Text::labeled` is a label of its own. Without a level it takes its container's, such as a button's. `TypeLevel::apply` sets a level on an element that needs its own id or events; `tabular()` is the font feature. | `level`, `tone: TextTone::{Default, Muted, Status}`, `tabular` |
+| `Icon` (`src/icon.rs`) | `icon(name)`: a retained Hugeicons glyph from the app's `icons/` assets; an unknown name fails at the asset source. `IconSize` is the icon scale, usable wherever Kit takes a `Size`. | `name`, `IconSize::{Xs, Sm, Md, Lg}` |
+| `Button` (`src/button.rs`) | Kit's button with the hand cursor while enabled and its label in the medium weight, which is also its accessible name. `into_kit` hands Kit's button to a Kit slot, such as a notification's action. | `variant: ButtonVariant::{Primary, Secondary, Ghost, Danger}`, `size: ButtonSize::{Sm, Md}`, `label`, `icon`, `inactive` |
+| `CloseButton` (`src/close_button.rs`) | `Button::close`: the small ghost button with the `close` glyph that closes a dialog, a notice, or a picked item. | `id`, accessible `label` |
+| `Checkbox` (`src/checkbox.rs`) | Kit's checkbox with the hand cursor while enabled. `indicator` draws the box alone inside an element that is itself the checkbox, such as an onboarding tile. | `checked`, `indeterminate`, `label`, `inactive`, `small` |
+| `Tooltip` (`src/tooltip.rs`) | `tooltip(text)`: Kit's tooltip for an element that is not a Kit control, one line per `\n`, wrapping at `TOOLTIP_LINE` (240). | `text` |
+| `FocusRing` (`src/focus_ring.rs`) | `focus_ring(control, focus, …)`: Kit's focus ring on one of the app's own controls, only while a key gave it focus. A test build tags the ringed control `FOCUS_RING`. | `focus` |
+| `Separator` (`src/separator.rs`) | Kit's separator as a 1-point `hairline` divider. | `horizontal` / `vertical`, `inset` |
+| `Spinner` (`src/spinner.rs`) | Kit's spinner turning a retained glyph in `muted-foreground`. | `size`, `glyph` (default `loading`) |
+| `Count` (`src/count.rs`) | `Text::count` / `Text::labeled_count`: `caption-sm` muted tabular figures with thousands separators (`format_count`). | `value` |
+| `Chip` (`src/chip.rs`) | A fully rounded `caption-sm` chip: `Chip` is Kit's tag; `ToggleChip` is Kit's base toggle, outlined while off (or dashed, with `dashed`) and accent while on. `dashed` is the outline of a choice not applied yet. | `ChipVariant::{Neutral, Accent, Outline}`; `ToggleChip`: `on`, `dashed`, `on_change` |
+| `StatusGlyph` (`src/status_glyph.rs`) | A `Sm` glyph in a status `-text` tone, named by its tooltip's first line. | `status: Status::{Info, Warning, Danger, Success}`, `glyph`, `tooltip` |
+| `Logo` (`src/logo.rs`) | What an avatar or a pill draws: a glyph, a monochrome logo, or a color logo, by asset path. The app picks an agent's logo (`agent_logo`, `reader_logo` in `crates/ui`). | `Glyph \| Mono \| Color`, `size`, `gray` |
 
 ### Molecules
 
@@ -74,4 +87,4 @@ A piece that needs app state stays in `crates/ui` and composes this crate's comp
 
 ## Test
 
-`cargo test -p skillbinder-design` draws each component in a test window and checks its rendering, variants, inactive and focus states, and accessible labels. The theme test checks that both modes load the generated theme.
+`cargo test -p skillbinder-design` draws each component in a test window (`src/test_window.rs`, test-only) and checks its rendering, variants, inactive and focus states, and accessible labels. The theme test checks that both modes load the generated theme. `crates/ui` keeps its own copy of the test window, since test code does not cross crates.

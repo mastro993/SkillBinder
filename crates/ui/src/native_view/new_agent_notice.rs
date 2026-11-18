@@ -9,17 +9,14 @@
 mod tests;
 
 use super::NativeView;
-use super::controls::{Logo, app_icon, button, text_button};
+use super::controls::reader_logo;
 use super::library_avatars::{Ring, stack};
 use super::library_copies::{AgentRow, found_rows};
 use super::route::Route;
-use gpui_kit::component::{
-    ActiveTheme, Sizable, Size, WindowExt, button::ButtonVariants, h_flex,
-    notification::Notification, v_flex,
-};
-use gpui_kit::{
-    Anchor, Context, FontWeight, IntoElement, ParentElement, Styled, Text, Window, div, px,
-};
+use gpui_kit::component::{ActiveTheme, WindowExt, h_flex, notification::Notification, v_flex};
+use gpui_kit::{Anchor, Context, IntoElement, ParentElement, Styled, Window, div, px};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{Button, Logo, Text};
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
@@ -121,11 +118,11 @@ impl NativeView {
                     rest: theme.popover,
                     hovered: None,
                 };
-                let logos: Vec<Logo> = rows.iter().map(|row| Logo::reader(&row.reader)).collect();
+                let logos: Vec<Logo> = rows.iter().map(|row| reader_logo(&row.reader)).collect();
                 let names: Vec<&str> = rows.iter().map(|row| row.name.as_str()).collect();
                 let reply = |id: &'static str, label: &'static str, answer: Answer| {
                     let (view, rows) = (view.clone(), rows.clone());
-                    text_button(id, label, Size::Small).on_click(cx.listener(
+                    Button::new(id).label(label).small().on_click(cx.listener(
                         move |note: &mut Notification, _, window, cx| {
                             let answered = view
                                 .update(cx, |view, cx| {
@@ -159,24 +156,19 @@ impl NativeView {
                             .justify_between()
                             .child(stack(&logos, ring, cx))
                             .children(several.then(|| {
-                                button("agent-notice-close")
-                                    .icon(app_icon("close"))
-                                    .accessibility_label("Close")
-                                    .ghost()
-                                    .xsmall()
-                                    .on_click(cx.listener(
-                                        |note: &mut Notification, _, window, cx| {
-                                            note.dismiss(window, cx);
-                                        },
-                                    ))
+                                Button::close("agent-notice-close", "Close").on_click(cx.listener(
+                                    |note: &mut Notification, _, window, cx| {
+                                        note.dismiss(window, cx);
+                                    },
+                                ))
                             })),
                     )
                     .child(
                         v_flex()
-                            .child(div().font_weight(FontWeight::MEDIUM).child(Text::new(
-                                "agent-notice-found".into(),
-                                found_line(&names).into(),
-                            )))
+                            .child(
+                                Text::labeled("agent-notice-found", found_line(&names))
+                                    .level(text::TITLE_SM),
+                            )
                             .child(
                                 div()
                                     .text_color(theme.muted_foreground)
@@ -187,7 +179,7 @@ impl NativeView {
                         h_flex()
                             .justify_end()
                             .gap(px(8.))
-                            .child(no.outline())
+                            .child(no)
                             .child(yes.primary()),
                     )
                     .into_any_element()

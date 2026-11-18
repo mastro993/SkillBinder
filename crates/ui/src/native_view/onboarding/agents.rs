@@ -7,14 +7,14 @@
 mod tests;
 mod tile;
 
-use super::super::controls::{Inactive, text_button};
 use super::super::library_copies::{AgentRow, Reader, found_rows};
 use super::super::{Effect, NativeView};
 use super::StepView;
-use gpui_kit::component::{ActiveTheme, Size, button::ButtonVariants, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
+use skillbinder_design::Button;
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
@@ -66,7 +66,8 @@ impl NativeView {
             vec![lead(LEAD), self.agent_grid(&rows, &unticked, cx)]
         };
         let (shown, chosen) = choice(&rows, &unticked);
-        let continue_button = text_button("onboarding-next", "Continue", Size::Medium)
+        let continue_button = Button::new("onboarding-next")
+            .label("Continue")
             .primary()
             .inactive(self.blocked())
             .on_click(cx.listener(move |view, _, _, cx| {

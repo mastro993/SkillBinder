@@ -202,6 +202,12 @@ components:
     typography: "{typography.caption-sm}"
     rounded: "{rounded.full}"
     padding: 2px 8px
+  chip-outline:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.caption-sm}"
+    rounded: "{rounded.full}"
+    padding: 2px 8px
   count:
     textColor: "{colors.muted-foreground}"
     typography: "{typography.caption-sm}"
@@ -365,13 +371,13 @@ In dark mode shadows fade, so surfaces separate by lightness: canvas `#111113`, 
 
 ## Shapes
 
-Radii scale with the object's size: `xs` 4 for tags and image tiles, `sm` 6 for controls (buttons, inputs, menu rows), `md` 8 for sidebar rows and selections, `lg` 10 for cards, the inset panel, and grid tiles, `xl` 12 for menus, popovers, and dialogs, `full` for chips, avatars, dots, and pills.
+Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls (buttons, inputs, menu rows), `md` 8 for sidebar rows and selections, `lg` 10 for cards, the inset panel, and grid tiles, `xl` 12 for menus, popovers, and dialogs, `full` for chips, avatars, dots, and pills.
 
 ## Components
 
 - **Buttons**: Kit `Button`. Primary is iris, one per view; secondary is outlined; ghost for toolbar and row actions; danger only for an action that removes something. Labels use `label-md` (small buttons `label-sm`). Disabled buttons lose the hand cursor.
 - **Inputs and search**: Kit `Input` on a `muted` fill with a 14 px search glyph.
-- **Chips and tags**: Kit `Tag`, fully rounded; neutral by default, `accent-soft` when it marks a highlighted state.
+- **Chips and tags**: Kit `Tag`, or Kit's base toggle for a chip a press turns on and off, fully rounded; neutral by default, `accent-soft` when it marks a highlighted state, and outlined on the page fill for a place something is saved to. An off toggle chip is outlined, or dashed while its choice is not applied yet.
 - **Lists**: a card holding rows separated by inset `hairline` dividers; a row has an optional leading icon or logo, a title, a one-line description, and trailing marks. Hover fills `muted`; an inactive row is drawn at 50% opacity.
 - **Sidebar**: rows on the canvas; the selected row is a raised `sidebar-accent` pill. Section headers in `caption-sm`.
 - **Menus and popovers**: `popover` surface at overlay elevation, 8 px padding, rows 32 high with `sm` radius.

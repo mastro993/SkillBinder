@@ -2,17 +2,18 @@
 //! checkbox holds it for all your agents, and the trailing agents menu picks specific ones.
 //! Universal is one row, since its agents share one directory.
 
+use super::controls::agent_icon;
+use skillbinder_design::{Button, IconSize, icon};
 use std::collections::BTreeSet;
 
 use super::NativeView;
-use super::controls::{agent_icon, app_icon};
 use super::library_copies::{AgentRow, Reader, agent_rows};
 use super::menu::{MenuItem, OpenMenu};
 use super::sidebar_presets::menu_action;
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex};
+use gpui_kit::component::{Sizable, h_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, MouseButton,
-    MouseDownEvent, ParentElement, StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
+    MouseDownEvent, ParentElement, Styled, prelude::FluentBuilder, px,
 };
 use skillbinder_design::sidebar::ICON_SIZE;
 use skillbinder_proto::{OrganizationChange, SkillId, Targets};
@@ -59,25 +60,17 @@ impl NativeView {
         let label = targets_label(self.skill_targets(skill), &rows);
         let owner = format!("targets-{skill}");
         let open = self.menu.as_ref().is_some_and(|menu| menu.is_for(&owner));
-        let (busy, fill) = (self.busy, cx.theme().muted);
+        let busy = self.busy;
         let skill = skill.clone();
-        h_flex()
-            .id(owner.clone())
+        Button::new(owner.clone())
+            .ghost()
+            .small()
+            .label(label.clone())
+            .accessibility_label(format!("Agents: {label}"))
+            .selected(open)
+            .inactive(busy)
             .flex_shrink_0()
-            .items_center()
-            .gap_1()
-            .px(px(6.))
-            .py(px(2.))
-            .rounded(px(6.))
-            .text_size(px(12.))
-            .text_color(cx.theme().muted_foreground)
-            .aria_label(format!("Agents: {label}"))
-            .when(open, |button| button.bg(fill))
-            .when(!busy, |button| {
-                button.cursor_pointer().hover(move |button| button.bg(fill))
-            })
-            .child(label)
-            .child(app_icon("arrow-down").xsmall())
+            .child(icon("arrow-down").with_size(IconSize::Xs))
             // The press opens the menu; the click must not open the skill's page.
             .on_click(|_, _, cx| cx.stop_propagation())
             .when(!busy, |button| {

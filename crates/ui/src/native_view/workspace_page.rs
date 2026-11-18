@@ -7,8 +7,6 @@ mod agents;
 mod removal;
 
 use super::NativeView;
-use super::controls::text::sized;
-use super::controls::{app_icon, tooltip};
 use super::library_copies::{agent_rows, placements};
 use super::library_filters::empty_state;
 use super::library_items::{RowEnd, SkillItem};
@@ -18,13 +16,14 @@ use super::skill_picker::Place;
 use super::snapshot_query::{Entry, has_update, workspace_skills};
 use super::workspace_icons::sized_icon;
 use super::workspace_targets::folders;
-use gpui_kit::component::{ActiveTheme, h_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex};
 use gpui_kit::{
     AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::tokens::color;
-use skillbinder_design::tokens::{icon, radius};
+use skillbinder_design::tokens::{radius, text};
+use skillbinder_design::{IconSize, Text, icon, tooltip};
 use skillbinder_proto::{CopyState, Overlap, SkillId, Targets, Workspace, WorkspaceId};
 
 /// What a workspace page's row shows beyond a Library row.
@@ -128,9 +127,9 @@ impl NativeView {
         .pt(px(EMPTY_TOP))
         .when(workspace.dirs.is_empty(), |empty| {
             empty.child(
-                sized(div().id("no-agents-here"), 13.)
-                    .text_color(cx.theme().muted_foreground)
-                    .child("No agents here yet"),
+                Text::labeled("no-agents-here", "No agents here yet")
+                    .level(text::BODY_SM)
+                    .muted(),
             )
         })
         .child(div().mt(px(8.)).child(add))
@@ -172,8 +171,8 @@ fn missing_note(cx: &App) -> AnyElement {
         .gap(px(6.))
         .text_size(px(13.))
         .child(
-            app_icon("alert-circle")
-                .size(px(icon::MD))
+            icon("alert-circle")
+                .with_size(IconSize::Md)
                 .text_color(color::WARNING_TEXT.of(cx.theme())),
         )
         .child("The workspace folder is missing.")
@@ -229,7 +228,7 @@ fn mark(
         .size(px(18.))
         .rounded(px(radius::XS))
         .aria_label(label)
-        .child(app_icon(icon).size(px(icon::SM)))
+        .child(skillbinder_design::icon(icon).with_size(IconSize::Sm))
         .tooltip(tooltip(text))
 }
 

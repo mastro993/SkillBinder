@@ -2,7 +2,6 @@
 //! line's trailing edge, and Kit's positioner opening the popover below its trigger, or above it
 //! or its whole tile, from where the trigger was last painted.
 
-use super::super::super::controls::Logo;
 use super::super::super::library_places::place_pill;
 use super::super::super::snapshot_query::fixture::id;
 use super::super::{OFFSET, PlacePopover, WIDTH, anchor, place_line, placed};
@@ -12,6 +11,7 @@ use gpui_kit::{
     IntoElement, ParentElement, Pixels, Render, Styled, Subscription, TestAppContext, Window,
     WindowBounds, WindowOptions, canvas, deferred, div, point, prelude::FluentBuilder, px, size,
 };
+use skillbinder_design::Logo;
 use skillbinder_design::menu::WINDOW_MARGIN;
 
 const WINDOW: (f32, f32) = (1180., 728.);

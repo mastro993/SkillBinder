@@ -5,8 +5,6 @@
 //! its Delete button.
 
 use super::agent_page::AgentPageRow;
-use super::controls::text::sized;
-use super::controls::{app_icon, tooltip};
 use super::library_copies::Placement;
 use super::library_drift::drift_glyph;
 use super::library_validation::validation_glyph;
@@ -14,26 +12,23 @@ use super::sidebar_row::{activate, with_menu};
 use super::snapshot_query::SkillPlaces;
 use super::workspace_page::{WorkspaceRow, edited_mark, workspace_marks};
 use super::{NativeView, Route};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, canvas, div,
-    prelude::FluentBuilder, px,
+    AnyElement, App, Context, Div, InteractiveElement, IntoElement, ParentElement, Stateful,
+    Styled, canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::library::{
     DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
     TILE_MIN_HEIGHT, TILE_PADDING,
 };
-use skillbinder_design::tokens::{color, text};
-use skillbinder_design::{Level, MEDIUM, Surface};
+use skillbinder_design::tokens::{opacity, text};
+use skillbinder_design::{Chip, ChipVariant, Level, Separator, Status, StatusGlyph, Surface, Text};
 use skillbinder_proto::{Skill, SkillDetails, SkillId};
 
 /// The hover group of a row or tile, whose dashed `+` shows while it is hovered.
 pub(super) const ITEM_GROUP: &str = "skill-item";
 /// Opacity of an inactive skill's name, tag, and description.
-const DIM: f32 = 0.5;
-/// The size of a skill's name, whose line sets a row's and a tile's height.
-const SLUG_SIZE: f32 = 14.;
+const DIM: f32 = opacity::INACTIVE;
 
 /// One Library skill with its details, folder, and copies.
 pub(super) struct SkillItem<'a> {
@@ -137,7 +132,7 @@ impl NativeView {
             .hover(move |row| row.bg(hover))
             .when(index == 0, |row| row.rounded_t(inner))
             .when(last, |row| row.rounded_b(inner))
-            .when(index > 0, |row| row.child(divider(cx)))
+            .when(index > 0, |row| row.child(divider()))
             .child(
                 v_flex()
                     .flex_1()
@@ -193,10 +188,11 @@ impl NativeView {
     /// row's accessible name reads it.
     fn title_line(&self, item: &SkillItem<'_>, cx: &App) -> Div {
         let dim = item.dimmed();
-        let slug = sized(div(), SLUG_SIZE)
+        // A skill's name, whose line sets a row's and a tile's height.
+        let slug = text::TITLE_SM
+            .apply(div())
             .min_w_0()
             .truncate()
-            .font_weight(FontWeight::SEMIBOLD)
             .when(dim, |slug| slug.opacity(DIM))
             .child(item.name());
         h_flex()
@@ -279,14 +275,13 @@ fn frame(
 
 /// A hairline at the top of every row but the first, inset from both card edges so it starts
 /// where the name starts.
-fn divider(cx: &App) -> AnyElement {
-    div()
+fn divider() -> AnyElement {
+    Separator::horizontal()
+        .inset(DIVIDER_INSET)
         .absolute()
-        .left(px(DIVIDER_INSET))
-        .right(px(DIVIDER_INSET))
-        .top(px(0.))
-        .h(px(1.))
-        .bg(cx.theme().border)
+        .top_0()
+        .left_0()
+        .right_0()
         .into_any_element()
 }
 
@@ -295,10 +290,9 @@ fn divider(cx: &App) -> AnyElement {
 fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     let id = &item.skill.id;
     let marks = [
-        item.update
-            .then(|| update_glyph(id, color::INFO_TEXT.of(cx.theme()))),
-        item.drifted.then(|| drift_glyph(id, cx)),
-        validation_glyph(id, item.details, cx),
+        item.update.then(|| update_glyph(id)),
+        item.drifted.then(|| drift_glyph(id)),
+        validation_glyph(id, item.details),
     ]
     .into_iter()
     .flatten();
@@ -311,46 +305,39 @@ fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     }
 }
 
-/// A skill's folder: Kit's secondary tag, borderless, in 11 px medium text whose line is `tag`. A
-/// dimmed tag fades on a wrapper, since Kit's tag raises its own opacity under the pointer.
+/// A skill's folder, a neutral chip whose text is `tag`. A dimmed tag fades on a wrapper, since
+/// Kit's tag raises its own opacity under the pointer.
 fn folder_tag(folder: String, dim: bool) -> impl IntoElement {
-    div().flex_none().when(dim, |tag| tag.opacity(DIM)).child(
-        Tag::secondary()
-            .small()
-            .rounded(px(4.))
-            .border_0()
-            .text_size(px(11.))
-            .font_weight(MEDIUM)
-            .child(Text::new("tag".into(), folder.into())),
-    )
+    div()
+        .flex_none()
+        .when(dim, |tag| tag.opacity(DIM))
+        .child(Chip::new(ChipVariant::Neutral).child(Text::labeled("tag", folder)))
 }
 
-/// The 14 px glyph of a skill whose source has an update, in `tone`. It keeps full opacity on a
-/// dimmed row.
-pub(super) fn update_glyph(id: &SkillId, tone: Hsla) -> AnyElement {
-    div()
-        .id(format!("update-{id}"))
-        .flex_shrink_0()
-        .child(app_icon("upload-circle").small().text_color(tone))
-        .tooltip(tooltip("Update available"))
-        .into_any_element()
+/// The glyph of a skill whose source has an update. It keeps full opacity on a dimmed row.
+pub(super) fn update_glyph(id: &SkillId) -> AnyElement {
+    StatusGlyph::new(
+        format!("update-{id}"),
+        Status::Info,
+        "upload-circle",
+        "Update available",
+    )
+    .into_any_element()
 }
 
 /// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
 fn description(item: &SkillItem<'_>, lines: usize, cx: &App) -> impl IntoElement {
-    sized(
-        div().id(format!("desc-{}", item.name())),
-        text::CAPTION.size,
-    )
-    .min_w_0()
-    .text_color(cx.theme().muted_foreground)
-    .when(item.dimmed(), |text| text.opacity(DIM))
-    .map(|text| {
-        if lines == 1 {
-            text.truncate()
-        } else {
-            text.line_clamp(lines).text_ellipsis()
-        }
-    })
-    .child(item.description().to_owned())
+    text::CAPTION
+        .apply(div().id(format!("desc-{}", item.name())))
+        .min_w_0()
+        .text_color(cx.theme().muted_foreground)
+        .when(item.dimmed(), |text| text.opacity(DIM))
+        .map(|text| {
+            if lines == 1 {
+                text.truncate()
+            } else {
+                text.line_clamp(lines).text_ellipsis()
+            }
+        })
+        .child(item.description().to_owned())
 }

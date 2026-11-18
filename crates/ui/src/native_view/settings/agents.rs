@@ -8,16 +8,18 @@
 #[cfg(test)]
 mod tests;
 
-use super::super::controls::{Logo, tooltip};
+use super::super::controls::reader_logo;
 use super::super::library_avatars::{Ring, avatar};
 use super::super::library_copies::{AgentRow, Reader, found_rows, shown_dir};
 use super::super::progress_strip::{Activity, Landing};
 use super::super::{Effect, NativeView};
 use gpui_kit::component::{ActiveTheme, Disableable, h_flex, switch::Switch, v_flex};
 use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::text;
+use skillbinder_design::{Text, tooltip};
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
@@ -113,7 +115,7 @@ impl NativeView {
             .child(
                 div()
                     .flex_none()
-                    .child(avatar(Logo::reader(&row.reader), ring, cx)),
+                    .child(avatar(reader_logo(&row.reader), ring, cx)),
             )
             .child(
                 v_flex()
@@ -121,13 +123,9 @@ impl NativeView {
                     .min_w_0()
                     .gap(px(2.))
                     .child(
-                        div()
-                            .truncate()
-                            .font_weight(FontWeight::MEDIUM)
-                            .child(Text::new(
-                                format!("{id}-name").into(),
-                                row.name.clone().into(),
-                            )),
+                        Text::labeled(format!("{id}-name"), row.name.clone())
+                            .level(text::TITLE_SM)
+                            .truncate(),
                     )
                     .child(
                         div()

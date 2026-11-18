@@ -1,27 +1,54 @@
 //! The design system: the tokens `DESIGN.md` specifies, the app's GPUI Kit theme, the generic
 //! components, and feature metrics built on the token scales. See the crate README.
 
+mod button;
+mod checkbox;
+mod chip;
+mod close_button;
+mod count;
+mod focus_ring;
 #[cfg(feature = "native-test")]
 mod gallery;
+mod icon;
 pub mod library;
+mod logo;
 pub mod menu;
 pub mod page;
+mod separator;
 mod shadow;
 pub mod sidebar;
+mod spinner;
+mod status_glyph;
 mod surface;
+#[cfg(test)]
+mod test_window;
+mod text;
 pub mod tokens;
 mod tone;
+mod tooltip;
 mod type_level;
 
+pub use button::{Button, ButtonSize, ButtonVariant};
+pub use checkbox::Checkbox;
+pub use chip::{Chip, ChipVariant, ToggleChip, dashed};
+pub use count::format_count;
+pub use focus_ring::{FOCUS_RING, focus_ring};
 #[cfg(feature = "native-test")]
 pub use gallery::Gallery;
+pub use icon::{IconSize, icon};
+pub use logo::Logo;
+pub use separator::Separator;
 pub use shadow::{Ink, Shadow, faded};
+pub use spinner::Spinner;
+pub use status_glyph::{Status, StatusGlyph};
 pub use surface::{Level, Surface};
+pub use text::{Text, TextTone, tabular};
 pub use tone::Tone;
+pub use tooltip::{TOOLTIP_LINE, tooltip};
 pub use type_level::TypeLevel;
 
 use gpui_kit::component::{Theme, ThemeMode, ThemeRegistry};
-use gpui_kit::{App, FontWeight, Global, Window};
+use gpui_kit::{App, Global, Window};
 
 /// Height of the window header row.
 pub const HEADER_HEIGHT: f32 = tokens::space::HEADER;
@@ -30,12 +57,6 @@ pub const FOLDER_TAB_SIZE: f32 = tokens::text::BODY_SM.size;
 
 /// Top-left of the 14 pt macOS traffic lights, vertically centred in the header row.
 pub const TRAFFIC_LIGHTS_ORIGIN: (f32, f32) = (tokens::space::XL, (HEADER_HEIGHT - 14.0) / 2.0);
-
-/// The system font's Medium face, the design's medium weight. GPUI matches weights through
-/// font-kit, which places SF Pro Medium's Core Text weight (0.23) at 530, so a request for 500
-/// (`FontWeight::MEDIUM`) falls back to the Regular face and medium text would draw regular.
-/// font-kit gives Medium every request above 500 up to 530 (Semibold reads 600): 520 sits inside.
-pub const MEDIUM: FontWeight = tokens::text::LABEL_MD.weight;
 
 /// The light and dark themes generated from `DESIGN.md`, a GPUI Kit theme set.
 const THEMES: &str = include_str!("../themes/skillbinder.json");

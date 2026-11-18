@@ -1,6 +1,5 @@
 //! How a menu draws: the backdrop, the menu, submenu, and panel surfaces, and their rows.
 
-use super::super::controls::app_icon;
 use super::super::sidebar_row::icon_color;
 use super::{Kind, Leading, Menu, MenuItem};
 use gpui_kit::base::{Align, Placement, Positioner, TestSupportExt};
@@ -17,7 +16,7 @@ use skillbinder_design::menu::{
 };
 use skillbinder_design::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
 use skillbinder_design::tokens::color;
-use skillbinder_design::{Level, Surface, faded};
+use skillbinder_design::{Level, Surface, faded, icon};
 
 impl Render for Menu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -181,7 +180,7 @@ impl Menu {
             || (opens_panel && submenu.is_some_and(|open| open.panel == Some(ix)));
         let leading = match &item.leading {
             Some(Leading::Icon(name)) => Some(
-                app_icon(name)
+                icon(name)
                     .size(px(ICON_SIZE))
                     .flex_shrink_0()
                     .text_color(glyph)
@@ -193,9 +192,9 @@ impl Menu {
             }
             None => None,
         };
-        let check = (item.checked == Some(true)).then(|| app_icon("check").text_color(foreground));
+        let check = (item.checked == Some(true)).then(|| icon("check").text_color(foreground));
         let chevron =
-            (opens_beside || opens_panel).then(|| app_icon("chevron-right").text_color(muted));
+            (opens_beside || opens_panel).then(|| icon("chevron-right").text_color(muted));
         let row = div()
             .id(SharedString::from(format!("menu-item-{}", item.id)))
             .test_support()

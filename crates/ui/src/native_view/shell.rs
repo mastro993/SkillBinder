@@ -2,21 +2,18 @@
 
 use std::rc::Rc;
 
-use super::controls::button;
 use super::skill_picker::Place;
 use super::{
     NativeView, Route,
     sidebar::{SidebarDrag, clamp_sidebar_width, visible_width},
 };
-use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable, TitleBar, button::ButtonVariants, h_flex,
-};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, TitleBar, h_flex};
 use gpui_kit::{
     AnyElement, Context, DragMoveEvent, InteractiveElement, IntoElement, MouseButton,
     ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::page::{GUTTER, INSET};
-use skillbinder_design::{HEADER_HEIGHT, Surface};
+use skillbinder_design::{Button, HEADER_HEIGHT, Surface};
 use skillbinder_proto::{AppError, Preferences};
 
 gpui_kit::actions!(
@@ -254,7 +251,7 @@ impl NativeView {
             .left(px(toggle_left(window)))
             .child(
                 // Kit's SidebarToggleButton exposes no styling, so the hand cursor needs a plain button.
-                button("collapse")
+                Button::new("collapse")
                     .ghost()
                     .small()
                     .icon(

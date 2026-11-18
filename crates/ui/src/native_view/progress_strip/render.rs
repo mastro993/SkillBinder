@@ -8,19 +8,17 @@
 //! duration.
 
 use super::super::NativeView;
-use super::super::controls::text::tabular;
-use super::super::controls::{app_icon, text_button, tooltip};
 use super::super::import_review::place_name;
 use super::{Shown, done_label, wash_fade};
 use gpui_kit::base::{FocusTrapElement, Progress, ProgressIndicator, Transition, transition};
-use gpui_kit::component::{ActiveTheme, Sizable, Size, button::ButtonVariants, spinner::Spinner};
+use gpui_kit::component::{ActiveTheme, Sizable};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, App, Context, Div, Hsla, InteractiveElement, IntoElement,
     KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, Window, div,
-    px, relative,
+    prelude::FluentBuilder, px, relative,
 };
-use skillbinder_design::tokens::{color, radius, space};
-use skillbinder_design::{Level, MEDIUM, Surface};
+use skillbinder_design::tokens::{color, radius, space, text};
+use skillbinder_design::{Button, IconSize, Level, Spinner, Surface, icon, tabular, tooltip};
 
 /// Height of the pill.
 const PILL_HEIGHT: f32 = 34.;
@@ -162,9 +160,7 @@ fn pill(id: &'static str, cx: &App) -> Stateful<Div> {
         .items_center()
         .h(px(PILL_HEIGHT))
         .text_color(theme.popover_foreground)
-        .text_size(px(13.))
-        .line_height(px(18.2))
-        .font_weight(MEDIUM)
+        .map(|pill| text::LABEL_MD.apply(pill))
 }
 
 /// The running pill: spinner, label, percent, and the progress line along its bottom edge. The
@@ -178,23 +174,13 @@ fn working_pill(
     cx: &mut App,
 ) -> Stateful<Div> {
     let theme = cx.theme();
-    let (ink, muted, color) = (
-        theme.popover_foreground,
-        theme.muted_foreground,
-        theme.primary,
-    );
+    let (muted, color) = (theme.muted_foreground, theme.primary);
     let line = progress_line(label, percent, color, window, cx);
     pill("activation-strip", cx)
         .pl(px(12.))
         .pr(px(14.))
         .gap(px(8.))
-        .child(
-            Spinner::new()
-                .icon(app_icon("loading"))
-                .color(ink)
-                .with_size(px(14.))
-                .ease(|turned| turned),
-        )
+        .child(Spinner::new(IconSize::Sm))
         .child(div().id("activation-strip-label").child(label))
         .child(
             div()
@@ -262,19 +248,26 @@ fn done_pill(waiting: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
         .pl(px(10.))
         .pr(px(space::XS))
         .gap(px(6.))
-        .child(app_icon("alert-circle").size(px(16.)).text_color(warning))
+        .child(
+            icon("alert-circle")
+                .with_size(IconSize::Md)
+                .text_color(warning),
+        )
         .child(div().mr(px(4.)).child(Text::new(
             "activation-strip-label".into(),
             done_label(waiting).into(),
         )))
         .child(
-            text_button("activation-strip-review", "Review", Size::Small)
+            Button::new("activation-strip-review")
+                .label("Review")
+                .small()
                 .primary()
                 .on_click(cx.listener(|view, _, _, cx| view.close_strip(true, cx))),
         )
         .child(
-            text_button("activation-strip-close", "Close", Size::Small)
-                .outline()
+            Button::new("activation-strip-close")
+                .label("Close")
+                .small()
                 .on_click(cx.listener(|view, _, _, cx| view.close_strip(false, cx))),
         )
 }

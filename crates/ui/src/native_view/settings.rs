@@ -3,10 +3,10 @@
 mod agents;
 
 use super::NativeView;
-use super::controls::button;
 use super::git_setup::Action;
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::{AnyElement, Context, FontWeight, IntoElement, ParentElement, Styled, div, px};
+use skillbinder_design::Button;
 
 /// A section's heading.
 fn heading(text: &'static str) -> impl IntoElement {
@@ -46,7 +46,7 @@ impl NativeView {
                     .map_or("Local only", |remote| remote.url.as_str())
             ))
             .child(
-                button("reveal-logs")
+                Button::new("reveal-logs")
                     .label("Reveal logs")
                     .on_click(cx.listener(|view, _, _, cx| view.reveal_logs(cx))),
             )
@@ -74,7 +74,7 @@ impl NativeView {
                     .child(format!("Git: {value}"))
                     .children(primary.map(|action| self.git_button(action, true, false, cx))),
             )
-            .children(self.git_status_line("settings-git-line", "settings-git-spin", cx))
+            .children(self.git_status_line("settings-git-line", cx))
             .children(
                 actions
                     .command

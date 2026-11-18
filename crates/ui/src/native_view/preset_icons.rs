@@ -2,10 +2,9 @@
 
 use std::rc::Rc;
 
-use super::controls::app_icon;
 use super::preset_colors::preset_tint;
 use super::sidebar_row::icon_color;
-use gpui_kit::component::{ActiveTheme, tooltip::Tooltip};
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, App, Context, FocusHandle, Hsla, InteractiveElement, IntoElement, KeyDownEvent,
     ParentElement, Render, Role, SharedString, StatefulInteractiveElement, Styled, Toggled, Window,
@@ -13,6 +12,7 @@ use gpui_kit::{
 };
 use skillbinder_design::menu::HIGHLIGHT_INK;
 use skillbinder_design::sidebar::ICON_SIZE;
+use skillbinder_design::tooltip;
 use skillbinder_proto::{PresetColor, PresetIcon};
 
 /// Icons per row of the picker grid.
@@ -76,7 +76,7 @@ pub(super) fn option_label(icon: Option<PresetIcon>) -> &'static str {
 
 /// A preset glyph sized for a menu row's icon slot.
 pub(super) fn menu_glyph(icon: PresetIcon, color: Hsla) -> AnyElement {
-    app_icon(icon_glyph(icon))
+    skillbinder_design::icon(icon_glyph(icon))
         .size(px(ICON_SIZE))
         .flex_shrink_0()
         .text_color(color)
@@ -211,7 +211,7 @@ impl Render for IconGrid {
                     .cursor_pointer()
                     .when(index == self.highlight, |cell| cell.bg(highlight))
                     .when(current, |cell| cell.border_color(ring))
-                    .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
+                    .tooltip(tooltip(label.clone()))
                     .on_hover(cx.listener(move |grid, hovered: &bool, _, cx| {
                         if *hovered {
                             grid.highlight = index;
@@ -219,7 +219,11 @@ impl Render for IconGrid {
                         }
                     }))
                     .on_click(cx.listener(move |grid, _, window, cx| (grid.pick)(icon, window, cx)))
-                    .child(app_icon(glyph).size(px(ICON_SIZE)).text_color(tint))
+                    .child(
+                        skillbinder_design::icon(glyph)
+                            .size(px(ICON_SIZE))
+                            .text_color(tint),
+                    )
             });
         div()
             .id("preset-icon-grid")

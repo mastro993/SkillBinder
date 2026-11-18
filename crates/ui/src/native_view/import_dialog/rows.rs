@@ -3,8 +3,8 @@
 //! row is ticked with its checkbox or a click anywhere on it outside its versions.
 
 use super::super::NativeView;
-use super::super::controls::{Inactive, app_icon, checkbox};
 use super::super::library_filters::{empty_state, glyph};
+use super::super::library_updates::spinner;
 use super::ImportDialog;
 use super::list::{Count, Group, Place, Row, groups, rows, tick_all, tickable};
 use gpui_kit::component::{
@@ -14,6 +14,7 @@ use gpui_kit::{
     AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::{Checkbox, IconSize};
 use skillbinder_proto::{FoundImport, ValidationStatus};
 use std::collections::BTreeSet;
 
@@ -119,7 +120,7 @@ impl NativeView {
         let label = h_flex()
             .gap(px(6.))
             .items_center()
-            .child(app_icon(icon).size(px(14.)))
+            .child(skillbinder_design::icon(icon).with_size(IconSize::Sm))
             .child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
@@ -153,10 +154,10 @@ impl NativeView {
         count: Count,
         keys: &[String],
         cx: &mut Context<Self>,
-    ) -> gpui_kit::component::checkbox::Checkbox {
+    ) -> Checkbox {
         let keys = keys.to_vec();
         let weak = cx.entity().downgrade();
-        checkbox(id)
+        Checkbox::new(id)
             .checked(count.full())
             .indeterminate(count.partial())
             .inactive(count.able == 0)
@@ -182,7 +183,7 @@ impl NativeView {
         let slug = shown.map_or(key.clone(), |version| version.slug.clone());
         let weak = cx.entity().downgrade();
         let toggled = key.clone();
-        let check = checkbox(format!("import-check-{key}"))
+        let check = Checkbox::new(format!("import-check-{key}"))
             .checked(ticked.contains(&key))
             .inactive(!able)
             .accessibility_label(slug.clone())
@@ -209,7 +210,7 @@ impl NativeView {
                 title.child(Tag::secondary().small().child("Blocked"))
             })
             .when(state.choosing.as_deref() == Some(key.as_str()), |title| {
-                title.child(Self::spinner("import-choosing"))
+                title.child(spinner())
             });
         let description = shown
             .map(|version| version.description.clone())

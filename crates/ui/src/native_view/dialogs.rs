@@ -1,13 +1,11 @@
-use super::controls::button;
 use super::copy_dialogs::CopiesListing;
 use super::{DialogState, NativeView};
-use gpui_kit::component::{
-    IconName, Sizable, WindowExt, button::ButtonVariants, dialog::Dialog, h_flex,
-};
+use gpui_kit::component::{WindowExt, dialog::Dialog, h_flex};
 use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Pixels, SharedString, Size, Styled, Text,
     Window, prelude::FluentBuilder,
 };
+use skillbinder_design::Button;
 
 impl DialogState {
     /// Whether this dialog stays up while an operation runs, `busy`: every dialog but the review
@@ -99,15 +97,9 @@ impl NativeView {
             .child(title)
             .when(!self.dialog_locked(), |row| {
                 row.child(
-                    button("dialog-close")
-                        .ghost()
-                        .small()
-                        .icon(IconName::Close)
-                        .tooltip("Close")
-                        .accessibility_label("Close dialog")
-                        .on_click(
-                            cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
-                        ),
+                    Button::close("dialog-close", "Close dialog").on_click(
+                        cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)),
+                    ),
                 )
             })
             .into_any_element()

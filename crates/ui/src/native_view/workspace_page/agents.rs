@@ -5,8 +5,7 @@
 //! and the menu stays open; unticking the last folder closes it and asks before removing the
 //! skill. While a change runs, the progress strip is up, or the folder is missing, it is inert.
 
-use super::super::controls::text::sized;
-use super::super::controls::{Logo, app_icon, checkbox, focus_ring, tooltip};
+use super::super::controls::reader_logo;
 use super::super::library_avatars::{Ring, avatar, named_stack};
 use super::super::place_popover::PlacePopover;
 use super::super::snapshot_query::Entry;
@@ -14,17 +13,18 @@ use super::super::workspace_targets::{
     all_agents_toggled, folders, held, held_folders, targets_label, toggled,
 };
 use super::super::{DialogState, NativeView};
-use gpui_kit::base::{Checkbox, RoleOverride};
+use gpui_kit::base::{Checkbox as MenuCheckbox, RoleOverride};
 use gpui_kit::component::{ActiveTheme, Sizable, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Role,
     StatefulInteractiveElement, Styled, Window, canvas, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::Level;
 use skillbinder_design::menu::{
     DISABLED_OPACITY, HIGHLIGHT_INK, LINE_INK, MIN_WIDTH, SEPARATOR_MARGIN,
 };
-use skillbinder_design::tokens::space;
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{Checkbox, IconSize, Level, Logo, focus_ring, icon, tooltip};
+
 use skillbinder_proto::{SkillId, Workspace, WorkspaceId, WorkspaceTargets};
 
 /// The menu's padding, around its rows.
@@ -64,10 +64,11 @@ impl NativeView {
         };
         let logos: Vec<(Logo, String)> = held
             .iter()
-            .map(|folder| (Logo::reader(&folder.row.reader), folder.row.name.clone()))
+            .map(|folder| (reader_logo(&folder.row.reader), folder.row.name.clone()))
             .collect();
         let (toggle, key) = (skill.clone(), skill.clone());
-        sized(div().id(format!("workspace-agents-{skill}")), 12.)
+        text::CAPTION
+            .apply(div().id(format!("workspace-agents-{skill}")))
             .relative()
             .flex()
             .flex_none()
@@ -104,7 +105,7 @@ impl NativeView {
                 ))
             })
             .child(label)
-            .child(app_icon("arrow-down").xsmall())
+            .child(icon("arrow-down").with_size(IconSize::Xs))
             // Inert, it still takes the click, so the row behind it does not open the skill.
             .on_click(cx.listener(move |view, _, window, cx| {
                 cx.stop_propagation();
@@ -150,7 +151,7 @@ impl NativeView {
         let rows = folders.iter().map(|folder| Item {
             id: format!("workspace-agents-dir-{}", folder.keys[0]),
             checked: held(targets, &folder.keys, uses),
-            logo: Some(Logo::reader(&folder.row.reader)),
+            logo: Some(reader_logo(&folder.row.reader)),
             name: folder.row.name.clone(),
             tip: match folder.detail() {
                 Some(readers) => format!("{}\nUsed by {readers}", folder.row.dir),
@@ -204,7 +205,7 @@ impl NativeView {
         let press = cx.listener(move |view, _: &gpui_kit::ClickEvent, window, cx| {
             view.choose_folder(workspace.clone(), skill.clone(), next.clone(), window, cx);
         });
-        let row = Checkbox::new(item.id.clone())
+        let row = MenuCheckbox::new(item.id.clone())
             .checked(item.checked)
             .disabled(item.disabled)
             .role(RoleOverride::Role(Role::MenuItemCheckBox))
@@ -224,11 +225,10 @@ impl NativeView {
                     .on_change(move |_, event, window, cx| press(event, window, cx))
             })
             .child(
-                checkbox(format!("{}-tick", item.id))
+                Checkbox::new(format!("{}-tick", item.id))
                     .checked(item.checked)
                     .small()
-                    .tab_stop(false)
-                    .role(RoleOverride::Presentational),
+                    .indicator(),
             )
             .children(item.logo.map(|logo| avatar(logo, ring, cx)))
             .child(div().min_w_0().truncate().child(item.name));

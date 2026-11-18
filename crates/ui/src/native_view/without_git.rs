@@ -2,12 +2,11 @@
 //! visible but unavailable, with a tooltip saying they need Git.
 
 use super::NativeView;
-use super::controls::Inactive;
-use gpui_kit::component::{button::Button, tooltip::Tooltip};
 use gpui_kit::{
     AnyElement, ElementId, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, div,
 };
+use skillbinder_design::{Button, tooltip as tip};
 
 /// Why checking for updates, and updating, is unavailable.
 pub(super) const CHECK_NEEDS_GIT: &str = "Install Git to check for updates";
@@ -30,7 +29,7 @@ pub(super) fn needs_git(
 ) -> AnyElement {
     div()
         .id(id)
-        .tooltip(move |window, cx| Tooltip::new(tooltip).build(window, cx))
+        .tooltip(tip(tooltip))
         .child(control.inactive(true))
         .into_any_element()
 }

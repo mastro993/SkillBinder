@@ -1,15 +1,13 @@
 //! Library folders: the header's folder tabs, their inline naming, menu, and deletion, and the
 //! skill menu that moves a skill between folders.
 
-use super::controls::{Inactive, app_icon, button};
 use super::folder_reorder::{FolderDrag, draggable};
 use super::menu::MenuItem;
 use super::sidebar_presets::menu_action;
 use super::sidebar_row::with_menu;
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::{
-    ActiveTheme, Selectable, Sizable,
-    button::{Button, ButtonVariants},
+    ActiveTheme, Sizable,
     dialog::Dialog,
     h_flex,
     input::{Input, InputEvent, InputState},
@@ -19,7 +17,7 @@ use gpui_kit::{
     ParentElement, Stateful, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_design::FOLDER_TAB_SIZE;
+use skillbinder_design::{Button, FOLDER_TAB_SIZE, icon};
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
 use std::cell::Cell;
 
@@ -82,7 +80,7 @@ impl NativeView {
         // A created folder shows at once; a refused one disappears with its error.
         if let Some(name) = &self.creating_folder {
             strip = strip.child(
-                button("folder-creating")
+                Button::new("folder-creating")
                     .ghost()
                     .small()
                     .flex_shrink_0()
@@ -95,12 +93,12 @@ impl NativeView {
             strip = strip.child(self.folder_name_field(cx));
         } else {
             strip = strip.child(
-                button("folder-create")
+                Button::new("folder-create")
                     .inactive(self.busy)
                     .ghost()
                     .small()
                     .flex_shrink_0()
-                    .icon(app_icon("plus"))
+                    .icon(icon("plus"))
                     .accessibility_label("Add folder")
                     .tooltip("Add folder")
                     .text_color(cx.theme().muted_foreground)
@@ -120,7 +118,7 @@ impl NativeView {
             .map_or_else(|| "folder-all".to_owned(), |id| format!("folder-{id}"));
         let chosen = id.clone();
         let selected = self.library_folder == id;
-        button(element)
+        Button::new(element)
             .ghost()
             .small()
             .flex_shrink_0()
@@ -407,7 +405,7 @@ impl NativeView {
                     .flex()
                     .gap_2()
                     .child(
-                        button("folder-delete-cancel")
+                        Button::new("folder-delete-cancel")
                             .label("Cancel")
                             .inactive(self.busy)
                             .on_click(
@@ -415,7 +413,7 @@ impl NativeView {
                             ),
                     )
                     .child(
-                        button("folder-delete-confirm")
+                        Button::new("folder-delete-confirm")
                             .label("Delete folder")
                             .inactive(self.busy)
                             .on_click(cx.listener(move |view, _, _, cx| {

@@ -5,8 +5,7 @@
 //! shared with the popover.
 
 use super::NativeView;
-use super::controls::text::sized;
-use super::controls::{Logo, app_icon, tooltip};
+use super::controls::reader_logo;
 use super::library_avatars::{Ring, stack};
 use super::library_items::ITEM_GROUP;
 use super::preset_colors::preset_tint;
@@ -14,22 +13,22 @@ use super::sidebar_row::dot;
 use super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::workspace_icons::sized_icon;
 use gpui_kit::base::Toggle;
-use gpui_kit::component::{ActiveTheme, Sizable, tag::Tag};
+use gpui_kit::component::{ActiveTheme, Sizable};
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Text, canvas,
-    div, prelude::FluentBuilder, px,
+    ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, canvas, div,
+    prelude::FluentBuilder, px,
 };
 use skillbinder_design::menu::HIGHLIGHT_INK;
-use skillbinder_design::tokens::{icon, text};
-use skillbinder_design::{Level, MEDIUM};
+use skillbinder_design::tokens::text;
+use skillbinder_design::{
+    Chip, ChipVariant, IconSize, Level, Logo, Separator, Text, dashed, icon, tooltip,
+};
 use skillbinder_proto::Preset;
 
 /// The hover groups of the placement button and of a pill.
 const PLACE_GROUP: &str = "place";
 const PILL_GROUP: &str = "pill";
-/// The ink of a dashed outline: the text color at 24%.
-const DASHED_INK: f32 = 0.24;
 /// The widest a workspace's name shows in its chip.
 const CHIP_NAME_MAX: f32 = 140.;
 
@@ -126,7 +125,7 @@ fn active_button(
     let agents = (!held.is_empty()).then(|| {
         let logos: Vec<Logo> = held
             .iter()
-            .map(|entry| Logo::reader(&entry.row.reader))
+            .map(|entry| reader_logo(&entry.row.reader))
             .collect();
         let names = if places.all_agents() {
             "All agents".to_owned()
@@ -148,13 +147,13 @@ fn active_button(
         .aria_label(format!("Change where {} is on", places.skill))
         .children(agents)
         .when(!held.is_empty() && !workspaces.is_empty(), |button| {
-            button.child(div().flex_none().w(px(1.)).h(px(14.)).bg(theme.border))
+            button.child(Separator::vertical().h(px(IconSize::Sm.points())))
         })
         .children(workspace_chip(places, &workspaces, narrow, cx))
         .child(
             inked("chevron", open, cx)
                 .opacity(0.7)
-                .child(app_icon("arrow-down").size(px(12.))),
+                .child(icon("arrow-down").with_size(IconSize::Xs)),
         )
         .into_any_element()
 }
@@ -171,19 +170,25 @@ fn workspace_chip(
     let (tag, text) = match workspaces {
         [] => return None,
         [only] if !narrow => (
-            chip(cx).child(sized_icon(only.workspace, 13., cx)).child(
-                div()
-                    .min_w_0()
-                    .max_w(px(CHIP_NAME_MAX))
-                    .truncate()
-                    .child(Text::new("name".into(), only.workspace.name.clone().into())),
-            ),
+            Chip::new(ChipVariant::Outline)
+                .child(sized_icon(only.workspace, IconSize::Sm.points(), cx))
+                .child(
+                    div()
+                        .min_w_0()
+                        .max_w(px(CHIP_NAME_MAX))
+                        .truncate()
+                        .child(Text::labeled("name", only.workspace.name.clone())),
+                ),
             format!("{}\n{}", only.workspace.name, only.held_names()),
         ),
         several => (
-            chip(cx)
-                .child(app_icon("code-folder").size(px(icon::SM)).text_color(muted))
-                .child(Text::new("count".into(), several.len().to_string().into())),
+            Chip::new(ChipVariant::Outline)
+                .child(
+                    icon("code-folder")
+                        .with_size(IconSize::Sm)
+                        .text_color(muted),
+                )
+                .child(Text::labeled("count", several.len().to_string()).tabular()),
             several
                 .iter()
                 .map(|place| format!("{} · {}", place.workspace.name, place.held_names()))
@@ -203,7 +208,7 @@ fn workspace_chip(
 /// The 26 px dashed `+` circle of an inactive skill, shown while its row or tile is hovered, it
 /// has keyboard focus, or its popover is open.
 fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> AnyElement {
-    dashed(button, cx)
+    dashed(button, cx.theme())
         .justify_center()
         .size(px(26.))
         .rounded_full()
@@ -211,7 +216,7 @@ fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> An
         .opacity(if open { 1. } else { 0. })
         .group_hover(ITEM_GROUP, |style| style.opacity(1.))
         .focus_visible(|style| style.opacity(1.))
-        .child(inked("plus", open, cx).child(app_icon("plus").size(px(14.))))
+        .child(inked("plus", open, cx).child(icon("plus").with_size(IconSize::Sm)))
         .tooltip(tooltip("Turn on"))
         .into_any_element()
 }
@@ -247,23 +252,12 @@ pub(super) fn preset_chip(id: &'static str, preset: Option<&Preset>, cx: &App) -
         .id(id)
         .flex_none()
         .child(
-            chip(cx)
+            Chip::new(ChipVariant::Outline)
                 .child(dot(tint))
-                .child(Text::new("name".into(), name.clone().into())),
+                .child(Text::labeled("name", name.clone())),
         )
         .tooltip(tooltip(format!("Saved to {name}")))
         .into_any_element()
-}
-
-/// A chip: Kit's small tag on the page fill with a hairline border, fully rounded, its glyph or dot
-/// 4 px before its medium text.
-pub(super) fn chip(cx: &App) -> Tag {
-    let theme = cx.theme();
-    Tag::custom(theme.background, theme.foreground, theme.border)
-        .small()
-        .rounded_full()
-        .gap(px(4.))
-        .font_weight(MEDIUM)
 }
 
 /// A 26 by 24 pill toggling one directory: Kit's base toggle, named by the first line of its tooltip
@@ -291,7 +285,7 @@ pub(super) fn place_pill(
         .flex_none()
         .items_center()
         .justify_center()
-        .size(px(16.))
+        .size(px(IconSize::Md.points()))
         .text_color(if on {
             foreground
         } else {
@@ -303,7 +297,7 @@ pub(super) fn place_pill(
             })
         })
         .when(!on && logo.is_color(), |mark| mark.opacity(0.5))
-        .child(logo.element(15., !on));
+        .child(logo.element(IconSize::Md, !on));
     Toggle::new(id)
         .pressed(on)
         .accessibility_label(label)
@@ -318,7 +312,7 @@ pub(super) fn place_pill(
                     .border_color(foreground)
                     .bg(theme.background)
             } else {
-                dashed(pill, cx)
+                dashed(pill, cx.theme())
             }
         })
         .when(!inert, |pill| {
@@ -328,18 +322,7 @@ pub(super) fn place_pill(
         .tooltip(tooltip(text))
 }
 
-/// `element` inside the dashed outline of an off pill or an inactive skill's `+` circle.
-pub(super) fn dashed<E: Styled>(element: E, cx: &App) -> E {
-    element
-        .border_1()
-        .border_dashed()
-        .border_color(cx.theme().foreground.alpha(DASHED_INK))
-}
-
-/// A `caption-sm` medium muted section label, its text `id`.
-pub(super) fn section_label(id: &'static str, label: &'static str, cx: &App) -> Div {
-    sized(div(), text::CAPTION_SM.size)
-        .font_weight(MEDIUM)
-        .text_color(cx.theme().muted_foreground)
-        .child(Text::new(id.into(), label.into()))
+/// A `caption-sm` muted section label, its text `id`.
+pub(super) fn section_label(id: &'static str, label: &'static str) -> Text {
+    Text::labeled(id, label).level(text::CAPTION_SM).muted()
 }

@@ -9,15 +9,13 @@ pub(super) mod import;
 #[cfg(test)]
 mod tests;
 
-use super::controls::{Inactive, app_icon, text_button};
 use super::{Effect, NativeView};
-use gpui_kit::component::{
-    ActiveTheme, Size, button::ButtonVariants, h_flex, scroll::ScrollableElement, v_flex,
-};
+use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
 use gpui_kit::{
     AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Text, Window, div, linear_color_stop, linear_gradient, px,
 };
+use skillbinder_design::{Button, icon};
 use skillbinder_proto::{Onboarding, OnboardingStep};
 
 /// The step the frame shows and where it stands among the steps that apply.
@@ -120,9 +118,9 @@ impl NativeView {
             OnboardingStep::Import => self.import_step(window, cx),
         };
         let back = place.back.map(|step| {
-            text_button("onboarding-back", "Back", Size::Medium)
-                .outline()
-                .icon(app_icon("chevron-left"))
+            Button::new("onboarding-back")
+                .label("Back")
+                .icon(icon("chevron-left"))
                 .inactive(self.blocked())
                 .on_click(cx.listener(move |view, _, _, cx| {
                     view.onboarding_back_to = Some(step);
@@ -135,7 +133,8 @@ impl NativeView {
             .forward
             .filter(|_| place.step != OnboardingStep::Agents);
         let forward = forward.map(|step| {
-            text_button("onboarding-continue", "Continue", Size::Medium)
+            Button::new("onboarding-continue")
+                .label("Continue")
                 .primary()
                 .inactive(self.blocked())
                 .on_click(cx.listener(move |view, _, _, cx| {
@@ -232,7 +231,8 @@ impl NativeView {
 
     /// Check again, which rechecks Git and storage.
     fn check_again(&self, cx: &mut Context<Self>) -> AnyElement {
-        text_button("onboarding-check-again", "Check again", Size::Medium)
+        Button::new("onboarding-check-again")
+            .label("Check again")
             .primary()
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {

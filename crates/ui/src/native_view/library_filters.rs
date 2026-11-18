@@ -5,20 +5,16 @@
 //! and the search but keeps the folder tab.
 
 use super::NativeView;
-use super::controls::text::{sized, tabular};
-use super::controls::{app_icon, focus_ring, text_button, tooltip};
 use super::snapshot_query::{ActiveFilter, FilterCounts, LibraryFilter};
-use gpui_kit::base::Toggle;
 use gpui_kit::component::tab::{Tab, TabBar};
-use gpui_kit::component::{ActiveTheme, Size, h_flex, input::Input, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, input::Input, v_flex};
 use gpui_kit::{
-    AnyElement, App, ClickEvent, Context, Div, FontWeight, InteractiveElement, IntoElement,
-    ParentElement, StatefulInteractiveElement, Styled, Text, Window, div, prelude::FluentBuilder,
-    px,
+    AnyElement, App, ClickEvent, Context, Div, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, Window, div, px,
 };
-use skillbinder_design::MEDIUM;
 use skillbinder_design::library::TOOLBAR_HEIGHT;
-use skillbinder_design::tokens::{icon, space, text};
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{Button, IconSize, Text, TextTone, ToggleChip, focus_ring, icon, tooltip};
 use skillbinder_proto::LibraryView;
 
 /// The All, Active, and Inactive filters, in the order of their segments.
@@ -33,11 +29,7 @@ const VIEWS: [(LibraryView, &str, &str); 2] = [
     (LibraryView::Grid, "Grid", "grid-view"),
 ];
 /// The gap between the filter segments and the Updates chip.
-const FILTERS_GAP: f32 = 6.;
-/// The Updates chip's padding, glyph, and gap between glyph and count.
-const CHIP_PADDING: f32 = 8.;
-const UPDATE_GLYPH: f32 = 14.;
-const CHIP_GAP: f32 = space::XS;
+const FILTERS_GAP: f32 = space::SM;
 
 impl NativeView {
     /// The toolbar, its filters with their `counts`.
@@ -55,7 +47,7 @@ impl NativeView {
             .min_w(px(100.))
             .child(
                 Input::new(&self.search)
-                    .prefix(app_icon("search").size(px(icon::SM)).text_color(muted))
+                    .prefix(icon("search").with_size(IconSize::Sm).text_color(muted))
                     .bg(cx.theme().background),
             );
         h_flex()
@@ -85,13 +77,8 @@ impl NativeView {
             Tab::new()
                 .aria_label(label)
                 .cursor_pointer()
-                .child(
-                    div()
-                        .text_size(px(text::LABEL_SM.size))
-                        .font_weight(MEDIUM)
-                        .child(label),
-                )
-                .child(count(value, cx))
+                .child(Text::new(label).level(text::LABEL_SM))
+                .child(Text::labeled_count("count", value).ml(px(space::XS)))
         });
         h_flex()
             .flex_none()
@@ -114,8 +101,8 @@ impl NativeView {
             .child(self.updates_chip(counts.updates, window, cx))
     }
 
-    /// The Updates chip: Kit's base toggle holding the update glyph and how many skills have one,
-    /// filled while on. Tab reaches it and Enter or Space toggles it; only focus that a key gave
+    /// The Updates chip: a toggle chip holding the update glyph and how many skills have one,
+    /// outlined while off and accent while on. Tab reaches it and Enter or Space toggles it; only focus that a key gave
     /// it shows Kit's focus ring.
     fn updates_chip(
         &self,
@@ -135,41 +122,18 @@ impl NativeView {
             view.close_place_popover(window, cx);
             cx.notify();
         });
-        let theme = cx.theme();
-        let (glyph_color, count_color) = if on {
-            (theme.background, theme.background.opacity(0.7))
+        let count = Text::labeled_count("count", value).tone(if on {
+            TextTone::Default
         } else {
-            (theme.foreground, theme.muted_foreground)
-        };
-        let (fill, hover) = (theme.foreground, theme.muted);
-        let chip = Toggle::new("library-filter-updates")
-            .pressed(on)
+            TextTone::Muted
+        });
+        let chip = ToggleChip::new("library-filter-updates", on)
             .accessibility_label("Updates")
             .track_focus(&focus)
             .on_change(move |_, event, window, cx| toggle(event, window, cx))
-            .flex_none()
             .h(px(TOOLBAR_HEIGHT))
-            .px(px(CHIP_PADDING))
-            .gap(px(CHIP_GAP))
-            .border_1()
-            .border_color(theme.border)
-            .rounded_full()
-            .bg(theme.background)
-            .cursor_pointer()
-            .when(on, |chip| chip.bg(fill).border_color(fill))
-            .when(!on, |chip| chip.hover(move |style| style.bg(hover)))
-            .child(
-                app_icon("upload-circle")
-                    .size(px(UPDATE_GLYPH))
-                    .text_color(glyph_color),
-            )
-            .child(
-                div()
-                    .text_size(px(12.))
-                    .font_features(tabular())
-                    .text_color(count_color)
-                    .child(Text::new("count".into(), value.to_string().into())),
-            )
+            .child(icon("upload-circle").with_size(IconSize::Sm))
+            .child(count)
             .tooltip(tooltip("Updates"));
         focus_ring(chip, &focus, window, cx).into_any_element()
     }
@@ -183,7 +147,7 @@ impl NativeView {
         let segments = VIEWS.map(|(_, label, icon)| {
             Tab::new()
                 .aria_label(label)
-                .icon(app_icon(icon))
+                .icon(skillbinder_design::icon(icon))
                 .cursor_pointer()
                 .tooltip(tooltip(label))
         });
@@ -208,8 +172,9 @@ impl NativeView {
     /// chosen folder holds no skill.
     pub(super) fn empty_results(&self, typed: &str, cx: &mut Context<Self>) -> AnyElement {
         if self.library_filter.narrows() || !typed.is_empty() {
-            let clear = text_button("library-clear-filters", "Clear filters", Size::Small)
-                .outline()
+            let clear = Button::new("library-clear-filters")
+                .label("Clear filters")
+                .small()
                 .on_click(cx.listener(|view, _, window, cx| {
                     view.library_filter = LibraryFilter::default();
                     view.search
@@ -234,8 +199,8 @@ impl NativeView {
 
 /// The retained glyph `name` as an empty state shows it.
 pub(super) fn glyph(name: &str, cx: &App) -> AnyElement {
-    app_icon(name)
-        .size(px(20.))
+    icon(name)
+        .with_size(IconSize::Lg)
         .text_color(cx.theme().foreground)
         .into_any_element()
 }
@@ -262,20 +227,9 @@ pub(super) fn empty_state(icon: AnyElement, title: String, cx: &App) -> Div {
                 .child(icon),
         )
         .child(
-            sized(div().id("empty-title"), 14.)
-                .font_weight(FontWeight::SEMIBOLD)
+            text::TITLE_SM
+                .apply(div().id("empty-title"))
                 .text_color(theme.foreground)
                 .child(title),
         )
-}
-
-/// A filter segment's count: muted 11 px medium tabular figures, its text `count`.
-fn count(value: usize, cx: &App) -> Div {
-    div()
-        .ml(px(space::XS))
-        .text_size(px(11.))
-        .font_weight(MEDIUM)
-        .font_features(tabular())
-        .text_color(cx.theme().muted_foreground)
-        .child(Text::new("count".into(), value.to_string().into()))
 }

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
     AccessibilityFrame, AnyWindowHandle, AppContext, Bounds, Context, Entity, FrameNode,
-    FrameObserver, Render, Role, TestAppContext, Window, WindowBounds, WindowOptions, px, size,
+    FrameObserver, Render, TestAppContext, Window, WindowBounds, WindowOptions, px, size,
 };
 
 /// Keeps the last frame's accessibility tree and the nodes the native-test bridge reads.
@@ -71,15 +71,6 @@ pub(crate) fn node<'a>(frame: &'a AccessibilityFrame, id: &str) -> Option<&'a Fr
         .nodes()
         .find(|(_, node)| node.id() == id)
         .map(|(_, node)| node)
-}
-
-/// How many labels in `frame` hold `text`.
-pub(crate) fn labels(frame: &AccessibilityFrame, text: &str) -> usize {
-    frame
-        .nodes()
-        .filter_map(|(_, node)| frame.accessibility_node(node))
-        .filter(|node| node.role() == Role::Label && node.value() == Some(text))
-        .count()
 }
 
 /// How many times assistive technology reads `text` in `frame`: once per node named by it or
