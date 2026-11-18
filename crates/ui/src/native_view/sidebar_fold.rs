@@ -11,10 +11,10 @@ use gpui_kit::{
     Animation, AnimationExt, AnyElement, Context, Div, ElementId, InteractiveElement, IntoElement,
     ParentElement, StatefulInteractiveElement, Styled, div, px, radians,
 };
-use skillbinder_proto::SidebarSection;
-use skillbinder_theme::sidebar::{
+use skillbinder_design::sidebar::{
     DETAIL_SIZE, ICON_SIZE, ROW_GAP, ROW_HEIGHT, ROW_PADDING, SECTION_GAP, SECTION_HEIGHT,
 };
+use skillbinder_proto::SidebarSection;
 
 const FOLD_MOTION: Duration = Duration::from_millis(180);
 

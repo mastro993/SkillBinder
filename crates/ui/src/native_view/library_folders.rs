@@ -19,8 +19,8 @@ use gpui_kit::{
     ParentElement, Stateful, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
+use skillbinder_design::FOLDER_TAB_SIZE;
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
-use skillbinder_theme::FOLDER_TAB_SIZE;
 use std::cell::Cell;
 
 /// Which folder name the inline header field edits.

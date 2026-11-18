@@ -8,6 +8,7 @@ use super::super::sidebar_row::{RowIcon, count, row};
 use super::{NativeView, OptimisticPreset};
 use gpui_kit::component::{ActiveTheme, WindowExt, notification::Notification};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window};
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{AppError, OrganizationChange, Preset, PresetIcon, PresetId};
 use std::collections::BTreeSet;
 
@@ -204,7 +205,7 @@ pub(super) fn error_toast(
     error: &AppError,
     cx: &mut Context<NativeView>,
 ) {
-    let glyph = app_icon("alert-circle").text_color(cx.theme().danger);
+    let glyph = app_icon("alert-circle").text_color(color::DANGER_TEXT.of(cx.theme()));
     window.push_notification(
         Notification::new()
             .icon(glyph)

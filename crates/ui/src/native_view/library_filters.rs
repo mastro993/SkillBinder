@@ -16,9 +16,10 @@ use gpui_kit::{
     ParentElement, StatefulInteractiveElement, Styled, Text, Window, div, prelude::FluentBuilder,
     px,
 };
+use skillbinder_design::MEDIUM;
+use skillbinder_design::library::TOOLBAR_HEIGHT;
+use skillbinder_design::tokens::{icon, space, text};
 use skillbinder_proto::LibraryView;
-use skillbinder_theme::MEDIUM;
-use skillbinder_theme::library::TOOLBAR_HEIGHT;
 
 /// The All, Active, and Inactive filters, in the order of their segments.
 const FILTERS: [(ActiveFilter, &str); 3] = [
@@ -36,7 +37,7 @@ const FILTERS_GAP: f32 = 6.;
 /// The Updates chip's padding, glyph, and gap between glyph and count.
 const CHIP_PADDING: f32 = 8.;
 const UPDATE_GLYPH: f32 = 14.;
-const CHIP_GAP: f32 = 5.;
+const CHIP_GAP: f32 = space::XS;
 
 impl NativeView {
     /// The toolbar, its filters with their `counts`.
@@ -54,7 +55,7 @@ impl NativeView {
             .min_w(px(100.))
             .child(
                 Input::new(&self.search)
-                    .prefix(app_icon("search").size(px(15.)).text_color(muted))
+                    .prefix(app_icon("search").size(px(icon::SM)).text_color(muted))
                     .bg(cx.theme().background),
             );
         h_flex()
@@ -84,7 +85,12 @@ impl NativeView {
             Tab::new()
                 .aria_label(label)
                 .cursor_pointer()
-                .child(div().text_size(px(12.5)).font_weight(MEDIUM).child(label))
+                .child(
+                    div()
+                        .text_size(px(text::LABEL_SM.size))
+                        .font_weight(MEDIUM)
+                        .child(label),
+                )
                 .child(count(value, cx))
         });
         h_flex()
@@ -266,7 +272,7 @@ pub(super) fn empty_state(icon: AnyElement, title: String, cx: &App) -> Div {
 /// A filter segment's count: muted 11 px medium tabular figures, its text `count`.
 fn count(value: usize, cx: &App) -> Div {
     div()
-        .ml(px(5.))
+        .ml(px(space::XS))
         .text_size(px(11.))
         .font_weight(MEDIUM)
         .font_features(tabular())

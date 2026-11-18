@@ -6795,9 +6795,9 @@ dependencies = [
  "gpui-mcp",
  "log",
  "skillbinder-client",
+ "skillbinder-design",
  "skillbinder-engine",
  "skillbinder-proto",
- "skillbinder-theme",
  "skillbinder-ui",
  "tokio",
 ]
@@ -6810,6 +6810,13 @@ dependencies = [
  "skillbinder-proto",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "skillbinder-design"
+version = "0.1.0"
+dependencies = [
+ "gpui-kit",
 ]
 
 [[package]]
@@ -6849,13 +6856,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "skillbinder-theme"
-version = "0.1.0"
-dependencies = [
- "gpui-kit",
-]
-
-[[package]]
 name = "skillbinder-ui"
 version = "0.1.0"
 dependencies = [
@@ -6863,8 +6863,8 @@ dependencies = [
  "chrono",
  "gpui-kit",
  "skillbinder-client",
+ "skillbinder-design",
  "skillbinder-proto",
- "skillbinder-theme",
 ]
 
 [[package]]
@@ -9156,6 +9156,7 @@ dependencies = [
  "sha2 0.10.9",
  "tempfile",
  "toml 1.1.6+spec-1.1.0",
+ "yaml-rust2",
 ]
 
 [[package]]

@@ -21,8 +21,10 @@ use gpui_kit::{
     KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, Window, div,
     px, relative,
 };
-use skillbinder_theme::MEDIUM;
-use skillbinder_theme::menu::surface;
+use skillbinder_design::MEDIUM;
+use skillbinder_design::menu::surface;
+use skillbinder_design::tokens::color;
+use skillbinder_design::tokens::space;
 
 /// Height of the pill.
 const PILL_HEIGHT: f32 = 34.;
@@ -259,10 +261,10 @@ fn progress_line(
 
 /// The Done pill: the warning glyph, `Done · N need attention`, Review, and Close.
 fn done_pill(waiting: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
-    let warning = cx.theme().warning;
+    let warning = color::WARNING_TEXT.of(cx.theme());
     pill("activation-strip", cx)
         .pl(px(10.))
-        .pr(px(5.))
+        .pr(px(space::XS))
         .gap(px(6.))
         .child(app_icon("alert-circle").size(px(16.)).text_color(warning))
         .child(div().mr(px(4.)).child(Text::new(

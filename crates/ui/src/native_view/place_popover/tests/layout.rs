@@ -12,7 +12,7 @@ use gpui_kit::{
     IntoElement, ParentElement, Pixels, Render, Styled, Subscription, TestAppContext, Window,
     WindowBounds, WindowOptions, canvas, deferred, div, point, prelude::FluentBuilder, px, size,
 };
-use skillbinder_theme::menu::WINDOW_MARGIN;
+use skillbinder_design::menu::WINDOW_MARGIN;
 
 const WINDOW: (f32, f32) = (1180., 728.);
 

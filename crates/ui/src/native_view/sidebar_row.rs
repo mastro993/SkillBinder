@@ -18,7 +18,7 @@ use gpui_kit::{
     Stateful, StatefulInteractiveElement, Styled, StyledImage, Window, black, div, img,
     prelude::FluentBuilder, px, white,
 };
-use skillbinder_theme::sidebar::{
+use skillbinder_design::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
 };
 

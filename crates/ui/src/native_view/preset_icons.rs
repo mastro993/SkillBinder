@@ -11,9 +11,9 @@ use gpui_kit::{
     ParentElement, Render, Role, SharedString, StatefulInteractiveElement, Styled, Toggled, Window,
     div, prelude::FluentBuilder, px, transparent_black,
 };
+use skillbinder_design::menu::HIGHLIGHT_INK;
+use skillbinder_design::sidebar::ICON_SIZE;
 use skillbinder_proto::{PresetColor, PresetIcon};
-use skillbinder_theme::menu::HIGHLIGHT_INK;
-use skillbinder_theme::sidebar::ICON_SIZE;
 
 /// Icons per row of the picker grid.
 const GRID_COLUMNS: usize = 8;

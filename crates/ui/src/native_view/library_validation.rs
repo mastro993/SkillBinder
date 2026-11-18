@@ -7,6 +7,7 @@ use gpui_kit::{
     AnyElement, App, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement,
     Styled, div,
 };
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{SkillDetails, SkillId, ValidationStatus};
 
 /// The color of a validation glyph.
@@ -56,8 +57,8 @@ pub(super) fn validation_glyph(
 ) -> Option<AnyElement> {
     let Mark { tone, tooltip } = mark(details)?;
     let color = match tone {
-        Tone::Warning => cx.theme().warning,
-        Tone::Danger => cx.theme().danger,
+        Tone::Warning => color::WARNING_TEXT.of(cx.theme()),
+        Tone::Danger => color::DANGER_TEXT.of(cx.theme()),
     };
     Some(
         div()

@@ -10,10 +10,10 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
-use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
-use skillbinder_theme::library::{
+use skillbinder_design::library::{
     GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE, PAGE_BOTTOM, PAGE_GAP, PAGE_GUTTER, PAGE_TOP,
 };
+use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
 
 impl NativeView {
     pub(super) fn render_library(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -182,9 +182,9 @@ mod tests {
     #[test]
     fn grid_fits_whole_columns_and_keeps_one() {
         assert_eq!(grid_columns(100.), 1);
-        assert_eq!(grid_columns(369.), 1);
-        assert_eq!(grid_columns(370.), 2);
+        assert_eq!(grid_columns(371.), 1);
+        assert_eq!(grid_columns(372.), 2);
         assert_eq!(grid_columns(916.), 4);
-        assert_eq!(tile_width(916., 4), 221.5);
+        assert_eq!(tile_width(916., 4), 220.);
     }
 }

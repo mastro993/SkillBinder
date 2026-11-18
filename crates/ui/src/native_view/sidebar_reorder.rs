@@ -16,8 +16,8 @@ use gpui_kit::{
     App, Bounds, Context, CursorStyle, Hsla, IntoElement, ParentElement, Pixels, Point, Render,
     SharedString, Styled, Window, px,
 };
+use skillbinder_design::sidebar::{ROW_GAP, ROW_HEIGHT};
 use skillbinder_proto::{OrganizationChange, PresetId};
-use skillbinder_theme::sidebar::{ROW_GAP, ROW_HEIGHT};
 
 /// How long a row takes to slide into its new slot.
 const SHIFT: Duration = Duration::from_millis(180);
@@ -410,8 +410,8 @@ fn moved<Id: Eq>(mut order: Vec<Id>, id: &Id, target: usize) -> Option<Vec<Id>> 
 #[cfg(test)]
 mod tests {
     use super::{RowReorder, SHIFT, moved};
+    use skillbinder_design::sidebar::{ROW_GAP, ROW_HEIGHT};
     use skillbinder_proto::PresetId;
-    use skillbinder_theme::sidebar::{ROW_GAP, ROW_HEIGHT};
     use std::time::Instant;
 
     const PITCH: f32 = ROW_HEIGHT + ROW_GAP;

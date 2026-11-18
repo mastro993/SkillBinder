@@ -15,8 +15,9 @@ use gpui_kit::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement, Styled,
     Text, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::library::surface as card_surface;
+use skillbinder_design::tokens::{color, icon, radius, text};
 use skillbinder_proto::{CopyChoice, ManagedCopy};
-use skillbinder_theme::library::surface as card_surface;
 
 /// Width of the review dialog.
 const WIDTH: f32 = 420.;
@@ -92,7 +93,7 @@ impl NativeView {
     ) -> AnyElement {
         let theme = cx.theme();
         let (muted, hover, line) = (theme.muted_foreground, theme.muted, theme.border);
-        let warning = theme.warning;
+        let warning = color::WARNING_TEXT.of(theme);
         let snapshot = &self.snapshot;
         let place = place_name(
             &item.0,
@@ -146,10 +147,14 @@ impl NativeView {
                     .items_center()
                     .gap(px(6.))
                     .min_h(px(REASON_LINE))
-                    .text_size(px(11.5))
-                    .line_height(px(16.1))
+                    .text_size(px(text::CAPTION_SM.size))
+                    .line_height(px(text::CAPTION_SM.size * text::CAPTION_SM.line_height))
                     .text_color(muted)
-                    .child(app_icon("alert-circle").size(px(13.)).text_color(warning))
+                    .child(
+                        app_icon("alert-circle")
+                            .size(px(icon::SM))
+                            .text_color(warning),
+                    )
                     .child(Text::new(
                         ("copies-review-reason", index).into(),
                         reason.into(),
@@ -177,8 +182,8 @@ impl NativeView {
             .gap(px(12.))
             .px(px(14.))
             .py(px(10.))
-            .when(index == 0, |row| row.rounded_t(px(9.)))
-            .when(index + 1 == count, |row| row.rounded_b(px(9.)))
+            .when(index == 0, |row| row.rounded_t(px(radius::MD)))
+            .when(index + 1 == count, |row| row.rounded_b(px(radius::MD)))
             .hover(move |style| style.bg(hover))
             .when(index > 0, |row| {
                 row.child(

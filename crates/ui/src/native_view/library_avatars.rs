@@ -11,6 +11,8 @@ use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
     ParentElement, StatefulInteractiveElement, Styled, Text, div, px, white,
 };
+use skillbinder_design::tokens::color;
+use skillbinder_design::tokens::text;
 use skillbinder_proto::SkillId;
 
 /// An avatar's visible circle.
@@ -65,7 +67,7 @@ pub(super) fn avatar(logo: Logo, ring: Ring, cx: &App) -> Avatar {
 /// The `+N` circle after the shown avatars; its text is `more`.
 fn more(count: usize, ring: Ring, cx: &App) -> Div {
     let theme = cx.theme();
-    ring.around(sized(div(), 9.5))
+    ring.around(sized(div(), text::MICRO.size))
         .flex()
         .flex_none()
         .items_center()
@@ -152,7 +154,7 @@ impl NativeView {
             .child(
                 app_icon("alert-circle")
                     .small()
-                    .text_color(cx.theme().warning),
+                    .text_color(color::WARNING_TEXT.of(cx.theme())),
             )
             .on_click(cx.listener(move |view, _, _, cx| {
                 cx.stop_propagation();

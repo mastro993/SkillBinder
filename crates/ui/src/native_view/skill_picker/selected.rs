@@ -17,8 +17,9 @@ use gpui_kit::{
     ParentElement, StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
     relative,
 };
+use skillbinder_design::MEDIUM;
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{SkillId, Workspace};
-use skillbinder_theme::MEDIUM;
 use std::collections::BTreeSet;
 
 /// The Selected pane's share of the picker's width.
@@ -157,7 +158,7 @@ impl NativeView {
                     h_flex()
                         .gap(px(6.))
                         .text_size(px(12.))
-                        .text_color(theme.warning)
+                        .text_color(color::WARNING_TEXT.of(theme))
                         .child(app_icon("alert-circle").size(px(14.)))
                         .child("Pick an agent"),
                 )

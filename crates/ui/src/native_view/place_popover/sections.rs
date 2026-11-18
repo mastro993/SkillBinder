@@ -20,8 +20,9 @@ use gpui_kit::{
     ParentElement, Pixels, StatefulInteractiveElement, Styled, Text, Window, div, hsla,
     prelude::FluentBuilder, px, transparent_black,
 };
+use skillbinder_design::menu::LINE_INK;
+use skillbinder_design::tokens::text;
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
-use skillbinder_theme::menu::LINE_INK;
 
 /// The view showing the popover, which saves what its controls change.
 pub(super) trait Placer: Sized + 'static {
@@ -116,7 +117,7 @@ impl Sections<'_> {
             .collect();
         let pills = if pills.is_empty() {
             vec![
-                sized(div().id("no-agents"), 11.5)
+                sized(div().id("no-agents"), text::CAPTION_SM.size)
                     .text_color(cx.theme().muted_foreground)
                     .child("You have no agents")
                     .into_any_element(),
@@ -221,10 +222,13 @@ impl Sections<'_> {
             )
             .when(place.uses_none(), |name| {
                 name.child(
-                    sized(div().id(format!("none-{}", workspace.id)), 11.5)
-                        .pl(px(20.))
-                        .text_color(cx.theme().muted_foreground)
-                        .child("No agents yet"),
+                    sized(
+                        div().id(format!("none-{}", workspace.id)),
+                        text::CAPTION_SM.size,
+                    )
+                    .pl(px(20.))
+                    .text_color(cx.theme().muted_foreground)
+                    .child("No agents yet"),
                 )
             });
         let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));

@@ -2,7 +2,7 @@
 
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{TestAppContext, point, px};
-use skillbinder_theme::menu::{PADDING, SUBMENU_OVERLAP};
+use skillbinder_design::menu::{PADDING, SUBMENU_OVERLAP};
 
 use super::Harness;
 

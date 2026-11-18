@@ -9,6 +9,7 @@ use gpui_kit::{
     AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div,
 };
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{Drift, SkillId};
 
 /// Why a drifted skill's page warns, and what Reinstall would do.
@@ -32,7 +33,7 @@ pub(super) fn drift_glyph(id: &SkillId, cx: &App) -> AnyElement {
         .child(
             app_icon("alert-circle")
                 .small()
-                .text_color(cx.theme().warning),
+                .text_color(color::WARNING_TEXT.of(cx.theme())),
         )
         .tooltip(|window, cx| Tooltip::new("Changed outside SkillBinder").build(window, cx))
         .into_any_element()
@@ -91,7 +92,7 @@ impl NativeView {
         Some(
             div()
                 .text_sm()
-                .text_color(cx.theme().warning)
+                .text_color(color::WARNING_TEXT.of(cx.theme()))
                 .child(note(drift))
                 .into_any_element(),
         )

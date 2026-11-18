@@ -1,4 +1,4 @@
-use super::{holds, workspaces};
+use super::{gallery, holds, workspaces};
 use gpui_kit::Entity;
 use gpui_mcp::{
     ApplicationCommandRequest, ApplicationCommandResponse, BridgeError, BridgeHandle, ErrorCode,
@@ -14,12 +14,16 @@ pub(crate) fn register_commands(
         ApplicationCommandRequest::List => Ok(ApplicationCommandResponse::List(vec![
             holds::descriptor()?,
             workspaces::descriptor()?,
+            gallery::descriptor()?,
         ])),
         ApplicationCommandRequest::Execute { name, .. } if name == holds::NAME => {
             holds::execute(&view, request, cx)
         }
         ApplicationCommandRequest::Execute { name, .. } if name == workspaces::NAME => {
             workspaces::execute(&view, request, cx)
+        }
+        ApplicationCommandRequest::Execute { name, .. } if name == gallery::NAME => {
+            gallery::execute(&view, request, cx)
         }
         ApplicationCommandRequest::Execute { .. } => {
             Err(BridgeError::new(ErrorCode::NotFound, "Unknown command."))

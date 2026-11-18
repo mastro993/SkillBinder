@@ -11,11 +11,12 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, Toggled, Window, canvas, div, point,
     prelude::FluentBuilder, px, size,
 };
-use skillbinder_theme::menu::{
+use skillbinder_design::menu::{
     DISABLED_OPACITY, HIGHLIGHT_INK, LABEL_SIZE, LINE_INK, MIN_WIDTH, PADDING, RADIUS,
     SEPARATOR_MARGIN, SUBMENU_OVERLAP, TRAILING_SIZE, WINDOW_MARGIN, shadow, surface,
 };
-use skillbinder_theme::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
+use skillbinder_design::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
+use skillbinder_design::tokens::color;
 
 impl Render for Menu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -155,7 +156,7 @@ impl Menu {
         let theme = cx.theme();
         let (line, muted) = (theme.foreground.alpha(LINE_INK), theme.muted_foreground);
         let (foreground, glyph) = if item.danger {
-            (theme.danger, theme.danger)
+            (color::DANGER_TEXT.of(theme), color::DANGER_TEXT.of(theme))
         } else {
             (theme.popover_foreground, icon_color(cx))
         };

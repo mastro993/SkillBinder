@@ -16,6 +16,7 @@ use gpui_kit::{
     AnyElement, App, Context, Hsla, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::color;
 use skillbinder_proto::{AppSnapshot, Candidate, CandidateLocation, ValidationStatus};
 use std::{collections::BTreeMap, path::Path};
 
@@ -95,9 +96,9 @@ fn version_details(version: &Candidate, snapshot: &AppSnapshot, cx: &App) -> Any
         )
         .children(version.messages.iter().map(|message| {
             let color = if message.status == ValidationStatus::Blocked {
-                cx.theme().danger
+                color::DANGER_TEXT.of(cx.theme())
             } else {
-                cx.theme().warning
+                color::WARNING_TEXT.of(cx.theme())
             };
             warning(message.message.clone(), color)
         }))
@@ -153,7 +154,7 @@ impl NativeView {
         let snapshot = &self.snapshot;
         let versions = &row.skill.versions;
         let shown = row.shown();
-        let warn = cx.theme().warning;
+        let warn = color::WARNING_TEXT.of(cx.theme());
         let replaced = self.replacements(row);
         let replaced = || replaced.iter().map(move |line| warning(line.clone(), warn));
         if versions.len() == 1 {

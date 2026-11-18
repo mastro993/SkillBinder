@@ -7,6 +7,9 @@ assets/** -text
 Cargo.lock linguist-generated
 skills-lock.json linguist-generated
 /clippy.toml linguist-generated
+# Design tokens `cargo run -p xtask -- design-tokens` generates from DESIGN.md.
+crates/design/src/tokens.rs linguist-generated
+crates/design/themes/skillbinder.json linguist-generated
 fixtures/baseline/** linguist-generated
 # Prototype bundles the kit's inliner builds from docs/design/**/source/, and the icon block its
 # generator writes from assets/. Agents edit the sources, never these.

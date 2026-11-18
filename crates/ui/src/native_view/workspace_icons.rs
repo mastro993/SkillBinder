@@ -9,9 +9,9 @@ use gpui_kit::{
     AnyElement, App, Entity, InteractiveElement, IntoElement, ParentElement, Role,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
+use skillbinder_design::menu::{HIGHLIGHT_INK, LABEL_SIZE, LINE_INK, SEPARATOR_MARGIN};
+use skillbinder_design::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
 use skillbinder_proto::{PresetIcon, Workspace};
-use skillbinder_theme::menu::{HIGHLIGHT_INK, LABEL_SIZE, LINE_INK, SEPARATOR_MARGIN};
-use skillbinder_theme::sidebar::{ICON_GAP, ICON_SIZE, ROW_HEIGHT, ROW_PADDING};
 use std::{path::PathBuf, rc::Rc};
 
 /// Opens the image picker for one workspace.

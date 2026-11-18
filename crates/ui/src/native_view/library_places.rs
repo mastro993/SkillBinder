@@ -20,9 +20,10 @@ use gpui_kit::{
     ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Text, canvas,
     div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::MEDIUM;
+use skillbinder_design::menu::HIGHLIGHT_INK;
+use skillbinder_design::tokens::{icon, text};
 use skillbinder_proto::Preset;
-use skillbinder_theme::MEDIUM;
-use skillbinder_theme::menu::HIGHLIGHT_INK;
 
 /// The hover groups of the placement button and of a pill.
 const PLACE_GROUP: &str = "place";
@@ -181,7 +182,7 @@ fn workspace_chip(
         ),
         several => (
             chip(cx)
-                .child(app_icon("code-folder").size(px(13.)).text_color(muted))
+                .child(app_icon("code-folder").size(px(icon::SM)).text_color(muted))
                 .child(Text::new("count".into(), several.len().to_string().into())),
             several
                 .iter()
@@ -335,9 +336,9 @@ pub(super) fn dashed<E: Styled>(element: E, cx: &App) -> E {
         .border_color(cx.theme().foreground.alpha(DASHED_INK))
 }
 
-/// An 11.5 px medium muted section label, its text `id`.
+/// A `caption-sm` medium muted section label, its text `id`.
 pub(super) fn section_label(id: &'static str, label: &'static str, cx: &App) -> Div {
-    sized(div(), 11.5)
+    sized(div(), text::CAPTION_SM.size)
         .font_weight(MEDIUM)
         .text_color(cx.theme().muted_foreground)
         .child(Text::new(id.into(), label.into()))

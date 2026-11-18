@@ -19,6 +19,8 @@ use gpui_kit::{
     AnyElement, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Text, div, prelude::FluentBuilder, px,
 };
+use skillbinder_design::tokens::color;
+use skillbinder_design::tokens::{icon, space, text};
 use skillbinder_proto::{FolderId, Skill, SkillId};
 use std::collections::BTreeSet;
 
@@ -38,7 +40,7 @@ impl NativeView {
         let muted = cx.theme().muted_foreground;
         let field = div().id("picker-search").w(px(280.)).flex_none().child(
             Input::new(&picker.search)
-                .prefix(app_icon("search").size(px(15.)).text_color(muted))
+                .prefix(app_icon("search").size(px(icon::SM)).text_color(muted))
                 .bg(cx.theme().background),
         );
         let mut chips = Vec::new();
@@ -121,8 +123,8 @@ impl NativeView {
             })
             .child(
                 h_flex()
-                    .gap(px(5.))
-                    .text_size(px(12.5))
+                    .gap(px(space::XS))
+                    .text_size(px(text::LABEL_SM.size))
                     .child(div().font_weight(FontWeight::MEDIUM).child(name.to_owned()))
                     .child(div().text_color(tint).child(count.to_string())),
             )
@@ -177,7 +179,7 @@ impl NativeView {
                     .child(Text::new("slug".into(), slug.clone().into())),
             )
             .when(has_update(&self.snapshot, &skill.id), |name| {
-                name.child(update_glyph(&skill.id, theme.info))
+                name.child(update_glyph(&skill.id, color::INFO_TEXT.of(theme)))
             });
         let row = h_flex()
             .id(format!("picker-skill-{slug}"))

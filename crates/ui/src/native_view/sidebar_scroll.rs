@@ -6,8 +6,8 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, ScrollHandle,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
+use skillbinder_design::sidebar::{INSET, SECTION_GAP};
 use skillbinder_proto::LibrarySnapshot;
-use skillbinder_theme::sidebar::{INSET, SECTION_GAP};
 
 impl NativeView {
     /// Presets, Workspaces, and Agents, scrolling together between the top rows and Sync.
