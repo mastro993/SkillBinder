@@ -8,7 +8,7 @@ Crate ownership is recorded in `docs/architecture/native.md`. The dependency gra
 
 - `apps/desktop` — executable configuration and native lifecycle
 - `crates/ui` — rendering, interactions, dialogs, and native integration
-- `crates/theme` — appearance and baseline dimensions
+- `crates/theme` — the design system: tokens and generic components (renamed `crates/design` by the design-system plan's first slice)
 - `crates/proto` — shared typed contracts (no I/O, SQLite, Git, or GPUI)
 - `crates/engine` — domain operations and durable state
 - `crates/client` — projections and subscriptions
@@ -24,9 +24,17 @@ Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The 
 
 Use GPUI Kit public editing, focus, and overlay APIs. Do not patch or fork dependency sources; the one fork is the project's `gpui-mcp`, which supplies the patched GPUI backend and the MCP bridge (`docs/architecture/native.md`). Visible icons must use the retained Hugeicons artwork, except agent logos under `assets/agent-logos/` recorded in its `inventory.json`; agents without a logo use the Hugeicons square terminal glyph. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 
-Preserve captured behavior. Visual fidelity and polish are deferred, except for surfaces with an approved prototype in `docs/design/`, which follow its design (layout, hierarchy, copy, icons, states, and behavior) using GPUI Kit components first; small visual differences from Kit are fine (see `docs/design/scoped-pages/README.md`). Approved scope: onboarding, the Import skills dialog, Library, presets, Workspaces, Agents, skill updates from their sources, Sync, and Settings. It excludes screens for entering or editing a skill's source, nested presets, and tag-management UI. SkillBinder writes into the agents' global skill directories and workspaces only as managed copies of active library skills (ADR 0006). It replaces a same-slug copy it does not manage only after the user confirms it, which makes the copy managed; it never touches any other file there.
+Preserve captured behavior. Surfaces with an approved prototype in `docs/design/` follow its design (layout, hierarchy, copy, icons, states, and behavior) using GPUI Kit components first; small visual differences from Kit are fine (see `docs/design/scoped-pages/README.md`). Sizes, colors, radii, and shadows come from the design system below. Approved scope: onboarding, the Import skills dialog, Library, presets, Workspaces, Agents, skill updates from their sources, Sync, and Settings. It excludes screens for entering or editing a skill's source, nested presets, and tag-management UI. SkillBinder writes into the agents' global skill directories and workspaces only as managed copies of active library skills (ADR 0006). It replaces a same-slug copy it does not manage only after the user confirms it, which makes the copy managed; it never touches any other file there.
 
 Update affected behavior documents in `docs/`. Keep application code and documentation independent of external architecture examples. Preserve dependency and asset licenses.
+
+## Design system
+
+`DESIGN.md` specifies the look and is the source of truth for every token. The design-system crate holds the tokens and the generic components and depends on GPUI Kit only; its README catalogs the components as atoms, molecules, and organisms. The build plan and every known drift are in `docs/design-system/` (ADR 0013).
+
+- **Theming** (a color, size, radius, type level, opacity, or shadow): edit `DESIGN.md` first, run `cargo run -p xtask -- design-tokens`, lint with `npx -y @google/design.md@0.4.0 lint DESIGN.md`, and commit the spec with the regenerated files. Generated token files change only through the generator. Until the plan's first slice adds the generator, change the token's Rust form in `crates/theme` in the same commit.
+- **Building UI**: take every size, color, alpha, and shadow from the crate's tokens and `cx.theme()`, and controls from the catalog. A raw literal in `crates/ui` counts against the off-token ratchet in `xtask verify`. Until the plan's first slice lands, take them from `crates/theme` and GPUI Kit, and use the components in `native_view/controls.rs`.
+- **New component**: start from the GPUI Kit component and style it through its public API. A domain-free piece goes into the crate, one flat file per component: its tier in the doc comment, plain props and callbacks, a test-window test of its variants, states, and accessible name, a gallery entry behind `native-test`, and a README catalog row. Until the first slice creates the crate, its README, and the gallery, put a domain-free piece in `native_view/controls.rs` with its tier and test; that slice moves it. A piece that needs app state stays in `crates/ui` and composes crate components. When the right Kit component or tier is unclear, ask before building.
 
 ## Research and verification
 
