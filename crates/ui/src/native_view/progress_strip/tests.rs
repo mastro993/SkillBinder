@@ -219,6 +219,21 @@ fn labels_and_toasts_name_each_change() {
         adding(&["pdf", "a", "b"]).toast(&imported(0)),
         "Added 3 skills"
     );
+    let turning_on = |agents: &[&str]| Activity::TurningOn {
+        agents: agents.iter().map(|agent| (*agent).to_owned()).collect(),
+    };
+    assert_eq!(turning_on(&["Cursor"]).label(), "Adding…");
+    assert_eq!(turning_on(&["Cursor"]).title(), "Adding skills to Cursor");
+    assert_eq!(turning_on(&["A", "B"]).title(), "Adding skills to 2 agents");
+    assert_eq!(turning_on(&["Cursor"]).toast(&imported(0)), "Cursor is on");
+    assert_eq!(
+        turning_on(&["Windsurf", "Kiro CLI"]).toast(&imported(0)),
+        "Windsurf and Kiro CLI are on"
+    );
+    assert_eq!(
+        turning_on(&["A", "B", "C"]).toast(&imported(0)),
+        "3 agents are on"
+    );
     assert_eq!(done_label(1), "Done · 1 needs attention");
     assert_eq!(done_label(2), "Done · 2 need attention");
 }

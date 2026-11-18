@@ -17,7 +17,7 @@ pub(crate) use copies::STAGING_PREFIX;
 pub(crate) use progress::Progress;
 pub(crate) use store::{Holder, Pair, claim, forget};
 
-use crate::{database, payload, worker::State};
+use crate::{agents::chosen_agents, database, payload, worker::State};
 use pass::{Scope, managed};
 use plan::{Disk, Issue, Row};
 use skillbinder_proto::*;
@@ -47,13 +47,48 @@ impl State {
 
     /// Where `library` and the workspaces hold skills.
     fn places(&self, library: &Library) -> AppResult<Places> {
-        let agents = self.agents()?;
-        let mut places = targets::workspace_places(&self.workspaces_for(library, &agents)?);
-        for pair in targets::desired(library, &agents) {
+        self.places_for(library, &self.agents()?)
+    }
+
+    /// Where `library` and the workspaces hold skills for your agents among `agents`.
+    fn places_for(&self, library: &Library, agents: &[AgentOption]) -> AppResult<Places> {
+        let workspaces = self.workspaces_for(library, agents)?;
+        let mut places = targets::workspace_places(&workspaces, &targets::read_dirs(agents));
+        for pair in targets::desired(library, agents) {
             places.holders.remove(&pair);
             places.desired.insert(pair);
         }
+        let global = chosen_agents(agents).filter_map(|agent| agent.resolved_skills_dir.clone());
+        places.used.extend(global);
+        places
+            .idle
+            .retain(|directory| !places.used.contains(directory));
         Ok(places)
+    }
+
+    /// Saves with `save` that your agents become those among `after`, and in the same transaction
+    /// forgets the copy records of every directory they no longer read, leaving those copies in
+    /// place, unmanaged (ADR 0012). A missing workspace's directories keep their records.
+    pub(crate) fn release_places(
+        &self,
+        after: &[AgentOption],
+        save: impl FnOnce(&mut diesel::SqliteConnection) -> AppResult<()>,
+    ) -> AppResult<()> {
+        let library = self.read_library()?;
+        let before = self.places(&library)?;
+        let after = self.places_for(&library, after)?;
+        let released: Vec<Pair> = store::load(&mut self.database.borrow_mut())?
+            .into_keys()
+            .filter(|(directory, _)| {
+                before.used.contains(directory)
+                    && !after.used.contains(directory)
+                    && !after.inside_missing(directory)
+            })
+            .collect();
+        database::transaction(&mut self.database.borrow_mut(), |connection| {
+            save(connection)?;
+            store::forget(connection, &released)
+        })
     }
 
     /// Saves a workspace change with `save`, then brings the copies in line for each skill whose
@@ -87,9 +122,10 @@ impl State {
             .workspaces_for(&library, &agents)?
             .into_iter()
             .partition(|workspace| &workspace.id == id);
+        let read = targets::read_dirs(&agents);
         let (own, others) = (
-            targets::workspace_places(&own),
-            targets::workspace_places(&others),
+            targets::workspace_places(&own, &read),
+            targets::workspace_places(&others, &read),
         );
         let global = targets::desired(&library, &agents);
         let mut handover = Handover::default();

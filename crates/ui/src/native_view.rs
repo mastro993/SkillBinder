@@ -28,6 +28,7 @@ mod menu;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod navigation;
+mod new_agent_notice;
 mod onboarding;
 mod page_head;
 mod place_popover;
@@ -150,6 +151,10 @@ pub struct NativeView {
     /// The global skill directories Choose your agents shows unticked, from the saved choice once
     /// it shows, until its Continue saves them.
     unticked_agents: Option<BTreeSet<String>>,
+    /// The global skill directories turned off in Settings this session, whose rows read "Its
+    /// skills stay in place." while off.
+    agents_turned_off: BTreeSet<String>,
+    agent_notice: new_agent_notice::Notice,
     /// Where the Git step showed when Git was found, kept while "Git <version> is ready" shows.
     git_ready: Option<onboarding::Place>,
     /// What installing Git waits on, in the Git step or Settings.
@@ -321,6 +326,8 @@ impl NativeView {
             first_import: None,
             onboarding_back_to: None,
             unticked_agents: None,
+            agents_turned_off: BTreeSet::new(),
+            agent_notice: new_agent_notice::Notice::default(),
             git_ready: None,
             git_setup: git_setup::GitSetup::default(),
             git_checking: false,
@@ -425,6 +432,7 @@ impl Render for NativeView {
         self.sync_dialog(window, cx);
         self.sync_overlay_focus(window, cx);
         self.push_toast(window, cx);
+        self.sync_agent_notice(window, cx);
         let colors = cx.theme().colors;
         let global_error = self
             .error

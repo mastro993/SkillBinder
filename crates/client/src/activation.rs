@@ -3,6 +3,7 @@
 
 use crate::Client;
 use skillbinder_proto::*;
+use std::collections::BTreeSet;
 
 impl Client {
     /// Applies preset or membership edits, publishing their progress while they run. One that
@@ -77,6 +78,16 @@ impl Client {
             .shared
             .engine
             .set_workspace_skill(workspace, skill, targets)
+            .await;
+        self.refresh_preserving_outcome(set).await?;
+        self.spawn_scan();
+        Ok(())
+    }
+    /// Turns the agents reading the global skill directories `dirs` on or off, publishing the
+    /// progress of turning them on, then scans again, since your agents decide what it reads.
+    pub async fn set_agents_chosen(&self, dirs: BTreeSet<String>, chosen: bool) -> AppResult<()> {
+        let set = self
+            .tracked(self.shared.engine.set_agents_chosen(dirs, chosen))
             .await;
         self.refresh_preserving_outcome(set).await?;
         self.spawn_scan();

@@ -1,6 +1,6 @@
 # Workspace activation
 
-Each workspace holds its own skills and writes them into its workspace skill directories as managed copies (ADR 0006), with the rules for copies, asking, and retrying that [Activation](activation.md) describes.
+Each workspace holds its own skills and writes them into its workspace skill directories as managed copies (ADR 0006), with the rules for copies, asking, and retrying that [Activation](activation.md) describes. A directory it uses that none of your agents reads, such as `.claude/skills` once Claude Code and Cursor are off, stays in its list but is idle: nothing is written or removed there until such an agent is turned on again ([Settings › Agents](settings-agents.md)).
 
 ## Agents and skills
 

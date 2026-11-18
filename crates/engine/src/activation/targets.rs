@@ -27,10 +27,22 @@ pub(super) struct Places {
     /// a copy never recreates the folder, and no record there is forgotten: the path a directory
     /// resolved to through links inside the folder cannot be resolved again while it is gone.
     pub missing: BTreeSet<PathBuf>,
+    /// Every directory one of your agents reads: their global skill directories, and each
+    /// workspace skill directory a workspace uses that one of them reads.
+    pub used: BTreeSet<String>,
+    /// The workspace skill directories workspaces use that none of your agents reads. Each is left
+    /// as it is until one of your agents reads it again (ADR 0012).
+    pub idle: BTreeSet<String>,
 }
 impl Places {
-    /// Whether `directory` lies inside a missing workspace's folder.
+    /// Whether `directory` is left as it is: no copy is written or removed there and no record
+    /// there is acted on, as inside a missing workspace's folder or in an idle directory.
     pub fn paused(&self, directory: &str) -> bool {
+        self.idle.contains(directory) || self.inside_missing(directory)
+    }
+
+    /// Whether `directory` lies inside a missing workspace's folder.
+    pub fn inside_missing(&self, directory: &str) -> bool {
         Path::new(directory)
             .ancestors()
             .any(|ancestor| self.missing.contains(ancestor))
@@ -75,10 +87,25 @@ pub(super) fn desired(library: &Library, agents: &[AgentOption]) -> BTreeSet<Pai
     pairs
 }
 
+/// The workspace skill directories your agents read, such as `.claude/skills` for Cursor: each
+/// one's registry directory and every other directory the reviewed overlay records it reading.
+pub(super) fn read_dirs(agents: &[AgentOption]) -> BTreeSet<String> {
+    chosen_agents(agents)
+        .flat_map(|agent| {
+            std::iter::once(agent.workspace_skills_dir.clone()).chain(
+                agent
+                    .other_workspace_dirs
+                    .iter()
+                    .map(|dir| dir.path.clone()),
+            )
+        })
+        .collect()
+}
+
 /// Every workspace skill directory `workspaces` use, resolved inside each workspace's folder, and
-/// slug they hold there. A directory whose links lead out of its folder holds nothing, as the scan
-/// skips it.
-pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
+/// slug they hold there, among the directories `read` by your agents; the others are idle. A
+/// directory whose links lead out of its folder holds nothing, as the scan skips it.
+pub(super) fn workspace_places(workspaces: &[Workspace], read: &BTreeSet<String>) -> Places {
     let mut places = Places::default();
     for workspace in workspaces {
         if workspace.missing {
@@ -88,6 +115,15 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
             places
                 .reached
                 .insert((workspace.id.clone(), dir.clone()), path.clone());
+            places
+                .folders
+                .entry(path.clone())
+                .or_insert_with(|| PathBuf::from(&workspace.path));
+            if !read.contains(dir) {
+                places.idle.insert(path.clone());
+                continue;
+            }
+            places.used.insert(path.clone());
             for (skill, targets) in &workspace.skills {
                 if targets.includes(dir) {
                     // A missing workspace still holds its skills, but nothing is written for it.
@@ -104,12 +140,9 @@ pub(super) fn workspace_places(workspaces: &[Workspace]) -> Places {
                     }
                 }
             }
-            places
-                .folders
-                .entry(path.clone())
-                .or_insert_with(|| PathBuf::from(&workspace.path));
         }
     }
+    places.idle.retain(|path| !places.used.contains(path));
     places
 }
 
