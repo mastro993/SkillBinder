@@ -1,6 +1,6 @@
 //! Organism: the frame every dialog shares, Kit's `Dialog` at one of `DESIGN.md`'s sizes, on
 //! the `popover` fill with `xl` corners and `body-sm` body text, with a [`DialogHeader`] and a
-//! [`DialogFooter`].
+//! [`DialogFooter`]. Kit's own close control is off; the header draws the close button.
 //!
 //! Kit hands a dialog's builder the `Dialog` it opens, so the frame is applied to it rather than
 //! drawn on its own; the caller adds the body as the dialog's children.
@@ -71,8 +71,9 @@ impl DialogFrame {
                 .h(viewport.height * WINDOW_HEIGHT)
                 .margin_top(viewport.height * ((1. - WINDOW_HEIGHT) / 2.)),
         };
+        // The header's own close button replaces Kit's, which keeps the arrow cursor.
         let dialog = text::BODY_SM
-            .apply(dialog)
+            .apply(dialog.close_button(false))
             .bg(Level::Modal.fill(cx.theme()))
             .rounded(px(radius::XL));
         let dialog = match self.header {

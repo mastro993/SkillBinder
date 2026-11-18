@@ -38,7 +38,6 @@ impl NativeView {
                     );
                     view.build_dialog(dialog, window.viewport_size(), cx)
                         .overlay_closable(!locked && !picking)
-                        .close_button(false)
                         .keyboard(!locked)
                         .on_ok(|_, _, _| false)
                         .on_close(move |_, _, cx| {
