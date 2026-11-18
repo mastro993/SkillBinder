@@ -13,18 +13,14 @@ use super::super::controls::{app_icon, text_button, tooltip};
 use super::super::import_review::place_name;
 use super::{Shown, done_label, wash_fade};
 use gpui_kit::base::{FocusTrapElement, Progress, ProgressIndicator, Transition, transition};
-use gpui_kit::component::{
-    ActiveTheme, Sizable, Size, ThemeStyled, button::ButtonVariants, spinner::Spinner,
-};
+use gpui_kit::component::{ActiveTheme, Sizable, Size, button::ButtonVariants, spinner::Spinner};
 use gpui_kit::{
     Animation, AnimationExt, AnyElement, App, Context, Div, Hsla, InteractiveElement, IntoElement,
     KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, Window, div,
     px, relative,
 };
-use skillbinder_design::MEDIUM;
-use skillbinder_design::menu::surface;
-use skillbinder_design::tokens::color;
-use skillbinder_design::tokens::space;
+use skillbinder_design::tokens::{color, radius, space};
+use skillbinder_design::{Level, MEDIUM, Surface};
 
 /// Height of the pill.
 const PILL_HEIGHT: f32 = 34.;
@@ -153,19 +149,19 @@ fn pill_row(pill: impl IntoElement) -> Div {
         .child(pill)
 }
 
-/// The pill's surface: Kit's popover surface, with its hairline ring and shadow, on the menu
-/// surface and fully rounded.
+/// The pill's surface: an overlay surface, fully rounded.
 fn pill(id: &'static str, cx: &App) -> Stateful<Div> {
-    div()
+    let theme = cx.theme();
+    Surface::new(Level::Overlay)
+        .radius(radius::FULL)
+        .apply(div(), theme)
         .id(id)
         .relative()
         .flex()
         .flex_none()
         .items_center()
         .h(px(PILL_HEIGHT))
-        .popover_style(cx)
-        .rounded_full()
-        .bg(surface(cx.theme()))
+        .text_color(theme.popover_foreground)
         .text_size(px(13.))
         .line_height(px(18.2))
         .font_weight(MEDIUM)

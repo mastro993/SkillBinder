@@ -1,4 +1,5 @@
 //! `crates/design/src/tokens.rs`: the scales as Rust constants, formatted as rustfmt would.
+use super::shadow::{Ink, Layer};
 use super::spec::Spec;
 use super::theme_json::KIT_COLORS;
 use anyhow::{Context, bail};
@@ -31,7 +32,7 @@ const HEADER: &str = "\
 //! The design tokens: the scales `DESIGN.md` specifies, in points. Colors with a GPUI Kit theme
 //! slot are in `themes/skillbinder.json` and read through `cx.theme()`; [`color`] holds the rest.
 
-use crate::{Tone, TypeLevel};
+use crate::{Ink, Shadow, Tone, TypeLevel};
 use gpui_kit::FontWeight;
 ";
 
@@ -59,6 +60,7 @@ pub fn render(spec: &Spec) -> anyhow::Result<String> {
     text(&mut out, spec)?;
     scale(&mut out, "icon", "Icon sizes (Layout).", ICONS)?;
     scale(&mut out, "opacity", "Whole-element opacity.", OPACITIES)?;
+    elevation(&mut out, spec)?;
     color(&mut out, spec)?;
     Ok(out)
 }
@@ -125,6 +127,69 @@ fn text(out: &mut String, spec: &Spec) -> anyhow::Result<()> {
         .map(|level| (level.name.as_str(), (), ""))
         .collect();
     listed(out, "TypeLevel", &levels)
+}
+
+/// Each level's shadow layers, as `Shadow`s whose ink is black or a Kit theme color.
+fn elevation(out: &mut String, spec: &Spec) -> anyhow::Result<()> {
+    // One layer per line, which rustfmt would fold differently for one-layer levels.
+    out.push_str("\n/// Shadow layers of each elevation level (`elevation`), in points.\n#[rustfmt::skip]\npub mod elevation {\n    use super::{Ink, Shadow};\n");
+    for (name, layers) in &spec.elevation {
+        if layers.is_empty() {
+            let _ = write!(
+                out,
+                "\n    /// `{name}`: none.\n    pub const {}: &[Shadow] = &[];\n",
+                constant(name)?
+            );
+            continue;
+        }
+        let _ = write!(
+            out,
+            "\n    /// `{name}`.\n    pub const {}: &[Shadow] = &[\n",
+            constant(name)?
+        );
+        for layer in layers {
+            let _ = writeln!(out, "        {},", self::layer(layer, spec)?);
+        }
+        out.push_str("    ];\n");
+    }
+    out.push_str("}\n");
+    let names: Vec<_> = spec
+        .elevation
+        .iter()
+        .map(|(name, _)| (name.as_str(), (), ""))
+        .collect();
+    listed(out, "&[Shadow]", &names)
+}
+
+fn layer(layer: &Layer, spec: &Spec) -> anyhow::Result<String> {
+    let ink = match &layer.ink {
+        Ink::Black(alpha) => format!("Ink::Black({alpha:?})"),
+        Ink::Color { name, alpha } => {
+            ensure_color(spec, name)?;
+            format!("Ink::Theme(|theme| theme.{}, {alpha:?})", kit_field(name)?)
+        }
+    };
+    Ok(format!(
+        "Shadow::new({:?}, {:?}, {:?}, {:?}, {ink})",
+        layer.x, layer.y, layer.blur, layer.spread
+    ))
+}
+
+fn ensure_color(spec: &Spec, name: &str) -> anyhow::Result<()> {
+    if spec.colors.iter().any(|color| color.name == name) {
+        Ok(())
+    } else {
+        bail!("elevation uses colors.{name}, which DESIGN.md does not define")
+    }
+}
+
+/// The Kit theme field holding color `role`: its theme key without `.background`, in snake case.
+fn kit_field(role: &str) -> anyhow::Result<String> {
+    let (key, _) = KIT_COLORS
+        .iter()
+        .find(|(_, kit_role)| *kit_role == role)
+        .with_context(|| format!("elevation uses colors.{role}, which has no Kit theme key"))?;
+    Ok(key.trim_end_matches(".background").replace(['.', '-'], "_"))
 }
 
 /// The colors Kit has no theme key for, generated as light and dark Rust colors

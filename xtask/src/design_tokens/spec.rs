@@ -1,4 +1,5 @@
 //! The token groups of `DESIGN.md`'s YAML front matter, in the order the file lists them.
+use super::shadow::{self, Layer};
 use anyhow::{Context, bail, ensure};
 use yaml_rust2::{Yaml, YamlLoader, yaml::Hash};
 
@@ -25,6 +26,9 @@ pub struct Spec {
     pub typography: Vec<Level>,
     pub rounded: Vec<(String, f32)>,
     pub spacing: Vec<(String, f32)>,
+    /// Each level's shadow layers. The DESIGN.md format has no such group; its linter accepts
+    /// one, and the Elevation & Depth prose describes it.
+    pub elevation: Vec<(String, Vec<Layer>)>,
 }
 
 const DARK: &str = "-dark";
@@ -46,6 +50,15 @@ impl Spec {
                 .collect::<anyhow::Result<_>>()?,
             rounded: dimensions(group(root, "rounded")?)?,
             spacing: dimensions(group(root, "spacing")?)?,
+            elevation: entries(group(root, "elevation")?)?
+                .into_iter()
+                .map(|(name, value)| {
+                    let text = value.as_str().unwrap_or_default();
+                    let layers =
+                        shadow::parse(text).with_context(|| format!("elevation.{name}"))?;
+                    Ok((name.to_owned(), layers))
+                })
+                .collect::<anyhow::Result<_>>()?,
         })
     }
 

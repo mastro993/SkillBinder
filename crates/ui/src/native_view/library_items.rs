@@ -20,13 +20,12 @@ use gpui_kit::{
     ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, canvas, div,
     prelude::FluentBuilder, px,
 };
-use skillbinder_design::MEDIUM;
 use skillbinder_design::library::{
-    CARD_RADIUS, DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
-    TILE_MIN_HEIGHT, TILE_PADDING, TILE_RADIUS,
+    DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
+    TILE_MIN_HEIGHT, TILE_PADDING,
 };
-use skillbinder_design::tokens::color;
-use skillbinder_design::tokens::text;
+use skillbinder_design::tokens::{color, text};
+use skillbinder_design::{Level, MEDIUM, Surface};
 use skillbinder_proto::{Skill, SkillDetails, SkillId};
 
 /// The hover group of a row or tile, whose dashed `+` shows while it is hovered.
@@ -89,7 +88,7 @@ impl SkillItem<'_> {
 }
 
 impl NativeView {
-    /// The list's card: one bordered surface holding every row, divided by inset hairlines. A
+    /// The list's card: one flat surface holding every row, divided by inset hairlines. A
     /// `narrow` list has no room for a workspace's name, so one chip counts the workspaces.
     pub(super) fn skill_list(
         &self,
@@ -98,11 +97,8 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let last = items.len().saturating_sub(1);
-        v_flex()
-            .border_1()
-            .rounded(px(CARD_RADIUS))
-            .border_color(cx.theme().border)
-            .bg(surface(cx))
+        Surface::new(Level::Flat)
+            .apply(v_flex(), cx.theme())
             .children(
                 items
                     .iter()
@@ -125,7 +121,7 @@ impl NativeView {
     ) -> AnyElement {
         let owner = format!("skill-row-{}", item.skill.id);
         let hover = cx.theme().muted;
-        let inner = px(CARD_RADIUS - 1.);
+        let inner = px(Surface::new(Level::Flat).inner_radius());
         let row = div()
             .id(owner.clone())
             .group(ITEM_GROUP)
@@ -163,9 +159,10 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let owner = format!("skill-card-{}", item.skill.id);
-        // A tile wears the list card's surface and hairline; only the hover fill differs.
-        let (rest, hover, border) = (surface(cx), cx.theme().muted, cx.theme().border);
-        let card = div()
+        // A tile is a flat surface like the list card; only the hover fill differs.
+        let hover = cx.theme().muted;
+        let card = Surface::new(Level::Flat)
+            .apply(div(), cx.theme())
             .id(owner.clone())
             .group(ITEM_GROUP)
             .relative()
@@ -176,10 +173,6 @@ impl NativeView {
             .min_w_0()
             .min_h(px(TILE_MIN_HEIGHT))
             .p(px(TILE_PADDING))
-            .rounded(px(TILE_RADIUS))
-            .bg(rest)
-            .border_1()
-            .border_color(border)
             .cursor_pointer()
             .hover(move |card| card.bg(hover))
             .child(self.title_line(item, cx))
@@ -295,11 +288,6 @@ fn divider(cx: &App) -> AnyElement {
         .h(px(1.))
         .bg(cx.theme().border)
         .into_any_element()
-}
-
-/// The list card's surface, which the agent avatars ring themselves in.
-pub(super) fn surface(cx: &App) -> Hsla {
-    skillbinder_design::library::surface(cx.theme())
 }
 
 /// The glyphs after a skill's name, for its update, drift, and validation, then on a workspace's

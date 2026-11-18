@@ -138,8 +138,6 @@ impl NativeView {
             .pb(px(INSET))
             .bg(background)
             .text_color(foreground)
-            .border_r(hairline)
-            .border_color(border)
             .on_hover(cx.listener(|view, hovered: &bool, _, cx| view.hover_sidebar(*hovered, cx)))
             .child(self.render_sidebar_header(cx))
             .child(
@@ -295,8 +293,8 @@ impl NativeView {
             }))
             .child(
                 gpui_kit::base::resize_handle("sidebar-resize", Axis::Horizontal)
-                    // The sidebar's own hairline border is the divider; the kit line would
-                    // double it at 1pt.
+                    // The raised page panel separates the sidebar from the page; a line would
+                    // add a border DESIGN.md rules out.
                     .with_appearance(Rc::new(|_, _, _| Some(div().into_any_element())))
                     .on_drag(SidebarDrag(cx.entity_id()), |_, _, _, cx| {
                         cx.new(|_| EmptyView)

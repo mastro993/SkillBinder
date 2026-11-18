@@ -22,14 +22,15 @@ use std::{
 use super::snapshot_query::Places;
 use super::{DialogState, NativeView, Route};
 use gpui_kit::base::{Align, Placement, Positioner};
-use gpui_kit::component::{ActiveTheme, ThemeStyled};
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, Bounds, Context, Div, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
     MouseDownEvent, ParentElement, Pixels, Role, StatefulInteractiveElement, Styled,
     TestSupportExt, Window, deferred, div, point, px,
 };
 use sections::{Placer, Sections};
-use skillbinder_design::menu::{RADIUS, WINDOW_MARGIN, surface as menu_surface};
+use skillbinder_design::menu::{RADIUS, WINDOW_MARGIN};
+use skillbinder_design::{Level, Surface};
 use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
 pub(super) use focus::key_bindings;
@@ -247,8 +248,8 @@ impl PlacePopover {
         }
     }
 
-    /// The popover's box around `content`, a dialog named `label`: Kit's popover surface, with
-    /// its hairline ring and shadow, on the menu's fill and corners. It holds the popover's
+    /// The popover's box around `content`, a dialog named `label`: an overlay surface with the
+    /// menu's corners. It holds the popover's
     /// focus, cycles its controls with Tab and Shift-Tab, and runs `close` on Escape or on a press
     /// outside it, except on its trigger, whose click toggles it.
     fn surface<V: 'static>(
@@ -259,14 +260,14 @@ impl PlacePopover {
         cx: &Context<V>,
     ) -> impl IntoElement + Styled + use<V> {
         let outside = self.cells.trigger.clone();
-        let surface = div()
+        let theme = cx.theme();
+        let surface = Surface::new(Level::Overlay)
+            .radius(RADIUS)
+            .apply(div(), theme)
             .id("place-popover")
             .w(px(WIDTH))
             .p(px(PADDING))
-            // Kit's surface sets its own fill and corners, so the menu's come after it.
-            .popover_style(cx)
-            .bg(menu_surface(cx.theme()))
-            .rounded(px(RADIUS))
+            .text_color(theme.popover_foreground)
             .child(content)
             .test_support()
             .track_focus(&self.focus)

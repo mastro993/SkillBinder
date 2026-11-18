@@ -1,4 +1,5 @@
-//! The sidebar row: icon, truncated label, optional trailing detail, and a selection fill.
+//! The sidebar row: icon, truncated label, optional trailing detail, and the selection's raised
+//! pill.
 
 use std::{path::PathBuf, rc::Rc};
 
@@ -21,6 +22,7 @@ use gpui_kit::{
 use skillbinder_design::sidebar::{
     DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, LABEL_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
 };
+use skillbinder_design::{Level, Surface};
 
 /// Unselected icons sit a step below their label, as in the reference design.
 const ICON_OPACITY: f32 = 0.65;
@@ -133,7 +135,13 @@ pub(super) fn row_with_marker(
         .text_size(px(LABEL_SIZE))
         .font_weight(FontWeight::MEDIUM)
         .text_color(text)
-        .when(selected, |row| row.bg(theme.sidebar_accent))
+        // The selection is a raised pill on the canvas.
+        .when(selected, |row| {
+            Surface::new(Level::Raised)
+                .radius(RADIUS)
+                .fill(theme.sidebar_accent)
+                .apply(row, theme)
+        })
         .when(!selected, |row| row.hover(move |style| style.bg(hover)))
         .child(icon.element(tint, neutral))
         .child(

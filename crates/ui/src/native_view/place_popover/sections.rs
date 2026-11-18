@@ -14,14 +14,15 @@ use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
 use super::super::workspace_icons::sized_icon;
 use super::{PlacePopover, place_line};
 use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, Toggle, spring};
-use gpui_kit::component::{ActiveTheme, box_shadow, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, FocusHandle, InteractiveElement, IntoElement,
-    ParentElement, Pixels, StatefulInteractiveElement, Styled, Text, Window, div, hsla,
+    ParentElement, Pixels, StatefulInteractiveElement, Styled, Text, Window, div,
     prelude::FluentBuilder, px, transparent_black,
 };
 use skillbinder_design::menu::LINE_INK;
-use skillbinder_design::tokens::text;
+use skillbinder_design::tokens::{radius, text};
+use skillbinder_design::{Level, Surface};
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
 /// The view showing the popover, which saves what its controls change.
@@ -268,7 +269,7 @@ fn on_change<V: Placer>(
 
 /// The All agents switch: Kit's base switch on the popover's `focus` for it, which keeps that focus
 /// while it does nothing. Its 30 by 18 track takes the switch color, primary while `on`, and Kit's
-/// focus ring while a key gave it focus; its shadowed 14 px thumb sits `thumb` from the start.
+/// focus ring while a key gave it focus; its raised 14 px thumb sits `thumb` from the start.
 fn all_agents_switch(
     on: bool,
     thumb: Pixels,
@@ -294,18 +295,12 @@ fn all_agents_switch(
         .bg(theme.switch)
         .styles(|styles| styles.checked(|style| style.bg(primary)))
         .child(
-            SwitchThumb::new(on)
+            Surface::new(Level::Raised)
+                .radius(radius::FULL)
+                .fill(theme.switch_thumb)
+                .apply(SwitchThumb::new(on), theme)
                 .size(px(THUMB))
-                .rounded_full()
-                .left(thumb)
-                .bg(theme.switch_thumb)
-                .shadow(vec![box_shadow(
-                    px(0.),
-                    px(1.),
-                    px(1.),
-                    px(0.),
-                    hsla(0., 0., 0., 0.25),
-                )]),
+                .left(thumb),
         );
     Switch::new("place-all-agents")
         .checked(on)

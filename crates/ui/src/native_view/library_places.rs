@@ -8,7 +8,7 @@ use super::NativeView;
 use super::controls::text::sized;
 use super::controls::{Logo, app_icon, tooltip};
 use super::library_avatars::{Ring, stack};
-use super::library_items::{ITEM_GROUP, surface};
+use super::library_items::ITEM_GROUP;
 use super::preset_colors::preset_tint;
 use super::sidebar_row::dot;
 use super::snapshot_query::{SkillPlaces, WorkspacePlace};
@@ -20,9 +20,9 @@ use gpui_kit::{
     ParentElement, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Text, canvas,
     div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::MEDIUM;
 use skillbinder_design::menu::HIGHLIGHT_INK;
 use skillbinder_design::tokens::{icon, text};
+use skillbinder_design::{Level, MEDIUM};
 use skillbinder_proto::Preset;
 
 /// The hover groups of the placement button and of a pill.
@@ -118,7 +118,7 @@ fn active_button(
         }
     };
     let ring = Ring {
-        rest: behind(surface(cx)),
+        rest: behind(Level::Flat.fill(theme)),
         hovered: Some(behind(theme.muted)),
     };
     let held: Vec<_> = places.held_agents().collect();

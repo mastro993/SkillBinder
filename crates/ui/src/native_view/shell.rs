@@ -6,7 +6,7 @@ use super::controls::button;
 use super::skill_picker::Place;
 use super::{
     NativeView, Route,
-    sidebar::{SidebarDrag, clamp_sidebar_width, hairline, visible_width},
+    sidebar::{SidebarDrag, clamp_sidebar_width, visible_width},
 };
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable, TitleBar, button::ButtonVariants, h_flex,
@@ -15,7 +15,8 @@ use gpui_kit::{
     AnyElement, Context, DragMoveEvent, InteractiveElement, IntoElement, MouseButton,
     ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::HEADER_HEIGHT;
+use skillbinder_design::page::{GUTTER, INSET};
+use skillbinder_design::{HEADER_HEIGHT, Surface};
 use skillbinder_proto::{AppError, Preferences};
 
 gpui_kit::actions!(
@@ -145,6 +146,7 @@ impl NativeView {
             .relative()
             .size_full()
             .flex()
+            .bg(cx.theme().sidebar)
             .on_drag_move(
                 cx.listener(|view, event: &DragMoveEvent<Rc<SidebarDrag>>, _, cx| {
                     if event.drag(cx).0 != cx.entity_id() {
@@ -180,11 +182,17 @@ impl NativeView {
                     .flex_col()
                     .child(self.render_header(true, window, cx))
                     .child(
-                        div()
-                            .id("main-scroll")
+                        Surface::panel()
+                            .apply(div().id("main-scroll"), cx.theme())
                             .relative()
                             .flex_1()
                             .min_h_0()
+                            .mt(px(INSET))
+                            .mr(px(INSET))
+                            .mb(px(INSET))
+                            .when(collapsed, |panel| panel.ml(px(INSET)))
+                            // The scrollbar and the scrolled page stay inside the panel.
+                            .overflow_hidden()
                             .on_hover(cx.listener(|view, hovered: &bool, _, cx| {
                                 if view.content_scroll.hover(*hovered) {
                                     cx.notify();
@@ -197,9 +205,9 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The page under the header: Library frames itself, with a fixed toolbar over its own
-    /// scrolling list; every other page scrolls whole, a workspace's page in its own frame and the
-    /// rest inside the shell's 24-point gutter.
+    /// The page inside the panel: Library frames itself, with a fixed toolbar over its own
+    /// scrolling list; every other page scrolls whole, a scoped page in its own column and the
+    /// rest inside the panel's gutter.
     fn render_content(&self, page: AnyElement, cx: &mut Context<Self>) -> Vec<AnyElement> {
         if self.route == Route::Library {
             return vec![
@@ -218,9 +226,7 @@ impl NativeView {
                 .size_full()
                 .overflow_y_scroll()
                 .track_scroll(&self.content_scroll.handle)
-                .when(!matches!(self.route, Route::Workspace(_)), |page| {
-                    page.px_6().pt_4().pb_6()
-                })
+                .when(!self.route.is_scoped(), |page| page.p(px(GUTTER)))
                 .child(page)
                 .into_any_element(),
             self.content_scroll
@@ -289,26 +295,23 @@ impl NativeView {
                 header_inset(left, visible_width(width, collapsed, delta))
             })
         });
-        // With the header's inset, the breadcrumb lines up with the page's 24-point padding.
-        let title = div().flex_1().min_w_0().pl_4().when(with_sidebar, |title| {
-            title.child(self.render_title(window, cx))
-        });
+        // With the header's inset, the breadcrumb lines up with the panel's gutter.
+        let title = div()
+            .flex_1()
+            .min_w_0()
+            .pl(px(GUTTER))
+            .when(with_sidebar, |title| {
+                title.child(self.render_title(window, cx))
+            });
         let reserves = reserves_traffic_lights(window);
-        // A page's header ends in the sidebar's hairline; onboarding's has no line.
-        let (line, line_color) = if with_sidebar {
-            (hairline(window), cx.theme().sidebar_border)
-        } else {
-            (px(0.), gpui_kit::transparent_black())
-        };
+        // Trailing actions line up with the page's content inside the panel.
+        let trailing = px(INSET + GUTTER);
         if cfg!(target_os = "macos") {
             TitleBar::new()
                 .border_0()
-                .border_b(line)
-                .border_color(line_color)
                 .bg(gpui_kit::transparent_black())
                 .h(px(HEADER_HEIGHT))
-                // Trailing actions line up with the page's own 24-point padding.
-                .pr_6()
+                .pr(trailing)
                 .when(with_sidebar, |bar| bar.pl_0())
                 .when(!with_sidebar && !reserves, |bar| bar.pl_2())
                 .children(inset)
@@ -320,9 +323,7 @@ impl NativeView {
                 .id("header")
                 .flex_shrink_0()
                 .h(px(HEADER_HEIGHT))
-                .border_b(line)
-                .border_color(line_color)
-                .pr_6()
+                .pr(trailing)
                 .when(!with_sidebar, |row| row.pl_2())
                 .children(inset)
                 .child(title)

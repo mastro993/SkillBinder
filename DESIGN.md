@@ -141,6 +141,12 @@ spacing:
   sidebar-row: 32px
   list-row: 56px
   header: 44px
+elevation:
+  flat: none
+  raised: "0 0 0 0.5px rgba(0,0,0,0.08), 0 1px 2px 0 rgba(0,0,0,0.08)"
+  raised-panel: "0 0 0 0.5px rgba(0,0,0,0.08), 0 1px 2px 0 rgba(0,0,0,0.08), 0 6px 16px -6px rgba(0,0,0,0.08)"
+  overlay: "0 0 0 1px {colors.foreground}/10%, 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)"
+  modal: "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)"
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
@@ -338,18 +344,22 @@ The system font (SF Pro through `.SystemUIFont`) everywhere, SF Mono for paths a
 
 A 4 px rhythm with a 6 px half step for tight controls: `2xs` 2, `xs` 4, `sm` 6, `md` 8, `lg` 12, `xl` 16, `2xl` 24, `3xl` 32. Control heights follow Kit: 24 (small) and 32 (medium). The window header is 44; sidebar rows are 32; library list rows are at least 56.
 
-- The window is a two-pane layout: the sidebar on the canvas, the page in an inset panel 6 px from the window's top-right-bottom edges. The panel's content uses a 16 px gutter.
+- The window is a two-pane layout: the sidebar and the header on the canvas, the page in an inset panel 6 px from the header and the window's right and bottom edges (and its left edge while the sidebar is hidden). The panel's content uses a 16 px gutter on every side, and the header's trailing actions line up with it.
 - Icon sizes come from one scale: 12, 14, 16, 20. An inline icon beside caption text is 14; a sidebar or row icon is 16.
 - Dialogs are sized from the window (at most 92% wide and 90% tall) or from a fixed width of 320 or 420.
 
 ## Elevation & Depth
 
-Four levels. Raised and overlay surfaces get a hairline ring plus a soft drop shadow, never a heavy border. GPUI draws a blur about twice as wide as CSS, so blur values here are half the visual target.
+Four levels, each a set of shadow layers in the `elevation` tokens. Raised and overlay surfaces get a hairline ring plus a soft drop shadow, never a heavy border. GPUI draws a blur about twice as wide as CSS, so blur values here are half the visual target.
 
-- **Flat**: rows, cards inside the panel. A card has a 1 px `border` ring and no drop shadow.
-- **Raised**: the inset page panel, the selected sidebar row, the selected segment, the dragged row. Ring `rgba(0,0,0,0.08)` at 0.5 px, shadow 0 1 2 `rgba(0,0,0,0.08)`; the panel adds 0 6 16 -6 `rgba(0,0,0,0.08)`.
-- **Overlay**: menus, popovers, the progress pill. Ring `foreground` at 10%, shadows 0 10 15 -3 and 0 4 6 -4 at 10% black (the current `menu::shadow`).
-- **Modal**: dialogs and toasts, Kit's large shadow over the dimmed window. GPUI has no backdrop blur; the blocking wash is the page color at 70%.
+A level is `none` or a comma-separated list of layers, each `x y blur spread color` in px, drawn outside the surface. A ring is a layer with no offset or blur and a positive spread. The color is black at an alpha, `rgba(0,0,0,a)`, or a color token, optionally at an alpha: `{colors.foreground}/10%`.
+
+- **Flat**: rows, cards inside the panel. A card has a 1 px `border` outline, drawn inside it so a scroll view never clips it, and no shadow.
+- **Raised**: the inset page panel, the selected sidebar row, the selected segment, the dragged row, a switch's thumb. Ring `rgba(0,0,0,0.08)` at 0.5 px, shadow 0 1 2 `rgba(0,0,0,0.08)`; the panel (`raised-panel`) adds 0 6 16 -6 `rgba(0,0,0,0.08)`.
+- **Overlay**: menus, popovers, the progress pill. Ring `foreground` at 10%, shadows 0 10 15 -3 and 0 4 6 -4 at 10% black. A menu fades the whole set in as it opens.
+- **Modal**: dialogs and toasts, Kit's dialog shadow over the dimmed window. GPUI has no backdrop blur; the blocking wash is the page color at 70%.
+
+Flat and raised surfaces fill with `background`, overlay and modal ones with `popover`; a raised surface may take another fill, such as the selected sidebar row's `sidebar-accent`.
 
 In dark mode shadows fade, so surfaces separate by lightness: canvas `#111113`, panel `#1B1B1F`, popover `#222227`.
 
@@ -387,6 +397,6 @@ Radii scale with the object's size: `xs` 4 for tags and image tiles, `sm` 6 for 
 This file is the source of truth for every token. `cargo run -p xtask -- design-tokens` generates their code form in the design-system crate, and every color lands in exactly one of two places:
 
 - **The GPUI Kit theme file** (light and dark, loaded at startup) takes the colors Kit has a key for: `background`, `foreground`, `sidebar`, `sidebar-foreground`, `sidebar-accent`, `muted`, `muted-foreground`, `border`, `popover`, `ring`, `primary` with its hover, active, and foreground, and the `success`, `warning`, `danger`, and `info` fills. It also takes `radius` (`rounded.sm`) and `radius.lg` (`rounded.lg`). Kit's `success.foreground`, `warning.foreground`, `danger.foreground`, and `info.foreground` keep Kit's meaning, the text on the filled status color: the generator sets each, in both modes, to whichever of `primary-foreground` and the light `foreground` (`#1C1C21`) contrasts more with that fill; the fills keep one value in both modes, so the choice does too. A `-text` tone never goes there.
-- **Generated Rust constants** take everything Kit has no key for, as light and dark pairs: `hairline`, `accent-soft`, `accent-soft-foreground`, the `-text` tones, and `preset-*`. The same file holds spacing, type levels, radii, icon sizes, opacity, and elevation.
+- **Generated Rust constants** take everything Kit has no key for, as light and dark pairs: `hairline`, `accent-soft`, `accent-soft-foreground`, the `-text` tones, and `preset-*`. The same file holds spacing, type levels, radii, icon sizes, opacity, and the `elevation` shadow layers; a layer's color token must be one Kit has a key for.
 
 The generator fails on a color with no destination rather than skipping it. `cargo run -p xtask -- verify` fails while the generated files disagree with this file, so a token change is an edit here followed by the generator, in one commit. Lint this file with `npx -y @google/design.md@0.4.0 lint DESIGN.md`; the only expected warnings are orphaned `-dark` and `preset-*` colors. The build plan is in [docs/design-system/plan.md](docs/design-system/plan.md).
