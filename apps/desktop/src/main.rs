@@ -97,6 +97,11 @@ fn run() -> anyhow::Result<()> {
     }
     #[cfg(feature = "native-test")]
     let smoke_result = smoke.clone();
+    // An agent driving the bridge launches with GPUI_MCP_BACKGROUND so the window leaves the user's focus alone.
+    #[cfg(feature = "native-test")]
+    let background = mode == native_test::NativeMode::Mcp && gpui_mcp::launched_in_background();
+    #[cfg(not(feature = "native-test"))]
+    let background = false;
     let shutdown_runtime = runtime.handle().clone();
     gpui_kit::application()
         .with_assets(skillbinder_ui::Assets)
@@ -201,6 +206,7 @@ fn run() -> anyhow::Result<()> {
                 app_id: Some("skillbinder".into()),
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 window_min_size: Some(size(px(860.0), px(588.0))),
+                focus: !background,
                 ..window_chrome()
             };
             if let Err(error) = gpui_kit::open_window(options, cx, |window, cx| {
@@ -245,7 +251,9 @@ fn run() -> anyhow::Result<()> {
             }
             #[cfg(feature = "native-test")]
             eprintln!("Native test: window initialization returned");
-            cx.activate(true);
+            if !background {
+                cx.activate(true);
+            }
         });
     Ok(())
 }

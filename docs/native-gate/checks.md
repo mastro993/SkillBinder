@@ -57,14 +57,14 @@ Install the server from the pinned `gpui-mcp` fork separately:
 
 ```sh
 cargo install --git https://github.com/mastro993/gpui-mcp \
-  --rev af32f601b7bedc8d0af16874f3b1a6c67133d2f8 \
+  --rev d162da702699d4298498438a3864face3569aea7 \
   --locked gpui-mcp-server
 ```
 
-Start the test build with a disposable data directory. MCP mode keeps onboarding in its normal state and leaves the window open until you quit the application.
+Start the test build with a disposable data directory. MCP mode keeps onboarding in its normal state and leaves the window open until you quit the application. With `GPUI_MCP_BACKGROUND=1`, the window opens without focus and the app does not activate, so an agent can drive it while the user keeps working in another app. The bridge draws frames for a covered or unfocused window, so it never needs to be raised.
 
 ```sh
-cargo run -p skillbinder --features native-test --locked -- \
+GPUI_MCP_BACKGROUND=1 cargo run -p skillbinder --features native-test --locked -- \
   --mcp --data-dir /tmp/skillbinder-mcp-fixture
 ```
 
@@ -86,7 +86,7 @@ cargo run -p xtask --locked -- mcp-smoke \
   target/debug/skillbinder ~/.cargo/bin/gpui-mcp
 ```
 
-The task creates an isolated fixture, selects the launched process by PID, completes onboarding, drags the sidebar resize handle and requires the sidebar to widen, hides and shows the sidebar from the header toggle, switches the theme from the sidebar toggle beside Settings and back, opens Settings from its sidebar row, opens Sync, types and replaces text in the GPUI Kit Remote URL input, quits through the keyboard, and checks that the process leaves MCP discovery. The task uses Select All followed by `type_text` to exercise keyboard editing rather than replacing the input through a programmatic setter. Kit redirects semantic input focus to its inner editor, so the bridge can report the outer input's `focused` flag as false while typing succeeds. The check requires the replacement to appear in the intended input; the renderer smoke separately checks the editing state's real focus handle. The task keeps child processes bounded and stops them on failure. Run this check in a desktop session. MCP screenshot capture and visual parity remain separate checks. During the earlier macOS integration run, screen capture preflight returned false and screenshot capture returned `application window was not available for capture`.
+The task creates an isolated fixture, launches the app in the background, selects the launched process by PID, completes onboarding, drags the sidebar resize handle and requires the sidebar to widen, hides and shows the sidebar from the header toggle, switches the theme from the sidebar toggle beside Settings and back, opens Settings from its sidebar row, opens Sync, types and replaces text in the GPUI Kit Remote URL input, quits through the keyboard, and checks that the process leaves MCP discovery. The task uses Select All followed by `type_text` to exercise keyboard editing rather than replacing the input through a programmatic setter. Kit redirects semantic input focus to its inner editor, so the bridge can report the outer input's `focused` flag as false while typing succeeds. The check requires the replacement to appear in the intended input; the renderer smoke separately checks the editing state's real focus handle. The task keeps child processes bounded and stops them on failure. Run this check in a desktop session. MCP screenshot capture and visual parity remain separate checks. During the earlier macOS integration run, screen capture preflight returned false and screenshot capture returned `application window was not available for capture`.
 
 The `Checks` workflow gates pull requests and also runs on `main`. One Linux x64 job checks formatting and retained evidence, then runs strict Clippy and workspace tests with all features. It runs no platform-specific checks and builds no application.
 

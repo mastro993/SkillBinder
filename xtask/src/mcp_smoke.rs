@@ -109,6 +109,8 @@ pub(crate) fn run(mut args: impl Iterator<Item = OsString>) -> anyhow::Result<()
         Command::new(app)
             .args(["--mcp", "--data-dir"])
             .arg(fixture.path())
+            // The bridge draws a covered window, so the smoke leaves the user's focus alone.
+            .env("GPUI_MCP_BACKGROUND", "1")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
