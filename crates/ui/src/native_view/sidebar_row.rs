@@ -12,18 +12,18 @@ use gpui_kit::{
     prelude::FluentBuilder, px, white,
 };
 use skillbinder_design::sidebar::{
-    DETAIL_SIZE, DOT_SIZE, ICON_GAP, ICON_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
+    DETAIL_SIZE, DOT_SIZE, HOVER_OPACITY, ICON_GAP, ICON_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
 };
-use skillbinder_design::tokens::text;
+use skillbinder_design::tokens::{radius, space, text};
 use skillbinder_design::{
     Button, IconSize, InlineNameField, Level, NameFieldSize, Spinner, Surface, Text, icon,
 };
 use skillbinder_design::{MenuItem, OpenMenu, icon_color};
 
 /// Space between a row's label and a marker after it, such as the active preset's check.
-const MARKER_GAP: f32 = 4.0;
+const MARKER_GAP: f32 = space::XS;
 /// How far an image icon's corners are rounded inside the row icon slot.
-const IMAGE_RADIUS: f32 = 4.0;
+const IMAGE_RADIUS: f32 = radius::XS;
 
 /// What a row shows in its icon slot: a tinted glyph or a stored image.
 #[derive(Clone)]
@@ -155,7 +155,7 @@ pub(super) fn row_with_marker(
 
 /// The fill of an unselected row under the pointer, or whose context menu is open.
 fn hover_fill(cx: &App) -> Hsla {
-    cx.theme().sidebar_accent.opacity(0.5)
+    cx.theme().sidebar_accent.opacity(HOVER_OPACITY)
 }
 
 /// Runs `action` on click, and on Enter or Space while the row has keyboard focus.

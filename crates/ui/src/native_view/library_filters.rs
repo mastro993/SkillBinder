@@ -33,6 +33,10 @@ const VIEWS: [(LibraryView, &str, &str); 2] = [
 ];
 /// The gap between the filter segments and the Updates chip.
 const FILTERS_GAP: f32 = space::SM;
+/// The search field's starting width, before it grows into the toolbar's free space, and the
+/// narrowest it shrinks to: layout measured from the approved Library prototype.
+const SEARCH_BASIS: f32 = 120.;
+const SEARCH_MIN: f32 = 100.;
 
 impl NativeView {
     /// The toolbar, its filters with their `counts`.
@@ -43,10 +47,10 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let search = SearchField::new("library-search", &self.search)
-            .flex_basis(px(120.))
+            .flex_basis(px(SEARCH_BASIS))
             .flex_grow(1.)
             .flex_shrink(1.)
-            .min_w(px(100.));
+            .min_w(px(SEARCH_MIN));
         h_flex()
             .flex_none()
             .h(px(TOOLBAR_HEIGHT))

@@ -8,12 +8,13 @@ use gpui_kit::{
     Animation, AnimationExt, AnyElement, App, ElementId, IntoElement, ParentElement, Pixels,
     ScrollHandle, Styled, div,
 };
+use skillbinder_design::tokens::opacity;
 
 /// GPUI Kit's scrollbar fade timings.
 const SCROLLBAR_ENTER: Duration = Duration::from_millis(300);
 const SCROLLBAR_EXIT: Duration = Duration::from_millis(500);
 /// The shown scrollbar's opacity, which keeps it quieter than the content beside it.
-const SCROLLBAR_OPACITY: f32 = 0.5;
+const SCROLLBAR_OPACITY: f32 = opacity::INACTIVE;
 
 #[derive(Default)]
 pub(super) struct HoverScroll {

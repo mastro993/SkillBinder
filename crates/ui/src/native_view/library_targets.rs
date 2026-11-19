@@ -3,6 +3,7 @@
 //! Universal is one row, since its agents share one directory.
 
 use super::controls::agent_icon;
+use skillbinder_design::tokens::space;
 use skillbinder_design::{Button, IconSize, icon};
 use std::collections::BTreeSet;
 
@@ -47,7 +48,7 @@ impl NativeView {
             })
             .flex_shrink_0()
             .items_center()
-            .gap_2()
+            .gap(px(space::MD))
             .child(self.activation_toggle(skill, cx))
             .child(self.targets_button(skill, cx))
             .into_any_element()

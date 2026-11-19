@@ -49,9 +49,7 @@ impl NativeView {
             .enumerate()
             .map(|(index, workspace)| {
                 if self.workspace_edit.as_ref() == Some(&workspace.id) {
-                    let tint = workspace
-                        .color
-                        .map(|color| preset_tint(color, cx.theme().mode.is_dark()));
+                    let tint = workspace.color.map(|color| preset_tint(color, cx.theme()));
                     return name_field(
                         "workspace-name-field",
                         row_icon(workspace),
@@ -126,9 +124,7 @@ impl NativeView {
         let route = Route::Workspace(workspace.id.clone());
         let selected = self.route == route;
         let label: SharedString = workspace.name.clone().into();
-        let tint = workspace
-            .color
-            .map(|color| preset_tint(color, cx.theme().mode.is_dark()));
+        let tint = workspace.color.map(|color| preset_tint(color, cx.theme()));
         let accessible = if workspace.missing {
             format!("{}, folder missing", workspace.name)
         } else {

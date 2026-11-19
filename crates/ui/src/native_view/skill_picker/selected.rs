@@ -19,7 +19,8 @@ use skillbinder_design::{
 use skillbinder_proto::{SkillId, Workspace};
 use std::collections::BTreeSet;
 
-/// The Selected pane's share of the picker's width.
+/// The Selected pane's share of the picker's width: layout measured from the approved skill
+/// picker prototype.
 const PANE: f32 = 0.38;
 
 impl NativeView {

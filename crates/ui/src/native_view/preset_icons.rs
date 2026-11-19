@@ -12,12 +12,14 @@ use gpui_kit::{
 };
 use skillbinder_design::menu::HIGHLIGHT_INK;
 use skillbinder_design::sidebar::ICON_SIZE;
+use skillbinder_design::tokens::space;
 use skillbinder_design::tooltip;
 use skillbinder_proto::{PresetColor, PresetIcon};
 
 /// Icons per row of the picker grid.
 const GRID_COLUMNS: usize = 8;
-/// Side of one square picker cell.
+/// Side of one square picker cell, which fits the grid's eight columns in the preset menu: layout
+/// measured from the approved preset menu.
 const CELL_SIZE: f32 = 28.0;
 
 /// Every preset icon in declaration order with its label and `icons/{glyph}.svg` asset name.
@@ -175,9 +177,9 @@ fn moved(index: usize, key: &str, len: usize) -> Option<usize> {
 impl Render for IconGrid {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let tint = self.color.map_or(icon_color(cx.theme()), |color| {
-            preset_tint(color, theme.is_dark())
-        });
+        let tint = self
+            .color
+            .map_or(icon_color(cx.theme()), |color| preset_tint(color, theme));
         let (highlight, ring, radius) = (
             theme.foreground.alpha(HIGHLIGHT_INK),
             theme.ring,
@@ -231,7 +233,7 @@ impl Render for IconGrid {
             .on_key_down(cx.listener(Self::key_down))
             .grid()
             .grid_cols(GRID_COLUMNS as u16)
-            .gap(px(2.0))
+            .gap(px(space::XXS))
             .children(cells)
     }
 }

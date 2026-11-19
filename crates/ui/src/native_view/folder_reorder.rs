@@ -11,12 +11,12 @@ use gpui_kit::{
     IntoElement, MouseButton, ParentElement, Pixels, Point, Render, SharedString, Stateful,
     StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::radius;
+use skillbinder_design::tokens::{radius, space};
 use skillbinder_design::{Level, Surface};
 use skillbinder_proto::{FolderId, OrganizationChange};
 
 /// Space between neighbouring folder tabs.
-pub(super) const TAB_GAP: f32 = 4.0;
+pub(super) const TAB_GAP: f32 = space::XS;
 
 /// Drag payload for reordering folder tabs; also the tab floating under the pointer.
 #[derive(Clone)]
@@ -43,8 +43,8 @@ impl Render for FolderDrag {
             .apply(div(), theme)
             .flex()
             .items_center()
-            .h(px(24.))
-            .px_2()
+            .h(px(space::CONTROL_SM))
+            .px(px(space::MD))
             .text_color(theme.foreground)
             .child(tab_label(&self.name))
     }

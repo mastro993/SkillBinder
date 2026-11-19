@@ -20,7 +20,7 @@ use gpui_kit::{
     px, transparent_black,
 };
 use skillbinder_design::tokens::color::HAIRLINE;
-use skillbinder_design::tokens::{radius, text};
+use skillbinder_design::tokens::{opacity, radius, space, text};
 use skillbinder_design::{IconSize, Level, SectionHeader, Surface, Text, focus_ring, tooltip};
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
@@ -38,7 +38,9 @@ pub(super) trait Placer: Sized + 'static {
     );
 }
 
-/// The All agents switch's track and thumb, and how far the thumb travels between off and on.
+/// The All agents switch's track and thumb, and how far the thumb travels between off and on:
+/// GPUI Kit's own small switch, which this one draws with a raised thumb. The thumb travels the
+/// track less its 1 px border and 1 px padding on each side.
 const TRACK: (f32, f32) = (30., 18.);
 const THUMB: f32 = 14.;
 const TRAVEL: f32 = TRACK.0 - THUMB - 4.;
@@ -69,7 +71,7 @@ impl Sections<'_> {
         let thumb = spring(key, travel, spring_move, window, cx);
         text::BODY_SM
             .apply(v_flex())
-            .gap(px(10.))
+            .gap(px(space::MD))
             .child(self.agents(thumb, window, cx))
             .when(!self.places.workspaces.is_empty(), |content| {
                 content.child(self.workspaces(window, cx))
@@ -92,7 +94,7 @@ impl Sections<'_> {
             .id("place-all-row")
             .flex()
             .items_center()
-            .gap(px(8.))
+            .gap(px(space::MD))
             // The switch's accessible name reads the label.
             .child("All agents")
             .child(toggle);
@@ -127,10 +129,10 @@ impl Sections<'_> {
             pills
         };
         v_flex()
-            .gap(px(8.))
+            .gap(px(space::MD))
             .child(
                 SectionHeader::new("agents-label", "Your agents")
-                    .min_h(px(22.))
+                    .min_h(px(space::CONTROL_SM))
                     .action(preset_chip("place-preset", self.preset, cx)),
             )
             .child(place_line(
@@ -154,11 +156,13 @@ impl Sections<'_> {
     /// One line per workspace, in sidebar order, under a hairline.
     fn workspaces<V: Placer>(&self, window: &Window, cx: &Context<V>) -> AnyElement {
         v_flex()
-            .gap(px(8.))
-            .pt(px(10.))
+            .gap(px(space::MD))
+            .pt(px(space::MD))
             .border_t_1()
             .border_color(HAIRLINE.of(cx.theme()))
-            .child(SectionHeader::new("workspaces-label", "Workspaces").min_h(px(22.)))
+            .child(
+                SectionHeader::new("workspaces-label", "Workspaces").min_h(px(space::CONTROL_SM)),
+            )
             .children(
                 self.places
                     .workspaces
@@ -205,7 +209,7 @@ impl Sections<'_> {
             .child(
                 h_flex()
                     .min_w_0()
-                    .gap(px(6.))
+                    .gap(px(space::SM))
                     .child(sized_icon(workspace, IconSize::Sm.points(), cx))
                     .child(
                         div()
@@ -219,12 +223,13 @@ impl Sections<'_> {
                     Text::labeled(format!("none-{}", workspace.id), "No agents yet")
                         .level(text::CAPTION_SM)
                         .muted()
-                        .pl(px(20.)),
+                        // Under the name, past its glyph.
+                        .pl(px(IconSize::Sm.points() + space::SM)),
                 )
             });
         let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));
         if place.missing() {
-            line.opacity(0.4)
+            line.opacity(opacity::DISABLED)
                 .tooltip(tooltip("The workspace folder is missing."))
                 .into_any_element()
         } else {
@@ -281,7 +286,7 @@ fn all_agents_switch(
         // border shows on the off track too, as on Kit's own switch.
         .border_1()
         .border_color(transparent_black())
-        .p(px(1.))
+        .p_px()
         .bg(theme.switch)
         .styles(|styles| styles.checked(|style| style.bg(primary)))
         .child(

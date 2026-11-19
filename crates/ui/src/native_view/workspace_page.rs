@@ -199,7 +199,7 @@ pub(super) fn edited_mark(id: &SkillId, names: &str, cx: &App) -> AnyElement {
     .into_any_element()
 }
 
-/// An 18 px mark holding the 13 px glyph `icon`, read as `label`, with `text` as its tooltip.
+/// A mark holding the glyph `icon`, read as `label`, with `text` as its tooltip.
 fn mark(
     id: String,
     icon: &str,
@@ -212,7 +212,7 @@ fn mark(
         .flex_none()
         .items_center()
         .justify_center()
-        .size(px(18.))
+        .size(px(IconSize::Lg.points()))
         .rounded(px(radius::XS))
         .aria_label(label)
         .child(skillbinder_design::icon(icon).with_size(IconSize::Sm))

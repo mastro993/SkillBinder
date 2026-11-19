@@ -15,7 +15,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Window, div, linear_color_stop, linear_gradient, px,
 };
-use skillbinder_design::tokens::text;
+use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{Button, SectionHeader, icon};
 use skillbinder_proto::{Onboarding, OnboardingStep};
 
@@ -78,13 +78,13 @@ pub(super) fn git_step_shown(
 }
 
 /// The column's width: the steps' 384 points, or 576 for Choose your agents' three tile columns
-/// (design P6).
+/// (design P6): layout measured from the approved onboarding prototype.
 const NARROW: f32 = 384.;
 const WIDE: f32 = 576.;
 /// The space between the step's content and its button row.
-const BUTTONS_GAP: f32 = 32.;
+const BUTTONS_GAP: f32 = space::XXXL;
 /// How far the content fades out under a pinned button row.
-const FADE: f32 = 24.;
+const FADE: f32 = space::XXL;
 
 /// A step's part of the frame.
 pub(super) struct StepView {
@@ -147,7 +147,7 @@ impl NativeView {
         let background = theme.background;
         let width = px(if view.wide { WIDE } else { NARROW });
         let head = v_flex()
-            .gap_1()
+            .gap(px(space::XS))
             .child(SectionHeader::new("onboarding-eyebrow", place.eyebrow()))
             .child(
                 text::TITLE_LG
@@ -160,15 +160,15 @@ impl NativeView {
             .w(width)
             .flex_none()
             .pt(px(BUTTONS_GAP - FADE))
-            .pb_6()
-            .gap(px(8.))
+            .pb(px(space::XXL))
+            .gap(px(space::MD))
             .children(back)
             .children(view.leading)
             .child(
                 h_flex()
                     .flex_1()
                     .justify_end()
-                    .gap(px(8.))
+                    .gap(px(space::MD))
                     .children(view.actions)
                     .children(forward),
             );
@@ -184,9 +184,9 @@ impl NativeView {
                     v_flex()
                         .id("onboarding-content")
                         .w(width)
-                        .pt_6()
+                        .pt(px(space::XXL))
                         .pb(px(FADE))
-                        .gap_4()
+                        .gap(px(space::XL))
                         .child(head)
                         .children(view.body),
                 ),

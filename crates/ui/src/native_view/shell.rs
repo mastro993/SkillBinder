@@ -7,13 +7,14 @@ use super::{
     NativeView, Route,
     sidebar::{SidebarDrag, clamp_sidebar_width, visible_width},
 };
-use gpui_kit::component::{ActiveTheme, Icon, IconName, TitleBar, h_flex};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable, TitleBar, h_flex};
 use gpui_kit::{
     AnyElement, Context, DragMoveEvent, InteractiveElement, IntoElement, MouseButton,
     ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::page::{GUTTER, INSET};
-use skillbinder_design::{Button, HEADER_HEIGHT, Surface};
+use skillbinder_design::tokens::space;
+use skillbinder_design::{Button, HEADER_HEIGHT, IconSize, Surface};
 use skillbinder_proto::{AppError, Preferences};
 
 gpui_kit::actions!(
@@ -28,10 +29,11 @@ gpui_kit::actions!(
     ]
 );
 
-/// Toggle offset beside the traffic lights: its glyph sits one light-spacing past the green light.
+/// Toggle offset beside the traffic lights: its glyph sits one light-spacing past the green light,
+/// measured from the native window.
 const TOGGLE_LEFT_MACOS: f32 = 93.0;
-const TOGGLE_SIZE: f32 = 24.0;
-const HEADER_GAP: f32 = 8.0;
+const TOGGLE_SIZE: f32 = space::CONTROL_SM;
+const HEADER_GAP: f32 = space::MD;
 
 /// Serialises preference saves: each one is a separate engine job, so two in flight could
 /// land out of order and persist the older value.
@@ -260,7 +262,7 @@ impl NativeView {
                         } else {
                             IconName::PanelLeftClose
                         })
-                        .size_4(),
+                        .with_size(IconSize::Md),
                     )
                     .accessibility_label(if collapsed {
                         "Show sidebar"
@@ -280,7 +282,7 @@ impl NativeView {
     ) -> AnyElement {
         let actions = h_flex()
             .id("header-actions")
-            .gap_2()
+            .gap(px(space::MD))
             .when(with_sidebar, |row| row.children(self.header_actions(cx)));
         let inset = with_sidebar.then(|| {
             let (width, collapsed, left) = (
@@ -310,7 +312,7 @@ impl NativeView {
                 .h(px(HEADER_HEIGHT))
                 .pr(trailing)
                 .when(with_sidebar, |bar| bar.pl_0())
-                .when(!with_sidebar && !reserves, |bar| bar.pl_2())
+                .when(!with_sidebar && !reserves, |bar| bar.pl(px(space::MD)))
                 .children(inset)
                 .child(title)
                 .child(actions)
@@ -321,7 +323,7 @@ impl NativeView {
                 .flex_shrink_0()
                 .h(px(HEADER_HEIGHT))
                 .pr(trailing)
-                .when(!with_sidebar, |row| row.pl_2())
+                .when(!with_sidebar, |row| row.pl(px(space::MD)))
                 .children(inset)
                 .child(title)
                 .child(actions)

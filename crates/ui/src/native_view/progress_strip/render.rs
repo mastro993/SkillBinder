@@ -17,19 +17,17 @@ use gpui_kit::{
     KeyDownEvent, ParentElement, Stateful, StatefulInteractiveElement, Styled, Text, Window, div,
     prelude::FluentBuilder, px, relative,
 };
-use skillbinder_design::tokens::{color, radius, space, text};
+use skillbinder_design::tokens::{color, opacity, radius, space, text};
 use skillbinder_design::{Button, IconSize, Level, Spinner, Surface, icon, tabular, tooltip};
 
-/// Height of the pill.
+/// Height of the pill, and its distance from the window's top edge: layout measured from the
+/// approved progress strip prototype.
 const PILL_HEIGHT: f32 = 34.;
-/// Distance from the window's top edge to the pill.
 const PILL_TOP: f32 = 10.;
 /// Thickness of the progress line along the pill's bottom edge.
-const LINE: f32 = 2.;
+const LINE: f32 = space::XXS;
 /// How far above its place the pill starts entering.
-const PILL_SLIDE: f32 = 6.;
-/// Opacity of the page color washed over the window while the strip shows.
-const WASH: f32 = 0.7;
+const PILL_SLIDE: f32 = space::SM;
 
 impl NativeView {
     /// The strip over everything else in the window while it is up, after the wash of one that
@@ -111,7 +109,7 @@ fn wash(id: &'static str, fading_in: bool, cx: &App) -> AnyElement {
     div()
         .absolute()
         .inset_0()
-        .bg(cx.theme().background.opacity(WASH))
+        .bg(cx.theme().background.opacity(opacity::WASH))
         .with_animation(
             id,
             Animation::new(wash_fade(cx)).with_easing(move |delta| easing.sample(delta)),
@@ -177,15 +175,15 @@ fn working_pill(
     let (muted, color) = (theme.muted_foreground, theme.primary);
     let line = progress_line(label, percent, color, window, cx);
     pill("activation-strip", cx)
-        .pl(px(12.))
-        .pr(px(14.))
-        .gap(px(8.))
+        .pl(px(space::LG))
+        .pr(px(space::LG))
+        .gap(px(space::MD))
         .child(Spinner::new(IconSize::Sm))
         .child(div().id("activation-strip-label").child(label))
         .child(
             div()
                 .id("activation-strip-percent")
-                .min_w(px(32.))
+                .min_w(px(space::XXXL))
                 .text_color(muted)
                 .font_features(tabular())
                 .child(format!("{percent}%")),
@@ -245,15 +243,15 @@ fn progress_line(
 fn done_pill(waiting: usize, cx: &mut Context<NativeView>) -> Stateful<Div> {
     let warning = color::WARNING_TEXT.of(cx.theme());
     pill("activation-strip", cx)
-        .pl(px(10.))
+        .pl(px(space::MD))
         .pr(px(space::XS))
-        .gap(px(6.))
+        .gap(px(space::SM))
         .child(
             icon("alert-circle")
                 .with_size(IconSize::Md)
                 .text_color(warning),
         )
-        .child(div().mr(px(4.)).child(Text::new(
+        .child(div().mr(px(space::XS)).child(Text::new(
             "activation-strip-label".into(),
             done_label(waiting).into(),
         )))

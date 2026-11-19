@@ -8,7 +8,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px,
 };
-use skillbinder_design::tokens::space;
+use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{Button, IconSize, Notice, NoticeSize, Spinner, icon, tooltip};
 use skillbinder_proto::{AppSnapshot, SkillId, UpdateCheck, UpdateOutcome};
 
@@ -88,12 +88,12 @@ impl NativeView {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(24.))
+                .size(px(space::CONTROL_SM))
                 .tooltip(tooltip(format!("Updating {done} of {total} skills")))
                 .child(
                     ProgressCircle::new("library-update-circle")
                         .value(Self::percent(done, total))
-                        .with_size(Size::Size(px(24.))),
+                        .with_size(Size::Size(px(space::CONTROL_SM))),
                 )
                 .into_any_element();
         }
@@ -103,7 +103,7 @@ impl NativeView {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(24.))
+                .size(px(space::CONTROL_SM))
                 .tooltip(tooltip("Checking skill updates"))
                 .child(spinner())
                 .into_any_element();
@@ -233,8 +233,8 @@ impl NativeView {
     pub(super) fn render_update_outcome(&self, cx: &Context<Self>) -> Option<AnyElement> {
         let outcome = self.update_outcome.as_ref()?;
         Some(
-            div()
-                .text_sm()
+            text::BODY_MD
+                .apply(div())
                 .text_color(cx.theme().muted_foreground)
                 .child(summary(outcome))
                 .into_any_element(),

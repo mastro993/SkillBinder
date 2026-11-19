@@ -19,6 +19,7 @@ use gpui_kit::{
     prelude::FluentBuilder, px,
 };
 use skillbinder_design::menu::HIGHLIGHT_INK;
+use skillbinder_design::tokens::{opacity, radius, space};
 use skillbinder_design::{
     AvatarStack, Chip, ChipVariant, IconSize, Level, Logo, Separator, Text, dashed, icon, tooltip,
 };
@@ -27,8 +28,12 @@ use skillbinder_proto::Preset;
 /// The hover groups of the placement button and of a pill.
 const PLACE_GROUP: &str = "place";
 const PILL_GROUP: &str = "pill";
-/// The widest a workspace's name shows in its chip.
+/// The widest a workspace's name shows in its chip: layout measured from the approved Library
+/// prototype.
 const CHIP_NAME_MAX: f32 = 140.;
+/// An agent pill's width, a step wider than its small-control height so it reads as a pill: layout
+/// measured from the approved Library prototype.
+const PILL_WIDTH: f32 = 26.;
 
 impl NativeView {
     /// The skill's placement button; clicking it, or Enter or Space while it has focus, opens or
@@ -52,8 +57,8 @@ impl NativeView {
             .flex()
             .flex_none()
             .items_center()
-            .min_h(px(26.))
-            .rounded(px(6.))
+            .min_h(px(space::CONTROL_SM))
+            .rounded(px(radius::SM))
             .tab_index(0)
             .role(Role::Button)
             .aria_expanded(open)
@@ -140,20 +145,16 @@ fn active_button(
             .tooltip(tooltip(format!("Your agents\n{names}")))
     });
     button
-        .gap(px(6.))
-        .pl(px(6.))
-        .pr(px(4.))
+        .gap(px(space::SM))
+        .pl(px(space::SM))
+        .pr(px(space::XS))
         .aria_label(format!("Change where {} is on", places.skill))
         .children(agents)
         .when(!held.is_empty() && !workspaces.is_empty(), |button| {
             button.child(Separator::vertical().h(px(IconSize::Sm.points())))
         })
         .children(workspace_chip(places, &workspaces, narrow, cx))
-        .child(
-            inked("chevron", open, cx)
-                .opacity(0.7)
-                .child(icon("arrow-down").with_size(IconSize::Xs)),
-        )
+        .child(inked("chevron", open, cx).child(icon("arrow-down").with_size(IconSize::Xs)))
         .into_any_element()
 }
 
@@ -204,12 +205,12 @@ fn workspace_chip(
     )
 }
 
-/// The 26 px dashed `+` circle of an inactive skill, shown while its row or tile is hovered, it
+/// The dashed `+` circle of an inactive skill, shown while its row or tile is hovered, it
 /// has keyboard focus, or its popover is open.
 fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> AnyElement {
     dashed(button, cx.theme())
         .justify_center()
-        .size(px(26.))
+        .size(px(space::CONTROL_SM))
         .rounded_full()
         .aria_label(format!("Turn on {slug}"))
         .opacity(if open { 1. } else { 0. })
@@ -243,9 +244,7 @@ pub(super) fn preset_chip(id: &'static str, preset: Option<&Preset>, cx: &App) -
     let theme = cx.theme();
     let tint = preset
         .and_then(|preset| preset.color)
-        .map_or(theme.muted_foreground, |color| {
-            preset_tint(color, theme.is_dark())
-        });
+        .map_or(theme.muted_foreground, |color| preset_tint(color, theme));
     let name = preset.map_or_else(|| "Default".to_owned(), |preset| preset.name.clone());
     div()
         .id(id)
@@ -288,22 +287,24 @@ pub(super) fn place_pill(
         .text_color(if on {
             foreground
         } else {
-            theme.muted_foreground.opacity(0.5)
+            theme.muted_foreground.opacity(opacity::INACTIVE)
         })
         .when(!on && !inert, |mark| {
             mark.group_hover(PILL_GROUP, move |style| {
-                style.text_color(foreground.opacity(0.5))
+                style.text_color(foreground.opacity(opacity::INACTIVE))
             })
         })
-        .when(!on && logo.is_color(), |mark| mark.opacity(0.5))
+        .when(!on && logo.is_color(), |mark| {
+            mark.opacity(opacity::INACTIVE)
+        })
         .child(logo.element(IconSize::Md, !on));
     Toggle::new(id)
         .pressed(on)
         .accessibility_label(label)
         .group(PILL_GROUP)
         .flex_none()
-        .w(px(26.))
-        .h(px(24.))
+        .w(px(PILL_WIDTH))
+        .h(px(space::CONTROL_SM))
         .rounded_full()
         .map(|pill| {
             if on {

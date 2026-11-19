@@ -172,26 +172,32 @@ fn numeric_constant(code: &str) -> bool {
     let declares = head.split_whitespace().any(|word| word == "const")
         && (head.ends_with(": f32") || head.ends_with(": f64"));
     let value = value.trim().strip_suffix(';').unwrap_or(value.trim());
-    declares && number_then_paren(&format!("{value})"))
+    declares && number_then_paren(&format!("{value})")).is_some()
 }
 
 fn literals(code: &str) -> Vec<Kind> {
     let mut kinds = Vec::new();
-    let calls = [
-        ("px(", Kind::Size, true),
-        ("rgb(0x", Kind::Color, false),
-        ("hsla(", Kind::Color, false),
-        (".opacity(", Kind::Alpha, true),
-        (".alpha(", Kind::Alpha, true),
+    // A call counts when it holds a number other than its neutral ones: a zero size, or a fully
+    // clear or opaque alpha, is not a value on any scale. A color call always counts.
+    let calls: [(&str, Kind, Option<&[f64]>); 5] = [
+        ("px(", Kind::Size, Some(&[0.])),
+        ("rgb(0x", Kind::Color, None),
+        ("hsla(", Kind::Color, None),
+        (".opacity(", Kind::Alpha, Some(&[0., 1.])),
+        (".alpha(", Kind::Alpha, Some(&[0., 1.])),
     ];
-    for (call, kind, numeric) in calls {
+    for (call, kind, neutral) in calls {
         for (at, _) in code.match_indices(call) {
             let starts_word = call.starts_with('.')
                 || !code[..at]
                     .chars()
                     .next_back()
                     .is_some_and(|c| c.is_alphanumeric() || c == '_');
-            if starts_word && (!numeric || number_then_paren(&code[at + call.len()..])) {
+            let counts = neutral.is_none_or(|neutral| {
+                number_then_paren(&code[at + call.len()..])
+                    .is_some_and(|value| !neutral.contains(&value))
+            });
+            if starts_word && counts {
                 kinds.push(kind);
             }
         }
@@ -199,24 +205,27 @@ fn literals(code: &str) -> Vec<Kind> {
     kinds
 }
 
-/// Whether `rest` starts with a numeric literal, such as `-3.`, `0.5`, or `12f32`, then `)`.
-fn number_then_paren(rest: &str) -> bool {
-    let rest = rest
-        .trim_start()
-        .strip_prefix('-')
-        .unwrap_or(rest.trim_start());
-    if !rest.starts_with(|c: char| c.is_ascii_digit()) {
-        return false;
+/// The numeric literal, such as `-3.`, `0.5`, or `12f32`, that `rest` starts with, when a `)`
+/// follows it.
+fn number_then_paren(rest: &str) -> Option<f64> {
+    let rest = rest.trim_start();
+    let (sign, digits) = match rest.strip_prefix('-') {
+        Some(digits) => (-1., digits),
+        None => (1., rest),
+    };
+    if !digits.starts_with(|c: char| c.is_ascii_digit()) {
+        return None;
     }
-    let end = rest
+    let end = digits
         .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == '_'))
-        .unwrap_or(rest.len());
-    let rest = &rest[end..];
+        .unwrap_or(digits.len());
+    let (number, rest) = digits.split_at(end);
     let rest = rest
         .strip_prefix("f32")
         .or_else(|| rest.strip_prefix("f64"))
         .unwrap_or(rest);
-    rest.trim_start().starts_with(')')
+    let value: f64 = number.replace('_', "").parse().ok()?;
+    rest.trim_start().starts_with(')').then_some(sign * value)
 }
 
 #[cfg(test)]
@@ -240,6 +249,12 @@ mod tests {
         );
         assert!(literals("let x = size_px(3.);").is_empty());
         assert!(literals("px(HEADER + 2.)").is_empty());
+    }
+
+    #[test]
+    fn zero_sizes_and_clear_or_opaque_alphas_do_not_count() {
+        assert!(literals(".mt(px(0.)).opacity(0.).opacity(1.).alpha(1_f32)").is_empty());
+        assert_eq!(literals(".opacity(0.0) .opacity(0.4)"), [Kind::Alpha]);
     }
 
     #[test]

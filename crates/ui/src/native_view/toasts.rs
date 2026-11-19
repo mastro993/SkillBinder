@@ -8,10 +8,11 @@ use super::NativeView;
 use super::undo::Undo;
 use gpui_kit::component::{WindowExt, notification::Notification};
 use gpui_kit::{
-    Anchor, Context, IntoElement, ParentElement, SharedString, Styled, Text, Window, div,
+    Anchor, Context, IntoElement, ParentElement, SharedString, Text, Window, div,
     prelude::FluentBuilder,
 };
 use skillbinder_design::icon;
+use skillbinder_design::tokens::text;
 
 /// The id every change's toast shares, so a newer one replaces the shown one.
 struct ChangeToast;
@@ -49,8 +50,8 @@ impl PendingToast {
             .id::<ChangeToast>()
             .when(undo.is_none(), |toast| toast.icon(icon("check-circle")))
             .content(move |_, _, _| {
-                div()
-                    .text_sm()
+                text::BODY_MD
+                    .apply(div())
                     .child(Text::new("toast-message".into(), text.clone()))
                     .into_any_element()
             })

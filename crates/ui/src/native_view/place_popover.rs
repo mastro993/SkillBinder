@@ -29,11 +29,12 @@ use gpui_kit::{
 };
 use sections::{Placer, Sections};
 use skillbinder_design::PopoverPanel;
+use skillbinder_design::tokens::space;
 use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
 pub(super) use focus::key_bindings;
 
-/// The popover's width.
+/// The popover's width: layout measured from the approved Library prototype.
 const WIDTH: f32 = 300.;
 
 /// Where the open popover's trigger and its row or tile were last painted, in window
@@ -300,8 +301,8 @@ pub(super) fn place_line<E: Styled + IntoElement>(
     div()
         .flex()
         .items_center()
-        .gap(px(8.))
-        .min_h(px(28.))
+        .gap(px(space::MD))
+        .min_h(px(space::CONTROL_SM))
         .child(lead.flex_grow(1.).flex_shrink_0())
         .child(
             div()
@@ -309,7 +310,7 @@ pub(super) fn place_line<E: Styled + IntoElement>(
                 .flex_wrap()
                 .justify_end()
                 .items_center()
-                .gap(px(4.))
+                .gap(px(space::XS))
                 .min_w_0()
                 .children(pills),
         )

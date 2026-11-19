@@ -4,7 +4,7 @@ use super::NativeView;
 use super::custom_color::CustomColor;
 use super::preset_icons::menu_glyph;
 use super::sidebar_presets::menu_action;
-use gpui_kit::component::ActiveTheme;
+use gpui_kit::component::{ActiveTheme, Theme};
 use gpui_kit::{
     AnyElement, App, Context, Hsla, IntoElement, ParentElement, Rgba, Styled, WeakEntity, Window,
     div, px,
@@ -31,7 +31,7 @@ fn color_name(color: PresetColor) -> &'static str {
 
 /// How `color` is drawn: palette colors use the `preset-*` tones, which keep contrast on the dark
 /// and light sidebar surfaces, and a custom color is the same in both.
-pub(super) fn preset_tint(color: PresetColor, dark: bool) -> Hsla {
+pub(super) fn preset_tint(color: PresetColor, theme: &Theme) -> Hsla {
     let tone = match color {
         PresetColor::Gray => color::PRESET_GRAY,
         PresetColor::Red => color::PRESET_RED,
@@ -46,7 +46,7 @@ pub(super) fn preset_tint(color: PresetColor, dark: bool) -> Hsla {
             Tone::new(srgb, srgb)
         }
     };
-    tone.get(dark)
+    tone.of(theme)
 }
 
 /// `color` as an opaque sRGB color; any transparency is dropped.
@@ -120,7 +120,7 @@ pub(super) fn color_menu<T: Clone + 'static>(
 /// How `color` is drawn in the current theme, or the menu glyph color without one.
 fn tint(color: Option<PresetColor>, cx: &App) -> Hsla {
     color.map_or(icon_color(cx.theme()), |color| {
-        preset_tint(color, cx.theme().is_dark())
+        preset_tint(color, cx.theme())
     })
 }
 

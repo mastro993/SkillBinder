@@ -14,13 +14,12 @@ use gpui_kit::{
     px,
 };
 use skillbinder_design::page::{GAP, GUTTER};
-use skillbinder_design::tokens::text;
-use skillbinder_design::{EmptyState, SearchField, Text};
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{EmptyState, IconSize, SearchField, Text};
 use skillbinder_proto::Skill;
 
-/// The glyph's square.
-const ICON: f32 = 18.;
-/// The search field's width on a scoped page.
+/// The search field's width on a scoped page: layout measured from the approved scoped-page
+/// prototype.
 const SEARCH_WIDTH: f32 = 220.;
 
 impl NativeView {
@@ -56,11 +55,11 @@ impl NativeView {
         h_flex()
             .id("page-head")
             .min_w_0()
-            .gap(px(8.))
+            .gap(px(space::MD))
             .child(
                 h_flex()
                     .flex_none()
-                    .size(px(ICON))
+                    .size(px(IconSize::Lg.points()))
                     .justify_center()
                     .child(icon),
             )

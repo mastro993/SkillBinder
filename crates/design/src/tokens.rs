@@ -227,6 +227,9 @@ pub mod opacity {
 
     /// `disabled`. A disabled control or menu row.
     pub const DISABLED: f32 = 0.4;
+
+    /// `wash`. The page color over the window while a change blocks it.
+    pub const WASH: f32 = 0.7;
 }
 
 /// Shadow layers of each elevation level (`elevation`), in points.

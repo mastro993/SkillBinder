@@ -31,18 +31,14 @@ pub(super) fn row_icon(workspace: &Workspace) -> RowIcon {
 
 /// The workspace's glyph in a menu row's icon slot, or its stored image when set.
 pub(super) fn menu_icon(workspace: &Workspace, cx: &App) -> AnyElement {
-    let tint = workspace
-        .color
-        .map(|color| preset_tint(color, cx.theme().is_dark()));
+    let tint = workspace.color.map(|color| preset_tint(color, cx.theme()));
     row_icon(workspace).element(tint, icon_color(cx.theme()))
 }
 
 /// The workspace's glyph or image `size` px square, its glyph tinted or muted, as a Library chip
 /// or popover line shows it.
 pub(super) fn sized_icon(workspace: &Workspace, size: f32, cx: &App) -> AnyElement {
-    let tint = workspace
-        .color
-        .map(|color| preset_tint(color, cx.theme().is_dark()));
+    let tint = workspace.color.map(|color| preset_tint(color, cx.theme()));
     row_icon(workspace).sized(tint, cx.theme().muted_foreground, size)
 }
 
