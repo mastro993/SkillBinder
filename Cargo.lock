@@ -2756,7 +2756,7 @@ dependencies = [
 [[package]]
 name = "gpui-mcp"
 version = "0.1.0"
-source = "git+https://github.com/mastro993/gpui-mcp?rev=af32f601b7bedc8d0af16874f3b1a6c67133d2f8#af32f601b7bedc8d0af16874f3b1a6c67133d2f8"
+source = "git+https://github.com/mastro993/gpui-mcp?rev=d162da702699d4298498438a3864face3569aea7#d162da702699d4298498438a3864face3569aea7"
 dependencies = [
  "async-channel",
  "gpui-mcp-protocol",
@@ -2777,7 +2777,7 @@ dependencies = [
 [[package]]
 name = "gpui-mcp-protocol"
 version = "0.1.0"
-source = "git+https://github.com/mastro993/gpui-mcp?rev=af32f601b7bedc8d0af16874f3b1a6c67133d2f8#af32f601b7bedc8d0af16874f3b1a6c67133d2f8"
+source = "git+https://github.com/mastro993/gpui-mcp?rev=d162da702699d4298498438a3864face3569aea7#d162da702699d4298498438a3864face3569aea7"
 dependencies = [
  "directories",
  "schemars",
@@ -2789,7 +2789,7 @@ dependencies = [
 [[package]]
 name = "gpui-pre"
 version = "0.3.12"
-source = "git+https://github.com/mastro993/gpui-mcp?rev=af32f601b7bedc8d0af16874f3b1a6c67133d2f8#af32f601b7bedc8d0af16874f3b1a6c67133d2f8"
+source = "git+https://github.com/mastro993/gpui-mcp?rev=d162da702699d4298498438a3864face3569aea7#d162da702699d4298498438a3864face3569aea7"
 dependencies = [
  "accesskit",
  "anyhow",
