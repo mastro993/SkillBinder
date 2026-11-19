@@ -42,8 +42,12 @@ impl NativeView {
             self.leave_page();
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
+            self.explore.clear(window, cx);
             if let Route::Skill(id) = &route {
                 self.load_skill(id.clone(), cx);
+            }
+            if route == Route::Explore {
+                self.client.explore_opened();
             }
         }
         self.route = route;

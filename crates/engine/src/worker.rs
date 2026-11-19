@@ -1,5 +1,6 @@
 use crate::{
     activation::Progress,
+    catalog::Catalogs,
     database,
     git::{Git, Installer},
     grants::GrantedDirectory,
@@ -38,6 +39,7 @@ struct Owner {
     thread: Mutex<Option<JoinHandle<AppResult<()>>>>,
     scans: Scans,
     updates: Updates,
+    catalog: Catalogs,
     progress: Progress,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
@@ -58,6 +60,8 @@ pub(crate) struct State {
     pub log: Logger,
     pub scans: Scans,
     pub updates: Updates,
+    /// Explore's catalog, which snapshots read.
+    pub catalog: Catalogs,
     /// How far a tracked change has got; passes count their pairs into it.
     pub progress: Progress,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
@@ -98,6 +102,7 @@ impl Engine {
         let updates = Updates::default();
         let progress = Progress::default();
         let shutdown = Shutdown::default();
+        let catalog = Catalogs::open(config.catalog.clone(), &config.data_dir, shutdown.clone());
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
             config,
@@ -108,6 +113,7 @@ impl Engine {
             log,
             scans: scans.clone(),
             updates: updates.clone(),
+            catalog: catalog.clone(),
             progress: progress.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
@@ -160,6 +166,7 @@ impl Engine {
                 thread: Mutex::new(Some(thread)),
                 scans,
                 updates,
+                catalog,
                 progress,
                 shutdown,
             }),
@@ -249,6 +256,18 @@ impl Engine {
     /// durable mutation.
     pub fn current_scan(&self) -> AppResult<(Option<ScanSnapshot>, bool)> {
         self.owner.scans.current()
+    }
+    /// Refreshes Explore's catalog on its own thread and waits for it to end, unless a refresh is
+    /// running or the catalog is current and was fetched within `max_age`.
+    pub async fn refresh_catalog(&self, max_age: std::time::Duration) -> AppResult<()> {
+        if let Some(finished) = self.owner.catalog.refresh(max_age.as_secs())? {
+            finished.await.map_err(|_| AppError::storage())?;
+        }
+        Ok(())
+    }
+    /// Explore's catalog and its state, without waiting for a durable mutation.
+    pub fn current_explore(&self) -> ExploreSnapshot {
+        self.owner.catalog.current()
     }
     /// Whether a source check is running, so the client can publish the header's state without
     /// waiting for the check to finish.
@@ -371,6 +390,7 @@ impl State {
             scan,
             scanning,
             updates,
+            explore: self.catalog.current(),
             sync,
             // A snapshot is a worker job, so no tracked change is in flight while it runs.
             activation: None,
@@ -424,70 +444,6 @@ impl State {
     }
 }
 #[cfg(test)]
-#[expect(
-    clippy::unwrap_used,
-    reason = "Test fixture failures must abort the test."
-)]
-impl State {
-    pub(crate) fn isolated_test_state(data_dir: PathBuf) -> Self {
-        let home = data_dir.join("home");
-        for path in [
-            home.clone(),
-            data_dir.join("staging"),
-            data_dir.join("library/skills"),
-            data_dir.join("logs"),
-        ] {
-            fs::create_dir_all(path).unwrap();
-        }
-        Self {
-            config: EngineConfig::isolated(data_dir.clone(), home.clone()),
-            database: RefCell::new(database::open(&data_dir.join(DATABASE)).unwrap()),
-            git: None,
-            outdated_git: None,
-            installer: Installer::detect(),
-            log: Logger::start(data_dir.join("logs"), &home).unwrap(),
-            scans: Scans::default(),
-            updates: Updates::default(),
-            progress: Progress::default(),
-            grants: BTreeMap::new(),
-            recovery_required: false,
-            shutdown: Shutdown::default(),
-            lock: File::create(data_dir.join("test.lock")).unwrap(),
-        }
-    }
-}
-
+mod test_state;
 #[cfg(all(test, unix))]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    #[expect(
-        clippy::unwrap_used,
-        reason = "Fixture failures must abort the regression test."
-    )]
-    async fn shutdown_releases_lock_while_a_child_retains_the_descriptor() {
-        let temp = tempfile::tempdir().unwrap();
-        let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
-        let engine = Engine::open(config.clone()).unwrap();
-        let inherited_descriptor = engine
-            .call(|state| state.lock.try_clone().map_err(|_| AppError::storage()))
-            .await
-            .unwrap();
-        let mut child = std::process::Command::new("/bin/cat")
-            .stdin(std::process::Stdio::piped())
-            .stdout(inherited_descriptor)
-            .spawn()
-            .unwrap();
-        assert!(
-            matches!(Engine::open(config.clone()), Err(error) if error.category == ErrorCategory::Busy)
-        );
-
-        engine.shutdown().await.unwrap();
-        assert!(child.try_wait().unwrap().is_none());
-        let reopened = Engine::open(config);
-        drop(child.stdin.take());
-        assert!(child.wait().unwrap().success());
-        reopened.unwrap().shutdown().await.unwrap();
-    }
-}
+mod tests;

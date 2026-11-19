@@ -136,3 +136,22 @@ async fn a_tracked_change_shows_its_result_and_leaves_no_progress_published() ->
     engine.shutdown().await?;
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn launch_refreshes_the_catalog_and_publishes_how_it_went() -> TestResult {
+    let directory = tempfile::tempdir()?;
+    // An isolated engine's catalog source is missing, so it answers as an unreachable host.
+    let engine = ready(directory.path()).await?;
+    let client = Client::new(engine.clone(), Handle::current()).await?;
+    let mut snapshots = client.subscribe();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while client.snapshot().explore.state != CatalogState::Offline {
+            snapshots.changed().await?;
+        }
+        Ok::<_, watch::error::RecvError>(())
+    })
+    .await??;
+    assert_eq!(client.snapshot().explore.catalog, None);
+    engine.shutdown().await?;
+    Ok(())
+}

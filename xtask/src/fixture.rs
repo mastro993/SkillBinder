@@ -12,6 +12,8 @@ use std::{
 
 /// Placeholder files that keep an empty directory in Git; the world gets the directory only.
 const KEEP: &str = ".gitkeep";
+/// The repository the synthetic catalog lists Northwind Labs' skills from.
+const CATALOG_SOURCE: &str = "https://git.example.invalid/northwind/skills.git";
 
 pub(crate) fn build(root: &Path, out: Option<&str>) -> anyhow::Result<()> {
     let Some(out) = out else {
@@ -38,6 +40,19 @@ pub(crate) fn build(root: &Path, out: Option<&str>) -> anyhow::Result<()> {
         let bare = out.join("remotes").join(repo_name(&remote)?);
         commit_snapshots(&bare, &[remote])?;
     }
+    // The catalog lists this skill from the same source, so Explore shows it in library. Its
+    // host never resolves, so its update check fails without reaching the network.
+    lock.insert(
+        "pdf-tools".to_owned(),
+        json!({
+            "source": CATALOG_SOURCE,
+            "sourceType": "git",
+            "sourceUrl": CATALOG_SOURCE,
+            "skillPath": "skills/pdf-tools/SKILL.md",
+            "skillFolderHash": "",
+        }),
+    );
+    copy_tree(&world.join("catalog"), &out.join("catalog"))?;
     let lock = json!({ "version": 3, "skills": lock });
     fs::write(
         out.join("home/.agents/.skill-lock.json"),
@@ -198,14 +213,21 @@ fn file_url(path: &Path) -> anyhow::Result<String> {
 
 fn print_usage(out: &Path) {
     let (data, home, projects) = (out.join("data"), out.join("home"), out.join("projects"));
+    let catalog = out.join("catalog");
     let remote = file_url(&out.join("remotes/library.git")).unwrap_or_default();
     println!("Synthetic world ready at {}", out.display());
     println!();
     println!("Launch it:");
     println!(
-        "  cargo run -p skillbinder --features native-test --locked -- --data-dir {} --home {}",
+        "  cargo run -p skillbinder --features native-test --locked -- --data-dir {} --home {} --catalog-dir {}",
         data.display(),
-        home.display()
+        home.display(),
+        catalog.display()
+    );
+    println!();
+    println!(
+        "Explore reads its catalog from {}; rename that folder to go offline.",
+        catalog.display()
     );
     println!();
     println!(

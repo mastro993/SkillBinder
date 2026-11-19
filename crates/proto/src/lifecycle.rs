@@ -183,6 +183,8 @@ pub struct AppSnapshot {
     pub updates: BTreeMap<SkillId, SkillUpdate>,
     /// An update check is running; `updates` keeps the previous results until it completes.
     pub checking: bool,
+    /// Explore's catalog and how its last refresh went.
+    pub explore: crate::ExploreSnapshot,
     /// Git connection and status.
     pub sync: SyncSnapshot,
     /// How far the change that writes and removes copies has got while it runs, or `None`.

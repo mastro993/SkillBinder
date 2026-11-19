@@ -1,4 +1,5 @@
 use crate::{
+    catalog::{BASE_URL, CatalogSource},
     git::Git,
     onboarding::{self, Facts},
     persistence,
@@ -46,6 +47,8 @@ pub struct EngineConfig {
     pub git: GitProfile,
     /// Where Git is looked for.
     pub git_search: GitSearch,
+    /// Where Explore's catalog is fetched from.
+    pub catalog: CatalogSource,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
@@ -57,12 +60,18 @@ impl EngineConfig {
             environment: std::env::vars().collect(),
             git: GitProfile::User,
             git_search: GitSearch::System,
+            catalog: CatalogSource::Http(
+                url::Url::parse(BASE_URL).map_err(|_| AppError::storage())?,
+            ),
         })
     }
     /// Creates an isolated engine configuration for tests or native fixtures. Git reads only
-    /// `home`'s configuration, so a fixture never reaches the user's credentials or identity.
+    /// `home`'s configuration, so a fixture never reaches the user's credentials or identity, and
+    /// the catalog comes from `<data_dir>/catalog-source`, which is missing, so offline, until a
+    /// fixture writes it.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
+            catalog: CatalogSource::Directory(data_dir.join("catalog-source")),
             data_dir,
             home,
             environment: BTreeMap::new(),

@@ -1,6 +1,7 @@
 //! Typed contracts shared by the embedded engine, client, and native views.
 
 mod activation;
+mod catalog;
 mod error;
 mod library;
 mod lifecycle;
@@ -9,6 +10,7 @@ mod sync;
 mod workspaces;
 
 pub use activation::*;
+pub use catalog::*;
 pub use error::*;
 pub use library::*;
 pub use lifecycle::*;

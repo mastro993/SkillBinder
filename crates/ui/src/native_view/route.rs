@@ -6,6 +6,8 @@ use skillbinder_proto::{AppSnapshot, SkillId, WorkspaceId};
 /// A navigable page.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) enum Route {
+    /// The catalog and search, the sidebar's first row; the app still opens on Library.
+    Explore,
     #[default]
     Library,
     /// A library skill's page, with its files: `skill/{id}`.

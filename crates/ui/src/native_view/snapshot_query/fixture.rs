@@ -5,10 +5,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use skillbinder_proto::{
-    AgentDir, AgentOption, AppSnapshot, Bootstrap, DirRole, Drift, FolderId, GitInstall, Library,
-    LibrarySnapshot, Onboarding, OnboardingStep, Preferences, Preset, PresetIcon, PresetId,
-    SameSlug, Skill, SkillDetails, SkillId, SkillUpdate, StepStatus, SyncSnapshot, Targets,
-    UpdateCheck, Workspace, WorkspaceId, WorkspaceTargets,
+    AgentDir, AgentOption, AppSnapshot, Bootstrap, DirRole, Drift, ExploreSnapshot, FolderId,
+    GitInstall, Library, LibrarySnapshot, Onboarding, OnboardingStep, Preferences, Preset,
+    PresetIcon, PresetId, SameSlug, Skill, SkillDetails, SkillId, SkillUpdate, StepStatus,
+    SyncSnapshot, Targets, UpdateCheck, Workspace, WorkspaceId, WorkspaceTargets,
 };
 
 /// The fixture's home folder.
@@ -68,6 +68,7 @@ impl Fixture {
                     library,
                     revision: String::new(),
                     details: BTreeMap::new(),
+                    keys: BTreeMap::new(),
                     copies: Vec::new(),
                 }),
                 home: HOME.to_owned(),
@@ -77,6 +78,7 @@ impl Fixture {
                 scanning: false,
                 updates: BTreeMap::new(),
                 checking: false,
+                explore: ExploreSnapshot::default(),
                 sync: SyncSnapshot::default(),
                 activation: None,
                 preferences: Preferences::default(),
@@ -179,6 +181,8 @@ impl Fixture {
             recorded: String::new(),
             drift: None,
         });
+        // Fixture slugs are lowercase ASCII, which folding leaves as they are.
+        library.keys.insert(slug.to_owned(), id(slug));
         library.details.insert(
             id(slug),
             SkillDetails {

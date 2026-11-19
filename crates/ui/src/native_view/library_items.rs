@@ -14,15 +14,16 @@ use super::workspace_page::{WorkspaceRow, edited_mark, workspace_marks};
 use super::{NativeView, Route};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, App, Context, Div, InteractiveElement, IntoElement, ParentElement, Stateful,
-    Styled, canvas, div, prelude::FluentBuilder, px,
+    AnyElement, App, Context, Div, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, canvas, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::library::{
-    DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y, TILE_GAP,
-    TILE_MIN_HEIGHT, TILE_PADDING,
+    DIVIDER_INSET, ROW_GAP, ROW_MIN_HEIGHT, ROW_PADDING_X, ROW_PADDING_Y,
 };
 use skillbinder_design::tokens::{opacity, space, text};
-use skillbinder_design::{Chip, ChipVariant, Level, Separator, Status, StatusGlyph, Surface, Text};
+use skillbinder_design::{
+    Chip, ChipVariant, Level, Separator, SkillCard, Status, StatusGlyph, Surface, Text,
+};
 use skillbinder_proto::{Skill, SkillDetails, SkillId};
 
 /// The hover group of a row or tile, whose dashed `+` shows while it is hovered.
@@ -139,7 +140,7 @@ impl NativeView {
                     .min_w_0()
                     .gap(px(space::XXS))
                     .child(self.title_line(item, cx))
-                    .child(description(item, 1, cx)),
+                    .child(description(item, cx)),
             )
             .child(self.row_end(item, false, narrow, cx));
         frame(self, row, item, owner, cx)
@@ -154,33 +155,16 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let owner = format!("skill-card-{}", item.skill.id);
-        // A tile is a flat surface like the list card; only the hover fill differs.
-        let hover = cx.theme().muted;
-        let card = Surface::new(Level::Flat)
-            .apply(div(), cx.theme())
-            .id(owner.clone())
+        let card = SkillCard::new(owner.clone())
             .group(ITEM_GROUP)
-            .relative()
-            .flex()
-            .flex_col()
-            .gap(px(TILE_GAP))
-            .w_full()
-            .min_w_0()
-            .min_h(px(TILE_MIN_HEIGHT))
-            .p(px(TILE_PADDING))
-            .cursor_pointer()
-            .hover(move |card| card.bg(hover))
-            .child(self.title_line(item, cx))
-            .child(description(item, 2, cx))
-            .child(
-                div()
-                    .mt_auto()
-                    .pt(px(space::SM))
-                    .min_h(px(space::CONTROL_MD))
-                    .flex()
-                    .items_center()
-                    .child(self.row_end(item, true, narrow, cx)),
-            );
+            .hover(true)
+            .title(self.title_line(item, cx))
+            .description(
+                format!("desc-{}", item.name()),
+                item.description().to_owned(),
+            )
+            .faded(item.dimmed())
+            .footer(self.row_end(item, true, narrow, cx));
         frame(self, card, item, owner, cx)
     }
 
@@ -235,13 +219,16 @@ impl NativeView {
 /// Opens the skill's page on click or Enter, and, except on an agent's page, its menu on
 /// right-click. While the skill's popover is open, the row records where it was painted, so the
 /// popover can open above it.
-fn frame(
+fn frame<E>(
     view: &NativeView,
-    element: Stateful<Div>,
+    element: E,
     item: &SkillItem<'_>,
     owner: String,
     cx: &mut Context<NativeView>,
-) -> AnyElement {
+) -> AnyElement
+where
+    E: StatefulInteractiveElement + ParentElement + Styled + IntoElement,
+{
     let id = item.skill.id.clone();
     let route = Route::Skill(id.clone());
     let element = element.when_some(view.open_popover_cells(&id), |element, cells| {
@@ -325,19 +312,13 @@ pub(super) fn update_glyph(id: &SkillId) -> AnyElement {
     .into_any_element()
 }
 
-/// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
-fn description(item: &SkillItem<'_>, lines: usize, cx: &App) -> impl IntoElement {
+/// A row's description, muted on one line, dimmed on an inactive skill.
+fn description(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
     text::CAPTION
         .apply(div().id(format!("desc-{}", item.name())))
         .min_w_0()
         .text_color(cx.theme().muted_foreground)
         .when(item.dimmed(), |text| text.opacity(DIM))
-        .map(|text| {
-            if lines == 1 {
-                text.truncate()
-            } else {
-                text.line_clamp(lines).text_ellipsis()
-            }
-        })
+        .truncate()
         .child(item.description().to_owned())
 }

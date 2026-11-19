@@ -7,6 +7,7 @@ mod copy_changed;
 mod copy_dialogs;
 mod custom_color;
 mod dialogs;
+mod explore;
 mod folder_reorder;
 mod git_setup;
 mod hover_scroll;
@@ -166,6 +167,8 @@ pub struct NativeView {
     /// Inline preset name editing in the sidebar.
     preset_edit: Option<PresetEdit>,
     preset_reorder: RowReorder<PresetId>,
+    /// Explore's search and the creator it is narrowed to.
+    explore: explore::Explore,
     /// The library folder chosen in the header; none is All skills. Not kept across restarts.
     library_folder: Option<FolderId>,
     /// Library's Active and Updates filters; like the folder, not kept across restarts.
@@ -334,6 +337,7 @@ impl NativeView {
             menu: None,
             preset_edit: None,
             preset_reorder: RowReorder::default().pinned(1),
+            explore: explore::Explore::new(window, cx),
             library_folder: None,
             library_filter: snapshot_query::LibraryFilter::default(),
             place_popover: None,
@@ -419,6 +423,7 @@ impl Render for NativeView {
                 .into_any_element()
         } else {
             let page = match &self.route {
+                Route::Explore => self.render_explore(window, cx),
                 Route::Library => self.render_library(window, cx),
                 Route::Skill(id) => self.render_skill(&id.clone(), cx),
                 Route::Workspace(id) => self.render_workspace(&id.clone(), cx),

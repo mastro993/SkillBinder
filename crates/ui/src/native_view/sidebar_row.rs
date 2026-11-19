@@ -159,12 +159,12 @@ fn hover_fill(cx: &App) -> Hsla {
 }
 
 /// Runs `action` on click, and on Enter or Space while the row has keyboard focus.
-pub(super) fn activate(
-    row: Stateful<Div>,
+pub(super) fn activate<E: StatefulInteractiveElement>(
+    row: E,
     label: impl Into<SharedString>,
     cx: &mut Context<NativeView>,
     action: impl Fn(&mut NativeView, &mut Window, &mut Context<NativeView>) + 'static,
-) -> Stateful<Div> {
+) -> E {
     let action = Rc::new(action);
     let click = action.clone();
     row.tab_index(0)
@@ -191,14 +191,14 @@ pub(super) fn activate(
 
 /// Opens the context menu `items` builds when the row is right-clicked; the row keeps its hover
 /// fill while its menu is open. Apply it after [`activate`], so the menu takes focus first.
-pub(super) fn with_menu(
-    row: Stateful<Div>,
+pub(super) fn with_menu<E: InteractiveElement + Styled + FluentBuilder>(
+    row: E,
     owner: impl Into<SharedString>,
     selected: bool,
     view: &NativeView,
     cx: &mut Context<NativeView>,
     items: impl Fn(&mut NativeView, &mut Window, &mut Context<NativeView>) -> Vec<MenuItem> + 'static,
-) -> Stateful<Div> {
+) -> E {
     let owner = owner.into();
     let open = view.menu.as_ref().is_some_and(|menu| menu.is_for(&owner));
     row.when(open && !selected, |row| row.bg(hover_fill(cx)))

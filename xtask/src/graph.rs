@@ -56,6 +56,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "toml",
             "unicode-casefold",
             "unicode-normalization",
+            "ureq",
             "url",
             "uuid",
             "yaml-rust2",

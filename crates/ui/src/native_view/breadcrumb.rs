@@ -32,6 +32,7 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
         Route::Workspace(_)
         | Route::Agent(_)
         | Route::Universal
+        | Route::Explore
         | Route::Library
         | Route::Sync
         | Route::Settings => None,
@@ -44,6 +45,7 @@ pub(super) fn crumbs(route: &Route, title: String) -> Vec<Crumb> {
 fn title(route: &Route) -> String {
     match route {
         Route::Skill(id) => id.to_string(),
+        Route::Explore => "Explore".to_owned(),
         Route::Sync => "Sync".to_owned(),
         Route::Settings => "Settings".to_owned(),
         Route::Library | Route::Workspace(_) | Route::Agent(_) | Route::Universal => String::new(),

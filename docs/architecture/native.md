@@ -34,9 +34,9 @@ The client publishes immutable projections through coalescing subscriptions. A f
 
 The executable drains the engine in GPUI’s quit hook before native termination. This is necessary on macOS, where AppKit can terminate the process without returning from the application event loop. Quit shortcuts and last-window closure share this path. The drain cancels scanning and stops a Git command that is waiting on a remote, so quitting during synchronization returns at once instead of waiting for a process timeout; commands that change the local repository finish first, so quitting never leaves one half-applied. The worker closes SQLite and explicitly releases the library lock before shutdown returns. This also releases inherited references held by subprocesses; closing only the worker's descriptor would leave those references locked.
 
-## Planned: Explore
+## Explore
 
-Explore is planned and not built yet ([spec](../specs/explore-and-install.md), ADR 0014, ADR 0015). The engine will own the app's only HTTP client, GET-only, to the catalog's base URL and skills.sh's search. HTTP requests (the catalog, avatars, searches) will run on one engine thread, and Git listings, previews, and install fetches on at most three more, so a search never waits behind a clone; none runs on the worker, where only an install's short commit runs. Application data will gain `catalog/`, the cached catalog and creator avatars, and the database a `repositories` table and a `skills.new` column, both machine-local.
+Explore shows the catalog: the engine's HTTP client, its catalog thread and cache, and how the client and UI read them are described in [Native Explore](native-explore.md).
 
 ## Dependency boundary
 

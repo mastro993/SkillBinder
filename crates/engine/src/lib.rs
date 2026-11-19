@@ -2,6 +2,7 @@
 
 mod activation;
 mod agents;
+mod catalog;
 mod database;
 mod folders;
 mod git;
@@ -23,5 +24,6 @@ mod sources;
 mod worker;
 mod workspaces;
 
+pub use catalog::CatalogSource;
 pub use lifecycle::{EngineConfig, GitProfile, GitSearch};
 pub use worker::Engine;

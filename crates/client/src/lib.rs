@@ -18,6 +18,8 @@ mod progress;
 
 /// How long a source check holds before the next refresh checks the skill again.
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
+/// How old the catalog may be before opening Explore fetches it again.
+const CATALOG_MAX_AGE: Duration = Duration::from_secs(60 * 60);
 
 struct Shared {
     engine: Engine,
@@ -52,6 +54,7 @@ impl Client {
         };
         client.start_refresh();
         client.refresh_app();
+        client.spawn_catalog(Duration::ZERO);
         Ok(client)
     }
     /// Returns the latest complete projection without blocking on storage.
@@ -86,6 +89,7 @@ impl Client {
                 if let Err(error) = client.shared.publish_progress() {
                     client.background_error(error);
                 }
+                client.shared.publish_explore();
                 client.check_after_scan();
             }
         });
@@ -111,6 +115,27 @@ impl Client {
                 }
             });
         }
+    }
+    /// Fetches the catalog again when Explore opens, if it is older than an hour or the last
+    /// refresh failed.
+    pub fn explore_opened(&self) {
+        self.spawn_catalog(CATALOG_MAX_AGE);
+    }
+    /// Fetches the catalog now, as Retry does.
+    pub fn refresh_catalog(&self) {
+        self.spawn_catalog(Duration::ZERO);
+    }
+    /// Refreshes the catalog in the background unless it was fetched within `max_age`. The
+    /// progress poll shows it loading; its result is published as soon as it ends.
+    fn spawn_catalog(&self, max_age: Duration) {
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            let refreshed = client.shared.engine.refresh_catalog(max_age).await;
+            client.shared.publish_explore();
+            if let Err(error) = refreshed {
+                client.background_error(error);
+            }
+        });
     }
     /// Publishes whether a source check is running, which the header reads to show it.
     fn publish_checking(&self, checking: bool) {
@@ -393,12 +418,27 @@ impl Shared {
                     return false;
                 }
             }
+            snapshot.explore = self.engine.current_explore();
             self.published.store(generation, Ordering::Release);
             snapshot.generation = current.generation + 1;
             *current = Arc::new(snapshot.clone());
             true
         });
         result
+    }
+    /// Publishes the catalog and its state without waiting on the worker.
+    fn publish_explore(&self) {
+        let explore = self.engine.current_explore();
+        self.snapshots.send_if_modified(|current| {
+            if current.explore == explore {
+                return false;
+            }
+            let mut next = (**current).clone();
+            next.explore = explore;
+            next.generation = current.generation + 1;
+            *current = Arc::new(next);
+            true
+        });
     }
     /// Publishes scan progress without waiting on the worker.
     fn publish_progress(&self) -> AppResult<()> {

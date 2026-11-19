@@ -295,10 +295,16 @@ impl State {
         let (library, details) = library_store::load(&mut self.database.borrow_mut(), &self.log)?;
         let revision = revision(&library)?;
         let copies = self.copies(&library)?;
+        let keys = library
+            .skills
+            .iter()
+            .map(|skill| (normalized(skill.id.as_str()), skill.id.clone()))
+            .collect();
         Ok(LibrarySnapshot {
             library,
             revision,
             details,
+            keys,
             copies,
         })
     }

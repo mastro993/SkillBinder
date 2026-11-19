@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "generated_at": "2026-11-19T03:12:44Z",
+  "creators": [
+    {
+      "id": "northwind",
+      "name": "Northwind Labs",
+      "avatar": "avatars/northwind.png"
+    },
+    {
+      "id": "lumen",
+      "name": "Lumen Studio",
+      "avatar": "avatars/lumen.png"
+    },
+    {
+      "id": "harbor",
+      "name": "Harbor Dev",
+      "avatar": "avatars/harbor.png"
+    },
+    {
+      "id": "quill",
+      "name": "Quill & Co"
+    }
+  ],
+  "skills": [
+    {
+      "slug": "ui-review",
+      "name": "ui-review",
+      "description": "Reviews interface changes for spacing, hierarchy, and accessibility before they ship.",
+      "creator": "lumen",
+      "repository": "https://git.example.invalid/lumen/skills.git",
+      "path": "skills/ui-review",
+      "installs_week": 48200
+    },
+    {
+      "slug": "pr-triage",
+      "name": "pr-triage",
+      "description": "Sorts incoming pull requests by risk and drafts a first review comment.",
+      "creator": "harbor",
+      "repository": "https://git.example.invalid/harbor/skills.git",
+      "path": "skills/pr-triage",
+      "installs_week": 15700
+    },
+    {
+      "slug": "pdf-tools",
+      "name": "pdf-tools",
+      "description": "Extracts text, tables, and form fields from PDF files and fills forms.",
+      "creator": "northwind",
+      "repository": "https://git.example.invalid/northwind/skills.git",
+      "path": "skills/pdf-tools",
+      "installs_week": 12400
+    },
+    {
+      "slug": "docx-writer",
+      "name": "docx-writer",
+      "description": "Drafts and edits Word documents with tracked changes and comments.",
+      "creator": "northwind",
+      "repository": "https://git.example.invalid/northwind/skills.git",
+      "path": "skills/docx-writer",
+      "installs_week": 8300
+    },
+    {
+      "slug": "pdf-summarizer",
+      "name": "pdf-summarizer",
+      "description": "Summarizes long reports into a one-page brief with citations.",
+      "creator": "quill",
+      "repository": "https://git.example.invalid/quill/skills.git",
+      "path": "skills/pdf-summarizer",
+      "installs_week": 6400
+    },
+    {
+      "slug": "motion-guide",
+      "name": "motion-guide",
+      "description": "Suggests easing curves and durations that match the platform's motion guidelines.",
+      "creator": "lumen",
+      "repository": "https://git.example.invalid/lumen/skills.git",
+      "path": "skills/motion-guide",
+      "installs_week": 5100
+    },
+    {
+      "slug": "release-notes-pro",
+      "name": "release-notes-pro",
+      "description": "Writes release notes from merged pull requests, grouped by audience.",
+      "creator": "harbor",
+      "repository": "https://git.example.invalid/harbor/skills.git",
+      "path": "skills/release-notes-pro",
+      "installs_week": 3300
+    },
+    {
+      "slug": "spreadsheet-audit",
+      "name": "spreadsheet-audit",
+      "description": "Checks spreadsheets for broken formulas and exports a PDF report of what it found.",
+      "creator": "northwind",
+      "repository": "https://git.example.invalid/northwind/skills.git",
+      "path": "skills/spreadsheet-audit",
+      "installs_week": 2100
+    },
+    {
+      "slug": "essay-coach",
+      "name": "essay-coach",
+      "description": "Gives structured feedback on essays: thesis, evidence, and flow.",
+      "creator": "quill",
+      "repository": "https://git.example.invalid/quill/skills.git",
+      "path": "skills/essay-coach",
+      "installs_week": 1200
+    },
+    {
+      "slug": "color-contrast",
+      "name": "color-contrast",
+      "description": "Checks color pairs against WCAG contrast ratios and proposes fixes.",
+      "creator": "lumen",
+      "repository": "https://git.example.invalid/lumen/skills.git",
+      "path": "skills/color-contrast",
+      "installs_week": 900
+    },
+    {
+      "slug": "ci-doctor",
+      "name": "ci-doctor",
+      "description": "Reads failed CI logs and points at the step and change that broke the build.",
+      "creator": "harbor",
+      "repository": "https://git.example.invalid/harbor/skills.git",
+      "path": "skills/ci-doctor",
+      "installs_week": 700
+    }
+  ]
+}

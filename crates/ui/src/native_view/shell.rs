@@ -204,11 +204,11 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The page inside the panel: Library frames itself, with a fixed toolbar over its own
-    /// scrolling list; every other page scrolls whole, a scoped page in its own column and the
+    /// The page inside the panel: Library and Explore frame themselves, each with a fixed
+    /// toolbar over its own scrolling content; every other page scrolls whole, a scoped page in its own column and the
     /// rest inside the panel's gutter.
     fn render_content(&self, page: AnyElement, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        if self.route == Route::Library {
+        if matches!(self.route, Route::Library | Route::Explore) {
             return vec![
                 div()
                     .id("main-content")
@@ -340,7 +340,7 @@ impl NativeView {
             }
             Route::Agent(ref id) => self.agent_header_actions(Place::Agent(id.clone()), cx),
             Route::Universal => self.agent_header_actions(Place::Universal, cx),
-            Route::Sync | Route::Settings => Vec::new(),
+            Route::Explore | Route::Sync | Route::Settings => Vec::new(),
         }
     }
 }

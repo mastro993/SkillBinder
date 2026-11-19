@@ -149,6 +149,7 @@ impl NativeView {
                     .pb(px(SECTION_GAP / 2.0))
                     .border_b(hairline)
                     .border_color(divider(above))
+                    .child(self.nav_row(Route::Explore, "compass", "Explore", cx))
                     .child(
                         self.nav_row(Route::Library, "libraries", "Library", cx)
                             .when_some(skills, |row, skills| row.child(count(skills))),
