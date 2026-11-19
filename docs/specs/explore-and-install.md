@@ -14,7 +14,7 @@ A user opens Explore, finds a skill by trending, by creator, by search, or in a 
 
 ## Scope
 
-In: the Explore page and its sidebar row; the catalog, its refresh, cache, and offline states; Trending and Popular creators; search across the catalog, the user's repositories, and skills.sh; the skill detail side sheet; install with its collision, no-Git, failure, and concurrency rules; the user's repositories (add, list, Install all, remove); the New mark in Library; the catalog job and its nightly job (slice S0, outside this repository).
+In: the Explore page and its sidebar row; the catalog, its refresh, cache, and offline states; Trending and Popular creators; search across the catalog, the user's repositories, and skills.sh; the skill detail side sheet; install with its collision, no-Git, failure, and concurrency rules; the user's repositories (add, list, Install all, remove); the New mark in Library; the nightly catalog job (slice S0, outside the app).
 
 Out: activating a skill as part of install; ratings and reviews; publishing skills; deleting library skills; suggesting creators or repositories for curation from inside the app; keeping tokens or asking for passwords; editing a library skill's source; Install all for creators, Trending, or search results.
 
@@ -124,7 +124,7 @@ The picked variants (D11), all A: [Explore page](../design/explore/prototypes/ex
 
 ## Design
 
-See [explore-and-install/design.md](explore-and-install/design.md): T1–T12 with the need each serves, the domain notes, the architecture diagram, the catalog v1 format, the catalog states, the catalog job's contract, and risks.
+See [explore-and-install/design.md](explore-and-install/design.md): T1–T12 with the need each serves, the domain notes, the architecture diagram, the catalog v1 format, the catalog states, risks; the job in [catalog-job.md](explore-and-install/catalog-job.md).
 
 ## Assumptions
 
