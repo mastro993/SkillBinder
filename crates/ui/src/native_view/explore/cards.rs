@@ -1,10 +1,11 @@
 //! Explore's pieces: a skill's card, a creator's chip and avatar, a result's source tag, the
-//! installs this week, the "In library" mark, and the skeletons that stand in while the catalog
-//! first loads.
+//! installs this week, the "In library" mark, the New chip, and the skeletons that stand in while
+//! the catalog first loads.
 
 use super::super::NativeView;
+use super::super::library_items::new_chip;
 use super::super::sidebar_row::activate;
-use super::query::{Ranked, element_key, installs_label};
+use super::query::{Ranked, element_key, installs_label, new_in_library};
 use gpui_kit::component::avatar::Avatar;
 use gpui_kit::component::skeleton::Skeleton;
 use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, v_flex};
@@ -62,11 +63,18 @@ pub(super) fn in_library(cx: &App) -> AnyElement {
 }
 
 impl NativeView {
-    /// A Trending card: the name, two description lines, a failed install's error line, then
-    /// installs this week and the Install action.
+    /// A Trending card: the name, with the New chip of a New library skill, two description
+    /// lines, a failed install's error line, then installs this week and the Install action.
     pub(super) fn card(&self, skill: &CatalogSkill, cx: &mut Context<Self>) -> AnyElement {
+        let new = new_in_library(&self.snapshot, skill).map(new_chip);
         SkillCard::new(format!("explore-card-{}", element_key(skill)))
-            .title(div().truncate().child(skill.name.clone()))
+            .title(
+                h_flex()
+                    .min_w_0()
+                    .gap(px(space::SM))
+                    .child(div().min_w_0().truncate().child(skill.name.clone()))
+                    .children(new),
+            )
             .description(
                 format!("explore-desc-{}", element_key(skill)),
                 skill.description.clone(),

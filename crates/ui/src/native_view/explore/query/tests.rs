@@ -113,7 +113,7 @@ fn a_picked_creator_narrows_the_results_and_keeps_its_chip() {
 }
 
 #[test]
-fn a_held_slug_is_in_library_only_from_the_same_source() {
+fn a_held_slug_is_in_library_and_new_only_from_the_same_source() {
     let pdf = skill("pdf-tools", "northwind", "", 1);
     let mut snapshot = Fixture::new().skill("pdf-tools", "", None).build();
     assert!(!in_library(&snapshot, &pdf), "a skill with no source");
@@ -126,6 +126,13 @@ fn a_held_slug_is_in_library_only_from_the_same_source() {
     });
     assert!(in_library(&snapshot, &pdf));
     assert!(!collides(&snapshot, &pdf));
+    assert_eq!(new_in_library(&snapshot, &pdf), None, "not New");
+    let library = snapshot.library.as_mut().unwrap_or_else(|| unreachable!());
+    library.library.skills[0].new = true;
+    assert_eq!(
+        new_in_library(&snapshot, &pdf),
+        Some(&SkillId("pdf-tools".to_owned()))
+    );
     let mut moved = pdf.clone();
     moved.source.url = "git@git.example.invalid:northwind/skills.git".to_owned();
     assert_ne!(
@@ -133,6 +140,7 @@ fn a_held_slug_is_in_library_only_from_the_same_source() {
         normalized_url(&pdf.source.url)
     );
     assert!(!in_library(&snapshot, &moved), "another source");
+    assert_eq!(new_in_library(&snapshot, &moved), None);
     assert!(
         collides(&snapshot, &moved),
         "Install is refused, never renamed"

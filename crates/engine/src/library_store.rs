@@ -29,6 +29,9 @@ pub(crate) struct SavedSkill {
     pub recorded: String,
     #[serde(default)]
     pub drift: Option<Drift>,
+    /// Whether the skill is New; saved only when the row is inserted.
+    #[serde(default)]
+    pub new: bool,
 }
 impl SavedSkill {
     /// A skill whose content is `inspection` and whose record is `record`.
@@ -53,12 +56,13 @@ impl SavedSkill {
             source: record.source,
             recorded: record.tree,
             drift,
+            new: false,
         }
     }
 }
 
 /// Inserts a skill, or refreshes the payload facts and record of an existing one while keeping its
-/// import time, folder, and presets.
+/// import time, New mark, folder, and presets.
 pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SavedSkill) -> AppResult<()> {
     diesel::insert_into(skills::table)
         .values((
@@ -71,6 +75,7 @@ pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SavedSkill)
             skills::source.eq(record.source.as_ref().map(to_json).transpose()?),
             skills::recorded_tree.eq(&record.recorded),
             skills::drift.eq(record.drift.as_ref().map(to_text).transpose()?),
+            skills::new.eq(record.new),
         ))
         .on_conflict(skills::slug)
         .do_update()
@@ -83,6 +88,15 @@ pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SavedSkill)
             skills::recorded_tree.eq(excluded(skills::recorded_tree)),
             skills::drift.eq(excluded(skills::drift)),
         ))
+        .execute(connection)
+        .map(drop)
+        .map_err(|_| AppError::storage())
+}
+
+/// Clears the New mark of skill `slug`; a slug the library does not hold is left alone.
+pub(crate) fn mark_seen(connection: &mut SqliteConnection, slug: &str) -> AppResult<()> {
+    diesel::update(skills::table.find(slug).filter(skills::new))
+        .set(skills::new.eq(false))
         .execute(connection)
         .map(drop)
         .map_err(|_| AppError::storage())
@@ -181,6 +195,7 @@ type SkillRow = (
     Option<String>,
     String,
     Option<String>,
+    bool,
 );
 
 /// The library and each skill's cached details. A preset icon or color this version does not
@@ -218,6 +233,7 @@ pub(crate) fn load(
         source,
         recorded,
         drift,
+        new,
     ) in skills::table
         .order(skills::slug)
         .load::<SkillRow>(connection)
@@ -236,6 +252,7 @@ pub(crate) fn load(
             source: source.as_deref().map(from_json).transpose()?,
             recorded,
             drift: drift.as_deref().map(from_text).transpose()?,
+            new,
         });
     }
     let mut presets = presets::table
@@ -350,7 +367,8 @@ pub(crate) fn save_organization(
     crate::persistence::put_setting(connection, ACTIVE_PRESET, &active)
 }
 
-/// Holds `slug` in `preset` for `targets`, replacing what the preset held it for.
+/// Holds `slug` in `preset` for `targets`, replacing what the preset held it for. Activating a
+/// skill clears its New mark.
 pub(crate) fn hold_in_preset(
     connection: &mut SqliteConnection,
     preset: &PresetId,
@@ -373,7 +391,7 @@ pub(crate) fn hold_in_preset(
         ))
         .execute(connection)
         .map_err(storage)?;
-    Ok(())
+    mark_seen(connection, slug)
 }
 
 fn to_json(value: &impl Serialize) -> AppResult<String> {

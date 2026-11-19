@@ -283,6 +283,7 @@ mod tests {
             }),
             recorded: "0".repeat(40),
             drift: None,
+            new: false,
         };
         let updates = Updates::default();
         let (due, running) = updates

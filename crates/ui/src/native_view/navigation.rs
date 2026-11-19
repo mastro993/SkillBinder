@@ -45,6 +45,9 @@ impl NativeView {
             self.explore.clear(window, cx);
             if let Route::Skill(id) = &route {
                 self.load_skill(id.clone(), cx);
+                if self.is_new(id) {
+                    self.client.mark_seen(id.clone());
+                }
             }
             if route == Route::Explore {
                 self.client.explore_opened();

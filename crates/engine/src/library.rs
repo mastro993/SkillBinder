@@ -29,9 +29,14 @@ pub(crate) fn validate_name(value: &str) -> AppResult<String> {
     }
     Ok(name.to_owned())
 }
-/// A hash of the library, which previewed confirmations check.
+/// A hash of the library, which previewed confirmations check. It leaves out the New marks, so
+/// opening a skill's page never makes a confirmation stale.
 fn revision(library: &Library) -> AppResult<String> {
-    let bytes = serde_json::to_vec(library).map_err(|_| AppError::storage())?;
+    let mut library = library.clone();
+    for skill in &mut library.skills {
+        skill.new = false;
+    }
+    let bytes = serde_json::to_vec(&library).map_err(|_| AppError::storage())?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 /// Refuses duplicate preset or folder names after normalization.

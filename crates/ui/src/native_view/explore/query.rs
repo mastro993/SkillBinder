@@ -1,11 +1,11 @@
 //! What Explore shows, derived from the snapshot alone: Trending, Popular creators, the results a
-//! search and a picked creator narrow the catalog to, their creator chips, and "In library".
+//! search and a picked creator narrow the catalog to, their creator chips, "In library", and New.
 
 use std::cmp::Reverse;
 
 use skillbinder_proto::{
     AppSnapshot, Catalog, CatalogOrigin, CatalogSkill, Creator, InstallFailure, InstallState,
-    install_key, owner_repo, same_source,
+    Skill, SkillId, install_key, owner_repo, same_source,
 };
 
 /// How many cards Trending shows.
@@ -139,15 +139,31 @@ pub(super) fn element_key(skill: &CatalogSkill) -> String {
 
 /// Whether the library holds `skill`'s slug from the same source.
 pub(super) fn in_library(snapshot: &AppSnapshot, skill: &CatalogSkill) -> bool {
-    let Some(library) = &snapshot.library else {
-        return false;
-    };
+    held(snapshot, skill).is_some()
+}
+
+/// The library skill holding `skill` from the same source, when it is New there.
+pub(super) fn new_in_library<'a>(
+    snapshot: &'a AppSnapshot,
+    skill: &CatalogSkill,
+) -> Option<&'a SkillId> {
+    held(snapshot, skill)
+        .filter(|held| held.new)
+        .map(|held| &held.id)
+}
+
+/// The library skill holding `skill`'s slug from the same source.
+fn held<'a>(snapshot: &'a AppSnapshot, skill: &CatalogSkill) -> Option<&'a Skill> {
+    let library = snapshot.library.as_ref()?;
     library
         .keys
         .get(&skill.key)
         .and_then(|id| library.library.skills.iter().find(|held| &held.id == id))
-        .and_then(|held| held.source.as_ref())
-        .is_some_and(|source| same_source(source, &skill.source))
+        .filter(|held| {
+            held.source
+                .as_ref()
+                .is_some_and(|source| same_source(source, &skill.source))
+        })
 }
 
 /// Whether the library holds `skill`'s slug from another source or from none, so installing it
