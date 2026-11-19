@@ -193,6 +193,10 @@ fn a_first_run_starts_history_and_trends_from_zero() {
     assert!(catalog.skills.iter().all(|skill| skill.installs_week == 0));
     let history = fs::read_to_string(out.path().join(HISTORY)).expect("history");
     assert!(history.contains("\"2026-11-19\"") && history.contains("#skills/tdd\": 1300"));
+    assert!(
+        !history.contains("solo/notes.git#"),
+        "a skill skills.sh does not list must not record 0"
+    );
 }
 
 #[test]

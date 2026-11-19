@@ -110,6 +110,16 @@ mod tests {
     }
 
     #[test]
+    fn a_night_without_a_count_is_no_baseline() {
+        let mut history = History::default();
+        let today = day("2026-11-19");
+        history.record(today.minus(7), totals(100));
+        history.record(today.minus(6), Totals::new());
+        history.record(today, totals(105));
+        assert_eq!(history.gain(today, "r#s"), 5);
+    }
+
+    #[test]
     fn a_falling_count_gains_nothing() {
         let mut history = History::default();
         let today = day("2026-11-19");

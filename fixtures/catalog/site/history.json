@@ -11,7 +11,6 @@
   "2026-11-19": {
     "https://github.com/acme/skills.git#skills/plan": 410,
     "https://github.com/acme/skills.git#skills/tdd": 1300,
-    "https://github.com/acme/tools.git#.claude/skills/lint": 75,
-    "https://github.com/solo/notes.git#": 0
+    "https://github.com/acme/tools.git#.claude/skills/lint": 75
   }
 }

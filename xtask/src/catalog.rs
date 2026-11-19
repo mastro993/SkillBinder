@@ -199,8 +199,9 @@ impl Job<'_> {
         Ok(skills)
     }
 
-    /// Tonight's all-time installs of `skills`, by history key; a skill skills.sh does not list
-    /// counts 0.
+    /// Tonight's all-time installs of `skills`, by history key. A skill skills.sh does not list
+    /// is left out, so a night it drops out of the search never becomes its trending baseline;
+    /// it trends 0 until it is counted.
     fn totals(&self, skills: &[Skill]) -> anyhow::Result<history::Totals> {
         let mut totals = history::Totals::new();
         for repository in self.creators.iter().flat_map(|c| &c.repositories) {
@@ -213,8 +214,9 @@ impl Job<'_> {
             }
             let counts = counts::fetch(self.http, counts::BASE, repository)?;
             for skill in listed {
-                let installs = counts.get(&skill.slug).copied().unwrap_or_default();
-                totals.insert(history::key(&skill.repository, &skill.path), installs);
+                if let Some(&installs) = counts.get(&skill.slug) {
+                    totals.insert(history::key(&skill.repository, &skill.path), installs);
+                }
             }
         }
         Ok(totals)
