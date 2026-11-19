@@ -35,6 +35,8 @@ tempfile = "3"
 time = { version = "0.3", features = ["formatting"] }
 chrono = "0.4"
 url = "2.5.8"
+# Blocking HTTPS with rustls and no OpenSSL (ADR 0014).
+ureq = "3.5"
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }

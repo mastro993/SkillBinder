@@ -119,6 +119,15 @@ fn other_directories(overlay: &directories::Overlay, agent: &Agent) -> String {
         .join(", ")
 }
 
+/// Every agent's workspace skill directory, which the catalog job's skill discovery searches.
+pub(crate) fn workspace_skill_dirs(root: &Path) -> anyhow::Result<Vec<String>> {
+    Ok(load(root)?
+        .agents
+        .into_iter()
+        .map(|agent| agent.workspace_skills_dir)
+        .collect())
+}
+
 pub fn verify(root: &Path) -> anyhow::Result<()> {
     let registry = load(root)?;
     let overlay = directories::load(root)?;

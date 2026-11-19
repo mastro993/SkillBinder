@@ -1,0 +1,14 @@
+{
+  "2026-10-15": {
+    "https://github.com/acme/skills.git#skills/tdd": 10
+  },
+  "2026-11-12": {
+    "https://github.com/acme/skills.git#skills/tdd": 1000,
+    "https://github.com/acme/skills.git#skills/plan": 400
+  },
+  "2026-11-16": {
+    "https://github.com/acme/skills.git#skills/tdd": 1100,
+    "https://github.com/acme/skills.git#skills/plan": 405,
+    "https://github.com/acme/tools.git#.claude/skills/lint": 60
+  }
+}

@@ -21,6 +21,10 @@ SkillBinder depends on third-party Rust packages under their respective licenses
 
 The historical font license records under `fixtures/contracts/font-licenses` document baseline research. No font binaries from the previous application are bundled.
 
+## Developer tools
+
+- `ureq` 3 (MIT OR Apache-2.0), with rustls and webpki-roots for TLS, is used only by `xtask`'s catalog job, which is never shipped. Its source is available at `https://github.com/algesten/ureq`.
+
 ## vercel-labs/skills registry snapshot
 
 - Project: `vercel-labs/skills`

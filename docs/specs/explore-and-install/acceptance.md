@@ -6,7 +6,7 @@ Part of [Explore and install](../explore-and-install.md). Technical decisions ar
 
 Each check names the slice that owns it and its kind: **domain** (engine or client test on an isolated root, no network), **native** (interaction in the `native-test` build through the MCP bridge), **visual** (compared with the [prototype](../../design/explore/README.md); same design, not pixel parity), or **packaged** (smoke test of a release build against the live CDN).
 
-1. (S0, catalog job) The published `v1/catalog.json` validates against the v1 format; the published history gains one night per run and nothing is committed to `main`; `v1/avatars/<creator>.png` is served; the Pages URL answers 200 with an ETag.
+1. (S0, catalog job) The published `v1/catalog.json` validates against the v1 format; the published history gains one night per run and nothing is committed to `main`; `v1/avatars/<creator>.png` (or `.jpg`) is served; the Pages URL answers 200 with an ETag.
 2. (S1, domain) A fixture catalog is fetched, cached with its ETag, and served from cache on a second launch with the source offline; a conditional request that answers 304 keeps the cache; a cache younger than one hour is not refetched when Explore opens, and an older one is, with a conditional request.
 3. (S1, domain) A catalog file with a malformed skill keeps the other skills; a file over 8 MB is refused and the cache kept; a source without v1 keeps the cache and reports that the app needs updating.
 4. (S1, native) The sidebar's first row is Explore with the compass glyph; the app still opens on Library.
