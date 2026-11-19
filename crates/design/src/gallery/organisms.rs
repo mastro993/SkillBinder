@@ -73,7 +73,10 @@ fn cards() -> Div {
         SkillCard::new(id)
             .w(px(crate::library::GRID_MIN))
             .title(Text::new(title))
-            .description("Extracts text, tables, and form fields from PDF files and fills forms.")
+            .description(
+                format!("{id}-description"),
+                "Extracts text, tables, and form fields from PDF files and fills forms.",
+            )
     };
     wrap()
         .items_start()

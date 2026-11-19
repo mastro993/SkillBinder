@@ -82,6 +82,9 @@ fn search_matches_name_description_creator_and_repository() {
     );
     assert_eq!(slugs(&results(&catalog, "lumen/skills", None)).len(), 2);
     assert!(results(&catalog, "nothing like this", None).is_empty());
+    // The repository matches by `owner/repo`, never by its host or scheme.
+    assert!(results(&catalog, "example.invalid", None).is_empty());
+    assert!(results(&catalog, "https", None).is_empty());
     let chips: Vec<_> = chips(&catalog, "pdf", None)
         .into_iter()
         .map(|(creator, n)| (creator.id.as_str(), n))

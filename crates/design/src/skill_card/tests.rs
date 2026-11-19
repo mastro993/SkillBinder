@@ -24,7 +24,10 @@ impl Render for Card {
             SkillCard::new("card")
                 .aria_label("pdf-tools")
                 .title(Text::new("pdf-tools"))
-                .description("Extracts text, tables, and form fields from PDF files.")
+                .description(
+                    "description",
+                    "Extracts text, tables, and form fields from PDF files.",
+                )
                 .faded(true)
                 .footer(Button::new("footer").label("Northwind Labs").small())
                 .hover(true)

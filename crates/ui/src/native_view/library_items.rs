@@ -140,7 +140,7 @@ impl NativeView {
                     .min_w_0()
                     .gap(px(space::XXS))
                     .child(self.title_line(item, cx))
-                    .child(description(item, 1, cx)),
+                    .child(description(item, cx)),
             )
             .child(self.row_end(item, false, narrow, cx));
         frame(self, row, item, owner, cx)
@@ -159,7 +159,10 @@ impl NativeView {
             .group(ITEM_GROUP)
             .hover(true)
             .title(self.title_line(item, cx))
-            .description(item.description().to_owned())
+            .description(
+                format!("desc-{}", item.name()),
+                item.description().to_owned(),
+            )
             .faded(item.dimmed())
             .footer(self.row_end(item, true, narrow, cx));
         frame(self, card, item, owner, cx)
@@ -309,19 +312,13 @@ pub(super) fn update_glyph(id: &SkillId) -> AnyElement {
     .into_any_element()
 }
 
-/// The description, muted, on one line in a row or two in a tile, dimmed on an inactive skill.
-fn description(item: &SkillItem<'_>, lines: usize, cx: &App) -> impl IntoElement {
+/// A row's description, muted on one line, dimmed on an inactive skill.
+fn description(item: &SkillItem<'_>, cx: &App) -> impl IntoElement {
     text::CAPTION
         .apply(div().id(format!("desc-{}", item.name())))
         .min_w_0()
         .text_color(cx.theme().muted_foreground)
         .when(item.dimmed(), |text| text.opacity(DIM))
-        .map(|text| {
-            if lines == 1 {
-                text.truncate()
-            } else {
-                text.line_clamp(lines).text_ellipsis()
-            }
-        })
+        .truncate()
         .child(item.description().to_owned())
 }

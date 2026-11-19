@@ -4,7 +4,8 @@
 use std::cmp::Reverse;
 
 use skillbinder_proto::{
-    AppSnapshot, Catalog, CatalogOrigin, CatalogSkill, Creator, normalized_url, same_source,
+    AppSnapshot, Catalog, CatalogOrigin, CatalogSkill, Creator, normalized_url, owner_repo,
+    same_source,
 };
 
 /// How many cards Trending shows.
@@ -58,13 +59,14 @@ pub(super) fn popular_creators(catalog: &Catalog) -> Vec<Ranked<'_>> {
 }
 
 /// Whether `skill` matches `search`, already lowercased, by its name, description, creator, or
-/// repository.
+/// repository's `owner/repo`, so a search for its host or scheme matches nothing.
 fn matches(catalog: &Catalog, skill: &CatalogSkill, search: &str) -> bool {
     let creator = creator_of(catalog, skill);
+    let repository = owner_repo(&skill.source.url);
     [
         skill.name.as_str(),
         skill.description.as_str(),
-        skill.source.url.as_str(),
+        repository.as_str(),
     ]
     .into_iter()
     .chain(creator.map(|creator| creator.name.as_str()))

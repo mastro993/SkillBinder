@@ -66,7 +66,10 @@ pub(super) fn in_library(cx: &App) -> AnyElement {
 pub(super) fn card(skill: &CatalogSkill, held: bool, cx: &App) -> AnyElement {
     SkillCard::new(format!("explore-card-{}", element_key(skill)))
         .title(div().truncate().child(skill.name.clone()))
-        .description(skill.description.clone())
+        .description(
+            format!("explore-desc-{}", element_key(skill)),
+            skill.description.clone(),
+        )
         .footer(
             h_flex()
                 .w_full()

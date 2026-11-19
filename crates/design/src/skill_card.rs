@@ -17,7 +17,7 @@ use gpui_kit::{
 pub struct SkillCard {
     base: Stateful<Div>,
     title: Option<AnyElement>,
-    description: Option<SharedString>,
+    description: Option<(ElementId, SharedString)>,
     faded: bool,
     footer: Option<AnyElement>,
     hover: bool,
@@ -47,10 +47,15 @@ impl SkillCard {
         }
     }
 
-    /// The description, clamped to two lines with an ellipsis.
-    pub fn description(self, description: impl Into<SharedString>) -> Self {
+    /// The description, clamped to two lines with an ellipsis. Its `id` makes it text the
+    /// native-test bridge reads.
+    pub fn description(
+        self,
+        id: impl Into<ElementId>,
+        description: impl Into<SharedString>,
+    ) -> Self {
         Self {
-            description: Some(description.into()),
+            description: Some((id.into(), description.into())),
             ..self
         }
     }
@@ -100,9 +105,9 @@ impl RenderOnce for SkillCard {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme();
         let (hover, muted) = (theme.muted, theme.muted_foreground);
-        let description = self.description.map(|description| {
+        let description = self.description.map(|(id, description)| {
             text::CAPTION
-                .apply(div())
+                .apply(div().id(id))
                 .min_w_0()
                 .text_color(muted)
                 .when(self.faded, |text| text.opacity(opacity::INACTIVE))
