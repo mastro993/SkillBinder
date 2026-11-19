@@ -14,7 +14,7 @@ A user opens Explore, finds a skill by trending, by creator, by search, or in a 
 
 ## Scope
 
-In: the Explore page and its sidebar row; the catalog, its refresh, cache, and offline states; Trending and Popular creators; search across the catalog, the user's repositories, and skills.sh; the skill detail side sheet; install with its collision, no-Git, failure, and concurrency rules; the user's repositories (add, list, Install all, remove); the New mark in Library; the catalog repository and its nightly job (slice S0, outside this repository).
+In: the Explore page and its sidebar row; the catalog, its refresh, cache, and offline states; Trending and Popular creators; search across the catalog, the user's repositories, and skills.sh; the skill detail side sheet; install with its collision, no-Git, failure, and concurrency rules; the user's repositories (add, list, Install all, remove); the New mark in Library; the catalog job and its nightly job (slice S0, outside this repository).
 
 Out: activating a skill as part of install; ratings and reviews; publishing skills; deleting library skills; suggesting creators or repositories for curation from inside the app; keeping tokens or asking for passwords; editing a library skill's source; Install all for creators, Trending, or search results.
 
@@ -124,7 +124,7 @@ The picked variants (D11), all A: [Explore page](../design/explore/prototypes/ex
 
 ## Design
 
-See [explore-and-install/design.md](explore-and-install/design.md): T1–T12 with the need each serves, the domain notes, the architecture diagram, the catalog v1 format, the catalog states, the catalog repository's contract, and risks.
+See [explore-and-install/design.md](explore-and-install/design.md): T1–T12 with the need each serves, the domain notes, the architecture diagram, the catalog v1 format, the catalog states, the catalog job's contract, and risks.
 
 ## Assumptions
 
@@ -144,7 +144,7 @@ Each was decided for the owner and can be overruled.
 - **A12** (assumption) Removing a repository never touches skills installed from it; it asks first, then offers Undo.
 - **A13** (assumption) skills.sh search starts after two characters and about 300 ms; its results are appended, never reorder local ones, and are tagged "skills.sh"; no setting turns it off.
 - **A14** (assumption) Search matches name, description, creator, and repository; chips filter by source.
-- **A15** (assumption) Curation is done by pull requests to the catalog repository; the app has no suggestion flow.
+- **A15** (assumption) Curation is done by pull requests to `catalog/curated.toml` in SkillBinder's repository; the app has no suggestion flow.
 
 ## Acceptance and slices
 

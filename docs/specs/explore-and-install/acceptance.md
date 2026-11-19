@@ -6,7 +6,7 @@ Part of [Explore and install](../explore-and-install.md). Technical decisions ar
 
 Each check names the slice that owns it and its kind: **domain** (engine or client test on an isolated root, no network), **native** (interaction in the `native-test` build through the MCP bridge), **visual** (compared with the [prototype](../../design/explore/README.md); same design, not pixel parity), or **packaged** (smoke test of a release build against the live CDN).
 
-1. (S0, catalog repository) The published `v1/catalog.json` validates against the v1 format; `history/` gains one dated file per night; `v1/avatars/<creator>.png` is served; the Pages URL answers 200 with an ETag.
+1. (S0, catalog job) The published `v1/catalog.json` validates against the v1 format; the published history gains one night per run and nothing is committed to `main`; `v1/avatars/<creator>.png` is served; the Pages URL answers 200 with an ETag.
 2. (S1, domain) A fixture catalog is fetched, cached with its ETag, and served from cache on a second launch with the source offline; a conditional request that answers 304 keeps the cache; a cache younger than one hour is not refetched when Explore opens, and an older one is, with a conditional request.
 3. (S1, domain) A catalog file with a malformed skill keeps the other skills; a file over 8 MB is refused and the cache kept; a source without v1 keeps the cache and reports that the app needs updating.
 4. (S1, native) The sidebar's first row is Explore with the compass glyph; the app still opens on Library.
@@ -44,7 +44,7 @@ Each check names the slice that owns it and its kind: **domain** (engine or clie
 
 ## Slices
 
-0. **S0 · The catalog repository publishes v1 nightly.** A new repository, `mastro993/skillbinder-catalog`, with `curated.toml`, the nightly Action, history, avatars, and GitHub Pages (T1, T2). It needs a human to create the repository, turn on Pages, and give the workflow write and Pages permissions. Checks: 1. Depends on: nothing.
+0. **S0 · The catalog publishes v1 nightly.** In SkillBinder's repository: `catalog/curated.toml`, the nightly Action, history in the published site, avatars, and GitHub Pages (T1, T2). It needs a human to turn on Pages with GitHub Actions as its source. Checks: 1. Depends on: nothing.
 1. **S1 · Explore shows the curated catalog.** The HTTP client, cache, and catalog thread; offline, unavailable, and newer-format states; Trending and Popular creators; local search with source chips; creator narrowing; avatars; "In library" on held slugs. No Install yet (T3, T4, T5, T10). Checks: 2–10, 34, 35. Depends on: nothing for domain and native checks (fixture catalog); S0 for the packaged check 34.
 2. **S2 · Install from Explore.** `install_skill`, the toast, "In library", the collision and no-Git states, the failure line, the record with its source, uncommitted until Sync, and Update working on it (T8). Checks: 11–18, 35. Depends on: S1.
 3. **S3 · New mark.** The migration, set on install, cleared on activation and on opening the page, the accent chip on Library's rows and tiles (T9). Checks: 19–21, 35. Depends on: S2.
