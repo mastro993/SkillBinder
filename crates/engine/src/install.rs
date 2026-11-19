@@ -185,14 +185,18 @@ impl State {
             }],
             completed_moves: 0,
             progress: Default::default(),
-            // `imported_at` holds when the skill arrived in this library.
-            skills: vec![SavedSkill::new(
-                slug.to_owned(),
-                staged,
-                Some(crate::lifecycle::format_timestamp()),
-                record.clone(),
-                None,
-            )],
+            // `imported_at` holds when the skill arrived in this library. Only install marks a
+            // skill New.
+            skills: vec![SavedSkill {
+                new: true,
+                ..SavedSkill::new(
+                    slug.to_owned(),
+                    staged,
+                    Some(crate::lifecycle::format_timestamp()),
+                    record.clone(),
+                    None,
+                )
+            }],
             outcome: None,
             records: vec![RecordChange {
                 slug: slug.to_owned(),

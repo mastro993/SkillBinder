@@ -279,6 +279,7 @@ mod tests {
             source: None,
             recorded: String::new(),
             drift: None,
+            new: false,
         }
     }
 

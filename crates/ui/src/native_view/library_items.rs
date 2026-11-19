@@ -275,12 +275,13 @@ fn divider() -> AnyElement {
         .into_any_element()
 }
 
-/// The glyphs after a skill's name, for its update, drift, and validation, then on a workspace's
-/// page its overlap and edited marks, and on an agent's page its edited mark.
+/// The marks after a skill's name, for its update, New, drift, and validation, then on a
+/// workspace's page its overlap and edited marks, and on an agent's page its edited mark.
 fn name_marks(item: &SkillItem<'_>, cx: &App) -> Vec<AnyElement> {
     let id = &item.skill.id;
     let marks = [
         item.update.then(|| update_glyph(id)),
+        item.skill.new.then(|| new_chip(id)),
         item.drifted.then(|| drift_glyph(id)),
         validation_glyph(id, item.details),
     ]
@@ -302,6 +303,14 @@ fn folder_tag(folder: String, dim: bool) -> impl IntoElement {
         .flex_none()
         .when(dim, |tag| tag.opacity(DIM))
         .child(Chip::new(ChipVariant::Neutral).child(Text::labeled("tag", folder)))
+}
+
+/// The accent "New" chip of a skill installed and not yet activated or opened. It keeps full
+/// opacity on a dimmed row.
+pub(super) fn new_chip(id: &SkillId) -> AnyElement {
+    Chip::new(ChipVariant::Accent)
+        .child(Text::labeled(format!("new-{id}"), "New"))
+        .into_any_element()
 }
 
 /// The glyph of a skill whose source has an update. It keeps full opacity on a dimmed row.

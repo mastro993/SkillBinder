@@ -36,6 +36,15 @@ impl NativeView {
         }));
     }
 
+    /// Whether library skill `id` is New, so opening its page clears the mark.
+    pub(super) fn is_new(&self, id: &SkillId) -> bool {
+        self.snapshot
+            .library
+            .as_ref()
+            .and_then(|library| library.library.skills.iter().find(|held| &held.id == id))
+            .is_some_and(|held| held.new)
+    }
+
     /// The last update's result, why the skill's check or update failed, and where it is not
     /// applied, then its `SKILL.md`.
     pub(super) fn render_skill(&self, id: &SkillId, cx: &mut Context<Self>) -> AnyElement {

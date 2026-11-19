@@ -180,6 +180,7 @@ impl Fixture {
             source: None,
             recorded: String::new(),
             drift: None,
+            new: false,
         });
         // Fixture slugs are lowercase ASCII, which folding leaves as they are.
         library.keys.insert(slug.to_owned(), id(slug));

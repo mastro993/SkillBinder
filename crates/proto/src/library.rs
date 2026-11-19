@@ -255,6 +255,10 @@ pub struct Skill {
     pub recorded: String,
     /// Whether the skill's content differs from its record, and whether it can be reinstalled.
     pub drift: Option<Drift>,
+    /// Whether the skill is New on this device. Install sets it, and only activating the skill,
+    /// in a preset or a workspace, or opening its page clears it. Imported skills and skills that
+    /// arrive by Pull are never New. It is machine-local and never syncs.
+    pub new: bool,
 }
 /// A library skill whose content differs from its record, such as after an edit made outside
 /// SkillBinder or a Pull of different content.

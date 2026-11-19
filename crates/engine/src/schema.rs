@@ -57,6 +57,7 @@ diesel::table! {
         source -> Nullable<Text>,
         recorded_tree -> Text,
         drift -> Nullable<Text>,
+        new -> Bool,
     }
 }
 

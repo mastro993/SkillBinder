@@ -52,7 +52,8 @@ pub(super) fn load(connection: &mut SqliteConnection) -> AppResult<BTreeMap<Stri
     Ok(held)
 }
 
-/// Adds `dirs` to workspace `id`'s agents and holds or, with `None`, drops `skills` there.
+/// Adds `dirs` to workspace `id`'s agents and holds or, with `None`, drops `skills` there. Holding
+/// a skill clears its New mark.
 pub(crate) fn save(
     connection: &mut SqliteConnection,
     id: &WorkspaceId,
@@ -89,6 +90,7 @@ pub(crate) fn save(
             ))
             .execute(connection)
             .map_err(storage)?;
+        library_store::mark_seen(connection, skill.as_str())?;
     }
     Ok(())
 }

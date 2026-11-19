@@ -223,6 +223,38 @@ mod tests {
         }
     }
 
+    /// Skills already in the library when the New mark arrives are not New.
+    #[test]
+    fn existing_skills_are_not_new() -> AppResult<()> {
+        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let path = root.path().join("state.db");
+        let mut connection =
+            SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
+                .map_err(|_| AppError::storage())?;
+        for _ in 0..10 {
+            connection
+                .run_next_migration(MIGRATIONS)
+                .map_err(|_| AppError::storage())?;
+        }
+        connection
+            .batch_execute(
+                "INSERT INTO skills(slug, digest, file_count, total_bytes, details) \
+                     VALUES('review', '', 0, 0, '{}');",
+            )
+            .map_err(|_| AppError::storage())?;
+        drop(connection);
+        let mut upgraded = open(&path)?;
+        let new = crate::schema::skills::table
+            .select(crate::schema::skills::new)
+            .load::<bool>(&mut upgraded)
+            .map_err(|_| AppError::storage())?;
+        if new == [false] {
+            Ok(())
+        } else {
+            Err(AppError::storage())
+        }
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn opens_paths_that_are_not_utf8() -> AppResult<()> {

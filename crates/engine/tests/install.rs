@@ -4,91 +4,31 @@
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
+#[path = "support/publisher.rs"]
+mod publisher;
 #[path = "support/fixture.rs"]
 mod support;
 
+use publisher::{Publisher, catalog_skill};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    AppSnapshot, CatalogOrigin, CatalogSkill, ErrorCategory, InstallFailure, InstallState, SkillId,
-    SkillSource, UpdateCheck, install_key,
+    AppSnapshot, ErrorCategory, InstallFailure, InstallState, SkillId, SkillSource, UpdateCheck,
+    install_key,
 };
-use std::{fs, path::Path, process::Command, time::Duration};
+use std::{fs, path::Path, time::Duration};
 use support::{Fixture, category, write_skill};
 
-fn git(dir: &Path, args: &[&str]) {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(dir)
-        .args([
-            "-c",
-            "user.name=Publisher",
-            "-c",
-            "user.email=p@example.invalid",
-        ])
-        .args(args)
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "git {args:?}");
-}
-
-/// A repository publishing skills under `skills/`, beside an engine past onboarding.
+/// A publishing repository beside an engine's fixture.
 struct Published {
     fixture: Fixture,
-    publisher: std::path::PathBuf,
-    url: String,
+    publisher: Publisher,
 }
 
 impl Published {
     fn new() -> Self {
         let fixture = Fixture::new();
-        let publisher = fixture.workspace.with_file_name("publisher");
-        fs::create_dir(&publisher).unwrap();
-        git(&publisher, &["init", "--initial-branch=main"]);
-        let url: String = url::Url::from_file_path(&publisher).unwrap().into();
-        Self {
-            fixture,
-            publisher,
-            url,
-        }
-    }
-
-    /// Commits `skills/<folder>` holding a skill named `slug` with `body`.
-    fn publish(&self, folder: &str, slug: &str, body: &str) {
-        let directory = write_skill(&self.publisher.join("skills"), folder, body);
-        fs::write(
-            directory.join("SKILL.md"),
-            format!("---\nname: {slug}\ndescription: Test fixture\n---\n{body}\n"),
-        )
-        .unwrap();
-        self.commit(body);
-    }
-
-    fn commit(&self, message: &str) {
-        git(&self.publisher, &["add", "-A"]);
-        git(&self.publisher, &["commit", "-m", message]);
-    }
-
-    /// The catalog entry of the skill `slug` in `skills/<folder>`.
-    fn skill(&self, folder: &str, slug: &str) -> CatalogSkill {
-        catalog_skill(&self.url, &format!("skills/{folder}"), slug)
-    }
-}
-
-fn catalog_skill(url: &str, path: &str, slug: &str) -> CatalogSkill {
-    CatalogSkill {
-        slug: slug.into(),
-        key: slug.into(),
-        name: slug.into(),
-        description: "Test fixture".into(),
-        origin: CatalogOrigin::Curated {
-            creator: "acme".into(),
-        },
-        source: SkillSource {
-            url: url.into(),
-            reference: None,
-            path: path.into(),
-        },
-        installs_week: 0,
+        let publisher = Publisher::new(fixture.workspace.with_file_name("publisher"));
+        Self { fixture, publisher }
     }
 }
 
@@ -131,10 +71,10 @@ fn leftovers(data: &Path, folder: &str) -> Vec<String> {
 #[tokio::test]
 async fn an_installed_skill_is_in_library_inactive_with_its_source() {
     let published = Published::new();
-    published.publish("review", "review", "first");
+    published.publisher.publish("review", "review", "first");
     let engine = published.fixture.ready().await;
     // A trailing slash on the folder names the same source.
-    let mut skill = published.skill("review", "review");
+    let mut skill = published.publisher.skill("review", "review");
     skill.source.path.push('/');
     engine.install_skill(skill).await.unwrap();
 
@@ -143,7 +83,7 @@ async fn an_installed_skill_is_in_library_inactive_with_its_source() {
     let library = snapshot.library.as_ref().unwrap();
     let installed = &library.library.skills[0];
     let source = SkillSource {
-        url: published.url.clone(),
+        url: published.publisher.url.clone(),
         reference: None,
         path: "skills/review".into(),
     };
@@ -181,13 +121,13 @@ async fn an_installed_skill_is_in_library_inactive_with_its_source() {
 #[tokio::test]
 async fn a_newer_commit_gives_an_installed_skill_an_update() {
     let published = Published::new();
-    published.publish("review", "review", "first");
+    published.publisher.publish("review", "review", "first");
     let engine = published.fixture.ready().await;
     engine
-        .install_skill(published.skill("review", "review"))
+        .install_skill(published.publisher.skill("review", "review"))
         .await
         .unwrap();
-    published.publish("review", "review", "second");
+    published.publisher.publish("review", "review", "second");
     engine.check_updates(Duration::ZERO).await.unwrap();
     let review = SkillId("review".into());
     assert_eq!(
@@ -210,16 +150,16 @@ async fn a_newer_commit_gives_an_installed_skill_an_update() {
 #[tokio::test]
 async fn install_refuses_a_slug_the_library_holds_even_one_held_while_it_ran() {
     let published = Published::new();
-    published.publish("review", "review", "first");
+    published.publisher.publish("review", "review", "first");
     // Another folder publishes a skill with the same name, in another case.
-    published.publish("review-copy", "Review", "copy");
+    published.publisher.publish("review-copy", "Review", "copy");
     let engine = published.fixture.ready().await;
 
     // Both pass the first check before either is fetched; the commit that runs second finds
     // the slug held.
     let (first, second) = tokio::join!(
-        engine.install_skill(published.skill("review", "review")),
-        engine.install_skill(published.skill("review-copy", "Review")),
+        engine.install_skill(published.publisher.skill("review", "review")),
+        engine.install_skill(published.publisher.skill("review-copy", "Review")),
     );
     assert!(first.is_ok() != second.is_ok(), "exactly one lands");
     let refused = if first.is_ok() { second } else { first };
@@ -230,7 +170,9 @@ async fn install_refuses_a_slug_the_library_holds_even_one_held_while_it_ran() {
     assert!(held.explore.installs.is_empty());
 
     for (folder, slug) in [("review", "review"), ("review-copy", "Review")] {
-        let again = engine.install_skill(published.skill(folder, slug)).await;
+        let again = engine
+            .install_skill(published.publisher.skill(folder, slug))
+            .await;
         assert_eq!(category(again), ErrorCategory::Stale);
     }
     assert!(leftovers(&published.fixture.data, "staging").is_empty());
@@ -240,15 +182,15 @@ async fn install_refuses_a_slug_the_library_holds_even_one_held_while_it_ran() {
 #[tokio::test]
 async fn install_refuses_blocked_invalid_and_missing_folders() {
     let published = Published::new();
-    published.publish("review", "review", "first");
-    let blocked = published.publisher.join("skills/blocked");
-    write_skill(&published.publisher.join("skills"), "blocked", "plugin");
+    published.publisher.publish("review", "review", "first");
+    let blocked = published.publisher.dir.join("skills/blocked");
+    write_skill(&published.publisher.dir.join("skills"), "blocked", "plugin");
     fs::create_dir(blocked.join(".codex-plugin")).unwrap();
     fs::write(blocked.join(".codex-plugin/plugin.json"), "{}").unwrap();
-    let invalid = published.publisher.join("skills/invalid");
+    let invalid = published.publisher.dir.join("skills/invalid");
     fs::create_dir_all(&invalid).unwrap();
     fs::write(invalid.join("SKILL.md"), "---\nname: [invalid\n---\n").unwrap();
-    published.commit("refused");
+    published.publisher.commit("refused");
     let engine = published.fixture.ready().await;
 
     for (folder, failure) in [
@@ -256,7 +198,7 @@ async fn install_refuses_blocked_invalid_and_missing_folders() {
         ("invalid", InstallFailure::Invalid),
         ("gone", InstallFailure::NotFound),
     ] {
-        let skill = published.skill(folder, folder);
+        let skill = published.publisher.skill(folder, folder);
         let key = install_key(&skill.source);
         assert_eq!(
             category(engine.install_skill(skill).await),
@@ -275,9 +217,9 @@ async fn install_refuses_blocked_invalid_and_missing_folders() {
 
     // Installing again clears the failure; this time it succeeds.
     fs::remove_dir_all(&blocked).unwrap();
-    write_skill(&published.publisher.join("skills"), "blocked", "fixed");
-    published.commit("fixed");
-    let skill = published.skill("blocked", "blocked");
+    write_skill(&published.publisher.dir.join("skills"), "blocked", "fixed");
+    published.publisher.commit("fixed");
+    let skill = published.publisher.skill("blocked", "blocked");
     let key = install_key(&skill.source);
     engine.install_skill(skill).await.unwrap();
     assert_eq!(engine.current_explore().installs.get(&key), None);
@@ -307,11 +249,12 @@ async fn several_installs_from_one_repository_run_together_and_all_land() {
     let published = Published::new();
     let names = ["alpha", "beta", "gamma", "delta"];
     for name in names {
-        write_skill(&published.publisher.join("skills"), name, name);
+        write_skill(&published.publisher.dir.join("skills"), name, name);
     }
-    published.commit("four");
+    published.publisher.commit("four");
     let engine = published.fixture.ready().await;
-    let [a, b, c, d] = names.map(|name| engine.install_skill(published.skill(name, name)));
+    let [a, b, c, d] =
+        names.map(|name| engine.install_skill(published.publisher.skill(name, name)));
     let (a, b, c, d) = tokio::join!(a, b, c, d);
     for installed in [a, b, c, d] {
         installed.unwrap();

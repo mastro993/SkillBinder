@@ -1,5 +1,6 @@
 //! The engine's install from Explore: refused or prepared on the worker, fetched on the Git pool,
-//! and committed on the worker again, so commits never interleave.
+//! and committed on the worker again, so commits never interleave; and clearing the New mark it
+//! leaves.
 
 use super::Engine;
 use crate::install::{Begun, Failed, Fetch};
@@ -30,6 +31,16 @@ impl Engine {
             begun.end(&installed);
             installed.map_err(|failed| failed.error(&slug))
         }
+    }
+
+    /// Clears skill `slug`'s New mark in the database alone: nothing is scanned, activated, or
+    /// committed, so Sync has no change to report. A slug the library does not hold, or one that
+    /// is not New, is left as it is.
+    pub async fn mark_seen(&self, slug: SkillId) -> AppResult<()> {
+        self.call(move |state| {
+            crate::library_store::mark_seen(&mut state.database.borrow_mut(), slug.as_str())
+        })
+        .await
     }
 
     async fn install(&self, skill: CatalogSkill, begun: &Begun) -> Result<(), Failed> {

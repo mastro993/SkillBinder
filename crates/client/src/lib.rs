@@ -323,6 +323,17 @@ impl Client {
         self.spawn_scan();
         Ok(())
     }
+    /// Clears a library skill's New mark in the background, then publishes the library, so its
+    /// chip goes at once. Nothing changes on disk, so no scan follows.
+    pub fn mark_seen(&self, id: SkillId) {
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            let seen = client.shared.engine.mark_seen(id).await;
+            if let Err(error) = client.refresh_preserving_outcome(seen).await {
+                client.background_error(error);
+            }
+        });
+    }
     /// Scans the agents' global skill directories and every workspace, replacing a running scan.
     pub async fn start_scan(&self) -> AppResult<()> {
         self.refresh_preserving_outcome(self.shared.engine.start_scan().await)
