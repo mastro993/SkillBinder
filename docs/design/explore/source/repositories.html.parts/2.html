@@ -1,0 +1,206 @@
+<script>
+(function () {
+  'use strict';
+  const C = window.CATALOG;
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  const S = { variant: 'a', view: 'explore', source: null, query: '', open: {}, pop: null, dlg: null };
+  let RUN = {}; // repoId -> {total, done, failed, running}: Install all progress (R3)
+  const INSTALL_MS = C.settings.installMs;
+  // Rows with role=button open on Enter or Space, like the buttons they stand for.
+  win.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if ((e.key === 'Enter' || e.key === ' ') && t.getAttribute('role') === 'button' && t.tagName !== 'BUTTON') { e.preventDefault(); t.click(); }
+  });
+  const bus = new Set();
+  const ping = () => bus.forEach((f) => f());
+  function track(el, draw) {
+    live(el, draw);
+    const f = () => { if (el.isConnected) draw(el); else bus.delete(f); };
+    bus.add(f);
+    return el;
+  }
+  const btn = (cls, attrs, ...kids) => h('button', Object.assign({ class: `sb-btn ${cls}` }, attrs), ...kids);
+  const repoIcon = (r, n = 15) => ic(r.private ? 'lock' : 'github', n);
+
+  // ---- Install Git (I5) ------------------------------------------------------------------
+  function gitButton() {
+    const b = btn('sb-btn-outline sb-btn-sm', { onclick: () => {
+      b.disabled = true;
+      b.replaceChildren(spinner(13), 'Installing Git…');
+      setTimeout(() => C.setSetting('git', true), 1500);
+    } }, 'Install Git');
+    return b;
+  }
+  const gitNote = () => live(h('div', { class: 'rp-note' }), (el) => {
+    el.hidden = C.settings.git;
+    if (!C.settings.git && !el.childNodes.length) el.append(ic('alert-circle', 14), h('span', 'Installing needs Git'), gitButton());
+    if (C.settings.git) el.replaceChildren();
+  });
+
+  // ---- Install all with progress (R3, I6) --------------------------------------------------
+  function runAll(id, { fast = false, failOne = false } = {}) {
+    const slugs = C.installable(id);
+    if (!slugs.length || !C.settings.git) return;
+    const failSlug = failOne ? slugs[slugs.length - 1] : null;
+    const queue = slugs.filter((s) => s !== failSlug);
+    const r = RUN[id] = { total: slugs.length, done: 0, failed: 0, running: true };
+    const on = () => RUN[id] === r; // a state jump or remove drops the run; its workers stop
+    C.settings.installMs = fast ? 1 : INSTALL_MS;
+    const step = (slug) => C.install(slug).then((res) => { r.done += 1; if (!res.ok) r.failed += 1; ping(); });
+    const worker = () => (queue.length && on() ? step(queue.shift()).then(worker) : Promise.resolve());
+    ping();
+    Promise.all([worker(), worker(), worker()]).then(() => {
+      if (!failSlug || !on()) return null;
+      const access = C.settings.access;
+      C.settings.access = false; // demo: this one skill's install fails (I6)
+      return step(failSlug).then(() => { C.settings.access = access; });
+    }).then(() => {
+      if (fast) C.settings.installMs = INSTALL_MS;
+      r.running = false;
+      ping();
+      const ok = r.done - r.failed;
+      if (ok && on()) {
+        toast(win, r.failed ? `Installed ${ok} · ${r.failed} failed` : `Installed ${ok} skills`,
+          { icon: r.failed ? 'alert-circle' : 'check-circle', action: 'Show in Library', onAction: soon });
+      }
+    });
+  }
+  const failTip = (id) => C.repoSkills(id).map((s) => C.installError(s.slug)).find(Boolean) || '';
+  const runControl = (id) => track(h('span', { class: 'sb-hstack', style: 'gap:8px' }), (el) => {
+    const r = RUN[id];
+    const left = C.installable(id).length;
+    const label = `Install all (${left})`;
+    if (r && r.running) {
+      el.replaceChildren(h('span', { class: 'rp-run', role: 'status' }, spinner(13), `Installing ${Math.min(r.done + 1, r.total)} of ${r.total}`));
+      return;
+    }
+    el.replaceChildren(...[
+      r && r.failed ? h('span', { class: 'rp-run is-err', role: 'status', 'data-tip': failTip(id) }, ic('alert-circle', 13), `Installed ${r.done - r.failed} · ${r.failed} failed`)
+        : r ? h('span', { class: 'rp-run', role: 'status' }, ic('check', 13), `Installed ${r.done}`) : null,
+      !left ? null : C.settings.git ? btn('sb-btn-outline sb-btn-sm', { onclick: () => runAll(id) }, label)
+        : h('span', { 'data-tip': 'Installing needs Git', tabindex: '0' }, btn('sb-btn-outline sb-btn-sm', { disabled: true }, label))].filter(Boolean));
+  });
+
+  // ---- remove (R4) ---------------------------------------------------------------------------
+  function removeRepo(r) {
+    if (S.pop) S.pop.close();
+    confirmDialog(win, { title: `Remove ${r.full}?`, body: 'Installed skills stay in your library.', confirm: 'Remove' }).then((ok) => {
+      if (!ok) return;
+      if (S.source === `repo:${r.id}`) S.source = null;
+      delete RUN[r.id];
+      const undo = C.removeRepository(r.id);
+      toast(win, `Removed ${r.full}`, { action: 'Undo', onAction: undo });
+    });
+  }
+  const removeButton = (r, cls = 'sb-btn-sm') => btn(`sb-btn-icon ${cls}`, { 'data-tip': 'Remove', 'data-tip-pos': 'end',
+    'aria-label': `Remove ${r.full}`, onclick: (e) => { e.stopPropagation(); removeRepo(r); } }, ic('delete', 15));
+
+  // ---- rows ------------------------------------------------------------------------------------
+  function openSkill(slug) {
+    const sh = openSheet(win, skillDetail(slug, { win, onShowLibrary: soon,
+      onCreator: (id) => { sh.close(); setSource(`creator:${id}`); } }));
+  }
+  const skillRow = (s, { bare = false } = {}) => h('div', { class: 'sb-row rp-skill', role: 'button', tabindex: '0', onclick: () => openSkill(s.slug) },
+    h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.name), C.isNew(s.slug) ? newChip() : null),
+      h('div', { class: 'sb-desc' }, s.desc),
+      bare ? null : h('div', { class: 'sb-meta' }, sourceTag(s), installsMeta(s)),
+      installErrorLine(s.slug)),
+    h('div', { class: 'sb-row-end' }, installAction(s.slug, { win, onShowLibrary: soon })));
+  function repoRow(r, { expand = false } = {}) {
+    const open = expand && S.open[r.id];
+    const row = h('div', { class: `sb-row rp-row${expand ? ' is-click' : ''}`, 'aria-expanded': expand ? String(!!open) : null,
+      role: expand ? 'button' : null, tabindex: expand ? '0' : null,
+      'data-repo': r.id, onclick: expand ? () => { S.open[r.id] = !open; drawContent(); const n = content.querySelector(`[data-repo="${r.id}"]`); if (n) n.focus(); } : null },
+    h('span', { class: 'ex-repo-ic' }, repoIcon(r)),
+    h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, r.full),
+        expand ? ic('chevron-right', 14, `rp-chev${open ? ' is-open' : ''}`) : null),
+      h('div', { class: 'sb-meta' }, h('span', { class: 'rp-count' }, `${r.skillCount} skills`), h('span', { class: 'ex-url' }, r.url))),
+    h('div', { class: 'sb-row-end', onclick: (e) => e.stopPropagation() }, runControl(r.id), removeButton(r)));
+    return open ? [row, h('div', { class: 'rp-skills' }, C.repoSkills(r.id).map((s) => skillRow(s, { bare: true })))] : row;
+  }
+  const addButton = (cls, onclick) => btn(cls, { onclick }, ic('plus', 14), 'Add repository');
+  function repoList({ expand = false, onAdd } = {}) {
+    const repos = C.repositories();
+    return h('div', { class: 'sb-card' }, repos.length ? repos.map((r) => repoRow(r, { expand }))
+      : h('div', { class: 'rp-empty' }, 'No repositories yet', addButton('sb-btn-outline sb-btn-sm', onAdd)));
+  }
+
+  // ---- add form: one Git URL, listed before it is added (R1) ---------------------------------
+  function addForm({ url = '', hold = false, onAdded, onPaint, compact = false } = {}) {
+    let st = 'empty';
+    let res = null;
+    let tok = 0;
+    let timer = 0;
+    const input = h('input', { class: 'sb-input rp-url', value: url, placeholder: 'Git URL (HTTPS or SSH)', 'aria-label': 'Repository URL',
+      spellcheck: 'false', autocomplete: 'off',
+      oninput: () => { clearTimeout(timer); timer = setTimeout(list, 450); },
+      onkeydown: (e) => { if (e.key === 'Enter') { clearTimeout(timer); if (st === 'found') add(); else list(); } } });
+    const addBtn = btn(`sb-btn-primary${compact ? ' sb-btn-sm sb-btn-block' : ''}`, { onclick: () => add() }, 'Add');
+    const line = (cls, icn, text, extra) => h('div', { class: `rp-line ${cls}` }, icn, h('span', text), extra || null);
+    function list(stay) {
+      const v = input.value.trim();
+      const t = ++tok;
+      if (!v) { st = 'empty'; paint(); return; }
+      st = 'listing';
+      paint();
+      if (stay === true) return;
+      C.listRepository(v).then((r) => { if (t === tok) { res = r; st = r.state; paint(); } });
+    }
+    function add() {
+      if (st !== 'found') return;
+      const t = ++tok;
+      st = 'adding';
+      paint();
+      C.addRepository(input.value.trim()).then((r) => {
+        if (t !== tok) return;
+        res = r;
+        if (r.state === 'found') onAdded(r.repo);
+        else { st = r.state; paint(); }
+      });
+    }
+    function lines() {
+      if (!C.settings.git) return [line('', ic('alert-circle', 13), 'Adding a repository needs Git', gitButton())];
+      if (st === 'listing') return [line('', spinner(13), 'Listing…')];
+      if (st === 'found' || st === 'adding') {
+        return [line('is-ok', repoIcon(res.repo, 14), `${res.repo.full} · ${res.skills.length} skills`),
+          h('ul', { class: 'rp-found', 'aria-label': 'Skills found' }, res.skills.map((s) => h('li', s.slug)))];
+      }
+      const err = { unreachable: "Couldn't reach this repository. Check the URL and your Git access.", 'no-skills': 'No skills found',
+        'already-added': res && res.repo ? `${res.repo.full} is already added` : 'Already added', invalid: 'Not a Git URL' }[st];
+      return err ? [line(st === 'unreachable' ? 'is-err' : '', ic('alert-circle', 13), err)] : [];
+    }
+    const status = h('div', { class: 'rp-status', 'aria-live': 'polite' });
+    function paint() {
+      input.disabled = !C.settings.git || st === 'adding';
+      addBtn.disabled = st !== 'found' || !C.settings.git;
+      addBtn.replaceChildren(...(st === 'adding' ? [spinner(13), 'Adding'] : ['Add']));
+      status.replaceChildren(...lines());
+      if (onPaint) onPaint();
+    }
+    let gitWas = C.settings.git;
+    live(status, () => {
+      if (C.settings.git !== gitWas) { gitWas = C.settings.git; if (gitWas && input.value.trim()) { list(); return; } }
+      paint();
+    });
+    if (url && C.settings.git) list(hold);
+    return { input, status, addBtn };
+  }
+  function openAddDialog(opts = {}) {
+    if (S.dlg) S.dlg.close();
+    const d = S.dlg = openDialog(win, { title: 'Add repository', size: 'md', onClose: () => { if (S.dlg === d) S.dlg = null; } });
+    const f = addForm(Object.assign({}, opts, { onAdded: (r) => { d.close(); added(r); } }));
+    d.setBody(h('div', { class: 'rp-form' }, f.input, f.status));
+    d.setFooter(h('span', { class: 'sb-spacer' }), btn('sb-btn-outline', { onclick: () => d.close() }, 'Cancel'), f.addBtn);
+    f.input.focus();
+  }
+  function added(r) {
+    toast(win, `Added ${r.full}`, { icon: 'check-circle' });
+    if (S.variant === 'c') setSource(`repo:${r.id}`);
+    else { S.open[r.id] = true; drawContent(); }
+  }

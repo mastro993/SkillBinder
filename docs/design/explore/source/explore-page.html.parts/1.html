@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explore page</title>
+<!-- Explore: the page itself, home and search (decisions G1, G3, C1-C4, T1-T2, I1-I5).
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py explore-page.html ../prototypes/explore-page.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="explore.css">
+<style>
+.ep-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ep-demo .sb-seg > button { padding: 0 7px; }
+.sb-toolbar > .sb-search { flex: 1; width: auto; }
+.ep-line { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-muted-fg); }
+.ep-line > .sb-btn { margin-left: auto; }
+.ep-chips { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+.ep-chips .ex-avatar { margin-left: -3px; }
+.ep-list { flex-shrink: 0; }
+.ep-list > .sb-row { cursor: pointer; }
+.ep-list > .sb-row:hover { background: var(--sb-hover); }
+.ep-list > .sb-row:first-child { border-radius: 10px 10px 0 0; }
+.ep-list > .sb-row:last-child { border-radius: 0 0 10px 10px; }
+.ep-list.is-dense > .sb-row { min-height: 44px; padding: 7px 12px; }
+.ep-meta { display: flex; align-items: center; gap: 10px; min-width: 0; margin-top: 2px; }
+.ep-scope { display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-width: 0; }
+.ep-scope-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ep-scope-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-scope-sub { font-size: 12px; color: var(--sb-muted-fg); }
+.ep-pending { display: flex; align-items: center; gap: 6px; padding: 4px 2px; font-size: 12px; color: var(--sb-muted-fg); flex-shrink: 0; }
+.ep-fill { flex: 1; display: grid; place-items: center; }
+.ep-region { display: contents; }
+.ep-res { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; min-width: 0; }
+.ex-rail .ex-creator { flex: 0 0 auto; max-width: 200px; }
+/* B: an inner rail beside a dense list (v0, Vercel Marketplace). */
+.sb-page.ep-b { flex-direction: row; gap: 0; padding: 0; overflow: hidden; }
+.ep-rail { width: 150px; flex: none; overflow: auto; padding: 10px 6px; border-right: 1px solid var(--sb-border); }
+.ep-rail-h { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 6px 4px 0 8px; font-size: 11px; font-weight: 600; color: var(--sb-muted-fg); }
+.ep-rail-i {
+  display: flex; align-items: center; gap: 7px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--sb-fg); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+}
+.ep-rail-i:hover { background: var(--sb-hover); }
+.ep-rail-i.is-active { background: var(--sb-muted); font-weight: 600; }
+.ep-rail-i > .sb-ic { color: var(--sb-muted-fg); flex: none; }
+.ep-rail-i > span:not(.ex-avatar) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-rail-n { flex: none !important; font-size: 11px; color: var(--sb-muted-fg); font-weight: 400; }
+.ep-col { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 20px; }
+.sb-header-actions > .sb-search { width: 210px; }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="home">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="catalog.js"></script>
+<script src="explore-kit.js"></script>

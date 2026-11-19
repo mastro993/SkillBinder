@@ -5,7 +5,8 @@
  *   Hugeicons (stroke = currentColor): search plus delete check close alert-circle
  *     upload-circle layers folder code-folder square-terminal loading refresh-03
  *     refresh-04 check-circle arrow-down chevron-right list-view grid-view libraries
- *     compass settings import unplug book code robot pencil-edit git-branch
+ *     compass settings import unplug book code robot pencil-edit git-branch folder-search
+ *     arrow-left fire star users github globe sparkles lock cloud arrow-up copy package
  *   Agent logos: claude-code codex kimi-code-cli (full color) ·
  *     cline cursor fx pi warp windsurf (mono, fill = currentColor)
  * window.NEW_ICONS  { filter more minus undo link } hand-drawn glyphs NOT in the

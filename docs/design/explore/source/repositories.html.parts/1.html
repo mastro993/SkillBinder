@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repositories</title>
+<!-- Explore, area Repositories (R1-R4, I5, I6, C4): adding, listing, Install all, removing.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py repositories.html ../prototypes/repositories.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="explore.css">
+<style>
+.sb-vbar-extra { flex-wrap: wrap; margin-left: 0; max-width: 100%; }
+.sb-toolbar > .sb-search { flex: 1; width: auto; }
+.rp-note { display: flex; align-items: center; gap: 8px; flex-shrink: 0; font-size: 12.5px; color: var(--sb-muted-fg); }
+.rp-note > .sb-btn { margin-left: auto; }
+.rp-src { height: 28px; border: 1px solid var(--sb-border); background: var(--sb-bg); max-width: 200px; }
+.rp-src > .sb-ellipsis { min-width: 0; }
+.rp-chev { flex: none; color: var(--sb-muted-fg); transition: transform .12s; }
+.rp-chev.is-open, .rp-src > .rp-chev { transform: rotate(90deg); }
+.rp-row.is-click { cursor: pointer; }
+.rp-count { flex: none; white-space: nowrap; }
+.rp-run { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-run.is-err { color: var(--sb-danger); }
+.rp-skills { border-top: 1px solid var(--sb-border); background: color-mix(in srgb, var(--sb-muted) 45%, transparent); }
+.rp-skills > .sb-row { min-height: 44px; padding: 6px 14px 6px 54px; }
+.rp-skill { cursor: pointer; }
+.rp-skill .ex-error { margin-top: 2px; }
+.rp-empty { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--sb-muted-fg); }
+.rp-empty > .sb-btn { margin-left: auto; }
+.rp-form { display: flex; flex-direction: column; gap: 10px; }
+.rp-url { font: 12.5px var(--sb-mono); }
+.rp-status { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--sb-muted-fg); }
+.rp-status:empty { display: none; }
+.rp-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rp-line.is-err { color: var(--sb-danger); }
+.rp-line.is-ok { color: var(--sb-fg); font-weight: 500; }
+.rp-line > .sb-btn { margin-left: auto; }
+.rp-found { margin: 0; padding: 0; list-style: none; max-height: 132px; overflow: auto; border: 1px solid var(--sb-border); border-radius: 8px; }
+.rp-found li { display: flex; align-items: center; height: 26px; padding: 0 8px; font: 11.5px var(--sb-mono); color: var(--sb-fg); }
+.rp-found li + li { border-top: 1px solid var(--sb-border); }
+.sb-menu.rp-pop { width: 272px; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.rp-pop-list { flex: 1; min-height: 0; max-height: 300px; overflow: auto; padding: 6px; }
+.rp-pop-foot { padding: 6px; border-top: 1px solid var(--sb-line); }
+.rp-pop-add { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 10px; }
+.rp-pop-head { display: flex; align-items: center; gap: 4px; margin-left: -4px; font-weight: 600; }
+.rp-item { position: relative; }
+.rp-item > .rp-x { position: absolute; top: 3px; right: 6px; opacity: 0; }
+.rp-item:hover > .rp-x, .rp-item > .rp-x:focus-visible { opacity: 1; }
+.rp-item:hover .sb-menu-trail { visibility: hidden; }
+</style>
+</head>
+<body data-first-variant="a">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="catalog.js"></script>
+<script src="explore-kit.js"></script>

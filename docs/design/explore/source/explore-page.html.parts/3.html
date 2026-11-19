@@ -1,0 +1,122 @@
+
+  // ---- results (C2): local at once, skills.sh appended below after a pause, never reordered ----
+  function noMatch(q, sh) {
+    if (sh && !C.settings.online) return emptyState({ icon: 'cloud', title: 'skills.sh needs a connection' });
+    if (sh && !q) return emptyState({ icon: 'globe', title: 'Search to find skills on skills.sh' });
+    return emptyState({ icon: 'search', title: `No skills match "${q}"`,
+      action: h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => { S.query = ''; S.source = null; draw(); } }, 'Clear search') });
+  }
+  function results({ view, chips, home, scope, clearable }) {
+    const t = ++token;
+    const q = S.query.trim();
+    const sh = S.source === 'skills.sh';
+    const r = q ? C.search(q) : C.search('', { source: S.source });
+    const local = sh ? [] : q && S.source ? r.local.filter((s) => srcOf(s) === S.source) : r.local;
+    const useRemote = !!r.remote && (!S.source || sh);
+    const box = h('div', { class: 'ep-res' });
+    let got = null;
+    function paint() {
+      const shown = local.concat(useRemote && got ? got : []);
+      const waiting = useRemote && !got;
+      const groups = q ? resultGroups(r.local, r.remote ? (got ? got.length : null) : undefined) : home ? homeGroups() : null;
+      box.replaceChildren(...[
+        chips && groups && groups.some((g) => g.n !== 0) ? chipRow(groups) : null,
+        scope ? scopeHead(clearable) : null,
+        shown.length ? view(shown) : null,
+        waiting ? h('div', { class: 'ep-pending', role: 'status' }, spinner(13), 'Searching skills.sh') : null,
+        !shown.length && !waiting ? noMatch(q, sh) : null].filter(Boolean));
+    }
+    paint();
+    if (r.remote) r.remote.then((more) => { if (t === token && box.isConnected) { got = more; paint(); } });
+    return box;
+  }
+
+  // ---- A: stacked sections (Cal.com App Store, Cursor Plugins) ------------------------------
+  function drawA() {
+    const region = h('div', { class: 'ep-region' });
+    page.replaceChildren(h('div', { class: 'sb-toolbar' }, search()), ...notes().filter(Boolean), region);
+    body = () => region.replaceChildren(...(searching()
+      ? [results({ view: list, chips: true, scope: true, clearable: true })]
+      : [sectionHeader('Trending', { icon: 'fire' }),
+        h('div', { class: 'ex-grid' }, C.trending(6).map((s) => card(s))),
+        sectionHeader('Popular creators', { icon: 'users' }),
+        h('div', { class: 'ex-rail' }, C.creators().map((c) => creatorChip(c, { onClick: () => narrow(`creator:${c.id}`) }))),
+        sectionHeader('Your repositories', { icon: 'git-branch', action: addBtn() }),
+        C.repositories().length ? h('div', { class: 'sb-card ep-list' }, C.repositories().map(repoRow)) : null].filter(Boolean)));
+    body();
+  }
+
+  // ---- B: rail + dense list (v0 Extensions, Vercel Marketplace) -----------------------------
+  function drawB() {
+    hdr.append(h('div', { class: 'sb-header-actions' }, search()));
+    page.className = 'sb-page ep-b';
+    const col = h('div', { class: 'ep-col' });
+    // A name the rail cuts off keeps its full text in a tooltip.
+    const item = (id, mark, text, n) => h('button', { class: `ep-rail-i${S.source === id ? ' is-active' : ''}`, 'aria-pressed': String(S.source === id),
+      'data-tip': text && text.length > 13 ? text : null, 'data-tip-pos': 'start', onclick: () => narrow(id) }, mark, h('span', text), n != null ? h('span', { class: 'ep-rail-n' }, n) : null);
+    const top = item(null);
+    page.replaceChildren(h('nav', { class: 'ep-rail', 'aria-label': 'Sources' }, top,
+      item('skills.sh', ic('globe', 14), 'skills.sh'),
+      h('div', { class: 'ep-rail-h' }, 'Creators'),
+      C.creators().map((c) => item(`creator:${c.id}`, creatorAvatar(c, { size: 16 }), c.id, c.skillCount)),
+      h('div', { class: 'ep-rail-h' }, h('span', 'Repositories'), addBtn()),
+      C.repositories().map((r) => item(`repo:${r.id}`, repoIc(r), r.name, r.skillCount))), col);
+    // The first rail row is Trending at home and every source while a query runs.
+    body = () => {
+      top.replaceChildren(...(S.query.trim() ? [ic('search', 14), h('span', 'All')] : [ic('fire', 14), h('span', 'Trending')]));
+      col.replaceChildren(...notes().filter(Boolean), searching() ? results({ view: dense, scope: true }) : dense(C.trending(12)));
+    };
+    body();
+  }
+
+  // ---- C: tabs + chips (Langdock, Airtable) -------------------------------------------------
+  function drawC() {
+    const region = h('div', { class: 'ep-region' });
+    const tabs = seg([{ id: 'trending', label: 'Trending' },
+      { id: 'creators', label: 'Creators', count: C.creators().length },
+      { id: 'repos', label: 'Repositories', count: C.repositories().length }], S.tab, (v) => { Object.assign(S, { tab: v, source: null, query: '' }); draw(); });
+    page.replaceChildren(h('div', { class: 'sb-toolbar' }, tabs, search()), ...notes().filter(Boolean), region);
+    const tab = () => (S.tab === 'creators'
+      ? h('div', { class: 'ex-grid' }, C.creators().map((c) => creatorChip(c, { onClick: () => narrow(`creator:${c.id}`) })))
+      : S.tab === 'repos'
+        ? h('div', { class: 'ep-res' }, h('div', { class: 'sb-card ep-list' }, C.repositories().map(repoRow)),
+          h('div', h('button', { class: 'sb-btn sb-btn-ghost sb-btn-sm', onclick: soon }, ic('plus', 14), 'Add repository')))
+        : h('div', { class: 'ex-grid' }, C.trending(12).map((s) => card(s))));
+    // Results and a narrowed source are not a tab: no tab reads as selected over them.
+    body = () => {
+      tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('is-active', !searching() && b.dataset.id === S.tab));
+      region.replaceChildren(searching()
+        ? results({ view: grid, chips: true, home: true })
+        : h('div', { class: 'ep-res' }, S.tab === 'trending' ? chipRow(homeGroups()) : null, tab()));
+    };
+    body();
+  }
+
+  function draw() {
+    ctrl.replaceChildren(exploreControls());
+    page.className = 'sb-page';
+    hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Explore'));
+    if (C.status() === 'unavailable') {
+      page.replaceChildren(h('div', { class: 'ep-fill' }, unavailableState(() => { C.settings.cache = true; C.setSetting('online', true); })));
+      return;
+    }
+    ({ a: drawA, b: drawB, c: drawC })[S.variant]();
+  }
+
+  // ---- start: the first state, then the variant bar picks the first variant ----------------
+  const first = document.body.dataset.firstState || 'home';
+  const ctrl = h('div', { class: 'ep-demo' });
+  C.on((e) => { if (e.type === 'settings' || e.type === 'repo' || e.type === 'reset') draw(); });
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Stacked sections', desc: 'Search on top, then Trending cards, Popular creators, Your repositories; a query swaps them for one tagged list with source chips · like Cal.com App Store, Cursor Plugins' },
+    { id: 'b', label: 'Rail + list', desc: 'An inner rail of sources (Trending, skills.sh, each creator, each repository) beside dense rows with a trailing Install; search in the header · like v0 Extensions, Vercel Marketplace' },
+    { id: 'c', label: 'Tabs + chips', desc: 'Trending | Creators | Repositories tabs beside search, source chips with counts on Trending, a card grid · like Langdock Integrations and Agent templates, Airtable Extensions' },
+  ], (id) => { S.variant = id; draw(); });
+  bar.el.append(h('div', { class: 'ep-demo' }, seg(STATES, first, setState), ctrl));
+  setState(first);
+  bar.set(document.body.dataset.firstVariant || 'a');
+
+})();
+</script>
+</body>
+</html>

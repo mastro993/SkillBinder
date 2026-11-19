@@ -1,0 +1,185 @@
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  const ALL = DATA.targets.map((t) => t.id);
+  // Catalog skills in the library that are already on; the kit's own skills keep their presets.
+  const ON_AT_START = ['acme-deploy', 'pdf'];
+  const FOCUS = 'skill-creator'; // each state scrolls the first New skill into view
+  const S = { variant: 'a', state: 'list', layout: 'list', folder: null, query: '', skill: null, on: new Set(ON_AT_START),
+    jump: true, back: 0, quiet: false };
+  // On = in a preset or a workspace (the kit's skills), or turned on here.
+  const kit = (slug) => DATA.skill(slug);
+  const isOn = (slug) => S.on.has(slug) || !!(kit(slug) && DATA.isActive(slug));
+  // skill-creator's source moved on since it was installed: New has no time limit (N1), so a New
+  // skill can also have an update, and the row shows both marks.
+  const hasUpdate = (slug) => slug === 'skill-creator' || !!(kit(slug) && kit(slug).hasUpdate);
+
+  exploreSidebar(side, { active: 'library', onPreset: soon, onNav: (k) => { if (k !== 'library') { soon(); return; } S.skill = null; draw(); } });
+  new MutationObserver(paintSide).observe(side, { childList: true });
+  CATALOG.on(() => { if (!S.quiet) draw(); });
+
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Accent chip', desc: 'A small accent "New" chip after the slug, on rows and tiles (Wrike, Ferndesk, Contractbook).' },
+    { id: 'b', label: 'Glyph mark', desc: 'A sparkles glyph beside the slug, like the update glyph; tooltip "New" (Sentry).' },
+    { id: 'c', label: 'Chip + sidebar count', desc: 'A\'s chip, plus a quiet "3 new" in place of the sidebar\'s Library count (Superlist).' },
+  ], (id) => { S.variant = id; draw(); });
+  const STATES = [{ id: 'list', label: 'List' }, { id: 'grid', label: 'Grid' },
+    { id: 'opened', label: 'After opening', tip: "tdd's page was opened" }, { id: 'activated', label: 'After activating', tip: 'skill-creator was turned on' }];
+  const stateSlot = h('span');
+  bar.extra.append(stateSlot);
+  setState('list');
+  bar.set(document.body.dataset.firstVariant || 'a');
+
+  function paintStates() { stateSlot.replaceChildren(seg(STATES, S.state, setState)); }
+  function setState(id) {
+    S.quiet = true;
+    CATALOG.reset();
+    Object.assign(S, { state: id, skill: null, folder: null, query: '', on: new Set(ON_AT_START), jump: true });
+    if (id === 'list' || id === 'grid') S.layout = id;
+    if (id === 'opened') CATALOG.markSeen('tdd');
+    if (id === 'activated') { S.on.add('skill-creator'); CATALOG.markSeen('skill-creator'); }
+    S.quiet = false;
+    paintStates();
+    draw();
+  }
+
+  // ---- N1: turning a skill on or opening its page clears New --------------------------------
+  function turnOn(slug) {
+    S.on.add(slug);
+    if (CATALOG.isNew(slug)) CATALOG.markSeen(slug); // N1: first activation clears New (redraws)
+    else draw();
+  }
+  function openSkill(slug) {
+    const sc = page.querySelector('.nm-scroll');
+    S.back = sc ? sc.scrollTop : 0;
+    S.skill = slug;
+    if (CATALOG.isNew(slug)) CATALOG.markSeen(slug); // N1: opening its page clears New (redraws)
+    else draw();
+  }
+  function back() { S.skill = null; draw(); const sc = page.querySelector('.nm-scroll'); if (sc) sc.scrollTop = S.back; }
+
+  function draw() {
+    paintSide();
+    if (S.skill) drawSkill(S.skill);
+    else drawLibrary();
+  }
+
+  // ---- C: the sidebar's Library row says "3 new" while any skill is New ----------------------
+  function paintSide() {
+    const row = side.querySelector('[data-nav="library"]');
+    if (!row) return;
+    const lib = CATALOG.librarySkills();
+    const n = lib.filter((s) => CATALOG.isNew(s.slug)).length;
+    const show = S.variant === 'c' && n > 0;
+    row.classList.toggle('nm-has-new', show);
+    let tag = row.querySelector('.nm-side-new');
+    if (!show) { if (tag) tag.remove(); row.removeAttribute('data-tip'); return; }
+    if (!tag) { tag = h('span', { class: 'nm-side-new' }); row.append(tag); }
+    tag.textContent = `${n} new`;
+    row.setAttribute('data-tip', `${lib.length} skills`);
+  }
+
+  // ---- Library: folder tabs, search, list or grid -----------------------------------------
+  function drawLibrary() {
+    const sc = page.querySelector('.nm-scroll');
+    const keep = sc && !S.jump ? sc.scrollTop : null;
+    hdr.replaceChildren(
+      tabs([{ id: null, label: 'All skills' }, ...DATA.folders.map((f) => ({ id: f, label: f }))], S.folder, (f) => { S.folder = f; S.jump = true; draw(); }),
+      h('div', { class: 'sb-header-actions' },
+        h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Check for skill updates', 'aria-label': 'Check for skill updates', onclick: soon }, ic('refresh-04', 16)),
+        h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Scan for skills', 'aria-label': 'Scan for skills', 'data-tip-pos': 'end', onclick: soon }, ic('folder-search', 16))));
+    const layout = seg([{ id: 'list', icon: icon('list-view', 15), tip: 'List' }, { id: 'grid', icon: icon('grid-view', 15), tip: 'Grid' }],
+      S.layout, (v) => {
+        S.layout = v;
+        if (S.state === 'list' || S.state === 'grid') { S.state = v; paintStates(); }
+        S.jump = true;
+        drawList();
+      });
+    page.className = 'sb-page nm-page';
+    page.replaceChildren(
+      h('div', { class: 'sb-toolbar nm-toolbar' }, searchInput({ value: S.query, onInput: (q) => { S.query = q; drawList(); } }), h('span', { class: 'sb-spacer' }), layout),
+      h('div', { class: 'nm-scroll' }));
+    drawList();
+    if (keep != null) page.querySelector('.nm-scroll').scrollTop = keep;
+  }
+
+  function drawList() {
+    const sc = page.querySelector('.nm-scroll');
+    const q = S.query.trim().toLowerCase();
+    const list = CATALOG.librarySkills().filter((s) => (!S.folder || (kit(s.slug) && kit(s.slug).folder === S.folder))
+      && (!q || s.slug.includes(q) || s.desc.toLowerCase().includes(q)));
+    if (!list.length) { sc.replaceChildren(emptyState({ icon: 'search', title: 'No skills match' })); return; }
+    const items = list.map(item);
+    sc.replaceChildren(S.layout === 'grid' ? h('div', { class: 'nm-grid' }, items) : h('div', { class: 'sb-card' }, items));
+    if (!S.jump) return;
+    S.jump = false;
+    const target = sc.querySelector(`[data-slug="${FOCUS}"]`);
+    sc.scrollTop = target ? Math.max(0, target.offsetTop - (S.layout === 'grid' ? 40 : 28)) : 0;
+  }
+
+  function newMark(slug) {
+    if (!CATALOG.isNew(slug)) return null;
+    if (S.variant === 'b') return h('span', { class: 'nm-spark', role: 'img', 'aria-label': 'New', 'data-tip': 'New', html: icon('sparkles', 14) });
+    return newChip();
+  }
+
+  function item(s) {
+    const grid = S.layout === 'grid';
+    const k = kit(s.slug);
+    const on = isOn(s.slug);
+    const title = h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug),
+      hasUpdate(s.slug) ? h('span', { class: 'nm-upd', role: 'img', 'aria-label': 'Update available', 'data-tip': 'Update available', html: icon('upload-circle', 14) }) : null,
+      newMark(s.slug),
+      !grid && k && k.folder && !S.folder ? h('span', { class: 'sb-tag nm-folder' }, k.folder) : null);
+    const desc = h('div', { class: grid ? 'sb-desc nm-tile-desc' : 'sb-desc' }, s.desc);
+    const pillEl = place(s.slug, on);
+    const el = grid
+      ? h('div', { class: 'nm-tile' }, title, desc, h('div', { class: 'nm-tile-foot' }, pillEl))
+      : h('div', { class: 'sb-row' }, h('div', { class: 'sb-row-main' }, title, desc), h('div', { class: 'sb-row-end' }, pillEl));
+    el.classList.add('nm-click');
+    el.classList.toggle('is-dim', !on);
+    el.dataset.slug = s.slug;
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', s.slug);
+    el.addEventListener('click', () => openSkill(s.slug));
+    el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSkill(s.slug); } });
+    return el;
+  }
+
+  // The activation pill: a dashed "+" (Turn on) while off; where it is on once on.
+  function place(slug, on) {
+    const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+    if (!on) return h('button', { class: 'nm-place is-empty', 'data-tip': 'Turn on', 'aria-label': `Turn on ${slug}`, onclick: stop(() => turnOn(slug)) }, ic('plus', 14));
+    const here = S.on.has(slug);
+    const ids = here ? ALL : DATA.whereActive(slug).agents;
+    const ws = here ? [] : DATA.whereActive(slug).workspaces;
+    const names = here || DATA.presetRaw(slug) === 'all' ? 'All agents' : ids.map((id) => DATA.target(id).name).join(', ');
+    return h('button', { class: 'nm-place', 'aria-label': 'Change where it is on', onclick: stop(soon) },
+      ids.length ? h('span', { class: 'sb-avatar-stack', 'data-tip': `Your agents\n${names}` }, ids.map((id) => avatar(id, { tip: false }))) : null,
+      ws.length ? h('span', { class: 'sb-chip nm-ws', 'data-tip': ws.map((w) => w.id).join('\n') }, ic('code-folder', 13), ws.length === 1 ? ws[0].id : String(ws.length)) : null);
+  }
+
+  // ---- the skill's page: opening it cleared the mark ----------------------------------------
+  function drawSkill(slug) {
+    const s = CATALOG.librarySkills().find((x) => x.slug === slug);
+    const on = isOn(slug);
+    hdr.replaceChildren(h('div', { class: 'sb-crumbs' },
+      h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Back', 'aria-label': 'Back', onclick: back }, ic('arrow-left', 15)),
+      h('button', { class: 'nm-crumb', onclick: back }, 'Library'), ic('chevron-right', 13), h('span', { class: 'sb-ellipsis' }, slug)));
+    page.className = 'sb-page';
+    page.replaceChildren(
+      h('div', { class: 'nm-skill' }, h('div', { class: 'nm-skill-title' }, slug), h('div', { class: 'sb-desc' }, s.desc),
+        s.source ? h('div', { class: 'nm-meta' }, ic('github', 13), s.source) : null),
+      h('div', { class: 'nm-block' }, h('div', { class: 'nm-block-label' }, 'Your agents'),
+        on ? place(slug, true) : h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => turnOn(slug) }, ic('plus', 14), 'Turn on')));
+  }
+})();
+</script>
+</body>
+</html>
