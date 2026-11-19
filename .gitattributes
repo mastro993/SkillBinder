@@ -14,6 +14,8 @@ fixtures/baseline/** linguist-generated
 # Prototype bundles the kit's inliner builds from docs/design/**/source/, and the icon block its
 # generator writes from assets/. Agents edit the sources, never these.
 docs/design/**/prototypes/*.html linguist-generated
+# Written by hand with no source/, so the size check covers it.
+docs/design/header/prototypes/header.html -linguist-generated
 docs/design/**/source/kit/icons.js.parts/2-generated.js linguist-generated
 assets/** linguist-vendored
 # Agents update the asset inventories, so the size check covers them.

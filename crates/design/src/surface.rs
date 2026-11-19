@@ -12,9 +12,9 @@ const BORDER: f32 = 1.;
 /// An elevation level (`DESIGN.md` § Elevation & Depth).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Level {
-    /// Rows and cards inside the page panel: a 1-point `border` outline and no shadow.
+    /// Rows and cards inside the page: a 1-point `border` outline and no shadow.
     Flat,
-    /// The page panel, the selected sidebar row, a dragged row: a hairline ring and a soft shadow.
+    /// The selected sidebar row, a dragged row: a hairline ring and a soft shadow.
     Raised,
     /// Menus, popovers, the progress pill.
     Overlay,
@@ -43,7 +43,7 @@ impl Level {
         }
     }
 
-    /// Cards and the panel are `lg`; menus, popovers, and dialogs `xl`.
+    /// Cards are `lg`; menus, popovers, and dialogs `xl`.
     fn radius(self) -> f32 {
         match self {
             Self::Flat | Self::Raised => radius::LG,
@@ -69,14 +69,6 @@ impl Surface {
             layers: level.layers(),
             radius: level.radius(),
             fill: None,
-        }
-    }
-
-    /// The inset page panel: raised, with a deeper shadow below it.
-    pub fn panel() -> Self {
-        Self {
-            layers: elevation::RAISED_PANEL,
-            ..Self::new(Level::Raised)
         }
     }
 

@@ -1,7 +1,7 @@
 //! A scoped page's header in place of the breadcrumb: the place's glyph, its name in semibold, an
-//! optional extra such as an avatar stack, then its folder, muted, with home shortened to `~`,
-//! truncating with an ellipsis. Below it, the page's skills in one card under the search shared
-//! with Library.
+//! optional extra such as an avatar stack, a dot, then its folder in mono, muted, with home
+//! shortened to `~`, truncating with an ellipsis. Below it, the page's skills in one card under
+//! the search shared with Library.
 
 use super::library_copies::shown_dir;
 use super::skill_picker::Place;
@@ -43,7 +43,7 @@ impl NativeView {
         }
     }
 
-    /// `icon`, `name`, `extra`, and `path` on one line.
+    /// `icon`, `name`, `extra`, a dot, and `path` on one line.
     pub(super) fn page_head(
         &self,
         icon: AnyElement,
@@ -65,13 +65,14 @@ impl NativeView {
             )
             .child(
                 Text::labeled("page-name", name)
-                    .level(text::TITLE_SM)
+                    .level(text::TITLE_MD)
                     .flex_none(),
             )
             .children(extra)
+            .child(Text::new("·").level(text::TITLE_MD).muted().flex_none())
             .child(
                 Text::labeled("page-path", shown_dir(path, &self.snapshot.home))
-                    .level(text::CAPTION)
+                    .level(text::MONO_SM)
                     .muted()
                     .min_w_0()
                     .truncate(),
@@ -79,7 +80,7 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// A scoped page's column, inside the panel's gutter.
+    /// A scoped page's column, inside the page's gutter.
     pub(super) fn scoped_page(&self) -> Div {
         v_flex().w_full().p(px(GUTTER)).gap(px(GAP))
     }

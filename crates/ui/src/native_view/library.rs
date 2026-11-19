@@ -11,7 +11,7 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::library::{GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE};
-use skillbinder_design::page::{GAP, GUTTER, INSET};
+use skillbinder_design::page::{GAP, GUTTER};
 use skillbinder_design::{Notice, NoticeSize};
 use skillbinder_proto::{LibrarySnapshot, LibraryView, PresetId, Skill};
 
@@ -149,15 +149,14 @@ impl NativeView {
         }
     }
 
-    /// The list's width: the page panel, inset from the window's right edge and, without the
-    /// sidebar, its left edge too, less the gutter on each side.
+    /// The list's width: the page column beside the sidebar, less the gutter on each side.
     pub(super) fn content_width(&self, window: &Window) -> f32 {
-        let (sidebar, insets) = if self.sidebar_collapsed {
-            (0., 2.)
+        let sidebar = if self.sidebar_collapsed {
+            0.
         } else {
-            (self.sidebar_width, 1.)
+            self.sidebar_width
         };
-        f32::from(window.viewport_size().width) - sidebar - insets * INSET - 2. * GUTTER
+        f32::from(window.viewport_size().width) - sidebar - 2. * GUTTER
     }
 }
 

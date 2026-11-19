@@ -46,7 +46,7 @@ What changes when you build UI:
 
 ## Direction
 
-**Inset canvas.** The window and sidebar share a tinted canvas, and each page sits on a raised white panel inset 6 px from the window edges.
+**Inset canvas.** The window and sidebar share a tinted canvas, and each page sits on a raised white panel inset 6 px from the window edges. ADR 0016 later replaced the panel with two flat columns split by a line (`DESIGN.md` § Layout).
 
 - One iris accent (`#5B5BD6`) marks the primary action, focus and the current selection.
 - There are four elevation levels: flat, raised, overlay and modal.

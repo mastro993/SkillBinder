@@ -1,5 +1,7 @@
 # One design system, specified in DESIGN.md, with the Inset canvas look
 
+Partly superseded by ADR 0016: the page is no longer a raised panel inset from the window; the sidebar and the page are two flat columns split by a line.
+
 The app looked flat. Every surface used GPUI Kit's neutral defaults, so the sidebar and the page blended into each other, and black was the only accent. Sizes, colors and radii were literals or per-feature constants, which let the same pattern drift between screens: seven dialog footers, eight notice lines, and four card radii.
 
 So the app gets one design system:
