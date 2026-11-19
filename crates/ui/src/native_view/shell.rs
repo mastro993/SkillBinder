@@ -332,12 +332,14 @@ impl NativeView {
                 .relative()
                 .flex_shrink_0()
                 .h(px(HEADER_HEIGHT))
-                .pr(trailing)
                 .when(with_sidebar, |header| {
                     header.border_b_1().border_color(border)
                 })
-                .when(!with_sidebar, |header| header.pl(px(space::MD)))
-                .child(row)
+                // The row is absolute, so it spans this div's padding: the padding goes on it.
+                .child(
+                    row.pr(trailing)
+                        .when(!with_sidebar, |row| row.pl(px(space::MD))),
+                )
                 .into_any_element()
         }
     }
