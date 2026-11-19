@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New mark</title>
+<!-- Explore · New mark in Library (N1, N2): three skills installed from Explore, inactive and New,
+     among the library's other skills. Opening a skill's page or turning it on clears its mark.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py new-mark.html ../prototypes/new-mark.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="explore.css">
+<style>
+/* ---- frame: fixed toolbar, scrolling list or grid ---- */
+.sb-page.nm-page { overflow: hidden; padding-bottom: 0; }
+.nm-toolbar { flex-wrap: nowrap; }
+.nm-toolbar .sb-search { flex: 1 1 120px; width: auto; min-width: 100px; }
+.nm-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; padding-bottom: 16px; scrollbar-width: thin; }
+.nm-click { cursor: pointer; }
+
+/* ---- grid tiles (Library's grid view) ---- */
+.nm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 8px; }
+.nm-tile {
+  position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 108px; padding: 10px 12px;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card);
+}
+.nm-tile:hover { background: var(--sb-hover); --sb-ring-bg: var(--sb-hover); }
+.nm-tile .sb-slug { font-size: 13px; }
+.nm-tile-desc { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.nm-tile-foot { margin-top: auto; padding-top: 4px; display: flex; align-items: center; min-height: 28px; }
+/* Dimming touches only the slug, description, and folder tag: the New mark keeps full opacity. */
+.nm-tile.is-dim .sb-slug, .nm-tile.is-dim .sb-desc, .is-dim .nm-folder { opacity: .5; }
+.nm-scroll { container-type: inline-size; }
+@container (max-width: 440px) { .sb-row .nm-folder { display: none; } }
+
+/* ---- marks: update glyph, B's sparkles glyph (A and C use the shared New chip) ---- */
+.nm-upd, .nm-spark { display: grid; flex: none; color: var(--sb-info); }
+
+/* ---- activation pill: where it is on, or a dashed "Turn on" ---- */
+.nm-place {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 4px 0 6px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--sb-muted-fg); cursor: pointer;
+}
+.nm-place:hover { background: var(--sb-highlight); color: var(--sb-fg); }
+.nm-place.is-empty {
+  width: 26px; padding: 0; justify-content: center; opacity: 0;
+  border: 1px dashed color-mix(in srgb, var(--sb-fg) 24%, transparent); border-radius: 999px;
+}
+.sb-row:hover .nm-place.is-empty, .nm-tile:hover .nm-place.is-empty, .nm-place.is-empty:focus-visible { opacity: 1; }
+.nm-ws { height: 20px; gap: 4px; padding: 0 7px 0 5px; }
+.nm-ws .sb-ic { color: var(--sb-muted-fg); }
+
+/* ---- C: "3 new" in place of the Library count ---- */
+.sb-nav-row.nm-has-new .sb-nav-count { display: none; }
+.nm-side-new {
+  flex: none; font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--sb-info) 60%, var(--sb-fg));
+}
+
+/* ---- the skill's page (opening it clears the mark) ---- */
+.nm-crumb { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.nm-crumb:hover { color: var(--sb-fg); }
+.nm-skill { display: flex; flex-direction: column; gap: 6px; }
+.nm-skill-title { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.nm-skill .sb-desc { white-space: normal; }
+.nm-meta { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--sb-muted-fg); }
+.nm-block { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
+.nm-block-label { font-size: 12px; font-weight: 600; }
+</style>
+</head>
+<body data-first-variant="a">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page nm-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="catalog.js"></script>
+<script src="explore-kit.js"></script>

@@ -1,0 +1,120 @@
+<script>
+(function () {
+  'use strict';
+  const C = window.CATALOG;
+  const win = document.getElementById('win');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  // query + source (C3: 'creator:<id>' | 'repo:<id>' | 'skills.sh' | null) carry across variants.
+  const S = { variant: 'a', state: 'home', query: '', source: null, tab: 'trending' };
+  let token = 0;
+  let body = () => {};
+  let sheet = null;
+
+  exploreSidebar(document.getElementById('side'), { active: 'explore', onNav: (k) => { if (k !== 'explore') soon(); }, onPreset: soon });
+
+  // ---- states and demo controls ---------------------------------------------------------
+  const STATES = [
+    { id: 'home', label: 'Home' }, { id: 'results', label: 'Results', tip: 'Search "pdf"' },
+    { id: 'loading', label: 'skills.sh loading' }, { id: 'none', label: 'No results' },
+    { id: 'creator', label: 'Creator', tip: 'Narrowed to mattpocock' }, { id: 'offline', label: 'Offline' },
+    { id: 'nocache', label: 'First use offline' }, { id: 'nogit', label: 'Without Git' },
+  ];
+  function setState(id) {
+    Object.assign(S, { state: id, query: '', source: null, tab: 'trending' });
+    Object.assign(C.settings, { git: id !== 'nogit', online: id !== 'offline' && id !== 'nocache', cache: id !== 'nocache',
+      remoteMs: id === 'loading' ? 1e9 : 900 });
+    if (id === 'results' || id === 'loading') S.query = 'pdf';
+    if (id === 'none') S.query = 'cobol';
+    if (id === 'creator') S.source = 'creator:mattpocock';
+    C.setSetting('access', C.settings.access); // one settings event redraws
+  }
+  // ---- shared pieces ------------------------------------------------------------------------
+  const open = (slug) => {
+    sheet = openSheet(win, skillDetail(slug, { win, onShowLibrary: soon, onCreator: (id) => { sheet.close(); narrow(`creator:${id}`); } }));
+  };
+  const act = (s) => installAction(s.slug, { win, onShowLibrary: soon });
+  const srcOf = (s) => (s.origin === 'catalog' ? `creator:${s.creator}` : s.origin === 'repo' ? `repo:${s.repoId}` : 'skills.sh');
+  const repoIc = (r, n = 14) => ic(r.private ? 'lock' : 'github', n);
+  function narrow(source) { S.source = source; draw(); }
+  const search = () => searchInput({ placeholder: 'Search skills', value: S.query, onInput: (q) => { S.query = q; body(); } });
+  const searching = () => !!(S.query.trim() || S.source);
+
+  const card = (s, tag) => h('div', { class: 'ex-card', role: 'button', tabindex: '0', onclick: () => open(s.slug) },
+    h('div', { class: 'ex-card-title' }, h('span', s.name)),
+    h('div', { class: 'ex-card-desc' }, s.desc),
+    h('div', { class: 'ex-card-foot' }, tag ? sourceTag(s) : installsMeta(s) || sourceTag(s), act(s)),
+    installErrorLine(s.slug));
+  // A list narrowed to one source drops the source tag each row would repeat.
+  function row(s) {
+    const meta = [S.source ? null : sourceTag(s), installsMeta(s)].filter(Boolean);
+    return h('div', { class: 'sb-row', role: 'button', tabindex: '0', onclick: () => open(s.slug) },
+      h('div', { class: 'sb-row-main' },
+        h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.name)),
+        h('div', { class: 'sb-desc' }, s.desc),
+        meta.length ? h('div', { class: 'ep-meta' }, meta) : null, installErrorLine(s.slug)),
+      h('div', { class: 'sb-row-end' }, act(s)));
+  }
+  const list = (items) => h('div', { class: 'sb-card ep-list' }, items.map(row));
+  const dense = (items) => h('div', { class: 'sb-card ep-list is-dense' }, items.map(row));
+  const grid = (items) => h('div', { class: 'ex-grid' }, items.map((s) => card(s, !S.source)));
+  const repoRow = (r) => h('div', { class: 'sb-row', role: 'button', tabindex: '0', onclick: () => narrow(`repo:${r.id}`) },
+    h('span', { class: 'ex-repo-ic' }, repoIc(r, 15)),
+    h('div', { class: 'sb-row-main' }, h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, r.name),
+      h('span', { class: 'sb-chip-count' }, `${r.skillCount} skills`)), h('div', { class: 'ex-url' }, r.url)),
+    h('div', { class: 'sb-row-end' }, installAllButton(r.id, { win })));
+  const addBtn = () => h('button', { class: 'sb-btn sb-btn-icon sb-btn-xs', 'aria-label': 'Add repository', 'data-tip': 'Add repository', 'data-tip-pos': 'end', onclick: soon }, ic('plus', 14));
+
+  // I5: browsing works without Git; the app's Install Git action sits on the page (ADR 0011).
+  function gitLine() {
+    if (C.settings.git) return null;
+    const b = h('button', { class: 'sb-btn sb-btn-outline sb-btn-xs', onclick: () => {
+      b.disabled = true;
+      b.replaceChildren(spinner(12), 'Installing Git');
+      setTimeout(() => { toast(win, 'Git installed', { icon: 'check-circle' }); C.setSetting('git', true); }, 1200);
+    } }, 'Install Git');
+    return h('div', { class: 'ep-line' }, ic('git-branch', 13), 'Installing needs Git', b);
+  }
+  const notes = () => [offlineLine(), gitLine()];
+
+  // ---- sources: chips (C3) and the narrowed header ----------------------------------------
+  const label = (id) => (C.sources().find((x) => x.id === id) || { label: id }).label;
+  function lead(id) {
+    const [kind, key] = id.split(':');
+    if (kind === 'creator') return creatorAvatar(key, { size: 14 });
+    return kind === 'repo' ? repoIc(C.repo(key), 13) : ic('globe', 13);
+  }
+  const group = (id, n) => ({ id, n, label: label(id) });
+  function resultGroups(local, remoteN) {
+    const m = new Map();
+    local.forEach((s) => m.set(srcOf(s), (m.get(srcOf(s)) || 0) + 1));
+    const g = [...m].sort((a, b) => b[1] - a[1]).map(([id, n]) => group(id, n));
+    return remoteN === undefined ? g : g.concat(group('skills.sh', remoteN));
+  }
+  const homeGroups = () => C.creators().slice(0, 4).map((c) => group(`creator:${c.id}`, c.skillCount))
+    .concat(C.repositories().map((r) => group(`repo:${r.id}`, r.skillCount)));
+  function chipRow(groups) {
+    if (S.source && !groups.some((g) => g.id === S.source)) {
+      const [kind, key] = S.source.split(':');
+      const all = S.query.trim() ? null : kind === 'creator' ? C.creator(key).skillCount : kind === 'repo' ? C.repo(key).skillCount : null;
+      groups.unshift(group(S.source, all));
+    }
+    const chip = (id, text, n) => h('button', { class: `sb-chip${S.source === id ? ' is-active' : ''}`, 'aria-pressed': String(S.source === id),
+      onclick: () => narrow(S.source === id ? null : id) }, id ? lead(id) : null, text, n != null ? h('span', { class: 'sb-chip-count' }, n) : null);
+    return h('div', { class: 'ep-chips' }, chip(null, 'All'), groups.map((g) => chip(g.id, g.label, g.n)));
+  }
+  const scopeText = (name, sub) => h('div', { class: 'ep-scope-text' }, h('span', { class: 'ep-scope-name' }, name),
+    sub ? h('span', { class: 'ep-scope-sub' }, sub) : null);
+  function scopeHead(clearable) {
+    if (!S.source) return null;
+    const [kind, id] = S.source.split(':');
+    const x = clearable ? h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'aria-label': 'Clear filter', 'data-tip': 'Clear filter',
+      'data-tip-pos': 'end', onclick: () => narrow(null) }, ic('close', 15)) : null;
+    if (kind === 'creator') return h('div', { class: 'ep-scope' }, creatorAvatar(id, { size: 32 }), scopeText(id, `${C.creator(id).skillCount} skills`), x);
+    if (kind === 'repo') {
+      const r = C.repo(id);
+      return h('div', { class: 'ep-scope' }, h('span', { class: 'ex-repo-ic' }, repoIc(r, 15)), scopeText(r.name, r.url), installAllButton(r.id, { win }), x);
+    }
+    return h('div', { class: 'ep-scope' }, h('span', { class: 'ex-repo-ic' }, ic('globe', 15)), scopeText('skills.sh'), x);
+  }

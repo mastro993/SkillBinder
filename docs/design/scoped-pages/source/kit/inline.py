@@ -7,9 +7,12 @@ Replaces <link rel="stylesheet" href="local.css"> with a minified <style> and
 comment dropped). Paths resolve relative to the input file. A file kept as a
 folder "<name>.parts/" (to stay under the repository's per-file size limit) is
 read as its parts joined in numeric order; the input page may be one too.
-Remote URLs are an error (the chat frame allows no external URLs). Warns when the
-output exceeds the 512,000-character preview cap.
+Remote URLs are an error (the chat frame allows no external URLs). The kit's icon
+block keeps only the icons whose name the page quotes somewhere ('name', "name", or
+`name`), so a bundle carries the glyphs it can show. Warns when the output exceeds
+the 512,000-character preview cap.
 """
+import json
 import re
 import sys
 from pathlib import Path
@@ -26,6 +29,20 @@ def minify_css(css: str) -> str:
     css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     css = re.sub(r"\s+", " ", css)
     return re.sub(r"\s*([{};])\s*", r"\1", css).strip()
+
+
+ICONS = re.compile(r"(window\.ICONS = )(\{.*?\})(;\s*/\* END GENERATED \*/)", re.S)
+
+
+def prune_icons(html: str) -> str:
+    """Drop generated icons no quoted string in the page names; a dropped one that is still
+    used renders the kit's visible "?" box and logs an error, so a miss cannot pass unseen."""
+    m = ICONS.search(html)
+    if not m:
+        return html
+    rest = html[: m.start()] + html[m.end():]
+    used = {k: v for k, v in json.loads(m.group(2)).items() if re.search(rf"['\"`]{re.escape(k)}['\"`]", rest)}
+    return html[: m.start(2)] + json.dumps(used, separators=(",", ":")) + html[m.end(2):]
 
 
 def read_source(path: Path) -> str:
@@ -65,7 +82,7 @@ def main() -> None:
         return f"<script>/* {m.group(1)} */\n{body}\n</script>"
 
     html = LINK.sub(css, html)
-    html = SCRIPT.sub(js, html)
+    html = prune_icons(SCRIPT.sub(js, html))
     out.write_text(html, encoding="utf-8")
     size = len(html)
     note = f"  WARNING: over the {LIMIT:,}-char preview cap" if size > LIMIT else ""

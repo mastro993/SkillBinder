@@ -1,0 +1,90 @@
+/* Explore prototypes: shared styles on the kit's tokens (kit.css first). Classes from explore-kit.js
+ * plus layout helpers the areas share:
+ *   .ex-grid (cards, auto-fill) > .ex-card(.is-compact) > .ex-card-title .ex-card-desc .ex-card-foot
+ *   .ex-rail (one horizontal scrolling row) .ex-creators (creator chips, wrapping)
+ *   .ex-repo (repository row in an .sb-card) > .ex-repo-ic .sb-row-main ... .sb-row-end
+ */
+#proto { max-width: 700px; }
+.sb-window { --sb-sidebar-w: 148px; }
+/* The page scrolls as a whole: its blocks keep their height. */
+.sb-page > :is(.sb-toolbar, .sb-card, .ex-section, .ex-grid, .ex-rail, .ex-creators) { flex-shrink: 0; }
+
+/* ---- marks ----------------------------------------------------------------- */
+.ex-avatar {
+  width: var(--sz, 20px); height: var(--sz, 20px); flex: none; display: inline-grid; place-items: center;
+  border-radius: 6px; background: color-mix(in srgb, var(--tint) 18%, var(--sb-bg)); color: color-mix(in srgb, var(--tint) 70%, var(--sb-fg));
+  font-size: calc(var(--sz, 20px) * .42); font-weight: 600; letter-spacing: -.02em; line-height: 1;
+}
+.ex-new {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 6px; flex: none; border-radius: 999px;
+  background: color-mix(in srgb, var(--sb-info) 16%, transparent); color: color-mix(in srgb, var(--sb-info) 60%, var(--sb-fg));
+  font-size: 11px; font-weight: 600;
+}
+.ex-installs, .ex-source, .ex-inlib { display: inline-flex; align-items: center; gap: 4px; min-width: 0; font-size: 11.5px; color: var(--sb-muted-fg); white-space: nowrap; }
+.ex-installs .sb-ic { color: color-mix(in srgb, var(--sb-warning) 70%, var(--sb-muted-fg)); }
+.ex-inlib { height: 24px; padding: 0 2px; font-size: 12px; }
+.ex-install { display: inline-flex; flex: none; }
+.ex-install [data-tip] > button:disabled { pointer-events: none; }
+.ex-error { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-danger); }
+.ex-offline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-muted-fg); }
+
+/* ---- sections, cards, creators ---------------------------------------------- */
+.ex-section { display: flex; align-items: center; gap: 6px; min-height: 24px; font-size: 13px; font-weight: 600; }
+.ex-section > .sb-ic { color: var(--sb-muted-fg); }
+.ex-section-end { margin-left: auto; display: flex; align-items: center; gap: 4px; font-weight: 400; }
+.ex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+.ex-rail { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.ex-rail > * { flex: 0 0 180px; }
+.ex-card {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; cursor: pointer;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); text-align: left;
+}
+.ex-card:hover { background: var(--sb-hover); }
+.ex-card-title { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; }
+.ex-card-title > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-card-desc {
+  font-size: 12px; color: var(--sb-muted-fg); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ex-card-foot { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: auto; padding-top: 4px; }
+.ex-card-foot > .ex-install { margin-left: auto; }
+.ex-card.is-compact .ex-card-desc { -webkit-line-clamp: 1; }
+.ex-creators { display: flex; flex-wrap: wrap; gap: 6px; }
+.ex-creator {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 5px 10px 5px 5px; cursor: pointer;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); color: var(--sb-fg); text-align: left;
+}
+.ex-creator:hover { background: var(--sb-hover); }
+.ex-creator.is-active { border-color: var(--sb-fg); box-shadow: inset 0 0 0 1px var(--sb-fg); }
+.ex-creator-text { display: flex; flex-direction: column; min-width: 0; }
+.ex-creator-name { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-creator-count { font-size: 11px; color: var(--sb-muted-fg); }
+
+/* ---- repositories ------------------------------------------------------------- */
+.ex-repo-ic { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 7px; background: var(--sb-muted); color: var(--sb-muted-fg); }
+.ex-url { font: 11.5px var(--sb-mono); color: var(--sb-muted-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- detail panel --------------------------------------------------------------- */
+.ex-scrim { position: absolute; inset: 0; z-index: 70; background: rgb(0 0 0 / .14); animation: sb-fade .15s ease-out; }
+.ex-sheet {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(var(--ex-sheet-w, 340px), calc(100% - 40px)); overflow: auto;
+  padding: 16px; border-left: 1px solid var(--sb-border); background: var(--sb-bg); box-shadow: var(--sb-shadow-lg);
+}
+.ex-sheet-close { position: absolute; top: 10px; right: 10px; }
+.ex-detail { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ex-detail-head { display: flex; align-items: center; gap: 8px; padding-right: 28px; }
+.ex-detail-title { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.ex-detail-desc { font-size: 13px; color: var(--sb-muted-fg); }
+.ex-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.ex-link {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; height: 22px; padding: 0 4px; margin: 0 -4px;
+  border: 0; border-radius: 5px; background: transparent; color: var(--sb-fg); font-size: 12px; cursor: pointer;
+}
+.ex-link:hover { background: var(--sb-muted); }
+.ex-detail-label { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11.5px; font-weight: 600; color: var(--sb-muted-fg); }
+.ex-files { margin: 0; padding: 0; list-style: none; border: 1px solid var(--sb-border); border-radius: 8px; }
+.ex-files li { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; font: 11.5px var(--sb-mono); }
+.ex-files li + li { border-top: 1px solid var(--sb-border); }
+.ex-files .sb-ic { color: var(--sb-muted-fg); }
+.ex-md { border: 1px solid var(--sb-border); border-radius: 8px; background: var(--sb-muted); }
+.ex-md.is-loading { display: grid; place-items: center; height: 80px; color: var(--sb-muted-fg); }
+.ex-md pre { margin: 0; padding: 10px 12px; font: 11.5px/1.5 var(--sb-mono); white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -18,6 +18,10 @@ HUGE = {
     "libraries": "LibrariesIcon", "compass": "Compass01Icon", "settings": "Settings01Icon",
     "import": "ImportIcon", "unplug": "UnplugIcon", "book": "Book02Icon", "code": "SourceCodeIcon",
     "robot": "Robot01Icon", "pencil-edit": "PencilEdit02Icon", "git-branch": "GitBranchIcon", "folder-search": "FolderSearchIcon", "arrow-left": "ArrowLeft01Icon",
+    # Explore (docs/design/explore): trending, creators, repositories, sources, offline.
+    "fire": "FireIcon", "star": "StarIcon", "users": "UserGroupIcon", "github": "GithubIcon",
+    "globe": "Globe02Icon", "sparkles": "SparklesIcon", "lock": "SquareLock02Icon", "cloud": "CloudIcon",
+    "arrow-up": "ArrowUp01Icon", "copy": "Copy01Icon", "package": "PackageIcon",
 }
 # The fixture's agents (Universal's members and the workspace directories' first readers): the
 # full-color logo where the repo has one, as the app's avatars use, else the monochrome one.

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skill detail</title>
+<!-- Explore: the skill detail panel (P1, I1-I6) behind a trending list. Variants: side sheet, split pane, large dialog.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py skill-detail.html ../prototypes/skill-detail.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="explore.css">
+<style>
+/* ---- the panel (all variants) ---- */
+.sd-panel { display: flex; flex-direction: column; min-width: 0; }
+.sd-head {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; min-height: 48px;
+  padding: 8px 10px 8px 16px; border-bottom: 1px solid var(--sb-border); background: var(--sb-bg);
+}
+.sd-title { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.sd-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px 16px 16px; }
+.sd-desc { font-size: 13px; color: var(--sb-muted-fg); }
+.sd-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.sd-meta .sb-newicon { color: var(--sb-muted-fg); }
+.sd-git { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-muted-fg); }
+.sd-git > .sb-btn, .sd-md-error > .sb-btn { margin-left: auto; }
+.sd-tree { padding: 4px 0; border: 1px solid var(--sb-border); border-radius: 8px; }
+.sd-tree-row {
+  display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; padding: 0 8px 0 calc(8px + var(--d) * 14px);
+  border: 0; background: none; color: var(--sb-fg); font: 11.5px var(--sb-mono); text-align: left;
+}
+button.sd-tree-row { cursor: pointer; }
+button.sd-tree-row:hover { background: var(--sb-hover); }
+.sd-tree-row .sb-ic { flex: none; color: var(--sb-muted-fg); }
+.sd-chev { transition: transform .12s; }
+[aria-expanded="true"] > .sd-chev { transform: rotate(90deg); }
+.sd-chev-sp { width: 12px; flex: none; }
+.sd-tree-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-mdbox { min-width: 0; padding: 10px 14px; border: 1px solid var(--sb-border); border-radius: 8px; }
+.sd-md { font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; }
+.sd-md > :first-child { margin-top: 0; }
+.sd-md > :last-child { margin-bottom: 0; }
+.sd-md h1 { margin: 12px 0 6px; font-size: 15px; }
+.sd-md h2 { margin: 12px 0 4px; font-size: 13.5px; }
+.sd-md h3 { margin: 10px 0 4px; font-size: 12.5px; }
+.sd-md p, .sd-md ul, .sd-md ol { margin: 0 0 8px; }
+.sd-md ul, .sd-md ol { padding-left: 18px; }
+.sd-md code { padding: 1px 4px; border-radius: 4px; background: var(--sb-muted); font: 11.5px var(--sb-mono); }
+.sd-md pre { margin: 0 0 8px; padding: 8px 10px; overflow-x: auto; border-radius: 6px; background: var(--sb-muted); }
+.sd-md pre code { padding: 0; background: none; }
+.sd-skel { display: flex; flex-direction: column; gap: 8px; }
+.sd-skel i { display: block; height: 9px; border-radius: 4px; background: var(--sb-muted); animation: sd-pulse 1.2s ease-in-out infinite; }
+.sd-skel i:first-child { height: 13px; }
+.sd-skel b { height: 2px; }
+@keyframes sd-pulse { 50% { opacity: .4; } }
+
+/* ---- A: side sheet over the page ---- */
+.ex-sheet.sd-sheet { padding: 0; }
+.ex-card.is-selected { border-color: var(--sb-fg); }
+
+/* ---- B: split pane ---- */
+.sb-page.sd-split { flex-direction: row; gap: 0; padding: 0; overflow: hidden; }
+.sd-left { flex: 0 0 236px; width: 236px; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-right: 1px solid var(--sb-border); }
+.sd-left-top { display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 6px; }
+.sd-left-top .sb-search { width: 100%; }
+.sd-list { flex: 1; min-height: 0; overflow: auto; padding: 0 6px 8px; }
+.sd-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+.sd-row:hover { background: var(--sb-hover); }
+.sd-row.is-selected { background: var(--sb-sel); }
+.sd-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 20px; font-size: 13px; font-weight: 600; }
+.sd-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-row .ex-inlib { height: 20px; }
+.sd-pane { flex: 1; min-width: 0; overflow: auto; }
+
+/* ---- C: large dialog (the Import skills dialog's size) ---- */
+.sb-dialog.sd-dialog { width: 92%; height: 90%; max-width: none; }
+.sd-dialog .sb-dialog-header { padding-bottom: 10px; border-bottom: 1px solid var(--sb-border); }
+.sd-dialog .sb-dialog-body { display: flex; overflow: hidden; padding: 12px 16px 16px; }
+.sd-wide { flex: 1; min-width: 0; min-height: 0; display: flex; gap: 16px; }
+.sd-wide-l { flex: 0 0 40%; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.sd-wide-r { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.sd-wide-r > .ex-detail-label { margin-top: 0; }
+.sd-wide-r > .sd-mdbox { flex: 1; min-height: 0; overflow: auto; }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="loaded">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="catalog.js"></script>
+<script src="explore-kit.js"></script>
+<script src="skill-detail.js"></script>

@@ -1,0 +1,180 @@
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  // P.open: the sheet or dialog is showing (B's pane always is). overlay: {close} of the open one.
+  const P = { variant: 'a', state: 'loaded', slug: 'react-best-practices', open: true, md: 'ok', q: '' };
+  let overlay = null;
+
+  // A skill with folders, so the file tree has something to collapse.
+  Object.assign(CATALOG.skill('react-best-practices'), { files: ['SKILL.md', 'AGENTS.md', 'metadata.json',
+    'rules/async-parallel.md', 'rules/bundle-barrel-imports.md', 'rules/rerender-memo.md', 'rules/server-cache-react.md',
+    'scripts/build-agents.ts'] });
+  const RBP_MD = '# React best practices\n\nPerformance rules for React and Next.js, ordered by impact. Read a rule when its trigger applies.\n\n'
+    + '## Critical\n- **Eliminate waterfalls**: start independent requests together with `Promise.all`.\n'
+    + '- **Bundle size**: skip barrel files; reach for the module itself.\n\n## Medium\n'
+    + '1. Memoize expensive children with `memo`.\n2. Cache server reads per request with `cache()`.\n\n'
+    + '```\nconst [user, posts] = await Promise.all([getUser(id), getPosts(id)]);\n```\n\nSee `rules/` for one file per rule, with a bad and a good example.';
+  // The state's skill fails or hangs on its first fetch; Retry and every other skill load normally.
+  function fetchMd(slug, attempt) {
+    if (slug === P.mdSlug && attempt === 0 && P.md === 'loading') return new Promise(() => {});
+    if (slug === P.mdSlug && attempt === 0 && P.md === 'error') return new Promise((ok, no) => setTimeout(no, 500));
+    if (slug === 'react-best-practices') return new Promise((ok) => setTimeout(() => ok(RBP_MD), 400));
+    return CATALOG.skillMd(slug);
+  }
+  // T2: a creator narrows the page to their skills (by search, which matches creators; C2).
+  function byCreator(id) {
+    Object.assign(P, { q: id, open: P.variant === 'b' });
+    draw();
+  }
+  const detailOpts = { win, onShowLibrary: soon, onCreator: byCreator, fetchMd };
+
+  const STATES = [
+    { id: 'loaded', label: 'Loaded', slug: 'react-best-practices' },
+    { id: 'loading', label: 'Loading SKILL.md', slug: 'react-best-practices', md: 'loading' },
+    { id: 'mderror', label: 'SKILL.md error', slug: 'react-best-practices', md: 'error' },
+    { id: 'inlib', label: 'In library', slug: 'frontend-design' },
+    { id: 'collision', label: 'Collision', slug: 'pdf' },
+    { id: 'nogit', label: 'Without Git', slug: 'react-best-practices', git: false },
+    { id: 'failed', label: 'Install failed', slug: 'acme-oncall', access: false, tip: 'Private repository, no access' },
+  ];
+  function setState(id) {
+    const st = STATES.find((x) => x.id === id) || STATES[0];
+    closeOverlay();
+    win.querySelectorAll(':scope > .sb-toast').forEach((t) => t.remove());
+    CATALOG.reset();
+    CATALOG.settings.git = st.git !== false;
+    CATALOG.settings.access = st.access !== false;
+    Object.assign(P, { state: st.id, slug: st.slug, mdSlug: st.slug, md: st.md || 'ok', open: true, q: '' });
+    if (st.id === 'failed') {
+      const ms = CATALOG.settings.installMs;
+      CATALOG.settings.installMs = 0;
+      CATALOG.install(st.slug);
+      CATALOG.settings.installMs = ms;
+    }
+    draw();
+  }
+
+  function closeOverlay() {
+    const o = overlay;
+    overlay = null;
+    if (o) o.close();
+  }
+  const userClosed = (o) => { if (overlay === o) { overlay = null; P.open = false; drawItems(); } };
+  function items() {
+    if (P.q.trim()) return CATALOG.search(P.q).local.slice(0, 24);
+    return CATALOG.trending(11).concat(CATALOG.skill('acme-oncall'));
+  }
+  function select(slug) {
+    Object.assign(P, { slug, open: true });
+    if (P.variant === 'b') { drawItems(); drawPane(); } else { drawItems(); openDetail(); }
+  }
+  const listHeader = () => (P.q.trim() ? sectionHeader('Results', { icon: 'search' }) : sectionHeader('Trending', { icon: 'fire' }));
+  const search = () => searchInput({ value: P.q, onInput: (q) => {
+    const was = !!P.q.trim();
+    P.q = q;
+    if (was !== !!q.trim()) { const old = page.querySelector('.ex-section'); if (old) old.replaceWith(listHeader()); }
+    drawItems();
+  } });
+
+  function draw() {
+    closeOverlay();
+    hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Explore'));
+    if (P.variant === 'b') {
+      page.className = 'sb-page sd-split';
+      page.replaceChildren(h('div', { class: 'sd-left' }, h('div', { class: 'sd-left-top' }, search(), listHeader()),
+        h('div', { class: 'sd-list', id: 'items' })), h('div', { class: 'sd-pane', id: 'pane' }));
+      drawItems();
+      drawPane();
+      return;
+    }
+    page.className = 'sb-page';
+    page.replaceChildren(h('div', { class: 'sb-toolbar' }, search()), listHeader(),
+      h('div', { class: 'ex-grid', id: 'items' }));
+    drawItems();
+    if (P.open) openDetail();
+  }
+
+  // ---- the list behind the panel: cards (A, C) or rows (B) ----------------------------
+  function drawItems() {
+    const el = document.getElementById('items');
+    if (!el) return;
+    const list = items();
+    const sel = (s) => (P.open || P.variant === 'b') && s.slug === P.slug;
+    if (!list.length) { el.replaceChildren(emptyState({ icon: 'search', title: 'No skills match' })); return; }
+    el.replaceChildren(...list.map((s) => (P.variant === 'b' ? row(s, sel(s)) : card(s, sel(s)))));
+  }
+  const keys = (slug) => (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(slug); } };
+  const name = (s, cls) => [h('span', { class: cls }, s.name), CATALOG.isNew(s.slug) ? newChip() : null];
+  const card = (s, on) => h('div', { class: `ex-card${on ? ' is-selected' : ''}`, role: 'button', tabindex: '0', onclick: () => select(s.slug), onkeydown: keys(s.slug) },
+    h('div', { class: 'ex-card-title' }, name(s)),
+    h('div', { class: 'ex-card-desc' }, s.desc),
+    h('div', { class: 'ex-card-foot' }, installsMeta(s) || sourceTag(s), installAction(s.slug, { win, onShowLibrary: soon })),
+    installErrorLine(s.slug));
+  const row = (s, on) => h('div', { class: `sd-row${on ? ' is-selected' : ''}`, role: 'button', tabindex: '0', 'aria-current': on ? 'true' : null,
+    onclick: () => select(s.slug), onkeydown: keys(s.slug) },
+  h('div', { class: 'sd-row-top' }, name(s, 'sd-row-name'), installAction(s.slug, { win, size: 'xs', onShowLibrary: soon })),
+  installsMeta(s) || sourceTag(s));
+
+  // ---- B: the pane beside the list --------------------------------------------------------
+  function drawPane() {
+    const el = document.getElementById('pane');
+    if (el) el.replaceChildren(SD.stack(SD.parts(P.slug, detailOpts)));
+  }
+
+  // ---- A: sheet; C: dialog ------------------------------------------------------------------
+  function openDetail() {
+    closeOverlay();
+    const p = SD.parts(P.slug, detailOpts);
+    if (P.variant === 'c') {
+      const d = openDialog(win, { title: p.s.name, size: 'lg', onClose: () => userClosed(d) });
+      d.el.classList.add('sd-dialog');
+      const head = d.el.querySelector('.sb-dialog-header');
+      head.insertBefore(p.install, head.lastChild);
+      head.lastChild.setAttribute('data-tip', 'Close');
+      d.setBody(h('div', { class: 'sd-wide' },
+        h('div', { class: 'sd-wide-l' }, p.desc, p.error, p.git, p.meta, p.filesLabel, p.files),
+        h('div', { class: 'sd-wide-r' }, p.mdLabel, p.md)));
+      overlay = d;
+      return;
+    }
+    overlay = sheet(p);
+  }
+  function sheet(p) {
+    const api = {
+      close() {
+        if (!scrim.isConnected) return;
+        document.removeEventListener('keydown', esc, true);
+        scrim.remove();
+        userClosed(api);
+      },
+    };
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); api.close(); } };
+    const close = h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'aria-label': 'Close', 'data-tip': 'Close', 'data-tip-pos': 'end',
+      onclick: () => api.close() }, ic('close', 15));
+    const scrim = h('div', { class: 'ex-scrim', onmousedown: (e) => { if (e.target === scrim) api.close(); } },
+      h('aside', { class: 'ex-sheet sd-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': p.s.name, style: '--ex-sheet-w:380px' },
+        SD.stack(p, close)));
+    win.append(scrim);
+    document.addEventListener('keydown', esc, true);
+    return api;
+  }
+
+  exploreSidebar(side, { active: 'explore', onNav: (k) => { if (k !== 'explore') soon(); }, onPreset: soon });
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Side sheet', desc: "Right sheet over the trending grid, behind a scrim; Install in its sticky header. v0 Extensions' detail pane, as an overlay." },
+    { id: 'b', label: 'Split pane', desc: 'Skill list on the left, the detail fills the rest and stays; selecting a row swaps it. v0 Extensions list + detail, Vercel integrations.' },
+    { id: 'c', label: 'Large dialog', desc: "Kit dialog at the Import skills dialog's size: facts and files left, SKILL.md right; Install beside Close. v0 Import from GitHub, scaled up." },
+  ], (id) => { P.variant = id; P.open = true; draw(); });
+  const first = STATES.some((x) => x.id === document.body.dataset.firstState) ? document.body.dataset.firstState : 'loaded';
+  bar.extra.append(seg(STATES.map(({ id, label, tip }) => ({ id, label, tip })), first, setState));
+  setState(first);
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>

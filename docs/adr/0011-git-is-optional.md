@@ -1,5 +1,7 @@
 # Git is optional; the library becomes a repository when Git appears
 
+Partly superseded by ADR 0015: Install, the detail sheet's file list and SKILL.md preview, and repositories also need Git; browsing Explore does not.
+
 Git 2.39 or newer was required before the library could exist, because creating it ran `git init`. Yet once the library exists, only Sync and Push, checking sources for updates, Update, and Reinstall need Git: scanning, importing, activation, and tree ids are computed without it. Requiring Git stops a user who only wants their agents' skills organized on one computer. So onboarding shows a Git step only when no usable Git is found. It offers to install Git and can be skipped.
 
 Without Git the library is created as a plain directory, and everything except those features works. They stay visible and say that they need Git, with the same Install Git action Settings offers. When Git is found later, at launch, on focus, or by the Git step's own check, the engine makes the existing library a repository, as Create library did for a library directory that already existed. Its skills and records stay uncommitted until the first Sync or Push, as imports always are.

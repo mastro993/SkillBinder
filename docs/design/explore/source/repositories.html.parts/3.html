@@ -1,0 +1,166 @@
+
+  // ---- source filter (C3): creators, your repositories, skills.sh -----------------------------
+  let srcBtn = null;
+  const srcOf = (id) => {
+    if (!id) return null;
+    const [kind, key] = id.split(':');
+    if (kind === 'repo') return C.repo(key) ? { label: C.repo(key).name, icon: repoIcon(C.repo(key), 14) } : null;
+    if (kind === 'creator') return { label: key, icon: creatorAvatar(key, { size: 16 }) };
+    return { label: 'skills.sh', icon: ic('globe', 14) };
+  };
+  function paintSrc() {
+    if (S.source && !srcOf(S.source)) S.source = null;
+    const s = srcOf(S.source);
+    srcBtn.replaceChildren(s ? s.icon : ic('layers', 14), h('span', { class: 'sb-ellipsis' }, s ? s.label : 'All sources'), ic('chevron-right', 13, 'rp-chev'));
+  }
+  function setSource(id) {
+    S.source = id;
+    if (srcBtn) paintSrc();
+    drawContent();
+  }
+  function openSources(anchor, { addUrl, hold } = {}) {
+    if (S.pop) S.pop.close();
+    const pop = popover(win, anchor, h('div'), { className: 'rp-pop', onClose: () => { if (S.pop === pop) S.pop = null; } });
+    if (!pop) return;
+    S.pop = pop;
+    const pick = (id) => { pop.close(); setSource(id); };
+    const item = (id, icn, label, trail, x) => h('div', { class: 'rp-item' },
+      h('button', { class: 'sb-menu-item', onclick: () => pick(id) }, h('span', { class: 'sb-menu-ic' }, icn),
+        h('span', { class: 'sb-ellipsis' }, label), h('span', { class: 'sb-menu-trail' }, S.source === id ? ic('check', 15) : trail)), x || null);
+    function listMode() {
+      const repos = C.repositories();
+      const foot = S.variant === 'c' ? h('button', { class: 'sb-menu-item', onclick: () => addMode() }, h('span', { class: 'sb-menu-ic' }, ic('plus', 15)), 'Add repository')
+        : S.variant === 'b' ? h('button', { class: 'sb-menu-item', onclick: () => { pop.close(); go('settings'); } },
+          h('span', { class: 'sb-menu-ic' }, ic('settings', 15)), 'Manage repositories') : null;
+      pop.el.replaceChildren(h('div', { class: 'rp-pop-list' },
+        item(null, ic('layers', 15), 'All sources'),
+        repos.length ? h('div', { class: 'sb-menu-heading' }, 'Your repositories') : null,
+        repos.map((r) => item(`repo:${r.id}`, repoIcon(r), r.full, String(r.skillCount),
+          S.variant === 'c' ? removeButton(r, 'sb-btn-xs rp-x') : null)),
+        h('div', { class: 'sb-menu-heading' }, 'Creators'),
+        C.creators().map((c) => item(`creator:${c.id}`, creatorAvatar(c, { size: 16 }), c.id, String(c.skillCount))),
+        h('div', { class: 'sb-menu-sep' }),
+        item('skills.sh', ic('globe', 15), 'skills.sh')),
+      ...(foot ? [h('div', { class: 'rp-pop-foot' }, foot)] : []));
+      pop.reposition();
+    }
+    function addMode(url = '', stay = false) {
+      const f = addForm({ url, hold: stay, compact: true, onPaint: () => pop.reposition(),
+        onAdded: (r) => { pop.close(); added(r); } });
+      pop.el.replaceChildren(h('div', { class: 'rp-pop-add' },
+        h('div', { class: 'rp-pop-head' }, btn('sb-btn-icon sb-btn-sm', { 'aria-label': 'Back', 'data-tip': 'Back', onclick: listMode }, ic('arrow-left', 15)), 'Add repository'),
+        f.input, f.status, f.addBtn));
+      pop.reposition();
+      f.input.focus();
+    }
+    if (addUrl != null) addMode(addUrl, hold); else listMode();
+  }
+
+  // ---- views ------------------------------------------------------------------------------------
+  let content = null;
+  function go(view) { S.view = view; draw(); }
+  function draw() {
+    if (S.pop) S.pop.close();
+    exploreSidebar(side, { active: S.view, onNav: (k) => (k === 'explore' || (k === 'settings' && S.variant === 'b') ? go(k) : soon()), onPreset: soon });
+    content = h('div', { class: 'sb-vstack', style: 'gap:12px;flex-shrink:0' });
+    if (S.view === 'settings') {
+      hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Settings'));
+      page.replaceChildren(content);
+    } else {
+      hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Explore'));
+      srcBtn = h('button', { class: 'sb-targets rp-src', 'aria-label': 'Source', 'aria-haspopup': 'true', onclick: (e) => openSources(e.currentTarget) });
+      paintSrc();
+      const search = searchInput({ value: S.query, onInput: (q) => { S.query = q; drawContent(); } });
+      page.replaceChildren(gitNote(), h('div', { class: 'sb-toolbar' }, search, srcBtn),
+        live(h('div', { style: 'flex-shrink:0' }), (el) => el.replaceChildren(offlineLine() || '')), content);
+    }
+    drawContent();
+  }
+  function drawContent() {
+    if (!content) return;
+    if (S.view === 'settings') { content.replaceChildren(...settingsView()); return; }
+    if (srcBtn) paintSrc();
+    if (C.status() === 'unavailable') { content.replaceChildren(unavailableState(() => C.setSetting('online', true))); return; }
+    const card = (s) => h('div', { class: 'ex-card is-compact', role: 'button', tabindex: '0', onclick: () => openSkill(s.slug) },
+      h('div', { class: 'ex-card-title' }, h('span', s.name)), h('div', { class: 'ex-card-desc' }, s.desc),
+      h('div', { class: 'ex-card-foot' }, installsMeta(s), installAction(s.slug, { win, onShowLibrary: soon })), installErrorLine(s.slug));
+    if (!S.query.trim() && !S.source) {
+      content.replaceChildren(sectionHeader('Trending', { icon: 'fire' }), h('div', { class: 'ex-grid' }, C.trending(2).map(card)),
+        ...(S.variant === 'a' ? [sectionHeader('Your repositories', { icon: 'git-branch',
+          action: C.repositories().length ? addButton('sb-btn-sm', () => openAddDialog()) : null }),
+        repoList({ expand: true, onAdd: () => openAddDialog() })] : []));
+      return;
+    }
+    const res = C.search(S.query, { source: S.source });
+    const repo = S.source && S.source.startsWith('repo:') ? C.repo(S.source.slice(5)) : null;
+    const rows = h('div', { class: 'sb-card' }, res.local.map((s) => skillRow(s, { bare: !!repo })));
+    const none = h('div', { class: 'rp-empty' }, S.source === 'skills.sh' && !res.query ? 'Search skills.sh' : 'No skills match');
+    content.replaceChildren(...(repo ? [h('div', { class: 'sb-card' }, repoRow(repo))] : []), res.local.length || res.remote ? rows : none);
+    if (!res.remote) return;
+    const wait = h('div', { class: 'rp-empty' }, spinner(13), 'skills.sh');
+    rows.append(wait);
+    res.remote.then((more) => {
+      if (S.query.trim().toLowerCase() !== res.query || S.source !== res.source) return;
+      wait.remove();
+      rows.append(...more.map((s) => skillRow(s)));
+      if (!rows.childNodes.length) rows.replaceWith(none);
+    });
+  }
+  function settingsView() {
+    const git = C.settings.git;
+    return [sectionHeader('Repositories', { action: C.repositories().length ? addButton('sb-btn-outline sb-btn-sm', () => openAddDialog()) : null }),
+      repoList({ onAdd: () => openAddDialog() }),
+      sectionHeader('Application'),
+      h('div', { class: 'sb-card' }, h('div', { class: 'sb-row' }, h('span', { class: 'ex-repo-ic' }, ic('git-branch', 15)),
+        h('div', { class: 'sb-row-main' }, h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, 'Git')),
+          h('div', { class: 'sb-desc' }, git ? '2.47.1' : 'Not installed')),
+        git ? null : h('div', { class: 'sb-row-end' }, gitButton())))];
+  }
+  C.on((e) => { if (e.type === 'repo' || e.type === 'settings' || e.type === 'reset') drawContent(); });
+
+  // ---- variants, states, dialog states ----------------------------------------------------------
+  const homeView = () => (S.variant === 'b' ? 'settings' : 'explore');
+  function setState(id) {
+    RUN = {};
+    if (S.dlg) S.dlg.close();
+    C.reset();
+    Object.assign(S, { source: null, query: '', open: {}, view: homeView() });
+    if (id === 'none') C.repositories().forEach((r) => C.removeRepository(r.id));
+    if (id === 'running' || id === 'partial') {
+      S.open['acme-internal'] = true;
+      if (S.variant === 'c') S.source = 'repo:acme-internal';
+      runAll('acme-internal', { fast: id === 'partial', failOne: id === 'partial' });
+    }
+    draw();
+    if (id === 'none' && S.variant === 'c') setTimeout(() => openSources(srcBtn), 0);
+  }
+  const DIALOG = { empty: '', listing: 'github.com/trailofbits/skills', found: 'github.com/trailofbits/skills',
+    unreachable: 'git@gitlab.internal:team/skills.git', noskills: 'github.com/acme-corp/empty-repo',
+    added: 'https://github.com/sanity-io/agent-toolkit', invalid: 'not a repository', nogit: '' };
+  function jump(id) {
+    if ((id === 'nogit') === C.settings.git) C.setSetting('git', id !== 'nogit');
+    if (S.view !== homeView()) go(homeView());
+    const url = DIALOG[id];
+    if (S.variant === 'c') openSources(srcBtn, { addUrl: url, hold: id === 'listing' });
+    else openAddDialog({ url, hold: id === 'listing' });
+  }
+
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Section on Explore', desc: "A 'Your repositories' section under Trending, rows expand to their skills; Add repository opens a small URL dialog that lists before adding (Arcade Add URL, v0 URL field, Gemini verify-first)." },
+    { id: 'b', label: 'Settings list', desc: "Settings › Repositories: a bordered list with remove per row and an Add repository header button (Sentry repositories, Cofounder); Explore shows them only in the source filter." },
+    { id: 'c', label: 'Source menu', desc: "Explore's source filter lists your repositories and creators, with Add repository and an inline URL field at its foot (Zoho source dropdown, Langdock chips, Gemini verify-first)." },
+  ], (id) => { S.variant = id; S.view = homeView(); if (S.dlg) S.dlg.close(); draw(); });
+  let ctl = exploreControls();
+  const labeled = (text, el) => h('span', { class: 'sb-hstack', style: 'gap:6px' }, h('span', { class: 'sb-small sb-muted' }, text), el);
+  bar.extra.append(
+    labeled('Page', seg([{ id: 'list', label: 'List' }, { id: 'none', label: 'None' }, { id: 'running', label: 'Install all' },
+      { id: 'partial', label: '1 failed', tip: 'Install all ends with one failed install' }], 'list', setState)),
+    labeled('Add', seg([{ id: 'empty', label: 'Empty' }, { id: 'listing', label: 'Listing' }, { id: 'found', label: 'Found' }, { id: 'unreachable', label: 'Unreachable' },
+      { id: 'noskills', label: 'No skills' }, { id: 'added', label: 'Already added' }, { id: 'invalid', label: 'Bad URL' }, { id: 'nogit', label: 'No Git' }], null, jump)),
+    ctl);
+  C.on((e) => { if (e.type === 'settings') { const n = exploreControls(); ctl.replaceWith(n); ctl = n; } });
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>
