@@ -1,6 +1,6 @@
 use crate::{
     activation::Progress,
-    catalog::{Catalogs, Previews, Repositories},
+    catalog::{Catalogs, Previews, Repositories, Resolutions, Searches},
     database,
     git::{Git, Installer},
     git_pool::GitPool,
@@ -27,11 +27,12 @@ use std::{
 use tokio::sync::oneshot;
 
 mod activation;
-mod explore;
+mod catalog;
 mod install;
 mod onboarding;
 mod preview;
 mod repositories;
+mod skills_sh;
 mod sources;
 
 const DATABASE: &str = "skillbinder.db";
@@ -49,7 +50,11 @@ struct Owner {
     installs: Installs,
     previews: Previews,
     repositories: Repositories,
-    /// Runs installs' network phases, previews, and listings off the worker.
+    /// Explore's skills.sh search, on a thread of its own.
+    searches: Searches,
+    /// The folders of skills.sh results, resolved on the pool.
+    resolutions: Resolutions,
+    /// Runs installs' network phases, previews, resolutions, and listings off the worker.
     pool: GitPool,
     progress: Progress,
     /// Stops in-flight commands when the application quits.
@@ -79,6 +84,10 @@ pub(crate) struct State {
     pub previews: Previews,
     /// Your repositories as saved, whose catalog caches are kept from pruning.
     pub repositories: Repositories,
+    /// Explore's skills.sh search, which snapshots read.
+    pub searches: Searches,
+    /// The folders of skills.sh results, which snapshots read.
+    pub resolutions: Resolutions,
     /// How far a tracked change has got; passes count their pairs into it.
     pub progress: Progress,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
@@ -123,6 +132,8 @@ impl Engine {
         let installs = Installs::default();
         let previews = Previews::default();
         let repositories = Repositories::default();
+        let searches = Searches::new(config.catalog.clone());
+        let resolutions = Resolutions::default();
         let pool = GitPool::default();
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
@@ -138,6 +149,8 @@ impl Engine {
             installs: installs.clone(),
             previews: previews.clone(),
             repositories: repositories.clone(),
+            searches: searches.clone(),
+            resolutions: resolutions.clone(),
             progress: progress.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
@@ -199,6 +212,8 @@ impl Engine {
                 installs,
                 previews,
                 repositories,
+                searches,
+                resolutions,
                 pool,
                 progress,
                 shutdown,
@@ -411,11 +426,13 @@ impl State {
             scan,
             scanning,
             updates,
-            explore: explore::projection(
+            explore: catalog::explore(
                 &self.catalog,
                 &self.installs,
                 &self.previews,
                 &self.repositories,
+                &self.searches,
+                &self.resolutions,
             ),
             sync,
             // A snapshot is a worker job, so no tracked change is in flight while it runs.

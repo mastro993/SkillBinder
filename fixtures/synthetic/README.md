@@ -12,7 +12,7 @@ Build it with `cargo run -p xtask --locked -- fixture <new directory>`, then lau
 | `sources/<name>.git` | `sources/<name>/<n>/`, one commit per numbered snapshot, oldest first | A local skill source: the installed skills come from snapshot 1, so the skills snapshot 2 changes show an update. |
 | `remotes/<name>.git` | `remotes/<name>/`, one commit | A Sync remote holding a library pushed from another machine. |
 | `repositories/<name>.git` | `repositories/<name>/`, one commit | A repository to add under Explore's Your repositories: `team-skills` lists 14 skills. |
-| `catalog/` | `catalog/` here | Explore's catalog, laid out like the CDN's `v1/`: four fictional creators and their skills, three with avatars. Launch with `--catalog-dir`; rename the folder to go offline, or delete `catalog/v1` to need a newer app. |
+| `catalog/` | `catalog/` here | Explore's catalog, laid out like the CDN's `v1/`: four fictional creators and their skills, three with avatars, and `search/pdf.json`, skills.sh's answer to a search for "pdf": three fictional skills on github.com, one with no folder in its repository; any other search answers that skills.sh is unavailable. Launch with `--catalog-dir`; rename the folder to go offline, or delete `catalog/v1` to need a newer app. |
 | `data/` | nothing | Created by the app on first launch: start with onboarding. |
 
 States the world holds:

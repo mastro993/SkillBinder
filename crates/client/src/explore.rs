@@ -1,6 +1,6 @@
-//! Explore's operations: refreshing the catalog, previewing a skill, installing it, and your
-//! repositories. They run on the engine's own threads, so the explore projection publishes
-//! without waiting on the worker.
+//! Explore's operations: refreshing the catalog, searching skills.sh, resolving a skills.sh
+//! result's folder, previewing a skill, installing it, and your repositories. They run on the
+//! engine's own threads, so the explore projection publishes without waiting on the worker.
 
 use crate::{Client, Shared};
 use skillbinder_proto::*;
@@ -56,6 +56,44 @@ impl Client {
             })
             .await
             .map_err(|_| AppError::storage())?
+    }
+    /// Installs the skills.sh result `result`: resolves its folder, then installs the skill found,
+    /// as [`Self::install_skill`] does.
+    pub async fn install_skills_sh(&self, result: SkillsShResult) -> AppResult<()> {
+        let client = self.clone();
+        self.shared
+            .runtime
+            .spawn(async move {
+                let install = client.shared.engine.install_skills_sh(result);
+                client.shared.publish_explore();
+                let installed = install.await;
+                client.refresh_preserving_outcome(installed).await
+            })
+            .await
+            .map_err(|_| AppError::storage())?
+    }
+    /// Asks skills.sh for `query` in place of any earlier query: the projection shows it
+    /// searching at once, then its answer; an answer to an older query never shows.
+    pub fn search_skills_sh(&self, query: &str) {
+        let search = self.shared.engine.search_skills_sh(query);
+        self.shared.publish_explore();
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            let searched = search.await;
+            client.shared.publish_explore();
+            if let Err(error) = searched {
+                client.background_error(error);
+            }
+        });
+    }
+    /// Finds the folder of the skills.sh result `result`, as opening its detail dialog does: the
+    /// projection shows it resolving at once, then what was found.
+    pub fn resolve(&self, result: SkillsShResult) {
+        let resolve = self.shared.engine.resolve(result);
+        self.spawn_published(async move {
+            // The resolution's state shows what went wrong.
+            let _ = resolve.await;
+        });
     }
     /// Installs, one after another, each skill of repository `id` the library lacks. The
     /// projection shows its progress, and the library each skill as it lands.
@@ -119,19 +157,19 @@ impl Client {
     /// Opens `skill`'s preview for its detail dialog: the projection shows it loading at once,
     /// then its files and SKILL.md, or why it has none.
     pub fn preview(&self, skill: &CatalogSkill) {
-        self.spawn_preview(self.shared.engine.open_preview(skill));
+        self.spawn_published(self.shared.engine.open_preview(skill));
     }
     /// Loads the open preview again, as the dialog's Retry does.
     pub fn retry_preview(&self) {
-        self.spawn_preview(self.shared.engine.retry_preview());
+        self.spawn_published(self.shared.engine.retry_preview());
     }
     /// Drops the preview, as closing the dialog does.
     pub fn close_preview(&self) {
         self.shared.engine.close_preview();
         self.shared.publish_explore();
     }
-    /// Publishes the preview loading, then again once `load` ends.
-    fn spawn_preview(&self, load: impl Future<Output = ()> + Send + 'static) {
+    /// Publishes the projection at once, showing the work started, then again once it ends.
+    fn spawn_published(&self, load: impl Future<Output = ()> + Send + 'static) {
         self.shared.publish_explore();
         let client = self.clone();
         self.shared.runtime.spawn(async move {

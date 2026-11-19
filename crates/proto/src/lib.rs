@@ -9,6 +9,7 @@ mod lifecycle;
 mod preview;
 mod repository;
 mod scan;
+mod skills_sh;
 mod sync;
 mod workspaces;
 
@@ -21,6 +22,7 @@ pub use lifecycle::*;
 pub use preview::*;
 pub use repository::*;
 pub use scan::*;
+pub use skills_sh::*;
 pub use sync::*;
 pub use workspaces::*;
 

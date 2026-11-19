@@ -1,5 +1,5 @@
 //! Finds a repository's skill folders the way the `skills` CLI does, as the catalog job does
-//! (`xtask/src/catalog/discovery.rs`, design T1): a root SKILL.md alone; else the root's direct
+//! (design T1, `xtask/src/catalog/discovery.rs`): a root SKILL.md alone; else the root's direct
 //! children and the known containers to depth 3; else every folder to depth 5.
 
 use std::collections::BTreeSet;
@@ -13,7 +13,7 @@ const CONTAINERS: [&str; 4] = [
 ];
 
 /// Workspace skill directories agents used before the universal `.agents/skills`, which
-/// repositories still publish to.
+/// repositories still publish to (`LEGACY_AGENT_PROJECT_SKILL_DIRS` in the CLI).
 const LEGACY_AGENT_DIRS: [&str; 8] = [
     ".cline/skills",
     ".codex/skills",
@@ -33,19 +33,16 @@ const RECURSIVE_DEPTH: usize = 5;
 
 /// The skill folders among `files` (a repository's file paths), in discovery order. `agent_dirs`
 /// are the registry's workspace skill directories.
-pub(super) fn skill_folders<'a>(
-    files: impl IntoIterator<Item = &'a str>,
-    agent_dirs: &[String],
-) -> Vec<String> {
+pub(super) fn skill_folders<'a>(files: &[&'a str], agent_dirs: &[String]) -> Vec<&'a str> {
     let folders: BTreeSet<&str> = files
-        .into_iter()
+        .iter()
         .filter_map(|file| match file.strip_suffix("SKILL.md")? {
             "" => Some(""),
             folder => folder.strip_suffix('/'),
         })
         .collect();
     if folders.contains("") {
-        return vec![String::new()];
+        return vec![""];
     }
     let mut containers: Vec<&str> = agent_dirs
         .iter()
@@ -82,7 +79,7 @@ pub(super) fn skill_folders<'a>(
             })
             .collect();
     }
-    found.into_iter().map(str::to_owned).collect()
+    found
 }
 
 /// Whether the folder `rest` under `prefix` is at most `depth` deep, under no skipped folder and
@@ -100,11 +97,8 @@ fn within(folders: &BTreeSet<&str>, prefix: &str, rest: &str, depth: usize) -> b
 mod tests {
     use super::skill_folders;
 
-    fn find(files: &[&str]) -> Vec<String> {
-        skill_folders(
-            files.iter().copied(),
-            &[".claude/skills".to_owned(), "skills".to_owned()],
-        )
+    fn find<'a>(files: &[&'a str]) -> Vec<&'a str> {
+        skill_folders(files, &[".claude/skills".to_owned(), "skills".to_owned()])
     }
 
     #[test]

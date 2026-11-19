@@ -39,6 +39,10 @@ impl State {
             installs: Default::default(),
             previews: Default::default(),
             repositories: Default::default(),
+            searches: crate::catalog::Searches::new(crate::CatalogSource::Directory(
+                data_dir.join("catalog-source"),
+            )),
+            resolutions: Default::default(),
             progress: Progress::default(),
             grants: BTreeMap::new(),
             recovery_required: false,

@@ -12,8 +12,13 @@ use std::cmp::Reverse;
 /// A source Explore can be narrowed to.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::native_view) enum Source {
+    /// A creator, by id, picked on a chip, a creator chip, a result's source tag, or a detail
+    /// dialog.
     Creator(String),
+    /// One of your repositories, picked on its chip or a result's source tag.
     Repository(RepositoryId),
+    /// skills.sh's results, picked on its chip.
+    SkillsSh,
 }
 
 /// What a source chip stands for.
@@ -107,6 +112,8 @@ impl<'a> Local<'a> {
                 .repository(id)
                 .map(|repository| self.listed(repository, search))
                 .unwrap_or_default(),
+            // skills.sh's results show alone.
+            Some(Source::SkillsSh) => Vec::new(),
             None => {
                 let mut listed: Vec<_> = self
                     .repositories
@@ -171,6 +178,8 @@ impl<'a> Local<'a> {
                 .find(|creator| &creator.id == id)
                 .map(Chip::Creator),
             Source::Repository(id) => self.repository(id).map(Chip::Repository),
+            // skills.sh's chip is its own.
+            Source::SkillsSh => None,
         });
         if let Some(chip) = picked
             && !chips.iter().any(|(shown, _)| *shown == chip)

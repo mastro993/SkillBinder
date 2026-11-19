@@ -1,13 +1,16 @@
 //! What Explore shows, derived from the snapshot alone: Trending, Popular creators, the results a
-//! search and a picked source narrow it to, their source chips, "In library", and New.
+//! search and a picked source narrow it to, their source chips, "In library", and New, and
+//! skills.sh's results beside them.
 
 mod repositories;
 mod search;
+mod skills_sh;
 
 pub(in crate::native_view) use repositories::{
     failures, installable, repository_glyph, summary, toast,
 };
 pub(in crate::native_view) use search::{Chip, Local, Source};
+pub(super) use skills_sh::{Found, Remote, remote, result_collides, result_in_library};
 
 use std::cmp::Reverse;
 
@@ -30,7 +33,8 @@ pub(super) struct Ranked<'a> {
     pub installs: u64,
 }
 
-/// The creator who publishes `skill`; none for one of your repositories' skills.
+/// The creator who publishes `skill`; `None` for one of your repositories' skills or a skills.sh
+/// result.
 pub(super) fn creator_of<'a>(catalog: &'a Catalog, skill: &CatalogSkill) -> Option<&'a Creator> {
     let CatalogOrigin::Curated { creator } = &skill.origin else {
         return None;
@@ -91,16 +95,23 @@ pub(super) fn new_in_library<'a>(
 
 /// The library skill holding `skill`'s slug from the same source.
 fn held<'a>(snapshot: &'a AppSnapshot, skill: &CatalogSkill) -> Option<&'a Skill> {
+    held_from(snapshot, &skill.key, |source| {
+        same_source(source, &skill.source)
+    })
+}
+
+/// The library skill holding the slug `key` names, when `same` accepts its source.
+fn held_from<'a>(
+    snapshot: &'a AppSnapshot,
+    key: &str,
+    same: impl Fn(&SkillSource) -> bool,
+) -> Option<&'a Skill> {
     let library = snapshot.library.as_ref()?;
     library
         .keys
-        .get(&skill.key)
+        .get(key)
         .and_then(|id| library.library.skills.iter().find(|held| &held.id == id))
-        .filter(|held| {
-            held.source
-                .as_ref()
-                .is_some_and(|source| same_source(source, &skill.source))
-        })
+        .filter(|held| held.source.as_ref().is_some_and(&same))
 }
 
 /// Whether the library holds `skill`'s slug from another source or from none, so installing it
@@ -187,9 +198,9 @@ pub(super) fn without_front_matter(skill_md: &str) -> &str {
     skill_md
 }
 
-/// The error line of an install that failed with `failure`.
-pub(super) fn install_error(skill: &CatalogSkill, failure: &InstallFailure) -> String {
-    let (slug, repository) = (&skill.slug, owner_repo(&skill.source.url));
+/// The error line of an install of `slug` from the repository `url` that failed with `failure`.
+pub(super) fn install_error(slug: &str, url: &str, failure: &InstallFailure) -> String {
+    let repository = owner_repo(url);
     match failure {
         InstallFailure::Access => format!("Couldn't install. Check your access to {repository}."),
         InstallFailure::Offline => "Couldn't install: no connection.".to_owned(),
@@ -203,18 +214,35 @@ pub(super) fn install_error(skill: &CatalogSkill, failure: &InstallFailure) -> S
     }
 }
 
-/// Installs this week as a card shows them: `+900`, `+12.4k`, `+1.2M`.
-pub(super) fn installs_label(installs: u64) -> String {
+/// `skill`'s installs as a card shows them: this week's gain as `+900 this week`,
+/// `+12.4k this week`, or `+1.2M this week`; a skills.sh result's all-time installs as
+/// `233.1k installs`; none for one of your repositories' skills.
+pub(super) fn installs_label(skill: &CatalogSkill) -> Option<String> {
+    match skill.origin {
+        CatalogOrigin::Curated { .. } => Some(format!("+{} this week", count(skill.installs_week))),
+        CatalogOrigin::SkillsSh { installs } => Some(all_time_label(installs)),
+        // Your repositories have no install counts.
+        CatalogOrigin::Repository { .. } => None,
+    }
+}
+
+/// skills.sh's all-time installs, as `233.1k installs`.
+pub(super) fn all_time_label(installs: u64) -> String {
+    format!("{} installs", count(installs))
+}
+
+/// `installs` in at most four characters and a unit: `900`, `12.4k`, `1.2M`.
+fn count(installs: u64) -> String {
     #[expect(clippy::cast_precision_loss, reason = "One decimal is shown.")]
     let value = installs as f64;
     let (scaled, unit) = match installs {
-        0..1_000 => return format!("+{installs} this week"),
+        0..1_000 => return installs.to_string(),
         1_000..999_950 => (value / 1_000., "k"),
         _ => (value / 1_000_000., "M"),
     };
     let text = format!("{scaled:.1}");
     let text = text.strip_suffix(".0").unwrap_or(&text);
-    format!("+{text}{unit} this week")
+    format!("{text}{unit}")
 }
 
 #[cfg(test)]

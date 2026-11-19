@@ -66,7 +66,7 @@ impl NativeView {
         Some(
             Notice::new(
                 format!("explore-install-error-{}", element_key(skill)),
-                install_error(skill, failure),
+                install_error(&skill.slug, &skill.source.url, failure),
             )
             .status(Status::Danger)
             .into_any_element(),

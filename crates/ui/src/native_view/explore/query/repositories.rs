@@ -58,10 +58,7 @@ pub(in crate::native_view) fn failures(
     outcome
         .failed
         .iter()
-        .filter_map(|(slug, failure)| {
-            let skill = repository.skills.iter().find(|skill| &skill.slug == slug)?;
-            Some(install_error(skill, failure))
-        })
+        .map(|(slug, failure)| install_error(slug, &repository.url, failure))
         .collect::<Vec<_>>()
         .join("\n")
 }

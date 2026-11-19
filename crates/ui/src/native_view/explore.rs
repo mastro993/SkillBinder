@@ -1,8 +1,8 @@
 //! The Explore page: the catalog's Trending skills, Popular creators, and Your repositories under
-//! a search field, or the results a search and a picked source narrow them to, each with its
-//! Install action, with one quiet line while the catalog is offline, could not be refreshed, or
-//! needs a newer app (ADR 0014), and one while installing needs Git (ADR 0015). Clicking a skill
-//! opens its detail dialog.
+//! a search field, or the results a search and a picked source narrow them to, skills.sh's
+//! appended below the local ones, each with its Install action, with one quiet line while the
+//! catalog is offline, could not be refreshed, or needs a newer app (ADR 0014), and one while
+//! installing needs Git (ADR 0015). Clicking a skill opens its detail dialog.
 
 mod add_repository;
 mod cards;
@@ -13,6 +13,7 @@ mod remove_repository;
 mod repositories;
 mod results;
 mod sections;
+mod skills_sh;
 
 pub(super) use add_repository::AddRepository;
 pub(super) use detail::Detail;
@@ -35,8 +36,9 @@ use std::collections::{BTreeMap, BTreeSet};
 /// repositories, and how their Install alls ended.
 pub(super) struct Explore {
     search: Entity<InputState>,
-    /// The source picked on a chip, a creator chip, a result's source tag, or a detail dialog.
     source: Option<Source>,
+    /// Counts the search's edits, so only the last one asks skills.sh after its pause.
+    edits: u64,
     /// A detail dialog's preview is open in the projection, until the dialog closes.
     previewing: bool,
     /// The repositories whose rows show their skills.
@@ -49,14 +51,16 @@ pub(super) struct Explore {
 impl Explore {
     pub(super) fn new(window: &mut Window, cx: &mut Context<NativeView>) -> Self {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search skills"));
-        let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
+        let subscription = cx.subscribe(&search, |view, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
+                view.search_edited(cx);
                 cx.notify();
             }
         });
         Self {
             search,
             source: None,
+            edits: 0,
             previewing: false,
             expanded: BTreeSet::new(),
             summaries: BTreeMap::new(),

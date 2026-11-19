@@ -2,7 +2,7 @@
 //! blobless fetch into its catalog cache, its file names from Git's trees alone, the `skills`
 //! CLI's discovery rules, and each SKILL.md's front matter, which fetches only those blobs.
 
-use super::discovery::skill_folders;
+use super::super::folders::skill_folders;
 use crate::{
     catalog::Previews,
     git::Git,
@@ -109,10 +109,8 @@ impl Listing {
                 entry.kind == "blob" && matches!(entry.mode.as_str(), "100644" | "100755")
             })
             .collect();
-        let folders = skill_folders(
-            files.iter().map(|file| file.path.as_str()),
-            &self.agent_dirs,
-        );
+        let paths: Vec<&str> = files.iter().map(|file| file.path.as_str()).collect();
+        let folders = skill_folders(&paths, &self.agent_dirs);
         let skills: Vec<_> = folders
             .into_iter()
             .filter_map(|path| {
@@ -151,7 +149,7 @@ impl Listing {
                 }
                 Err(_) => continue,
             };
-            if let Some(skill) = listed_skill(&path, text.as_bytes())
+            if let Some(skill) = listed_skill(path, text.as_bytes())
                 && keys.insert(normalized(&skill.slug))
             {
                 listed.push(skill);

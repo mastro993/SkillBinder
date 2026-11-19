@@ -102,7 +102,7 @@ impl Engine {
         for skill in skills {
             let slug = skill.slug.clone();
             // A skill installing on its own already ends that way.
-            if let Some(begun) = self.owner.installs.begin(&skill.source)? {
+            if let Some(begun) = self.owner.installs.begin(install_key(&skill.source))? {
                 match self.install_begun(skill, begun).await {
                     Ok(()) => {
                         outcome.installed.push(SkillId(slug));

@@ -72,16 +72,17 @@ pub(super) fn validate(
 }
 
 /// SKILL.md's front matter `name` and `description`, each when it is a string; `None` when the
-/// front matter is missing, malformed, or exceeds the supported YAML limits.
+/// front matter does not parse.
 pub(crate) fn name_and_description(skill_md: &[u8]) -> Option<(Option<String>, Option<String>)> {
-    let mapping = parse(skill_md)?;
-    let field = |key: &str| {
-        mapping
-            .get(&Yaml::String(key.to_owned()))
-            .and_then(Yaml::as_str)
-            .map(str::to_owned)
-    };
-    Some((field("name"), field("description")))
+    parse(skill_md).map(|mapping| {
+        let field = |key: &str| {
+            mapping
+                .get(&Yaml::String(key.to_owned()))
+                .and_then(Yaml::as_str)
+                .map(str::to_owned)
+        };
+        (field("name"), field("description"))
+    })
 }
 
 /// SKILL.md's front matter fields other than `name` and `description`, in their order: a scalar

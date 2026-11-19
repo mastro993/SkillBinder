@@ -3,7 +3,6 @@
 //! keeps its skills without the network. Listing runs on the Git pool; only saving its result
 //! runs on the worker.
 
-mod discovery;
 mod listing;
 mod store;
 

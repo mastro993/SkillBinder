@@ -1,7 +1,8 @@
 use super::*;
 use crate::native_view::snapshot_query::fixture::Fixture;
 use skillbinder_proto::{
-    InstallAllOutcome, Preview, Repository, RepositoryId, SkillSource, normalized_url,
+    CatalogState, InstallAllOutcome, Preview, Repository, RepositoryId, Resolution, SkillSource,
+    SkillsShResult, SkillsShSearch, SkillsShState, normalized_url, result_key,
 };
 
 fn creator(id: &str, name: &str) -> Creator {
@@ -321,19 +322,29 @@ fn an_install_is_found_by_its_source_and_its_failure_reads_as_one_line() {
             "Couldn't install pdf-tools: its folder has no files.",
         ),
     ] {
-        assert_eq!(install_error(&pdf, &failure), line);
+        assert_eq!(install_error(&pdf.slug, &pdf.source.url, &failure), line);
     }
 }
 
 #[test]
-fn installs_read_as_a_short_gain() {
-    assert_eq!(installs_label(0), "+0 this week");
-    assert_eq!(installs_label(900), "+900 this week");
-    assert_eq!(installs_label(1_000), "+1k this week");
-    assert_eq!(installs_label(12_400), "+12.4k this week");
-    assert_eq!(installs_label(48_249), "+48.2k this week");
-    assert_eq!(installs_label(999_950), "+1M this week");
-    assert_eq!(installs_label(2_350_000), "+2.4M this week");
+fn installs_read_as_a_short_gain_or_all_time_on_skills_sh_and_none_from_a_repository() {
+    let label = |installs| installs_label(&skill("pdf", "northwind", "", installs));
+    assert_eq!(label(0).as_deref(), Some("+0 this week"));
+    assert_eq!(label(900).as_deref(), Some("+900 this week"));
+    assert_eq!(label(1_000).as_deref(), Some("+1k this week"));
+    assert_eq!(label(12_400).as_deref(), Some("+12.4k this week"));
+    assert_eq!(label(48_249).as_deref(), Some("+48.2k this week"));
+    assert_eq!(label(999_950).as_deref(), Some("+1M this week"));
+    assert_eq!(label(2_350_000).as_deref(), Some("+2.4M this week"));
+    let mut found = skill("pdf", "northwind", "", 0);
+    found.origin = CatalogOrigin::SkillsSh { installs: 233_102 };
+    assert_eq!(installs_label(&found).as_deref(), Some("233.1k installs"));
+    // Your repositories have no install counts.
+    found.origin = CatalogOrigin::Repository {
+        id: RepositoryId("acme".to_owned()),
+    };
+    assert_eq!(installs_label(&found), None);
+    assert_eq!(all_time_label(7), "7 installs");
 }
 
 #[test]
@@ -419,4 +430,106 @@ fn front_matter_is_dropped_from_skill_md() {
     for text in ["---\nname: pdf\n", "# PDF\n---\n"] {
         assert_eq!(without_front_matter(text), text);
     }
+}
+
+fn found_result(skill_id: &str, url: &str) -> SkillsShResult {
+    SkillsShResult {
+        skill_id: skill_id.to_owned(),
+        key: skill_id.to_owned(),
+        name: skill_id.to_owned(),
+        url: url.to_owned(),
+        installs: 10,
+    }
+}
+
+#[test]
+fn skills_sh_answers_only_the_search_shown_after_two_characters() {
+    let catalog = catalog();
+    let local = Local {
+        catalog: &catalog,
+        repositories: &[],
+    };
+    let mut snapshot = Fixture::new().build();
+    snapshot.explore.state = CatalogState::Ready;
+    assert_eq!(remote(&snapshot, local, "p"), Remote::Idle);
+    // Until the pause ends and the request answers, it is on its way.
+    assert_eq!(remote(&snapshot, local, "pdf"), Remote::Searching);
+    snapshot.explore.skills_sh = SkillsShSearch {
+        query: "pd".to_owned(),
+        state: SkillsShState::Unavailable,
+    };
+    assert_eq!(remote(&snapshot, local, "pdf"), Remote::Searching);
+    assert_eq!(remote(&snapshot, local, "pd"), Remote::Unavailable);
+    snapshot.explore.skills_sh.state = SkillsShState::NeedsConnection;
+    assert_eq!(remote(&snapshot, local, "pd"), Remote::NeedsConnection);
+    // An offline catalog means skills.sh needs a connection too.
+    snapshot.explore.skills_sh.state = SkillsShState::Results(Vec::new());
+    snapshot.explore.state = CatalogState::Offline;
+    assert_eq!(remote(&snapshot, local, "pd"), Remote::NeedsConnection);
+    snapshot.explore.state = CatalogState::Ready;
+    assert_eq!(remote(&snapshot, local, "pd").count(), Some(0));
+}
+
+#[test]
+fn skills_sh_results_leave_out_skills_shown_locally_and_show_resolved_ones_as_skills() {
+    let catalog = catalog();
+    // One of your repositories lists the result skills.sh also has.
+    let yours = found_result("pdf-notes", "https://git.example.invalid/acme/team.git");
+    let repositories = [repository("team", &yours.url, &["pdf-notes"])];
+    let local = Local {
+        catalog: &catalog,
+        repositories: &repositories,
+    };
+    let shown = found_result("pdf-tools", "https://git.example.invalid/northwind/skills/");
+    let other = found_result("pdf-tools", "https://github.com/acme/skills.git");
+    let renamed = found_result("merge", "https://git.example.invalid/northwind/skills.git");
+    let mut snapshot = Fixture::new().build();
+    snapshot.explore.state = CatalogState::Ready;
+    snapshot.explore.skills_sh = SkillsShSearch {
+        query: "pdf".to_owned(),
+        state: SkillsShState::Results(vec![shown, other.clone(), renamed.clone(), yours]),
+    };
+    let Remote::Results(found) = remote(&snapshot, local, "pdf") else {
+        panic!("no results");
+    };
+    assert_eq!(found, [Found::Result(&other), Found::Result(&renamed)]);
+
+    // Once resolved, a result is its skill, and one the catalog shows is left out by its slug.
+    let mut merge = skill("pdf-merge", "northwind", "", 0);
+    merge.origin = CatalogOrigin::SkillsSh { installs: 10 };
+    snapshot
+        .explore
+        .resolutions
+        .insert(result_key(&renamed), Resolution::Resolved(Box::new(merge)));
+    let mut resolved = skill("pdf-tools", "acme", "", 0);
+    resolved.source.url = other.url.clone();
+    snapshot.explore.resolutions.insert(
+        result_key(&other),
+        Resolution::Resolved(Box::new(resolved.clone())),
+    );
+    assert_eq!(
+        remote(&snapshot, local, "pdf"),
+        Remote::Results(vec![Found::Skill(&resolved)])
+    );
+}
+
+#[test]
+fn an_unresolved_result_is_in_library_from_its_repository_and_collides_from_another() {
+    let result = found_result("pdf-tools", "https://github.com/acme/skills.git");
+    let mut snapshot = Fixture::new().skill("pdf-tools", "", None).build();
+    assert!(!result_in_library(&snapshot, &result));
+    assert!(
+        result_collides(&snapshot, &result),
+        "a skill with no source"
+    );
+    let library = snapshot.library.as_mut().unwrap_or_else(|| unreachable!());
+    library.library.skills[0].source = Some(SkillSource {
+        url: "https://github.com/Acme/Skills".to_owned(),
+        reference: None,
+        path: "skills/pdf".to_owned(),
+    });
+    assert!(result_in_library(&snapshot, &result), "any folder of it");
+    assert!(!result_collides(&snapshot, &result));
+    let elsewhere = found_result("pdf-tools", "https://github.com/other/skills.git");
+    assert!(result_collides(&snapshot, &elsewhere));
 }
