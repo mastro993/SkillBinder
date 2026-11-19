@@ -37,6 +37,7 @@ impl State {
                 Shutdown::default(),
             ),
             installs: Default::default(),
+            previews: Default::default(),
             progress: Progress::default(),
             grants: BTreeMap::new(),
             recovery_required: false,

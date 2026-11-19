@@ -6,9 +6,13 @@ use skillbinder_design::{Button, DialogFrame, DialogHeader, DialogSize};
 
 impl DialogState {
     /// Whether this dialog stays up while an operation runs, `busy`: every dialog but the review
-    /// list, which closes while one of its answers is being carried out.
+    /// list, which closes while one of its answers is being carried out, and a skill's detail,
+    /// which changes nothing.
     fn locked(&self, busy: bool) -> bool {
-        busy && !matches!(self, Self::Copies(CopiesListing::Attention(_)))
+        busy && !matches!(
+            self,
+            Self::Copies(CopiesListing::Attention(_)) | Self::SkillDetail(_)
+        )
     }
 }
 
@@ -123,6 +127,9 @@ impl NativeView {
             }
             DialogState::Copies(listing) => self.copies_dialog(dialog, listing, cx),
             DialogState::RemoveWorkspace(id) => self.remove_workspace_dialog(dialog, id, cx),
+            DialogState::SkillDetail(detail) => {
+                self.skill_detail_dialog(dialog, detail, viewport, cx)
+            }
             DialogState::RemoveFromWorkspace { workspace, skill } => {
                 self.remove_from_workspace_dialog(dialog, workspace, skill, cx)
             }

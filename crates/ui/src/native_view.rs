@@ -109,6 +109,8 @@ enum DialogState {
     },
     RemoveWorkspace(WorkspaceId),
     AddSkill(Box<skill_picker::SkillPicker>),
+    /// A catalog skill's detail, opened from Explore.
+    SkillDetail(Box<explore::Detail>),
     /// Unticking a skill's last folder on a workspace's page asks before removing it there.
     RemoveFromWorkspace {
         workspace: WorkspaceId,
@@ -440,6 +442,7 @@ impl Render for NativeView {
         };
         #[cfg(feature = "native-test")]
         let body = self.gallery().unwrap_or(body);
+        self.sync_detail(cx);
         self.sync_dialog(window, cx);
         self.sync_overlay_focus(window, cx);
         self.push_toast(window, cx);

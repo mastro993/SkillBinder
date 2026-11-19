@@ -9,7 +9,9 @@ pub(crate) use checks::{Updates, check};
 
 use crate::{git::Git, payload, payload::Inspection, worker::State};
 use sha2::{Digest, Sha256};
-use skillbinder_proto::{AppError, AppResult, Drift, SkillSource, ValidationStatus};
+use skillbinder_proto::{
+    AppError, AppResult, Drift, SkillSource, ValidationStatus, normalized_url,
+};
 use std::{
     collections::BTreeMap,
     fs,
@@ -65,17 +67,19 @@ impl State {
 }
 
 /// Who uses a source cache. Checks and updates keep separate caches, so a slow check never holds
-/// up an update on the worker; each has one user at a time.
+/// up an update on the worker; each has one user at a time. Previews share one cache per
+/// repository, taking its lock in turn.
 #[derive(Clone, Copy)]
-enum CacheUser {
+pub(crate) enum CacheUser {
     Check,
     Update,
+    Catalog,
 }
 
 impl State {
     /// Removes the source caches no library skill's source uses any more, such as those of
-    /// skills a Pull removed, and the install caches no running install uses. Run before any
-    /// check or update starts.
+    /// skills a Pull removed, the install caches no running install uses, and the catalog
+    /// caches no open or running preview uses. Run before any check or update starts.
     pub(crate) fn prune_source_caches(&self) -> AppResult<()> {
         let used: std::collections::BTreeSet<_> = self
             .read_library()?
@@ -92,33 +96,48 @@ impl State {
                     .into_iter()
                     .map(|id| install_cache(&self.config.data_dir, id)),
             )
+            .chain(
+                self.previews
+                    .open_source()
+                    .map(|source| cache_dir(&self.config.data_dir, CacheUser::Catalog, &source)),
+            )
             .collect();
-        for user in ["check", "update", "install"] {
+        for user in ["check", "update", "install", "catalog"] {
             let Ok(entries) = fs::read_dir(self.config.data_dir.join("source-cache").join(user))
             else {
                 continue;
             };
             for path in entries.flatten().map(|entry| entry.path()) {
-                if !used.contains(&path) {
-                    self.log.record(format!(
-                        "Removing an unused source cache {}",
-                        path.display()
-                    ));
-                    fs::remove_dir_all(&path).map_err(|_| AppError::storage())?;
+                if used.contains(&path) {
+                    continue;
                 }
+                // A preview reading a catalog cache holds its lock; holding it here keeps the
+                // next one from starting until the cache is gone.
+                let lock = (user == "catalog").then(|| self.previews.cache_lock(&path));
+                let reading = lock.as_ref().map(|lock| lock.try_lock());
+                if matches!(reading, Some(Err(_))) {
+                    continue;
+                }
+                self.log.record(format!(
+                    "Removing an unused source cache {}",
+                    path.display()
+                ));
+                fs::remove_dir_all(&path).map_err(|_| AppError::storage())?;
             }
         }
         Ok(())
     }
 }
 
-/// The cache repository of a source's repository under the application data folder.
-fn cache_dir(data_dir: &Path, user: CacheUser, source: &SkillSource) -> PathBuf {
-    let key = format!("{:x}", Sha256::digest(source.url.as_bytes()));
-    let user = match user {
-        CacheUser::Check => "check",
-        CacheUser::Update => "update",
+/// The cache repository of a source's repository under the application data folder. Previews
+/// key it by the normalized URL, so two spellings of one repository share it.
+pub(crate) fn cache_dir(data_dir: &Path, user: CacheUser, source: &SkillSource) -> PathBuf {
+    let (user, url) = match user {
+        CacheUser::Check => ("check", source.url.clone()),
+        CacheUser::Update => ("update", source.url.clone()),
+        CacheUser::Catalog => ("catalog", normalized_url(&source.url)),
     };
+    let key = format!("{:x}", Sha256::digest(url.as_bytes()));
     data_dir.join("source-cache").join(user).join(&key[..32])
 }
 
@@ -179,14 +198,14 @@ pub(crate) fn checkout(
         return Ok(None);
     };
     // Bounded before any file is fetched or written; inspection bounds the bytes afterwards.
-    let modes = git.tree_modes(cache, &tree)?;
-    if modes.len() > payload::MAX_ENTRIES {
+    let entries = git.tree_entries(cache, &tree)?;
+    if entries.len() > payload::MAX_ENTRIES {
         return Err(AppError::validation(
             "The source's folder has too many files to check.",
         ));
     }
     // A submodule would check out as an empty folder, so its content could never match.
-    if modes.iter().any(|mode| mode == "160000") {
+    if entries.iter().any(|entry| entry.mode == "160000") {
         return Err(AppError::validation(
             "The source's folder holds a Git submodule, which SkillBinder cannot check out.",
         ));
@@ -213,5 +232,47 @@ mod tests {
         fs::create_dir_all(unused.join("objects")).unwrap();
         state.prune_source_caches().unwrap();
         assert!(!unused.exists());
+    }
+
+    #[test]
+    fn a_catalog_cache_is_kept_while_its_preview_is_open_or_reading() {
+        let directory = tempfile::tempdir().unwrap();
+        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let skill = skillbinder_proto::CatalogSkill {
+            slug: "pdf".into(),
+            key: "pdf".into(),
+            name: "pdf".into(),
+            description: String::new(),
+            origin: skillbinder_proto::CatalogOrigin::Curated {
+                creator: "acme".into(),
+            },
+            source: SkillSource {
+                url: "https://github.com/Acme/Skills.git".into(),
+                reference: None,
+                path: "skills/pdf".into(),
+            },
+            installs_week: 0,
+        };
+        // Two spellings of one repository share its cache.
+        let spelled = SkillSource {
+            url: "https://github.com/acme/skills".into(),
+            ..skill.source.clone()
+        };
+        let data = &state.config.data_dir;
+        let open = cache_dir(data, CacheUser::Catalog, &spelled);
+        let reading = data.join("source-cache/catalog/reading");
+        for cache in [&open, &reading] {
+            fs::create_dir_all(cache.join("objects")).unwrap();
+        }
+        state.previews.open(&skill);
+        let lock = state.previews.cache_lock(&reading);
+        let held = lock.lock().unwrap();
+        state.prune_source_caches().unwrap();
+        assert!(open.exists() && reading.exists());
+
+        drop(held);
+        state.previews.close();
+        state.prune_source_caches().unwrap();
+        assert!(!open.exists() && !reading.exists());
     }
 }

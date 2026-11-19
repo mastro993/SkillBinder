@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skill detail</title>
-<!-- Explore: the skill detail panel (P1, I1-I6) behind a trending list. Variants: side sheet, split pane, large dialog.
+<!-- Explore: the skill detail panel (P1, I1-I6) behind a trending list. Variants: side sheet, split pane, and large dialogs (E-J: the document dialog with its sidebar and About treatments; J picked).
      Build: python3 -I ../../scoped-pages/source/kit/inline.py skill-detail.html ../prototypes/skill-detail.html -->
 <style>/* ../../scoped-pages/source/kit/kit.css */
 :root{--sb-fb-bg: #ffffff;--sb-fb-fg: #0a0a0a;--sb-fb-card: #ffffff;--sb-fb-muted-fg: #737373;--sb-fb-danger: #dc2626;--sb-fb-warning: #eab308;--sb-fb-success: #16a34a;--sb-fb-info: #06b6d4;}@media (prefers-color-scheme: dark){:root{--sb-fb-bg: #0a0a0a;--sb-fb-fg: #fafafa;--sb-fb-card: #0f0f0f;--sb-fb-muted-fg: #a3a3a3;--sb-fb-warning: #facc15;--sb-fb-success: #4ade80;--sb-fb-info: #22d3ee;}}:root, body{--sb-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans, system-ui, "Helvetica Neue", sans-serif);--sb-mono: var(--font-mono, Menlo, ui-monospace, monospace);--sb-bg: var(--background, var(--sb-fb-bg));--sb-fg: var(--foreground, var(--sb-fb-fg));--sb-card: var(--card, var(--sb-fb-card));--sb-popover: var(--popover, var(--sb-card));--sb-popover-fg: var(--popover-foreground, var(--sb-fg));--sb-muted-fg: var(--muted-foreground, var(--sb-fb-muted-fg));--sb-danger: var(--destructive, var(--sb-fb-danger));--sb-warning: var(--warning, var(--sb-fb-warning));--sb-success: var(--success, var(--sb-fb-success));--sb-info: var(--info, var(--sb-fb-info));--sb-muted: color-mix(in srgb, var(--sb-fg) 6%, var(--sb-bg));--sb-border: color-mix(in srgb, var(--sb-fg) 12%, var(--sb-bg));--sb-input: color-mix(in srgb, var(--sb-fg) 18%, var(--sb-bg));--sb-sidebar: color-mix(in srgb, var(--sb-fg) 3.5%, var(--sb-bg));--sb-sel: color-mix(in srgb, var(--sb-fg) 10%, var(--sb-bg));--sb-hover: color-mix(in srgb, var(--sb-fg) 4%, var(--sb-card));--sb-secondary: color-mix(in srgb, var(--sb-fg) 8%, var(--sb-bg));--sb-line: color-mix(in srgb, var(--sb-fg) 10%, transparent);--sb-highlight: color-mix(in srgb, var(--sb-fg) 7%, transparent);--sb-primary: var(--sb-fg);--sb-primary-fg: var(--sb-bg);--sb-ring: color-mix(in srgb, var(--sb-fg) 40%, transparent);--sb-shadow-md: 0 4px 6px -1px rgb(0 0 0 / .10), 0 2px 4px -2px rgb(0 0 0 / .10);--sb-shadow-lg: 0 20px 25px -5px rgb(0 0 0 / .12), 0 8px 10px -6px rgb(0 0 0 / .10);}html.sb-standalone{color-scheme: light dark;}html.sb-standalone body{margin: 16px;background: var(--sb-bg);color: var(--sb-fg);font-family: var(--sb-font);}.sb-window, .sb-window *, .sb-vbar, .sb-vbar *, .sb-tooltip{box-sizing: border-box;}.sb-window{position: relative;isolation: isolate;display: flex;width: 100%;min-width: 0;height: var(--sb-h, 560px);overflow: hidden;text-align: left;border: 1px solid var(--sb-border);border-radius: 10px;background: var(--sb-bg);color: var(--sb-fg);font: 13px/1.4 var(--sb-font);-webkit-font-smoothing: antialiased;}:where(.sb-window) :where(button, input){font: inherit;color: inherit;}.sb-window [hidden]{display: none !important;}.sb-ic{flex: none;display: block;}.sb-ic-missing{display: inline-grid;place-items: center;outline: 1px dashed var(--sb-danger);color: var(--sb-danger);font-size: 10px;}.sb-sidebar{width: var(--sb-sidebar-w, 170px);flex: none;display: flex;flex-direction: column;gap: 1px;padding: 0 6px 8px;overflow-y: auto;scrollbar-width: none;background: var(--sb-sidebar);border-right: 1px solid var(--sb-border);}.sb-lights{height: 40px;flex: none;display: flex;align-items: center;gap: 7px;padding-left: 8px;}.sb-lights i{width: 11px;height: 11px;border-radius: 50%;background: color-mix(in srgb, var(--sb-fg) 14%, transparent);}.sb-nav-row{display: flex;align-items: center;gap: 7px;width: 100%;height: 28px;flex: none;padding: 0 8px;border: 0;border-radius: 7px;background: transparent;color: var(--sb-muted-fg);font-size: 13px;font-weight: 500;text-align: left;cursor: pointer;}.sb-nav-row:hover{background: color-mix(in srgb, var(--sb-sel) 55%, transparent);}.sb-nav-row.is-active{background: var(--sb-sel);color: var(--sb-fg);}.sb-nav-ic{width: 15px;height: 15px;flex: none;display: grid;place-items: center;color: color-mix(in srgb, var(--sb-muted-fg) 80%, transparent);}.sb-nav-row.is-active .sb-nav-ic{color: var(--sb-fg);}.sb-nav-label{flex: 1;min-width: 0;overflow: hidden;white-space: nowrap;text-overflow: ellipsis;display: flex;align-items: center;gap: 4px;}.sb-nav-count{flex: none;font-size: 11.5px;font-weight: 400;color: var(--sb-muted-fg);font-variant-numeric: tabular-nums;}.sb-nav-on{color: var(--tint, var(--sb-fg));}.sb-nav-row.is-on{color: var(--sb-fg);}.sb-nav-section{display: flex;align-items: center;justify-content: space-between;height: 24px;flex: none;margin-top: 8px;padding: 0 2px 0 8px;font-size: 11.5px;color: var(--sb-muted-fg);}.sb-nav-foot{margin-top: auto;padding-top: 8px;}.sb-main{flex: 1;min-width: 0;display: flex;flex-direction: column;}.sb-header{height: 44px;flex: none;display: flex;align-items: center;gap: 8px;min-width: 0;padding: 0 10px 0 16px;border-bottom: 1px solid var(--sb-border);}.sb-title{font-size: 13.5px;font-weight: 600;white-space: nowrap;}.sb-crumbs{display: flex;align-items: center;gap: 4px;min-width: 0;font-size: 13.5px;white-space: nowrap;}.sb-crumbs > :not(:last-child){color: var(--sb-muted-fg);}.sb-header-actions{margin-left: auto;display: flex;align-items: center;gap: 4px;flex: none;}.sb-page{flex: 1;min-height: 0;overflow: auto;display: flex;flex-direction: column;gap: 12px;padding: 14px 16px 20px;}.sb-toolbar{display: flex;align-items: center;gap: 8px;flex-wrap: wrap;}.sb-card{border: 1px solid var(--sb-border);border-radius: 10px;background: var(--sb-card);--sb-ring-bg: var(--sb-card);}.sb-row{position: relative;display: flex;align-items: center;gap: 12px;min-height: 56px;padding: 10px 14px;}.sb-row + .sb-row::before{content: "";position: absolute;top: 0;left: 14px;right: 14px;height: 1px;background: var(--sb-border);}.sb-row:hover{background: var(--sb-hover);--sb-ring-bg: var(--sb-hover);}.sb-card > .sb-row:first-child{border-radius: 9px 9px 0 0;}.sb-card > .sb-row:last-child{border-radius: 0 0 9px 9px;}.sb-card > .sb-row:only-child{border-radius: 9px;}.sb-row-main{flex: 1;min-width: 0;display: flex;flex-direction: column;gap: 2px;}.sb-row-title{display: flex;align-items: center;gap: 6px;min-width: 0;}.sb-slug{font-size: 14px;font-weight: 600;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;}.sb-desc{font-size: 12.5px;color: var(--sb-muted-fg);white-space: nowrap;overflow: hidden;text-overflow: ellipsis;}.sb-meta{display: flex;align-items: center;gap: 6px;min-height: 18px;font-size: 11.5px;color: var(--sb-muted-fg);}.sb-row-end{flex: none;display: flex;align-items: center;gap: 8px;}.sb-row-hover{opacity: 0;transition: opacity .12s;}.sb-row:hover .sb-row-hover, .sb-row:focus-within .sb-row-hover{opacity: 1;}.sb-row.is-dim .sb-slug, .sb-row.is-dim .sb-desc{opacity: .5;}.sb-btn{display: inline-flex;align-items: center;justify-content: center;gap: 6px;height: 28px;padding: 0 10px;border: 1px solid transparent;border-radius: 6px;background: transparent;color: var(--sb-fg);font-size: 13px;font-weight: 500;line-height: 1;white-space: nowrap;cursor: pointer;transition: background .12s, border-color .12s, color .12s, opacity .12s;}.sb-btn:hover{background: var(--sb-muted);}.sb-btn:disabled{opacity: .45;cursor: default;}.sb-btn:disabled:hover{background: transparent;}.sb-btn-primary, .sb-btn-primary:disabled:hover{background: var(--sb-primary);color: var(--sb-primary-fg);}.sb-btn-primary:hover{background: color-mix(in srgb, var(--sb-primary) 86%, var(--sb-bg));}.sb-btn-outline, .sb-btn-outline:disabled:hover{background: var(--sb-bg);border-color: var(--sb-border);}.sb-btn-outline:hover{background: var(--sb-muted);}.sb-btn-danger, .sb-btn-danger:disabled:hover{background: var(--sb-danger);color: #fff;}.sb-btn-danger:hover{background: color-mix(in srgb, var(--sb-danger) 88%, #000);}.sb-btn-icon{width: 28px;padding: 0;color: var(--sb-muted-fg);}.sb-btn-icon:hover{color: var(--sb-fg);}.sb-btn-sm{height: 24px;padding: 0 8px;font-size: 12px;}.sb-btn-xs{height: 20px;padding: 0 6px;font-size: 11.5px;border-radius: 5px;}.sb-btn-icon.sb-btn-sm{width: 24px;padding: 0;}.sb-btn-icon.sb-btn-xs{width: 20px;padding: 0;}.sb-btn-block{width: 100%;}.sb-targets{display: inline-flex;align-items: center;gap: 3px;height: 24px;padding: 0 6px;border: 0;border-radius: 6px;background: transparent;color: var(--sb-muted-fg);font-size: 12px;white-space: nowrap;cursor: pointer;}.sb-targets:hover, .sb-targets[aria-expanded="true"]{background: var(--sb-muted);color: var(--sb-fg);}.sb-checkbox{appearance: none;-webkit-appearance: none;margin: 0;flex: none;width: 16px;height: 16px;display: inline-grid;place-content: center;vertical-align: middle;cursor: pointer;border: 1px solid var(--sb-input);border-radius: 4px;background: var(--sb-bg);transition: background .1s, border-color .1s;}.sb-checkbox::after{content: "";width: 8px;height: 4.5px;opacity: 0;border: solid var(--sb-primary-fg);border-width: 0 0 1.6px 1.6px;transform: translateY(-1px) rotate(-45deg);}.sb-checkbox:checked, .sb-checkbox:indeterminate{background: var(--sb-primary);border-color: var(--sb-primary);}.sb-checkbox:checked::after{opacity: 1;}.sb-checkbox:indeterminate::after{opacity: 1;height: 0;border-width: 0 0 1.6px 0;transform: none;}.sb-checkbox:disabled{opacity: .45;cursor: default;}.sb-check-label{display: inline-flex;align-items: center;gap: 8px;font-size: 13px;cursor: pointer;}.sb-input{width: 100%;height: 28px;padding: 0 8px;border: 1px solid var(--sb-input);border-radius: 6px;background: var(--sb-bg);color: var(--sb-fg);font: 13px var(--sb-font);outline: none;}.sb-input::placeholder{color: var(--sb-muted-fg);}.sb-input:focus{border-color: var(--sb-ring);box-shadow: 0 0 0 3px color-mix(in srgb, var(--sb-ring) 25%, transparent);}.sb-search{position: relative;display: flex;align-items: center;width: 220px;max-width: 100%;}.sb-search > .sb-ic{position: absolute;left: 8px;color: var(--sb-muted-fg);pointer-events: none;}.sb-search > .sb-input{padding-left: 28px;}.sb-seg{display: inline-flex;flex: none;gap: 2px;padding: 2px;border-radius: 8px;background: var(--sb-muted);}.sb-seg > button{display: inline-flex;align-items: center;gap: 5px;height: 24px;padding: 0 9px;border: 0;border-radius: 6px;background: transparent;color: var(--sb-muted-fg);font-size: 12.5px;font-weight: 500;white-space: nowrap;cursor: pointer;}.sb-seg > button:hover{color: var(--sb-fg);}.sb-seg > button.is-active{background: var(--sb-bg);color: var(--sb-fg);box-shadow: 0 1px 2px rgb(0 0 0 / .08), 0 0 0 1px color-mix(in srgb, var(--sb-fg) 6%, transparent);}.sb-seg-count{font-size: 11px;color: var(--sb-muted-fg);font-variant-numeric: tabular-nums;}.sb-tabs{display: flex;align-items: center;gap: 2px;min-width: 0;overflow: hidden;}.sb-tab{height: 24px;flex: none;padding: 0 8px;border: 0;border-radius: 6px;background: transparent;color: var(--sb-muted-fg);font-size: 13px;white-space: nowrap;cursor: pointer;}.sb-tab:hover{color: var(--sb-fg);}.sb-tab.is-active{background: var(--sb-muted);color: var(--sb-fg);}.sb-tabs-sep{width: 1px;height: 16px;flex: none;margin: 0 4px;background: var(--sb-border);}.sb-chip{display: inline-flex;align-items: center;gap: 5px;height: 22px;padding: 0 8px;flex: none;border: 1px solid var(--sb-border);border-radius: 999px;background: var(--sb-bg);color: var(--sb-fg);font-size: 12px;font-weight: 500;white-space: nowrap;}button.sb-chip{cursor: pointer;}button.sb-chip:hover{background: var(--sb-muted);}.sb-chip.is-active, button.sb-chip.is-active:hover{background: var(--sb-fg);border-color: var(--sb-fg);color: var(--sb-bg);}.sb-chip-count{color: var(--sb-muted-fg);font-weight: 400;font-variant-numeric: tabular-nums;}.sb-chip.is-active .sb-chip-count{color: inherit;opacity: .7;}.sb-tag{display: inline-flex;align-items: center;gap: 4px;height: 18px;padding: 0 6px;flex: none;border-radius: 4px;background: var(--sb-secondary);color: var(--sb-fg);font-size: 11px;font-weight: 500;white-space: nowrap;}.sb-tag-warning{background: color-mix(in srgb, var(--sb-warning) 20%, transparent);color: color-mix(in srgb, var(--sb-warning) 55%, var(--sb-fg));}.sb-tag-outline{background: transparent;box-shadow: inset 0 0 0 1px var(--sb-border);color: var(--sb-muted-fg);}.sb-dot{width: 8px;height: 8px;flex: none;border-radius: 50%;background: var(--tint, var(--sb-muted-fg));}.sb-tint-neutral{--tint: var(--sb-muted-fg);}.sb-tint-blue{--tint: #3b82f6;}.sb-tint-amber{--tint: #f59e0b;}.sb-nav-on.sb-tint-neutral{--tint: var(--sb-fg);}.sb-avatar{--sz: 18px;width: var(--sz);height: var(--sz);flex: none;display: inline-grid;place-items: center;border-radius: 50%;overflow: hidden;background: var(--sb-muted);color: var(--sb-fg);box-shadow: 0 0 0 2px var(--sb-ring-bg, var(--sb-bg));}.sb-avatar > .sb-ic{width: calc(var(--sz) * .7);height: calc(var(--sz) * .7);}.sb-avatar.is-color{background: #fff;}.sb-avatar.is-color > .sb-ic{width: calc(var(--sz) * .78);height: calc(var(--sz) * .78);}.sb-avatar.is-ws{border-radius: 5px;}.sb-avatar-stack{display: inline-flex;align-items: center;flex: none;}.sb-avatar-stack > * + *{margin-left: -5px;}.sb-avatar-more{font-size: 9.5px;font-weight: 600;color: var(--sb-muted-fg);}.sb-logo-stack{display: inline-flex;align-items: center;}.sb-logo-stack > * + *{margin-left: -4px;}.sb-pill{display: inline-flex;align-items: center;gap: 5px;height: 24px;flex: none;padding: 0 9px 0 4px;border: 1px dashed color-mix(in srgb, var(--sb-fg) 24%, transparent);border-radius: 999px;background: transparent;color: var(--sb-muted-fg);font-size: 12px;font-weight: 500;white-space: nowrap;cursor: pointer;transition: background .12s, border-color .12s, color .12s;}.sb-pill:hover{background: var(--sb-muted);color: var(--sb-fg);}.sb-pill-logo{width: 16px;height: 16px;flex: none;display: grid;place-items: center;filter: grayscale(1);opacity: .5;transition: filter .12s, opacity .12s;}.sb-pill.is-on{border-style: solid;border-color: var(--sb-fg);background: var(--sb-bg);color: var(--sb-fg);}.sb-pill.is-on .sb-pill-logo{filter: none;opacity: 1;}.sb-pill.is-icon{width: 26px;padding: 0;justify-content: center;}.sb-pill:disabled{opacity: .45;cursor: default;}.sb-newicon{display: inline-grid;place-items: center;flex: none;border-radius: 3px;outline: 1px dashed color-mix(in srgb, var(--sb-info) 75%, transparent);outline-offset: 1px;}.sb-tooltip{position: absolute;z-index: 90;max-width: 260px;padding: 4px 8px;pointer-events: none;border: 1px solid var(--sb-border);border-radius: 6px;background: var(--sb-popover);color: var(--sb-popover-fg);font: 12px/1.35 var(--sb-font);white-space: pre-line;box-shadow: var(--sb-shadow-md);animation: sb-fade .1s ease-out;}.sb-menu{--sb-ring-bg: var(--sb-popover);position: absolute;z-index: 60;min-width: 180px;max-height: calc(100% - 16px);overflow: auto;padding: 6px;border-radius: 12px;background: var(--sb-popover);color: var(--sb-popover-fg);font-size: 13px;box-shadow: 0 0 0 1px var(--sb-line), 0 10px 15px -3px rgb(0 0 0 / .10), 0 4px 6px -4px rgb(0 0 0 / .10);animation: sb-pop .12s ease-out;}.sb-menu-item{display: flex;align-items: center;gap: 8px;width: 100%;height: 30px;padding: 0 8px;border: 0;border-radius: 8px;background: transparent;color: inherit;font-size: 13px;text-align: left;white-space: nowrap;cursor: pointer;}.sb-menu-item:hover, .sb-menu-item:focus-visible{background: var(--sb-highlight);outline: none;}.sb-menu-item:disabled{opacity: .4;cursor: default;}.sb-menu-item:disabled:hover{background: transparent;}.sb-menu-item.is-danger{color: var(--sb-danger);}.sb-menu-trail{margin-left: auto;padding-left: 12px;display: flex;align-items: center;color: var(--sb-muted-fg);}.sb-menu-sep{height: 1px;margin: 4px 8px;background: var(--sb-line);}.sb-menu-heading{padding: 4px 8px 2px;font-size: 11.5px;color: var(--sb-muted-fg);}.sb-scrim{position: absolute;inset: 0;z-index: 70;display: flex;align-items: flex-start;justify-content: center;padding: 56px 16px 16px;background: rgb(0 0 0 / .14);animation: sb-fade .15s ease-out;}.sb-scrim.is-top{padding-top: 20px;}.sb-dialog{width: 380px;max-width: 100%;max-height: 100%;display: flex;flex-direction: column;border: 1px solid var(--sb-border);border-radius: 8px;background: var(--sb-bg);color: var(--sb-fg);box-shadow: var(--sb-shadow-lg);animation: sb-drop .18s ease-out;}.sb-dialog-sm{width: 320px;}.sb-dialog-md{width: 420px;}.sb-dialog-lg{width: 600px;height: 100%;}.sb-dialog-header{display: flex;align-items: center;gap: 8px;padding: 14px 16px 6px;}.sb-dialog:focus-visible{outline: none;}.sb-dialog-title{flex: 1;min-width: 0;display: flex;align-items: center;gap: 8px;font-size: 15px;font-weight: 600;overflow-wrap: anywhere;}.sb-dialog-body{flex: 1 1 auto;min-height: 0;overflow: auto;padding: 4px 16px 12px;font-size: 13px;}.sb-dialog-footer{display: flex;align-items: center;gap: 8px;padding: 4px 16px 16px;}.sb-dialog-footer:empty{display: none;}.sb-dialog-body:empty{display: none;}.sb-dialog-header + .sb-dialog-body:empty + .sb-dialog-footer{padding-top: 12px;}.sb-menu-ic{width: 16px;height: 16px;flex: none;display: grid;place-items: center;}.sb-toast{position: absolute;z-index: 85;left: 50%;bottom: 16px;transform: translateX(-50%);display: flex;align-items: center;gap: 10px;max-width: calc(100% - 32px);min-height: 36px;padding: 6px 12px;border-radius: 8px;background: var(--sb-fg);color: var(--sb-bg);font-size: 13px;white-space: nowrap;box-shadow: var(--sb-shadow-lg);animation: sb-rise .2s ease-out;transition: opacity .18s, transform .18s;}.sb-toast.has-action{padding-right: 6px;}.sb-toast.is-leaving{opacity: 0;transform: translate(-50%, 6px);}.sb-toast-text{min-width: 0;overflow: hidden;text-overflow: ellipsis;}.sb-toast-action{display: inline-flex;align-items: center;gap: 5px;height: 24px;padding: 0 8px;border: 0;border-radius: 5px;background: color-mix(in srgb, var(--sb-bg) 16%, transparent);color: inherit;font-size: 12.5px;font-weight: 600;cursor: pointer;}.sb-toast-action:hover{background: color-mix(in srgb, var(--sb-bg) 26%, transparent);}.sb-progress{height: 6px;overflow: hidden;border-radius: 999px;background: color-mix(in srgb, var(--sb-primary) 18%, transparent);}.sb-progress > span{display: block;width: 0;height: 100%;border-radius: inherit;background: var(--sb-primary);transition: width .2s ease-out;}.sb-progress-row{display: flex;align-items: center;gap: 10px;margin-top: 6px;}.sb-progress-row > .sb-progress{flex: 1;}.sb-progress-pct{width: 38px;text-align: right;font-size: 12.5px;font-weight: 600;font-variant-numeric: tabular-nums;}.sb-progress-step{margin-top: 8px;font-size: 12px;color: var(--sb-muted-fg);white-space: nowrap;overflow: hidden;text-overflow: ellipsis;}.sb-progress.is-indeterminate > span{width: 35%;animation: sb-indet 1.1s ease-in-out infinite;}.sb-spin{animation: sb-rotate .9s linear infinite;}.sb-empty{display: flex;flex-direction: column;align-items: center;gap: 6px;padding: 36px 16px;text-align: center;color: var(--sb-muted-fg);}.sb-empty-ic{width: 40px;height: 40px;margin-bottom: 4px;display: grid;place-items: center;border-radius: 10px;background: var(--sb-muted);color: var(--sb-fg);}.sb-empty-title{font-size: 14px;font-weight: 600;color: var(--sb-fg);}.sb-empty-sub{font-size: 12.5px;}.sb-hstack{display: flex;align-items: center;gap: 8px;min-width: 0;}.sb-vstack{display: flex;flex-direction: column;gap: 8px;min-width: 0;}.sb-spacer{flex: 1;}.sb-muted{color: var(--sb-muted-fg);}.sb-small{font-size: 12px;}.sb-ellipsis{min-width: 0;overflow: hidden;white-space: nowrap;text-overflow: ellipsis;}.sb-window :focus-visible, .sb-vbar :focus-visible{outline: 2px solid var(--sb-ring);outline-offset: 1px;}.sb-checkbox:focus-visible{outline-offset: 2px;}.sb-vbar{display: flex;flex-direction: column;gap: 6px;margin: 0 0 10px;color: var(--sb-fg);font: 13px/1.4 var(--sb-font);}.sb-vbar-top{display: flex;align-items: center;gap: 8px;flex-wrap: wrap;}.sb-vbar-extra{margin-left: auto;display: flex;align-items: center;gap: 6px;}.sb-vbar-extra:empty{display: none;}.sb-vbar-seg{align-self: flex-start;display: flex;flex-wrap: wrap;gap: 2px;max-width: 100%;padding: 3px;border-radius: var(--radius, 8px);background: var(--sb-muted);}.sb-vbar-opt{display: inline-flex;align-items: center;gap: 6px;height: 28px;padding: 0 10px 0 5px;border: 0;border-radius: calc(var(--radius, 8px) - 2px);background: transparent;color: var(--sb-muted-fg);font: 500 12.5px var(--sb-font);white-space: nowrap;cursor: pointer;}.sb-vbar-opt:hover{color: var(--sb-fg);}.sb-vbar-opt b{display: inline-grid;place-items: center;width: 18px;height: 18px;border-radius: 5px;background: var(--sb-highlight);color: var(--sb-fg);font-size: 11px;}.sb-vbar-opt.is-active{background: var(--sb-bg);color: var(--sb-fg);box-shadow: 0 1px 2px rgb(0 0 0 / .08);}.sb-vbar-opt.is-active b{background: var(--sb-fg);color: var(--sb-bg);}.sb-vbar-desc{padding-left: 2px;font-size: 12.5px;color: var(--sb-muted-fg);}@keyframes sb-fade{from{opacity: 0;}}@keyframes sb-pop{from{opacity: 0;transform: translateY(-4px) scale(.98);}}@keyframes sb-drop{from{opacity: 0;transform: translateY(-8px);}}@keyframes sb-rise{from{opacity: 0;transform: translate(-50%, 8px);}}@keyframes sb-rotate{to{transform: rotate(360deg);}}@keyframes sb-indet{from{transform: translateX(-100%);}to{transform: translateX(290%);}}@media (prefers-reduced-motion: reduce){.sb-window *, .sb-tooltip{animation-duration: 1ms !important;transition-duration: 1ms !important;}.sb-spin, .sb-progress.is-indeterminate > span{animation-duration: 2s !important;}}
@@ -74,20 +74,86 @@ button.sd-tree-row:hover { background: var(--sb-hover); }
 .sd-row .ex-inlib { height: 20px; }
 .sd-pane { flex: 1; min-width: 0; overflow: auto; }
 
-/* ---- C: large dialog (the Import skills dialog's size) ---- */
-.sb-dialog.sd-dialog { width: 92%; height: 90%; max-width: none; }
+/* ---- C, D, E: one large dialog over Explore ---- */
+#proto { max-width: 1100px; }
+.sb-dialog.sd-dialog { width: 92%; height: 100%; max-width: none; }
 .sd-dialog .sb-dialog-header { padding-bottom: 10px; border-bottom: 1px solid var(--sb-border); }
-.sd-dialog .sb-dialog-body { display: flex; overflow: hidden; padding: 12px 16px 16px; }
-.sd-wide { flex: 1; min-width: 0; min-height: 0; display: flex; gap: 16px; }
-.sd-wide-l { flex: 0 0 40%; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
-.sd-wide-r { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.sd-dialog .sb-dialog-body { display: flex; overflow: hidden; padding: 0; }
+.sd-preview-git { padding: 4px 0; }
+/* C: facts and files left, SKILL.md right */
+.sd-wide { flex: 1; min-width: 0; min-height: 0; display: flex; }
+.sd-wide-l { flex: 0 0 300px; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; border-right: 1px solid var(--sb-border); }
+.sd-wide-l:only-child { flex: 1; border-right: 0; }
+.sd-wide-r { flex: 1; min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; }
 .sd-wide-r > .ex-detail-label { margin-top: 0; }
-.sd-wide-r > .sd-mdbox { flex: 1; min-height: 0; overflow: auto; }
+.sd-wide-r > .sd-mdbox { border: 0; padding: 0; }
+/* D: a facts band, then tabs */
+.sd-tabbed { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; }
+.sd-band { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--sb-border); }
+.sd-tabbed > .sb-seg { align-self: flex-start; }
+.sd-tab-pane { flex: 1; min-height: 0; overflow: auto; }
+.sd-tab-pane > .sd-mdbox { border: 0; padding: 0 2px; }
+.sd-tab-pane > .sd-md { max-width: 640px; }
+/* E: SKILL.md as the page, About and Files in a sidebar */
+.sd-doc { flex: 1; min-width: 0; min-height: 0; display: flex; }
+.sd-doc-main { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px 20px; }
+.sd-doc-main > .sd-mdbox { border: 0; padding: 0; }
+.sd-doc-main .sd-md { font-size: 13px; max-width: 600px; }
+.sd-doc-side { flex: 0 0 260px; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; border-left: 1px solid var(--sb-border); }
+.sd-doc-side > .ex-detail-label:first-child { margin-top: 0; }
+.sd-doc-side .sd-meta { flex-direction: column; align-items: flex-start; }
+/* F: the sidebar is a tinted pane, edge to edge under the header; no rules */
+.sd-dialog-f { overflow: hidden; }
+.sd-dialog-f .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-f .sd-doc-side { border-left: 0; background: var(--sb-sidebar); }
+.sd-dialog-f .sd-tree { border: 0; padding: 0; margin: 0 -8px; }
+/* G: no rules; About and Files each sit in a flat card */
+.sd-dialog-g .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-g .sd-doc-side { border-left: 0; gap: 10px; padding-left: 4px; }
+.sd-card { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border: 1px solid var(--sb-border); border-radius: 8px; background: var(--sb-card); }
+.sd-card > .ex-detail-label { margin-top: 0; }
+.sd-card .sd-tree { border: 0; padding: 0; margin: 0 -8px; }
+/* H, I: About as a plain section over G's Files card */
+.sd-dialog-h .sb-dialog-header, .sd-dialog-i .sb-dialog-header, .sd-dialog-j .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-h .sd-doc-side, .sd-dialog-i .sd-doc-side, .sd-dialog-j .sd-doc-side { border-left: 0; gap: 14px; padding-left: 4px; }
+.sd-about-open { display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 0; }
+.sd-about-open > .ex-detail-label { margin-top: 0; }
+.sd-about-open .sd-meta { flex-direction: column; align-items: flex-start; }
+/* I: the facts as labelled rows */
+.sd-facts { display: flex; flex-direction: column; }
+.sd-fact { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; min-height: 30px; border-top: 1px solid var(--sb-border); font-size: 12.5px; }
+.sd-fact-k { color: var(--sb-muted-fg); font-size: 12px; }
+.sd-fact { align-items: start; padding: 7px 0; min-height: 0; }
+.sd-fact-v { min-width: 0; display: flex; overflow-wrap: anywhere; }
+/* Front matter: E-H stack each field under its label */
+.sd-fm { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; }
+.sd-fm-item { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.sd-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.sd-tools code { padding: 1px 5px; border-radius: 4px; background: var(--sb-muted); font: 11px var(--sb-mono); }
+/* J: About in a band under the header, the sidebar only Files */
+.sd-doc-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.sd-band-top { display: flex; flex-direction: column; gap: 6px; padding: 0 20px 12px; }
+.sd-band-top .sd-meta { gap: 4px 16px; }
+/* K, L: two columns from the top, scrolling as one like J */
+.sd-dialog-k .sb-dialog-header, .sd-dialog-l .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-k .sb-dialog-body, .sd-dialog-l .sb-dialog-body { display: block; overflow: auto; }
+.sd-dialog-k .sd-doc, .sd-dialog-l .sd-doc { min-height: auto; align-items: flex-start; }
+.sd-dialog-k .sd-doc-main, .sd-dialog-l .sd-doc-main, .sd-dialog-k .sd-doc-side, .sd-dialog-l .sd-doc-side { overflow: visible; }
+.sd-dialog-k .sd-doc-side, .sd-dialog-l .sd-doc-side { border-left: 0; gap: 12px; padding-left: 4px; }
+.sd-dialog-k .sd-card .sd-meta { flex-direction: column; align-items: flex-start; }
+.sd-lead { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.sd-lead .sd-meta { gap: 4px 16px; }
+/* J scrolls as one: the band and both columns move together under the fixed header */
+.sd-dialog-j .sb-dialog-body { display: block; overflow: auto; }
+.sd-dialog-j .sd-doc-col, .sd-dialog-j .sd-doc { min-height: auto; }
+.sd-dialog-j .sd-doc { align-items: flex-start; }
+.sd-dialog-j .sd-doc-main, .sd-dialog-j .sd-doc-side { overflow: visible; }
+.sd-dialog-j .sd-doc-main { padding-top: 4px; }
 </style>
 </head>
-<body data-first-variant="a" data-first-state="loaded">
+<body data-first-variant="k" data-first-state="loaded">
 <div id="proto">
-  <div class="sb-window" id="win" style="--sb-h:560px">
+  <div class="sb-window" id="win" style="--sb-h:680px">
     <aside id="side"></aside>
     <main class="sb-main">
       <header class="sb-header" id="hdr"></header>
@@ -1704,7 +1770,7 @@ window.NEW_ICONS = {
   const page = document.getElementById('page');
   const soon = () => toast(win, 'Not in this prototype');
   // P.open: the sheet or dialog is showing (B's pane always is). overlay: {close} of the open one.
-  const P = { variant: 'a', state: 'loaded', slug: 'react-best-practices', open: true, md: 'ok', q: '' };
+  const P = { variant: 'e', state: 'loaded', slug: 'react-best-practices', open: true, md: 'ok', q: '' };
   let overlay = null;
 
   // A skill with folders, so the file tree has something to collapse.
@@ -1716,10 +1782,29 @@ window.NEW_ICONS = {
     + '- **Bundle size**: skip barrel files; reach for the module itself.\n\n## Medium\n'
     + '1. Memoize expensive children with `memo`.\n2. Cache server reads per request with `cache()`.\n\n'
     + '```\nconst [user, posts] = await Promise.all([getUser(id), getPosts(id)]);\n```\n\nSee `rules/` for one file per rule, with a bad and a good example.';
+  // Every optional front matter field (agentskills.io/specification) and a long description, near the 1024-character cap.
+  const WDG = CATALOG.skill('web-design-guidelines');
+  Object.assign(WDG, {
+    desc: 'Reviews UI code against the Web Interface Guidelines: layout and spacing, typography, color and contrast, focus order, keyboard access, '
+      + 'touch targets, forms and validation, loading and empty states, motion, and copy. Use when the user asks for a UI review, an accessibility '
+      + 'or design audit, or a check before shipping a page, component, or pull request. It reads the changed files, groups each finding by '
+      + 'guideline with its file and line, ranks them by severity, and proposes the smallest fix for each. It does not restyle code that already '
+      + 'follows the guidelines, and it skips generated files, vendored code, and snapshots.',
+    files: ['SKILL.md', 'LICENSE.txt', 'guidelines/accessibility.md', 'guidelines/forms.md', 'guidelines/layout.md', 'guidelines/motion.md',
+      'guidelines/typography.md', 'scripts/collect-diff.sh', 'scripts/report.ts', 'assets/report-template.md'],
+    fm: { license: 'MIT. LICENSE.txt has complete terms', compatibility: 'Designed for Claude Code and Cursor. Requires git and network access to fetch the guidelines.',
+      tools: ['Bash(git:*)', 'Read', 'Grep', 'WebFetch'], metadata: { author: 'vercel-labs', version: '2.3.0', homepage: 'vercel.com/design/guidelines' } },
+  });
+  const WDG_MD = '---\nname: web-design-guidelines\ndescription: ' + WDG.desc + '\nlicense: ' + WDG.fm.license + '\ncompatibility: ' + WDG.fm.compatibility
+    + '\nmetadata:\n  author: vercel-labs\n  version: "2.3.0"\n  homepage: vercel.com/design/guidelines\nallowed-tools: ' + WDG.fm.tools.join(' ') + '\n---\n'
+    + '# Web design guidelines\n\nReview the diff against each guideline in `guidelines/`, then write one report.\n\n## Steps\n'
+    + '1. Run `scripts/collect-diff.sh` to list the changed UI files.\n2. Read each guideline that applies.\n3. Fill `assets/report-template.md`.\n\n'
+    + '## Severity\n- **Blocker**: fails WCAG AA or breaks keyboard use.\n- **Major**: inconsistent with the system.\n- **Minor**: polish.';
   // The state's skill fails or hangs on its first fetch; Retry and every other skill load normally.
   function fetchMd(slug, attempt) {
     if (slug === P.mdSlug && attempt === 0 && P.md === 'loading') return new Promise(() => {});
     if (slug === P.mdSlug && attempt === 0 && P.md === 'error') return new Promise((ok, no) => setTimeout(no, 500));
+    if (slug === 'web-design-guidelines') return new Promise((ok) => setTimeout(() => ok(WDG_MD), 400));
     if (slug === 'react-best-practices') return new Promise((ok) => setTimeout(() => ok(RBP_MD), 400));
     return CATALOG.skillMd(slug);
   }
@@ -1734,6 +1819,7 @@ window.NEW_ICONS = {
     { id: 'loaded', label: 'Loaded', slug: 'react-best-practices' },
     { id: 'loading', label: 'Loading SKILL.md', slug: 'react-best-practices', md: 'loading' },
     { id: 'mderror', label: 'SKILL.md error', slug: 'react-best-practices', md: 'error' },
+    { id: 'full', label: 'Full front matter', slug: 'web-design-guidelines' },
     { id: 'inlib', label: 'In library', slug: 'frontend-design' },
     { id: 'collision', label: 'Collision', slug: 'pdf' },
     { id: 'nogit', label: 'Without Git', slug: 'react-best-practices', git: false },
@@ -1827,19 +1913,93 @@ window.NEW_ICONS = {
   function openDetail() {
     closeOverlay();
     const p = SD.parts(P.slug, detailOpts);
-    if (P.variant === 'c') {
-      const d = openDialog(win, { title: p.s.name, size: 'lg', onClose: () => userClosed(d) });
-      d.el.classList.add('sd-dialog');
-      const head = d.el.querySelector('.sb-dialog-header');
-      head.insertBefore(p.install, head.lastChild);
-      head.lastChild.setAttribute('data-tip', 'Close');
-      d.setBody(h('div', { class: 'sd-wide' },
-        h('div', { class: 'sd-wide-l' }, p.desc, p.error, p.git, p.meta, p.filesLabel, p.files),
-        h('div', { class: 'sd-wide-r' }, p.mdLabel, p.md)));
-      overlay = d;
+    if (['c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'].includes(P.variant)) {
+      overlay = wideDialog(p, P.variant);
       return;
     }
     overlay = sheet(p);
+  }
+  // C, D, E: one large Kit dialog at the Import skills dialog's size, Install beside Close in its header.
+  function wideDialog(p, variant) {
+    const d = openDialog(win, { title: p.s.name, size: 'lg', onClose: () => userClosed(d) });
+    d.el.classList.add('sd-dialog', `sd-dialog-${variant}`);
+    const head = d.el.querySelector('.sb-dialog-header');
+    head.insertBefore(p.install, head.lastChild);
+    head.lastChild.setAttribute('data-tip', 'Close');
+    const noGit = !CATALOG.settings.git;
+    const needsGit = () => h('div', { class: 'sd-git sd-preview-git' }, ic('git-branch', 13), h('span', 'Preview needs Git'));
+    if (variant === 'c') {
+      // Facts and files on the left, SKILL.md on the right, each scrolling on its own.
+      d.setBody(h('div', { class: 'sd-wide' },
+        h('div', { class: 'sd-wide-l' }, p.desc, p.error, p.git, p.meta, noGit ? needsGit() : [p.filesLabel, p.files]),
+        noGit ? null : h('div', { class: 'sd-wide-r' }, p.mdLabel, p.md)));
+    } else if (variant === 'd') {
+      // Facts in one band under the header, then SKILL.md and Files as two tabs over the full width.
+      const pane = h('div', { class: 'sd-tab-pane' }, p.md);
+      const bar = seg([{ id: 'md', label: 'SKILL.md' }, { id: 'files', label: 'Files', count: p.s.files.length }], 'md',
+        (id) => pane.replaceChildren(id === 'md' ? p.md : p.files));
+      d.setBody(h('div', { class: 'sd-tabbed' },
+        h('div', { class: 'sd-band' }, p.desc, p.meta, p.error, p.git),
+        noGit ? needsGit() : [bar, pane]));
+    } else {
+      // E-G: SKILL.md reads as the page; the facts and files sit in a sidebar, as a repository's About.
+      // They differ only in how the sidebar parts from the page (G puts each section in a card).
+      // H-J keep G's Files card and change only About.
+      const fm = fmPairs(p.s);
+      const fmStack = fm.length ? h('div', { class: 'sd-fm' }, fm.map(([k, v]) => h('div', { class: 'sd-fm-item' }, h('span', { class: 'sd-fact-k' }, k), v))) : null;
+      const about = [h('div', { class: 'ex-detail-label' }, 'About'), p.desc, p.error, p.git, p.meta, fmStack];
+      const files = noGit ? null : [p.filesLabel, p.files];
+      const filesCard = files && h('section', { class: 'sd-card' }, files);
+      const main = noGit ? h('div', { class: 'sd-doc-main' }, needsGit()) : h('div', { class: 'sd-doc-main' }, p.md);
+      let sideKids = [about, files];
+      if (variant === 'g') sideKids = [h('section', { class: 'sd-card' }, about), filesCard];
+      if (variant === 'h') sideKids = [h('section', { class: 'sd-about-open' }, about), filesCard];
+      if (variant === 'i') sideKids = [h('section', { class: 'sd-about-open' }, p.desc, p.error, p.git, facts(p)), filesCard];
+      // K, L: two columns from the top, one scroll; the left reads description then SKILL.md.
+      if (variant === 'k' || variant === 'l') {
+        const aboutCard = variant === 'k'
+          ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'About'), p.meta)
+          : fm.length ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'About'), facts(p, true)) : null;
+        const left = h('div', { class: 'sd-doc-main' }, h('div', { class: 'sd-lead' }, p.desc, p.error, p.git, variant === 'l' ? p.meta : null),
+          noGit ? needsGit() : p.md);
+        // K: the rest of the front matter, once SKILL.md has loaded, in its own card under Files.
+        const details = variant === 'k' && fm.length
+          ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'Details'), fmStack) : null;
+        d.setBody(h('div', { class: 'sd-doc' }, left, h('aside', { class: 'sd-doc-side' }, aboutCard, filesCard, details)));
+        return d;
+      }
+      if (variant === 'j') {
+        d.setBody(h('div', { class: 'sd-doc-col' },
+          h('div', { class: 'sd-band-top' }, p.desc, p.error, p.git, p.meta),
+          h('div', { class: 'sd-doc' }, main, h('aside', { class: 'sd-doc-side' },
+            fm.length ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'Details'), facts(p, true)) : null, filesCard))));
+        return d;
+      }
+      d.setBody(h('div', { class: 'sd-doc' }, main, h('aside', { class: 'sd-doc-side' }, sideKids)));
+    }
+    return d;
+  }
+  // I: the facts as labelled rows (Creator, Repository, Installs), taken out of the meta line.
+  // J's Details card passes onlyFm: the front matter rows alone, its meta line being in the band.
+  function facts(p, onlyFm) {
+    const kids = [...p.meta.children];
+    const by = ['catalog', 'skills.sh'].includes(p.s.origin) ? kids.shift() : null;
+    const [repo, installs] = kids;
+    const fact = (k, v) => v && h('div', { class: 'sd-fact' }, h('span', { class: 'sd-fact-k' }, k), h('span', { class: 'sd-fact-v' }, v));
+    const top = onlyFm ? [] : [fact('Creator', by), fact('Repository', repo), fact('Installs', installs)];
+    return h('div', { class: 'sd-facts' }, top, fmPairs(p.s).map(([k, v]) => fact(k, v)));
+  }
+  // SKILL.md's optional front matter fields (license, compatibility, allowed-tools, metadata), each a label and its value.
+  function fmPairs(s) {
+    const f = s.fm;
+    if (!f) return [];
+    const cap = (k) => k.charAt(0).toUpperCase() + k.slice(1);
+    return [
+      ['License', h('span', f.license)],
+      ['Compatibility', h('span', f.compatibility)],
+      ['Allowed tools', h('span', { class: 'sd-tools' }, f.tools.map((t) => h('code', t)))],
+      ...Object.entries(f.metadata).map(([k, v]) => [cap(k), h('span', v)]),
+    ];
   }
   function sheet(p) {
     const api = {
@@ -1865,7 +2025,16 @@ window.NEW_ICONS = {
   const bar = variantBar(document.getElementById('proto'), [
     { id: 'a', label: 'Side sheet', desc: "Right sheet over the trending grid, behind a scrim; Install in its sticky header. v0 Extensions' detail pane, as an overlay." },
     { id: 'b', label: 'Split pane', desc: 'Skill list on the left, the detail fills the rest and stays; selecting a row swaps it. v0 Extensions list + detail, Vercel integrations.' },
-    { id: 'c', label: 'Large dialog', desc: "Kit dialog at the Import skills dialog's size: facts and files left, SKILL.md right; Install beside Close. v0 Import from GitHub, scaled up." },
+    { id: 'c', label: 'Large dialog', desc: "Kit dialog at the Import skills dialog's size over Explore: facts and files in a left column, SKILL.md on the right, each scrolling; Install beside Close." },
+    { id: 'd', label: 'Dialog · tabs', desc: 'Same dialog: description and meta in one band, then SKILL.md and Files as two tabs across the full width.' },
+    { id: 'e', label: 'Dialog · document', desc: "Same dialog: SKILL.md reads as the page, with About (description, creator, repository, installs) and Files in a right sidebar, like a repository's page. Rules: one under the header, one full height before the sidebar." },
+    { id: 'f', label: 'Doc · tinted side', desc: "Document dialog with no rules: the sidebar is a tinted pane (the app sidebar's tone) running edge to edge under the header to the dialog's bottom. The file tree sits on the tint without a box." },
+    { id: 'g', label: 'Doc · cards', desc: 'Document dialog with no rules: About and Files each sit in a flat card in the sidebar; whitespace parts them from the page.' },
+    { id: 'h', label: 'About · open', desc: "G with About out of its card: a plain section (label, description, creator, repository, installs) over the Files card, like a repository's About." },
+    { id: 'i', label: 'About · rows', desc: 'G with About out of its card and its facts as labelled rows (Creator, Repository, Installs) under the description, over the Files card.' },
+    { id: 'j', label: 'About · top', desc: 'One scroll under the fixed header. About leaves the sidebar: the description and the creator, repository, and installs line run in a band under the header, across the dialog; the sidebar holds only the Files card.' },
+    { id: 'k', label: 'Columns · facts', desc: 'Picked. Two columns from the top, one scroll under the fixed header. Left: the description, then SKILL.md. Right: an About card (creator, repository, installs), the Files card, and a Details card with the rest of the front matter when SKILL.md has any (pick Full front matter).' },
+    { id: 'l', label: 'Columns · front matter', desc: "Two columns from the top, one scroll. Left: the description, the creator · repository · installs line, then SKILL.md. Right: an About card with SKILL.md's optional front matter (license, compatibility, allowed tools, metadata; pick the Full front matter state, hidden when a skill has none) over the Files card." },
   ], (id) => { P.variant = id; P.open = true; draw(); });
   const first = STATES.some((x) => x.id === document.body.dataset.firstState) ? document.body.dataset.firstState : 'loaded';
   bar.extra.append(seg(STATES.map(({ id, label, tip }) => ({ id, label, tip })), first, setState));

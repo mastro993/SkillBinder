@@ -1,6 +1,6 @@
 use super::*;
 use crate::native_view::snapshot_query::fixture::Fixture;
-use skillbinder_proto::{SkillSource, normalized_url};
+use skillbinder_proto::{Preview, SkillSource, normalized_url};
 
 fn creator(id: &str, name: &str) -> Creator {
     Creator {
@@ -211,4 +211,79 @@ fn a_slug_repeated_across_repositories_keys_its_elements_apart() {
     let mut spelled = northwind.clone();
     spelled.source.url = "https://GIT.example.invalid/northwind/skills".to_owned();
     assert_eq!(element_key(&spelled), element_key(&northwind));
+}
+
+#[test]
+fn a_preview_belongs_to_the_sheet_of_its_source() {
+    let mut snapshot = Fixture::new().build();
+    let pdf = skill("pdf", "northwind", "", 1);
+    assert_eq!(preview_state(&snapshot, &pdf), None);
+    let mut spelled = pdf.source.clone();
+    spelled.path.push('/');
+    snapshot.explore.preview = Some(Preview {
+        source: spelled,
+        state: PreviewState::Failed,
+    });
+    assert_eq!(preview_state(&snapshot, &pdf), Some(&PreviewState::Failed));
+    assert_eq!(
+        preview_state(&snapshot, &skill("pdf", "quill", "", 1)),
+        None
+    );
+}
+
+#[test]
+fn open_in_browser_maps_every_url_to_the_repository_web_page() {
+    let page = |url: &str, path: &str| {
+        browser_url(&SkillSource {
+            url: url.to_owned(),
+            reference: None,
+            path: path.to_owned(),
+        })
+    };
+    let pdf = Some("https://github.com/acme/skills/tree/HEAD/skills/pdf".to_owned());
+    for url in [
+        "https://github.com/Acme/Skills.git",
+        "git@github.com:acme/skills.git",
+        "ssh://git@github.com/acme/skills",
+    ] {
+        assert_eq!(page(url, "skills/pdf/"), pdf, "{url}");
+    }
+    assert_eq!(
+        page("https://github.com/acme/skills.git", ""),
+        Some("https://github.com/acme/skills".to_owned())
+    );
+    // Other hosts get the repository's page; an SSH port is dropped.
+    assert_eq!(
+        page("ssh://git@gitlab.com:2222/Team/Repo.git", "skills/pdf"),
+        Some("https://gitlab.com/Team/Repo".to_owned())
+    );
+    assert_eq!(page("file:///tmp/skills", "skills/pdf"), None);
+}
+
+#[test]
+fn front_matter_keys_read_as_labels() {
+    for (key, label) in [
+        ("license", "License"),
+        ("allowed-tools", "Allowed tools"),
+        ("argument_hint", "Argument hint"),
+        ("", ""),
+    ] {
+        assert_eq!(front_matter_label(key), label);
+    }
+}
+
+#[test]
+fn front_matter_is_dropped_from_skill_md() {
+    assert_eq!(
+        without_front_matter("---\nname: pdf\n---\n# PDF\n"),
+        "# PDF\n"
+    );
+    assert_eq!(
+        without_front_matter("---\r\nname: pdf\r\n---\r\nBody"),
+        "Body"
+    );
+    // Without a closing line, or without front matter, the text stays whole.
+    for text in ["---\nname: pdf\n", "# PDF\n---\n"] {
+        assert_eq!(without_front_matter(text), text);
+    }
 }

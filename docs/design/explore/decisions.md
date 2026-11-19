@@ -24,17 +24,17 @@ The user settled these on 2026-11-19 in a feature-design session. Behavior comes
 
 ## Installing
 
-- **I1** Each skill has one Install action, on its card or row and in its detail sheet. It is never a primary button on a card; a page has at most one primary button.
+- **I1** Each skill has one Install action, on its card or row and in its detail dialog. It is never a primary button on a card; a page has at most one primary button.
 - **I2** While installing, the action shows a spinner and the rest of the page stays usable. Several installs can run at once *(assumption)*.
 - **I3** After installing, you stay on Explore. The card's action becomes a quiet "In library" mark, and a toast says "Installed pdf", with "Show in Library".
 - **I4** A skill whose slug the library already holds from the same source shows "In library" instead of Install. When the library's skill with that slug comes from a different source, or has none, Install is disabled, and its tooltip says "Your library has another skill named pdf". Install never renames *(assumption)*.
-- **I5** Without Git, browsing works, but Install is inactive with the tooltip "Installing needs Git", and the app's Install Git action is offered (ADR 0011) *(assumption)*. The detail sheet then shows the catalog facts and "Preview needs Git" in place of the file list and the SKILL.md text, and the Add repository dialog reads "Adding a repository needs Git".
-- **I6** A failed install keeps the card's Install, and an error line on the card, row, or sheet reads "Couldn't install. Check your access to <owner/repo>.", or "Couldn't install: no connection." when the host can't be reached. Nothing asks for a password *(assumption)*.
+- **I5** Without Git, browsing works, but Install is inactive with the tooltip "Installing needs Git", and the app's Install Git action is offered (ADR 0011) *(assumption)*. The detail dialog then shows the catalog facts and "Preview needs Git" in place of the file list and the SKILL.md text, and the Add repository dialog reads "Adding a repository needs Git".
+- **I6** A failed install keeps the card's Install, and an error line on the card, row, or detail dialog reads "Couldn't install. Check your access to <owner/repo>.", or "Couldn't install: no connection." when the host can't be reached. Nothing asks for a password *(assumption)*.
 - **I7** The Install Git action sits in one quiet line at the top of Explore, under the search field and beside the offline line: the git-branch glyph, "Installing needs Git", and an outline "Install Git". It shows only while Git is missing, never once per card *(assumption)*.
 
-## Detail sheet
+## Detail dialog
 
-- **P1** Clicking a skill opens its detail sheet: name, description, creator, repository with a link that opens it in the browser, installs this week, the file list, and the SKILL.md text, which loads when the sheet opens. Install sits in the sheet's header.
+- **P1** Clicking a skill opens its detail dialog: name, description, creator, repository with a link that opens it in the browser, installs this week, the file list, and the SKILL.md text, which loads when the dialog opens. Under the header, two columns scroll as one. The wide one holds the description, then SKILL.md read as the dialog's page; the sidebar holds flat cards, About (creator, repository, installs), Files, and Details, the rest of SKILL.md's front matter, with whitespace and no rule between the columns. Install sits in the dialog's header, beside Close. Picked on 2026-11-19 over the side sheet, which felt detached from Explore and too narrow for SKILL.md.
 
 ## Repositories
 
@@ -54,7 +54,7 @@ The user settled these on 2026-11-19 in a feature-design session. Behavior comes
 The user picked these on 2026-11-19. [README.md](README.md) describes each one and maps it to components.
 
 - Explore page: A "Stacked sections". Search on top, then Trending cards, Popular creators, and Your repositories. A query or a picked source swaps the sections for one tagged list with source chips.
-- Skill detail: A "Side sheet". A sheet on the right over the page, behind a scrim, with Install in its sticky header.
+- Skill detail: E "Dialog · document", picked on 2026-11-19 in place of A "Side sheet". A large dialog over the page, at the Import skills dialog's size: SKILL.md reads as its page, and an About and Files sidebar sits on its right. Install sits beside Close in its header. The same day its treatment K "Columns · facts" was picked: two columns from the top that scroll as one under the fixed header; the description then SKILL.md on the left; About, Files, and a Details card with the rest of the front matter on the right, as flat cards with no rule beside the page. It was picked over E's full-height rule, which the dialog's padding cut short in the app, F's tinted pane, G's About and Files cards, H's open About, I's labelled rows, J's About band over the page, and L's front matter in About.
 - Repositories: A "Section on Explore". A "Your repositories" section under Popular creators whose rows expand to their skills. Add repository opens a small dialog that lists the repository's skills before adding it.
 - New mark: A "Accent chip". A small accent "New" chip after the name, on Library's rows and tiles.
 

@@ -17,7 +17,7 @@ use skillbinder_design::explore::{
     CHIP_GAP, CHIP_PADDING, CREATOR_AVATAR, CREATOR_CHIP_WIDTH, SKELETON_LINE, SOURCE_AVATAR,
 };
 use skillbinder_design::tokens::{color, space, text};
-use skillbinder_design::{IconSize, Level, SkillCard, Surface, Text, icon, tooltip};
+use skillbinder_design::{IconSize, Level, SkillCard, Surface, Text, icon, row_end, tooltip};
 use skillbinder_proto::{CatalogSkill, Creator, owner_repo};
 use std::path::PathBuf;
 
@@ -64,10 +64,15 @@ pub(super) fn in_library(cx: &App) -> AnyElement {
 
 impl NativeView {
     /// A Trending card: the name, with the New chip of a New library skill, two description
-    /// lines, a failed install's error line, then installs this week and the Install action.
+    /// lines, a failed install's error line, then installs this week and the Install action. It
+    /// opens the skill's detail dialog.
     pub(super) fn card(&self, skill: &CatalogSkill, cx: &mut Context<Self>) -> AnyElement {
+        let key = element_key(skill);
+        let selected = cx.theme().muted;
         let new = new_in_library(&self.snapshot, skill).map(new_chip);
-        SkillCard::new(format!("explore-card-{}", element_key(skill)))
+        let card = SkillCard::new(format!("explore-card-{key}"))
+            .hover(true)
+            .when(self.detail_shows(skill), |card| card.bg(selected))
             .title(
                 h_flex()
                     .min_w_0()
@@ -75,10 +80,7 @@ impl NativeView {
                     .child(div().min_w_0().truncate().child(skill.name.clone()))
                     .children(new),
             )
-            .description(
-                format!("explore-desc-{}", element_key(skill)),
-                skill.description.clone(),
-            )
+            .description(format!("explore-desc-{key}"), skill.description.clone())
             .children(self.install_error_line(skill))
             .footer(
                 h_flex()
@@ -86,9 +88,12 @@ impl NativeView {
                     .justify_between()
                     .gap(px(space::SM))
                     .child(installs(skill, cx))
-                    .child(self.install_action(skill, cx)),
-            )
-            .into_any_element()
+                    .child(
+                        row_end(format!("explore-card-end-{key}"))
+                            .child(self.install_action(skill, cx)),
+                    ),
+            );
+        self.opens_detail(card, skill, cx).into_any_element()
     }
 
     /// A Popular creators chip: the avatar, the name, and how many skills; a click narrows

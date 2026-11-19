@@ -10,6 +10,19 @@ const SOURCE_REF: &str = "refs/skillbinder/source";
 /// Fetches and lazy blob reads cross the network.
 const NETWORK_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// One file or folder of a fetched tree, as `git ls-tree` lists it.
+#[derive(Clone, Debug)]
+pub struct TreeEntry {
+    /// Such as `100644` for a file, `040000` for a folder, `160000` for a submodule.
+    pub mode: String,
+    /// `blob`, `tree`, or `commit`.
+    pub kind: String,
+    /// The id of its blob, tree, or commit.
+    pub object: String,
+    /// The path under the listed tree, `/`-separated.
+    pub path: String,
+}
+
 impl Git {
     /// Fetches the commit `source` follows into the cache `cache`, creating the cache first.
     /// Blobs are fetched later, only for the folders that are checked out.
@@ -83,15 +96,29 @@ impl Git {
         }))
     }
 
-    /// The mode of each file and folder `tree` holds, read from tree objects alone, so no blob
-    /// is fetched to list them.
-    pub fn tree_modes(&self, cache: &Path, tree: &str) -> AppResult<Vec<String>> {
+    /// Each file and folder `tree` holds, read from tree objects alone, so no blob is fetched to
+    /// list them. Sizes are never asked for, since reading one fetches its blob.
+    pub fn tree_entries(&self, cache: &Path, tree: &str) -> AppResult<Vec<TreeEntry>> {
         let listed = self.output(cache, &["ls-tree", "-r", "-t", "-z", tree])?;
         // `<mode> <type> <object>\t<path>`
         Ok(listed
             .split_terminator('\0')
-            .filter_map(|entry| entry.split(' ').next().map(str::to_owned))
+            .filter_map(|entry| {
+                let (meta, path) = entry.split_once('\t')?;
+                let mut fields = meta.split(' ');
+                Some(TreeEntry {
+                    mode: fields.next()?.to_owned(),
+                    kind: fields.next()?.to_owned(),
+                    object: fields.next()?.to_owned(),
+                    path: path.to_owned(),
+                })
+            })
             .collect())
+    }
+
+    /// The text of the blob `object`, fetched from the source when the cache lacks it.
+    pub fn read_blob(&self, cache: &Path, object: &str) -> AppResult<String> {
+        self.network(Some(cache), &["cat-file", "blob", object])
     }
 
     /// Writes the files of `tree` into the empty directory `into`, fetching missing blobs.

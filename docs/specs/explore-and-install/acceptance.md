@@ -28,9 +28,9 @@ Each check names the slice that owns it and its kind: **domain** (engine or clie
 20. (S3, native) Library's rows and tiles show the accent "New" chip after the name; opening the skill's page removes it.
 21. (S3, visual) The New mark matches variant A "Accent chip" in list and grid.
 22. (S4, domain) A preview of a `file://` repository lists the skill's files and returns SKILL.md, fetching no other blobs.
-23. (S4, native) Clicking a card opens the side sheet with the description, creator, repository with Open in browser, installs this week, the file tree, and SKILL.md after a skeleton; Install in its header installs; Escape closes it.
-24. (S4, native) A SKILL.md that fails to load shows "Couldn't load SKILL.md" with Retry; without Git the sheet shows "Preview needs Git".
-25. (S4, visual) The sheet matches variant A "Side sheet" in its loaded, loading, error, in-library, and no-Git states.
+23. (S4, native) Clicking a card opens the detail dialog with the description, creator, repository with Open in browser, installs this week, the file tree, and SKILL.md after a skeleton; Install in its header installs; Escape closes it.
+24. (S4, native) A SKILL.md that fails to load shows "Couldn't load SKILL.md" with Retry; without Git the dialog shows "Preview needs Git".
+25. (S4, visual) The detail dialog matches variant E "Dialog · document" in its loaded, loading, error, in-library, and no-Git states.
 26. (S5, domain) A fixture skills.sh payload is translated into results tagged skills.sh; unknown fields are ignored; a malformed payload or a failure yields "unavailable" and no results; a skills.sh result is resolved to its folder by T1's rules, or reported as not found.
 27. (S5, native) After two characters and a pause, "Searching skills.sh" shows, then its results are appended below the local ones without reordering them, each tagged "skills.sh"; duplicates of shown skills are left out.
 28. (S5, native) Offline, the skills.sh chip shows "skills.sh needs a connection", and with no query "Search to find skills on skills.sh"; a failing skills.sh shows "skills.sh unavailable" while local results stay; a result whose folder is not found shows "Couldn't find this skill in <owner/repo>" with Install disabled.
@@ -48,8 +48,8 @@ Each check names the slice that owns it and its kind: **domain** (engine or clie
 1. **S1 · Explore shows the curated catalog.** The HTTP client, cache, and catalog thread; offline, unavailable, and newer-format states; Trending and Popular creators; local search with source chips; creator narrowing; avatars; "In library" on held slugs. No Install yet (T3, T4, T5, T10). Checks: 2–10, 34, 35. Depends on: nothing for domain and native checks (fixture catalog); S0 for the packaged check 34.
 2. **S2 · Install from Explore.** `install_skill`, the toast, "In library", the collision and no-Git states, the failure line, the record with its source, uncommitted until Sync, and Update working on it (T8). Checks: 11–18, 35. Depends on: S1.
 3. **S3 · New mark.** The migration, set on install, cleared on activation and on opening the page, the accent chip on Library's rows and tiles (T9). Checks: 19–21, 35. Depends on: S2.
-4. **S4 · Skill detail side sheet with its Git preview** (T7). Checks: 22–25, 35. Depends on: S2.
+4. **S4 · Skill detail dialog with its Git preview** (T7). Checks: 22–25, 35. Depends on: S2.
 5. **S5 · Live skills.sh search.** Debounced, appended, tagged, the skills.sh chip, folder resolution at preview and install, the unavailable line. Checks: 26–28, 35. Depends on: S2; S4 for previewing skills.sh results.
-6. **S6 · Your repositories.** The table, the Add repository dialog that lists first, the section with expandable rows, Install all with progress and summary, Remove with Undo, listing again (T6). Checks: 29–33, 35. Depends on: S2; S4 for opening the detail sheet from a repository's skills.
+6. **S6 · Your repositories.** The table, the Add repository dialog that lists first, the section with expandable rows, Install all with progress and summary, Remove with Undo, listing again (T6). Checks: 29–33, 35. Depends on: S2; S4 for opening the detail dialog from a repository's skills.
 
 Each slice updates the docs listed in [design.md](design.md#docs-each-slice-updates) that its behavior touches. T12's glossary and scope changes land with this spec, marked "not built yet"; the slice that builds each behavior removes its marker (S1 for Explore and the catalog, S2 for install, S3 for New, S6 for repositories).

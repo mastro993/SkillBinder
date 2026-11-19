@@ -19,3 +19,16 @@ pub const CHIP_PADDING: f32 = space::SM;
 pub const SECTION_GAP: f32 = space::MD;
 /// Height of a skeleton line standing in for a card's name or description.
 pub const SKELETON_LINE: f32 = space::LG;
+/// Width of the skill detail dialog's About and Files sidebar, from the skill-detail prototype.
+/// No scale token is near it.
+pub const DETAIL_SIDEBAR: f32 = 260.0;
+/// Space between the skill detail dialog's band and its columns.
+pub const DETAIL_GAP: f32 = space::XL;
+/// Whitespace between the skill detail dialog's page and its sidebar, which no rule divides.
+pub const DETAIL_COLUMN_GAP: f32 = space::XXL;
+/// Padding inside the skill detail sidebar's Files card.
+pub const DETAIL_CARD_PADDING: f32 = space::LG;
+/// Height of a row of the skill detail dialog's file tree.
+pub const TREE_ROW: f32 = space::CONTROL_SM;
+/// How far each folder level indents its rows in the file tree.
+pub const TREE_INDENT: f32 = space::LG;

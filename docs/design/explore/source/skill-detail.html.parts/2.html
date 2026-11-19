@@ -7,7 +7,7 @@
   const page = document.getElementById('page');
   const soon = () => toast(win, 'Not in this prototype');
   // P.open: the sheet or dialog is showing (B's pane always is). overlay: {close} of the open one.
-  const P = { variant: 'a', state: 'loaded', slug: 'react-best-practices', open: true, md: 'ok', q: '' };
+  const P = { variant: 'e', state: 'loaded', slug: 'react-best-practices', open: true, md: 'ok', q: '' };
   let overlay = null;
 
   // A skill with folders, so the file tree has something to collapse.
@@ -19,10 +19,29 @@
     + '- **Bundle size**: skip barrel files; reach for the module itself.\n\n## Medium\n'
     + '1. Memoize expensive children with `memo`.\n2. Cache server reads per request with `cache()`.\n\n'
     + '```\nconst [user, posts] = await Promise.all([getUser(id), getPosts(id)]);\n```\n\nSee `rules/` for one file per rule, with a bad and a good example.';
+  // Every optional front matter field (agentskills.io/specification) and a long description, near the 1024-character cap.
+  const WDG = CATALOG.skill('web-design-guidelines');
+  Object.assign(WDG, {
+    desc: 'Reviews UI code against the Web Interface Guidelines: layout and spacing, typography, color and contrast, focus order, keyboard access, '
+      + 'touch targets, forms and validation, loading and empty states, motion, and copy. Use when the user asks for a UI review, an accessibility '
+      + 'or design audit, or a check before shipping a page, component, or pull request. It reads the changed files, groups each finding by '
+      + 'guideline with its file and line, ranks them by severity, and proposes the smallest fix for each. It does not restyle code that already '
+      + 'follows the guidelines, and it skips generated files, vendored code, and snapshots.',
+    files: ['SKILL.md', 'LICENSE.txt', 'guidelines/accessibility.md', 'guidelines/forms.md', 'guidelines/layout.md', 'guidelines/motion.md',
+      'guidelines/typography.md', 'scripts/collect-diff.sh', 'scripts/report.ts', 'assets/report-template.md'],
+    fm: { license: 'MIT. LICENSE.txt has complete terms', compatibility: 'Designed for Claude Code and Cursor. Requires git and network access to fetch the guidelines.',
+      tools: ['Bash(git:*)', 'Read', 'Grep', 'WebFetch'], metadata: { author: 'vercel-labs', version: '2.3.0', homepage: 'vercel.com/design/guidelines' } },
+  });
+  const WDG_MD = '---\nname: web-design-guidelines\ndescription: ' + WDG.desc + '\nlicense: ' + WDG.fm.license + '\ncompatibility: ' + WDG.fm.compatibility
+    + '\nmetadata:\n  author: vercel-labs\n  version: "2.3.0"\n  homepage: vercel.com/design/guidelines\nallowed-tools: ' + WDG.fm.tools.join(' ') + '\n---\n'
+    + '# Web design guidelines\n\nReview the diff against each guideline in `guidelines/`, then write one report.\n\n## Steps\n'
+    + '1. Run `scripts/collect-diff.sh` to list the changed UI files.\n2. Read each guideline that applies.\n3. Fill `assets/report-template.md`.\n\n'
+    + '## Severity\n- **Blocker**: fails WCAG AA or breaks keyboard use.\n- **Major**: inconsistent with the system.\n- **Minor**: polish.';
   // The state's skill fails or hangs on its first fetch; Retry and every other skill load normally.
   function fetchMd(slug, attempt) {
     if (slug === P.mdSlug && attempt === 0 && P.md === 'loading') return new Promise(() => {});
     if (slug === P.mdSlug && attempt === 0 && P.md === 'error') return new Promise((ok, no) => setTimeout(no, 500));
+    if (slug === 'web-design-guidelines') return new Promise((ok) => setTimeout(() => ok(WDG_MD), 400));
     if (slug === 'react-best-practices') return new Promise((ok) => setTimeout(() => ok(RBP_MD), 400));
     return CATALOG.skillMd(slug);
   }
@@ -37,6 +56,7 @@
     { id: 'loaded', label: 'Loaded', slug: 'react-best-practices' },
     { id: 'loading', label: 'Loading SKILL.md', slug: 'react-best-practices', md: 'loading' },
     { id: 'mderror', label: 'SKILL.md error', slug: 'react-best-practices', md: 'error' },
+    { id: 'full', label: 'Full front matter', slug: 'web-design-guidelines' },
     { id: 'inlib', label: 'In library', slug: 'frontend-design' },
     { id: 'collision', label: 'Collision', slug: 'pdf' },
     { id: 'nogit', label: 'Without Git', slug: 'react-best-practices', git: false },
@@ -130,19 +150,93 @@
   function openDetail() {
     closeOverlay();
     const p = SD.parts(P.slug, detailOpts);
-    if (P.variant === 'c') {
-      const d = openDialog(win, { title: p.s.name, size: 'lg', onClose: () => userClosed(d) });
-      d.el.classList.add('sd-dialog');
-      const head = d.el.querySelector('.sb-dialog-header');
-      head.insertBefore(p.install, head.lastChild);
-      head.lastChild.setAttribute('data-tip', 'Close');
-      d.setBody(h('div', { class: 'sd-wide' },
-        h('div', { class: 'sd-wide-l' }, p.desc, p.error, p.git, p.meta, p.filesLabel, p.files),
-        h('div', { class: 'sd-wide-r' }, p.mdLabel, p.md)));
-      overlay = d;
+    if (['c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'].includes(P.variant)) {
+      overlay = wideDialog(p, P.variant);
       return;
     }
     overlay = sheet(p);
+  }
+  // C, D, E: one large Kit dialog at the Import skills dialog's size, Install beside Close in its header.
+  function wideDialog(p, variant) {
+    const d = openDialog(win, { title: p.s.name, size: 'lg', onClose: () => userClosed(d) });
+    d.el.classList.add('sd-dialog', `sd-dialog-${variant}`);
+    const head = d.el.querySelector('.sb-dialog-header');
+    head.insertBefore(p.install, head.lastChild);
+    head.lastChild.setAttribute('data-tip', 'Close');
+    const noGit = !CATALOG.settings.git;
+    const needsGit = () => h('div', { class: 'sd-git sd-preview-git' }, ic('git-branch', 13), h('span', 'Preview needs Git'));
+    if (variant === 'c') {
+      // Facts and files on the left, SKILL.md on the right, each scrolling on its own.
+      d.setBody(h('div', { class: 'sd-wide' },
+        h('div', { class: 'sd-wide-l' }, p.desc, p.error, p.git, p.meta, noGit ? needsGit() : [p.filesLabel, p.files]),
+        noGit ? null : h('div', { class: 'sd-wide-r' }, p.mdLabel, p.md)));
+    } else if (variant === 'd') {
+      // Facts in one band under the header, then SKILL.md and Files as two tabs over the full width.
+      const pane = h('div', { class: 'sd-tab-pane' }, p.md);
+      const bar = seg([{ id: 'md', label: 'SKILL.md' }, { id: 'files', label: 'Files', count: p.s.files.length }], 'md',
+        (id) => pane.replaceChildren(id === 'md' ? p.md : p.files));
+      d.setBody(h('div', { class: 'sd-tabbed' },
+        h('div', { class: 'sd-band' }, p.desc, p.meta, p.error, p.git),
+        noGit ? needsGit() : [bar, pane]));
+    } else {
+      // E-G: SKILL.md reads as the page; the facts and files sit in a sidebar, as a repository's About.
+      // They differ only in how the sidebar parts from the page (G puts each section in a card).
+      // H-J keep G's Files card and change only About.
+      const fm = fmPairs(p.s);
+      const fmStack = fm.length ? h('div', { class: 'sd-fm' }, fm.map(([k, v]) => h('div', { class: 'sd-fm-item' }, h('span', { class: 'sd-fact-k' }, k), v))) : null;
+      const about = [h('div', { class: 'ex-detail-label' }, 'About'), p.desc, p.error, p.git, p.meta, fmStack];
+      const files = noGit ? null : [p.filesLabel, p.files];
+      const filesCard = files && h('section', { class: 'sd-card' }, files);
+      const main = noGit ? h('div', { class: 'sd-doc-main' }, needsGit()) : h('div', { class: 'sd-doc-main' }, p.md);
+      let sideKids = [about, files];
+      if (variant === 'g') sideKids = [h('section', { class: 'sd-card' }, about), filesCard];
+      if (variant === 'h') sideKids = [h('section', { class: 'sd-about-open' }, about), filesCard];
+      if (variant === 'i') sideKids = [h('section', { class: 'sd-about-open' }, p.desc, p.error, p.git, facts(p)), filesCard];
+      // K, L: two columns from the top, one scroll; the left reads description then SKILL.md.
+      if (variant === 'k' || variant === 'l') {
+        const aboutCard = variant === 'k'
+          ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'About'), p.meta)
+          : fm.length ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'About'), facts(p, true)) : null;
+        const left = h('div', { class: 'sd-doc-main' }, h('div', { class: 'sd-lead' }, p.desc, p.error, p.git, variant === 'l' ? p.meta : null),
+          noGit ? needsGit() : p.md);
+        // K: the rest of the front matter, once SKILL.md has loaded, in its own card under Files.
+        const details = variant === 'k' && fm.length
+          ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'Details'), fmStack) : null;
+        d.setBody(h('div', { class: 'sd-doc' }, left, h('aside', { class: 'sd-doc-side' }, aboutCard, filesCard, details)));
+        return d;
+      }
+      if (variant === 'j') {
+        d.setBody(h('div', { class: 'sd-doc-col' },
+          h('div', { class: 'sd-band-top' }, p.desc, p.error, p.git, p.meta),
+          h('div', { class: 'sd-doc' }, main, h('aside', { class: 'sd-doc-side' },
+            fm.length ? h('section', { class: 'sd-card' }, h('div', { class: 'ex-detail-label' }, 'Details'), facts(p, true)) : null, filesCard))));
+        return d;
+      }
+      d.setBody(h('div', { class: 'sd-doc' }, main, h('aside', { class: 'sd-doc-side' }, sideKids)));
+    }
+    return d;
+  }
+  // I: the facts as labelled rows (Creator, Repository, Installs), taken out of the meta line.
+  // J's Details card passes onlyFm: the front matter rows alone, its meta line being in the band.
+  function facts(p, onlyFm) {
+    const kids = [...p.meta.children];
+    const by = ['catalog', 'skills.sh'].includes(p.s.origin) ? kids.shift() : null;
+    const [repo, installs] = kids;
+    const fact = (k, v) => v && h('div', { class: 'sd-fact' }, h('span', { class: 'sd-fact-k' }, k), h('span', { class: 'sd-fact-v' }, v));
+    const top = onlyFm ? [] : [fact('Creator', by), fact('Repository', repo), fact('Installs', installs)];
+    return h('div', { class: 'sd-facts' }, top, fmPairs(p.s).map(([k, v]) => fact(k, v)));
+  }
+  // SKILL.md's optional front matter fields (license, compatibility, allowed-tools, metadata), each a label and its value.
+  function fmPairs(s) {
+    const f = s.fm;
+    if (!f) return [];
+    const cap = (k) => k.charAt(0).toUpperCase() + k.slice(1);
+    return [
+      ['License', h('span', f.license)],
+      ['Compatibility', h('span', f.compatibility)],
+      ['Allowed tools', h('span', { class: 'sd-tools' }, f.tools.map((t) => h('code', t)))],
+      ...Object.entries(f.metadata).map(([k, v]) => [cap(k), h('span', v)]),
+    ];
   }
   function sheet(p) {
     const api = {
@@ -168,7 +262,16 @@
   const bar = variantBar(document.getElementById('proto'), [
     { id: 'a', label: 'Side sheet', desc: "Right sheet over the trending grid, behind a scrim; Install in its sticky header. v0 Extensions' detail pane, as an overlay." },
     { id: 'b', label: 'Split pane', desc: 'Skill list on the left, the detail fills the rest and stays; selecting a row swaps it. v0 Extensions list + detail, Vercel integrations.' },
-    { id: 'c', label: 'Large dialog', desc: "Kit dialog at the Import skills dialog's size: facts and files left, SKILL.md right; Install beside Close. v0 Import from GitHub, scaled up." },
+    { id: 'c', label: 'Large dialog', desc: "Kit dialog at the Import skills dialog's size over Explore: facts and files in a left column, SKILL.md on the right, each scrolling; Install beside Close." },
+    { id: 'd', label: 'Dialog · tabs', desc: 'Same dialog: description and meta in one band, then SKILL.md and Files as two tabs across the full width.' },
+    { id: 'e', label: 'Dialog · document', desc: "Same dialog: SKILL.md reads as the page, with About (description, creator, repository, installs) and Files in a right sidebar, like a repository's page. Rules: one under the header, one full height before the sidebar." },
+    { id: 'f', label: 'Doc · tinted side', desc: "Document dialog with no rules: the sidebar is a tinted pane (the app sidebar's tone) running edge to edge under the header to the dialog's bottom. The file tree sits on the tint without a box." },
+    { id: 'g', label: 'Doc · cards', desc: 'Document dialog with no rules: About and Files each sit in a flat card in the sidebar; whitespace parts them from the page.' },
+    { id: 'h', label: 'About · open', desc: "G with About out of its card: a plain section (label, description, creator, repository, installs) over the Files card, like a repository's About." },
+    { id: 'i', label: 'About · rows', desc: 'G with About out of its card and its facts as labelled rows (Creator, Repository, Installs) under the description, over the Files card.' },
+    { id: 'j', label: 'About · top', desc: 'One scroll under the fixed header. About leaves the sidebar: the description and the creator, repository, and installs line run in a band under the header, across the dialog; the sidebar holds only the Files card.' },
+    { id: 'k', label: 'Columns · facts', desc: 'Picked. Two columns from the top, one scroll under the fixed header. Left: the description, then SKILL.md. Right: an About card (creator, repository, installs), the Files card, and a Details card with the rest of the front matter when SKILL.md has any (pick Full front matter).' },
+    { id: 'l', label: 'Columns · front matter', desc: "Two columns from the top, one scroll. Left: the description, the creator · repository · installs line, then SKILL.md. Right: an About card with SKILL.md's optional front matter (license, compatibility, allowed tools, metadata; pick the Full front matter state, hidden when a skill has none) over the Files card." },
   ], (id) => { P.variant = id; P.open = true; draw(); });
   const first = STATES.some((x) => x.id === document.body.dataset.firstState) ? document.body.dataset.firstState : 'loaded';
   bar.extra.append(seg(STATES.map(({ id, label, tip }) => ({ id, label, tip })), first, setState));
