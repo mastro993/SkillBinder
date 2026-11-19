@@ -99,7 +99,7 @@ fn install_source(source: &Path, out: &Path, lock: &mut Map<String, Value>) -> a
 
 /// Creates the bare repository `bare` with one commit per snapshot, at fixed dates so every
 /// build gives the same commits, and returns the first commit.
-fn commit_snapshots(bare: &Path, snapshots: &[PathBuf]) -> anyhow::Result<String> {
+pub(crate) fn commit_snapshots(bare: &Path, snapshots: &[PathBuf]) -> anyhow::Result<String> {
     fs::create_dir_all(bare)?;
     git(
         bare,

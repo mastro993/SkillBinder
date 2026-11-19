@@ -23,7 +23,7 @@ The historical font license records under `fixtures/contracts/font-licenses` doc
 
 ## HTTP client
 
-The engine fetches Explore's catalog with `ureq` 3.5.2 (MIT OR Apache-2.0) over `rustls` 0.23.46 (Apache-2.0 OR ISC OR MIT), without OpenSSL (ADR 0014). Its other dependencies, at the versions `Cargo.lock` pins:
+The engine fetches Explore's catalog with `ureq` 3.5.2 (MIT OR Apache-2.0) over `rustls` 0.23.46 (Apache-2.0 OR ISC OR MIT), without OpenSSL (ADR 0014); `xtask`'s catalog job, which is never shipped, uses the same crate. Its source is available at `https://github.com/algesten/ureq`. Its other dependencies, at the versions `Cargo.lock` pins:
 
 - `ureq-proto`, `http`, `httparse`, `base64`, `percent-encoding`, `rustls-pki-types`, `utf8-zero`, `once_cell`, `log`, `itoa`, `cfg-if`, `getrandom`, and `libc`: MIT OR Apache-2.0; `zeroize`: Apache-2.0 OR MIT; `bytes`: MIT.
 - `ring` 0.17.14: Apache-2.0 AND ISC, its BoringSSL-derived code under the OpenSSL-style ISC terms its `LICENSE` file records; `rustls-webpki` and `untrusted`: ISC; `subtle`: BSD-3-Clause.

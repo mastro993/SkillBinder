@@ -1,0 +1,79 @@
+name: Catalog
+
+# Builds the Explore catalog (catalog/README.md) and publishes it to GitHub Pages. It never
+# commits: the history it needs travels with the published site (ADR 0014).
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "catalog/**"
+      - "xtask/src/catalog.rs"
+      - "xtask/src/catalog/**"
+      - ".github/workflows/catalog.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One build at a time, so two runs never extend the same history.
+concurrency:
+  group: catalog
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build the catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      counts: ${{ steps.build.outputs.counts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.100.0 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: catalog
+          cache-on-failure: true
+      - name: Build the site
+        id: build
+        # Exit 2: skills.sh failed, and the site carries the last counts. Deploy it, then fail.
+        run: |
+          status=0
+          cargo run -p xtask --locked -- catalog --out site || status=$?
+          if [ "$status" = 0 ]; then
+            echo "counts=fresh" >> "$GITHUB_OUTPUT"
+          elif [ "$status" = 2 ]; then
+            echo "counts=stale" >> "$GITHUB_OUTPUT"
+          else
+            exit "$status"
+          fi
+      - name: Check catalog format v1
+        run: cargo run -p xtask --locked -- catalog check site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    name: publish to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}v1/catalog.json
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+      - name: Fail on stale counts
+        if: needs.build.outputs.counts == 'stale'
+        run: |
+          echo "::error::skills.sh failed; the catalog was published with the last counts. See the build job's log."
+          exit 1

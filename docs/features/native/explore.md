@@ -37,4 +37,4 @@ A catalog skill is in library when the library holds its slug, compared under NF
 
 ## Tests and fixtures
 
-Engine tests (`crates/engine/tests/catalog.rs`) serve the synthetic world's catalog, `fixtures/synthetic/catalog/`, from a directory source and, for the requests themselves, from a loopback HTTP server. Native-test builds take `--catalog-dir <path>`; the synthetic world's launch command passes its `catalog/`, which goes offline when renamed.
+Engine tests (`crates/engine/tests/catalog.rs`) read the site the catalog job builds from its fixtures, `fixtures/catalog/site/`, whole, and serve the synthetic world's catalog, `fixtures/synthetic/catalog/`, from a directory source and, for the requests themselves, from a loopback HTTP server. Native-test builds take `--catalog-dir <path>`; the synthetic world's launch command passes its `catalog/`, which goes offline when renamed.

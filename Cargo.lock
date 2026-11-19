@@ -9207,6 +9207,7 @@ dependencies = [
  "sha2 0.10.9",
  "tempfile",
  "toml 1.1.6+spec-1.1.0",
+ "ureq",
  "yaml-rust2",
 ]
 

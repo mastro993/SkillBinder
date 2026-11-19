@@ -1,0 +1,5 @@
+{"query":"skills","searchType":"fuzzy","skills":[
+{"id":"acme/skills/tdd","source":"acme/skills","skillId":"tdd","name":"tdd","installs":1300},
+{"id":"acme/skills/plan","source":"acme/skills","skillId":"plan","name":"plan","installs":410},
+{"id":"fork/skills/tdd","source":"fork/skills","skillId":"tdd","name":"tdd","installs":99999}
+],"count":3}

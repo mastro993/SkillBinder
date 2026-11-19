@@ -86,6 +86,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "sha2",
             "tempfile",
             "toml",
+            "ureq",
             "yaml-rust2",
         ],
         &[],

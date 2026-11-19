@@ -1,0 +1,27 @@
+# The curation the catalog job's tests build from. Every repository is served from
+# repositories/<owner>/<name>; ghost/missing is never there, so it cannot be listed.
+
+[[creator]]
+id = "acme"
+name = "Acme Tools"
+github = "acme"
+repositories = [
+  "https://github.com/acme/skills.git",
+  "https://github.com/acme/tools.git",
+]
+
+[[creator.exclude]]
+repository = "https://github.com/acme/skills.git"
+paths = ["skills/draft"]
+
+[[creator]]
+id = "solo"
+name = "Solo Writer"
+github = "solo"
+repositories = ["https://github.com/solo/notes.git"]
+
+[[creator]]
+id = "ghost"
+name = "Ghost"
+github = "ghost"
+repositories = ["https://github.com/ghost/missing.git"]

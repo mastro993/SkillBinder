@@ -144,6 +144,42 @@ async fn a_fetched_catalog_is_cached_and_served_offline_on_the_next_launch() {
 }
 
 #[tokio::test]
+async fn the_catalog_jobs_published_site_reads_whole() {
+    // The site `xtask catalog` builds from its fixtures, so producer and consumer share one v1
+    // sample.
+    let fixture = Fixture::new();
+    let site = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/catalog/site");
+    copy_tree(&site, &source(&fixture));
+    let published: serde_json::Value =
+        serde_json::from_slice(&fs::read(site.join("v1/catalog.json")).unwrap()).unwrap();
+    let engine = fixture.open();
+    let explore = refreshed(&engine, Duration::ZERO).await;
+    assert_eq!(explore.state, CatalogState::Ready);
+    let catalog = explore.catalog.unwrap();
+    assert_eq!(
+        catalog.skills.len(),
+        published["skills"].as_array().unwrap().len()
+    );
+    assert_eq!(
+        catalog.creators.len(),
+        published["creators"].as_array().unwrap().len()
+    );
+    for (creator, raw) in catalog
+        .creators
+        .iter()
+        .zip(published["creators"].as_array().unwrap())
+    {
+        assert_eq!(
+            creator.avatar.is_some(),
+            raw.get("avatar").is_some(),
+            "{}",
+            creator.id
+        );
+    }
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn a_malformed_skill_is_dropped_and_an_oversized_or_unreadable_file_keeps_the_cache() {
     let fixture = Fixture::new();
     serve_sample(&fixture);
