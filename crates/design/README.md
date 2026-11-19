@@ -16,7 +16,7 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 
 | Component | Purpose | Main props |
 | --- | --- | --- |
-| `Surface` (`src/surface.rs`) | A surface at an elevation level: its fill, corners, ring, and shadow, applied to any styled element with `apply`. `Surface::panel()` is the inset page panel; `Level::fill` is a level's fill alone, for what sits behind a surface. `faded` scales a shadow's ink as a surface appears. | `Level::{Flat, Raised, Overlay, Modal}`, `radius`, `fill` |
+| `Surface` (`src/surface.rs`) | A surface at an elevation level: its fill, corners, ring, and shadow, applied to any styled element with `apply`. `Level::fill` is a level's fill alone, for what sits behind a surface. `faded` scales a shadow's ink as a surface appears. | `Level::{Flat, Raised, Overlay, Modal}`, `radius`, `fill` |
 | `Text` (`src/text.rs`) | A line of text at a type level, which sets its size, weight (medium is 520), and line box. `Text::new` is a plain string an enclosing accessible name reads; `Text::labeled` is a label of its own. Without a level it takes its container's, such as a button's. `TypeLevel::apply` sets a level on an element that needs its own id or events; `tabular()` is the font feature. | `level`, `tone: TextTone::{Default, Muted, Status}`, `tabular` |
 | `Icon` (`src/icon.rs`) | `icon(name)`: a retained Hugeicons glyph from the app's `icons/` assets; an unknown name fails at the asset source. `IconSize` is the icon scale, usable wherever Kit takes a `Size`. `icon_color` is a sidebar or menu row's icon color. | `name`, `IconSize::{Xs, Sm, Md, Lg}` |
 | `Button` (`src/button.rs`) | Kit's button with the hand cursor while enabled and its label in the medium weight, which is also its accessible name. `into_kit` hands Kit's button to a Kit slot, such as a notification's action. | `variant: ButtonVariant::{Primary, Secondary, Ghost, Danger}`, `size: ButtonSize::{Sm, Md}`, `label`, `icon`, `inactive` |
@@ -69,8 +69,8 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 | `tokens::text` | Type levels `title-lg`…`mono-sm` as `TypeLevel`: size, weight (medium is 520), line height. | `typography` |
 | `tokens::icon` | Icon sizes 12, 14, 16, 20. | Layout prose |
 | `tokens::opacity` | `INACTIVE` 0.5, `DISABLED` 0.4. | Components prose |
-| `tokens::elevation` | The shadow layers of `flat`, `raised`, `raised-panel`, `overlay`, and `modal`, as `Shadow`s in black or a Kit theme color. Read through `Surface`. | `elevation` |
-| `page`, `sidebar`, `menu`, `library`, `explore` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype; `menu`'s sit with the Menu organism. `page` is the panel's inset and gutter, shared by every page. | the scales |
+| `tokens::elevation` | The shadow layers of `flat`, `raised`, `overlay`, and `modal`, as `Shadow`s in black or a Kit theme color. Read through `Surface`. | `elevation` |
+| `page`, `sidebar`, `menu`, `library`, `explore` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype; `menu`'s sit with the Menu organism. `page` is the page column's gutter and block gap, shared by every page. | the scales |
 
 `src/tokens.rs` and `themes/skillbinder.json` are generated; never edit them by hand. To change a token:
 

@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: SkillBinder
-description: Inset canvas. A calm native macOS tool where content floats as a raised panel on a tinted window, with one iris accent for selection, primary actions, and focus.
+description: Split columns. A calm native macOS tool with a tinted sidebar beside a flat page column, split by one hairline, with one iris accent for selection, primary actions, and focus.
 colors:
   background: "#FFFFFF"
   foreground: "#1C1C21"
@@ -140,11 +140,10 @@ spacing:
   control-md: 32px
   sidebar-row: 32px
   list-row: 56px
-  header: 44px
+  header: 52px
 elevation:
   flat: none
   raised: "0 0 0 0.5px rgba(0,0,0,0.08), 0 1px 2px 0 rgba(0,0,0,0.08)"
-  raised-panel: "0 0 0 0.5px rgba(0,0,0,0.08), 0 1px 2px 0 rgba(0,0,0,0.08), 0 6px 16px -6px rgba(0,0,0,0.08)"
   overlay: "0 0 0 1px {colors.foreground}/10%, 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)"
   modal: "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)"
 components:
@@ -311,7 +310,7 @@ components:
 
 SkillBinder is a native macOS-first desktop app for developers who use several coding agents. It keeps a library of skills and copies the active ones into each agent's skill folders and into workspaces. The UI should feel like a calm, trustworthy system utility: quiet surfaces, clear hierarchy, color only where it carries meaning.
 
-The direction is **Inset canvas** (chosen 2026-11-18). Depth comes from layered surfaces rather than lines: the window and sidebar share a tinted canvas, and each page sits on a raised white panel inset from the window edges. One iris accent marks the primary action, focus, and the current selection. Everything else stays neutral.
+The direction is **Split columns** (chosen 2026-11-19, after the GitHub Copilot desktop app; it replaces the 2026-11-18 Inset canvas panel). The window is two flat columns: the sidebar on a tinted canvas and the page on the plain page fill, split by one `border` line. Each column's top row is the 52 px header: the traffic lights and window controls over the sidebar, the page's title and actions over the page, with a `border` line under the page's. One iris accent marks the primary action, focus, and the current selection. Everything else stays neutral.
 
 The design is built from GPUI Kit components, themed through Kit's theme and styled through their public API. The tokens above are the source of truth; the design-system crate holds their generated code form (see Implementation).
 
@@ -319,12 +318,12 @@ The design is built from GPUI Kit components, themed through Kit's theme and sty
 
 Light values are the plain names; each color that changes in dark mode has a `-dark` sibling. A color with no `-dark` sibling keeps its value in both modes.
 
-- **sidebar**: the window canvas, behind the sidebar, the header, and the inset panel. Never used as a card or control fill.
-- **background**: the inset page panel, cards, and list rows. In dark mode it is a step lighter than the canvas, so the panel still reads as raised.
+- **sidebar**: the sidebar column's canvas, behind the traffic lights and the sidebar rows. Never used as a card or control fill.
+- **background**: the page column and its header, cards, and list rows. In dark mode it is a step lighter than the canvas.
 - **foreground / muted-foreground**: primary text and secondary text (descriptions, counts, section headers, placeholders). `muted-foreground` passes 4.5:1 on `background`, `muted`, and `sidebar`.
 - **sidebar-foreground**: unselected sidebar labels. **sidebar-accent**: the selected sidebar row, drawn as a raised white pill (dark: a lifted gray).
 - **muted**: neutral fills: hover, input fields, segmented tracks, code blocks. It is the only hover fill; do not mix in foreground-at-alpha hovers.
-- **border**: control and card outlines. **hairline**: dividers between rows and inside panels.
+- **border**: control and card outlines, the line between the sidebar and the page, and the line under the page header. **hairline**: dividers between rows and inside cards.
 - **popover**: menus, popovers, dialogs, tooltips.
 - **primary** (iris): the primary button, links, the focus ring (`ring`), selected checkboxes and switches. One primary action per view.
 - **accent-soft / accent-soft-foreground**: the tinted chip for a highlighted state, such as Updates or a chosen filter.
@@ -336,7 +335,7 @@ Light values are the plain names; each color that changes in dark mode has a `-d
 The system font (SF Pro through `.SystemUIFont`) everywhere, SF Mono for paths and commands. Every level uses a line box 1.4 times its size, tighter than GPUI's default, except `title-lg` and `micro`. The medium weight is 520, not 500: GPUI resolves 500 to SF Pro Regular.
 
 - **title-lg** 20/600: onboarding step titles and page titles.
-- **title-md** 16/600: dialog titles.
+- **title-md** 16/600: dialog titles and the page header's place name.
 - **title-sm** 14/600: list row titles (skill slugs), card titles.
 - **body-md** 14/400: sidebar labels and body copy.
 - **body-sm** 13/400: menu items, dialog body, inputs.
@@ -344,13 +343,13 @@ The system font (SF Pro through `.SystemUIFont`) everywhere, SF Mono for paths a
 - **caption** 12/400: row descriptions, notices, details.
 - **caption-sm** 11/520: section headers, counts, folder tags. Counts use tabular figures.
 - **micro** 10/600: the `+N` overflow in avatar stacks only.
-- **mono-sm** 12/400: paths and commands.
+- **mono-sm** 12/400: paths and commands, such as the page header's folder.
 
 ## Layout
 
-A 4 px rhythm with a 6 px half step for tight controls: `2xs` 2, `xs` 4, `sm` 6, `md` 8, `lg` 12, `xl` 16, `2xl` 24, `3xl` 32. Control heights follow Kit: 24 (small) and 32 (medium). The window header is 44; sidebar rows are 32; library list rows are at least 56.
+A 4 px rhythm with a 6 px half step for tight controls: `2xs` 2, `xs` 4, `sm` 6, `md` 8, `lg` 12, `xl` 16, `2xl` 24, `3xl` 32. Control heights follow Kit: 24 (small) and 32 (medium). The window header is 52; sidebar rows are 32; library list rows are at least 56.
 
-- The window is a two-pane layout: the sidebar and the header on the canvas, the page in an inset panel 6 px from the header and the window's right and bottom edges (and its left edge while the sidebar is hidden). The panel's content uses a 16 px gutter on every side, and the header's trailing actions line up with it.
+- The window is two flat columns: the sidebar on the canvas and the page on `background`, split by a 1 px `border` line on the sidebar's trailing edge. Each starts with the 52 px header row. Over the sidebar it holds the traffic lights, the sidebar toggle beside them, and back and forward at its trailing edge; while the sidebar is hidden, the toggle, back, and forward sit together after the lights at the start of the page header. The page header holds the page's title (a place's name, a dot, and its folder in `mono-sm`, or Library's folder tabs) and its actions, with a 1 px `border` line under it. The page's content and its header use a 16 px gutter on every side.
 - Icon sizes come from one scale: 12, 14, 16, 20. An inline icon beside caption text is 14; a sidebar or row icon is 16.
 - Dialogs are sized from the window (at most 92% wide and 90% tall) or from a fixed width of 320 or 420.
 
@@ -360,18 +359,18 @@ Four levels, each a set of shadow layers in the `elevation` tokens. Raised and o
 
 A level is `none` or a comma-separated list of layers, each `x y blur spread color` in px, drawn outside the surface. A ring is a layer with no offset or blur and a positive spread. The color is black at an alpha, `rgba(0,0,0,a)`, or a color token, optionally at an alpha: `{colors.foreground}/10%`.
 
-- **Flat**: rows, cards inside the panel. A card has a 1 px `border` outline, drawn inside it so a scroll view never clips it, and no shadow.
-- **Raised**: the inset page panel, the selected sidebar row, the selected segment, the dragged row, a switch's thumb. Ring `rgba(0,0,0,0.08)` at 0.5 px, shadow 0 1 2 `rgba(0,0,0,0.08)`; the panel (`raised-panel`) adds 0 6 16 -6 `rgba(0,0,0,0.08)`.
+- **Flat**: rows, cards inside the page. A card has a 1 px `border` outline, drawn inside it so a scroll view never clips it, and no shadow.
+- **Raised**: the selected sidebar row, the selected segment, the dragged row, a switch's thumb. Ring `rgba(0,0,0,0.08)` at 0.5 px, shadow 0 1 2 `rgba(0,0,0,0.08)`.
 - **Overlay**: menus, popovers, the progress pill. Ring `foreground` at 10%, shadows 0 10 15 -3 and 0 4 6 -4 at 10% black. A menu fades the whole set in as it opens.
 - **Modal**: dialogs and toasts, Kit's dialog shadow over the dimmed window. GPUI has no backdrop blur; the blocking wash is the page color at 70%.
 
 Flat and raised surfaces fill with `background`, overlay and modal ones with `popover`; a raised surface may take another fill, such as the selected sidebar row's `sidebar-accent`.
 
-In dark mode shadows fade, so surfaces separate by lightness: canvas `#111113`, panel `#1B1B1F`, popover `#222227`.
+In dark mode shadows fade, so surfaces separate by lightness: canvas `#111113`, page `#1B1B1F`, popover `#222227`.
 
 ## Shapes
 
-Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls (buttons, inputs, menu rows), `md` 8 for sidebar rows and selections, `lg` 10 for cards, the inset panel, and grid tiles, `xl` 12 for menus, popovers, and dialogs, `full` for chips, avatars, dots, and pills.
+Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls (buttons, inputs, menu rows), `md` 8 for sidebar rows and selections, `lg` 10 for cards and grid tiles, `xl` 12 for menus, popovers, and dialogs, `full` for chips, avatars, dots, and pills.
 
 ## Components
 
@@ -393,7 +392,7 @@ Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls 
 - Do take every size, color, radius, and shadow from these tokens; a raw `px(13.)` or hex literal in UI code is a bug.
 - Do reach for a GPUI Kit component before building one; the app keeps no look-alike of a Kit control.
 - Do keep color meaningful: iris for primary, focus, and selection; status colors for status. Never color for decoration.
-- Don't add borders to separate the sidebar from the page; the raised panel does that.
+- Don't separate the sidebar from the page with a shadow or a gap; the one `border` line does that.
 - Don't use more than one primary button in a view.
 - Don't use `FontWeight::MEDIUM`; use the 520 medium weight.
 - Don't dim text with ad hoc alphas; use `muted-foreground`, or 50% opacity for an inactive row.

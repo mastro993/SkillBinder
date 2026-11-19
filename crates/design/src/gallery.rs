@@ -103,7 +103,7 @@ impl RenderOnce for Gallery {
             ))
             .child(section(
                 "Elevation",
-                // On the canvas, where the page panel sits.
+                // On the sidebar canvas, where the raised selection pill sits.
                 wrap()
                     .p(px(space::XL))
                     .rounded(px(radius::LG))
@@ -112,11 +112,6 @@ impl RenderOnce for Gallery {
                         let name = format!("{level:?}").to_lowercase();
                         labeled(&name, Surface::new(level).apply(sample(), theme), theme)
                     }))
-                    .child(labeled(
-                        "panel",
-                        Surface::panel().apply(sample(), theme),
-                        theme,
-                    ))
                     .child(labeled(
                         "sidebar pill",
                         Surface::new(Level::Raised)

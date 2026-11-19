@@ -101,7 +101,7 @@ fn each_level_sets_its_fill_corners_and_layers(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn a_flat_outline_is_an_inner_border_and_dark_mode_lifts_the_panel(cx: &mut TestAppContext) {
+fn a_flat_outline_is_an_inner_border_and_dark_mode_lifts_the_page(cx: &mut TestAppContext) {
     cx.update(|cx| {
         gpui_kit::init(cx);
         crate::init(cx);
@@ -115,7 +115,7 @@ fn a_flat_outline_is_an_inner_border_and_dark_mode_lifts_the_panel(cx: &mut Test
         assert_eq!(Surface::new(Level::Raised).inner_radius(), radius::LG);
         Theme::change(ThemeMode::Dark, None, cx);
         let theme = cx.theme();
-        // Dark mode separates by lightness: canvas, panel, popover.
+        // Dark mode separates by lightness: canvas, page, popover.
         assert_eq!(theme.sidebar, rgb(0x111113).into());
         assert_eq!(Level::Raised.fill(theme), rgb(0x1B1B1F).into());
         assert_eq!(Level::Overlay.fill(theme), rgb(0x222227).into());
@@ -123,13 +123,11 @@ fn a_flat_outline_is_an_inner_border_and_dark_mode_lifts_the_panel(cx: &mut Test
 }
 
 #[gpui_kit::test]
-fn the_panel_adds_a_layer_and_a_fill_overrides_the_level(cx: &mut TestAppContext) {
+fn a_fill_overrides_the_level(cx: &mut TestAppContext) {
     cx.update(|cx| {
         gpui_kit::init(cx);
         crate::init(cx);
         let theme = cx.theme();
-        let panel = Surface::panel().shadow(theme);
-        assert_eq!(panel.len(), elevation::RAISED.len() + 1);
         let accent = theme.sidebar_accent;
         let mut pill = Surface::new(Level::Raised).fill(accent).apply(div(), theme);
         assert_eq!(pill.style().background, Some(Fill::from(accent)));

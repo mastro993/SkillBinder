@@ -46,7 +46,7 @@ pub mod space {
     pub const LIST_ROW: f32 = 56.0;
 
     /// `header`.
-    pub const HEADER: f32 = 44.0;
+    pub const HEADER: f32 = 52.0;
 
     /// Every value with its `DESIGN.md` name, in order.
     pub const ALL: &[(&str, f32)] = &[
@@ -246,13 +246,6 @@ pub mod elevation {
         Shadow::new(0.0, 1.0, 2.0, 0.0, Ink::Black(0.08)),
     ];
 
-    /// `raised-panel`.
-    pub const RAISED_PANEL: &[Shadow] = &[
-        Shadow::new(0.0, 0.0, 0.0, 0.5, Ink::Black(0.08)),
-        Shadow::new(0.0, 1.0, 2.0, 0.0, Ink::Black(0.08)),
-        Shadow::new(0.0, 6.0, 16.0, -6.0, Ink::Black(0.08)),
-    ];
-
     /// `overlay`.
     pub const OVERLAY: &[Shadow] = &[
         Shadow::new(0.0, 0.0, 0.0, 1.0, Ink::Theme(|theme| theme.foreground, 0.1)),
@@ -270,7 +263,6 @@ pub mod elevation {
     pub const ALL: &[(&str, &[Shadow])] = &[
         ("flat", FLAT),
         ("raised", RAISED),
-        ("raised-panel", RAISED_PANEL),
         ("overlay", OVERLAY),
         ("modal", MODAL),
     ];

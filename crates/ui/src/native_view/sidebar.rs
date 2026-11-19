@@ -138,6 +138,9 @@ impl NativeView {
             .px(px(INSET))
             .pb(px(INSET))
             .bg(background)
+            // The one line between the sidebar and the page column.
+            .border_r_1()
+            .border_color(cx.theme().border)
             .text_color(foreground)
             .on_hover(cx.listener(|view, hovered: &bool, _, cx| view.hover_sidebar(*hovered, cx)))
             .child(self.render_sidebar_header(cx))
@@ -214,14 +217,17 @@ impl NativeView {
         )
     }
 
-    /// The sidebar's share of the header row; on macOS it drags the window like the page header.
+    /// The sidebar's share of the header row, back and forward at its trailing edge; on macOS it
+    /// drags the window like the page header.
     fn render_sidebar_header(&self, cx: &mut Context<Self>) -> AnyElement {
         let controls = h_flex()
             .flex_1()
             .h_full()
             .justify_end()
             .pr(px(INSET))
-            .child(self.render_history_controls(cx));
+            .when(!self.sidebar_collapsed, |row| {
+                row.child(self.render_history_controls(cx))
+            });
         let header = div()
             .absolute()
             .top_0()
@@ -244,8 +250,12 @@ impl NativeView {
         }
     }
 
-    /// Back and forward, right-aligned in the sidebar's header row.
-    fn render_history_controls(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    /// Back and forward: at the sidebar header's trailing edge, or after the sidebar toggle while
+    /// the sidebar is hidden.
+    pub(super) fn render_history_controls(
+        &self,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
         let control = |id: &'static str, icon: &str, label: &'static str, enabled: bool| {
             Button::new(id)
                 .ghost()
@@ -255,6 +265,8 @@ impl NativeView {
                 .inactive(!enabled)
         };
         h_flex()
+            .flex_none()
+            .gap(px(super::shell::CONTROL_GAP))
             .child(
                 control(
                     "go-back",
@@ -295,8 +307,8 @@ impl NativeView {
             }))
             .child(
                 gpui_kit::base::resize_handle("sidebar-resize", Axis::Horizontal)
-                    // The raised page panel separates the sidebar from the page; a line would
-                    // add a border DESIGN.md rules out.
+                    // The sidebar's own trailing border is the line between it and the page;
+                    // the handle draws nothing over it.
                     .with_appearance(Rc::new(|_, _, _| Some(div().into_any_element())))
                     .on_drag(SidebarDrag(cx.entity_id()), |_, _, _, cx| {
                         cx.new(|_| EmptyView)

@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Window header variants</title>
+<style>
+  .win {
+    --sidebar: #EDEDF0; --sidebar-fg: #3A3A42; --sidebar-accent: #FFFFFF;
+    --bg: #FFFFFF; --fg: #1C1C21; --muted: #F1F1F4; --muted-fg: #6B6B74;
+    --border: #E6E6EA; --hairline: #EFEFF2; --primary: #5B5BD6; --primary-fg: #FFFFFF;
+    --raised: 0 1px 2px rgba(20,20,30,.06), 0 0 0 1px rgba(20,20,30,.05);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .win[data-theme="dark"] {
+    --sidebar: #111113; --sidebar-fg: #B5B5BE; --sidebar-accent: #2A2A30;
+    --bg: #1B1B1F; --fg: #EDEDEF; --muted: #2A2A30; --muted-fg: #A0A0AB;
+    --border: #2E2E35; --hairline: #26262B;
+    --raised: 0 1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; background: transparent; color: var(--foreground, #222); }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-bottom: 8px; font-size: 12px; }
+  .bar .grp { display: flex; gap: 2px; align-items: center; }
+  .bar .lbl { color: #888; margin-right: 4px; }
+  .bar button { font: inherit; font-size: 12px; border: 1px solid #8884; background: #8881; color: inherit; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+  .bar button.on { background: #5B5BD6; border-color: #5B5BD6; color: #fff; }
+  .note { font-size: 12px; line-height: 1.45; margin: 0 0 10px; min-height: 34px; opacity: .85; }
+  .stage { width: 100%; overflow: hidden; border-radius: 10px; }
+  .win { width: 1180px; height: 470px; transform-origin: 0 0; position: relative; overflow: hidden;
+    background: var(--sidebar); color: var(--fg); border-radius: 10px; font-size: 13px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+  .abs { position: absolute; }
+  .row { display: flex; align-items: center; }
+  .lights { position: absolute; left: 16px; display: flex; gap: 8px; z-index: 5; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .lights i:nth-child(1) { background: #FF5F57; } .lights i:nth-child(2) { background: #FEBC2E; } .lights i:nth-child(3) { background: #28C840; }
+  .ib { width: 28px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--sidebar-fg); }
+  .ib svg { width: 16px; height: 16px; }
+  .ib.off { color: var(--muted-fg); opacity: .5; }
+  .ib.old-off { color: var(--muted-fg); opacity: .22; }
+  .ib.dim { color: var(--muted-fg); }
+  .sidebar { position: absolute; left: 0; bottom: 0; width: 232px; padding: 0 6px 6px; display: flex; flex-direction: column; gap: 2px; color: var(--sidebar-fg); }
+  .sidebar.card { left: 6px; bottom: 6px; background: var(--bg); border-radius: 10px; box-shadow: var(--raised); padding: 8px 6px; width: 226px; }
+  .srow { height: 32px; padding: 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .srow .n { margin-left: auto; font-size: 11px; color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+  .srow.sel { background: var(--sidebar-accent); box-shadow: var(--raised); color: var(--fg); }
+  .sidebar.card .srow.sel { background: var(--muted); box-shadow: none; }
+  .sec { font-size: 11px; font-weight: 520; color: var(--muted-fg); padding: 12px 8px 4px; }
+  .glyph { width: 16px; height: 16px; flex: none; color: var(--muted-fg); }
+  .srow.sel .glyph { color: var(--fg); }
+  .panel { position: absolute; right: 6px; bottom: 6px; background: var(--bg); border-radius: 10px; box-shadow: var(--raised); overflow: hidden; }
+  .head { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; }
+  .title { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+  .title .name { font-weight: 600; font-size: 14px; flex: none; }
+  .title .name.lg { font-size: 16px; }
+  .title .path { font-size: 12px; color: var(--muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .title .path.overflow { overflow: visible; text-overflow: clip; }
+  .tab { height: 26px; padding: 0 10px; border-radius: 6px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 520; color: var(--muted-fg); flex: none; }
+  .tab.sel { color: var(--fg); }
+  .tab.sel.old { background: var(--muted); }
+  [data-theme="light"] .tab.sel.old { background: #F3F3F5; }
+  .tab.sel.raised { background: var(--sidebar-accent); box-shadow: var(--raised); }
+  .tab.sel.inpanel { background: var(--muted); }
+  .vsep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; flex: none; }
+  .actions { display: flex; align-items: center; gap: 8px; flex: none; }
+  .btn { height: 28px; padding: 0 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 520; border: 1px solid var(--border); background: var(--bg); color: var(--fg); flex: none; }
+  .btn svg { width: 14px; height: 14px; }
+  .count { font-size: 12px; color: var(--sidebar-fg); display: inline-flex; gap: 4px; align-items: center; }
+  .avatars { display: flex; flex: none; }
+  .avatars i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--sidebar); margin-left: -5px; display: block; }
+  .inpanel-avatars i { border-color: var(--bg); }
+  .content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .search { height: 32px; width: 300px; border-radius: 8px; background: var(--muted); color: var(--muted-fg); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 14px; }
+  .list { border: 1px solid var(--border); border-radius: 10px; }
+  .item { padding: 10px 16px; border-bottom: 1px solid var(--hairline); }
+  .item:last-child { border: 0; }
+  .item b { display: block; font-size: 14px; font-weight: 600; }
+  .item span { font-size: 13px; color: var(--muted-fg); }
+  .toolbar { height: 52px; padding: 0 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--hairline); }
+  /* D: flat columns split by a hairline, as in the GitHub Copilot app. */
+  .flat-side { position: absolute; left: 0; top: 0; bottom: 0; width: 232px; border-right: 1px solid var(--border); }
+  .flat-side .sidebar { top: 52px; padding-top: 4px; }
+  .flat-main { position: absolute; top: 0; right: 0; bottom: 0; background: var(--bg); }
+  .flat-head { height: 52px; padding: 0 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+  .dot { color: var(--muted-fg); flex: none; }
+  .title .path.mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="bar" id="bar"></div>
+<p class="note" id="note"></p>
+<div class="stage" id="stage"><div class="win" id="win"></div></div>
+<script>
+const ICON = {
+  panel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>',
+  left: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+  right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5"/></svg>',
+  scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="2.5"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M10 12l-2 1.5 2 1.5M14 12l2 1.5-2 1.5"/></svg>',
+  lib: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4v16M8 4v16M12 5l4 15M18 4v16"/></svg>',
+  explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>',
+  stack: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
+  bot: '<svg viewBox="0 0 24 24" fill="#D97757"><rect x="4" y="8" width="16" height="8" rx="1"/><rect x="2" y="10" width="2" height="3"/><rect x="20" y="10" width="2" height="3"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>',
+};
+const VARIANTS = {
+  cur: { name: 'Current', note: 'Today: lights, then the sidebar toggle at 93 px, then a big gap before back/forward at the sidebar edge. The disabled forward chevron almost vanishes; the selected tab is barely distinguishable on the light canvas; a long workspace path runs off the window and pushes "Add skill" out.' },
+  A: { name: 'A · Clustered', note: 'Same 44 px header with the page title, tabs and actions in it. Window controls become one evenly spaced cluster right after the lights (toggle · back · forward, 28 px buttons, 4 px gap), fixed whether the sidebar is open or not. Disabled chevrons at muted 50%; the selected tab is a raised pill like the selected sidebar row; paths truncate.' },
+  B: { name: 'B · Chrome strip', note: 'Closest to the reference. A 40 px strip holds only the window controls cluster. The page title, tabs and actions move into a 52 px toolbar at the top of the panel, on the page background, so every color sits on the same surface as the content.' },
+  C: { name: 'C · Two panels', note: 'Full reference look: B plus the sidebar becomes its own raised panel, so the canvas only shows as the frame and the strip. Most change: sidebar selection turns into a muted fill instead of a raised pill.' },
+  D: { name: 'D · Copilot', note: 'After the GitHub Copilot app: no floating panel. Two flat columns split by a hairline. The sidebar\'s 52 px top row holds the lights and toggle on the left, back/forward on the right. The page\'s 52 px header sits on the page background: title · muted mono path, actions right, hairline under it. With the sidebar hidden, toggle and chevrons cluster after the lights. Replaces DESIGN.md\'s "Inset canvas" panel.' },
+};
+const state = { v: 'D', theme: 'light', page: 'library', sidebar: 'open', history: 'back' };
+const H = { cur: 44, A: 44, B: 40, C: 40, D: 52 };
+const SIDEBAR_W = 232, INSET = 6, GUTTER = 16;
+
+function lights(h) { return `<div class="lights" style="top:${(h - 12) / 2}px"><i></i><i></i><i></i></div>`; }
+function ib(icon, cls = '') { return `<span class="ib ${cls}">${ICON[icon]}</span>`; }
+
+function cluster(v, h) {
+  const fwdOff = state.history !== 'both';
+  const backOff = state.history === 'none';
+  const off = v === 'cur' ? 'old-off' : 'off';
+  const back = ib('left', backOff ? off : ''), fwd = ib('right', fwdOff ? off : '');
+  if (v === 'cur') {
+    const toggle = `<div class="abs" style="left:93px;top:${(h - 28) / 2}px">${ib('panel')}</div>`;
+    if (state.sidebar === 'hidden') return toggle;
+    return toggle + `<div class="abs row" style="left:${SIDEBAR_W - INSET - 56}px;top:${(h - 28) / 2}px">${back}${fwd}</div>`;
+  }
+  if (v === 'D' && state.sidebar === 'open') {
+    return `<div class="abs" style="left:80px;top:${(h - 28) / 2}px;z-index:5">${ib('panel')}</div>`
+      + `<div class="abs row" style="left:${SIDEBAR_W - 12 - 60}px;top:${(h - 28) / 2}px;gap:4px;z-index:5">${back}${fwd}</div>`;
+  }
+  return `<div class="abs row" style="left:80px;top:${(h - 28) / 2}px;gap:4px;z-index:5">${ib('panel')}${back}${fwd}</div>`;
+}
+
+function sidebar(v, h) {
+  if (state.sidebar === 'hidden') return '';
+  const r = (g, t, n, sel) => `<div class="srow ${sel ? 'sel' : ''}"><span class="glyph">${ICON[g]}</span>${t}<span class="n">${n ?? ''}</span></div>`;
+  const p = state.page;
+  const card = v === 'C';
+  const top = card ? h : h + INSET;
+  return `<div class="sidebar ${card ? 'card' : ''}" style="top:${top}px">
+    ${r('explore', 'Explore')}${r('lib', 'Library', 9, p === 'library')}
+    <div class="sec">Presets</div>${r('stack', 'Default ✓', 9)}
+    <div class="sec">Workspaces</div>${r('folder', 'atlas-web', 1, p === 'workspace')}${r('folder', 'orbit-api', 0)}
+    <div class="sec">Agents</div>${r('stack', 'Universal', 5)}${r('bot', 'Claude Code', 3, p === 'agent')}</div>`;
+}
+
+const LONG = '~/Projects/clients/acme/atlas/apps/web/packages/marketing-site/atlas-web';
+
+function titleOf(v, inPanel) {
+  const p = state.page;
+  const tabSel = v === 'cur' ? 'old' : inPanel ? 'inpanel' : 'raised';
+  if (p === 'library') {
+    return `<div class="title"><span class="tab sel ${tabSel}">All skills</span><span class="tab">Work</span><span class="tab">Personal</span><span class="vsep"></span>${ib('plus', 'dim')}</div>`;
+  }
+  const name = inPanel ? 'name lg' : 'name';
+  const pathCls = v === 'cur' ? 'path overflow' : v === 'D' ? 'path mono' : 'path';
+  const dot = v === 'D' ? '<span class="dot">·</span>' : '';
+  if (p === 'workspace') {
+    return `<div class="title"><span class="glyph" style="color:var(--fg)">${ICON.folder}</span><span class="${name}">atlas-web</span>${dot}<span class="${pathCls}">${LONG}</span></div>`;
+  }
+  const av = `<span class="avatars ${inPanel ? 'inpanel-avatars' : ''}" style="margin-left:5px"><i style="background:#D97757"></i><i style="background:#888"></i><i style="background:#5B5BD6"></i></span>`;
+  return `<div class="title"><span class="glyph">${ICON.bot}</span><span class="${name}">Claude Code</span>${av}${dot}<span class="${pathCls}">~/.claude/skills</span></div>`;
+}
+
+function actionsOf() {
+  const p = state.page;
+  if (p === 'library') return `<div class="actions">${ib('up')}<span class="count">${ib('scan')}4</span></div>`;
+  return `<div class="actions"><span class="btn">${ICON.plus}Add skill</span></div>`;
+}
+
+function body() {
+  const rows = state.page === 'library'
+    ? [['api-design', 'Designs HTTP APIs the Acme way — resource names, pagination, errors.'], ['changelog-writer', 'Keeps CHANGELOG.md in the Keep a Changelog format.'], ['commit-messages', 'Writes Conventional Commits messages from a staged diff.'], ['incident-runbook', 'Walks through the first thirty minutes of an incident.']]
+    : [['release-notes', 'Drafts user-facing release notes from merged pull requests.']];
+  return `<div class="content"><div class="search">${ICON.search.replace('<svg', '<svg width="16" height="16"')}Search skills</div>
+    <div class="list">${rows.map(([t, d]) => `<div class="item"><b>${t}</b><span>${d}</span></div>`).join('')}</div></div>`;
+}
+
+function render() {
+  const v = state.v, h = H[v];
+  const win = document.getElementById('win');
+  win.dataset.theme = state.theme;
+  const open = state.sidebar === 'open';
+  const panelLeft = open ? SIDEBAR_W : INSET;
+  const clusterEnd = v === 'cur' ? 93 + 28 : 80 + 3 * 28 + 2 * 4;
+  if (v === 'D') {
+    const side = open ? `<div class="flat-side">${sidebar(v, h)}</div>` : '';
+    const mainLeft = open ? SIDEBAR_W : 0;
+    const pad = open ? GUTTER : clusterEnd + 12;
+    win.innerHTML = side + `<div class="flat-main" style="left:${mainLeft}px"><div class="flat-head" style="padding-left:${pad}px">${titleOf(v, true)}${actionsOf()}</div>${body()}</div>` + lights(h) + cluster(v, h);
+    document.getElementById('note').textContent = VARIANTS[v].note;
+    fit();
+    return;
+  }
+  let html = lights(h) + cluster(v, h) + sidebar(v, h);
+  if (v === 'cur' || v === 'A') {
+    // Header row on the canvas; content lines up with the panel gutter, clear of the controls.
+    const start = Math.max(panelLeft + GUTTER, clusterEnd + 12);
+    html += `<div class="head" style="height:${h}px;padding-left:${start}px;padding-right:${INSET + GUTTER}px;gap:12px">${titleOf(v, false)}${actionsOf()}</div>`;
+    html += `<div class="panel" style="top:${h + INSET}px;left:${panelLeft}px">${body()}</div>`;
+  } else {
+    const left = v === 'C' && open ? SIDEBAR_W + INSET : panelLeft;
+    html += `<div class="panel" style="top:${h}px;left:${left}px"><div class="toolbar">${titleOf(v, true)}${actionsOf()}</div>${body()}</div>`;
+  }
+  win.innerHTML = html;
+  document.getElementById('note').textContent = VARIANTS[v].note;
+  fit();
+}
+
+function fit() {
+  const stage = document.getElementById('stage'), win = document.getElementById('win');
+  const s = Math.min(1, stage.clientWidth / 1180);
+  win.style.transform = `scale(${s})`;
+  stage.style.height = `${470 * s}px`;
+}
+
+function group(label, key, opts) {
+  return `<span class="grp"><span class="lbl">${label}</span>${opts.map(([val, text]) => `<button data-k="${key}" data-v="${val}" class="${state[key] === val ? 'on' : ''}">${text}</button>`).join('')}</span>`;
+}
+
+function bar() {
+  document.getElementById('bar').innerHTML =
+    group('Variant', 'v', Object.entries(VARIANTS).map(([k, x]) => [k, x.name])) +
+    group('Theme', 'theme', [['light', 'Light'], ['dark', 'Dark']]) +
+    group('Page', 'page', [['library', 'Library'], ['workspace', 'Workspace'], ['agent', 'Agent']]) +
+    group('Sidebar', 'sidebar', [['open', 'Open'], ['hidden', 'Hidden']]) +
+    group('History', 'history', [['none', 'None'], ['back', 'Back only'], ['both', 'Both']]);
+}
+
+document.getElementById('bar').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  state[b.dataset.k] = b.dataset.v;
+  bar(); render();
+});
+window.addEventListener('resize', fit);
+bar(); render();
+</script>
+</body>
+</html>

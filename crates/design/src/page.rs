@@ -1,12 +1,10 @@
-//! The page panel in points, on the shared scales: a raised [`crate::Surface::panel`] inset from
-//! the window, holding every page under the header.
+//! The page column in points, on the shared scales: the flat column beside the sidebar that holds
+//! the page header and every page under it.
 
 use crate::tokens::space;
 
-/// Space between the panel and the header, and the window's right and bottom edges; its left
-/// edge too while the sidebar is hidden.
-pub const INSET: f32 = space::SM;
-/// Space between the panel's edges and the page's content, on every side.
+/// Space between the page column's edges and the page's content, on every side; the page header
+/// uses it too.
 pub const GUTTER: f32 = space::XL;
 /// Space between a page's blocks, such as Library's toolbar and its list.
 pub const GAP: f32 = space::LG;
