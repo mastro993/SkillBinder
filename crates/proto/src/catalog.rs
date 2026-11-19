@@ -1,7 +1,7 @@
 //! Explore's catalog: the curated list of creators and their skills that SkillBinder publishes,
 //! as the engine translated and cached it.
 
-use crate::{InstallState, Preview, SkillSource};
+use crate::{InstallAllProgress, InstallState, Preview, Repository, RepositoryId, SkillSource};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -25,6 +25,11 @@ pub enum CatalogOrigin {
         /// The creator's [`Creator::id`].
         creator: String,
     },
+    /// One of your repositories.
+    Repository {
+        /// The repository's [`Repository::id`].
+        id: RepositoryId,
+    },
 }
 
 /// One skill of the catalog.
@@ -45,7 +50,7 @@ pub struct CatalogSkill {
     pub origin: CatalogOrigin,
     /// The repository and folder it would be installed from, with no pinned ref.
     pub source: SkillSource,
-    /// Installs gained over the last 7 days.
+    /// Installs gained over the last 7 days; 0 for a repository's skill, which has no count.
     pub installs_week: u64,
 }
 
@@ -74,8 +79,8 @@ pub enum CatalogState {
     Outdated,
 }
 
-/// Explore's projection: the catalog state, the cached catalog, if any, the installs that
-/// run or failed this session, and the open detail dialog's preview.
+/// Explore's projection: the catalog state, the cached catalog, if any, your repositories, the
+/// installs that run or failed this session, and the open detail dialog's preview.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ExploreSnapshot {
     /// How the last refresh went.
@@ -86,6 +91,10 @@ pub struct ExploreSnapshot {
     pub installs: BTreeMap<String, InstallState>,
     /// The preview of the skill whose detail dialog is open, if one is.
     pub preview: Option<Preview>,
+    /// Your repositories, in the order they were added, each with its last listing.
+    pub repositories: Arc<Vec<Repository>>,
+    /// Each running Install all, by repository.
+    pub install_all: BTreeMap<RepositoryId, InstallAllProgress>,
 }
 
 /// `url` normalized so that two spellings of one repository compare equal: the scheme and host

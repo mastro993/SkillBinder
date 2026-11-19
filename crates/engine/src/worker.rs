@@ -1,6 +1,6 @@
 use crate::{
     activation::Progress,
-    catalog::{Catalogs, Previews},
+    catalog::{Catalogs, Previews, Repositories},
     database,
     git::{Git, Installer},
     git_pool::GitPool,
@@ -27,9 +27,11 @@ use std::{
 use tokio::sync::oneshot;
 
 mod activation;
+mod explore;
 mod install;
 mod onboarding;
 mod preview;
+mod repositories;
 mod sources;
 
 const DATABASE: &str = "skillbinder.db";
@@ -46,7 +48,8 @@ struct Owner {
     catalog: Catalogs,
     installs: Installs,
     previews: Previews,
-    /// Runs installs' network phases and previews off the worker.
+    repositories: Repositories,
+    /// Runs installs' network phases, previews, and listings off the worker.
     pool: GitPool,
     progress: Progress,
     /// Stops in-flight commands when the application quits.
@@ -74,6 +77,8 @@ pub(crate) struct State {
     pub installs: Installs,
     /// The open detail dialog's preview, whose catalog cache is kept from pruning.
     pub previews: Previews,
+    /// Your repositories as saved, whose catalog caches are kept from pruning.
+    pub repositories: Repositories,
     /// How far a tracked change has got; passes count their pairs into it.
     pub progress: Progress,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
@@ -117,6 +122,7 @@ impl Engine {
         let catalog = Catalogs::open(config.catalog.clone(), &config.data_dir, shutdown.clone());
         let installs = Installs::default();
         let previews = Previews::default();
+        let repositories = Repositories::default();
         let pool = GitPool::default();
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
@@ -131,6 +137,7 @@ impl Engine {
             catalog: catalog.clone(),
             installs: installs.clone(),
             previews: previews.clone(),
+            repositories: repositories.clone(),
             progress: progress.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
@@ -138,6 +145,7 @@ impl Engine {
             lock,
         };
         state.recover()?;
+        state.publish_repositories()?;
         state.forget_onboarding_position()?;
         // Forgetting an agent folder hands its copies to your agents, so they are chosen first.
         state.choose_agents_of_finished_onboarding()?;
@@ -190,6 +198,7 @@ impl Engine {
                 catalog,
                 installs,
                 previews,
+                repositories,
                 pool,
                 progress,
                 shutdown,
@@ -280,23 +289,6 @@ impl Engine {
     /// durable mutation.
     pub fn current_scan(&self) -> AppResult<(Option<ScanSnapshot>, bool)> {
         self.owner.scans.current()
-    }
-    /// Refreshes Explore's catalog on its own thread and waits for it to end, unless a refresh is
-    /// running or the catalog is current and was fetched within `max_age`.
-    pub async fn refresh_catalog(&self, max_age: std::time::Duration) -> AppResult<()> {
-        if let Some(finished) = self.owner.catalog.refresh(max_age.as_secs())? {
-            finished.await.map_err(|_| AppError::storage())?;
-        }
-        Ok(())
-    }
-    /// Explore's catalog, its state, the installs not idle, and the open dialog's preview,
-    /// without waiting for a durable mutation.
-    pub fn current_explore(&self) -> ExploreSnapshot {
-        explore(
-            &self.owner.catalog,
-            &self.owner.installs,
-            &self.owner.previews,
-        )
     }
     /// Whether a source check is running, so the client can publish the header's state without
     /// waiting for the check to finish.
@@ -419,7 +411,12 @@ impl State {
             scan,
             scanning,
             updates,
-            explore: explore(&self.catalog, &self.installs, &self.previews),
+            explore: explore::projection(
+                &self.catalog,
+                &self.installs,
+                &self.previews,
+                &self.repositories,
+            ),
             sync,
             // A snapshot is a worker job, so no tracked change is in flight while it runs.
             activation: None,
@@ -470,14 +467,6 @@ impl State {
         }
         self.set_setting("sync", &snapshot)?;
         Ok(snapshot)
-    }
-}
-/// Explore's projection, from the shared catalog, installs, and previews.
-fn explore(catalog: &Catalogs, installs: &Installs, previews: &Previews) -> ExploreSnapshot {
-    ExploreSnapshot {
-        installs: installs.current(),
-        preview: previews.current(),
-        ..catalog.current()
     }
 }
 #[cfg(test)]

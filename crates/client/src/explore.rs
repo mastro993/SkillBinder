@@ -1,19 +1,28 @@
-//! Explore's operations: refreshing the catalog, previewing a skill, and installing it. They
-//! run on the engine's own threads, so the explore projection publishes without waiting on the
-//! worker.
+//! Explore's operations: refreshing the catalog, previewing a skill, installing it, and your
+//! repositories. They run on the engine's own threads, so the explore projection publishes
+//! without waiting on the worker.
 
 use crate::{Client, Shared};
 use skillbinder_proto::*;
 use std::{future::Future, sync::Arc, time::Duration};
 
-/// How old the catalog may be before opening Explore fetches it again.
-const CATALOG_MAX_AGE: Duration = Duration::from_secs(60 * 60);
+/// How old the catalog, or a repository's listing, may be before opening Explore fetches it
+/// again.
+const MAX_AGE: Duration = Duration::from_secs(60 * 60);
 
 impl Client {
     /// Fetches the catalog again when Explore opens, if it is older than an hour or the last
-    /// refresh failed.
+    /// refresh failed, and lists again each repository listed over an hour ago.
     pub fn explore_opened(&self) {
-        self.spawn_catalog(CATALOG_MAX_AGE);
+        self.spawn_catalog(MAX_AGE);
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            let listed = client.shared.engine.refresh_repositories(MAX_AGE).await;
+            client.shared.publish_explore();
+            if let Err(error) = listed {
+                client.background_error(error);
+            }
+        });
     }
     /// Fetches the catalog now, as Retry does.
     pub fn refresh_catalog(&self) {
@@ -48,6 +57,65 @@ impl Client {
             .await
             .map_err(|_| AppError::storage())?
     }
+    /// Installs, one after another, each skill of repository `id` the library lacks. The
+    /// projection shows its progress, and the library each skill as it lands.
+    pub async fn install_all(&self, id: RepositoryId) -> AppResult<InstallAllOutcome> {
+        let client = self.clone();
+        self.shared
+            .runtime
+            .spawn(async move {
+                let landed = {
+                    let client = client.clone();
+                    move || {
+                        let client = client.clone();
+                        client.shared.runtime.clone().spawn(async move {
+                            if let Err(error) = client.refresh().await {
+                                client.background_error(error);
+                            }
+                        });
+                    }
+                };
+                let outcome = client.shared.engine.install_all(id, landed).await;
+                client.refresh_preserving_outcome(outcome).await
+            })
+            .await
+            .map_err(|_| AppError::storage())?
+    }
+    /// Lists repository `url`'s skills without adding it.
+    pub async fn list_repository(
+        &self,
+        url: String,
+    ) -> Result<RepositoryListing, RepositoryProblem> {
+        self.shared.engine.list_repository(url).await
+    }
+    /// Lists repository `url` and adds it with its skills.
+    pub async fn add_repository(&self, url: String) -> Result<Repository, RepositoryProblem> {
+        let added = self.shared.engine.add_repository(url).await;
+        self.shared.publish_explore();
+        added
+    }
+    /// Forgets repository `id`; the skills installed from it stay in the library.
+    pub async fn remove_repository(&self, id: RepositoryId) -> AppResult<()> {
+        let removed = self.shared.engine.remove_repository(id).await;
+        self.shared.publish_explore();
+        removed
+    }
+    /// Adds a removed repository back with its last listing, as Undo does.
+    pub async fn restore_repository(&self, repository: Repository) -> AppResult<()> {
+        let restored = self.shared.engine.restore_repository(repository).await;
+        self.shared.publish_explore();
+        restored
+    }
+    /// Removes the Git caches nothing uses, such as a removed repository's once its Undo is no
+    /// longer offered.
+    pub fn prune_source_caches(&self) {
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            if let Err(error) = client.shared.engine.prune_source_caches().await {
+                client.background_error(error);
+            }
+        });
+    }
     /// Opens `skill`'s preview for its detail dialog: the projection shows it loading at once,
     /// then its files and SKILL.md, or why it has none.
     pub fn preview(&self, skill: &CatalogSkill) {
@@ -74,7 +142,8 @@ impl Client {
 }
 
 impl Shared {
-    /// Publishes the catalog, its state, and the installs without waiting on the worker.
+    /// Publishes the catalog, its state, your repositories, and the installs without waiting on
+    /// the worker.
     pub(crate) fn publish_explore(&self) {
         let explore = self.engine.current_explore();
         self.snapshots.send_if_modified(|current| {

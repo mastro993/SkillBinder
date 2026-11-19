@@ -32,3 +32,10 @@ pub const DETAIL_CARD_PADDING: f32 = space::LG;
 pub const TREE_ROW: f32 = space::CONTROL_SM;
 /// How far each folder level indents its rows in the file tree.
 pub const TREE_INDENT: f32 = space::LG;
+/// A repository row's glyph tile, square: the creator chip's avatar box.
+pub const REPOSITORY_TILE: f32 = space::CONTROL_SM;
+/// How far a repository's skills indent under its row: past its glyph tile, so their names line
+/// up with the repository's.
+pub const REPOSITORY_INDENT: f32 = space::LG + REPOSITORY_TILE + space::LG;
+/// Height of a slug line in the Add repository dialog's list of skills found.
+pub const FOUND_ROW: f32 = space::CONTROL_SM;

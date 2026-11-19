@@ -79,7 +79,8 @@ pub(crate) enum CacheUser {
 impl State {
     /// Removes the source caches no library skill's source uses any more, such as those of
     /// skills a Pull removed, the install caches no running install uses, and the catalog
-    /// caches no open or running preview uses. Run before any check or update starts.
+    /// caches no saved repository and no open or running preview or listing uses. Run before
+    /// any check or update starts, and once a removed repository's Undo is no longer offered.
     pub(crate) fn prune_source_caches(&self) -> AppResult<()> {
         let used: std::collections::BTreeSet<_> = self
             .read_library()?
@@ -101,6 +102,14 @@ impl State {
                     .open_source()
                     .map(|source| cache_dir(&self.config.data_dir, CacheUser::Catalog, &source)),
             )
+            .chain(self.repositories.current().0.iter().map(|repository| {
+                let source = SkillSource {
+                    url: repository.url.clone(),
+                    reference: None,
+                    path: String::new(),
+                };
+                cache_dir(&self.config.data_dir, CacheUser::Catalog, &source)
+            }))
             .collect();
         for user in ["check", "update", "install", "catalog"] {
             let Ok(entries) = fs::read_dir(self.config.data_dir.join("source-cache").join(user))
@@ -111,8 +120,8 @@ impl State {
                 if used.contains(&path) {
                     continue;
                 }
-                // A preview reading a catalog cache holds its lock; holding it here keeps the
-                // next one from starting until the cache is gone.
+                // A preview or listing reading a catalog cache holds its lock; holding it here
+                // keeps the next one from starting until the cache is gone.
                 let lock = (user == "catalog").then(|| self.previews.cache_lock(&path));
                 let reading = lock.as_ref().map(|lock| lock.try_lock());
                 if matches!(reading, Some(Err(_))) {

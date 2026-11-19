@@ -121,6 +121,26 @@ impl Git {
         self.network(Some(cache), &["cat-file", "blob", object])
     }
 
+    /// Fetches the blobs `objects` into the cache in one request; reading each one missing
+    /// would fetch it on its own.
+    pub fn fetch_blobs(&self, cache: &Path, objects: &[&str]) -> AppResult<()> {
+        if objects.is_empty() {
+            return Ok(());
+        }
+        let mut args = vec![
+            "-c",
+            "fetch.negotiationAlgorithm=noop",
+            "fetch",
+            "--no-tags",
+            "--no-write-fetch-head",
+            "--recurse-submodules=no",
+            "--filter=blob:none",
+            "origin",
+        ];
+        args.extend(objects);
+        self.network(Some(cache), &args).map(drop)
+    }
+
     /// Writes the files of `tree` into the empty directory `into`, fetching missing blobs.
     pub fn checkout_tree(&self, cache: &Path, tree: &str, into: &Path) -> AppResult<()> {
         // The cache's index only ever describes the last checkout; start from an empty one.

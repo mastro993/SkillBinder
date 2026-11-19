@@ -5,7 +5,7 @@
 use super::super::NativeView;
 use super::super::library_items::new_chip;
 use super::super::sidebar_row::activate;
-use super::query::{Ranked, element_key, installs_label, new_in_library};
+use super::query::{Ranked, Source, element_key, installs_label, new_in_library};
 use gpui_kit::component::avatar::Avatar;
 use gpui_kit::component::skeleton::Skeleton;
 use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, v_flex};
@@ -126,7 +126,7 @@ impl NativeView {
                     .child(skill_count(ranked.skills)),
             );
         activate(chip, creator.name.clone(), cx, move |view, _, cx| {
-            view.pick_creator(Some(id.clone()), cx);
+            view.pick_source(Some(Source::Creator(id.clone())), cx);
         })
         .into_any_element()
     }
@@ -149,7 +149,7 @@ impl NativeView {
             .child(Text::new(creator.name.clone()).level(text::CAPTION).muted())
             .tooltip(tooltip(owner_repo(&skill.source.url)));
         activate(tag, creator.name.clone(), cx, move |view, _, cx| {
-            view.pick_creator(Some(id.clone()), cx);
+            view.pick_source(Some(Source::Creator(id.clone())), cx);
         })
         .on_click(|_, _, cx| cx.stop_propagation())
         .into_any_element()

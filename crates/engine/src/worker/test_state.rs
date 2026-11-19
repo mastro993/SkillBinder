@@ -38,6 +38,7 @@ impl State {
             ),
             installs: Default::default(),
             previews: Default::default(),
+            repositories: Default::default(),
             progress: Progress::default(),
             grants: BTreeMap::new(),
             recovery_required: false,

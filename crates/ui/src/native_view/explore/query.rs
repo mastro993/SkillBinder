@@ -1,5 +1,13 @@
 //! What Explore shows, derived from the snapshot alone: Trending, Popular creators, the results a
-//! search and a picked creator narrow the catalog to, their creator chips, "In library", and New.
+//! search and a picked source narrow it to, their source chips, "In library", and New.
+
+mod repositories;
+mod search;
+
+pub(in crate::native_view) use repositories::{
+    failures, installable, repository_glyph, summary, toast,
+};
+pub(in crate::native_view) use search::{Chip, Local, Source};
 
 use std::cmp::Reverse;
 
@@ -22,16 +30,17 @@ pub(super) struct Ranked<'a> {
     pub installs: u64,
 }
 
-/// The creator who publishes `skill`.
+/// The creator who publishes `skill`; none for one of your repositories' skills.
 pub(super) fn creator_of<'a>(catalog: &'a Catalog, skill: &CatalogSkill) -> Option<&'a Creator> {
-    let CatalogOrigin::Curated { creator } = &skill.origin;
+    let CatalogOrigin::Curated { creator } = &skill.origin else {
+        return None;
+    };
     catalog.creators.iter().find(|known| &known.id == creator)
 }
 
 /// Whether `skill` is published by the creator `id`.
 fn by(skill: &CatalogSkill, id: &str) -> bool {
-    let CatalogOrigin::Curated { creator } = &skill.origin;
-    creator == id
+    matches!(&skill.origin, CatalogOrigin::Curated { creator } if creator == id)
 }
 
 /// The skills with the most installs this week; the catalog keeps them in that order.
@@ -57,79 +66,6 @@ pub(super) fn popular_creators(catalog: &Catalog) -> Vec<Ranked<'_>> {
         .collect();
     ranked.sort_by_key(|ranked| Reverse(ranked.installs));
     ranked
-}
-
-/// Whether `skill` matches `search`, already lowercased, by its name, description, creator, or
-/// repository's `owner/repo`, so a search for its host or scheme matches nothing.
-fn matches(catalog: &Catalog, skill: &CatalogSkill, search: &str) -> bool {
-    let creator = creator_of(catalog, skill);
-    let repository = owner_repo(&skill.source.url);
-    [
-        skill.name.as_str(),
-        skill.description.as_str(),
-        repository.as_str(),
-    ]
-    .into_iter()
-    .chain(creator.map(|creator| creator.name.as_str()))
-    .chain(creator.map(|creator| creator.id.as_str()))
-    .any(|text| text.to_lowercase().contains(search))
-}
-
-/// The skills matching `search`, already lowercased, most installs this week first.
-fn found<'a>(catalog: &'a Catalog, search: &str) -> impl Iterator<Item = &'a CatalogSkill> {
-    catalog
-        .skills
-        .iter()
-        .filter(move |skill| matches(catalog, skill, search))
-}
-
-/// The results for `search`, already lowercased, narrowed to `creator` when one is picked.
-pub(super) fn results<'a>(
-    catalog: &'a Catalog,
-    search: &str,
-    creator: Option<&str>,
-) -> Vec<&'a CatalogSkill> {
-    found(catalog, search)
-        .filter(|skill| creator.is_none_or(|id| by(skill, id)))
-        .collect()
-}
-
-/// The creator chips over the results, each with its count: with a search, every creator with a
-/// match, most matches first; without one, the most popular creators. A picked creator always
-/// has a chip, first when it would have none.
-pub(super) fn chips<'a>(
-    catalog: &'a Catalog,
-    search: &str,
-    picked: Option<&str>,
-) -> Vec<(&'a Creator, usize)> {
-    let count = |creator: &Creator| {
-        found(catalog, search)
-            .filter(|skill| by(skill, &creator.id))
-            .count()
-    };
-    let mut chips: Vec<_> = if search.is_empty() {
-        popular_creators(catalog)
-            .into_iter()
-            .take(HOME_CHIPS)
-            .map(|ranked| (ranked.creator, ranked.skills))
-            .collect()
-    } else {
-        let mut chips: Vec<_> = catalog
-            .creators
-            .iter()
-            .map(|creator| (creator, count(creator)))
-            .filter(|(_, n)| *n > 0)
-            .collect();
-        chips.sort_by_key(|(_, n)| Reverse(*n));
-        chips
-    };
-    if let Some(id) = picked
-        && !chips.iter().any(|(creator, _)| creator.id == id)
-        && let Some(creator) = catalog.creators.iter().find(|creator| creator.id == id)
-    {
-        chips.insert(0, (creator, count(creator)));
-    }
-    chips
 }
 
 /// What names `skill`'s elements and its install: its repository and folder, since a slug can

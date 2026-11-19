@@ -40,6 +40,10 @@ pub(crate) fn build(root: &Path, out: Option<&str>) -> anyhow::Result<()> {
         let bare = out.join("remotes").join(repo_name(&remote)?);
         commit_snapshots(&bare, &[remote])?;
     }
+    for repository in children(&world.join("repositories"))? {
+        let bare = out.join("repositories").join(repo_name(&repository)?);
+        commit_snapshots(&bare, &[repository])?;
+    }
     // The catalog lists this skill from the same source, so Explore shows it in library. Its
     // host never resolves, so its update check fails without reaching the network.
     lock.insert(
@@ -239,4 +243,6 @@ fn print_usage(out: &Path) {
         projects.display()
     );
     println!("Sync remote: {remote}");
+    let repository = file_url(&out.join("repositories/team-skills.git")).unwrap_or_default();
+    println!("Explore repository to add: {repository}");
 }

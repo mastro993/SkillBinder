@@ -36,7 +36,7 @@ The executable drains the engine in GPUI’s quit hook before native termination
 
 ## Explore
 
-Explore shows the catalog: the engine's HTTP client, its catalog thread and cache, and how the client and UI read them are described in [Native Explore](native-explore.md).
+Explore shows the catalog and your repositories: the engine's HTTP client, its catalog thread and cache, the `repositories` table, the `Catalog` source cache that listings and previews share, and how the client and UI read them are described in [Native Explore](native-explore.md).
 
 ## Dependency boundary
 

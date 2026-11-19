@@ -5,10 +5,12 @@
 mod cache;
 mod fetch;
 mod preview;
+mod repositories;
 mod snapshot;
 
 pub use fetch::CatalogSource;
 pub(crate) use preview::{Previews, Read, Request};
+pub(crate) use repositories::{Listed, Listing, Repositories};
 
 use crate::{persistence, shutdown::Shutdown};
 use cache::{Cache, Meta};

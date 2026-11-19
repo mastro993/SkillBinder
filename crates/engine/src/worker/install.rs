@@ -27,10 +27,22 @@ impl Engine {
                 )
             })?;
             let slug = skill.slug.clone();
-            let installed = engine.install(skill, &begun).await;
-            begun.end(&installed);
-            installed.map_err(|failed| failed.error(&slug))
+            engine
+                .install_begun(skill, begun)
+                .await
+                .map_err(|failed| failed.error(&slug))
         }
+    }
+
+    /// Runs the install `begun` of `skill` to its end, keeping a failure for Explore to show.
+    pub(super) async fn install_begun(
+        &self,
+        skill: CatalogSkill,
+        begun: Begun,
+    ) -> Result<(), Failed> {
+        let installed = self.install(skill, &begun).await;
+        begun.end(&installed);
+        installed
     }
 
     /// Clears skill `slug`'s New mark in the database alone: nothing is scanned, activated, or

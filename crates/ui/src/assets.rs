@@ -59,6 +59,7 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("libraries", "LibrariesIcon"),
     icon!("list-view", "ListViewIcon"),
     icon!("loading", "Loading03Icon"),
+    icon!("lock", "SquareLock02Icon"),
     icon!("magic-wand", "MagicWand01Icon"),
     icon!("minus", "MinusSignIcon"),
     icon!("moon", "Moon02Icon"),
