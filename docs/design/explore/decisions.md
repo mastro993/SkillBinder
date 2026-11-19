@@ -29,7 +29,7 @@ The user settled these on 2026-11-19 in a feature-design session. Behavior comes
 - **I3** After installing, you stay on Explore. The card's action becomes a quiet "In library" mark, and a toast says "Installed pdf", with "Show in Library".
 - **I4** A skill whose slug the library already holds from the same source shows "In library" instead of Install. When the library's skill with that slug comes from a different source, or has none, Install is disabled, and its tooltip says "Your library has another skill named pdf". Install never renames *(assumption)*.
 - **I5** Without Git, browsing works, but Install is inactive with the tooltip "Installing needs Git", and the app's Install Git action is offered (ADR 0011) *(assumption)*. The detail sheet then shows the catalog facts and "Preview needs Git" in place of the file list and the SKILL.md text, and the Add repository dialog reads "Adding a repository needs Git".
-- **I6** A failed install keeps the card's Install, and an error line on the card, row, or sheet reads "Couldn't install. Check your access to <owner/repo>.", or "Couldn't install: no connection." when the host can't be reached Nothing asks for a password *(assumption)*.
+- **I6** A failed install keeps the card's Install, and an error line on the card, row, or sheet reads "Couldn't install. Check your access to <owner/repo>.", or "Couldn't install: no connection." when the host can't be reached. Nothing asks for a password *(assumption)*.
 - **I7** The Install Git action sits in one quiet line at the top of Explore, under the search field and beside the offline line: the git-branch glyph, "Installing needs Git", and an outline "Install Git". It shows only while Git is missing, never once per card *(assumption)*.
 
 ## Detail sheet
