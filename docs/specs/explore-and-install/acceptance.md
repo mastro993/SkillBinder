@@ -23,8 +23,8 @@ Each check names the slice that owns it and its kind: **domain** (engine or clie
 15. (S2, native) Install shows a spinner, then "In library", and the toast "Installed <slug>" whose Show in Library opens Library scrolled to the skill, without opening its page.
 16. (S2, native) A skill held from another source shows Install disabled with "Your library has another skill named <slug>".
 17. (S2, native) Without Git, Install is inactive with "Installing needs Git" and the status line offers Install Git.
-18. (S2, native) Installing from an unreachable repository shows "Couldn't install. Check your access to <owner/repo>." and keeps Install; no prompt appears. A Blocked or empty folder shows its refusal line, and a missing folder "Couldn't find this skill in <owner/repo>".
-19. (S3, domain) Install sets New; activating the skill in a preset or a workspace clears it; `mark_seen` clears it; imported and pulled skills are never New; a skill removed by Pull and installed again is New.
+18. (S2, native) Installing from a repository the user can't access shows "Couldn't install. Check your access to <owner/repo>." and keeps Install; no prompt appears. With the network off, it shows "Couldn't install: no connection." instead. A Blocked or empty folder shows its refusal line, and a missing folder "Couldn't find this skill in <owner/repo>".
+19. (S3, domain) Install sets New; activating the skill in a preset or a workspace clears it; `mark_seen` clears it; imported and pulled skills are never New; a skill removed by Pull and installed again is New; when an install first fills the library and an agent already holds the same content, the one-time adoption holds it in the active preset and clears New.
 20. (S3, native) Library's rows and tiles show the accent "New" chip after the name; opening the skill's page removes it.
 21. (S3, visual) The New mark matches variant A "Accent chip" in list and grid.
 22. (S4, domain) A preview of a `file://` repository lists the skill's files and returns SKILL.md, fetching no other blobs.

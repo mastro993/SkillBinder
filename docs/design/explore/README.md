@@ -106,7 +106,7 @@ Every color, size, radius, and shadow uses existing `skillbinder_design` and Kit
 | Install accessible labels | Install <slug> · Installing <slug> |
 | Install tooltips | Your library has another skill named <slug> · Installing needs Git |
 | Install toast | Installed <slug> · Show in Library |
-| Install error | Couldn't install. Check your access to <owner/repo>. · Couldn't install <slug>: it is blocked. · Couldn't install <slug>: its SKILL.md metadata is invalid. · Couldn't install <slug>: its folder has no files. · Couldn't find this skill in <owner/repo> |
+| Install error | Couldn't install. Check your access to <owner/repo>. · Couldn't install: no connection. · Couldn't install <slug>: it is blocked. · Couldn't install <slug>: its SKILL.md metadata is invalid. · Couldn't install <slug>: its folder has no files. · Couldn't find this skill in <owner/repo> |
 | Source chips | All · <creator> · <owner/repo> · skills.sh |
 | Source tag tooltips | <owner/repo> · <owner/repo> · skills.sh |
 | Scope header | <creator> · N skills · <owner/repo> · <url> · skills.sh · Clear filter |

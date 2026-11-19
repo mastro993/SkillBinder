@@ -27,6 +27,8 @@ The repositories a user adds are kept on this device only, like workspaces, and 
 
 ## Consequences
 
+- The device's one-time adoption of identical agent copies (ADR 0006, `docs/features/native/activation.md`) also runs when an install is the first thing to fill the library after onboarding. A skill the agent already loads is then held by the active preset and loses New, so the app shows what the agent really loads.
+
 - The record writers are import, install, update, and reinstall. An installed skill and its record stay uncommitted until the next Sync or Push, as imports do.
 - Install needs Git. This partly supersedes ADR 0011: its list of features that need Git grows to include Install, the detail sheet's file list and SKILL.md preview, and repositories. Without Git, browsing works and Install says "Installing needs Git".
 - Third-party content enters the library with one click. The detail sheet shows its files and SKILL.md before install, inspection refuses Blocked and Invalid payloads, and nothing reaches an agent until the user activates the skill.
