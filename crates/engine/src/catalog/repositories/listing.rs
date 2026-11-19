@@ -136,20 +136,10 @@ impl Listing {
         let mut keys = BTreeSet::new();
         let mut listed = Vec::new();
         for (path, object) in skills {
-            let text = match self.git.read_blob(&self.cache, object) {
-                Ok(text) => text,
-                // A host that went away fails the listing, so a partial one is never kept.
-                Err(error)
-                    if matches!(
-                        error.category,
-                        ErrorCategory::Offline | ErrorCategory::Cancelled
-                    ) =>
-                {
-                    return Err(error);
-                }
-                Err(_) => continue,
-            };
-            if let Some(skill) = listed_skill(path, text.as_bytes())
+            // Any SKILL.md Git cannot read fails the listing, so a partial one never replaces the
+            // last; one that reads but is not text has no name and keeps its folder's.
+            let text = self.git.read_blob_bytes(&self.cache, object)?;
+            if let Some(skill) = listed_skill(path, &text)
                 && keys.insert(normalized(&skill.slug))
             {
                 listed.push(skill);

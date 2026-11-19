@@ -195,6 +195,49 @@ async fn listings_refresh_after_an_hour_and_an_unreachable_one_keeps_its_last() 
     engine.shutdown().await.unwrap();
 }
 
+/// The publisher's uploads refuse any request for a blob while `refuse` exists, the way a host
+/// that drops the connection after the commit was fetched does.
+#[cfg(unix)]
+fn refuse_blobs(fixture: &Fixture, refuse: &std::path::Path) {
+    use std::os::unix::fs::PermissionsExt;
+    fs::create_dir_all(&fixture.home).unwrap();
+    let hook = fixture.home.join("refuse-blobs.sh");
+    let script = format!(
+        "#!/bin/sh\ninput=$(cat)\nif [ -e '{}' ]; then\n  for oid in $(printf '%s\\n' \"$input\" | grep -E '^[0-9a-f]{{40}}$'); do\n    [ \"$(git cat-file -t \"$oid\" 2>/dev/null)\" = blob ] && exit 1\n  done\nfi\nprintf '%s\\n' \"$input\" | \"$@\"\n",
+        refuse.display()
+    );
+    fs::write(&hook, script).unwrap();
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+    // The engine's isolated Git reads only the fixture home's configuration, where an upload's
+    // hook and partial clones are allowed.
+    fs::write(
+        fixture.home.join(".gitconfig"),
+        format!(
+            "[uploadpack]\n\tallowFilter = true\n\tpackObjectsHook = {}\n",
+            hook.display()
+        ),
+    )
+    .unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_listing_whose_skill_md_cannot_be_read_keeps_the_last() {
+    let (fixture, publisher) = published();
+    let refuse = fixture.home.with_file_name("refuse");
+    refuse_blobs(&fixture, &refuse);
+    let engine = fixture.ready().await;
+    let added = engine.add_repository(publisher.url.clone()).await.unwrap();
+    assert_eq!(slugs(&added), ["alpha", "beta"]);
+
+    // The commit still fetches, but alpha's new SKILL.md cannot be read.
+    publisher.publish("alpha", "alpha", "second");
+    fs::write(&refuse, "").unwrap();
+    engine.refresh_repositories(Duration::ZERO).await.unwrap();
+    assert_eq!(saved(&engine), [added]);
+    engine.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn install_all_installs_what_the_library_lacks_and_reports_failures() {
     let (fixture, publisher) = published();

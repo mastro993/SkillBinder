@@ -153,7 +153,10 @@ impl NativeView {
             let _ = view.update(cx, |view, cx| {
                 match added {
                     Ok(repository) => {
-                        view.dialog = DialogState::None;
+                        // The user may have closed it and opened another dialog meanwhile.
+                        if view.add_repository_state().is_some() {
+                            view.dialog = DialogState::None;
+                        }
                         let message = format!("Added {}", owner_repo(&repository.url));
                         view.toast.show(message.into(), cx);
                         view.explore.expanded.insert(repository.id);

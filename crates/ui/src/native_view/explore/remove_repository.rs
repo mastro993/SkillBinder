@@ -1,6 +1,7 @@
 //! Removing one of your repositories (R4): a compact confirmation, then the toast "Removed
 //! <owner/repo>" with Undo, which restores it with its last listing and no network. Its Git
-//! cache is pruned once the toast closes. Skills installed from it stay in the library.
+//! cache is pruned once the toast closes, or by the next prune when a newer toast replaces it.
+//! Skills installed from it stay in the library.
 
 use super::super::toasts::ToastAction;
 use super::super::{DialogState, Effect, NativeView};
@@ -71,8 +72,8 @@ impl NativeView {
     }
 
     /// `toast` with its Undo button, which adds `repository` back and closes the toast. Once the
-    /// toast closes, by Undo, its time, or a newer toast, the repository's cache is pruned unless
-    /// it is back.
+    /// toast closes, by Undo or its time, the repository's cache is pruned unless it is back. A
+    /// newer toast replaces it without closing it, so the next check or launch prunes instead.
     pub(in crate::native_view) fn with_restore(
         &self,
         toast: Notification,

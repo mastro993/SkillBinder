@@ -255,7 +255,8 @@ impl NativeView {
         let button = (left > 0).then(|| {
             let button = Button::new(format!("explore-install-all-{id}"))
                 .label(format!("Install all ({left})"))
-                .small();
+                .small()
+                .loading(self.explore.starting.contains(id));
             if self.git_missing() {
                 return needs_git(
                     format!("explore-install-all-why-{id}"),
@@ -279,13 +280,18 @@ impl NativeView {
 
     /// Installs `repository`'s skills not in library, one after another, while the page stays
     /// usable. Once it ends, the row keeps its summary and one toast offers Show in Library.
+    /// A click while one starts or runs does nothing.
     fn install_all(&mut self, repository: &Repository, cx: &mut Context<Self>) {
         let client = self.client.clone();
         let id = repository.id.clone();
+        if !self.explore.starting.insert(id.clone()) {
+            return;
+        }
         self.explore.summaries.remove(&id);
         cx.spawn(async move |view, cx| {
             let outcome = client.install_all(id.clone()).await;
             let _ = view.update(cx, |view, cx| {
+                view.explore.starting.remove(&id);
                 match outcome {
                     Ok(outcome) => {
                         if let Some(first) = outcome.installed.first() {

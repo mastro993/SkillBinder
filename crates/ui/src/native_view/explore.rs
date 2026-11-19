@@ -45,6 +45,9 @@ pub(super) struct Explore {
     expanded: BTreeSet<RepositoryId>,
     /// How each repository's last Install all ended, until Explore closes (R5).
     summaries: BTreeMap<RepositoryId, InstallAllOutcome>,
+    /// The repositories whose Install all was clicked and has not returned, which the engine
+    /// may not show running yet.
+    starting: BTreeSet<RepositoryId>,
     _search_subscription: Subscription,
 }
 
@@ -64,6 +67,7 @@ impl Explore {
             previewing: false,
             expanded: BTreeSet::new(),
             summaries: BTreeMap::new(),
+            starting: BTreeSet::new(),
             _search_subscription: subscription,
         }
     }
