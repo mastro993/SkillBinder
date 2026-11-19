@@ -155,3 +155,28 @@ async fn launch_refreshes_the_catalog_and_publishes_how_it_went() -> TestResult 
     engine.shutdown().await?;
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_skills_sh_search_publishes_searching_then_its_answer() -> TestResult {
+    let directory = tempfile::tempdir()?;
+    let engine = ready(directory.path()).await?;
+    let client = Client::new(engine.clone(), Handle::current()).await?;
+    let mut snapshots = client.subscribe();
+    client.search_skills_sh("pdf");
+    assert_eq!(client.snapshot().explore.skills_sh.query, "pdf");
+    // The isolated engine's catalog source is missing, so skills.sh needs a connection.
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while client.snapshot().explore.skills_sh.state != SkillsShState::NeedsConnection {
+            snapshots.changed().await?;
+        }
+        Ok::<_, watch::error::RecvError>(())
+    })
+    .await??;
+    client.search_skills_sh("p");
+    assert_eq!(
+        client.snapshot().explore.skills_sh.state,
+        SkillsShState::Idle
+    );
+    engine.shutdown().await?;
+    Ok(())
+}

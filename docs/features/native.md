@@ -17,3 +17,4 @@ The audited shipped baseline is revision `83d55ef789a7cf256021f6620742e0e9021a83
 - [Synchronization, durability, and diagnostics](native/sync-and-durability.md)
 - [Acceptance evidence](native/acceptance-evidence.md)
 - [UI acceptance evidence](native/acceptance-evidence-ui.md)
+- [Explore acceptance evidence](native/acceptance-evidence-explore.md)

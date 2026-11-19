@@ -1,9 +1,12 @@
-//! Explore's results: creator chips with their counts, the picked creator's scope header, and
-//! one list of rows, most installs this week first, or why none matches.
+//! Explore's results: source chips with their counts, the picked source's scope header, and one
+//! list of rows, the catalog's most installs this week first, then skills.sh's in its order, or
+//! why none shows.
 
 use super::super::NativeView;
-use super::cards::{avatar, installs, skill_count};
-use super::query::{chips, creator_of, element_key, results};
+use super::Scope;
+use super::cards::{avatar, installs, skill_count, skills_sh_tag};
+use super::query::{Found, Remote, chips, creator_of, element_key, remote, results};
+use super::skills_sh::{skills_sh_empty, skills_sh_line};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div,
@@ -13,11 +16,12 @@ use skillbinder_design::explore::{CHIP_GAP, SCOPE_AVATAR, SOURCE_AVATAR};
 use skillbinder_design::page::GAP;
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{Button, CardList, EmptyState, ListRow, Text, TextTone, ToggleChip};
-use skillbinder_proto::{Catalog, CatalogSkill, Creator, ExploreSnapshot};
+use skillbinder_proto::{Catalog, CatalogOrigin, CatalogSkill, Creator, ExploreSnapshot};
 
 impl NativeView {
-    /// The results for `search`, already lowercased, narrowed to the picked creator; `typed` is
-    /// the search as entered, which the empty state quotes.
+    /// The results for `search`, already lowercased, narrowed to the picked source; `typed` is
+    /// the search as entered, which the empty state quotes. skills.sh's results follow the
+    /// catalog's, unless a creator is picked.
     pub(super) fn explore_results(
         &self,
         explore: &ExploreSnapshot,
@@ -27,32 +31,62 @@ impl NativeView {
     ) -> AnyElement {
         let empty = Catalog::default();
         let catalog = explore.catalog.as_deref().unwrap_or(&empty);
-        let picked = self.explore.creator.as_deref();
-        let shown = results(catalog, search, picked);
-        let chips = chips(catalog, search, picked);
-        let list = if shown.is_empty() {
-            self.no_match(typed, cx)
+        let picked = self.explore.creator();
+        let skills_sh = self.explore.scope == Some(Scope::SkillsSh);
+        let remote = remote(&self.snapshot, catalog, search);
+        let local = if skills_sh {
+            Vec::new()
         } else {
-            CardList::new("explore-results")
-                .rows(
-                    shown
-                        .iter()
-                        .map(|skill| self.result_row(catalog, skill, cx)),
-                )
-                .into_any_element()
+            results(catalog, search, picked)
         };
+        let appended: &[Found<'_>] = match &remote {
+            Remote::Results(found) if picked.is_none() => found,
+            _ => &[],
+        };
+        let mut rows: Vec<ListRow> = local
+            .iter()
+            .map(|skill| self.result_row(catalog, skill, cx))
+            .collect();
+        rows.extend(appended.iter().map(|found| match found {
+            Found::Skill(skill) => self.result_row(catalog, skill, cx),
+            Found::Result(result) => self.skills_sh_row(result, cx),
+        }));
+        let line = picked.is_none().then(|| skills_sh_line(&remote)).flatten();
+        let waiting = picked.is_none() && remote == Remote::Searching;
+        let list = if !rows.is_empty() {
+            Some(
+                CardList::new("explore-results")
+                    .rows(rows)
+                    .into_any_element(),
+            )
+        } else if let Some(empty) = skills_sh
+            .then(|| skills_sh_empty(&remote, search))
+            .flatten()
+        {
+            Some(empty)
+        } else {
+            (!waiting).then(|| self.no_match(typed, cx))
+        };
+        let chips = chips(catalog, search, picked);
         v_flex()
             .gap(px(GAP))
-            .children((!chips.is_empty()).then(|| self.chip_row(&chips, cx)))
+            .child(self.chip_row(&chips, &remote, cx))
             .children(self.scope_header(catalog, cx))
-            .child(list)
+            .children(list)
+            .children(line)
             .into_any_element()
     }
 
-    /// "All", then a chip per creator with its count; picking a chip again returns to all.
-    fn chip_row(&self, chips: &[(&Creator, usize)], cx: &mut Context<Self>) -> AnyElement {
-        let picked = self.explore.creator.clone();
-        let all = ToggleChip::new("explore-chip-all", picked.is_none())
+    /// "All", then a chip per creator with its count, then skills.sh's; picking a chip again
+    /// returns to all.
+    fn chip_row(
+        &self,
+        chips: &[(&Creator, usize)],
+        remote: &Remote<'_>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let picked = self.explore.creator().map(str::to_owned);
+        let all = ToggleChip::new("explore-chip-all", self.explore.scope.is_none())
             .accessibility_label("All")
             .on_change({
                 let all = cx.listener(|view, _: &ClickEvent, _, cx| view.pick_creator(None, cx));
@@ -84,12 +118,17 @@ impl NativeView {
             .gap(px(space::SM))
             .child(all)
             .children(creators)
+            .child(self.skills_sh_chip(remote, cx))
             .into_any_element()
     }
 
-    /// The picked creator's header: the avatar, the name, how many skills, and Clear filter.
+    /// The picked source's header: a creator's avatar, name, how many skills, and Clear filter,
+    /// or skills.sh's.
     fn scope_header(&self, catalog: &Catalog, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let id = self.explore.creator.as_deref()?;
+        if self.explore.scope == Some(Scope::SkillsSh) {
+            return Some(self.skills_sh_scope(cx));
+        }
+        let id = self.explore.creator()?;
         let creator = catalog.creators.iter().find(|creator| creator.id == id)?;
         let skills = results(catalog, "", Some(id)).len();
         let clear = Button::close("explore-clear-filter", "Clear filter")
@@ -116,17 +155,23 @@ impl NativeView {
     }
 
     /// A result: the name, the description, a meta line with its source tag, unless the list is
-    /// narrowed to its creator, and installs this week, and a failed install's error line; its
-    /// Install action at its end. It opens the skill's detail dialog.
+    /// narrowed to its source, and its installs, and a failed install's error line; its Install
+    /// action at its end. It opens the skill's detail dialog.
     fn result_row(
         &self,
         catalog: &Catalog,
         skill: &CatalogSkill,
         cx: &mut Context<Self>,
     ) -> ListRow {
-        let tag = creator_of(catalog, skill)
-            .filter(|_| self.explore.creator.is_none())
-            .map(|creator| self.source_tag(skill, creator, cx));
+        let tag = match skill.origin {
+            _ if self.explore.scope.is_some() => None,
+            CatalogOrigin::Curated { .. } => {
+                creator_of(catalog, skill).map(|creator| self.source_tag(skill, creator, cx))
+            }
+            CatalogOrigin::SkillsSh { .. } => {
+                Some(skills_sh_tag(&element_key(skill), &skill.source.url, cx))
+            }
+        };
         let meta = h_flex()
             .gap(px(CHIP_GAP))
             .children(tag)
@@ -137,7 +182,9 @@ impl NativeView {
             .cursor_pointer()
             .when(self.detail_shows(skill), |row| row.bg(selected))
             .title(Text::new(skill.name.clone()))
-            .subtitle(Text::new(skill.description.clone()))
+            .when(!skill.description.is_empty(), |row| {
+                row.subtitle(Text::new(skill.description.clone()))
+            })
             .child(meta)
             .children(self.install_error_line(skill))
             .trailing(self.install_action(skill, cx));

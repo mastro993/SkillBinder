@@ -1,7 +1,7 @@
 //! Explore's catalog: the curated list of creators and their skills that SkillBinder publishes,
 //! as the engine translated and cached it.
 
-use crate::{InstallState, Preview, SkillSource};
+use crate::{InstallState, Preview, Resolution, SkillSource, SkillsShSearch};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -25,6 +25,11 @@ pub enum CatalogOrigin {
         /// The creator's [`Creator::id`].
         creator: String,
     },
+    /// A skills.sh search result whose folder was resolved.
+    SkillsSh {
+        /// All-time installs on skills.sh.
+        installs: u64,
+    },
 }
 
 /// One skill of the catalog.
@@ -41,11 +46,12 @@ pub struct CatalogSkill {
     pub name: String,
     /// Description, at most 1,024 characters.
     pub description: String,
-    /// Who publishes it.
+    /// Who publishes it, or that skills.sh found it.
     pub origin: CatalogOrigin,
     /// The repository and folder it would be installed from, with no pinned ref.
     pub source: SkillSource,
-    /// Installs gained over the last 7 days.
+    /// Installs gained over the last 7 days; 0 for a skills.sh result, whose origin holds its
+    /// all-time installs instead.
     pub installs_week: u64,
 }
 
@@ -75,7 +81,8 @@ pub enum CatalogState {
 }
 
 /// Explore's projection: the catalog state, the cached catalog, if any, the installs that
-/// run or failed this session, and the open detail dialog's preview.
+/// run or failed this session, the open detail dialog's preview, and the skills.sh search with
+/// the resolutions of its results.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ExploreSnapshot {
     /// How the last refresh went.
@@ -86,6 +93,11 @@ pub struct ExploreSnapshot {
     pub installs: BTreeMap<String, InstallState>,
     /// The preview of the skill whose detail dialog is open, if one is.
     pub preview: Option<Preview>,
+    /// The skills.sh search for the last query asked.
+    pub skills_sh: SkillsShSearch,
+    /// Each skills.sh result's folder something asked for this session, by
+    /// [`result_key`](crate::result_key).
+    pub resolutions: BTreeMap<String, Resolution>,
 }
 
 /// `url` normalized so that two spellings of one repository compare equal: the scheme and host

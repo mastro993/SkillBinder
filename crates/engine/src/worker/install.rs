@@ -16,7 +16,7 @@ impl Engine {
         &self,
         skill: CatalogSkill,
     ) -> impl Future<Output = AppResult<()>> + Send + 'static {
-        let begun = self.owner.installs.begin(&skill.source);
+        let begun = self.owner.installs.begin(install_key(&skill.source));
         let engine = self.clone();
         async move {
             let begun = begun?.ok_or_else(|| {

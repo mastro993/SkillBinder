@@ -1,7 +1,8 @@
 //! The Explore page: the catalog's Trending skills and Popular creators under a search field, or
-//! the results a search and a picked creator narrow it to, each with its Install action, with one
-//! quiet line while the catalog is offline, could not be refreshed, or needs a newer app (ADR
-//! 0014), and one while installing needs Git (ADR 0015). Clicking a skill opens its detail dialog.
+//! the results a search and a picked source narrow it to, skills.sh's appended below the
+//! catalog's, each with its Install action, with one quiet line while the catalog is offline,
+//! could not be refreshed, or needs a newer app (ADR 0014), and one while installing needs Git
+//! (ADR 0015). Clicking a skill opens its detail dialog.
 
 mod cards;
 mod detail;
@@ -9,6 +10,7 @@ mod install;
 mod query;
 mod results;
 mod sections;
+mod skills_sh;
 
 pub(super) use detail::Detail;
 
@@ -24,11 +26,22 @@ use skillbinder_design::page::{GAP, GUTTER};
 use skillbinder_design::{Notice, SearchField};
 use skillbinder_proto::{CatalogState, ExploreSnapshot};
 
-/// What Explore keeps while it shows: its search and the creator it is narrowed to.
+/// The source Explore is narrowed to.
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Scope {
+    /// A creator, by id, picked on a chip, a creator chip, a result's source tag, or a detail
+    /// dialog.
+    Creator(String),
+    /// skills.sh's results, picked on its chip.
+    SkillsSh,
+}
+
+/// What Explore keeps while it shows: its search and the source it is narrowed to.
 pub(super) struct Explore {
     search: Entity<InputState>,
-    /// The creator picked on a chip, a creator chip, a result's source tag, or a detail dialog.
-    creator: Option<String>,
+    scope: Option<Scope>,
+    /// Counts the search's edits, so only the last one asks skills.sh after its pause.
+    edits: u64,
     /// A detail dialog's preview is open in the projection, until the dialog closes.
     previewing: bool,
     _search_subscription: Subscription,
@@ -37,24 +50,34 @@ pub(super) struct Explore {
 impl Explore {
     pub(super) fn new(window: &mut Window, cx: &mut Context<NativeView>) -> Self {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search skills"));
-        let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
+        let subscription = cx.subscribe(&search, |view, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
+                view.search_edited(cx);
                 cx.notify();
             }
         });
         Self {
             search,
-            creator: None,
+            scope: None,
+            edits: 0,
             previewing: false,
             _search_subscription: subscription,
         }
     }
 
-    /// Clears the search and the picked creator, as leaving the page does.
+    /// Clears the search and the picked source, as leaving the page does.
     pub(super) fn clear(&mut self, window: &mut Window, cx: &mut Context<NativeView>) {
-        self.creator = None;
+        self.scope = None;
         self.search
             .update(cx, |input, cx| input.set_value("", window, cx));
+    }
+
+    /// The creator picked, if one is.
+    fn creator(&self) -> Option<&str> {
+        match &self.scope {
+            Some(Scope::Creator(id)) => Some(id),
+            Some(Scope::SkillsSh) | None => None,
+        }
     }
 }
 
@@ -67,7 +90,7 @@ impl NativeView {
             .flex_none()
             .h(px(TOOLBAR_HEIGHT))
             .child(SearchField::new("explore-search", &self.explore.search).flex_1());
-        let body = if search.is_empty() && self.explore.creator.is_none() {
+        let body = if search.is_empty() && self.explore.scope.is_none() {
             self.explore_sections(explore, window, cx)
         } else {
             self.explore_results(explore, &search, &typed, cx)
@@ -105,7 +128,12 @@ impl NativeView {
 
     /// Narrows Explore to the creator `id`, or back to every source with `None`.
     fn pick_creator(&mut self, id: Option<String>, cx: &mut Context<Self>) {
-        self.explore.creator = id;
+        self.pick(id.map(Scope::Creator), cx);
+    }
+
+    /// Narrows Explore to `scope`, or back to every source with `None`.
+    fn pick(&mut self, scope: Option<Scope>, cx: &mut Context<Self>) {
+        self.explore.scope = scope;
         self.content_scroll.handle.set_offset(Default::default());
         cx.notify();
     }

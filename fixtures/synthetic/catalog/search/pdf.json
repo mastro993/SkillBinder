@@ -1,0 +1,10 @@
+{
+  "query": "pdf",
+  "searchType": "fuzzy",
+  "skills": [
+    { "id": "ferrous/pdf-kit/pdf-merge", "source": "ferrous/pdf-kit", "skillId": "pdf-merge", "name": "pdf-merge", "installs": 41200 },
+    { "id": "inkwell/skills/pdf-forms", "source": "inkwell/skills", "skillId": "pdf-forms", "name": "pdf-forms", "installs": 9800 },
+    { "id": "ferrous/pdf-kit/pdf-ghost", "source": "ferrous/pdf-kit", "skillId": "pdf-ghost", "name": "pdf-ghost", "installs": 3100 }
+  ],
+  "count": 3
+}
