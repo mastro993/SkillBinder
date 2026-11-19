@@ -7,6 +7,7 @@
 use super::agent_page::AgentPageRow;
 use super::library_copies::Placement;
 use super::library_drift::drift_glyph;
+use super::library_reveal::Reveal;
 use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
 use super::snapshot_query::SkillPlaces;
@@ -90,6 +91,7 @@ impl NativeView {
         &self,
         items: &[SkillItem<'_>],
         narrow: bool,
+        reveal: Option<Reveal>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let last = items.len().saturating_sub(1);
@@ -101,6 +103,7 @@ impl NativeView {
                     .enumerate()
                     .map(|(index, item)| self.skill_row(item, index, index == last, narrow, cx)),
             )
+            .when_some(reveal, |list, reveal| list.on_children_prepainted(reveal))
             .into_any_element()
     }
 

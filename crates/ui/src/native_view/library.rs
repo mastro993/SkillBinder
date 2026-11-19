@@ -8,7 +8,7 @@ use super::snapshot_query::{Places, Query, filter_counts, has_update, library_sk
 use gpui_kit::component::v_flex;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div, px,
+    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::library::{GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE};
 use skillbinder_design::page::{GAP, GUTTER, INSET};
@@ -135,15 +135,17 @@ impl NativeView {
                 end: RowEnd::Places(places.of(skill, active)),
             })
             .collect();
+        let reveal = self.reveal(visible, cx);
         if grid {
             div()
                 .grid()
                 .grid_cols(columns)
                 .gap(px(GRID_GAP))
                 .children(items.iter().map(|item| self.skill_card(item, narrow, cx)))
+                .when_some(reveal, |grid, reveal| grid.on_children_prepainted(reveal))
                 .into_any_element()
         } else {
-            self.skill_list(&items, narrow, cx)
+            self.skill_list(&items, narrow, reveal, cx)
         }
     }
 

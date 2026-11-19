@@ -4,8 +4,8 @@
 use std::cmp::Reverse;
 
 use skillbinder_proto::{
-    AppSnapshot, Catalog, CatalogOrigin, CatalogSkill, Creator, normalized_url, owner_repo,
-    same_source,
+    AppSnapshot, Catalog, CatalogOrigin, CatalogSkill, Creator, InstallFailure, InstallState,
+    install_key, owner_repo, same_source,
 };
 
 /// How many cards Trending shows.
@@ -131,14 +131,10 @@ pub(super) fn chips<'a>(
     chips
 }
 
-/// What names `skill`'s elements: its repository and folder, since a slug can repeat across
-/// repositories.
+/// What names `skill`'s elements and its install: its repository and folder, since a slug can
+/// repeat across repositories.
 pub(super) fn element_key(skill: &CatalogSkill) -> String {
-    format!(
-        "{}#{}",
-        normalized_url(&skill.source.url),
-        skill.source.path
-    )
+    install_key(&skill.source)
 }
 
 /// Whether the library holds `skill`'s slug from the same source.
@@ -152,6 +148,40 @@ pub(super) fn in_library(snapshot: &AppSnapshot, skill: &CatalogSkill) -> bool {
         .and_then(|id| library.library.skills.iter().find(|held| &held.id == id))
         .and_then(|held| held.source.as_ref())
         .is_some_and(|source| same_source(source, &skill.source))
+}
+
+/// Whether the library holds `skill`'s slug from another source or from none, so installing it
+/// is refused.
+pub(super) fn collides(snapshot: &AppSnapshot, skill: &CatalogSkill) -> bool {
+    snapshot
+        .library
+        .as_ref()
+        .is_some_and(|library| library.keys.contains_key(&skill.key))
+        && !in_library(snapshot, skill)
+}
+
+/// Where `skill`'s install stands, if it is not idle.
+pub(super) fn install_state<'a>(
+    snapshot: &'a AppSnapshot,
+    skill: &CatalogSkill,
+) -> Option<&'a InstallState> {
+    snapshot.explore.installs.get(&element_key(skill))
+}
+
+/// The error line of an install that failed with `failure`.
+pub(super) fn install_error(skill: &CatalogSkill, failure: &InstallFailure) -> String {
+    let (slug, repository) = (&skill.slug, owner_repo(&skill.source.url));
+    match failure {
+        InstallFailure::Access => format!("Couldn't install. Check your access to {repository}."),
+        InstallFailure::Offline => "Couldn't install: no connection.".to_owned(),
+        InstallFailure::NotFound => format!("Couldn't find this skill in {repository}"),
+        InstallFailure::Blocked => format!("Couldn't install {slug}: it is blocked."),
+        InstallFailure::Invalid => {
+            format!("Couldn't install {slug}: its SKILL.md metadata is invalid.")
+        }
+        InstallFailure::Empty => format!("Couldn't install {slug}: its folder has no files."),
+        InstallFailure::Other(message) => format!("Couldn't install {slug}. {message}"),
+    }
 }
 
 /// Installs this week as a card shows them: `+900`, `+12.4k`, `+1.2M`.

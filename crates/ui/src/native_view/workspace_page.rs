@@ -93,7 +93,7 @@ impl NativeView {
                 }),
             })
             .collect();
-        self.skill_list(&items, false, cx)
+        self.skill_list(&items, false, None, cx)
     }
 
     /// "All agents", or the names of your agents the active preset holds `skill` for.

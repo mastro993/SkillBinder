@@ -2,7 +2,7 @@
 //! one of its folders. The cache is application data, never the library.
 
 use super::{Git, failure, process, validation};
-use skillbinder_proto::{AppError, AppResult, SkillSource};
+use skillbinder_proto::{AppError, AppResult, ErrorCategory, SkillSource};
 use std::{fs, path::Path, time::Duration};
 
 /// Where the fetched source commit is kept in a cache.
@@ -120,6 +120,8 @@ impl Git {
         .map(drop)
     }
 
+    /// Runs a command that reads the source over the network. A host Git could not reach
+    /// fails as [`ErrorCategory::Offline`]; any other failure is one of access, as [`failure`].
     fn network(&self, repo: Option<&Path>, args: &[&str]) -> AppResult<String> {
         let output = process::run(
             &self.program,
@@ -127,14 +129,51 @@ impl Git {
             args,
             NETWORK_TIMEOUT,
             Some(&self.shutdown),
-        )?;
+        )
+        .map_err(|error| {
+            if error.message == process::TIMED_OUT {
+                offline(error.message)
+            } else {
+                error
+            }
+        })?;
         if !output.status.success() {
-            return Err(failure(
-                "Git could not read the source. Check access and the repository.",
-            ));
+            let message = "Git could not read the source. Check access and the repository.";
+            return Err(if unreachable(&output.stderr) {
+                offline(message)
+            } else {
+                failure(message)
+            });
         }
         String::from_utf8(output.stdout).map_err(|_| failure("Git output is unreadable."))
     }
+}
+
+/// Whether Git's error output says the host could not be reached, rather than refusing access.
+fn unreachable(stderr: &[u8]) -> bool {
+    let stderr = String::from_utf8_lossy(stderr).to_ascii_lowercase();
+    [
+        "could not resolve host",
+        "could not resolve hostname",
+        "failed to connect",
+        "couldn't connect to server",
+        "connection timed out",
+        "operation timed out",
+        "network is unreachable",
+        "no route to host",
+        "connection refused",
+    ]
+    .iter()
+    .any(|cause| stderr.contains(cause))
+}
+
+/// A source read that failed because the host could not be reached.
+fn offline(message: impl Into<String>) -> AppError {
+    AppError::new(
+        ErrorCategory::Offline,
+        message,
+        "Check your connection and try again.",
+    )
 }
 
 /// Refuses a source Git could misread as an option, or whose folder leaves its repository.
@@ -163,4 +202,27 @@ pub(crate) fn validate(source: &SkillSource) -> AppResult<()> {
         return Err(invalid());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unreachable_host_is_told_apart_from_refused_access() {
+        for stderr in [
+            "fatal: unable to access 'https://x.invalid/': Could not resolve host: x.invalid",
+            "ssh: Could not resolve hostname example.com: nodename nor servname provided",
+            "fatal: unable to access 'https://github.com/': Failed to connect to github.com",
+        ] {
+            assert!(unreachable(stderr.as_bytes()), "{stderr}");
+        }
+        for stderr in [
+            "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+            "remote: Repository not found.",
+            "git@github.com: Permission denied (publickey).",
+        ] {
+            assert!(!unreachable(stderr.as_bytes()), "{stderr}");
+        }
+    }
 }

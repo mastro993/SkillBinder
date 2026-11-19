@@ -3,7 +3,9 @@ use crate::{
     catalog::Catalogs,
     database,
     git::{Git, Installer},
+    git_pool::GitPool,
     grants::GrantedDirectory,
+    install::Installs,
     lifecycle::EngineConfig,
     logging::Logger,
     reconcile::RECONCILED_HEAD,
@@ -25,6 +27,7 @@ use std::{
 use tokio::sync::oneshot;
 
 mod activation;
+mod install;
 mod onboarding;
 mod sources;
 
@@ -40,6 +43,9 @@ struct Owner {
     scans: Scans,
     updates: Updates,
     catalog: Catalogs,
+    installs: Installs,
+    /// Runs installs' network phases off the worker.
+    pool: GitPool,
     progress: Progress,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
@@ -62,6 +68,8 @@ pub(crate) struct State {
     pub updates: Updates,
     /// Explore's catalog, which snapshots read.
     pub catalog: Catalogs,
+    /// Installs from Explore; their caches are kept from pruning while they run.
+    pub installs: Installs,
     /// How far a tracked change has got; passes count their pairs into it.
     pub progress: Progress,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
@@ -103,6 +111,8 @@ impl Engine {
         let progress = Progress::default();
         let shutdown = Shutdown::default();
         let catalog = Catalogs::open(config.catalog.clone(), &config.data_dir, shutdown.clone());
+        let installs = Installs::default();
+        let pool = GitPool::default();
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
             config,
@@ -114,6 +124,7 @@ impl Engine {
             scans: scans.clone(),
             updates: updates.clone(),
             catalog: catalog.clone(),
+            installs: installs.clone(),
             progress: progress.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
@@ -126,6 +137,8 @@ impl Engine {
         state.choose_agents_of_finished_onboarding()?;
         state.forget_agent_folders()?;
         let (sender, receiver) = mpsc::channel();
+        // Install fetches end before the library lock is released.
+        let workers = pool.clone();
         let thread = std::thread::Builder::new()
             .name("skillbinder-engine".into())
             .spawn(move || {
@@ -147,6 +160,7 @@ impl Engine {
                         Message::Shutdown(done) => {
                             state.scans.wait_for_shutdown();
                             state.updates.wait_for_shutdown();
+                            workers.wait_for_shutdown();
                             state.log.flush();
                             let _ = done.send(());
                             break;
@@ -155,6 +169,7 @@ impl Engine {
                 }
                 state.scans.wait_for_shutdown();
                 state.updates.wait_for_shutdown();
+                workers.wait_for_shutdown();
                 state.log.flush();
                 drop(state.database);
                 FileExt::unlock(&state.lock).map_err(|_| AppError::storage())
@@ -167,6 +182,8 @@ impl Engine {
                 scans,
                 updates,
                 catalog,
+                installs,
+                pool,
                 progress,
                 shutdown,
             }),
@@ -265,9 +282,13 @@ impl Engine {
         }
         Ok(())
     }
-    /// Explore's catalog and its state, without waiting for a durable mutation.
+    /// Explore's catalog, its state, and the installs not idle, without waiting for a durable
+    /// mutation.
     pub fn current_explore(&self) -> ExploreSnapshot {
-        self.owner.catalog.current()
+        ExploreSnapshot {
+            installs: self.owner.installs.current(),
+            ..self.owner.catalog.current()
+        }
     }
     /// Whether a source check is running, so the client can publish the header's state without
     /// waiting for the check to finish.
@@ -390,7 +411,10 @@ impl State {
             scan,
             scanning,
             updates,
-            explore: self.catalog.current(),
+            explore: ExploreSnapshot {
+                installs: self.installs.current(),
+                ..self.catalog.current()
+            },
             sync,
             // A snapshot is a worker job, so no tracked change is in flight while it runs.
             activation: None,

@@ -61,27 +61,28 @@ pub(super) fn in_library(cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-/// A Trending card: the name, two description lines, then installs this week and, when the
-/// library holds it, "In library".
-pub(super) fn card(skill: &CatalogSkill, held: bool, cx: &App) -> AnyElement {
-    SkillCard::new(format!("explore-card-{}", element_key(skill)))
-        .title(div().truncate().child(skill.name.clone()))
-        .description(
-            format!("explore-desc-{}", element_key(skill)),
-            skill.description.clone(),
-        )
-        .footer(
-            h_flex()
-                .w_full()
-                .justify_between()
-                .gap(px(space::SM))
-                .child(installs(skill, cx))
-                .when(held, |footer| footer.child(in_library(cx))),
-        )
-        .into_any_element()
-}
-
 impl NativeView {
+    /// A Trending card: the name, two description lines, a failed install's error line, then
+    /// installs this week and the Install action.
+    pub(super) fn card(&self, skill: &CatalogSkill, cx: &mut Context<Self>) -> AnyElement {
+        SkillCard::new(format!("explore-card-{}", element_key(skill)))
+            .title(div().truncate().child(skill.name.clone()))
+            .description(
+                format!("explore-desc-{}", element_key(skill)),
+                skill.description.clone(),
+            )
+            .children(self.install_error_line(skill))
+            .footer(
+                h_flex()
+                    .w_full()
+                    .justify_between()
+                    .gap(px(space::SM))
+                    .child(installs(skill, cx))
+                    .child(self.install_action(skill, cx)),
+            )
+            .into_any_element()
+    }
+
     /// A Popular creators chip: the avatar, the name, and how many skills; a click narrows
     /// Explore to the creator.
     pub(super) fn creator_chip(&self, ranked: &Ranked<'_>, cx: &mut Context<Self>) -> AnyElement {

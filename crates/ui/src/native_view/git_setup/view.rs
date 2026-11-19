@@ -60,4 +60,26 @@ impl NativeView {
             .on_click(cx.listener(move |view, _, _, cx| view.git_action(action, cx)))
             .into_any_element()
     }
+
+    /// The small outline button a page's quiet "needs Git" line offers: Install Git, reading
+    /// "Installing Git" while the installer runs, or Download Git where nothing installs it.
+    pub(in crate::native_view) fn git_line_button(
+        &self,
+        id: &'static str,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let installing = self.git_setup.waiting == Some(super::Waiting::Installer);
+        let (action, label) = match (self.git_facts().actions().install, installing) {
+            (true, true) => (Action::Install, "Installing Git"),
+            (true, false) => (Action::Install, "Install Git"),
+            (false, _) => (Action::Download, "Download Git"),
+        };
+        Button::new(id)
+            .label(label)
+            .small()
+            .loading(installing)
+            .inactive(installing || self.blocked())
+            .on_click(cx.listener(move |view, _, _, cx| view.git_action(action, cx)))
+            .into_any_element()
+    }
 }

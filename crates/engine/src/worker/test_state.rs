@@ -36,6 +36,7 @@ impl State {
                 &data_dir,
                 Shutdown::default(),
             ),
+            installs: Default::default(),
             progress: Progress::default(),
             grants: BTreeMap::new(),
             recovery_required: false,

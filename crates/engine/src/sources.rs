@@ -74,7 +74,8 @@ enum CacheUser {
 
 impl State {
     /// Removes the source caches no library skill's source uses any more, such as those of
-    /// skills a Pull removed. Run before any check or update starts.
+    /// skills a Pull removed, and the install caches no running install uses. Run before any
+    /// check or update starts.
     pub(crate) fn prune_source_caches(&self) -> AppResult<()> {
         let used: std::collections::BTreeSet<_> = self
             .read_library()?
@@ -85,8 +86,14 @@ impl State {
                 [CacheUser::Check, CacheUser::Update]
                     .map(|user| cache_dir(&self.config.data_dir, user, source))
             })
+            .chain(
+                self.installs
+                    .running()?
+                    .into_iter()
+                    .map(|id| install_cache(&self.config.data_dir, id)),
+            )
             .collect();
-        for user in ["check", "update"] {
+        for user in ["check", "update", "install"] {
             let Ok(entries) = fs::read_dir(self.config.data_dir.join("source-cache").join(user))
             else {
                 continue;
@@ -115,16 +122,45 @@ fn cache_dir(data_dir: &Path, user: CacheUser, source: &SkillSource) -> PathBuf 
     data_dir.join("source-cache").join(user).join(&key[..32])
 }
 
-/// Why fetched source content cannot replace a library skill, if it cannot.
-fn refusal(fetched: &Inspection) -> Option<&'static str> {
+/// The cache repository of the install `id`. Each install has its own, since installs from one
+/// repository run at once and a cache has one user at a time.
+pub(crate) fn install_cache(data_dir: &Path, id: uuid::Uuid) -> PathBuf {
+    data_dir
+        .join("source-cache")
+        .join("install")
+        .join(id.simple().to_string())
+}
+
+/// Why fetched source content cannot be put in the library. Update and install each say it in
+/// their own words.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Refusal {
+    Blocked,
+    /// Importing it would need an acknowledgement, which neither update nor install asks for.
+    Invalid,
+    /// Git tracks files, not directories, so a skill without files would never sync.
+    Empty,
+}
+
+impl Refusal {
+    /// Why an update cannot replace a library skill with the fetched content.
+    fn update_text(self) -> &'static str {
+        match self {
+            Self::Blocked => "The source's current version is blocked and cannot be imported.",
+            Self::Invalid => "The source's current version has invalid skill metadata.",
+            Self::Empty => "The source's current version has no files.",
+        }
+    }
+}
+
+/// Why fetched source content cannot be put in the library, if it cannot.
+pub(crate) fn refusal(fetched: &Inspection) -> Option<Refusal> {
     if fetched.status == ValidationStatus::Blocked {
-        Some("The source's current version is blocked and cannot be imported.")
+        Some(Refusal::Blocked)
     } else if fetched.status == ValidationStatus::Invalid {
-        // Importing it would need an acknowledgement, which an update cannot ask for.
-        Some("The source's current version has invalid skill metadata.")
+        Some(Refusal::Invalid)
     } else if fetched.manifest.file_count() == 0 {
-        // Git tracks files, not directories, so a skill without files would never sync.
-        Some("The source's current version has no files.")
+        Some(Refusal::Empty)
     } else {
         None
     }
@@ -132,7 +168,7 @@ fn refusal(fetched: &Inspection) -> Option<&'static str> {
 
 /// Checks out the fetched source's folder as `<into>/<slug>` and inspects it; `None` when the
 /// fetched commit no longer has the folder.
-fn checkout(
+pub(crate) fn checkout(
     git: &Git,
     cache: &Path,
     source: &SkillSource,

@@ -1,9 +1,9 @@
 //! Explore's catalog: the curated list of creators and their skills that SkillBinder publishes,
 //! as the engine translated and cached it.
 
-use crate::SkillSource;
+use crate::{InstallState, SkillSource};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 /// A creator: a GitHub owner whose repositories the catalog lists, such as anthropics.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -74,13 +74,16 @@ pub enum CatalogState {
     Outdated,
 }
 
-/// Explore's projection: the catalog state and the cached catalog, if any.
+/// Explore's projection: the catalog state, the cached catalog, if any, and the installs that
+/// run or failed this session.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ExploreSnapshot {
     /// How the last refresh went.
     pub state: CatalogState,
     /// The cached catalog; `None` before any refresh succeeded on this device.
     pub catalog: Option<Arc<Catalog>>,
+    /// Each install that is not idle, by [`install_key`](crate::install_key).
+    pub installs: BTreeMap<String, InstallState>,
 }
 
 /// `url` normalized so that two spellings of one repository compare equal: the scheme and host

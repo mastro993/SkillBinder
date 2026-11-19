@@ -2,8 +2,8 @@
 //! one list of rows, most installs this week first, or why none matches.
 
 use super::super::NativeView;
-use super::cards::{avatar, in_library as in_library_mark, installs, skill_count};
-use super::query::{chips, creator_of, element_key, in_library, results};
+use super::cards::{avatar, installs, skill_count};
+use super::query::{chips, creator_of, element_key, results};
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::{AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, px};
 use skillbinder_design::explore::{CHIP_GAP, SCOPE_AVATAR, SOURCE_AVATAR};
@@ -112,8 +112,9 @@ impl NativeView {
         )
     }
 
-    /// A result: the name, the description, and a meta line with its source tag, unless the list
-    /// is narrowed to its creator, and installs this week; "In library" at its end when held.
+    /// A result: the name, the description, a meta line with its source tag, unless the list is
+    /// narrowed to its creator, and installs this week, and a failed install's error line; its
+    /// Install action at its end.
     fn result_row(
         &self,
         catalog: &Catalog,
@@ -127,15 +128,12 @@ impl NativeView {
             .gap(px(CHIP_GAP))
             .children(tag)
             .child(installs(skill, cx));
-        let row = ListRow::new(format!("explore-result-{}", element_key(skill)))
+        ListRow::new(format!("explore-result-{}", element_key(skill)))
             .title(Text::new(skill.name.clone()))
             .subtitle(Text::new(skill.description.clone()))
-            .child(meta);
-        if in_library(&self.snapshot, skill) {
-            row.trailing(in_library_mark(cx))
-        } else {
-            row
-        }
+            .child(meta)
+            .children(self.install_error_line(skill))
+            .trailing(self.install_action(skill, cx))
     }
 
     /// Why no result shows: nothing matches the search, with Clear search.

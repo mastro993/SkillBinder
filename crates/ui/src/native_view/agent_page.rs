@@ -84,7 +84,7 @@ impl NativeView {
                 }),
             })
             .collect();
-        self.skill_list(&items, false, cx)
+        self.skill_list(&items, false, None, cx)
     }
 
     /// The page's logo, "No skills on for <name>", and Add skill.
