@@ -86,7 +86,7 @@ The link glyph beside the repository is the kit's hand-drawn `link` from `NEW_IC
 | Remove confirmation | `DialogFrame` `Compact`, `DialogFooter` with a danger Remove |
 | Toasts | Kit `Notification` through `toasts.rs`. "Show in Library" is a new action beside its Undo |
 
-Glyphs: compass, fire, people (UserGroupIcon), git-branch, github, globe, cloud, check, alert-circle, plus, delete, close, folder, book, code, and chevron-right are retained and registered in `crates/ui/src/assets.rs`. `lock` (SquareLock02Icon) is retained but not registered; the slice that shows private repositories adds `icon!("lock", "SquareLock02Icon")`. The link glyph is not retained. Adding the Hugeicons link artwork needs its asset and an inventory entry, and **asks before building**. Until then, the repository link shows the github glyph with the tooltip "Open in browser".
+Glyphs: compass, fire, people (UserGroupIcon), git-branch, github, globe, cloud, check, alert-circle, plus, delete, close, folder, book, code, chevron-right, and lock (SquareLock02Icon) are retained and registered in `crates/ui/src/assets.rs`. The link glyph is not retained. Adding the Hugeicons link artwork needs its asset and an inventory entry, and **asks before building**. Until then, the repository link shows the github glyph with the tooltip "Open in browser".
 
 ## Tokens
 

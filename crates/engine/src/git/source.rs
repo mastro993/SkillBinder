@@ -118,7 +118,34 @@ impl Git {
 
     /// The text of the blob `object`, fetched from the source when the cache lacks it.
     pub fn read_blob(&self, cache: &Path, object: &str) -> AppResult<String> {
-        self.network(Some(cache), &["cat-file", "blob", object])
+        String::from_utf8(self.read_blob_bytes(cache, object)?)
+            .map_err(|_| failure("Git output is unreadable."))
+    }
+
+    /// The bytes of the blob `object`, fetched from the source when the cache lacks it; an error
+    /// is always one of reading, never of the bytes themselves.
+    pub fn read_blob_bytes(&self, cache: &Path, object: &str) -> AppResult<Vec<u8>> {
+        self.network_bytes(Some(cache), &["cat-file", "blob", object])
+    }
+
+    /// Fetches the blobs `objects` into the cache in one request; reading each one missing
+    /// would fetch it on its own.
+    pub fn fetch_blobs(&self, cache: &Path, objects: &[&str]) -> AppResult<()> {
+        if objects.is_empty() {
+            return Ok(());
+        }
+        let mut args = vec![
+            "-c",
+            "fetch.negotiationAlgorithm=noop",
+            "fetch",
+            "--no-tags",
+            "--no-write-fetch-head",
+            "--recurse-submodules=no",
+            "--filter=blob:none",
+            "origin",
+        ];
+        args.extend(objects);
+        self.network(Some(cache), &args).map(drop)
     }
 
     /// Writes the files of `tree` into the empty directory `into`, fetching missing blobs.
@@ -147,9 +174,16 @@ impl Git {
         .map(drop)
     }
 
+    /// Runs a command that reads the source over the network, as [`Self::network_bytes`] does,
+    /// and reads its output as text.
+    fn network(&self, repo: Option<&Path>, args: &[&str]) -> AppResult<String> {
+        String::from_utf8(self.network_bytes(repo, args)?)
+            .map_err(|_| failure("Git output is unreadable."))
+    }
+
     /// Runs a command that reads the source over the network. A host Git could not reach
     /// fails as [`ErrorCategory::Offline`]; any other failure is one of access, as [`failure`].
-    fn network(&self, repo: Option<&Path>, args: &[&str]) -> AppResult<String> {
+    fn network_bytes(&self, repo: Option<&Path>, args: &[&str]) -> AppResult<Vec<u8>> {
         let output = process::run(
             &self.program,
             repo,
@@ -172,7 +206,7 @@ impl Git {
                 failure(message)
             });
         }
-        String::from_utf8(output.stdout).map_err(|_| failure("Git output is unreadable."))
+        Ok(output.stdout)
     }
 }
 

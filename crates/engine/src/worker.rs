@@ -1,6 +1,6 @@
 use crate::{
     activation::Progress,
-    catalog::{Catalogs, Previews, Resolutions, Searches},
+    catalog::{Catalogs, Previews, Repositories, Resolutions, Searches},
     database,
     git::{Git, Installer},
     git_pool::GitPool,
@@ -31,6 +31,7 @@ mod catalog;
 mod install;
 mod onboarding;
 mod preview;
+mod repositories;
 mod skills_sh;
 mod sources;
 
@@ -48,11 +49,12 @@ struct Owner {
     catalog: Catalogs,
     installs: Installs,
     previews: Previews,
+    repositories: Repositories,
     /// Explore's skills.sh search, on a thread of its own.
     searches: Searches,
     /// The folders of skills.sh results, resolved on the pool.
     resolutions: Resolutions,
-    /// Runs installs' network phases, previews, and resolutions off the worker.
+    /// Runs installs' network phases, previews, resolutions, and listings off the worker.
     pool: GitPool,
     progress: Progress,
     /// Stops in-flight commands when the application quits.
@@ -80,6 +82,8 @@ pub(crate) struct State {
     pub installs: Installs,
     /// The open detail dialog's preview, whose catalog cache is kept from pruning.
     pub previews: Previews,
+    /// Your repositories as saved, whose catalog caches are kept from pruning.
+    pub repositories: Repositories,
     /// Explore's skills.sh search, which snapshots read.
     pub searches: Searches,
     /// The folders of skills.sh results, which snapshots read.
@@ -127,6 +131,7 @@ impl Engine {
         let catalog = Catalogs::open(config.catalog.clone(), &config.data_dir, shutdown.clone());
         let installs = Installs::default();
         let previews = Previews::default();
+        let repositories = Repositories::default();
         let searches = Searches::new(config.catalog.clone());
         let resolutions = Resolutions::default();
         let pool = GitPool::default();
@@ -143,6 +148,7 @@ impl Engine {
             catalog: catalog.clone(),
             installs: installs.clone(),
             previews: previews.clone(),
+            repositories: repositories.clone(),
             searches: searches.clone(),
             resolutions: resolutions.clone(),
             progress: progress.clone(),
@@ -152,6 +158,7 @@ impl Engine {
             lock,
         };
         state.recover()?;
+        state.publish_repositories()?;
         state.forget_onboarding_position()?;
         // Forgetting an agent folder hands its copies to your agents, so they are chosen first.
         state.choose_agents_of_finished_onboarding()?;
@@ -204,6 +211,7 @@ impl Engine {
                 catalog,
                 installs,
                 previews,
+                repositories,
                 searches,
                 resolutions,
                 pool,
@@ -422,6 +430,7 @@ impl State {
                 &self.catalog,
                 &self.installs,
                 &self.previews,
+                &self.repositories,
                 &self.searches,
                 &self.resolutions,
             ),
@@ -477,7 +486,6 @@ impl State {
         Ok(snapshot)
     }
 }
-/// Explore's projection, from the shared catalog, installs, and previews.
 #[cfg(test)]
 mod test_state;
 #[cfg(all(test, unix))]

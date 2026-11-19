@@ -5,7 +5,7 @@
 use super::super::NativeView;
 use super::super::library_items::new_chip;
 use super::super::sidebar_row::activate;
-use super::query::{Ranked, all_time_label, element_key, installs_label, new_in_library};
+use super::query::{Ranked, Source, all_time_label, element_key, installs_label, new_in_library};
 use gpui_kit::component::avatar::Avatar;
 use gpui_kit::component::skeleton::Skeleton;
 use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, v_flex};
@@ -35,12 +35,18 @@ pub(super) fn avatar(creator: &Creator, size: f32) -> Avatar {
 }
 
 /// `skill`'s installs after the fire glyph, with the tooltip naming what they count.
-pub(super) fn installs(skill: &CatalogSkill, cx: &App) -> AnyElement {
+pub(super) fn installs(skill: &CatalogSkill, cx: &App) -> Option<AnyElement> {
     let tip = match skill.origin {
         CatalogOrigin::Curated { .. } => "Installs over the last 7 days",
         CatalogOrigin::SkillsSh { .. } => SKILLS_SH_INSTALLS,
+        CatalogOrigin::Repository { .. } => return None,
     };
-    installs_meta(element_key(skill), installs_label(skill), tip, cx)
+    Some(installs_meta(
+        element_key(skill),
+        installs_label(skill)?,
+        tip,
+        cx,
+    ))
 }
 
 /// A skills.sh result's all-time installs, before its folder is resolved.
@@ -113,7 +119,7 @@ impl NativeView {
                     .w_full()
                     .justify_between()
                     .gap(px(space::SM))
-                    .child(installs(skill, cx))
+                    .children(installs(skill, cx))
                     .child(
                         row_end(format!("explore-card-end-{key}"))
                             .child(self.install_action(skill, cx)),
@@ -152,7 +158,7 @@ impl NativeView {
                     .child(skill_count(ranked.skills)),
             );
         activate(chip, creator.name.clone(), cx, move |view, _, cx| {
-            view.pick_creator(Some(id.clone()), cx);
+            view.pick_source(Some(Source::Creator(id.clone())), cx);
         })
         .into_any_element()
     }
@@ -175,7 +181,7 @@ impl NativeView {
             .child(Text::new(creator.name.clone()).level(text::CAPTION).muted())
             .tooltip(tooltip(owner_repo(&skill.source.url)));
         activate(tag, creator.name.clone(), cx, move |view, _, cx| {
-            view.pick_creator(Some(id.clone()), cx);
+            view.pick_source(Some(Source::Creator(id.clone())), cx);
         })
         .on_click(|_, _, cx| cx.stop_propagation())
         .into_any_element()

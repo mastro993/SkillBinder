@@ -1,17 +1,21 @@
-//! The Explore page: the catalog's Trending skills and Popular creators under a search field, or
-//! the results a search and a picked source narrow it to, skills.sh's appended below the
-//! catalog's, each with its Install action, with one quiet line while the catalog is offline,
-//! could not be refreshed, or needs a newer app (ADR 0014), and one while installing needs Git
-//! (ADR 0015). Clicking a skill opens its detail dialog.
+//! The Explore page: the catalog's Trending skills, Popular creators, and Your repositories under
+//! a search field, or the results a search and a picked source narrow them to, skills.sh's
+//! appended below the local ones, each with its Install action, with one quiet line while the
+//! catalog is offline, could not be refreshed, or needs a newer app (ADR 0014), and one while
+//! installing needs Git (ADR 0015). Clicking a skill opens its detail dialog.
 
+mod add_repository;
 mod cards;
 mod detail;
 mod install;
 mod query;
+mod remove_repository;
+mod repositories;
 mod results;
 mod sections;
 mod skills_sh;
 
+pub(super) use add_repository::AddRepository;
 pub(super) use detail::Detail;
 
 use super::NativeView;
@@ -21,29 +25,29 @@ use gpui_kit::{
     AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Subscription, Window, div, px,
 };
+use query::Source;
 use skillbinder_design::library::TOOLBAR_HEIGHT;
 use skillbinder_design::page::{GAP, GUTTER};
 use skillbinder_design::{Notice, SearchField};
-use skillbinder_proto::{CatalogState, ExploreSnapshot};
+use skillbinder_proto::{CatalogState, ExploreSnapshot, InstallAllOutcome, RepositoryId};
+use std::collections::{BTreeMap, BTreeSet};
 
-/// The source Explore is narrowed to.
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum Scope {
-    /// A creator, by id, picked on a chip, a creator chip, a result's source tag, or a detail
-    /// dialog.
-    Creator(String),
-    /// skills.sh's results, picked on its chip.
-    SkillsSh,
-}
-
-/// What Explore keeps while it shows: its search and the source it is narrowed to.
+/// What Explore keeps while it shows: its search, the source it is narrowed to, its expanded
+/// repositories, and how their Install alls ended.
 pub(super) struct Explore {
     search: Entity<InputState>,
-    scope: Option<Scope>,
+    source: Option<Source>,
     /// Counts the search's edits, so only the last one asks skills.sh after its pause.
     edits: u64,
     /// A detail dialog's preview is open in the projection, until the dialog closes.
     previewing: bool,
+    /// The repositories whose rows show their skills.
+    expanded: BTreeSet<RepositoryId>,
+    /// How each repository's last Install all ended, until Explore closes (R5).
+    summaries: BTreeMap<RepositoryId, InstallAllOutcome>,
+    /// The repositories whose Install all was clicked and has not returned, which the engine
+    /// may not show running yet.
+    starting: BTreeSet<RepositoryId>,
     _search_subscription: Subscription,
 }
 
@@ -58,26 +62,28 @@ impl Explore {
         });
         Self {
             search,
-            scope: None,
+            source: None,
             edits: 0,
             previewing: false,
+            expanded: BTreeSet::new(),
+            summaries: BTreeMap::new(),
+            starting: BTreeSet::new(),
             _search_subscription: subscription,
         }
     }
 
-    /// Clears the search and the picked source, as leaving the page does.
-    pub(super) fn clear(&mut self, window: &mut Window, cx: &mut Context<NativeView>) {
-        self.scope = None;
-        self.search
-            .update(cx, |input, cx| input.set_value("", window, cx));
+    /// Clears the search and the picked source, and drops Install all summaries, as leaving
+    /// the page does.
+    pub(super) fn leave(&mut self, window: &mut Window, cx: &mut Context<NativeView>) {
+        self.summaries.clear();
+        self.clear(window, cx);
     }
 
-    /// The creator picked, if one is.
-    fn creator(&self) -> Option<&str> {
-        match &self.scope {
-            Some(Scope::Creator(id)) => Some(id),
-            Some(Scope::SkillsSh) | None => None,
-        }
+    /// Clears the search and the picked source, as Clear search does.
+    pub(super) fn clear(&mut self, window: &mut Window, cx: &mut Context<NativeView>) {
+        self.source = None;
+        self.search
+            .update(cx, |input, cx| input.set_value("", window, cx));
     }
 }
 
@@ -90,7 +96,7 @@ impl NativeView {
             .flex_none()
             .h(px(TOOLBAR_HEIGHT))
             .child(SearchField::new("explore-search", &self.explore.search).flex_1());
-        let body = if search.is_empty() && self.explore.scope.is_none() {
+        let body = if search.is_empty() && self.explore.source.is_none() {
             self.explore_sections(explore, window, cx)
         } else {
             self.explore_results(explore, &search, &typed, cx)
@@ -126,14 +132,9 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// Narrows Explore to the creator `id`, or back to every source with `None`.
-    fn pick_creator(&mut self, id: Option<String>, cx: &mut Context<Self>) {
-        self.pick(id.map(Scope::Creator), cx);
-    }
-
-    /// Narrows Explore to `scope`, or back to every source with `None`.
-    fn pick(&mut self, scope: Option<Scope>, cx: &mut Context<Self>) {
-        self.explore.scope = scope;
+    /// Narrows Explore to `source`, or back to every source with `None`.
+    fn pick_source(&mut self, source: Option<Source>, cx: &mut Context<Self>) {
+        self.explore.source = source;
         self.content_scroll.handle.set_offset(Default::default());
         cx.notify();
     }

@@ -111,3 +111,14 @@ diesel::table! {
         body -> Text,
     }
 }
+
+diesel::table! {
+    repositories (id) {
+        id -> Text,
+        url -> Text,
+        normalized -> Text,
+        added_at -> BigInt,
+        listing -> Text,
+        listed_at -> BigInt,
+    }
+}

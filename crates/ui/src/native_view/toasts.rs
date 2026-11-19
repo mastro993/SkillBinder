@@ -13,7 +13,7 @@ use gpui_kit::{
 };
 use skillbinder_design::tokens::text;
 use skillbinder_design::{Button, icon};
-use skillbinder_proto::SkillId;
+use skillbinder_proto::{Repository, SkillId};
 
 /// The id every change's toast shares, so a newer one replaces the shown one.
 struct ChangeToast;
@@ -24,6 +24,8 @@ pub(super) enum ToastAction {
     Undo(Undo),
     /// Opens Library on the skill.
     ShowInLibrary(SkillId),
+    /// Adds a removed repository back.
+    RestoreRepository(Repository),
 }
 
 /// A change's toast waiting for the next frame, where the window it shows in is at hand, with the
@@ -53,7 +55,10 @@ impl PendingToast {
     pub(super) fn take(&mut self) -> Option<(Notification, SharedString, Option<ToastAction>)> {
         let (message, action) = self.0.take()?;
         let text = message.clone();
-        let glyph = !matches!(action, Some(ToastAction::Undo(_)));
+        let glyph = !matches!(
+            action,
+            Some(ToastAction::Undo(_) | ToastAction::RestoreRepository(_))
+        );
         // Kit's message is plain text; content keeps the message a label holding its text.
         let toast = Notification::new()
             .id::<ChangeToast>()
@@ -83,6 +88,9 @@ impl NativeView {
         let toast = match action {
             Some(ToastAction::Undo(undo)) => self.with_undo(toast, undo, cx),
             Some(ToastAction::ShowInLibrary(id)) => self.with_show_in_library(toast, id, cx),
+            Some(ToastAction::RestoreRepository(repository)) => {
+                self.with_restore(toast, repository)
+            }
             None => toast,
         };
         let toast = self.hold_toast(toast, message, cx);

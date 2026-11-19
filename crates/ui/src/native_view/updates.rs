@@ -122,6 +122,9 @@ impl NativeView {
                             }
                             Effect::Activated(landing) => view.land_strip(landing, cx),
                             Effect::Removed(removal) => view.removed(removal, cx),
+                            Effect::RepositoryRemoved(repository) => {
+                                view.repository_removed(*repository, cx);
+                            }
                             Effect::AgentsChosen => {
                                 view.onboarding_back_to = None;
                                 view.unticked_agents = None;

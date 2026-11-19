@@ -1,5 +1,5 @@
 //! Explore's sections: Trending cards and Popular creators chips, skeletons while the catalog
-//! first loads, or one line with Retry when there is no catalog to show.
+//! first loads, or one line with Retry when there is no catalog to show; then Your repositories.
 
 use super::super::NativeView;
 use super::super::library::grid_columns;
@@ -32,9 +32,9 @@ impl NativeView {
             .id("explore-creators")
             .gap(px(CHIP_GAP))
             .overflow_x_scroll();
-        let (cards, chips): (Vec<AnyElement>, Vec<AnyElement>) =
+        let catalog: Option<(Vec<AnyElement>, Vec<AnyElement>)> =
             match (&explore.catalog, explore.state) {
-                (Some(catalog), _) => (
+                (Some(catalog), _) => Some((
                     trending(catalog)
                         .iter()
                         .map(|skill| self.card(skill, cx))
@@ -43,35 +43,45 @@ impl NativeView {
                         .iter()
                         .map(|ranked| self.creator_chip(ranked, cx))
                         .collect(),
-                ),
-                (None, CatalogState::Loading) => (
+                )),
+                (None, CatalogState::Loading) => Some((
                     (0..TRENDING).map(skeleton_card).collect(),
                     (0..SKELETON_CHIPS)
                         .map(|index| skeleton_chip(index, cx))
                         .collect(),
-                ),
-                (None, CatalogState::Offline | CatalogState::Unavailable) => {
-                    return self.catalog_unreachable(cx);
-                }
-                // The catalog line says what to do; there is nothing else to show.
-                (None, CatalogState::Outdated | CatalogState::Ready) => {
-                    return div().into_any_element();
-                }
+                )),
+                // The catalog line, or the unreachable line and Retry, says what to do.
+                (
+                    None,
+                    CatalogState::Outdated
+                    | CatalogState::Ready
+                    | CatalogState::Offline
+                    | CatalogState::Unavailable,
+                ) => None,
             };
-        v_flex()
-            .gap(px(GAP))
-            .child(
+        let unreachable = explore.catalog.is_none()
+            && matches!(
+                explore.state,
+                CatalogState::Offline | CatalogState::Unavailable
+            );
+        let sections = catalog.map(|(cards, chips)| {
+            [
                 v_flex()
                     .gap(px(SECTION_GAP))
                     .child(section_header("fire", "Trending"))
                     .child(grid.children(cards)),
-            )
-            .child(
                 v_flex()
                     .gap(px(SECTION_GAP))
                     .child(section_header("people", "Popular creators"))
                     .child(rail.children(chips)),
-            )
+            ]
+        });
+        // Your repositories are kept on this device, so they show without a catalog (C4).
+        v_flex()
+            .gap(px(GAP))
+            .children(unreachable.then(|| self.catalog_unreachable(cx)))
+            .children(sections.into_iter().flatten())
+            .child(self.repositories_section(explore, cx))
             .into_any_element()
     }
 
@@ -89,7 +99,7 @@ impl NativeView {
 }
 
 /// A section's header: its glyph, then its name.
-fn section_header(glyph: &str, label: &'static str) -> SectionHeader {
+pub(super) fn section_header(glyph: &str, label: &'static str) -> SectionHeader {
     SectionHeader::custom(
         h_flex()
             .gap(px(CHIP_GAP))

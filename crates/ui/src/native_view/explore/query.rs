@@ -1,9 +1,15 @@
 //! What Explore shows, derived from the snapshot alone: Trending, Popular creators, the results a
-//! search and a picked creator narrow the catalog to, their creator chips, "In library", and New,
-//! and skills.sh's results beside them.
+//! search and a picked source narrow it to, their source chips, "In library", and New, and
+//! skills.sh's results beside them.
 
+mod repositories;
+mod search;
 mod skills_sh;
 
+pub(in crate::native_view) use repositories::{
+    failures, installable, repository_glyph, summary, toast,
+};
+pub(in crate::native_view) use search::{Chip, Local, Source};
 pub(super) use skills_sh::{Found, Remote, remote, result_collides, result_in_library};
 
 use std::cmp::Reverse;
@@ -27,7 +33,8 @@ pub(super) struct Ranked<'a> {
     pub installs: u64,
 }
 
-/// The creator who publishes `skill`; `None` for a skills.sh result.
+/// The creator who publishes `skill`; `None` for one of your repositories' skills or a skills.sh
+/// result.
 pub(super) fn creator_of<'a>(catalog: &'a Catalog, skill: &CatalogSkill) -> Option<&'a Creator> {
     let CatalogOrigin::Curated { creator } = &skill.origin else {
         return None;
@@ -63,79 +70,6 @@ pub(super) fn popular_creators(catalog: &Catalog) -> Vec<Ranked<'_>> {
         .collect();
     ranked.sort_by_key(|ranked| Reverse(ranked.installs));
     ranked
-}
-
-/// Whether `skill` matches `search`, already lowercased, by its name, description, creator, or
-/// repository's `owner/repo`, so a search for its host or scheme matches nothing.
-fn matches(catalog: &Catalog, skill: &CatalogSkill, search: &str) -> bool {
-    let creator = creator_of(catalog, skill);
-    let repository = owner_repo(&skill.source.url);
-    [
-        skill.name.as_str(),
-        skill.description.as_str(),
-        repository.as_str(),
-    ]
-    .into_iter()
-    .chain(creator.map(|creator| creator.name.as_str()))
-    .chain(creator.map(|creator| creator.id.as_str()))
-    .any(|text| text.to_lowercase().contains(search))
-}
-
-/// The skills matching `search`, already lowercased, most installs this week first.
-fn found<'a>(catalog: &'a Catalog, search: &str) -> impl Iterator<Item = &'a CatalogSkill> {
-    catalog
-        .skills
-        .iter()
-        .filter(move |skill| matches(catalog, skill, search))
-}
-
-/// The results for `search`, already lowercased, narrowed to `creator` when one is picked.
-pub(super) fn results<'a>(
-    catalog: &'a Catalog,
-    search: &str,
-    creator: Option<&str>,
-) -> Vec<&'a CatalogSkill> {
-    found(catalog, search)
-        .filter(|skill| creator.is_none_or(|id| by(skill, id)))
-        .collect()
-}
-
-/// The creator chips over the results, each with its count: with a search, every creator with a
-/// match, most matches first; without one, the most popular creators. A picked creator always
-/// has a chip, first when it would have none.
-pub(super) fn chips<'a>(
-    catalog: &'a Catalog,
-    search: &str,
-    picked: Option<&str>,
-) -> Vec<(&'a Creator, usize)> {
-    let count = |creator: &Creator| {
-        found(catalog, search)
-            .filter(|skill| by(skill, &creator.id))
-            .count()
-    };
-    let mut chips: Vec<_> = if search.is_empty() {
-        popular_creators(catalog)
-            .into_iter()
-            .take(HOME_CHIPS)
-            .map(|ranked| (ranked.creator, ranked.skills))
-            .collect()
-    } else {
-        let mut chips: Vec<_> = catalog
-            .creators
-            .iter()
-            .map(|creator| (creator, count(creator)))
-            .filter(|(_, n)| *n > 0)
-            .collect();
-        chips.sort_by_key(|(_, n)| Reverse(*n));
-        chips
-    };
-    if let Some(id) = picked
-        && !chips.iter().any(|(creator, _)| creator.id == id)
-        && let Some(creator) = catalog.creators.iter().find(|creator| creator.id == id)
-    {
-        chips.insert(0, (creator, count(creator)));
-    }
-    chips
 }
 
 /// What names `skill`'s elements and its install: its repository and folder, since a slug can
@@ -282,11 +216,13 @@ pub(super) fn install_error(slug: &str, url: &str, failure: &InstallFailure) -> 
 
 /// `skill`'s installs as a card shows them: this week's gain as `+900 this week`,
 /// `+12.4k this week`, or `+1.2M this week`; a skills.sh result's all-time installs as
-/// `233.1k installs`.
-pub(super) fn installs_label(skill: &CatalogSkill) -> String {
+/// `233.1k installs`; none for one of your repositories' skills.
+pub(super) fn installs_label(skill: &CatalogSkill) -> Option<String> {
     match skill.origin {
-        CatalogOrigin::Curated { .. } => format!("+{} this week", count(skill.installs_week)),
-        CatalogOrigin::SkillsSh { installs } => all_time_label(installs),
+        CatalogOrigin::Curated { .. } => Some(format!("+{} this week", count(skill.installs_week))),
+        CatalogOrigin::SkillsSh { installs } => Some(all_time_label(installs)),
+        // Your repositories have no install counts.
+        CatalogOrigin::Repository { .. } => None,
     }
 }
 

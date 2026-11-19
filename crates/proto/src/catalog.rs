@@ -1,7 +1,10 @@
 //! Explore's catalog: the curated list of creators and their skills that SkillBinder publishes,
 //! as the engine translated and cached it.
 
-use crate::{InstallState, Preview, Resolution, SkillSource, SkillsShSearch};
+use crate::{
+    InstallAllProgress, InstallState, Preview, Repository, RepositoryId, Resolution, SkillSource,
+    SkillsShSearch,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -24,6 +27,11 @@ pub enum CatalogOrigin {
     Curated {
         /// The creator's [`Creator::id`].
         creator: String,
+    },
+    /// One of your repositories.
+    Repository {
+        /// The repository's [`Repository::id`].
+        id: RepositoryId,
     },
     /// A skills.sh search result whose folder was resolved.
     SkillsSh {
@@ -50,8 +58,8 @@ pub struct CatalogSkill {
     pub origin: CatalogOrigin,
     /// The repository and folder it would be installed from, with no pinned ref.
     pub source: SkillSource,
-    /// Installs gained over the last 7 days; 0 for a skills.sh result, whose origin holds its
-    /// all-time installs instead.
+    /// Installs gained over the last 7 days; 0 for a repository's skill, which has no count, and
+    /// for a skills.sh result, whose origin holds its all-time installs instead.
     pub installs_week: u64,
 }
 
@@ -80,9 +88,9 @@ pub enum CatalogState {
     Outdated,
 }
 
-/// Explore's projection: the catalog state, the cached catalog, if any, the installs that
-/// run or failed this session, the open detail dialog's preview, and the skills.sh search with
-/// the resolutions of its results.
+/// Explore's projection: the catalog state, the cached catalog, if any, your repositories, the
+/// installs that run or failed this session, the open detail dialog's preview, and the skills.sh
+/// search with the resolutions of its results.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ExploreSnapshot {
     /// How the last refresh went.
@@ -93,6 +101,10 @@ pub struct ExploreSnapshot {
     pub installs: BTreeMap<String, InstallState>,
     /// The preview of the skill whose detail dialog is open, if one is.
     pub preview: Option<Preview>,
+    /// Your repositories, in the order they were added, each with its last listing.
+    pub repositories: Arc<Vec<Repository>>,
+    /// Each running Install all, by repository.
+    pub install_all: BTreeMap<RepositoryId, InstallAllProgress>,
     /// The skills.sh search for the last query asked.
     pub skills_sh: SkillsShSearch,
     /// Each skills.sh result's folder something asked for this session, by

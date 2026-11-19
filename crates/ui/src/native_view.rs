@@ -111,6 +111,8 @@ enum DialogState {
     AddSkill(Box<skill_picker::SkillPicker>),
     /// A catalog skill's detail, opened from Explore.
     SkillDetail(Box<explore::Detail>),
+    AddRepository(Box<explore::AddRepository>),
+    RemoveRepository(Box<Repository>),
     /// Unticking a skill's last folder on a workspace's page asks before removing it there.
     RemoveFromWorkspace {
         workspace: WorkspaceId,
@@ -130,6 +132,8 @@ enum Effect {
     Activated(progress_strip::Landing),
     /// A skill was removed from one place, so the toast offers Undo.
     Removed(undo::Removal),
+    /// A repository was removed, so the toast offers Undo.
+    RepositoryRemoved(Box<Repository>),
     /// Choose your agents saved its choice, so onboarding moves on to an import that scans again.
     AgentsChosen,
 }
@@ -146,6 +150,8 @@ pub struct NativeView {
     syncing: bool,
     error: Option<AppError>,
     dialog: DialogState,
+    /// Counts dialogs opened; a closing one's layer builds nothing once another opens.
+    dialogs_opened: u64,
     /// The Import skills dialog while its import runs, reopened if the list changed (D11).
     importing: Option<Box<import_dialog::ImportDialog>>,
     /// Onboarding's import step, once it shows.
@@ -330,6 +336,7 @@ impl NativeView {
             syncing: false,
             error: None,
             dialog: DialogState::None,
+            dialogs_opened: 0,
             importing: None,
             first_import: None,
             onboarding_back_to: None,

@@ -7,12 +7,14 @@ mod cache;
 mod fetch;
 mod folders;
 mod preview;
+mod repositories;
 mod resolve;
 mod search;
 mod snapshot;
 
 pub use fetch::CatalogSource;
 pub(crate) use preview::{Previews, Read, Request};
+pub(crate) use repositories::{Listed, Listing, Repositories};
 pub(crate) use resolve::{Begin, Resolutions, Resolve, Resolved, not_found};
 pub(crate) use search::Searches;
 

@@ -27,5 +27,5 @@ mod worker;
 mod workspaces;
 
 pub use catalog::CatalogSource;
-pub use lifecycle::{EngineConfig, GitProfile, GitSearch};
+pub use lifecycle::{EngineConfig, GitProfile, GitSearch, RepositoryUrls};
 pub use worker::Engine;

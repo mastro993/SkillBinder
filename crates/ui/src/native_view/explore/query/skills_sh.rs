@@ -2,9 +2,9 @@
 //! search stands, its results without the skills already shown, and "In library" for a result
 //! whose folder is not resolved yet.
 
-use super::{found, held_from};
+use super::{Local, held_from};
 use skillbinder_proto::{
-    AppSnapshot, Catalog, CatalogSkill, CatalogState, Resolution, SkillsShResult, SkillsShState,
+    AppSnapshot, CatalogSkill, CatalogState, Resolution, SkillsShResult, SkillsShState,
     normalized_url, result_key,
 };
 
@@ -51,10 +51,11 @@ impl Remote<'_> {
     }
 }
 
-/// skills.sh for `search`, already trimmed and lowercased, beside the catalog's matches.
+/// skills.sh for `search`, already trimmed and lowercased, beside the matches of the catalog and
+/// your repositories.
 pub(in super::super) fn remote<'a>(
     snapshot: &'a AppSnapshot,
-    catalog: &Catalog,
+    local: Local<'_>,
     search: &str,
 ) -> Remote<'a> {
     if search.chars().count() < 2 {
@@ -72,7 +73,9 @@ pub(in super::super) fn remote<'a>(
         SkillsShState::NeedsConnection => Remote::NeedsConnection,
         SkillsShState::Unavailable => Remote::Unavailable,
         SkillsShState::Results(results) => {
-            let shown: Vec<_> = found(catalog, search)
+            let shown: Vec<_> = local
+                .results(search, None)
+                .into_iter()
                 .map(|skill| (normalized_url(&skill.source.url), skill.key.as_str()))
                 .collect();
             Remote::Results(
@@ -89,7 +92,7 @@ pub(in super::super) fn remote<'a>(
 /// `result` as its row shows it.
 fn resolved<'a>(snapshot: &'a AppSnapshot, result: &'a SkillsShResult) -> Found<'a> {
     match snapshot.explore.resolutions.get(&result_key(result)) {
-        Some(Resolution::Resolved(skill)) => Found::Skill(skill),
+        Some(Resolution::Resolved(skill)) => Found::Skill(skill.as_ref()),
         Some(Resolution::Resolving | Resolution::NotFound | Resolution::Failed) | None => {
             Found::Result(result)
         }

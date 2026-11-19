@@ -7,6 +7,7 @@ mod install;
 mod library;
 mod lifecycle;
 mod preview;
+mod repository;
 mod scan;
 mod skills_sh;
 mod sync;
@@ -19,6 +20,7 @@ pub use install::*;
 pub use library::*;
 pub use lifecycle::*;
 pub use preview::*;
+pub use repository::*;
 pub use scan::*;
 pub use skills_sh::*;
 pub use sync::*;
@@ -63,6 +65,7 @@ identifier!(
     "A workspace identity, independent of its folder path."
 );
 identifier!(GrantId, "A short-lived, single-use native directory grant.");
+identifier!(RepositoryId, "A repository identity on this device.");
 
 /// A library skill's slug: its directory name under `skills/`, the same on every device.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]

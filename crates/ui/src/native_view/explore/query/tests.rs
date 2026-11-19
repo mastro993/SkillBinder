@@ -1,8 +1,8 @@
 use super::*;
 use crate::native_view::snapshot_query::fixture::Fixture;
 use skillbinder_proto::{
-    CatalogState, Preview, Resolution, SkillSource, SkillsShResult, SkillsShSearch, SkillsShState,
-    normalized_url, result_key,
+    CatalogState, InstallAllOutcome, Preview, Repository, RepositoryId, Resolution, SkillSource,
+    SkillsShResult, SkillsShSearch, SkillsShState, normalized_url, result_key,
 };
 
 fn creator(id: &str, name: &str) -> Creator {
@@ -72,47 +72,178 @@ fn trending_takes_the_six_most_installed_and_creators_rank_by_their_installs() {
     );
 }
 
+/// Your repository `id` at `url`, listing each of `slugs` under `skills/`.
+fn repository(id: &str, url: &str, slugs: &[&str]) -> Repository {
+    let id = RepositoryId(id.to_owned());
+    Repository {
+        skills: slugs
+            .iter()
+            .map(|slug| CatalogSkill {
+                origin: CatalogOrigin::Repository { id: id.clone() },
+                source: SkillSource {
+                    url: url.to_owned(),
+                    reference: None,
+                    path: format!("skills/{slug}"),
+                },
+                installs_week: 0,
+                ..skill(slug, "", "From a repository.", 0)
+            })
+            .collect(),
+        id,
+        url: url.to_owned(),
+        listed_at: 0,
+        added_at: 0,
+    }
+}
+
+fn chip_names(chips: &[(Chip<'_>, usize)]) -> Vec<(String, usize)> {
+    chips
+        .iter()
+        .map(|(chip, n)| {
+            let name = match chip {
+                Chip::Creator(creator) => creator.id.clone(),
+                Chip::Repository(repository) => owner_repo(&repository.url),
+            };
+            (name, *n)
+        })
+        .collect()
+}
+
 #[test]
 fn search_matches_name_description_creator_and_repository() {
     let catalog = catalog();
+    let local = Local {
+        catalog: &catalog,
+        repositories: &[],
+    };
     assert_eq!(
-        slugs(&results(&catalog, "pdf", None)),
+        slugs(&local.results("pdf", None)),
         ["pdf-tools", "pdf-merge", "export"]
     );
-    assert_eq!(
-        slugs(&results(&catalog, "quill & co", None)),
-        ["essay-coach"]
-    );
-    assert_eq!(slugs(&results(&catalog, "lumen/skills", None)).len(), 2);
-    assert!(results(&catalog, "nothing like this", None).is_empty());
+    assert_eq!(slugs(&local.results("quill & co", None)), ["essay-coach"]);
+    assert_eq!(slugs(&local.results("lumen/skills", None)).len(), 2);
+    assert!(local.results("nothing like this", None).is_empty());
     // The repository matches by `owner/repo`, never by its host or scheme.
-    assert!(results(&catalog, "example.invalid", None).is_empty());
-    assert!(results(&catalog, "https", None).is_empty());
-    let chips: Vec<_> = chips(&catalog, "pdf", None)
-        .into_iter()
-        .map(|(creator, n)| (creator.id.as_str(), n))
-        .collect();
-    assert_eq!(chips, [("northwind", 2), ("lumen", 1)]);
+    assert!(local.results("example.invalid", None).is_empty());
+    assert!(local.results("https", None).is_empty());
+    assert_eq!(
+        chip_names(&local.chips("pdf", None)),
+        [("northwind".to_owned(), 2), ("lumen".to_owned(), 1)]
+    );
 }
 
 #[test]
 fn a_picked_creator_narrows_the_results_and_keeps_its_chip() {
     let catalog = catalog();
-    assert_eq!(slugs(&results(&catalog, "pdf", Some("lumen"))), ["export"]);
+    let local = Local {
+        catalog: &catalog,
+        repositories: &[],
+    };
+    let creator = |id: &str| Source::Creator(id.to_owned());
     assert_eq!(
-        slugs(&results(&catalog, "", Some("northwind"))),
+        slugs(&local.results("pdf", Some(&creator("lumen")))),
+        ["export"]
+    );
+    assert_eq!(
+        slugs(&local.results("", Some(&creator("northwind")))),
         ["pdf-tools", "pdf-merge"]
     );
-    let picked: Vec<_> = chips(&catalog, "pdf", Some("quill"))
-        .into_iter()
-        .map(|(creator, n)| (creator.id.as_str(), n))
-        .collect();
-    assert_eq!(picked, [("quill", 0), ("northwind", 2), ("lumen", 1)]);
-    let home: Vec<_> = chips(&catalog, "", Some("quill"))
-        .into_iter()
-        .map(|(creator, n)| (creator.id.as_str(), n))
-        .collect();
-    assert_eq!(home, [("lumen", 2), ("northwind", 2), ("quill", 1)]);
+    assert_eq!(
+        chip_names(&local.chips("pdf", Some(&creator("quill")))),
+        [
+            ("quill".to_owned(), 0),
+            ("northwind".to_owned(), 2),
+            ("lumen".to_owned(), 1)
+        ]
+    );
+    assert_eq!(
+        chip_names(&local.chips("", Some(&creator("quill")))),
+        [
+            ("lumen".to_owned(), 2),
+            ("northwind".to_owned(), 2),
+            ("quill".to_owned(), 1)
+        ]
+    );
+}
+
+#[test]
+fn your_repositories_follow_the_catalog_by_name_and_a_curated_skill_shows_once() {
+    // Northwind's own repository also lists pdf-tools, which the catalog has.
+    let northwind = repository(
+        "northwind",
+        "https://git.example.invalid/northwind/skills.git",
+        &["pdf-tools", "pdf-split"],
+    );
+    let private = repository(
+        "private",
+        "git@git.example.invalid:acme/private.git",
+        &["zeta-pdf", "alpha-pdf"],
+    );
+    let catalog = catalog();
+    let repositories = [northwind.clone(), private.clone()];
+    let local = Local {
+        catalog: &catalog,
+        repositories: &repositories,
+    };
+    assert_eq!(
+        slugs(&local.results("pdf", None)),
+        [
+            "pdf-tools",
+            "pdf-merge",
+            "export",
+            "alpha-pdf",
+            "pdf-split",
+            "zeta-pdf"
+        ]
+    );
+    // The curated duplicate counts under its repository's chip too.
+    assert_eq!(
+        chip_names(&local.chips("pdf", None)),
+        [
+            ("northwind".to_owned(), 2),
+            ("lumen".to_owned(), 1),
+            ("northwind/skills".to_owned(), 2),
+            ("acme/private".to_owned(), 2)
+        ]
+    );
+    let picked = Source::Repository(private.id.clone());
+    assert_eq!(
+        slugs(&local.results("", Some(&picked))),
+        ["alpha-pdf", "zeta-pdf"]
+    );
+    assert_eq!(local.repository_of(&private.skills[0]), Some(&private));
+    assert_eq!(repository_glyph(&private.url), "lock");
+    assert_eq!(repository_glyph(&northwind.url), "github");
+}
+
+#[test]
+fn install_all_counts_the_slugs_the_library_lacks_and_sums_up_once() {
+    let repository = repository(
+        "acme",
+        "https://git.example.invalid/acme/skills.git",
+        &["pdf-tools", "docx", "blocked"],
+    );
+    // The library holds pdf-tools from elsewhere, so Install all leaves it.
+    let snapshot = Fixture::new().skill("pdf-tools", "", None).build();
+    assert_eq!(installable(&snapshot, &repository), 2);
+
+    let mut outcome = InstallAllOutcome {
+        installed: vec![SkillId("docx".to_owned())],
+        failed: Vec::new(),
+    };
+    assert_eq!(summary(&outcome), "Installed 1");
+    assert_eq!(toast(&outcome), "Installed 1 skill");
+    outcome.installed.push(SkillId("pdf-tools".to_owned()));
+    assert_eq!(toast(&outcome), "Installed 2 skills");
+    outcome
+        .failed
+        .push(("blocked".to_owned(), InstallFailure::Blocked));
+    assert_eq!(summary(&outcome), "Installed 2 · 1 failed");
+    assert_eq!(toast(&outcome), "Installed 2 · 1 failed");
+    assert_eq!(
+        failures(&repository, &outcome),
+        "Couldn't install blocked: it is blocked."
+    );
 }
 
 #[test]
@@ -196,18 +327,23 @@ fn an_install_is_found_by_its_source_and_its_failure_reads_as_one_line() {
 }
 
 #[test]
-fn installs_read_as_a_short_gain_or_all_time_on_skills_sh() {
+fn installs_read_as_a_short_gain_or_all_time_on_skills_sh_and_none_from_a_repository() {
     let label = |installs| installs_label(&skill("pdf", "northwind", "", installs));
-    assert_eq!(label(0), "+0 this week");
-    assert_eq!(label(900), "+900 this week");
-    assert_eq!(label(1_000), "+1k this week");
-    assert_eq!(label(12_400), "+12.4k this week");
-    assert_eq!(label(48_249), "+48.2k this week");
-    assert_eq!(label(999_950), "+1M this week");
-    assert_eq!(label(2_350_000), "+2.4M this week");
+    assert_eq!(label(0).as_deref(), Some("+0 this week"));
+    assert_eq!(label(900).as_deref(), Some("+900 this week"));
+    assert_eq!(label(1_000).as_deref(), Some("+1k this week"));
+    assert_eq!(label(12_400).as_deref(), Some("+12.4k this week"));
+    assert_eq!(label(48_249).as_deref(), Some("+48.2k this week"));
+    assert_eq!(label(999_950).as_deref(), Some("+1M this week"));
+    assert_eq!(label(2_350_000).as_deref(), Some("+2.4M this week"));
     let mut found = skill("pdf", "northwind", "", 0);
     found.origin = CatalogOrigin::SkillsSh { installs: 233_102 };
-    assert_eq!(installs_label(&found), "233.1k installs");
+    assert_eq!(installs_label(&found).as_deref(), Some("233.1k installs"));
+    // Your repositories have no install counts.
+    found.origin = CatalogOrigin::Repository {
+        id: RepositoryId("acme".to_owned()),
+    };
+    assert_eq!(installs_label(&found), None);
     assert_eq!(all_time_label(7), "7 installs");
 }
 
@@ -309,30 +445,41 @@ fn found_result(skill_id: &str, url: &str) -> SkillsShResult {
 #[test]
 fn skills_sh_answers_only_the_search_shown_after_two_characters() {
     let catalog = catalog();
+    let local = Local {
+        catalog: &catalog,
+        repositories: &[],
+    };
     let mut snapshot = Fixture::new().build();
     snapshot.explore.state = CatalogState::Ready;
-    assert_eq!(remote(&snapshot, &catalog, "p"), Remote::Idle);
+    assert_eq!(remote(&snapshot, local, "p"), Remote::Idle);
     // Until the pause ends and the request answers, it is on its way.
-    assert_eq!(remote(&snapshot, &catalog, "pdf"), Remote::Searching);
+    assert_eq!(remote(&snapshot, local, "pdf"), Remote::Searching);
     snapshot.explore.skills_sh = SkillsShSearch {
         query: "pd".to_owned(),
         state: SkillsShState::Unavailable,
     };
-    assert_eq!(remote(&snapshot, &catalog, "pdf"), Remote::Searching);
-    assert_eq!(remote(&snapshot, &catalog, "pd"), Remote::Unavailable);
+    assert_eq!(remote(&snapshot, local, "pdf"), Remote::Searching);
+    assert_eq!(remote(&snapshot, local, "pd"), Remote::Unavailable);
     snapshot.explore.skills_sh.state = SkillsShState::NeedsConnection;
-    assert_eq!(remote(&snapshot, &catalog, "pd"), Remote::NeedsConnection);
+    assert_eq!(remote(&snapshot, local, "pd"), Remote::NeedsConnection);
     // An offline catalog means skills.sh needs a connection too.
     snapshot.explore.skills_sh.state = SkillsShState::Results(Vec::new());
     snapshot.explore.state = CatalogState::Offline;
-    assert_eq!(remote(&snapshot, &catalog, "pd"), Remote::NeedsConnection);
+    assert_eq!(remote(&snapshot, local, "pd"), Remote::NeedsConnection);
     snapshot.explore.state = CatalogState::Ready;
-    assert_eq!(remote(&snapshot, &catalog, "pd").count(), Some(0));
+    assert_eq!(remote(&snapshot, local, "pd").count(), Some(0));
 }
 
 #[test]
-fn skills_sh_results_leave_out_skills_shown_and_show_resolved_ones_as_skills() {
+fn skills_sh_results_leave_out_skills_shown_locally_and_show_resolved_ones_as_skills() {
     let catalog = catalog();
+    // One of your repositories lists the result skills.sh also has.
+    let yours = found_result("pdf-notes", "https://git.example.invalid/acme/team.git");
+    let repositories = [repository("team", &yours.url, &["pdf-notes"])];
+    let local = Local {
+        catalog: &catalog,
+        repositories: &repositories,
+    };
     let shown = found_result("pdf-tools", "https://git.example.invalid/northwind/skills/");
     let other = found_result("pdf-tools", "https://github.com/acme/skills.git");
     let renamed = found_result("merge", "https://git.example.invalid/northwind/skills.git");
@@ -340,9 +487,9 @@ fn skills_sh_results_leave_out_skills_shown_and_show_resolved_ones_as_skills() {
     snapshot.explore.state = CatalogState::Ready;
     snapshot.explore.skills_sh = SkillsShSearch {
         query: "pdf".to_owned(),
-        state: SkillsShState::Results(vec![shown, other.clone(), renamed.clone()]),
+        state: SkillsShState::Results(vec![shown, other.clone(), renamed.clone(), yours]),
     };
-    let Remote::Results(found) = remote(&snapshot, &catalog, "pdf") else {
+    let Remote::Results(found) = remote(&snapshot, local, "pdf") else {
         panic!("no results");
     };
     assert_eq!(found, [Found::Result(&other), Found::Result(&renamed)]);
@@ -353,15 +500,15 @@ fn skills_sh_results_leave_out_skills_shown_and_show_resolved_ones_as_skills() {
     snapshot
         .explore
         .resolutions
-        .insert(result_key(&renamed), Resolution::Resolved(merge));
+        .insert(result_key(&renamed), Resolution::Resolved(Box::new(merge)));
     let mut resolved = skill("pdf-tools", "acme", "", 0);
     resolved.source.url = other.url.clone();
-    snapshot
-        .explore
-        .resolutions
-        .insert(result_key(&other), Resolution::Resolved(resolved.clone()));
+    snapshot.explore.resolutions.insert(
+        result_key(&other),
+        Resolution::Resolved(Box::new(resolved.clone())),
+    );
     assert_eq!(
-        remote(&snapshot, &catalog, "pdf"),
+        remote(&snapshot, local, "pdf"),
         Remote::Results(vec![Found::Skill(&resolved)])
     );
 }

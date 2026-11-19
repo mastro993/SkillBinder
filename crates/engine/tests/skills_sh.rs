@@ -140,7 +140,7 @@ async fn a_result_resolves_to_its_folder_by_folder_name_or_skill_md_name() {
     let resolutions = engine.current_explore().resolutions;
     assert_eq!(
         resolutions[&result_key(&result(&nested, "review"))],
-        Resolution::Resolved(review)
+        Resolution::Resolved(Box::new(review))
     );
     assert_eq!(resolutions[&result_key(&stray)], Resolution::NotFound);
     engine.shutdown().await.unwrap();

@@ -52,7 +52,7 @@ pub enum Resolution {
     /// Its repository is being fetched and searched.
     Resolving,
     /// The skill found: its slug, description, and source with the folder.
-    Resolved(CatalogSkill),
+    Resolved(Box<CatalogSkill>),
     /// No folder's SKILL.md name, or folder name, is the result's `skillId`.
     NotFound,
     /// The repository could not be fetched or read; resolving again retries.

@@ -6,8 +6,8 @@
 use super::super::NativeView;
 use super::super::toasts::ToastAction;
 use super::super::without_git::needs_git;
-use super::Scope;
 use super::cards::{all_time_installs, in_library as in_library_mark, skills_sh_tag};
+use super::query::Source;
 use super::query::{Remote, install_error, result_collides, result_in_library};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
 use gpui_kit::{
@@ -57,7 +57,7 @@ impl NativeView {
         let key = result_key(result);
         let meta = h_flex()
             .gap(px(CHIP_GAP))
-            .when(self.explore.scope.is_none(), |meta| {
+            .when(self.explore.source.is_none(), |meta| {
                 meta.child(skills_sh_tag(&key, &result.url, cx))
             })
             .child(all_time_installs(key.clone(), result.installs, cx));
@@ -165,12 +165,12 @@ impl NativeView {
     /// The skills.sh chip, with its count once skills.sh answered; picking it again returns to
     /// every source.
     pub(super) fn skills_sh_chip(&self, remote: &Remote<'_>, cx: &mut Context<Self>) -> ToggleChip {
-        let on = self.explore.scope == Some(Scope::SkillsSh);
+        let on = self.explore.source == Some(Source::SkillsSh);
         ToggleChip::new("explore-chip-skills-sh", on)
             .accessibility_label("skills.sh")
             .on_change({
                 let pick = cx.listener(move |view, _: &ClickEvent, _, cx| {
-                    view.pick((!on).then_some(Scope::SkillsSh), cx);
+                    view.pick_source((!on).then_some(Source::SkillsSh), cx);
                 });
                 move |_, event, window, cx| pick(event, window, cx)
             })
@@ -188,7 +188,7 @@ impl NativeView {
     /// The scope header of the skills.sh chip: its glyph, "skills.sh", and Clear filter.
     pub(super) fn skills_sh_scope(&self, cx: &mut Context<Self>) -> AnyElement {
         let clear = Button::close("explore-clear-filter", "Clear filter")
-            .on_click(cx.listener(|view, _, _, cx| view.pick(None, cx)));
+            .on_click(cx.listener(|view, _, _, cx| view.pick_source(None, cx)));
         h_flex()
             .gap(px(space::LG))
             .child(

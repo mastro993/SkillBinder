@@ -66,7 +66,7 @@ impl Resolutions {
         let key = result_key(result);
         let mut shared = self.lock();
         match shared.states.get(&key) {
-            Some(Resolution::Resolved(skill)) => Begin::Known(Ok(Some(skill.clone()))),
+            Some(Resolution::Resolved(skill)) => Begin::Known(Ok(Some(CatalogSkill::clone(skill)))),
             Some(Resolution::NotFound) => Begin::Known(Ok(None)),
             Some(Resolution::Resolving) => {
                 let (done, found) = oneshot::channel();
@@ -84,7 +84,7 @@ impl Resolutions {
     pub(crate) fn finish(&self, result: &SkillsShResult, resolved: &Resolved) {
         let key = result_key(result);
         let state = match resolved {
-            Ok(Some(skill)) => Resolution::Resolved(skill.clone()),
+            Ok(Some(skill)) => Resolution::Resolved(Box::new(skill.clone())),
             Ok(None) => Resolution::NotFound,
             Err(_) => Resolution::Failed,
         };

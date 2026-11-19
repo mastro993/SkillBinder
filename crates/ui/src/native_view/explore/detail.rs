@@ -14,7 +14,8 @@ use super::super::skill_page::untrusted_markdown;
 use super::super::{DialogState, NativeView, route::Route};
 use super::cards::{avatar, installs};
 use super::query::{
-    browser_url, creator_of, element_key, front_matter_label, preview_state, without_front_matter,
+    Source, browser_url, creator_of, element_key, front_matter_label, preview_state,
+    repository_glyph, without_front_matter,
 };
 use gpui_kit::component::dialog::Dialog;
 use gpui_kit::component::skeleton::Skeleton;
@@ -145,7 +146,7 @@ impl NativeView {
                 self.snapshot.explore.resolutions.get(&result_key(result))
         {
             self.client.preview(skill);
-            detail.opened = Opened::Skill(skill.clone());
+            detail.opened = Opened::Skill(CatalogSkill::clone(skill));
         }
         let Opened::Skill(skill) = &detail.opened else {
             return;
@@ -222,7 +223,7 @@ impl NativeView {
     }
 
     /// About: the creator, which narrows Explore to them, the repository, which opens in the
-    /// browser, and installs this week.
+    /// browser, and its installs, which one of your repositories' skills has none of.
     fn detail_about(&self, skill: &CatalogSkill, cx: &mut Context<Self>) -> AnyElement {
         let creator = self
             .snapshot
@@ -240,14 +241,14 @@ impl NativeView {
                     .child(Text::new(creator.name.clone()).level(text::LABEL_SM))
                     .on_click(cx.listener(move |view, _, _, cx| {
                         view.dialog = DialogState::None;
-                        view.pick_creator(Some(id.clone()), cx);
+                        view.pick_source(Some(Source::Creator(id.clone())), cx);
                     }))
             });
         let page = browser_url(&skill.source);
         let repository = Button::new("explore-detail-repository")
             .ghost()
             .small()
-            .icon(icon("github"))
+            .icon(icon(repository_glyph(&skill.source.url)))
             .label(owner_repo(&skill.source.url))
             .tooltip("Open in browser")
             .inactive(page.is_none())
@@ -272,7 +273,7 @@ impl NativeView {
                             .children(creator)
                             .child(repository),
                     )
-                    .child(installs(skill, cx)),
+                    .children(installs(skill, cx)),
             )
             .into_any_element()
     }

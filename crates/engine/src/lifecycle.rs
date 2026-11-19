@@ -34,6 +34,15 @@ pub enum GitSearch {
     Directory(PathBuf),
 }
 
+/// Which URLs Explore's repositories accept.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RepositoryUrls {
+    /// HTTPS without credentials, SSH, and SCP-style URLs.
+    Remote,
+    /// Also `file://` URLs, so tests and fixtures can add local repositories.
+    Local,
+}
+
 /// Filesystem boundaries captured once at application startup.
 #[derive(Clone, Debug)]
 pub struct EngineConfig {
@@ -49,6 +58,8 @@ pub struct EngineConfig {
     pub git_search: GitSearch,
     /// Where Explore's catalog is fetched from.
     pub catalog: CatalogSource,
+    /// Which URLs Explore's repositories accept.
+    pub repository_urls: RepositoryUrls,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
@@ -63,12 +74,13 @@ impl EngineConfig {
             catalog: CatalogSource::Http(
                 url::Url::parse(BASE_URL).map_err(|_| AppError::storage())?,
             ),
+            repository_urls: RepositoryUrls::Remote,
         })
     }
     /// Creates an isolated engine configuration for tests or native fixtures. Git reads only
     /// `home`'s configuration, so a fixture never reaches the user's credentials or identity, and
     /// the catalog comes from `<data_dir>/catalog-source`, which is missing, so offline, until a
-    /// fixture writes it.
+    /// fixture writes it. Repositories may be local `file://` ones.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
             catalog: CatalogSource::Directory(data_dir.join("catalog-source")),
@@ -77,6 +89,7 @@ impl EngineConfig {
             environment: BTreeMap::new(),
             git: GitProfile::Home,
             git_search: GitSearch::System,
+            repository_urls: RepositoryUrls::Local,
         }
     }
     /// The usable Git where [`Self::git_search`] says to look, or else the version of an older

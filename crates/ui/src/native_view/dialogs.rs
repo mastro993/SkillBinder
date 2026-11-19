@@ -25,11 +25,18 @@ impl NativeView {
             }
         } else if !window.has_active_dialog(cx) {
             let weak = cx.entity().downgrade();
+            self.dialogs_opened += 1;
+            let opened = self.dialogs_opened;
             window.open_dialog(cx, move |dialog, window, cx| {
                 let Some(view) = weak.upgrade() else {
                     return dialog;
                 };
                 view.update(cx, |view, cx| {
+                    // Kit builds a closing dialog's layer through its exit; built from the view
+                    // once a newer dialog opened, it would draw that one's focused field twice.
+                    if view.dialogs_opened != opened {
+                        return dialog;
+                    }
                     let close_view = cx.entity().downgrade();
                     let locked = view.dialog_locked();
                     // A click outside the picker or the Import skills dialog keeps it, so a long
@@ -52,11 +59,15 @@ impl NativeView {
                         })
                 })
             });
-            // The dialog takes focus as it opens; the picker hands it to its search.
-            if let DialogState::AddSkill(picker) = &self.dialog {
-                picker
-                    .search
-                    .update(cx, |input, cx| input.focus(window, cx));
+            // The dialog takes focus as it opens; the picker hands it to its search, and Add
+            // repository to its URL.
+            let field = match &self.dialog {
+                DialogState::AddSkill(picker) => Some(&picker.search),
+                DialogState::AddRepository(add) => Some(&add.input),
+                _ => None,
+            };
+            if let Some(field) = field {
+                field.update(cx, |input, cx| input.focus(window, cx));
             }
         }
     }
@@ -135,6 +146,10 @@ impl NativeView {
             }
             DialogState::DeleteFolder { id, revision } => {
                 self.delete_folder_dialog(dialog, id, revision, cx)
+            }
+            DialogState::AddRepository(add) => self.add_repository_dialog(dialog, add, cx),
+            DialogState::RemoveRepository(repository) => {
+                self.remove_repository_dialog(dialog, repository, cx)
             }
         }
     }
