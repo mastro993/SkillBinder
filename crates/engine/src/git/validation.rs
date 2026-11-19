@@ -40,7 +40,7 @@ fn unsafe_argument(value: &str) -> bool {
         || value.chars().any(|c| c.is_control() || c.is_whitespace())
 }
 /// Accepts HTTPS, SSH, SCP-style SSH, and file repository URLs without credentials.
-pub(super) fn url(url: &str) -> AppResult<()> {
+pub(crate) fn url(url: &str) -> AppResult<()> {
     let invalid = || AppError::validation("Use an HTTPS, SSH, SCP-style SSH, or file URL.");
     if unsafe_argument(url) {
         return Err(invalid());

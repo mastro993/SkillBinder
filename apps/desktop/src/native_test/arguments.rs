@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, bail, ensure};
-use skillbinder_engine::{EngineConfig, GitSearch};
+use skillbinder_engine::{CatalogSource, EngineConfig, GitSearch};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NativeMode {
@@ -21,10 +21,11 @@ pub(crate) fn parse_launch(
     let mut data = None;
     let mut home = None;
     let mut git = None;
+    let mut catalog = None;
     let mut mode = NativeMode::Interactive;
     while let Some(argument) = args.next() {
         match argument.to_str() {
-            Some("--data-dir") | Some("--home") | Some("--git-dir") => {
+            Some("--data-dir") | Some("--home") | Some("--git-dir") | Some("--catalog-dir") => {
                 let value = args.next().ok_or_else(|| {
                     anyhow::anyhow!("Missing value for {}", argument.to_string_lossy())
                 })?;
@@ -42,7 +43,8 @@ pub(crate) fn parse_launch(
                 let slot = match argument.to_str() {
                     Some("--data-dir") => &mut data,
                     Some("--home") => &mut home,
-                    _ => &mut git,
+                    Some("--git-dir") => &mut git,
+                    _ => &mut catalog,
                 };
                 ensure!(
                     slot.replace(path).is_none(),
@@ -78,6 +80,10 @@ pub(crate) fn parse_launch(
     // Only this directory is searched, so a check can start without Git and add it later.
     if let Some(git) = git {
         config.git_search = GitSearch::Directory(resolved_path(&git)?);
+    }
+    // A fixture catalog, laid out like the CDN; renaming it takes the catalog offline.
+    if let Some(catalog) = catalog {
+        config.catalog = CatalogSource::Directory(resolved_path(&catalog)?);
     }
     Ok((config, mode))
 }
@@ -125,6 +131,12 @@ mod tests {
         assert_eq!(
             parse(&["--data-dir", fixture])?.0.git_search,
             GitSearch::System
+        );
+        assert_eq!(
+            parse(&["--data-dir", fixture, "--catalog-dir", fixture])?
+                .0
+                .catalog,
+            CatalogSource::Directory(resolved_path(Path::new(fixture))?)
         );
         for args in [
             vec![],

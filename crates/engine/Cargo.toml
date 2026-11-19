@@ -27,6 +27,7 @@ yaml-rust2.workspace = true
 tempfile.workspace = true
 toml.workspace = true
 url.workspace = true
+ureq.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true

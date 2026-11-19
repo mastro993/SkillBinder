@@ -53,6 +53,7 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 | Component | Purpose | Main props |
 | --- | --- | --- |
 | `CardList` (`src/card_list.rs`) | A flat card of `ListRow`s divided by inset `hairline` dividers, its first and last rows rounded inside its outline, and any other child, such as a group header, between them; what it shows with no row; optionally scrolling. | `row` / `rows`, `empty`, `scrolls` |
+| `SkillCard` (`src/skill_card.rs`) | A skill's grid tile: a flat `Surface` holding its title line, its description in at most two `caption` muted lines, and a footer at its foot at least `control-md` high, on the `library` grid metrics. Library's grid and Explore's Trending draw their tiles with it. What its caller styles wins over its defaults. | `title`, `description`, `faded`, `footer`, `hover` |
 | `DialogFrame` (`src/dialog_frame.rs`) | The frame every dialog shares, applied to the `Dialog` Kit hands a dialog's builder: its size, the `popover` fill, `xl` corners, `body-sm` body, a `DialogHeader`, and a `DialogFooter`. | `size: DialogSize::{Compact 320, Standard 420, Window(viewport) 92% × 90%}`, `header`, `footer` |
 | `Menu` (`src/menu.rs`) | The context menu: `OpenMenu` opens `MenuItem`s at the pointer above a backdrop, a submenu or a panel of any content beside a row, and a panel beside a submenu row, all walked with the keyboard. `menu::row`, `menu::separator`, and `menu::highlight` give a menu-like list drawn elsewhere the same rows. | `MenuItem::{new, separator}`, `icon`, `leading`, `checked`, `disabled`, `danger`, `on_select`, `submenu`, `panel` |
 | `PopoverPanel` (`src/popover_panel.rs`) | A popover's overlay surface with the menu's corners and padding, placed by Kit's positioner `OFFSET` beside its anchor and kept the menus' margin inside the window. Its owner handles focus and dismissal. | `anchor(bounds, placement, align)`, children |
@@ -69,7 +70,7 @@ Components join as the design-system slices add them (#136 Surface, #137 atoms, 
 | `tokens::icon` | Icon sizes 12, 14, 16, 20. | Layout prose |
 | `tokens::opacity` | `INACTIVE` 0.5, `DISABLED` 0.4. | Components prose |
 | `tokens::elevation` | The shadow layers of `flat`, `raised`, `raised-panel`, `overlay`, and `modal`, as `Shadow`s in black or a Kit theme color. Read through `Surface`. | `elevation` |
-| `page`, `sidebar`, `menu`, `library` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype; `menu`'s sit with the Menu organism. `page` is the panel's inset and gutter, shared by every page. | the scales |
+| `page`, `sidebar`, `menu`, `library`, `explore` | Feature metrics, each an alias of a scale token or a layout measurement from a prototype; `menu`'s sit with the Menu organism. `page` is the panel's inset and gutter, shared by every page. | the scales |
 
 `src/tokens.rs` and `themes/skillbinder.json` are generated; never edit them by hand. To change a token:
 

@@ -11,6 +11,7 @@ mod validation;
 
 pub(crate) use install::Installer;
 pub(crate) use source::validate as validate_source;
+pub(crate) use validation::url as validate_url;
 
 use crate::shutdown::Shutdown;
 use skillbinder_proto::{

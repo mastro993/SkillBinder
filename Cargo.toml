@@ -35,6 +35,7 @@ tempfile = "3"
 time = { version = "0.3", features = ["formatting"] }
 chrono = "0.4"
 url = "2.5.8"
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }

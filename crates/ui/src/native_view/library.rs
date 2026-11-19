@@ -149,7 +149,7 @@ impl NativeView {
 
     /// The list's width: the page panel, inset from the window's right edge and, without the
     /// sidebar, its left edge too, less the gutter on each side.
-    fn content_width(&self, window: &Window) -> f32 {
+    pub(super) fn content_width(&self, window: &Window) -> f32 {
         let (sidebar, insets) = if self.sidebar_collapsed {
             (0., 2.)
         } else {
@@ -160,7 +160,7 @@ impl NativeView {
 }
 
 /// As many columns of at least `GRID_MIN` as fit, at least one.
-fn grid_columns(width: f32) -> u16 {
+pub(super) fn grid_columns(width: f32) -> u16 {
     // Truncation is intended: only whole columns fit.
     #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let columns = ((width + GRID_GAP) / (GRID_MIN + GRID_GAP)).floor().max(1.) as u16;

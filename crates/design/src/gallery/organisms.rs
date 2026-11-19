@@ -5,7 +5,7 @@ use super::{section, wrap};
 use crate::tokens::space;
 use crate::{
     AvatarStack, Button, CardList, Checkbox, DialogFooter, DialogHeader, Level, ListRow, Logo,
-    PopoverPanel, Surface, Text, icon, icon_color, menu,
+    PopoverPanel, SkillCard, Surface, Text, icon, icon_color, menu,
 };
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
@@ -28,6 +28,7 @@ const LOGOS: [Logo; 6] = [
 pub(super) fn organisms(cx: &App) -> Vec<AnyElement> {
     vec![
         section("ListRow, CardList, and AvatarStack", lists()).into_any_element(),
+        section("SkillCard", cards()).into_any_element(),
         section("DialogHeader and DialogFooter", dialog(cx)).into_any_element(),
         section("Menu and PopoverPanel", menus(cx)).into_any_element(),
     ]
@@ -64,6 +65,24 @@ fn lists() -> Div {
                     .child(Text::new("No agents found").muted()),
             ),
         )
+}
+
+/// A tile that opens on click, and an inactive skill's with its description faded.
+fn cards() -> Div {
+    let card = |id: &'static str, title: &'static str| {
+        SkillCard::new(id)
+            .w(px(crate::library::GRID_MIN))
+            .title(Text::new(title))
+            .description("Extracts text, tables, and form fields from PDF files and fills forms.")
+    };
+    wrap()
+        .items_start()
+        .child(
+            card("gallery-skill-card", "pdf-tools")
+                .footer(Text::new("+12.4k this week").muted())
+                .hover(true),
+        )
+        .child(card("gallery-skill-card-faded", "docx-writer").faded(true))
 }
 
 fn dialog(cx: &App) -> Div {

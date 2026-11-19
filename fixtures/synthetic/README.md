@@ -11,6 +11,7 @@ Build it with `cargo run -p xtask --locked -- fixture <new directory>`, then lau
 | `projects/` | `projects/` here | Pick this folder to add `atlas-web` and `orbit-api` as workspaces; `scratch-notes` has no agent skill directory and is skipped. |
 | `sources/<name>.git` | `sources/<name>/<n>/`, one commit per numbered snapshot, oldest first | A local skill source: the installed skills come from snapshot 1, so the skills snapshot 2 changes show an update. |
 | `remotes/<name>.git` | `remotes/<name>/`, one commit | A Sync remote holding a library pushed from another machine. |
+| `catalog/` | `catalog/` here | Explore's catalog, laid out like the CDN's `v1/`: four fictional creators and their skills, three with avatars. Launch with `--catalog-dir`; rename the folder to go offline, or delete `catalog/v1` to need a newer app. |
 | `data/` | nothing | Created by the app on first launch: start with onboarding. |
 
 States the world holds:
@@ -20,6 +21,7 @@ States the world holds:
 - **Warning:** `oncall-handbook`'s description exceeds 1,024 characters.
 - **Blocked:** `plugin-bundle` holds a `.claude-plugin/plugin.json`.
 - **Updates:** `api-design` and `incident-runbook` change in the source's snapshot 2.
+- **In library in Explore:** `pdf-tools` in the universal agents' directory records Northwind Labs' repository, which the catalog lists it from; once imported, its Explore card shows "In library". Its host never resolves, so its update check fails.
 - **Workspace copy of a library skill:** `atlas-web` holds `release-notes` with the same content as Claude Code's.
 
 Descriptions avoid `: `, which ends a plain YAML scalar, except where a skill is meant to be invalid. A `.gitkeep` keeps an empty directory in Git; the task creates the directory without it.
