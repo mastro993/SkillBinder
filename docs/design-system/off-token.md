@@ -79,7 +79,7 @@ Each is a named constant whose doc comment gives the same reason.
 | `library_places.rs` `PILL_WIDTH` | 26 | An agent pill, a step wider than tall, from the Library prototype |
 | `onboarding.rs` `NARROW`, `WIDE` | 384, 576 | The onboarding column, from the onboarding prototype (P6) |
 | `page_head.rs` `SEARCH_WIDTH` | 220 | The scoped page search field, from the scoped-page prototype |
-| `place_popover/sections.rs` `THUMB` | 14 | The All agents switch thumb, GPUI Kit's small switch geometry |
+| `place_popover/sections.rs` `TRACK`, `THUMB`, `TRAVEL` | (30, 18), 14, and the 4-point inset in `TRAVEL` | The All agents switch track, thumb, and thumb travel, GPUI Kit's small switch geometry |
 | `preset_icons.rs` `CELL_SIZE` | 28 | A preset icon picker cell, eight to the menu's width |
 | `progress_strip/render.rs` `PILL_HEIGHT`, `PILL_TOP` | 34, 10 | The progress pill and its distance from the window top, from the progress strip prototype |
 | `shell.rs` `TOGGLE_LEFT_MACOS` | 93 | The sidebar toggle's offset past the macOS traffic lights, from the native window |

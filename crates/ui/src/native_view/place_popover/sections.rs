@@ -39,7 +39,8 @@ pub(super) trait Placer: Sized + 'static {
 }
 
 /// The All agents switch's track and thumb, and how far the thumb travels between off and on:
-/// GPUI Kit's own small switch, which this one draws with a raised thumb.
+/// GPUI Kit's own small switch, which this one draws with a raised thumb. The thumb travels the
+/// track less its 1 px border and 1 px padding on each side.
 const TRACK: (f32, f32) = (30., 18.);
 const THUMB: f32 = 14.;
 const TRAVEL: f32 = TRACK.0 - THUMB - 4.;
