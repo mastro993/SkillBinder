@@ -15,6 +15,8 @@ pub enum ErrorCategory {
     Storage,
     /// Git could not perform the requested operation.
     Git,
+    /// A network host could not be reached.
+    Offline,
     /// An interrupted operation must be recovered first.
     Recovery,
     /// Work was cancelled before commitment.
@@ -47,7 +49,10 @@ impl AppError {
             category,
             retryable: matches!(
                 category,
-                ErrorCategory::Busy | ErrorCategory::Storage | ErrorCategory::Git
+                ErrorCategory::Busy
+                    | ErrorCategory::Storage
+                    | ErrorCategory::Git
+                    | ErrorCategory::Offline
             ),
             recovery: recovery.into(),
             diagnostic_id: uuid::Uuid::new_v4().to_string(),

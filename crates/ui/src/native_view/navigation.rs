@@ -61,6 +61,7 @@ impl NativeView {
         self.update_outcome = None;
         self.skill_load = None;
         self.place_popover = None;
+        self.library_reveal = None;
         self.content_scroll.handle.set_offset(Default::default());
     }
 }

@@ -141,9 +141,10 @@ impl Button {
         self.map_base(|base| base.selected(selected))
     }
 
-    /// Replaces the icon with Kit's spinner while `loading`.
+    /// Replaces the icon with Kit's spinner turning the retained `loading` glyph while
+    /// `loading`; Kit's own glyph is not retained, so it would draw nothing.
     pub fn loading(self, loading: bool) -> Self {
-        self.map_base(|base| base.loading(loading))
+        self.map_base(|base| base.loading(loading).loading_icon(crate::icon("loading")))
     }
 
     /// Focuses through `focus`.

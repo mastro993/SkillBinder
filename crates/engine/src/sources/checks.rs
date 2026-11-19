@@ -253,7 +253,7 @@ fn check_group(git: &Git, data_dir: &Path, skills: &[Due], log: &Logger) -> Vec<
                 // An update would be refused, so the skill has none to offer.
                 Ok(Some(inspection)) => refusal(&inspection)
                     .map_or(UpdateCheck::Available, |why| {
-                        UpdateCheck::Failed(why.to_owned())
+                        UpdateCheck::Failed(why.update_text().to_owned())
                     }),
                 Err(error) => failed(error),
             }

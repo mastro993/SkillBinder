@@ -171,8 +171,11 @@ impl NativeView {
             self.ask_changed(changed, removal.asked);
             return;
         }
-        self.toast
-            .show_undo(format!("Removed {skill}").into(), removal.undo, cx);
+        self.toast.offer(
+            format!("Removed {skill}").into(),
+            Some(super::toasts::ToastAction::Undo(removal.undo)),
+            cx,
+        );
     }
 
     /// Saves the choice `undo` kept, unless the place or skill is gone. While the app is blocked

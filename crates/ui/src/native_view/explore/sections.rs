@@ -3,8 +3,8 @@
 
 use super::super::NativeView;
 use super::super::library::grid_columns;
-use super::cards::{card, skeleton_card, skeleton_chip};
-use super::query::{TRENDING, in_library, popular_creators, trending};
+use super::cards::{skeleton_card, skeleton_chip};
+use super::query::{TRENDING, popular_creators, trending};
 use gpui_kit::component::{Sizable, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
@@ -37,7 +37,7 @@ impl NativeView {
                 (Some(catalog), _) => (
                     trending(catalog)
                         .iter()
-                        .map(|skill| card(skill, in_library(&self.snapshot, skill), cx))
+                        .map(|skill| self.card(skill, cx))
                         .collect(),
                     popular_creators(catalog)
                         .iter()

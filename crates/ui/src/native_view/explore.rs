@@ -1,8 +1,10 @@
 //! The Explore page: the catalog's Trending skills and Popular creators under a search field, or
-//! the results a search and a picked creator narrow it to, with one quiet line while the catalog
-//! is offline, could not be refreshed, or needs a newer app (ADR 0014).
+//! the results a search and a picked creator narrow it to, each with its Install action, with one
+//! quiet line while the catalog is offline, could not be refreshed, or needs a newer app (ADR
+//! 0014), and one while installing needs Git (ADR 0015).
 
 mod cards;
+mod install;
 mod query;
 mod results;
 mod sections;
@@ -84,6 +86,7 @@ impl NativeView {
                             .gap(px(GAP))
                             .pb(px(GUTTER))
                             .children(catalog_line(explore))
+                            .children(self.install_git_line(cx))
                             .child(body),
                     )
                     .child(

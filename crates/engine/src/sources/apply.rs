@@ -109,7 +109,7 @@ impl State {
         let fetched = checkout(git, &cache, &source, &staging.join("source"), slug)?
             .ok_or_else(|| AppError::not_found(GONE))?;
         if let Some(why) = refusal(&fetched) {
-            return Err(AppError::validation(why));
+            return Err(AppError::validation(why.update_text()));
         }
         let tree = fetched.tree.clone();
         self.replace(

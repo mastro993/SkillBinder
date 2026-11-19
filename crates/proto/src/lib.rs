@@ -3,6 +3,7 @@
 mod activation;
 mod catalog;
 mod error;
+mod install;
 mod library;
 mod lifecycle;
 mod scan;
@@ -12,6 +13,7 @@ mod workspaces;
 pub use activation::*;
 pub use catalog::*;
 pub use error::*;
+pub use install::*;
 pub use library::*;
 pub use lifecycle::*;
 pub use scan::*;

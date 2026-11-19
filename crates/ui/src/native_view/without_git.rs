@@ -1,9 +1,9 @@
-//! What needs Git while none is found (ADR 0011): update checks, Update, and Reinstall stay
-//! visible but unavailable, with a tooltip saying they need Git.
+//! What needs Git while none is found (ADR 0011): update checks, Update, Reinstall, and Install
+//! stay visible but unavailable, with a tooltip saying they need Git.
 
 use super::NativeView;
 use gpui_kit::{
-    AnyElement, ElementId, InteractiveElement, IntoElement, ParentElement,
+    AnyElement, ElementId, InteractiveElement, IntoElement, ParentElement, SharedString,
     StatefulInteractiveElement, div,
 };
 use skillbinder_design::{Button, tooltip as tip};
@@ -21,10 +21,10 @@ impl NativeView {
 }
 
 /// `control`, unavailable, under a wrapper `id` whose tooltip says why, since a disabled button
-/// shows none of its own.
+/// shows none of its own. Install also uses it for a slug the library already holds.
 pub(super) fn needs_git(
     id: impl Into<ElementId>,
-    tooltip: &'static str,
+    tooltip: impl Into<SharedString>,
     control: Button,
 ) -> AnyElement {
     div()

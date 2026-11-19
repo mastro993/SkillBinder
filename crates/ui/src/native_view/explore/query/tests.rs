@@ -125,6 +125,7 @@ fn a_held_slug_is_in_library_only_from_the_same_source() {
         path: "skills/pdf-tools".to_owned(),
     });
     assert!(in_library(&snapshot, &pdf));
+    assert!(!collides(&snapshot, &pdf));
     let mut moved = pdf.clone();
     moved.source.url = "git@git.example.invalid:northwind/skills.git".to_owned();
     assert_ne!(
@@ -132,7 +133,55 @@ fn a_held_slug_is_in_library_only_from_the_same_source() {
         normalized_url(&pdf.source.url)
     );
     assert!(!in_library(&snapshot, &moved), "another source");
-    assert!(!in_library(&snapshot, &skill("docx", "northwind", "", 1)));
+    assert!(
+        collides(&snapshot, &moved),
+        "Install is refused, never renamed"
+    );
+    let docx = skill("docx", "northwind", "", 1);
+    assert!(!in_library(&snapshot, &docx));
+    assert!(!collides(&snapshot, &docx));
+}
+
+#[test]
+fn an_install_is_found_by_its_source_and_its_failure_reads_as_one_line() {
+    let pdf = skill("pdf-tools", "northwind", "", 1);
+    let mut snapshot = Fixture::new().build();
+    assert_eq!(install_state(&snapshot, &pdf), None);
+    let mut spelled = pdf.source.clone();
+    spelled.path.push('/');
+    snapshot
+        .explore
+        .installs
+        .insert(install_key(&spelled), InstallState::Installing);
+    assert_eq!(
+        install_state(&snapshot, &pdf),
+        Some(&InstallState::Installing)
+    );
+    for (failure, line) in [
+        (
+            InstallFailure::Access,
+            "Couldn't install. Check your access to northwind/skills.",
+        ),
+        (InstallFailure::Offline, "Couldn't install: no connection."),
+        (
+            InstallFailure::NotFound,
+            "Couldn't find this skill in northwind/skills",
+        ),
+        (
+            InstallFailure::Blocked,
+            "Couldn't install pdf-tools: it is blocked.",
+        ),
+        (
+            InstallFailure::Invalid,
+            "Couldn't install pdf-tools: its SKILL.md metadata is invalid.",
+        ),
+        (
+            InstallFailure::Empty,
+            "Couldn't install pdf-tools: its folder has no files.",
+        ),
+    ] {
+        assert_eq!(install_error(&pdf, &failure), line);
+    }
 }
 
 #[test]

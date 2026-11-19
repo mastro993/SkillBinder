@@ -129,7 +129,7 @@ impl State {
     }
 
     /// The normalized slugs the library holds, including directories not yet reconciled.
-    pub(super) fn held_names(&self) -> AppResult<BTreeSet<String>> {
+    pub(crate) fn held_names(&self) -> AppResult<BTreeSet<String>> {
         let library = self.read_library()?;
         Ok(library
             .skills

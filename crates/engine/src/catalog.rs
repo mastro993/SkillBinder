@@ -68,12 +68,13 @@ impl Catalogs {
         self.shared.lock().map_err(|_| AppError::storage())
     }
 
-    /// The catalog state and the cached catalog.
+    /// The catalog state and the cached catalog, with no installs.
     pub(crate) fn current(&self) -> ExploreSnapshot {
         self.lock()
             .map(|shared| ExploreSnapshot {
                 state: shared.state,
                 catalog: shared.catalog.clone(),
+                installs: Default::default(),
             })
             .unwrap_or_default()
     }

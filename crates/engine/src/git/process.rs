@@ -10,6 +10,8 @@ use std::{
 };
 
 const OUTPUT_LIMIT: usize = 4 * 1024 * 1024;
+/// What a command that ran past its timeout reports.
+pub(super) const TIMED_OUT: &str = "Git timed out. Check the remote and try again.";
 
 /// The Git executable, and the home whose configuration alone it reads, if not the user's.
 #[derive(Clone, Debug)]
@@ -116,7 +118,7 @@ pub(super) fn run(
         }
         if started.elapsed() >= timeout {
             stop_child(&mut child);
-            return Err(failure("Git timed out. Check the remote and try again."));
+            return Err(failure(TIMED_OUT));
         }
         thread::sleep(Duration::from_millis(5));
     };

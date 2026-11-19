@@ -86,10 +86,12 @@ impl Fixture {
     }
 
     /// Adds the fixture workspace.
+    #[allow(dead_code, reason = "Not every test crate adds a workspace.")]
     pub async fn register(&self, engine: &Engine) -> Workspace {
         add_workspace(engine, &self.workspace).await
     }
 
+    #[allow(dead_code, reason = "Not every test crate scans.")]
     pub async fn scan(&self, engine: &Engine) -> ScanSnapshot {
         scan(engine).await
     }
@@ -162,6 +164,7 @@ pub fn write_skill(directory: &Path, slug: &str, body: &str) -> PathBuf {
 }
 
 /// Adds a folder that is a single project as one workspace.
+#[allow(dead_code, reason = "Not every test crate adds a workspace.")]
 pub async fn add_workspace(engine: &Engine, path: &Path) -> Workspace {
     let grant = engine.grant_directory(path.to_owned()).await.unwrap();
     let mut added = engine.add_workspaces(grant.id).await.unwrap();
@@ -170,6 +173,7 @@ pub async fn add_workspace(engine: &Engine, path: &Path) -> Workspace {
 }
 
 /// Scans the agents' global skill directories and every workspace and waits for the scan to complete.
+#[allow(dead_code, reason = "Not every test crate scans.")]
 pub async fn scan(engine: &Engine) -> ScanSnapshot {
     engine.start_scan().await.unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);

@@ -21,6 +21,7 @@ mod library_filters;
 mod library_folders;
 mod library_items;
 mod library_places;
+mod library_reveal;
 mod library_targets;
 mod library_updates;
 mod library_validation;
@@ -173,6 +174,8 @@ pub struct NativeView {
     library_folder: Option<FolderId>,
     /// Library's Active and Updates filters; like the folder, not kept across restarts.
     library_filter: snapshot_query::LibraryFilter,
+    /// The skill Library scrolls to once it lays out, after Show in Library.
+    library_reveal: Option<SkillId>,
     /// The Library skill whose popover, or the workspace page's skill whose agents menu, is open.
     place_popover: Option<place_popover::PlacePopover>,
     /// Inline folder naming in the header.
@@ -340,6 +343,7 @@ impl NativeView {
             explore: explore::Explore::new(window, cx),
             library_folder: None,
             library_filter: snapshot_query::LibraryFilter::default(),
+            library_reveal: None,
             place_popover: None,
             folder_edit: None,
             creating_folder: None,
