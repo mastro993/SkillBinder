@@ -41,7 +41,9 @@ Every skill on Explore, on its Trending tile and its result row, has one Install
 
 Install fetches the skill's folder from its source with Git and puts it in the library at `skills/<slug>`, inactive: in no preset and no workspace, and nothing is written to your agents or workspaces (G4). While it runs, the button reads "Installing", labeled "Installing <slug>", with Kit's spinner, and is inert; the rest of the page stays usable, several installs run at once, and they keep running when the user leaves Explore. Once it lands the user stays where they are, the action becomes "In library", and the toast "Installed <slug>" offers Show in Library, which opens Library on All skills with its search, folder, and filters cleared and scrolls the list or grid to the skill, without opening its page. The installed skill's record holds its content and its source: the repository URL, no pinned ref, and the folder, so it follows the repository's default branch and Update works on it (see [Library](library-and-organization.md)). Its import time is the install's. Like an import it stays uncommitted until Sync or Push (see [Synchronization](sync-and-durability.md)).
 
-A failed install keeps Install and adds one line in the danger color under the tile's or row's content, until the skill is installed again or the app quits:
+Installing never activates a skill, but when an install is the first thing to fill the library after onboarding, the device's one-time adoption still runs at the next reconcile, as it does after the import or Pull that fills it (design T8, [Activation](activation.md)): an installed skill whose exact content an agent's own global skill directory already holds becomes held by the active preset for that agent, because the agent already loads it.
+
+A failed install keeps Install and adds one line in the danger color under the tile's or row's content, until the skill is installed again, the library comes to hold its slug, or the app quits:
 
 | Cause | Line |
 |---|---|

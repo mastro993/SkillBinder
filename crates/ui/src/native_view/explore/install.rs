@@ -54,11 +54,15 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The error line of `skill`'s failed install, if its last one failed.
+    /// The error line of `skill`'s failed install, if its last one failed and Install is still
+    /// offered: a slug the library came to hold since, such as by a Pull, drops the line.
     pub(super) fn install_error_line(&self, skill: &CatalogSkill) -> Option<AnyElement> {
         let Some(InstallState::Failed(failure)) = install_state(&self.snapshot, skill) else {
             return None;
         };
+        if in_library(&self.snapshot, skill) || collides(&self.snapshot, skill) {
+            return None;
+        }
         Some(
             Notice::new(
                 format!("explore-install-error-{}", element_key(skill)),
