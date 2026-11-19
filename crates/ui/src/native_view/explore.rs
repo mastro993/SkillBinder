@@ -1,13 +1,16 @@
 //! The Explore page: the catalog's Trending skills and Popular creators under a search field, or
 //! the results a search and a picked creator narrow it to, each with its Install action, with one
 //! quiet line while the catalog is offline, could not be refreshed, or needs a newer app (ADR
-//! 0014), and one while installing needs Git (ADR 0015).
+//! 0014), and one while installing needs Git (ADR 0015). Clicking a skill opens its detail dialog.
 
 mod cards;
+mod detail;
 mod install;
 mod query;
 mod results;
 mod sections;
+
+pub(super) use detail::Detail;
 
 use super::NativeView;
 use gpui_kit::component::input::{InputEvent, InputState};
@@ -24,8 +27,10 @@ use skillbinder_proto::{CatalogState, ExploreSnapshot};
 /// What Explore keeps while it shows: its search and the creator it is narrowed to.
 pub(super) struct Explore {
     search: Entity<InputState>,
-    /// The creator picked on a chip, a creator chip, or a result's source tag.
+    /// The creator picked on a chip, a creator chip, a result's source tag, or a detail dialog.
     creator: Option<String>,
+    /// A detail dialog's preview is open in the projection, until the dialog closes.
+    previewing: bool,
     _search_subscription: Subscription,
 }
 
@@ -40,6 +45,7 @@ impl Explore {
         Self {
             search,
             creator: None,
+            previewing: false,
             _search_subscription: subscription,
         }
     }

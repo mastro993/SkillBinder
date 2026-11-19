@@ -98,6 +98,32 @@ fn malformed_yaml_features_and_duplicate_keys_are_invalid() {
     }
 }
 #[test]
+fn front_matter_fields_follow_the_name_and_description_in_order() {
+    use skillbinder_proto::{FrontMatterField, FrontMatterValue};
+    let skill_md = "---\nname: review\ndescription: Reviews.\nlicense: MIT\n\
+        allowed-tools: Bash(git log:*), Read  Grep\nmetadata:\n  author: lumen\n  version: 2.0\n\
+        \x20 nested: {a: b}\ntags: [ui, a11y]\nbeta: true\nhooks: {pre: x}\n---\n# Review\n";
+    let field = |key: &str, value: FrontMatterValue| FrontMatterField {
+        key: key.to_owned(),
+        value,
+    };
+    let list = |items: &[&str]| FrontMatterValue::List(items.iter().map(|&s| s.into()).collect());
+    let text = |text: &str| FrontMatterValue::Text(text.to_owned());
+    assert_eq!(
+        front_matter_fields(skill_md.as_bytes()),
+        [
+            field("license", text("MIT")),
+            field("allowed-tools", list(&["Bash(git log:*)", "Read", "Grep"])),
+            field("author", text("lumen")),
+            field("version", text("2.0")),
+            field("tags", list(&["ui", "a11y"])),
+            field("beta", text("true")),
+        ]
+    );
+    assert!(front_matter_fields(b"# No front matter\n").is_empty());
+    assert!(front_matter_fields(b"---\nname: &a x\ndescription: *a\n---\n").is_empty());
+}
+#[test]
 fn yaml_depth_and_node_limits_are_checked_before_loading() {
     for yaml in [
         format!(

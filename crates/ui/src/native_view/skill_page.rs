@@ -7,7 +7,9 @@ use gpui_kit::component::{
     text::{FrontmatterPlugin, MarkdownExtensions, TextView},
     v_flex,
 };
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
+use gpui_kit::{
+    AnyElement, Context, ElementId, IntoElement, ParentElement, SharedString, Styled, div, px,
+};
 use skillbinder_design::tokens::space;
 use skillbinder_design::{Button, Notice, NoticeSize, Status};
 use skillbinder_proto::{AppError, SkillId};
@@ -103,21 +105,31 @@ impl NativeView {
                 .child(preview.unavailable.clone().unwrap_or_default())
                 .into_any_element();
         };
-        // Skill content is untrusted. Remote images never load because the app installs no HTTP
-        // client, so GPUI's null client refuses every request; keep it that way or filter images.
-        TextView::markdown(format!("skill-{id}"), text.clone())
-            .markdown_extensions(
-                MarkdownExtensions::default()
-                    .frontmatter()
-                    .plugin(FrontmatterPlugin::new()),
-            )
-            .selectable(true)
-            .on_link_click(|link, _, _, cx| {
-                // Only web links open; skill content is untrusted.
-                if link.starts_with("https://") || link.starts_with("http://") {
-                    cx.open_url(link);
-                }
-            })
-            .into_any_element()
+        untrusted_markdown(
+            format!("skill-{id}"),
+            text.clone(),
+            MarkdownExtensions::default()
+                .frontmatter()
+                .plugin(FrontmatterPlugin::new()),
+        )
+        .into_any_element()
     }
+}
+
+/// Skill content as selectable Markdown with `extensions`. It is untrusted, so only web links
+/// open. Remote images never load because the app installs no HTTP client, so GPUI's null client
+/// refuses every request; keep it that way or filter images.
+pub(super) fn untrusted_markdown(
+    id: impl Into<ElementId>,
+    text: impl Into<SharedString>,
+    extensions: MarkdownExtensions,
+) -> TextView {
+    TextView::markdown(id, text)
+        .markdown_extensions(extensions)
+        .selectable(true)
+        .on_link_click(|link, _, _, cx| {
+            if link.starts_with("https://") || link.starts_with("http://") {
+                cx.open_url(link);
+            }
+        })
 }

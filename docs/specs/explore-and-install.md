@@ -14,7 +14,7 @@ A user opens Explore, finds a skill by trending, by creator, by search, or in a 
 
 ## Scope
 
-In: the Explore page and its sidebar row; the catalog, its refresh, cache, and offline states; Trending and Popular creators; search across the catalog, the user's repositories, and skills.sh; the skill detail side sheet; install with its collision, no-Git, failure, and concurrency rules; the user's repositories (add, list, Install all, remove); the New mark in Library; the nightly catalog job (slice S0, outside the app).
+In: the Explore page and its sidebar row; the catalog, its refresh, cache, and offline states; Trending and Popular creators; search across the catalog, the user's repositories, and skills.sh; the skill detail dialog; install with its collision, no-Git, failure, and concurrency rules; the user's repositories (add, list, Install all, remove); the New mark in Library; the nightly catalog job (slice S0, outside the app).
 
 Out: activating a skill as part of install; ratings and reviews; publishing skills; deleting library skills; suggesting creators or repositories for curation from inside the app; keeping tokens or asking for passwords; editing a library skill's source; Install all for creators, Trending, or search results.
 
@@ -26,13 +26,13 @@ These are the owner's decisions from the 2026-11-19 design session. Ids are stab
 - **D2** The page is named Explore, with the compass glyph. Never Discover or Discovery, the name of the page ADR 0008 retired.
 - **D3** Popular means trending, recomputed daily by a nightly GitHub Action.
 - **D4** The New mark clears when the skill is first activated anywhere or its page is opened.
-- **D5** A skill's details show before install, in the detail sheet (D11): description, creator, repository link, installs this week, file list, and SKILL.md text.
+- **D5** A skill's details show before install, in the detail dialog (D11): description, creator, repository link, installs this week, file list, and SKILL.md text.
 - **D6** Install all exists only on the user's repositories.
 - **D7** After Install, the user stays on Explore; the card becomes "In library"; a toast says "Installed <slug>" with "Show in Library".
 - **D8** Trending ranks by installs gained over the last 7 days.
 - **D9** Explore has a Popular creators section.
 - **D10** The curated lists are hosted on a CDN, published from GitHub, and refreshed live by the app, so they change without an app release.
-- **D11** Prototype picks, all variant A: Explore page "Stacked sections"; skill detail "Side sheet"; repositories "Section on Explore", with an Add repository dialog that lists the repository's skills before adding it; New mark "Accent chip".
+- **D11** Prototype picks: Explore page A "Stacked sections"; skill detail E "Dialog · document"; repositories A "Section on Explore", with an Add repository dialog that lists the repository's skills before adding it; New mark A "Accent chip".
 - **D12** Install puts the skill in the library only: inactive, in no preset and no workspace.
 - **D13** Users can add their own repositories freely, public or private.
 
@@ -42,7 +42,7 @@ These are the owner's decisions from the 2026-11-19 design session. Ids are stab
 
 1. Explore is the first row of the sidebar, above Library, with the Hugeicons compass glyph. The app still opens on Library (A1).
 2. The page has, top to bottom: a search field "Search skills"; up to two quiet lines, each only when it applies: the catalog line (offline, couldn't refresh, or update SkillBinder), then the Install Git line (C4, I7); then three sections: **Trending**, **Popular creators**, and **Your repositories**. Typing in the search field replaces the sections with results (Search below).
-3. A skill card shows the skill's name, its description in two lines, on a search result its source tag (none on Trending cards, as in the prototype), its installs this week as "+12.4k this week" (a skills.sh result shows "<N> installs", all-time, with the tooltip "All-time installs on skills.sh"; a repository's skill shows none), and its action: Install, a spinner while installing, or a quiet "In library" mark. Clicking the card, away from its action, opens the detail sheet.
+3. A skill card shows the skill's name, its description in two lines, on a search result its source tag (none on Trending cards, as in the prototype), its installs this week as "+12.4k this week" (a skills.sh result shows "<N> installs", all-time, with the tooltip "All-time installs on skills.sh"; a repository's skill shows none), and its action: Install, a spinner while installing, or a quiet "In library" mark. Clicking the card, away from its action, opens the detail dialog.
 
 ### Catalog, refresh, and offline
 
@@ -68,37 +68,37 @@ These are the owner's decisions from the 2026-11-19 design session. Ids are stab
 
 1. Trending is a grid of skill cards ranked by installs gained over the last 7 days, as computed by the nightly job (D3, D8). Until the job has 7 days of history, it ranks by the gain over the days it has.
 2. Popular creators is a row of creator chips ranked by the sum of their skills' installs over the last 7 days, each with an avatar, a name, and a skill count (D9).
-3. Clicking a creator, on its chip, a card, or the detail sheet, narrows the page to that creator's skills, under a header with the creator's avatar, name, and skill count, and a clear button that returns to the sections (A11).
+3. Clicking a creator, on its chip, a card, or the detail dialog, narrows the page to that creator's skills, under a header with the creator's avatar, name, and skill count, and a clear button that returns to the sections (A11).
 
 ### Installing
 
-1. Every skill has one Install action: on its card or row, and in the detail sheet's header. It is never a primary button on a card.
+1. Every skill has one Install action: on its card or row, and in the detail dialog's header. It is never a primary button on a card.
 2. Install fetches the skill's folder from its source with Git and puts it in the library at `skills/<slug>`, inactive, in no preset and no workspace. Nothing is written to your agents or to workspaces (D12, ADR 0015).
 3. While installing, the action shows a spinner. The rest of the page stays usable, and several installs can run at once (A9). No progress strip blocks the app, because install writes no copies.
 4. On success the user stays on Explore; the action becomes "In library"; a toast says "Installed <slug>" with "Show in Library", which opens Library with its search and filters cleared and All selected, scrolled to the skill, without opening its page (D7).
 5. A slug the library already holds from the same source shows "In library" and no Install. A slug the library holds from another source, or with no source, shows Install disabled, with the tooltip "Your library has another skill named <slug>". Install never renames (A3).
 6. Without Git, browsing and search work, but Install is inactive with the tooltip "Installing needs Git", and the status line offers the app's Install Git action (A5, ADR 0011).
-7. A failed fetch keeps Install and shows one error line on the card, row, or sheet: "Couldn't install. Check your access to <owner/repo>.", or "Couldn't install: no connection." when the host can't be reached (design T8). Nothing asks for a password; private repositories work through the user's Git credential helper or SSH agent (A7).
+7. A failed fetch keeps Install and shows one error line on the card, row, or detail dialog: "Couldn't install. Check your access to <owner/repo>.", or "Couldn't install: no connection." when the host can't be reached (design T8). Nothing asks for a password; private repositories work through the user's Git credential helper or SSH agent (A7).
 8. A refused install keeps Install and shows one error line: "Couldn't install <slug>: it is blocked.", "Couldn't install <slug>: its SKILL.md metadata is invalid.", or "Couldn't install <slug>: its folder has no files." When the source no longer has the skill's folder: "Couldn't find this skill in <owner/repo>".
 9. If the slug became held while the install was running, for example by a Pull, the install is refused and the action shows the state of rule 5.
 10. The installed skill's record holds its content and its source: the repository URL, no pinned ref, and the skill's folder. So it follows the repository's default branch, and Update works on it (A4).
 11. Like imports, installs stay uncommitted until Sync or Push.
 12. Installs keep running when the user leaves Explore. Quitting abandons their fetches; a commit already under way finishes.
 
-### Detail sheet
+### Detail dialog
 
-1. Clicking a skill opens a side sheet over Explore (D5, D11). Its header holds the skill's name, its Install action, and Close. Escape closes it.
-2. The body shows the description; the creator, which narrows the page as in Trending and creators rule 3; the repository with "Open in browser", which opens its web page; installs this week; the file list as a tree whose folders expand, its files not openable; and the SKILL.md text, rendered without loading any image, its links opening in the browser, its first 256 KB when longer.
-3. Opening the sheet fetches the skill's repository with Git, without file contents except SKILL.md. While that runs, the file list and SKILL.md show a loading skeleton. A failure shows "Couldn't load SKILL.md" with Retry.
-4. A skills.sh result has no folder path. The app finds the folder whose SKILL.md name, or folder name, matches the result; when none does, the sheet says "Couldn't find this skill in <owner/repo>" and Install is disabled.
-5. Without Git, the sheet shows the catalog's facts and "Preview needs Git" in place of the file list and SKILL.md (A5).
+1. Clicking a skill opens its detail dialog (D5, D11). Its header holds the skill's name, its Install action, and Close. Escape or a click outside closes it.
+2. It shows the description; the creator, which narrows the page as in Trending and creators rule 3; the repository with "Open in browser", which opens its web page; installs this week; the file list as a tree whose folders expand, its files not openable; and the SKILL.md text, rendered without loading any image, its links opening in the browser, its first 256 KB when longer.
+3. Opening it fetches the skill's repository with Git, without file contents except SKILL.md. While that runs, the file list and SKILL.md show a loading skeleton. A failure shows "Couldn't load SKILL.md" with Retry.
+4. A skills.sh result has no folder path. The app finds the folder whose SKILL.md name, or folder name, matches the result; when none does, the dialog says "Couldn't find this skill in <owner/repo>" and Install is disabled.
+5. Without Git, it shows the catalog's facts and "Preview needs Git" in place of the file list and SKILL.md (A5).
 
 ### Your repositories
 
 1. The Your repositories section lists the user's repositories, with Add repository in its header. With none, it reads "No repositories yet" with Add repository. Without Git, rows keep their last listing and still expand, Install all and Install are inactive with "Installing needs Git", and the dialog opens on "Adding a repository needs Git".
 2. **Add repository** opens a dialog with one field, "Git URL (HTTPS or SSH)". On input the app lists the repository's skills first, showing "Listing…" with a spinner, then "<owner/repo> · N skills" and their slugs. Add, the primary button, is enabled only then. Adding closes the dialog and shows the toast "Added <owner/repo>" (D11, D13).
 3. The dialog's other states, each on one line, add nothing: "Not a Git URL"; "Couldn't reach this repository. Check the URL and your Git access."; "No skills found"; "<owner/repo> is already added"; and, without Git, "Adding a repository needs Git" with Install Git.
-4. A repository row shows its name, its skill count, "Install all (N)" for the N skills of it whose slug the library does not hold, and Remove; a colliding skill shows Install disabled (Installing rule 5). Expanding the row lists its skills, each with its own Install, opening the detail sheet on click.
+4. A repository row shows its name, its skill count, "Install all (N)" for the N skills of it whose slug the library does not hold, and Remove; a colliding skill shows Install disabled (Installing rule 5). Expanding the row lists its skills, each with its own Install, opening the detail dialog on click.
 5. **Install all** installs those N skills one after another (D6). The row shows "Installing 3 of 14" and ends with one summary line, "Installed 13 · 1 failed"; the failed slugs show in its tooltip, not as one line per row. The summary stays until Explore closes, and one toast says "Installed N skills" or "Installed N · M failed", with Show in Library; there is no toast for each skill. "Install all (N)" stays for the skills that failed. With N at zero, the row has no Install all (A8).
 6. **Remove** asks "Remove <owner/repo>?" with "Installed skills stay in your library." and Remove. Then the toast "Removed <owner/repo>" offers Undo, which restores it with its listing and no network; its Git cache is pruned once the toast closes. Removing never touches skills installed from it (A12).
 7. A repository is listed again on add, and when Explore opens if its listing is older than one hour. Offline, or when it can't be reached, it keeps its last listing.
@@ -118,9 +118,9 @@ These are the owner's decisions from the 2026-11-19 design session. Ids are stab
 
 ## UX
 
-Surfaces: the sidebar (Explore row), the Explore page with its sections, search results, chips, and creator header; the skill detail side sheet; the Add repository dialog and the Remove confirmation; toasts; Library's rows and tiles (New chip). The approved design is [docs/design/explore](../design/explore/README.md); its [decisions.md](../design/explore/decisions.md) holds the rules (ids G, C, T, I, P, R, N), and where it is more specific than this spec, it holds.
+Surfaces: the sidebar (Explore row), the Explore page with its sections, search results, chips, and creator header; the skill detail dialog; the Add repository dialog and the Remove confirmation; toasts; Library's rows and tiles (New chip). The approved design is [docs/design/explore](../design/explore/README.md); its [decisions.md](../design/explore/decisions.md) holds the rules (ids G, C, T, I, P, R, N), and where it is more specific than this spec, it holds.
 
-The picked variants (D11), all A: [Explore page](../design/explore/prototypes/explore-page.html) "Stacked sections", [skill detail](../design/explore/prototypes/skill-detail.html) "Side sheet", [repositories](../design/explore/prototypes/repositories.html) "Section on Explore", and [New mark](../design/explore/prototypes/new-mark.html) "Accent chip". decisions.md's Prototype picks describes each.
+The picked variants (D11): [Explore page](../design/explore/prototypes/explore-page.html) A "Stacked sections", [skill detail](../design/explore/prototypes/skill-detail.html) E "Dialog · document", [repositories](../design/explore/prototypes/repositories.html) A "Section on Explore", and [New mark](../design/explore/prototypes/new-mark.html) A "Accent chip". decisions.md's Prototype picks describes each.
 
 ## Design
 
@@ -134,7 +134,7 @@ Each was decided for the owner and can be overruled.
 - **A2** (assumption) Repositories are machine-local, like workspaces, and never sync; only skills and records sync (ADR 0004, ADR 0005).
 - **A3** (assumption) A slug in library from the same source shows "In library"; from another source or none, Install is disabled with "Your library has another skill named <slug>". No rename on install, since the slug is the identity.
 - **A4** (assumption) Installed skills follow the repository's default branch, with no pinned ref, so Update works.
-- **A5** (assumption) Without Git, browsing works; Install, the sheet's file list and SKILL.md, and repositories need Git, with "Installing needs Git", "Preview needs Git", and the Install Git action (ADR 0011).
+- **A5** (assumption) Without Git, browsing works; Install, the detail dialog's file list and SKILL.md, and repositories need Git, with "Installing needs Git", "Preview needs Git", and the Install Git action (ADR 0011).
 - **A6** (assumption) Imported and pulled skills are never New; there is no New filter; a skill removed by Pull and installed again is New again.
 - **A7** (assumption) A private repository failure reads "Couldn't install. Check your access to <owner/repo>."; no password prompt; the app keeps no tokens; the existing non-interactive Git process uses the user's credential helper or SSH agent.
 - **A8** (assumption) Install all runs one install after another, shows "Installing 3 of 14", ends with "Installed 13 · 1 failed", and keeps "Install all (N)" for the failures.

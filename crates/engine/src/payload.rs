@@ -3,6 +3,7 @@ mod frontmatter;
 mod manifest;
 mod traversal;
 mod tree;
+pub(crate) use frontmatter::fields as front_matter_fields;
 pub use manifest::{Manifest, ManifestEntry, ManifestKind};
 pub(crate) use traversal::{GIT_EXCLUDED, MAX_ENTRIES, portable};
 

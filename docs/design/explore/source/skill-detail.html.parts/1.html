@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skill detail</title>
-<!-- Explore: the skill detail panel (P1, I1-I6) behind a trending list. Variants: side sheet, split pane, large dialog.
+<!-- Explore: the skill detail panel (P1, I1-I6) behind a trending list. Variants: side sheet, split pane, and large dialogs (E-J: the document dialog with its sidebar and About treatments; J picked).
      Build: python3 -I ../../scoped-pages/source/kit/inline.py skill-detail.html ../prototypes/skill-detail.html -->
 <link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
 <link rel="stylesheet" href="explore.css">
@@ -70,20 +70,86 @@ button.sd-tree-row:hover { background: var(--sb-hover); }
 .sd-row .ex-inlib { height: 20px; }
 .sd-pane { flex: 1; min-width: 0; overflow: auto; }
 
-/* ---- C: large dialog (the Import skills dialog's size) ---- */
-.sb-dialog.sd-dialog { width: 92%; height: 90%; max-width: none; }
+/* ---- C, D, E: one large dialog over Explore ---- */
+#proto { max-width: 1100px; }
+.sb-dialog.sd-dialog { width: 92%; height: 100%; max-width: none; }
 .sd-dialog .sb-dialog-header { padding-bottom: 10px; border-bottom: 1px solid var(--sb-border); }
-.sd-dialog .sb-dialog-body { display: flex; overflow: hidden; padding: 12px 16px 16px; }
-.sd-wide { flex: 1; min-width: 0; min-height: 0; display: flex; gap: 16px; }
-.sd-wide-l { flex: 0 0 40%; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
-.sd-wide-r { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.sd-dialog .sb-dialog-body { display: flex; overflow: hidden; padding: 0; }
+.sd-preview-git { padding: 4px 0; }
+/* C: facts and files left, SKILL.md right */
+.sd-wide { flex: 1; min-width: 0; min-height: 0; display: flex; }
+.sd-wide-l { flex: 0 0 300px; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; border-right: 1px solid var(--sb-border); }
+.sd-wide-l:only-child { flex: 1; border-right: 0; }
+.sd-wide-r { flex: 1; min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; }
 .sd-wide-r > .ex-detail-label { margin-top: 0; }
-.sd-wide-r > .sd-mdbox { flex: 1; min-height: 0; overflow: auto; }
+.sd-wide-r > .sd-mdbox { border: 0; padding: 0; }
+/* D: a facts band, then tabs */
+.sd-tabbed { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; }
+.sd-band { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--sb-border); }
+.sd-tabbed > .sb-seg { align-self: flex-start; }
+.sd-tab-pane { flex: 1; min-height: 0; overflow: auto; }
+.sd-tab-pane > .sd-mdbox { border: 0; padding: 0 2px; }
+.sd-tab-pane > .sd-md { max-width: 640px; }
+/* E: SKILL.md as the page, About and Files in a sidebar */
+.sd-doc { flex: 1; min-width: 0; min-height: 0; display: flex; }
+.sd-doc-main { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px 20px; }
+.sd-doc-main > .sd-mdbox { border: 0; padding: 0; }
+.sd-doc-main .sd-md { font-size: 13px; max-width: 600px; }
+.sd-doc-side { flex: 0 0 260px; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; border-left: 1px solid var(--sb-border); }
+.sd-doc-side > .ex-detail-label:first-child { margin-top: 0; }
+.sd-doc-side .sd-meta { flex-direction: column; align-items: flex-start; }
+/* F: the sidebar is a tinted pane, edge to edge under the header; no rules */
+.sd-dialog-f { overflow: hidden; }
+.sd-dialog-f .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-f .sd-doc-side { border-left: 0; background: var(--sb-sidebar); }
+.sd-dialog-f .sd-tree { border: 0; padding: 0; margin: 0 -8px; }
+/* G: no rules; About and Files each sit in a flat card */
+.sd-dialog-g .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-g .sd-doc-side { border-left: 0; gap: 10px; padding-left: 4px; }
+.sd-card { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border: 1px solid var(--sb-border); border-radius: 8px; background: var(--sb-card); }
+.sd-card > .ex-detail-label { margin-top: 0; }
+.sd-card .sd-tree { border: 0; padding: 0; margin: 0 -8px; }
+/* H, I: About as a plain section over G's Files card */
+.sd-dialog-h .sb-dialog-header, .sd-dialog-i .sb-dialog-header, .sd-dialog-j .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-h .sd-doc-side, .sd-dialog-i .sd-doc-side, .sd-dialog-j .sd-doc-side { border-left: 0; gap: 14px; padding-left: 4px; }
+.sd-about-open { display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 0; }
+.sd-about-open > .ex-detail-label { margin-top: 0; }
+.sd-about-open .sd-meta { flex-direction: column; align-items: flex-start; }
+/* I: the facts as labelled rows */
+.sd-facts { display: flex; flex-direction: column; }
+.sd-fact { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; min-height: 30px; border-top: 1px solid var(--sb-border); font-size: 12.5px; }
+.sd-fact-k { color: var(--sb-muted-fg); font-size: 12px; }
+.sd-fact { align-items: start; padding: 7px 0; min-height: 0; }
+.sd-fact-v { min-width: 0; display: flex; overflow-wrap: anywhere; }
+/* Front matter: E-H stack each field under its label */
+.sd-fm { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; }
+.sd-fm-item { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.sd-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.sd-tools code { padding: 1px 5px; border-radius: 4px; background: var(--sb-muted); font: 11px var(--sb-mono); }
+/* J: About in a band under the header, the sidebar only Files */
+.sd-doc-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.sd-band-top { display: flex; flex-direction: column; gap: 6px; padding: 0 20px 12px; }
+.sd-band-top .sd-meta { gap: 4px 16px; }
+/* K, L: two columns from the top, scrolling as one like J */
+.sd-dialog-k .sb-dialog-header, .sd-dialog-l .sb-dialog-header { border-bottom: 0; }
+.sd-dialog-k .sb-dialog-body, .sd-dialog-l .sb-dialog-body { display: block; overflow: auto; }
+.sd-dialog-k .sd-doc, .sd-dialog-l .sd-doc { min-height: auto; align-items: flex-start; }
+.sd-dialog-k .sd-doc-main, .sd-dialog-l .sd-doc-main, .sd-dialog-k .sd-doc-side, .sd-dialog-l .sd-doc-side { overflow: visible; }
+.sd-dialog-k .sd-doc-side, .sd-dialog-l .sd-doc-side { border-left: 0; gap: 12px; padding-left: 4px; }
+.sd-dialog-k .sd-card .sd-meta { flex-direction: column; align-items: flex-start; }
+.sd-lead { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.sd-lead .sd-meta { gap: 4px 16px; }
+/* J scrolls as one: the band and both columns move together under the fixed header */
+.sd-dialog-j .sb-dialog-body { display: block; overflow: auto; }
+.sd-dialog-j .sd-doc-col, .sd-dialog-j .sd-doc { min-height: auto; }
+.sd-dialog-j .sd-doc { align-items: flex-start; }
+.sd-dialog-j .sd-doc-main, .sd-dialog-j .sd-doc-side { overflow: visible; }
+.sd-dialog-j .sd-doc-main { padding-top: 4px; }
 </style>
 </head>
-<body data-first-variant="a" data-first-state="loaded">
+<body data-first-variant="k" data-first-state="loaded">
 <div id="proto">
-  <div class="sb-window" id="win" style="--sb-h:560px">
+  <div class="sb-window" id="win" style="--sb-h:680px">
     <aside id="side"></aside>
     <main class="sb-main">
       <header class="sb-header" id="hdr"></header>

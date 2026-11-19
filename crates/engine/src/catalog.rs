@@ -4,9 +4,11 @@
 
 mod cache;
 mod fetch;
+mod preview;
 mod snapshot;
 
 pub use fetch::CatalogSource;
+pub(crate) use preview::{Previews, Read, Request};
 
 use crate::{persistence, shutdown::Shutdown};
 use cache::{Cache, Meta};
@@ -68,13 +70,13 @@ impl Catalogs {
         self.shared.lock().map_err(|_| AppError::storage())
     }
 
-    /// The catalog state and the cached catalog, with no installs.
+    /// The catalog state and the cached catalog, with no installs or preview.
     pub(crate) fn current(&self) -> ExploreSnapshot {
         self.lock()
             .map(|shared| ExploreSnapshot {
                 state: shared.state,
                 catalog: shared.catalog.clone(),
-                installs: Default::default(),
+                ..ExploreSnapshot::default()
             })
             .unwrap_or_default()
     }

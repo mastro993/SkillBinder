@@ -5,7 +5,8 @@ use std::cmp::Reverse;
 
 use skillbinder_proto::{
     AppSnapshot, Catalog, CatalogOrigin, CatalogSkill, Creator, InstallFailure, InstallState,
-    Skill, SkillId, install_key, owner_repo, same_source,
+    PreviewState, Skill, SkillId, SkillSource, install_key, normalized_url, owner_repo,
+    same_source,
 };
 
 /// How many cards Trending shows.
@@ -182,6 +183,72 @@ pub(super) fn install_state<'a>(
     skill: &CatalogSkill,
 ) -> Option<&'a InstallState> {
     snapshot.explore.installs.get(&element_key(skill))
+}
+
+/// Where the preview of `skill`'s open dialog stands; `None` until the projection carries it.
+pub(super) fn preview_state<'a>(
+    snapshot: &'a AppSnapshot,
+    skill: &CatalogSkill,
+) -> Option<&'a PreviewState> {
+    let preview = snapshot.explore.preview.as_ref()?;
+    (install_key(&preview.source) == element_key(skill)).then_some(&preview.state)
+}
+
+/// The repository's web page, `https://<host>/<owner>/<repo>`, with SSH and scp-style URLs
+/// mapped to HTTPS; on github.com, the folder's page. `None` for a URL with no web page, such as
+/// a local repository's.
+pub(super) fn browser_url(source: &SkillSource) -> Option<String> {
+    let normalized = normalized_url(&source.url);
+    let (scheme, rest) = normalized.split_once("://")?;
+    let (authority, repository) = rest.split_once('/')?;
+    let host = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
+    let host = match scheme {
+        "https" | "http" => host,
+        // An SSH port is not the web server's.
+        "ssh" => host.split_once(':').map_or(host, |(host, _)| host),
+        _ => return None,
+    };
+    if host.is_empty() || repository.is_empty() {
+        return None;
+    }
+    let page = format!("https://{host}/{repository}");
+    let folder = source.path.trim_matches('/');
+    Some(if host == "github.com" && !folder.is_empty() {
+        format!("{page}/tree/HEAD/{folder}")
+    } else {
+        page
+    })
+}
+
+/// A front matter key as the Details card labels it: `allowed-tools` reads "Allowed tools".
+pub(super) fn front_matter_label(key: &str) -> String {
+    let words = key.replace(['-', '_'], " ");
+    let mut chars = words.chars();
+    chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
+}
+
+/// `skill_md` without its leading YAML front matter, which the dialog shows in its Details card
+/// rather than as text.
+pub(super) fn without_front_matter(skill_md: &str) -> &str {
+    let Some(rest) = skill_md
+        .strip_prefix("---\n")
+        .or_else(|| skill_md.strip_prefix("---\r\n"))
+    else {
+        return skill_md;
+    };
+    let mut offset = 0;
+    for line in rest.split_inclusive('\n') {
+        offset += line.len();
+        if line.trim_end() == "---" {
+            return &rest[offset..];
+        }
+    }
+    skill_md
 }
 
 /// The error line of an install that failed with `failure`.

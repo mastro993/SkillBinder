@@ -4,8 +4,11 @@
 use super::super::NativeView;
 use super::cards::{avatar, installs, skill_count};
 use super::query::{chips, creator_of, element_key, results};
-use gpui_kit::component::{h_flex, v_flex};
-use gpui_kit::{AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, px};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div,
+    prelude::FluentBuilder, px,
+};
 use skillbinder_design::explore::{CHIP_GAP, SCOPE_AVATAR, SOURCE_AVATAR};
 use skillbinder_design::page::GAP;
 use skillbinder_design::tokens::{space, text};
@@ -114,7 +117,7 @@ impl NativeView {
 
     /// A result: the name, the description, a meta line with its source tag, unless the list is
     /// narrowed to its creator, and installs this week, and a failed install's error line; its
-    /// Install action at its end.
+    /// Install action at its end. It opens the skill's detail dialog.
     fn result_row(
         &self,
         catalog: &Catalog,
@@ -128,12 +131,17 @@ impl NativeView {
             .gap(px(CHIP_GAP))
             .children(tag)
             .child(installs(skill, cx));
-        ListRow::new(format!("explore-result-{}", element_key(skill)))
+        let selected = cx.theme().muted;
+        let row = ListRow::new(format!("explore-result-{}", element_key(skill)))
+            .hover(true)
+            .cursor_pointer()
+            .when(self.detail_shows(skill), |row| row.bg(selected))
             .title(Text::new(skill.name.clone()))
             .subtitle(Text::new(skill.description.clone()))
             .child(meta)
             .children(self.install_error_line(skill))
-            .trailing(self.install_action(skill, cx))
+            .trailing(self.install_action(skill, cx));
+        self.opens_detail(row, skill, cx)
     }
 
     /// Why no result shows: nothing matches the search, with Clear search.

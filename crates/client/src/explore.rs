@@ -1,9 +1,10 @@
-//! Explore's operations: refreshing the catalog and installing from it. Both run on the engine's
-//! own threads, so the explore projection publishes without waiting on the worker.
+//! Explore's operations: refreshing the catalog, previewing a skill, and installing it. They
+//! run on the engine's own threads, so the explore projection publishes without waiting on the
+//! worker.
 
 use crate::{Client, Shared};
 use skillbinder_proto::*;
-use std::{sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
 /// How old the catalog may be before opening Explore fetches it again.
 const CATALOG_MAX_AGE: Duration = Duration::from_secs(60 * 60);
@@ -46,6 +47,29 @@ impl Client {
             })
             .await
             .map_err(|_| AppError::storage())?
+    }
+    /// Opens `skill`'s preview for its detail dialog: the projection shows it loading at once,
+    /// then its files and SKILL.md, or why it has none.
+    pub fn preview(&self, skill: &CatalogSkill) {
+        self.spawn_preview(self.shared.engine.open_preview(skill));
+    }
+    /// Loads the open preview again, as the dialog's Retry does.
+    pub fn retry_preview(&self) {
+        self.spawn_preview(self.shared.engine.retry_preview());
+    }
+    /// Drops the preview, as closing the dialog does.
+    pub fn close_preview(&self) {
+        self.shared.engine.close_preview();
+        self.shared.publish_explore();
+    }
+    /// Publishes the preview loading, then again once `load` ends.
+    fn spawn_preview(&self, load: impl Future<Output = ()> + Send + 'static) {
+        self.shared.publish_explore();
+        let client = self.clone();
+        self.shared.runtime.spawn(async move {
+            load.await;
+            client.shared.publish_explore();
+        });
     }
 }
 
