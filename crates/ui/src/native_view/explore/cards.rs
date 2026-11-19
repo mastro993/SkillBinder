@@ -1,11 +1,11 @@
 //! Explore's pieces: a skill's card, a creator's chip and avatar, a result's source tag, the
-//! installs this week, the "In library" mark, the New chip, and the skeletons that stand in while
+//! installs this week or on skills.sh, the "In library" mark, the New chip, and the skeletons that stand in while
 //! the catalog first loads.
 
 use super::super::NativeView;
 use super::super::library_items::new_chip;
 use super::super::sidebar_row::activate;
-use super::query::{Ranked, element_key, installs_label, new_in_library};
+use super::query::{Ranked, all_time_label, element_key, installs_label, new_in_library};
 use gpui_kit::component::avatar::Avatar;
 use gpui_kit::component::skeleton::Skeleton;
 use gpui_kit::component::{ActiveTheme, Sizable, Size, h_flex, v_flex};
@@ -18,8 +18,11 @@ use skillbinder_design::explore::{
 };
 use skillbinder_design::tokens::{color, space, text};
 use skillbinder_design::{IconSize, Level, SkillCard, Surface, Text, icon, row_end, tooltip};
-use skillbinder_proto::{CatalogSkill, Creator, owner_repo};
+use skillbinder_proto::{CatalogOrigin, CatalogSkill, Creator, owner_repo};
 use std::path::PathBuf;
+
+/// What a skills.sh result's installs count.
+const SKILLS_SH_INSTALLS: &str = "All-time installs on skills.sh";
 
 /// A creator's avatar `size` points square: the cached image, or their initials.
 pub(super) fn avatar(creator: &Creator, size: f32) -> Avatar {
@@ -31,10 +34,23 @@ pub(super) fn avatar(creator: &Creator, size: f32) -> Avatar {
         .with_size(Size::Size(px(size)))
 }
 
-/// Installs this week after the fire glyph, with the tooltip naming the period.
+/// `skill`'s installs after the fire glyph, with the tooltip naming what they count.
 pub(super) fn installs(skill: &CatalogSkill, cx: &App) -> AnyElement {
+    let tip = match skill.origin {
+        CatalogOrigin::Curated { .. } => "Installs over the last 7 days",
+        CatalogOrigin::SkillsSh { .. } => SKILLS_SH_INSTALLS,
+    };
+    installs_meta(element_key(skill), installs_label(skill), tip, cx)
+}
+
+/// A skills.sh result's all-time installs, before its folder is resolved.
+pub(super) fn all_time_installs(key: String, installs: u64, cx: &App) -> AnyElement {
+    installs_meta(key, all_time_label(installs), SKILLS_SH_INSTALLS, cx)
+}
+
+fn installs_meta(key: String, label: String, tip: &'static str, cx: &App) -> AnyElement {
     h_flex()
-        .id(format!("explore-installs-{}", element_key(skill)))
+        .id(format!("explore-installs-{key}"))
         .flex_none()
         .gap(px(space::XS))
         .child(
@@ -42,12 +58,22 @@ pub(super) fn installs(skill: &CatalogSkill, cx: &App) -> AnyElement {
                 .with_size(IconSize::Xs)
                 .text_color(color::WARNING_TEXT.of(cx.theme())),
         )
-        .child(
-            Text::new(installs_label(skill.installs_week))
-                .level(text::CAPTION)
-                .muted(),
-        )
-        .tooltip(tooltip("Installs over the last 7 days"))
+        .child(Text::new(label).level(text::CAPTION).muted())
+        .tooltip(tooltip(tip))
+        .into_any_element()
+}
+
+/// A skills.sh result's source tag: the globe glyph and "skills.sh", naming the repository in its
+/// tooltip.
+pub(super) fn skills_sh_tag(key: &str, url: &str, cx: &App) -> AnyElement {
+    h_flex()
+        .id(format!("explore-source-{key}"))
+        .flex_none()
+        .gap(px(space::XS))
+        .text_color(cx.theme().muted_foreground)
+        .child(icon("globe").with_size(IconSize::Xs))
+        .child(Text::new("skills.sh").level(text::CAPTION).muted())
+        .tooltip(tooltip(format!("{} · skills.sh", owner_repo(url))))
         .into_any_element()
 }
 

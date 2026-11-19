@@ -1,6 +1,6 @@
 use crate::{
     activation::Progress,
-    catalog::{Catalogs, Previews},
+    catalog::{Catalogs, Previews, Resolutions, Searches},
     database,
     git::{Git, Installer},
     git_pool::GitPool,
@@ -27,9 +27,11 @@ use std::{
 use tokio::sync::oneshot;
 
 mod activation;
+mod catalog;
 mod install;
 mod onboarding;
 mod preview;
+mod skills_sh;
 mod sources;
 
 const DATABASE: &str = "skillbinder.db";
@@ -46,7 +48,11 @@ struct Owner {
     catalog: Catalogs,
     installs: Installs,
     previews: Previews,
-    /// Runs installs' network phases and previews off the worker.
+    /// Explore's skills.sh search, on a thread of its own.
+    searches: Searches,
+    /// The folders of skills.sh results, resolved on the pool.
+    resolutions: Resolutions,
+    /// Runs installs' network phases, previews, and resolutions off the worker.
     pool: GitPool,
     progress: Progress,
     /// Stops in-flight commands when the application quits.
@@ -74,6 +80,10 @@ pub(crate) struct State {
     pub installs: Installs,
     /// The open detail dialog's preview, whose catalog cache is kept from pruning.
     pub previews: Previews,
+    /// Explore's skills.sh search, which snapshots read.
+    pub searches: Searches,
+    /// The folders of skills.sh results, which snapshots read.
+    pub resolutions: Resolutions,
     /// How far a tracked change has got; passes count their pairs into it.
     pub progress: Progress,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
@@ -117,6 +127,8 @@ impl Engine {
         let catalog = Catalogs::open(config.catalog.clone(), &config.data_dir, shutdown.clone());
         let installs = Installs::default();
         let previews = Previews::default();
+        let searches = Searches::new(config.catalog.clone());
+        let resolutions = Resolutions::default();
         let pool = GitPool::default();
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
@@ -131,6 +143,8 @@ impl Engine {
             catalog: catalog.clone(),
             installs: installs.clone(),
             previews: previews.clone(),
+            searches: searches.clone(),
+            resolutions: resolutions.clone(),
             progress: progress.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
@@ -190,6 +204,8 @@ impl Engine {
                 catalog,
                 installs,
                 previews,
+                searches,
+                resolutions,
                 pool,
                 progress,
                 shutdown,
@@ -280,23 +296,6 @@ impl Engine {
     /// durable mutation.
     pub fn current_scan(&self) -> AppResult<(Option<ScanSnapshot>, bool)> {
         self.owner.scans.current()
-    }
-    /// Refreshes Explore's catalog on its own thread and waits for it to end, unless a refresh is
-    /// running or the catalog is current and was fetched within `max_age`.
-    pub async fn refresh_catalog(&self, max_age: std::time::Duration) -> AppResult<()> {
-        if let Some(finished) = self.owner.catalog.refresh(max_age.as_secs())? {
-            finished.await.map_err(|_| AppError::storage())?;
-        }
-        Ok(())
-    }
-    /// Explore's catalog, its state, the installs not idle, and the open dialog's preview,
-    /// without waiting for a durable mutation.
-    pub fn current_explore(&self) -> ExploreSnapshot {
-        explore(
-            &self.owner.catalog,
-            &self.owner.installs,
-            &self.owner.previews,
-        )
     }
     /// Whether a source check is running, so the client can publish the header's state without
     /// waiting for the check to finish.
@@ -419,7 +418,13 @@ impl State {
             scan,
             scanning,
             updates,
-            explore: explore(&self.catalog, &self.installs, &self.previews),
+            explore: catalog::explore(
+                &self.catalog,
+                &self.installs,
+                &self.previews,
+                &self.searches,
+                &self.resolutions,
+            ),
             sync,
             // A snapshot is a worker job, so no tracked change is in flight while it runs.
             activation: None,
@@ -473,13 +478,6 @@ impl State {
     }
 }
 /// Explore's projection, from the shared catalog, installs, and previews.
-fn explore(catalog: &Catalogs, installs: &Installs, previews: &Previews) -> ExploreSnapshot {
-    ExploreSnapshot {
-        installs: installs.current(),
-        preview: previews.current(),
-        ..catalog.current()
-    }
-}
 #[cfg(test)]
 mod test_state;
 #[cfg(all(test, unix))]

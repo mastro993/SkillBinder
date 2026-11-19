@@ -1,14 +1,20 @@
 //! Explore's catalog: fetched from SkillBinder's CDN on a thread of its own, never the worker,
 //! translated from the v1 format, and cached under `<data>/catalog/` (ADR 0014). Every failure
-//! keeps the cache and maps to one [`CatalogState`].
+//! keeps the cache and maps to one [`CatalogState`]. Its search also asks skills.sh, and a
+//! skills.sh result's folder is resolved before it is previewed or installed.
 
 mod cache;
 mod fetch;
+mod folders;
 mod preview;
+mod resolve;
+mod search;
 mod snapshot;
 
 pub use fetch::CatalogSource;
 pub(crate) use preview::{Previews, Read, Request};
+pub(crate) use resolve::{Begin, Resolutions, Resolve, Resolved, not_found};
+pub(crate) use search::Searches;
 
 use crate::{persistence, shutdown::Shutdown};
 use cache::{Cache, Meta};

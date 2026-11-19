@@ -19,7 +19,7 @@ First launch shows a setup step only for what is missing, writable storage or Gi
 
 The application uses a fresh `SkillBinder` directory beneath each operating system's local application-data directory. Existing `~/.skillbinder` data is left untouched. There is no migration or compatibility application.
 
-The shipped features are implemented; UI styling and visual fidelity are deferred. Explore shows SkillBinder's curated catalog of skills: Trending, Popular creators, and search, and installs a skill from it into your library, which needs Git. Browsing your own Git repositories there is planned and not built yet ([spec](docs/specs/explore-and-install.md)). See [feature coverage](docs/features/native.md) and [verification status](docs/native-gate.md).
+The shipped features are implemented; UI styling and visual fidelity are deferred. Explore shows SkillBinder's curated catalog of skills: Trending, Popular creators, and search, which also asks skills.sh, so your search queries leave your device, and installs a skill from either into your library, which needs Git. Browsing your own Git repositories there is planned and not built yet ([spec](docs/specs/explore-and-install.md)). See [feature coverage](docs/features/native.md) and [verification status](docs/native-gate.md).
 
 ## Build and verify
 

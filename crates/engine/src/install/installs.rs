@@ -2,9 +2,7 @@
 //! their states reach every snapshot.
 
 use super::Failed;
-use skillbinder_proto::{
-    AppError, AppResult, InstallFailure, InstallState, SkillSource, install_key,
-};
+use skillbinder_proto::{AppError, AppResult, InstallFailure, InstallState};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, Mutex, MutexGuard},
@@ -13,7 +11,9 @@ use uuid::Uuid;
 
 #[derive(Default)]
 struct Shared {
-    /// Each install that is not idle, by its source's [`install_key`].
+    /// Each install that is not idle, by its source's
+    /// [`install_key`](skillbinder_proto::install_key), or before a skills.sh result is resolved
+    /// by its [`result_key`](skillbinder_proto::result_key).
     states: BTreeMap<String, InstallState>,
     /// The ids of the running installs, whose caches are in use.
     running: BTreeSet<Uuid>,
@@ -42,10 +42,9 @@ impl Installs {
         Ok(self.lock()?.running.iter().copied().collect())
     }
 
-    /// Marks `source`'s skill installing under a new id, clearing its last failure; `None` while
-    /// it is installing already.
-    pub(crate) fn begin(&self, source: &SkillSource) -> AppResult<Option<Begun>> {
-        let key = install_key(source);
+    /// Marks the skill `key` names installing under a new id, clearing its last failure; `None`
+    /// while it is installing already.
+    pub(crate) fn begin(&self, key: String) -> AppResult<Option<Begun>> {
         let mut shared = self.lock()?;
         if shared.states.get(&key) == Some(&InstallState::Installing) {
             return Ok(None);
@@ -112,6 +111,7 @@ impl Drop for Begun {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
+    use skillbinder_proto::{SkillSource, install_key};
 
     fn source() -> SkillSource {
         SkillSource {
@@ -124,8 +124,8 @@ mod tests {
     #[test]
     fn a_source_installs_once_at_a_time_and_keeps_its_last_failure() {
         let installs = Installs::default();
-        let begun = installs.begin(&source()).unwrap().unwrap();
-        assert!(installs.begin(&source()).unwrap().is_none());
+        let begun = installs.begin(install_key(&source())).unwrap().unwrap();
+        assert!(installs.begin(install_key(&source())).unwrap().is_none());
         assert_eq!(installs.running().unwrap(), [begun.id]);
         begun.end(&Err(Failed::Failure(InstallFailure::Access)));
         let key = install_key(&source());
@@ -136,7 +136,7 @@ mod tests {
         assert!(installs.running().unwrap().is_empty());
 
         // Installing again clears the failure; an abandoned install leaves the source idle.
-        let again = installs.begin(&source()).unwrap().unwrap();
+        let again = installs.begin(install_key(&source())).unwrap().unwrap();
         assert_eq!(installs.current()[&key], InstallState::Installing);
         drop(again);
         assert!(installs.current().is_empty());

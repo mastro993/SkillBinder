@@ -12,9 +12,9 @@ const TIMEOUT: Duration = Duration::from_secs(10);
 pub enum CatalogSource {
     /// The CDN's base URL, ending in `/`.
     Http(url::Url),
-    /// A directory laid out like the CDN, for tests and native fixtures. A missing directory
-    /// answers as an unreachable host, a missing file as a 404, and each file's ETag is its
-    /// digest.
+    /// A directory laid out like the CDN, for tests and native fixtures, whose `search/` serves
+    /// skills.sh's answers as `<query>.json`. A missing directory answers as an unreachable
+    /// host, a missing file as a 404, and each file's ETag is its digest.
     Directory(PathBuf),
 }
 
@@ -45,20 +45,20 @@ pub(super) enum Fetcher {
 impl Fetcher {
     pub(super) fn new(source: &CatalogSource) -> Self {
         match source {
-            CatalogSource::Http(base) => {
-                let agent = ureq::Agent::config_builder()
-                    .timeout_global(Some(TIMEOUT))
-                    .http_status_as_error(false)
-                    .user_agent(concat!("SkillBinder/", env!("CARGO_PKG_VERSION")))
-                    .build()
-                    .new_agent();
-                Self::Http {
-                    base: base.clone(),
-                    agent,
-                }
-            }
+            CatalogSource::Http(base) => Self::http(base.clone()),
             CatalogSource::Directory(root) => Self::Directory(root.clone()),
         }
+    }
+
+    /// A connection to `base`, ending in `/`.
+    pub(super) fn http(base: url::Url) -> Self {
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(TIMEOUT))
+            .http_status_as_error(false)
+            .user_agent(concat!("SkillBinder/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .new_agent();
+        Self::Http { base, agent }
     }
 
     /// GETs `path`, relative to the source's base, sending `etag` as `If-None-Match`, and reads at

@@ -15,15 +15,7 @@ pub(super) fn validate(
         finding(messages, ValidationStatus::Invalid, "SKILL.md is missing.");
         return String::new();
     };
-    let Some((name, description)) = parse(bytes).map(|mapping| {
-        let field = |key: &str| {
-            mapping
-                .get(&Yaml::String(key.to_owned()))
-                .and_then(Yaml::as_str)
-                .map(str::to_owned)
-        };
-        (field("name"), field("description"))
-    }) else {
+    let Some((name, description)) = name_and_description(bytes) else {
         finding(
             messages,
             ValidationStatus::Invalid,
@@ -77,6 +69,20 @@ pub(super) fn validate(
         );
     }
     description
+}
+
+/// SKILL.md's front matter `name` and `description`, each when it is a string; `None` when the
+/// front matter does not parse.
+pub(crate) fn name_and_description(skill_md: &[u8]) -> Option<(Option<String>, Option<String>)> {
+    parse(skill_md).map(|mapping| {
+        let field = |key: &str| {
+            mapping
+                .get(&Yaml::String(key.to_owned()))
+                .and_then(Yaml::as_str)
+                .map(str::to_owned)
+        };
+        (field("name"), field("description"))
+    })
 }
 
 /// SKILL.md's front matter fields other than `name` and `description`, in their order: a scalar
