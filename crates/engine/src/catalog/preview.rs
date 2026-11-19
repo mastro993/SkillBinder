@@ -142,7 +142,8 @@ pub(crate) struct Read {
 }
 
 impl Read {
-    /// Reads `request`'s preview, unless the dialog moved on while it waited for a thread.
+    /// Reads `request`'s preview, unless the dialog moved on while it waited for a thread or
+    /// for the cache.
     pub(crate) fn run(self, request: &Request) -> PreviewState {
         if !self.previews.wanted(request.id) {
             return PreviewState::Failed;
@@ -151,6 +152,10 @@ impl Read {
         let _reading = lock
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // Another preview of this repository may have held the lock through a long fetch.
+        if !self.previews.wanted(request.id) {
+            return PreviewState::Failed;
+        }
         match self.read(&request.source) {
             Ok(Some(preview)) => PreviewState::Loaded(Arc::new(preview)),
             Ok(None) => PreviewState::NotFound,
