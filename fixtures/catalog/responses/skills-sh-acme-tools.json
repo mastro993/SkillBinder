@@ -1,0 +1,3 @@
+{"query":"tools","searchType":"fuzzy","skills":[
+{"id":"acme/tools/lint","source":"acme/tools","skillId":"lint","name":"lint","installs":75}
+],"count":1}

@@ -1,0 +1,38 @@
+# The creators the catalog lists. Change it through a pull request; catalog/README.md explains
+# each field and how to propose a creator.
+
+[[creator]]
+id = "anthropics"
+name = "Anthropic"
+github = "anthropics"
+repositories = ["https://github.com/anthropics/skills.git"]
+
+[[creator]]
+id = "mattpocock"
+name = "Matt Pocock"
+github = "mattpocock"
+repositories = ["https://github.com/mattpocock/skills.git"]
+
+[[creator]]
+id = "vercel-labs"
+name = "Vercel Labs"
+github = "vercel-labs"
+repositories = ["https://github.com/vercel-labs/agent-skills.git"]
+
+[[creator]]
+id = "trailofbits"
+name = "Trail of Bits"
+github = "trailofbits"
+repositories = ["https://github.com/trailofbits/skills.git"]
+
+[[creator]]
+id = "sanity-io"
+name = "Sanity"
+github = "sanity-io"
+repositories = ["https://github.com/sanity-io/agent-toolkit.git"]
+
+[[creator]]
+id = "obra"
+name = "Jesse Vincent"
+github = "obra"
+repositories = ["https://github.com/obra/superpowers.git"]

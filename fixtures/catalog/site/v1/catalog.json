@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "generated_at": "2026-11-19T03:12:44Z",
+  "creators": [
+    {
+      "id": "acme",
+      "name": "Acme Tools",
+      "avatar": "avatars/acme.png"
+    },
+    {
+      "id": "solo",
+      "name": "Solo Writer"
+    }
+  ],
+  "skills": [
+    {
+      "slug": "tdd",
+      "name": "tdd",
+      "description": "Write the failing test first, then the code that passes it.",
+      "creator": "acme",
+      "repository": "https://github.com/acme/skills.git",
+      "path": "skills/tdd",
+      "installs_week": 300
+    },
+    {
+      "slug": "lint",
+      "name": "lint",
+      "description": "Run the linters and fix what they report.",
+      "creator": "acme",
+      "repository": "https://github.com/acme/tools.git",
+      "path": ".claude/skills/lint",
+      "installs_week": 15
+    },
+    {
+      "slug": "plan",
+      "name": "plan",
+      "description": "Break a change into small, reviewable steps.",
+      "creator": "acme",
+      "repository": "https://github.com/acme/skills.git",
+      "path": "skills/plan",
+      "installs_week": 10
+    },
+    {
+      "slug": "notes",
+      "name": "notes",
+      "description": "Keep running notes while you work.",
+      "creator": "solo",
+      "repository": "https://github.com/solo/notes.git",
+      "path": "",
+      "installs_week": 0
+    }
+  ]
+}

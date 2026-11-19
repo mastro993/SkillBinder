@@ -1,6 +1,7 @@
 //! Repository verification and registry documentation.
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
+mod catalog;
 mod clippy_policy;
 mod design_tokens;
 mod evidence;
@@ -38,8 +39,19 @@ fn main() -> anyhow::Result<()> {
         Some("package") => package::package(root, std::env::args().nth(2).as_deref()),
         Some("mcp-smoke") => mcp_smoke::run(std::env::args_os().skip(2)),
         Some("fixture") => fixture::build(root, std::env::args().nth(2).as_deref()),
+        Some("catalog") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            match catalog::run(root, &args)? {
+                catalog::Outcome::Fresh => Ok(()),
+                catalog::Outcome::StaleCounts(error) => {
+                    // The workflow deploys on 2, then fails the run.
+                    println!("::error::Published the last counts: {error:#}");
+                    std::process::exit(2)
+                }
+            }
+        }
         _ => anyhow::bail!(
-            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|design-tokens|off-token|package [target]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>>"
+            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|design-tokens|off-token|package [target]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>|catalog <--out <directory>|check <directory>>>"
         ),
     }
 }
