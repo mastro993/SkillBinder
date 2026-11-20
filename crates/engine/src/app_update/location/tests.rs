@@ -87,10 +87,15 @@ fn a_translocated_bundle_is_outside_applications_and_trashes_its_original() {
 }
 
 #[test]
-fn a_bundle_in_either_applications_folder_is_installed() {
+fn a_bundle_anywhere_in_either_applications_folder_is_installed() {
     let root = tempfile::tempdir().unwrap();
     let placement = placement(root.path());
-    for folder in [&placement.applications, &placement.user_applications] {
+    let utilities = placement.applications.join("Utilities");
+    for folder in [
+        &placement.applications,
+        &placement.user_applications,
+        &utilities,
+    ] {
         fs::create_dir_all(folder).unwrap();
         let bundle = folder.join("SkillBinder.app");
         let location = classify(&bundle, &placement, || panic!("mounts are not read"));

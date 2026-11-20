@@ -115,11 +115,14 @@ pub(crate) fn locate(placement: &AppPlacement) -> Location {
     }
 }
 
-/// Where `bundle` sits. A bundle directly in either Applications folder is installed when its
-/// folder can be written, which is proven by creating a file there.
+/// Where `bundle` sits. A bundle anywhere in either Applications folder, a subfolder such as
+/// Utilities included, is installed when the folder holding it can be written, which is proven
+/// by creating a file there.
 fn classify(bundle: &Path, placement: &AppPlacement, mounts: impl FnOnce() -> Mounts) -> Location {
-    let folder = bundle.parent().unwrap_or(bundle);
-    if folder == placement.applications || folder == placement.user_applications {
+    if bundle.starts_with(&placement.applications)
+        || bundle.starts_with(&placement.user_applications)
+    {
+        let folder = bundle.parent().unwrap_or(bundle);
         return if persistence::writable(folder) {
             Location::Installed(bundle.to_path_buf())
         } else {
