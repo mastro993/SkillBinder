@@ -70,13 +70,13 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 9. When an update becomes ready, and at every launch while one is ready, a persistent notice appears at the window's bottom-right, like the new agent notice: "SkillBinder 0.2.0 is ready" in medium weight, "Restart now, or it installs when you quit." muted, then Dismiss and the primary Restart. It has no auto-hide, takes no focus, and stacks with the new agent notice. Like that notice, it hides while the blocking progress strip is up and returns when the strip ends.
 10. **Restart** quits through the normal quit path, installs the update, and launches the new version. It is disabled while Sync, Push, Update all, an install, or a blocking change runs, with the tooltip "Available when <Sync> finishes".
 11. **Dismiss** hides the notice until the next launch (D3). Settings still shows the ready update with its own Restart.
-12. **Quit**, by any route, installs a ready update first (D3). If installing fails, the old version stays, the failure is logged, and the next launch shows the notice again.
+12. **Quit**, by any route, installs a ready update first (D3). On Windows, a quit caused by logging off or shutting down skips the installer, which Windows could kill halfway; the next quit installs it. If installing fails, the old version stays, the failure is logged, and the next launch shows the notice again.
 
 ### Download-only
 
 13. Where the app cannot replace itself (ADR 0018), nothing is downloaded. The notice reads "SkillBinder 0.2.0 is available" with Dismiss and the primary Download, which opens the release page in the browser. The muted line says why:
-    - "Move SkillBinder to Applications to update automatically." on macOS outside Applications, after Not now;
-    - "SkillBinder can't write to its folder." for an AppImage or a macOS app in a folder the user cannot write;
+    - "Move SkillBinder to Applications to update automatically." on macOS anywhere outside `/Applications` and `~/Applications`, including the disk image, Downloads, and the Desktop, after Not now;
+    - "SkillBinder can't write to its folder." for an AppImage in a folder the user cannot write, or a macOS Applications folder the user cannot write;
     - "This copy wasn't installed by the SkillBinder installer." for a Windows build not installed by setup.
 
     Dismiss hides it until the next launch.
@@ -88,7 +88,7 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 ### Channels
 
 15. The channel starts as the installed build's: Beta for a `-beta.N` build, Stable otherwise. The user's choice is saved per device and kept across updates.
-16. Switching to Beta checks at once while Check automatically is on. Otherwise the next Check now uses the new channel.
+16. Switching channel, to Beta or to Stable, checks at once while Check automatically is on. A stable build whose channel was Beta can then find a newer stable release. Otherwise the next Check now uses the new channel.
 17. Switching to Stable on a beta build keeps the beta (D4). Settings says "You'll move to Stable at its first release after 0.1.1-beta.12." until a stable release newer than the installed beta is installed. A ready update that is newer than the latest stable release is discarded on the switch.
 
 ### Settings › Updates
@@ -103,7 +103,8 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 | Downloading | Downloading 0.2.0… 42% | Check now, disabled |
 | Ready | SkillBinder 0.2.0 is ready. | Restart, primary; What's new link |
 | Download-only | SkillBinder 0.2.0 is available. Plus the reason from 13 | Download; What's new link |
-| Check failed (manual) | Couldn't check for updates. Check your connection. | Check now |
+| Check failed, offline (manual) | Couldn't check for updates. Check your connection. | Check now |
+| Check failed, other (manual) | Couldn't check for updates. | Check now |
 
 19. The Beta→Stable line from 17 sits under the Channel control while it applies. With Check automatically off, the Up to date line reads "Up to date · checked 3 days ago" or "Not checked yet", so the user can see how stale it is.
 

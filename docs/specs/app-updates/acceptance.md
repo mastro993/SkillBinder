@@ -12,7 +12,7 @@ The Release and Nightly workflows publish `update.json` and its `.minisig`, and 
 
 - **AC0.1 [domain]** `xtask update-manifest` writes the documented shape for the three archives in a fixture `dist/`, with their SHA-256s and sizes, and a signature that `minisign-verify` accepts under the matching public key.
 - **AC0.2 [packaged]** After a nightly run, `updates/v1/beta.json` on Pages names that beta and its signature verifies. After a release, `stable.json` names it, and so does `beta.json` when no newer beta exists.
-- **AC0.3** A Catalog run whose copy fails keeps the previous `updates/` on the site.
+- **AC0.3** A Catalog run whose copy fails keeps the previous `updates/` on the site, and a cron or `catalog/` push run that publishes no release still deploys `updates/` intact.
 
 ### S1 Version, channel, and checks with Download
 
@@ -22,7 +22,7 @@ Settings › Updates shows Version, Channel, and Status. Checks run at launch, h
 - **AC1.2 [domain]** A check offers a version only when the signature verifies and the version is newer than the running one. An older or equal manifest, a bad signature, or a missing asset for the target reads as up to date. A bad signature is logged (2, 4).
 - **AC1.3 [domain]** A second ETag check that gets 304 makes no change. Offline maps to `CheckFailure::Offline` for a manual check, and a failed automatic check leaves `Idle` with no failure (4).
 - **AC1.4 [domain]** An unstamped build's state is `Off`, and it never requests anything (1).
-- **AC1.5 [domain]** The channel defaults to the build's channel, persists, and switching to Beta triggers a check (15, 16).
+- **AC1.5 [domain]** The channel defaults to the build's channel, persists, and switching channel either way triggers a check (15, 16).
 - **AC1.8 [domain]** With automatic checks off, no check runs at launch, hourly, or on a channel change, and Check now still checks. Turning them on checks at once. The switch persists (1, 16, 24).
 - **AC1.6 [native]** Settings shows the Updates section with every status row of the table in 18 for the matching fixture state, and the Beta→Stable line on a beta build set to Stable (17, 19).
 - **AC1.7 [native]** With a newer fixture manifest, the notice "SkillBinder 0.2.0 is available" appears bottom-right, stacks with the new agent notice, hides during the progress strip, and Dismiss hides it until relaunch (9, 13).
@@ -32,7 +32,7 @@ Settings › Updates shows Version, Channel, and Status. Checks run at launch, h
 The disk image opens on the drag-to-Applications window, and the app asks to move itself into Applications. It needs no update code and helps every new user. Depends on nothing; it follows S1 so the move also unlocks updates. Updates `docs/release.md` and the setup feature docs.
 
 - **AC2.1 [packaged]** Opening the disk image shows SkillBinder, the arrow background, and the Applications shortcut, laid out by `dmgbuild` on CI (20).
-- **AC2.2 [domain]** `location` reports Translocated, DiskImage, NotWritable, and inside Applications for fixture paths (21).
+- **AC2.2 [domain]** `location` reports OutsideApplications for Downloads, the Desktop, a translocated path, and the disk image; NotWritable for a read-only Applications folder; and the install unit inside `/Applications` and `~/Applications` (13, 21).
 - **AC2.3 [domain]** `relocate` copies a fixture bundle into a fixture Applications folder. It falls back to the user folder when the first can't be written, replaces an older copy, and refuses to replace a newer one (21).
 - **AC2.4 [native]** Outside Applications the dialog shows before onboarding with its copy. Not now continues and the dialog returns at relaunch (21).
 - **AC2.5 [packaged]** Launched from the mounted image: Move copies to `/Applications`, ejects the image, and relaunches with no Gatekeeper prompt. Launched from Downloads: the original goes to the Trash (21).
@@ -54,7 +54,7 @@ Background download, verification, staging, the ready notice, Restart, install a
 The per-user Inno Setup installer replaces the ZIP. Updates run it silently at quit. Depends on S1.
 
 - **AC4.1 [packaged]** Setup installs into `%LOCALAPPDATA%\Programs\SkillBinder` with no UAC prompt, adds the Start menu entry and the uninstaller, and uninstalling keeps `%LOCALAPPDATA%\SkillBinder` data (22).
-- **AC4.2 [domain]** `location` reports NotInstalled without the `HKCU` uninstall entry, and `install_staged` builds the silent command line with `/RELAUNCH` only after Restart (12, 13).
+- **AC4.2 [domain]** `location` reports NotInstalled without `unins000.exe` beside the executable. `install_staged` builds the silent command line with `/WAITPID` always and `/RELAUNCH=1` only after Restart, and starts nothing when the quit comes from logoff or shutdown (12, 13).
 - **AC4.3 [packaged]** An older installed build updates through Restart and through Dismiss then Quit. The installer waits for the app to exit, and the Start menu entry opens the new version (10, 12).
 
 ### S5 Linux AppImage and updates

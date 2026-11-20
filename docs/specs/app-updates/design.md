@@ -47,7 +47,7 @@ pub enum AppUpdateState {
     Ready { version: AppVersion, notes_url: String },
     DownloadOnly { version: AppVersion, notes_url: String, reason: CannotInstall },
 }
-pub enum CannotInstall { Translocated, DiskImage, NotWritable, NotInstalled }
+pub enum CannotInstall { OutsideApplications, NotWritable, NotInstalled }
 pub enum CheckFailure { Offline, Failed }                       // kept only for manual checks
 ```
 
@@ -84,8 +84,8 @@ A manifest without the running target's asset is treated as up to date.
 
 | Platform | Update file | Unit replaced | Can't install when |
 |---|---|---|---|
-| macOS | disk image | the `SkillBinder.app` that holds `current_exe`, by rename | the path contains `/AppTranslocation/` (Translocated), is under `/Volumes/` (DiskImage), or the bundle's parent can't be written (NotWritable). Each is normally fixed by Move to Applications. |
-| Windows | setup program | everything, by the installer at quit | the app wasn't installed by setup: no uninstall entry under `HKCU` (NotInstalled) |
+| macOS | disk image | the `SkillBinder.app` that holds `current_exe`, by rename | the bundle is not directly in `/Applications` or `~/Applications` (OutsideApplications), whether in Downloads, on the Desktop, translocated, or on the mounted disk image; Move to Applications fixes it. Or that Applications folder can't be written (NotWritable). |
+| Windows | setup program | everything, by the installer at quit | no Inno `unins000.exe` beside `current_exe` (NotInstalled). This needs no registry access, so no new crate and no `reg.exe` subprocess. |
 | Linux | AppImage | the file at `$APPIMAGE`, by rename | `$APPIMAGE` is unset (NotInstalled) or its folder can't be written (NotWritable) |
 
 Writability is proven by creating the staging sibling, never assumed from permission bits.
@@ -100,7 +100,7 @@ Writability is proven by creating the staging sibling, never assumed from permis
 | minisign signature over the manifest, and SHA-256 of the archive inside it | D2 replaces unsigned Windows executables in place, so the app needs its own proof of the publisher. |
 | macOS codesign team check before staging | D2 on macOS: a second, independent check, and the notarized signature Gatekeeper expects. |
 | Stage next to the install, swap by rename at quit | D3 installs at quit, so the swap must be fast, atomic, and reversible. Renames on one volume are. |
-| The engine's `ureq` client and platform `tar`/`hdiutil`/`ditto`/`codesign` | No new HTTP or archive crates (ADR 0014's dependency rule). The engine already runs system tools under its process policy. |
+| The engine's `ureq` client and platform `hdiutil`/`ditto`/`codesign` | No new HTTP or archive crates (ADR 0014's dependency rule). The engine already runs system tools under its process policy. |
 | The schedule lives in the client's Tokio runtime | The client already owns background loops and snapshot publication. |
 | The swap and relaunch run in the desktop's quit hook | Only `apps/desktop` may end the process (Clippy policy), and the instance lock must be released before the new process starts. |
 | Compile-time `SKILLBINDER_RELEASE` gate | Unstamped builds must never replace themselves (spec 1). |
@@ -109,10 +109,12 @@ Writability is proven by creating the staging sibling, never assumed from permis
 
 - **Key loss** stops every future update: losing the minisign key strands every user on their version. Back the key up outside GitHub. Rotation needs one release signed with the old key that carries the new public key.
 - **A compromised CI** can sign anything. The key sits in the same place as the notarization secrets, so this adds no new trust root.
-- **macOS 26 App Management**: replacing another app's bundle can need the App Management permission, but replacing one's own bundle in a folder the user owns does not. Verify on a non-admin account in slice S2. If it is blocked, that location becomes NotWritable.
+- **macOS 26 App Management**: replacing another app's bundle can need the App Management permission, but replacing one's own bundle in a folder the user owns does not. Verify on a non-admin account in slice S3 (AC3.6). If it is blocked, that location becomes NotWritable.
 - **A newer build's database migrations** make D4's no-downgrade permanent: a user who wants an older version reinstalls it by hand and may lose machine-local data.
 - **A Pages outage** pauses updates and the catalog together.
-- **Windows SmartScreen** may still warn on first launch of a swapped executable it hasn't seen. Files written by the app's own HTTP client carry no Mark of the Web, so it usually doesn't.
+- **Windows SmartScreen** warns at the first install of the unsigned setup program. A setup program the app downloads itself carries no Mark of the Web, so silent updates run without a prompt.
+- **Windows session end**: skipping the installer on logoff or shutdown (spec rule 12) needs the session-end message (`WM_QUERYENDSESSION`/`WM_ENDSESSION`). If GPUI does not surface it, S4 adds it in `apps/desktop`.
+- **Catalog coupling**: the manifests deploy with the catalog. A catalog build failure that stops the deploy also holds back a new release's manifest until a run succeeds; the job already fails loudly.
 - **AppImage needs FUSE.** Some distributions ship without the FUSE kernel module or `fusermount`. The fallback, `--appimage-extract-and-run`, is documented in the release notes.
 - **Inno Setup and `dmgbuild` are new build tools.** Both are pinned. `dmgbuild` needs Python on the macOS runner, which the image has.
 - **Testing in place needs two real builds.** The `native-test` overrides (base URL, public key, install root) cover logic, and a packaged smoke test per platform stays manual.
