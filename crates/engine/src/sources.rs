@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn caches_no_skill_uses_are_pruned() {
         let directory = tempfile::tempdir().unwrap();
-        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let state = State::isolated_test_state(dunce::canonicalize(directory.path()).unwrap());
         let unused = state.config.data_dir.join("source-cache/check/unused");
         fs::create_dir_all(unused.join("objects")).unwrap();
         state.prune_source_caches().unwrap();
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     fn a_catalog_cache_is_kept_while_its_preview_is_open_or_reading() {
         let directory = tempfile::tempdir().unwrap();
-        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let state = State::isolated_test_state(dunce::canonicalize(directory.path()).unwrap());
         let skill = skillbinder_proto::CatalogSkill {
             slug: "pdf".into(),
             key: "pdf".into(),

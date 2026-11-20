@@ -54,11 +54,17 @@ impl Fixture {
         let path = self.peer.join(file);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, value).unwrap();
-        self.git.output(&self.peer, &["add", "."]).unwrap();
+        // Git for Windows refuses names such as `aux` itself; the peer commits them anyway so
+        // the engine's own check is what keeps them out.
+        self.git
+            .output(&self.peer, &["-c", "core.protectNTFS=false", "add", "."])
+            .unwrap();
         self.git
             .output(
                 &self.peer,
                 &[
+                    "-c",
+                    "core.protectNTFS=false",
                     "-c",
                     "user.name=Test",
                     "-c",

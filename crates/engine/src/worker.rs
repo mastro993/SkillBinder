@@ -101,9 +101,9 @@ impl Engine {
     /// Call before creating native windows or from a blocking task.
     pub fn open(mut config: EngineConfig) -> AppResult<Self> {
         fs::create_dir_all(&config.data_dir).map_err(|_| AppError::storage())?;
-        config.data_dir = fs::canonicalize(&config.data_dir).map_err(|_| AppError::storage())?;
+        config.data_dir = dunce::canonicalize(&config.data_dir).map_err(|_| AppError::storage())?;
         fs::create_dir_all(&config.home).map_err(|_| AppError::storage())?;
-        config.home = fs::canonicalize(&config.home).map_err(|_| AppError::storage())?;
+        config.home = dunce::canonicalize(&config.home).map_err(|_| AppError::storage())?;
         for name in ["staging", "logs", "icons"] {
             fs::create_dir_all(config.data_dir.join(name)).map_err(|_| AppError::storage())?;
         }

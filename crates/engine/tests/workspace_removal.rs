@@ -26,7 +26,7 @@ use support::write_skill;
 async fn removing_a_missing_workspace_leaves_the_copies_of_a_directory_linked_inside_it() {
     let project = Project::with(&["review"]).await;
     // Inside home, a managed copy that nothing holds any more would be removed.
-    let folder = fs::canonicalize(&project.fixture.home)
+    let folder = dunce::canonicalize(&project.fixture.home)
         .unwrap()
         .join("proj");
     fs::create_dir_all(folder.join("tooling/agent-skills")).unwrap();
@@ -94,7 +94,7 @@ async fn removing_a_missing_workspace_keeps_a_nested_missing_workspace_records()
 #[tokio::test]
 async fn removing_a_missing_workspace_keeps_a_global_skill_directory_linked_into_it() {
     let project = Project::with(&[]).await;
-    let home = fs::canonicalize(&project.fixture.home).unwrap();
+    let home = dunce::canonicalize(&project.fixture.home).unwrap();
     let dotfiles = home.join("dotfiles");
     // Two links lead there, so while the folder is missing its path cannot be resolved.
     let skills = dotfiles.join("agents/claude-skills");

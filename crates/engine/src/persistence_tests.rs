@@ -6,7 +6,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 fn fixture() -> (tempfile::TempDir, State, Journal) {
     let directory = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(directory.path()).unwrap();
+    let root = dunce::canonicalize(directory.path()).unwrap();
     let state = State::isolated_test_state(root.clone());
     let mut skills = Vec::new();
     let mut records = Vec::new();

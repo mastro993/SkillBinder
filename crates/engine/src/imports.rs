@@ -131,7 +131,7 @@ impl State {
             return Err(AppError::stale("The library changed after import review."));
         }
         for (item, inspection) in prepared.review.items.iter().zip(&prepared.sources) {
-            if fs::canonicalize(&item.source).map_err(|_| AppError::stale("SourceChanged"))?
+            if dunce::canonicalize(&item.source).map_err(|_| AppError::stale("SourceChanged"))?
                 != inspection.canonical_source
                 || payload::inspect(&inspection.canonical_source)? != *inspection
             {
@@ -236,7 +236,7 @@ impl State {
 /// Re-inspects a reviewed source, refusing one whose path or directory changed since the scan.
 pub(super) fn reinspect(source: &ImportSource) -> AppResult<Inspection> {
     let previous = &source.inspection;
-    let resolved = fs::canonicalize(&source.display_path)
+    let resolved = dunce::canonicalize(&source.display_path)
         .map_err(|_| AppError::stale("Selected source path no longer exists."))?;
     if resolved != previous.canonical_source {
         return Err(AppError::stale("Selected source path changed."));

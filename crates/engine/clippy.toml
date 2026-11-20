@@ -1,2 +1,9 @@
 # crates/engine owns filesystem, process, and Git work, so it replaces the
 # workspace clippy.toml that forbids those items elsewhere.
+
+# On Windows the standard library returns verbatim `\\?\C:\…` paths, which Git rejects as HOME,
+# `/`-separated joins do not resolve under, and plain paths never compare equal to.
+disallowed-methods = [
+    { path = "std::fs::canonicalize", reason = "use dunce::canonicalize, which keeps Windows paths plain" },
+    { path = "std::path::Path::canonicalize", reason = "use dunce::canonicalize, which keeps Windows paths plain" },
+]

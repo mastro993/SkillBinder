@@ -73,7 +73,10 @@ pub fn body(skill: &Path) -> String {
 }
 
 pub fn named(directory: &Path) -> String {
-    fs::canonicalize(directory).unwrap().display().to_string()
+    dunce::canonicalize(directory)
+        .unwrap()
+        .display()
+        .to_string()
 }
 
 pub fn skill(slug: &str) -> SkillId {

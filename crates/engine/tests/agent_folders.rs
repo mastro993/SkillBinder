@@ -40,7 +40,7 @@ async fn detected_agents_are_those_whose_global_directory_exists() {
 async fn an_absent_global_directory_under_a_linked_folder_is_still_an_agent_folder() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     fs::create_dir_all(home.join("agent-data")).unwrap();
     std::os::unix::fs::symlink(home.join("agent-data"), home.join(".claude")).unwrap();
     let error = add_folder(&engine, &home.join("agent-data"))
@@ -58,7 +58,7 @@ async fn an_absent_global_directory_under_a_linked_folder_is_still_an_agent_fold
 async fn a_dangling_global_directory_link_points_at_an_agent_folder() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     fs::create_dir_all(home.join("agent-data")).unwrap();
     fs::create_dir_all(home.join(".claude")).unwrap();
     std::os::unix::fs::symlink(home.join("agent-data/skills"), home.join(".claude/skills"))
@@ -79,8 +79,8 @@ async fn a_project_whose_skill_directory_links_to_a_global_one_is_an_agent_folde
     let fixture = Fixture::new();
     write_skill(&fixture.home.join(".claude/skills"), "review", "Review");
     let engine = fixture.ready().await;
-    let home = fs::canonicalize(&fixture.home).unwrap();
-    let project = fs::canonicalize(&fixture.workspace).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
+    let project = dunce::canonicalize(&fixture.workspace).unwrap();
     fs::create_dir_all(project.join(".claude")).unwrap();
     std::os::unix::fs::symlink(home.join(".claude/skills"), project.join(".claude/skills"))
         .unwrap();
@@ -165,7 +165,7 @@ async fn paths_spelled_through_a_linked_home_are_inside_home() {
             .iter()
             .any(|id| id == "claude-code")
     );
-    let real = fs::canonicalize(&real).unwrap();
+    let real = dunce::canonicalize(&real).unwrap();
     let error = add_folder(&engine, &real.join(".config/opencode"))
         .await
         .unwrap_err();
@@ -200,9 +200,9 @@ async fn an_agent_whose_directory_is_outside_home_is_not_detected() {
 async fn a_project_skill_link_to_an_absent_global_directory_is_an_agent_folder() {
     let fixture = Fixture::new();
     let engine = fixture.ready().await;
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     fs::create_dir_all(home.join(".claude")).unwrap();
-    let project = fs::canonicalize(&fixture.workspace).unwrap();
+    let project = dunce::canonicalize(&fixture.workspace).unwrap();
     fs::create_dir_all(project.join(".claude")).unwrap();
     std::os::unix::fs::symlink(home.join(".claude/skills"), project.join(".claude/skills"))
         .unwrap();
@@ -220,7 +220,7 @@ async fn agents_whose_directories_are_one_folder_share_a_resolved_directory() {
     let fixture = Fixture::new();
     fs::create_dir_all(fixture.home.join(".agents/skills")).unwrap();
     fs::create_dir_all(fixture.home.join(".claude")).unwrap();
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     std::os::unix::fs::symlink(home.join(".agents/skills"), home.join(".claude/skills")).unwrap();
     let engine = fixture.ready().await;
     let snapshot = engine.snapshot().await.unwrap();
@@ -284,7 +284,7 @@ async fn a_stored_home_workspace_is_forgotten_on_launch() {
     let engine = fixture.ready().await;
     let kept = fixture.register(&engine).await;
     engine.shutdown().await.unwrap();
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     let mut database = fixture.database();
     diesel::sql_query("UPDATE workspaces SET position=1")
         .execute(&mut database)
@@ -324,7 +324,7 @@ async fn a_home_workspace_forgotten_with_data_saved_before_agents_were_chosen_ha
     engine.shutdown().await.unwrap();
     // Data from before agents were chosen, with the home folder stored as a workspace holding
     // the copy the active preset also holds for Claude Code.
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     let mut database = fixture.database();
     diesel::sql_query(
         "INSERT INTO workspaces(id,canonical_path,name,position,created_at) \
@@ -388,7 +388,7 @@ async fn a_global_skill_directory_itself_is_not_a_workspace() {
     let skills = fixture.home.join(".claude/skills");
     write_skill(&skills, "review", "Review");
     let engine = fixture.ready().await;
-    let skills = fs::canonicalize(skills).unwrap();
+    let skills = dunce::canonicalize(skills).unwrap();
     for picked in [skills.clone(), skills.join("review")] {
         let error = add_folder(&engine, &picked).await.unwrap_err();
         assert_eq!(
@@ -424,10 +424,10 @@ async fn a_linked_global_directory_is_an_agent_folder_only_inside_home() {
         fs::create_dir_all(fixture.home.join(agent)).unwrap();
         std::os::unix::fs::symlink(target, fixture.home.join(agent).join("skills")).unwrap();
     };
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     let shared = home.join("shared");
     link(&shared.join("skills"), ".claude");
-    let outside = fs::canonicalize(&fixture.workspace)
+    let outside = dunce::canonicalize(&fixture.workspace)
         .unwrap()
         .join(".continue/skills");
     link(&outside, ".continue");

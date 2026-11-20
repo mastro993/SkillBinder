@@ -268,7 +268,7 @@ async fn a_workspace_directory_stays_managed_while_a_chosen_agent_reads_it() {
     let engine = fixture.ready().await;
     let ids = fixture.scan(&engine).await.candidates;
     support::import(&engine, ids.into_iter().map(|found| found.id).collect()).await;
-    let folder = fs::canonicalize(&fixture.workspace).unwrap();
+    let folder = dunce::canonicalize(&fixture.workspace).unwrap();
     let copy = folder.join(".claude/skills/review");
     fs::create_dir_all(folder.join(".claude/skills")).unwrap();
     let workspace = fixture.register(&engine).await;

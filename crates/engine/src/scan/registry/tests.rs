@@ -4,6 +4,7 @@
 )]
 use super::*;
 use skillbinder_proto::DirRole;
+use std::fs;
 
 /// What a scan reads when every registry agent is yours.
 fn every_agent(config: &EngineConfig, workspaces: Vec<(WorkspaceId, PathBuf)>) -> AppResult<Reach> {
@@ -183,7 +184,7 @@ fn a_reviewed_order_says_which_copy_an_agent_loads() -> Result<(), Box<dyn std::
     let temp = tempfile::tempdir()?;
     let config = EngineConfig::isolated(temp.path().join("data"), temp.path().join("home"));
     let preferences = preferences(&config)?;
-    let agents = config.home.join(".agents/skills").display().to_string();
+    let agents = resolved_dir(&config.home.join(".agents/skills"), &config);
     // Kimi Code CLI and Gemini CLI rank a workspace directory above every global one.
     assert_eq!(
         preferences.loaded("kimi-code-cli", ".kimi-code/skills", &agents),

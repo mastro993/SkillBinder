@@ -31,7 +31,7 @@ pub async fn remove_while_missing(project: &Project, folder: &Path, workspace: W
 
 /// `~/code` and `~/code/app`, each a workspace using `.claude/skills`.
 pub async fn nested(project: &Project) -> (std::path::PathBuf, Workspace, Workspace) {
-    let code = fs::canonicalize(&project.fixture.home)
+    let code = dunce::canonicalize(&project.fixture.home)
         .unwrap()
         .join("code");
     for folder in [code.clone(), code.join("app")] {

@@ -50,7 +50,7 @@ impl Project {
                 write_skill(&fixture.home.join(".claude/skills"), slug, LIBRARY);
             }
         }
-        let folder = fs::canonicalize(&fixture.workspace).unwrap();
+        let folder = dunce::canonicalize(&fixture.workspace).unwrap();
         Self {
             fixture,
             engine,

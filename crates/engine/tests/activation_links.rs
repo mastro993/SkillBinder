@@ -67,7 +67,7 @@ fn states(library: &LibrarySnapshot) -> Vec<(String, CopyState)> {
 #[tokio::test]
 async fn an_agent_directory_inside_skillbinder_storage_never_receives_or_loses_a_copy() {
     let temp = tempfile::tempdir().unwrap();
-    let home = fs::canonicalize(temp.path()).unwrap().join("home");
+    let home = dunce::canonicalize(temp.path()).unwrap().join("home");
     let data = home.join("data/SkillBinder");
     let engine = imported(&home, &data).await;
     let library_skills = data.join("library/skills");
@@ -90,7 +90,7 @@ async fn an_agent_directory_inside_skillbinder_storage_never_receives_or_loses_a
 #[tokio::test]
 async fn a_directory_that_became_a_link_is_forgotten_without_emptying_its_target() {
     let temp = tempfile::tempdir().unwrap();
-    let home = fs::canonicalize(temp.path()).unwrap().join("home");
+    let home = dunce::canonicalize(temp.path()).unwrap().join("home");
     let engine = imported(&home, &temp.path().join("data")).await;
     let claude = home.join(".claude/skills");
     fs::create_dir_all(&claude).unwrap();

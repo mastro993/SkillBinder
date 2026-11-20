@@ -41,6 +41,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "diesel",
             "diesel_migrations",
             "directories",
+            "dunce",
             "fs2",
             "libsqlite3-sys",
             "regex",

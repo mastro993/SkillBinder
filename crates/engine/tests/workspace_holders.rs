@@ -26,7 +26,7 @@ use support::write_skill;
 async fn removing_a_workspace_whose_directory_became_your_agents_leaves_its_copies() {
     for at_launch in [false, true] {
         let mut project = Project::with(&["review"]).await;
-        let home = fs::canonicalize(&project.fixture.home).unwrap();
+        let home = dunce::canonicalize(&project.fixture.home).unwrap();
         let dotfiles = home.join("dotfiles");
         fs::create_dir_all(dotfiles.join(".claude/skills")).unwrap();
         let workspace = support::add_workspace(&project.engine, &dotfiles).await;
@@ -88,7 +88,7 @@ async fn removing_a_workspace_forgets_its_copies_in_a_directory_shared_with_a_mi
 #[tokio::test]
 async fn removing_a_workspace_under_home_leaves_its_copies() {
     let project = Project::with(&["review"]).await;
-    let folder = fs::canonicalize(&project.fixture.home)
+    let folder = dunce::canonicalize(&project.fixture.home)
         .unwrap()
         .join("proj");
     fs::create_dir_all(folder.join(".claude/skills")).unwrap();
@@ -177,7 +177,7 @@ async fn removing_the_last_holder_of_a_shared_copy_leaves_it() {
 #[tokio::test]
 async fn removing_a_workspace_your_agents_no_longer_share_leaves_its_copies() {
     let project = Project::with(&["review"]).await;
-    let home = fs::canonicalize(&project.fixture.home).unwrap();
+    let home = dunce::canonicalize(&project.fixture.home).unwrap();
     let dotfiles = home.join("dotfiles");
     fs::create_dir_all(dotfiles.join(".claude/skills")).unwrap();
     let workspace = support::add_workspace(&project.engine, &dotfiles).await;

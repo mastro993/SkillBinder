@@ -65,8 +65,8 @@ async fn a_workspace_scan_reads_only_its_top_level_agent_skill_directories() {
     );
 
     let scan = fixture.scan(&engine).await;
-    let root = fs::canonicalize(&fixture.workspace).unwrap();
-    let home = fs::canonicalize(&fixture.home).unwrap();
+    let root = dunce::canonicalize(&fixture.workspace).unwrap();
+    let home = dunce::canonicalize(&fixture.home).unwrap();
     assert_eq!(
         paths(&scan),
         [
@@ -128,7 +128,7 @@ async fn a_folder_of_projects_adds_each_project_once() {
     write_skill(&projects.join("api/.claude/skills"), "alpha", "Alpha");
     fs::create_dir_all(projects.join("web/.agents/skills")).unwrap();
     fs::create_dir_all(projects.join("docs")).unwrap();
-    let canonical = fs::canonicalize(&projects).unwrap();
+    let canonical = dunce::canonicalize(&projects).unwrap();
 
     let added = add_folder(&engine, &projects).await.unwrap();
     let names: Vec<_> = added
@@ -305,8 +305,8 @@ async fn workspace_appearance_persists_and_images_are_stored_copies() {
     assert_eq!(shown.icon, Some(PresetIcon::Rocket));
     let stored = Path::new(shown.image.as_ref().unwrap());
     assert_eq!(
-        fs::canonicalize(stored.parent().unwrap()).unwrap(),
-        fs::canonicalize(fixture.data.join("icons")).unwrap()
+        dunce::canonicalize(stored.parent().unwrap()).unwrap(),
+        dunce::canonicalize(fixture.data.join("icons")).unwrap()
     );
     assert_ne!(stored, picked);
     assert_eq!(fs::read(stored).unwrap(), PNG);

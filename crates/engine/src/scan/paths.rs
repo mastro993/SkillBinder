@@ -25,7 +25,7 @@ pub(crate) fn inside(boundary: &Path, path: &Path) -> Option<PathBuf> {
     let mut existing = path;
     let mut missing = Vec::new();
     let resolved = loop {
-        match fs::canonicalize(existing) {
+        match dunce::canonicalize(existing) {
             Ok(resolved) => break resolved,
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 missing.push(existing.file_name()?);
