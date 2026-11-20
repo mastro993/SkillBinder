@@ -43,6 +43,8 @@ jobs:
       # skip it too.
       - id: fresh
         name: Skip a night without merged pull requests
+        # An explicit bash adds pipefail, so a failed lookup fails the step.
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -140,6 +142,7 @@ jobs:
             dist/*
       # Keep the five newest betas; stable releases are never touched.
       - name: Prune old betas
+        shell: bash
         run: |
           gh release list --limit 200 --exclude-drafts --json tagName,isPrerelease \
             --jq '[.[] | select(.isPrerelease)] | .[5:] | .[].tagName' |
