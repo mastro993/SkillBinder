@@ -5,12 +5,16 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # release.yml and nightly.yml run it again on the commit they ship.
+  workflow_call:
 
 permissions:
   contents: read
 
+# A caller's run has its own group (github.workflow names the caller), so it neither cancels nor is
+# cancelled by the run for the same push.
 concurrency:
-  group: checks-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
