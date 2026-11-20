@@ -12,11 +12,13 @@ use std::{
 use super::NativeView;
 use super::sidebar_row::{RowIcon, count, row};
 use gpui_kit::base::animation::ease_out_cubic;
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     App, Bounds, Context, CursorStyle, Hsla, IntoElement, ParentElement, Pixels, Point, Render,
     SharedString, Styled, Window, px,
 };
-use skillbinder_design::sidebar::{ROW_GAP, ROW_HEIGHT};
+use skillbinder_design::sidebar::{RADIUS, ROW_GAP, ROW_HEIGHT};
+use skillbinder_design::{Level, Surface};
 use skillbinder_proto::{OrganizationChange, PresetId};
 
 /// How long a row takes to slide into its new slot.
@@ -42,7 +44,7 @@ impl<Id> RowDrag<Id> {
     }
 }
 
-/// The dragged row, floating under the pointer: a selected row, so a raised pill.
+/// The dragged row, floating under the pointer: a selected row, raised off the canvas.
 pub(super) struct RowDragPreview {
     icon: RowIcon,
     label: SharedString,
@@ -65,17 +67,22 @@ impl RowDragPreview {
 
 impl Render for RowDragPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut item = row(
+        let item = row(
             "row-drag-preview",
             self.icon.clone(),
             self.tint,
             self.label.clone(),
             true,
             cx,
-        )
-        .w(px(self.width));
+        );
+        let theme = cx.theme();
+        let mut item = Surface::new(Level::Raised)
+            .radius(RADIUS)
+            .fill(theme.sidebar_accent)
+            .apply(item, theme)
+            .w(px(self.width));
         if let Some(trailing) = self.count {
-            item = item.child(count(trailing));
+            item = item.child(count(trailing, true));
         }
         item
     }

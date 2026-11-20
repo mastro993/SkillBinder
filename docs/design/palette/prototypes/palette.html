@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palette playground</title>
+<!-- Palette playground: edit the window palette and export it for DESIGN.md.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py palette.html ../prototypes/palette.html -->
+<style>/* palette.css */
+*{box-sizing: border-box;}body{margin: 0;font: 12px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;background: #F6F6F8;color: #1C1C21;}.app{display: grid;grid-template-columns: 330px 1fr;height: 100vh;}.ctl{overflow: auto;border-right: 1px solid #DDDDE2;background: #FFF;padding: 12px 14px 24px;}.ctl h2{font-size: 11px;font-weight: 600;text-transform: uppercase;letter-spacing: .04em;color: #77777F;margin: 18px 0 6px;}.ctl h2:first-child{margin-top: 0;}.seg{display: flex;flex-wrap: wrap;gap: 3px;}.seg button{font: inherit;border: 1px solid #D6D6DC;background: #F7F7F9;color: inherit;padding: 3px 8px;border-radius: 6px;cursor: pointer;}.seg button.on{background: #1C1C21;border-color: #1C1C21;color: #FFF;}.vnote{color: #5A5A63;margin: 6px 0 0;min-height: 32px;}.field{display: grid;grid-template-columns: 96px 1fr auto;align-items: center;gap: 8px;margin: 5px 0;}.field > span:first-child{color: #55555E;}.field input[type=range]{width: 100%;}.field output{font: 11px "SF Mono", ui-monospace, Menlo, monospace;color: #77777F;min-width: 34px;text-align: right;}.swatches{display: flex;gap: 4px;flex-wrap: wrap;}.sw{width: 20px;height: 20px;border-radius: 50%;border: 2px solid #FFF;box-shadow: 0 0 0 1px #0002;cursor: pointer;}.sw.on{box-shadow: 0 0 0 2px #1C1C21;}input[type=color]{width: 26px;height: 20px;padding: 0;border: 1px solid #D6D6DC;border-radius: 4px;background: none;cursor: pointer;}.roles label{display: flex;gap: 6px;align-items: flex-start;margin: 3px 0;cursor: pointer;}.roles label small{color: #8A8A92;display: block;}.nav-colors{display: grid;grid-template-columns: repeat(2, 1fr);gap: 4px 10px;}.nav-colors label{display: flex;align-items: center;gap: 6px;}.tokens{display: grid;grid-template-columns: 26px 1fr auto auto;gap: 3px 6px;align-items: center;font-size: 11px;}.tokens .name{font-family: "SF Mono", ui-monospace, Menlo, monospace;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;}.tokens .hex{font-family: "SF Mono", ui-monospace, Menlo, monospace;color: #77777F;}.tokens .pin{border: 0;background: none;cursor: pointer;color: #5B5BD6;font-size: 11px;padding: 0;visibility: hidden;}.tokens .pin.on{visibility: visible;}.checks{margin-top: 8px;display: grid;gap: 2px;}.checks div{display: flex;justify-content: space-between;gap: 8px;}.checks .bad{color: #CE2C31;font-weight: 600;}.checks .ok{color: #18794E;}.export textarea{width: 100%;height: 220px;font: 10.5px/1.35 "SF Mono", ui-monospace, Menlo, monospace;border: 1px solid #D6D6DC;border-radius: 6px;padding: 6px;resize: vertical;}.export .row{display: flex;gap: 6px;margin-top: 6px;}.export button, .topbar button.hold{font: inherit;font-weight: 600;border: 0;border-radius: 6px;padding: 6px 10px;cursor: pointer;background: #1C1C21;color: #FFF;}.export button.ghost{background: #EEEEF1;color: #1C1C21;}.stagewrap{overflow: auto;padding: 14px 18px;}.topbar{display: flex;flex-wrap: wrap;gap: 8px 16px;align-items: center;margin-bottom: 10px;}.topbar .lbl{color: #77777F;margin-right: 4px;}.topbar .grp{display: flex;align-items: center;gap: 2px;}.topbar button.hold{background: #EEEEF1;color: #1C1C21;user-select: none;}.topbar button.hold:active{background: #1C1C21;color: #FFF;}.stage{width: 100%;}.win{width: 1180px;height: 660px;transform-origin: 0 0;position: relative;overflow: hidden;border-radius: 10px;background: var(--sidebar);color: var(--fg);font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;box-shadow: 0 0 0 1px rgba(0,0,0,.22), 0 12px 32px rgba(0,0,0,.12);}.mono{font-family: "SF Mono", ui-monospace, Menlo, monospace;font-size: 12px;}.lights{position: absolute;left: 16px;top: 20px;display: flex;gap: 8px;}.lights i{width: 12px;height: 12px;border-radius: 50%;display: block;}.lights i:nth-child(1){background: #FF5F57;}.lights i:nth-child(2){background: #FEBC2E;}.lights i:nth-child(3){background: #28C840;}.ib{width: 28px;height: 28px;border-radius: 6px;display: inline-flex;align-items: center;justify-content: center;color: var(--icon);flex: none;}.ib svg{width: 16px;height: 16px;}.ib.off{opacity: .5;}.side{position: absolute;left: 0;top: 0;bottom: 0;width: 232px;border-right: 1px solid var(--border);}.side .ctrls{position: absolute;top: 12px;left: 80px;right: 12px;display: flex;}.side .ctrls .sp{flex: 1;}.rows{position: absolute;top: 56px;left: 6px;right: 6px;bottom: 6px;display: flex;flex-direction: column;gap: 2px;}.srow{height: 32px;padding: 0 8px;border-radius: 8px;display: flex;align-items: center;gap: 8px;font-size: 14px;color: var(--label);}.srow .n{margin-left: auto;font-size: 11px;font-weight: 520;color: var(--muted-fg);font-variant-numeric: tabular-nums;}.srow.sel{color: var(--sel-fg);}.srow .check{color: var(--muted-fg);display: inline-flex;}.srow .check svg{width: 12px;height: 12px;}.g{width: 16px;height: 16px;flex: none;display: inline-flex;align-items: center;justify-content: center;}.g svg{width: 16px;height: 16px;}.g.tile{width: 20px;height: 20px;border-radius: 5px;margin: 0 -2px;}.g.tile svg{width: 13px;height: 13px;}.sec{font-size: 11px;font-weight: 520;color: var(--section);padding: 12px 8px 4px;}.spacer{flex: 1;}.main{position: absolute;top: 0;right: 0;bottom: 0;left: 232px;background: var(--bg);}.head{height: 52px;padding: 0 16px;display: flex;align-items: center;gap: 12px;border-bottom: 1px solid var(--border);}.title{display: flex;align-items: center;gap: 8px;min-width: 0;flex: 1;}.title .name{font-weight: 600;font-size: 16px;}.title .path{color: var(--muted-fg);white-space: nowrap;overflow: hidden;text-overflow: ellipsis;}.tab{height: 26px;padding: 0 10px;border-radius: 6px;display: inline-flex;align-items: center;font-size: 13px;font-weight: 520;color: var(--muted-fg);}.tab.sel{color: var(--tab-fg);background: var(--tab-bg);box-shadow: var(--tab-shadow);}.vsep{width: 1px;height: 16px;background: var(--border);margin: 0 4px;}.actions{display: flex;align-items: center;gap: 8px;flex: none;}.btn{height: 28px;padding: 0 10px;border-radius: 6px;display: inline-flex;align-items: center;gap: 6px;font-size: 13px;font-weight: 520;border: 1px solid var(--border);background: var(--bg);color: var(--fg);flex: none;}.btn svg{width: 14px;height: 14px;}.btn.primary{background: var(--btn-bg);color: var(--btn-fg);border-color: transparent;}.btn.sm{height: 24px;padding: 0 8px;font-size: 12px;}.btn.focus{box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus);}.content{padding: 16px;display: flex;flex-direction: column;gap: 12px;}.toolbar{display: flex;align-items: center;gap: 12px;}.search{height: 32px;width: 300px;border-radius: 6px;background: var(--muted);color: var(--muted-fg);display: flex;align-items: center;gap: 8px;padding: 0 10px;font-size: 13px;}.search.focus{box-shadow: 0 0 0 2px var(--focus);color: var(--fg);}.search svg{width: 14px;height: 14px;}.caret{width: 1px;height: 15px;background: var(--fg);margin-left: -6px;}.segc{display: inline-flex;background: var(--muted);border-radius: 8px;padding: 2px;gap: 2px;}.segc span{height: 24px;padding: 0 10px;border-radius: 6px;display: inline-flex;align-items: center;font-size: 12px;font-weight: 520;color: var(--muted-fg);}.segc span.on{background: var(--bg);color: var(--fg);box-shadow: 0 0 0 .5px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.08);}.card{border: 1px solid var(--border);border-radius: 10px;background: var(--bg);overflow: hidden;}.item{min-height: 56px;padding: 8px 12px;display: flex;align-items: center;gap: 12px;border-bottom: 1px solid var(--hairline);}.item:last-child{border-bottom: 0;}.item.hover{background: var(--muted);}.item.inactive > :not(.sw-ctl){opacity: .5;}.item .txt{flex: 1;min-width: 0;}.item b{display: block;font-size: 14px;font-weight: 600;}.item .d{font-size: 12px;color: var(--muted-fg);white-space: nowrap;overflow: hidden;text-overflow: ellipsis;display: block;}.chip{display: inline-flex;align-items: center;gap: 4px;height: 18px;padding: 0 8px;border-radius: 999px;font-size: 11px;font-weight: 520;background: var(--muted);color: var(--muted-fg);flex: none;}.chip.hl{background: var(--chip-bg);color: var(--chip-fg);}.chip.out{background: var(--bg);color: var(--fg);box-shadow: inset 0 0 0 1px var(--border);}.chip i{width: 7px;height: 7px;border-radius: 50%;display: block;}.status{display: inline-flex;align-items: center;gap: 4px;font-size: 12px;flex: none;}.status i{width: 8px;height: 8px;border-radius: 50%;}.switch{width: 30px;height: 18px;border-radius: 999px;background: var(--switch-off);position: relative;flex: none;}.switch::after{content: "";position: absolute;top: 2px;left: 2px;width: 14px;height: 14px;border-radius: 50%;background: #FFF;box-shadow: 0 1px 2px rgba(0,0,0,.2);}.switch.on{background: var(--switch);}.switch.on::after{left: 14px;}.cb{width: 16px;height: 16px;border-radius: 4px;border: 1px solid var(--border);background: var(--bg);flex: none;display: inline-flex;align-items: center;justify-content: center;color: var(--check-fg);}.cb.on{background: var(--check);border-color: var(--check);}.cb svg{width: 11px;height: 11px;}.notice{display: flex;align-items: center;gap: 6px;font-size: 12px;}.notice svg{width: 14px;height: 14px;}.link{color: var(--link);text-decoration: var(--link-deco);font-weight: 520;}.pill{position: absolute;left: 50%;bottom: 16px;transform: translateX(-50%);background: var(--popover);border-radius: 999px;padding: 8px 14px;display: flex;align-items: center;gap: 10px;font-size: 12px;box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 10%, transparent), 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);}.bar{width: 120px;height: 4px;border-radius: 2px;background: var(--muted);overflow: hidden;}.bar i{display: block;height: 100%;width: 42%;background: var(--progress);}.grid{display: grid;grid-template-columns: repeat(3, 1fr);gap: 12px;}.tile-card{padding: 12px;display: flex;flex-direction: column;gap: 6px;}.tile-card .top{display: flex;align-items: center;gap: 6px;}.tile-card b{font-size: 14px;}.tile-card .foot{display: flex;align-items: center;justify-content: space-between;margin-top: 4px;}.sub{font-size: 11px;font-weight: 520;color: var(--muted-fg);}.scrim{position: absolute;inset: 0;background: color-mix(in srgb, var(--bg) 70%, transparent);display: flex;align-items: center;justify-content: center;}.dialog{width: 420px;background: var(--popover);border-radius: 12px;padding: 16px;display: flex;flex-direction: column;gap: 12px;box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 8%, transparent), 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1);}.dialog h3{margin: 0;font-size: 16px;}.dialog .lrow{display: flex;align-items: center;gap: 10px;padding: 6px 0;border-bottom: 1px solid var(--hairline);}.dialog .lrow:last-child{border: 0;}.dialog .foot{display: flex;justify-content: flex-end;gap: 8px;}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <aside class="ctl" id="ctl"></aside>
+  <main class="stagewrap">
+    <div class="topbar" id="topbar"></div>
+    <div class="stage" id="stage"><div class="win" id="win"></div></div>
+  </main>
+</div>
+<script>/* color.js */
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const gam = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+function oklchToRgb(L, C, H) {
+  const a = C * Math.cos((H * Math.PI) / 180), b = C * Math.sin((H * Math.PI) / 180);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ].map(gam);
+}
+function ok(L, C, H) {
+  // Lower chroma until the color fits sRGB, so hue and lightness survive.
+  L = clamp(L, 0, 1);
+  for (let c = C; c >= 0; c -= 0.002) {
+    const rgb = oklchToRgb(L, c, H);
+    if (rgb.every((v) => v >= -0.0005 && v <= 1.0005)) return toHex(rgb);
+  }
+  return toHex(oklchToRgb(L, 0, H));
+}
+const toHex = (rgb) => '#' + rgb.map((v) => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+const fromHex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+function hexToOklch(hex) {
+  const [r, g, b] = fromHex(hex).map(lin);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return [L, Math.hypot(A, B), ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360];
+}
+const mix = (a, b, t) => toHex(fromHex(a).map((v, i) => v * (1 - t) + fromHex(b)[i] * t));
+function luminance(hex) { const [r, g, b] = fromHex(hex).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
+function contrast(a, b) { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+
+</script>
+<script>/* palette-data.js */
+const CURRENT = {
+  light: { background: '#FFFFFF', foreground: '#1B1E23', sidebar: '#E9EDF2', 'sidebar-foreground': '#3C4045', 'sidebar-accent': '#D7DBE2', muted: '#EFF3F8', 'muted-foreground': '#5F646B', border: '#E2E7EC', hairline: '#EBEFF4', popover: '#FFFFFF', ring: '#0077B6', primary: '#0077B6', 'primary-hover': '#026EA8', 'primary-active': '#04659B', 'primary-foreground': '#FFFFFF', 'accent-soft': '#E4F2FE', 'accent-soft-foreground': '#046094' },
+  dark: { background: '#181A1D', foreground: '#E9EBEE', sidebar: '#0D0F12', 'sidebar-foreground': '#B6BBC1', 'sidebar-accent': '#24272A', muted: '#25282C', 'muted-foreground': '#A0A5AB', border: '#2A2D31', hairline: '#212427', popover: '#1D1F23', ring: '#1E84C4', primary: '#0077B6', 'primary-hover': '#1E84C4', 'primary-active': '#2F91D1', 'primary-foreground': '#FFFFFF', 'accent-soft': '#133146', 'accent-soft-foreground': '#8FCCFB' },
+};
+const STATUS = {
+  light: { success: '#2B9A66', 'success-text': '#18794E', warning: '#FFC53D', 'warning-text': '#A35A00', danger: '#CE2C31', 'danger-text': '#CE2C31', info: '#0797B9', 'info-text': '#0B7491' },
+  dark: { success: '#2B9A66', 'success-text': '#3DD68C', warning: '#FFC53D', 'warning-text': '#FFCA16', danger: '#CE2C31', 'danger-text': '#FF6369', info: '#0797B9', 'info-text': '#4CCCE6' },
+};
+const PRESET = { light: { blue: '#2563EB', orange: '#EA580C', pink: '#DB2777' }, dark: { blue: '#60A5FA', orange: '#FB923C', pink: '#F472B6' } };
+
+/* ---------- Choices ---------- */
+const NAV = [['explore', 'Explore'], ['library', 'Library'], ['workspace', 'Workspaces'], ['agent', 'Agent glyph'], ['settings', 'Settings']];
+const ROLES = [
+  ['primaryButton', 'Primary button', 'The one main action in a view'],
+  ['focus', 'Focus ring', 'Keyboard focus on fields and buttons'],
+  ['checks', 'Checkboxes and switches', 'Off: graphite (foreground) fill'],
+  ['progress', 'Progress', 'Sync pill bar'],
+  ['links', 'Links', 'Off: foreground, underlined'],
+  ['chips', 'Highlight chips', 'New, Updates filter. Off: neutral chip'],
+  ['tabs', 'Selected Library tab', 'Accent text on the raised tab'],
+  ['selGlyph', 'Selected sidebar glyph', 'Mono icons only: selected glyph in accent'],
+];
+const SEL = [['pill', 'Raised pill'], ['fill', 'Neutral fill'], ['accent', 'Accent soft'], ['item', 'Item color soft'], ['bar', 'Accent bar']];
+const ICONS = [['mono', 'Mono'], ['glyph', 'Colored glyphs'], ['tile', 'Colored tiles']];
+const LABELS = [['muted', 'Muted'], ['sidebar', 'Sidebar ink'], ['fg', 'Foreground']];
+const NEUTRALS = [['Pure', 0, 0], ['Iris gray', 286, 0.005], ['Cool', 255, 0.008], ['Slate', 245, 0.016], ['Warm', 70, 0.008], ['Sand', 80, 0.016], ['Sage', 150, 0.01]];
+const ACCENTS = ['#0077B6', '#5B5BD6', '#3E63DD', '#0090FF', '#12A594', '#30A46C', '#F76B15', '#E5484D', '#D6409F', '#8E4EC6', '#1C1C21'];
+const NAV_DEFAULT = { explore: '#0A84FF', library: '#F59E0B', workspace: '#14B8A6', agent: '#64748B', settings: '#8E8E93' };
+
+const ALL_ROLES = Object.fromEntries(ROLES.map(([k]) => [k, true]));
+const VARIANTS = {
+  cur: { name: 'Current', note: 'Today\'s DESIGN.md (2026-11-20): cool slate neutrals, mono glyphs, muted labels, flat neutral selection, blue on every interactive role.',
+    look: { accent: '#0077B6', nHue: 255, nChroma: 0.008, sHue: 255, sTint: 0, sDepth: 0.004, sel: 'fill', icons: 'mono', labels: 'muted', nav: NAV_DEFAULT, roles: { ...ALL_ROLES, tabs: false, selGlyph: false }, pinCurrent: true } },
+  A: { name: 'A · Colored glyphs', note: 'Neutral canvas; every sidebar glyph in its own color (Finder, Mail). Labels in sidebar ink. Iris kept for primary, focus, checks, links.',
+    look: { accent: '#5B5BD6', nHue: 255, nChroma: 0.008, sHue: 255, sTint: 0, sDepth: 0.004, sel: 'pill', icons: 'glyph', labels: 'sidebar', nav: NAV_DEFAULT, roles: { ...ALL_ROLES, chips: false, tabs: false, selGlyph: false } } },
+  B: { name: 'B · Tiles', note: 'macOS System Settings: white glyphs on colored rounded tiles, neutral fill selection, foreground labels. Accent only on primary and focus; checks graphite.',
+    look: { accent: '#0090FF', nHue: 255, nChroma: 0.006, sHue: 255, sTint: 0, sDepth: 0.01, sel: 'fill', icons: 'tile', labels: 'fg', nav: { explore: '#0A84FF', library: '#FF9F0A', workspace: '#30B0C7', agent: '#636366', settings: '#8E8E93' }, roles: { ...ALL_ROLES, checks: false, progress: false, chips: false, tabs: false, selGlyph: false, links: false } } },
+  C: { name: 'C · Tinted canvas', note: 'Sidebar canvas takes a soft accent tint (lavender). Colored glyphs, white pill. Iris marks primary, focus, checks, highlight chips.',
+    look: { accent: '#5B5BD6', nHue: 286, nChroma: 0.006, sHue: 286, sTint: 0.022, sDepth: 0.006, sel: 'pill', icons: 'glyph', labels: 'sidebar', nav: { explore: '#3E63DD', library: '#D97706', workspace: '#0D9488', agent: '#64748B', settings: '#7C7C88' }, roles: { ...ALL_ROLES, tabs: false, selGlyph: false } } },
+  D: { name: 'D · Item color', note: 'Warm sand neutrals; the selected row fills with its own item color, so the sidebar carries color without the accent. Teal accent for primary and focus only.',
+    look: { accent: '#12A594', nHue: 80, nChroma: 0.012, sHue: 80, sTint: 0.004, sDepth: 0.008, sel: 'item', icons: 'glyph', labels: 'sidebar', nav: { explore: '#2563EB', library: '#EA580C', workspace: '#0D9488', agent: '#57534E', settings: '#78716C' }, roles: { ...ALL_ROLES, checks: false, progress: false, chips: false, tabs: false, selGlyph: false } } },
+};
+
+/* ---------- State ---------- */
+const STORE = 'skillbinder-palette-v2';
+function lookOf(v) {
+  const base = VARIANTS[v].look;
+  const look = JSON.parse(JSON.stringify({ ...base, pins: { light: {}, dark: {} } }));
+  if (base.pinCurrent) look.pins = JSON.parse(JSON.stringify(CURRENT));
+  delete look.pinCurrent;
+  return look;
+}
+let state = { v: 'cur', mode: 'light', page: 'library', dialog: false, look: lookOf('cur') };
+try { const saved = JSON.parse(localStorage.getItem(STORE)); if (saved?.look?.roles) state = saved; } catch {}
+let comparing = false;
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} };
+
+/* ---------- Generator ---------- */
+function generate(look, mode) {
+  const { nHue: h, nChroma: c, sHue: sh, sTint, sDepth } = look;
+  const sc = c + sTint;
+  const [aL, aC, aH] = hexToOklch(look.accent);
+  const light = mode === 'light';
+  const t = light ? {
+    background: '#FFFFFF', foreground: ok(0.235, c * 1.4, h),
+    sidebar: ok(0.948 - sDepth, sc, sh), 'sidebar-foreground': ok(0.37, Math.max(c, sc * 0.8) * 1.3, sh),
+    muted: ok(0.962, c, h), 'muted-foreground': ok(0.53, c * 1.6, h),
+    border: ok(0.925, c * 1.1, h), hairline: ok(0.95, c, h), popover: '#FFFFFF',
+    primary: look.accent, 'primary-hover': ok(aL - 0.03, aC, aH), 'primary-active': ok(aL - 0.06, aC, aH),
+    'accent-soft': ok(0.955, Math.min(aC * 0.2, 0.03), aH), 'accent-soft-foreground': ok(Math.min(aL, 0.47), aC, aH),
+  } : {
+    background: ok(0.218, c * 0.9, h), foreground: ok(0.94, c * 0.6, h),
+    sidebar: ok(0.17 - sDepth * 0.6, sc * 0.9, sh), 'sidebar-foreground': ok(0.79, Math.max(c, sc * 0.6) * 1.2, sh),
+    muted: ok(0.275, c * 1.1, h), 'muted-foreground': ok(0.72, c * 1.3, h),
+    border: ok(0.295, c * 1.1, h), hairline: ok(0.258, c, h), popover: ok(0.24, c, h),
+    primary: aL < 0.45 && aC < 0.03 ? ok(0.92, aC, aH) : look.accent, 'primary-hover': ok(Math.max(aL, 0.55) + 0.04, aC, aH), 'primary-active': ok(Math.max(aL, 0.55) + 0.08, aC, aH),
+    'accent-soft': ok(0.3, Math.min(aC * 0.4, 0.07), aH), 'accent-soft-foreground': ok(0.82, Math.min(aC * 0.7, 0.12), aH),
+  };
+  t.ring = light ? t.primary : t['primary-hover'];
+  t['primary-foreground'] = contrast(t.primary, '#FFFFFF') >= 3 ? '#FFFFFF' : t.foreground === '#FFFFFF' ? '#000000' : ok(0.2, 0, 0);
+  t['sidebar-accent'] = { pill: light ? '#FFFFFF' : ok(0.29, sc, sh), fill: light ? ok(0.895 - sDepth, sc + 0.002, sh) : ok(0.27, sc, sh), accent: t['accent-soft'], item: t.sidebar, bar: light ? '#FFFFFF' : ok(0.29, sc, sh) }[look.sel];
+  for (const [id] of NAV) {
+    const [L, C, H] = hexToOklch(look.nav[id]);
+    if (look.icons === 'tile') t[`nav-${id}`] = light ? look.nav[id] : ok(clamp(L, 0.55, 0.66), C, H);
+    else t[`nav-${id}`] = light ? ok(Math.min(L, 0.62), C, H) : ok(Math.max(L, 0.74), C * 0.9, H);
+  }
+  Object.assign(t, STATUS[mode]);
+  return { ...t, ...look.pins[mode] };
+}
+const TOKEN_ORDER = ['background', 'foreground', 'sidebar', 'sidebar-foreground', 'sidebar-accent', 'muted', 'muted-foreground', 'border', 'hairline', 'popover', 'ring', 'primary', 'primary-hover', 'primary-active', 'primary-foreground', 'accent-soft', 'accent-soft-foreground', ...NAV.map(([id]) => `nav-${id}`), ...Object.keys(STATUS.light)];
+
+</script>
+<script>/* mock.js */
+const S = (d, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
+const ICON = {
+  explore: S('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'),
+  library: S('<path d="M5 4v16M9 4v16M13 5l4 15M19 4v16"/>'),
+  workspace: S('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>'),
+  agent: S('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 10l3 2-3 2M12 15h4"/>'),
+  settings: S('<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>'),
+  stack: S('<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'),
+  code: S('<path d="M8 8l-4 4 4 4M16 8l4 4-4 4"/>'),
+  pen: S('<path d="M4 20h4L19 9l-4-4L4 16z"/>'),
+  panel: S('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>'),
+  left: S('<path d="M15 6l-6 6 6 6"/>'), right: S('<path d="M9 6l6 6-6 6"/>'),
+  plus: S('<path d="M12 5v14M5 12h14"/>'), search: S('<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>'),
+  check: S('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 'stroke-width="2.6"'),
+  up: S('<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5"/>'),
+  scan: S('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="2.5"/>'),
+  warn: S('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/>'),
+  claude: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="#D97757"/><path d="M12 6v12M6 12h12M7.8 7.8l8.4 8.4M16.2 7.8l-8.4 8.4" stroke="#FFF" stroke-width="2" stroke-linecap="round"/></svg>',
+  codex: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="var(--fg)"/><path d="M8 9l3 3-3 3M13 15h3" stroke="var(--bg)" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+};
+
+function resolve(t, look) {
+  const r = look.roles, light = state.mode === 'light';
+  const graphite = t.foreground, graphiteInk = t.background;
+  const v = {
+    '--bg': t.background, '--fg': t.foreground, '--sidebar': t.sidebar, '--muted': t.muted, '--muted-fg': t['muted-foreground'],
+    '--border': t.border, '--hairline': t.hairline, '--popover': t.popover, '--icon': t['sidebar-foreground'],
+    '--label': { muted: t['muted-foreground'], sidebar: t['sidebar-foreground'], fg: t.foreground }[look.labels],
+    '--section': t['muted-foreground'],
+    '--btn-bg': r.primaryButton ? t.primary : graphite, '--btn-fg': r.primaryButton ? t['primary-foreground'] : graphiteInk,
+    '--focus': r.focus ? t.ring : mix(t['muted-foreground'], t.background, 0.35),
+    '--check': r.checks ? t.primary : graphite, '--check-fg': r.checks ? t['primary-foreground'] : graphiteInk,
+    '--switch': r.checks ? t.primary : graphite, '--switch-off': light ? mix(t.border, t.foreground, 0.12) : t.border,
+    '--progress': r.progress ? t.primary : graphite,
+    '--link': r.links ? (light ? t['accent-soft-foreground'] : t['accent-soft-foreground']) : t.foreground, '--link-deco': r.links ? 'none' : 'underline',
+    '--chip-bg': r.chips ? t['accent-soft'] : t.muted, '--chip-fg': r.chips ? t['accent-soft-foreground'] : t.foreground,
+    '--tab-fg': r.tabs ? t['accent-soft-foreground'] : t.foreground,
+    '--tab-bg': light ? t.background : t['sidebar-accent'], '--tab-shadow': '0 0 0 .5px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.08)',
+    '--sel-fg': t.foreground,
+  };
+  return v;
+}
+
+function glyph(t, look, id, selected, svg = ICON[id], navKey = id) {
+  const color = t[`nav-${navKey}`];
+  if (look.icons === 'tile') return `<span class="g tile" style="background:${color};color:#FFF">${svg}</span>`;
+  if (look.icons === 'glyph') return `<span class="g" style="color:${color}">${svg}</span>`;
+  const mono = selected ? (look.roles.selGlyph ? t.primary : t.foreground) : t['muted-foreground'];
+  return `<span class="g" style="color:${mono}">${svg}</span>`;
+}
+
+function selStyle(t, look, color) {
+  const light = state.mode === 'light';
+  const raised = light ? '0 0 0 .5px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.08)' : '0 1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04)';
+  switch (look.sel) {
+    case 'pill': return `background:${t['sidebar-accent']};box-shadow:${raised}`;
+    case 'fill': return `background:${t['sidebar-accent']}`;
+    case 'accent': return `background:${t['accent-soft']};color:${t['accent-soft-foreground']}`;
+    case 'item': return `background:${mix(t.sidebar, color, light ? 0.16 : 0.26)}`;
+    case 'bar': return `background:${t['sidebar-accent']};box-shadow:inset 3px 0 0 ${t.primary}, ${raised}`;
+  }
+}
+
+function sidebar(t, look) {
+  const page = state.page;
+  const row = (key, label, n, selected, g, color, extra = '') =>
+    `<div class="srow ${selected ? 'sel' : ''}" style="${selected ? selStyle(t, look, color) : ''}">${g}<span>${label}</span>${extra}<span class="n">${n ?? ''}</span></div>`;
+  const nav = (id, label, n, sel) => row(id, label, n, sel, glyph(t, look, id, sel), t[`nav-${id}`]);
+  const P = PRESET[state.mode];
+  const preset = (label, n, color, icon, active) => {
+    const g = look.icons === 'tile' ? `<span class="g tile" style="background:${color};color:#FFF">${ICON[icon]}</span>` : `<span class="g" style="color:${color}">${ICON[icon]}</span>`;
+    return row('', label, n, false, g, color, active ? `<span class="check">${ICON.check}</span>` : '');
+  };
+  const ws = (label, n, sel) => row('', label, n, sel, glyph(t, look, 'workspace', sel), t['nav-workspace']);
+  const agentLogo = (svg) => `<span class="g">${svg}</span>`;
+  return `<div class="side"><div class="ctrls"><span class="ib">${ICON.panel}</span><span class="sp"></span><span class="ib">${ICON.left}</span><span class="ib off">${ICON.right}</span></div>
+    <div class="rows">
+      ${nav('explore', 'Explore', null, page === 'explore')}
+      ${nav('library', 'Library', 9, page === 'library')}
+      <div class="sec">Presets</div>
+      ${preset('Default', 9, P.blue, 'stack', true)}${preset('Frontend', 4, P.orange, 'code')}${preset('Writing', 3, P.pink, 'pen')}
+      <div class="sec">Workspaces</div>
+      ${ws('atlas-web', 4, page === 'workspace')}${ws('orbit-api', 2, false)}
+      <div class="sec">Agents</div>
+      ${row('', 'Universal', 5, false, glyph(t, look, 'agent', false), t['nav-agent'])}
+      ${row('', 'Claude Code', 7, false, agentLogo(ICON.claude), '#D97757')}
+      ${row('', 'Codex', 3, false, agentLogo(ICON.codex), t.foreground)}
+      <div class="spacer"></div>
+      ${nav('settings', 'Settings', null, false)}
+    </div></div>`;
+}
+
+function libraryPage(t) {
+  const P = PRESET[state.mode];
+  const rows = [
+    ['api-design', 'Designs HTTP APIs the Acme way: resource names, pagination, errors.', `<span class="chip hl">New</span><span class="chip out"><i style="background:${P.blue}"></i>Default</span>`, true, ''],
+    ['changelog-writer', 'Keeps CHANGELOG.md in the Keep a Changelog format.', `<span class="status" style="color:${t['info-text']}"><i style="background:${t.info}"></i>Update</span><span class="chip out"><i style="background:${P.orange}"></i>Frontend</span>`, true, 'hover'],
+    ['commit-messages', 'Writes Conventional Commits messages from a staged diff.', `<span class="chip out"><i style="background:${P.pink}"></i>Writing</span>`, true, ''],
+    ['incident-runbook', 'Walks through the first thirty minutes of an incident.', `<span class="chip">Not in a preset</span>`, false, 'inactive'],
+  ];
+  return `<div class="head"><div class="title"><span class="tab sel">All skills</span><span class="tab">Work</span><span class="tab">Personal</span><span class="vsep"></span><span class="ib" style="color:var(--muted-fg)">${ICON.plus}</span></div>
+    <div class="actions"><span class="chip hl" style="height:24px">${ICON.up.replace('<svg', '<svg width="12" height="12"')}Updates 2</span><span class="ib" style="color:var(--muted-fg)">${ICON.scan}</span></div></div>
+    <div class="content"><div class="toolbar"><div class="search focus">${ICON.search}api<span class="caret"></span></div><div class="segc"><span class="on">All</span><span>Active</span><span>Inactive</span></div></div>
+    <div class="card">${rows.map(([n, d, marks, on, cls]) => `<div class="item ${cls}"><div class="txt"><b>${n}</b><span class="d">${d}</span></div>${marks}<span class="switch sw-ctl ${on ? 'on' : ''}"></span></div>`).join('')}</div>
+    <div class="notice" style="color:${t['warning-text']}">${ICON.warn}2 copies changed outside SkillBinder. <span class="link">Review</span></div></div>
+    <div class="pill">Syncing 3 of 7<span class="bar"><i></i></span></div>`;
+}
+
+function workspacePage(t, look) {
+  const rows = [['release-notes', 'Drafts user-facing release notes from merged pull requests.', true], ['api-design', 'Designs HTTP APIs the Acme way.', true], ['commit-messages', 'Writes Conventional Commits messages from a staged diff.', false]];
+  return `<div class="head"><div class="title">${glyph(t, look, 'workspace', true)}<span class="name">atlas-web</span><span style="color:var(--muted-fg)">·</span><span class="path mono">~/Projects/clients/acme/atlas/apps/web</span></div>
+    <div class="actions"><span class="btn primary focus">${ICON.plus}Add skill</span></div></div>
+    <div class="content"><div class="sub">AGENTS</div><div style="display:flex;gap:6px"><span class="chip out" style="height:24px">${ICON.claude.replace('<svg', '<svg width="14" height="14"')}Claude Code</span><span class="chip out" style="height:24px">${ICON.codex.replace('<svg', '<svg width="14" height="14"')}Codex</span><span class="chip" style="height:24px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--border);border:1px dashed transparent">+ Agent</span></div>
+    <div class="card">${rows.map(([n, d, on]) => `<div class="item"><span class="cb ${on ? 'on' : ''}">${on ? ICON.check : ''}</span><div class="txt"><b>${n}</b><span class="d">${d}</span></div><span class="status" style="color:${t['success-text']}"><i style="background:${t.success}"></i>Copied</span></div>`).join('')}</div>
+    <div class="notice" style="color:${t['info-text']}">${ICON.up}1 update from its source. <span class="link">Update all</span></div>
+    <div class="notice" style="color:${t['danger-text']}">${ICON.warn}Could not write to ~/.codex/skills.</div></div>`;
+}
+
+function explorePage(t) {
+  const cards = [['pdf-tools', 'Fill, merge and split PDFs.', 'anthropics/skills', 'new'], ['frontend-design', 'Distinctive, intentional UI.', 'anthropics/skills', 'installed'], ['tdd', 'Red, green, refactor.', 'mattpocock/skills', ''], ['changelog', 'Keep a Changelog entries.', 'acme/skills', ''], ['security-review', 'Review pending changes.', 'acme/skills', 'new'], ['diagrams', 'Mermaid and SVG diagrams.', 'jdoe/skills', '']];
+  return `<div class="head"><div class="title"><span class="name">Explore</span></div><div class="actions"><div class="segc"><span class="on">Catalog</span><span>skills.sh</span><span>Repositories</span></div></div></div>
+    <div class="content"><div class="toolbar"><div class="search">${ICON.search}Search skills</div></div>
+    <div class="grid">${cards.map(([n, d, o, s]) => `<div class="card tile-card"><div class="top"><b>${n}</b>${s === 'new' ? '<span class="chip hl">New</span>' : ''}</div><span class="d" style="color:var(--muted-fg)">${d}</span>
+      <div class="foot"><span class="mono" style="color:var(--muted-fg);font-size:11px">${o}</span>${s === 'installed' ? `<span class="status" style="color:${t['success-text']}">${ICON.check.replace('<svg', '<svg width="12" height="12"')}Installed</span>` : '<span class="btn sm">Install</span>'}</div></div>`).join('')}</div>
+    <div style="font-size:12px;color:var(--muted-fg)">Browsing the catalog. <span class="link">Add a repository</span></div></div>`;
+}
+
+function dialog() {
+  const rows = [['api-design', true], ['changelog-writer', true], ['commit-messages', true], ['incident-runbook', false]];
+  return `<div class="scrim"><div class="dialog"><h3>Import skills</h3><div style="font-size:13px;color:var(--muted-fg)">Found 4 skills in ~/.claude/skills.</div>
+    <div>${rows.map(([n, on]) => `<div class="lrow"><span class="cb ${on ? 'on' : ''}">${on ? ICON.check : ''}</span><span style="font-weight:600;font-size:14px">${n}</span></div>`).join('')}</div>
+    <div class="foot"><span class="btn">Cancel</span><span class="btn primary">Import 3 skills</span></div></div></div>`;
+}
+
+function renderWin() {
+  const look = comparing ? lookOf('cur') : state.look;
+  const t = generate(look, state.mode);
+  const win = document.getElementById('win');
+  win.setAttribute('style', Object.entries(resolve(t, look)).map(([k, v]) => `${k}:${v}`).join(';'));
+  const page = state.page === 'library' ? libraryPage(t) : state.page === 'workspace' ? workspacePage(t, look) : explorePage(t);
+  win.innerHTML = sidebar(t, look) + `<div class="main">${page}</div>` + `<div class="lights"><i></i><i></i><i></i></div>` + (state.dialog ? dialog() : '');
+  fit();
+  return t;
+}
+
+function fit() {
+  const stage = document.getElementById('stage'), win = document.getElementById('win');
+  const s = Math.min(1, stage.clientWidth / 1180);
+  win.style.transform = `scale(${s})`;
+  stage.style.height = `${660 * s}px`;
+}
+
+</script>
+<script>/* controls.js */
+const seg = (key, opts, cur, attr = 'data-look') => `<div class="seg">${opts.map(([v, l]) => `<button ${attr}="${key}" data-v="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+const range = (key, label, min, max, step, val, fmt = (x) => x) => `<label class="field"><span>${label}</span><input type="range" data-range="${key}" min="${min}" max="${max}" step="${step}" value="${val}"><output>${fmt(val)}</output></label>`;
+
+function renderControls(t) {
+  const L = state.look;
+  const both = { light: generate(L, 'light'), dark: generate(L, 'dark') };
+  const checks = [
+    ['Body text on page', t.foreground, t.background, 4.5],
+    ['Muted text on page', t['muted-foreground'], t.background, 4.5],
+    ['Muted text on sidebar', t['muted-foreground'], t.sidebar, 4.5],
+    ['Muted text on sidebar hover', t['muted-foreground'], mix(t.sidebar, t['sidebar-accent'], 0.5), 4.5],
+    ['Muted text on active preset', t['muted-foreground'], mix(t.sidebar, t['sidebar-accent'], 0.6), 4.5],
+    ['Label on selected row', t.foreground, t['sidebar-accent'], 4.5],
+    ['Sidebar ink on sidebar', t['sidebar-foreground'], t.sidebar, 4.5],
+    ['Primary label on primary', t['primary-foreground'], t.primary, 4.5],
+    ['Soft chip text', t['accent-soft-foreground'], t['accent-soft'], 4.5],
+    ...(L.icons === 'tile' ? NAV.map(([id, l]) => [`White glyph on ${l} tile`, '#FFFFFF', t[`nav-${id}`], 3]) : L.icons === 'glyph' ? NAV.map(([id, l]) => [`${l} glyph on sidebar`, t[`nav-${id}`], t.sidebar, 3]) : []),
+  ];
+  document.getElementById('ctl').innerHTML = `
+    <h2>Start from</h2>${seg('v', Object.entries(VARIANTS).map(([k, x]) => [k, x.name]), state.v, 'data-variant')}
+    <p class="vnote">${VARIANTS[state.v].note}</p>
+    <h2>Accent</h2>
+    <div class="swatches">${ACCENTS.map((c) => `<span class="sw ${L.accent.toUpperCase() === c ? 'on' : ''}" data-accent="${c}" style="background:${c}"></span>`).join('')}<input type="color" data-accent-pick value="${L.accent}"></div>
+    <h2>Accent goes on</h2>
+    <div class="roles">${ROLES.map(([k, l, d]) => `<label><input type="checkbox" data-role="${k}" ${L.roles[k] ? 'checked' : ''}><span>${l}<small>${d}</small></span></label>`).join('')}</div>
+    <h2>Neutrals</h2>
+    ${seg('neutral', NEUTRALS.map(([n, h]) => [n, n]), (NEUTRALS.find(([, h, c]) => h === L.nHue && c === L.nChroma) || [])[0], 'data-neutral')}
+    ${range('nHue', 'Gray hue', 0, 360, 1, L.nHue)}${range('nChroma', 'Gray tint', 0, 0.03, 0.001, L.nChroma)}
+    <h2>Sidebar</h2>
+    ${range('sHue', 'Canvas hue', 0, 360, 1, L.sHue)}${range('sTint', 'Canvas tint', 0, 0.05, 0.001, L.sTint)}${range('sDepth', 'Canvas depth', -0.02, 0.05, 0.002, L.sDepth)}
+    <div style="margin:4px 0"><button class="seg-btn" data-hue-accent style="font:inherit;border:1px solid #D6D6DC;background:#F7F7F9;border-radius:6px;padding:3px 8px;cursor:pointer">Canvas hue = accent</button></div>
+    <div class="field"><span>Selection</span><span></span></div>${seg('sel', SEL, L.sel)}
+    <div class="field"><span>Icons</span><span></span></div>${seg('icons', ICONS, L.icons)}
+    <div class="field"><span>Labels</span><span></span></div>${seg('labels', LABELS, L.labels)}
+    <div class="field"><span>Item colors</span><span></span></div>
+    <div class="nav-colors">${NAV.map(([id, l]) => `<label><input type="color" data-nav="${id}" value="${L.nav[id]}">${l}</label>`).join('')}</div>
+    <h2>Tokens · ${state.mode}</h2>
+    <div class="tokens">${TOKEN_ORDER.map((k) => `<input type="color" data-token="${k}" value="${t[k]}"><span class="name" title="${k}">${k}</span><span class="hex">${t[k]}</span><button class="pin ${L.pins[state.mode][k] ? 'on' : ''}" data-unpin="${k}" title="Hand-picked. Click to regenerate.">↺</button>`).join('')}</div>
+    <div class="checks">${checks.map(([n, a, b, min]) => { const r = contrast(a, b); return `<div><span>${n}</span><span class="${r < min ? 'bad' : 'ok'}">${r.toFixed(1)}:1</span></div>`; }).join('')}</div>
+    <h2>Export</h2>
+    <div class="export"><textarea id="out" readonly>${exportText(both)}</textarea>
+    <div class="row"><button data-copy>Copy palette</button><button class="ghost" data-reset>Reset to ${VARIANTS[state.v].name}</button></div></div>`;
+}
+
+function exportText(both) {
+  const L = state.look;
+  const lines = ['# SkillBinder palette (from docs/design/palette/prototypes/palette.html)', `# Started from: ${VARIANTS[state.v].name}`, 'direction:',
+    `  accent: "${L.accent}"`,
+    `  neutrals: { hue: ${L.nHue}, chroma: ${L.nChroma} }`,
+    `  sidebar-canvas: { hue: ${L.sHue}, tint: ${L.sTint}, depth: ${L.sDepth} }`,
+    `  sidebar-selection: ${L.sel}   # ${SEL.find(([k]) => k === L.sel)[1]}`,
+    `  sidebar-icons: ${L.icons}   # ${ICONS.find(([k]) => k === L.icons)[1]}`,
+    `  sidebar-labels: ${L.labels}   # ${LABELS.find(([k]) => k === L.labels)[1]}`,
+    'accent-roles:   # false = graphite/neutral instead of accent',
+    ...ROLES.map(([k, l]) => `  ${l.toLowerCase().replace(/ /g, '-')}: ${L.roles[k]}`),
+    'colors:   # "was" = DESIGN.md today'];
+  for (const k of TOKEN_ORDER) {
+    for (const mode of ['light', 'dark']) {
+      if (mode === 'dark' && both.dark[k] === both.light[k] && !k.startsWith('nav-')) continue;
+      const name = mode === 'dark' ? `${k}-dark` : k;
+      const was = (CURRENT[mode][k] ?? STATUS[mode][k]);
+      const note = was === undefined ? '   # new' : was.toUpperCase() !== both[mode][k].toUpperCase() ? `   # was ${was}` : '';
+      lines.push(`  ${name}: "${both[mode][k]}"${note}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+function renderTopbar() {
+  const grp = (label, key, opts) => `<span class="grp"><span class="lbl">${label}</span>${seg(key, opts, state[key], 'data-view')}</span>`;
+  document.getElementById('topbar').innerHTML = grp('Theme', 'mode', [['light', 'Light'], ['dark', 'Dark']]) + grp('Page', 'page', [['library', 'Library'], ['workspace', 'Workspace'], ['explore', 'Explore']]) +
+    grp('Dialog', 'dialog', [[false, 'Off'], [true, 'Import']]) + '<button class="hold" data-hold>Hold to compare with Current</button>';
+}
+
+function render() { renderTopbar(); const t = renderWin(); renderControls(t); save(); }
+
+/* ---------- Events ---------- */
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-variant],[data-look],[data-view],[data-accent],[data-neutral],[data-unpin],[data-copy],[data-reset],[data-hue-accent]');
+  if (!el) return;
+  const L = state.look;
+  if (el.dataset.variant) { state.v = el.dataset.v; state.look = lookOf(state.v); }
+  else if (el.dataset.look) L[el.dataset.look] = el.dataset.v;
+  else if (el.dataset.view) state[el.dataset.view] = el.dataset.v === 'true' ? true : el.dataset.v === 'false' ? false : el.dataset.v;
+  else if (el.dataset.accent) setAccent(el.dataset.accent);
+  else if (el.dataset.neutral) { const [, h, c] = NEUTRALS.find(([n]) => n === el.dataset.v); unpinAll(); L.nHue = h; L.nChroma = c; if (!L.sTint) L.sHue = h; }
+  else if (el.dataset.unpin) delete L.pins[state.mode][el.dataset.unpin];
+  else if (el.hasAttribute('data-hue-accent')) { unpinAll(); L.sHue = Math.round(hexToOklch(L.accent)[2]); }
+  else if (el.hasAttribute('data-reset')) state.look = lookOf(state.v);
+  else if (el.hasAttribute('data-copy')) {
+    const out = document.getElementById('out');
+    out.select();
+    (navigator.clipboard?.writeText(out.value) ?? Promise.reject()).catch(() => document.execCommand('copy'));
+    el.textContent = 'Copied'; setTimeout(() => (el.textContent = 'Copy palette'), 1200);
+    return;
+  }
+  render();
+});
+// Generator controls regenerate everything a hand pick would otherwise hide.
+function unpinAll() { state.look.pins = { light: {}, dark: {} }; }
+function setAccent(c) { unpinAll(); state.look.accent = c.toUpperCase(); }
+document.addEventListener('input', (e) => {
+  const el = e.target, L = state.look;
+  if (el.dataset.range) { unpinAll(); L[el.dataset.range] = parseFloat(el.value); el.nextElementSibling.textContent = el.value; renderWin(); save(); return; }
+  if (el.dataset.nav) { L.nav[el.dataset.nav] = el.value.toUpperCase(); renderWin(); save(); return; }
+  if (el.dataset.token) { L.pins[state.mode][el.dataset.token] = el.value.toUpperCase(); renderWin(); save(); return; }
+  if (el.hasAttribute('data-accent-pick')) { setAccent(el.value); renderWin(); save(); }
+});
+document.addEventListener('change', (e) => {
+  const el = e.target;
+  if (el.dataset.role) state.look.roles[el.dataset.role] = el.checked;
+  if (el.dataset.role || el.dataset.range || el.dataset.nav || el.dataset.token || el.hasAttribute('data-accent-pick')) render();
+});
+const hold = (on) => { if (comparing === on) return; comparing = on; renderWin(); };
+document.addEventListener('pointerdown', (e) => { if (e.target.closest('[data-hold]')) hold(true); });
+document.addEventListener('pointerup', () => hold(false));
+document.addEventListener('pointercancel', () => hold(false));
+window.addEventListener('resize', fit);
+render();
+
+</script>
+</body>
+</html>

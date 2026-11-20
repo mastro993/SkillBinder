@@ -14,7 +14,7 @@ const BORDER: f32 = 1.;
 pub enum Level {
     /// Rows and cards inside the page: a 1-point `border` outline and no shadow.
     Flat,
-    /// The selected sidebar row, a dragged row: a hairline ring and a soft shadow.
+    /// The selected segment, a dragged row, a switch's thumb: a hairline ring and a soft shadow.
     Raised,
     /// Menus, popovers, the progress pill.
     Overlay,
@@ -77,7 +77,7 @@ impl Surface {
         Self { radius, ..self }
     }
 
-    /// Fills with `fill` instead of the level's, such as the selected sidebar row's accent.
+    /// Fills with `fill` instead of the level's, such as the dragged sidebar row's accent.
     pub fn fill(self, fill: Hsla) -> Self {
         Self {
             fill: Some(fill),

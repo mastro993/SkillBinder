@@ -116,9 +116,9 @@ fn a_flat_outline_is_an_inner_border_and_dark_mode_lifts_the_page(cx: &mut TestA
         Theme::change(ThemeMode::Dark, None, cx);
         let theme = cx.theme();
         // Dark mode separates by lightness: canvas, page, popover.
-        assert_eq!(theme.sidebar, rgb(0x111113).into());
-        assert_eq!(Level::Raised.fill(theme), rgb(0x1B1B1F).into());
-        assert_eq!(Level::Overlay.fill(theme), rgb(0x222227).into());
+        assert_eq!(theme.sidebar, rgb(0x0D0F12).into());
+        assert_eq!(Level::Raised.fill(theme), rgb(0x181A1D).into());
+        assert_eq!(Level::Overlay.fill(theme), rgb(0x1D1F23).into());
     });
 }
 

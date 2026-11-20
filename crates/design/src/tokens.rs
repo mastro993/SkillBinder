@@ -273,13 +273,13 @@ pub mod color {
     use super::Tone;
 
     /// `hairline`.
-    pub const HAIRLINE: Tone = Tone::new(0xEFEFF2, 0x26262B);
+    pub const HAIRLINE: Tone = Tone::new(0xEBEFF4, 0x212427);
 
     /// `accent-soft`.
-    pub const ACCENT_SOFT: Tone = Tone::new(0xEEEEFC, 0x2A2A4A);
+    pub const ACCENT_SOFT: Tone = Tone::new(0xE4F2FE, 0x133146);
 
     /// `accent-soft-foreground`.
-    pub const ACCENT_SOFT_FOREGROUND: Tone = Tone::new(0x4746B8, 0xB1A9FF);
+    pub const ACCENT_SOFT_FOREGROUND: Tone = Tone::new(0x046094, 0x8FCCFB);
 
     /// `success-text`.
     pub const SUCCESS_TEXT: Tone = Tone::new(0x18794E, 0x3DD68C);

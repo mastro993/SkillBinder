@@ -160,12 +160,12 @@ mod tests {
             gpui_kit::init(cx);
             init(cx);
             assert_eq!(cx.theme().theme_name().as_ref(), LIGHT);
-            assert_eq!(cx.theme().primary, rgb(0x5B5BD6).into());
-            assert_eq!(cx.theme().sidebar, rgb(0xEDEDF0).into());
+            assert_eq!(cx.theme().primary, rgb(0x0077B6).into());
+            assert_eq!(cx.theme().sidebar, rgb(0xE9EDF2).into());
             assert_eq!(f32::from(cx.theme().radius), 6.0);
             Theme::change(ThemeMode::Dark, None, cx);
             assert_eq!(cx.theme().theme_name().as_ref(), DARK);
-            assert_eq!(cx.theme().sidebar, rgb(0x111113).into());
+            assert_eq!(cx.theme().sidebar, rgb(0x0D0F12).into());
             assert_eq!(f32::from(cx.theme().radius_lg), 10.0);
             // The font survives a mode change.
             assert_eq!(cx.theme().font_family.as_ref(), super::system_font());

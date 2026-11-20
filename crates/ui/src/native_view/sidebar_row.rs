@@ -16,7 +16,7 @@ use skillbinder_design::sidebar::{
 };
 use skillbinder_design::tokens::{radius, space, text};
 use skillbinder_design::{
-    Button, IconSize, InlineNameField, Level, NameFieldSize, Spinner, Surface, Text, icon,
+    Button, IconSize, InlineNameField, NameFieldSize, Spinner, Text, TextTone, icon,
 };
 use skillbinder_design::{MenuItem, OpenMenu, icon_color};
 
@@ -132,13 +132,8 @@ pub(super) fn row_with_marker(
         .cursor_pointer()
         .map(|row| text::BODY_MD.apply(row))
         .text_color(text)
-        // The selection is a raised pill on the canvas.
-        .when(selected, |row| {
-            Surface::new(Level::Raised)
-                .radius(RADIUS)
-                .fill(theme.sidebar_accent)
-                .apply(row, theme)
-        })
+        // The selection is a flat fill on the canvas.
+        .when(selected, |row| row.bg(theme.sidebar_accent))
         .when(!selected, |row| row.hover(move |style| style.bg(hover)))
         .child(icon.element(tint, neutral))
         .child(
@@ -220,8 +215,17 @@ pub(super) fn with_menu<E: InteractiveElement + Styled + FluentBuilder>(
 }
 
 /// A trailing count with thousands separators.
-pub(super) fn count(value: usize) -> AnyElement {
-    Text::count(value).flex_shrink_0().into_any_element()
+pub(super) fn count(value: usize, selected: bool) -> AnyElement {
+    // On a selected row it takes the label's color: muted text is too faint on the selection fill.
+    let tone = if selected {
+        TextTone::Default
+    } else {
+        TextTone::Muted
+    };
+    Text::count(value)
+        .tone(tone)
+        .flex_shrink_0()
+        .into_any_element()
 }
 
 /// A check after the name of the preset whose configuration is active, in its icon color, at a

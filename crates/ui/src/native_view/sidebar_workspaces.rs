@@ -140,7 +140,7 @@ impl NativeView {
             )
             .into_any_element()
         } else {
-            count(active)
+            count(active, selected)
         };
         let (index, len) = (placement.index, placement.len);
         let row = activate(
