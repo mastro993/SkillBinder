@@ -81,6 +81,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
         "xtask",
         &[
             "anyhow",
+            "minisign",
             "serde",
             "serde_json",
             "sha2",
@@ -89,7 +90,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "ureq",
             "yaml-rust2",
         ],
-        &[],
+        &["minisign-verify"],
     ),
 ];
 

@@ -14,6 +14,9 @@ mod listing;
 mod rules;
 #[cfg(test)]
 mod tests;
+mod updates;
+
+pub(crate) use date::timestamp;
 
 use anyhow::{Context as _, bail, ensure};
 use curation::Creator;
@@ -34,9 +37,13 @@ pub(crate) enum Outcome {
     /// skills.sh failed: the site carries fresh listings with the last published counts, and
     /// the run must fail once it is deployed.
     StaleCounts(anyhow::Error),
+    /// The releases could not be read: the site carries the last published update manifests,
+    /// and the run must fail once it is deployed.
+    StaleUpdates(anyhow::Error),
 }
 
-/// `catalog --out <dir>` builds the site; `catalog check <dir>` checks a built one.
+/// `catalog --out <dir>` builds the site, `catalog updates --out <dir>` adds the update manifests
+/// to it, and `catalog check <dir>` checks a built one.
 pub(crate) fn run(root: &Path, args: &[String]) -> anyhow::Result<Outcome> {
     match args {
         [flag, out] if flag == "--out" => {
@@ -50,12 +57,17 @@ pub(crate) fn run(root: &Path, args: &[String]) -> anyhow::Result<Outcome> {
             };
             job.build(Path::new(out))
         }
+        [command, flag, out] if command == "updates" && flag == "--out" => {
+            updates::mirror(&updates::Gh, &http::Web::new(), Path::new(out))
+        }
         [command, dir] if command == "check" => {
             format::check_site(Path::new(dir))?;
             println!("{dir} holds a valid catalog format v1 site.");
             Ok(Outcome::Fresh)
         }
-        _ => bail!("Usage: cargo run -p xtask -- catalog <--out <directory>|check <directory>>"),
+        _ => bail!(
+            "Usage: cargo run -p xtask -- catalog <--out <directory>|updates --out <directory>|check <directory>>"
+        ),
     }
 }
 

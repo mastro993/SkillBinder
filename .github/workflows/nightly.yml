@@ -73,9 +73,11 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY != '' }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID != '' }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER != '' }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY != '' }}
+          UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.UPDATE_SIGNING_KEY_PASSWORD != '' }}
         run: |
           missing=""
-          for name in MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
+          for name in MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER UPDATE_SIGNING_KEY UPDATE_SIGNING_KEY_PASSWORD; do
             [ "${!name}" = true ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
@@ -132,25 +134,45 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      # To dispatch the Catalog workflow, which mirrors the update manifest to Pages.
+      actions: write
     env:
       VERSION: ${{ needs.version.outputs.version }}
       GH_TOKEN: ${{ github.token }}
-      # No checkout in this job: gh resolves the repository from here instead of from git.
-      GH_REPO: ${{ github.repository }}
     steps:
+      # Only for xtask; the version stamp lives in the build alone.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.100.0 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-version
       - uses: actions/download-artifact@v4
         with:
           pattern: dist-*
           path: dist
           merge-multiple: true
-      # The release API creates the tag on the built commit.
-      - name: Publish the prerelease
+      - name: Write and sign the update manifest
         run: |
           (cd dist && sha256sum -- * > SHA256SUMS)
+          cargo run -q -p xtask --locked -- update-manifest --version "$VERSION" --dist dist
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.UPDATE_SIGNING_KEY_PASSWORD }}
+      # The release API creates the tag on the built commit. Every asset goes in one call: an
+      # immutable release refuses assets added after it is published.
+      - name: Publish the prerelease
+        run: |
           gh release create "v$VERSION" --target "$GITHUB_SHA" --prerelease \
             --title "SkillBinder v$VERSION" \
             --generate-notes \
             dist/*
+      # Before pruning, so a failed prune cannot hold the manifest back.
+      - name: Mirror the update manifest to Pages
+        run: gh workflow run catalog.yml --ref main
       # Keep the five newest betas; stable releases are never touched.
       - name: Prune old betas
         shell: bash

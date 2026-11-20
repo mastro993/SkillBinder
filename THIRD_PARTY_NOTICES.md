@@ -29,6 +29,13 @@ The engine fetches Explore's catalog with `ureq` 3.5.2 (MIT OR Apache-2.0) over 
 - `ring` 0.17.14: Apache-2.0 AND ISC, its BoringSSL-derived code under the OpenSSL-style ISC terms its `LICENSE` file records; `rustls-webpki` and `untrusted`: ISC; `subtle`: BSD-3-Clause.
 - `webpki-roots` 1.0.12: CDLA-Permissive-2.0. It embeds Mozilla's root certificate list, which the engine trusts for HTTPS.
 
+## Update signing
+
+`xtask`, which is never shipped, signs the app update manifests with `minisign` 0.10.0 (MIT) and checks the signatures in its tests with `minisign-verify` 0.3.0 (MIT) (ADR 0018). Their sources are available at `https://github.com/jedisct1/rust-minisign` and `https://github.com/jedisct1/rust-minisign-verify`. `minisign`'s other dependencies, at the versions `Cargo.lock` pins:
+
+- `ct-codecs`: MIT; `scrypt`, `salsa20`, `pbkdf2`, `hmac`, `cipher`, `sha2`, and `getrandom`: MIT OR Apache-2.0.
+- `rpassword` and `rtoolbox`: Apache-2.0.
+
 ## vercel-labs/skills registry snapshot
 
 - Project: `vercel-labs/skills`

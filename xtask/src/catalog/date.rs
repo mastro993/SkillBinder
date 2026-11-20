@@ -71,7 +71,7 @@ impl fmt::Display for Day {
 }
 
 /// `now` as an RFC 3339 UTC timestamp to the second.
-pub(super) fn timestamp(now: SystemTime) -> anyhow::Result<String> {
+pub(crate) fn timestamp(now: SystemTime) -> anyhow::Result<String> {
     let seconds = now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs();
     let time = seconds % SECONDS_PER_DAY;
     Ok(format!(
