@@ -206,6 +206,11 @@ async fn the_channel_starts_as_the_builds_and_settings_persist() {
         UP_TO_DATE,
         "the beta offer is for the other channel"
     );
+    assert_eq!(
+        engine.current_app_update().unwrap().last_checked,
+        None,
+        "Stable was never checked"
+    );
     engine.check_app_update(false).await.unwrap();
     assert_eq!(
         state(&engine),

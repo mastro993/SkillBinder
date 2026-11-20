@@ -33,7 +33,7 @@ Under the "Updates" section header, after Reveal logs, a `KeyValueList` lists:
 | Check now failed, offline | Couldn't check for updates. Check your connection. | Check now |
 | Check now failed, otherwise | Couldn't check for updates. | Check now |
 
-Check now always checks. While Check automatically is on, the app also checks at launch, every hour, and right after the channel changes, and turning the switch on checks at once. A failed automatic check changes nothing, and a refused signature is logged. Switching channel drops a version found on the other one. In this slice every newer version is download-only: nothing is downloaded or installed.
+Check now always checks. While Check automatically is on, the app also checks at launch, every hour, and right after the channel changes, and turning the switch on checks at once. A failed automatic check changes nothing, and a refused signature is logged. Switching channel drops a version found on the other one, and when it was checked. In this slice every newer version is download-only: nothing is downloaded or installed.
 
 ## The app update notice
 

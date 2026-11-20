@@ -115,7 +115,8 @@ impl NativeView {
                 .checked(update.auto_check)
                 .accessibility_label("Check automatically")
                 .on_click(cx.listener(|view, on: &bool, _, cx| view.set_auto_check(*on, cx)));
-            list = list.element("Check automatically", auto_check);
+            // The row's cell stretches its child, so the switch keeps its own width in a row.
+            list = list.element("Check automatically", h_flex().child(auto_check));
         }
         let list = list.element("Status", self.status_row(&status(update, now), cx));
         [

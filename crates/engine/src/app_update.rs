@@ -182,14 +182,16 @@ impl AppUpdates {
         }
     }
 
-    /// Follows `channel` from now on; what was found for the other channel no longer applies.
+    /// Follows `channel` from now on; what was found for the other channel, and when, no longer
+    /// applies.
     pub(crate) fn set_channel(&self, channel: Channel) -> AppResult<()> {
         let mut shared = self.lock()?;
         if shared.channel == channel {
             return Ok(());
         }
         shared.channel = channel;
-        if matches!(shared.state, AppUpdateState::DownloadOnly { .. }) {
+        shared.last_checked = None;
+        if shared.state != AppUpdateState::Checking && shared.state != AppUpdateState::Off {
             shared.state = AppUpdateState::Idle { last_failure: None };
         }
         Ok(())
@@ -218,7 +220,11 @@ impl State {
         shared.last_checked = last_checked;
         Ok(())
     }
+    /// Saves `channel`, forgetting when the other channel was last checked.
     pub(crate) fn save_update_channel(&self, channel: Channel) -> AppResult<()> {
+        if self.setting::<Channel>(CHANNEL)? != Some(channel) {
+            self.remove_setting(LAST_CHECKED)?;
+        }
         self.set_setting(CHANNEL, &channel)
     }
     pub(crate) fn save_update_auto_check(&self, on: bool) -> AppResult<()> {
