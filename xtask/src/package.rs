@@ -1,3 +1,7 @@
+//! Packages a release build into `dist/<target>/`: a macOS app and DMG, a Windows ZIP, or a Linux
+//! tarball, named after the workspace version (docs/release.md).
+mod macos;
+
 use anyhow::{Context, bail};
 use std::{fs, path::Path, process::Command};
 
@@ -22,82 +26,40 @@ pub(crate) fn package(root: &Path, target: Option<&str>) -> anyhow::Result<()> {
     }
     let output = root.join("dist").join(&triple);
     fs::create_dir_all(&output)?;
-    let name = format!("skillbinder-{triple}");
+    let version = crate::version::read(root)?;
+    let name = format!("skillbinder-{version}-{triple}");
     if cfg!(target_os = "macos") {
-        let app = output.join("SkillBinder.app");
-        let contents = app.join("Contents");
-        fs::create_dir_all(contents.join("MacOS"))?;
-        fs::create_dir_all(contents.join("Resources"))?;
-        fs::copy(&binary, contents.join("MacOS/skillbinder"))?;
-        fs::copy(
-            root.join("assets/icon.png"),
-            contents.join("Resources/icon.png"),
+        return macos::package(root, &binary, &output, &name, &version);
+    }
+    let directory = output.join("SkillBinder");
+    fs::create_dir_all(&directory)?;
+    fs::copy(binary, directory.join(executable))?;
+    licenses(root, &directory)?;
+    fs::copy(
+        root.join("assets/icon.png"),
+        directory.join("skillbinder.png"),
+    )?;
+    if cfg!(windows) {
+        let archive = output.join(format!("{name}.zip"));
+        run(Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-Command", "Compress-Archive -LiteralPath $env:SKILLBINDER_PACKAGE_DIRECTORY -DestinationPath $env:SKILLBINDER_PACKAGE_ARCHIVE -Force"]).env("SKILLBINDER_PACKAGE_DIRECTORY", &directory).env("SKILLBINDER_PACKAGE_ARCHIVE", &archive))?;
+        println!("Packaged {}", archive.display());
+    } else {
+        fs::write(
+            directory.join("skillbinder.desktop"),
+            "[Desktop Entry]\nType=Application\nName=SkillBinder\nComment=Manage a local library of agent skills\nExec=skillbinder\nIcon=skillbinder\nStartupWMClass=skillbinder\nTerminal=false\nCategories=Development;Utility;\n",
         )?;
         fs::write(
-            contents.join("Info.plist"),
-            r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleName</key><string>SkillBinder</string>
-<key>CFBundleDisplayName</key><string>SkillBinder</string>
-<key>CFBundleExecutable</key><string>skillbinder</string>
-<key>CFBundleIdentifier</key><string>com.skillbinder.desktop</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
-<key>LSMinimumSystemVersion</key><string>26.0</string>
-<key>NSHighResolutionCapable</key><true/>
-</dict></plist>
-"#,
+            directory.join("INSTALL.txt"),
+            "Place skillbinder on PATH. Copy skillbinder.desktop to ~/.local/share/applications/ and skillbinder.png to ~/.local/share/icons/. The application needs a working X11 or Wayland desktop and a directory-selection portal.\n",
         )?;
-        licenses(root, &contents.join("Resources"))?;
-        let image = output.join(format!("{name}.dmg"));
-        let mut command = Command::new("hdiutil");
-        command
-            .args([
-                "create",
-                "-ov",
-                "-format",
-                "UDZO",
-                "-volname",
-                "SkillBinder",
-                "-srcfolder",
-            ])
-            .arg(&app)
-            .arg(&image);
-        run(&mut command)?;
-        println!("Packaged {} and {}", app.display(), image.display());
-    } else {
-        let directory = output.join("SkillBinder");
-        fs::create_dir_all(&directory)?;
-        fs::copy(binary, directory.join(executable))?;
-        licenses(root, &directory)?;
-        fs::copy(
-            root.join("assets/icon.png"),
-            directory.join("skillbinder.png"),
-        )?;
-        if cfg!(windows) {
-            let archive = output.join(format!("{name}.zip"));
-            run(Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-Command", "Compress-Archive -LiteralPath $env:SKILLBINDER_PACKAGE_DIRECTORY -DestinationPath $env:SKILLBINDER_PACKAGE_ARCHIVE -Force"]).env("SKILLBINDER_PACKAGE_DIRECTORY", &directory).env("SKILLBINDER_PACKAGE_ARCHIVE", &archive))?;
-            println!("Packaged {}", archive.display());
-        } else {
-            fs::write(
-                directory.join("skillbinder.desktop"),
-                "[Desktop Entry]\nType=Application\nName=SkillBinder\nComment=Manage a local library of agent skills\nExec=skillbinder\nIcon=skillbinder\nStartupWMClass=skillbinder\nTerminal=false\nCategories=Development;Utility;\n",
-            )?;
-            fs::write(
-                directory.join("INSTALL.txt"),
-                "Place skillbinder on PATH. Copy skillbinder.desktop to ~/.local/share/applications/ and skillbinder.png to ~/.local/share/icons/. The application needs a working X11 or Wayland desktop and a directory-selection portal.\n",
-            )?;
-            let archive = output.join(format!("{name}.tar.gz"));
-            run(Command::new("tar")
-                .arg("-czf")
-                .arg(&archive)
-                .arg("-C")
-                .arg(&output)
-                .arg("SkillBinder"))?;
-            println!("Packaged {}", archive.display());
-        }
+        let archive = output.join(format!("{name}.tar.gz"));
+        run(Command::new("tar")
+            .arg("-czf")
+            .arg(&archive)
+            .arg("-C")
+            .arg(&output)
+            .arg("SkillBinder"))?;
+        println!("Packaged {}", archive.display());
     }
     Ok(())
 }

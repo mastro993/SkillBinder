@@ -1,0 +1,154 @@
+name: Build
+
+# The release packages for macOS, Windows, and Linux. release.yml and nightly.yml call it with the
+# version their `version` job stamped into the `stamp` artifact; the macOS image is then signed with
+# the Developer ID and notarized. A pull request that changes packaging runs it unstamped and
+# unsigned, so a broken platform shows up before a release needs it. See docs/release.md.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version stamped into the `stamp` artifact's Cargo.toml and Cargo.lock
+        type: string
+        required: true
+      ref:
+        description: Commit to build
+        type: string
+        required: true
+  pull_request:
+    paths:
+      - ".github/workflows/build.yml"
+      - ".github/workflows/nightly.yml"
+      - ".github/workflows/release.yml"
+      - "xtask/src/package.rs"
+      - "xtask/src/package/**"
+      - "xtask/src/version.rs"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Both Darwin targets, combined into one universal binary.
+          - os: macos-26
+            target: universal-apple-darwin
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+          # A binary links against the build machine's glibc: the older runner's runs on more
+          # distributions.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    name: package (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Stamp the version
+        if: inputs.version
+        uses: actions/download-artifact@v4
+        with:
+          name: stamp
+      - name: Install Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          # The runner image's Azure Ubuntu mirror can stop resolving; fetch from the main archive.
+          echo "http://archive.ubuntu.com/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y build-essential clang cmake ninja-build pkg-config libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libssl-dev libvulkan1
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.100.0 --profile minimal
+      - name: Install macOS targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build release application
+        if: runner.os != 'macOS'
+        run: cargo build -p skillbinder --release --locked --target "$TARGET"
+        env:
+          TARGET: ${{ matrix.target }}
+      - name: Build universal macOS application
+        if: runner.os == 'macOS'
+        run: |
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build -p skillbinder --release --locked --target "$target"
+          done
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create -output target/universal-apple-darwin/release/skillbinder \
+            target/aarch64-apple-darwin/release/skillbinder \
+            target/x86_64-apple-darwin/release/skillbinder
+          vtool -show-build target/universal-apple-darwin/release/skillbinder | grep -q 'minos 26.0'
+      # A temporary keychain holding only the Developer ID Application certificate; the runner is
+      # discarded afterwards.
+      - name: Import the Developer ID certificate
+        if: runner.os == 'macOS' && inputs.version
+        env:
+          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(openssl rand -base64 32)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -f pkcs12 -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" >/dev/null
+          # shellcheck disable=SC2046 # one argument per keychain already in the search list
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity=$(security find-identity -v -p codesigning "$keychain" | awk -F'"' '/Developer ID Application/ { print $2; exit }')
+          if [ -z "$identity" ]; then
+            echo "::error::MACOS_CERTIFICATE holds no Developer ID Application identity"
+            exit 1
+          fi
+          echo "SKILLBINDER_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+      - name: Package
+        run: cargo run -p xtask --locked -- package "$TARGET"
+        env:
+          TARGET: ${{ matrix.target }}
+      - name: Notarize the disk image
+        if: runner.os == 'macOS' && inputs.version
+        env:
+          API_KEY: ${{ secrets.APPLE_API_KEY }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          key="$RUNNER_TEMP/notary.p8"
+          printf '%s' "$API_KEY" > "$key"
+          credentials=(--key "$key" --key-id "$API_KEY_ID" --issuer "$API_ISSUER")
+          image=$(ls dist/universal-apple-darwin/*.dmg)
+          result=$(xcrun notarytool submit "$image" "${credentials[@]}" --wait --timeout 1h --output-format json) || true
+          echo "$result"
+          if [ "$(jq -r '.status // empty' <<<"$result")" != Accepted ]; then
+            id=$(jq -r '.id // empty' <<<"$result")
+            if [ -n "$id" ]; then xcrun notarytool log "$id" "${credentials[@]}"; fi
+            echo "::error::Notarization of $image was not accepted"
+            exit 1
+          fi
+          xcrun stapler staple "$image"
+          spctl --assess --type open --context context:primary-signature --verbose "$image"
+      # The hand-off to the caller's publish job, not a distribution channel.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: |
+            dist/${{ matrix.target }}/*.dmg
+            dist/${{ matrix.target }}/*.zip
+            dist/${{ matrix.target }}/*.tar.gz
+          if-no-files-found: error
+          retention-days: 3

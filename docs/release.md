@@ -1,0 +1,85 @@
+# Releases
+
+SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned Windows ZIP, and a Linux tarball.
+
+## Versions
+
+The version is `[workspace.package] version` in the root `Cargo.toml`; every workspace member inherits it. `cargo run -p xtask -- version` prints it, `version next <major|minor|patch|X.Y.Z>` prints the release after it, and `version set <version>` writes it to `Cargo.toml` and to the members' entries in `Cargo.lock`, exactly the lines Cargo would change.
+
+| Channel | Version | Tag | GitHub release | Commit on `main` |
+|---|---|---|---|---|
+| Release | `X.Y.Z`, bumped by hand | `vX.Y.Z` on the bump commit | latest release | `chore(release): vX.Y.Z` |
+| Nightly | next patch + `-beta.<run>`, e.g. `0.1.1-beta.12` | `v0.1.1-beta.12` on the built commit | prerelease | none |
+
+`main` therefore always holds the last stable version, and a beta sorts before the patch release that follows it. The macOS bundle's `CFBundleShortVersionString` and `CFBundleVersion` hold only `X.Y.Z`; a beta's suffix is in the archive names.
+
+## Cutting a release
+
+Actions → **Release** → Run workflow, on `main`, with:
+
+- `bump`: `patch`, `minor`, or `major`; or
+- `version`: an exact `X.Y.Z` newer than the current one (it wins over `bump`).
+
+[`release.yml`](../.github/workflows/release.yml) then:
+
+1. fails unless every release secret is set, computes the version, fails if its tag already exists, and stamps it into `Cargo.toml` and `Cargo.lock` (the `stamp` artifact);
+2. builds and packages every platform from the dispatched commit with that stamp ([`build.yml`](../.github/workflows/build.yml)), signing and notarizing the macOS image;
+3. only if all three built: commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
+4. publishes the GitHub release with the archives, `SHA256SUMS`, and GitHub's generated notes.
+
+If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts, run `sha256sum -- * > SHA256SUMS` beside them, and `gh release create vX.Y.Z --verify-tag --latest --generate-notes <archives> SHA256SUMS`.
+
+## Nightly betas
+
+[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night when the head of `main` already carries a tag, so a night without new commits, or one right after a release, publishes nothing; a run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta, tags the commit through the release API (no commit, no deploy key), and publishes a prerelease. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
+
+## What a release contains
+
+Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the app icon. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
+
+| Platform | Archive | Built on |
+|---|---|---|
+| macOS 26+ | `skillbinder-<version>-universal-apple-darwin.dmg`: `SkillBinder.app`, Developer ID signed with the hardened runtime, notarized, ticket stapled to the image | `macos-26`, `aarch64` and `x86_64` combined with `lipo` |
+| Windows | `skillbinder-<version>-x86_64-pc-windows-msvc.zip`: `SkillBinder/skillbinder.exe`, unsigned | `windows-2025` (MSVC) |
+| Linux | `skillbinder-<version>-x86_64-unknown-linux-gnu.tar.gz`: `SkillBinder/` with the binary, a `.desktop` entry, and `INSTALL.txt` | `ubuntu-22.04` (glibc 2.35) |
+
+`SHA256SUMS` beside them lists every archive's checksum. A pull request that changes the packaging or these workflows runs `build.yml` unstamped and unsigned, so a broken platform shows up before a release needs it.
+
+On Windows, SmartScreen shows "Windows protected your PC" for the unsigned program: **More info** → **Run anyway**.
+
+## Setup
+
+The workflows read these repository secrets (Settings → Secrets and variables → Actions).
+
+### Deploy key (Release only)
+
+The `main` ruleset requires a pull request and lets only deploy keys bypass it. The release job pushes the bump commit with the private half of a write-enabled deploy key stored as `RELEASE_DEPLOY_KEY`. To set it up or rotate it:
+
+```console
+ssh-keygen -t ed25519 -N '' -C 'release workflow' -f release_key
+gh repo deploy-key add release_key.pub --allow-write --title 'Release workflow'
+gh secret set RELEASE_DEPLOY_KEY < release_key
+rm release_key release_key.pub
+```
+
+When rotating, delete the old key under Settings → Deploy keys.
+
+### macOS signing and notarization (Release and Nightly)
+
+| Secret | Value |
+|---|---|
+| `MACOS_CERTIFICATE` | The **Developer ID Application** certificate with its private key, exported from Keychain Access as `.p12`, base64-encoded |
+| `MACOS_CERTIFICATE_PASSWORD` | The `.p12` export password |
+| `APPLE_API_KEY` | An App Store Connect API key (`AuthKey_<id>.p8`), the file's contents |
+| `APPLE_API_KEY_ID` | That key's ID |
+| `APPLE_API_ISSUER` | The issuer ID shown above the keys list |
+
+```console
+base64 -i DeveloperIDApplication.p12 | gh secret set MACOS_CERTIFICATE
+gh secret set MACOS_CERTIFICATE_PASSWORD
+gh secret set APPLE_API_KEY < AuthKey_XXXXXXXXXX.p8
+gh secret set APPLE_API_KEY_ID --body XXXXXXXXXX
+gh secret set APPLE_API_ISSUER --body xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+Create the API key under App Store Connect → Users and Access → Integrations → Team Keys with the Developer role. The build job imports the certificate into a temporary keychain, passes its identity to `xtask package` as `SKILLBINDER_SIGNING_IDENTITY`, submits the image with `xcrun notarytool`, prints the notarization log when Apple rejects it, staples the ticket, and checks the image with `spctl`. Locally, `SKILLBINDER_SIGNING_IDENTITY="Developer ID Application: …" cargo run -p xtask -- package` signs the app and the image the same way; without it neither is signed.

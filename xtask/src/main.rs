@@ -12,6 +12,7 @@ mod mcp_smoke;
 mod off_token;
 mod package;
 mod registry;
+mod version;
 
 use std::path::Path;
 
@@ -37,6 +38,10 @@ fn main() -> anyhow::Result<()> {
         Some("design-tokens") => design_tokens::write(root),
         Some("off-token") => off_token::lower(root),
         Some("package") => package::package(root, std::env::args().nth(2).as_deref()),
+        Some("version") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            version::run(root, &args)
+        }
         Some("mcp-smoke") => mcp_smoke::run(std::env::args_os().skip(2)),
         Some("fixture") => fixture::build(root, std::env::args().nth(2).as_deref()),
         Some("catalog") => {
@@ -51,7 +56,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         _ => anyhow::bail!(
-            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|design-tokens|off-token|package [target]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>|catalog <--out <directory>|check <directory>>>"
+            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|design-tokens|off-token|package [target]|version [next <part>|set <version>]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>|catalog <--out <directory>|check <directory>>>"
         ),
     }
 }
