@@ -12,6 +12,7 @@ mod mcp_smoke;
 mod off_token;
 mod package;
 mod registry;
+mod update_manifest;
 mod version;
 
 use std::path::Path;
@@ -53,10 +54,18 @@ fn main() -> anyhow::Result<()> {
                     println!("::error::Published the last counts: {error:#}");
                     std::process::exit(2)
                 }
+                catalog::Outcome::StaleUpdates(error) => {
+                    println!("::error::Published the last update manifests: {error:#}");
+                    std::process::exit(2)
+                }
             }
         }
+        Some("update-manifest") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            update_manifest::run(&args)
+        }
         _ => anyhow::bail!(
-            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|design-tokens|off-token|package [target]|version [next <part>|set <version>]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>|catalog <--out <directory>|check <directory>>>"
+            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|design-tokens|off-token|package [target]|version [next <part>|set <version>]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>|catalog <--out <directory>|updates --out <directory>|check <directory>>|update-manifest --version <version> --dist <directory>>"
         ),
     }
 }

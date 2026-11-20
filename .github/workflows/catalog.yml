@@ -1,7 +1,8 @@
 name: Catalog
 
-# Builds the Explore catalog (catalog/README.md) and publishes it to GitHub Pages. It never
-# commits: the history it needs travels with the published site (ADR 0014).
+# Builds the Explore catalog (catalog/README.md) and publishes it to GitHub Pages with the app
+# update manifests (ADR 0018). It never commits: the history it needs travels with the published
+# site (ADR 0014). The Release and Nightly workflows dispatch it after they publish.
 
 on:
   schedule:
@@ -12,6 +13,7 @@ on:
       - "catalog/**"
       - "xtask/src/catalog.rs"
       - "xtask/src/catalog/**"
+      - "xtask/src/update_manifest.rs"
       - ".github/workflows/catalog.yml"
   workflow_dispatch:
 
@@ -30,6 +32,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       counts: ${{ steps.build.outputs.counts }}
+      updates: ${{ steps.updates.outputs.updates }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,6 +53,23 @@ jobs:
             echo "counts=fresh" >> "$GITHUB_OUTPUT"
           elif [ "$status" = 2 ]; then
             echo "counts=stale" >> "$GITHUB_OUTPUT"
+          else
+            exit "$status"
+          fi
+      # A deploy replaces the whole site, so every run mirrors the manifests again. Exit 2: the
+      # releases could not be read, and the site carries the published manifests. Deploy it,
+      # then fail.
+      - name: Mirror the update manifests
+        id: updates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=0
+          cargo run -p xtask --locked -- catalog updates --out site || status=$?
+          if [ "$status" = 0 ]; then
+            echo "updates=fresh" >> "$GITHUB_OUTPUT"
+          elif [ "$status" = 2 ]; then
+            echo "updates=stale" >> "$GITHUB_OUTPUT"
           else
             exit "$status"
           fi
@@ -76,4 +96,9 @@ jobs:
         if: needs.build.outputs.counts == 'stale'
         run: |
           echo "::error::skills.sh failed; the catalog was published with the last counts. See the build job's log."
+          exit 1
+      - name: Fail on stale update manifests
+        if: needs.build.outputs.updates == 'stale'
+        run: |
+          echo "::error::The releases could not be read; the last update manifests were published. See the build job's log."
           exit 1

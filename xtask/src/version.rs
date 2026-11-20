@@ -5,7 +5,7 @@
 //! - `version next <major|minor|patch|X.Y.Z>` prints the release after it.
 //! - `version set <version>` writes it to `Cargo.toml` and the members' `Cargo.lock` entries.
 use anyhow::{Context, bail, ensure};
-use std::{fmt, fs, path::Path, str::FromStr};
+use std::{cmp::Ordering, fmt, fs, path::Path, str::FromStr};
 use toml::{Table, Value};
 
 pub(crate) fn run(root: &Path, args: &[String]) -> anyhow::Result<()> {
@@ -78,6 +78,44 @@ impl fmt::Display for Version {
         }
         Ok(())
     }
+}
+
+/// SemVer precedence: a prerelease sorts before its release, so `0.1.1-beta.12 < 0.1.1`, and
+/// numeric identifiers compare as numbers, so `beta.9 < beta.12`.
+impl Ord for Version {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.core
+            .cmp(&other.core)
+            .then_with(|| match (&self.pre, &other.pre) {
+                (None, None) => Ordering::Equal,
+                (None, Some(_)) => Ordering::Greater,
+                (Some(_), None) => Ordering::Less,
+                (Some(pre), Some(other)) => identifiers(pre).cmp(&identifiers(other)),
+            })
+    }
+}
+
+impl PartialOrd for Version {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// A prerelease identifier; numbers sort before text.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum Identifier<'a> {
+    Number(u64),
+    Text(&'a str),
+}
+
+fn identifiers(pre: &str) -> Vec<Identifier<'_>> {
+    pre.split('.')
+        .map(|part| match part.parse() {
+            // `01` is text, so equal orderings stay equal versions.
+            Ok(number) if part == "0" || !part.starts_with('0') => Identifier::Number(number),
+            _ => Identifier::Text(part),
+        })
+        .collect()
 }
 
 pub(crate) fn read(root: &Path) -> anyhow::Result<Version> {
@@ -256,6 +294,28 @@ mod tests {
         ] {
             assert!(invalid.parse::<Version>().is_err(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn orders_prereleases_before_their_release() -> anyhow::Result<()> {
+        let ordered = [
+            "0.1.0",
+            "0.1.1-beta.3",
+            "0.1.1-beta.12",
+            "0.1.1-beta.12.1",
+            "0.1.1-rc.1",
+            "0.1.1",
+            "0.2.0-beta.1",
+            "0.10.0",
+        ];
+        for pair in ordered.windows(2) {
+            let [lower, higher] = pair else { continue };
+            assert!(
+                lower.parse::<Version>()? < higher.parse::<Version>()?,
+                "{lower} < {higher}"
+            );
+        }
+        Ok(())
     }
 
     #[test]

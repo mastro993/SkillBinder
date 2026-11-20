@@ -1,6 +1,6 @@
 # Releases
 
-SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned Windows ZIP, and a Linux tarball.
+SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned Windows ZIP, and a Linux tarball, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018).
 
 ## Versions
 
@@ -24,14 +24,15 @@ Actions → **Release** → Run workflow, on `main`, with:
 
 1. fails unless every release secret is set, computes the version, fails if its tag already exists, and stamps it into `Cargo.toml` and `Cargo.lock` (the `stamp` artifact);
 2. builds and packages every platform from the dispatched commit with that stamp ([`build.yml`](../.github/workflows/build.yml)), signing and notarizing the macOS image, and alongside runs every check `main` runs on that commit again: [`checks.yml`](../.github/workflows/checks.yml) and [`native.yml`](../.github/workflows/native.yml);
-3. only if every check passed and all three platforms built: commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
-4. publishes the GitHub release with the archives, `SHA256SUMS`, and GitHub's generated notes.
+3. only if every check passed and all three platforms built: writes `SHA256SUMS` and the signed [update manifest](#update-manifests), then commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. A signing key that does not open fails the run before the push. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
+4. publishes the GitHub release with the archives, `SHA256SUMS`, `update.json`, `update.json.minisig`, and GitHub's generated notes, all in one call;
+5. dispatches the Catalog workflow, which mirrors the manifest to Pages.
 
-If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts, run `sha256sum -- * > SHA256SUMS` beside them, and `gh release create vX.Y.Z --verify-tag --latest --generate-notes <archives> SHA256SUMS`.
+If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts into `dist/`, run `sha256sum -- * > SHA256SUMS` inside it, sign with `UPDATE_SIGNING_KEY` and `UPDATE_SIGNING_KEY_PASSWORD` set: `cargo run -p xtask -- update-manifest --version X.Y.Z --dist dist`, then `gh release create vX.Y.Z --verify-tag --latest --generate-notes dist/*` and `gh workflow run catalog.yml --ref main`.
 
 ## Nightly betas
 
-[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night unless a pull request was merged into `main` since the last release or beta (the nearest `v*` tag), by anyone but `github-actions[bot]`; the release bump commit is a direct push, so it never counts. Without any tag yet, it builds. A run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta while running `checks.yml` and `native.yml` again on that commit, and, only once they all pass, tags the commit through the release API (no commit, no deploy key) and publishes a prerelease. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
+[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night unless a pull request was merged into `main` since the last release or beta (the nearest `v*` tag), by anyone but `github-actions[bot]`; the release bump commit is a direct push, so it never counts. Without any tag yet, it builds. A run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta while running `checks.yml` and `native.yml` again on that commit, and, only once they all pass, writes and signs the update manifest, tags the commit through the release API (no commit, no deploy key), publishes a prerelease with the manifest among its assets, and dispatches the Catalog workflow. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
 
 ## What a release contains
 
@@ -43,9 +44,28 @@ Every archive holds the locked release build without native test controls (`carg
 | Windows | `skillbinder-<version>-x86_64-pc-windows-msvc.zip`: `SkillBinder/skillbinder.exe`, unsigned | `windows-2025` (MSVC) |
 | Linux | `skillbinder-<version>-x86_64-unknown-linux-gnu.tar.gz`: `SkillBinder/` with the binary, a `.desktop` entry, and `INSTALL.txt` | `ubuntu-22.04` (glibc 2.35) |
 
-`SHA256SUMS` beside them lists every archive's checksum. A pull request that changes the packaging or these workflows runs `build.yml` unstamped and unsigned, so a broken platform shows up before a release needs it.
+`SHA256SUMS` beside them lists every archive's checksum, and `update.json` with `update.json.minisig` describes them for the app's updates. A pull request that changes the packaging or these workflows runs `build.yml` unstamped and unsigned, so a broken platform shows up before a release needs it.
 
 On Windows, SmartScreen shows "Windows protected your PC" for the unsigned program: **More info** → **Run anyway**.
+
+## Update manifests
+
+`cargo run -p xtask -- update-manifest --version <version> --dist <dir>` writes `<dir>/update.json` and signs it with minisign into `<dir>/update.json.minisig`. Every file in `<dir>` other than `SHA256SUMS` and the pair must be a `skillbinder-<version>-<target>.<ext>` archive, at most one per target:
+
+```json
+{
+  "version": "0.2.0",
+  "notes_url": "https://github.com/mastro993/SkillBinder/releases/tag/v0.2.0",
+  "published_at": "2026-12-01T10:00:00Z",
+  "assets": {
+    "universal-apple-darwin": { "url": "https://github.com/mastro993/SkillBinder/releases/download/v0.2.0/skillbinder-0.2.0-universal-apple-darwin.dmg", "sha256": "…", "size": 41234567 }
+  }
+}
+```
+
+Assets are keyed by target triple, so a platform can change its archive format without changing the shape. The app ignores unknown fields; a breaking change publishes `updates/v2/`.
+
+The [Catalog workflow](../.github/workflows/catalog.yml) (`catalog updates --out site`) copies the pairs byte for byte into the Pages site: the latest release's to `updates/v1/stable.json` and `stable.json.minisig`, and the newer of that release and the newest prerelease's to `updates/v1/beta.json` and `beta.json.minisig`. A release published before manifests existed has none, and its channel's files are left out. A Pages deploy replaces the whole site, so every Catalog run, the nightly cron and pushes to `catalog/` included, mirrors them again. When the releases cannot be read, the run carries the live site's `updates/v1/` forward, deploys, and then fails; when the live site cannot be read either, it fails before deploying and the previous site stays up. A new release reaches the app only once the dispatched Catalog run has deployed, a few minutes after it is published.
 
 ## Setup
 
@@ -83,3 +103,18 @@ gh secret set APPLE_API_ISSUER --body xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 Create the API key under App Store Connect → Users and Access → Integrations → Team Keys with the Developer role. The build job imports the certificate into a temporary keychain, passes its identity to `xtask package` as `SKILLBINDER_SIGNING_IDENTITY`, submits the image with `xcrun notarytool`, prints the notarization log when Apple rejects it, staples the ticket, and checks the image with `spctl`. Locally, `SKILLBINDER_SIGNING_IDENTITY="Developer ID Application: …" cargo run -p xtask -- package` signs the app and the image the same way; without it neither is signed.
+
+### Update signing (Release and Nightly)
+
+| Secret | Value |
+|---|---|
+| `UPDATE_SIGNING_KEY` | The minisign secret key file's contents |
+| `UPDATE_SIGNING_KEY_PASSWORD` | The password that encrypts it |
+
+```console
+minisign -G -p skillbinder-update.pub -s skillbinder-update.key
+gh secret set UPDATE_SIGNING_KEY < skillbinder-update.key
+gh secret set UPDATE_SIGNING_KEY_PASSWORD
+```
+
+The app compiles in the public key, `skillbinder-update.pub`, and accepts only manifests it signed. Keep the secret key file and its password backed up outside GitHub, in a password manager or offline: a lost key strands every installed app on its version, since no later release can be signed for it. To rotate the key, publish one release signed with the old key whose app carries the new public key, then replace both secrets; apps that skipped that release cannot update past it.

@@ -46,9 +46,11 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY != '' }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID != '' }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER != '' }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY != '' }}
+          UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.UPDATE_SIGNING_KEY_PASSWORD != '' }}
         run: |
           missing=""
-          for name in RELEASE_DEPLOY_KEY MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
+          for name in RELEASE_DEPLOY_KEY MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER UPDATE_SIGNING_KEY UPDATE_SIGNING_KEY_PASSWORD; do
             [ "${!name}" = true ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
@@ -108,8 +110,11 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      # To dispatch the Catalog workflow, which mirrors the update manifest to Pages.
+      actions: write
     env:
       VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       # The deploy key is what may push to `main`; the job token only creates the release.
       - uses: actions/checkout@v4
@@ -119,6 +124,24 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: stamp
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.100.0 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-version
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      # Before the push, so a key that does not open publishes nothing.
+      - name: Write and sign the update manifest
+        run: |
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          cargo run -q -p xtask --locked -- update-manifest --version "$VERSION" --dist dist
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.UPDATE_SIGNING_KEY_PASSWORD }}
       # The commit holds exactly the tree the build stamped. A push that is not a fast-forward
       # (main moved during the build) fails and publishes nothing; dispatch again.
       - name: Push the release commit and tag
@@ -128,17 +151,12 @@ jobs:
           git commit --quiet --all --message "chore(release): v$VERSION"
           git tag "v$VERSION"
           git push --atomic origin HEAD:refs/heads/main "refs/tags/v$VERSION"
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: dist-*
-          path: dist
-          merge-multiple: true
+      # Every asset in one call: an immutable release refuses assets added after it is published.
       - name: Publish the GitHub release
         run: |
-          (cd dist && sha256sum -- * > SHA256SUMS)
           gh release create "v$VERSION" --verify-tag --latest \
             --title "SkillBinder v$VERSION" \
             --generate-notes \
             dist/*
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Mirror the update manifest to Pages
+        run: gh workflow run catalog.yml --ref main
