@@ -479,13 +479,14 @@ fn expand(template: &str, config: &EngineConfig) -> Option<PathBuf> {
         rest = &tail[end + 1..];
     }
     output.push_str(rest);
-    if output == "~" {
-        return Some(config.home.clone());
-    }
-    if let Some(tail) = output.strip_prefix("~/") {
-        return Some(config.home.join(tail));
-    }
-    let path = PathBuf::from(output);
+    let path = match output.strip_prefix('~') {
+        Some("") => return Some(config.home.clone()),
+        Some(tail) => config.home.join(tail.strip_prefix('/')?),
+        None => PathBuf::from(output),
+    };
+    // Templates separate with `/`; rebuilt from its components, the path names a directory with
+    // the platform's own separator, so it reads and compares as Windows shows it.
+    let path: PathBuf = path.components().collect();
     path.is_absolute().then_some(path)
 }
 

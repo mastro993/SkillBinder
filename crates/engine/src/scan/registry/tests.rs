@@ -82,7 +82,14 @@ fn the_overlay_adds_directories_without_changing_detection()
     assert_eq!(kimi.workspace_skills_dir, ".agents/skills");
     assert_eq!(
         kimi.global_skills_dir,
-        Some(config.home.join(".agents/skills").display().to_string())
+        Some(
+            config
+                .home
+                .join(".agents")
+                .join("skills")
+                .display()
+                .to_string()
+        )
     );
     assert!(!kimi.detected, "nothing created its global skill directory");
     assert_eq!(kimi.same_slug, SameSlug::Precedence);
@@ -169,7 +176,12 @@ fn an_agent_is_chosen_while_detected_with_its_directory_chosen()
         "a chosen directory that does not exist chooses nothing"
     );
     // Every agent reading `~/.agents/skills` is one choice.
-    let universal = config.home.join(".agents/skills").display().to_string();
+    let universal = config
+        .home
+        .join(".agents")
+        .join("skills")
+        .display()
+        .to_string();
     let readers: Vec<_> = agents
         .iter()
         .filter(|agent| agent.global_skills_dir.as_deref() == Some(universal.as_str()))

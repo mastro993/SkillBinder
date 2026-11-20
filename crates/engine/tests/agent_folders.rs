@@ -237,7 +237,7 @@ async fn agents_whose_directories_are_one_folder_share_a_resolved_directory() {
     assert_eq!(claude.resolved_skills_dir, codex.resolved_skills_dir);
     assert_eq!(
         codex.resolved_skills_dir,
-        Some(home.join(".agents/skills").display().to_string())
+        Some(home.join(".agents").join("skills").display().to_string())
     );
     engine.shutdown().await.unwrap();
 }
