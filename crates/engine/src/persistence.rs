@@ -388,7 +388,7 @@ impl State {
             while !parent.exists() {
                 parent = parent.parent().ok_or_else(AppError::storage)?;
             }
-            let canonical = fs::canonicalize(parent).map_err(|_| AppError::storage())?;
+            let canonical = dunce::canonicalize(parent).map_err(|_| AppError::storage())?;
             if !canonical.starts_with(&self.config.data_dir) || canonical != parent {
                 return Err(AppError::validation(
                     "Journal path crosses a symbolic link outside application storage.",

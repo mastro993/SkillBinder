@@ -45,7 +45,7 @@ pub(crate) struct Selected {
 /// Skill folder `path` with its directory's links resolved but not its own, so a linked skill
 /// folder never stands for the folder it leads to. `None` when its directory cannot be resolved.
 pub(crate) fn folder(path: &Path) -> Option<PathBuf> {
-    let directory = std::fs::canonicalize(path.parent()?).ok()?;
+    let directory = dunce::canonicalize(path.parent()?).ok()?;
     Some(directory.join(path.file_name()?))
 }
 

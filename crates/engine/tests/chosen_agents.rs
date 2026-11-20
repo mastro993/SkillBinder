@@ -44,7 +44,10 @@ impl Found {
 
     /// The directory as the snapshot shows it, inside the engine's resolved home.
     fn named(&self, directory: &PathBuf) -> String {
-        fs::canonicalize(directory).unwrap().display().to_string()
+        dunce::canonicalize(directory)
+            .unwrap()
+            .display()
+            .to_string()
     }
 }
 

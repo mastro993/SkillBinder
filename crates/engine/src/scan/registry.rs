@@ -4,7 +4,6 @@ use serde::Deserialize;
 use skillbinder_proto::{AgentDir, AgentOption, AppError, AppResult, SameSlug, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
     path::{Path, PathBuf},
 };
 
@@ -279,7 +278,7 @@ pub(crate) fn locations(
             for dir in dirs {
                 add(
                     &mut combined,
-                    boundary.join(dir),
+                    paths::native(&boundary.join(dir)),
                     boundary,
                     &agent,
                     (Reading::Workspace(id), lock.clone()),
@@ -436,7 +435,7 @@ struct Place {
 /// Where `path` lies inside `boundary`, or the log line explaining why it is skipped: outside
 /// the boundary, through a link leaving it, or unreadable.
 fn bounded(path: &Path, boundary: &Path) -> Result<Place, String> {
-    let canonical_boundary = fs::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
+    let canonical_boundary = dunce::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
     let Some(relative) = paths::inside(&canonical_boundary, path) else {
         return Err(format!(
             "Scan location outside its boundary: {}",
@@ -480,13 +479,12 @@ fn expand(template: &str, config: &EngineConfig) -> Option<PathBuf> {
         rest = &tail[end + 1..];
     }
     output.push_str(rest);
-    if output == "~" {
-        return Some(config.home.clone());
-    }
-    if let Some(tail) = output.strip_prefix("~/") {
-        return Some(config.home.join(tail));
-    }
-    let path = PathBuf::from(output);
+    let path = match output.strip_prefix('~') {
+        Some("") => return Some(config.home.clone()),
+        Some(tail) => config.home.join(tail.strip_prefix('/')?),
+        None => PathBuf::from(output),
+    };
+    let path = paths::native(&path);
     path.is_absolute().then_some(path)
 }
 

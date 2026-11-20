@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn copies_are_written_replaced_and_removed_without_leftovers() {
         let temp = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(temp.path()).unwrap();
+        let root = dunce::canonicalize(temp.path()).unwrap();
         let first = skill(&root.join("library"), "review", "First");
         let agents = root.join("agents/skills");
         write(&agents, "review", &first).unwrap();
@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn links_and_checkouts_are_never_taken_for_copies() {
         let temp = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(temp.path()).unwrap();
+        let root = dunce::canonicalize(temp.path()).unwrap();
         let source = skill(&root.join("library"), "review", "First");
         let agents = root.join("agents");
         fs::create_dir_all(&agents).unwrap();
@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn a_sweep_deletes_only_leftover_staging_directories() {
         let temp = tempfile::tempdir().unwrap();
-        let agents = fs::canonicalize(temp.path()).unwrap();
+        let agents = dunce::canonicalize(temp.path()).unwrap();
         let leftover = stage(&agents).unwrap().keep();
         fs::write(leftover.join("SKILL.md"), "partial").unwrap();
         for kept in [".skillbinder-notes-of-mine", "review"] {

@@ -268,13 +268,13 @@ async fn a_workspace_directory_stays_managed_while_a_chosen_agent_reads_it() {
     let engine = fixture.ready().await;
     let ids = fixture.scan(&engine).await.candidates;
     support::import(&engine, ids.into_iter().map(|found| found.id).collect()).await;
-    let folder = fs::canonicalize(&fixture.workspace).unwrap();
+    let folder = dunce::canonicalize(&fixture.workspace).unwrap();
     let copy = folder.join(".claude/skills/review");
     fs::create_dir_all(folder.join(".claude/skills")).unwrap();
     let workspace = fixture.register(&engine).await;
     let workspace_copies = || async {
         let library = engine.snapshot().await.unwrap().library.unwrap();
-        let directory = folder.join(".claude/skills").display().to_string();
+        let directory = folder.join(".claude").join("skills").display().to_string();
         copies(&library)
             .into_iter()
             .filter(|(dir, _, _)| dir == &directory)
@@ -324,7 +324,7 @@ async fn a_workspace_directory_stays_managed_while_a_chosen_agent_reads_it() {
         workspace_copies().await,
         [state("review", CopyState::Conflict)]
     );
-    let directory = folder.join(".claude/skills").display().to_string();
+    let directory = folder.join(".claude").join("skills").display().to_string();
     engine
         .resolve_copy(directory, review(), CopyChoice::Replace)
         .await

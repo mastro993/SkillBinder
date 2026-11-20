@@ -34,7 +34,7 @@ struct Walk {
 }
 
 pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
-    let root = fs::canonicalize(path).map_err(|_| AppError::storage())?;
+    let root = dunce::canonicalize(path).map_err(|_| AppError::storage())?;
     let identity = SourceIdentity::read(&root)?;
     let slug = root
         .file_name()

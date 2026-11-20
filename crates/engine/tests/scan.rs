@@ -33,7 +33,7 @@ async fn identical_copies_in_global_and_a_workspace_are_one_candidate() {
         .map(|location| location.display_path.as_str())
         .collect();
     let mut expected = [global_copy, workspace_copy]
-        .map(|path| fs::canonicalize(path).unwrap().display().to_string());
+        .map(|path| dunce::canonicalize(path).unwrap().display().to_string());
     expected.sort();
     assert_eq!(paths, expected);
     assert!(
@@ -51,7 +51,7 @@ async fn a_skill_linked_between_global_directories_records_every_global_reader()
     let fixture = Fixture::new();
     let home = {
         fs::create_dir_all(&fixture.home).unwrap();
-        fs::canonicalize(&fixture.home).unwrap()
+        dunce::canonicalize(&fixture.home).unwrap()
     };
     let shared = write_skill(&home.join(".agents/skills"), "review", "Shared");
     fs::create_dir_all(home.join(".claude/skills")).unwrap();
@@ -201,8 +201,8 @@ fn link_chain(
     target: &std::path::Path,
     hops: usize,
 ) {
-    let workspace = fs::canonicalize(workspace).unwrap();
-    let target = fs::canonicalize(target).unwrap();
+    let workspace = dunce::canonicalize(workspace).unwrap();
+    let target = dunce::canonicalize(target).unwrap();
     let mut previous = target;
     for index in (1..hops).rev() {
         let link = workspace.join(format!("link-{index}"));
@@ -338,7 +338,10 @@ async fn versions_of_a_slug_prefer_the_one_its_lock_published() {
     assert!(preferred[0].matches_source);
     assert_eq!(
         preferred[0].locations[0].display_path,
-        fs::canonicalize(&published).unwrap().display().to_string()
+        dunce::canonicalize(&published)
+            .unwrap()
+            .display()
+            .to_string()
     );
     let both = vec![first.id.clone(), second.id.clone()];
     let refused = engine.prepare_found_import(both).await.unwrap_err();
@@ -363,7 +366,7 @@ async fn without_a_lock_the_newest_version_is_preferred() {
     assert!(!preferred[0].matches_source);
     assert_eq!(
         preferred[0].locations[0].display_path,
-        fs::canonicalize(&newer).unwrap().display().to_string()
+        dunce::canonicalize(&newer).unwrap().display().to_string()
     );
     engine.shutdown().await.unwrap();
 }

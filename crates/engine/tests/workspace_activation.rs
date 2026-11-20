@@ -103,7 +103,7 @@ async fn a_differing_copy_found_on_add_is_untouched_until_replaced() {
     );
     assert_eq!(fs::read_to_string(claude.join("SKILL.md")).unwrap(), theirs);
 
-    let directory = fs::canonicalize(project.dir(".claude/skills")).unwrap();
+    let directory = dunce::canonicalize(project.dir(".claude/skills")).unwrap();
     project
         .engine
         .resolve_copy(

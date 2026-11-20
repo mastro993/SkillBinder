@@ -58,7 +58,7 @@ jobs:
       - name: Check native graph
         run: cargo clippy --workspace --all-targets --all-features --locked ${{ matrix.cargo-target }} -- -D warnings
       - name: Run workspace tests
-        run: cargo test --workspace --all-targets --all-features --locked ${{ matrix.cargo-target }}
+        run: cargo test --workspace --all-targets --all-features --locked --no-fail-fast ${{ matrix.cargo-target }}
       - name: Build native test application
         run: cargo build -p skillbinder --features native-test --locked ${{ matrix.cargo-target }}
       - name: Exercise native renderer on macOS

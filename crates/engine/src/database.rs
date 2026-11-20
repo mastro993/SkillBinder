@@ -61,7 +61,13 @@ mod tests {
     #[test]
     fn opens_paths_with_uri_delimiters() -> AppResult<()> {
         let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
-        opens_at(&root.path().join("a %20?b#c.db"))
+        // Windows forbids `?` in file names.
+        let name = if cfg!(windows) {
+            "a %20#c.db"
+        } else {
+            "a %20?b#c.db"
+        };
+        opens_at(&root.path().join(name))
     }
 
     /// Databases that already applied the initial migration, as released builds left them,

@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn a_slug_spelled_differently_from_its_directory_is_dropped() {
         let directory = tempfile::tempdir().unwrap();
-        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let state = State::isolated_test_state(dunce::canonicalize(directory.path()).unwrap());
         let skills = state.library_dir().join("skills");
         fs::create_dir(skills.join("foo")).unwrap();
         fs::write(
@@ -210,7 +210,7 @@ mod tests {
     #[test]
     fn a_skill_without_a_record_gets_one_at_the_next_push() {
         let directory = tempfile::tempdir().unwrap();
-        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let state = State::isolated_test_state(dunce::canonicalize(directory.path()).unwrap());
         let skill = state.library_dir().join("skills/foo");
         fs::create_dir(&skill).unwrap();
         fs::write(
@@ -255,7 +255,7 @@ mod tests {
     fn an_unreadable_skill_is_retried_without_holding_back_the_others() {
         use std::os::unix::fs::PermissionsExt;
         let directory = tempfile::tempdir().unwrap();
-        let state = State::isolated_test_state(fs::canonicalize(directory.path()).unwrap());
+        let state = State::isolated_test_state(dunce::canonicalize(directory.path()).unwrap());
         let skills = state.library_dir().join("skills");
         for slug in ["locked", "open"] {
             fs::create_dir(skills.join(slug)).unwrap();

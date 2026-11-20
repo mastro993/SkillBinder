@@ -52,7 +52,7 @@ fn explicit_directory_changes_digest() {
 fn unsafe_names_and_plugin_manifests_block() {
     for name in ["CON.txt", "trailing.", "colon:name", "bad\\name"] {
         let (_root, path) = source();
-        let path = fs::canonicalize(path).unwrap();
+        let path = dunce::canonicalize(path).unwrap();
         if fs::write(path.join(name), b"x").is_ok()
             && fs::read_dir(&path)
                 .unwrap()

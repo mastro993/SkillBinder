@@ -50,7 +50,7 @@ impl Project {
                 write_skill(&fixture.home.join(".claude/skills"), slug, LIBRARY);
             }
         }
-        let folder = fs::canonicalize(&fixture.workspace).unwrap();
+        let folder = dunce::canonicalize(&fixture.workspace).unwrap();
         Self {
             fixture,
             engine,
@@ -60,7 +60,8 @@ impl Project {
 
     /// One of the project's agent skill directories.
     pub fn dir(&self, dir: &str) -> PathBuf {
-        self.folder.join(dir)
+        // With the platform separator, as the engine names workspace directories.
+        self.folder.join(dir).components().collect()
     }
 
     pub async fn add(&self) -> Workspace {

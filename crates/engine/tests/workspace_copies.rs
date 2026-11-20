@@ -172,7 +172,7 @@ async fn an_edited_workspace_copy_asks_before_it_is_removed() {
         )]
     );
     assert_eq!(fs::read_to_string(&copy).unwrap(), edited);
-    let directory = fs::canonicalize(project.dir(".claude/skills")).unwrap();
+    let directory = dunce::canonicalize(project.dir(".claude/skills")).unwrap();
     project
         .engine
         .resolve_copy(
@@ -270,7 +270,7 @@ async fn a_directory_a_link_no_longer_leads_to_keeps_its_copies() {
     for repointed in [false, true] {
         let project = Project::with(&["review"]).await;
         // Inside home, a managed copy nothing holds any more would be removed.
-        let folder = fs::canonicalize(&project.fixture.home)
+        let folder = dunce::canonicalize(&project.fixture.home)
             .unwrap()
             .join("proj");
         let shared = write_skill(&folder.join("tooling/agent-skills"), "review", LIBRARY);

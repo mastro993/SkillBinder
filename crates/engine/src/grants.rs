@@ -1,7 +1,6 @@
 use crate::worker::State;
 use skillbinder_proto::*;
 use std::{
-    fs,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -17,7 +16,7 @@ impl State {
     pub(crate) fn grant_directory(&mut self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.grants
             .retain(|_, grant| grant.created.elapsed() < GRANT_LIFETIME);
-        let canonical = fs::canonicalize(&path)
+        let canonical = dunce::canonicalize(&path)
             .map_err(|_| AppError::validation("Choose an accessible directory."))?;
         if !canonical.is_dir() {
             return Err(AppError::validation("Choose a directory."));
@@ -43,7 +42,7 @@ impl State {
         if grant.created.elapsed() >= GRANT_LIFETIME {
             return Err(AppError::stale("Directory selection expired."));
         }
-        let canonical = fs::canonicalize(&grant.path)
+        let canonical = dunce::canonicalize(&grant.path)
             .map_err(|_| AppError::stale("Selected directory no longer exists."))?;
         if canonical != grant.path {
             return Err(AppError::stale("Selected directory changed."));

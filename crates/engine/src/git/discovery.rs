@@ -46,11 +46,10 @@ fn first_usable(
     let mut tried = BTreeSet::new();
     let mut outdated = None;
     for directory in directories {
-        let Some(executable) = directory
-            .join(if cfg!(windows) { "git.exe" } else { "git" })
-            .canonicalize()
-            .ok()
-            .filter(|executable| executable.is_file())
+        let Some(executable) =
+            dunce::canonicalize(directory.join(if cfg!(windows) { "git.exe" } else { "git" }))
+                .ok()
+                .filter(|executable| executable.is_file())
         else {
             continue;
         };

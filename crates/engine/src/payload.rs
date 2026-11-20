@@ -113,7 +113,7 @@ fn verified(expected: &Inspection, destination: &Path) -> AppResult<traversal::S
     let parent = destination
         .parent()
         .ok_or_else(|| AppError::validation("A staging parent is required."))?;
-    let parent = fs::canonicalize(parent).map_err(|_| AppError::storage())?;
+    let parent = dunce::canonicalize(parent).map_err(|_| AppError::storage())?;
     if parent.starts_with(&expected.canonical_source) || fs::symlink_metadata(destination).is_ok() {
         return Err(AppError::validation(
             "The staging destination must be absent and outside the source.",
