@@ -103,7 +103,7 @@ impl RenderOnce for Gallery {
             ))
             .child(section(
                 "Elevation",
-                // On the sidebar canvas, where the raised selection pill sits.
+                // On the sidebar canvas, where the dragged sidebar row is raised.
                 wrap()
                     .p(px(space::XL))
                     .rounded(px(radius::LG))
@@ -113,7 +113,7 @@ impl RenderOnce for Gallery {
                         labeled(&name, Surface::new(level).apply(sample(), theme), theme)
                     }))
                     .child(labeled(
-                        "sidebar pill",
+                        "dragged row",
                         Surface::new(Level::Raised)
                             .radius(radius::MD)
                             .fill(theme.sidebar_accent)

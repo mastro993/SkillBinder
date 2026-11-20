@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palette playground</title>
+<!-- Palette playground: edit the window palette and export it for DESIGN.md.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py palette.html ../prototypes/palette.html -->
+<link rel="stylesheet" href="palette.css">
+
+</head>
+<body>
+<div class="app">
+  <aside class="ctl" id="ctl"></aside>
+  <main class="stagewrap">
+    <div class="topbar" id="topbar"></div>
+    <div class="stage" id="stage"><div class="win" id="win"></div></div>
+  </main>
+</div>
+<script src="color.js"></script>
+<script src="palette-data.js"></script>
+<script src="mock.js"></script>
+<script src="controls.js"></script>
+</body>
+</html>

@@ -1,25 +1,25 @@
 ---
 version: alpha
 name: SkillBinder
-description: Split columns. A calm native macOS tool with a tinted sidebar beside a flat page column, split by one hairline, with one iris accent for selection, primary actions, and focus.
+description: Split columns. A calm native macOS tool with a tinted sidebar beside a flat page column, split by one hairline, with one blue accent for primary actions, focus, and checked controls.
 colors:
   background: "#FFFFFF"
-  foreground: "#1C1C21"
-  sidebar: "#EDEDF0"
-  sidebar-foreground: "#3A3A42"
-  sidebar-accent: "#FFFFFF"
-  muted: "#F1F1F4"
-  muted-foreground: "#6B6B74"
-  border: "#E6E6EA"
-  hairline: "#EFEFF2"
+  foreground: "#1B1E23"
+  sidebar: "#E9EDF2"
+  sidebar-foreground: "#3C4045"
+  sidebar-accent: "#D7DBE2"
+  muted: "#EFF3F8"
+  muted-foreground: "#666B72"
+  border: "#E2E7EC"
+  hairline: "#EBEFF4"
   popover: "#FFFFFF"
-  ring: "#5B5BD6"
-  primary: "#5B5BD6"
-  primary-hover: "#5151CD"
-  primary-active: "#4747C2"
+  ring: "#0077B6"
+  primary: "#0077B6"
+  primary-hover: "#026EA8"
+  primary-active: "#04659B"
   primary-foreground: "#FFFFFF"
-  accent-soft: "#EEEEFC"
-  accent-soft-foreground: "#4746B8"
+  accent-soft: "#E4F2FE"
+  accent-soft-foreground: "#046094"
   success: "#2B9A66"
   success-text: "#18794E"
   warning: "#FFC53D"
@@ -28,22 +28,22 @@ colors:
   danger-text: "#CE2C31"
   info: "#0797B9"
   info-text: "#0B7491"
-  background-dark: "#1B1B1F"
-  foreground-dark: "#EDEDEF"
-  sidebar-dark: "#111113"
-  sidebar-foreground-dark: "#B5B5BE"
-  sidebar-accent-dark: "#2A2A30"
-  muted-dark: "#2A2A30"
-  muted-foreground-dark: "#A0A0AB"
-  border-dark: "#2E2E35"
-  hairline-dark: "#26262B"
-  popover-dark: "#222227"
-  ring-dark: "#6E6ADE"
-  primary-dark: "#5B5BD6"
-  primary-hover-dark: "#6E6ADE"
-  primary-active-dark: "#7D78E5"
-  accent-soft-dark: "#2A2A4A"
-  accent-soft-foreground-dark: "#B1A9FF"
+  background-dark: "#181A1D"
+  foreground-dark: "#E9EBEE"
+  sidebar-dark: "#0D0F12"
+  sidebar-foreground-dark: "#B6BBC1"
+  sidebar-accent-dark: "#24272A"
+  muted-dark: "#25282C"
+  muted-foreground-dark: "#A0A5AB"
+  border-dark: "#2A2D31"
+  hairline-dark: "#212427"
+  popover-dark: "#1D1F23"
+  ring-dark: "#1E84C4"
+  primary-dark: "#0077B6"
+  primary-hover-dark: "#1E84C4"
+  primary-active-dark: "#2F91D1"
+  accent-soft-dark: "#133146"
+  accent-soft-foreground-dark: "#8FCCFB"
   success-text-dark: "#3DD68C"
   warning-text-dark: "#FFCA16"
   danger-text-dark: "#FF6369"
@@ -310,7 +310,7 @@ components:
 
 SkillBinder is a native macOS-first desktop app for developers who use several coding agents. It keeps a library of skills and copies the active ones into each agent's skill folders and into workspaces. The UI should feel like a calm, trustworthy system utility: quiet surfaces, clear hierarchy, color only where it carries meaning.
 
-The direction is **Split columns** (chosen 2026-11-19, after the GitHub Copilot desktop app; it replaces the 2026-11-18 Inset canvas panel). The window is two flat columns: the sidebar on a tinted canvas and the page on the plain page fill, split by one `border` line. Each column's top row is the 52 px header: the traffic lights and window controls over the sidebar, the page's title and actions over the page, with a `border` line under the page's. One iris accent marks the primary action, focus, and the current selection. Everything else stays neutral.
+The direction is **Split columns** (chosen 2026-11-19, after the GitHub Copilot desktop app; it replaces the 2026-11-18 Inset canvas panel). The window is two flat columns: the sidebar on a tinted canvas and the page on the plain page fill, split by one `border` line. Each column's top row is the 52 px header: the traffic lights and window controls over the sidebar, the page's title and actions over the page, with a `border` line under the page's. One blue accent (chosen 2026-11-20 in the palette playground, `docs/design/palette/`) marks the primary action, focus, links, checked controls, progress, and highlight chips. The current selection is a neutral fill, and the neutrals carry a faint cool slate tint. Everything else stays neutral.
 
 The design is built from GPUI Kit components, themed through Kit's theme and styled through their public API. The tokens above are the source of truth; the design-system crate holds their generated code form (see Implementation).
 
@@ -321,11 +321,11 @@ Light values are the plain names; each color that changes in dark mode has a `-d
 - **sidebar**: the sidebar column's canvas, behind the traffic lights and the sidebar rows. Never used as a card or control fill.
 - **background**: the page column and its header, cards, and list rows. In dark mode it is a step lighter than the canvas.
 - **foreground / muted-foreground**: primary text and secondary text (descriptions, counts, section headers, placeholders). `muted-foreground` passes 4.5:1 on `background`, `muted`, and `sidebar`.
-- **sidebar-foreground**: unselected sidebar labels. **sidebar-accent**: the selected sidebar row, drawn as a raised white pill (dark: a lifted gray).
+- **sidebar-foreground**: unselected sidebar labels. **sidebar-accent**: the selected sidebar row, drawn as a flat neutral fill a step darker than the canvas (dark: a step lighter); at 50% it is the row hover.
 - **muted**: neutral fills: hover, input fields, segmented tracks, code blocks. It is the only hover fill; do not mix in foreground-at-alpha hovers.
 - **border**: control and card outlines, the line between the sidebar and the page, and the line under the page header. **hairline**: dividers between rows and inside cards.
 - **popover**: menus, popovers, dialogs, tooltips.
-- **primary** (iris): the primary button, links, the focus ring (`ring`), selected checkboxes and switches. One primary action per view.
+- **primary** (blue): the primary button, links, the focus ring (`ring`), selected checkboxes and switches. One primary action per view.
 - **accent-soft / accent-soft-foreground**: the tinted chip for a highlighted state, such as Updates or a chosen filter.
 - **success, warning, danger, info**: status fills (dots, button fills, progress). Their `-text` siblings are the readable text and icon colors for notices on `background`. `info` is the update cyan of the approved prototypes. `danger` is the destructive button fill in both modes.
 - **preset-***: the categorical palette a user picks a preset's color from (gray, red, orange, yellow, green, blue, purple, pink), toned to keep contrast on both sidebars. It colors a preset's dot and glyph and nothing else. A custom preset color is the same in both modes.
@@ -360,13 +360,13 @@ Four levels, each a set of shadow layers in the `elevation` tokens. Raised and o
 A level is `none` or a comma-separated list of layers, each `x y blur spread color` in px, drawn outside the surface. A ring is a layer with no offset or blur and a positive spread. The color is black at an alpha, `rgba(0,0,0,a)`, or a color token, optionally at an alpha: `{colors.foreground}/10%`.
 
 - **Flat**: rows, cards inside the page. A card has a 1 px `border` outline, drawn inside it so a scroll view never clips it, and no shadow.
-- **Raised**: the selected sidebar row, the selected segment, the dragged row, a switch's thumb. Ring `rgba(0,0,0,0.08)` at 0.5 px, shadow 0 1 2 `rgba(0,0,0,0.08)`.
+- **Raised**: the selected segment, the dragged row, a switch's thumb. Ring `rgba(0,0,0,0.08)` at 0.5 px, shadow 0 1 2 `rgba(0,0,0,0.08)`.
 - **Overlay**: menus, popovers, the progress pill. Ring `foreground` at 10%, shadows 0 10 15 -3 and 0 4 6 -4 at 10% black. A menu fades the whole set in as it opens.
 - **Modal**: dialogs and toasts, Kit's dialog shadow over the dimmed window. GPUI has no backdrop blur; the blocking wash is the page color at 70%.
 
-Flat and raised surfaces fill with `background`, overlay and modal ones with `popover`; a raised surface may take another fill, such as the selected sidebar row's `sidebar-accent`.
+Flat and raised surfaces fill with `background`, overlay and modal ones with `popover`; a raised surface may take another fill, such as the dragged sidebar row's `sidebar-accent`.
 
-In dark mode shadows fade, so surfaces separate by lightness: canvas `#111113`, page `#1B1B1F`, popover `#222227`.
+In dark mode shadows fade, so surfaces separate by lightness: canvas `#0D0F12`, page `#181A1D`, popover `#1D1F23`.
 
 ## Shapes
 
@@ -374,11 +374,11 @@ Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls 
 
 ## Components
 
-- **Buttons**: Kit `Button`. Primary is iris, one per view; secondary is outlined; ghost for toolbar and row actions; danger only for an action that removes something. Labels use `label-md` (small buttons `label-sm`). Disabled buttons lose the hand cursor.
+- **Buttons**: Kit `Button`. Primary is blue, one per view; secondary is outlined; ghost for toolbar and row actions; danger only for an action that removes something. Labels use `label-md` (small buttons `label-sm`). Disabled buttons lose the hand cursor.
 - **Inputs and search**: Kit `Input` on a `muted` fill with a 14 px search glyph.
 - **Chips and tags**: Kit `Tag`, or Kit's base toggle for a chip a press turns on and off, fully rounded; neutral by default, `accent-soft` when it marks a highlighted state, and outlined on the page fill for a place something is saved to. An off toggle chip is outlined, or dashed while its choice is not applied yet.
 - **Lists**: a card holding rows separated by inset `hairline` dividers; a row has an optional leading icon or logo, a title, a one-line description, and trailing marks. Hover fills `muted`; an inactive row is drawn at 50% opacity.
-- **Sidebar**: rows on the canvas; the selected row is a raised `sidebar-accent` pill. Section headers in `caption-sm`.
+- **Sidebar**: rows on the canvas; the selected row is a flat `sidebar-accent` fill, with no shadow. Section headers in `caption-sm`.
 - **Menus and popovers**: `popover` surface at overlay elevation, 8 px padding, rows 32 high with `sm` radius.
 - **Dialogs**: Kit `Dialog` with a `title-md` title, `body-sm` body, and a right-aligned footer: secondary then primary, gap 8.
 - **Notices**: an icon and caption text in the tone's `-text` color, on no fill; a blocking problem uses Kit `Alert`.
@@ -391,7 +391,7 @@ Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls 
 
 - Do take every size, color, radius, and shadow from these tokens; a raw `px(13.)` or hex literal in UI code is a bug.
 - Do reach for a GPUI Kit component before building one; the app keeps no look-alike of a Kit control.
-- Do keep color meaningful: iris for primary, focus, and selection; status colors for status. Never color for decoration.
+- Do keep color meaningful: the accent for primary, focus, and checked or highlighted state; status colors for status. Never color for decoration.
 - Don't separate the sidebar from the page with a shadow or a gap; the one `border` line does that.
 - Don't use more than one primary button in a view.
 - Don't use `FontWeight::MEDIUM`; use the 520 medium weight.

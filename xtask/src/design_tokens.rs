@@ -76,14 +76,14 @@ mod tests {
         let themes = set["themes"].as_array().expect("themes");
         let color =
             |index: usize, key: &str| themes[index]["colors"][key].as_str().map(str::to_owned);
-        assert_eq!(color(0, "primary.background").as_deref(), Some("#5B5BD6"));
-        assert_eq!(color(0, "sidebar.background").as_deref(), Some("#EDEDF0"));
-        assert_eq!(color(1, "sidebar.background").as_deref(), Some("#111113"));
+        assert_eq!(color(0, "primary.background").as_deref(), Some("#0077B6"));
+        assert_eq!(color(0, "sidebar.background").as_deref(), Some("#E9EDF2"));
+        assert_eq!(color(1, "sidebar.background").as_deref(), Some("#0D0F12"));
         // No `-dark` sibling: the light value in both modes.
         assert_eq!(color(1, "primary.foreground").as_deref(), Some("#FFFFFF"));
         // Status foregrounds are text on the fill: white on danger, the dark text on warning.
         assert_eq!(color(0, "danger.foreground").as_deref(), Some("#FFFFFF"));
-        assert_eq!(color(0, "warning.foreground").as_deref(), Some("#1C1C21"));
+        assert_eq!(color(0, "warning.foreground").as_deref(), Some("#1B1E23"));
         // The fills keep one value, so the choice does: dark text on the warning fill in dark
         // mode too, the light `foreground`, not the dark one.
         for key in ["success", "warning", "danger", "info"].map(|s| format!("{s}.foreground")) {
@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn roles_without_a_kit_key_become_rust_tones() {
         let [_, (_, tokens)] = render(&design()).expect("tokens render");
-        assert!(tokens.contains("pub const HAIRLINE: Tone = Tone::new(0xEFEFF2, 0x26262B);"));
+        assert!(tokens.contains("pub const HAIRLINE: Tone = Tone::new(0xEBEFF4, 0x212427);"));
         assert!(tokens.contains("pub const PRESET_PINK: Tone = Tone::new(0xDB2777, 0xF472B6);"));
         assert!(tokens.contains("pub const XXS: f32 = 2.0;"));
         assert!(!tokens.contains("pub const PRIMARY: Tone"));
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn a_role_the_kit_theme_needs_is_required() {
-        let broken = design().replacen("  ring: \"#5B5BD6\"\n", "", 1);
+        let broken = design().replacen("  ring: \"#0077B6\"\n", "", 1);
         let error = format!("{:#}", render(&broken).expect_err("refused"));
         assert!(error.contains("colors.ring"), "{error}");
     }
