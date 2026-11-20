@@ -13,7 +13,7 @@ mod support;
 use device::git;
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    OnboardingStep, OrganizationChange, PresetId, RemoteConfig, SkillId, SyncAction, SyncState,
+    OrganizationChange, PresetId, RemoteConfig, SkillId, SyncAction, SyncState,
 };
 use std::{fs, path::Path};
 use support::Fixture;
@@ -114,6 +114,7 @@ async fn git_installed_while_the_app_runs_is_found_on_a_recheck_and_makes_the_li
 #[cfg(unix)]
 #[tokio::test]
 async fn an_outdated_git_is_reported_until_an_update_replaces_it() {
+    use skillbinder_proto::OnboardingStep;
     use std::os::unix::fs::PermissionsExt;
     let fixture = Fixture::new();
     let outdated = fixture.git_bin().join("git");

@@ -12,7 +12,7 @@ use diesel::{connection::SimpleConnection, prelude::*};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
     Bootstrap, ErrorCategory,
-    OnboardingStep::{self, Agents, DataLocation, Git, Import},
+    OnboardingStep::{self, Agents, Git, Import},
 };
 use std::{collections::BTreeSet, fs, path::Path};
 use support::{Fixture, category};
@@ -73,6 +73,7 @@ async fn with_git_and_writable_data_a_first_launch_chooses_agents_then_creates_t
 #[cfg(unix)]
 #[tokio::test]
 async fn unwritable_data_holds_onboarding_until_it_is_writable() {
+    use OnboardingStep::DataLocation;
     use std::os::unix::fs::PermissionsExt;
     let fixture = Fixture::new();
     let engine = fixture.open();

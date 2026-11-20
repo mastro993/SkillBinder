@@ -6,7 +6,7 @@
 #[path = "support/fixture.rs"]
 mod support;
 
-use skillbinder_proto::{Candidate, ErrorCategory, ImportDecision, ScanSnapshot, ValidationStatus};
+use skillbinder_proto::{Candidate, ErrorCategory, ImportDecision, ScanSnapshot};
 use std::fs;
 use support::{Fixture, category, write_skill};
 
@@ -168,6 +168,7 @@ async fn importing_an_aggregated_candidate_copies_once_and_hides_every_location(
 #[cfg(unix)]
 #[tokio::test]
 async fn a_blocked_copy_does_not_absorb_an_importable_copy_with_the_same_digest() {
+    use skillbinder_proto::ValidationStatus;
     let fixture = Fixture::new();
     let global_copy = write_skill(&fixture.home.join(".claude/skills"), "review", "Shared");
     let outside = fixture.home.join("outside.txt");
