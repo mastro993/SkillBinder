@@ -40,9 +40,19 @@ Every archive holds the locked release build without native test controls (`carg
 
 | Platform | Archive | Built on |
 |---|---|---|
-| macOS 26+ | `skillbinder-<version>-universal-apple-darwin.dmg`: `SkillBinder.app`, Developer ID signed with the hardened runtime, notarized, ticket stapled to the image | `macos-26`, `aarch64` and `x86_64` combined with `lipo` |
+| macOS 26+ | `skillbinder-<version>-universal-apple-darwin.dmg`: `SkillBinder.app`, Developer ID signed with the hardened runtime, notarized, ticket stapled to the image. The image opens on SkillBinder, an arrow, and an `Applications` shortcut to drag it onto (ADR 0019). | `macos-26`, `aarch64` and `x86_64` combined with `lipo` |
 | Windows | `skillbinder-<version>-x86_64-pc-windows-msvc.zip`: `SkillBinder/skillbinder.exe`, unsigned | `windows-2025` (MSVC) |
 | Linux | `skillbinder-<version>-x86_64-unknown-linux-gnu.tar.gz`: `SkillBinder/` with the binary, a `.desktop` entry, and `INSTALL.txt` | `ubuntu-22.04` (glibc 2.35) |
+
+The disk image is built with [`dmgbuild`](https://github.com/dmgbuild/dmgbuild) (MIT), which writes the window layout without driving Finder, so it works on a headless runner. Its settings are `packaging/macos/dmgbuild-settings.py`, and its window background is dmgbuild's own `builtin-arrow`. `dmgbuild` and its dependencies are pinned with their wheels' hashes in `packaging/macos/dmgbuild-requirements.txt`; `build.yml` installs them into a virtual environment, and a local `xtask package` needs the same on `PATH`:
+
+```sh
+python3 -m venv .venv-dmgbuild
+.venv-dmgbuild/bin/pip install --require-hashes --only-binary :all: -r packaging/macos/dmgbuild-requirements.txt
+PATH="$PWD/.venv-dmgbuild/bin:$PATH" cargo run -p xtask -- package universal-apple-darwin
+```
+
+The bundle's `Info.plist` records the full version, a beta's included, as `SkillBinderVersion`; Move to Applications reads it to tell whether a SkillBinder already there is newer.
 
 `SHA256SUMS` beside them lists every archive's checksum, and `update.json` with `update.json.minisig` describes them for the app's updates. A pull request that changes the packaging or these workflows runs `build.yml` unstamped and unsigned, so a broken platform shows up before a release needs it.
 

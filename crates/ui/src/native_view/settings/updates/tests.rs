@@ -13,6 +13,7 @@ fn update(current: &str, channel: Channel, state: AppUpdateState) -> AppUpdateSn
         auto_check: true,
         state,
         last_checked: None,
+        outside_applications: false,
     }
 }
 

@@ -78,7 +78,7 @@ fn run() -> anyhow::Result<()> {
     }
     #[cfg(not(feature = "native-test"))]
     let config = configuration()?;
-    let Some((_instance, mut activation)) = instance::Instance::acquire(&config.data_dir)? else {
+    let Some((instance, mut activation)) = instance::Instance::acquire(&config.data_dir)? else {
         return Ok(());
     };
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -117,6 +117,7 @@ fn run() -> anyhow::Result<()> {
             let bridge = std::rc::Rc::new(std::cell::RefCell::new(None::<gpui_mcp::BridgeHandle>));
             #[cfg(feature = "native-test")]
             let bridge_on_quit = bridge.clone();
+            let mut instance = Some(instance);
             cx.on_app_quit(move |_| {
                 // AppKit terminates the process during quit; code after run may never execute.
                 #[cfg(feature = "native-test")]
@@ -129,6 +130,14 @@ fn run() -> anyhow::Result<()> {
                 }
                 if !opened_on_quit.get() {
                     std::process::exit(1);
+                }
+                // After Move to Applications the moved copy starts once this one lets go of the
+                // instance lock, which AppKit's exit would otherwise hold to the end.
+                if let Some(relaunch) = engine.take_relaunch() {
+                    drop(instance.take());
+                    if let Err(error) = relaunch.start() {
+                        eprintln!("Could not open the moved SkillBinder: {error}");
+                    }
                 }
                 #[cfg(feature = "native-test")]
                 if let Some(smoke) = smoke_result.clone()

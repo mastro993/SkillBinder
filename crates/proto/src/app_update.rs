@@ -186,6 +186,9 @@ pub struct AppUpdateSnapshot {
     pub state: AppUpdateState,
     /// Unix seconds of the last check that read the channel's manifest, if any.
     pub last_checked: Option<u64>,
+    /// macOS: the app runs from outside `/Applications` and `~/Applications`, such as its disk
+    /// image or Downloads, so it offers to move itself there.
+    pub outside_applications: bool,
 }
 
 #[cfg(test)]

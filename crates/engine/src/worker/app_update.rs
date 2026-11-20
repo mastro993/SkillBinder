@@ -2,7 +2,7 @@
 //! automatic-check switch saved through the worker.
 
 use super::Engine;
-use crate::app_update::Ended;
+use crate::{Relaunch, app_update::Ended};
 use skillbinder_proto::*;
 
 impl Engine {
@@ -40,5 +40,22 @@ impl Engine {
         self.call(move |state| state.save_update_auto_check(on))
             .await?;
         self.owner.app_updates.set_auto_check(on)
+    }
+    /// Moves the app into Applications on a thread of its own (spec rule 21). The app then
+    /// quits, and the desktop starts the moved copy through [`Self::take_relaunch`].
+    pub async fn move_to_applications(&self) -> AppResult<()> {
+        let updates = self.owner.app_updates.clone();
+        let (done, moved) = tokio::sync::oneshot::channel();
+        std::thread::Builder::new()
+            .name("skillbinder-move".into())
+            .spawn(move || {
+                let _ = done.send(updates.move_to_applications());
+            })
+            .map_err(|_| AppError::storage())?;
+        moved.await.map_err(|_| AppError::storage())?
+    }
+    /// What to start once the app has quit after Move to Applications, once.
+    pub fn take_relaunch(&self) -> Option<Relaunch> {
+        self.owner.app_updates.take_relaunch()
     }
 }

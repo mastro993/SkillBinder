@@ -1,7 +1,9 @@
-//! The macOS app bundle and its DMG. With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID
+//! The macOS app bundle and its DMG, which `dmgbuild` lays out as SkillBinder, an arrow, and an
+//! Applications shortcut (ADR 0019). With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID
 //! Application certificate in the keychain, both are signed for notarization; otherwise neither is.
 use super::{licenses, run};
 use crate::version::Version;
+use anyhow::Context as _;
 use std::{fs, path::Path, process::Command};
 
 const SIGNING_IDENTITY: &str = "SKILLBINDER_SIGNING_IDENTITY";
@@ -42,23 +44,23 @@ pub(super) fn package(
             .arg(&app))?;
     }
     let image = output.join(format!("{name}.dmg"));
-    // hdiutil's own estimate from `-srcfolder` can leave too little room for the universal
-    // binary ("No space left on device"), so size the volume from the bundle with headroom.
+    // An estimate from the bundle alone can leave too little room for the universal binary ("No
+    // space left on device"), so size the volume from it with headroom.
     let megabytes = size(&app)? / (1024 * 1024) * 3 / 2 + 32;
-    run(Command::new("hdiutil")
-        .args([
-            "create",
-            "-ov",
-            "-format",
-            "UDZO",
-            "-volname",
-            "SkillBinder",
-            "-size",
-            &format!("{megabytes}m"),
-            "-srcfolder",
-        ])
-        .arg(&app)
-        .arg(&image))?;
+    let mut dmgbuild = Command::new("dmgbuild");
+    dmgbuild
+        .arg("-s")
+        .arg(root.join("packaging/macos/dmgbuild-settings.py"))
+        .arg("-D")
+        .arg(format!("app={}", app.display()))
+        .arg("-D")
+        .arg(format!("size={megabytes}m"))
+        .arg("SkillBinder")
+        .arg(&image);
+    let status = dmgbuild.status().context(
+        "dmgbuild is not on PATH: install packaging/macos/dmgbuild-requirements.txt (docs/release.md)",
+    )?;
+    anyhow::ensure!(status.success(), "dmgbuild failed with {status}.");
     if let Some(identity) = &identity {
         run(Command::new("codesign")
             .args(["--force", "--timestamp", "--sign"])
@@ -78,7 +80,8 @@ fn size(path: &Path) -> anyhow::Result<u64> {
     fs::read_dir(path)?.try_fold(0, |total, entry| Ok(total + size(&entry?.path())?))
 }
 
-/// Bundle versions are plain `X.Y.Z`: a beta carries its prerelease only in the image's name.
+/// Bundle versions are plain `X.Y.Z`: a beta carries its prerelease in the image's name and in
+/// `SkillBinderVersion`, which Move to Applications compares with a copy already installed.
 fn info_plist(version: &Version) -> String {
     let [major, minor, patch] = version.core;
     format!(
@@ -92,6 +95,7 @@ fn info_plist(version: &Version) -> String {
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>{major}.{minor}.{patch}</string>
 <key>CFBundleVersion</key><string>{major}.{minor}.{patch}</string>
+<key>SkillBinderVersion</key><string>{version}</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

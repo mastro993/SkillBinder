@@ -142,8 +142,12 @@ impl Engine {
         let searches = Searches::new(config.catalog.clone());
         let resolutions = Resolutions::default();
         let pool = GitPool::default();
-        let app_updates =
-            AppUpdates::new(config.app_update.clone(), config.app_version, log.clone());
+        let app_updates = AppUpdates::new(
+            config.app_update.clone(),
+            config.app_version,
+            config.placement.clone(),
+            log.clone(),
+        );
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
             config,

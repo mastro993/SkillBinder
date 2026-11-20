@@ -1,5 +1,5 @@
 use crate::{
-    app_update::{RELEASE_KEY, STAMPED, UpdateSource, running_version},
+    app_update::{AppPlacement, RELEASE_KEY, STAMPED, UpdateSource, running_version},
     catalog::{BASE_URL, CatalogSource},
     git::Git,
     onboarding::{self, Facts},
@@ -67,6 +67,8 @@ pub struct EngineConfig {
     pub app_version: AppVersion,
     /// Where app update checks read their manifests; `None` turns them off.
     pub app_update: Option<UpdateSource>,
+    /// Where the running app is, and where Move to Applications puts it.
+    pub placement: AppPlacement,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
@@ -74,6 +76,7 @@ impl EngineConfig {
         let dirs = directories::BaseDirs::new().ok_or_else(AppError::storage)?;
         let base = url::Url::parse(BASE_URL).map_err(|_| AppError::storage())?;
         Ok(Self {
+            placement: AppPlacement::platform(dirs.home_dir()),
             data_dir: dirs.data_local_dir().join("SkillBinder"),
             home: dirs.home_dir().to_path_buf(),
             environment: std::env::vars().collect(),
@@ -93,9 +96,15 @@ impl EngineConfig {
     /// `home`'s configuration, so a fixture never reaches the user's credentials or identity, and
     /// the catalog comes from `<data_dir>/catalog-source`, which is missing, so offline, until a
     /// fixture writes it. Repositories may be local `file://` ones. App updates are off until a
-    /// fixture names a source.
+    /// fixture names a source. No bundle runs, and Move to Applications would use the fixture's
+    /// `<data_dir>/fixture-applications` and `<home>/Applications`.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
+            placement: AppPlacement {
+                bundle: None,
+                applications: data_dir.join("fixture-applications"),
+                user_applications: home.join("Applications"),
+            },
             catalog: CatalogSource::Directory(data_dir.join("catalog-source")),
             data_dir,
             home,

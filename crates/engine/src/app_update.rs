@@ -1,9 +1,12 @@
 //! App updates (ADR 0017, ADR 0018): reads the channel's signed manifest from the catalog's site
 //! on a thread of its own, never the worker, and offers a newer version as download-only. A build
 //! without the release stamp never checks. The channel, the automatic-check switch, and when the
-//! last check ran are device settings; this module holds them in memory for snapshots.
+//! last check ran are device settings; this module holds them in memory for snapshots. It also
+//! finds where the app sits, and on macOS moves it into Applications (ADR 0019).
 
+mod location;
 mod manifest;
+mod relocate;
 #[cfg(test)]
 mod tests;
 
@@ -13,10 +16,14 @@ use crate::{
     persistence,
     worker::State,
 };
+pub use location::AppPlacement;
+use location::Location;
 use manifest::{Offer, Refusal, TARGET};
+pub use relocate::Relaunch;
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{
     AppError, AppResult, AppUpdateSnapshot, AppUpdateState, AppVersion, Channel, CheckFailure,
+    ErrorCategory,
 };
 use std::sync::{Arc, Mutex, MutexGuard};
 use tokio::sync::oneshot;
@@ -80,6 +87,10 @@ struct Shared {
     state: AppUpdateState,
     last_checked: Option<u64>,
     known: Option<Known>,
+    /// Where the running app sits, found once at launch.
+    location: Location,
+    /// What to start at quit once Move to Applications has moved the app.
+    relaunch: Option<Relaunch>,
 }
 
 /// App updates, shared by the worker's snapshots, the client, and the check thread.
@@ -89,13 +100,19 @@ pub(crate) struct AppUpdates {
     /// `None` in a build that never checks.
     source: Option<UpdateSource>,
     current: AppVersion,
+    placement: AppPlacement,
     log: Logger,
 }
 
 impl AppUpdates {
     /// Off without a source; otherwise idle on the build's channel with automatic checks on,
-    /// until [`State::restore_app_updates`] reads the saved settings.
-    pub(crate) fn new(source: Option<UpdateSource>, current: AppVersion, log: Logger) -> Self {
+    /// until [`State::restore_app_updates`] reads the saved settings. Finds where the app sits.
+    pub(crate) fn new(
+        source: Option<UpdateSource>,
+        current: AppVersion,
+        placement: AppPlacement,
+        log: Logger,
+    ) -> Self {
         let shared = Shared {
             channel: Channel::of(&current),
             auto_check: true,
@@ -105,11 +122,14 @@ impl AppUpdates {
             },
             last_checked: None,
             known: None,
+            location: location::locate(&placement),
+            relaunch: None,
         };
         Self {
             shared: Arc::new(Mutex::new(shared)),
             source,
             current,
+            placement,
             log,
         }
     }
@@ -126,7 +146,35 @@ impl AppUpdates {
             auto_check: shared.auto_check,
             state: shared.state.clone(),
             last_checked: shared.last_checked,
+            outside_applications: matches!(shared.location, Location::OutsideApplications(_)),
         })
+    }
+
+    /// Moves the app from outside Applications into it (spec rule 21); the move starts the new
+    /// copy once the app quits, through [`Self::take_relaunch`]. A failure is logged.
+    pub(crate) fn move_to_applications(&self) -> AppResult<()> {
+        let Location::OutsideApplications(original) = self.lock()?.location.clone() else {
+            return Err(AppError::new(
+                ErrorCategory::Validation,
+                "SkillBinder is already in Applications.",
+                "Keep using it from there.",
+            ));
+        };
+        let log = |line| self.log.record(line);
+        let relaunch = relocate::move_to_applications(original, &self.placement, self.current, log)
+            .map_err(|error| {
+                self.log.record(format!(
+                    "Couldn't move SkillBinder to Applications: {error}"
+                ));
+                AppError::storage()
+            })?;
+        self.lock()?.relaunch = Some(relaunch);
+        Ok(())
+    }
+
+    /// What Move to Applications left to start at quit, once.
+    pub(crate) fn take_relaunch(&self) -> Option<Relaunch> {
+        self.lock().ok()?.relaunch.take()
     }
 
     /// Checks the channel's manifest on its own thread unless the build never checks or a check

@@ -24,12 +24,13 @@ pub(crate) fn parse_launch(
     let mut catalog = None;
     let mut updates = None;
     let mut version = None;
+    let mut bundle = None;
     let mut mode = NativeMode::Interactive;
     while let Some(argument) = args.next() {
         match argument.to_str() {
             Some(
                 "--data-dir" | "--home" | "--git-dir" | "--catalog-dir" | "--update-dir"
-                | "--app-version",
+                | "--app-version" | "--app-bundle",
             ) => {
                 let value = args.next().ok_or_else(|| {
                     anyhow::anyhow!("Missing value for {}", argument.to_string_lossy())
@@ -51,6 +52,7 @@ pub(crate) fn parse_launch(
                     Some("--git-dir") => &mut git,
                     Some("--update-dir") => &mut updates,
                     Some("--app-version") => &mut version,
+                    Some("--app-bundle") => &mut bundle,
                     _ => &mut catalog,
                 };
                 ensure!(
@@ -109,6 +111,11 @@ pub(crate) fn parse_launch(
             .to_string_lossy()
             .parse()
             .context("--app-version takes X.Y.Z or X.Y.Z-beta.N")?;
+    }
+    // The app runs as this bundle, such as `<fixture>/Downloads/SkillBinder.app`, to see Move to
+    // Applications; Move copies into the fixture's Applications folders.
+    if let Some(bundle) = bundle {
+        config.placement.bundle = Some(resolved_path(&bundle)?);
     }
     Ok((config, mode))
 }
@@ -171,6 +178,16 @@ mod tests {
             "0.1.1-beta.12"
         );
         assert_eq!(parse(&["--data-dir", fixture])?.0.app_update, None);
+        assert_eq!(parse(&["--data-dir", fixture])?.0.placement.bundle, None);
+        let bundle = std::env::temp_dir().join("Downloads/SkillBinder.app");
+        let bundle_arg = bundle.to_str().context("bundle path is not UTF-8")?;
+        assert_eq!(
+            parse(&["--data-dir", fixture, "--app-bundle", bundle_arg])?
+                .0
+                .placement
+                .bundle,
+            Some(resolved_path(&bundle)?)
+        );
         for args in [
             vec![],
             vec!["--data-dir", fixture, "--app-version", "0.1"],
