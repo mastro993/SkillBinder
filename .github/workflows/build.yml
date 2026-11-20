@@ -44,10 +44,8 @@ jobs:
             target: x86_64-unknown-linux-gnu
     name: package (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    # Each runner's default shell: Git Bash on Windows would put its own link.exe ahead of MSVC's.
     timeout-minutes: 90
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,9 +76,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Build release application
         if: runner.os != 'macOS'
-        run: cargo build -p skillbinder --release --locked --target "$TARGET"
-        env:
-          TARGET: ${{ matrix.target }}
+        run: cargo build -p skillbinder --release --locked --target ${{ matrix.target }}
       - name: Build universal macOS application
         if: runner.os == 'macOS'
         run: |
@@ -118,9 +114,7 @@ jobs:
           fi
           echo "SKILLBINDER_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
       - name: Package
-        run: cargo run -p xtask --locked -- package "$TARGET"
-        env:
-          TARGET: ${{ matrix.target }}
+        run: cargo run -p xtask --locked -- package ${{ matrix.target }}
       - name: Notarize the disk image
         if: runner.os == 'macOS' && inputs.version
         env:
