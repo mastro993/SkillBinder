@@ -2,21 +2,27 @@
 //! automatic-check switch saved through the worker.
 
 use super::Engine;
+use crate::app_update::Ended;
 use skillbinder_proto::*;
 
 impl Engine {
     /// Checks the channel's manifest and waits for the check to end, unless the build never
-    /// checks or a check is running. Only a `manual` check keeps its failure.
+    /// checks or a check is running. Only a `manual` check keeps its failure. A check the
+    /// channel changed under is followed by one of the new channel.
     pub async fn check_app_update(&self, manual: bool) -> AppResult<()> {
-        let Some(finished) = self.owner.app_updates.check(manual)? else {
-            return Ok(());
-        };
-        match finished.await.map_err(|_| AppError::storage())? {
-            Some(checked) => {
-                self.call(move |state| state.save_update_checked(checked))
-                    .await
+        loop {
+            let Some(finished) = self.owner.app_updates.check(manual)? else {
+                return Ok(());
+            };
+            match finished.await.map_err(|_| AppError::storage())? {
+                Ended::Checked(check) => {
+                    return self
+                        .call(move |state| state.save_update_check(&check))
+                        .await;
+                }
+                Ended::Superseded => {}
+                Ended::Failed => return Ok(()),
             }
-            None => Ok(()),
         }
     }
     /// The running version, the channel, and what the last check found, without the worker.

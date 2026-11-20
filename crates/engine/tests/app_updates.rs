@@ -228,3 +228,55 @@ async fn the_channel_starts_as_the_builds_and_settings_persist() {
     assert!(!update.auto_check);
     assert_eq!(update.last_checked, checked);
 }
+
+#[tokio::test]
+async fn a_relaunch_shows_the_last_offer_until_the_next_check() {
+    let fixture = Fixture::new("0.1.0");
+    fixture.publish("stable", "0.2.0");
+    let engine = fixture.open();
+    engine.check_app_update(false).await.unwrap();
+    engine.shutdown().await.unwrap();
+    drop(engine);
+
+    let engine = fixture.open();
+    assert_eq!(state(&engine), offered("0.2.0"));
+    engine.shutdown().await.unwrap();
+    drop(engine);
+
+    // A build that already passed the offer reads as up to date.
+    let mut config = fixture.config();
+    config.app_version = "0.2.0".parse().unwrap();
+    let engine = Engine::open(config).unwrap();
+    assert_eq!(state(&engine), UP_TO_DATE);
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_channel_switched_during_a_check_is_checked_next() {
+    let fixture = Fixture::new("0.1.0");
+    fixture.publish("beta", "0.3.0-beta.1");
+    fixture.publish("stable", "0.2.0");
+    // A FIFO holds the stable check until it is written.
+    let held = fixture.site.join("updates/v1/stable.json");
+    let manifest = fs::read(&held).unwrap();
+    fs::remove_file(&held).unwrap();
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&held)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let engine = fixture.open();
+    let check = tokio::spawn({
+        let engine = engine.clone();
+        async move { engine.check_app_update(true).await }
+    });
+    while state(&engine) != AppUpdateState::Checking {
+        tokio::task::yield_now().await;
+    }
+    engine.set_update_channel(Channel::Beta).await.unwrap();
+    fs::write(&held, manifest).unwrap();
+    check.await.unwrap().unwrap();
+    assert_eq!(state(&engine), offered("0.3.0-beta.1"));
+}

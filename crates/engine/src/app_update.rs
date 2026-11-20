@@ -14,6 +14,7 @@ use crate::{
     worker::State,
 };
 use manifest::{Offer, Refusal, TARGET};
+use serde::{Deserialize, Serialize};
 use skillbinder_proto::{
     AppError, AppResult, AppUpdateSnapshot, AppUpdateState, AppVersion, Channel, CheckFailure,
 };
@@ -33,7 +34,7 @@ const LIMIT: u64 = 64 * 1024;
 
 const CHANNEL: &str = "update_channel";
 const AUTO_CHECK: &str = "update_auto_check";
-const LAST_CHECKED: &str = "update_last_checked";
+const LAST_CHECK: &str = "update_last_check";
 const LAST_RUN: &str = "last_run_version";
 
 /// Where a stamped build reads its manifests and the key that signs them.
@@ -43,6 +44,24 @@ pub struct UpdateSource {
     pub site: CatalogSource,
     /// The minisign public key, in base64.
     pub public_key: String,
+}
+
+/// The last check that read the channel's manifest: when, and the version it offered, saved so
+/// a relaunch shows the offer until the next check.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct LastCheck {
+    checked: u64,
+    offer: Option<Offer>,
+}
+
+/// How a check ended.
+pub(crate) enum Ended {
+    /// It read the manifest.
+    Checked(LastCheck),
+    /// The channel changed while it ran, so its answer was dropped and the new channel waits.
+    Superseded,
+    /// It failed, or a failure kept the state it found.
+    Failed,
 }
 
 /// The last verified answer for a channel, kept so a 304 changes nothing.
@@ -108,10 +127,9 @@ impl AppUpdates {
     }
 
     /// Checks the channel's manifest on its own thread unless the build never checks or a check
-    /// is running. The receiver answers with when the check ran once it ends; `None` when none
-    /// started. Only a `manual` check keeps its failure; an automatic one that fails changes
-    /// nothing.
-    pub(crate) fn check(&self, manual: bool) -> AppResult<Option<oneshot::Receiver<Option<u64>>>> {
+    /// is running. The receiver answers with how the check ended; `None` when none started.
+    /// Only a `manual` check keeps its failure; an automatic one that fails changes nothing.
+    pub(crate) fn check(&self, manual: bool) -> AppResult<Option<oneshot::Receiver<Ended>>> {
         let Some(source) = self.source.clone() else {
             return Ok(None);
         };
@@ -209,7 +227,7 @@ impl State {
     pub(crate) fn restore_app_updates(&self) -> AppResult<()> {
         let channel: Option<Channel> = self.setting(CHANNEL)?;
         let auto_check: Option<bool> = self.setting(AUTO_CHECK)?;
-        let last_checked: Option<u64> = self.setting(LAST_CHECKED)?;
+        let last_check: Option<LastCheck> = self.setting(LAST_CHECK)?;
         self.set_setting(LAST_RUN, &self.config.app_version)?;
         let mut shared = self.app_updates.lock()?;
         if let Some(channel) = channel {
@@ -218,21 +236,30 @@ impl State {
         if let Some(auto_check) = auto_check {
             shared.auto_check = auto_check;
         }
-        shared.last_checked = last_checked;
+        if let Some(LastCheck { checked, offer }) = last_check {
+            shared.last_checked = Some(checked);
+            // The offer shows until the next check, unless this build already passed it.
+            if let Some(Offer { version, notes_url }) = offer
+                && shared.state != AppUpdateState::Off
+                && version > self.config.app_version
+            {
+                shared.state = AppUpdateState::DownloadOnly { version, notes_url };
+            }
+        }
         Ok(())
     }
     /// Saves `channel`, forgetting when the other channel was last checked.
     pub(crate) fn save_update_channel(&self, channel: Channel) -> AppResult<()> {
         if self.setting::<Channel>(CHANNEL)? != Some(channel) {
-            self.remove_setting(LAST_CHECKED)?;
+            self.remove_setting(LAST_CHECK)?;
         }
         self.set_setting(CHANNEL, &channel)
     }
     pub(crate) fn save_update_auto_check(&self, on: bool) -> AppResult<()> {
         self.set_setting(AUTO_CHECK, &on)
     }
-    pub(crate) fn save_update_checked(&self, checked: u64) -> AppResult<()> {
-        self.set_setting(LAST_CHECKED, &checked)
+    pub(crate) fn save_update_check(&self, check: &LastCheck) -> AppResult<()> {
+        self.set_setting(LAST_CHECK, check)
     }
 }
 
@@ -259,10 +286,12 @@ struct Running {
 }
 
 impl Running {
-    /// Publishes `outcome` and returns when the check ran, if it read the manifest.
-    fn finish(mut self, outcome: Outcome) -> Option<u64> {
-        let updates = self.updates.take()?;
-        updates.end(&self, outcome)
+    /// Publishes `outcome` and returns how the check ended.
+    fn finish(mut self, outcome: Outcome) -> Ended {
+        match self.updates.take() {
+            Some(updates) => updates.end(&self, outcome),
+            None => Ended::Failed,
+        }
     }
 }
 
@@ -275,9 +304,9 @@ impl Drop for Running {
 }
 
 impl AppUpdates {
-    fn end(&self, running: &Running, outcome: Outcome) -> Option<u64> {
+    fn end(&self, running: &Running, outcome: Outcome) -> Ended {
         let Ok(mut shared) = self.shared.lock() else {
-            return None;
+            return Ended::Failed;
         };
         let offer = match outcome {
             Outcome::Verified { offer, etag } => {
@@ -297,19 +326,19 @@ impl AppUpdates {
         // A channel switched while the check ran leaves the answer for the old one unused.
         if shared.channel != running.channel {
             shared.state = AppUpdateState::Idle { last_failure: None };
-            return None;
+            return Ended::Superseded;
         }
         match offer {
             Ok(offer) => {
-                let now = persistence::now();
-                shared.last_checked = Some(now);
-                shared.state = match offer {
+                let checked = persistence::now();
+                shared.last_checked = Some(checked);
+                shared.state = match offer.clone() {
                     Some(Offer { version, notes_url }) => {
                         AppUpdateState::DownloadOnly { version, notes_url }
                     }
                     None => AppUpdateState::Idle { last_failure: None },
                 };
-                Some(now)
+                Ended::Checked(LastCheck { checked, offer })
             }
             Err(failure) => {
                 shared.state = if running.manual {
@@ -319,7 +348,7 @@ impl AppUpdates {
                 } else {
                     running.previous.clone()
                 };
-                None
+                Ended::Failed
             }
         }
     }

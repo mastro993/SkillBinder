@@ -1,7 +1,7 @@
 //! A channel's `update.json` (ADR 0018): verified with minisign against the compiled-in public
 //! key, then read for the version it offers this build.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use skillbinder_proto::AppVersion;
 use std::collections::BTreeMap;
 
@@ -25,7 +25,7 @@ struct Manifest {
 }
 
 /// A newer version and its release page.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(super) struct Offer {
     pub version: AppVersion,
     pub notes_url: String,
