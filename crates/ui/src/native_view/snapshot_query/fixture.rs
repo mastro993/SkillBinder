@@ -5,10 +5,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use skillbinder_proto::{
-    AgentDir, AgentOption, AppSnapshot, Bootstrap, DirRole, Drift, ExploreSnapshot, FolderId,
-    GitInstall, Library, LibrarySnapshot, Onboarding, OnboardingStep, Preferences, Preset,
-    PresetIcon, PresetId, SameSlug, Skill, SkillDetails, SkillId, SkillUpdate, StepStatus,
-    SyncSnapshot, Targets, UpdateCheck, Workspace, WorkspaceId, WorkspaceTargets,
+    AgentDir, AgentOption, AppSnapshot, AppUpdateSnapshot, AppUpdateState, AppVersion, Bootstrap,
+    Channel, DirRole, Drift, ExploreSnapshot, FolderId, GitInstall, Library, LibrarySnapshot,
+    Onboarding, OnboardingStep, Preferences, Preset, PresetIcon, PresetId, SameSlug, Skill,
+    SkillDetails, SkillId, SkillUpdate, StepStatus, SyncSnapshot, Targets, UpdateCheck, Workspace,
+    WorkspaceId, WorkspaceTargets,
 };
 
 /// The fixture's home folder.
@@ -82,6 +83,18 @@ impl Fixture {
                 sync: SyncSnapshot::default(),
                 activation: None,
                 preferences: Preferences::default(),
+                app_update: AppUpdateSnapshot {
+                    current: AppVersion {
+                        major: 0,
+                        minor: 1,
+                        patch: 0,
+                        beta: None,
+                    },
+                    channel: Channel::Stable,
+                    auto_check: true,
+                    state: AppUpdateState::Off,
+                    last_checked: None,
+                },
             },
         }
     }

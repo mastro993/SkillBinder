@@ -20,7 +20,7 @@ pub enum CatalogSource {
 
 /// What a source answered for one file.
 #[derive(Debug, Eq, PartialEq)]
-pub(super) enum Answer {
+pub(crate) enum Answer {
     /// The file, with its ETag when the source sent one.
     Body {
         bytes: Vec<u8>,
@@ -37,13 +37,13 @@ pub(super) enum Answer {
 }
 
 /// One refresh's connection to a source; HTTP reuses one agent for every file.
-pub(super) enum Fetcher {
+pub(crate) enum Fetcher {
     Http { base: url::Url, agent: ureq::Agent },
     Directory(PathBuf),
 }
 
 impl Fetcher {
-    pub(super) fn new(source: &CatalogSource) -> Self {
+    pub(crate) fn new(source: &CatalogSource) -> Self {
         match source {
             CatalogSource::Http(base) => Self::http(base.clone()),
             CatalogSource::Directory(root) => Self::Directory(root.clone()),
@@ -63,7 +63,7 @@ impl Fetcher {
 
     /// GETs `path`, relative to the source's base, sending `etag` as `If-None-Match`, and reads at
     /// most `limit` bytes of the body.
-    pub(super) fn get(&self, path: &str, etag: Option<&str>, limit: u64) -> Answer {
+    pub(crate) fn get(&self, path: &str, etag: Option<&str>, limit: u64) -> Answer {
         match self {
             Self::Http { base, agent } => http(agent, base, path, etag, limit),
             Self::Directory(root) => directory(root, path, etag, limit),

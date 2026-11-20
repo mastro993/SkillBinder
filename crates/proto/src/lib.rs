@@ -1,6 +1,7 @@
 //! Typed contracts shared by the embedded engine, client, and native views.
 
 mod activation;
+mod app_update;
 mod catalog;
 mod error;
 mod install;
@@ -14,6 +15,7 @@ mod sync;
 mod workspaces;
 
 pub use activation::*;
+pub use app_update::*;
 pub use catalog::*;
 pub use error::*;
 pub use install::*;

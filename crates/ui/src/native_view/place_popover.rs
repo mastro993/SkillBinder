@@ -32,7 +32,11 @@ use skillbinder_design::PopoverPanel;
 use skillbinder_design::tokens::space;
 use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
-pub(super) use focus::key_bindings;
+/// Binds the keys the view's own controls take before the window does: Tab and Shift-Tab in the
+/// Library popover.
+pub(crate) fn bind_keys(cx: &mut gpui_kit::App) {
+    cx.bind_keys(focus::key_bindings());
+}
 
 /// The popover's width: layout measured from the approved Library prototype.
 const WIDTH: f32 = 300.;

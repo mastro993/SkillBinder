@@ -2,6 +2,8 @@
 //! launch runs on fictional agents, projects, skill sources, and a Sync remote instead of the
 //! user's own.
 
+mod updates;
+
 use anyhow::{Context as _, bail, ensure};
 use serde_json::{Map, Value, json};
 use std::{
@@ -57,6 +59,7 @@ pub(crate) fn build(root: &Path, out: Option<&str>) -> anyhow::Result<()> {
         }),
     );
     copy_tree(&world.join("catalog"), &out.join("catalog"))?;
+    updates::write(&out.join("app-updates"))?;
     let lock = json!({ "version": 3, "skills": lock });
     fs::write(
         out.join("home/.agents/.skill-lock.json"),
@@ -217,21 +220,26 @@ fn file_url(path: &Path) -> anyhow::Result<String> {
 
 fn print_usage(out: &Path) {
     let (data, home, projects) = (out.join("data"), out.join("home"), out.join("projects"));
-    let catalog = out.join("catalog");
+    let (catalog, updates) = (out.join("catalog"), out.join("app-updates"));
     let remote = file_url(&out.join("remotes/library.git")).unwrap_or_default();
     println!("Synthetic world ready at {}", out.display());
     println!();
     println!("Launch it:");
     println!(
-        "  cargo run -p skillbinder --features native-test --locked -- --data-dir {} --home {} --catalog-dir {}",
+        "  cargo run -p skillbinder --features native-test --locked -- --data-dir {} --home {} --catalog-dir {} --update-dir {}",
         data.display(),
         home.display(),
-        catalog.display()
+        catalog.display(),
+        updates.display()
     );
     println!();
     println!(
         "Explore reads its catalog from {}; rename that folder to go offline.",
         catalog.display()
+    );
+    println!(
+        "App update checks read {}; add --app-version 0.1.1-beta.12 to run as a beta.",
+        updates.display()
     );
     println!();
     println!(

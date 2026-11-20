@@ -38,6 +38,10 @@ The executable drains the engine in GPUI’s quit hook before native termination
 
 Explore shows the catalog and your repositories, and searches skills.sh: the engine's HTTP client, its catalog thread and cache, the skills.sh search on a thread of its own, the `repositories` table, the `Catalog` source cache that listings, previews, and the resolution of a skills.sh result's folder share on the Git pool, and how the client and UI read them are described in [Native Explore](native-explore.md).
 
+## App updates
+
+The channel, the checks, and the Settings section and notice are described in [Native app updates](native-app-updates.md).
+
 ## Dependency boundary
 
 `xtask verify` records each crate's allowed dependencies, so a crate can reach SQLite, GPUI, or the engine only where this document assigns it. The standard library is always in reach, so the workspace `clippy.toml` denies its filesystem, process, network, environment, and terminal APIs (and tokio's) everywhere except `crates/engine`, `apps/desktop`, and `xtask`, which replace it with their own. Clippy resolves names after macro expansion, so aliases, glob imports, and included files cannot hide a call.

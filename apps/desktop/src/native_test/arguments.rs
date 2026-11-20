@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, bail, ensure};
-use skillbinder_engine::{CatalogSource, EngineConfig, GitSearch};
+use skillbinder_engine::{CatalogSource, EngineConfig, GitSearch, UpdateSource};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NativeMode {
@@ -22,10 +22,15 @@ pub(crate) fn parse_launch(
     let mut home = None;
     let mut git = None;
     let mut catalog = None;
+    let mut updates = None;
+    let mut version = None;
     let mut mode = NativeMode::Interactive;
     while let Some(argument) = args.next() {
         match argument.to_str() {
-            Some("--data-dir") | Some("--home") | Some("--git-dir") | Some("--catalog-dir") => {
+            Some(
+                "--data-dir" | "--home" | "--git-dir" | "--catalog-dir" | "--update-dir"
+                | "--app-version",
+            ) => {
                 let value = args.next().ok_or_else(|| {
                     anyhow::anyhow!("Missing value for {}", argument.to_string_lossy())
                 })?;
@@ -44,6 +49,8 @@ pub(crate) fn parse_launch(
                     Some("--data-dir") => &mut data,
                     Some("--home") => &mut home,
                     Some("--git-dir") => &mut git,
+                    Some("--update-dir") => &mut updates,
+                    Some("--app-version") => &mut version,
                     _ => &mut catalog,
                 };
                 ensure!(
@@ -84,6 +91,24 @@ pub(crate) fn parse_launch(
     // A fixture catalog, laid out like the CDN; renaming it takes the catalog offline.
     if let Some(catalog) = catalog {
         config.catalog = CatalogSource::Directory(resolved_path(&catalog)?);
+    }
+    // A fixture update site laid out like the Pages site, signed with the key in its `key.pub`;
+    // renaming it takes checks offline.
+    if let Some(updates) = updates {
+        let site = resolved_path(&updates)?;
+        let public_key = fs::read_to_string(site.join("key.pub"))
+            .with_context(|| format!("No key.pub in {}", site.display()))?;
+        config.app_update = Some(UpdateSource {
+            site: CatalogSource::Directory(site),
+            public_key: public_key.trim().to_owned(),
+        });
+    }
+    // The version checks compare against, such as a beta to see the Beta→Stable line.
+    if let Some(version) = version {
+        config.app_version = version
+            .to_string_lossy()
+            .parse()
+            .context("--app-version takes X.Y.Z or X.Y.Z-beta.N")?;
     }
     Ok((config, mode))
 }
@@ -138,8 +163,18 @@ mod tests {
                 .catalog,
             CatalogSource::Directory(resolved_path(Path::new(fixture))?)
         );
+        assert_eq!(
+            parse(&["--data-dir", fixture, "--app-version", "0.1.1-beta.12"])?
+                .0
+                .app_version
+                .to_string(),
+            "0.1.1-beta.12"
+        );
+        assert_eq!(parse(&["--data-dir", fixture])?.0.app_update, None);
         for args in [
             vec![],
+            vec!["--data-dir", fixture, "--app-version", "0.1"],
+            vec!["--data-dir", fixture, "--update-dir", fixture],
             vec!["--mcp"],
             vec!["--smoke-test"],
             vec!["--mcp", "--smoke-test", "--data-dir", fixture],

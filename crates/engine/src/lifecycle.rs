@@ -1,4 +1,5 @@
 use crate::{
+    app_update::{RELEASE_KEY, STAMPED, UpdateSource, running_version},
     catalog::{BASE_URL, CatalogSource},
     git::Git,
     onboarding::{self, Facts},
@@ -6,7 +7,9 @@ use crate::{
     shutdown::Shutdown,
     worker::State,
 };
-use skillbinder_proto::{AppError, AppResult, Bootstrap, ImportSelection, OnboardingStep};
+use skillbinder_proto::{
+    AppError, AppResult, AppVersion, Bootstrap, ImportSelection, OnboardingStep,
+};
 use std::{collections::BTreeMap, path::PathBuf};
 
 /// Device setting saved once onboarding's import is applied or skipped.
@@ -60,27 +63,37 @@ pub struct EngineConfig {
     pub catalog: CatalogSource,
     /// Which URLs Explore's repositories accept.
     pub repository_urls: RepositoryUrls,
+    /// The version app update checks compare against: the running build's.
+    pub app_version: AppVersion,
+    /// Where app update checks read their manifests; `None` turns them off.
+    pub app_update: Option<UpdateSource>,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
     pub fn platform() -> AppResult<Self> {
         let dirs = directories::BaseDirs::new().ok_or_else(AppError::storage)?;
+        let base = url::Url::parse(BASE_URL).map_err(|_| AppError::storage())?;
         Ok(Self {
             data_dir: dirs.data_local_dir().join("SkillBinder"),
             home: dirs.home_dir().to_path_buf(),
             environment: std::env::vars().collect(),
             git: GitProfile::User,
             git_search: GitSearch::System,
-            catalog: CatalogSource::Http(
-                url::Url::parse(BASE_URL).map_err(|_| AppError::storage())?,
-            ),
+            catalog: CatalogSource::Http(base.clone()),
             repository_urls: RepositoryUrls::Remote,
+            app_version: running_version(),
+            // Only a build `build.yml` stamped as a release checks for app updates.
+            app_update: STAMPED.then(|| UpdateSource {
+                site: CatalogSource::Http(base),
+                public_key: RELEASE_KEY.to_owned(),
+            }),
         })
     }
     /// Creates an isolated engine configuration for tests or native fixtures. Git reads only
     /// `home`'s configuration, so a fixture never reaches the user's credentials or identity, and
     /// the catalog comes from `<data_dir>/catalog-source`, which is missing, so offline, until a
-    /// fixture writes it. Repositories may be local `file://` ones.
+    /// fixture writes it. Repositories may be local `file://` ones. App updates are off until a
+    /// fixture names a source.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
             catalog: CatalogSource::Directory(data_dir.join("catalog-source")),
@@ -90,6 +103,8 @@ impl EngineConfig {
             git: GitProfile::Home,
             git_search: GitSearch::System,
             repository_urls: RepositoryUrls::Local,
+            app_version: running_version(),
+            app_update: None,
         }
     }
     /// The usable Git where [`Self::git_search`] says to look, or else the version of an older

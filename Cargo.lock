@@ -6900,6 +6900,8 @@ dependencies = [
  "directories",
  "fs2",
  "libsqlite3-sys",
+ "minisign",
+ "minisign-verify",
  "regex",
  "rustix",
  "serde",

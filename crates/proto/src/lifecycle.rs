@@ -191,6 +191,8 @@ pub struct AppSnapshot {
     pub activation: Option<crate::ActivationProgress>,
     /// Local appearance preferences.
     pub preferences: Preferences,
+    /// The running version, its channel, and what the last app update check found.
+    pub app_update: crate::AppUpdateSnapshot,
 }
 
 #[cfg(test)]
