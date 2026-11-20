@@ -1,6 +1,6 @@
 # App updates download first and apply at restart or quit
 
-SkillBinder publishes stable releases and nightly betas ([docs/release.md](../release.md)), but a running copy never learns of them, so users stay on the build they first downloaded. The app now keeps itself up to date. It checks for an app update at launch, every hour while it runs, when the user presses Check now in Settings, and when the user changes channel. The user chooses a channel in Settings: Stable, which follows releases, or Beta, which follows the newest release or beta, whichever is newer.
+SkillBinder publishes stable releases and nightly betas ([docs/release.md](../release.md)), but a running copy never learns of them, so users stay on the build they first downloaded. The app now keeps itself up to date. It checks for an app update at launch, every hour while it runs, when the user presses Check now in Settings, and when the user changes channel. A **Check automatically** switch in Settings, on by default, turns off every check but Check now. An update the user finds by hand still downloads, becomes ready, and installs at Restart or quit. The user chooses a channel in Settings: Stable, which follows releases, or Beta, which follows the newest release or beta, whichever is newer.
 
 An app update is downloaded, verified, and staged in the background before the user hears of it. Only then does a persistent notice say "SkillBinder 0.2.0 is ready", with Restart and Dismiss. Restart quits and relaunches into the new version. Dismiss hides the notice until the next launch, and the staged update is installed the next time the app quits, so the next launch is the new version either way. This works in place on macOS, Windows, and Linux. Where the app cannot replace itself, the notice offers Download instead, which opens the release page, and nothing is downloaded. That covers an app run from its disk image, a translocated app, and a folder the user cannot write.
 
@@ -15,7 +15,8 @@ The installed version never goes down. A user on 0.1.1-beta.12 who switches to S
 - Hiding a dismissed notice until a newer version appears was rejected by the user. The update installs on quit anyway, so the notice only needs to stay quiet for the session.
 - Updating in place only on macOS and linking Windows and Linux to the release page was rejected by the user. Those users would update by hand forever.
 - Offering a downgrade when switching from Beta to Stable was rejected by the user. An older build can meet a database that a newer build migrated, and Diesel migrations do not run backwards.
-- A switch that turns automatic checks off was rejected. The user asked for checks at launch and while the app runs, and each check sends only what the catalog request already sends (ADR 0014).
+- Having no way to turn automatic checks off was rejected by the user. Some users want to decide when the app reaches the network and when it changes.
+- Turning automatic checks off and also stopping installation at quit was rejected. The user asked for the update with Check now, so it proceeds like any other.
 
 ## Consequences
 

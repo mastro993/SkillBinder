@@ -29,7 +29,6 @@ Out:
 - installs through package managers (Homebrew, winget, Flatpak, `.deb`, `.rpm`);
 - downgrades;
 - showing release notes inside the app;
-- turning checks off;
 - Linux on other architectures;
 - code-signing the Windows installer;
 - per-machine or elevated installs.
@@ -48,12 +47,13 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 - **D8** macOS: the disk image opens on the drag-to-Applications window. Launched from anywhere outside Applications, the app asks to move itself there: Move, or Not now, which asks again at the next launch.
 - **D9** Windows: a per-user installer with no administrator prompt, a Start menu entry, and an uninstaller. The ZIP is dropped.
 - **D10** Linux: an AppImage replaces the tarball, and the first launch offers to add SkillBinder to the applications menu.
+- **D11** The user can turn automatic checks off in Settings and still update by hand with Check now (overrules the first draft's A3).
 
 ## Behavior
 
 ### Checks
 
-1. A stamped release build checks at launch, then every hour while it runs, when the user presses Check now, and right after the channel changes. A build without the release stamp never checks, and Settings says "Updates are off in this build".
+1. A stamped release build checks when the user presses Check now. While **Check automatically** is on, which is the default, it also checks at launch, every hour while it runs, and right after the channel changes. Turned off, the app never checks by itself (D11). Turning it back on checks at once. A build without the release stamp never checks, and Settings says "Updates are off in this build".
 2. A check reads the channel's signed manifest. It offers the manifest's version only when it is newer than the running version. Versions compare as `X.Y.Z` with an optional `-beta.N`, and `0.1.1-beta.12 < 0.1.1`.
 3. Only one check or download runs at a time. Check now while one runs does nothing more, and its button shows the running state.
 4. A failed automatic check stays silent and the next one retries. A failed Check now says why in Settings: "Couldn't check for updates. Check your connection." when offline, and "Couldn't check for updates." for any other failure, including a bad signature, which is also logged.
@@ -88,12 +88,12 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 ### Channels
 
 15. The channel starts as the installed build's: Beta for a `-beta.N` build, Stable otherwise. The user's choice is saved per device and kept across updates.
-16. Switching to Beta checks at once.
+16. Switching to Beta checks at once while Check automatically is on. Otherwise the next Check now uses the new channel.
 17. Switching to Stable on a beta build keeps the beta (D4). Settings says "You'll move to Stable at its first release after 0.1.1-beta.12." until a stable release newer than the installed beta is installed. A ready update that is newer than the latest stable release is discarded on the switch.
 
 ### Settings › Updates
 
-18. Settings gains an "Updates" section header after "Application", over a `KeyValueList`: **Version** (the full version, such as `0.1.1-beta.12`, in tabular figures), **Channel** (a segmented control, Stable | Beta), and **Status** (one line, then its action):
+18. Settings gains an "Updates" section header after "Application", over a `KeyValueList`: **Version** (the full version, such as `0.1.1-beta.12`, in tabular figures), **Channel** (a segmented control, Stable | Beta), **Check automatically** (a Kit switch, as the Agents rows use, saved per device), and **Status** (one line, then its action):
 
 | State | Status line | Action |
 |---|---|---|
@@ -105,7 +105,7 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 | Download-only | SkillBinder 0.2.0 is available. Plus the reason from 13 | Download; What's new link |
 | Check failed (manual) | Couldn't check for updates. Check your connection. | Check now |
 
-19. The Beta→Stable line from 17 sits under the Channel control while it applies.
+19. The Beta→Stable line from 17 sits under the Channel control while it applies. With Check automatically off, the Up to date line reads "Up to date · checked 3 days ago" or "Not checked yet", so the user can see how stale it is.
 
 ### Installing SkillBinder
 
@@ -118,6 +118,10 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 22. **Windows.** The setup program installs for the current user only, with no administrator prompt. It installs into `%LOCALAPPDATA%\Programs\SkillBinder`, adds a Start menu entry, and registers an uninstaller under Settings › Apps. SmartScreen's "Windows protected your PC" still appears once (More info → Run anyway). Uninstalling keeps the user's data and library.
 23. **Linux.** The release ships `skillbinder-<version>-x86_64.AppImage`. On its first launch as an AppImage, a dialog asks once "Add SkillBinder to your applications menu?" with Not now and the primary Add, and either answer is remembered. Add writes the menu entry and icon under `~/.local/share`, pointing at the AppImage's path. An update replaces the file at that path, so the entry keeps working.
 
+### Updating by hand
+
+24. **Updating by hand.** With Check automatically off, Check now finds, downloads, and stages an update just as an automatic check would. The update is then ready: the notice appears, and Restart or quit installs it (rules 9–12). Automatic checks decide only when the app looks; once the user has asked, the update proceeds.
+
 ## UX
 
 The notice reuses the new agent notice's pattern and Kit notification (`docs/features/native/settings-agents.md`). The Settings section reuses `SectionHeader`, `KeyValueList`, Kit's segmented control as Library's segments use it, `Button`, and `Spinner`. No new design-system component is needed. Copy follows the glossary: it always says SkillBinder, never a bare "update", which means a skill update.
@@ -128,7 +132,8 @@ Decided without asking. Each says what changes if it is wrong.
 
 - **A1** Hourly checks, with the first right after launch (Zed, VS Code). A shorter interval needs only a constant.
 - **A2** The default channel follows the installed build (15). If everyone should start on Stable, a beta tester's first launch would wait for the next release.
-- **A3** There is no switch to turn checks off (ADR 0017). Adding one is a device setting and a Settings row.
+- **A3** Superseded by D11.
+- **A13** With automatic checks off, an update found by Check now still downloads at once and installs at the next quit (24). If the owner wants nothing to install without pressing Restart in this mode, quit-install gets a condition on the switch.
 - **A4** Restart is disabled while long work runs (10). Allowing it would cancel the work through the quit drain.
 - **A5** The "Updated to" toast (14) and the What's new links are the only release notes. In-app notes are out of scope.
 - **A6** The Settings layout follows the existing sections (18) without a prototype. A different look goes through ux-brainstorm before slice S1.

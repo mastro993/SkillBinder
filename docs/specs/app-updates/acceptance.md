@@ -23,6 +23,7 @@ Settings › Updates shows Version, Channel, and Status. Checks run at launch, h
 - **AC1.3 [domain]** A second ETag check that gets 304 makes no change. Offline maps to `CheckFailure::Offline` for a manual check, and a failed automatic check leaves `Idle` with no failure (4).
 - **AC1.4 [domain]** An unstamped build's state is `Off`, and it never requests anything (1).
 - **AC1.5 [domain]** The channel defaults to the build's channel, persists, and switching to Beta triggers a check (15, 16).
+- **AC1.8 [domain]** With automatic checks off, no check runs at launch, hourly, or on a channel change, and Check now still checks. Turning them on checks at once. The switch persists (1, 16, 24).
 - **AC1.6 [native]** Settings shows the Updates section with every status row of the table in 18 for the matching fixture state, and the Beta→Stable line on a beta build set to Stable (17, 19).
 - **AC1.7 [native]** With a newer fixture manifest, the notice "SkillBinder 0.2.0 is available" appears bottom-right, stacks with the new agent notice, hides during the progress strip, and Dismiss hides it until relaunch (9, 13).
 
