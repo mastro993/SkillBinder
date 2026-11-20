@@ -42,6 +42,9 @@ pub(super) fn package(
             .arg(&app))?;
     }
     let image = output.join(format!("{name}.dmg"));
+    // hdiutil's own estimate from `-srcfolder` can leave too little room for the universal
+    // binary ("No space left on device"), so size the volume from the bundle with headroom.
+    let megabytes = size(&app)? / (1024 * 1024) * 3 / 2 + 32;
     run(Command::new("hdiutil")
         .args([
             "create",
@@ -50,6 +53,8 @@ pub(super) fn package(
             "UDZO",
             "-volname",
             "SkillBinder",
+            "-size",
+            &format!("{megabytes}m"),
             "-srcfolder",
         ])
         .arg(&app)
@@ -62,6 +67,15 @@ pub(super) fn package(
     }
     println!("Packaged {} and {}", app.display(), image.display());
     Ok(())
+}
+
+/// The total size in bytes of the files under `path`.
+fn size(path: &Path) -> anyhow::Result<u64> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.is_dir() {
+        return Ok(metadata.len());
+    }
+    fs::read_dir(path)?.try_fold(0, |total, entry| Ok(total + size(&entry?.path())?))
 }
 
 /// Bundle versions are plain `X.Y.Z`: a beta carries its prerelease only in the image's name.
