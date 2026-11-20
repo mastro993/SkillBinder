@@ -2,7 +2,7 @@
    state, and the generator that turns a look into tokens. Keep CURRENT and the Current
    variant equal to DESIGN.md whenever its colors change. */
 const CURRENT = {
-  light: { background: '#FFFFFF', foreground: '#1B1E23', sidebar: '#E9EDF2', 'sidebar-foreground': '#3C4045', 'sidebar-accent': '#D7DBE2', muted: '#EFF3F8', 'muted-foreground': '#666B72', border: '#E2E7EC', hairline: '#EBEFF4', popover: '#FFFFFF', ring: '#0077B6', primary: '#0077B6', 'primary-hover': '#026EA8', 'primary-active': '#04659B', 'primary-foreground': '#FFFFFF', 'accent-soft': '#E4F2FE', 'accent-soft-foreground': '#046094' },
+  light: { background: '#FFFFFF', foreground: '#1B1E23', sidebar: '#E9EDF2', 'sidebar-foreground': '#3C4045', 'sidebar-accent': '#D7DBE2', muted: '#EFF3F8', 'muted-foreground': '#5F646B', border: '#E2E7EC', hairline: '#EBEFF4', popover: '#FFFFFF', ring: '#0077B6', primary: '#0077B6', 'primary-hover': '#026EA8', 'primary-active': '#04659B', 'primary-foreground': '#FFFFFF', 'accent-soft': '#E4F2FE', 'accent-soft-foreground': '#046094' },
   dark: { background: '#181A1D', foreground: '#E9EBEE', sidebar: '#0D0F12', 'sidebar-foreground': '#B6BBC1', 'sidebar-accent': '#24272A', muted: '#25282C', 'muted-foreground': '#A0A5AB', border: '#2A2D31', hairline: '#212427', popover: '#1D1F23', ring: '#1E84C4', primary: '#0077B6', 'primary-hover': '#1E84C4', 'primary-active': '#2F91D1', 'primary-foreground': '#FFFFFF', 'accent-soft': '#133146', 'accent-soft-foreground': '#8FCCFB' },
 };
 const STATUS = {

@@ -81,7 +81,7 @@ impl NativeView {
             cx,
             move |view, window, cx| view.navigate(route.clone(), window, cx),
         )
-        .child(count(skills))
+        .child(count(skills, selected))
         .into_any_element()
     }
 }

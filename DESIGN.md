@@ -9,7 +9,7 @@ colors:
   sidebar-foreground: "#3C4045"
   sidebar-accent: "#D7DBE2"
   muted: "#EFF3F8"
-  muted-foreground: "#666B72"
+  muted-foreground: "#5F646B"
   border: "#E2E7EC"
   hairline: "#EBEFF4"
   popover: "#FFFFFF"
@@ -320,7 +320,7 @@ Light values are the plain names; each color that changes in dark mode has a `-d
 
 - **sidebar**: the sidebar column's canvas, behind the traffic lights and the sidebar rows. Never used as a card or control fill.
 - **background**: the page column and its header, cards, and list rows. In dark mode it is a step lighter than the canvas.
-- **foreground / muted-foreground**: primary text and secondary text (descriptions, counts, section headers, placeholders). `muted-foreground` passes 4.5:1 on `background`, `muted`, and `sidebar`.
+- **foreground / muted-foreground**: primary text and secondary text (descriptions, counts, section headers, placeholders). `muted-foreground` passes 4.5:1 on `background`, `muted`, and `sidebar`, and on the sidebar's hover and neutral active-preset fills. A selected sidebar row draws its count in its label color, since muted text is too faint on `sidebar-accent`.
 - **sidebar-foreground**: unselected sidebar labels. **sidebar-accent**: the selected sidebar row, drawn as a flat neutral fill a step darker than the canvas (dark: a step lighter); at 50% it is the row hover.
 - **muted**: neutral fills: hover, input fields, segmented tracks, code blocks. It is the only hover fill; do not mix in foreground-at-alpha hovers.
 - **border**: control and card outlines, the line between the sidebar and the page, and the line under the page header. **hairline**: dividers between rows and inside cards.

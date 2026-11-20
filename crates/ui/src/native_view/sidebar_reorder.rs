@@ -82,7 +82,7 @@ impl Render for RowDragPreview {
             .apply(item, theme)
             .w(px(self.width));
         if let Some(trailing) = self.count {
-            item = item.child(count(trailing));
+            item = item.child(count(trailing, true));
         }
         item
     }

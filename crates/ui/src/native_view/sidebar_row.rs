@@ -15,7 +15,9 @@ use skillbinder_design::sidebar::{
     DETAIL_SIZE, DOT_SIZE, HOVER_OPACITY, ICON_GAP, ICON_SIZE, RADIUS, ROW_HEIGHT, ROW_PADDING,
 };
 use skillbinder_design::tokens::{radius, space, text};
-use skillbinder_design::{Button, IconSize, InlineNameField, NameFieldSize, Spinner, Text, icon};
+use skillbinder_design::{
+    Button, IconSize, InlineNameField, NameFieldSize, Spinner, Text, TextTone, icon,
+};
 use skillbinder_design::{MenuItem, OpenMenu, icon_color};
 
 /// Space between a row's label and a marker after it, such as the active preset's check.
@@ -213,8 +215,17 @@ pub(super) fn with_menu<E: InteractiveElement + Styled + FluentBuilder>(
 }
 
 /// A trailing count with thousands separators.
-pub(super) fn count(value: usize) -> AnyElement {
-    Text::count(value).flex_shrink_0().into_any_element()
+pub(super) fn count(value: usize, selected: bool) -> AnyElement {
+    // On a selected row it takes the label's color: muted text is too faint on the selection fill.
+    let tone = if selected {
+        TextTone::Default
+    } else {
+        TextTone::Muted
+    };
+    Text::count(value)
+        .tone(tone)
+        .flex_shrink_0()
+        .into_any_element()
 }
 
 /// A check after the name of the preset whose configuration is active, in its icon color, at a

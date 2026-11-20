@@ -155,7 +155,9 @@ impl NativeView {
                     .child(self.nav_row(Route::Explore, "compass", "Explore", cx))
                     .child(
                         self.nav_row(Route::Library, "libraries", "Library", cx)
-                            .when_some(skills, |row, skills| row.child(count(skills))),
+                            .when_some(skills, |row, skills| {
+                                row.child(count(skills, self.route == Route::Library))
+                            }),
                     ),
             )
             .map(|sidebar| match &snapshot.library {

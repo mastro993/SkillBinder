@@ -166,7 +166,7 @@ impl NativeView {
             false,
             cx,
         )
-        .child(count(optimistic.skills))
+        .child(count(optimistic.skills, false))
         .into_any_element()
     }
 }

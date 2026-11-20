@@ -16,7 +16,7 @@ use gpui_kit::{
 /// What a button does on its view (`DESIGN.md` § Components).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ButtonVariant {
-    /// Iris, the view's one primary action.
+    /// The accent fill, the view's one primary action.
     Primary,
     /// Outlined, on the page fill.
     #[default]

@@ -221,7 +221,7 @@ impl NativeView {
             .when(active, |row| {
                 row.bg(active_preset_fill(tint, cx)).shadow_none()
             })
-            .child(count(skills))
+            .child(count(skills, active))
             .relative()
             .top(px(placement.offset))
             .when(placement.floating, |row| row.opacity(0.0));
