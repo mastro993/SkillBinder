@@ -31,7 +31,7 @@ The engine fetches Explore's catalog with `ureq` 3.5.2 (MIT OR Apache-2.0) over 
 
 ## Update signing
 
-`xtask`, which is never shipped, signs the app update manifests with `minisign` 0.10.0 (MIT) and checks the signatures in its tests with `minisign-verify` 0.3.0 (MIT) (ADR 0018). Their sources are available at `https://github.com/jedisct1/rust-minisign` and `https://github.com/jedisct1/rust-minisign-verify`. `minisign`'s other dependencies, at the versions `Cargo.lock` pins:
+The application checks the app update manifests' signatures with `minisign-verify` 0.3.0 (MIT), which has no dependencies (ADR 0018). `xtask`, which is never shipped, signs them with `minisign` 0.10.0 (MIT), which the engine's tests also use to sign fixture manifests. Their sources are available at `https://github.com/jedisct1/rust-minisign` and `https://github.com/jedisct1/rust-minisign-verify`. `minisign`'s other dependencies, at the versions `Cargo.lock` pins:
 
 - `ct-codecs`: MIT; `scrypt`, `salsa20`, `pbkdf2`, `hmac`, `cipher`, `sha2`, and `getrandom`: MIT OR Apache-2.0.
 - `rpassword` and `rtoolbox`: Apache-2.0.

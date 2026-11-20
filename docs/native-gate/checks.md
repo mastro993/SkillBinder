@@ -47,10 +47,10 @@ The smoke test initializes only the supplied test directory and renders all four
 cargo run -p xtask --locked -- fixture /tmp/skillbinder-world
 cargo run -p skillbinder --features native-test --locked -- \
   --data-dir /tmp/skillbinder-world/data --home /tmp/skillbinder-world/home \
-  --catalog-dir /tmp/skillbinder-world/catalog
+  --catalog-dir /tmp/skillbinder-world/catalog --update-dir /tmp/skillbinder-world/app-updates
 ```
 
-The task refuses a directory that is not empty and prints the launch command, whose `--catalog-dir` serves Explore's catalog from the world's `catalog/` (rename it to go offline), the projects folder to add as workspaces, and the Sync remote's `file://` URL. Its Git commits carry fixed dates and author, so every build gives the same commits. `fixtures/synthetic/README.md` lists what the world holds and which states each part exercises. Add `--mcp` to drive it through the bridge below. The prototype-parity fixture in `docs/design/scoped-pages/fixture/` is separate: it reproduces the prototypes' data for visual comparison.
+The task refuses a directory that is not empty and prints the launch command, whose `--catalog-dir` serves Explore's catalog from the world's `catalog/` (rename it to go offline) and `--update-dir` the app update manifests from its `app-updates/` (add `--app-version 0.1.1-beta.12` to run as a beta), the projects folder to add as workspaces, and the Sync remote's `file://` URL. Its Git commits carry fixed dates and author, so every build gives the same commits. `fixtures/synthetic/README.md` lists what the world holds and which states each part exercises. Add `--mcp` to drive it through the bridge below. The prototype-parity fixture in `docs/design/scoped-pages/fixture/` is separate: it reproduces the prototypes' data for visual comparison.
 
 ### Run the opt-in MCP bridge
 

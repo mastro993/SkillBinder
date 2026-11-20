@@ -74,6 +74,11 @@ jobs:
         with:
           key: release-${{ matrix.target }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      # A stamped version checks for app updates; an unstamped build never does (ADR 0018).
+      - name: Stamp the release build
+        if: inputs.version
+        shell: bash
+        run: echo "SKILLBINDER_RELEASE=1" >> "$GITHUB_ENV"
       - name: Build release application
         if: runner.os != 'macOS'
         run: cargo build -p skillbinder --release --locked --target ${{ matrix.target }}

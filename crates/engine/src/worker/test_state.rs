@@ -2,8 +2,16 @@
 
 use super::{DATABASE, State};
 use crate::{
-    activation::Progress, catalog::Catalogs, database, git::Installer, lifecycle::EngineConfig,
-    logging::Logger, scan::Scans, shutdown::Shutdown, sources::Updates,
+    activation::Progress,
+    app_update::{AppUpdates, running_version},
+    catalog::Catalogs,
+    database,
+    git::Installer,
+    lifecycle::EngineConfig,
+    logging::Logger,
+    scan::Scans,
+    shutdown::Shutdown,
+    sources::Updates,
 };
 use std::{cell::RefCell, collections::BTreeMap, fs, fs::File, path::PathBuf};
 
@@ -22,13 +30,15 @@ impl State {
         ] {
             fs::create_dir_all(path).unwrap();
         }
+        let log = Logger::start(data_dir.join("logs"), &home).unwrap();
         Self {
             config: EngineConfig::isolated(data_dir.clone(), home.clone()),
             database: RefCell::new(database::open(&data_dir.join(DATABASE)).unwrap()),
             git: None,
             outdated_git: None,
             installer: Installer::detect(),
-            log: Logger::start(data_dir.join("logs"), &home).unwrap(),
+            app_updates: AppUpdates::new(None, running_version(), log.clone()),
+            log,
             scans: Scans::default(),
             updates: Updates::default(),
             catalog: Catalogs::open(

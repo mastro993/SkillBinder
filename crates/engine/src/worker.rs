@@ -1,5 +1,6 @@
 use crate::{
     activation::Progress,
+    app_update::AppUpdates,
     catalog::{Catalogs, Previews, Repositories, Resolutions, Searches},
     database,
     git::{Git, Installer},
@@ -27,12 +28,14 @@ use std::{
 use tokio::sync::oneshot;
 
 mod activation;
+mod app_update;
 mod catalog;
 mod install;
 mod onboarding;
 mod preview;
 mod repositories;
 mod skills_sh;
+mod snapshot;
 mod sources;
 
 const DATABASE: &str = "skillbinder.db";
@@ -57,6 +60,8 @@ struct Owner {
     /// Runs installs' network phases, previews, resolutions, and listings off the worker.
     pool: GitPool,
     progress: Progress,
+    /// App update checks, on a thread of their own.
+    app_updates: AppUpdates,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
 }
@@ -90,6 +95,8 @@ pub(crate) struct State {
     pub resolutions: Resolutions,
     /// How far a tracked change has got; passes count their pairs into it.
     pub progress: Progress,
+    /// App updates, which snapshots read.
+    pub app_updates: AppUpdates,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
     pub recovery_required: bool,
     /// Stops the work a quit would otherwise wait for.
@@ -135,6 +142,8 @@ impl Engine {
         let searches = Searches::new(config.catalog.clone());
         let resolutions = Resolutions::default();
         let pool = GitPool::default();
+        let app_updates =
+            AppUpdates::new(config.app_update.clone(), config.app_version, log.clone());
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
             config,
@@ -152,12 +161,14 @@ impl Engine {
             searches: searches.clone(),
             resolutions: resolutions.clone(),
             progress: progress.clone(),
+            app_updates: app_updates.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
             shutdown: shutdown.clone(),
             lock,
         };
         state.recover()?;
+        state.restore_app_updates()?;
         state.publish_repositories()?;
         state.forget_onboarding_position()?;
         // Forgetting an agent folder hands its copies to your agents, so they are chosen first.
@@ -216,6 +227,7 @@ impl Engine {
                 resolutions,
                 pool,
                 progress,
+                app_updates,
                 shutdown,
             }),
         })
@@ -391,54 +403,6 @@ impl State {
             index.digests.insert(skill.digest, skill.id);
         }
         Ok(index)
-    }
-    fn snapshot(&mut self) -> AppResult<AppSnapshot> {
-        let bootstrap = self.bootstrap()?;
-        let library = if bootstrap.onboarding.finished {
-            Some(self.library_snapshot()?)
-        } else {
-            None
-        };
-        let mut sync: SyncSnapshot = self.setting("sync")?.unwrap_or_default();
-        if library.is_some()
-            && let Some(git) = &self.git
-            && self.library_dir().join(".git").exists()
-        {
-            let remote: Option<RemoteConfig> = self.setting("remote")?.flatten();
-            let mut current = git.status(&self.library_dir(), remote.as_ref(), false)?;
-            current.refreshed_at = sync.refreshed_at;
-            sync = current;
-        }
-        let (scan, scanning) = self.scans.current()?;
-        let updates = match &library {
-            Some(library) => self.updates.current(&library.library.skills)?,
-            None => BTreeMap::new(),
-        };
-        Ok(AppSnapshot {
-            checking: self.updates.running()?,
-            generation: 0,
-            background_error: None,
-            bootstrap,
-            library,
-            home: self.config.home.display().to_string(),
-            agents: self.agents()?,
-            workspaces: self.workspaces()?,
-            scan,
-            scanning,
-            updates,
-            explore: catalog::explore(
-                &self.catalog,
-                &self.installs,
-                &self.previews,
-                &self.repositories,
-                &self.searches,
-                &self.resolutions,
-            ),
-            sync,
-            // A snapshot is a worker job, so no tracked change is in flight while it runs.
-            activation: None,
-            preferences: self.setting("preferences")?.unwrap_or_default(),
-        })
     }
     fn synchronize(&mut self, action: SyncAction) -> AppResult<SyncSnapshot> {
         self.require_recovered()?;

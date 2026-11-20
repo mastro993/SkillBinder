@@ -29,9 +29,13 @@ tempfile.workspace = true
 toml.workspace = true
 url.workspace = true
 ureq.workspace = true
+minisign-verify.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true
+
+[dev-dependencies]
+minisign.workspace = true
 
 [lints]
 workspace = true

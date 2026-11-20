@@ -1,6 +1,10 @@
-//! Settings: your agents (design S1, S2), then the application's facts and the Git row (S3).
+//! Settings: your agents (design S1, S2), the application's facts and the Git row (S3), then app
+//! updates.
 
 mod agents;
+mod updates;
+
+pub(super) use updates::DOWNLOAD_LINE;
 
 use super::NativeView;
 use super::git_setup::GitButton;
@@ -8,6 +12,7 @@ use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
 use skillbinder_design::tokens::space;
 use skillbinder_design::{Button, KeyValueList, SectionHeader, Text};
+use std::path::PathBuf;
 
 impl NativeView {
     pub(super) fn render_settings(&mut self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
@@ -48,6 +53,11 @@ impl NativeView {
                     .label("Reveal logs")
                     .on_click(cx.listener(|view, _, _, cx| view.reveal_logs(cx))),
             )
+            .children(self.updates_section(cx))
+    }
+
+    fn reveal_logs(&self, cx: &mut Context<Self>) {
+        cx.reveal_path(&PathBuf::from(&self.snapshot.bootstrap.logs_path));
     }
 
     /// Git's version, or "Not installed" with the step's primary action and its status line

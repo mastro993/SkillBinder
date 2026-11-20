@@ -13,6 +13,7 @@ mod search;
 mod snapshot;
 
 pub use fetch::CatalogSource;
+pub(crate) use fetch::{Answer, Fetcher};
 pub(crate) use preview::{Previews, Read, Request};
 pub(crate) use repositories::{Listed, Listing, Repositories};
 pub(crate) use resolve::{Begin, Resolutions, Resolve, Resolved, not_found};
@@ -20,7 +21,6 @@ pub(crate) use search::Searches;
 
 use crate::{persistence, shutdown::Shutdown};
 use cache::{Cache, Meta};
-use fetch::{Answer, Fetcher};
 use skillbinder_proto::{AppError, AppResult, Catalog, CatalogState, ExploreSnapshot};
 use snapshot::{Refusal, Translated, translate};
 use std::{

@@ -13,6 +13,7 @@ use std::{
 use tokio::{runtime::Handle, sync::watch};
 
 mod activation;
+mod app_update;
 mod explore;
 mod onboarding;
 mod progress;
@@ -54,6 +55,7 @@ impl Client {
         client.start_refresh();
         client.refresh_app();
         client.spawn_catalog(Duration::ZERO);
+        client.start_app_update_checks();
         Ok(client)
     }
     /// Returns the latest complete projection without blocking on storage.
@@ -89,6 +91,7 @@ impl Client {
                     client.background_error(error);
                 }
                 client.shared.publish_explore();
+                client.shared.publish_app_update();
                 client.check_after_scan();
             }
         });
@@ -408,6 +411,9 @@ impl Shared {
                 }
             }
             snapshot.explore = self.engine.current_explore();
+            if let Ok(update) = self.engine.current_app_update() {
+                snapshot.app_update = update;
+            }
             self.published.store(generation, Ordering::Release);
             snapshot.generation = current.generation + 1;
             *current = Arc::new(snapshot.clone());

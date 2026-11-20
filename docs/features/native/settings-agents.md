@@ -1,6 +1,6 @@
-# Settings › Agents and the new agent notice
+# Settings, the new agent notice, and the app update notice
 
-After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card").
+After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card"). Settings also shows the version and the app update channel, and a notice offers a newer SkillBinder ([app updates spec](../../specs/app-updates.md) rules 1–4, 9, 13, 15–19, 24; prototype `docs/design/app-updates/prototypes/settings-updates.html`, variant A "Inline").
 
 ## Settings › Agents
 
@@ -14,6 +14,30 @@ Either answer counts the directory as asked, so the notice never asks about it.
 ## Settings › Application
 
 Under the "Application" section header, the design system's `KeyValueList` lists the application's facts in a flat card, each label in a 128-point `caption` muted column and rows divided by a hairline: Managed library (its path in monospace), Git (its version, or the Git row above), Storage writable (Yes or No), and Remote (its URL, or "Local only"). Reveal logs follows the card. The Sync page lists its facts the same way: Status (the state, ahead, behind, and local changes), and with a remote its URL in monospace, Branch, and Last checked.
+
+## Settings › Updates
+
+Under the "Updates" section header, after Reveal logs, a `KeyValueList` lists:
+
+- **Version**: the running version, such as `0.1.1-beta.12`, in tabular figures.
+- **Channel**: Kit's segmented control, Stable | Beta, starting on the build's own channel (Beta for a beta build) and saved per device. While a beta build follows Stable, "You'll move to Stable at its first release after <version>." sits under it.
+- **Check automatically**: a Kit switch, on by default and saved per device; not shown in a build without the release stamp.
+- **Status**: one line, with its action at the row's end.
+
+| State | Status line | Action |
+|---|---|---|
+| Unstamped build | Updates are off in this build. | none |
+| Up to date | Up to date · checked 5 minutes ago, or Not checked yet | Check now |
+| Checking | Kit's spinner, Checking… | Check now, disabled |
+| Newer version | SkillBinder 0.2.0 is available., with "Download it from the release page." muted under it | Download and the ghost What's new, both opening the release page |
+| Check now failed, offline | Couldn't check for updates. Check your connection. | Check now |
+| Check now failed, otherwise | Couldn't check for updates. | Check now |
+
+Check now always checks. While Check automatically is on, the app also checks at launch, every hour, and right after the channel changes, and turning the switch on checks at once. A failed automatic check changes nothing, and a refused signature is logged. Switching channel drops a version found on the other one, and when it was checked. In this slice every newer version is download-only: nothing is downloaded or installed.
+
+## The app update notice
+
+When a check finds a newer version, a Kit notification appears at the window's bottom-right, with its own id and no auto-hide, stacking with the new agent notice: "SkillBinder 0.2.0 is available" in medium weight, "Download it from the release page." muted, then Dismiss and the primary Download, which opens the release page. Like the new agent notice, it never shows during onboarding and is taken down while the progress strip is up, returning once it ends. Dismiss, Download, and Kit's close button hide it until the next launch; Settings still shows the version. A newer version found later replaces the shown notice.
 
 ## The new agent notice
 

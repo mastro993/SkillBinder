@@ -1,5 +1,6 @@
 mod agent_page;
 mod agent_skills;
+mod app_update_notice;
 mod breadcrumb;
 mod controls;
 mod copies_review;
@@ -63,17 +64,11 @@ mod workspace_targets;
 
 #[cfg(feature = "native-test")]
 pub use native_test::StripHold;
+pub(crate) use place_popover::bind_keys;
 pub use shell::{GoBack, GoForward, ToggleSidebar};
-
-/// Binds the keys the view's own controls take before the window does: Tab and Shift-Tab in the
-/// Library popover.
-pub(crate) fn bind_keys(cx: &mut gpui_kit::App) {
-    cx.bind_keys(place_popover::key_bindings());
-}
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
     sync::Arc,
 };
 
@@ -165,6 +160,7 @@ pub struct NativeView {
     /// skills stay in place." while off.
     agents_turned_off: BTreeSet<String>,
     agent_notice: new_agent_notice::Notice,
+    app_update_notice: app_update_notice::Notice,
     /// Where the Git step showed when Git was found, kept while "Git <version> is ready" shows.
     git_ready: Option<onboarding::Place>,
     /// What installing Git waits on, in the Git step or Settings.
@@ -343,6 +339,7 @@ impl NativeView {
             unticked_agents: None,
             agents_turned_off: BTreeSet::new(),
             agent_notice: new_agent_notice::Notice::default(),
+            app_update_notice: app_update_notice::Notice::default(),
             git_ready: None,
             git_setup: git_setup::GitSetup::default(),
             git_checking: false,
@@ -406,10 +403,6 @@ impl NativeView {
     fn input_text(input: &Entity<InputState>, cx: &Context<Self>) -> String {
         input.read(cx).value().trim().to_owned()
     }
-
-    fn reveal_logs(&self, cx: &mut Context<Self>) {
-        cx.reveal_path(&PathBuf::from(&self.snapshot.bootstrap.logs_path));
-    }
 }
 
 impl Focusable for NativeView {
@@ -454,6 +447,7 @@ impl Render for NativeView {
         self.sync_overlay_focus(window, cx);
         self.push_toast(window, cx);
         self.sync_agent_notice(window, cx);
+        self.sync_app_update_notice(window, cx);
         let colors = cx.theme().colors;
         let global_error = self
             .error

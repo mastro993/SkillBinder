@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings › Updates</title>
+<!-- App updates S1 (#169): Settings › Updates (spec rules 18, 19) and the download-only notice
+     (rules 9, 13). The variant bar picks how the Status row lays out its action; the demo
+     controls pick the state, the build, and whether the new agent notice also shows.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py settings-updates.html ../prototypes/settings-updates.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+#proto { --sb-primary: #0077B6; --sb-primary-fg: #fff; }
+.st-page { gap: 20px; overflow: auto; padding-bottom: 24px; }
+.st-v .sb-seg { align-self: flex-start; }
+.sb-vbar-extra { flex-wrap: wrap; }
+.st-head { font-size: 13px; font-weight: 600; margin: 0; }
+.st-kvl { border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
+.st-kv { display: grid; grid-template-columns: 128px 1fr; gap: 12px; padding: 9px 14px; align-items: start; }
+.st-kv + .st-kv { border-top: 1px solid var(--sb-line); }
+.st-k { color: var(--sb-muted-fg); font-size: 11.5px; padding-top: 2px; }
+.st-v { font-size: 12.5px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.st-tab { font-variant-numeric: tabular-nums; }
+.st-line { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.st-inline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.st-sub { color: var(--sb-muted-fg); font-size: 11.5px; }
+.st-link { color: var(--sb-primary); cursor: pointer; font-size: 12px; text-decoration: none; }
+.st-link:hover { text-decoration: underline; }
+.st-actions { display: flex; align-items: center; gap: 10px; }
+.st-switch { position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--sb-input); border: 0; cursor: pointer; padding: 0; }
+.st-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .12s; }
+.st-switch.on { background: var(--sb-primary); }
+.st-switch.on::after { left: 14px; }
+.st-agent { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 12.5px; }
+.st-agent + .st-agent { border-top: 1px solid var(--sb-line); }
+.st-agent .sb-spacer { flex: 1; }
+.st-notes { position: absolute; right: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 8px; width: 320px; z-index: 5; }
+.st-note { background: var(--sb-popover); border: 1px solid var(--sb-border); border-radius: 10px; box-shadow: var(--sb-shadow-lg); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; }
+.st-note-title { font-weight: 500; }
+.st-note-row { display: flex; gap: 10px; align-items: flex-start; }
+.st-note-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.st-appicon { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(160deg, #1f8fd0, #0077B6); color: #fff; display: grid; place-items: center; flex: none; }
+.st-strip { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 14px; font-size: 12px; background: var(--sb-card); border-top: 1px solid var(--sb-border); display: flex; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:540px">
+    <aside id="side"></aside>
+    <main class="sb-main" style="position:relative">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page st-page" id="page"></div>
+      <div class="st-notes" id="notes"></div>
+      <div id="strip"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const notes = document.getElementById('notes');
+  const strip = document.getElementById('strip');
+  const S = { variant: 'a', state: 'idle', beta: false, channel: 'stable', auto: true, checked: '5 minutes ago',
+    agentNotice: false, dismissed: false, strip: false, reason: 'outside' };
+  const NEXT = '0.2.0';
+  const REASONS = {
+    outside: 'Move SkillBinder to Applications to update automatically.',
+    writable: "SkillBinder can't write to its folder.",
+    installer: "This copy wasn't installed by the SkillBinder installer.",
+  };
+  const version = () => (S.beta ? '0.1.1-beta.12' : '0.1.0');
+
+  renderSidebar(document.getElementById('side'), { active: 'settings', onNav: () => toast(win, 'Not in this prototype') });
+  document.getElementById('hdr').append(h('div', { class: 'sb-title' }, 'Settings'));
+
+  const bar = variantBar(win, [
+    { id: 'a', label: 'Inline', desc: 'The status line, with its action at the row\'s end (as the Git row places Install).' },
+    { id: 'b', label: 'Stacked', desc: 'The status line, then its action and What\'s new under it.' },
+    { id: 'c', label: 'Under the list', desc: 'Status is text only; Check now or the state\'s action sits under the list, like Reveal logs.' },
+  ], (v) => { S.variant = v; draw(); });
+  bar.extra.append(
+    seg([{ id: 'stable', label: '0.1.0' }, { id: 'beta', label: '0.1.1-beta.12' }], 'stable', (v) => { S.beta = v === 'beta'; S.channel = v; draw(); }),
+    h('select', { class: 'sb-input', style: 'height:26px;font-size:12px', onchange: (e) => { S.state = e.target.value; S.dismissed = false; draw(); } },
+      [['idle', 'Up to date'], ['never', 'Not checked yet'], ['checking', 'Checking'], ['available', 'Download-only'],
+        ['offline', 'Failed, offline'], ['failed', 'Failed, other'], ['off', 'Off (unstamped)']].map(([v, t]) => h('option', { value: v }, t))),
+    h('select', { class: 'sb-input', style: 'height:26px;font-size:12px', onchange: (e) => { S.reason = e.target.value; draw(); } },
+      [['outside', 'macOS outside Applications'], ['writable', 'Folder not writable'], ['installer', 'Windows, no installer']].map(([v, t]) => h('option', { value: v }, t))),
+    checkbox({ label: 'New agent notice', onChange: (on) => { S.agentNotice = on; draw(); } }),
+    checkbox({ label: 'Progress strip', onChange: (on) => { S.strip = on; draw(); } }),
+  );
+
+  function checkNow(disabled) {
+    return h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', disabled, onclick: () => {
+      S.state = 'checking'; draw();
+      setTimeout(() => { S.state = S.channel === 'beta' && !S.beta ? 'available' : 'idle'; S.checked = 'just now'; S.dismissed = false; draw(); }, 1400);
+    } }, 'Check now');
+  }
+  const whatsNew = () => h('a', { class: 'st-link', onclick: () => toast(win, 'Opens the release page') }, "What's new");
+  const download = () => h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => toast(win, 'Opens the release page') }, 'Download');
+
+  // The status line and its action for the state (rule 18's table, download-only form).
+  function status() {
+    switch (S.state) {
+      case 'off': return { line: ['Updates are off in this build.'], action: null };
+      case 'idle': return { line: [`Up to date · checked ${S.auto ? S.checked : '3 days ago'}`], action: checkNow(false) };
+      case 'never': return { line: ['Not checked yet'], action: checkNow(false) };
+      case 'checking': return { line: [spinner(13), 'Checking…'], action: checkNow(true) };
+      case 'available': return { line: [`SkillBinder ${NEXT} is available.`], sub: REASONS[S.reason], action: [download(), whatsNew()] };
+      case 'offline': return { line: ["Couldn't check for updates. Check your connection."], action: checkNow(false) };
+      default: return { line: ["Couldn't check for updates."], action: checkNow(false) };
+    }
+  }
+
+  function statusValue() {
+    const st = status();
+    const line = h('div', { class: 'st-line' }, st.line);
+    const sub = st.sub ? h('div', { class: 'st-sub' }, st.sub) : null;
+    const actions = st.action ? h('div', { class: 'st-actions' }, st.action) : null;
+    if (S.variant === 'a') return h('div', { class: 'st-inline' }, h('div', null, line, sub), actions);
+    if (S.variant === 'b') return [line, sub, actions];
+    return [line, sub];
+  }
+
+  function updates() {
+    const stamped = S.state !== 'off';
+    const rows = [
+      ['Version', h('span', { class: 'st-tab' }, version())],
+      ['Channel', [seg([{ id: 'stable', label: 'Stable' }, { id: 'beta', label: 'Beta' }], S.channel, (v) => {
+        S.channel = v;
+        if (S.auto && stamped) { S.state = 'checking'; draw(); setTimeout(() => { S.state = v === 'beta' && !S.beta ? 'available' : 'idle'; S.checked = 'just now'; draw(); }, 1200); } else draw();
+      }), S.beta && S.channel === 'stable' ? h('div', { class: 'st-sub' }, `You'll move to Stable at its first release after ${version()}.`) : null]],
+      stamped ? ['Check automatically', h('button', { class: `st-switch${S.auto ? ' on' : ''}`, 'aria-label': 'Check automatically', onclick: () => {
+        S.auto = !S.auto;
+        if (S.auto) { S.state = 'checking'; draw(); setTimeout(() => { S.state = 'idle'; S.checked = 'just now'; draw(); }, 1200); } else draw();
+      } })] : null,
+      ['Status', statusValue()],
+    ].filter(Boolean);
+    const list = h('div', { class: 'st-kvl' }, rows.map(([k, v]) => h('div', { class: 'st-kv' }, h('div', { class: 'st-k' }, k), h('div', { class: 'st-v' }, v))));
+    const st = status();
+    const under = S.variant === 'c' && st.action ? h('div', { class: 'st-actions' }, st.action) : null;
+    return [h('h3', { class: 'st-head' }, 'Updates'), list, under];
+  }
+
+  function application() {
+    const rows = [['Managed library', h('span', { style: 'font-family:var(--sb-mono);font-size:11.5px' }, '~/Library/Application Support/SkillBinder/library')],
+      ['Git', '2.47.1'], ['Storage writable', 'Yes'], ['Remote', 'Local only']];
+    return [h('h3', { class: 'st-head' }, 'Application'),
+      h('div', { class: 'st-kvl' }, rows.map(([k, v]) => h('div', { class: 'st-kv' }, h('div', { class: 'st-k' }, k), h('div', { class: 'st-v' }, v)))),
+      h('div', null, h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm' }, 'Reveal logs'))];
+  }
+
+  function agents() {
+    const row = (t, on) => h('div', { class: 'st-agent' }, avatar(t, { size: 18 }), t.name, h('span', { class: 'sb-spacer' }), h('span', { class: `st-switch${on ? ' on' : ''}` }));
+    return [h('h3', { class: 'st-head' }, 'Agents'), h('div', { class: 'st-kvl' }, DATA.targets.slice(0, 3).map((t, i) => row(t, i < 2)))];
+  }
+
+  function noticeEls() {
+    const out = [];
+    if (S.agentNotice) {
+      const t = DATA.targets[3] || DATA.targets[0];
+      out.push(h('div', { class: 'st-note' }, avatar(t, { size: 22 }), h('div', null, h('div', { class: 'st-note-title' }, `Found ${t.name}.`), h('div', { class: 'sb-muted' }, 'Let SkillBinder manage its skills?')),
+        h('div', { class: 'st-note-btns' }, h('button', { class: 'sb-btn sb-btn-sm sb-btn-outline' }, 'Not now'), h('button', { class: 'sb-btn sb-btn-sm sb-btn-primary' }, 'Manage'))));
+    }
+    if (S.state === 'available' && !S.dismissed) {
+      out.push(h('div', { class: 'st-note' },
+        h('div', { class: 'st-note-row' }, h('div', null, h('div', { class: 'st-note-title' }, `SkillBinder ${NEXT} is available`), h('div', { class: 'sb-muted' }, REASONS[S.reason]))),
+        h('div', { class: 'st-note-btns' },
+          h('button', { class: 'sb-btn sb-btn-sm sb-btn-outline', onclick: () => { S.dismissed = true; draw(); } }, 'Dismiss'),
+          h('button', { class: 'sb-btn sb-btn-sm sb-btn-primary', onclick: () => toast(win, 'Opens the release page') }, 'Download'))));
+    }
+    return out;
+  }
+
+  function draw() {
+    page.replaceChildren(...[agents(), application(), updates()].flat(2).filter(Boolean));
+    notes.replaceChildren(...(S.strip ? [] : noticeEls()));
+    strip.replaceChildren(...(S.strip ? [h('div', { class: 'st-strip' }, spinner(13), 'Turning on Cursor… 42%')] : []));
+  }
+  // ?state=…&variant=…&reason=… opens on a state, for screenshots.
+  const q = new URLSearchParams(location.search);
+  if (q.get('state')) S.state = q.get('state');
+  if (q.get('reason')) S.reason = q.get('reason');
+  if (q.get('agents')) S.agentNotice = true;
+  if (q.get('variant')) bar.set(q.get('variant'));
+  draw();
+  page.scrollTop = page.scrollHeight;
+})();
+</script>
+</body>
+</html>

@@ -13,6 +13,7 @@ Build it with `cargo run -p xtask --locked -- fixture <new directory>`, then lau
 | `remotes/<name>.git` | `remotes/<name>/`, one commit | A Sync remote holding a library pushed from another machine. |
 | `repositories/<name>.git` | `repositories/<name>/`, one commit | A repository to add under Explore's Your repositories: `team-skills` lists 14 skills. |
 | `catalog/` | `catalog/` here | Explore's catalog, laid out like the CDN's `v1/`: four fictional creators and their skills, three with avatars, and `search/pdf.json`, skills.sh's answer to a search for "pdf": three fictional skills on github.com, one with no folder in its repository; any other search answers that skills.sh is unavailable. Launch with `--catalog-dir`; rename the folder to go offline, or delete `catalog/v1` to need a newer app. |
+| `app-updates/` | built by the task | App update manifests laid out like the Pages site's `updates/v1/`: Stable offers 0.2.0 and Beta 0.2.1-beta.3, each with all three platforms' archives, signed with a key made when the world is built, whose public half is `key.pub`. Launch with `--update-dir`; rename the folder to go offline. |
 | `data/` | nothing | Created by the app on first launch: start with onboarding. |
 
 States the world holds:
