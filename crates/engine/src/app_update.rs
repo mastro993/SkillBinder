@@ -20,8 +20,9 @@ use skillbinder_proto::{
 use std::sync::{Arc, Mutex, MutexGuard};
 use tokio::sync::oneshot;
 
-/// The public key release manifests are signed with, `skillbinder-update.pub` (docs/release.md).
-pub(crate) const RELEASE_KEY: &str = "PENDING-RELEASE-PUBLIC-KEY";
+/// The public key release manifests are signed with, `skillbinder-update.pub` (docs/release.md),
+/// key id 41973E438186A81C.
+pub(crate) const RELEASE_KEY: &str = "RWQcqIaBQz6XQfXzvvT6bIWtRbew0/txY9K20zqsnVXm3aodwyH+fIws";
 /// Whether `build.yml` stamped this build as a release; only a stamped build checks.
 pub(crate) const STAMPED: bool = match option_env!("SKILLBINDER_RELEASE") {
     Some(stamp) => !stamp.is_empty(),
