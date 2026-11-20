@@ -12,7 +12,10 @@ mod support;
 use folders::add_folder;
 use skillbinder_engine::Engine;
 use skillbinder_proto::{ErrorCategory, PresetColor, PresetIcon, ScanSnapshot, SkillId};
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use support::{Fixture, add_workspace, category, write_skill};
 
 /// Imports a skill from the fixture home's Claude Code global skill directory.
@@ -74,7 +77,7 @@ async fn a_workspace_scan_reads_only_its_top_level_agent_skill_directories() {
             root.join(".agents/skills/alpha"),
             root.join(".claude/skills/beta"),
         ]
-        .map(|path| path.display().to_string())
+        .map(|path| path.components().collect::<PathBuf>().display().to_string())
     );
     let found = |slug: &str| {
         scan.candidates

@@ -93,3 +93,10 @@ fn refused() -> io::Error {
         "Scan path leaves its boundary.",
     )
 }
+
+/// `path` rebuilt from its components. Registry directories separate with `/`; rebuilt, a path
+/// joined from one uses the platform's own separator, so it reads and compares as Windows shows
+/// it.
+pub(crate) fn native(path: &Path) -> PathBuf {
+    path.components().collect()
+}

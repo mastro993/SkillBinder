@@ -278,7 +278,7 @@ pub(crate) fn locations(
             for dir in dirs {
                 add(
                     &mut combined,
-                    boundary.join(dir),
+                    paths::native(&boundary.join(dir)),
                     boundary,
                     &agent,
                     (Reading::Workspace(id), lock.clone()),
@@ -484,9 +484,7 @@ fn expand(template: &str, config: &EngineConfig) -> Option<PathBuf> {
         Some(tail) => config.home.join(tail.strip_prefix('/')?),
         None => PathBuf::from(output),
     };
-    // Templates separate with `/`; rebuilt from its components, the path names a directory with
-    // the platform's own separator, so it reads and compares as Windows shows it.
-    let path: PathBuf = path.components().collect();
+    let path = paths::native(&path);
     path.is_absolute().then_some(path)
 }
 

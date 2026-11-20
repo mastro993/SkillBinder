@@ -148,7 +148,7 @@ fn an_agent_is_chosen_while_detected_with_its_directory_chosen()
     for dir in [".claude/skills", ".cursor/skills", ".agents/skills"] {
         fs::create_dir_all(config.home.join(dir))?;
     }
-    let shown = |dir: &str| config.home.join(dir).display().to_string();
+    let shown = |dir: &str| paths::native(&config.home.join(dir)).display().to_string();
     let choices = AgentChoices {
         chosen: [
             shown(".claude/skills"),
