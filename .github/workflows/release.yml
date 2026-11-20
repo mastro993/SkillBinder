@@ -85,6 +85,15 @@ jobs:
             Cargo.lock
           retention-days: 3
 
+  # Every check `main` runs, again on the shipped commit, beside the build.
+  checks:
+    needs: version
+    uses: ./.github/workflows/checks.yml
+
+  native:
+    needs: version
+    uses: ./.github/workflows/native.yml
+
   build:
     needs: version
     uses: ./.github/workflows/build.yml
@@ -94,7 +103,7 @@ jobs:
       ref: ${{ github.sha }}
 
   publish:
-    needs: [version, build]
+    needs: [version, checks, native, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

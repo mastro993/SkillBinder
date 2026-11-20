@@ -23,15 +23,15 @@ Actions → **Release** → Run workflow, on `main`, with:
 [`release.yml`](../.github/workflows/release.yml) then:
 
 1. fails unless every release secret is set, computes the version, fails if its tag already exists, and stamps it into `Cargo.toml` and `Cargo.lock` (the `stamp` artifact);
-2. builds and packages every platform from the dispatched commit with that stamp ([`build.yml`](../.github/workflows/build.yml)), signing and notarizing the macOS image;
-3. only if all three built: commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
+2. builds and packages every platform from the dispatched commit with that stamp ([`build.yml`](../.github/workflows/build.yml)), signing and notarizing the macOS image, and alongside runs every check `main` runs on that commit again: [`checks.yml`](../.github/workflows/checks.yml) and [`native.yml`](../.github/workflows/native.yml);
+3. only if every check passed and all three platforms built: commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
 4. publishes the GitHub release with the archives, `SHA256SUMS`, and GitHub's generated notes.
 
 If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts, run `sha256sum -- * > SHA256SUMS` beside them, and `gh release create vX.Y.Z --verify-tag --latest --generate-notes <archives> SHA256SUMS`.
 
 ## Nightly betas
 
-[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night unless a pull request was merged into `main` since the last release or beta (the nearest `v*` tag), by anyone but `github-actions[bot]`; the release bump commit is a direct push, so it never counts. Without any tag yet, it builds. A run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta, tags the commit through the release API (no commit, no deploy key), and publishes a prerelease. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
+[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night unless a pull request was merged into `main` since the last release or beta (the nearest `v*` tag), by anyone but `github-actions[bot]`; the release bump commit is a direct push, so it never counts. Without any tag yet, it builds. A run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta while running `checks.yml` and `native.yml` again on that commit, and, only once they all pass, tags the commit through the release API (no commit, no deploy key) and publishes a prerelease. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
 
 ## What a release contains
 
