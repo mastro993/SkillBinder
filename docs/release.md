@@ -31,7 +31,7 @@ If step 4 fails after the push, `main` holds the bump commit and its tag without
 
 ## Nightly betas
 
-[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night when the head of `main` already carries a tag, so a night without new commits, or one right after a release, publishes nothing; a run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta, tags the commit through the release API (no commit, no deploy key), and publishes a prerelease. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
+[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night unless a pull request was merged into `main` since the last release or beta (the nearest `v*` tag), by anyone but `github-actions[bot]`; the release bump commit is a direct push, so it never counts. Without any tag yet, it builds. A run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta, tags the commit through the release API (no commit, no deploy key), and publishes a prerelease. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
 
 ## What a release contains
 
