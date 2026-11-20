@@ -26,6 +26,7 @@ diesel_migrations = { version = "2.3", features = ["sqlite"] }
 libsqlite3-sys = { version = "0.35", features = ["bundled"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 directories = "6"
+dunce = "1.0.5"
 fs2 = "0.4"
 regex = "1"
 unicode-normalization = "0.1"

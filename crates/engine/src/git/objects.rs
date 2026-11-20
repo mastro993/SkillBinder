@@ -46,7 +46,7 @@ impl Git {
         .filter(|out| out.status.success())
         .ok_or_else(|| failure("Git could not prepare the restore."))?;
         let objects =
-            std::fs::canonicalize(repo.join(".git/objects")).map_err(|_| AppError::storage())?;
+            dunce::canonicalize(repo.join(".git/objects")).map_err(|_| AppError::storage())?;
         let objects = objects.to_str().ok_or_else(AppError::storage)?;
         std::fs::write(
             scratch.join("objects/info/alternates"),

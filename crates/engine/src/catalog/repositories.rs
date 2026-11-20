@@ -125,8 +125,14 @@ mod tests {
         ] {
             assert!(accepts(url, RepositoryUrls::Remote), "{url}");
         }
-        assert!(!accepts("file:///tmp/skills", RepositoryUrls::Remote));
-        assert!(accepts("file:///tmp/skills", RepositoryUrls::Local));
+        // An absolute path starts at a drive on Windows.
+        let local = if cfg!(windows) {
+            "file:///C:/skills"
+        } else {
+            "file:///tmp/skills"
+        };
+        assert!(!accepts(local, RepositoryUrls::Remote));
+        assert!(accepts(local, RepositoryUrls::Local));
         for url in [
             "not a url",
             "https://user:token@github.com/a/b",

@@ -20,7 +20,7 @@ fn source(directory: &Path) -> ImportSource {
 #[test]
 fn a_source_that_changed_since_the_scan_is_left_out_of_the_plan() {
     let root = tempfile::tempdir().unwrap();
-    let directory = fs::canonicalize(root.path()).unwrap().join("moving");
+    let directory = dunce::canonicalize(root.path()).unwrap().join("moving");
     let found = source(&directory);
     assert!(plannable(&found).unwrap().is_some(), "unchanged source");
 
@@ -39,7 +39,7 @@ fn a_source_that_changed_since_the_scan_is_left_out_of_the_plan() {
 #[test]
 fn storing_a_plan_prunes_the_expired_ones() {
     let root = tempfile::tempdir().unwrap();
-    let state = State::isolated_test_state(fs::canonicalize(root.path()).unwrap());
+    let state = State::isolated_test_state(dunce::canonicalize(root.path()).unwrap());
     let row = |id: &str, expires_at: i64| {
         diesel::insert_into(operation_plans::table)
             .values((

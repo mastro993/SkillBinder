@@ -375,9 +375,9 @@ impl State {
         self.library_snapshot()
     }
     pub(crate) fn contained_skill_path(&self, path: &Path) -> AppResult<PathBuf> {
-        let canonical = fs::canonicalize(path).map_err(|_| AppError::storage())?;
-        let root =
-            fs::canonicalize(self.library_dir().join("skills")).map_err(|_| AppError::storage())?;
+        let canonical = dunce::canonicalize(path).map_err(|_| AppError::storage())?;
+        let root = dunce::canonicalize(self.library_dir().join("skills"))
+            .map_err(|_| AppError::storage())?;
         if !canonical.starts_with(&root) || canonical == root {
             return Err(AppError::validation(
                 "Skill payload leaves the managed library.",
@@ -442,7 +442,7 @@ impl State {
                 "Choose a relative file inside the skill.",
             ));
         }
-        let selected = fs::canonicalize(root.join(&requested))
+        let selected = dunce::canonicalize(root.join(&requested))
             .map_err(|_| AppError::not_found("Preview file no longer exists."))?;
         if !selected.starts_with(&root) {
             return Err(AppError::validation(

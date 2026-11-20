@@ -73,8 +73,11 @@ fn rows_list_each_directory_once_naming_the_agents_that_read_it() {
         rows[0].row.reader,
         Reader::Universal(vec!["Codex".to_owned(), "Cursor".to_owned()])
     );
-    assert_eq!(rows[2].row.dir, "~/api/.zed/skills");
-    assert_eq!(rows[2].row.resolved, "/home/api/.zed/skills");
+    assert_eq!(
+        rows[2].row.dir,
+        format!("~/{}", joined("api", ".zed/skills"))
+    );
+    assert_eq!(rows[2].row.resolved, joined("/home/api", ".zed/skills"));
     assert_eq!(
         rows[1].row.resolved, "/resolved/.qoder/skills",
         "a directory the workspace uses matches its copies' resolved path"

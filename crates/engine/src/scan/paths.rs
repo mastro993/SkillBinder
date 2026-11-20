@@ -25,7 +25,7 @@ pub(crate) fn inside(boundary: &Path, path: &Path) -> Option<PathBuf> {
     let mut existing = path;
     let mut missing = Vec::new();
     let resolved = loop {
-        match fs::canonicalize(existing) {
+        match dunce::canonicalize(existing) {
             Ok(resolved) => break resolved,
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 missing.push(existing.file_name()?);
@@ -92,4 +92,11 @@ fn refused() -> io::Error {
         io::ErrorKind::PermissionDenied,
         "Scan path leaves its boundary.",
     )
+}
+
+/// `path` rebuilt from its components. Registry directories separate with `/`; rebuilt, a path
+/// joined from one uses the platform's own separator, so it reads and compares as Windows shows
+/// it.
+pub(crate) fn native(path: &Path) -> PathBuf {
+    path.components().collect()
 }

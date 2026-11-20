@@ -366,7 +366,7 @@ fn permits_user_credential_helper_configuration() {
 )]
 fn reads_only_the_given_home_configuration() {
     let home = tempfile::tempdir().unwrap();
-    let home = home.path().canonicalize().unwrap();
+    let home = dunce::canonicalize(home.path()).unwrap();
     std::fs::write(home.join(".gitconfig"), "[user]\n\tname = Fixture\n").unwrap();
     let git = super::Git::discover(
         &crate::lifecycle::GitSearch::System,
@@ -385,8 +385,12 @@ fn reads_only_the_given_home_configuration() {
         let (scope, origin) = (fields.next().unwrap(), fields.next().unwrap());
         assert_ne!(scope, "system", "{line}");
         if scope == "global" {
+            // Git for Windows prints the origin with `/` separators.
+            let home = home.display().to_string().replace('\\', "/");
             assert!(
-                origin.starts_with(&format!("file:{}", home.display())),
+                origin
+                    .replace('\\', "/")
+                    .starts_with(&format!("file:{home}")),
                 "{line}"
             );
         }

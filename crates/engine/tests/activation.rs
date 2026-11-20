@@ -65,12 +65,15 @@ impl Agents {
 
     /// The directory as copies name it.
     fn named(&self, directory: &Path) -> String {
-        fs::canonicalize(directory).unwrap().display().to_string()
+        dunce::canonicalize(directory)
+            .unwrap()
+            .display()
+            .to_string()
     }
 
     /// Each copy's directory, relative to home, slug, and state.
     fn states(&self, library: &LibrarySnapshot) -> Vec<(String, String, CopyState)> {
-        let home = fs::canonicalize(&self.fixture.home).unwrap();
+        let home = dunce::canonicalize(&self.fixture.home).unwrap();
         library
             .copies
             .iter()

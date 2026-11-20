@@ -88,7 +88,7 @@ async fn pulled_content_never_overwrites_an_edited_copy() {
 async fn pulled_content_rewrites_workspace_copies_and_a_removed_skill_loses_them() {
     let device = Device::published(&["alpha", "beta"]).await;
     // The published skills came from the fixture workspace, whose copies match the library.
-    let project = fs::canonicalize(device.fixture.workspace.join(".agents/skills")).unwrap();
+    let project = dunce::canonicalize(device.fixture.workspace.join(".agents/skills")).unwrap();
     let workspace = device.engine.snapshot().await.unwrap().workspaces.remove(0);
     // No agent reading `.agents/skills` was detected when it was added, so its first activation
     // chooses it, once the universal agents are.

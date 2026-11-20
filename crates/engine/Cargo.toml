@@ -19,6 +19,7 @@ sha1_smol.workspace = true
 sha2.workspace = true
 uuid.workspace = true
 directories.workspace = true
+dunce.workspace = true
 fs2.workspace = true
 regex.workspace = true
 unicode-normalization.workspace = true
