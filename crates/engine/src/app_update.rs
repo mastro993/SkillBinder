@@ -46,10 +46,13 @@ pub struct UpdateSource {
     pub public_key: String,
 }
 
-/// The last check that read the channel's manifest: when, and the version it offered, saved so
-/// a relaunch shows the offer until the next check.
+/// The last check that read a channel's manifest: which channel, when, and the version it
+/// offered, saved so a relaunch shows the offer until the next check.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct LastCheck {
+    /// A check that ended as the channel switched can save after the switch, so a restore
+    /// trusts only the saved channel's.
+    channel: Channel,
     checked: u64,
     offer: Option<Offer>,
 }
@@ -236,7 +239,8 @@ impl State {
         if let Some(auto_check) = auto_check {
             shared.auto_check = auto_check;
         }
-        if let Some(LastCheck { checked, offer }) = last_check {
+        let last_check = last_check.filter(|check| check.channel == shared.channel);
+        if let Some(LastCheck { checked, offer, .. }) = last_check {
             shared.last_checked = Some(checked);
             // The offer shows until the next check, unless this build already passed it.
             if let Some(Offer { version, notes_url }) = offer
@@ -338,7 +342,11 @@ impl AppUpdates {
                     }
                     None => AppUpdateState::Idle { last_failure: None },
                 };
-                Ended::Checked(LastCheck { checked, offer })
+                Ended::Checked(LastCheck {
+                    channel: running.channel,
+                    checked,
+                    offer,
+                })
             }
             Err(failure) => {
                 shared.state = if running.manual {
