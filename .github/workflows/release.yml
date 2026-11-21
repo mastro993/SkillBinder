@@ -1,9 +1,9 @@
 name: Release
 
 # Cut a release by hand from the Actions tab: bump the version, build every platform, then push
-# the bump commit and its tag to `main` and publish the GitHub release. Nothing is pushed unless
-# every platform built and the macOS image was notarized. The push bypasses the `main` ruleset
-# with the RELEASE_DEPLOY_KEY deploy key. See docs/release.md.
+# the bump commit and its tag to `main`, publish the GitHub release, and point the Homebrew cask
+# at it. Nothing is pushed unless every platform built and the macOS image was notarized. The push
+# bypasses the `main` ruleset with the RELEASE_DEPLOY_KEY deploy key. See docs/release.md.
 on:
   workflow_dispatch:
     inputs:
@@ -48,9 +48,10 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER != '' }}
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY != '' }}
           UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.UPDATE_SIGNING_KEY_PASSWORD != '' }}
+          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY != '' }}
         run: |
           missing=""
-          for name in RELEASE_DEPLOY_KEY MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER UPDATE_SIGNING_KEY UPDATE_SIGNING_KEY_PASSWORD; do
+          for name in RELEASE_DEPLOY_KEY MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER UPDATE_SIGNING_KEY UPDATE_SIGNING_KEY_PASSWORD HOMEBREW_TAP_DEPLOY_KEY; do
             [ "${!name}" = true ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
@@ -161,3 +162,12 @@ jobs:
             dist/*
       - name: Mirror the update manifest to Pages
         run: gh workflow run catalog.yml --ref main
+
+  homebrew:
+    needs: [version, publish]
+    uses: ./.github/workflows/homebrew.yml
+    secrets:
+      HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+    with:
+      version: ${{ needs.version.outputs.version }}
+      cask: skillbinder

@@ -1,0 +1,56 @@
+name: Homebrew
+
+# Point a cask in mastro993/homebrew-tap at a published release's macOS disk image: Release
+# updates `skillbinder`, Nightly `skillbinder@beta`. Called once the release is out, as a job of
+# its own, so "Re-run failed jobs" retries only the cask. See docs/release.md.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: The published version, without its leading v
+        type: string
+        required: true
+      cask:
+        description: The cask to update, named after its template in packaging/homebrew/
+        type: string
+        required: true
+    secrets:
+      HOMEBREW_TAP_DEPLOY_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  cask:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      VERSION: ${{ inputs.version }}
+      CASK: ${{ inputs.cask }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # The tap deploy key can write only to mastro993/homebrew-tap.
+      - uses: actions/checkout@v4
+        with:
+          repository: mastro993/homebrew-tap
+          path: homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+      - name: Point the cask at the release
+        run: |
+          sha256=$(gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --output - \
+            | awk -v dmg="skillbinder-$VERSION-universal-apple-darwin.dmg" '$2 == dmg { print $1 }')
+          test -n "$sha256"
+          sed -e "s/@VERSION@/$VERSION/" -e "s/@SHA256@/$sha256/" "packaging/homebrew/$CASK.rb" \
+            > "homebrew-tap/Casks/$CASK.rb"
+          cd homebrew-tap
+          git add "Casks/$CASK.rb"
+          # A re-run after the push landed has nothing to commit.
+          git diff --cached --quiet && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --quiet --message "$CASK $VERSION"
+          git push origin HEAD:main
