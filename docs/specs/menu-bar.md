@@ -50,7 +50,7 @@ These are the owner's decisions from the 2026-11-21 design session. Ids are stab
 3. Open SkillBinder, the Dock icon on macOS, a Windows left click (D8), and launching SkillBinder again each open the window if none is open, or bring the open one forward. A newly opened window starts on Library.
 4. macOS: when the last window closes and the app keeps running, it switches to the Accessory policy (no Dock icon). Opening a window switches it back to Regular and activates it (D2).
 5. Turning the switch off while the window is open removes the icon at once. Turning it on adds it.
-6. Closing the window during a blocking change, an Update all, a Sync, or an install does not stop it. The work finishes behind the icon.
+6. Closing the window during a blocking change, an Update all, a Sync, or an install does not stop it. The work finishes behind the icon. A blocking change whose window closed ends with no Done pill, and copies left waiting show only as rule 7.1's item. Once it lands, the menu's presets are enabled again. A reopened window refuses what the menu refuses, Update all included.
 
 ### Menu
 

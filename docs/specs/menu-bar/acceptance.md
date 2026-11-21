@@ -35,7 +35,9 @@ Depends on S0.
 - C1.5 **native, window open:** clicking a preset in the menu shows the window's strip and toast, exactly as clicking it in the sidebar does.
 - C1.6 **native:** opening the window while a menu-started switch runs shows the strip until the switch lands.
 - C1.7 **native:** a switch that leaves a conflict shows the attention item. Clicking it opens the window on the review list.
-- C1.8 **unit:** `blocked()` is `gate.busy || gate.change.is_some()`. The model disables presets and Update all while the Done pill shows and while the view is `busy`, and dispatch refuses a second preset while one switch runs.
+- C1.8 **unit:** `blocked()` is `gate.busy || gate.change.is_some() || snapshot.updating.is_some()`. The model disables presets and Update all while the Done pill shows, while the view is `busy`, and while an Update all runs, whether it started from the window or from the menu. Dispatch refuses a second switch while one runs.
+- C1.9 **native:** closing the window during a window-started switch leaves the presets disabled until the switch lands, then enabled, with no Done pill. Closing it under the Done pill enables them at once. Copies left waiting show as the attention item.
+- C1.10 **native:** after an Update all starts from the menu, closing and reopening the window still refuses a preset switch in the window and in the menu until the run ends.
 
 ### S2 · Skill updates in the menu, and the dot
 

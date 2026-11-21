@@ -24,7 +24,7 @@ flowchart LR
 | `tray::native` (`cfg(not(target_os = "linux"))`) | `crates/ui` | draws a `TrayMenu` with `tray-icon` + `muda`, updates in place | ADR 0021 |
 | `tray::linux` (`cfg(target_os = "linux")`) | `crates/ui` | draws it with `ksni`, reports host availability | ADR 0020, rule 1 |
 | `tray::dispatch` | `crates/ui` | turns a `TrayAction` into a view call or a client call | D3, A7 |
-| `Gate` global | `crates/ui` | what the window refuses: the blocking change's `Activity` and the view's `busy` | rule 12, A7 |
+| `Gate` global | `crates/ui` | what the window refuses, with Update all from the snapshot: the blocking change and the view's short `busy` work | rule 12, A7 |
 | `Client::update_all`, snapshot `updating`, `update_all_outcome`, `syncing` | `crates/client`, `crates/proto` | running work outside the view | rules 6, 9, 10, 13 |
 | hourly source check | `crates/client` | `run_check(UPDATE_CHECK_INTERVAL)` on a timer | rule 11 |
 | `Preferences.show_in_tray` | `crates/proto` | the switch, default `true` via `serde(default)` | D1, A8 |
@@ -55,7 +55,7 @@ The backend's callback (`MenuEvent::set_event_handler`, `TrayIconEvent` for the 
 
 | Action | Window open | No window |
 | --- | --- | --- |
-| `ActivatePreset` | `view.set_active_preset(id)` | sets the `Gate`'s change to `Switching`, runs `client.change_organization(ActivatePreset)` on the runtime, then clears it when the change lands: with no window there is no Done pill, and copies left waiting show only as rule 7.1's item |
+| `ActivatePreset` | `view.set_active_preset(id)` | sets the `Gate`'s change to `Switching`, runs `client.change_organization(ActivatePreset)` on the runtime, and the awaiting task clears it when the change lands: with no window there is no Done pill, and copies left waiting show only as rule 7.1's item |
 | `UpdateAll` | `client.update_all()`, whose progress the view reads from the snapshot | same |
 | `ReviewCopies` | brings the window forward and opens the review list | opens the window, then the review list |
 | `LibraryUpdates` | Library with the Updates filter | opens the window, then the same |
@@ -69,7 +69,11 @@ The backend's callback (`MenuEvent::set_event_handler`, `TrayIconEvent` for the 
 
 ## Running work
 
-- `Gate { change: Option<Activity>, busy: bool }` is a GPUI global, what the window refuses. The view's `block` sets `change` before it spawns and clears it when the strip closes, so it stays set under the Done pill; a menu switch with no window clears it when the change lands. The view mirrors its `busy` (a single-skill Update, optimistic organization saves, Update all) into `busy`, and a closing window clears it. `blocked()` is `gate.busy || gate.change.is_some()`, replacing `self.busy || self.strip.is_some()`. A window opened while a menu switch runs shows the strip from its next render, reading `snapshot.activation` for its percentage as it does today.
+- `Gate { change: Option<Change>, busy: bool }` is a GPUI global, with `Change { activity: Activity, landed: bool }`. Its fields live as long as the work they guard, not as long as the window:
+  - **`change`** is set before a blocking change starts, by the view's `block` or by menu dispatch. The task that awaits the change updates the global through the app, not through the view entity, so it runs even after the window is gone. When the change lands, the task clears `change` if no view shows its Done pill, and otherwise marks it `landed`. A `landed` change is cleared when the Done pill closes, or when the window closes. Closing the window during a switch therefore ends with no Done pill, and copies left waiting show only as rule 7.1's item.
+  - **`busy`** mirrors the view's own short work: a single-skill Update and optimistic organization saves. A closing window clears it. The work itself finishes in the engine, whose worker serializes it with any later change.
+  - **Update all** is not in the gate. It comes from the client's `snapshot.updating`, so it guards both the menu and the window however the run started, and whether or not the window was closed and reopened since.
+  - **`blocked()`** is `gate.busy || gate.change.is_some() || snapshot.updating.is_some()`. It replaces `self.busy || self.strip.is_some()`, and the menu model computes the same expression. A window opened while a change runs shows the strip from its next render, reading `snapshot.activation` for its percentage as it does today.
 - `AppSnapshot.updating: Option<(usize, usize)>` replaces `NativeView::updating`, and `AppSnapshot.update_all_outcome: Option<UpdateOutcome>` holds the last Update all's outcome for the menu. `Client::update_all()` runs today's loop from `library_updates.rs` on the runtime. It publishes after each skill, scans once at the end, and refuses to start while one runs. The snapshot's outcome clears when the next Update all starts or the next source check completes (A3).
 - `NativeView::update_outcome` stays: it holds a single-skill Update's outcome too, shows on the Library, Agent, Workspace, and Skill pages, and clears on navigation, all unchanged. When `update_all_outcome` turns to a new outcome, the view copies it into `update_outcome`, so an Update all started from the menu reports in the window as one started there does.
 - `AppSnapshot.syncing: Option<SyncAction>` replaces `NativeView::syncing`. `Client::synchronize` sets it for the length of the call. Restart's blockers read the snapshot, so the menu's Restart and Settings' Restart agree.
