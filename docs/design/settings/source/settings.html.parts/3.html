@@ -1,0 +1,127 @@
+
+  // ---- A: a section list beside the page (Kit's Settings) ------------------------------
+  function drawList(all) {
+    const q = S.query.trim();
+    const shown = all.filter((s) => hits(s));
+    const active = shown.find((s) => s.id === S.section) || shown[0];
+    const nav = h('nav', { class: 'st-nav' }, search(), all.map((s) => {
+      const n = hits(s);
+      if (q && !n) return null;
+      return h('button', { class: `st-nav-row${active && s.id === active.id ? ' is-active' : ''}`, onclick: () => { S.section = s.id; draw(); } },
+        ic(s.icon, 15), s.title, q ? h('span', { class: 'st-count' }, n) : null);
+    }));
+    const body = h('div', { class: 'st-scroll' }, h('div', { class: 'st-col' }, active ? section(active) : noResults()));
+    return [nav, body];
+  }
+
+  // ---- B: one page with every section, the search and jump chips stuck on top ---------
+  function drawPage(all) {
+    const q = S.query.trim();
+    const shown = all.filter((s) => hits(s));
+    const body = h('div', { class: 'st-scroll' });
+    const jump = h('div', { class: 'st-jump' }, all.map((s) => h('button', { class: 'sb-chip', disabled: !hits(s),
+      onclick: () => body.querySelector(`#st-${s.id}`).scrollIntoView({ behavior: 'smooth', block: 'start' }) }, ic(s.icon, 13), s.title)));
+    const top = h('div', { class: 'st-top' }, search(), jump);
+    body.append(h('div', { class: 'st-col' }, top, q && shown.length ? h('div', { class: 'st-results-head' }, `${shown.reduce((n, s) => n + hits(s), 0)} settings match`) : null,
+      shown.length ? shown.map((s) => section(s)) : noResults()));
+    body.addEventListener('scroll', () => top.classList.toggle('is-stuck', body.scrollTop > 0));
+    return [body];
+  }
+
+  // ---- C: tabs for the sections; a search shows its matches from every section -------
+  function drawTabs(all) {
+    const q = S.query.trim();
+    const shown = all.filter((s) => hits(s));
+    const head = h('div', { class: 'sb-toolbar', style: 'justify-content:space-between;flex-wrap:nowrap' },
+      q ? h('div', { class: 'st-results-head' }, shown.length ? `Results in ${shown.map((s) => s.title).join(', ')}` : '')
+        : seg(all.map((s) => ({ id: s.id, label: s.title })), S.section, (v) => { S.section = v; draw(); }),
+      search());
+    let content;
+    if (!q) content = section(all.find((s) => s.id === S.section), false);
+    else if (!shown.length) content = noResults();
+    else content = shown.map((s) => h('div', { class: 'st-group' }, h('div', { class: 'st-group-title' }, s.title),
+      h('div', { class: 'st-card' }, s.groups.flatMap((g) => g.items).map(row))));
+    return [h('div', { class: 'st-scroll' }, h('div', { class: 'st-col' }, head, content))];
+  }
+
+  // ---- D: A's section list in a large dialog over the page the user was on ------------
+  let dialog = null;
+  const hdr = document.getElementById('hdr');
+  function openSettings() {
+    if (dialog) return;
+    dialog = openDialog(win, { title: 'Settings', size: 'lg', onClose: () => { dialog = null; } });
+    dialog.el.classList.add('st-dialog');
+    draw();
+  }
+  function drawBehind() {
+    return [h('div', { class: 'st-behind' }, h('div', { class: 'sb-muted' }, 'The page you were on stays behind the dialog. Settings in the sidebar, or ⌘,, opens it.'),
+      [1, 2, 3, 4, 5].map(() => h('div', { class: 'sb-card' })))];
+  }
+
+  // The element holding the search and the scroller: the dialog in D, the page otherwise.
+  const root = () => (S.variant === 'd' && dialog ? dialog.body : page);
+  function draw() {
+    const all = filtered();
+    if (S.variant !== 'd' && dialog) dialog.close();
+    hdr.replaceChildren(h('div', { class: 'sb-title' }, S.variant === 'd' ? 'Library' : 'Settings'));
+    const scroller = root().querySelector('.st-scroll');
+    const keep = scroller ? scroller.scrollTop : 0;
+    if (S.variant === 'd') {
+      page.replaceChildren(...drawBehind());
+      if (dialog) dialog.setBody(h('div', { class: 'st-page' }, drawList(all)));
+    } else {
+      page.replaceChildren(...(S.variant === 'a' ? drawList(all) : S.variant === 'b' ? drawPage(all) : drawTabs(all)));
+    }
+    const next = root().querySelector('.st-scroll');
+    if (next) next.scrollTop = keep;
+    if (focusSearch) {
+      const input = root().querySelector('.sb-search input');
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      focusSearch = false;
+    }
+  }
+
+  const side = renderSidebar(document.getElementById('side'), { active: 'settings', onNav: (key) => {
+    if (key === 'settings' && S.variant === 'd') openSettings();
+    else toast(win, 'Not in this prototype');
+  } });
+  const legend = document.getElementById('legend');
+  legend.append(h('b', null, 'One control per kind of setting'),
+    h('div', null, 'On or off → switch (Agents, Check automatically)'),
+    h('div', null, 'One of two → segmented control (Channel)'),
+    h('div', null, 'One of three or more → select (Theme)'),
+    h('div', null, 'Runs something → button (Reveal, Install Git, Check now)'),
+    h('div', null, 'A fact you can’t change → muted text (Version, Storage)'));
+
+  const bar = variantBar(win, [
+    { id: 'a', label: 'Section list', desc: 'Kit’s Settings: the search and the sections in a column beside the page; one section at a time. Searching narrows the column to sections with matches and counts them.' },
+    { id: 'b', label: 'One page', desc: 'Every section on one scrolling page. The search and a chip per section stay on top; a chip jumps to its section, and searching hides rows and sections without a match.' },
+    { id: 'c', label: 'Tabs', desc: 'A segmented control picks the section; the search sits at its end. Searching replaces the tabs with matches from every section, grouped by section.' },
+    { id: 'd', label: 'Dialog', desc: 'A’s section list and search in a large dialog over the current page. Settings in the sidebar (or ⌘,) opens it; Esc or × closes it and leaves you where you were. Settings is no longer a page.' },
+  ], (v) => {
+    S.variant = v;
+    side.update({ active: v === 'd' ? 'library' : 'settings' });
+    draw();
+    if (v === 'd') openSettings();
+  });
+  const demo = (options, onChange) => h('select', { class: 'sb-input', style: 'height:26px;font-size:12px', onchange: (e) => onChange(e.target.value) },
+    options.map(([v, t]) => h('option', { value: v }, t)));
+  bar.extra.append(
+    demo([['found', 'Git found'], ['missing', 'Git not installed']], (v) => { S.git = v; draw(); }),
+    demo([['idle', 'Up to date'], ['ready', 'Update ready'], ['offline', 'Check failed']], (v) => { S.update = v; draw(); }),
+    checkbox({ label: 'Control rules', onChange: (on) => legend.classList.toggle('is-open', on) }),
+  );
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === ',' && S.variant === 'd') { e.preventDefault(); openSettings(); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); const input = root().querySelector('.sb-search input'); if (input) input.focus(); }
+  });
+  const q = new URLSearchParams(location.search);
+  if (q.get('q')) S.query = q.get('q');
+  if (q.get('section')) S.section = q.get('section');
+  if (q.get('variant')) bar.set(q.get('variant'));
+  draw();
+})();
+</script>
+</body>
+</html>

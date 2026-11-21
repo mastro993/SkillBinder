@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings</title>
+<!-- Settings redesign: sections, a search field, and one control per kind of setting (a switch
+     turns a thing on or off, a segmented control picks one of two, a select picks one of three or
+     more, a button runs an action, and a read-only fact is plain text at the row's end). The
+     variant bar picks how the sections are laid out; the demo controls pick the Git and update
+     states. Build:
+     python3 -I ../../scoped-pages/source/kit/inline.py settings.html ../prototypes/settings.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+#proto { --sb-primary: #0077B6; --sb-primary-fg: #fff; }
+.sb-vbar-extra { flex-wrap: wrap; }
+.st-page { padding: 0; gap: 0; flex-direction: row; overflow: hidden; }
+.st-scroll { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px 28px; }
+.st-col { max-width: 640px; display: flex; flex-direction: column; gap: 22px; }
+.st-nav { width: 196px; flex: none; border-right: 1px solid var(--sb-border); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; overflow: auto; }
+.st-nav .sb-search { width: 100%; margin-bottom: 8px; }
+.st-nav-row { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--sb-fg); font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.st-nav-row:hover { background: var(--sb-hover); }
+.st-nav-row.is-active { background: var(--sb-sel); font-weight: 500; }
+.st-nav-row .sb-ic { color: var(--sb-muted-fg); }
+.st-nav-row .st-count { margin-left: auto; color: var(--sb-muted-fg); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.st-h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.st-h2-desc { color: var(--sb-muted-fg); font-size: 12.5px; margin-top: 3px; }
+.st-section { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 56px; }
+.st-group { display: flex; flex-direction: column; gap: 6px; }
+.st-group-title { font-size: 12px; font-weight: 600; color: var(--sb-muted-fg); padding-left: 2px; }
+.st-card { border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
+.st-row { display: flex; align-items: center; gap: 16px; padding: 10px 14px; min-height: 44px; box-sizing: border-box; }
+.st-row + .st-row { border-top: 1px solid var(--sb-line); }
+.st-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-row-lead { flex: none; display: grid; place-items: center; }
+.st-row-title { font-size: 13px; }
+.st-row-desc { color: var(--sb-muted-fg); font-size: 12px; overflow-wrap: anywhere; }
+.st-row-desc.is-mono { font-family: var(--sb-mono); font-size: 11.5px; }
+.st-row-end { flex: none; display: flex; align-items: center; gap: 8px; }
+.st-value { color: var(--sb-muted-fg); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.st-row.is-hit { animation: st-hit 1.2s ease-out; }
+@keyframes st-hit { from { background: color-mix(in srgb, var(--sb-primary) 16%, transparent); } }
+.st-switch { position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--sb-input); border: 0; cursor: pointer; padding: 0; flex: none; }
+.st-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .12s; }
+.st-switch.on { background: var(--sb-primary); }
+.st-switch.on::after { left: 14px; }
+.st-switch:disabled { opacity: .5; cursor: default; }
+.st-select { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 112px; height: 28px; padding: 0 8px 0 10px; border: 1px solid var(--sb-border); border-radius: 6px; background: var(--sb-bg); color: var(--sb-fg); font: inherit; font-size: 13px; cursor: pointer; }
+.st-select:hover { background: var(--sb-muted); }
+.st-select .sb-ic { color: var(--sb-muted-fg); transform: rotate(90deg); }
+.st-top { position: sticky; top: -16px; z-index: 2; background: var(--sb-bg); margin: -16px -20px 0; padding: 16px 20px 10px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid transparent; }
+.st-top.is-stuck { border-bottom-color: var(--sb-border); }
+.st-top .sb-search { width: 100%; max-width: 640px; }
+.st-jump { display: flex; gap: 4px; flex-wrap: wrap; }
+.st-jump .sb-chip { cursor: pointer; }
+.st-jump .sb-chip:disabled { opacity: .45; cursor: default; }
+.st-results-head { font-size: 12px; color: var(--sb-muted-fg); }
+.st-path { color: var(--sb-muted-fg); font-size: 11.5px; }
+.sb-dialog.st-dialog { width: 860px; height: 100%; }
+.sb-menu { z-index: 80; } /* the Theme select opens over the dialog in D */
+.st-dialog .sb-dialog-header { padding: 12px 12px 12px 16px; border-bottom: 1px solid var(--sb-border); }
+.st-dialog .sb-dialog-body { padding: 0; overflow: hidden; display: flex; }
+.st-dialog .st-page { flex: 1; display: flex; min-width: 0; }
+.st-dialog .st-nav { background: var(--sb-sidebar); border-bottom-left-radius: 8px; }
+.st-behind { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+.st-behind .sb-card { height: 44px; opacity: .6; }
+.st-legend { position: absolute; right: 12px; bottom: 12px; z-index: 5; background: var(--sb-popover); border: 1px solid var(--sb-border); border-radius: 10px; box-shadow: var(--sb-shadow-lg); padding: 10px 12px; font-size: 11.5px; display: none; flex-direction: column; gap: 4px; width: 250px; }
+.st-legend.is-open { display: flex; }
+.st-legend b { font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <aside id="side"></aside>
+    <main class="sb-main" style="position:relative">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page st-page" id="page"></div>
+      <div class="st-legend" id="legend"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>

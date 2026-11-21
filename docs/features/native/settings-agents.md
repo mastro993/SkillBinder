@@ -1,28 +1,48 @@
 # Settings, the new agent notice, and the app update notice
 
-After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card"). Settings also shows the version and the app update channel, and a notice offers a newer SkillBinder ([app updates spec](../../specs/app-updates.md) rules 1–5, 9, 13, 15–19, 24; prototype `docs/design/app-updates/prototypes/settings-updates.html`, variant A "Inline").
+After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card"). Settings also shows the version and the app update channel, and a notice offers a newer SkillBinder ([app updates spec](../../specs/app-updates.md) rules 1–5, 9, 13, 15–19, 24; prototype `docs/design/app-updates/prototypes/settings-updates.html`, variant A "Inline"). The Settings page itself follows `docs/design/settings/prototypes/settings.html` (variant B "One page"); the older prototypes still guide their rows' copy and states.
+
+## Settings page
+
+Settings is one scrolling page (design `docs/design/settings/prototypes/settings.html`, variant B "One page", chosen 2026-11-21). Above it, and staying put while it scrolls, sit the search field, "Search settings", and a ghost button per section: General, Agents, Library & sync, Updates, and Troubleshooting, each with its glyph. A button scrolls its section's top to the top of the page, or as far as the page scrolls. Each section opens with its title and a muted description, then its groups: a group's `SectionHeader` title, when it has one, over a card of rows.
+
+Every row reads the same way: an optional logo, the setting's title over a muted line, and one control at the row's end, chosen by what the setting is:
+
+| Setting | Control |
+|---|---|
+| On or off | Kit switch |
+| One of two | Kit's segmented control |
+| One of three or more | a select: a button reading the choice with a chevron, opening the app menu that checks it |
+| An action | a small button |
+| A fact the user can't change | muted `body-sm` text in tabular figures |
+
+Typing in the search keeps the rows whose title, line, or keywords hold the text, ignoring case, or every row of a group or section whose title holds it, such as "Sync" or "Updates". Groups and sections left with no row hide, their buttons are disabled, and with nothing left the page shows "No settings found" and "Nothing matches “<text>”.". Leaving Settings clears the search.
+
+## Settings › General
+
+**Theme** is a select of System, Light, and Dark, the preference the sidebar's appearance toggle also sets ([Application shell](application-shell-continued.md)). Choosing one applies it at once and saves it on this device.
 
 ## Settings › Agents
 
-Settings opens with an "Agents" section header (the design system's `SectionHeader`, `caption-sm` muted) above "Application", then a bordered list with one row per Agents row of every detected agent, chosen or not: Universal first, then each other agent alphabetically. An agent whose global skill directory does not exist is not listed. Each row has the agent's Kit avatar (Universal's layers glyph), its name, its global skill directory in muted monospace or, for Universal, its agents' names with a tooltip, and a trailing Kit switch, on while the row's directory is chosen. With no agent found the list reads "No agents found on this computer." Click, Enter, or Space toggles a switch.
+The Agents section lists one row per Agents row of every detected agent, chosen or not: Universal first, then each other agent alphabetically. An agent whose global skill directory does not exist is not listed. Each row has the agent's Kit avatar (Universal's layers glyph), its name, its global skill directory in muted monospace or, for Universal, its agents' names with a tooltip, and a trailing Kit switch, on while the row's directory is chosen. With no agent found the section reads "No agents found on this computer." Click, Enter, or Space toggles a switch.
 
 - **On** applies the active preset to the agents reading that directory under the blocking progress strip, `Adding…`, whose tooltip reads "Adding skills to <agent>" ([Activation progress](activation-progress.md)). Copies with the library's content are adopted and others ask, as any change that writes copies does ([Activation](activation.md)). Every switch is disabled, and the notice taken down, until the strip ends, in the toast "<Agent> is on", or in "Done · <N> need attention".
 - **Off** saves at once, without the strip. The agents' copies stay in place, unmanaged: SkillBinder no longer updates or removes them, and later preset changes leave them alone. Until the app quits, the row reads "Its skills stay in place." in place of its folder line; an agent that was never on keeps its folder line.
 
 Either answer counts the directory as asked, so the notice never asks about it.
 
-## Settings › Application
+## Settings › Library & sync
 
-Under the "Application" section header, the design system's `KeyValueList` lists the application's facts in a flat card, each label in a 128-point `caption` muted column and rows divided by a hairline: Managed library (its path in monospace), Git (its version, or the Git row above), Storage writable (Yes or No), and Remote (its URL, or "Local only"). Reveal logs follows the card. The Sync page lists its facts the same way: Status (the state, ahead, behind, and local changes), and with a remote its URL in monospace, Branch, and Last checked.
+The Library group lists **Library folder**, its path in monospace with Reveal, which shows it in the file manager, and **Storage**, "Writable" or "Read-only". The Sync group lists **Git**, its version, or "Sync and skill updates need Git 2.39 or newer." with the Git step's primary action, its status line (which names a too-old version), and on Linux the package manager's command under it, and **Remote**, its URL or "Local only", set up in Sync. The Sync page lists its own facts in the design system's `KeyValueList`: Status (the state, ahead, behind, and local changes), and with a remote its URL in monospace, Branch, and Last checked.
 
 ## Settings › Updates
 
-Under the "Updates" section header, after Reveal logs, a `KeyValueList` lists:
+The Updates section lists:
 
 - **Version**: the running version, such as `0.1.1-beta.12`, in tabular figures.
-- **Channel**: Kit's segmented control, Stable | Beta, starting on the build's own channel (Beta for a beta build) and saved per device. While a beta build follows Stable, "You'll move to Stable at its first release after <version>." sits under it.
-- **Check automatically**: a Kit switch, on by default and saved per device; not shown in a build without the release stamp.
-- **Status**: one line, with its action at the row's end.
+- **Channel**: "Beta gets new versions first.", and Kit's segmented control, Stable | Beta, starting on the build's own channel (Beta for a beta build) and saved per device. While a beta build follows Stable, "You'll move to Stable at its first release after <version>." sits under the row's line.
+- **Check automatically**: "At launch and every hour.", and a Kit switch, on by default and saved per device; not shown in a build without the release stamp.
+- **Status**: the status line under the title, any reason muted under it, and its action at the row's end.
 
 | State | Status line | Action |
 |---|---|---|
@@ -36,6 +56,10 @@ Under the "Updates" section header, after Reveal logs, a `KeyValueList` lists:
 | Check now failed, otherwise | Couldn't check for updates. | Check now |
 
 Check now always checks. While Check automatically is on, the app also checks at launch, every hour, and right after the channel changes, and turning the switch on checks at once. A failed automatic check changes nothing, and a refused signature is logged. Switching channel drops a version found on the other one, and when it was checked. On macOS from Applications a newer version downloads and installs at quit ([App updates in place](app-updates.md)); elsewhere it is download-only.
+
+## Settings › Troubleshooting
+
+**Logs** has Reveal logs, which shows the logs folder in the file manager.
 
 ## The app update notice
 
