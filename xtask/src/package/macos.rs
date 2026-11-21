@@ -1,6 +1,7 @@
 //! The macOS app bundle and its DMG, which `dmgbuild` lays out as SkillBinder, an arrow, and an
-//! Applications shortcut over the brand's background, with the app icon on the volume (ADR 0019). With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID
-//! Application certificate in the keychain, both are signed for notarization; otherwise neither is.
+//! Applications shortcut over the brand's background, with the app icon on the volume (ADR 0019).
+//! With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID Application certificate in the
+//! keychain, both are signed for notarization; otherwise neither is.
 use super::{licenses, run};
 use crate::version::Version;
 use anyhow::Context as _;
