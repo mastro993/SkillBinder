@@ -64,11 +64,11 @@ enum Outcome {
 /// What follows a check that read the manifest.
 enum Next {
     Ended(Ended),
-    /// Download `found` and stage it beside the installed `bundle`.
+    /// Download `found` and stage it in `folder`.
     Download {
         check: LastCheck,
         found: Found,
-        bundle: PathBuf,
+        folder: PathBuf,
     },
 }
 
@@ -170,10 +170,10 @@ impl AppUpdates {
             Next::Download {
                 check,
                 found,
-                bundle,
+                folder,
             } => {
                 drop(shared);
-                self.download(running, check, found, &bundle)
+                self.download(running, check, found, &folder)
             }
         }
     }
@@ -224,8 +224,8 @@ fn settle(shared: &mut Shared, running: &Running, outcome: Outcome) -> Next {
         shared.state = shared.resting();
         return ended(check);
     };
-    let bundle = match shared.location.installed() {
-        Ok(bundle) => bundle.to_path_buf(),
+    let folder = match shared.location.staging() {
+        Ok(folder) => folder.to_path_buf(),
         Err(reason) => {
             let Offer { version, notes_url } = found.offer;
             shared.state = AppUpdateState::DownloadOnly {
@@ -252,7 +252,7 @@ fn settle(shared: &mut Shared, running: &Running, outcome: Outcome) -> Next {
             Next::Download {
                 check,
                 found,
-                bundle,
+                folder,
             }
         }
     }

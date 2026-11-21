@@ -1,7 +1,9 @@
-//! Stages a downloaded app update next to the installed app (spec rules 6, 7, ADR 0018): on macOS
-//! the disk image is mounted read-only, its `SkillBinder.app` copied out with `ditto`, and the
-//! copy kept only when it carries SkillBinder's Developer ID signature. The staged bundle,
-//! `.skillbinder-update-<version>.app`, waits there until it is installed at quit.
+//! Stages a downloaded app update (spec rules 6, 7, ADR 0018). On macOS, next to the installed
+//! app: the disk image is mounted read-only, its `SkillBinder.app` copied out with `ditto`, and
+//! the copy kept only when it carries SkillBinder's Developer ID signature. The staged bundle,
+//! `.skillbinder-update-<version>.app`, waits there until it is installed at quit. On Windows the
+//! setup program, verified by its signed SHA-256, waits in application data as
+//! `.skillbinder-update-<version>.exe`.
 
 use super::relocate::{NAME, run};
 use skillbinder_proto::AppVersion;
@@ -28,10 +30,22 @@ pub enum UpdatePayload {
     /// For tests and native fixtures: the archive is the bundle's executable, and nothing is
     /// signed.
     Executable,
+    /// The Windows setup program, which installs the update when run silently at quit.
+    Setup,
 }
 
-/// Stages the update `version`, downloaded as `archive`, in `folder`, beside the installed app,
-/// replacing a copy of the same version staged before. Returns the staged bundle.
+impl UpdatePayload {
+    /// The ending of a staged update's name.
+    fn extension(&self) -> &'static str {
+        match self {
+            Self::DiskImage { .. } | Self::Executable => ".app",
+            Self::Setup => ".exe",
+        }
+    }
+}
+
+/// Stages the update `version`, downloaded as `archive`, in `folder`, replacing a copy of the
+/// same version staged before. Returns the staged bundle or setup program.
 pub(super) fn stage(
     payload: &UpdatePayload,
     archive: &Path,
@@ -39,21 +53,22 @@ pub(super) fn stage(
     version: AppVersion,
 ) -> io::Result<PathBuf> {
     let partial = folder.join(format!("{STAGING}{}", std::process::id()));
-    let _ = fs::remove_dir_all(&partial);
+    remove(&partial);
     let staged = unpack(payload, archive, &partial).and_then(|()| {
-        let target = folder.join(format!("{STAGED}{version}.app"));
-        let _ = fs::remove_dir_all(&target);
+        let target = folder.join(format!("{STAGED}{version}{}", payload.extension()));
+        remove(&target);
         fs::rename(&partial, &target).map(|()| target)
     });
     if staged.is_err() {
-        let _ = fs::remove_dir_all(&partial);
+        remove(&partial);
     }
     staged
 }
 
-/// Makes `archive` the bundle `bundle`, verified.
+/// Makes `archive` the bundle or setup program `bundle`, verified.
 fn unpack(payload: &UpdatePayload, archive: &Path, bundle: &Path) -> io::Result<()> {
     match payload {
+        UpdatePayload::Setup => fs::copy(archive, bundle).map(drop),
         UpdatePayload::Executable => {
             fs::create_dir_all(bundle.join("Contents/MacOS"))?;
             fs::copy(archive, bundle.join("Contents/MacOS/skillbinder")).map(drop)
@@ -111,7 +126,7 @@ fn detach(mount: &Path) {
 }
 
 /// What earlier runs left in `folder`: removes bundles set aside at quit, partial stagings, and
-/// staged bundles whose name holds no version, and returns the staged bundles by version.
+/// staged updates whose name holds no version, and returns the staged updates by version.
 pub(super) fn leftovers(folder: &Path) -> Vec<(AppVersion, PathBuf)> {
     let Ok(entries) = fs::read_dir(folder) else {
         return Vec::new();
@@ -121,7 +136,10 @@ pub(super) fn leftovers(folder: &Path) -> Vec<(AppVersion, PathBuf)> {
         let name = entry.file_name().to_string_lossy().into_owned();
         let version = name
             .strip_prefix(STAGED)
-            .and_then(|rest| rest.strip_suffix(".app"))
+            .and_then(|rest| {
+                rest.strip_suffix(".app")
+                    .or_else(|| rest.strip_suffix(".exe"))
+            })
             .map(str::parse::<AppVersion>);
         match version {
             Some(Ok(version)) => staged.push((version, entry.path())),
@@ -133,14 +151,20 @@ pub(super) fn leftovers(folder: &Path) -> Vec<(AppVersion, PathBuf)> {
     staged
 }
 
-/// Removes the downloads folder, detaching any disk image a quit left mounted in it.
+/// Removes each version's download folder, detaching any disk image a quit left mounted in it.
+/// The files beside them are Windows setup programs staged there, which [`leftovers`] sorts out.
 pub(super) fn clear_downloads(downloads: &Path) {
-    let Ok(versions) = fs::read_dir(downloads) else {
+    let Ok(entries) = fs::read_dir(downloads) else {
         return;
     };
-    for mount in versions
+    let versions: Vec<_> = entries
         .flatten()
-        .filter_map(|version| fs::read_dir(version.path()).ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
+    for mount in versions
+        .iter()
+        .filter_map(|version| fs::read_dir(version).ok())
         .flat_map(|files| files.flatten().map(|file| file.path()))
         .filter(|file| {
             file.extension()
@@ -149,7 +173,9 @@ pub(super) fn clear_downloads(downloads: &Path) {
     {
         detach(&mount);
     }
-    let _ = fs::remove_dir_all(downloads);
+    for version in versions {
+        let _ = fs::remove_dir_all(version);
+    }
 }
 
 /// Removes a bundle or a file.

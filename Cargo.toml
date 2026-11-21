@@ -42,6 +42,8 @@ ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 minisign = { version = "0.10", default-features = false }
 minisign-verify = "0.3"
 rustix = { version = "1.1.5", features = ["fs", "process"] }
+# Tells a Windows quit at logoff or shutdown, which must not start an app update (spec rule 12).
+winsafe = { version = "0.0.29", default-features = false, features = ["user"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }
 skillbinder-client = { path = "crates/client" }

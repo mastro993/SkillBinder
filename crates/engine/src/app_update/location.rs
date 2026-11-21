@@ -1,5 +1,6 @@
-//! Where the running app sits (spec rules 13, 21, ADR 0019): on macOS, the `SkillBinder.app` that
-//! holds the executable, and whether it is in an Applications folder an app update can write.
+//! Where the running app sits (spec rules 13, 21, 22, ADR 0019): on macOS, the `SkillBinder.app`
+//! that holds the executable, and whether it is in an Applications folder an app update can write;
+//! on Windows, whether the setup program installed the executable.
 
 use crate::persistence;
 use skillbinder_proto::CannotInstall;
@@ -8,12 +9,18 @@ use std::{
     process::{Command, Stdio},
 };
 
+/// The uninstaller Inno Setup writes beside the program it installs.
+const UNINSTALLER: &str = "unins000.exe";
+
 /// Where the running app is and where Move to Applications puts it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AppPlacement {
     /// The `.app` that holds the running executable; `None` outside a bundle, as in a
     /// development build, and off macOS.
     pub bundle: Option<PathBuf>,
+    /// On Windows, the running executable, which the setup program installed when its
+    /// uninstaller sits beside it; `None` elsewhere.
+    pub executable: Option<PathBuf>,
     /// `/Applications`.
     pub applications: PathBuf,
     /// `~/Applications`, where Move goes when `/Applications` can't be written.
@@ -21,14 +28,13 @@ pub struct AppPlacement {
 }
 
 impl AppPlacement {
-    /// The running bundle, if any, and the system's Applications folders.
+    /// The running bundle or Windows executable, if any, and the system's Applications folders.
     pub(crate) fn platform(home: &Path) -> Self {
-        let bundle = cfg!(target_os = "macos")
-            .then(std::env::current_exe)
-            .and_then(Result::ok)
-            .and_then(|executable| bundle_of(&executable));
+        let running = |on: bool| on.then(std::env::current_exe).and_then(Result::ok);
         Self {
-            bundle,
+            bundle: running(cfg!(target_os = "macos"))
+                .and_then(|executable| bundle_of(&executable)),
+            executable: running(cfg!(windows)),
             applications: PathBuf::from("/Applications"),
             user_applications: home.join("Applications"),
         }
@@ -49,22 +55,30 @@ fn bundle_of(executable: &Path) -> Option<PathBuf> {
 /// Where the running app sits.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Location {
-    /// No bundle holds the executable, so there is nothing to move or replace.
-    Unbundled,
+    /// No bundle holds the executable, or no setup program installed it, so there is nothing to
+    /// move or replace.
+    NotInstalled,
     /// Outside both Applications folders, so the app offers to move itself there.
     OutsideApplications(Original),
     /// In an Applications folder the user can't write.
     NotWritable,
-    /// The bundle in an Applications folder, which an app update replaces.
+    /// The bundle in an Applications folder, which an app update replaces; it stages beside it.
     Installed(PathBuf),
+    /// On Windows, the executable the setup program installed. An app update is the newer setup
+    /// program, staged in `staging` in application data, which reinstalls the app at quit.
+    SetUp {
+        executable: PathBuf,
+        staging: PathBuf,
+    },
 }
 
 impl Location {
-    /// The installed bundle an app update replaces, or why there is none (spec rule 13).
-    pub(crate) fn installed(&self) -> Result<&Path, CannotInstall> {
+    /// The folder an app update stages in, or why none installs here (spec rule 13).
+    pub(crate) fn staging(&self) -> Result<&Path, CannotInstall> {
         match self {
-            Self::Installed(bundle) => Ok(bundle),
-            Self::Unbundled => Err(CannotInstall::NotInstalled),
+            Self::Installed(bundle) => bundle.parent().ok_or(CannotInstall::NotInstalled),
+            Self::SetUp { staging, .. } => Ok(staging),
+            Self::NotInstalled => Err(CannotInstall::NotInstalled),
             Self::OutsideApplications(_) => Err(CannotInstall::OutsideApplications),
             Self::NotWritable => Err(CannotInstall::NotWritable),
         }
@@ -121,10 +135,17 @@ impl Mounts {
 }
 
 /// Finds where the running app sits, reading the mounts only for a bundle outside Applications.
-pub(crate) fn locate(placement: &AppPlacement) -> Location {
-    match &placement.bundle {
-        Some(bundle) => classify(bundle, placement, Mounts::read),
-        None => Location::Unbundled,
+/// A Windows app update stages in `downloads`.
+pub(crate) fn locate(placement: &AppPlacement, downloads: &Path) -> Location {
+    match (&placement.bundle, &placement.executable) {
+        (Some(bundle), _) => classify(bundle, placement, Mounts::read),
+        (None, Some(executable)) if executable.with_file_name(UNINSTALLER).is_file() => {
+            Location::SetUp {
+                executable: executable.clone(),
+                staging: downloads.to_path_buf(),
+            }
+        }
+        (None, _) => Location::NotInstalled,
     }
 }
 

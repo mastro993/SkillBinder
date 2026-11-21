@@ -23,6 +23,7 @@ on:
       - "xtask/src/package.rs"
       - "xtask/src/package/**"
       - "packaging/macos/**"
+      - "packaging/windows/**"
       - "xtask/src/version.rs"
 
 permissions:
@@ -79,6 +80,24 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/dmgbuild"
           "$RUNNER_TEMP/dmgbuild/bin/pip" install --require-hashes --only-binary :all: -r packaging/macos/dmgbuild-requirements.txt
           echo "$RUNNER_TEMP/dmgbuild/bin" >> "$GITHUB_PATH"
+      # The pinned Inno Setup 6 compiles the per-user setup program. Its installer is checked
+      # against the release's SHA-256 before it runs, and installs for the runner's user only.
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        env:
+          INNO_VERSION: 6.7.4
+          INNO_SHA256: a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup-$env:INNO_VERSION.exe"
+          $tag = 'is-' + $env:INNO_VERSION.Replace('.', '_')
+          Invoke-WebRequest -Uri "https://github.com/jrsoftware/issrc/releases/download/$tag/innosetup-$env:INNO_VERSION.exe" -OutFile $installer
+          if ((Get-FileHash -Algorithm SHA256 $installer).Hash -ne $env:INNO_SHA256) {
+            throw "innosetup-$env:INNO_VERSION.exe does not match its SHA-256"
+          }
+          $folder = Join-Path $env:RUNNER_TEMP 'InnoSetup'
+          $setup = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/CURRENTUSER', "/DIR=$folder" -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Inno Setup's installer exited with $($setup.ExitCode)" }
+          Add-Content -Path $env:GITHUB_PATH -Value $folder
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.target }}
@@ -163,7 +182,7 @@ jobs:
           name: dist-${{ matrix.target }}
           path: |
             dist/${{ matrix.target }}/*.dmg
-            dist/${{ matrix.target }}/*.zip
+            dist/${{ matrix.target }}/*-setup.exe
             dist/${{ matrix.target }}/*.tar.gz
           if-no-files-found: error
           retention-days: 3

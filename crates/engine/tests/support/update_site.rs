@@ -1,7 +1,7 @@
 //! An isolated device whose app update site is a fixture directory laid out like the catalog's,
 //! signed with a key made for the test. Each published version's archive is
 //! `downloads/<version>`, holding `build <version>`, which an installed fixture bundle stages as
-//! its executable.
+//! its executable, and a Windows fixture as its setup program.
 #![allow(dead_code, reason = "Each test crate uses part of the fixture.")]
 
 use minisign::KeyPair;
@@ -30,6 +30,10 @@ pub struct Fixture {
     pub current: AppVersion,
     /// The running bundle, if the app runs from one.
     pub bundle: Option<PathBuf>,
+    /// The running Windows executable, if the app runs from one.
+    pub executable: Option<PathBuf>,
+    /// What the archives hold.
+    pub payload: UpdatePayload,
 }
 
 impl Fixture {
@@ -46,6 +50,8 @@ impl Fixture {
             key: KeyPair::generate_unencrypted_keypair().unwrap(),
             current: current.parse().unwrap(),
             bundle: None,
+            executable: None,
+            payload: UpdatePayload::Executable,
         }
     }
 
@@ -63,6 +69,22 @@ impl Fixture {
         fixture
     }
 
+    /// A Windows device running `current` from `skillbinder.exe` in its programs folder, with
+    /// the setup program's uninstaller beside it when `set_up`. Its archives are setup programs.
+    pub fn windows(current: &str, set_up: bool) -> Self {
+        let mut fixture = Self::new(current);
+        let program = fixture.root.join("Programs/SkillBinder");
+        fs::create_dir_all(&program).unwrap();
+        let executable = program.join("skillbinder.exe");
+        fs::write(&executable, format!("build {current}")).unwrap();
+        if set_up {
+            fs::write(program.join("unins000.exe"), "uninstaller").unwrap();
+        }
+        fixture.executable = Some(executable);
+        fixture.payload = UpdatePayload::Setup;
+        fixture
+    }
+
     pub fn applications(&self) -> PathBuf {
         self.root.join("Applications")
     }
@@ -71,11 +93,12 @@ impl Fixture {
         let mut config = EngineConfig::isolated(self.data.clone(), self.home.clone());
         config.app_version = self.current;
         config.placement.bundle = self.bundle.clone();
+        config.placement.executable = self.executable.clone();
         config.placement.applications = self.applications();
         config.app_update = Some(UpdateSource {
             site: CatalogSource::Directory(self.site.clone()),
             public_key: self.key.pk.to_base64(),
-            payload: UpdatePayload::Executable,
+            payload: self.payload.clone(),
         });
         config
     }

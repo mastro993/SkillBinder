@@ -3,7 +3,7 @@
 //! quit.
 
 use super::Engine;
-use crate::{Relaunch, app_update::Ended};
+use crate::{QuitCause, Relaunch, app_update::Ended};
 use skillbinder_proto::*;
 
 impl Engine {
@@ -60,10 +60,11 @@ impl Engine {
     pub fn request_restart(&self) -> AppResult<()> {
         self.owner.app_updates.request_restart()
     }
-    /// Call once the app has quit and the engine drained: installs a ready app update (spec rule
-    /// 12), and says what to start, the moved copy after Move to Applications or the app again
-    /// after Restart, once the instance lock is released.
-    pub fn finish_app_update(&self) -> Option<Relaunch> {
-        self.owner.app_updates.finish()
+    /// Call once the app has quit for `cause` and the engine drained: installs a ready app
+    /// update (spec rule 12), and says what to start, the moved copy after Move to Applications
+    /// or the app again after Restart, once the instance lock is released. On Windows it starts
+    /// the setup program instead, unless the session is ending.
+    pub fn finish_app_update(&self, cause: QuitCause) -> Option<Relaunch> {
+        self.owner.app_updates.finish(cause)
     }
 }

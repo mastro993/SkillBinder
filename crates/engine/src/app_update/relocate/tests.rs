@@ -49,6 +49,7 @@ impl Fixture {
         bundle_at(&original, Some("0.2.0"), "running");
         let placement = AppPlacement {
             bundle: Some(original.clone()),
+            executable: None,
             applications: root.path().join("Applications"),
             user_applications: root.path().join("me/Applications"),
         };

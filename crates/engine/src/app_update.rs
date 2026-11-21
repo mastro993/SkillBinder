@@ -4,7 +4,8 @@
 //! download-only. A build without the release stamp never checks. The channel, the
 //! automatic-check switch, the last check, and the staged version are device settings; this
 //! module holds them in memory for snapshots. It also finds where the app sits, and on macOS
-//! moves it into Applications (ADR 0019).
+//! moves it into Applications (ADR 0019). On Windows the update is the setup program, run
+//! silently at quit.
 
 mod check;
 mod download;
@@ -64,7 +65,18 @@ pub struct UpdateSource {
     pub payload: UpdatePayload,
 }
 
-/// A verified update staged beside the installed app.
+/// Why the app is quitting, which decides whether a Windows app update installs now.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QuitCause {
+    /// The user quit, or Restart or Move to Applications asked to.
+    User,
+    /// The user is logging off or Windows is shutting down, and could end a setup program
+    /// halfway (spec rule 12).
+    SessionEnd,
+}
+
+/// A verified update staged beside the installed app, or the Windows setup program staged in
+/// application data.
 #[derive(Clone, Debug)]
 struct Staged {
     offer: Offer,
@@ -141,7 +153,7 @@ impl AppUpdates {
             staged: None,
             restart: false,
             updated: None,
-            location: location::locate(&placement),
+            location: location::locate(&placement, &downloads),
             relaunch: None,
         };
         Self {
