@@ -55,7 +55,7 @@ The backend's callback (`MenuEvent::set_event_handler`, `TrayIconEvent` for the 
 
 | Action | Window open | No window |
 | --- | --- | --- |
-| `ActivatePreset` | `view.set_active_preset(id)` | sets the `Gate`'s change to `Switching`, runs `client.change_organization(ActivatePreset)` on the runtime, and the awaiting task clears it when the change lands: with no window there is no Done pill, and copies left waiting show only as rule 7.1's item |
+| `ActivatePreset` | `view.set_active_preset(id)` | sets the `Gate`'s change to `Switching`, runs `client.change_organization(ActivatePreset)` on the runtime, and the awaiting task clears it when the change returns, landed or refused: with no window there is no Done pill, and copies left waiting show only as rule 7.1's item |
 | `UpdateAll` | `client.update_all()`, whose progress the view reads from the snapshot | same |
 | `ReviewCopies` | brings the window forward and opens the review list | opens the window, then the review list |
 | `LibraryUpdates` | Library with the Updates filter | opens the window, then the same |
@@ -70,7 +70,10 @@ The backend's callback (`MenuEvent::set_event_handler`, `TrayIconEvent` for the 
 ## Running work
 
 - `Gate { change: Option<Change>, busy: bool }` is a GPUI global, with `Change { activity: Activity, landed: bool }`. Its fields live as long as the work they guard, not as long as the window:
-  - **`change`** is set before a blocking change starts, by the view's `block` or by menu dispatch. The task that awaits the change updates the global through the app, not through the view entity, so it runs even after the window is gone. When the change lands, the task clears `change` if no view shows its Done pill, and otherwise marks it `landed`. A `landed` change is cleared when the Done pill closes, or when the window closes. Closing the window during a switch therefore ends with no Done pill, and copies left waiting show only as rule 7.1's item.
+  - **`change`** is set before a blocking change starts, by the view's `block` or by menu dispatch. The task that awaits the change updates the global through the app, not through the view entity, so it runs even after the window is gone. What happens when the change ends depends on whether a window exists, meaning `MainWindow`'s weak view upgrades. It does not depend on what the strip shows.
+    - **With a window:** the task marks the change `landed` when it returns, `Ok` or `Err`. The strip owns the clearing: `take_strip` clears `change` on every path that ends the strip. That covers the toast after the minimum show time, the close after a refused change, and the Done pill's Close or Review. Until then, `change` keeps `blocked()` true, whether the strip is working, landed but still inside its minimum show time, or showing the Done pill.
+    - **With no window, or once the window has closed:** the task clears `change` when it returns, `Ok` or `Err`.
+    - **Closing the window** clears a `landed` change at once. A change that has not landed is left for its task to clear. Closing the window during a switch therefore ends with no Done pill, and copies left waiting show only as rule 7.1's item.
   - **`busy`** mirrors the view's own short work: a single-skill Update and optimistic organization saves. A closing window clears it. The work itself finishes in the engine, whose worker serializes it with any later change.
   - **Update all** is not in the gate. It comes from the client's `snapshot.updating`, so it guards both the menu and the window however the run started, and whether or not the window was closed and reopened since.
   - **`blocked()`** is `gate.busy || gate.change.is_some() || snapshot.updating.is_some()`. It replaces `self.busy || self.strip.is_some()`, and the menu model computes the same expression. A window opened while a change runs shows the strip from its next render, reading `snapshot.activation` for its percentage as it does today.
