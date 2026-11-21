@@ -1,0 +1,112 @@
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const S = { variant: 'a', section: 'general', query: '', theme: 'System', agents: { universal: true, claude: true, cursor: false, windsurf: false },
+    blocked: false, git: 'found', channel: 'stable', auto: true, update: 'idle' };
+  const THEMES = ['System', 'Light', 'Dark'];
+
+  // ---- controls: one per kind of setting -------------------------------------------
+  const sw = (on, label, onChange) => h('button', { class: `st-switch${on ? ' on' : ''}`, role: 'switch', 'aria-checked': String(on),
+    'aria-label': label, disabled: S.blocked, onclick: () => onChange(!on) });
+  function select(value, options, label, onChange) {
+    const btn = h('button', { class: 'st-select', 'aria-label': `${label}: ${value}` }, value, ic('chevron-right', 13));
+    btn.onclick = () => menu(win, btn, options.map((o) => ({ label: o, checked: o === value, onSelect: () => onChange(o) })), { align: 'end' });
+    return btn;
+  }
+  const button = (label, onclick, { disabled = false, primary = false } = {}) =>
+    h('button', { class: `sb-btn sb-btn-sm ${primary ? 'sb-btn-primary' : 'sb-btn-outline'}`, disabled, onclick }, label);
+  const value = (text) => h('span', { class: 'st-value' }, text);
+
+  function checkUpdates() {
+    S.update = 'checking'; draw();
+    setTimeout(() => { S.update = 'idle'; draw(); }, 1400);
+  }
+  function updateStatus() {
+    switch (S.update) {
+      case 'checking': return { desc: [spinner(12), ' Checking…'], end: button('Check now', null, { disabled: true }) };
+      case 'ready': return { desc: 'SkillBinder 0.2.0 is ready.', end: [h('a', { class: 'sb-btn sb-btn-sm', onclick: () => toast(win, 'Opens the release page') }, "What's new"), button('Restart', () => toast(win, 'Restarts into 0.2.0'), { primary: true })] };
+      case 'offline': return { desc: "Couldn't check for updates. Check your connection.", end: button('Check now', checkUpdates) };
+      default: return { desc: `Up to date · checked ${S.auto ? '5 minutes ago' : '3 days ago'}`, end: button('Check now', checkUpdates) };
+    }
+  }
+  function gitRow() {
+    if (S.git === 'found') return { desc: 'Syncs your library and updates skills from their sources.', end: value('2.47.1') };
+    if (S.git === 'installing') return { desc: [spinner(12), ' Waiting for the installer to finish…'], end: button('Install Git', null, { disabled: true }) };
+    return { desc: 'Sync and skill updates need Git 2.39 or newer.', end: button('Install Git', () => { S.git = 'installing'; draw(); setTimeout(() => { S.git = 'found'; draw(); }, 1800); }, { primary: true }) };
+  }
+
+  // ---- the model: sections › groups › items. Every item: title, desc, keywords, end. --
+  function sections() {
+    const st = updateStatus();
+    const git = gitRow();
+    const agent = (t) => ({ title: t.name, desc: t.members ? t.members.join(', ') : t.path, mono: !t.members, lead: avatar(t, { size: 20 }),
+      kw: ['agent', 'skill folder'], end: sw(S.agents[t.id], t.name, (on) => {
+        if (!on) { S.agents[t.id] = false; draw(); return; }
+        S.agents[t.id] = true; S.blocked = true; draw();
+        toast(win, `Turning on ${t.name}…`);
+        setTimeout(() => { S.blocked = false; draw(); }, 1200);
+      }) });
+    return [
+      { id: 'general', icon: 'settings', title: 'General', desc: 'How SkillBinder looks.', groups: [
+        { items: [{ title: 'Theme', desc: 'Follow the system, or always use light or dark.', kw: ['appearance', 'dark mode', 'light mode', 'color scheme'],
+          end: select(S.theme, THEMES, 'Theme', (v) => { S.theme = v; draw(); }) }] },
+      ] },
+      { id: 'agents', icon: 'robot', title: 'Agents', desc: 'SkillBinder adds and removes skills only in the agents turned on.', groups: [
+        { items: DATA.targets.map(agent) },
+      ] },
+      { id: 'library', icon: 'libraries', title: 'Library & sync', desc: 'Where your skills live and how they sync.', groups: [
+        { title: 'Library', items: [
+          { title: 'Library folder', desc: '~/Library/Application Support/SkillBinder/library', mono: true, kw: ['path', 'location', 'storage', 'managed library'],
+            end: button('Reveal', () => toast(win, 'Opens the folder in Finder')) },
+          { title: 'Storage', desc: 'SkillBinder can save changes to the library folder.', kw: ['writable', 'permissions', 'disk'], end: value('Writable') },
+        ] },
+        { title: 'Sync', items: [
+          { title: 'Git', desc: git.desc, kw: ['install', 'version', 'command line'], end: git.end },
+          { title: 'Remote', desc: 'Set it up on the Sync page.', kw: ['repository', 'github', 'url', 'push', 'pull'], end: value('Local only') },
+        ] },
+      ] },
+      { id: 'updates', icon: 'refresh-03', title: 'Updates', desc: 'New versions of SkillBinder. Skill updates are on the Library page.', groups: [
+        { items: [
+          { title: 'Version', kw: ['about', 'release', 'build'], end: value('0.1.0') },
+          { title: 'Channel', desc: 'Beta gets new versions first.', kw: ['stable', 'beta', 'release channel'],
+            end: seg([{ id: 'stable', label: 'Stable' }, { id: 'beta', label: 'Beta' }], S.channel, (v) => { S.channel = v; if (S.auto) checkUpdates(); }) },
+          { title: 'Check automatically', desc: 'At launch and every hour.', kw: ['auto update', 'background'], end: sw(S.auto, 'Check automatically', (on) => { S.auto = on; if (on) checkUpdates(); else draw(); }) },
+          { title: 'Status', desc: st.desc, kw: ['check now', 'restart', 'download'], end: st.end },
+        ] },
+      ] },
+      { id: 'troubleshooting', icon: 'alert-circle', title: 'Troubleshooting', desc: 'Help for when something goes wrong.', groups: [
+        { items: [{ title: 'Logs', desc: 'What SkillBinder recorded. Attach them to a bug report.', kw: ['debug', 'diagnostics', 'bug', 'report'],
+          end: button('Reveal logs', () => toast(win, 'Opens the logs folder in Finder')) }] },
+      ] },
+    ];
+  }
+
+  // Kit's SettingItem match: title, description, or keywords contain the query, ignoring case.
+  const textOf = (x) => (Array.isArray(x) ? x.map(textOf).join('') : typeof x === 'string' ? x : '');
+  const matches = (item, q) => !q || [item.title, textOf(item.desc), ...(item.kw || [])].some((s) => s.toLowerCase().includes(q));
+  function filtered() {
+    const q = S.query.trim().toLowerCase();
+    return sections().map((s) => ({ ...s, groups: s.groups.map((g) => ({ ...g, items: g.items.filter((it) => matches(it, q)) })).filter((g) => g.items.length) }));
+  }
+  const hits = (s) => s.groups.reduce((n, g) => n + g.items.length, 0);
+
+  // ---- rendering shared by the variants -------------------------------------------
+  function row(it) {
+    return h('div', { class: 'st-row', 'data-title': it.title },
+      it.lead ? h('div', { class: 'st-row-lead' }, it.lead) : null,
+      h('div', { class: 'st-row-main' }, h('div', { class: 'st-row-title' }, it.title),
+        it.desc ? h('div', { class: `st-row-desc${it.mono ? ' is-mono' : ''}` }, it.desc) : null),
+      h('div', { class: 'st-row-end' }, it.end));
+  }
+  const group = (g) => h('div', { class: 'st-group' }, g.title ? h('div', { class: 'st-group-title' }, g.title) : null, h('div', { class: 'st-card' }, g.items.map(row)));
+  const sectionHead = (s) => h('div', null, h('h2', { class: 'st-h2' }, s.title), h('div', { class: 'st-h2-desc' }, s.desc));
+  const section = (s, head = true) => h('section', { class: 'st-section', id: `st-${s.id}` }, head ? sectionHead(s) : null, s.groups.map(group));
+  const noResults = () => emptyState({ icon: 'search', title: 'No settings found', sub: `Nothing matches “${S.query.trim()}”.` });
+  let focusSearch = false;
+  function search() {
+    const el = searchInput({ placeholder: 'Search settings', value: S.query, onInput: (v) => { S.query = v; focusSearch = true; draw(); } });
+    el.querySelector('input').addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.query) { e.stopPropagation(); S.query = ''; focusSearch = true; draw(); } });
+    return el;
+  }

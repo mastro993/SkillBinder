@@ -1,9 +1,9 @@
-//! Settings › Agents (design S1, S2, P4): a bordered list with one row per Agents row of every
-//! agent found, chosen or not, Universal first. Each row has the logo, the name, the folder or
-//! Universal's agents, and a trailing Kit switch. Turning one on applies the active preset to it
-//! under the progress strip, which keeps every switch disabled until it ends; turning one off saves
-//! at once, and its row reads "Its skills stay in place." in place of its folder until the app
-//! quits. An agent never on keeps its folder line.
+//! Settings › Agents (design S1, S2, P4): one row per Agents row of every agent found, chosen or
+//! not, Universal first. Each row has the logo, the name, the folder or Universal's agents, and a
+//! trailing Kit switch. Turning one on applies the active preset to it under the progress strip,
+//! which keeps every switch disabled until it ends; turning one off saves at once, and its row
+//! reads "Its skills stay in place." in place of its folder until the app quits. An agent never
+//! on keeps its folder line.
 
 #[cfg(test)]
 mod tests;
@@ -12,10 +12,11 @@ use super::super::controls::{agent_detail, reader_logo};
 use super::super::library_copies::{AgentRow, Reader, found_rows, shown_dir};
 use super::super::progress_strip::{Activity, Landing};
 use super::super::{Effect, NativeView};
+use super::catalog::{Group, SettingRow};
 use gpui_kit::component::{Disableable, switch::Switch};
-use gpui_kit::{AnyElement, Context, IntoElement, Styled, px};
+use gpui_kit::{Context, IntoElement, Styled, px};
 use skillbinder_design::tokens::space;
-use skillbinder_design::{AvatarStack, CardList, ListRow, Notice, Text};
+use skillbinder_design::{AvatarStack, Notice};
 use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
@@ -51,21 +52,25 @@ fn row_id(row: &AgentRow) -> String {
 }
 
 impl NativeView {
-    /// The Agents list, or the line saying no agent was found, inside the list frame.
-    pub(super) fn agents_section(&self, cx: &mut Context<Self>) -> AnyElement {
+    /// One row per found agent, or the line saying no agent was found.
+    pub(super) fn agents_groups(&self, cx: &mut Context<Self>) -> Vec<Group> {
         let rows = found_rows(&self.snapshot.agents, &self.snapshot.home);
-        let lines: Vec<ListRow> = rows
+        let rows = rows
             .iter()
             .map(|row| self.agent_switch_row(row, cx))
             .collect();
-        CardList::new("settings-agents")
-            .rows(lines)
-            .empty(Notice::new("settings-agents-none", NONE_FOUND).p(px(space::LG)))
-            .into_any_element()
+        vec![Group {
+            empty: Some(
+                Notice::new("settings-agents-none", NONE_FOUND)
+                    .p(px(space::LG))
+                    .into_any_element(),
+            ),
+            ..Group::new(rows)
+        }]
     }
 
     /// One row: logo, name, folder line, and the switch.
-    fn agent_switch_row(&self, row: &AgentRow, cx: &mut Context<Self>) -> ListRow {
+    fn agent_switch_row(&self, row: &AgentRow, cx: &mut Context<Self>) -> SettingRow {
         let on = chosen(row, &self.snapshot.agents);
         let detail = detail(row, on, &self.agents_turned_off, &self.snapshot.home);
         let mono = matches!(row.reader, Reader::Agent(_)) && detail != TURNED_OFF;
@@ -82,11 +87,14 @@ impl NativeView {
                     view.turn_off_agent(&switched, cx);
                 }
             }));
-        ListRow::new(id.clone())
+        SettingRow::new(id.clone(), row.name.clone())
             .leading(AvatarStack::new([reader_logo(&row.reader)]))
-            .title(Text::labeled(format!("{id}-name"), row.name.clone()).truncate())
-            .subtitle(agent_detail(format!("{id}-detail"), detail, mono, cx))
-            .trailing(toggle)
+            .subtitle(
+                detail.clone(),
+                agent_detail(format!("{id}-detail"), detail, mono, cx),
+            )
+            .keywords(&["agent", "skill folder"])
+            .control(toggle)
     }
 
     /// Turns on the agents of `rows` under the progress strip, which ends in the toast naming

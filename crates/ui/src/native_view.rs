@@ -170,6 +170,7 @@ pub struct NativeView {
     preset_reorder: RowReorder<PresetId>,
     /// Explore's search and the creator it is narrowed to.
     explore: explore::Explore,
+    settings: settings::Settings,
     /// The library folder chosen in the header; none is All skills. Not kept across restarts.
     library_folder: Option<FolderId>,
     /// Library's Active and Updates filters; like the folder, not kept across restarts.
@@ -344,6 +345,7 @@ impl NativeView {
             preset_edit: None,
             preset_reorder: RowReorder::default().pinned(1),
             explore: explore::Explore::new(window, cx),
+            settings: settings::Settings::new(window, cx),
             library_folder: None,
             library_filter: snapshot_query::LibraryFilter::default(),
             library_reveal: None,
@@ -433,7 +435,7 @@ impl Render for NativeView {
                 Route::Agent(id) => self.render_agent(&id.clone(), cx),
                 Route::Universal => self.render_universal(cx),
                 Route::Sync => self.render_sync(cx).into_any_element(),
-                Route::Settings => self.render_settings(cx).into_any_element(),
+                Route::Settings => self.render_settings(cx),
             };
             self.render_shell(page, window, cx)
         };

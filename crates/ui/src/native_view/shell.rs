@@ -203,11 +203,14 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The page under the page header: Library and Explore frame themselves, each with a fixed
-    /// toolbar over its own scrolling content; every other page scrolls whole, a scoped page in
-    /// its own column and the rest inside the page's gutter.
+    /// The page under the page header: Library, Explore, and Settings frame themselves, each
+    /// with a fixed toolbar over its own scrolling content; every other page scrolls whole, a
+    /// scoped page in its own column and the rest inside the page's gutter.
     fn render_content(&self, page: AnyElement, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        if matches!(self.route, Route::Library | Route::Explore) {
+        if matches!(
+            self.route,
+            Route::Library | Route::Explore | Route::Settings
+        ) {
             return vec![
                 div()
                     .id("main-content")

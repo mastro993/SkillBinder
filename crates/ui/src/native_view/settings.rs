@@ -1,91 +1,213 @@
-//! Settings: your agents (design S1, S2), the application's facts and the Git row (S3), then app
-//! updates.
+//! Settings (design `docs/design/settings`, variant B "One page"): a search and a button per
+//! section stay above one scrolling page of every section. Searching hides the rows, groups, and
+//! sections it does not find, and disables the buttons of the hidden sections.
 
 mod agents;
+mod catalog;
+mod general;
+mod library;
 mod updates;
 
 use super::NativeView;
-use super::git_setup::GitButton;
-use gpui_kit::component::{h_flex, v_flex};
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
-use skillbinder_design::tokens::space;
-use skillbinder_design::{Button, KeyValueList, SectionHeader, Text};
-use std::path::PathBuf;
+use catalog::{Group, Section, SettingRow, search};
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::component::{Sizable, h_flex, v_flex};
+use gpui_kit::{
+    AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
+    StatefulInteractiveElement, Styled, Subscription, Window, div, px,
+};
+use skillbinder_design::page::{GAP, GUTTER};
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{
+    Button, CardList, EmptyState, IconSize, ListRow, SearchField, SectionHeader, Text, icon,
+};
+
+/// What Settings keeps while it shows: its search.
+pub(super) struct Settings {
+    search: Entity<InputState>,
+    _search_subscription: Subscription,
+}
+
+impl Settings {
+    pub(super) fn new(window: &mut Window, cx: &mut Context<NativeView>) -> Self {
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search settings"));
+        let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
+            if matches!(event, InputEvent::Change) {
+                cx.notify();
+            }
+        });
+        Self {
+            search,
+            _search_subscription: subscription,
+        }
+    }
+
+    /// Clears the search, as leaving the page does.
+    pub(super) fn leave(&mut self, window: &mut Window, cx: &mut Context<NativeView>) {
+        self.search
+            .update(cx, |input, cx| input.set_value("", window, cx));
+    }
+}
 
 impl NativeView {
-    pub(super) fn render_settings(&mut self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    pub(super) fn render_settings(&mut self, cx: &mut Context<Self>) -> AnyElement {
         // A wait on Git resumes its check when Settings opens again.
         self.watch_git(cx);
-        let bootstrap = &self.snapshot.bootstrap;
-        let remote = self
-            .snapshot
-            .sync
-            .remote
-            .as_ref()
-            .map_or("Local only", |remote| remote.url.as_str());
-        let application = KeyValueList::new("settings-application")
-            .mono("Managed library", bootstrap.library_path.clone())
-            .element("Git", self.git_row(cx))
-            .row(
-                "Storage writable",
-                if bootstrap.storage_writable {
-                    "Yes"
-                } else {
-                    "No"
-                },
-            )
-            .row("Remote", remote.to_owned());
-        div()
-            .flex()
-            .flex_col()
-            .gap(px(space::XL))
-            .child(SectionHeader::new("settings-agents", "Agents"))
-            .child(self.agents_section(cx))
-            .child(SectionHeader::new(
-                "settings-application-header",
-                "Application",
-            ))
-            .child(application)
-            .child(
-                Button::new("reveal-logs")
-                    .label("Reveal logs")
-                    .on_click(cx.listener(|view, _, _, cx| view.reveal_logs(cx))),
-            )
-            .children(self.updates_section(cx))
-    }
-
-    fn reveal_logs(&self, cx: &mut Context<Self>) {
-        cx.reveal_path(&PathBuf::from(&self.snapshot.bootstrap.logs_path));
-    }
-
-    /// Git's version, or "Not installed" with the step's primary action and its status line
-    /// inline, and the package manager's command on Linux (S3).
-    fn git_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let facts = self.git_facts();
-        if let Some(version) = facts.found {
-            return Text::labeled("settings-git", version.to_owned()).into_any_element();
+        let typed = self.settings.search.read(cx).value().trim().to_owned();
+        let shown: Vec<(Section, Vec<Group>)> = Section::ALL
+            .into_iter()
+            .map(|section| (section, search(section, self.groups(section, cx), &typed)))
+            .filter(|(_, groups)| !groups.is_empty())
+            .collect();
+        let found: Vec<Section> = shown.iter().map(|(section, _)| *section).collect();
+        // The sections are the scroll's own children, so a section button scrolls to its index.
+        let mut body: Vec<AnyElement> = shown
+            .into_iter()
+            .map(|(section, groups)| section_block(section, groups))
+            .collect();
+        if body.is_empty() {
+            body.push(
+                EmptyState::new("settings-none", "No settings found")
+                    .icon("search")
+                    .description(format!("Nothing matches “{typed}”."))
+                    .into_any_element(),
+            );
         }
-        let actions = facts.actions();
-        let primary = if actions.install {
-            Some(GitButton::Install)
-        } else {
-            actions.download_primary.then_some(GitButton::Download)
-        };
-        let value = facts.outdated.unwrap_or("Not installed");
+        // The search and the section buttons stay put while the sections scroll under them.
         v_flex()
-            .gap(px(space::SM))
+            .size_full()
+            .px(px(GUTTER))
+            .pt(px(GUTTER))
+            .gap(px(GAP))
             .child(
-                h_flex()
-                    .gap(px(space::MD))
-                    .child(Text::labeled("settings-git", value.to_owned()))
-                    .children(primary.map(|button| self.git_button(button, true, false, cx))),
+                SearchField::new("settings-search", &self.settings.search)
+                    .accessibility_label("Search settings"),
             )
-            .children(self.git_status_line("settings-git-line"))
-            .children(
-                actions
-                    .command
-                    .map(|command| self.git_command_box(command, cx)),
+            .child(self.jump_buttons(&found, cx))
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(
+                        v_flex()
+                            .id("settings-scroll")
+                            .size_full()
+                            .overflow_y_scroll()
+                            .track_scroll(&self.content_scroll.handle)
+                            .gap(px(space::XXXL))
+                            .pb(px(GUTTER))
+                            .children(body),
+                    )
+                    .child(
+                        self.content_scroll
+                            .scrollbar("settings-scrollbar", px(0.), cx),
+                    ),
             )
             .into_any_element()
     }
+
+    /// The groups of `section`, every row in place, before a search narrows them.
+    fn groups(&self, section: Section, cx: &mut Context<Self>) -> Vec<Group> {
+        match section {
+            Section::General => self.general_groups(cx),
+            Section::Agents => self.agents_groups(cx),
+            Section::Library => self.library_groups(cx),
+            Section::Updates => self.updates_groups(cx),
+            Section::Troubleshooting => self.troubleshooting_groups(cx),
+        }
+    }
+
+    /// A ghost button per section, which scrolls its section to the top; a section the search
+    /// hides has its button disabled.
+    fn jump_buttons(&self, found: &[Section], cx: &mut Context<Self>) -> AnyElement {
+        let buttons = Section::ALL.into_iter().map(|section| {
+            let index = found.iter().position(|shown| *shown == section);
+            Button::new(format!("{}-jump", section.id()))
+                .ghost()
+                .small()
+                .icon(icon(section.icon()).with_size(IconSize::Sm))
+                .label(section.title())
+                .inactive(index.is_none())
+                .on_click(cx.listener(move |view, _, _, cx| {
+                    if let Some(index) = index {
+                        view.content_scroll.handle.scroll_to_top_of_item(index);
+                        cx.notify();
+                    }
+                }))
+        });
+        h_flex()
+            .id("settings-sections")
+            .flex_wrap()
+            .gap(px(space::XS))
+            .children(buttons)
+            .into_any_element()
+    }
+}
+
+/// A section: its title and description, then its groups.
+fn section_block(section: Section, groups: Vec<Group>) -> AnyElement {
+    let head = v_flex()
+        .gap(px(space::XXS))
+        .child(
+            Text::labeled(format!("{}-title", section.id()), section.title()).level(text::TITLE_MD),
+        )
+        .child(
+            Text::new(section.description())
+                .level(text::CAPTION)
+                .muted(),
+        );
+    v_flex()
+        .id(section.id())
+        .gap(px(space::LG))
+        .child(head)
+        .children(
+            groups
+                .into_iter()
+                .enumerate()
+                .map(|(index, group)| group_block(format!("{}-{index}", section.id()), group)),
+        )
+        .into_any_element()
+}
+
+/// A group: its title as a section header, then its rows in a card, or what it shows with none.
+fn group_block(id: String, group: Group) -> AnyElement {
+    let Group { title, rows, empty } = group;
+    let rows: Vec<ListRow> = rows.into_iter().map(list_row).collect();
+    let mut card = CardList::new(id.clone()).rows(rows);
+    if let Some(empty) = empty {
+        card = card.empty(empty);
+    }
+    v_flex()
+        .gap(px(space::SM))
+        .children(title.map(|title| SectionHeader::new(format!("{id}-title"), title)))
+        .child(card)
+        .into_any_element()
+}
+
+/// One setting as a list row: its title, its line, what sits under them, and its control.
+fn list_row(row: SettingRow) -> ListRow {
+    let SettingRow {
+        id,
+        title,
+        detail,
+        subtitle,
+        keywords: _,
+        leading,
+        under,
+        control,
+    } = row;
+    let mut line = ListRow::new(id.clone()).title(Text::labeled(format!("{id}-title"), title));
+    if let Some(leading) = leading {
+        line = line.leading(leading);
+    }
+    match (subtitle, detail) {
+        (Some(subtitle), _) => line = line.subtitle(subtitle),
+        (None, Some(detail)) => line = line.subtitle(Text::labeled(format!("{id}-detail"), detail)),
+        (None, None) => {}
+    }
+    if let Some(control) = control {
+        line = line.trailing(control);
+    }
+    line.children(under)
 }

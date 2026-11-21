@@ -43,6 +43,7 @@ impl NativeView {
             self.search
                 .update(cx, |input, cx| input.set_value("", window, cx));
             self.explore.leave(window, cx);
+            self.settings.leave(window, cx);
             if let Route::Skill(id) = &route {
                 self.load_skill(id.clone(), cx);
                 if self.is_new(id) {

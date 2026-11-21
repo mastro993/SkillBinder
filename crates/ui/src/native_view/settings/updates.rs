@@ -1,5 +1,5 @@
 //! Settings › Updates (spec rules 18, 19, 24): the running version in tabular figures, the
-//! channel as Kit's segmented control, the Check automatically switch, and one status line with
+//! channel as Kit's segmented control, the Check automatically switch, and the status line with
 //! its action at the row's end: Check now, Restart for a ready update, or Download for one this
 //! copy can't install. Copy always names SkillBinder: "update" alone means a skill update.
 
@@ -9,12 +9,13 @@ mod tests;
 use super::super::NativeView;
 use super::super::app_update_notice::reason_line;
 use super::super::library_dates::{from_unix, relative};
+use super::catalog::{Group, SettingRow};
 use chrono::Utc;
 use gpui_kit::component::tab::{Tab, TabBar};
-use gpui_kit::component::{h_flex, switch::Switch, v_flex};
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, px};
+use gpui_kit::component::{h_flex, switch::Switch};
+use gpui_kit::{Context, IntoElement, ParentElement, Styled, px};
 use skillbinder_design::tokens::{space, text};
-use skillbinder_design::{Button, IconSize, KeyValueList, SectionHeader, Spinner, Text};
+use skillbinder_design::{Button, IconSize, Spinner, Text};
 use skillbinder_proto::{AppUpdateSnapshot, AppUpdateState, Channel, CheckFailure};
 
 const CHANNELS: [(Channel, &str); 2] = [(Channel::Stable, "Stable"), (Channel::Beta, "Beta")];
@@ -129,32 +130,41 @@ fn whats_new(notes_url: String) -> Button {
 }
 
 impl NativeView {
-    /// The Updates header and its list.
-    pub(super) fn updates_section(&self, cx: &mut Context<Self>) -> [AnyElement; 2] {
+    /// Version, Channel, Check automatically in a build with the release stamp, and Status.
+    pub(super) fn updates_groups(&self, cx: &mut Context<Self>) -> Vec<Group> {
         let update = &self.snapshot.app_update;
         let now = u64::try_from(Utc::now().timestamp()).unwrap_or_default();
-        let mut list = KeyValueList::new("settings-updates")
-            .element(
-                "Version",
-                Text::labeled("settings-version", update.current.to_string()).tabular(),
-            )
-            .element("Channel", self.channel_control(update, cx));
+        let version = SettingRow::new("settings-version-row", "Version")
+            .keywords(&["about", "release", "build"])
+            .fact("settings-version", update.current.to_string());
+        let channel = SettingRow::new("settings-channel-row", "Channel")
+            .detail("Beta gets new versions first.")
+            .keywords(&["stable", "beta", "release channel"])
+            .under(channel_line(update).map(|line| {
+                Text::labeled("settings-channel-line", line)
+                    .level(text::CAPTION)
+                    .muted()
+                    .into_any_element()
+            }))
+            .control(self.channel_control(update, cx));
+        let mut rows = vec![version, channel];
         if update.state != AppUpdateState::Off {
             let auto_check = Switch::new("settings-auto-check")
                 .checked(update.auto_check)
                 .accessibility_label("Check automatically")
                 .on_click(cx.listener(|view, on: &bool, _, cx| view.set_auto_check(*on, cx)));
-            // The row's cell stretches its child, so the switch keeps its own width in a row.
-            list = list.element("Check automatically", h_flex().child(auto_check));
+            rows.push(
+                SettingRow::new("settings-auto-check-row", "Check automatically")
+                    .detail("At launch and every hour.")
+                    .keywords(&["automatic updates", "background"])
+                    .control(auto_check),
+            );
         }
-        let list = list.element("Status", self.status_row(&status(update, now), cx));
-        [
-            SectionHeader::new("settings-updates-header", "Updates").into_any_element(),
-            list.into_any_element(),
-        ]
+        rows.push(self.status_setting(&status(update, now), cx));
+        vec![Group::new(rows)]
     }
 
-    fn channel_control(&self, update: &AppUpdateSnapshot, cx: &mut Context<Self>) -> AnyElement {
+    fn channel_control(&self, update: &AppUpdateSnapshot, cx: &mut Context<Self>) -> TabBar {
         let chosen = CHANNELS
             .iter()
             .position(|(channel, _)| *channel == update.channel)
@@ -165,7 +175,7 @@ impl NativeView {
                 .cursor_pointer()
                 .child(Text::new(label).level(text::LABEL_SM))
         });
-        let segmented = TabBar::new("settings-channel")
+        TabBar::new("settings-channel")
             .segmented()
             .flex_none()
             .selected_index(chosen)
@@ -174,29 +184,16 @@ impl NativeView {
                 if let Some(&(channel, _)) = CHANNELS.get(*index) {
                     view.set_update_channel(channel, cx);
                 }
-            }));
-        v_flex()
-            .items_start()
-            .gap(px(space::SM))
-            .child(segmented)
-            .children(
-                channel_line(update)
-                    .map(|line| Text::labeled("settings-channel-line", line).muted()),
-            )
-            .into_any_element()
+            }))
     }
 
-    /// The status line, with a muted line under it, and its action at the row's end.
-    fn status_row(&self, status: &Status, cx: &mut Context<Self>) -> AnyElement {
+    /// Status: its line under the title, a spinner leading it while checking, the reason under
+    /// it, and its actions at the row's end.
+    fn status_setting(&self, status: &Status, cx: &mut Context<Self>) -> SettingRow {
         let line = h_flex()
             .gap(px(space::SM))
             .children(status.spinner.then(|| Spinner::new(IconSize::Sm)))
             .child(Text::labeled("settings-update-status", status.line.clone()));
-        let text = v_flex().gap(px(space::XS)).child(line).children(
-            status
-                .detail
-                .map(|detail| Text::labeled("settings-update-detail", detail).muted()),
-        );
         let actions = h_flex().gap(px(space::MD)).flex_none();
         let actions = match &status.action {
             Action::None => actions,
@@ -222,13 +219,16 @@ impl NativeView {
                 .child(self.restart_button("settings-restart", cx.entity().downgrade()))
                 .child(whats_new(notes_url.clone())),
         };
-        h_flex()
-            .justify_between()
-            .items_center()
-            .gap(px(space::LG))
-            .child(text)
-            .child(actions)
-            .into_any_element()
+        SettingRow::new("settings-status-row", "Status")
+            .subtitle(status.line.clone(), line)
+            .keywords(&["check now", "restart", "download", "what's new"])
+            .under(status.detail.map(|detail| {
+                Text::labeled("settings-update-detail", detail)
+                    .level(text::CAPTION)
+                    .muted()
+                    .into_any_element()
+            }))
+            .control(actions)
     }
 
     fn set_update_channel(&mut self, channel: Channel, cx: &mut Context<Self>) {
