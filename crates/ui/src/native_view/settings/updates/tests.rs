@@ -14,6 +14,7 @@ fn update(current: &str, channel: Channel, state: AppUpdateState) -> AppUpdateSn
         state,
         last_checked: None,
         outside_applications: false,
+        offer_applications_menu: false,
         updated: None,
     }
 }

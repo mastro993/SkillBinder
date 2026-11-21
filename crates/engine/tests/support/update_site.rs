@@ -1,7 +1,7 @@
 //! An isolated device whose app update site is a fixture directory laid out like the catalog's,
 //! signed with a key made for the test. Each published version's archive is
 //! `downloads/<version>`, holding `build <version>`, which an installed fixture bundle stages as
-//! its executable, and a Windows fixture as its setup program.
+//! its executable, a Windows fixture as its setup program, and a Linux fixture as its AppImage.
 #![allow(dead_code, reason = "Each test crate uses part of the fixture.")]
 
 use minisign::KeyPair;
@@ -32,6 +32,8 @@ pub struct Fixture {
     pub bundle: Option<PathBuf>,
     /// The running Windows executable, if the app runs from one.
     pub executable: Option<PathBuf>,
+    /// The running AppImage, if the app runs as one.
+    pub appimage: Option<PathBuf>,
     /// What the archives hold.
     pub payload: UpdatePayload,
 }
@@ -51,6 +53,7 @@ impl Fixture {
             current: current.parse().unwrap(),
             bundle: None,
             executable: None,
+            appimage: None,
             payload: UpdatePayload::Executable,
         }
     }
@@ -85,6 +88,19 @@ impl Fixture {
         fixture
     }
 
+    /// A Linux device running `current` as an AppImage in `~/Applications`. Its archives are
+    /// AppImages.
+    pub fn appimage(current: &str) -> Self {
+        let mut fixture = Self::new(current);
+        let folder = fixture.home.join("Applications");
+        fs::create_dir_all(&folder).unwrap();
+        let appimage = folder.join(format!("skillbinder-{current}-x86_64.AppImage"));
+        fs::write(&appimage, format!("build {current}")).unwrap();
+        fixture.appimage = Some(appimage);
+        fixture.payload = UpdatePayload::AppImage;
+        fixture
+    }
+
     pub fn applications(&self) -> PathBuf {
         self.root.join("Applications")
     }
@@ -94,6 +110,7 @@ impl Fixture {
         config.app_version = self.current;
         config.placement.bundle = self.bundle.clone();
         config.placement.executable = self.executable.clone();
+        config.placement.appimage = self.appimage.clone();
         config.placement.applications = self.applications();
         config.app_update = Some(UpdateSource {
             site: CatalogSource::Directory(self.site.clone()),

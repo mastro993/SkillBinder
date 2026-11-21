@@ -5,9 +5,11 @@
 //! automatic-check switch, the last check, and the staged version are device settings; this
 //! module holds them in memory for snapshots. It also finds where the app sits, and on macOS
 //! moves it into Applications (ADR 0019). On Windows the update is the setup program, run
-//! silently at quit.
+//! silently at quit. On Linux it is the AppImage, and the app offers once to add itself to the
+//! applications menu.
 
 mod check;
+mod desktop_entry;
 mod download;
 mod install;
 mod location;
@@ -101,6 +103,9 @@ struct Shared {
     location: Location,
     /// What to start at quit once Move to Applications has moved the app.
     relaunch: Option<Relaunch>,
+    /// Linux: the app runs as an AppImage and hasn't asked yet to add itself to the applications
+    /// menu.
+    offer_menu: bool,
 }
 
 impl Shared {
@@ -155,6 +160,7 @@ impl AppUpdates {
             updated: None,
             location: location::locate(&placement, &downloads),
             relaunch: None,
+            offer_menu: false,
         };
         Self {
             shared: Arc::new(Mutex::new(shared)),
@@ -179,7 +185,24 @@ impl AppUpdates {
             state: shared.state.clone(),
             last_checked: shared.last_checked,
             outside_applications: matches!(shared.location, Location::OutsideApplications(_)),
+            offer_applications_menu: shared.offer_menu,
             updated: shared.updated.clone(),
+        })
+    }
+
+    /// Writes the applications-menu entry and icon pointing at the running AppImage (spec rule
+    /// 23). A failure is logged.
+    pub(crate) fn add_to_applications_menu(&self) -> AppResult<()> {
+        let Some(appimage) = &self.placement.appimage else {
+            return Err(AppError::validation(
+                "SkillBinder isn't running as an AppImage.",
+            ));
+        };
+        desktop_entry::write(appimage, &self.placement.data_home).map_err(|error| {
+            self.log.record(format!(
+                "Couldn't add SkillBinder to the applications menu: {error}"
+            ));
+            AppError::storage()
         })
     }
 

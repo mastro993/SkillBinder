@@ -84,6 +84,13 @@ impl Client {
     pub async fn move_to_applications(&self) -> AppResult<()> {
         self.shared.engine.move_to_applications().await
     }
+    /// Answers the offer to add SkillBinder to the applications menu once (spec rule 23): `add`
+    /// writes the menu entry.
+    pub async fn answer_applications_menu(&self, add: bool) -> AppResult<()> {
+        self.shared.engine.answer_applications_menu(add).await?;
+        self.shared.publish_app_update();
+        Ok(())
+    }
     /// Checks in the background when `trigger` checks; the progress poll shows it checking, and
     /// its result is published as soon as it ends.
     fn check_on(&self, trigger: Trigger) {

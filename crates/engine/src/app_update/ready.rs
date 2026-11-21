@@ -1,7 +1,8 @@
 //! A ready app update (spec rules 5–8, 12, 17): downloaded into `<data>/updates/<version>/`,
-//! staged beside the installed app, or for the Windows setup program in `<data>/updates`, restored
-//! at launch while it is newer than the running version, and installed at quit: by renames, which
-//! the next launch cleans up after, or by the setup program run silently.
+//! staged beside the installed bundle or AppImage, or for the Windows setup program in
+//! `<data>/updates`, restored at launch while it is newer than the running version, and installed
+//! at quit: by renames, which the next launch cleans up after, or by the setup program run
+//! silently.
 
 use super::{
     AppUpdates, Ended, QuitCause, Relaunch, Staged,
@@ -169,9 +170,14 @@ impl AppUpdates {
         relaunch
     }
 
-    /// Puts the staged bundle in place of the installed `bundle`, logging how it went.
+    /// Puts the staged bundle or AppImage in place of the installed `bundle`, logging how it went.
     fn swap_in(&self, staged: &Staged, bundle: &Path) {
-        let old = bundle.with_file_name(format!("{OLD}{}.app", self.current));
+        // Set aside under its own extension: `.app` for a bundle, `.AppImage` for an AppImage.
+        let extension = bundle
+            .extension()
+            .map(|extension| format!(".{}", extension.to_string_lossy()))
+            .unwrap_or_default();
+        let old = bundle.with_file_name(format!("{OLD}{}{extension}", self.current));
         let version = staged.offer.version;
         match swap(&staged.bundle, bundle, &old) {
             Ok(()) => self.log.record(format!("Installed SkillBinder {version}.")),

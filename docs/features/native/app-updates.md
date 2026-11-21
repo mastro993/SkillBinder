@@ -1,6 +1,6 @@
 # App updates in place
 
-A newer SkillBinder on the user's channel downloads in the background, waits beside the installed app or, on Windows, in application data, and installs when the app quits ([spec](../../specs/app-updates.md) rules 5–14, 17, 22; ADR 0017, ADR 0018, ADR 0019). Checks, the channel, Settings › Updates, and the download-only notice are in [Settings](settings-agents.md#settings--updates); the architecture is in [Native app updates](../../architecture/native-app-updates.md).
+A newer SkillBinder on the user's channel downloads in the background, waits beside the installed app or, on Windows, in application data, and installs when the app quits ([spec](../../specs/app-updates.md) rules 5–14, 17, 22, 23; ADR 0017, ADR 0018, ADR 0019). Checks, the channel, Settings › Updates, and the download-only notice are in [Settings](settings-agents.md#settings--updates); the architecture is in [Native app updates](../../architecture/native-app-updates.md).
 
 ## Per platform
 
@@ -11,8 +11,9 @@ A newer SkillBinder on the user's channel downloads in the background, waits bes
 | macOS, Applications folder the user can't write | Download-only: "SkillBinder can't write to its folder." |
 | Windows, installed by the setup program | Downloads and verifies the newer setup program, and runs it silently at quit or Restart. |
 | Windows, any other copy (no `unins000.exe` beside `skillbinder.exe`) | Download-only: "This copy wasn't installed by the SkillBinder installer." |
-| Linux | Download-only: "Download it from the release page." Slice S5 adds in-place updates. |
-| Development build (no bundle) | Download-only, "Download it from the release page.", or the Windows line above. An unstamped build never checks. |
+| Linux, as an AppImage in a folder the user can write | Downloads and verifies the newer AppImage, stages it beside the running one, and swaps it in at quit or Restart. |
+| Linux, as an AppImage in a folder the user can't write | Download-only: "SkillBinder can't write to its folder." |
+| Development build (no bundle, and on Linux no `$APPIMAGE`) | Download-only, "Download it from the release page.", or the Windows line above. An unstamped build never checks. |
 
 ## Download and staging (macOS)
 
@@ -41,6 +42,14 @@ A check that finds a newer version downloads its setup program into `<data>/upda
 
 At quit, once the engine drained, the app starts the staged program detached: `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WAITPID=<pid>`, plus `/RELAUNCH=1` after Restart, and exits. Setup waits up to 60 seconds for that process to exit, installs over the old version, keeping the Start menu entry and the uninstaller, and opens the new version only after Restart. While the app still runs after the wait, setup ends without changing anything, and the next launch offers the update again; once the new version runs, a launch removes the staged program: the first one after Quit, but after Restart the one after that, since setup is still running when it opens the new version and Windows won't delete a running program. If the program does not start, the failure is logged, and Restart opens the running version again. A quit caused by logging off or shutting down (`SM_SHUTTINGDOWN`) starts nothing, since Windows could end setup halfway; the update stays ready and installs at the next quit.
 
+## Linux
+
+The release is one AppImage, `skillbinder-<version>-x86_64.AppImage` ([releases](../../release.md)). Its runtime names the file in `$APPIMAGE`, and that file is what an update replaces, wherever the user keeps it, `~/Applications` included. Without `$APPIMAGE`, as in a development build, the copy is NotInstalled; in a folder the user can't write, it is NotWritable. Both are download-only.
+
+A check that finds a newer version downloads its AppImage with the same size and SHA-256 checks as the other platforms; the signed manifest is the only proof of the publisher. The verified file is copied beside the running one as `.skillbinder-update-<version>`, marked executable (0755), and the update is ready, with the same notice, Settings row, Restart, Dismiss, and channel rules as on macOS. At quit the running AppImage is renamed to `.skillbinder-old-<running version>.AppImage` and the staged one to its name, renaming back if the second rename fails; Linux lets a running file be renamed, as the running app keeps the old file open through its mount. After Restart the app releases its instance lock and starts the file at `$APPIMAGE`, the new version. The next launch removes the old file. The file keeps its name, which still names the version first downloaded, so the applications-menu entry keeps working.
+
+The first launch as an AppImage asks once whether to add SkillBinder to the applications menu (see [Setup and shell](setup-and-shell.md)). Add writes `skillbinder.desktop` under `$XDG_DATA_HOME/applications`, or `~/.local/share/applications`, with `Exec` set to the quoted `$APPIMAGE` path and `StartupWMClass=skillbinder`, the window's app id, so the dock groups the window under it; the 32-pixel icon goes to `icons/hicolor/32x32/apps/skillbinder.png` beside it. Each file is written beside its place and renamed into it. Either answer is saved as the device setting `applications_menu_added`, and the app never asks again; there is no Settings row to ask again (A10).
+
 ## After an update
 
 The first launch of a version newer than the last one that ran shows the change toast "Updated to SkillBinder 0.2.0" with Release notes, which opens the release page the manifest named, or the GitHub release page of that version. It shows once, after onboarding. A first launch with no earlier version recorded shows none.
@@ -48,5 +57,7 @@ The first launch of a version newer than the last one that ran shows the change 
 ## Verification
 
 Domain tests run on every platform with a fixture bundle whose archive is its executable and nothing signed (`UpdatePayload::Executable`): a wrong SHA-256 is discarded (AC3.1), quit swaps the bundle, a failed second rename restores it, and the next launch cleans up (AC3.2), a newer manifest replaces the staged bundle and a switch to Stable discards a staged beta (AC3.3). On macOS a test also stages a real disk image and sees `codesign` refuse its unsigned bundle and the image detach. The packaged checks AC3.5 to AC3.7 need two notarized builds and are recorded in the [native gate](../../native-gate.md) when run.
+
+Linux domain tests run on every Unix with AppImages that are only text (`UpdatePayload::AppImage`): the staged file is executable and swaps in at Restart, the next launch removes the old one, an AppImage in a read-only folder is NotWritable and a copy without `$APPIMAGE` NotInstalled (AC5.3), and Add writes the entry and icon under the fixture's `~/.local/share` while either answer is never asked again (AC5.2). The packaged checks AC5.1 and AC5.4 need Ubuntu 22.04 and 24.04 and two AppImages, and are recorded in the native gate when run.
 
 Windows domain tests run on every platform too, with a fixture `skillbinder.exe` and setup programs that are only text (`UpdatePayload::Setup`): a copy without `unins000.exe` is download-only (NotInstalled), a staged setup program waits in application data across launches, the silent command line always waits for the app and relaunches only after Restart, a quit as the session ends starts nothing, and a setup program that does not start reopens the app after Restart (AC4.2). The packaged checks AC4.1 and AC4.3 need a Windows machine and two setup programs, and are recorded in the native gate when run.
