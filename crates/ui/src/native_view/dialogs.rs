@@ -53,7 +53,7 @@ impl NativeView {
                         .on_ok(|_, _, _| false)
                         .on_close(move |_, _, cx| {
                             let _ = close_view.update(cx, |view, cx| {
-                                view.dialog = DialogState::None;
+                                view.clear_dialog(cx);
                                 cx.notify();
                             });
                         })
@@ -79,9 +79,18 @@ impl NativeView {
 
     pub(super) fn dismiss_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.dialog_locked() {
-            self.dialog = DialogState::None;
+            self.clear_dialog(cx);
             window.close_dialog(cx);
             cx.notify();
+        }
+    }
+
+    /// Forgets the closed dialog. Closing the applications-menu offer, by any route, answers it
+    /// as Not now.
+    fn clear_dialog(&mut self, cx: &mut Context<Self>) {
+        let closed = std::mem::replace(&mut self.dialog, DialogState::None);
+        if matches!(closed, DialogState::ApplicationsMenu { .. }) {
+            self.answer_applications_menu(false, cx);
         }
     }
 
@@ -153,6 +162,9 @@ impl NativeView {
             }
             DialogState::MoveToApplications { failed } => {
                 self.move_to_applications_dialog(dialog, *failed, cx)
+            }
+            DialogState::ApplicationsMenu { failed } => {
+                self.applications_menu_dialog(dialog, *failed, cx)
             }
         }
     }

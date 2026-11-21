@@ -1,5 +1,6 @@
 //! Packages a release build into `dist/<target>/`: a macOS app and DMG, a Windows setup program,
-//! or a Linux tarball, named after the workspace version (docs/release.md).
+//! or a Linux AppImage, named after the workspace version (docs/release.md).
+mod linux;
 mod macos;
 mod windows;
 
@@ -35,31 +36,7 @@ pub(crate) fn package(root: &Path, target: Option<&str>) -> anyhow::Result<()> {
     if cfg!(windows) {
         return windows::package(root, &binary, &output, &name, &version);
     }
-    let directory = output.join("SkillBinder");
-    fs::create_dir_all(&directory)?;
-    fs::copy(binary, directory.join(executable))?;
-    licenses(root, &directory)?;
-    fs::copy(
-        root.join("assets/icon.png"),
-        directory.join("skillbinder.png"),
-    )?;
-    fs::write(
-        directory.join("skillbinder.desktop"),
-        "[Desktop Entry]\nType=Application\nName=SkillBinder\nComment=Manage a local library of agent skills\nExec=skillbinder\nIcon=skillbinder\nStartupWMClass=skillbinder\nTerminal=false\nCategories=Development;Utility;\n",
-    )?;
-    fs::write(
-        directory.join("INSTALL.txt"),
-        "Place skillbinder on PATH. Copy skillbinder.desktop to ~/.local/share/applications/ and skillbinder.png to ~/.local/share/icons/. The application needs a working X11 or Wayland desktop and a directory-selection portal.\n",
-    )?;
-    let archive = output.join(format!("{name}.tar.gz"));
-    run(Command::new("tar")
-        .arg("-czf")
-        .arg(&archive)
-        .arg("-C")
-        .arg(&output)
-        .arg("SkillBinder"))?;
-    println!("Packaged {}", archive.display());
-    Ok(())
+    linux::package(root, &binary, &output, &triple, &version)
 }
 fn licenses(root: &Path, destination: &Path) -> anyhow::Result<()> {
     for name in ["LICENSE", "THIRD_PARTY_NOTICES.md"] {

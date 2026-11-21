@@ -98,6 +98,26 @@ jobs:
           $setup = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/CURRENTUSER', "/DIR=$folder" -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Inno Setup's installer exited with $($setup.ExitCode)" }
           Add-Content -Path $env:GITHUB_PATH -Value $folder
+      # The pinned appimagetool builds the AppImage around the pinned static type 2 runtime, so the
+      # AppImage needs no libfuse2. Both are checked against their release's SHA-256, and the tool
+      # extracts itself to run, as the runner has no FUSE.
+      - name: Install appimagetool
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGETOOL_VERSION: 1.9.1
+          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+          RUNTIME_VERSION: "20251108"
+          RUNTIME_SHA256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+        run: |
+          tools="$RUNNER_TEMP/appimage"
+          mkdir -p "$tools"
+          curl -fsSL --retry 3 -o "$tools/appimagetool" "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage"
+          curl -fsSL --retry 3 -o "$tools/runtime-x86_64" "https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_VERSION/runtime-x86_64"
+          printf '%s  %s\n' "$APPIMAGETOOL_SHA256" "$tools/appimagetool" "$RUNTIME_SHA256" "$tools/runtime-x86_64" | sha256sum --check --strict
+          chmod +x "$tools/appimagetool"
+          echo "$tools" >> "$GITHUB_PATH"
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
+          echo "SKILLBINDER_APPIMAGE_RUNTIME=$tools/runtime-x86_64" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.target }}
@@ -183,6 +203,6 @@ jobs:
           path: |
             dist/${{ matrix.target }}/*.dmg
             dist/${{ matrix.target }}/*-setup.exe
-            dist/${{ matrix.target }}/*.tar.gz
+            dist/${{ matrix.target }}/*.AppImage
           if-no-files-found: error
           retention-days: 3

@@ -77,11 +77,12 @@ impl EngineConfig {
     pub fn platform() -> AppResult<Self> {
         let dirs = directories::BaseDirs::new().ok_or_else(AppError::storage)?;
         let base = url::Url::parse(BASE_URL).map_err(|_| AppError::storage())?;
+        let environment: BTreeMap<_, _> = std::env::vars().collect();
         Ok(Self {
-            placement: AppPlacement::platform(dirs.home_dir()),
+            placement: AppPlacement::platform(dirs.home_dir(), &environment),
             data_dir: dirs.data_local_dir().join("SkillBinder"),
             home: dirs.home_dir().to_path_buf(),
-            environment: std::env::vars().collect(),
+            environment,
             git: GitProfile::User,
             git_search: GitSearch::System,
             catalog: CatalogSource::Http(base.clone()),
@@ -93,6 +94,8 @@ impl EngineConfig {
                 public_key: RELEASE_KEY.to_owned(),
                 payload: if cfg!(windows) {
                     UpdatePayload::Setup
+                } else if cfg!(target_os = "linux") {
+                    UpdatePayload::AppImage
                 } else {
                     UpdatePayload::DiskImage {
                         team: TEAM.to_owned(),
@@ -105,9 +108,9 @@ impl EngineConfig {
     /// `home`'s configuration, so a fixture never reaches the user's credentials or identity, and
     /// the catalog comes from `<data_dir>/catalog-source`, which is missing, so offline, until a
     /// fixture writes it. Repositories may be local `file://` ones. App updates are off until a
-    /// fixture names a source. No bundle or setup-installed executable runs, and Move to
+    /// fixture names a source. No bundle, setup-installed executable, or AppImage runs, Move to
     /// Applications would use the fixture's `<data_dir>/fixture-applications` and
-    /// `<home>/Applications`.
+    /// `<home>/Applications`, and the applications menu is under `<home>/.local/share`.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
             placement: AppPlacement {
@@ -115,6 +118,8 @@ impl EngineConfig {
                 executable: None,
                 applications: data_dir.join("fixture-applications"),
                 user_applications: home.join("Applications"),
+                appimage: None,
+                data_home: home.join(".local/share"),
             },
             catalog: CatalogSource::Directory(data_dir.join("catalog-source")),
             data_dir,

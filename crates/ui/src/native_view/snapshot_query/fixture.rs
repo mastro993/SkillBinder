@@ -95,6 +95,7 @@ impl Fixture {
                     state: AppUpdateState::Off,
                     last_checked: None,
                     outside_applications: false,
+                    offer_applications_menu: false,
                     updated: None,
                 },
             },

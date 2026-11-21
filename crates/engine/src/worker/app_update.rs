@@ -56,6 +56,12 @@ impl Engine {
             .map_err(|_| AppError::storage())?;
         moved.await.map_err(|_| AppError::storage())?
     }
+    /// Answers the offer to add SkillBinder to the applications menu (spec rule 23): `add` writes
+    /// the menu entry. Either answer is remembered.
+    pub async fn answer_applications_menu(&self, add: bool) -> AppResult<()> {
+        self.call(move |state| state.answer_applications_menu(add))
+            .await
+    }
     /// Restart: opens the app again once it quits and installs the ready app update.
     pub fn request_restart(&self) -> AppResult<()> {
         self.owner.app_updates.request_restart()

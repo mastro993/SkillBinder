@@ -25,12 +25,13 @@ pub(crate) fn parse_launch(
     let mut updates = None;
     let mut version = None;
     let mut bundle = None;
+    let mut appimage = None;
     let mut mode = NativeMode::Interactive;
     while let Some(argument) = args.next() {
         match argument.to_str() {
             Some(
                 "--data-dir" | "--home" | "--git-dir" | "--catalog-dir" | "--update-dir"
-                | "--app-version" | "--app-bundle",
+                | "--app-version" | "--app-bundle" | "--appimage",
             ) => {
                 let value = args.next().ok_or_else(|| {
                     anyhow::anyhow!("Missing value for {}", argument.to_string_lossy())
@@ -53,6 +54,7 @@ pub(crate) fn parse_launch(
                     Some("--update-dir") => &mut updates,
                     Some("--app-version") => &mut version,
                     Some("--app-bundle") => &mut bundle,
+                    Some("--appimage") => &mut appimage,
                     _ => &mut catalog,
                 };
                 ensure!(
@@ -117,6 +119,11 @@ pub(crate) fn parse_launch(
     // Applications; Move copies into the fixture's Applications folders.
     if let Some(bundle) = bundle {
         config.placement.bundle = Some(resolved_path(&bundle)?);
+    }
+    // The app runs as this AppImage, such as `<home>/Applications/skillbinder.AppImage`, to see
+    // the applications-menu offer, which Add answers under `<home>/.local/share`.
+    if let Some(appimage) = appimage {
+        config.placement.appimage = Some(resolved_path(&appimage)?);
     }
     Ok((config, mode))
 }
@@ -187,6 +194,13 @@ mod tests {
                 .0
                 .placement
                 .bundle,
+            Some(resolved_path(&bundle)?)
+        );
+        assert_eq!(
+            parse(&["--data-dir", fixture, "--appimage", bundle_arg])?
+                .0
+                .placement
+                .appimage,
             Some(resolved_path(&bundle)?)
         );
         for args in [

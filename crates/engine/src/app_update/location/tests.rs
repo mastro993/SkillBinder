@@ -14,6 +14,8 @@ fn placement(root: &Path) -> AppPlacement {
         executable: None,
         applications: root.join("Applications"),
         user_applications: root.join("me/Applications"),
+        appimage: None,
+        data_home: root.join("me/.local/share"),
     }
 }
 
@@ -176,4 +178,72 @@ fn a_windows_executable_is_installed_only_beside_its_uninstaller() {
         }
     );
     assert_eq!(location.staging(), Ok(downloads.as_path()));
+}
+
+#[test]
+fn only_an_appimage_is_installed_on_linux() {
+    let root = tempfile::tempdir().unwrap();
+    let downloads = root.path().join("data/updates");
+    assert_eq!(
+        locate(&placement(root.path()), &downloads),
+        Location::NotInstalled,
+        "without $APPIMAGE"
+    );
+    let folder = root.path().join("me/Applications");
+    fs::create_dir_all(&folder).unwrap();
+    let appimage = folder.join("skillbinder-0.1.0-x86_64.AppImage");
+    let placement = AppPlacement {
+        appimage: Some(appimage.clone()),
+        ..placement(root.path())
+    };
+    let location = locate(&placement, &downloads);
+    assert_eq!(location, Location::Installed(appimage));
+    assert_eq!(location.staging(), Ok(folder.as_path()));
+}
+
+#[cfg(unix)]
+#[test]
+fn an_appimage_in_a_read_only_folder_is_not_writable() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = tempfile::tempdir().unwrap();
+    let folder = root.path().join("opt");
+    fs::create_dir(&folder).unwrap();
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o555)).unwrap();
+    if persistence::writable(&folder) {
+        // Permissions don't bind this user, such as root in a container.
+        return;
+    }
+    let placement = AppPlacement {
+        appimage: Some(folder.join("skillbinder-0.1.0-x86_64.AppImage")),
+        ..placement(root.path())
+    };
+    let location = locate(&placement, &root.path().join("data/updates"));
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(location, Location::NotWritable);
+    assert_eq!(location.staging(), Err(CannotInstall::NotWritable));
+}
+
+#[test]
+fn the_appimage_and_data_home_come_from_the_environment() {
+    let home = Path::new("/home/me");
+    let environment = |pairs: &[(&str, &str)]| {
+        pairs
+            .iter()
+            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+            .collect()
+    };
+    let unset = AppPlacement::platform(home, &environment(&[("APPIMAGE", "relative")]));
+    assert_eq!(unset.appimage, None);
+    assert_eq!(unset.data_home, home.join(".local/share"));
+    let set = AppPlacement::platform(
+        home,
+        &environment(&[
+            ("APPIMAGE", "/home/me/Applications/skillbinder.AppImage"),
+            ("XDG_DATA_HOME", "/home/me/data"),
+        ]),
+    );
+    let appimage = cfg!(target_os = "linux")
+        .then(|| PathBuf::from("/home/me/Applications/skillbinder.AppImage"));
+    assert_eq!(set.appimage, appimage);
+    assert_eq!(set.data_home, PathBuf::from("/home/me/data"));
 }

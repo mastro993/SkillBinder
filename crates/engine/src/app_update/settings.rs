@@ -1,5 +1,6 @@
 //! The device settings app updates keep: the channel, the automatic-check switch, the last check,
-//! the staged version, and the version that last ran.
+//! the staged version, the version that last ran, and on Linux the answer to the applications-menu
+//! offer.
 
 use super::{check::LastCheck, manifest::Offer};
 use crate::worker::State;
@@ -11,6 +12,9 @@ pub(super) const LAST_CHECK: &str = "update_last_check";
 const LAST_RUN: &str = "last_run_version";
 /// The staged update, saved so a relaunch shows it ready.
 const READY: &str = "update_ready";
+/// Whether Add to the applications menu was chosen; Not now saves `false`. Either is never asked
+/// again (spec rule 23, A10).
+const MENU: &str = "applications_menu_added";
 /// Where a version's release notes are, when no manifest named them.
 const RELEASES: &str = "https://github.com/mastro993/SkillBinder/releases/tag/v";
 
@@ -22,6 +26,7 @@ impl State {
         let auto_check: Option<bool> = self.setting(AUTO_CHECK)?;
         let last_check: Option<LastCheck> = self.setting(LAST_CHECK)?;
         let ready: Option<Offer> = self.setting(READY)?;
+        let menu: Option<bool> = self.setting(MENU)?;
         let current = self.config.app_version;
         // A value an older build saved that no longer reads is not a version that ran.
         let last_run: Option<AppVersion> = self.setting(LAST_RUN).ok().flatten();
@@ -41,6 +46,7 @@ impl State {
         }
         let mut shared = updates.lock()?;
         shared.updated = updated;
+        shared.offer_menu = updates.placement.appimage.is_some() && menu.is_none();
         if let Some(channel) = channel {
             shared.channel = channel;
         }
@@ -74,6 +80,16 @@ impl State {
     }
     pub(crate) fn save_update_auto_check(&self, on: bool) -> AppResult<()> {
         self.set_setting(AUTO_CHECK, &on)
+    }
+    /// Answers the applications-menu offer: `add` writes the entry first, and a failed write
+    /// leaves the offer open. Either answer is remembered and never asked again.
+    pub(crate) fn answer_applications_menu(&self, add: bool) -> AppResult<()> {
+        if add {
+            self.app_updates.add_to_applications_menu()?;
+        }
+        self.set_setting(MENU, &add)?;
+        self.app_updates.lock()?.offer_menu = false;
+        Ok(())
     }
     /// Saves a check that read the manifest, and the update it staged, if any.
     pub(crate) fn save_update_check(

@@ -3,7 +3,8 @@
 //! the copy kept only when it carries SkillBinder's Developer ID signature. The staged bundle,
 //! `.skillbinder-update-<version>.app`, waits there until it is installed at quit. On Windows the
 //! setup program, verified by its signed SHA-256, waits in application data as
-//! `.skillbinder-update-<version>.exe`.
+//! `.skillbinder-update-<version>.exe`. On Linux the AppImage, verified the same way, waits beside
+//! the running one as `.skillbinder-update-<version>`, marked executable.
 
 use super::relocate::{NAME, run};
 use skillbinder_proto::AppVersion;
@@ -32,6 +33,8 @@ pub enum UpdatePayload {
     Executable,
     /// The Windows setup program, which installs the update when run silently at quit.
     Setup,
+    /// The Linux AppImage, which takes the running one's place at quit.
+    AppImage,
 }
 
 impl UpdatePayload {
@@ -40,6 +43,7 @@ impl UpdatePayload {
         match self {
             Self::DiskImage { .. } | Self::Executable => ".app",
             Self::Setup => ".exe",
+            Self::AppImage => "",
         }
     }
 }
@@ -69,6 +73,10 @@ pub(super) fn stage(
 fn unpack(payload: &UpdatePayload, archive: &Path, bundle: &Path) -> io::Result<()> {
     match payload {
         UpdatePayload::Setup => fs::copy(archive, bundle).map(drop),
+        UpdatePayload::AppImage => {
+            fs::copy(archive, bundle)?;
+            executable(bundle)
+        }
         UpdatePayload::Executable => {
             fs::create_dir_all(bundle.join("Contents/MacOS"))?;
             fs::copy(archive, bundle.join("Contents/MacOS/skillbinder")).map(drop)
@@ -97,6 +105,18 @@ fn unpack(payload: &UpdatePayload, archive: &Path, bundle: &Path) -> io::Result<
                 .arg(bundle))
         }
     }
+}
+
+/// Lets everyone run the file at `path`, as an AppImage needs.
+#[cfg(unix)]
+fn executable(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o755))
+}
+
+#[cfg(not(unix))]
+fn executable(_: &Path) -> io::Result<()> {
+    Ok(())
 }
 
 /// A Developer ID Application signature of `team`, as notarized builds carry.
@@ -136,9 +156,10 @@ pub(super) fn leftovers(folder: &Path) -> Vec<(AppVersion, PathBuf)> {
         let name = entry.file_name().to_string_lossy().into_owned();
         let version = name
             .strip_prefix(STAGED)
-            .and_then(|rest| {
+            .map(|rest| {
                 rest.strip_suffix(".app")
                     .or_else(|| rest.strip_suffix(".exe"))
+                    .unwrap_or(rest)
             })
             .map(str::parse::<AppVersion>);
         match version {
@@ -220,6 +241,25 @@ mod tests {
             .collect();
         names.sort();
         assert_eq!(names, [".skillbinder-update-0.2.0.app", NAME, "archive"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_staged_appimage_is_executable_and_found_again() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let folder = temp.path();
+        let archive = folder.join("archive");
+        fs::write(&archive, "appimage").unwrap();
+        let version: AppVersion = "0.2.0-beta.3".parse().unwrap();
+        let staged = stage(&UpdatePayload::AppImage, &archive, folder, version).unwrap();
+        assert_eq!(staged, folder.join(".skillbinder-update-0.2.0-beta.3"));
+        assert_eq!(fs::read_to_string(&staged).unwrap(), "appimage");
+        let mode = fs::metadata(&staged).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o755);
+        fs::write(folder.join(".skillbinder-old-0.1.0"), "old").unwrap();
+        assert_eq!(leftovers(folder), [(version, staged)]);
+        assert!(!folder.join(".skillbinder-old-0.1.0").exists());
     }
 
     #[cfg(target_os = "macos")]

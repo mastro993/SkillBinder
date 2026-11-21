@@ -52,6 +52,8 @@ impl Fixture {
             executable: None,
             applications: root.path().join("Applications"),
             user_applications: root.path().join("me/Applications"),
+            appimage: None,
+            data_home: root.path().join("me/.local/share"),
         };
         fs::create_dir(&placement.applications).unwrap();
         Self {

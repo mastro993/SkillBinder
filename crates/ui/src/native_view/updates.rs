@@ -28,6 +28,8 @@ pub(super) enum Effect {
     MovedToApplications,
     /// Move to Applications failed, so its dialog says so.
     MoveFailed,
+    /// Adding SkillBinder to the applications menu failed, so its dialog says so.
+    ApplicationsMenuFailed,
 }
 
 impl NativeView {
@@ -155,6 +157,9 @@ impl NativeView {
                             Effect::MovedToApplications => cx.quit(),
                             Effect::MoveFailed => {
                                 view.dialog = DialogState::MoveToApplications { failed: true };
+                            }
+                            Effect::ApplicationsMenuFailed => {
+                                view.dialog = DialogState::ApplicationsMenu { failed: true };
                             }
                         }
                         // A dialog the operation closed makes room for copies that now ask.

@@ -97,7 +97,7 @@ fn describe(dist: &Path, version: &Version, now: SystemTime) -> anyhow::Result<M
             size: u64::try_from(bytes.len())?,
         };
         ensure!(
-            assets.insert(triple.to_owned(), asset).is_none(),
+            assets.insert(triple.clone(), asset).is_none(),
             "{} holds two archives for {triple}",
             dist.display()
         );
@@ -111,14 +111,21 @@ fn describe(dist: &Path, version: &Version, now: SystemTime) -> anyhow::Result<M
     })
 }
 
-/// The target triple of `skillbinder-<version>-<triple>.<extension>`, or of the Windows
-/// `skillbinder-<version>-<triple>-setup.exe`. A triple has at least three parts, so another
-/// version's prerelease suffix is never mistaken for one.
-fn triple<'a>(name: &'a str, version: &Version) -> anyhow::Result<&'a str> {
+/// The target triple of `skillbinder-<version>-<triple>.<extension>`, of the Windows
+/// `skillbinder-<version>-<triple>-setup.exe`, or of the Linux
+/// `skillbinder-<version>-<arch>.AppImage`, which is `<arch>-unknown-linux-gnu`. A triple has at
+/// least three parts and an architecture none, so another version's prerelease suffix is never
+/// mistaken for one.
+fn triple(name: &str, version: &Version) -> anyhow::Result<String> {
     name.strip_prefix(&format!("skillbinder-{version}-"))
-        .and_then(|rest| rest.split_once('.'))
-        .map(|(triple, _)| triple.strip_suffix("-setup").unwrap_or(triple))
-        .filter(|triple| triple.split('-').count() >= 3)
+        .and_then(|rest| match rest.strip_suffix(".AppImage") {
+            Some(arch) => (!arch.contains(['-', '.'])).then(|| format!("{arch}-unknown-linux-gnu")),
+            None => rest
+                .split_once('.')
+                .map(|(triple, _)| triple.strip_suffix("-setup").unwrap_or(triple))
+                .filter(|triple| triple.split('-').count() >= 3)
+                .map(str::to_owned),
+        })
         .with_context(|| format!("{name} is not a skillbinder-{version}-<target> archive"))
 }
 
@@ -174,8 +181,8 @@ mod tests {
                 b"windows!",
             ),
             (
-                "skillbinder-0.2.0-beta.7-x86_64-unknown-linux-gnu.tar.gz",
-                b"linux archive",
+                "skillbinder-0.2.0-beta.7-x86_64.AppImage",
+                b"linux appimage",
             ),
         ];
         let dist = dist(&archives);
@@ -233,12 +240,10 @@ mod tests {
         let key = KeyPair::generate_unencrypted_keypair()?;
         for archives in [
             &[][..],
+            &[("skillbinder-0.2.0-x86_64.AppImage", &b"stable"[..])],
+            &[("skillbinder-0.2.0-beta.6-x86_64.AppImage", &b"older"[..])],
             &[(
-                "skillbinder-0.2.0-x86_64-unknown-linux-gnu.tar.gz",
-                &b"stable"[..],
-            )],
-            &[(
-                "skillbinder-0.2.0-beta.6-x86_64-unknown-linux-gnu.tar.gz",
+                "skillbinder-0.2.0-beta.6-x86_64-pc-windows-msvc-setup.exe",
                 &b"older"[..],
             )],
             &[("notes.txt", &b"stray"[..])],
@@ -247,10 +252,7 @@ mod tests {
                     "skillbinder-0.2.0-beta.7-x86_64-unknown-linux-gnu.tar.gz",
                     &b"tar"[..],
                 ),
-                (
-                    "skillbinder-0.2.0-beta.7-x86_64-unknown-linux-gnu.AppImage",
-                    &b"image"[..],
-                ),
+                ("skillbinder-0.2.0-beta.7-x86_64.AppImage", &b"image"[..]),
             ],
         ] {
             let dist = dist(archives);

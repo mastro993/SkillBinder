@@ -1,10 +1,12 @@
-//! Where the running app sits (spec rules 13, 21, 22, ADR 0019): on macOS, the `SkillBinder.app`
-//! that holds the executable, and whether it is in an Applications folder an app update can write;
-//! on Windows, whether the setup program installed the executable.
+//! Where the running app sits (spec rules 13, 21, 22, 23, ADR 0019): on macOS, the
+//! `SkillBinder.app` that holds the executable, and whether it is in an Applications folder an app
+//! update can write; on Windows, whether the setup program installed the executable; on Linux, the
+//! AppImage at `$APPIMAGE`, and whether its folder can be written.
 
 use crate::persistence;
 use skillbinder_proto::CannotInstall;
 use std::{
+    collections::BTreeMap,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -25,18 +27,32 @@ pub struct AppPlacement {
     pub applications: PathBuf,
     /// `~/Applications`, where Move goes when `/Applications` can't be written.
     pub user_applications: PathBuf,
+    /// On Linux, the AppImage the app runs as, which its runtime names in `$APPIMAGE`; `None`
+    /// elsewhere and in a build not run as an AppImage.
+    pub appimage: Option<PathBuf>,
+    /// `$XDG_DATA_HOME`, or `~/.local/share`, where Add to the applications menu writes.
+    pub data_home: PathBuf,
 }
 
 impl AppPlacement {
-    /// The running bundle or Windows executable, if any, and the system's Applications folders.
-    pub(crate) fn platform(home: &Path) -> Self {
+    /// The running bundle, Windows executable, or AppImage, if any, the system's Applications
+    /// folders, and the user's data home, read from `environment`.
+    pub(crate) fn platform(home: &Path, environment: &BTreeMap<String, String>) -> Self {
         let running = |on: bool| on.then(std::env::current_exe).and_then(Result::ok);
+        let absolute = |name: &str| {
+            environment
+                .get(name)
+                .map(PathBuf::from)
+                .filter(|path| path.is_absolute())
+        };
         Self {
             bundle: running(cfg!(target_os = "macos"))
                 .and_then(|executable| bundle_of(&executable)),
             executable: running(cfg!(windows)),
             applications: PathBuf::from("/Applications"),
             user_applications: home.join("Applications"),
+            appimage: absolute("APPIMAGE").filter(|_| cfg!(target_os = "linux")),
+            data_home: absolute("XDG_DATA_HOME").unwrap_or_else(|| home.join(".local/share")),
         }
     }
 }
@@ -55,14 +71,15 @@ fn bundle_of(executable: &Path) -> Option<PathBuf> {
 /// Where the running app sits.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Location {
-    /// No bundle holds the executable, or no setup program installed it, so there is nothing to
-    /// move or replace.
+    /// No bundle holds the executable, no setup program installed it, or it doesn't run as an
+    /// AppImage, so there is nothing to move or replace.
     NotInstalled,
     /// Outside both Applications folders, so the app offers to move itself there.
     OutsideApplications(Original),
-    /// In an Applications folder the user can't write.
+    /// In an Applications folder, or an AppImage in a folder, the user can't write.
     NotWritable,
-    /// The bundle in an Applications folder, which an app update replaces; it stages beside it.
+    /// The bundle in an Applications folder, or the AppImage, which an app update replaces; it
+    /// stages beside it.
     Installed(PathBuf),
     /// On Windows, the executable the setup program installed. An app update is the newer setup
     /// program, staged in `staging` in application data, which reinstalls the app at quit.
@@ -137,31 +154,40 @@ impl Mounts {
 /// Finds where the running app sits, reading the mounts only for a bundle outside Applications.
 /// A Windows app update stages in `downloads`.
 pub(crate) fn locate(placement: &AppPlacement, downloads: &Path) -> Location {
-    match (&placement.bundle, &placement.executable) {
-        (Some(bundle), _) => classify(bundle, placement, Mounts::read),
-        (None, Some(executable)) if executable.with_file_name(UNINSTALLER).is_file() => {
+    match (
+        &placement.bundle,
+        &placement.appimage,
+        &placement.executable,
+    ) {
+        (Some(bundle), _, _) => classify(bundle, placement, Mounts::read),
+        (None, Some(appimage), _) => installed(appimage),
+        (None, None, Some(executable)) if executable.with_file_name(UNINSTALLER).is_file() => {
             Location::SetUp {
                 executable: executable.clone(),
                 staging: downloads.to_path_buf(),
             }
         }
-        (None, _) => Location::NotInstalled,
+        (None, None, _) => Location::NotInstalled,
+    }
+}
+
+/// The bundle or AppImage `unit`, installed when the folder holding it can be written, which is
+/// proven by creating a file there.
+fn installed(unit: &Path) -> Location {
+    if persistence::writable(unit.parent().unwrap_or(unit)) {
+        Location::Installed(unit.to_path_buf())
+    } else {
+        Location::NotWritable
     }
 }
 
 /// Where `bundle` sits. A bundle anywhere in either Applications folder, a subfolder such as
-/// Utilities included, is installed when the folder holding it can be written, which is proven
-/// by creating a file there.
+/// Utilities included, is [`installed`] there.
 fn classify(bundle: &Path, placement: &AppPlacement, mounts: impl FnOnce() -> Mounts) -> Location {
     if bundle.starts_with(&placement.applications)
         || bundle.starts_with(&placement.user_applications)
     {
-        let folder = bundle.parent().unwrap_or(bundle);
-        return if persistence::writable(folder) {
-            Location::Installed(bundle.to_path_buf())
-        } else {
-            Location::NotWritable
-        };
+        return installed(bundle);
     }
     let mounts = mounts();
     let origin = if let Some(volume) = mounts.images.iter().find(|v| bundle.starts_with(v)) {

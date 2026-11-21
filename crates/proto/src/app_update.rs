@@ -218,6 +218,9 @@ pub struct AppUpdateSnapshot {
     /// macOS: the app runs from outside `/Applications` and `~/Applications`, such as its disk
     /// image or Downloads, so it offers to move itself there.
     pub outside_applications: bool,
+    /// Linux: the app runs as an AppImage and hasn't asked yet whether to add itself to the
+    /// applications menu, which it asks once (spec rule 23).
+    pub offer_applications_menu: bool,
     /// This launch is the first of a version newer than the last one that ran: its release page,
     /// for the "Updated to" toast (spec rule 14).
     pub updated: Option<String>,

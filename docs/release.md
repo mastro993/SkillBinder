@@ -1,6 +1,6 @@
 # Releases
 
-SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned per-user Windows setup program, and a Linux tarball, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018).
+SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned per-user Windows setup program, and a Linux AppImage, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018).
 
 ## Versions
 
@@ -25,10 +25,10 @@ Actions → **Release** → Run workflow, on `main`, with:
 1. fails unless every release secret is set, computes the version, fails if its tag already exists, and stamps it into `Cargo.toml` and `Cargo.lock` (the `stamp` artifact);
 2. builds and packages every platform from the dispatched commit with that stamp ([`build.yml`](../.github/workflows/build.yml)), signing and notarizing the macOS image, and alongside runs every check `main` runs on that commit again: [`checks.yml`](../.github/workflows/checks.yml) and [`native.yml`](../.github/workflows/native.yml);
 3. only if every check passed and all three platforms built: writes `SHA256SUMS` and the signed [update manifest](#update-manifests), then commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. A signing key that does not open fails the run before the push. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
-4. publishes the GitHub release with the archives, `SHA256SUMS`, `update.json`, `update.json.minisig`, and GitHub's generated notes, all in one call;
+4. publishes the GitHub release with the archives, `SHA256SUMS`, `update.json`, `update.json.minisig`, and notes that open with the install steps in [`packaging/release-notes.md`](../packaging/release-notes.md) followed by GitHub's generated notes, all in one call;
 5. dispatches the Catalog workflow, which mirrors the manifest to Pages.
 
-If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts into `dist/`, run `sha256sum -- * > SHA256SUMS` inside it, sign with `UPDATE_SIGNING_KEY` and `UPDATE_SIGNING_KEY_PASSWORD` set: `cargo run -p xtask -- update-manifest --version X.Y.Z --dist dist`, then `gh release create vX.Y.Z --verify-tag --latest --generate-notes dist/*` and `gh workflow run catalog.yml --ref main`.
+If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts into `dist/`, run `sha256sum -- * > SHA256SUMS` inside it, sign with `UPDATE_SIGNING_KEY` and `UPDATE_SIGNING_KEY_PASSWORD` set: `cargo run -p xtask -- update-manifest --version X.Y.Z --dist dist`, then `gh release create vX.Y.Z --verify-tag --latest --notes-file packaging/release-notes.md --generate-notes dist/*` and `gh workflow run catalog.yml --ref main`.
 
 ## Nightly betas
 
@@ -42,7 +42,7 @@ Every archive holds the locked release build without native test controls (`carg
 |---|---|---|
 | macOS 26+ | `skillbinder-<version>-universal-apple-darwin.dmg`: `SkillBinder.app`, Developer ID signed with the hardened runtime, notarized, ticket stapled to the image. The image opens on SkillBinder, an arrow, and an `Applications` shortcut to drag it onto (ADR 0019). | `macos-26`, `aarch64` and `x86_64` combined with `lipo` |
 | Windows | `skillbinder-<version>-x86_64-pc-windows-msvc-setup.exe`: an unsigned Inno Setup program that installs `skillbinder.exe` for the current user, with no administrator prompt, into `%LOCALAPPDATA%\Programs\SkillBinder`, with a Start menu entry and an uninstaller that keeps the user's data (ADR 0019) | `windows-2025` (MSVC) |
-| Linux | `skillbinder-<version>-x86_64-unknown-linux-gnu.tar.gz`: `SkillBinder/` with the binary, a `.desktop` entry, and `INSTALL.txt` | `ubuntu-22.04` (glibc 2.35) |
+| Linux | `skillbinder-<version>-x86_64.AppImage`: one file holding the binary, its `.desktop` entry, and the icon, built on the static type 2 runtime, so it needs no `libfuse2`. At its first launch the app offers to add itself to the applications menu (ADR 0019). | `ubuntu-22.04` (glibc 2.35) |
 
 The disk image is built with [`dmgbuild`](https://github.com/dmgbuild/dmgbuild) (MIT), which writes the window layout without driving Finder, so it works on a headless runner. Its settings are `packaging/macos/dmgbuild-settings.py`, and its window background is dmgbuild's own `builtin-arrow`. `dmgbuild` and its dependencies are pinned with their wheels' hashes in `packaging/macos/dmgbuild-requirements.txt`; `build.yml` installs them into a virtual environment, and a local `xtask package` needs the same on `PATH`:
 
@@ -56,13 +56,24 @@ The bundle's `Info.plist` records the full version, a beta's included, as `Skill
 
 The Windows setup program is compiled by [Inno Setup](https://jrsoftware.org/isinfo.php) 6 from `packaging/windows/skillbinder.iss`. `build.yml` downloads Inno Setup 6.7.4's installer from its GitHub release, checks its SHA-256, and installs it for the runner's user; a local `xtask package` finds `ISCC.exe` on `PATH` or in `%ProgramFiles(x86)%\Inno Setup 6`. Setup's version is the full one, a beta's included; its file version holds only `X.Y.Z.0`. The script's `AppId` must never change, since the uninstaller and every update find the installation by it. The same program is the Windows app update, which the app runs silently at quit ([app updates](features/native/app-updates.md#windows)).
 
+The AppImage is built by [`appimagetool`](https://github.com/AppImage/appimagetool) (MIT) from an AppDir whose `AppRun` is the binary, with the [type 2 runtime](https://github.com/AppImage/type2-runtime) (MIT) passed as `--runtime-file`, so a newer upstream runtime never slips in. `build.yml` downloads appimagetool 1.9.1 and runtime 20251108 from their GitHub releases, checks both SHA-256s, and runs the tool with `APPIMAGE_EXTRACT_AND_RUN=1`, as the runner has no FUSE. A local `xtask package` needs `appimagetool` on `PATH` and `SKILLBINDER_APPIMAGE_RUNTIME` naming the runtime:
+
+```sh
+curl -fLO https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+curl -fLO https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+chmod +x appimagetool-x86_64.AppImage && mkdir -p bin && mv appimagetool-x86_64.AppImage bin/appimagetool
+PATH="$PWD/bin:$PATH" SKILLBINDER_APPIMAGE_RUNTIME="$PWD/runtime-x86_64" cargo run -p xtask -- package x86_64-unknown-linux-gnu
+```
+
+The runtime needs no `libfuse2`, but it still mounts the AppImage through the FUSE kernel module and `fusermount` (the `fuse3` package on most distributions). Where they are missing, as in some containers, `./skillbinder-<version>-x86_64.AppImage --appimage-extract-and-run` unpacks it to a temporary folder and runs it from there; the release notes say so. A browser drops the executable bit, so the notes also say to `chmod +x` it first.
+
 `SHA256SUMS` beside them lists every archive's checksum, and `update.json` with `update.json.minisig` describes them for the app's updates. A pull request that changes the packaging or these workflows runs `build.yml` unstamped and unsigned, so a broken platform shows up before a release needs it.
 
 On Windows, SmartScreen shows "Windows protected your PC" once, for the unsigned setup program the user downloaded: **More info** → **Run anyway**. App updates run without it, since a setup program the app downloads itself carries no Mark of the Web.
 
 ## Update manifests
 
-`cargo run -p xtask -- update-manifest --version <version> --dist <dir>` writes `<dir>/update.json` and signs it with minisign into `<dir>/update.json.minisig`. Every file in `<dir>` other than `SHA256SUMS` and the pair must be a `skillbinder-<version>-<target>.<ext>` archive, or the Windows `skillbinder-<version>-<target>-setup.exe`, at most one per target:
+`cargo run -p xtask -- update-manifest --version <version> --dist <dir>` writes `<dir>/update.json` and signs it with minisign into `<dir>/update.json.minisig`. Every file in `<dir>` other than `SHA256SUMS` and the pair must be a `skillbinder-<version>-<target>.<ext>` archive, the Windows `skillbinder-<version>-<target>-setup.exe`, or the Linux `skillbinder-<version>-<arch>.AppImage`, keyed as `<arch>-unknown-linux-gnu`, at most one per target:
 
 ```json
 {

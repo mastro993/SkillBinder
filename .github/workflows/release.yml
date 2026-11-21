@@ -156,6 +156,7 @@ jobs:
         run: |
           gh release create "v$VERSION" --verify-tag --latest \
             --title "SkillBinder v$VERSION" \
+            --notes-file packaging/release-notes.md \
             --generate-notes \
             dist/*
       - name: Mirror the update manifest to Pages

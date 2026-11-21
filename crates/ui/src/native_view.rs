@@ -1,6 +1,7 @@
 mod agent_page;
 mod agent_skills;
 mod app_update_notice;
+mod applications_menu;
 mod breadcrumb;
 mod controls;
 mod copies_review;
@@ -118,6 +119,11 @@ enum DialogState {
     /// macOS, outside Applications: asks to move there before anything else (spec rule 21), and
     /// says so when Move failed.
     MoveToApplications {
+        failed: bool,
+    },
+    /// Linux, as an AppImage: asks once to add SkillBinder to the applications menu (spec rule
+    /// 23), and says so when Add failed.
+    ApplicationsMenu {
         failed: bool,
     },
     None,
@@ -251,7 +257,7 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         let library_view = snapshot.preferences.library_view;
-        let dialog = Self::first_dialog(snapshot.app_update.outside_applications);
+        let dialog = Self::first_dialog(&snapshot.app_update);
         sidebar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
         let activation_subscription = cx.observe_window_activation(window, |view, window, _| {

@@ -11,16 +11,20 @@ use skillbinder_design::tokens::text;
 use skillbinder_design::{
     Button, DialogFooter, DialogHeader, DialogSize, Notice, NoticeSize, Status, Text,
 };
+use skillbinder_proto::AppUpdateSnapshot;
 
 const TITLE: &str = "Move SkillBinder to Applications?";
 const BODY: &str = "SkillBinder updates itself only from your Applications folder.";
 const FAILED: &str = "Couldn't move SkillBinder. Drag it to Applications yourself.";
 
 impl NativeView {
-    /// The dialog the app opens with: asking to move outside Applications, or none.
-    pub(super) fn first_dialog(outside_applications: bool) -> DialogState {
-        if outside_applications {
+    /// The dialog the app opens with: asking to move outside Applications, offering the Linux
+    /// applications menu, or none.
+    pub(super) fn first_dialog(update: &AppUpdateSnapshot) -> DialogState {
+        if update.outside_applications {
             DialogState::MoveToApplications { failed: false }
+        } else if update.offer_applications_menu {
+            DialogState::ApplicationsMenu { failed: false }
         } else {
             DialogState::None
         }
@@ -71,13 +75,34 @@ impl NativeView {
 #[cfg(test)]
 mod tests {
     use super::super::{DialogState, NativeView};
+    use skillbinder_proto::{AppUpdateSnapshot, AppUpdateState, Channel};
+
+    fn update(outside_applications: bool, offer_applications_menu: bool) -> AppUpdateSnapshot {
+        AppUpdateSnapshot {
+            current: "0.1.0".parse().unwrap_or_else(|_| panic!("0.1.0 parses")),
+            channel: Channel::Stable,
+            auto_check: true,
+            state: AppUpdateState::Off,
+            last_checked: None,
+            outside_applications,
+            offer_applications_menu,
+            updated: None,
+        }
+    }
 
     #[test]
-    fn only_an_app_outside_applications_opens_asking_to_move() {
+    fn the_app_opens_asking_to_move_or_to_add_itself_to_the_menu() {
         assert!(matches!(
-            NativeView::first_dialog(true),
+            NativeView::first_dialog(&update(true, false)),
             DialogState::MoveToApplications { failed: false }
         ));
-        assert!(matches!(NativeView::first_dialog(false), DialogState::None));
+        assert!(matches!(
+            NativeView::first_dialog(&update(false, true)),
+            DialogState::ApplicationsMenu { failed: false }
+        ));
+        assert!(matches!(
+            NativeView::first_dialog(&update(false, false)),
+            DialogState::None
+        ));
     }
 }

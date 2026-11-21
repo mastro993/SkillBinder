@@ -168,6 +168,7 @@ jobs:
         run: |
           gh release create "v$VERSION" --target "$GITHUB_SHA" --prerelease \
             --title "SkillBinder v$VERSION" \
+            --notes-file packaging/release-notes.md \
             --generate-notes \
             dist/*
       # Before pruning, so a failed prune cannot hold the manifest back.

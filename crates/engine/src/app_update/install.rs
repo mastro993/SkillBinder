@@ -1,6 +1,6 @@
-//! Installs an app update at quit (spec rule 12, ADR 0018, ADR 0019): on macOS by renames on one
-//! volume, so it is quick and can be undone; on Windows by starting the setup program silently,
-//! which waits for the app to exit.
+//! Installs an app update at quit (spec rule 12, ADR 0018, ADR 0019): on macOS and Linux by
+//! renames on one volume, so it is quick and can be undone; on Windows by starting the setup
+//! program silently, which waits for the app to exit.
 
 use std::{
     fs, io,
@@ -8,8 +8,8 @@ use std::{
     process::{Command, Stdio},
 };
 
-/// Puts `staged` at `target`. A bundle already at `target` is renamed to `old` first, and put back
-/// when `staged` can't take its place. The caller removes `old`.
+/// Puts `staged` at `target`. A bundle or AppImage already at `target` is renamed to `old` first,
+/// and put back when `staged` can't take its place. The caller removes `old`.
 pub(super) fn swap(staged: &Path, target: &Path, old: &Path) -> io::Result<()> {
     if fs::symlink_metadata(target).is_err() {
         return fs::rename(staged, target);
@@ -85,6 +85,23 @@ mod tests {
         swap(&staged, &target, &old).unwrap();
         assert_eq!(marker(&target), "new");
         assert_eq!(marker(&old), "running");
+        assert!(!staged.exists());
+    }
+
+    #[test]
+    fn the_staged_appimage_takes_the_running_ones_place() {
+        let temp = tempfile::tempdir().unwrap();
+        let (staged, target, old) = (
+            temp.path().join(".skillbinder-update-0.2.0"),
+            temp.path().join("skillbinder-0.1.0-x86_64.AppImage"),
+            temp.path().join(".skillbinder-old-0.1.0.AppImage"),
+        );
+        fs::write(&staged, "new").unwrap();
+        fs::write(&target, "running").unwrap();
+        fs::write(&old, "left by an earlier install").unwrap();
+        swap(&staged, &target, &old).unwrap();
+        assert_eq!(fs::read_to_string(&target).unwrap(), "new");
+        assert_eq!(fs::read_to_string(&old).unwrap(), "running");
         assert!(!staged.exists());
     }
 
