@@ -7,7 +7,7 @@
 The user chose it on 2026-11-21; the playground opens on it.
 
 - **Icon**: A Rune on Stone. The rune glows blue (`#1E84C4` glow, `#E4F2FE` core) on a dark slate tile with a fine grain, cut to Apple's continuous-corner shape so macOS 26 shows it unframed. At 32 px and below its stroke is thicker.
-- **Logo**: the icon beside the Carved caps wordmark, SKILLBINDER in spaced Optima capitals. Optima is a macOS system font: before the wordmark is published as artwork, set it in a typeface licensed for logos or draw it as custom lettering.
+- **Logo**: the icon beside the Carved caps wordmark, SKILLBINDER in spaced Optima capitals.
 - **Slogan**: "One library to bind them all."
 
 The first round, literal binders (rings, a card fan, a B monogram, index tabs, a key ring), was rejected: the name means a collection of skills like magic. The rune copies no historical rune on purpose: an S and B bindrune on one stave reads as the Bluetooth logo, itself the bindrune of Hagall and Berkano; several Elder Futhark runes carry hate-symbol associations; and a hexagram reads as the Star of David.
@@ -33,7 +33,7 @@ The playground keeps its state in the browser's local storage.
 - `icons.js`: the rune, its five framings, their color schemes, and the menu bar glyphs, drawn as SVG.
 - `brand.js`: the choices, the board, and the events.
 - `export.html`, `dmg-background.html`, and `export-brand.sh`: the packaged artwork. The script captures both pages with Google Chrome and writes `assets/icon.icns` (macOS, on Apple's 824-in-1024 icon grid), `assets/icon.ico` (Windows), `assets/icon.png` (Linux, 256 px), and `packaging/macos/dmg-background.png` with its `@2x` sibling. Run it on macOS after changing either page and commit what it writes.
-- The disk image window is 640 by 360 points: SkillBinder and Applications joined by three glowing rune chevrons on pale slate stone, with no wordmark or slogan until the wordmark's lettering is licensed or drawn. The stone stays pale, not the icon's dark slate, because Finder draws icon labels in black over a background picture, even in Dark Mode. The mounted volume wears the app icon.
+- The disk image window is 640 by 360 points: SkillBinder and Applications joined by three glowing rune chevrons on pale slate stone, with no wordmark or slogan. The stone stays pale, not the icon's dark slate, because Finder draws icon labels in black over a background picture, even in Dark Mode. The mounted volume wears the app icon.
 
 Rebuild the bundle with the shared inliner:
 
