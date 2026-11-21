@@ -36,6 +36,8 @@ The application checks the app update manifests' signatures with `minisign-verif
 - `ct-codecs`: MIT; `scrypt`, `salsa20`, `pbkdf2`, `hmac`, `cipher`, `sha2`, and `getrandom`: MIT OR Apache-2.0.
 - `rpassword` and `rtoolbox`: Apache-2.0.
 
+On Windows, the application asks whether the session is ending, so a quit at logoff or shutdown starts no app update, with `winsafe` 0.0.29 (MIT), which has no dependencies. Its source is available at `https://github.com/rodrigocfd/winsafe`. The Windows setup program is built with Inno Setup 6.7.4, under the Inno Setup License, which allows distributing the setup programs it compiles; its source is available at `https://github.com/jrsoftware/issrc`.
+
 ## vercel-labs/skills registry snapshot
 
 - Project: `vercel-labs/skills`

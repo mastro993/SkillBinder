@@ -22,5 +22,8 @@ fs2.workspace = true
 skillbinder-design.workspace = true
 skillbinder-ui.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+winsafe.workspace = true
+
 [lints]
 workspace = true

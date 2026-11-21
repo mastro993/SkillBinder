@@ -54,7 +54,7 @@ impl State {
             if let Some(Offer { version, notes_url }) = offer
                 && shared.state == (AppUpdateState::Idle { last_failure: None })
                 && version > current
-                && let Err(reason) = shared.location.installed()
+                && let Err(reason) = shared.location.staging()
             {
                 shared.state = AppUpdateState::DownloadOnly {
                     version,

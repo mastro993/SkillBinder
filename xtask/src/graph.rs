@@ -27,6 +27,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "skillbinder-design",
             "skillbinder-ui",
             "tokio",
+            "winsafe",
         ],
         &[],
     ),

@@ -1,32 +1,36 @@
 //! A ready app update (spec rules 5–8, 12, 17): downloaded into `<data>/updates/<version>/`,
-//! staged beside the installed app, restored at launch while it is newer than the running version,
-//! and installed at quit by renames, which the next launch cleans up after.
+//! staged beside the installed app, or for the Windows setup program in `<data>/updates`, restored
+//! at launch while it is newer than the running version, and installed at quit: by renames, which
+//! the next launch cleans up after, or by the setup program run silently.
 
 use super::{
-    AppUpdates, Ended, Relaunch, Staged,
+    AppUpdates, Ended, QuitCause, Relaunch, Staged,
     check::{LastCheck, Running, failed},
     download,
-    install::swap,
+    install::{self, swap},
     location::Location,
     manifest::{Found, Offer},
     stage::{self, OLD},
 };
 use skillbinder_proto::{AppResult, AppUpdateState, AppVersion, CheckFailure};
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 impl AppUpdates {
-    /// Downloads and stages `found` beside the installed `bundle` for the `running` check. A
-    /// failure is logged and ends the check as failed, so it neither reads as up to date nor
-    /// saves the check, and the next check tries again.
+    /// Downloads and stages `found` in `folder` for the `running` check. A failure is logged and
+    /// ends the check as failed, so it neither reads as up to date nor saves the check, and the
+    /// next check tries again.
     pub(super) fn download(
         &self,
         running: &Running,
         check: LastCheck,
         found: Found,
-        bundle: &Path,
+        folder: &Path,
     ) -> Ended {
         let version = found.offer.version;
-        let staged = self.fetch_and_stage(&found, bundle);
+        let staged = self.fetch_and_stage(&found, folder);
         let Ok(mut shared) = self.shared.lock() else {
             return Ended::Failed;
         };
@@ -63,9 +67,8 @@ impl AppUpdates {
         }
     }
 
-    fn fetch_and_stage(&self, found: &Found, bundle: &Path) -> Result<std::path::PathBuf, String> {
+    fn fetch_and_stage(&self, found: &Found, folder: &Path) -> Result<PathBuf, String> {
         let source = self.source.as_ref().ok_or("updates are off")?;
-        let folder = bundle.parent().ok_or("the app has no folder")?;
         let version = found.offer.version;
         let work = self.downloads.join(version.to_string());
         let archive = work.join("archive");
@@ -103,10 +106,7 @@ impl AppUpdates {
     pub(super) fn restore_staged(&self, saved: Option<Offer>) -> AppResult<bool> {
         stage::clear_downloads(&self.downloads);
         let mut shared = self.lock()?;
-        let Location::Installed(bundle) = &shared.location else {
-            return Ok(false);
-        };
-        let Some(folder) = bundle.parent() else {
+        let Ok(folder) = shared.location.staging() else {
             return Ok(false);
         };
         let mut kept = None;
@@ -137,26 +137,73 @@ impl AppUpdates {
     /// At quit, after the engine drained: installs the staged update, and says what to start,
     /// the moved copy after Move to Applications, or the app again after Restart. A failed
     /// install keeps the running version and is logged; the update is offered again at the next
-    /// launch.
-    pub(crate) fn finish(&self) -> Option<Relaunch> {
+    /// launch. On Windows the setup program installs it once the app has exited, and opens it
+    /// again after Restart; a quit as the session ends starts nothing, so Windows can't end the
+    /// setup program halfway, and the next quit installs it.
+    pub(crate) fn finish(&self, cause: QuitCause) -> Option<Relaunch> {
         let mut shared = self.shared.lock().ok()?;
         if let Some(relaunch) = shared.relaunch.take() {
             return Some(relaunch);
         }
-        let Location::Installed(bundle) = shared.location.clone() else {
-            return None;
-        };
-        if let Some(staged) = shared.staged.take() {
-            let old = bundle.with_file_name(format!("{OLD}{}.app", self.current));
-            let version = staged.offer.version;
-            match swap(&staged.bundle, &bundle, &old) {
-                Ok(()) => self.log.record(format!("Installed SkillBinder {version}.")),
-                Err(error) => self
-                    .log
-                    .record(format!("Couldn't install SkillBinder {version}: {error}")),
+        let restart = shared.restart;
+        let staged = shared.staged.take();
+        let relaunch = match (shared.location.clone(), staged) {
+            (Location::Installed(bundle), staged) => {
+                if let Some(staged) = staged {
+                    self.swap_in(&staged, &bundle);
+                }
+                restart.then(|| Relaunch::reopen(bundle))
             }
-            self.log.flush();
+            (Location::SetUp { executable, .. }, Some(staged)) => self
+                .start_setup(&staged, cause, restart)
+                .then(|| Relaunch::reopen(executable)),
+            (
+                Location::SetUp { .. }
+                | Location::NotInstalled
+                | Location::OutsideApplications(_)
+                | Location::NotWritable,
+                _,
+            ) => None,
+        };
+        self.log.flush();
+        relaunch
+    }
+
+    /// Puts the staged bundle in place of the installed `bundle`, logging how it went.
+    fn swap_in(&self, staged: &Staged, bundle: &Path) {
+        let old = bundle.with_file_name(format!("{OLD}{}.app", self.current));
+        let version = staged.offer.version;
+        match swap(&staged.bundle, bundle, &old) {
+            Ok(()) => self.log.record(format!("Installed SkillBinder {version}.")),
+            Err(error) => self
+                .log
+                .record(format!("Couldn't install SkillBinder {version}: {error}")),
         }
-        shared.restart.then(|| Relaunch::reopen(bundle))
+    }
+
+    /// Starts the staged setup program unless the session is ending, logging how it went.
+    /// Returns whether the app must open itself again: after Restart, when setup didn't start.
+    fn start_setup(&self, staged: &Staged, cause: QuitCause, restart: bool) -> bool {
+        let version = staged.offer.version;
+        if cause == QuitCause::SessionEnd {
+            self.log.record(format!(
+                "SkillBinder {version} installs at the next quit, as the session is ending."
+            ));
+            return false;
+        }
+        match install::start_setup(&staged.bundle, std::process::id(), restart) {
+            Ok(()) => {
+                self.log.record(format!(
+                    "Started the setup program of SkillBinder {version}."
+                ));
+                false
+            }
+            Err(error) => {
+                self.log.record(format!(
+                    "Couldn't start the setup program of SkillBinder {version}: {error}"
+                ));
+                restart
+            }
+        }
     }
 }

@@ -11,9 +11,9 @@ use gpui_kit::{
     WindowOptions, actions, point, px, size,
 };
 use skillbinder_client::Client;
-use skillbinder_engine::Engine;
 #[cfg(not(feature = "native-test"))]
 use skillbinder_engine::EngineConfig;
+use skillbinder_engine::{Engine, QuitCause};
 use skillbinder_ui::{GoBack, GoForward, ToggleSidebar};
 
 actions!(
@@ -134,7 +134,7 @@ fn run() -> anyhow::Result<()> {
                 // A ready app update installs now. After Move to Applications or Restart, the
                 // app starts again once this one lets go of the instance lock, which AppKit's
                 // exit would otherwise hold to the end.
-                if let Some(relaunch) = engine.finish_app_update() {
+                if let Some(relaunch) = engine.finish_app_update(quit_cause()) {
                     drop(instance.take());
                     if let Err(error) = relaunch.start() {
                         eprintln!("Could not open SkillBinder again: {error}");
@@ -267,6 +267,22 @@ fn run() -> anyhow::Result<()> {
         });
     Ok(())
 }
+/// GPUI quits the same way when Windows ends the session, so the session itself tells.
+#[cfg(windows)]
+fn quit_cause() -> QuitCause {
+    use winsafe::{GetSystemMetrics, co::SM};
+    if GetSystemMetrics(SM::SHUTTINGDOWN) == 0 {
+        QuitCause::User
+    } else {
+        QuitCause::SessionEnd
+    }
+}
+
+#[cfg(not(windows))]
+fn quit_cause() -> QuitCause {
+    QuitCause::User
+}
+
 #[cfg(not(feature = "native-test"))]
 fn configuration() -> anyhow::Result<EngineConfig> {
     anyhow::ensure!(

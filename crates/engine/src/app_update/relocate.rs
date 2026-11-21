@@ -18,10 +18,12 @@ const VERSION_KEY: &str = "SkillBinderVersion";
 /// Waits for the process `$1` to exit, then ejects the disk image `$2` it ran from.
 const EJECT: &str = r#"while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; exec /usr/bin/hdiutil detach -quiet "$2""#;
 
-/// What to start once the app quits after Move to Applications.
+/// What to start once the app quits: the moved copy after Move to Applications, or the app again
+/// after Restart.
 #[derive(Debug)]
 pub struct Relaunch {
-    /// The bundle to open: the copy, or a newer SkillBinder that was already there.
+    /// The bundle to open: the copy, or a newer SkillBinder that was already there. Off macOS,
+    /// the executable to start.
     app: PathBuf,
     /// The disk image to eject once this process has exited.
     eject: Option<PathBuf>,
@@ -33,9 +35,17 @@ impl Relaunch {
         Self { app, eject: None }
     }
 
-    /// Opens the moved app as a new instance, and leaves a helper that ejects the disk image
-    /// once this process exits. Call it after the instance lock is released.
+    /// Opens the app as a new instance, and leaves a helper that ejects the disk image once this
+    /// process exits. Call it after the instance lock is released.
     pub fn start(self) -> io::Result<()> {
+        if !cfg!(target_os = "macos") {
+            return Command::new(&self.app)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map(drop);
+        }
         if let Some(volume) = &self.eject {
             Command::new("/bin/sh")
                 .arg("-c")

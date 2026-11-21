@@ -27,7 +27,7 @@ mod sources;
 mod worker;
 mod workspaces;
 
-pub use app_update::{AppPlacement, Relaunch, UpdatePayload, UpdateSource};
+pub use app_update::{AppPlacement, QuitCause, Relaunch, UpdatePayload, UpdateSource};
 pub use catalog::CatalogSource;
 pub use lifecycle::{EngineConfig, GitProfile, GitSearch, RepositoryUrls};
 pub use worker::Engine;

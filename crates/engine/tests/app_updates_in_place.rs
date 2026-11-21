@@ -8,6 +8,7 @@
 #[path = "support/update_site.rs"]
 mod update_site;
 
+use skillbinder_engine::QuitCause;
 use skillbinder_proto::{AppUpdateState, CannotInstall, Channel, CheckFailure};
 use std::fs;
 use update_site::{Fixture, TARGET, UP_TO_DATE, ready, state};
@@ -89,7 +90,7 @@ async fn quit_installs_the_update_and_the_next_launch_cleans_up() {
     engine.request_restart().unwrap();
     engine.shutdown().await.unwrap();
     assert!(
-        engine.finish_app_update().is_some(),
+        engine.finish_app_update(QuitCause::User).is_some(),
         "Restart opens it again"
     );
     assert_eq!(fixture.build_of(APP), "build 0.2.0");
@@ -111,7 +112,7 @@ async fn quit_installs_the_update_and_the_next_launch_cleans_up() {
     );
     engine.shutdown().await.unwrap();
     assert!(
-        engine.finish_app_update().is_none(),
+        engine.finish_app_update(QuitCause::User).is_none(),
         "nothing to install or open"
     );
     drop(engine);
@@ -135,7 +136,7 @@ async fn a_newer_version_replaces_the_staged_one() {
     );
     // Quit without Restart installs it and opens nothing.
     engine.shutdown().await.unwrap();
-    assert!(engine.finish_app_update().is_none());
+    assert!(engine.finish_app_update(QuitCause::User).is_none());
     assert_eq!(fixture.build_of(APP), "build 0.2.1");
 }
 
@@ -150,7 +151,7 @@ async fn switching_to_stable_discards_a_staged_beta() {
     assert_eq!(state(&engine), UP_TO_DATE);
     assert_eq!(fixture.applications_names(), [APP]);
     engine.shutdown().await.unwrap();
-    assert!(engine.finish_app_update().is_none());
+    assert!(engine.finish_app_update(QuitCause::User).is_none());
     assert_eq!(fixture.build_of(APP), "build 0.1.1-beta.1");
 }
 

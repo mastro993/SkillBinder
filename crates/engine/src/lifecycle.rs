@@ -91,8 +91,12 @@ impl EngineConfig {
             app_update: STAMPED.then(|| UpdateSource {
                 site: CatalogSource::Http(base),
                 public_key: RELEASE_KEY.to_owned(),
-                payload: UpdatePayload::DiskImage {
-                    team: TEAM.to_owned(),
+                payload: if cfg!(windows) {
+                    UpdatePayload::Setup
+                } else {
+                    UpdatePayload::DiskImage {
+                        team: TEAM.to_owned(),
+                    }
                 },
             }),
         })
@@ -101,12 +105,14 @@ impl EngineConfig {
     /// `home`'s configuration, so a fixture never reaches the user's credentials or identity, and
     /// the catalog comes from `<data_dir>/catalog-source`, which is missing, so offline, until a
     /// fixture writes it. Repositories may be local `file://` ones. App updates are off until a
-    /// fixture names a source. No bundle runs, and Move to Applications would use the fixture's
-    /// `<data_dir>/fixture-applications` and `<home>/Applications`.
+    /// fixture names a source. No bundle or setup-installed executable runs, and Move to
+    /// Applications would use the fixture's `<data_dir>/fixture-applications` and
+    /// `<home>/Applications`.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
             placement: AppPlacement {
                 bundle: None,
+                executable: None,
                 applications: data_dir.join("fixture-applications"),
                 user_applications: home.join("Applications"),
             },

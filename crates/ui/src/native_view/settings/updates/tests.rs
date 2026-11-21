@@ -102,7 +102,11 @@ fn every_state_reads_its_row_of_rule_18() {
         ),
         (
             CannotInstall::NotInstalled,
-            "Download it from the release page.",
+            if cfg!(windows) {
+                "This copy wasn't installed by the SkillBinder installer."
+            } else {
+                "Download it from the release page."
+            },
         ),
     ] {
         let offered = status(

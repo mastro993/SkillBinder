@@ -1,6 +1,6 @@
 # Releases
 
-SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned Windows ZIP, and a Linux tarball, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018).
+SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned per-user Windows setup program, and a Linux tarball, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018).
 
 ## Versions
 
@@ -36,12 +36,12 @@ If step 4 fails after the push, `main` holds the bump commit and its tag without
 
 ## What a release contains
 
-Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the app icon. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
+Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, and `THIRD_PARTY_NOTICES.md`; the macOS and Linux ones also hold the app icon. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
 
 | Platform | Archive | Built on |
 |---|---|---|
 | macOS 26+ | `skillbinder-<version>-universal-apple-darwin.dmg`: `SkillBinder.app`, Developer ID signed with the hardened runtime, notarized, ticket stapled to the image. The image opens on SkillBinder, an arrow, and an `Applications` shortcut to drag it onto (ADR 0019). | `macos-26`, `aarch64` and `x86_64` combined with `lipo` |
-| Windows | `skillbinder-<version>-x86_64-pc-windows-msvc.zip`: `SkillBinder/skillbinder.exe`, unsigned | `windows-2025` (MSVC) |
+| Windows | `skillbinder-<version>-x86_64-pc-windows-msvc-setup.exe`: an unsigned Inno Setup program that installs `skillbinder.exe` for the current user, with no administrator prompt, into `%LOCALAPPDATA%\Programs\SkillBinder`, with a Start menu entry and an uninstaller that keeps the user's data (ADR 0019) | `windows-2025` (MSVC) |
 | Linux | `skillbinder-<version>-x86_64-unknown-linux-gnu.tar.gz`: `SkillBinder/` with the binary, a `.desktop` entry, and `INSTALL.txt` | `ubuntu-22.04` (glibc 2.35) |
 
 The disk image is built with [`dmgbuild`](https://github.com/dmgbuild/dmgbuild) (MIT), which writes the window layout without driving Finder, so it works on a headless runner. Its settings are `packaging/macos/dmgbuild-settings.py`, and its window background is dmgbuild's own `builtin-arrow`. `dmgbuild` and its dependencies are pinned with their wheels' hashes in `packaging/macos/dmgbuild-requirements.txt`; `build.yml` installs them into a virtual environment, and a local `xtask package` needs the same on `PATH`:
@@ -54,13 +54,15 @@ PATH="$PWD/.venv-dmgbuild/bin:$PATH" cargo run -p xtask -- package universal-app
 
 The bundle's `Info.plist` records the full version, a beta's included, as `SkillBinderVersion`; Move to Applications reads it to tell whether a SkillBinder already there is newer.
 
+The Windows setup program is compiled by [Inno Setup](https://jrsoftware.org/isinfo.php) 6 from `packaging/windows/skillbinder.iss`. `build.yml` downloads Inno Setup 6.7.4's installer from its GitHub release, checks its SHA-256, and installs it for the runner's user; a local `xtask package` finds `ISCC.exe` on `PATH` or in `%ProgramFiles(x86)%\Inno Setup 6`. Setup's version is the full one, a beta's included; its file version holds only `X.Y.Z.0`. The script's `AppId` must never change, since the uninstaller and every update find the installation by it. The same program is the Windows app update, which the app runs silently at quit ([app updates](features/native/app-updates.md#windows)).
+
 `SHA256SUMS` beside them lists every archive's checksum, and `update.json` with `update.json.minisig` describes them for the app's updates. A pull request that changes the packaging or these workflows runs `build.yml` unstamped and unsigned, so a broken platform shows up before a release needs it.
 
-On Windows, SmartScreen shows "Windows protected your PC" for the unsigned program: **More info** → **Run anyway**.
+On Windows, SmartScreen shows "Windows protected your PC" once, for the unsigned setup program the user downloaded: **More info** → **Run anyway**. App updates run without it, since a setup program the app downloads itself carries no Mark of the Web.
 
 ## Update manifests
 
-`cargo run -p xtask -- update-manifest --version <version> --dist <dir>` writes `<dir>/update.json` and signs it with minisign into `<dir>/update.json.minisig`. Every file in `<dir>` other than `SHA256SUMS` and the pair must be a `skillbinder-<version>-<target>.<ext>` archive, at most one per target:
+`cargo run -p xtask -- update-manifest --version <version> --dist <dir>` writes `<dir>/update.json` and signs it with minisign into `<dir>/update.json.minisig`. Every file in `<dir>` other than `SHA256SUMS` and the pair must be a `skillbinder-<version>-<target>.<ext>` archive, or the Windows `skillbinder-<version>-<target>-setup.exe`, at most one per target:
 
 ```json
 {

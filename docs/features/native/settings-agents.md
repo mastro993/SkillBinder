@@ -31,7 +31,7 @@ Under the "Updates" section header, after Reveal logs, a `KeyValueList` lists:
 | Checking | Kit's spinner, Checking… | Check now, disabled |
 | Downloading | Downloading 0.2.0… 42% | Check now, disabled |
 | Ready | SkillBinder 0.2.0 is ready. | the primary Restart, disabled with its tooltip while long work runs, and the ghost What's new, which opens the release page |
-| Download-only | SkillBinder 0.2.0 is available., with the reason muted under it: "Move SkillBinder to Applications to update automatically." (macOS outside Applications), "SkillBinder can't write to its folder." (an Applications folder the user can't write), or "Download it from the release page." (Windows, Linux, and development builds) | Download and the ghost What's new, both opening the release page |
+| Download-only | SkillBinder 0.2.0 is available., with the reason muted under it: "Move SkillBinder to Applications to update automatically." (macOS outside Applications), "SkillBinder can't write to its folder." (an Applications folder the user can't write), "This copy wasn't installed by the SkillBinder installer." (a Windows copy setup did not install), or "Download it from the release page." (Linux and development builds) | Download and the ghost What's new, both opening the release page |
 | Check now failed, offline | Couldn't check for updates. Check your connection. | Check now |
 | Check now failed, otherwise | Couldn't check for updates. | Check now |
 

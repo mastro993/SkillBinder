@@ -11,6 +11,7 @@ const RUNS_FROM: &str = "/Users/me/Downloads/SkillBinder.app";
 fn placement(root: &Path) -> AppPlacement {
     AppPlacement {
         bundle: None,
+        executable: None,
         applications: root.join("Applications"),
         user_applications: root.join("me/Applications"),
     }
@@ -145,4 +146,34 @@ fn mounts_are_read_from_hdiutil_and_mount() {
             PathBuf::from("/private/var/folders/x/T/AppTranslocation/6E1A")
         )]
     );
+}
+
+#[test]
+fn a_windows_executable_is_installed_only_beside_its_uninstaller() {
+    let root = tempfile::tempdir().unwrap();
+    let program = root.path().join("Programs/SkillBinder");
+    fs::create_dir_all(&program).unwrap();
+    let executable = program.join("skillbinder.exe");
+    fs::write(&executable, "build").unwrap();
+    let downloads = root.path().join("data/updates");
+    let placement = AppPlacement {
+        executable: Some(executable.clone()),
+        ..placement(root.path())
+    };
+    assert_eq!(locate(&placement, &downloads), Location::NotInstalled);
+    assert_eq!(
+        Location::NotInstalled.staging(),
+        Err(CannotInstall::NotInstalled)
+    );
+
+    fs::write(program.join(UNINSTALLER), "uninstaller").unwrap();
+    let location = locate(&placement, &downloads);
+    assert_eq!(
+        location,
+        Location::SetUp {
+            executable,
+            staging: downloads.clone()
+        }
+    );
+    assert_eq!(location.staging(), Ok(downloads.as_path()));
 }

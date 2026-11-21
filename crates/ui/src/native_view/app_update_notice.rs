@@ -31,6 +31,9 @@ pub(super) fn reason_line(reason: CannotInstall) -> &'static str {
             "Move SkillBinder to Applications to update automatically."
         }
         CannotInstall::NotWritable => "SkillBinder can't write to its folder.",
+        CannotInstall::NotInstalled if cfg!(windows) => {
+            "This copy wasn't installed by the SkillBinder installer."
+        }
         CannotInstall::NotInstalled => "Download it from the release page.",
     }
 }
