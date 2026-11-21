@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>App icon export</title>
+<!-- One 1024 px app icon on a transparent page for export-brand.sh to capture.
+     ?kind=mac places the tile on Apple's icon grid (824 px with a shadow); ?kind=bleed fills the
+     canvas for Windows. ?weight thickens the rune for the smallest sizes. -->
+<style>html, body { margin: 0; background: transparent; } svg { display: block; }</style>
+</head>
+<body>
+<script src="icons.js"></script>
+<script>
+  const query = new URLSearchParams(location.search);
+  const weight = Number(query.get('weight') || 1);
+  const [x, size] = query.get('kind') === 'mac' ? [100, 824] : [10, 1004];
+  const tile = BRAND.icon('bindrune', 'stone', weight)
+    .replace('<svg ', `<svg x="${x}" y="${x}" width="${size}" height="${size}" `);
+  document.body.innerHTML =
+    `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">` +
+    `<defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">` +
+    `<feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".3"/></filter></defs>` +
+    (x === 100 ? `<g filter="url(#shadow)"><path d="${BRAND.TILE}" transform="translate(${x} ${x}) scale(${size / 100})"/></g>` : '') +
+    `${tile}</svg>`;
+</script>
+</body>
+</html>

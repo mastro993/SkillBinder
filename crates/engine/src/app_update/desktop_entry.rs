@@ -7,7 +7,7 @@ use std::{fs, io, path::Path};
 /// The icon `xtask package` puts in every archive.
 const ICON: &[u8] = include_bytes!("../../../../assets/icon.png");
 /// Where the icon goes under the data home: the size `ICON` is, in the theme every desktop reads.
-const ICON_PATH: &str = "icons/hicolor/32x32/apps/skillbinder.png";
+const ICON_PATH: &str = "icons/hicolor/256x256/apps/skillbinder.png";
 const ENTRY_PATH: &str = "applications/skillbinder.desktop";
 
 /// Writes the menu entry starting `appimage`, and its icon, under `data_home`, replacing what an

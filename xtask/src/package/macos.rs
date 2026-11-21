@@ -1,6 +1,7 @@
 //! The macOS app bundle and its DMG, which `dmgbuild` lays out as SkillBinder, an arrow, and an
-//! Applications shortcut (ADR 0019). With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID
-//! Application certificate in the keychain, both are signed for notarization; otherwise neither is.
+//! Applications shortcut over the brand's background, with the app icon on the volume (ADR 0019).
+//! With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID Application certificate in the
+//! keychain, both are signed for notarization; otherwise neither is.
 use super::{licenses, run};
 use crate::version::Version;
 use anyhow::Context as _;
@@ -25,8 +26,8 @@ pub(super) fn package(
     fs::create_dir_all(contents.join("Resources"))?;
     fs::copy(binary, contents.join("MacOS/skillbinder"))?;
     fs::copy(
-        root.join("assets/icon.png"),
-        contents.join("Resources/icon.png"),
+        root.join("assets/icon.icns"),
+        contents.join("Resources/icon.icns"),
     )?;
     fs::write(contents.join("Info.plist"), info_plist(version))?;
     licenses(root, &contents.join("Resources"))?;
@@ -55,6 +56,11 @@ pub(super) fn package(
         .arg(format!("app={}", app.display()))
         .arg("-D")
         .arg(format!("size={megabytes}m"))
+        .arg("-D")
+        .arg(format!(
+            "background={}",
+            root.join("packaging/macos/dmg-background.png").display()
+        ))
         .arg("SkillBinder")
         .arg(&image);
     let status = dmgbuild.status().context(
@@ -93,6 +99,7 @@ fn info_plist(version: &Version) -> String {
 <key>CFBundleExecutable</key><string>skillbinder</string>
 <key>CFBundleIdentifier</key><string>com.skillbinder.desktop</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleIconFile</key><string>icon</string>
 <key>CFBundleShortVersionString</key><string>{major}.{minor}.{patch}</string>
 <key>CFBundleVersion</key><string>{major}.{minor}.{patch}</string>
 <key>SkillBinderVersion</key><string>{version}</string>

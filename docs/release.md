@@ -36,7 +36,7 @@ If step 4 fails after the push, `main` holds the bump commit and its tag without
 
 ## What a release contains
 
-Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, and `THIRD_PARTY_NOTICES.md`; the macOS and Linux ones also hold the app icon. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
+Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the app icon: `icon.icns` in the macOS bundle, `skillbinder.ico` beside the Windows executable for setup and its shortcuts, and a 256-pixel PNG in the AppImage. The icon files in `assets/` and the disk image background are rendered by `docs/design/brand/source/export-brand.sh`. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
 
 | Platform | Archive | Built on |
 |---|---|---|
@@ -44,7 +44,7 @@ Every archive holds the locked release build without native test controls (`carg
 | Windows | `skillbinder-<version>-x86_64-pc-windows-msvc-setup.exe`: an unsigned Inno Setup program that installs `skillbinder.exe` for the current user, with no administrator prompt, into `%LOCALAPPDATA%\Programs\SkillBinder`, with a Start menu entry and an uninstaller that keeps the user's data (ADR 0019) | `windows-2025` (MSVC) |
 | Linux | `skillbinder-<version>-x86_64.AppImage`: one file holding the binary, its `.desktop` entry, and the icon, built on the static type 2 runtime, so it needs no `libfuse2`. At its first launch the app offers to add itself to the applications menu (ADR 0019). | `ubuntu-22.04` (glibc 2.35) |
 
-The disk image is built with [`dmgbuild`](https://github.com/dmgbuild/dmgbuild) (MIT), which writes the window layout without driving Finder, so it works on a headless runner. Its settings are `packaging/macos/dmgbuild-settings.py`, and its window background is dmgbuild's own `builtin-arrow`. `dmgbuild` and its dependencies are pinned with their wheels' hashes in `packaging/macos/dmgbuild-requirements.txt`; `build.yml` installs them into a virtual environment, and a local `xtask package` needs the same on `PATH`:
+The disk image is built with [`dmgbuild`](https://github.com/dmgbuild/dmgbuild) (MIT), which writes the window layout without driving Finder, so it works on a headless runner. Its settings are `packaging/macos/dmgbuild-settings.py`, its window background is the brand's `packaging/macos/dmg-background.png` with its `@2x` sibling, and the mounted volume wears the app icon. `dmgbuild` and its dependencies are pinned with their wheels' hashes in `packaging/macos/dmgbuild-requirements.txt`; `build.yml` installs them into a virtual environment, and a local `xtask package` needs the same on `PATH`:
 
 ```sh
 python3 -m venv .venv-dmgbuild

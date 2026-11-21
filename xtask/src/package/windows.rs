@@ -26,6 +26,11 @@ pub(super) fn package(
     }
     fs::create_dir_all(&program)?;
     fs::copy(binary, program.join("skillbinder.exe"))?;
+    // The executable carries no icon resource, so setup and its shortcuts use this file.
+    fs::copy(
+        root.join("assets/icon.ico"),
+        program.join("skillbinder.ico"),
+    )?;
     licenses(root, &program)?;
     let [major, minor, patch] = version.core;
     let setup = format!("{name}-setup");

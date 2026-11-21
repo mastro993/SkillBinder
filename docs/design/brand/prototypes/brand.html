@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkillBinder brand</title>
+<!-- Brand playground: icon concepts, logo lockups, and slogans in the DESIGN.md palette.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py brand.html ../prototypes/brand.html -->
+<style>/* brand.css */
+:root{--bg: #FFFFFF;--fg: #1B1E23;--side: #E9EDF2;--side-fg: #3C4045;--side-accent: #D7DBE2;--muted: #EFF3F8;--muted-fg: #5F646B;--border: #E2E7EC;--hair: #EBEFF4;--primary: #0077B6;--primary-hover: #026EA8;--soft: #E4F2FE;--soft-fg: #046094;--font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;color-scheme: light;}:root[data-theme="dark"]{--bg: #181A1D;--fg: #E9EBEE;--side: #0D0F12;--side-fg: #B6BBC1;--side-accent: #24272A;--muted: #25282C;--muted-fg: #A0A5AB;--border: #2A2D31;--hair: #212427;--primary: #0077B6;--primary-hover: #1E84C4;--soft: #133146;--soft-fg: #8FCCFB;color-scheme: dark;}*{box-sizing: border-box;}body{margin: 0;background: var(--bg);color: var(--fg);font: 13px/1.4 var(--font);}.app{display: grid;grid-template-columns: 272px 1fr;min-height: 100vh;}.ctl{background: var(--side);color: var(--side-fg);border-right: 1px solid var(--border);padding: 16px;position: sticky;top: 0;height: 100vh;overflow-y: auto;}.ctl h1{font-size: 16px;font-weight: 600;margin: 0 0 2px;color: var(--fg);}.ctl .sub{color: var(--muted-fg);margin: 0 0 16px;}.grp{margin-bottom: 18px;}.grp > label, .grp > .lbl{display: block;font-size: 11px;font-weight: 600;text-transform: uppercase;letter-spacing: .04em;color: var(--muted-fg);margin-bottom: 6px;}.seg{display: flex;background: var(--side-accent);border-radius: 7px;padding: 2px;gap: 2px;}.seg button{flex: 1;border: 0;background: transparent;color: var(--side-fg);font: 520 12px var(--font);padding: 5px 4px;border-radius: 5px;cursor: pointer;}.seg button.on{background: var(--bg);color: var(--fg);box-shadow: 0 1px 2px rgba(0,0,0,.12);}.opts{display: flex;flex-direction: column;gap: 2px;}.opt{display: flex;align-items: center;gap: 8px;border: 0;background: transparent;color: var(--side-fg);font: 13px var(--font);text-align: left;padding: 6px 8px;border-radius: 6px;cursor: pointer;}.opt:hover{background: color-mix(in srgb, var(--side-accent) 60%, transparent);}.opt.on{background: var(--side-accent);color: var(--fg);font-weight: 520;}.opt .ico{width: 22px;height: 22px;flex: none;}.opt .ico svg{width: 100%;height: 100%;display: block;}.opt b{font-weight: 600;width: 14px;color: var(--muted-fg);}input[type="text"]{width: 100%;border: 1px solid var(--border);background: var(--bg);color: var(--fg);border-radius: 6px;padding: 6px 8px;font: 13px var(--font);margin-top: 6px;}input[type="text"]:focus{outline: 2px solid var(--primary);outline-offset: -1px;}.btn{border: 0;background: var(--primary);color: #fff;font: 520 13px var(--font);padding: 7px 12px;border-radius: 6px;cursor: pointer;width: 100%;}.btn:hover{background: var(--primary-hover);}.export{width: 100%;height: 96px;margin-top: 8px;font: 11px/1.4 "SF Mono", ui-monospace, monospace;border: 1px solid var(--border);border-radius: 6px;background: var(--bg);color: var(--fg);padding: 6px;resize: vertical;}.board{padding: 28px 32px 64px;max-width: 1120px;}.sec{margin-bottom: 40px;}.sec h2{font-size: 16px;font-weight: 600;margin: 0 0 4px;}.sec .note{color: var(--muted-fg);margin: 0 0 14px;max-width: 640px;}.panel{border: 1px solid var(--border);border-radius: 12px;padding: 20px;background: var(--bg);}.row{display: flex;flex-wrap: wrap;gap: 20px;align-items: flex-end;}.tile{display: block;}.tile svg{display: block;width: 100%;height: 100%;}.tile.dock{filter: drop-shadow(0 3px 6px rgba(0,0,0,.22));}.tile.dock svg{padding: 9.8%;}.compare{display: grid;grid-template-columns: repeat(5, minmax(0, 1fr));gap: 12px;}.card{border: 1px solid var(--border);border-radius: 12px;padding: 14px 10px 12px;background: var(--bg);cursor: pointer;text-align: center;color: var(--fg);font: 13px var(--font);}.card:hover{border-color: var(--muted-fg);}.card.on{border-color: var(--primary);box-shadow: 0 0 0 1px var(--primary);}.card .tile{width: 100%;max-width: 128px;aspect-ratio: 1;margin: 0 auto 8px;}.card .nm{font-weight: 600;}.card .ds{color: var(--muted-fg);font-size: 12px;}.hero{display: grid;grid-template-columns: 260px 1fr;gap: 28px;align-items: center;}.hero .big{width: 260px;height: 260px;}.cap{color: var(--muted-fg);font-size: 12px;text-align: center;margin-top: 6px;}.modes{display: flex;gap: 18px;flex-wrap: wrap;}.modes .tile{width: 104px;height: 104px;}.sizes{display: flex;gap: 18px;align-items: flex-end;margin-top: 20px;flex-wrap: wrap;}.dock-bg{border-radius: 12px;padding: 48px 20px 14px;display: flex;justify-content: center;}.dock-bg.light{background: linear-gradient(135deg, #BFD9EC, #E9DDD0 60%, #CFE0D6);}.dock-bg.dark{background: linear-gradient(135deg, #0E2233, #1C1B2C 60%, #10241E);}.dock{display: flex;gap: 6px;padding: 6px;border-radius: 18px;backdrop-filter: blur(20px);}.dock-bg.light .dock{background: rgba(255,255,255,.45);border: 1px solid rgba(255,255,255,.6);}.dock-bg.dark .dock{background: rgba(40,42,46,.55);border: 1px solid rgba(255,255,255,.12);}.dock .tile{width: 56px;height: 56px;}.dock .ghost{width: 56px;height: 56px;padding: 5.5px;}.dock .ghost i{display: block;width: 100%;height: 100%;border-radius: 22.4%;}.dock .us{position: relative;}.dock .us::after{content: "";position: absolute;left: 50%;bottom: -5px;width: 4px;height: 4px;margin-left: -2px;border-radius: 50%;background: currentColor;opacity: .6;}.dock-bg.light .us{color: #1B1E23;}.dock-bg.dark .us{color: #fff;}.two{display: grid;grid-template-columns: 1fr 1fr;gap: 16px;}.menubar{height: 26px;border-radius: 8px;display: flex;align-items: center;justify-content: flex-end;gap: 14px;padding: 0 12px;font: 13px var(--font);}.menubar.light{background: rgba(246,246,246,.9);color: #1B1E23;}.menubar.dark{background: rgba(30,30,32,.92);color: #fff;}.menubar .g{width: 18px;height: 18px;display: grid;place-items: center;}.menubar .g svg{width: 16px;height: 16px;}.menubar .g.hl{background: rgba(127,127,127,.28);border-radius: 4px;width: 26px;height: 22px;}.menubar .dim{opacity: .55;width: 16px;height: 10px;border-radius: 3px;border: 1.4px solid currentColor;}.lock{display: flex;align-items: center;gap: 12px;}.lock .tile{width: 52px;height: 52px;flex: none;}.wm{font-size: 30px;letter-spacing: -.02em;line-height: 1;white-space: nowrap;}.wm{font-weight: 600;}.wm.carved, .wm.glow{font-family: Optima, Candara, "Segoe UI", sans-serif;text-transform: uppercase;letter-spacing: .12em;font-weight: 600;}.wm.serif{font-family: "Hoefler Text", "Iowan Old Style", Baskerville, Georgia, serif;font-variant: small-caps;letter-spacing: .06em;font-weight: 500;}.wm.glow .b{color: var(--lk-accent);text-shadow: 0 0 10px var(--lk-glow), 0 0 22px var(--lk-glow);}.surface{border-radius: 12px;padding: 32px 24px;display: flex;justify-content: center;}.surface.light{background: #FFFFFF;color: #1B1E23;border: 1px solid #E2E7EC;--lk-accent: #0077B6;--lk-glow: rgba(143,204,251,.6);}.surface.dark{background: radial-gradient(circle at 50% 30%, #24272A, #0D0F12);color: #E9EBEE;--lk-accent: #8FCCFB;--lk-glow: rgba(30,132,196,.8);}.surface.blue{background: radial-gradient(circle at 50% 30%, #0B4F7C, #0D0F12);color: #FFFFFF;--lk-accent: #BFE2FD;--lk-glow: rgba(47,145,209,.9);}.stack{display: flex;flex-direction: column;align-items: center;gap: 12px;text-align: center;}.stack .tile{width: 84px;height: 84px;}.stack .wm{font-size: 26px;}.slogan{font-size: 15px;opacity: .72;}.three{display: grid;grid-template-columns: repeat(3, 1fr);gap: 16px;}.welcome{max-width: 460px;margin: 0 auto;text-align: center;padding: 36px 28px;border: 1px solid var(--border);border-radius: 14px;background: var(--bg);box-shadow: 0 12px 32px rgba(15,23,42,.12);}.welcome .tile{width: 96px;height: 96px;margin: 0 auto 14px;}.welcome h3{font-size: 20px;font-weight: 600;margin: 0 0 6px;}.welcome p{color: var(--muted-fg);font-size: 14px;margin: 0 0 22px;}.welcome .btn{width: auto;padding: 8px 18px;}@media (max-width: 860px){.app{grid-template-columns: 1fr;}.ctl{position: static;height: auto;}.board{padding: 20px 16px 48px;}.compare{grid-template-columns: repeat(3, minmax(0, 1fr));}.hero, .two, .three{grid-template-columns: 1fr;}.hero .big{width: 200px;height: 200px;margin: 0 auto;}.wm{font-size: 24px;}}.lock .wm{font-size: 22px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="ctl" id="ctl"></aside>
+  <main class="board" id="board"></main>
+</div>
+<script>/* icons.js */
+(function () {
+  // Every value is a DESIGN.md token or a step between two of them.
+  const SCHEMES = {
+    stone: {
+      bg1: '#33373C', bg2: '#0D0F12', grain: 1, grainA: 0.035, glow: '#1E84C4', core: '#E4F2FE',
+      s1: '#4A4F55', s2: '#1B1E23', edge: '#FFFFFF', edgeA: 0.14, socket: '#0D0F12',
+      gem: ['#8FCCFB', '#2F91D1', '#0077B6', '#04659B', '#033F63'], glowA: 0.95,
+    },
+    abyss: {
+      bg1: '#0B4F7C', bg2: '#0D0F12', grain: 1, grainA: 0.03, glow: '#2F91D1', core: '#FFFFFF',
+      s1: '#2F3337', s2: '#121417', edge: '#8FCCFB', edgeA: 0.22, socket: '#081018',
+      gem: ['#BFE2FD', '#2F91D1', '#0077B6', '#04659B', '#033F63'], glowA: 1,
+    },
+    frost: {
+      bg1: '#FFFFFF', bg2: '#D3DBE4', grain: 0.1, grainA: 0.025, glow: '#8FCCFB', core: '#0077B6',
+      s1: '#F4F7FA', s2: '#C5CDD6', edge: '#FFFFFF', edgeA: 0.9, socket: '#C5CDD6',
+      gem: ['#BFE2FD', '#8FCCFB', '#2F91D1', '#0077B6', '#04659B'], glowA: 0.9,
+    },
+    tinted: {
+      bg1: '#3A3B3E', bg2: '#1B1C1E', grain: 1, grainA: 0.03, glow: '#8E9095', core: '#FFFFFF',
+      s1: '#5C5E62', s2: '#2A2B2E', edge: '#FFFFFF', edgeA: 0.14, socket: '#111214',
+      gem: ['#F0F1F2', '#C9CBCF', '#9EA1A6', '#76787C', '#4A4B4E'], glowA: 0.8,
+    },
+  };
+
+  // The rune: a stave, the diamond that binds it, and two hooks turning the same way.
+  const RUNE = 'M50 14V86M50 32 66 50 50 68 34 50ZM50 14 64 25M50 86 36 75';
+  const NODES = [[50, 14], [64, 25], [50, 32], [66, 50], [50, 68], [34, 50], [50, 86], [36, 75]];
+
+  let uid = 0;
+  const ring = (n, r, rot = 0) => Array.from({ length: n }, (_, i) => {
+    const t = ((2 * Math.PI) / n) * i + rot;
+    return [+(50 + r * Math.sin(t)).toFixed(2), +(50 - r * Math.cos(t)).toFixed(2)];
+  });
+  const pts = (ps) => ps.map((p) => p.join(' ')).join(' ');
+
+  // Apple's continuous-corner rounded square of side `w` inset by `o`, corner radius `r`;
+  // macOS 26 frames an app icon whose outline is not this shape.
+  const squircle = (w, r, o = 0) => {
+    const k = [1.52866483, 1.08849299, 0.86840701, 0.66993427, 0.63149399, 0.37282392, 0.16905899, 0.07491100, 0.06549600, 0.02221700];
+    const n = (v) => +v.toFixed(3);
+    // One corner, from the top edge to the right edge, in the corner's own frame.
+    const corner = (map) => {
+      const P = (a, b) => map(a * r, b * r).map(n).join(' ');
+      return `L${P(k[0], 0)}C${P(k[1], 0)} ${P(k[2], k[9])} ${P(k[3], k[8])}L${P(k[4], k[7])}` +
+        `C${P(k[5], k[6])} ${P(k[6], k[5])} ${P(k[7], k[4])}L${P(k[8], k[3])}C${P(k[9], k[2])} ${P(0, k[1])} ${P(0, k[0])}`;
+    };
+    const lo = o, hi = w - o;
+    return `M${n(lo + k[0] * r)} ${n(lo)}` +
+      corner((a, b) => [hi - a, lo + b]) + corner((a, b) => [hi - b, hi - a]) +
+      corner((a, b) => [lo + a, hi - b]) + corner((a, b) => [lo + b, lo + a]) + 'Z';
+  };
+  const TILE = squircle(100, 22.37), EDGE = squircle(100, 22, 0.4);
+
+  // A stroke that glows: a blurred wide pass under a crisp bright core.
+  const glowing = (c, id, d, w) =>
+    `<path d="${d}" fill="none" stroke="${c.glow}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" filter="url(#${id}b)" opacity="${c.glowA}"/>` +
+    `<path d="${d}" fill="none" stroke="${c.core}" stroke-width="${w * 0.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+  const CONCEPTS = {
+    // A: the rune alone, burning on the tile.
+    bindrune: (c, id, weight) => glowing(c, id, RUNE, 7 * weight),
+
+    // B: the rune inside a summoning circle of ticks.
+    sigil: (c, id) => {
+      const outer = ring(16, 34), tips = ring(16, 37).map((p, i) => (i % 4 === 0 ? ring(16, 40)[i] : p));
+      const ticks = outer.map((p, i) => `M${p.join(' ')}L${tips[i].join(' ')}`).join('');
+      const marks = ring(4, 30, Math.PI / 4).map(([x, y]) => `M${x} ${y - 3}l3 3-3 3-3-3Z`).join('');
+      return glowing(c, id, 'M50 10a40 40 0 1 1 0 80a40 40 0 1 1 0-80', 2.4) +
+        glowing(c, id, ticks, 2) + glowing(c, id, marks, 1.8) +
+        `<g transform="translate(50 50) scale(.56) translate(-50 -50)">${glowing(c, id, RUNE, 7)}</g>`;
+    },
+
+    // C: a cut rune gem set in a socket, as in an item tooltip.
+    gem: (c, id) => {
+      const outer = ring(6, 30), inner = ring(6, 15);
+      const facets = outer.map((p, i) => {
+        const j = (i + 1) % 6;
+        return `<polygon points="${pts([p, outer[j], inner[j], inner[i]])}" fill="${c.gem[[1, 2, 3, 4, 3, 0][i]]}"/>`;
+      }).join('');
+      return `<circle cx="50" cy="50" r="39" fill="${c.socket}" stroke="${c.edge}" stroke-opacity="${c.edgeA}" stroke-width="1"/>` +
+        `<circle cx="50" cy="50" r="31" fill="${c.glow}" filter="url(#${id}b)" opacity="${c.glowA * 0.8}"/>` +
+        facets + `<polygon points="${pts(inner)}" fill="${c.gem[1]}"/>` +
+        `<g transform="translate(50 50) scale(.26) translate(-50 -50)">` +
+        `<path d="${RUNE}" fill="none" stroke="${c.core}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></g>` +
+        `<polygon points="${pts([outer[5], outer[0], inner[0], inner[5]])}" fill="#fff" opacity=".35"/>`;
+    },
+
+    // D: a standing stone with the rune carved into its face.
+    runestone: (c, id) =>
+      `<path d="M35 13 66 11Q78 11 80 23L85 75Q86 88 72 89H29Q15 89 16 76L20 25Q22 13 35 13Z" fill="url(#${id}s)" stroke="${c.edge}" stroke-opacity="${c.edgeA}" stroke-width="1"/>` +
+      `<path d="M36 14 66 12Q77 12 79 23" fill="none" stroke="${c.edge}" stroke-opacity="${Math.min(1, c.edgeA * 1.6)}" stroke-width="1.2"/>` +
+      `<g transform="translate(50 51) scale(.66) translate(-50 -50)">${glowing(c, id, RUNE, 8)}</g>`,
+
+    // E: the rune as a constellation, skills as stars.
+    stars: (c, id) =>
+      `<path d="${RUNE}" fill="none" stroke="${c.glow}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>` +
+      `<circle cx="50" cy="50" r="9" fill="${c.glow}" filter="url(#${id}b)" opacity="${c.glowA}"/><circle cx="50" cy="50" r="5" fill="${c.core}"/>` +
+      NODES.map(([x, y], i) => {
+        const r = i === 3 || i === 5 ? 4.6 : 3.4;
+        return `<circle cx="${x}" cy="${y}" r="${r * 1.8}" fill="${c.glow}" filter="url(#${id}b)" opacity="${c.glowA}"/>` +
+          `<circle cx="${x}" cy="${y}" r="${r}" fill="${c.core}"/>`;
+      }).join(''),
+  };
+
+  const GLYPHS = {
+    bindrune: '<path d="M9 1.75v14.5M9 5.5l3.5 3.5L9 12.5 5.5 9ZM9 1.75l3 2.3M9 16.25l-3-2.3"/>',
+    sigil: '<circle cx="9" cy="9" r="7.25"/><path d="M9 4.5v9M9 6.5 11.5 9 9 11.5 6.5 9Z"/>',
+    gem: '<path d="M9 2.2 15 5.6v6.8L9 15.8 3 12.4V5.6Z"/><path d="M9 5.6 12 7.3v3.4L9 12.4 6 10.7V7.3Z"/>',
+    runestone: '<path d="M6.5 2.5h5Q14 2.5 14.2 5l.8 9q0 1.5-1.5 1.5h-9Q3 15.5 3 14l.8-9Q4 2.5 6.5 2.5Z"/><path d="M9 5v8M9 7l2 2-2 2-2-2Z"/>',
+    stars: '<path d="M9 2v14M9 5.5l3.5 3.5L9 12.5 5.5 9Z"/><circle cx="9" cy="9" r="1.3" fill="currentColor"/>',
+  };
+
+  window.BRAND = {
+    CONCEPTS: Object.keys(CONCEPTS),
+    SCHEMES: Object.keys(SCHEMES),
+    TILE,
+    // `weight` thickens the rune for the 16 and 32 px icon files.
+    icon(concept, scheme, weight = 1) {
+      const c = SCHEMES[scheme];
+      const id = `r${++uid}`;
+      return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>` +
+        `<radialGradient id="${id}g" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="${c.bg1}"/><stop offset="1" stop-color="${c.bg2}"/></radialGradient>` +
+        `<linearGradient id="${id}s" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="${c.s1}"/><stop offset="1" stop-color="${c.s2}"/></linearGradient>` +
+        `<filter id="${id}b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6"/></filter>` +
+        `<filter id="${id}n"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7"/>` +
+        `<feColorMatrix values="0 0 0 0 ${c.grain} 0 0 0 0 ${c.grain} 0 0 0 0 ${c.grain} 0 0 0 ${c.grainA * 9} -${c.grainA * 3}"/></filter>` +
+        `<clipPath id="${id}c"><path d="${TILE}"/></clipPath></defs>` +
+        `<g clip-path="url(#${id}c)"><rect width="100" height="100" fill="url(#${id}g)"/>` +
+        `<rect width="100" height="100" filter="url(#${id}n)"/></g>` +
+        `<path d="${EDGE}" fill="none" stroke="${c.edge}" stroke-opacity="${c.edgeA}" stroke-width=".8"/>` +
+        CONCEPTS[concept](c, id, weight) + `</svg>`;
+    },
+    glyph(concept) {
+      return `<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" ` +
+        `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[concept]}</svg>`;
+    },
+  };
+})();
+
+</script>
+<script>/* brand.js */
+(function () {
+  const { icon, glyph } = window.BRAND;
+  const CONCEPTS = [
+    { id: 'bindrune', letter: 'A', name: 'Rune', desc: 'The rune alone, glowing' },
+    { id: 'sigil', letter: 'B', name: 'Sigil', desc: 'The rune in a summoning circle' },
+    { id: 'gem', letter: 'C', name: 'Rune gem', desc: 'A cut gem in its socket' },
+    { id: 'runestone', letter: 'D', name: 'Runestone', desc: 'The rune carved in stone' },
+    { id: 'stars', letter: 'E', name: 'Constellation', desc: 'The rune drawn in stars' },
+  ];
+  const BACKS = [['stone', 'Stone'], ['abyss', 'Abyss'], ['frost', 'Frost']];
+  const MARKS = [['sf', 'SF Pro'], ['carved', 'Carved caps'], ['serif', 'Tome serif'], ['glow', 'Glowing caps']];
+  const SLOGANS = [
+    'Bind once. Cast everywhere.',
+    'Your grimoire of agent skills.',
+    'Every agent, enchanted.',
+    'One library to bind them all.',
+    'The spellbook for your agents.',
+    'Teach every agent the same spells.',
+    'Gather your skills. Bind them to every agent.',
+    'Collect the runes. Empower your agents.',
+  ];
+  const KEY = 'skillbinder-brand-runes';
+  const state = { concept: 'bindrune', back: 'stone', mark: 'carved', slogan: 3, custom: '', theme: 'dark' };
+  try { Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* no storage */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* no storage */ } };
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const tile = (concept, scheme, cls = '') => `<span class="tile ${cls}">${icon(concept, scheme)}</span>`;
+  const sloganText = () => (state.slogan === -1 ? state.custom || 'Your slogan' : SLOGANS[state.slogan]);
+  const concept = () => CONCEPTS.find((c) => c.id === state.concept);
+  const wordmark = () => { const [a, b] = ['Skill', 'Binder']; return `<span class="wm ${state.mark}"><span class="a">${a}</span><span class="b">${b}</span></span>`; };
+
+  function controls() {
+    const seg = (key, items) => `<div class="seg">${items.map(([v, l]) =>
+      `<button data-k="${key}" data-v="${v}" class="${state[key] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    $('ctl').innerHTML =
+      `<h1>Brand</h1><p class="sub">Rune icon, logo, and slogan in the blue slate palette.</p>` +
+      `<div class="grp"><span class="lbl">Icon concept</span><div class="opts">${CONCEPTS.map((c) =>
+        `<button class="opt ${state.concept === c.id ? 'on' : ''}" data-k="concept" data-v="${c.id}">` +
+        `<b>${c.letter}</b><span class="ico">${icon(c.id, state.back)}</span>${c.name}</button>`).join('')}</div></div>` +
+      `<div class="grp"><span class="lbl">Icon background</span>${seg('back', BACKS)}</div>` +
+      `<div class="grp"><span class="lbl">Wordmark</span><div class="opts">${MARKS.map(([v, l]) =>
+        `<button class="opt ${state.mark === v ? 'on' : ''}" data-k="mark" data-v="${v}">${l}</button>`).join('')}</div></div>` +
+      `<div class="grp"><span class="lbl">Slogan</span><div class="opts">${SLOGANS.map((s, i) =>
+        `<button class="opt ${state.slogan === i ? 'on' : ''}" data-k="slogan" data-v="${i}">${esc(s)}</button>`).join('')}` +
+        `<button class="opt ${state.slogan === -1 ? 'on' : ''}" data-k="slogan" data-v="-1">Your own…</button></div>` +
+        `<input type="text" id="custom" placeholder="Write a slogan" value="${esc(state.custom)}"></div>` +
+      `<div class="grp"><span class="lbl">Page theme</span>${seg('theme', [['light', 'Light'], ['dark', 'Dark']])}</div>` +
+      `<div class="grp"><button class="btn" id="copy">Copy choice</button><textarea class="export" id="export" readonly></textarea></div>`;
+  }
+
+  function board() {
+    const c = state.concept;
+    const ghosts = ['#F2994A', '#56CCF2', '#27AE60', '#9B51E0'].map((g) =>
+      `<span class="ghost"><i style="background:linear-gradient(${g}, ${g}cc)"></i></span>`);
+    const dock = (cls, scheme) => `<div class="dock-bg ${cls}"><div class="dock">${ghosts.slice(0, 2).join('')}` +
+      `<span class="us">${tile(c, scheme, 'dock')}</span>${ghosts.slice(2).join('')}</div></div>`;
+    const bar = (cls) => `<div class="menubar ${cls}"><span class="dim"></span><span class="g hl">${glyph(c)}</span>` +
+      `<span>Sat 21 Nov  10:41</span></div>`;
+    const lock = (cls) => `<div class="surface ${cls}"><div class="lock">${tile(c, cls === 'dark' ? 'stone' : cls === 'blue' ? 'abyss' : state.back)}${wordmark()}</div></div>`;
+    const stack = (cls) => `<div class="surface ${cls}"><div class="stack">${tile(c, cls === 'dark' ? 'stone' : cls === 'blue' ? 'abyss' : state.back)}` +
+      `${wordmark()}<span class="slogan">${esc(sloganText())}</span></div></div>`;
+    $('board').innerHTML =
+      `<section class="sec"><h2>Compare concepts</h2><p class="note">One original rune, framed five ways: a stave bound by a diamond, drawn from no historical rune so it borrows no meaning. Every color is a palette token. Click one to inspect it.</p>` +
+      `<div class="compare">${CONCEPTS.map((k) => `<button class="card ${k.id === c ? 'on' : ''}" data-k="concept" data-v="${k.id}">` +
+        `${tile(k.id, state.back, 'dock')}<div class="nm">${k.letter} · ${k.name}</div><div class="ds">${k.desc}</div></button>`).join('')}</div></section>` +
+
+      `<section class="sec"><h2>App icon · ${concept().letter} ${concept().name}</h2><p class="note">macOS 26 shows an icon in Default, Dark, and Tinted appearances; it must still read at 16 px in Finder lists.</p>` +
+      `<div class="panel hero"><span class="big">${tile(c, state.back, 'dock')}</span><div>` +
+      `<div class="modes">${[[state.back, 'Default'], ['stone', 'Dark'], ['tinted', 'Tinted']].map(([s, l]) =>
+        `<div>${tile(c, s, 'dock')}<div class="cap">${l}</div></div>`).join('')}</div>` +
+      `<div class="sizes">${[128, 64, 32, 16].map((px) =>
+        `<div><span class="tile dock" style="width:${px}px;height:${px}px">${icon(c, state.back)}</span><div class="cap">${px}</div></div>`).join('')}</div>` +
+      `</div></div></section>` +
+
+      `<section class="sec"><h2>In the Dock and menu bar</h2><p class="note">The menu bar glyph is a one-color template image drawn from the same idea.</p>` +
+      `<div class="two">${dock('light', state.back)}${dock('dark', 'stone')}</div>` +
+      `<div class="two" style="margin-top:12px">${bar('light')}${bar('dark')}</div></section>` +
+
+      `<section class="sec"><h2>Logo</h2><p class="note">Icon and wordmark on the window, stone, and abyss surfaces.</p>` +
+      `<div class="three">${lock('light')}${lock('dark')}${lock('blue')}</div>` +
+      `<div class="three" style="margin-top:16px">${stack('light')}${stack('dark')}${stack('blue')}</div></section>` +
+
+      `<section class="sec"><h2>Welcome</h2><p class="note">The brand where people meet it first: the onboarding welcome.</p>` +
+      `<div class="welcome">${tile(c, state.theme === 'dark' ? 'stone' : state.back, 'dock')}` +
+      `<h3>Welcome to SkillBinder</h3><p>${esc(sloganText())}</p><button class="btn">Get started</button></div></section>`;
+  }
+
+  function exportText() {
+    $('export').value = `Brand choice\n- Icon: ${concept().letter} ${concept().name} (${concept().desc})\n` +
+      `- Icon background: ${state.back}\n- Wordmark: ${MARKS.find(([v]) => v === state.mark)[1]}\n- Slogan: ${sloganText()}`;
+  }
+
+  function render() {
+    document.documentElement.dataset.theme = state.theme;
+    controls(); board(); exportText(); save();
+  }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-k]');
+    if (b) {
+      const { k, v } = b.dataset;
+      state[k] = k === 'slogan' ? Number(v) : v;
+      render();
+    } else if (e.target.id === 'copy') {
+      navigator.clipboard?.writeText($('export').value);
+      e.target.textContent = 'Copied';
+    }
+  });
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== 'custom') return;
+    state.custom = e.target.value; state.slogan = -1;
+    board(); exportText(); save();
+    document.querySelectorAll('[data-k="slogan"]').forEach((b) => b.classList.toggle('on', b.dataset.v === '-1'));
+  });
+  render();
+})();
+
+</script>
+</body>
+</html>
