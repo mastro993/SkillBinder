@@ -11,6 +11,8 @@ use std::path::PathBuf;
 
 /// The Git row's line while Git is found.
 const GIT_FOUND: &str = "Syncs your library and updates skills from their sources.";
+/// Its line while Git is missing or too old; an old version's status line names it.
+const GIT_NEEDED: &str = "Sync and skill updates need Git 2.39 or newer.";
 
 impl NativeView {
     pub(super) fn library_groups(&self, cx: &mut Context<Self>) -> Vec<Group> {
@@ -61,8 +63,8 @@ impl NativeView {
         ]
     }
 
-    /// Git's version, or "Not installed" with the step's primary action and its status line,
-    /// and the package manager's command on Linux under them (S3).
+    /// Git's version, or the step's primary action with its status line, and the package
+    /// manager's command on Linux under them (S3).
     fn git_setting(&self, cx: &mut Context<Self>) -> SettingRow {
         let row = SettingRow::new("settings-git-row", "Git").keywords(&["install", "version"]);
         let facts = self.git_facts();
@@ -77,7 +79,6 @@ impl NativeView {
         } else {
             actions.download_primary.then_some(GitButton::Download)
         };
-        let value = facts.outdated.unwrap_or("Not installed");
         let under: Vec<AnyElement> = self
             .git_status_line("settings-git-line")
             .into_iter()
@@ -87,9 +88,7 @@ impl NativeView {
                     .map(|command| self.git_command_box(command, cx)),
             )
             .collect();
-        let row = row
-            .detail(format!("{value}. Sync and skill updates need Git."))
-            .under(under);
+        let row = row.detail(GIT_NEEDED).under(under);
         match primary {
             Some(button) => row.control(self.git_button(button, true, false, cx)),
             None => row,
