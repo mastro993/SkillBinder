@@ -1,5 +1,7 @@
 use crate::{
-    app_update::{AppPlacement, RELEASE_KEY, STAMPED, UpdateSource, running_version},
+    app_update::{
+        AppPlacement, RELEASE_KEY, STAMPED, TEAM, UpdatePayload, UpdateSource, running_version,
+    },
     catalog::{BASE_URL, CatalogSource},
     git::Git,
     onboarding::{self, Facts},
@@ -89,6 +91,9 @@ impl EngineConfig {
             app_update: STAMPED.then(|| UpdateSource {
                 site: CatalogSource::Http(base),
                 public_key: RELEASE_KEY.to_owned(),
+                payload: UpdatePayload::DiskImage {
+                    team: TEAM.to_owned(),
+                },
             }),
         })
     }

@@ -131,12 +131,13 @@ fn run() -> anyhow::Result<()> {
                 if !opened_on_quit.get() {
                     std::process::exit(1);
                 }
-                // After Move to Applications the moved copy starts once this one lets go of the
-                // instance lock, which AppKit's exit would otherwise hold to the end.
-                if let Some(relaunch) = engine.take_relaunch() {
+                // A ready app update installs now. After Move to Applications or Restart, the
+                // app starts again once this one lets go of the instance lock, which AppKit's
+                // exit would otherwise hold to the end.
+                if let Some(relaunch) = engine.finish_app_update() {
                     drop(instance.take());
                     if let Err(error) = relaunch.start() {
-                        eprintln!("Could not open the moved SkillBinder: {error}");
+                        eprintln!("Could not open SkillBinder again: {error}");
                     }
                 }
                 #[cfg(feature = "native-test")]

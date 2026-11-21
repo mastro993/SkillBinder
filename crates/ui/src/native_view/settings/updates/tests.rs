@@ -1,5 +1,5 @@
-use super::{Action, DOWNLOAD_LINE, Status, channel_line, status};
-use skillbinder_proto::{AppUpdateSnapshot, AppUpdateState, Channel, CheckFailure};
+use super::{Action, Status, channel_line, status};
+use skillbinder_proto::{AppUpdateSnapshot, AppUpdateState, CannotInstall, Channel, CheckFailure};
 
 /// 2027-01-15T08:00:00Z.
 const NOW: u64 = 1_800_000_000;
@@ -14,6 +14,7 @@ fn update(current: &str, channel: Channel, state: AppUpdateState) -> AppUpdateSn
         state,
         last_checked: None,
         outside_applications: false,
+        updated: None,
     }
 }
 
@@ -67,21 +68,60 @@ fn every_state_reads_its_row_of_rule_18() {
         line(&at(idle(Some(CheckFailure::Failed)))),
         ("Couldn't check for updates.".to_owned(), check_now)
     );
-    let offered = status(
-        &at(AppUpdateState::DownloadOnly {
-            version: "0.2.0".parse().unwrap_or_else(|_| panic!("0.2.0 parses")),
-            notes_url: "https://example.invalid/v0.2.0".to_owned(),
-        }),
-        NOW,
-    );
-    assert_eq!(offered.line, "SkillBinder 0.2.0 is available.");
-    assert_eq!(offered.detail, Some(DOWNLOAD_LINE));
+    let version = "0.2.0".parse().unwrap_or_else(|_| panic!("0.2.0 parses"));
+    let notes_url = "https://example.invalid/v0.2.0".to_owned();
+    for (percent, text) in [
+        (None, "Downloading 0.2.0…"),
+        (Some(42), "Downloading 0.2.0… 42%"),
+    ] {
+        assert_eq!(
+            line(&at(AppUpdateState::Downloading { version, percent })),
+            (text.to_owned(), Action::CheckNow { enabled: false })
+        );
+    }
     assert_eq!(
-        offered.action,
-        Action::Download {
-            notes_url: "https://example.invalid/v0.2.0".to_owned()
-        }
+        line(&at(AppUpdateState::Ready {
+            version,
+            notes_url: notes_url.clone()
+        })),
+        (
+            "SkillBinder 0.2.0 is ready.".to_owned(),
+            Action::Restart {
+                notes_url: notes_url.clone()
+            }
+        )
     );
+    for (reason, detail) in [
+        (
+            CannotInstall::OutsideApplications,
+            "Move SkillBinder to Applications to update automatically.",
+        ),
+        (
+            CannotInstall::NotWritable,
+            "SkillBinder can't write to its folder.",
+        ),
+        (
+            CannotInstall::NotInstalled,
+            "Download it from the release page.",
+        ),
+    ] {
+        let offered = status(
+            &at(AppUpdateState::DownloadOnly {
+                version,
+                notes_url: notes_url.clone(),
+                reason,
+            }),
+            NOW,
+        );
+        assert_eq!(offered.line, "SkillBinder 0.2.0 is available.");
+        assert_eq!(offered.detail, Some(detail));
+        assert_eq!(
+            offered.action,
+            Action::Download {
+                notes_url: notes_url.clone()
+            }
+        );
+    }
 }
 
 #[test]

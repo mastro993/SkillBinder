@@ -2,6 +2,7 @@
 //! folder, replacing an older SkillBinder there, disposes of the original, and says what to
 //! launch once the app quits.
 
+use super::install::swap;
 use super::location::{AppPlacement, Origin, Original};
 use skillbinder_proto::AppVersion;
 use std::{
@@ -11,7 +12,7 @@ use std::{
 };
 
 /// The bundle's name in an Applications folder.
-const NAME: &str = "SkillBinder.app";
+pub(super) const NAME: &str = "SkillBinder.app";
 /// The `Info.plist` key holding the full version, a beta's included; `xtask package` writes it.
 const VERSION_KEY: &str = "SkillBinderVersion";
 /// Waits for the process `$1` to exit, then ejects the disk image `$2` it ran from.
@@ -27,6 +28,11 @@ pub struct Relaunch {
 }
 
 impl Relaunch {
+    /// Opens the app at `app` again, as Restart does once an app update is installed.
+    pub(super) fn reopen(app: PathBuf) -> Self {
+        Self { app, eject: None }
+    }
+
     /// Opens the moved app as a new instance, and leaves a helper that ejects the disk image
     /// once this process exits. Call it after the instance lock is released.
     pub fn start(self) -> io::Result<()> {
@@ -110,27 +116,11 @@ pub(crate) fn relocate(
         fs::remove_dir(&staging)?;
         return Ok(target);
     }
-    let moved = copy(bundle, &staging).and_then(|()| swap(&staging, &target, id));
-    if moved.is_err() {
-        let _ = fs::remove_dir_all(&staging);
-    }
-    moved.map(|()| target)
-}
-
-/// Puts `staged` at `target`, setting aside and then removing a bundle already there. When the
-/// staged bundle can't take its place, the old one is put back.
-fn swap(staged: &Path, target: &Path, id: u32) -> io::Result<()> {
-    if fs::symlink_metadata(target).is_err() {
-        return fs::rename(staged, target);
-    }
+    // A bundle already there is set aside, then removed.
     let old = target.with_file_name(format!(".skillbinder-old-{id}"));
-    fs::rename(target, &old)?;
-    if let Err(error) = fs::rename(staged, target) {
-        let _ = fs::rename(&old, target);
-        return Err(error);
-    }
-    let _ = fs::remove_dir_all(&old);
-    Ok(())
+    let moved = copy(bundle, &staging).and_then(|()| swap(&staging, &target, &old));
+    let _ = fs::remove_dir_all(if moved.is_ok() { &old } else { &staging });
+    moved.map(|()| target)
 }
 
 /// The full version a SkillBinder bundle's `Info.plist` records. A bundle without it predates
@@ -155,7 +145,7 @@ fn ditto(bundle: &Path, staging: &Path) -> io::Result<()> {
         .arg(staging))
 }
 
-fn run(command: &mut Command) -> io::Result<()> {
+pub(super) fn run(command: &mut Command) -> io::Result<()> {
     let output = command.stdin(Stdio::null()).output()?;
     if output.status.success() {
         Ok(())

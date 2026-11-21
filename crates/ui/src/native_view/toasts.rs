@@ -1,6 +1,6 @@
 //! The toast that confirms a change: Kit's notification at the bottom center of the window, with
 //! the check-circle glyph, or, after a removal, with its Undo button; an install offers Show in
-//! Library beside its glyph. A newer one replaces the shown one, and Kit closes it after its
+//! Library beside its glyph, and an app update Release notes. A newer one replaces the shown one, and Kit closes it after its
 //! time, which the pointer pauses while it rests on it. A change ends from a timer that has no
 //! window at hand, so the toast waits for the next frame, which pushes it.
 
@@ -26,6 +26,8 @@ pub(super) enum ToastAction {
     ShowInLibrary(SkillId),
     /// Adds a removed repository back.
     RestoreRepository(Repository),
+    /// Opens a SkillBinder release's page.
+    ReleaseNotes(String),
 }
 
 /// A change's toast waiting for the next frame, where the window it shows in is at hand, with the
@@ -91,6 +93,7 @@ impl NativeView {
             Some(ToastAction::RestoreRepository(repository)) => {
                 self.with_restore(toast, repository)
             }
+            Some(ToastAction::ReleaseNotes(url)) => with_release_notes(toast, url),
             None => toast,
         };
         let toast = self.hold_toast(toast, message, cx);
@@ -121,6 +124,22 @@ impl NativeView {
             })
             .autohide(true)
     }
+}
+
+/// `toast` with Release notes, which opens the release page `url` and closes the toast.
+fn with_release_notes(toast: Notification, url: String) -> Notification {
+    toast
+        .action(move |_, _, cx| {
+            let url = url.clone();
+            Button::new("toast-release-notes")
+                .label("Release notes")
+                .on_click(cx.listener(move |toast, _, window, cx| {
+                    cx.open_url(&url);
+                    toast.dismiss(window, cx);
+                }))
+                .into_kit()
+        })
+        .autohide(true)
 }
 
 #[cfg(not(feature = "native-test"))]

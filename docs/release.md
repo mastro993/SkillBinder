@@ -112,7 +112,7 @@ gh secret set APPLE_API_KEY_ID --body XXXXXXXXXX
 gh secret set APPLE_API_ISSUER --body xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
-Create the API key under App Store Connect → Users and Access → Integrations → Team Keys with the Developer role. The build job imports the certificate into a temporary keychain, passes its identity to `xtask package` as `SKILLBINDER_SIGNING_IDENTITY`, submits the image with `xcrun notarytool`, prints the notarization log when Apple rejects it, staples the ticket, and checks the image with `spctl`. Locally, `SKILLBINDER_SIGNING_IDENTITY="Developer ID Application: …" cargo run -p xtask -- package` signs the app and the image the same way; without it neither is signed.
+Create the API key under App Store Connect → Users and Access → Integrations → Team Keys with the Developer role. The build job imports the certificate into a temporary keychain before it compiles, sets `SKILLBINDER_TEAM_ID` to the team ID in the identity's name so the app checks that its updates carry that team's signature, passes the identity to `xtask package` as `SKILLBINDER_SIGNING_IDENTITY`, submits the image with `xcrun notarytool`, prints the notarization log when Apple rejects it, staples the ticket, and checks the image with `spctl`. Locally, `SKILLBINDER_SIGNING_IDENTITY="Developer ID Application: …" cargo run -p xtask -- package` signs the app and the image the same way; without it neither is signed.
 
 ### Update signing (Release and Nightly)
 

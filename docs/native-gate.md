@@ -8,3 +8,4 @@ The workspace implements the shipped product journeys with pinned GPUI Kit. Func
 - [Recorded evidence (continued)](native-gate/recorded-evidence-continued.md)
 - [Recorded evidence, November 2026](native-gate/recorded-evidence-2026-11.md)
 - [Recorded evidence, November 2026: scoped pages](native-gate/recorded-evidence-2026-11-pages.md)
+- [Recorded evidence, November 2026: app updates](native-gate/recorded-evidence-2026-11-app-updates.md)

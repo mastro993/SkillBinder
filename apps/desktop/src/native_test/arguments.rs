@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, bail, ensure};
-use skillbinder_engine::{CatalogSource, EngineConfig, GitSearch, UpdateSource};
+use skillbinder_engine::{CatalogSource, EngineConfig, GitSearch, UpdatePayload, UpdateSource};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NativeMode {
@@ -95,7 +95,7 @@ pub(crate) fn parse_launch(
         config.catalog = CatalogSource::Directory(resolved_path(&catalog)?);
     }
     // A fixture update site laid out like the Pages site, signed with the key in its `key.pub`;
-    // renaming it takes checks offline.
+    // renaming it takes checks offline. Its archives are a bundle's executable, unsigned.
     if let Some(updates) = updates {
         let site = resolved_path(&updates)?;
         let public_key = fs::read_to_string(site.join("key.pub"))
@@ -103,6 +103,7 @@ pub(crate) fn parse_launch(
         config.app_update = Some(UpdateSource {
             site: CatalogSource::Directory(site),
             public_key: public_key.trim().to_owned(),
+            payload: UpdatePayload::Executable,
         });
     }
     // The version checks compare against, such as a beta to see the Beta→Stable line.

@@ -1,12 +1,13 @@
 //! Settings › Updates (spec rules 18, 19, 24): the running version in tabular figures, the
 //! channel as Kit's segmented control, the Check automatically switch, and one status line with
-//! its action at the row's end. Every newer version is download-only in this slice. Copy always
-//! names SkillBinder: "update" alone means a skill update.
+//! its action at the row's end: Check now, Restart for a ready update, or Download for one this
+//! copy can't install. Copy always names SkillBinder: "update" alone means a skill update.
 
 #[cfg(test)]
 mod tests;
 
 use super::super::NativeView;
+use super::super::app_update_notice::reason_line;
 use super::super::library_dates::{from_unix, relative};
 use chrono::Utc;
 use gpui_kit::component::tab::{Tab, TabBar};
@@ -17,8 +18,6 @@ use skillbinder_design::{Button, IconSize, KeyValueList, SectionHeader, Spinner,
 use skillbinder_proto::{AppUpdateSnapshot, AppUpdateState, Channel, CheckFailure};
 
 const CHANNELS: [(Channel, &str); 2] = [(Channel::Stable, "Stable"), (Channel::Beta, "Beta")];
-/// Why the notice and Settings offer Download in this slice, before the app can update itself.
-pub(in crate::native_view) const DOWNLOAD_LINE: &str = "Download it from the release page.";
 
 /// What the Status row's action does.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -30,6 +29,10 @@ enum Action {
     },
     /// Download and What's new, both opening the release page.
     Download {
+        notes_url: String,
+    },
+    /// Restart, and What's new, which opens the release page.
+    Restart {
         notes_url: String,
     },
 }
@@ -77,8 +80,25 @@ fn status(update: &AppUpdateSnapshot, now: u64) -> Status {
             spinner: true,
             ..line("Checking…".to_owned(), Action::CheckNow { enabled: false })
         },
-        AppUpdateState::DownloadOnly { version, notes_url } => Status {
-            detail: Some(DOWNLOAD_LINE),
+        AppUpdateState::Downloading { version, percent } => {
+            let percent = percent.map(|percent| format!(" {percent}%"));
+            line(
+                format!("Downloading {version}…{}", percent.unwrap_or_default()),
+                Action::CheckNow { enabled: false },
+            )
+        }
+        AppUpdateState::Ready { version, notes_url } => line(
+            format!("SkillBinder {version} is ready."),
+            Action::Restart {
+                notes_url: notes_url.clone(),
+            },
+        ),
+        AppUpdateState::DownloadOnly {
+            version,
+            notes_url,
+            reason,
+        } => Status {
+            detail: Some(reason_line(*reason)),
             ..line(
                 format!("SkillBinder {version} is available."),
                 Action::Download {
@@ -97,6 +117,15 @@ fn channel_line(update: &AppUpdateSnapshot) -> Option<String> {
             update.current
         )
     })
+}
+
+/// What's new, which opens the release page `notes_url`.
+fn whats_new(notes_url: String) -> Button {
+    Button::new("settings-whats-new")
+        .label("What's new")
+        .small()
+        .ghost()
+        .on_click(move |_, _, cx| cx.open_url(&notes_url))
 }
 
 impl NativeView {
@@ -179,7 +208,7 @@ impl NativeView {
                     .on_click(cx.listener(|view, _, _, _| view.client.check_app_update())),
             ),
             Action::Download { notes_url } => {
-                let (download, notes) = (notes_url.clone(), notes_url.clone());
+                let download = notes_url.clone();
                 actions
                     .child(
                         Button::new("settings-download")
@@ -187,14 +216,11 @@ impl NativeView {
                             .small()
                             .on_click(move |_, _, cx| cx.open_url(&download)),
                     )
-                    .child(
-                        Button::new("settings-whats-new")
-                            .label("What's new")
-                            .small()
-                            .ghost()
-                            .on_click(move |_, _, cx| cx.open_url(&notes)),
-                    )
+                    .child(whats_new(notes_url.clone()))
             }
+            Action::Restart { notes_url } => actions
+                .child(self.restart_button("settings-restart", cx.entity().downgrade()))
+                .child(whats_new(notes_url.clone())),
         };
         h_flex()
             .justify_between()

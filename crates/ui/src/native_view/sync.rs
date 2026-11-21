@@ -11,7 +11,7 @@ impl NativeView {
         if self.blocked() {
             return;
         }
-        self.syncing = true;
+        self.syncing = Some(action);
         let client = self.client.clone();
         self.run(
             async move { client.synchronize(action).await.map(|_| Effect::None) },

@@ -12,6 +12,7 @@ The audited shipped baseline is revision `83d55ef789a7cf256021f6620742e0e9021a83
 - [Explore](native/explore.md)
 - [Explore: your repositories](native/explore-repositories.md)
 - [Settings, the new agent notice, and the app update notice](native/settings-agents.md)
+- [App updates in place](native/app-updates.md)
 - [Activation and managed copies](native/activation.md)
 - [Activation progress](native/activation-progress.md)
 - [Workspace activation](native/workspace-activation.md)

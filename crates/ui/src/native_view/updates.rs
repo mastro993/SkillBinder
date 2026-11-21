@@ -111,7 +111,7 @@ impl NativeView {
             let result = handle.await;
             let _ = this.update(cx, |view, cx| {
                 view.busy = false;
-                view.syncing = false;
+                view.syncing = None;
                 // The engine has answered, so its active preset is the one shown.
                 view.active_preset = None;
                 view.preset_reorder.settle();

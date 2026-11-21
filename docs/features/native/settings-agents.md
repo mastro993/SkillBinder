@@ -1,6 +1,6 @@
 # Settings, the new agent notice, and the app update notice
 
-After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card"). Settings also shows the version and the app update channel, and a notice offers a newer SkillBinder ([app updates spec](../../specs/app-updates.md) rules 1–4, 9, 13, 15–19, 24; prototype `docs/design/app-updates/prototypes/settings-updates.html`, variant A "Inline").
+After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card"). Settings also shows the version and the app update channel, and a notice offers a newer SkillBinder ([app updates spec](../../specs/app-updates.md) rules 1–5, 9, 13, 15–19, 24; prototype `docs/design/app-updates/prototypes/settings-updates.html`, variant A "Inline").
 
 ## Settings › Agents
 
@@ -29,15 +29,17 @@ Under the "Updates" section header, after Reveal logs, a `KeyValueList` lists:
 | Unstamped build | Updates are off in this build. | none |
 | Up to date | Up to date · checked 5 minutes ago, or Not checked yet | Check now |
 | Checking | Kit's spinner, Checking… | Check now, disabled |
-| Newer version | SkillBinder 0.2.0 is available., with "Download it from the release page." muted under it | Download and the ghost What's new, both opening the release page |
+| Downloading | Downloading 0.2.0… 42% | Check now, disabled |
+| Ready | SkillBinder 0.2.0 is ready. | the primary Restart, disabled with its tooltip while long work runs, and the ghost What's new, which opens the release page |
+| Download-only | SkillBinder 0.2.0 is available., with the reason muted under it: "Move SkillBinder to Applications to update automatically." (macOS outside Applications), "SkillBinder can't write to its folder." (an Applications folder the user can't write), or "Download it from the release page." (Windows, Linux, and development builds) | Download and the ghost What's new, both opening the release page |
 | Check now failed, offline | Couldn't check for updates. Check your connection. | Check now |
 | Check now failed, otherwise | Couldn't check for updates. | Check now |
 
-Check now always checks. While Check automatically is on, the app also checks at launch, every hour, and right after the channel changes, and turning the switch on checks at once. A failed automatic check changes nothing, and a refused signature is logged. Switching channel drops a version found on the other one, and when it was checked. In this slice every newer version is download-only: nothing is downloaded or installed.
+Check now always checks. While Check automatically is on, the app also checks at launch, every hour, and right after the channel changes, and turning the switch on checks at once. A failed automatic check changes nothing, and a refused signature is logged. Switching channel drops a version found on the other one, and when it was checked. On macOS from Applications a newer version downloads and installs at quit ([App updates in place](app-updates.md)); elsewhere it is download-only.
 
 ## The app update notice
 
-When a check finds a newer version, a Kit notification appears at the window's bottom-right, with its own id and no auto-hide, stacking with the new agent notice: "SkillBinder 0.2.0 is available" in medium weight, "Download it from the release page." muted, then Dismiss and the primary Download, which opens the release page. Like the new agent notice, it never shows during onboarding and is taken down while the progress strip is up, returning once it ends. Dismiss, Download, and Kit's close button hide it until the next launch; Settings still shows the version. A newer version found later replaces the shown notice.
+When a check finds a newer version this copy can't install itself, a Kit notification appears at the window's bottom-right, with its own id and no auto-hide, stacking with the new agent notice: "SkillBinder 0.2.0 is available" in medium weight, the download-only reason from the Status table muted, then Dismiss and the primary Download, which opens the release page. A ready update shows "SkillBinder 0.2.0 is ready" with Restart instead ([App updates in place](app-updates.md#the-ready-notice)). Like the new agent notice, it never shows during onboarding and is taken down while the progress strip is up, returning once it ends. Dismiss, Download, and Kit's close button hide it until the next launch; Settings still shows the version. A newer version found later replaces the shown notice.
 
 ## The new agent notice
 

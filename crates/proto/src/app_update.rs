@@ -164,13 +164,42 @@ pub enum AppUpdateState {
     },
     /// A check is running.
     Checking,
-    /// A newer version the user downloads from its release page.
+    /// A newer version is downloading, with how much of it has arrived once known.
+    Downloading {
+        /// The newer version.
+        version: AppVersion,
+        /// How much has arrived, from 0 to 100.
+        percent: Option<u8>,
+    },
+    /// A newer version is verified and staged, and installs at Restart or quit.
+    Ready {
+        /// The staged version.
+        version: AppVersion,
+        /// Its release page.
+        notes_url: String,
+    },
+    /// A newer version the user downloads from its release page, since this copy can't replace
+    /// itself.
     DownloadOnly {
         /// The newer version.
         version: AppVersion,
         /// Its release page.
         notes_url: String,
+        /// Why this copy can't replace itself.
+        reason: CannotInstall,
     },
+}
+
+/// Why the running copy can't replace itself (spec rule 13).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum CannotInstall {
+    /// macOS: it runs from outside `/Applications` and `~/Applications`.
+    OutsideApplications,
+    /// The folder holding it can't be written.
+    NotWritable,
+    /// It is not an installed copy this platform's updates replace, such as a development build,
+    /// or a platform that does not update in place yet.
+    NotInstalled,
 }
 
 /// App updates as Settings and the notice show them.
@@ -189,6 +218,9 @@ pub struct AppUpdateSnapshot {
     /// macOS: the app runs from outside `/Applications` and `~/Applications`, such as its disk
     /// image or Downloads, so it offers to move itself there.
     pub outside_applications: bool,
+    /// This launch is the first of a version newer than the last one that ran: its release page,
+    /// for the "Updated to" toast (spec rule 14).
+    pub updated: Option<String>,
 }
 
 #[cfg(test)]

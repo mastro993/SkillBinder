@@ -1,6 +1,6 @@
 use super::Trigger;
 use crate::Client;
-use skillbinder_engine::{CatalogSource, Engine, EngineConfig, UpdateSource};
+use skillbinder_engine::{CatalogSource, Engine, EngineConfig, UpdatePayload, UpdateSource};
 use skillbinder_proto::{AppUpdateState, Channel, CheckFailure};
 use std::time::Duration;
 use tokio::runtime::Handle;
@@ -27,6 +27,7 @@ async fn check_now_checks_with_automatic_checks_off_and_shows_its_failure() -> T
     config.app_update = Some(UpdateSource {
         site: CatalogSource::Directory(directory.path().join("site")),
         public_key: String::new(),
+        payload: UpdatePayload::Executable,
     });
     let engine = Engine::open(config)?;
     engine.set_update_auto_check(false).await?;

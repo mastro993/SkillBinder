@@ -88,22 +88,8 @@ jobs:
         if: inputs.version
         shell: bash
         run: echo "SKILLBINDER_RELEASE=1" >> "$GITHUB_ENV"
-      - name: Build release application
-        if: runner.os != 'macOS'
-        run: cargo build -p skillbinder --release --locked --target ${{ matrix.target }}
-      - name: Build universal macOS application
-        if: runner.os == 'macOS'
-        run: |
-          for target in aarch64-apple-darwin x86_64-apple-darwin; do
-            cargo build -p skillbinder --release --locked --target "$target"
-          done
-          mkdir -p target/universal-apple-darwin/release
-          lipo -create -output target/universal-apple-darwin/release/skillbinder \
-            target/aarch64-apple-darwin/release/skillbinder \
-            target/x86_64-apple-darwin/release/skillbinder
-          vtool -show-build target/universal-apple-darwin/release/skillbinder | grep -q 'minos 26.0'
       # A temporary keychain holding only the Developer ID Application certificate; the runner is
-      # discarded afterwards.
+      # discarded afterwards. It comes before the build, which compiles the team ID in.
       - name: Import the Developer ID certificate
         if: runner.os == 'macOS' && inputs.version
         env:
@@ -127,6 +113,27 @@ jobs:
             exit 1
           fi
           echo "SKILLBINDER_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+          # The stamped app checks that an app update's bundle carries this team's signature.
+          team=$(sed -nE 's/.*\(([A-Z0-9]{10})\)$/\1/p' <<<"$identity")
+          if [ -z "$team" ]; then
+            echo "::error::No team ID in the signing identity $identity"
+            exit 1
+          fi
+          echo "SKILLBINDER_TEAM_ID=$team" >> "$GITHUB_ENV"
+      - name: Build release application
+        if: runner.os != 'macOS'
+        run: cargo build -p skillbinder --release --locked --target ${{ matrix.target }}
+      - name: Build universal macOS application
+        if: runner.os == 'macOS'
+        run: |
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build -p skillbinder --release --locked --target "$target"
+          done
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create -output target/universal-apple-darwin/release/skillbinder \
+            target/aarch64-apple-darwin/release/skillbinder \
+            target/x86_64-apple-darwin/release/skillbinder
+          vtool -show-build target/universal-apple-darwin/release/skillbinder | grep -q 'minos 26.0'
       - name: Package
         run: cargo run -p xtask --locked -- package ${{ matrix.target }}
       - name: Notarize the disk image
