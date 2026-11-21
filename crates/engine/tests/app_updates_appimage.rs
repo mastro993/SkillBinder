@@ -110,7 +110,7 @@ async fn add_writes_the_menu_entry_and_is_never_asked_again() {
     assert!(entry.contains(&exec), "{entry}");
     assert!(
         share
-            .join("icons/hicolor/32x32/apps/skillbinder.png")
+            .join("icons/hicolor/256x256/apps/skillbinder.png")
             .is_file()
     );
     engine.shutdown().await.unwrap();
