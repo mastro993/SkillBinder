@@ -1,10 +1,12 @@
 //! Native application views and framework integration.
 
 mod assets;
+mod gate;
 mod native_view;
 mod tray;
 
 pub use assets::Assets;
+pub use gate::main_window_closed;
 #[cfg(feature = "native-test")]
 pub use native_view::StripHold;
 pub use native_view::{GoBack, GoForward, NativeView, ToggleSidebar};

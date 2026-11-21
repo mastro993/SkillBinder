@@ -8,8 +8,11 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div,
 };
+use skillbinder_client::Client;
 use skillbinder_design::Checkbox;
-use skillbinder_proto::{LibrarySnapshot, OrganizationChange, Preset, PresetId, SkillId};
+use skillbinder_proto::{
+    AppResult, AppSnapshot, LibrarySnapshot, OrganizationChange, Preset, PresetId, SkillId,
+};
 
 impl NativeView {
     /// The preset whose configuration the app edits: one just clicked while its activation is
@@ -43,31 +46,16 @@ impl NativeView {
 
     /// Activates preset `id`, showing it active at once while the engine saves the choice and
     /// writes your agents' copies to match it; the progress strip blocks the app meanwhile.
-    pub(super) fn set_active_preset(&mut self, id: PresetId, cx: &mut Context<Self>) {
+    pub(crate) fn set_active_preset(&mut self, id: PresetId, cx: &mut Context<Self>) {
         // Checked before the optimistic preset is set, which `block` could not undo.
         if self.blocked() || self.active_preset_id().as_ref() == Some(&id) {
             return;
         }
-        let Some(preset) = self
-            .snapshot
-            .library
-            .as_ref()
-            .and_then(|library| library.library.presets.iter().find(|p| p.id == id))
-            .map(|preset| preset.name.clone())
-        else {
+        let Some(activity) = switching(&self.snapshot, &id) else {
             return;
         };
         self.active_preset = Some(id.clone());
-        let client = self.client.clone();
-        self.block(
-            Activity::Switching { preset },
-            async move {
-                let change = OrganizationChange::ActivatePreset { id };
-                client.change_organization(change).await?;
-                Ok(Landing::default())
-            },
-            cx,
-        );
+        self.block(activity, activate(self.client.clone(), id), cx);
     }
 
     /// Whether the active preset holds `skill`.
@@ -136,8 +124,24 @@ impl NativeView {
     }
 }
 
+/// Switching to preset `id`, while it exists in `snapshot`.
+pub(crate) fn switching(snapshot: &AppSnapshot, id: &PresetId) -> Option<Activity> {
+    let library = snapshot.library.as_ref()?;
+    let preset = library.library.presets.iter().find(|p| &p.id == id)?;
+    Some(Activity::Switching {
+        preset: preset.name.clone(),
+    })
+}
+
+/// The change that activates preset `id`, writing and removing your agents' copies to match it.
+pub(crate) async fn activate(client: Client, id: PresetId) -> AppResult<Landing> {
+    let change = OrganizationChange::ActivatePreset { id };
+    client.change_organization(change).await?;
+    Ok(Landing::default())
+}
+
 /// The chosen preset while it exists, otherwise the Default preset.
-fn resolved_active<'a>(presets: &'a [Preset], chosen: &PresetId) -> Option<&'a Preset> {
+pub(crate) fn resolved_active<'a>(presets: &'a [Preset], chosen: &PresetId) -> Option<&'a Preset> {
     presets
         .iter()
         .find(|preset| &preset.id == chosen)

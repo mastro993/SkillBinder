@@ -68,7 +68,11 @@ mod workspace_targets;
 #[cfg(feature = "native-test")]
 pub use native_test::StripHold;
 pub(crate) use place_popover::bind_keys;
+pub(crate) use preset_activation::{activate, resolved_active, switching};
+pub(crate) use progress_strip::{Activity, Landing, waiting_copies};
 pub use shell::{GoBack, GoForward, ToggleSidebar};
+#[cfg(test)]
+pub(crate) use snapshot_query::fixture;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -246,6 +250,8 @@ pub struct NativeView {
     left_focus: bool,
     _activation_subscription: Subscription,
     _focus_lost_subscription: Subscription,
+    /// Ends the strip once its change returns, whoever started it.
+    _gate_subscription: Subscription,
     _subscription: Task<()>,
 }
 

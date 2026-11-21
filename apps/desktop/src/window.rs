@@ -91,14 +91,15 @@ pub(crate) fn open_main_window(focus: bool, cx: &mut App) -> bool {
     true
 }
 
-/// Forgets the closed window. With none left, the app keeps running behind its icon, without a
-/// Dock icon on macOS, or quits when no icon shows.
+/// Forgets the closed window, and the work it was blocking for. With none left, the app keeps
+/// running behind its icon, without a Dock icon on macOS, or quits when no icon shows.
 pub(crate) fn window_closed(cx: &mut App, id: WindowId) {
     let main = cx.global_mut::<MainWindow>();
     if main.handle.is_some_and(|handle| handle.window_id() == id) {
         main.handle = None;
         #[cfg(feature = "native-test")]
         main.hooks.shutdown();
+        skillbinder_ui::main_window_closed(cx);
     }
     if !cx.windows().is_empty() {
         return;

@@ -8,6 +8,7 @@ use super::{
     DialogState, NativeView, app_update_notice, explore, folder_reorder, git_setup, hover_scroll,
     new_agent_notice, settings, shell, sidebar, snapshot_query, toasts,
 };
+use crate::gate::{self, Gate};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::{AppContext, Context, Entity, Window};
 use skillbinder_client::Client;
@@ -95,7 +96,9 @@ impl NativeView {
         window.focus(&focus, cx);
         let focus_lost_subscription =
             cx.on_focus_lost(window, |view, window, cx| window.focus(&view.focus, cx));
-        Self {
+        let gate_subscription = cx.observe_global::<Gate>(|view, cx| view.follow_gate(cx));
+        gate::opened(cx.entity().downgrade(), cx);
+        let mut view = Self {
             client,
             snapshot,
             focus,
@@ -171,8 +174,11 @@ impl NativeView {
             left_focus: false,
             _activation_subscription: activation_subscription,
             _focus_lost_subscription: focus_lost_subscription,
+            _gate_subscription: gate_subscription,
             _subscription: subscription,
-        }
+        };
+        view.adopt_strip(cx);
+        view
     }
 
     pub(super) fn input_text(input: &Entity<InputState>, cx: &Context<Self>) -> String {

@@ -125,7 +125,7 @@ impl NativeView {
             self.optimistic_presets.clear();
             return cx.notify();
         }
-        self.busy = true;
+        self.set_busy(true, cx);
         self.error = None;
         cx.notify();
         let client = self.client.clone();
@@ -135,7 +135,7 @@ impl NativeView {
         cx.spawn_in(window, async move |this, cx| {
             let result = handle.await;
             let _ = this.update_in(cx, |view, window, cx| {
-                view.busy = false;
+                view.set_busy(false, cx);
                 view.optimistic_preset_name = None;
                 view.optimistic_presets.clear();
                 match result {

@@ -7,7 +7,7 @@ use super::{TrayEvent, TrayItem, TrayMenu};
 use async_channel::Sender;
 use gpui_kit::{App, AppContext, Task, WindowAppearance};
 use ksni::blocking::{Handle, TrayMethods};
-use ksni::menu::StandardItem;
+use ksni::menu::{CheckmarkItem, StandardItem};
 use ksni::{MenuItem, OfflineReason, ToolTip};
 
 /// The icon on screen; dropping it removes it.
@@ -40,6 +40,13 @@ pub(super) fn show(
 }
 
 impl Icon {
+    /// Shows `menu`; ksni sends hosts the whole menu again, and some redraw it only when it
+    /// reopens.
+    pub(super) fn draw(&mut self, menu: &TrayMenu) {
+        let menu = menu.clone();
+        let _ = self.0.update(move |item| item.menu = menu);
+    }
+
     /// Draws the glyph that contrasts with `appearance`.
     pub(super) fn follow(&self, appearance: WindowAppearance) {
         let icons = icons(appearance);
@@ -103,21 +110,43 @@ impl ksni::Tray for Item {
                 TrayItem::Action {
                     action,
                     label,
+                    enabled,
+                    checked,
                     shortcut,
                 } => {
-                    let action = *action;
-                    StandardItem {
-                        label: label.clone(),
-                        shortcut: shortcut
-                            .map(|key| vec![vec!["Control".into(), key.to_string()]])
-                            .unwrap_or_default(),
-                        activate: Box::new(move |item: &mut Self| {
-                            let _ = item.events.try_send(TrayEvent::Action(action));
-                        }),
-                        ..StandardItem::default()
+                    let shortcut = shortcut
+                        .map(|key| vec![vec!["Control".into(), key.to_string()]])
+                        .unwrap_or_default();
+                    let action = action.clone();
+                    let activate = Box::new(move |item: &mut Self| {
+                        let _ = item.events.try_send(TrayEvent::Action(action.clone()));
+                    });
+                    match checked {
+                        Some(checked) => CheckmarkItem {
+                            label: plain(label),
+                            enabled: *enabled,
+                            checked: *checked,
+                            shortcut,
+                            activate,
+                            ..CheckmarkItem::default()
+                        }
+                        .into(),
+                        None => StandardItem {
+                            label: plain(label),
+                            enabled: *enabled,
+                            shortcut,
+                            activate,
+                            ..StandardItem::default()
+                        }
+                        .into(),
                     }
-                    .into()
                 }
+                TrayItem::Label { label, .. } => StandardItem {
+                    label: plain(label),
+                    enabled: false,
+                    ..StandardItem::default()
+                }
+                .into(),
                 TrayItem::Separator => MenuItem::Separator,
             })
             .collect()
@@ -127,5 +156,22 @@ impl ksni::Tray for Item {
     fn watcher_offline(&self, _reason: OfflineReason) -> bool {
         let _ = self.events.try_send(TrayEvent::HostLost);
         false
+    }
+}
+
+/// `label` as a StatusNotifier host shows it as typed: it hides a single `_`, the access key
+/// marker, and shows `__` as `_`.
+fn plain(label: &str) -> String {
+    label.replace('_', "__")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain;
+
+    #[test]
+    fn an_underscore_shows_as_typed() {
+        assert_eq!(plain("code_review"), "code__review");
+        assert_eq!(plain("Review"), "Review");
     }
 }

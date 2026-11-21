@@ -164,7 +164,7 @@ impl NativeView {
             return;
         }
         let total = ids.len();
-        self.busy = true;
+        self.set_busy(true, cx);
         self.error = None;
         self.updating = Some((0, total));
         let client = self.client.clone();
@@ -190,7 +190,7 @@ impl NativeView {
             // The agents' copies no longer match what was updated, so scan once at the end.
             client.spawn_scan();
             let _ = this.update(cx, |view, cx| {
-                view.busy = false;
+                view.set_busy(false, cx);
                 view.updating = None;
                 if let Route::Skill(id) = &view.route
                     && outcome.updated.contains(id)

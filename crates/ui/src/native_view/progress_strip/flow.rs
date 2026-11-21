@@ -1,10 +1,12 @@
 //! How the strip runs in the view: blocking the app for a change, revealing the strip, ending it
-//! once the change lands, and the Done pill's Review and Close.
+//! once the change lands, and the Done pill's Review and Close. The change itself runs in the
+//! [`Gate`], which outlives the window, so a window opened while it runs adopts its strip.
 
 use super::super::copies_review::Review;
 use super::super::copy_dialogs::CopiesListing;
 use super::super::{DialogState, Effect, NativeView};
 use super::{Activity, Finish, Landing, REVEAL_AFTER, Shown, Strip, wash_fade};
+use crate::gate::{self, ChangeState, Gate};
 use gpui_kit::{Context, Window};
 use skillbinder_proto::{AppResult, AppSnapshot, ManagedCopy};
 use std::{
@@ -22,8 +24,15 @@ fn library_copies(snapshot: &AppSnapshot) -> &[ManagedCopy] {
         .map_or(&[], |library| library.copies.as_slice())
 }
 
+/// How many copies in `snapshot` wait for the user, as the Done pill counts them.
+pub(crate) fn waiting_copies(snapshot: &AppSnapshot) -> usize {
+    Review::of(library_copies(snapshot)).len()
+}
+
 impl NativeView {
-    /// Whether the app takes no new change: one is in flight, or the strip is up.
+    /// Whether the app takes no new change: one is in flight, or the strip is up. While the window
+    /// is open this is the [`Gate`]'s `blocked`, since the view writes both: `busy` beside the
+    /// gate's, and the strip from the start of the gate's change until it clears it.
     pub(in crate::native_view) fn blocked(&self) -> bool {
         self.busy || self.strip.is_some()
     }
@@ -42,11 +51,40 @@ impl NativeView {
             return;
         }
         self.menu = None;
-        self.run(async move { operation.await.map(Effect::Activated) }, cx);
+        self.error = None;
+        self.set_busy(true, cx);
+        gate::start_change(&self.client, activity.clone(), operation, cx);
         let strip = Strip::new(activity, Instant::now());
         let started = strip.started();
         self.strip = Some(strip);
         self.at_strip_time(REVEAL_AFTER, started, Self::reveal_strip, cx);
+    }
+
+    /// Shows the strip of a change that runs while the window opens, such as one the menu
+    /// started, at once and at its progress so far.
+    pub(in crate::native_view) fn adopt_strip(&mut self, cx: &mut Context<Self>) {
+        let Some(activity) = Gate::of(cx).running().cloned() else {
+            return;
+        };
+        let now = Instant::now();
+        let mut strip = Strip::new(activity, now);
+        strip.reveal(now);
+        strip.follow(self.snapshot.activation.as_ref());
+        self.strip = Some(strip);
+    }
+
+    /// Ends the working strip once the gate's change returns, as it lands or is refused.
+    pub(in crate::native_view) fn follow_gate(&mut self, cx: &mut Context<Self>) {
+        if !self.strip.as_ref().is_some_and(Strip::working) {
+            return;
+        }
+        let result = match Gate::of(cx).change.map(|change| change.state) {
+            Some(ChangeState::Landed(landing)) => Ok(Effect::Activated(landing)),
+            Some(ChangeState::Refused(error)) => Err(error),
+            Some(ChangeState::Running) | None => return,
+        };
+        self.settle(result, cx);
+        cx.notify();
     }
 
     /// Keeps keyboard focus on the overlay while the strip is up, and gives it back to the window
@@ -156,6 +194,7 @@ impl NativeView {
         let Some(strip) = self.strip.take() else {
             return;
         };
+        Gate::update(cx, |gate| gate.change = None);
         if !strip.washed() || cx.reduce_motion() {
             return;
         }
@@ -182,6 +221,26 @@ impl NativeView {
             return;
         }
         self.take_strip(cx);
+        self.review_waiting(review);
+        cx.notify();
+    }
+
+    /// Opens the review of the copies that wait for the user, as the menu's attention item does:
+    /// through the Done pill's Review while it shows, otherwise once nothing blocks the window and
+    /// no dialog the user works in is open; a copies dialog gives way to the review.
+    pub(crate) fn review_copies(&mut self, cx: &mut Context<Self>) {
+        let free = matches!(self.dialog, DialogState::None | DialogState::Copies(_));
+        if matches!(self.strip.as_ref().map(Strip::shown), Some(Shown::Done(_))) {
+            self.close_strip(true, cx);
+        } else if free && !self.blocked() {
+            self.review_waiting(true);
+            cx.notify();
+        }
+    }
+
+    /// Counts the copies that ask as asked, so the Skill copies dialog does not open by itself
+    /// right after, and opens their review when `review` is true.
+    fn review_waiting(&mut self, review: bool) {
         let snapshot = Arc::clone(&self.snapshot);
         let copies = library_copies(&snapshot);
         for copy in copies.iter().filter(|copy| copy.asks()) {
@@ -199,7 +258,6 @@ impl NativeView {
         if review && !listing.is_empty() {
             self.dialog = DialogState::Copies(CopiesListing::Attention(listing));
         }
-        cx.notify();
     }
 }
 
