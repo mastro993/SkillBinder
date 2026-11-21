@@ -29,7 +29,7 @@ Items, top to bottom, each group shown only when it applies:
 
 Before onboarding finishes, the menu holds only Open SkillBinder and Quit SkillBinder.
 
-The attention count is the Done pill's: every copy in the library that waits for the user, whichever change left it ([Activation progress](activation-progress.md#the-end)). The header's percentage is the snapshot's activation progress; it is left out while the client publishes none.
+The attention item opens the review list only over no dialog or a skill copies dialog; any other open dialog stays, and the window just comes forward. Labels show preset names as typed: `&` and `_` are escaped for each platform's menu. The attention count is the Done pill's: every copy in the library that waits for the user, whichever change left it ([Activation progress](activation-progress.md#the-end)). The header's percentage is the snapshot's activation progress; it is left out while the client publishes none.
 
 The icon's tooltip is "SkillBinder". On Windows, a left click opens the window and a right click shows the menu; on macOS and Linux every click shows the menu.
 

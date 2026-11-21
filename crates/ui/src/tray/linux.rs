@@ -123,7 +123,7 @@ impl ksni::Tray for Item {
                     });
                     match checked {
                         Some(checked) => CheckmarkItem {
-                            label: label.clone(),
+                            label: plain(label),
                             enabled: *enabled,
                             checked: *checked,
                             shortcut,
@@ -132,7 +132,7 @@ impl ksni::Tray for Item {
                         }
                         .into(),
                         None => StandardItem {
-                            label: label.clone(),
+                            label: plain(label),
                             enabled: *enabled,
                             shortcut,
                             activate,
@@ -142,7 +142,7 @@ impl ksni::Tray for Item {
                     }
                 }
                 TrayItem::Label { label, .. } => StandardItem {
-                    label: label.clone(),
+                    label: plain(label),
                     enabled: false,
                     ..StandardItem::default()
                 }
@@ -156,5 +156,22 @@ impl ksni::Tray for Item {
     fn watcher_offline(&self, _reason: OfflineReason) -> bool {
         let _ = self.events.try_send(TrayEvent::HostLost);
         false
+    }
+}
+
+/// `label` as a StatusNotifier host shows it as typed: it hides a single `_`, the access key
+/// marker, and shows `__` as `_`.
+fn plain(label: &str) -> String {
+    label.replace('_', "__")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain;
+
+    #[test]
+    fn an_underscore_shows_as_typed() {
+        assert_eq!(plain("code_review"), "code__review");
+        assert_eq!(plain("Review"), "Review");
     }
 }

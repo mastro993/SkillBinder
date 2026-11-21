@@ -226,11 +226,13 @@ impl NativeView {
     }
 
     /// Opens the review of the copies that wait for the user, as the menu's attention item does:
-    /// through the Done pill's Review while it shows, otherwise once nothing blocks the window.
+    /// through the Done pill's Review while it shows, otherwise once nothing blocks the window and
+    /// no dialog the user works in is open; a copies dialog gives way to the review.
     pub(crate) fn review_copies(&mut self, cx: &mut Context<Self>) {
+        let free = matches!(self.dialog, DialogState::None | DialogState::Copies(_));
         if matches!(self.strip.as_ref().map(Strip::shown), Some(Shown::Done(_))) {
             self.close_strip(true, cx);
-        } else if !self.blocked() {
+        } else if free && !self.blocked() {
             self.review_waiting(true);
             cx.notify();
         }

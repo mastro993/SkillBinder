@@ -91,10 +91,10 @@ impl Icon {
         for ((_, row), item) in self.rows.iter().zip(&menu.items) {
             match (row, item) {
                 (Row::Item(native), TrayItem::Action { label, enabled, .. }) => {
-                    native.set_text(label);
+                    native.set_text(plain(label));
                     native.set_enabled(*enabled);
                 }
-                (Row::Item(native), TrayItem::Label { label, .. }) => native.set_text(label),
+                (Row::Item(native), TrayItem::Label { label, .. }) => native.set_text(plain(label)),
                 (
                     Row::Check(native),
                     TrayItem::Action {
@@ -104,7 +104,7 @@ impl Icon {
                         ..
                     },
                 ) => {
-                    native.set_text(label);
+                    native.set_text(plain(label));
                     native.set_enabled(*enabled);
                     native.set_checked(checked.unwrap_or(false));
                 }
@@ -150,15 +150,22 @@ fn native_menu(menu: &TrayMenu) -> Option<(Menu, Vec<(String, Row)>)> {
                 match checked {
                     Some(checked) => Row::Check(CheckMenuItem::with_id(
                         action.id(),
-                        label,
+                        plain(label),
                         *enabled,
                         *checked,
                         accelerator,
                     )),
-                    None => Row::Item(MenuItem::with_id(action.id(), label, *enabled, accelerator)),
+                    None => Row::Item(MenuItem::with_id(
+                        action.id(),
+                        plain(label),
+                        *enabled,
+                        accelerator,
+                    )),
                 }
             }
-            TrayItem::Label { id, label } => Row::Item(MenuItem::with_id(*id, label, false, None)),
+            TrayItem::Label { id, label } => {
+                Row::Item(MenuItem::with_id(*id, plain(label), false, None))
+            }
             TrayItem::Separator => Row::Separator,
         };
         match &row {
@@ -169,4 +176,20 @@ fn native_menu(menu: &TrayMenu) -> Option<(Menu, Vec<(String, Row)>)> {
         rows.push((item.id(), row));
     }
     Some((native, rows))
+}
+
+/// `label` as muda shows it as typed: it reads `&` as a mnemonic marker and `&&` as an `&`.
+fn plain(label: &str) -> String {
+    label.replace('&', "&&")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain;
+
+    #[test]
+    fn an_ampersand_shows_as_typed() {
+        assert_eq!(plain("Docs & Specs"), "Docs && Specs");
+        assert_eq!(plain("Review"), "Review");
+    }
 }
