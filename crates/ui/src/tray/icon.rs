@@ -88,27 +88,32 @@ mod tests {
         let dark = artwork(WindowAppearance::Dark)?;
         let expected = if cfg!(target_os = "linux") { 4 } else { 1 };
         assert_eq!((light.len(), dark.len()), (expected, expected));
-        // The halo is faint, so every opaque pixel is the stroke, nearer the glyph's color than
-        // the halo's; at the stroke's edge a trace of the halo may blend in.
-        let drawn_in = |image: &super::Artwork, glyph: u8| {
+        // Only the stroke is opaque, the halo never is, so every opaque pixel is the glyph's color.
+        let stroke = |image: &super::Artwork| {
             let opaque: Vec<_> = image
                 .rgba
                 .as_chunks::<4>()
                 .0
                 .iter()
                 .filter(|pixel| pixel[3] == 255)
+                .map(|pixel| pixel[..3].to_vec())
                 .collect();
-            !opaque.is_empty()
-                && opaque.iter().all(|pixel| {
-                    pixel[..3]
-                        .iter()
-                        .all(|&channel| channel.abs_diff(glyph) < 128)
-                })
+            assert!(!opaque.is_empty());
+            opaque
+                .iter()
+                .all(|color| *color == opaque[0])
+                .then(|| opaque[0].clone())
         };
-        // macOS recolors its black template itself.
-        let on_dark = if cfg!(target_os = "macos") { 0 } else { 255 };
-        assert!(light.iter().all(|image| drawn_in(image, 0)));
-        assert!(dark.iter().all(|image| drawn_in(image, on_dark)));
+        if cfg!(target_os = "macos") {
+            assert_eq!(stroke(&light[0]), stroke(&dark[0]));
+        } else {
+            for image in &light {
+                assert_eq!(stroke(image), Some(vec![0, 0, 0]));
+            }
+            for image in &dark {
+                assert_eq!(stroke(image), Some(vec![255, 255, 255]));
+            }
+        }
         Ok(())
     }
 }

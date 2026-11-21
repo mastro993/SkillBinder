@@ -46,8 +46,9 @@ struct Tray {
 impl Global for Tray {}
 
 /// Shows the icon while `Preferences.show_in_tray` is on, adding and removing it as the
-/// preference changes. Open SkillBinder calls `open_window`, and Quit SkillBinder quits. A Linux
-/// host that goes away with no window open calls `open_window`, so the app never runs unseen.
+/// preference changes; removing it with no window open quits. Open SkillBinder calls
+/// `open_window`, and Quit SkillBinder quits. A Linux host that goes away with no window open
+/// calls `open_window`, so the app never runs unseen.
 pub fn start_tray(client: &Client, open_window: impl Fn(&mut App) + 'static, cx: &mut App) {
     let (events, received) = async_channel::unbounded();
     backend::listen(events.clone());
@@ -100,6 +101,14 @@ fn follow(wanted: bool, cx: &mut App) {
         (State::Shown(icon, drawn), true) if *drawn != appearance => {
             icon.follow(appearance);
             *drawn = appearance;
+        }
+        // The window closed while the icon still showed; without it the app would run unseen,
+        // so it quits as closing the window would have (ADR 0020).
+        (State::Shown(..), false) => {
+            tray.state = State::Hidden;
+            if cx.windows().is_empty() {
+                cx.quit();
+            }
         }
         (_, false) => tray.state = State::Hidden,
         _ => {}
