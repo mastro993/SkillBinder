@@ -9,7 +9,7 @@ flowchart LR
   Engine --> Client
   Client -- AppSnapshot --> View[NativeView, when a window is open]
   Client -- AppSnapshot --> Model[tray::menu, pure]
-  Blocking[BlockingChange global] --> View
+  Blocking[Gate global] --> View
   Blocking --> Model
   Model -- TrayMenu --> Backend[tray-icon+muda / ksni]
   Backend -- clicks --> Channel --> Dispatch[tray::dispatch, GPUI task]
@@ -24,8 +24,8 @@ flowchart LR
 | `tray::native` (`cfg(not(target_os = "linux"))`) | `crates/ui` | draws a `TrayMenu` with `tray-icon` + `muda`, updates in place | ADR 0021 |
 | `tray::linux` (`cfg(target_os = "linux")`) | `crates/ui` | draws it with `ksni`, reports host availability | ADR 0020, rule 1 |
 | `tray::dispatch` | `crates/ui` | turns a `TrayAction` into a view call or a client call | D3, A7 |
-| `BlockingChange` global | `crates/ui` | the running blocking change's `Activity`, set by `block` and by dispatch | rule 12, A7 |
-| `Client::update_all`, snapshot `updating`, `update_outcome`, `syncing` | `crates/client`, `crates/proto` | running work outside the view | rules 6, 9, 10, 13 |
+| `Gate` global | `crates/ui` | what the window refuses: the blocking change's `Activity` and the view's `busy` | rule 12, A7 |
+| `Client::update_all`, snapshot `updating`, `update_all_outcome`, `syncing` | `crates/client`, `crates/proto` | running work outside the view | rules 6, 9, 10, 13 |
 | hourly source check | `crates/client` | `run_check(UPDATE_CHECK_INTERVAL)` on a timer | rule 11 |
 | `Preferences.show_in_tray` | `crates/proto` | the switch, default `true` via `serde(default)` | D1, A8 |
 | lifecycle | `apps/desktop` | quit mode, open window, activation policy, reopen, second launch | rules 1–5, D2, D8 |
@@ -45,9 +45,9 @@ pub enum TrayAction {
 }
 ```
 
-The menu is derived only from the `AppSnapshot`, the `BlockingChange` global, and the platform (for the quit shortcut text). Each string and condition in rules 7–13 is a case in the module's tests, and no backend reads the snapshot itself. Item ids are stable strings derived from `TrayAction` (a preset's id comes from its `PresetId`). A backend compares the ids of the new model with the ones on screen: if they match, it calls `set_text`, `set_enabled`, and `set_checked` (muda) or `handle.update` (ksni); otherwise it rebuilds the menu. Presets are `CheckMenuItem`s, and the backend applies the model's checked state after every click, because muda has no radio items and toggles a check itself.
+The menu is derived only from the `AppSnapshot`, the `Gate` global, and the platform (for the quit shortcut text). Each string and condition in rules 7–13 is a case in the module's tests, and no backend reads the snapshot itself. Item ids are stable strings derived from `TrayAction` (a preset's id comes from its `PresetId`). A backend compares the ids of the new model with the ones on screen: if they match, it calls `set_text`, `set_enabled`, and `set_checked` (muda) or `handle.update` (ksni); otherwise it rebuilds the menu. Presets are `CheckMenuItem`s, and the backend applies the model's checked state after every click, because muda has no radio items and toggles a check itself.
 
-The model is recomputed on every snapshot publish and every change to `BlockingChange`. A `tray::Tray` entity in `crates/ui` holds the backend, subscribes to the client's watch channel, and draws only when the `TrayMenu` differs from the last one (`PartialEq`). During a switch, publishes arrive every 100 ms, so the menu redraws at most ten times a second.
+The model is recomputed on every snapshot publish and every change to `Gate`. A `tray::Tray` entity in `crates/ui` holds the backend, subscribes to the client's watch channel, and draws only when the `TrayMenu` differs from the last one (`PartialEq`). During a switch, publishes arrive every 100 ms, so the menu redraws at most ten times a second.
 
 ## Events
 
@@ -55,7 +55,7 @@ The backend's callback (`MenuEvent::set_event_handler`, `TrayIconEvent` for the 
 
 | Action | Window open | No window |
 | --- | --- | --- |
-| `ActivatePreset` | `view.set_active_preset(id)` | sets `BlockingChange::Switching`, runs `client.change_organization(ActivatePreset)` on the runtime, then clears it |
+| `ActivatePreset` | `view.set_active_preset(id)` | sets the `Gate`'s change to `Switching`, runs `client.change_organization(ActivatePreset)` on the runtime, then clears it when the change lands: with no window there is no Done pill, and copies left waiting show only as rule 7.1's item |
 | `UpdateAll` | `client.update_all()`, whose progress the view reads from the snapshot | same |
 | `ReviewCopies` | brings the window forward and opens the review list | opens the window, then the review list |
 | `LibraryUpdates` | Library with the Updates filter | opens the window, then the same |
@@ -69,8 +69,9 @@ The backend's callback (`MenuEvent::set_event_handler`, `TrayIconEvent` for the 
 
 ## Running work
 
-- `BlockingChange(Option<Activity>)` is a GPUI global. The view's `block` sets it before it spawns and clears it when the change lands. `blocked()` reads it instead of view-local state, so a window opened while a menu switch runs shows the strip from its next render: the strip reads `snapshot.activation` for its percentage, as it does today.
-- `AppSnapshot.updating: Option<(usize, usize)>` and `AppSnapshot.update_outcome: Option<UpdateOutcome>` replace `NativeView::updating` and `update_outcome`. `Client::update_all()` runs today's loop from `library_updates.rs` on the runtime. It publishes after each skill, scans once at the end, and refuses to start while one runs. The view keeps `busy` for its own buttons. The outcome clears when the next Update all starts or the next source check completes (A3).
+- `Gate { change: Option<Activity>, busy: bool }` is a GPUI global, what the window refuses. The view's `block` sets `change` before it spawns and clears it when the strip closes, so it stays set under the Done pill; a menu switch with no window clears it when the change lands. The view mirrors its `busy` (a single-skill Update, optimistic organization saves, Update all) into `busy`, and a closing window clears it. `blocked()` is `gate.busy || gate.change.is_some()`, replacing `self.busy || self.strip.is_some()`. A window opened while a menu switch runs shows the strip from its next render, reading `snapshot.activation` for its percentage as it does today.
+- `AppSnapshot.updating: Option<(usize, usize)>` replaces `NativeView::updating`, and `AppSnapshot.update_all_outcome: Option<UpdateOutcome>` holds the last Update all's outcome for the menu. `Client::update_all()` runs today's loop from `library_updates.rs` on the runtime. It publishes after each skill, scans once at the end, and refuses to start while one runs. The snapshot's outcome clears when the next Update all starts or the next source check completes (A3).
+- `NativeView::update_outcome` stays: it holds a single-skill Update's outcome too, shows on the Library, Agent, Workspace, and Skill pages, and clears on navigation, all unchanged. When `update_all_outcome` turns to a new outcome, the view copies it into `update_outcome`, so an Update all started from the menu reports in the window as one started there does.
 - `AppSnapshot.syncing: Option<SyncAction>` replaces `NativeView::syncing`. `Client::synchronize` sets it for the length of the call. Restart's blockers read the snapshot, so the menu's Restart and Settings' Restart agree.
 - The hourly source check is a timer in `Client::new`, beside `start_app_update_checks`. It calls `run_check(UPDATE_CHECK_INTERVAL)` and then `refresh_preserving_outcome`.
 
@@ -91,8 +92,8 @@ The backend's callback (`MenuEvent::set_event_handler`, `TrayIconEvent` for the 
 
 ## Risks
 
-- **Linux host detection:** KDE reports a host always. GNOME without the extension fails `spawn`, which is what we want. If some desktop reports a host but draws nothing, the user can turn the switch off, and the app then quits on close.
+- **Linux host detection:** every `spawn` error means unavailable, never only `WontShow`: KDE's and the GNOME extension's watchers always report a host, and stock GNOME has no watcher, so `spawn` fails with `Error::Watcher` (`ServiceUnknown`). If some desktop reports a host but draws nothing, the user can turn the switch off, and the app then quits on close.
 - **macOS policy flip:** switching to Accessory while a sheet or a Kit dialog is open is not possible, because the window is closed first. Switching back to Regular needs `activate`, or the window opens behind others.
 - **muda updates while the menu is open** apply live on macOS and Windows. ksni re-sends the menu, and some hosts redraw it only when it reopens. That is acceptable.
-- **Two writers of `BlockingChange`:** dispatch refuses a preset click while it is set, and `set_active_preset` already checks `blocked()`. One change at a time, as today.
+- **Two writers of the `Gate`'s change:** the model disables presets while `blocked()` holds, dispatch refuses a preset click then too, and `set_active_preset` already checks `blocked()`. One change at a time, as today.
 - **The off-token ratchet** does not apply: the tray draws no GPUI.

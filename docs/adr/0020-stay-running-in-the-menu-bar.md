@@ -17,7 +17,7 @@ Every action in the menu runs the operation the window already runs, under the s
 
 ## Consequences
 
-- The quit path is unchanged. The menu's Quit, the shortcut, logging off, and turning the switch off with no window open all drain the engine, and a ready app update installs at that quit (ADR 0017).
+- The quit path is unchanged. The menu's Quit, the shortcut, logging off, and closing the window while the icon is off all drain the engine, and a ready app update installs at that quit (ADR 0017). The icon never goes away with no window open except when a Linux tray host disappears, and the app then opens its window instead of quitting.
 - Launching SkillBinder again while it runs without a window opens the window. The instance lock already forwards the second launch.
 - Skill update checks can no longer rely on window focus to start the scan they follow, so the app also checks sources hourly while it runs.
 - On Windows a new notification-area icon starts in the overflow until the user pins it.

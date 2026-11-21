@@ -29,13 +29,13 @@ Docs: `docs/architecture/native.md`, where "last-window closure" in the quit par
 Depends on S0.
 
 - C1.1 **unit:** the model lists presets in sidebar order, checks only the active one, and shows `Presets` as the header. Before onboarding finishes, it shows only Open and Quit.
-- C1.2 **unit:** while `BlockingChange` is `Switching { preset: "Review" }` and the activation progress is 40%, the header reads `Switching to Review… 40%`, and every preset is disabled.
+- C1.2 **unit:** while the `Gate`'s change is `Switching { preset: "Review" }` and the activation progress is 40%, the header reads `Switching to Review… 40%`, and every preset is disabled.
 - C1.3 **unit:** with copies waiting, the first item reads `⚠ 2 skill copies need attention…` (`1 skill copy needs attention…`). The count is the strip's count.
 - C1.4 **native, window closed:** clicking an inactive preset switches it without opening the window. Reopening the menu during the switch shows the progress, and afterwards the new preset is checked. Agent copies match the preset.
 - C1.5 **native, window open:** clicking a preset in the menu shows the window's strip and toast, exactly as clicking it in the sidebar does.
 - C1.6 **native:** opening the window while a menu-started switch runs shows the strip until the switch lands.
 - C1.7 **native:** a switch that leaves a conflict shows the attention item. Clicking it opens the window on the review list.
-- C1.8 **unit:** `blocked()` reads the global. Dispatch refuses a second preset while one switch runs.
+- C1.8 **unit:** `blocked()` is `gate.busy || gate.change.is_some()`. The model disables presets and Update all while the Done pill shows and while the view is `busy`, and dispatch refuses a second preset while one switch runs.
 
 ### S2 · Skill updates in the menu, and the dot
 
@@ -48,7 +48,7 @@ Depends on S0. It is independent of S1.
 - C2.5 **unit:** the hourly check timer calls `run_check` with the one-hour interval (paused tokio clock).
 - C2.6 **unit:** `dot` is true for skill updates, for waiting copies, and for an app update that is ready or download-only, and false otherwise.
 - C2.7 **native:** the icon shows the dot variant while skills have updates, and the plain icon once they are updated.
-- C2.8 **unit:** Restart's blockers read `snapshot.syncing` and `snapshot.updating`. Library's header reads the snapshot. Nothing in `NativeView` keeps `updating`, `update_outcome`, or `syncing`.
+- C2.8 **unit:** Restart's blockers read `snapshot.syncing` and `snapshot.updating`. Library's header reads the snapshot. Nothing in `NativeView` keeps `updating` or `syncing`. An Update all from the menu with the window open shows its outcome on the page, and the outcome clears on navigation, as today.
 
 Docs: `docs/features/native/library-and-organization.md` (Update all runs in the client), and `docs/architecture/native.md` (running work published on the snapshot).
 

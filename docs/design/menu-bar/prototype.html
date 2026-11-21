@@ -66,7 +66,7 @@ const notes={
  nogit:'Without Git, checking and updating skills are unavailable (ADR 0011). Presets still switch.'};
 function it(t,o={}){return `<div class="it ${o.dis?'dis':'act'}" ${o.on?`data-a="${o.on}"`:''}>${o.chk?'<span class="chk">✓</span>':''}<span>${t}</span>${o.kbd?`<span class="kbd">${o.kbd}</span>`:''}</div>`}
 function skillLines(){const st=S.state;
- if(st==='nogit')return it('Skill updates need Git',{dis:1})+it('Install Git…',{on:'open'});
+ if(st==='nogit')return it('Skill updates need Git',{dis:1});
  if(st==='checking')return it('Checking skill updates…',{dis:1});
  if(st==='idle'||st==='switching'||st==='attention')return it('Skills are up to date',{dis:1});
  if(st==='updating')return it('Updating 2 of 3 skills…',{dis:1});
