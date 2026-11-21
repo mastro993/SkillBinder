@@ -7,6 +7,7 @@ mod controls;
 mod copies_review;
 mod copy_changed;
 mod copy_dialogs;
+mod creation;
 mod custom_color;
 mod dialogs;
 mod explore;
@@ -74,13 +75,10 @@ use std::{
     sync::Arc,
 };
 
-use gpui_kit::component::{
-    ActiveTheme,
-    input::{InputEvent, InputState},
-};
+use gpui_kit::component::{ActiveTheme, input::InputState};
 use gpui_kit::{
-    AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement,
-    ParentElement, Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder, px,
+    Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement,
+    Render, Styled, Subscription, Task, Window, div, prelude::FluentBuilder, px,
 };
 use library_folders::FolderEdit;
 use route::{History, Route};
@@ -201,6 +199,8 @@ pub struct NativeView {
     content_scroll: hover_scroll::HoverScroll,
     appearance: Appearance,
     library_view: LibraryView,
+    /// Whether the menu bar or system tray icon shows (Settings › General).
+    show_in_tray: bool,
     /// A preset clicked while its activation is saved, shown active until the engine answers.
     active_preset: Option<PresetId>,
     /// The copies that asked the user in a dialog already, by directory, skill, and state.
@@ -247,161 +247,6 @@ pub struct NativeView {
     _activation_subscription: Subscription,
     _focus_lost_subscription: Subscription,
     _subscription: Task<()>,
-}
-
-impl NativeView {
-    /// Creates the native view and subscribes to client projections.
-    pub fn new(client: Client, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let snapshot = client.snapshot();
-        let sidebar_width = sidebar::clamp_sidebar_width(snapshot.preferences.sidebar_width);
-        let sidebar_collapsed = snapshot.preferences.sidebar_collapsed;
-        let folded_sections = snapshot.preferences.folded_sections.clone();
-        let appearance = snapshot.preferences.appearance;
-        let library_view = snapshot.preferences.library_view;
-        let dialog = Self::first_dialog(&snapshot.app_update);
-        sidebar::apply_appearance(appearance, window, cx);
-        // Launch refreshes through the client; afterwards only regaining focus refreshes.
-        let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
-            if !window.is_window_active() {
-                view.left_focus = true;
-            } else if std::mem::take(&mut view.left_focus) {
-                view.client.refresh_app();
-                // Before the library exists the app refresh does not look for Git.
-                if view.checks_git() {
-                    view.client.check_git();
-                }
-            }
-        });
-        let mut receiver = client.subscribe();
-        let subscription = cx.spawn(async move |this, cx| {
-            while receiver.changed().await.is_ok() {
-                let latest = receiver.borrow_and_update().clone();
-                if this
-                    .update(cx, |view, cx| view.receive(latest, cx))
-                    .is_err()
-                {
-                    break;
-                }
-            }
-        });
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search skills"));
-        let search_subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) {
-                cx.notify();
-            }
-        });
-        let preset_name = cx.new(|cx| InputState::new(window, cx).placeholder("Preset name"));
-        let preset_name_subscription =
-            cx.subscribe_in(&preset_name, window, Self::preset_name_event);
-        let folder_name = cx.new(|cx| InputState::new(window, cx).placeholder("Folder name"));
-        let folder_name_subscription =
-            cx.subscribe_in(&folder_name, window, Self::folder_name_event);
-        let workspace_name = cx.new(|cx| InputState::new(window, cx).placeholder("Workspace name"));
-        let workspace_name_subscription =
-            cx.subscribe_in(&workspace_name, window, Self::workspace_name_event);
-        let remote_url = cx.new(|cx| InputState::new(window, cx).placeholder("Remote URL"));
-        let remote_branch = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder("Branch")
-                .default_value("main")
-        });
-        if let Some(remote) = &snapshot.sync.remote {
-            remote_url.update(cx, |input, cx| {
-                input.set_value(remote.url.clone(), window, cx)
-            });
-            remote_branch.update(cx, |input, cx| {
-                input.set_value(remote.branch.clone(), window, cx)
-            });
-        }
-        // Window-level shortcuts such as ToggleSidebar dispatch through the focused view, so it
-        // takes focus back whenever the focused element leaves the window, such as an open
-        // popover on leaving the page.
-        let focus = cx.focus_handle();
-        window.focus(&focus, cx);
-        let focus_lost_subscription =
-            cx.on_focus_lost(window, |view, window, cx| window.focus(&view.focus, cx));
-        Self {
-            client,
-            snapshot,
-            focus,
-            route: Route::default(),
-            history: History::default(),
-            busy: false,
-            syncing: None,
-            error: None,
-            dialog,
-            dialogs_opened: 0,
-            importing: None,
-            first_import: None,
-            onboarding_back_to: None,
-            unticked_agents: None,
-            agents_turned_off: BTreeSet::new(),
-            agent_notice: new_agent_notice::Notice::default(),
-            app_update_notice: app_update_notice::Notice::default(),
-            git_ready: None,
-            git_setup: git_setup::GitSetup::default(),
-            git_checking: false,
-            menu: None,
-            preset_edit: None,
-            preset_reorder: RowReorder::default().pinned(1),
-            explore: explore::Explore::new(window, cx),
-            settings: settings::Settings::new(window, cx),
-            library_folder: None,
-            library_filter: snapshot_query::LibraryFilter::default(),
-            library_reveal: None,
-            place_popover: None,
-            folder_edit: None,
-            creating_folder: None,
-            workspace_edit: None,
-            workspace_reorder: RowReorder::default(),
-            folder_reorder: RowReorder::measured(folder_reorder::TAB_GAP),
-            sidebar_width,
-            sidebar_collapsed,
-            folded_sections,
-            section_motion: BTreeMap::new(),
-            sections_moving: BTreeSet::new(),
-            sidebar_scroll: hover_scroll::HoverScroll::default(),
-            content_scroll: hover_scroll::HoverScroll::default(),
-            appearance,
-            library_view,
-            active_preset: None,
-            asked_copies: Vec::new(),
-            optimistic_preset_name: None,
-            optimistic_presets: Vec::new(),
-            updating: None,
-            strip: None,
-            wash_fade: None,
-            overlay_focus: cx.focus_handle().tab_stop(true),
-            toast: toasts::PendingToast::default(),
-            #[cfg(feature = "native-test")]
-            holds: native_test::Holds::default(),
-            sidebar_motion: 0,
-            sidebar_closing: false,
-            resizing_sidebar: false,
-            preference_writes: shell::PreferenceWrites::default(),
-            preview: None,
-            update_outcome: None,
-            skill_load: None,
-            search,
-            preset_name,
-            folder_name,
-            workspace_name,
-            remote_url,
-            remote_branch,
-            _search_subscription: search_subscription,
-            _preset_name_subscription: preset_name_subscription,
-            _folder_name_subscription: folder_name_subscription,
-            _workspace_name_subscription: workspace_name_subscription,
-            left_focus: false,
-            _activation_subscription: activation_subscription,
-            _focus_lost_subscription: focus_lost_subscription,
-            _subscription: subscription,
-        }
-    }
-
-    fn input_text(input: &Entity<InputState>, cx: &Context<Self>) -> String {
-        input.read(cx).value().trim().to_owned()
-    }
 }
 
 impl Focusable for NativeView {

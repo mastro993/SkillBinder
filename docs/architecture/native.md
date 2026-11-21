@@ -32,7 +32,7 @@ Navigation never cancels committed work. The engine retains terminal import outc
 
 The client publishes immutable projections through coalescing subscriptions. A full refresh shows as soon as its read lands, unless a read requested after it already shows, so an operation's own refresh shows before the operation returns; scan results are read while holding the publication lock, so older results cannot replace newer ones. On creation, and when the window regains focus, the client starts a scan in the background unless one is already running. Each completed scan, including those after an import, an update, or a reinstall, makes the client learn sources from the scan's found copies and then check the sources not checked within the hour. Failed projection refreshes never turn a completed mutation into a failure. While an organization change or an import runs, the client publishes the engine's progress record as `AppSnapshot.activation` every 100 milliseconds, then `None` once it returns; no counts come back with its result. The UI's blocking progress strip follows that record, and once the change has returned it counts the library's waiting copies from the snapshot (`docs/features/native/activation-progress.md`). The library snapshot lists, outside its revision, each global or workspace skill directory where a library skill is active, apart from a missing workspace's, or where a skill no longer active there left an edited copy or a copy that was not removed, with how the copy stands; a directory without a record yet reads as not applied. An organization change that changed those copies, an answer for a copy, a retry of the copies, and every Pull or Sync start a scan again, so Scan for skills' count and the copies' warning glyphs show the copies as they now are. Detailed acceptance cases remain in `fixtures/contracts/domain-contract.md`.
 
-The executable drains the engine in GPUI’s quit hook before native termination. This is necessary on macOS, where AppKit can terminate the process without returning from the application event loop. Quit shortcuts and last-window closure share this path. The drain cancels scanning and stops a Git command that is waiting on a remote, so quitting during synchronization returns at once instead of waiting for a process timeout; commands that change the local repository finish first, so quitting never leaves one half-applied. The worker closes SQLite and explicitly releases the library lock before shutdown returns. This also releases inherited references held by subprocesses; closing only the worker's descriptor would leave those references locked.
+The executable drains the engine in GPUI’s quit hook before native termination. This is necessary on macOS, where AppKit can terminate the process without returning from the application event loop. Quit shortcuts, the tray menu's Quit, and closing the window while no icon shows share this path. The drain cancels scanning and stops a Git command that is waiting on a remote, so quitting during synchronization returns at once instead of waiting for a process timeout; commands that change the local repository finish first, so quitting never leaves one half-applied. The worker closes SQLite and explicitly releases the library lock before shutdown returns. This also releases inherited references held by subprocesses; closing only the worker's descriptor would leave those references locked.
 
 ## Explore
 
@@ -41,6 +41,10 @@ Explore shows the catalog and your repositories, and searches skills.sh: the eng
 ## App updates
 
 The channel, the checks, and the Settings section and notice are described in [Native app updates](native-app-updates.md).
+
+## Menu bar
+
+The resident lifecycle, the tray, and its target-gated crates are described in [Native menu bar](native-menu-bar.md).
 
 ## Dependency boundary
 

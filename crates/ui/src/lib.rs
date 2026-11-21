@@ -2,11 +2,13 @@
 
 mod assets;
 mod native_view;
+mod tray;
 
 pub use assets::Assets;
 #[cfg(feature = "native-test")]
 pub use native_view::StripHold;
 pub use native_view::{GoBack, GoForward, NativeView, ToggleSidebar};
+pub use tray::{start_tray, tray_shown};
 
 /// Initializes GPUI Kit, the design system's light and dark themes and typography, and the key
 /// bindings of the app's own controls.

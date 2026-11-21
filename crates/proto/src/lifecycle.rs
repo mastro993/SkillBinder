@@ -90,6 +90,13 @@ pub struct Preferences {
     /// How Library lays out skills; preferences stored before it existed show a list.
     #[serde(default)]
     pub library_view: LibraryView,
+    /// Whether the menu bar or system tray icon shows, keeping the app running once its window
+    /// closes (ADR 0020); preferences stored before it existed show it.
+    #[serde(default = "shown")]
+    pub show_in_tray: bool,
+}
+fn shown() -> bool {
+    true
 }
 /// Library layout.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,6 +162,7 @@ impl Default for Preferences {
             appearance: Appearance::System,
             folded_sections: BTreeSet::new(),
             library_view: LibraryView::List,
+            show_in_tray: true,
         }
     }
 }
@@ -222,6 +230,13 @@ mod tests {
         assert!(!preferences.sidebar_collapsed);
         assert!(preferences.folded_sections.is_empty());
         assert_eq!(preferences.library_view, super::LibraryView::List);
+        Ok(())
+    }
+
+    #[test]
+    fn preferences_saved_before_the_tray_show_it() -> serde_json::Result<()> {
+        let preferences: Preferences = serde_json::from_str(r#"{"sidebar_width":300.0}"#)?;
+        assert!(preferences.show_in_tray);
         Ok(())
     }
 
