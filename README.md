@@ -9,6 +9,14 @@
 
 SkillBinder manages a local library of agent skills with native GPUI screens and GPUI Kit components. Discover the skills in your agents and workspaces, review their versions before importing one into the library, activate library skills in presets for all your agents or specific ones, or in a workspace for its agents, switch presets, clone a preset, see where each library skill is active, and synchronize the library's skill directories through Git. The active preset's skills are written into your agents' global skill directories, and each workspace's skills into its own skill directories, as managed copies. Presets, library folders, and managed copies stay on each device.
 
+## Install
+
+Download SkillBinder for macOS, Windows, or Linux from the [latest release](https://github.com/mastro993/SkillBinder/releases/latest). On macOS you can also install it with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask mastro993/tap/skillbinder
+```
+
 ## Run
 
 Install Rust 1.100 through `rustup` and the [platform prerequisites](docs/native-gate/checks.md#prerequisites). Then run:

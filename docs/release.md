@@ -1,6 +1,6 @@
 # Releases
 
-SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned per-user Windows setup program, and a Linux AppImage, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018).
+SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned per-user Windows setup program, and a Linux AppImage, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018). On macOS, the [Homebrew cask](#homebrew) installs the same disk image.
 
 ## Versions
 
@@ -26,9 +26,12 @@ Actions → **Release** → Run workflow, on `main`, with:
 2. builds and packages every platform from the dispatched commit with that stamp ([`build.yml`](../.github/workflows/build.yml)), signing and notarizing the macOS image, and alongside runs every check `main` runs on that commit again: [`checks.yml`](../.github/workflows/checks.yml) and [`native.yml`](../.github/workflows/native.yml);
 3. only if every check passed and all three platforms built: writes `SHA256SUMS` and the signed [update manifest](#update-manifests), then commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. A signing key that does not open fails the run before the push. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
 4. publishes the GitHub release with the archives, `SHA256SUMS`, `update.json`, `update.json.minisig`, and notes that open with the install steps in [`packaging/release-notes.md`](../packaging/release-notes.md) followed by GitHub's generated notes, all in one call;
-5. dispatches the Catalog workflow, which mirrors the manifest to Pages.
+5. dispatches the Catalog workflow, which mirrors the manifest to Pages;
+6. points the [Homebrew cask](#homebrew) at the new disk image, in a job of its own.
 
 If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts into `dist/`, run `sha256sum -- * > SHA256SUMS` inside it, sign with `UPDATE_SIGNING_KEY` and `UPDATE_SIGNING_KEY_PASSWORD` set: `cargo run -p xtask -- update-manifest --version X.Y.Z --dist dist`, then `gh release create vX.Y.Z --verify-tag --latest --notes-file packaging/release-notes.md --generate-notes dist/*` and `gh workflow run catalog.yml --ref main`.
+
+If step 6 fails, the release is out but Homebrew still installs the previous one. Fix the cause, then re-run the failed `homebrew` job from the run's page; it skips the commit when the tap already points at this version.
 
 ## Nightly betas
 
@@ -71,6 +74,26 @@ The runtime needs no `libfuse2`, but it still mounts the AppImage through the FU
 
 On Windows, SmartScreen shows "Windows protected your PC" once, for the unsigned setup program the user downloaded: **More info** → **Run anyway**. App updates run without it, since a setup program the app downloads itself carries no Mark of the Web.
 
+## Homebrew
+
+Stable releases are also a cask in the [`mastro993/homebrew-tap`](https://github.com/mastro993/homebrew-tap) tap:
+
+```sh
+brew install --cask mastro993/tap/skillbinder
+```
+
+The cask is [`packaging/homebrew/skillbinder.rb`](../packaging/homebrew/skillbinder.rb) with `@VERSION@` and `@SHA256@` standing for the release and its disk image's checksum. The Release workflow's `homebrew` job fills them in from the release's `SHA256SUMS`, writes the result to the tap's `Casks/skillbinder.rb`, and pushes it to the tap's `main` as `skillbinder X.Y.Z`. Betas have no cask. The cask installs the universal disk image's `SkillBinder.app` into `/Applications` and needs macOS 26 (`depends_on macos: :tahoe`). It declares `auto_updates true`, since the app updates itself in place (ADR 0017), so `brew upgrade` leaves it alone unless run with `--greedy`, and its livecheck reads the version from the stable update manifest on Pages. `brew uninstall` quits a running SkillBinder first, and `brew uninstall --zap` also deletes its data directory and preferences.
+
+To check a change to the cask, fill in a published release and audit it from a local tap:
+
+```sh
+brew tap-new --no-git local/skillbinder
+sha256=$(gh release download vX.Y.Z --pattern SHA256SUMS --output - | awk '$2 ~ /universal-apple-darwin.dmg$/ { print $1 }')
+sed -e "s/@VERSION@/X.Y.Z/" -e "s/@SHA256@/$sha256/" packaging/homebrew/skillbinder.rb > "$(brew --repo local/skillbinder)/Casks/skillbinder.rb"
+brew trust local/skillbinder && brew audit --cask --strict --online local/skillbinder/skillbinder
+brew untap local/skillbinder
+```
+
 ## Update manifests
 
 `cargo run -p xtask -- update-manifest --version <version> --dist <dir>` writes `<dir>/update.json` and signs it with minisign into `<dir>/update.json.minisig`. Every file in `<dir>` other than `SHA256SUMS` and the pair must be a `skillbinder-<version>-<target>.<ext>` archive, the Windows `skillbinder-<version>-<target>-setup.exe`, or the Linux `skillbinder-<version>-<arch>.AppImage`, keyed as `<arch>-unknown-linux-gnu`, at most one per target:
@@ -106,6 +129,19 @@ rm release_key release_key.pub
 ```
 
 When rotating, delete the old key under Settings → Deploy keys.
+
+### Homebrew tap deploy key (Release only)
+
+The `homebrew` job pushes to the tap with the private half of a write-enabled deploy key on `mastro993/homebrew-tap`, stored here as `HOMEBREW_TAP_DEPLOY_KEY`. To set it up or rotate it:
+
+```console
+ssh-keygen -t ed25519 -N '' -C 'SkillBinder release workflow' -f tap_key
+gh repo deploy-key add tap_key.pub --repo mastro993/homebrew-tap --allow-write --title 'SkillBinder Release workflow'
+gh secret set HOMEBREW_TAP_DEPLOY_KEY < tap_key
+rm tap_key tap_key.pub
+```
+
+When rotating, delete the old key under the tap's Settings → Deploy keys.
 
 ### macOS signing and notarization (Release and Nightly)
 
