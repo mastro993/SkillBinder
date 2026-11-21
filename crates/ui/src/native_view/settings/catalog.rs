@@ -42,7 +42,7 @@ impl Section {
 
     pub fn description(self) -> &'static str {
         match self {
-            Self::General => "How SkillBinder looks.",
+            Self::General => "How SkillBinder looks and keeps running.",
             Self::Agents => "SkillBinder adds and removes skills only in the agents turned on.",
             Self::Library => "Where your skills live and how they sync.",
             Self::Updates => "New versions of SkillBinder. Skill updates are in Library.",

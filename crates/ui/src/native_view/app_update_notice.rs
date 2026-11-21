@@ -5,13 +5,13 @@
 //! is available" with the reason and the primary Download, which opens the release page. Dismiss,
 //! Download, or closing it hides it until the next launch. It waits while the progress strip is
 //! up and comes back once it ends. The first launch of a newer version shows the "Updated to"
-//! toast once.
+//! toast once. A window opened again in the same launch keeps both (ADR 0020).
 
 use super::NativeView;
 use super::toasts::ToastAction;
 use gpui_kit::component::{ActiveTheme, WindowExt, h_flex, notification::Notification, v_flex};
 use gpui_kit::{
-    Anchor, AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
+    Anchor, AnyElement, Context, Global, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, WeakEntity, Window, div, px,
 };
 use skillbinder_design::tokens::{space, text};
@@ -58,6 +58,36 @@ pub(super) struct Notice {
     dismissed: bool,
     /// The "Updated to" toast showed this launch.
     announced: bool,
+}
+
+/// What the windows of this launch have shown of the notice so far, which a window opened again
+/// resumes (ADR 0020).
+#[derive(Clone, Copy)]
+pub(super) struct LaunchNotice {
+    dismissed: bool,
+    announced: bool,
+}
+
+impl Global for LaunchNotice {}
+
+impl Notice {
+    /// The notice of a window opened again this launch: hidden if the last one was dismissed,
+    /// and announcing nothing it announced.
+    pub(super) fn resumed(launch: LaunchNotice) -> Self {
+        Self {
+            shown: None,
+            dismissed: launch.dismissed,
+            announced: launch.announced,
+        }
+    }
+
+    /// What a later window of this launch resumes.
+    pub(super) fn launch(&self) -> LaunchNotice {
+        LaunchNotice {
+            dismissed: self.dismissed,
+            announced: self.announced,
+        }
+    }
 }
 
 /// What keeps Restart unavailable until it finishes (rule 10).
@@ -120,6 +150,7 @@ impl NativeView {
         let notes = self.snapshot.app_update.updated.clone();
         if let Some(notes) = notes.filter(|_| finished && !self.app_update_notice.announced) {
             self.app_update_notice.announced = true;
+            cx.set_global(self.app_update_notice.launch());
             let message = format!(
                 "Updated to SkillBinder {}",
                 self.snapshot.app_update.current
@@ -218,9 +249,7 @@ impl NativeView {
                                 .on_click(cx.listener(
                                     move |note: &mut Notification, _, window, cx| {
                                         cx.open_url(&url);
-                                        let _ = view.update(cx, |view, _| {
-                                            view.app_update_notice.dismissed = true;
-                                        });
+                                        let _ = view.update(cx, |view, cx| view.dismiss_notice(cx));
                                         note.dismiss(window, cx);
                                     },
                                 ))
@@ -248,9 +277,8 @@ impl NativeView {
                                     .small()
                                     .on_click(cx.listener(
                                         move |note: &mut Notification, _, window, cx| {
-                                            let _ = dismiss.update(cx, |view, _| {
-                                                view.app_update_notice.dismissed = true;
-                                            });
+                                            let _ = dismiss
+                                                .update(cx, |view, cx| view.dismiss_notice(cx));
                                             note.dismiss(window, cx);
                                         },
                                     )),
@@ -260,14 +288,20 @@ impl NativeView {
                     .into_any_element()
             })
             .on_close(move |_, cx| {
-                let _ = closed.update(cx, |view, _| view.close_app_update_notice(&shown));
+                let _ = closed.update(cx, |view, cx| view.close_app_update_notice(&shown, cx));
             })
     }
 
     /// The notice for `offer` closed: unless it was replaced, it stays hidden until relaunch.
-    fn close_app_update_notice(&mut self, offer: &Offer) {
+    fn close_app_update_notice(&mut self, offer: &Offer, cx: &mut Context<Self>) {
         if self.app_update_notice.shown.as_ref() == Some(offer) {
-            self.app_update_notice.dismissed = true;
+            self.dismiss_notice(cx);
         }
+    }
+
+    /// Hides the notice until the next launch, in this window and any opened again.
+    fn dismiss_notice(&mut self, cx: &mut Context<Self>) {
+        self.app_update_notice.dismissed = true;
+        cx.set_global(self.app_update_notice.launch());
     }
 }

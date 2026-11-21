@@ -1,4 +1,4 @@
-use gpui_kit::{Entity, Window};
+use gpui_kit::{App, Entity, Window};
 mod arguments;
 mod commands;
 mod gallery;
@@ -8,7 +8,9 @@ pub(crate) use arguments::{NativeMode, parse_launch};
 pub(crate) use commands::register_commands;
 use skillbinder_engine::Engine;
 use skillbinder_ui::NativeView;
+use std::cell::RefCell;
 use std::collections::BTreeSet;
+use std::rc::Rc;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -103,6 +105,60 @@ impl Smoke {
             None => anyhow::bail!("Native smoke did not finish"),
         }
         Ok(())
+    }
+}
+
+/// What a native-test window adds: the MCP bridge on every window it opens, stopped when the
+/// window closes, and the smoke run on the first.
+#[derive(Clone)]
+pub(crate) struct WindowHooks {
+    mode: NativeMode,
+    smoke: Rc<RefCell<Option<Smoke>>>,
+    bridge: Rc<RefCell<Option<gpui_mcp::BridgeHandle>>>,
+}
+
+impl WindowHooks {
+    pub(crate) fn new(mode: NativeMode, smoke: Option<Smoke>) -> Self {
+        Self {
+            mode,
+            smoke: Rc::new(RefCell::new(smoke)),
+            bridge: Rc::default(),
+        }
+    }
+
+    /// Installs the bridge and starts the smoke run; returns whether the window can be driven.
+    pub(crate) fn attach(&self, view: Entity<NativeView>, window: &mut Window, cx: &App) -> bool {
+        if self.mode == NativeMode::Mcp {
+            let Ok(app_id) = gpui_mcp::AppId::new("skillbinder") else {
+                unreachable!("static SkillBinder app ID is valid");
+            };
+            let config = gpui_mcp::BridgeConfig::new(app_id, "SkillBinder");
+            match gpui_mcp::BridgeHandle::install(window, cx, config) {
+                Ok(handle) => {
+                    if let Err(error) = register_commands(&handle, view.clone()) {
+                        eprintln!("Could not register native-test commands: {error}");
+                    }
+                    *self.bridge.borrow_mut() = Some(handle);
+                }
+                Err(error) => {
+                    eprintln!("Could not start native MCP bridge: {error}");
+                    return false;
+                }
+            }
+        }
+        if let Some(smoke) = self.smoke.borrow_mut().take() {
+            eprintln!("Native smoke: creating view");
+            smoke.start(view, window);
+        }
+        true
+    }
+
+    /// Stops the bridge when its window closes, and at quit, since AppKit terminates the process
+    /// before it would drop.
+    pub(crate) fn shutdown(&self) {
+        if let Some(bridge) = self.bridge.borrow_mut().take() {
+            bridge.shutdown();
+        }
     }
 }
 

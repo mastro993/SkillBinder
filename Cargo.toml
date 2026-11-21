@@ -44,6 +44,13 @@ minisign-verify = "0.3"
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 # Tells a Windows quit at logoff or shutdown, which must not start an app update (spec rule 12).
 winsafe = { version = "0.0.29", default-features = false, features = ["user"] }
+# The menu bar or system tray icon and its menu (ADR 0021): tray-icon draws it on macOS and
+# Windows, ksni on Linux, where it also tells whether a StatusNotifier host can show it.
+tray-icon = { version = "0.26", default-features = false }
+# Decodes the tray artwork and carries its clicks to the app.
+png = "0.18"
+async-channel = "2.5"
+ksni = { version = "0.3", default-features = false, features = ["blocking", "async-io"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }
 skillbinder-client = { path = "crates/client" }

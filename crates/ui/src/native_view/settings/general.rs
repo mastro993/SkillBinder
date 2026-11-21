@@ -1,10 +1,12 @@
-//! Settings › General, the Theme select, and Settings › Troubleshooting, Reveal logs.
+//! Settings › General, the Theme select and the menu bar or system tray switch, and Settings ›
+//! Troubleshooting, Reveal logs.
 
 use super::super::NativeView;
 use super::super::sidebar::apply_appearance;
 use super::super::sidebar_presets::menu_action;
 use super::catalog::{Group, SettingRow};
 use gpui_kit::component::Sizable;
+use gpui_kit::component::switch::Switch;
 use gpui_kit::{
     ClickEvent, Context, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
     ParentElement, Pixels, Point, Window,
@@ -19,6 +21,12 @@ const THEMES: [(Appearance, &str); 3] = [
     (Appearance::Dark, "Dark"),
 ];
 const THEME_OWNER: &str = "settings-theme";
+/// macOS calls the place the icon shows the menu bar; Windows and Linux, the system tray (A2).
+const TRAY: &str = if cfg!(target_os = "macos") {
+    "Show in menu bar"
+} else {
+    "Show in system tray"
+};
 
 fn theme_label(appearance: Appearance) -> &'static str {
     THEMES
@@ -33,7 +41,27 @@ impl NativeView {
             .detail("Follow the system, or always use light or dark.")
             .keywords(&["appearance", "dark mode", "light mode", "color scheme"])
             .control(self.theme_select(cx));
-        vec![Group::new(vec![theme])]
+        let tray = SettingRow::new("settings-tray-row", TRAY)
+            .detail("Closing the window keeps SkillBinder running behind its icon.")
+            .keywords(&[
+                "menu bar",
+                "system tray",
+                "icon",
+                "background",
+                "close",
+                "quit",
+            ])
+            .control(
+                Switch::new("settings-tray")
+                    .checked(self.show_in_tray)
+                    .accessibility_label(TRAY)
+                    .on_click(cx.listener(|view, on: &bool, _, cx| {
+                        view.show_in_tray = *on;
+                        view.persist_preferences(cx);
+                        cx.notify();
+                    })),
+            );
+        vec![Group::new(vec![theme, tray])]
     }
 
     pub(super) fn troubleshooting_groups(&self, cx: &mut Context<Self>) -> Vec<Group> {

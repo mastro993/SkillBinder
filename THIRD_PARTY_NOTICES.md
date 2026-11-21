@@ -21,6 +21,10 @@ SkillBinder depends on third-party Rust packages under their respective licenses
 
 The historical font license records under `fixtures/contracts/font-licenses` document baseline research. No font binaries from the previous application are bundled.
 
+## Menu bar and system tray
+
+The menu bar or system tray icon and its menu are drawn by `tray-icon` 0.26.1 and `muda` 0.21.2 (MIT OR Apache-2.0) on macOS and Windows, and by `ksni` 0.3.7 (Unlicense) on Linux, over the `zbus` D-Bus connection GPUI already uses (ADR 0021). Their sources are available at `https://github.com/tauri-apps/tray-icon`, `https://github.com/tauri-apps/muda`, and `https://github.com/iovxw/ksni`. Their other new dependencies, at the versions `Cargo.lock` pins: `crossbeam-channel`, `keyboard-types`, `pastey`, and `task-local`: MIT OR Apache-2.0; `dpi`: Apache-2.0 AND MIT. The app decodes the icon's artwork with `png` 0.18.1 and carries its clicks over `async-channel` 2.5.0 (both MIT OR Apache-2.0), which GPUI already depends on. The artwork under `assets/tray/` is SkillBinder's own rune, the template glyph in `docs/design/brand/source/icons.js`.
+
 ## HTTP client
 
 The engine fetches Explore's catalog with `ureq` 3.5.2 (MIT OR Apache-2.0) over `rustls` 0.23.46 (Apache-2.0 OR ISC OR MIT), without OpenSSL (ADR 0014); `xtask`'s catalog job, which is never shipped, uses the same crate. Its source is available at `https://github.com/algesten/ureq`. Its other dependencies, at the versions `Cargo.lock` pins:

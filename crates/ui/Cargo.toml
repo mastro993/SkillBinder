@@ -11,11 +11,19 @@ native-test = ["skillbinder-design/native-test"]
 
 [dependencies]
 anyhow.workspace = true
+async-channel.workspace = true
 chrono.workspace = true
 skillbinder-client.workspace = true
 skillbinder-proto.workspace = true
 gpui-kit.workspace = true
 skillbinder-design.workspace = true
+png.workspace = true
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+tray-icon.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni.workspace = true
 
 [dev-dependencies]
 gpui-kit = { workspace = true, features = ["test-support"] }

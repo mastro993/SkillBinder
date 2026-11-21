@@ -43,6 +43,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results() -> Tes
             appearance: Appearance::Dark,
             folded_sections: [SidebarSection::Presets].into(),
             library_view: LibraryView::Grid,
+            show_in_tray: false,
         })
         .await?;
     let updated = engine.snapshot().await?;
@@ -62,6 +63,7 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results() -> Tes
         [SidebarSection::Presets].into()
     );
     assert_eq!(current.preferences.library_view, LibraryView::Grid);
+    assert!(!current.preferences.show_in_tray);
     assert!(current.scan.is_some() && !current.scanning);
     assert_eq!(shared.requested.load(Ordering::Acquire), 2);
     assert!(current.generation >= 2);

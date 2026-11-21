@@ -4,17 +4,15 @@
 mod instance;
 #[cfg(feature = "native-test")]
 mod native_test;
+mod window;
 
-use gpui_kit::component::TitleBar;
-use gpui_kit::{
-    App, AppContext, Bounds, KeyBinding, Menu, MenuItem, TitlebarOptions, WindowBounds,
-    WindowOptions, actions, point, px, size,
-};
+use gpui_kit::{App, KeyBinding, Menu, MenuItem, QuitMode, actions};
 use skillbinder_client::Client;
 #[cfg(not(feature = "native-test"))]
 use skillbinder_engine::EngineConfig;
 use skillbinder_engine::{Engine, QuitCause};
 use skillbinder_ui::{GoBack, GoForward, ToggleSidebar};
+use window::{MainWindow, open_main_window, window_closed};
 
 actions!(
     skillbinder,
@@ -23,32 +21,6 @@ actions!(
         Quit
     ]
 );
-
-/// macOS draws the app under a transparent titlebar; other platforms keep native decorations.
-fn window_chrome() -> WindowOptions {
-    if cfg!(target_os = "macos") {
-        let base = TitleBar::window_options();
-        WindowOptions {
-            titlebar: base.titlebar.map(|titlebar| {
-                let (x, y) = skillbinder_design::TRAFFIC_LIGHTS_ORIGIN;
-                TitlebarOptions {
-                    title: Some("SkillBinder".into()),
-                    traffic_light_position: Some(point(px(x), px(y))),
-                    ..titlebar
-                }
-            }),
-            ..base
-        }
-    } else {
-        WindowOptions {
-            titlebar: Some(TitlebarOptions {
-                title: Some("SkillBinder".into()),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }
-    }
-}
 
 fn main() -> std::process::ExitCode {
     if let Err(error) = run() {
@@ -103,168 +75,121 @@ fn run() -> anyhow::Result<()> {
     #[cfg(not(feature = "native-test"))]
     let background = false;
     let shutdown_runtime = runtime.handle().clone();
-    gpui_kit::application()
+    // Closing the window leaves the app running behind its icon; `window_closed` quits otherwise.
+    let application = gpui_kit::application()
         .with_assets(skillbinder_ui::Assets)
-        .run(move |cx: &mut App| {
-            skillbinder_ui::init(cx);
+        .with_quit_mode(QuitMode::Explicit);
+    application.on_reopen(|cx| {
+        if cx.has_global::<MainWindow>() {
+            open_main_window(true, cx);
+        }
+    });
+    application.run(move |cx: &mut App| {
+        skillbinder_ui::init(cx);
+        MainWindow::install(
+            client.clone(),
             #[cfg(feature = "native-test")]
-            if smoke.is_some() {
-                eprintln!("Native smoke: opening window");
+            native_test::WindowHooks::new(mode, smoke.clone()),
+            cx,
+        );
+        skillbinder_ui::start_tray(
+            &client,
+            |cx| {
+                open_main_window(true, cx);
+            },
+            cx,
+        );
+        let mut instance = Some(instance);
+        cx.on_app_quit(move |cx| {
+            // AppKit terminates the process during quit; code after run may never execute.
+            #[cfg(feature = "native-test")]
+            cx.global::<MainWindow>().hooks.shutdown();
+            if let Err(error) = shutdown_runtime.block_on(engine.shutdown()) {
+                eprintln!("Could not finish shutdown: {error}");
+                std::process::exit(1);
             }
-            let opened = std::rc::Rc::new(std::cell::Cell::new(false));
-            let opened_on_quit = opened.clone();
-            #[cfg(feature = "native-test")]
-            let bridge = std::rc::Rc::new(std::cell::RefCell::new(None::<gpui_mcp::BridgeHandle>));
-            #[cfg(feature = "native-test")]
-            let bridge_on_quit = bridge.clone();
-            let mut instance = Some(instance);
-            cx.on_app_quit(move |_| {
-                // AppKit terminates the process during quit; code after run may never execute.
-                #[cfg(feature = "native-test")]
-                if let Some(bridge) = bridge_on_quit.borrow_mut().take() {
-                    bridge.shutdown();
-                }
-                if let Err(error) = shutdown_runtime.block_on(engine.shutdown()) {
-                    eprintln!("Could not finish shutdown: {error}");
-                    std::process::exit(1);
-                }
-                if !opened_on_quit.get() {
-                    std::process::exit(1);
-                }
-                // A ready app update installs now. After Move to Applications or Restart, the
-                // app starts again once this one lets go of the instance lock, which AppKit's
-                // exit would otherwise hold to the end.
-                if let Some(relaunch) = engine.finish_app_update(quit_cause()) {
-                    drop(instance.take());
-                    if let Err(error) = relaunch.start() {
-                        eprintln!("Could not open SkillBinder again: {error}");
-                    }
-                }
-                #[cfg(feature = "native-test")]
-                if let Some(smoke) = smoke_result.clone()
-                    && let Err(error) = smoke.verify()
-                {
-                    eprintln!("{error}");
-                    std::process::exit(1);
-                }
-                std::future::ready(())
-            })
-            .detach();
-            cx.on_action(|_: &Quit, cx| cx.quit());
-            let quit_key = if cfg!(target_os = "macos") {
-                "cmd-q"
-            } else {
-                "ctrl-q"
-            };
-            let sidebar_key = if cfg!(target_os = "macos") {
-                "cmd-b"
-            } else {
-                "ctrl-b"
-            };
-            let (back_key, forward_key) = if cfg!(target_os = "macos") {
-                ("cmd-[", "cmd-]")
-            } else {
-                ("ctrl-[", "ctrl-]")
-            };
-            cx.bind_keys([
-                KeyBinding::new(quit_key, Quit, None),
-                KeyBinding::new(sidebar_key, ToggleSidebar, None),
-                KeyBinding::new(back_key, GoBack, None),
-                KeyBinding::new(forward_key, GoForward, None),
-            ]);
-            cx.set_menus(vec![
-                Menu {
-                    name: "SkillBinder".into(),
-                    disabled: false,
-                    items: vec![MenuItem::action("Quit SkillBinder", Quit)],
-                },
-                Menu {
-                    name: "View".into(),
-                    disabled: false,
-                    items: vec![MenuItem::action("Toggle Sidebar", ToggleSidebar)],
-                },
-                Menu {
-                    name: "Go".into(),
-                    disabled: false,
-                    items: vec![
-                        MenuItem::action("Back", GoBack),
-                        MenuItem::action("Forward", GoForward),
-                    ],
-                },
-            ]);
-            cx.on_window_closed(|cx, _| {
-                if cx.windows().is_empty() {
-                    cx.quit();
-                }
-            })
-            .detach();
-            cx.spawn(async move |cx| {
-                while activation.changed().await.is_ok() {
-                    cx.update(|cx| {
-                        cx.activate(true);
-                        for window in cx.windows() {
-                            let _ = window.update(cx, |_, window, _| window.activate_window());
-                        }
-                    });
-                }
-            })
-            .detach();
-            let mut bounds = Bounds::centered(None, size(px(1180.0), px(728.0)), cx);
-            bounds.origin.x = px(f32::from(bounds.origin.x).floor());
-            bounds.origin.y = px(f32::from(bounds.origin.y).floor());
-            let options = WindowOptions {
-                app_id: Some("skillbinder".into()),
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                window_min_size: Some(size(px(860.0), px(588.0))),
-                focus: !background,
-                ..window_chrome()
-            };
-            if let Err(error) = gpui_kit::open_window(options, cx, |window, cx| {
-                #[cfg(feature = "native-test")]
-                if smoke.is_some() {
-                    eprintln!("Native smoke: creating view");
-                }
-                skillbinder_design::follow_window(window, cx);
-                let view = cx.new(|cx| skillbinder_ui::NativeView::new(client, window, cx));
-                #[cfg(feature = "native-test")]
-                if mode == native_test::NativeMode::Mcp {
-                    let Ok(app_id) = gpui_mcp::AppId::new("skillbinder") else {
-                        unreachable!("static SkillBinder app ID is valid");
-                    };
-                    let bridge_config = gpui_mcp::BridgeConfig::new(app_id, "SkillBinder");
-                    match gpui_mcp::BridgeHandle::install(window, cx, bridge_config) {
-                        Ok(handle) => {
-                            if let Err(error) =
-                                native_test::register_commands(&handle, view.clone())
-                            {
-                                eprintln!("Could not register native-test commands: {error}");
-                            }
-                            *bridge.borrow_mut() = Some(handle);
-                        }
-                        Err(error) => {
-                            eprintln!("Could not start native MCP bridge: {error}");
-                            return view;
-                        }
-                    }
-                }
-                #[cfg(feature = "native-test")]
-                if let Some(smoke) = smoke {
-                    smoke.start(view.clone(), window);
-                }
-                opened.set(true);
-                view
-            }) {
-                eprintln!("Could not open SkillBinder: {error}");
+            if !cx.global::<MainWindow>().opened {
+                std::process::exit(1);
             }
-            if !opened.get() {
-                cx.quit();
+            // A ready app update installs now. After Move to Applications or Restart, the
+            // app starts again once this one lets go of the instance lock, which AppKit's
+            // exit would otherwise hold to the end.
+            if let Some(relaunch) = engine.finish_app_update(quit_cause()) {
+                drop(instance.take());
+                if let Err(error) = relaunch.start() {
+                    eprintln!("Could not open SkillBinder again: {error}");
+                }
             }
             #[cfg(feature = "native-test")]
-            eprintln!("Native test: window initialization returned");
-            if !background {
-                cx.activate(true);
+            if let Some(smoke) = smoke_result.clone()
+                && let Err(error) = smoke.verify()
+            {
+                eprintln!("{error}");
+                std::process::exit(1);
             }
-        });
+            std::future::ready(())
+        })
+        .detach();
+        cx.on_action(|_: &Quit, cx| cx.quit());
+        let quit_key = if cfg!(target_os = "macos") {
+            "cmd-q"
+        } else {
+            "ctrl-q"
+        };
+        let sidebar_key = if cfg!(target_os = "macos") {
+            "cmd-b"
+        } else {
+            "ctrl-b"
+        };
+        let (back_key, forward_key) = if cfg!(target_os = "macos") {
+            ("cmd-[", "cmd-]")
+        } else {
+            ("ctrl-[", "ctrl-]")
+        };
+        cx.bind_keys([
+            KeyBinding::new(quit_key, Quit, None),
+            KeyBinding::new(sidebar_key, ToggleSidebar, None),
+            KeyBinding::new(back_key, GoBack, None),
+            KeyBinding::new(forward_key, GoForward, None),
+        ]);
+        cx.set_menus(vec![
+            Menu {
+                name: "SkillBinder".into(),
+                disabled: false,
+                items: vec![MenuItem::action("Quit SkillBinder", Quit)],
+            },
+            Menu {
+                name: "View".into(),
+                disabled: false,
+                items: vec![MenuItem::action("Toggle Sidebar", ToggleSidebar)],
+            },
+            Menu {
+                name: "Go".into(),
+                disabled: false,
+                items: vec![
+                    MenuItem::action("Back", GoBack),
+                    MenuItem::action("Forward", GoForward),
+                ],
+            },
+        ]);
+        cx.on_window_closed(window_closed).detach();
+        // Launching SkillBinder again opens the window, or brings the open one forward.
+        cx.spawn(async move |cx| {
+            while activation.changed().await.is_ok() {
+                cx.update(|cx| open_main_window(true, cx));
+            }
+        })
+        .detach();
+        #[cfg(feature = "native-test")]
+        if smoke.is_some() {
+            eprintln!("Native smoke: opening window");
+        }
+        if !open_main_window(!background, cx) {
+            cx.quit();
+        }
+        #[cfg(feature = "native-test")]
+        eprintln!("Native test: window initialization returned");
+    });
     Ok(())
 }
 /// GPUI quits the same way when Windows ends the session, so the session itself tells.
