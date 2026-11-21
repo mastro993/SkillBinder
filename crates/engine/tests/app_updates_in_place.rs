@@ -187,3 +187,35 @@ async fn outside_applications_a_newer_version_is_download_only() {
     );
     assert!(!fixture.data.join("updates").exists(), "nothing downloads");
 }
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_download_that_fails_after_a_channel_switch_checks_the_new_channel() {
+    let fixture = Fixture::installed("0.1.0");
+    let wrong = "0".repeat(64);
+    fixture.publish_with("stable", "0.2.0", TARGET, &fixture.key, Some(&wrong));
+    fixture.publish("beta", "0.3.0-beta.1");
+    // A FIFO holds the stable download until it is written.
+    let held = fixture.site.join("downloads/0.2.0");
+    let archive = fs::read(&held).unwrap();
+    fs::remove_file(&held).unwrap();
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&held)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let engine = fixture.open();
+    let check = tokio::spawn({
+        let engine = engine.clone();
+        async move { engine.check_app_update(true).await }
+    });
+    while !matches!(state(&engine), AppUpdateState::Downloading { .. }) {
+        tokio::task::yield_now().await;
+    }
+    engine.set_update_channel(Channel::Beta).await.unwrap();
+    fs::write(&held, archive).unwrap();
+    check.await.unwrap().unwrap();
+    assert_eq!(state(&engine), ready("0.3.0-beta.1"));
+}

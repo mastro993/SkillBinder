@@ -30,20 +30,23 @@ impl AppUpdates {
         let Ok(mut shared) = self.shared.lock() else {
             return Ended::Failed;
         };
-        let staged = match staged {
-            Ok(staged) => staged,
-            Err(why) => {
-                self.log
-                    .record(format!("App update {version} was discarded: {why}."));
-                shared.last_checked = running.previous_checked;
-                return failed(&mut shared, running, CheckFailure::Failed);
-            }
-        };
+        if let Err(why) = &staged {
+            self.log
+                .record(format!("App update {version} was discarded: {why}."));
+        }
+        // A channel switched during the download drops it, whatever came of it, and the new
+        // channel is checked next.
         if shared.channel != running.channel {
-            stage::remove(&staged);
+            if let Ok(staged) = &staged {
+                stage::remove(staged);
+            }
             shared.state = shared.resting();
             return Ended::Superseded;
         }
+        let Ok(staged) = staged else {
+            shared.last_checked = running.previous_checked;
+            return failed(&mut shared, running, CheckFailure::Failed);
+        };
         let replaced = shared.staged.replace(Staged {
             offer: found.offer.clone(),
             bundle: staged.clone(),
