@@ -191,10 +191,17 @@ pub struct AppSnapshot {
     pub updates: BTreeMap<SkillId, SkillUpdate>,
     /// An update check is running; `updates` keeps the previous results until it completes.
     pub checking: bool,
+    /// Update all while it runs: how many of its skills are done, of how many.
+    pub updating: Option<(usize, usize)>,
+    /// The last Update all's outcome, until the next Update all starts or a source check
+    /// completes.
+    pub update_all_outcome: Option<crate::UpdateOutcome>,
     /// Explore's catalog and how its last refresh went.
     pub explore: crate::ExploreSnapshot,
     /// Git connection and status.
     pub sync: SyncSnapshot,
+    /// The Git operation the user asked for while it runs.
+    pub syncing: Option<crate::SyncAction>,
     /// How far the change that writes and removes copies has got while it runs, or `None`.
     pub activation: Option<crate::ActivationProgress>,
     /// Local appearance preferences.

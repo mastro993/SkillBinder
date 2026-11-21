@@ -74,7 +74,7 @@ impl NativeView {
 
     /// Whether the open dialog stays up while an operation runs, as [`DialogState::locked`] says.
     fn dialog_locked(&self) -> bool {
-        self.dialog.locked(self.busy)
+        self.dialog.locked(self.working())
     }
 
     pub(super) fn dismiss_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -118,7 +118,7 @@ impl NativeView {
     pub(super) fn dialog_cancel(&self, id: &'static str, cx: &mut Context<Self>) -> Button {
         Button::new(id)
             .label("Cancel")
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)))
     }
 

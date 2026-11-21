@@ -10,13 +10,18 @@ use ksni::blocking::{Handle, TrayMethods};
 use ksni::menu::{CheckmarkItem, StandardItem};
 use ksni::{MenuItem, OfflineReason, ToolTip};
 
-/// The icon on screen; dropping it removes it.
-pub(super) struct Icon(Handle<Item>);
+/// The icon on screen, with the appearance its glyph contrasts with and whether it shows the
+/// dot; dropping it removes it.
+pub(super) struct Icon {
+    handle: Handle<Item>,
+    appearance: WindowAppearance,
+    dot: bool,
+}
 
 impl Drop for Icon {
     fn drop(&mut self) {
         // The service stops on its own thread; nothing waits for it.
-        let _ = self.0.shutdown();
+        let _ = self.handle.shutdown();
     }
 }
 
@@ -31,32 +36,48 @@ pub(super) fn show(
     events: Sender<TrayEvent>,
     cx: &mut App,
 ) -> Task<Option<Icon>> {
+    let dot = menu.dot;
     let item = Item {
         menu: menu.clone(),
-        icons: icons(appearance),
+        icons: icons(appearance, dot),
         events,
     };
-    cx.background_spawn(async move { item.spawn().ok().map(Icon) })
+    cx.background_spawn(async move {
+        item.spawn().ok().map(|handle| Icon {
+            handle,
+            appearance,
+            dot,
+        })
+    })
 }
 
 impl Icon {
     /// Shows `menu`; ksni sends hosts the whole menu again, and some redraw it only when it
     /// reopens.
     pub(super) fn draw(&mut self, menu: &TrayMenu) {
+        if menu.dot != self.dot {
+            self.dot = menu.dot;
+            self.redraw_glyph();
+        }
         let menu = menu.clone();
-        let _ = self.0.update(move |item| item.menu = menu);
+        let _ = self.handle.update(move |item| item.menu = menu);
     }
 
     /// Draws the glyph that contrasts with `appearance`.
-    pub(super) fn follow(&self, appearance: WindowAppearance) {
-        let icons = icons(appearance);
-        let _ = self.0.update(move |item| item.icons = icons);
+    pub(super) fn follow(&mut self, appearance: WindowAppearance) {
+        self.appearance = appearance;
+        self.redraw_glyph();
+    }
+
+    fn redraw_glyph(&self) {
+        let icons = icons(self.appearance, self.dot);
+        let _ = self.handle.update(move |item| item.icons = icons);
     }
 }
 
 /// The glyph in every size, as ARGB32 in network byte order.
-fn icons(appearance: WindowAppearance) -> Vec<ksni::Icon> {
-    artwork(appearance)
+fn icons(appearance: WindowAppearance, dot: bool) -> Vec<ksni::Icon> {
+    artwork(appearance, dot)
         .unwrap_or_default()
         .into_iter()
         .map(|Artwork { rgba, size }| ksni::Icon {

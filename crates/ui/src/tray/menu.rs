@@ -2,14 +2,18 @@
 //! snapshot and the [`Gate`] alone.
 
 use crate::gate::Gate;
-use crate::native_view::{resolved_active, waiting_copies};
-use skillbinder_proto::{AppSnapshot, PresetId};
+use crate::native_view::{available, resolved_active, summary, waiting_copies};
+use skillbinder_proto::{AppSnapshot, AppUpdateState, PresetId};
 
 /// What a menu item does.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum TrayAction {
     /// Opens the window on the review of the copies that wait for the user.
     ReviewCopies,
+    /// Runs Library's Update all.
+    UpdateAll,
+    /// Opens the window on Library with the Updates filter on.
+    LibraryUpdates,
     /// Switches to this preset.
     ActivatePreset(PresetId),
     /// Opens the window, or brings the open one forward.
@@ -26,6 +30,8 @@ impl TrayAction {
     pub(crate) fn id(&self) -> String {
         match self {
             Self::ReviewCopies => "review-copies".into(),
+            Self::UpdateAll => "update-all".into(),
+            Self::LibraryUpdates => "library-updates".into(),
             Self::ActivatePreset(PresetId(id)) => format!("{PRESET}{id}"),
             Self::OpenWindow => "open-window".into(),
             Self::Quit => "quit".into(),
@@ -37,6 +43,8 @@ impl TrayAction {
     pub(crate) fn from_id(id: &str) -> Option<Self> {
         match id {
             "review-copies" => Some(Self::ReviewCopies),
+            "update-all" => Some(Self::UpdateAll),
+            "library-updates" => Some(Self::LibraryUpdates),
             "open-window" => Some(Self::OpenWindow),
             "quit" => Some(Self::Quit),
             id => id
@@ -88,15 +96,17 @@ impl TrayItem {
     }
 }
 
-/// The menu, top to bottom.
+/// The menu, top to bottom, and whether the icon shows its dot.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TrayMenu {
     pub(crate) items: Vec<TrayItem>,
+    pub(crate) dot: bool,
 }
 
 impl TrayMenu {
-    /// The menu for `snapshot` while `gate` holds (spec rules 7, 8, and 12): the attention item,
-    /// the presets, then Open and Quit. Before onboarding finishes, only Open and Quit.
+    /// The menu for `snapshot` while `gate` holds (spec rules 7–10 and 12): the attention item,
+    /// the skill updates, the presets, then Open and Quit. Before onboarding finishes, only Open
+    /// and Quit.
     pub(crate) fn new(snapshot: &AppSnapshot, gate: &Gate) -> Self {
         let mut items = Vec::new();
         if snapshot.bootstrap.onboarding.finished {
@@ -107,6 +117,8 @@ impl TrayMenu {
                     TrayItem::Separator,
                 ]),
             }
+            items.extend(skill_updates(snapshot, gate));
+            items.push(TrayItem::Separator);
             if let Some(library) = &snapshot.library {
                 items.push(TrayItem::Label {
                     id: "presets",
@@ -118,7 +130,7 @@ impl TrayMenu {
                 items.extend(presets.iter().map(|preset| TrayItem::Action {
                     action: TrayAction::ActivatePreset(preset.id.clone()),
                     label: preset.name.clone(),
-                    enabled: !gate.blocked(),
+                    enabled: !gate.blocked(snapshot),
                     checked: Some(active == Some(&preset.id)),
                     shortcut: None,
                 }));
@@ -136,7 +148,61 @@ impl TrayMenu {
                 shortcut: Some('Q'),
             },
         ]);
-        Self { items }
+        Self {
+            items,
+            dot: dot(snapshot),
+        }
+    }
+}
+
+/// Whether something waits for the user (D6): skills with an update, copies to review, or an
+/// app update that is ready or downloads from its release page.
+fn dot(snapshot: &AppSnapshot) -> bool {
+    !available(snapshot).is_empty()
+        || waiting_copies(snapshot) > 0
+        || matches!(
+            snapshot.app_update.state,
+            AppUpdateState::Ready { .. } | AppUpdateState::DownloadOnly { .. }
+        )
+}
+
+/// The skill update group (spec rules 9 and 10): the first status that applies, and Update all
+/// while skills have an update.
+fn skill_updates(snapshot: &AppSnapshot, gate: &Gate) -> Vec<TrayItem> {
+    let status = |label: String| TrayItem::Label {
+        id: "skill-updates",
+        label,
+    };
+    if snapshot.bootstrap.git_version.is_none() {
+        return vec![status("Skill updates need Git".into())];
+    }
+    if let Some((done, total)) = snapshot.updating {
+        return vec![status(format!("Updating {done} of {total} skills…"))];
+    }
+    if let Some(outcome) = &snapshot.update_all_outcome
+        && !outcome.failed.is_empty()
+    {
+        return vec![TrayItem::action(
+            TrayAction::LibraryUpdates,
+            summary(outcome),
+        )];
+    }
+    match available(snapshot).len() {
+        0 if snapshot.checking => vec![status("Checking skill updates…".into())],
+        0 => vec![status("Skills are up to date".into())],
+        count => vec![
+            status(match count {
+                1 => "1 skill has an update".into(),
+                count => format!("{count} skills have updates"),
+            }),
+            TrayItem::Action {
+                action: TrayAction::UpdateAll,
+                label: "Update all".into(),
+                enabled: !gate.refuses_update_all(snapshot),
+                checked: None,
+                shortcut: None,
+            },
+        ],
     }
 }
 

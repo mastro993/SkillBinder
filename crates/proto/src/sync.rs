@@ -43,7 +43,7 @@ pub struct SyncSnapshot {
     pub refreshed_at: Option<u64>,
 }
 /// An explicitly requested synchronization operation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SyncAction {
     /// Fetch remote status without committing or merging.
     Refresh,

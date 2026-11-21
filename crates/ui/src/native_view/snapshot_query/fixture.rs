@@ -79,8 +79,11 @@ impl Fixture {
                 scanning: false,
                 updates: BTreeMap::new(),
                 checking: false,
+                updating: None,
+                update_all_outcome: None,
                 explore: ExploreSnapshot::default(),
                 sync: SyncSnapshot::default(),
+                syncing: None,
                 activation: None,
                 preferences: Preferences::default(),
                 app_update: AppUpdateSnapshot {

@@ -3,9 +3,9 @@
 //! its strip ends, and the window's short work.
 
 use crate::native_view::{Activity, Landing, NativeView};
-use gpui_kit::{App, Entity, Global, WeakEntity};
+use gpui_kit::{AnyWindowHandle, App, Context, Entity, Global, WeakEntity, Window};
 use skillbinder_client::Client;
-use skillbinder_proto::{AppError, AppResult};
+use skillbinder_proto::{AppError, AppResult, AppSnapshot};
 use std::future::Future;
 
 /// The work that blocks a new change, in the window and in the menu.
@@ -42,9 +42,15 @@ impl Gate {
         cx.try_global::<Self>().cloned().unwrap_or_default()
     }
 
-    /// Whether a new change is refused.
-    pub(crate) fn blocked(&self) -> bool {
-        self.busy || self.change.is_some()
+    /// Whether a new change is refused, which an Update all in `snapshot` also does, however
+    /// it started.
+    pub(crate) fn blocked(&self, snapshot: &AppSnapshot) -> bool {
+        self.busy || self.change.is_some() || snapshot.updating.is_some()
+    }
+
+    /// Whether Update all is refused: as a change is, and while a Git operation runs.
+    pub(crate) fn refuses_update_all(&self, snapshot: &AppSnapshot) -> bool {
+        self.blocked(snapshot) || snapshot.syncing.is_some()
     }
 
     /// The change while it runs.
@@ -60,20 +66,33 @@ impl Gate {
     }
 }
 
-/// The window's view while a window is open.
+/// The window's view, and the window, while a window is open.
 #[derive(Default)]
-struct MainView(Option<WeakEntity<NativeView>>);
+struct MainView(Option<(WeakEntity<NativeView>, AnyWindowHandle)>);
 
 impl Global for MainView {}
 
 /// The open window's view, if a window is open.
 pub(crate) fn main_view(cx: &App) -> Option<Entity<NativeView>> {
-    cx.try_global::<MainView>()?.0.as_ref()?.upgrade()
+    cx.try_global::<MainView>()?.0.as_ref()?.0.upgrade()
 }
 
-/// Records `view` as the open window's.
-pub(crate) fn opened(view: WeakEntity<NativeView>, cx: &mut App) {
-    cx.set_global(MainView(Some(view)));
+/// Runs `update` on the open window's view, with its window, if a window is open.
+pub(crate) fn update_main_view(
+    cx: &mut App,
+    update: impl FnOnce(&mut NativeView, &mut Window, &mut Context<NativeView>),
+) {
+    let Some((view, window)) = cx.try_global::<MainView>().and_then(|main| main.0.clone()) else {
+        return;
+    };
+    let _ = window.update(cx, |_, window, cx| {
+        view.update(cx, |view, cx| update(view, window, cx))
+    });
+}
+
+/// Records `view` as the open window's, shown in `window`.
+pub(crate) fn opened(view: WeakEntity<NativeView>, window: AnyWindowHandle, cx: &mut App) {
+    cx.set_global(MainView(Some((view, window))));
 }
 
 /// The main window closed: its short work no longer blocks, nor does a change that has returned,
@@ -126,6 +145,7 @@ fn returned(result: AppResult<Landing>, cx: &mut App) {
 #[cfg(test)]
 mod tests {
     use super::{Change, ChangeState, Gate, main_window_closed, returned};
+    use crate::native_view::fixture::Fixture;
     use crate::native_view::{Activity, Landing};
     use gpui_kit::TestAppContext;
 
@@ -142,16 +162,29 @@ mod tests {
     }
 
     #[test]
-    fn short_work_or_any_change_blocks() {
-        assert!(!gate(None, false).blocked());
-        assert!(gate(None, true).blocked());
+    fn short_work_any_change_or_update_all_blocks() {
+        let mut snapshot = Fixture::new().build();
+        assert!(!gate(None, false).blocked(&snapshot));
+        assert!(gate(None, true).blocked(&snapshot));
         for state in [
             ChangeState::Running,
             ChangeState::Landed(Landing::default()),
             ChangeState::Refused(skillbinder_proto::AppError::storage()),
         ] {
-            assert!(gate(Some(state), false).blocked());
+            assert!(gate(Some(state), false).blocked(&snapshot));
         }
+        snapshot.updating = Some((0, 2));
+        assert!(gate(None, false).blocked(&snapshot));
+    }
+
+    #[test]
+    fn a_git_operation_refuses_update_all_but_not_a_change() {
+        let mut snapshot = Fixture::new().build();
+        assert!(!gate(None, false).refuses_update_all(&snapshot));
+        assert!(gate(None, true).refuses_update_all(&snapshot));
+        snapshot.syncing = Some(skillbinder_proto::SyncAction::Push);
+        assert!(gate(None, false).refuses_update_all(&snapshot));
+        assert!(!gate(None, false).blocked(&snapshot));
     }
 
     #[test]
@@ -196,7 +229,8 @@ mod tests {
         ] {
             cx.update(|cx| cx.set_global(gate(Some(done), false)));
             cx.update(main_window_closed);
-            assert!(!cx.update(|cx| Gate::of(cx).blocked()));
+            let idle = Fixture::new().build();
+            assert!(!cx.update(|cx| Gate::of(cx).blocked(&idle)));
         }
     }
 }

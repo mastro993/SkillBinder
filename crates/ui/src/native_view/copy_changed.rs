@@ -87,7 +87,7 @@ impl NativeView {
             let copies = copies.clone();
             Button::new(id)
                 .label(label)
-                .inactive(self.busy)
+                .inactive(self.working())
                 .on_click(cx.listener(move |view, _, _, cx| {
                     let (client, copies) = (view.client.clone(), copies.clone());
                     view.run(

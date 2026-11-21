@@ -30,6 +30,10 @@ impl State {
         };
         Ok(AppSnapshot {
             checking: self.updates.running()?,
+            // Update all and Sync run in the client, which keeps their state across reads.
+            updating: None,
+            update_all_outcome: None,
+            syncing: None,
             generation: 0,
             background_error: None,
             bootstrap,

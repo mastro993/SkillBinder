@@ -149,7 +149,7 @@ impl NativeView {
         let (released, animate) = (cx.has_active_drag(), !cx.reduce_motion());
         if let Some(order) = self
             .folder_reorder
-            .finish(&stored, released, self.busy, animate)
+            .finish(&stored, released, self.working(), animate)
         {
             self.change_organization(OrganizationChange::ReorderFolders { order }, cx);
         }

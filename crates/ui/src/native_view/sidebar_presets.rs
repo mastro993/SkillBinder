@@ -191,7 +191,7 @@ impl NativeView {
         let glyph = icon_glyph(preset.icon);
         let marker = active.then(|| active_marker(id.as_str(), tint, cx));
         let (menu_preset, index, len) = (preset.clone(), placement.index, placement.len);
-        let busy = self.busy;
+        let busy = self.working();
         let open = id.clone();
         let row = activate(
             row_with_marker(
@@ -225,7 +225,7 @@ impl NativeView {
             .relative()
             .top(px(placement.offset))
             .when(placement.floating, |row| row.opacity(0.0));
-        if protected || self.busy {
+        if protected || self.working() {
             return row.into_any_element();
         }
         row.on_drag(

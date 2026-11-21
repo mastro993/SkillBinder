@@ -380,7 +380,7 @@ impl NativeView {
         let (released, animate) = (cx.has_active_drag(), !cx.reduce_motion());
         if let Some(order) = self
             .preset_reorder
-            .finish(&stored, released, self.busy, animate)
+            .finish(&stored, released, self.working(), animate)
         {
             self.change_organization(OrganizationChange::ReorderPresets { order }, cx);
         }
@@ -391,9 +391,9 @@ impl NativeView {
     pub(super) fn move_preset(&mut self, id: &PresetId, target: usize, cx: &mut Context<Self>) {
         let stored = self.preset_ids();
         let animate = !cx.reduce_motion();
-        if let Some(order) = self
-            .preset_reorder
-            .move_to(&stored, id, target, self.busy, animate)
+        if let Some(order) =
+            self.preset_reorder
+                .move_to(&stored, id, target, self.working(), animate)
         {
             self.change_organization(OrganizationChange::ReorderPresets { order }, cx);
         }

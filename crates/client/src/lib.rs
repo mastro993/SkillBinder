@@ -17,6 +17,7 @@ mod app_update;
 mod explore;
 mod onboarding;
 mod progress;
+mod update_all;
 
 /// How long a source check holds before the next refresh checks the skill again.
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
@@ -56,6 +57,7 @@ impl Client {
         client.refresh_app();
         client.spawn_catalog(Duration::ZERO);
         client.start_app_update_checks();
+        client.start_source_checks();
         Ok(client)
     }
     /// Returns the latest complete projection without blocking on storage.
@@ -129,6 +131,14 @@ impl Client {
             next.generation = current.generation + 1;
             *current = Arc::new(next);
             true
+        });
+    }
+    fn publish_syncing(&self, syncing: Option<SyncAction>) {
+        self.shared.snapshots.send_modify(|current| {
+            let mut next = (**current).clone();
+            next.syncing = syncing;
+            next.generation = current.generation + 1;
+            *current = Arc::new(next);
         });
     }
     fn background_error(&self, error: AppError) {
@@ -235,7 +245,7 @@ impl Client {
             if let Err(error) = client.refresh_preserving_outcome(scanned).await {
                 client.background_error(error);
             }
-            if remote && let Err(error) = client.synchronize(SyncAction::Refresh).await {
+            if remote && let Err(error) = client.synchronized(SyncAction::Refresh).await {
                 client.background_error(error);
             }
         });
@@ -295,7 +305,7 @@ impl Client {
         self.shared
             .runtime
             .spawn(async move {
-                let checked = client.run_check(std::time::Duration::ZERO).await;
+                let checked = client.check_sources(std::time::Duration::ZERO).await;
                 client.refresh_preserving_outcome(checked).await.map(|_| ())
             })
             .await
@@ -377,9 +387,17 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.connect_remote(remote).await)
             .await
     }
-    /// Performs explicit synchronization or remote refresh. A Pull or Sync may rewrite your
-    /// agents' copies, so it scans again.
+    /// Performs the synchronization or remote refresh the user asked for, publishing it as
+    /// `syncing` while it runs.
     pub async fn synchronize(&self, action: SyncAction) -> AppResult<SyncSnapshot> {
+        self.publish_syncing(Some(action));
+        let synchronized = self.synchronized(action).await;
+        self.publish_syncing(None);
+        synchronized
+    }
+    /// Synchronizes or refreshes the remote. A Pull or Sync may rewrite your agents' copies, so
+    /// it scans again.
+    async fn synchronized(&self, action: SyncAction) -> AppResult<SyncSnapshot> {
         let synchronized = self.shared.engine.synchronize(action).await;
         if matches!(action, SyncAction::Pull | SyncAction::Sync) {
             self.spawn_scan();
@@ -410,6 +428,10 @@ impl Shared {
                     return false;
                 }
             }
+            // Update all and Sync run in the client, which a read of the engine knows nothing of.
+            snapshot.updating = current.updating;
+            snapshot.update_all_outcome = current.update_all_outcome.clone();
+            snapshot.syncing = current.syncing;
             snapshot.explore = self.engine.current_explore();
             if let Ok(update) = self.engine.current_app_update() {
                 snapshot.app_update = update;

@@ -14,6 +14,9 @@ pub(super) struct Icon {
     tray: TrayIcon,
     /// The menu's rows, by id, as drawn.
     rows: Vec<(String, Row)>,
+    /// The appearance the glyph contrasts with, and whether it shows the dot.
+    appearance: WindowAppearance,
+    dot: bool,
 }
 
 /// A drawn row that can change in place.
@@ -57,7 +60,7 @@ pub(super) fn show(
 }
 
 fn build(menu: &TrayMenu, appearance: WindowAppearance) -> Option<Icon> {
-    let image = image(appearance)?;
+    let image = image(appearance, menu.dot)?;
     let (native, rows) = native_menu(menu)?;
     let builder = TrayIconBuilder::new()
         .with_menu(Box::new(native))
@@ -68,13 +71,22 @@ fn build(menu: &TrayMenu, appearance: WindowAppearance) -> Option<Icon> {
     #[cfg(not(target_os = "macos"))]
     let builder = builder.with_icon(image);
     let tray = builder.build().ok()?;
-    Some(Icon { tray, rows })
+    Some(Icon {
+        tray,
+        rows,
+        appearance,
+        dot: menu.dot,
+    })
 }
 
 impl Icon {
     /// Shows `menu`: in place while its rows keep their ids, so an open menu follows along,
     /// otherwise as a new menu.
     pub(super) fn draw(&mut self, menu: &TrayMenu) {
+        if menu.dot != self.dot {
+            self.dot = menu.dot;
+            self.redraw_glyph();
+        }
         let same = self.rows.len() == menu.items.len()
             && self
                 .rows
@@ -114,19 +126,27 @@ impl Icon {
     }
 
     /// Draws the glyph that contrasts with `appearance`; the macOS template needs none.
-    pub(super) fn follow(&self, appearance: WindowAppearance) {
-        if cfg!(target_os = "macos") {
+    pub(super) fn follow(&mut self, appearance: WindowAppearance) {
+        self.appearance = appearance;
+        if !cfg!(target_os = "macos") {
+            self.redraw_glyph();
+        }
+    }
+
+    fn redraw_glyph(&self) {
+        let Some(image) = image(self.appearance, self.dot) else {
             return;
-        }
-        if let Some(image) = image(appearance) {
-            let _ = self.tray.set_icon(Some(image));
-        }
+        };
+        #[cfg(target_os = "macos")]
+        let _ = self.tray.set_icon_templated(Some(image));
+        #[cfg(not(target_os = "macos"))]
+        let _ = self.tray.set_icon(Some(image));
     }
 }
 
 /// The one image this platform shows.
-fn image(appearance: WindowAppearance) -> Option<TrayImage> {
-    let image = artwork(appearance).ok()?.into_iter().next()?;
+fn image(appearance: WindowAppearance, dot: bool) -> Option<TrayImage> {
+    let image = artwork(appearance, dot).ok()?.into_iter().next()?;
     TrayImage::from_rgba(image.rgba, image.size, image.size).ok()
 }
 

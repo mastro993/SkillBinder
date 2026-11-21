@@ -61,7 +61,7 @@ impl NativeView {
         let label = targets_label(self.skill_targets(skill), &rows);
         let owner = format!("targets-{skill}");
         let open = self.menu.as_ref().is_some_and(|menu| menu.is_for(&owner));
-        let busy = self.busy;
+        let busy = self.working();
         let skill = skill.clone();
         Button::new(owner.clone())
             .ghost()
@@ -102,7 +102,7 @@ impl NativeView {
         let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
         let targets = self.skill_targets(skill).cloned();
         let every: Vec<String> = rows.iter().flat_map(|row| row.ids.clone()).collect();
-        let busy = self.busy;
+        let busy = self.working();
         let choose = |key: String, label: String, next: Targets| {
             MenuItem::new(key, label)
                 .disabled(busy)

@@ -62,7 +62,7 @@ impl NativeView {
                 );
             }
             reinstall
-                .inactive(self.busy)
+                .inactive(self.working())
                 .on_click(cx.listener(move |view, _, _, cx| {
                     let client = view.client.clone();
                     let skill = skill.clone();

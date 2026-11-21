@@ -211,9 +211,9 @@ impl NativeView {
     fn finish_workspace_drag(&mut self, cx: &mut Context<Self>) {
         let stored = self.workspace_ids();
         let (released, animate) = (cx.has_active_drag(), !cx.reduce_motion());
-        if let Some(order) = self
-            .workspace_reorder
-            .finish(&stored, released, self.busy, animate)
+        if let Some(order) =
+            self.workspace_reorder
+                .finish(&stored, released, self.working(), animate)
         {
             self.save_workspace_order(order, cx);
         }
@@ -223,9 +223,9 @@ impl NativeView {
     fn move_workspace(&mut self, id: &WorkspaceId, target: usize, cx: &mut Context<Self>) {
         let stored = self.workspace_ids();
         let animate = !cx.reduce_motion();
-        if let Some(order) = self
-            .workspace_reorder
-            .move_to(&stored, id, target, self.busy, animate)
+        if let Some(order) =
+            self.workspace_reorder
+                .move_to(&stored, id, target, self.working(), animate)
         {
             self.save_workspace_order(order, cx);
         }

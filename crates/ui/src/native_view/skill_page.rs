@@ -79,7 +79,7 @@ impl NativeView {
                     Button::new("copies-review")
                         .label("Review")
                         .small()
-                        .inactive(self.busy)
+                        .inactive(self.working())
                         .on_click(cx.listener(move |view, _, _, cx| {
                             view.dialog = DialogState::Copies(CopiesListing::Skill(skill.clone()));
                             cx.notify();
