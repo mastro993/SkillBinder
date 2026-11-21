@@ -1,0 +1,29 @@
+cask "skillbinder" do
+  version "@VERSION@"
+  sha256 "@SHA256@"
+
+  url "https://github.com/mastro993/SkillBinder/releases/download/v#{version}/skillbinder-#{version}-universal-apple-darwin.dmg"
+  name "SkillBinder"
+  desc "Manage a local library of agent skills"
+  homepage "https://github.com/mastro993/SkillBinder"
+
+  livecheck do
+    url "https://mastro993.github.io/SkillBinder/updates/v1/stable.json"
+    strategy :json do |json|
+      json["version"]
+    end
+  end
+
+  auto_updates true
+  conflicts_with cask: "skillbinder@beta"
+  depends_on macos: :tahoe
+
+  app "SkillBinder.app"
+
+  uninstall quit: "com.skillbinder.desktop"
+
+  zap trash: [
+    "~/Library/Application Support/SkillBinder",
+    "~/Library/Preferences/com.skillbinder.desktop.plist",
+  ]
+end
