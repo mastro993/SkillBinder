@@ -163,36 +163,11 @@ jobs:
       - name: Mirror the update manifest to Pages
         run: gh workflow run catalog.yml --ref main
 
-  # A job of its own, so "Re-run failed jobs" retries only the cask once the release is out.
   homebrew:
     needs: [version, publish]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    env:
-      VERSION: ${{ needs.version.outputs.version }}
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      # The tap deploy key can write only to mastro993/homebrew-tap.
-      - uses: actions/checkout@v4
-        with:
-          repository: mastro993/homebrew-tap
-          path: homebrew-tap
-          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
-      - name: Point the Homebrew cask at the release
-        run: |
-          sha256=$(gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --output - \
-            | awk -v dmg="skillbinder-$VERSION-universal-apple-darwin.dmg" '$2 == dmg { print $1 }')
-          test -n "$sha256"
-          sed -e "s/@VERSION@/$VERSION/" -e "s/@SHA256@/$sha256/" packaging/homebrew/skillbinder.rb \
-            > homebrew-tap/Casks/skillbinder.rb
-          cd homebrew-tap
-          git add Casks/skillbinder.rb
-          # A re-run after the push landed has nothing to commit.
-          git diff --cached --quiet && exit 0
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit --quiet --message "skillbinder $VERSION"
-          git push origin HEAD:main
+    uses: ./.github/workflows/homebrew.yml
+    secrets:
+      HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+    with:
+      version: ${{ needs.version.outputs.version }}
+      cask: skillbinder

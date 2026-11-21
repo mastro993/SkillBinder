@@ -15,6 +15,7 @@ cask "skillbinder" do
   end
 
   auto_updates true
+  conflicts_with cask: "skillbinder@beta"
   depends_on macos: :tahoe
 
   app "SkillBinder.app"

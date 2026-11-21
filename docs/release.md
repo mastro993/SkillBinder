@@ -1,6 +1,6 @@
 # Releases
 
-SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned per-user Windows setup program, and a Linux AppImage, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018). On macOS, the [Homebrew cask](#homebrew) installs the same disk image.
+SkillBinder ships through this repository's GitHub Releases: a notarized macOS disk image, an unsigned per-user Windows setup program, and a Linux AppImage, described by a signed update manifest that the Catalog workflow mirrors to GitHub Pages (ADR 0018). On macOS, the [Homebrew casks](#homebrew) install the same disk image.
 
 ## Versions
 
@@ -27,15 +27,15 @@ Actions → **Release** → Run workflow, on `main`, with:
 3. only if every check passed and all three platforms built: writes `SHA256SUMS` and the signed [update manifest](#update-manifests), then commits the stamp on top of the dispatched commit, tags it, and pushes both to `main` atomically. A signing key that does not open fails the run before the push. If `main` moved during the build the push is rejected and nothing is published; dispatch again;
 4. publishes the GitHub release with the archives, `SHA256SUMS`, `update.json`, `update.json.minisig`, and notes that open with the install steps in [`packaging/release-notes.md`](../packaging/release-notes.md) followed by GitHub's generated notes, all in one call;
 5. dispatches the Catalog workflow, which mirrors the manifest to Pages;
-6. points the [Homebrew cask](#homebrew) at the new disk image, in a job of its own.
+6. points the `skillbinder` [Homebrew cask](#homebrew) at the new disk image, in a job of its own.
 
 If step 4 fails after the push, `main` holds the bump commit and its tag without a release. Dispatching again would release the next version and leave this one unreleased, so finish it by hand: download the run's `dist-*` artifacts into `dist/`, run `sha256sum -- * > SHA256SUMS` inside it, sign with `UPDATE_SIGNING_KEY` and `UPDATE_SIGNING_KEY_PASSWORD` set: `cargo run -p xtask -- update-manifest --version X.Y.Z --dist dist`, then `gh release create vX.Y.Z --verify-tag --latest --notes-file packaging/release-notes.md --generate-notes dist/*` and `gh workflow run catalog.yml --ref main`.
 
-If step 6 fails, the release is out but Homebrew still installs the previous one. Fix the cause, then re-run the failed `homebrew` job from the run's page; it skips the commit when the tap already points at this version.
+If step 6 fails, the release is out but Homebrew still installs the previous one. Fix the cause, then re-run the failed `homebrew` job from the run's page ([`homebrew.yml`](../.github/workflows/homebrew.yml)); it skips the commit when the tap already points at this version.
 
 ## Nightly betas
 
-[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night unless a pull request was merged into `main` since the last release or beta (the nearest `v*` tag), by anyone but `github-actions[bot]`; the release bump commit is a direct push, so it never counts. Without any tag yet, it builds. A run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets are set, builds `main` as the next patch's beta while running `checks.yml` and `native.yml` again on that commit, and, only once they all pass, writes and signs the update manifest, tags the commit through the release API (no commit, no deploy key), publishes a prerelease with the manifest among its assets, and dispatches the Catalog workflow. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
+[`nightly.yml`](../.github/workflows/nightly.yml) runs every day at 02:00 UTC, and by hand from the Actions tab. It skips the night unless a pull request was merged into `main` since the last release or beta (the nearest `v*` tag), by anyone but `github-actions[bot]`; the release bump commit is a direct push, so it never counts. Without any tag yet, it builds. A run queued behind a release that moved `main` skips too. Otherwise it fails unless the signing secrets and the [tap deploy key](#homebrew-tap-deploy-key-release-and-nightly) are set, builds `main` as the next patch's beta while running `checks.yml` and `native.yml` again on that commit, and, only once they all pass, writes and signs the update manifest, tags the commit through the release API (no commit, no deploy key), publishes a prerelease with the manifest among its assets, dispatches the Catalog workflow, and then points the `skillbinder@beta` [Homebrew cask](#homebrew) at the new disk image, in a job of its own that can be re-run alone like Release's. Only the five newest betas are kept; older ones and their tags are deleted. Stable releases are never touched.
 
 ## What a release contains
 
@@ -76,15 +76,18 @@ On Windows, SmartScreen shows "Windows protected your PC" once, for the unsigned
 
 ## Homebrew
 
-Stable releases are also a cask in the [`mastro993/homebrew-tap`](https://github.com/mastro993/homebrew-tap) tap:
+Releases are also casks in the [`mastro993/homebrew-tap`](https://github.com/mastro993/homebrew-tap) tap, one per channel:
 
 ```sh
-brew install --cask mastro993/tap/skillbinder
+brew install --cask mastro993/tap/skillbinder        # stable releases
+brew install --cask mastro993/tap/skillbinder@beta   # nightly betas
 ```
 
-The cask is [`packaging/homebrew/skillbinder.rb`](../packaging/homebrew/skillbinder.rb) with `@VERSION@` and `@SHA256@` standing for the release and its disk image's checksum. The Release workflow's `homebrew` job fills them in from the release's `SHA256SUMS`, writes the result to the tap's `Casks/skillbinder.rb`, and pushes it to the tap's `main` as `skillbinder X.Y.Z`. Betas have no cask. The cask installs the universal disk image's `SkillBinder.app` into `/Applications` and needs macOS 26 (`depends_on macos: :tahoe`). It declares `auto_updates true`, since the app updates itself in place (ADR 0017), so `brew upgrade` leaves it alone unless run with `--greedy`, and its livecheck reads the version from the stable update manifest on Pages. `brew uninstall` quits a running SkillBinder first, and `brew uninstall --zap` also deletes its data directory and preferences.
+Each cask is a template in [`packaging/homebrew/`](../packaging/homebrew/), `skillbinder.rb` and `skillbinder@beta.rb`, with `@VERSION@` and `@SHA256@` standing for the release and its disk image's checksum. [`homebrew.yml`](../.github/workflows/homebrew.yml), called by Release with `skillbinder` and by Nightly with `skillbinder@beta` once the release is published, fills them in from the release's `SHA256SUMS`, writes the result to the tap's `Casks/<cask>.rb`, and pushes it to the tap's `main` as `<cask> X.Y.Z`. Both install the universal disk image's `SkillBinder.app` into `/Applications`, so each conflicts with the other: switching means uninstalling one first. They need macOS 26 (`depends_on macos: :tahoe`) and declare `auto_updates true`, since the app updates itself in place (ADR 0017), so `brew upgrade` leaves them alone unless run with `--greedy`. A beta starts on the Beta update channel, so the beta cask's app keeps updating to betas, and a release's on Stable. Each livecheck reads the version from its channel's update manifest on Pages. `brew uninstall` quits a running SkillBinder first, and `brew uninstall --zap` also deletes its data directory and preferences.
 
-To check a change to the cask, fill in a published release and audit it from a local tap:
+Nightly prunes old betas, so the beta cask's URL breaks only if its tap push fails five nights in a row while betas keep publishing; installed apps are unaffected.
+
+To check a change to a cask, fill in a published release (a beta for `skillbinder@beta`) and audit it from a local tap:
 
 ```sh
 brew tap-new --no-git local/skillbinder
@@ -93,6 +96,8 @@ sed -e "s/@VERSION@/X.Y.Z/" -e "s/@SHA256@/$sha256/" packaging/homebrew/skillbin
 brew trust local/skillbinder && brew audit --cask --strict --online local/skillbinder/skillbinder
 brew untap local/skillbinder
 ```
+
+The audit flags a beta as a GitHub pre-release, which only matters in Homebrew's own taps.
 
 ## Update manifests
 
@@ -130,7 +135,7 @@ rm release_key release_key.pub
 
 When rotating, delete the old key under Settings → Deploy keys.
 
-### Homebrew tap deploy key (Release only)
+### Homebrew tap deploy key (Release and Nightly)
 
 The `homebrew` job pushes to the tap with the private half of a write-enabled deploy key on `mastro993/homebrew-tap`, stored here as `HOMEBREW_TAP_DEPLOY_KEY`. To set it up or rotate it:
 

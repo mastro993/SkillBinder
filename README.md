@@ -14,7 +14,8 @@ SkillBinder manages a local library of agent skills with native GPUI screens and
 Download SkillBinder for macOS, Windows, or Linux from the [latest release](https://github.com/mastro993/SkillBinder/releases/latest). On macOS you can also install it with [Homebrew](https://brew.sh):
 
 ```sh
-brew install --cask mastro993/tap/skillbinder
+brew install --cask mastro993/tap/skillbinder        # stable releases
+brew install --cask mastro993/tap/skillbinder@beta   # nightly betas
 ```
 
 ## Run
