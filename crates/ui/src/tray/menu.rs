@@ -22,6 +22,7 @@ const PRESET: &str = "preset:";
 
 impl TrayAction {
     /// The item's stable id.
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub(crate) fn id(&self) -> String {
         match self {
             Self::ReviewCopies => "review-copies".into(),
@@ -67,6 +68,7 @@ pub(crate) enum TrayItem {
 
 impl TrayItem {
     /// The row's stable id; a backend redraws in place while the ids stay the same.
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub(crate) fn id(&self) -> String {
         match self {
             Self::Action { action, .. } => action.id(),
