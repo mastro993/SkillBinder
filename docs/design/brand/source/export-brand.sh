@@ -1,11 +1,14 @@
 #!/bin/sh
-# Renders the app icon from export.html into assets/: icon.icns (macOS), icon.ico (Windows), and
-# icon.png (Linux, 256 px). Needs macOS (sips, iconutil) and Google Chrome; set CHROME to another
-# Chromium binary. Run it after changing the icon in icons.js and commit the three files.
+# Renders the brand's packaged artwork: the app icon from export.html into assets/ (icon.icns for
+# macOS, icon.ico for Windows, icon.png for Linux at 256 px) and the disk image background from
+# dmg-background.html into packaging/macos/ (1x and @2x). Needs macOS (sips, iconutil) and Google
+# Chrome; set CHROME to another Chromium binary. Run it after changing either page and commit the
+# files it writes.
 set -eu
 CHROME=${CHROME:-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"}
 here=$(cd "$(dirname "$0")" && pwd)
 assets=$(cd "$here/../../../../assets" && pwd)
+macos=$(cd "$here/../../../../packaging/macos" && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
@@ -57,4 +60,11 @@ for size, image in zip(sizes, images):
 with open(out, "wb") as ico:
     ico.write(header + entries + b"".join(images))
 EOF
-echo "Wrote $assets/icon.icns, $assets/icon.ico, and $assets/icon.png"
+# The disk image window is 640 x 360 points; dmgbuild joins the two into a HiDPI TIFF.
+for scale in 1 2; do
+  suffix=$([ "$scale" = 2 ] && echo "@2x" || true)
+  "$CHROME" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor="$scale" \
+    --window-size=640,360 --screenshot="$macos/dmg-background$suffix.png" \
+    "file://$here/dmg-background.html" >/dev/null 2>&1
+done
+echo "Wrote the app icon to $assets and the disk image background to $macos"

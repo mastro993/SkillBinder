@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Disk image background</title>
+<!-- The macOS disk image window's background, 640 x 360 points, for export-brand.sh to capture
+     at 1x and 2x. dmgbuild places SkillBinder at (160, 200) and Applications at (480, 200)
+     (packaging/macos/dmgbuild-settings.py). It stays light: Finder draws the icon labels in
+     black over a background picture, even in Dark Mode. -->
+<style>
+  html, body { margin: 0; }
+  body { width: 640px; height: 360px; overflow: hidden; position: relative;
+    background: radial-gradient(circle at 50% 18%, #FFFFFF, #EFF3F8 70%, #E2E7EC); }
+  .mark { position: absolute; top: 34px; left: 0; right: 0; text-align: center; }
+  .word { font: 600 22px/1 Optima, Candara, sans-serif; letter-spacing: .12em; color: #1B1E23; }
+  .line { margin-top: 10px; font: 13px/1.2 -apple-system, BlinkMacSystemFont, sans-serif; color: #5F646B; }
+  svg { position: absolute; left: 0; top: 0; }
+</style>
+</head>
+<body>
+<div class="mark"><div class="word">SKILLBINDER</div><div class="line">One library to bind them all.</div></div>
+<!-- Three rune chevrons lead from the app to Applications, glowing like the icon's rune. -->
+<svg width="640" height="360" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">
+  <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M278 184l16 16-16 16M308 184l16 16-16 16M338 184l16 16-16 16" stroke="#8FCCFB" stroke-width="7" filter="url(#glow)"/>
+    <path d="M278 184l16 16-16 16M308 184l16 16-16 16M338 184l16 16-16 16" stroke="#0077B6" stroke-width="3.5"/>
+  </g>
+</svg>
+</body>
+</html>

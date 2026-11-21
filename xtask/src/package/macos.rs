@@ -1,5 +1,5 @@
 //! The macOS app bundle and its DMG, which `dmgbuild` lays out as SkillBinder, an arrow, and an
-//! Applications shortcut (ADR 0019). With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID
+//! Applications shortcut over the brand's background, with the app icon on the volume (ADR 0019). With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID
 //! Application certificate in the keychain, both are signed for notarization; otherwise neither is.
 use super::{licenses, run};
 use crate::version::Version;
@@ -55,6 +55,11 @@ pub(super) fn package(
         .arg(format!("app={}", app.display()))
         .arg("-D")
         .arg(format!("size={megabytes}m"))
+        .arg("-D")
+        .arg(format!(
+            "background={}",
+            root.join("packaging/macos/dmg-background.png").display()
+        ))
         .arg("SkillBinder")
         .arg(&image);
     let status = dmgbuild.status().context(

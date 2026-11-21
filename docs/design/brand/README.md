@@ -32,7 +32,8 @@ The playground keeps its state in the browser's local storage.
 - `brand.css`: the control column and the board.
 - `icons.js`: the rune, its five framings, their color schemes, and the menu bar glyphs, drawn as SVG.
 - `brand.js`: the choices, the board, and the events.
-- `export.html` and `export-icons.sh`: the app icon files. The script captures `export.html` with Google Chrome and writes `assets/icon.icns` (macOS, on Apple's 824-in-1024 icon grid), `assets/icon.ico` (Windows), and `assets/icon.png` (Linux, 256 px). Run it on macOS after changing the icon and commit the three files.
+- `export.html`, `dmg-background.html`, and `export-brand.sh`: the packaged artwork. The script captures both pages with Google Chrome and writes `assets/icon.icns` (macOS, on Apple's 824-in-1024 icon grid), `assets/icon.ico` (Windows), `assets/icon.png` (Linux, 256 px), and `packaging/macos/dmg-background.png` with its `@2x` sibling. Run it on macOS after changing either page and commit what it writes.
+- The disk image window is 640 by 360 points: the wordmark and slogan above SkillBinder and Applications, joined by three rune chevrons, on a light Frost canvas. It stays light because Finder draws icon labels in black over a background picture, even in Dark Mode. The mounted volume wears the app icon.
 
 Rebuild the bundle with the shared inliner:
 
