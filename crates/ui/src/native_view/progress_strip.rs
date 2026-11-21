@@ -10,6 +10,8 @@ mod render;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use flow::waiting_copies;
+
 use super::copies_review::{Review, attention_label};
 use gpui_kit::App;
 use gpui_kit::component::ActiveTheme;
@@ -23,7 +25,7 @@ pub(super) const SHOWN_AT_LEAST: Duration = Duration::from_millis(500);
 
 /// The change the app is blocked for, which names the strip's label and its end toast.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) enum Activity {
+pub(crate) enum Activity {
     /// Activating the preset named `preset`.
     Switching { preset: String },
     /// Deleting the active preset named `preset`, which activates the Default preset.
@@ -47,8 +49,9 @@ impl Activity {
         }
     }
 
-    /// The first line of the running pill's tooltip.
-    pub(super) fn title(&self) -> String {
+    /// The first line of the running pill's tooltip, and the menu's Presets header while the
+    /// change runs.
+    pub(crate) fn title(&self) -> String {
         match self {
             Self::Switching { preset } => format!("Switching to {preset}"),
             Self::DeletingActive { .. } => "Switching to Default".to_owned(),
@@ -106,9 +109,9 @@ pub(super) fn wash_fade(cx: &App) -> Duration {
 
 /// What a blocking change reports when it lands.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(super) struct Landing {
+pub(crate) struct Landing {
     /// The skills an import brought into the library.
-    pub imported: usize,
+    pub(crate) imported: usize,
 }
 
 /// How far the strip has got.
@@ -175,6 +178,11 @@ impl Strip {
 
     pub(super) fn started(&self) -> Instant {
         self.started
+    }
+
+    /// Whether the change has neither landed nor been refused yet.
+    pub(super) fn working(&self) -> bool {
+        self.stage == Stage::Working
     }
 
     /// Shows the wash and the pill, unless they show already. A change that lands first ends the

@@ -7,6 +7,7 @@ use super::library_folders::FolderEdit;
 use super::route::{self, Route};
 use super::sidebar_presets::PresetEdit;
 use super::{DialogState, NativeView, progress_strip, sidebar, undo};
+use crate::gate::Gate;
 
 /// What a finished operation leaves the view to do.
 pub(super) enum Effect {
@@ -105,82 +106,88 @@ impl NativeView {
         if self.blocked() {
             return;
         }
-        self.busy = true;
+        self.set_busy(true, cx);
         self.error = None;
         let client = self.client.clone();
         let handle = client.runtime().spawn(operation);
         cx.spawn(async move |this, cx| {
-            let result = handle.await;
+            let result = handle.await.unwrap_or_else(|_| Err(AppError::storage()));
             let _ = this.update(cx, |view, cx| {
-                view.busy = false;
-                view.syncing = None;
-                // The engine has answered, so its active preset is the one shown.
-                view.active_preset = None;
-                view.preset_reorder.settle();
-                view.workspace_reorder.settle();
-                view.folder_reorder.settle();
-                view.creating_folder = None;
-                match result {
-                    Ok(Ok(effect)) => {
-                        view.importing = None;
-                        view.receive(view.client.snapshot(), cx);
-                        match effect {
-                            Effect::None => {}
-                            Effect::CloseDialog => view.dialog = DialogState::None,
-                            Effect::DeletePreview(preview) => {
-                                view.show_dialog(DialogState::DeletePreset(preview))
-                            }
-                            Effect::Updated(outcome) => {
-                                // An updated skill's page shows its new content.
-                                if let Route::Skill(id) = &view.route
-                                    && outcome.updated.contains(id)
-                                {
-                                    view.load_skill(id.clone(), cx);
-                                }
-                                view.update_outcome = Some(outcome);
-                            }
-                            Effect::Reinstalled(id) => {
-                                if view.route == Route::Skill(id.clone()) {
-                                    view.load_skill(id, cx);
-                                }
-                            }
-                            Effect::Activated(landing) => view.land_strip(landing, cx),
-                            Effect::Removed(removal) => view.removed(removal, cx),
-                            Effect::RepositoryRemoved(repository) => {
-                                view.repository_removed(*repository, cx);
-                            }
-                            Effect::AgentsChosen => {
-                                view.onboarding_back_to = None;
-                                view.unticked_agents = None;
-                                view.first_import = None;
-                            }
-                            Effect::MovedToApplications => cx.quit(),
-                            Effect::MoveFailed => {
-                                view.dialog = DialogState::MoveToApplications { failed: true };
-                            }
-                            Effect::ApplicationsMenuFailed => {
-                                view.dialog = DialogState::ApplicationsMenu { failed: true };
-                            }
-                        }
-                        // A dialog the operation closed makes room for copies that now ask.
-                        view.prompt_copies();
-                    }
-                    Ok(Err(error)) => {
-                        if !view.reopen_import(&error, cx) {
-                            view.error = Some(error);
-                        }
-                        view.fail_strip(cx);
-                    }
-                    Err(_) => {
-                        view.importing = None;
-                        view.error = Some(AppError::storage());
-                        view.fail_strip(cx);
-                    }
-                }
+                view.settle(result, cx);
                 cx.notify();
             });
         })
         .detach();
         cx.notify();
+    }
+
+    /// Marks the view's short work running or done, in the view and in the [`Gate`] the menu reads.
+    pub(super) fn set_busy(&mut self, busy: bool, cx: &mut Context<Self>) {
+        self.busy = busy;
+        Gate::update(cx, |gate| gate.busy = busy);
+    }
+
+    /// Applies what an operation, or the blocking change the strip shows, left to do.
+    pub(super) fn settle(&mut self, result: AppResult<Effect>, cx: &mut Context<Self>) {
+        self.set_busy(false, cx);
+        self.syncing = None;
+        // The engine has answered, so its active preset is the one shown.
+        self.active_preset = None;
+        self.preset_reorder.settle();
+        self.workspace_reorder.settle();
+        self.folder_reorder.settle();
+        self.creating_folder = None;
+        match result {
+            Ok(effect) => {
+                self.importing = None;
+                self.receive(self.client.snapshot(), cx);
+                match effect {
+                    Effect::None => {}
+                    Effect::CloseDialog => self.dialog = DialogState::None,
+                    Effect::DeletePreview(preview) => {
+                        self.show_dialog(DialogState::DeletePreset(preview))
+                    }
+                    Effect::Updated(outcome) => {
+                        // An updated skill's page shows its new content.
+                        if let Route::Skill(id) = &self.route
+                            && outcome.updated.contains(id)
+                        {
+                            self.load_skill(id.clone(), cx);
+                        }
+                        self.update_outcome = Some(outcome);
+                    }
+                    Effect::Reinstalled(id) => {
+                        if self.route == Route::Skill(id.clone()) {
+                            self.load_skill(id, cx);
+                        }
+                    }
+                    Effect::Activated(landing) => self.land_strip(landing, cx),
+                    Effect::Removed(removal) => self.removed(removal, cx),
+                    Effect::RepositoryRemoved(repository) => {
+                        self.repository_removed(*repository, cx);
+                    }
+                    Effect::AgentsChosen => {
+                        self.onboarding_back_to = None;
+                        self.unticked_agents = None;
+                        self.first_import = None;
+                    }
+                    Effect::MovedToApplications => cx.quit(),
+                    Effect::MoveFailed => {
+                        self.dialog = DialogState::MoveToApplications { failed: true };
+                    }
+                    Effect::ApplicationsMenuFailed => {
+                        self.dialog = DialogState::ApplicationsMenu { failed: true };
+                    }
+                }
+                // A dialog the operation closed makes room for copies that now ask.
+                self.prompt_copies();
+            }
+            Err(error) => {
+                if !self.reopen_import(&error, cx) {
+                    self.error = Some(error);
+                }
+                self.fail_strip(cx);
+            }
+        }
     }
 }

@@ -419,6 +419,6 @@ mod scoped;
 pub(super) use scoped::{agent_skills, matching, searched, workspace_skills};
 
 #[cfg(test)]
-pub(super) mod fixture;
+pub(crate) mod fixture;
 #[cfg(test)]
 mod tests;

@@ -7,7 +7,7 @@ use super::{TrayEvent, TrayItem, TrayMenu};
 use async_channel::Sender;
 use gpui_kit::{App, AppContext, Task, WindowAppearance};
 use ksni::blocking::{Handle, TrayMethods};
-use ksni::menu::StandardItem;
+use ksni::menu::{CheckmarkItem, StandardItem};
 use ksni::{MenuItem, OfflineReason, ToolTip};
 
 /// The icon on screen; dropping it removes it.
@@ -40,6 +40,13 @@ pub(super) fn show(
 }
 
 impl Icon {
+    /// Shows `menu`; ksni sends hosts the whole menu again, and some redraw it only when it
+    /// reopens.
+    pub(super) fn draw(&mut self, menu: &TrayMenu) {
+        let menu = menu.clone();
+        let _ = self.0.update(move |item| item.menu = menu);
+    }
+
     /// Draws the glyph that contrasts with `appearance`.
     pub(super) fn follow(&self, appearance: WindowAppearance) {
         let icons = icons(appearance);
@@ -103,21 +110,43 @@ impl ksni::Tray for Item {
                 TrayItem::Action {
                     action,
                     label,
+                    enabled,
+                    checked,
                     shortcut,
                 } => {
-                    let action = *action;
-                    StandardItem {
-                        label: label.clone(),
-                        shortcut: shortcut
-                            .map(|key| vec![vec!["Control".into(), key.to_string()]])
-                            .unwrap_or_default(),
-                        activate: Box::new(move |item: &mut Self| {
-                            let _ = item.events.try_send(TrayEvent::Action(action));
-                        }),
-                        ..StandardItem::default()
+                    let shortcut = shortcut
+                        .map(|key| vec![vec!["Control".into(), key.to_string()]])
+                        .unwrap_or_default();
+                    let action = action.clone();
+                    let activate = Box::new(move |item: &mut Self| {
+                        let _ = item.events.try_send(TrayEvent::Action(action.clone()));
+                    });
+                    match checked {
+                        Some(checked) => CheckmarkItem {
+                            label: label.clone(),
+                            enabled: *enabled,
+                            checked: *checked,
+                            shortcut,
+                            activate,
+                            ..CheckmarkItem::default()
+                        }
+                        .into(),
+                        None => StandardItem {
+                            label: label.clone(),
+                            enabled: *enabled,
+                            shortcut,
+                            activate,
+                            ..StandardItem::default()
+                        }
+                        .into(),
                     }
-                    .into()
                 }
+                TrayItem::Label { label, .. } => StandardItem {
+                    label: label.clone(),
+                    enabled: false,
+                    ..StandardItem::default()
+                }
+                .into(),
                 TrayItem::Separator => MenuItem::Separator,
             })
             .collect()
