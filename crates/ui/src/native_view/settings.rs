@@ -4,8 +4,6 @@
 mod agents;
 mod updates;
 
-pub(super) use updates::DOWNLOAD_LINE;
-
 use super::NativeView;
 use super::git_setup::GitButton;
 use gpui_kit::component::{h_flex, v_flex};

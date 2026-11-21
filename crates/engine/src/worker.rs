@@ -146,6 +146,7 @@ impl Engine {
             config.app_update.clone(),
             config.app_version,
             config.placement.clone(),
+            config.data_dir.join("updates"),
             log.clone(),
         );
         let (git, outdated_git) = config.find_git(shutdown.clone());

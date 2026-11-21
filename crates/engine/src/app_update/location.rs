@@ -2,6 +2,7 @@
 //! holds the executable, and whether it is in an Applications folder an app update can write.
 
 use crate::persistence;
+use skillbinder_proto::CannotInstall;
 use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -56,6 +57,18 @@ pub(crate) enum Location {
     NotWritable,
     /// The bundle in an Applications folder, which an app update replaces.
     Installed(PathBuf),
+}
+
+impl Location {
+    /// The installed bundle an app update replaces, or why there is none (spec rule 13).
+    pub(crate) fn installed(&self) -> Result<&Path, CannotInstall> {
+        match self {
+            Self::Installed(bundle) => Ok(bundle),
+            Self::Unbundled => Err(CannotInstall::NotInstalled),
+            Self::OutsideApplications(_) => Err(CannotInstall::OutsideApplications),
+            Self::NotWritable => Err(CannotInstall::NotWritable),
+        }
+    }
 }
 
 /// A bundle outside Applications, and what Move does with it once copied.

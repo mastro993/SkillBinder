@@ -121,7 +121,7 @@ impl NativeView {
                 gpui_kit::transparent_black()
             }
         };
-        let sync = if self.syncing {
+        let sync = if self.syncing.is_some() {
             Some(spinner())
         } else {
             needs_sync(&snapshot.sync).then(|| dot(cx.theme().blue))

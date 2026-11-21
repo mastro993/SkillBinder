@@ -1,4 +1,10 @@
-use super::{CHANNEL, LAST_CHECK, LastCheck, Offer, RELEASE_KEY, running_version};
+use super::{
+    RELEASE_KEY,
+    check::LastCheck,
+    manifest::Offer,
+    running_version,
+    settings::{CHANNEL, LAST_CHECK},
+};
 use crate::worker::State;
 use skillbinder_proto::Channel;
 

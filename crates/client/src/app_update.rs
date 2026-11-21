@@ -1,7 +1,8 @@
-//! App update checks (spec rules 1, 16, 24): Check now always checks; while automatic checks are
-//! on, the app also checks at launch, every hour, after a channel change, and when they are
-//! turned back on. Checks run on the engine's own thread, so their state publishes without
-//! waiting on the worker.
+//! App update checks (spec rules 1, 5, 16, 24): Check now always checks; while automatic checks
+//! are on, the app also checks at launch, every hour, after a channel change, and when they are
+//! turned back on. Checks, and the downloads they start, run on the engine's own thread, so their
+//! state, a download's percent included, publishes from the client's 250-millisecond poll without
+//! waiting on the worker. Restart is a request the engine acts on at quit.
 
 use crate::{Client, Shared};
 use skillbinder_proto::*;
@@ -103,6 +104,10 @@ impl Client {
                 client.background_error(error);
             }
         });
+    }
+    /// Restart: once the app quits, the ready app update installs and the app opens again.
+    pub fn request_restart(&self) -> AppResult<()> {
+        self.shared.engine.request_restart()
     }
 }
 

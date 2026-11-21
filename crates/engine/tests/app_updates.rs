@@ -1,99 +1,27 @@
 //! App update checks: the channel's manifest read from a fixture site laid out like the catalog's,
-//! signed with a key made for the test, and compared with the configured running version.
+//! signed with a key made for the test, and compared with the configured running version. These
+//! run from no bundle, so a newer version is download-only.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
+#[path = "support/update_site.rs"]
+mod update_site;
+
 use minisign::KeyPair;
-use skillbinder_engine::{CatalogSource, Engine, EngineConfig, UpdateSource};
-use skillbinder_proto::{AppUpdateState, AppVersion, Channel, CheckFailure};
-use std::{fs, io::Cursor, path::PathBuf};
-use tempfile::TempDir;
+use skillbinder_engine::Engine;
+use skillbinder_proto::{AppUpdateState, CannotInstall, Channel, CheckFailure};
+use std::fs;
+use update_site::{Fixture, TARGET, UP_TO_DATE, state};
 
-/// The archive key of the platform the tests run on.
-const TARGET: &str = if cfg!(target_os = "macos") {
-    "universal-apple-darwin"
-} else if cfg!(windows) {
-    "x86_64-pc-windows-msvc"
-} else {
-    "x86_64-unknown-linux-gnu"
-};
-
-/// An isolated device running `current`, whose update site is `<temp>/site`.
-struct Fixture {
-    _temp: TempDir,
-    data: PathBuf,
-    home: PathBuf,
-    site: PathBuf,
-    key: KeyPair,
-    current: AppVersion,
-}
-
-impl Fixture {
-    fn new(current: &str) -> Self {
-        let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().to_path_buf();
-        Self {
-            _temp: temp,
-            data: path.join("data"),
-            home: path.join("home"),
-            site: path.join("site"),
-            key: KeyPair::generate_unencrypted_keypair().unwrap(),
-            current: current.parse().unwrap(),
-        }
-    }
-
-    fn config(&self) -> EngineConfig {
-        let mut config = EngineConfig::isolated(self.data.clone(), self.home.clone());
-        config.app_version = self.current;
-        config.app_update = Some(UpdateSource {
-            site: CatalogSource::Directory(self.site.clone()),
-            public_key: self.key.pk.to_base64(),
-        });
-        config
-    }
-
-    fn open(&self) -> Engine {
-        Engine::open(self.config()).unwrap()
-    }
-
-    /// Publishes `version` on `channel`, with an archive for `target`, signed with `key`.
-    fn publish_with(&self, channel: &str, version: &str, target: &str, key: &KeyPair) {
-        let manifest = format!(
-            r#"{{"version":"{version}","notes_url":"https://example.invalid/v{version}","published_at":"2026-12-01T10:00:00Z","assets":{{"{target}":{{"url":"https://example.invalid/a","sha256":"00","size":1}}}},"later":true}}"#
-        );
-        let signature = minisign::sign(None, &key.sk, Cursor::new(&manifest), None, None).unwrap();
-        let directory = self.site.join("updates/v1");
-        fs::create_dir_all(&directory).unwrap();
-        fs::write(directory.join(format!("{channel}.json")), &manifest).unwrap();
-        fs::write(
-            directory.join(format!("{channel}.json.minisig")),
-            signature.into_string(),
-        )
-        .unwrap();
-    }
-
-    fn publish(&self, channel: &str, version: &str) {
-        self.publish_with(channel, version, TARGET, &self.key);
-    }
-
-    fn log(&self) -> String {
-        fs::read_to_string(self.data.join("logs/skillbinder.log")).unwrap_or_default()
-    }
-}
-
-fn state(engine: &Engine) -> AppUpdateState {
-    engine.current_app_update().unwrap().state
-}
-
+/// A development build runs from no bundle, so it can't replace itself.
 fn offered(version: &str) -> AppUpdateState {
     AppUpdateState::DownloadOnly {
         version: version.parse().unwrap(),
         notes_url: format!("https://example.invalid/v{version}"),
+        reason: CannotInstall::NotInstalled,
     }
 }
-
-const UP_TO_DATE: AppUpdateState = AppUpdateState::Idle { last_failure: None };
 
 #[tokio::test]
 async fn a_check_offers_only_a_newer_signed_version_for_this_platform() {
@@ -113,12 +41,12 @@ async fn a_check_offers_only_a_newer_signed_version_for_this_platform() {
     }
     assert!(engine.current_app_update().unwrap().last_checked.is_some());
 
-    fixture.publish_with("beta", "0.2.0", "sparc-sun-solaris", &fixture.key);
+    fixture.publish_with("beta", "0.2.0", "sparc-sun-solaris", &fixture.key, None);
     engine.check_app_update(false).await.unwrap();
     assert_eq!(state(&engine), UP_TO_DATE, "no archive for this platform");
 
     let other = KeyPair::generate_unencrypted_keypair().unwrap();
-    fixture.publish_with("beta", "0.2.0", TARGET, &other);
+    fixture.publish_with("beta", "0.2.0", TARGET, &other, None);
     engine.check_app_update(true).await.unwrap();
     assert_eq!(
         state(&engine),

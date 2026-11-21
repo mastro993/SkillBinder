@@ -37,6 +37,7 @@ impl State {
                 None,
                 running_version(),
                 config.placement.clone(),
+                data_dir.join("updates"),
                 log.clone(),
             ),
             config,

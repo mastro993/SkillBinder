@@ -131,8 +131,8 @@ pub struct NativeView {
     route: Route,
     history: History,
     busy: bool,
-    /// A Git synchronization is in flight; implies `busy`.
-    syncing: bool,
+    /// The Git synchronization in flight; implies `busy`.
+    syncing: Option<SyncAction>,
     error: Option<AppError>,
     dialog: DialogState,
     /// Counts dialogs opened; a closing one's layer builds nothing once another opens.
@@ -320,7 +320,7 @@ impl NativeView {
             route: Route::default(),
             history: History::default(),
             busy: false,
-            syncing: false,
+            syncing: None,
             error: None,
             dialog,
             dialogs_opened: 0,

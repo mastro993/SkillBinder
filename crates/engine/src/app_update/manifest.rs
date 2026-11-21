@@ -1,5 +1,5 @@
 //! A channel's `update.json` (ADR 0018): verified with minisign against the compiled-in public
-//! key, then read for the version it offers this build.
+//! key, then read for the version it offers this build and the archive that installs it.
 
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::AppVersion;
@@ -21,12 +21,21 @@ pub(super) const TARGET: Option<&str> = if cfg!(target_os = "macos") {
 struct Manifest {
     version: AppVersion,
     notes_url: String,
-    assets: BTreeMap<String, serde::de::IgnoredAny>,
+    assets: BTreeMap<String, Asset>,
+}
+
+/// One platform's archive: where it downloads from, its SHA-256 in hex, and its size in bytes.
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(super) struct Asset {
+    /// Absolute, or relative to the update site.
+    pub url: String,
+    pub sha256: String,
+    pub size: u64,
 }
 
 /// A newer version and its release page.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub(super) struct Offer {
+pub(crate) struct Offer {
     pub version: AppVersion,
     pub notes_url: String,
 }
@@ -40,6 +49,13 @@ pub(super) enum Refusal {
     Unreadable,
 }
 
+/// A newer version, with the archive for this platform.
+#[derive(Clone, Debug)]
+pub(super) struct Found {
+    pub offer: Offer,
+    pub asset: Asset,
+}
+
 /// The version `manifest` offers a build of `current` for `target`, once its `signature` verifies
 /// under `public_key`: only a newer version with an archive for `target`.
 pub(super) fn offer(
@@ -48,7 +64,7 @@ pub(super) fn offer(
     public_key: &str,
     current: AppVersion,
     target: Option<&str>,
-) -> Result<Option<Offer>, Refusal> {
+) -> Result<Option<Found>, Refusal> {
     let key = minisign_verify::PublicKey::from_base64(public_key.trim())
         .map_err(|_| Refusal::Signature)?;
     let signature = std::str::from_utf8(signature)
@@ -57,10 +73,14 @@ pub(super) fn offer(
         .ok_or(Refusal::Signature)?;
     key.verify(manifest, &signature, false)
         .map_err(|_| Refusal::Signature)?;
-    let manifest: Manifest = serde_json::from_slice(manifest).map_err(|_| Refusal::Unreadable)?;
-    let published = target.is_some_and(|target| manifest.assets.contains_key(target));
-    Ok((published && manifest.version > current).then_some(Offer {
-        version: manifest.version,
-        notes_url: manifest.notes_url,
+    let Manifest {
+        version,
+        notes_url,
+        mut assets,
+    } = serde_json::from_slice(manifest).map_err(|_| Refusal::Unreadable)?;
+    let asset = target.and_then(|target| assets.remove(target));
+    Ok(asset.filter(|_| version > current).map(|asset| Found {
+        offer: Offer { version, notes_url },
+        asset,
     }))
 }
