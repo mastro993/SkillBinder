@@ -26,7 +26,7 @@ The icon's tooltip is "SkillBinder". On Windows, a left click opens the window a
 
 ## The icon
 
-The icon is SkillBinder's mark, a page beside its binder spine, as a one-color glyph (`assets/tray/`). macOS draws it as a template image, recolored for the menu bar. Windows and Linux show a black glyph while the system appearance is light and a white one while it is dark, each with a faint halo of the other color, so it stays visible on a panel whose shade differs from the system's, such as GNOME's top bar. The glyph follows a change of appearance at the app's next refresh, such as the window regaining focus.
+The icon is SkillBinder's rune, a stave bound by a diamond with a hook at each end, as a one-color glyph (`assets/tray/`). macOS draws it as a template image, recolored for the menu bar. Windows and Linux show a black glyph while the system appearance is light and a white one while it is dark, each with a faint halo of the other color, so it stays visible on a panel whose shade differs from the system's, such as GNOME's top bar. The glyph follows a change of appearance at the app's next refresh, such as the window regaining focus.
 
 ## Per platform
 

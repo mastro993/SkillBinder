@@ -88,16 +88,31 @@ mod tests {
         let dark = artwork(WindowAppearance::Dark)?;
         let expected = if cfg!(target_os = "linux") { 4 } else { 1 };
         assert_eq!((light.len(), dark.len()), (expected, expected));
-        // The center of the page is the glyph's own color.
-        let center = |image: &super::Artwork| {
-            let at = ((image.size / 2) * image.size + image.size / 2) as usize * 4;
-            image.rgba[at..at + 4].to_vec()
+        // Only the stroke is opaque, the halo never is, so every opaque pixel is the glyph's color.
+        let stroke = |image: &super::Artwork| {
+            let opaque: Vec<_> = image
+                .rgba
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|pixel| pixel[3] == 255)
+                .map(|pixel| pixel[..3].to_vec())
+                .collect();
+            assert!(!opaque.is_empty());
+            opaque
+                .iter()
+                .all(|color| *color == opaque[0])
+                .then(|| opaque[0].clone())
         };
         if cfg!(target_os = "macos") {
-            assert_eq!(center(&light[0]), center(&dark[0]));
+            assert_eq!(stroke(&light[0]), stroke(&dark[0]));
         } else {
-            assert_eq!(center(&light[0]), [0, 0, 0, 255]);
-            assert_eq!(center(&dark[0]), [255, 255, 255, 255]);
+            for image in &light {
+                assert_eq!(stroke(image), Some(vec![0, 0, 0]));
+            }
+            for image in &dark {
+                assert_eq!(stroke(image), Some(vec![255, 255, 255]));
+            }
         }
         Ok(())
     }
