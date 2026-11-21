@@ -52,6 +52,7 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - A library skill installed on this device is New until it is first activated anywhere or its page is opened. New is machine-local; imported skills and skills that arrive through Pull are never New.
 - An app update is a newer SkillBinder release on the user's channel (ADR 0017). It is downloaded, verified, and staged in the background, and is then ready: Restart installs it now, and otherwise it installs at the next quit. Where the app cannot replace itself, the update is download-only and opens its release page. The installed version never goes down. Always say "app update" or name SkillBinder; a bare "update" means a skill update from its source. Code says `AppUpdate`.
 - A channel is Stable or Beta, chosen in Settings. Stable follows releases (`X.Y.Z`). Beta follows the newer of the latest release and the newest beta (`X.Y.Z-beta.N`), which the Nightly workflow publishes. Avoid "nightly" for the channel; Nightly is the workflow.
+- The menu bar menu is SkillBinder's icon and menu in the menu bar or system tray (ADR 0020); while it shows, closing the window keeps the app running. Copy says "menu bar" on macOS, "system tray" elsewhere; code says `Tray`.
 - Sync and Push are explicit actions that may commit library changes. Imports and installs remain uncommitted until those actions. Organization changes are never committed.
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.

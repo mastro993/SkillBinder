@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu bar menu</title>
+<style>
+  :root{--background:#fff;--foreground:#1d1f22;--muted-foreground:#5F646B;--secondary:#eef1f4;--popover:#fff;--popover-foreground:#1d1f22;--border:#dfe3e8;--primary:#0077B6;--primary-foreground:#fff;--font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  @media (prefers-color-scheme: dark){:root{--background:#16181b;--foreground:#e8eaed;--muted-foreground:#9aa0a6;--secondary:#24272b;--popover:#202326;--popover-foreground:#e8eaed;--border:#33373c}}
+  body{margin:0;padding:24px 16px;background:var(--background);color:var(--foreground)}
+</style>
+</head>
+<body>
+<style>
+  .wrap{display:flex;flex-direction:column;gap:12px;font-family:var(--font-sans)}
+  .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+  .bar b{min-width:58px;color:var(--muted-foreground)}
+  .bar button{font:inherit;font-size:12px;padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--secondary);color:var(--foreground);cursor:pointer}
+  .bar button.on{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+  .stage{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:6px}
+  .lbl{font-size:12px;color:var(--muted-foreground)}
+  .menubar{height:24px;width:300px;border-radius:6px;background:var(--secondary);display:flex;justify-content:flex-end;align-items:center;gap:14px;padding:0 10px;font-size:12px;color:var(--muted-foreground)}
+  .ticon{position:relative;display:flex;align-items:center;gap:3px;color:var(--foreground);padding:1px 5px;border-radius:4px;background:color-mix(in srgb,var(--foreground) 14%,transparent)}
+  .ticon svg{width:15px;height:15px}
+  .dot{position:absolute;top:1px;right:2px;width:6px;height:6px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 1.5px var(--secondary)}
+  .menu{width:280px;margin-left:20px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:9px;padding:5px;font-size:13px;box-shadow:0 8px 28px rgba(0,0,0,.28);position:relative}
+  .it{display:flex;align-items:center;gap:6px;padding:3px 8px 3px 22px;border-radius:5px;position:relative;cursor:default;line-height:18px}
+  .it.act:hover{background:var(--primary);color:var(--primary-foreground)}
+  .it.dis{color:var(--muted-foreground)}
+  .it .chk{position:absolute;left:7px;font-size:11px}
+  .it .kbd{margin-left:auto;color:var(--muted-foreground);font-size:12px}
+  .it.act:hover .kbd{color:inherit}
+  .hdr{padding:4px 8px 2px 10px;font-size:11px;font-weight:600;color:var(--muted-foreground)}
+  .sep{height:1px;background:var(--border);margin:4px 6px}
+  .sw{width:9px;height:9px;border-radius:3px;display:inline-block;flex-shrink:0}
+  .sub{position:absolute;left:100%;top:0;margin-left:2px;width:180px;display:none}
+  .has-sub:hover>.sub{display:block}
+  .arrow{margin-left:auto;font-size:10px}
+  .note{font-size:12px;color:var(--muted-foreground);max-width:660px;line-height:1.45}
+</style>
+<div class="wrap">
+  <div class="bar"><b>Layout</b><button data-k="layout" data-v="flat" class="on">A · Flat presets</button><button data-k="layout" data-v="sub">B · Presets submenu</button></div>
+  <div class="bar"><b>Badge</b><button data-k="badge" data-v="dot" class="on">Dot</button><button data-k="badge" data-v="plain">Plain</button><button data-k="badge" data-v="count">Count</button></div>
+  <div class="bar"><b>State</b>
+    <button data-k="state" data-v="updates" class="on">Updates</button><button data-k="state" data-v="idle">Up to date</button><button data-k="state" data-v="checking">Checking</button><button data-k="state" data-v="updating">Updating</button><button data-k="state" data-v="switching">Switching</button><button data-k="state" data-v="attention">Attention</button><button data-k="state" data-v="ready">App update ready</button><button data-k="state" data-v="nogit">No Git</button></div>
+  <div class="stage">
+    <div class="col"><span class="lbl">Menu bar (macOS) · tray (Windows/Linux) — click items</span>
+      <div class="menubar"><span>Wi‑Fi</span><span class="ticon" id="ticon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="13" height="18" rx="2"/><path d="M8 3v18M11 8h4M11 12h4"/></svg><span id="count"></span><span class="dot" id="dot"></span></span><span>12:41</span></div>
+      <div class="menu" id="menu"></div>
+    </div>
+  </div>
+  <div class="note" id="note"></div>
+</div>
+<script>
+const S={layout:'flat',badge:'dot',state:'updates',active:'Default',pct:0};
+const presets=['Default','Frontend','Review','Writing'];
+const notes={
+ updates:'Background checks found updates. One click on “Update all” runs the same Update all as Library; the window (if open) shows its header ring.',
+ idle:'Nothing to do. The line is informational; skill checks run hourly while SkillBinder stays open, plus after each scan.',
+ checking:'A source check is running (hourly in the background, or after a scan).',
+ updating:'Update all running: count advances per skill. Presets stay usable; app-update Restart waits (ADR 0017).',
+ switching:'Preset switch from the menu: no window opens. Presets and Update all grey out until it lands; an open window shows its blocking strip.',
+ attention:'The switch left copies waiting for you. The item opens the window on the Review list (ADR 0007).',
+ ready:'An app update is staged. Restart installs now; otherwise it installs at quit, as today.',
+ nogit:'Without Git, checking and updating skills are unavailable (ADR 0011). Presets still switch.'};
+function it(t,o={}){return `<div class="it ${o.dis?'dis':'act'}" ${o.on?`data-a="${o.on}"`:''}>${o.chk?'<span class="chk">✓</span>':''}<span>${t}</span>${o.kbd?`<span class="kbd">${o.kbd}</span>`:''}</div>`}
+function skillLines(){const st=S.state;
+ if(st==='nogit')return it('Skill updates need Git',{dis:1})+it('Install Git…',{on:'open'});
+ if(st==='checking')return it('Checking skill updates…',{dis:1});
+ if(st==='idle'||st==='switching'||st==='attention')return it('Skills are up to date',{dis:1});
+ if(st==='updating')return it('Updating 2 of 3 skills…',{dis:1});
+ return it('3 skills have updates',{dis:1})+it('Update all',{on:'update'});}
+function presetItems(){const busy=S.state==='switching';return presets.map(n=>it(n,{chk:n===S.active,dis:busy,on:busy?null:'p:'+n})).join('')}
+function render(){
+ const st=S.state;let h='';
+ if(st==='attention')h+=it('⚠ 2 skill copies need attention…',{on:'open'})+'<div class="sep"></div>';
+ h+=skillLines()+'<div class="sep"></div>';
+ if(S.layout==='flat'){h+=`<div class="hdr">${st==='switching'?`Switching to ${S.target}… ${S.pct}%`:'Presets'}</div>`+presetItems();}
+ else{h+=`<div class="it act has-sub"><span>${st==='switching'?`Switching to ${S.target}… ${S.pct}%`:'Preset: '+S.active}</span><span class="arrow">▶</span><div class="menu sub">${presetItems()}</div></div>`;}
+ h+='<div class="sep"></div>';
+ h+=st==='ready'?it('Restart to install SkillBinder 0.2.0',{on:'restart'}):st==='checking'?it('Checking for app updates…',{dis:1}):it('Check for app updates…',{on:'appcheck'});
+ h+=it('Open SkillBinder',{on:'open'})+'<div class="sep"></div>'+it('Quit SkillBinder',{kbd:'⌘Q',on:'noop'});
+ document.getElementById('menu').innerHTML=h;
+ const needs=['updates','updating','attention','ready'].includes(st);
+ document.getElementById('dot').style.display=S.badge==='plain'||!needs||(S.badge==='count'&&st!=='attention')?'none':'block';
+ document.getElementById('count').textContent=S.badge==='count'&&needs&&st!=='attention'?'3':'';
+ document.getElementById('note').textContent=notes[st];
+ document.querySelectorAll('.bar button').forEach(b=>b.classList.toggle('on',S[b.dataset.k]===b.dataset.v));
+}
+document.addEventListener('click',e=>{
+ const b=e.target.closest('.bar button');if(b){S[b.dataset.k]=b.dataset.v;if(b.dataset.v==='switching'){S.target='Review';S.pct=40}render();return}
+ const a=e.target.closest('[data-a]');if(!a)return;const v=a.dataset.a;
+ if(v==='update'){S.state='updating';render();setTimeout(()=>{S.state='idle';render()},1600)}
+ else if(v.startsWith('p:')){S.target=v.slice(2);if(S.target===S.active)return;S.state='switching';S.pct=0;render();
+   const t=setInterval(()=>{S.pct+=20;if(S.pct>=100){clearInterval(t);S.active=S.target;S.state=S.target==='Review'?'attention':'idle'}render()},250)}
+ else if(v==='appcheck'){S.state='checking';render();setTimeout(()=>{S.state='ready';render()},1100)}
+});
+render();
+</script>
+</body></html>
