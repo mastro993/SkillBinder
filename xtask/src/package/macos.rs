@@ -25,8 +25,8 @@ pub(super) fn package(
     fs::create_dir_all(contents.join("Resources"))?;
     fs::copy(binary, contents.join("MacOS/skillbinder"))?;
     fs::copy(
-        root.join("assets/icon.png"),
-        contents.join("Resources/icon.png"),
+        root.join("assets/icon.icns"),
+        contents.join("Resources/icon.icns"),
     )?;
     fs::write(contents.join("Info.plist"), info_plist(version))?;
     licenses(root, &contents.join("Resources"))?;
@@ -93,6 +93,7 @@ fn info_plist(version: &Version) -> String {
 <key>CFBundleExecutable</key><string>skillbinder</string>
 <key>CFBundleIdentifier</key><string>com.skillbinder.desktop</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleIconFile</key><string>icon</string>
 <key>CFBundleShortVersionString</key><string>{major}.{minor}.{patch}</string>
 <key>CFBundleVersion</key><string>{major}.{minor}.{patch}</string>
 <key>SkillBinderVersion</key><string>{version}</string>

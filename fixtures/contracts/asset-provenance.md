@@ -1,6 +1,6 @@
 # Retained assets and notices
 
-- `assets/icon.png` is byte-identical to archived `apps/tauri/icons/icon.png` at revision `83d55ef789a7cf256021f6620742e0e9021a8312`. SHA-256: `bbcadbf15a9efb9aa3b06cb32d3d2d79ad8eb3cd3b632d05d71322c9c33cf64b`. No separate attribution or license file sits beside this icon in the baseline; preserve the repository license and review distribution rights if packaging it.
+- `assets/icon.png`, `assets/icon.icns`, and `assets/icon.ico` are SkillBinder's own app icon, an original rune drawn for the project and rendered from `docs/design/brand/source/` by `export-icons.sh`; they fall under the repository license. They replace the 32-pixel placeholder archived as `apps/tauri/icons/icon.png` at revision `83d55ef789a7cf256021f6620742e0e9021a8312` (SHA-256 `bbcadbf15a9efb9aa3b06cb32d3d2d79ad8eb3cd3b632d05d71322c9c33cf64b`).
 - `LICENSE` is the unchanged repository license. SHA-256: `0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0`.
 - `THIRD_PARTY_NOTICES.md` is unchanged and records the reviewed registry snapshot, its MIT license, and copyright. SHA-256: `d9e8dbcbc1a7060c5dd2f2b09883007a4d266533356d1965688f7671899ed29c`.
 - `registry-79.json` is the checked-in declarative registry, not upstream executable code. SHA-256: `eb1365a541f5e95f3adc6bb5f3c0a1a2fb2f84be0d82ec942f50b669b004c044`. It was refreshed on 2026-10-13 from upstream commit `13e4063a1cf913f5606d57d42ab83a86f5001e04`, which moved Codex, fx, and Pi to the shared `.agents/skills` and `~/.agents/skills` directories.

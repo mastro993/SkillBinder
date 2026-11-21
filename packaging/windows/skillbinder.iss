@@ -25,7 +25,8 @@ DefaultDirName={localappdata}\Programs\SkillBinder
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 UninstallDisplayName=SkillBinder
-UninstallDisplayIcon={app}\skillbinder.exe
+SetupIconFile={#SourceDir}\skillbinder.ico
+UninstallDisplayIcon={app}\skillbinder.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 ; The silent update opens the app itself, and only after Restart.
@@ -36,13 +37,14 @@ SolidCompression=yes
 
 [Files]
 Source: "{#SourceDir}\skillbinder.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\skillbinder.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 ; No [UninstallDelete]: uninstalling removes only what setup installed (spec assumption A11).
 
 [Icons]
-Name: "{autoprograms}\SkillBinder"; Filename: "{app}\skillbinder.exe"; WorkingDir: "{app}"
+Name: "{autoprograms}\SkillBinder"; Filename: "{app}\skillbinder.exe"; WorkingDir: "{app}"; IconFilename: "{app}\skillbinder.ico"
 
 [Run]
 Filename: "{app}\skillbinder.exe"; WorkingDir: "{app}"; Description: "Open SkillBinder"; Flags: nowait postinstall skipifsilent

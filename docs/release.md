@@ -36,7 +36,7 @@ If step 4 fails after the push, `main` holds the bump commit and its tag without
 
 ## What a release contains
 
-Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, and `THIRD_PARTY_NOTICES.md`; the macOS and Linux ones also hold the app icon. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
+Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the app icon: `icon.icns` in the macOS bundle, `skillbinder.ico` beside the Windows executable for setup and its shortcuts, and a 256-pixel PNG in the AppImage. The icon files in `assets/` are rendered by `docs/design/brand/source/export-icons.sh`. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
 
 | Platform | Archive | Built on |
 |---|---|---|
