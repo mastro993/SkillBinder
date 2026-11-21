@@ -5,7 +5,7 @@
 use super::icon::{Artwork, artwork};
 use super::{TrayEvent, TrayItem, TrayMenu};
 use async_channel::Sender;
-use gpui_kit::{App, Task, WindowAppearance};
+use gpui_kit::{App, AppContext, Task, WindowAppearance};
 use ksni::blocking::{Handle, TrayMethods};
 use ksni::menu::StandardItem;
 use ksni::{MenuItem, OfflineReason, ToolTip};
@@ -56,8 +56,10 @@ fn icons(appearance: WindowAppearance) -> Vec<ksni::Icon> {
             width: size as i32,
             height: size as i32,
             data: rgba
-                .chunks_exact(4)
-                .flat_map(|pixel| [pixel[3], pixel[0], pixel[1], pixel[2]])
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .flat_map(|&[red, green, blue, alpha]| [alpha, red, green, blue])
                 .collect(),
         })
         .collect()

@@ -51,11 +51,10 @@ fn build(menu: &TrayMenu, appearance: WindowAppearance) -> Option<Icon> {
         .with_menu(Box::new(native_menu(menu)?))
         .with_tooltip("SkillBinder")
         .with_menu_on_left_click(cfg!(target_os = "macos"));
-    let builder = if cfg!(target_os = "macos") {
-        builder.with_icon_templated(image)
-    } else {
-        builder.with_icon(image)
-    };
+    #[cfg(target_os = "macos")]
+    let builder = builder.with_icon_templated(image);
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.with_icon(image);
     builder.build().ok().map(Icon)
 }
 
