@@ -4,22 +4,23 @@
 
 use super::{
     AppUpdates, Ended, Relaunch, Staged,
-    check::LastCheck,
+    check::{LastCheck, Running, failed},
     download,
     install::swap,
     location::Location,
     manifest::{Found, Offer},
     stage::{self, OLD},
 };
-use skillbinder_proto::{AppResult, AppUpdateState, AppVersion, Channel};
+use skillbinder_proto::{AppResult, AppUpdateState, AppVersion, CheckFailure};
 use std::{fs, path::Path};
 
 impl AppUpdates {
-    /// Downloads and stages `found` beside the installed `bundle` for a check of `channel`. A
-    /// failure is logged and discarded, and the next check tries again.
+    /// Downloads and stages `found` beside the installed `bundle` for the `running` check. A
+    /// failure is logged and ends the check as failed, so it neither reads as up to date nor
+    /// saves the check, and the next check tries again.
     pub(super) fn download(
         &self,
-        channel: Channel,
+        running: &Running,
         check: LastCheck,
         found: Found,
         bundle: &Path,
@@ -34,11 +35,11 @@ impl AppUpdates {
             Err(why) => {
                 self.log
                     .record(format!("App update {version} was discarded: {why}."));
-                shared.state = shared.resting();
-                return Ended::Checked { check, ready: None };
+                shared.last_checked = running.previous_checked;
+                return failed(&mut shared, running, CheckFailure::Failed);
             }
         };
-        if shared.channel != channel {
+        if shared.channel != running.channel {
             stage::remove(&staged);
             shared.state = shared.resting();
             return Ended::Superseded;

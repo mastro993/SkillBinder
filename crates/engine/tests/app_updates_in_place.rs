@@ -8,7 +8,7 @@
 #[path = "support/update_site.rs"]
 mod update_site;
 
-use skillbinder_proto::{AppUpdateState, CannotInstall, Channel};
+use skillbinder_proto::{AppUpdateState, CannotInstall, Channel, CheckFailure};
 use std::fs;
 use update_site::{Fixture, TARGET, UP_TO_DATE, ready, state};
 
@@ -51,8 +51,25 @@ async fn a_download_with_the_wrong_sha256_is_discarded() {
     fixture.publish_with("stable", "0.2.0", TARGET, &fixture.key, Some(&wrong));
     let engine = fixture.open();
     engine.check_app_update(false).await.unwrap();
-    assert_eq!(state(&engine), UP_TO_DATE);
+    assert_eq!(
+        state(&engine),
+        UP_TO_DATE,
+        "an automatic check stays silent"
+    );
+    assert_eq!(
+        engine.current_app_update().unwrap().last_checked,
+        None,
+        "nor does it read as checked"
+    );
     assert_eq!(fixture.applications_names(), [APP]);
+    engine.check_app_update(true).await.unwrap();
+    assert_eq!(
+        state(&engine),
+        AppUpdateState::Idle {
+            last_failure: Some(CheckFailure::Failed)
+        },
+        "Check now says it failed"
+    );
 
     // The next check tries again.
     fixture.publish("stable", "0.2.0");

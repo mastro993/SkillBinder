@@ -80,7 +80,7 @@ impl AppUpdates {
         let Some(source) = self.source.clone() else {
             return Ok(None);
         };
-        let (channel, etag, previous) = {
+        let (channel, etag, previous, previous_checked) = {
             let mut shared = self.lock()?;
             if shared.running {
                 return Ok(None);
@@ -96,13 +96,14 @@ impl AppUpdates {
                 .as_ref()
                 .filter(|known| known.channel == shared.channel)
                 .map(|known| known.etag.clone());
-            (shared.channel, etag, previous)
+            (shared.channel, etag, previous, shared.last_checked)
         };
         let running = Running {
             updates: Some(self.clone()),
             channel,
             manual,
             previous,
+            previous_checked,
         };
         let (done, finished) = oneshot::channel();
         let updates = self.clone();
@@ -172,7 +173,7 @@ impl AppUpdates {
                 bundle,
             } => {
                 drop(shared);
-                self.download(running.channel, check, found, &bundle)
+                self.download(running, check, found, &bundle)
             }
         }
     }
@@ -209,16 +210,7 @@ fn settle(shared: &mut Shared, running: &Running, outcome: Outcome) -> Next {
     }
     let found = match found {
         Ok(found) => found,
-        Err(failure) => {
-            shared.state = match (&shared.staged, running.manual) {
-                (Some(_), _) => shared.resting(),
-                (None, true) => AppUpdateState::Idle {
-                    last_failure: Some(failure),
-                },
-                (None, false) => running.previous.clone(),
-            };
-            return Next::Ended(Ended::Failed);
-        }
+        Err(failure) => return Next::Ended(failed(shared, running, failure)),
     };
     let checked = persistence::now();
     shared.last_checked = Some(checked);
@@ -266,14 +258,29 @@ fn settle(shared: &mut Shared, running: &Running, outcome: Outcome) -> Next {
     }
 }
 
+/// Ends `running` as failed: a staged update stays ready, a Check now shows `failure`, and an
+/// automatic check keeps the state it found.
+pub(super) fn failed(shared: &mut Shared, running: &Running, failure: CheckFailure) -> Ended {
+    shared.state = match (&shared.staged, running.manual) {
+        (Some(_), _) => shared.resting(),
+        (None, true) => AppUpdateState::Idle {
+            last_failure: Some(failure),
+        },
+        (None, false) => running.previous.clone(),
+    };
+    Ended::Failed
+}
+
 /// A running check. Finishing it publishes its outcome; dropping it unfinished, as a panicking
 /// thread does, ends it as failed so a later check can start.
-struct Running {
+pub(super) struct Running {
     updates: Option<AppUpdates>,
-    channel: Channel,
+    pub(super) channel: Channel,
     manual: bool,
     /// The state before the check, which a silent failure keeps.
     previous: AppUpdateState,
+    /// When the last check read the manifest before this one, kept by a failed download.
+    pub(super) previous_checked: Option<u64>,
 }
 
 impl Running {

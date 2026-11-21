@@ -1,7 +1,8 @@
 //! App update checks (spec rules 1, 5, 16, 24): Check now always checks; while automatic checks
 //! are on, the app also checks at launch, every hour, after a channel change, and when they are
 //! turned back on. Checks, and the downloads they start, run on the engine's own thread, so their
-//! state publishes without waiting on the worker. Restart is a request the engine acts on at quit.
+//! state, a download's percent included, publishes from the client's 250-millisecond poll without
+//! waiting on the worker. Restart is a request the engine acts on at quit.
 
 use crate::{Client, Shared};
 use skillbinder_proto::*;
@@ -10,8 +11,6 @@ use tokio::time::MissedTickBehavior;
 
 /// How often a running app checks while automatic checks are on.
 const CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
-/// How often a running check publishes, so a download's percent moves.
-const PUBLISH_INTERVAL: Duration = Duration::from_millis(250);
 
 #[cfg(test)]
 mod tests;
@@ -99,21 +98,7 @@ impl Client {
         let manual = trigger.manual();
         let client = self.clone();
         self.shared.runtime.spawn(async move {
-            let engine = client.shared.engine.clone();
-            let mut check = client
-                .shared
-                .runtime
-                .spawn(async move { engine.check_app_update(manual).await });
-            // A download's progress publishes while it runs.
-            let mut interval = tokio::time::interval(PUBLISH_INTERVAL);
-            interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-            let checked = loop {
-                tokio::select! {
-                    biased;
-                    joined = &mut check => break joined.unwrap_or_else(|_| Err(AppError::storage())),
-                    _ = interval.tick() => client.shared.publish_app_update(),
-                }
-            };
+            let checked = client.shared.engine.check_app_update(manual).await;
             client.shared.publish_app_update();
             if let Err(error) = checked {
                 client.background_error(error);
