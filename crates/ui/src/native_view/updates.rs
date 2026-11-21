@@ -6,7 +6,29 @@ use skillbinder_proto::*;
 use super::library_folders::FolderEdit;
 use super::route::{self, Route};
 use super::sidebar_presets::PresetEdit;
-use super::{DialogState, Effect, NativeView, sidebar};
+use super::{DialogState, NativeView, progress_strip, sidebar, undo};
+
+/// What a finished operation leaves the view to do.
+pub(super) enum Effect {
+    None,
+    CloseDialog,
+    DeletePreview(DeletePreview),
+    Updated(UpdateOutcome),
+    /// A skill was reinstalled, so its page shows its restored content.
+    Reinstalled(SkillId),
+    /// A blocking change landed, so the progress strip ends.
+    Activated(progress_strip::Landing),
+    /// A skill was removed from one place, so the toast offers Undo.
+    Removed(undo::Removal),
+    /// A repository was removed, so the toast offers Undo.
+    RepositoryRemoved(Box<Repository>),
+    /// Choose your agents saved its choice, so onboarding moves on to an import that scans again.
+    AgentsChosen,
+    /// Move to Applications copied the app, so it quits and the moved copy starts.
+    MovedToApplications,
+    /// Move to Applications failed, so its dialog says so.
+    MoveFailed,
+}
 
 impl NativeView {
     pub(super) fn receive(&mut self, latest: Arc<AppSnapshot>, cx: &mut Context<Self>) {
@@ -129,6 +151,10 @@ impl NativeView {
                                 view.onboarding_back_to = None;
                                 view.unticked_agents = None;
                                 view.first_import = None;
+                            }
+                            Effect::MovedToApplications => cx.quit(),
+                            Effect::MoveFailed => {
+                                view.dialog = DialogState::MoveToApplications { failed: true };
                             }
                         }
                         // A dialog the operation closed makes room for copies that now ask.

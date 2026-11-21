@@ -94,6 +94,7 @@ impl Fixture {
                     auto_check: true,
                     state: AppUpdateState::Off,
                     last_checked: None,
+                    outside_applications: false,
                 },
             },
         }

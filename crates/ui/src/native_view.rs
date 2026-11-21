@@ -26,6 +26,7 @@ mod library_reveal;
 mod library_targets;
 mod library_updates;
 mod library_validation;
+mod move_to_applications;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod navigation;
@@ -88,6 +89,7 @@ use skillbinder_client::Client;
 use skillbinder_design::tokens::space;
 use skillbinder_design::{Notice, Status};
 use skillbinder_proto::*;
+use updates::Effect;
 
 enum DialogState {
     ImportSkills(Box<import_dialog::ImportDialog>),
@@ -113,24 +115,12 @@ enum DialogState {
         workspace: WorkspaceId,
         skill: SkillId,
     },
+    /// macOS, outside Applications: asks to move there before anything else (spec rule 21), and
+    /// says so when Move failed.
+    MoveToApplications {
+        failed: bool,
+    },
     None,
-}
-
-enum Effect {
-    None,
-    CloseDialog,
-    DeletePreview(DeletePreview),
-    Updated(UpdateOutcome),
-    /// A skill was reinstalled, so its page shows its restored content.
-    Reinstalled(SkillId),
-    /// A blocking change landed, so the progress strip ends.
-    Activated(progress_strip::Landing),
-    /// A skill was removed from one place, so the toast offers Undo.
-    Removed(undo::Removal),
-    /// A repository was removed, so the toast offers Undo.
-    RepositoryRemoved(Box<Repository>),
-    /// Choose your agents saved its choice, so onboarding moves on to an import that scans again.
-    AgentsChosen,
 }
 
 /// GPUI owner of the native product journeys and client projections.
@@ -261,6 +251,7 @@ impl NativeView {
         let folded_sections = snapshot.preferences.folded_sections.clone();
         let appearance = snapshot.preferences.appearance;
         let library_view = snapshot.preferences.library_view;
+        let dialog = Self::first_dialog(snapshot.app_update.outside_applications);
         sidebar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
         let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
@@ -331,7 +322,7 @@ impl NativeView {
             busy: false,
             syncing: false,
             error: None,
-            dialog: DialogState::None,
+            dialog,
             dialogs_opened: 0,
             importing: None,
             first_import: None,

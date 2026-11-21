@@ -78,6 +78,11 @@ impl Client {
         }
         Ok(())
     }
+    /// Moves SkillBinder into Applications (spec rule 21). The app then quits, and the desktop
+    /// starts the moved copy.
+    pub async fn move_to_applications(&self) -> AppResult<()> {
+        self.shared.engine.move_to_applications().await
+    }
     /// Checks in the background when `trigger` checks; the progress poll shows it checking, and
     /// its result is published as soon as it ends.
     fn check_on(&self, trigger: Trigger) {

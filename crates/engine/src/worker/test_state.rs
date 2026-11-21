@@ -31,13 +31,19 @@ impl State {
             fs::create_dir_all(path).unwrap();
         }
         let log = Logger::start(data_dir.join("logs"), &home).unwrap();
+        let config = EngineConfig::isolated(data_dir.clone(), home.clone());
         Self {
-            config: EngineConfig::isolated(data_dir.clone(), home.clone()),
+            app_updates: AppUpdates::new(
+                None,
+                running_version(),
+                config.placement.clone(),
+                log.clone(),
+            ),
+            config,
             database: RefCell::new(database::open(&data_dir.join(DATABASE)).unwrap()),
             git: None,
             outdated_git: None,
             installer: Installer::detect(),
-            app_updates: AppUpdates::new(None, running_version(), log.clone()),
             log,
             scans: Scans::default(),
             updates: Updates::default(),

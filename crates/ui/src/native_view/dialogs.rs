@@ -151,6 +151,9 @@ impl NativeView {
             DialogState::RemoveRepository(repository) => {
                 self.remove_repository_dialog(dialog, repository, cx)
             }
+            DialogState::MoveToApplications { failed } => {
+                self.move_to_applications_dialog(dialog, *failed, cx)
+            }
         }
     }
 }
