@@ -15,7 +15,7 @@ Implement the slices in order. Each one ships alone.
 - C0.1 **unit:** `Hello` with another protocol number gets `Mismatch`; the CLI exits 5 with the Repair message.
 - C0.2 **native:** with the app running and its window closed, `skillbinder status` prints the version, the active preset, and counts matching Library; `--json` prints one document with `"ok": true`. No window opens.
 - C0.3 **native, all three OS:** with the app quit and its icon on, `skillbinder status` prints "Starting SkillBinder…", answers within 20 seconds, and the icon stays afterwards with no window and, on macOS, no Dock icon.
-- C0.4 **native:** with the menu bar switch off (or GNOME without a tray host), the same run leaves no SkillBinder process once the command exits.
+- C0.4 **native:** with the menu bar switch off (or GNOME without a tray host), the same run leaves no SkillBinder process once the command exits, the app exits 0, and a staged fixture app update installs at that quit.
 - C0.5 **native:** launching the app a second time opens the running app's window; no `activate` file is written.
 - C0.6 **native:** killing the app and launching it again binds the socket despite the stale `command.sock`.
 - C0.7 **native Linux:** over SSH with no display, `skillbinder status` exits 5 naming the missing desktop session.
@@ -26,7 +26,7 @@ Implement the slices in order. Each one ships alone.
 
 The Command line tool row, `crates/engine::command_line`, the Homebrew `binary` stanza, the Inno uninstall entry removal, and the Linux refresh at launch. Depends on S0.
 
-- C1.1 **unit:** status reads each table state from a temporary folder: missing, our link, a link to another `SkillBinder.app`, an unrelated file, a Caskroom link, a Linux copy with an unrecorded digest.
+- C1.1 **unit:** status reads each table state from a temporary folder: missing, our link, a link to another `SkillBinder.app`, an unrelated file, Homebrew's link with `<prefix>/Caskroom/skillbinder` present for each prefix (on `/usr/local`, the same path Install writes), a Linux copy with an unrecorded digest.
 - C1.2 **native macOS:** from `/Applications`, Install asks for the password once; a new terminal runs `skillbinder status`. Cancelling the prompt leaves "Not installed". Uninstall removes the link.
 - C1.3 **native macOS:** the app run from the disk image shows "Move SkillBinder to Applications to install it." with no button.
 - C1.4 **native macOS:** after moving the app, the row shows Repair, and Repair makes `skillbinder` work again.

@@ -26,7 +26,7 @@ Data location → Git → Your agents → **Use SkillBinder from your terminal**
 
 ## Connect your agents
 
-1. **Applies** when the program of at least one of Claude Code, Codex, VS Code, or Cursor is found (ADR 0026). **Done** when `mcp_asked` is saved.
+1. **Applies** when the program of at least one of Claude Code, Codex, VS Code, or Cursor is found (ADR 0026) and the command is installed or can be: it drops out when the command's status is Can't install here or Something else in the way, since Connect has no command to point agents at. **Done** when `mcp_asked` is saved.
 2. Title "Connect your agents"; lead "Let your agents use SkillBinder's tools to find, install, and turn on skills. You can do this later in Settings." While the command is not installed, a muted line follows: "Connecting also installs the skillbinder command."
 3. A two-column grid of the found agents' tiles, in the order Claude Code, Codex, Cursor, VS Code, each with the agent's logo, its name, and "Not connected" with a small Connect at the top right, "Connecting…" (Cursor: "Finish in Cursor") with a spinner, or "Connected" in the success color with a check and the tile outlined, as a chosen agent tile is.
 4. Under the grid, an **Other agents** row: "Add SkillBinder to any agent's MCP settings." with Copy configuration.
@@ -55,7 +55,7 @@ Evidence labels as in [acceptance.md](acceptance.md).
 - CO.3 **unit:** a finished onboarding stays finished when both facts are unset (existing users).
 - CO.4 **native macOS:** Install asks for the password, reads "skillbinder is ready", and moves on; a new terminal runs `skillbinder status`.
 - CO.5 **native:** after Skip on the command step, Connect for Claude Code installs the command, then connects, and `claude mcp list` shows `skillbinder`.
-- CO.6 **native:** with none of the four programs found, the connect step does not show.
+- CO.6 **native:** with none of the four programs found, the connect step does not show; nor does it on macOS outside Applications, where the command cannot be installed.
 - CO.7 **native Linux:** off the PATH, the step shows the export line and waits for Continue.
 
 ## Slice

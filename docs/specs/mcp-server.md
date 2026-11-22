@@ -35,7 +35,7 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 | `status` | read-only | Version, setup, active preset, counts, Sync state, what runs | `status` |
 | `list_skills` | read-only | Library skills, filter `all`, `active`, `inactive`, or `updates`, optional `folder`; each with where it is active and its marks | `skills` |
 | `get_skill` | read-only | One skill: description, source, presets, where active, its copies | `skill` |
-| `list_places` | read-only | `kind`: `presets`, `folders`, `workspaces`, `agents`, or `copies` (those waiting for an answer) | `presets`, `folders`, `workspaces`, `agents`, `copies` |
+| `list_places` | read-only | `kind`: `presets`, `folders`, `workspaces`, `agents`, `repositories`, or `copies` (those waiting for an answer) | `presets`, `folders`, `workspaces`, `agents`, `repos`, `copies` |
 | `find_skills` | read-only, open-world | `where`: `explore` searches the catalog, your repositories, and skills.sh; `found` runs a scan and lists found skills not in library with their versions | `search`, `scan` |
 | `set_skills_active` | destructive, idempotent | Turn `skill_slugs` on or off in a `place`: the active preset (default), a named preset, or a workspace; optional `agents`; `replace` | `enable`, `disable`, `preset add/remove`, `workspace enable/disable` |
 | `switch_preset` | destructive, idempotent | Activate a preset; `replace` | `preset activate` |
@@ -46,7 +46,7 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 | `import_skills` | destructive | Import found `skills` (`slug` with optional `version`) or `all`; `replace` | `import` |
 | `update_skills` | destructive, open-world | `action`: `check`, `update` (`skill_slugs` or `all`), `reinstall` | `updates`, `update`, `reinstall` |
 | `sync_library` | destructive, open-world | `action`: `sync`, `push`, `pull`, `set_remote`, `remove_remote` | `sync`, `push`, `pull`, `remote` |
-| `manage_repositories` | open-world | `action`: `list`, `add`, `remove`, `install_all` | `repos`, `repo …` |
+| `manage_repositories` | destructive, open-world | `action`: `add`, `remove`, `install_all` | `repo …` |
 | `resolve_copies` | destructive | `action`: `replace`, `keep`, or `retry`; `copies` as slug and directory | `copies …` |
 
 ### Rules
@@ -63,7 +63,8 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 
 A group after the agent switches, titled **MCP server**, described "Let your agents use SkillBinder's tools."
 
-- While the command is not installed, the description adds "Connecting also installs the skillbinder command." (ADR 0027).
+- While the command is not installed but can be, the description adds "Connecting also installs the skillbinder command." (ADR 0027).
+- Where it cannot be installed (the command line tool row's Can't install here or Something else in the way), the group shows only that reason, "Move SkillBinder to Applications to connect agents.", "Install SkillBinder with its setup program to connect agents.", or "Another skillbinder is in /usr/local/bin.", with no Connect and no Copy configuration, since no stable command path exists to point agents at.
 - A row per supported agent found (Claude Code, Codex, VS Code, Cursor), with its logo, its name, and a line: "Connected", "Not connected", or "<tool> not found" when its command line cannot be found. The control is Connect, Disconnect (Claude Code and Codex), or for VS Code and Cursor when connected, muted "Remove it in <agent>".
 - A last row, **Other agents**, "Add SkillBinder to any agent's MCP settings.", with Copy configuration, which copies `{"mcpServers": {"skillbinder": {"command": "<command>", "args": ["mcp"]}}}` and toasts "Configuration copied".
 - Connect runs the agent's installer (ADR 0026) and toasts "<Agent> can use SkillBinder. Start a new <agent> session to load it."; Cursor's opens its install link, and the row re-reads when the window regains focus. A failing installer toasts its error output's last line.
@@ -72,7 +73,8 @@ A group after the agent switches, titled **MCP server**, described "Let your age
 ## Design
 
 - **`apps/cli`** gains `mcp` (`src/mcp.rs` and `src/mcp/`): a `rmcp` 3.11 `#[tool_router(server_handler)]` service over `rmcp::transport::stdio()`, features `server`, `macros`, `transport-io`; inputs and outputs derive `schemars` 1 schemas and return `Json<T>`. Each tool builds `proto::command_line::Request` values, with `Consent { replace, confirm }` set to `Yes` from the arguments and otherwise `Ask` when the client advertised elicitation and `No` without. The socket client, app start, and `CommandError` mapping are the command's, shared. Logging goes to stderr only.
-- **Elicitation.** A `Reply::Ask` becomes, on a 2026-07-28 connection, an `InputRequiredResult` with a one-boolean form, answered on the call's retry; on an older connection, `elicitation/create`. The pending question waits at most 5 minutes, then counts as no.
+- **Socket lifetime.** Each tool call opens its own connection to the app, sends one request, and closes, as the command does. From the first tool call until stdin closes, the server also holds one idle session connection (`Request::Hold`), which counts as a connected command, so a background app with no icon stays running for the agent's session instead of paying a cold start per call, and quits once the session ends (command rule 11).
+- **Elicitation.** On an older connection, `elicitation/create` runs inside the call, so the request's connection stays open and answers `Reply::Ask` directly. On a 2026-07-28 connection the protocol is stateless: the tool returns an `InputRequiredResult` with a one-boolean form and closes its request; the retry carries the answer, and the server sends a new request with it. A question about copies a change left waiting is answered by `resolve_copy` on the retry; a question before a change (import, delete) is sent again with consent `Yes` and the revision the question was shown for, so a change made in between fails stale. Nothing waits in the app between the two calls.
 - **Tool outputs** reuse the command's typed outputs (`proto::command_line`), so `--json` and MCP share one schema per action.
 - **Connect** lives in `crates/engine::mcp_clients`: one table of the four agents with their install, remove, and status invocations and where their settings are read from, the program lookup shared with Git's, and `McpClientStatus` per agent on the client. `crates/ui::settings::agents::mcp` draws the group from it. Running the agents' programs stays in the engine under its Clippy policy.
 - **Policy.** `xtask/src/graph.rs` allows `apps/cli` `rmcp` and `schemars`; `THIRD_PARTY_NOTICES.md` records them. Docs at implementation: `docs/architecture/native.md`, `docs/features/native/settings-agents.md`, a `docs/features/native/mcp-server.md`, and README.
@@ -103,7 +105,7 @@ Evidence labels as in [command-line/acceptance.md](command-line/acceptance.md). 
 
 ### M1 · Workspace, agent, Explore, import, update, and Git tools
 
-`list_places` (workspaces, agents), `set_skills_active` for workspaces, `manage_workspace`, `choose_agent`, `find_skills`, `install_skills`, `import_skills`, `manage_repositories`, `update_skills`, `sync_library`. Depends on M0, S3, S4, S5.
+`list_places` (workspaces, agents, repositories), `set_skills_active` for workspaces, `manage_workspace`, `choose_agent`, `find_skills`, `install_skills`, `import_skills`, `manage_repositories`, `update_skills`, `sync_library`. Depends on M0, S3, S4, S5.
 
 - CM1.1 **unit:** each tool's structured output matches its command's `--json` result for the same fixture.
 - CM1.2 **native:** Claude Desktop, configured with Copy configuration, installs a catalog skill and turns it on in a workspace.
