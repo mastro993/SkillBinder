@@ -1,19 +1,21 @@
-# Command line tool: onboarding steps
+# Command line tool: onboarding steps and the SkillBinder skill
 
-ADR [0027](../../adr/0027-onboarding-offers-the-command-and-mcp.md), building on [0010](../../adr/0010-onboarding-steps-derived-from-state.md), [0024](../../adr/0024-install-the-command-from-settings.md), and [0026](../../adr/0026-connect-agents-through-their-own-installers.md). Specs: [onboarding.md](../onboarding.md), [command-line.md](../command-line.md), [mcp-server.md](../mcp-server.md). Prototype: [connect.html](../../design/onboarding/prototypes/connect.html), A "Approved patterns" ([screenshots](../../design/onboarding/screenshots/command.png), [connect](../../design/onboarding/screenshots/connect.png)).
+ADRs [0027](../../adr/0027-onboarding-offers-the-command-and-mcp.md) (the steps) and [0028](../../adr/0028-the-skillbinder-skill-lives-outside-the-library.md) (the SkillBinder skill), building on [0006](../../adr/0006-activation-writes-managed-copies.md), [0010](../../adr/0010-onboarding-steps-derived-from-state.md), [0012](../../adr/0012-chosen-agents.md), [0024](../../adr/0024-install-the-command-from-settings.md), and [0026](../../adr/0026-connect-agents-through-their-own-installers.md). Specs: [onboarding.md](../onboarding.md), [command-line.md](../command-line.md), [mcp-server.md](../mcp-server.md). Glossary: [domain-app.md](../../agents/domain-app.md) (SkillBinder skill). Prototype: [connect.html](../../design/onboarding/prototypes/connect.html), A "Approved patterns" ([command](../../design/onboarding/screenshots/command.png), [agents](../../design/onboarding/screenshots/connect.png)).
 
 ## Decisions
 
 Continuing D1–D10:
 
-11. **D11** The two steps sit between Your agents and Import; Import still finishes onboarding.
-12. **D12** Skipping the command keeps the connect step; its first Connect installs the command, here and in Settings.
-13. **D13** Users who finished onboarding before see neither step; they use Settings.
+11. **D11** The steps sit between Your agents and Import; Import still finishes onboarding.
+12. **D12** Skipping the command keeps the agents step; setting up an agent installs the command first, here and in Settings.
+13. **D13** Users who finished onboarding before see no new step; they use Settings.
 14. **D14** The steps reuse the approved patterns: frame A, Git A "Primary action", and agents C logo tiles.
+15. **D15** Two steps: the command, then the agents (MCP and the SkillBinder skill together), so a user with Git sees four steps.
+16. **D16** The SkillBinder skill survives every configuration, is hidden in SkillBinder, counts as no skill, and is removed only in Settings (ADR 0028). It replaces D7.
 
 ## Order
 
-Data location → Git → Your agents → **Use SkillBinder from your terminal** → **Connect your agents** → Import your skills. With Git found and both new steps applying, a new user sees "Step 1 of 4" to "Step 4 of 4".
+Data location → Git → Your agents → **Use SkillBinder from your terminal** → **Use SkillBinder with your agents** → Import your skills. With Git found and both steps applying, a new user sees "Step 1 of 4" to "Step 4 of 4". The whole of onboarding stays one decision per step, every new step has Skip, and nothing in them blocks reaching Library.
 
 ## Use SkillBinder from your terminal
 
@@ -24,42 +26,69 @@ Data location → Git → Your agents → **Use SkillBinder from your terminal**
 5. Installed, the line reads "skillbinder is ready" in the success color ("skillbinder is ready. Open a new terminal to use it." on Windows), and the step moves on after about a second. On Linux with `~/.local/bin` missing from the PATH, it shows "Add ~/.local/bin to your PATH:" with the export command and Copy, and waits for Continue in place of Install.
 6. Skip saves `command_line_asked` and moves on. Install saves it too, once installed.
 
-## Connect your agents
+## Use SkillBinder with your agents
 
-1. **Applies** when the program of at least one of Claude Code, Codex, VS Code, or Cursor is found (ADR 0026) and the command is installed or can be: it drops out when the command's status is Can't install here or Something else in the way, since Connect has no command to point agents at. **Done** when `mcp_asked` is saved.
-2. Title "Connect your agents"; lead "Let your agents use SkillBinder's tools to find, install, and turn on skills. You can do this later in Settings." While the command is not installed, a muted line follows: "Connecting also installs the skillbinder command."
-3. A two-column grid of the found agents' tiles, in the order Claude Code, Codex, Cursor, VS Code, each with the agent's logo, its name, and "Not connected" with a small Connect at the top right, "Connecting…" (Cursor: "Finish in Cursor") with a spinner, or "Connected" in the success color with a check and the tile outlined, as a chosen agent tile is.
-4. Under the grid, an **Other agents** row: "Add SkillBinder to any agent's MCP settings." with Copy configuration.
-5. Connect installs the command first when it is missing (with the password prompt on macOS), then connects as Settings does, and toasts "<Agent> can use SkillBinder. Start a new <agent> session to load it." A failure shows its reason under the tile's name and Connect returns.
-6. Buttons: Back at the left; Skip while nothing is connected, Continue once something is. Either saves `mcp_asked` and moves on to Import. Back returns to the command step when it applies, which shows its outcome.
+1. **Applies** when at least one MCP client below is found whose agent is chosen, and the command is installed or can be (not Can't install here or Something else in the way). **Done** when `mcp_asked` is saved.
+2. Title "Use SkillBinder with your agents"; lead "Your agents can find, install, and turn on skills for you. You can change this later in Settings." While the command is not installed, a muted line follows: "This also installs the skillbinder command."
+3. A two-column grid of tiles, as Choose your agents draws them (logo, name, round check, outlined when ticked), one per MCP client found whose agent is chosen, in the order Claude Code, Codex, Cursor, VS Code. All start ticked. An agent already connected shows "Connected" in the success color in place of its check and is not part of the setup.
+4. Under the grid, a checkbox **Teach them with the SkillBinder skill**, on, with the muted line "A short guide to SkillBinder's tools, kept up to date with the app."
+5. Buttons: Back at the left; Skip, then the primary **Set up** (disabled with nothing ticked). With every tile already connected, the primary reads Continue.
+6. Set up, in order: installs the command when missing (the password prompt on macOS, once), connects each ticked agent through its installer (ADR 0026), Cursor through its install link, and, with the checkbox on, turns on **Teach connected agents**, which writes the SkillBinder skill into those agents' directories. Each tile shows "Connecting…" with a spinner, then "Connected", or its error under the name. When every ticked agent is connected, the step moves on after about a second; with a failure it stays, Set up becomes Try again for the failed tiles, and Skip still leaves. A same-slug `skillbinder` copy SkillBinder does not manage asks, as the review list does, before it is replaced; declined, the agent stays connected without the skill.
+7. Skip, Continue, or a completed Set up saves `mcp_asked`. Back returns to the command step when it applies.
+8. Agents with no installer get no tile; Settings' **Other agents** row offers Copy configuration later.
+
+| MCP client | Found by | Agent whose directory gets the skill |
+| --- | --- | --- |
+| Claude Code | `claude` | Claude Code, `~/.claude/skills` |
+| Codex | `codex` | Codex, `~/.agents/skills` (Universal) |
+| Cursor | Cursor's settings folder | Cursor, `~/.cursor/skills` |
+| VS Code | `code` | GitHub Copilot, `~/.copilot/skills` |
+
+## The SkillBinder skill
+
+1. **Content.** `skills/skillbinder/SKILL.md` in SkillBinder's repository, compiled into the app: when to use SkillBinder's tools, read before change, that `install_skills` leaves a skill inactive until `set_skills_active`, never to pass `replace` or `confirm` without the user's word, what `needs_answer` and `busy` mean, and a short section on the `skillbinder` command for agents with a shell and no MCP. It changes in the same release as the tools.
+2. **Where.** The global skill directory of each chosen agent connected to the MCP server while **Teach connected agents** is on (ADR 0028). Never in a workspace, never through a preset. Connecting or disconnecting an agent, choosing or unchoosing it, or turning the switch adds or removes the managed copy; nothing else does.
+3. **Hidden.** Scans skip `skillbinder` folders; import and install refuse the slug ("skillbinder is reserved for SkillBinder's own skill."); Library, Agents, workspace pages, Explore, `skills`, and `list_skills` never list it; no count includes it. `status` and `skillbinder status --json` report it as `app_skill: { on, agents }`.
+4. **Settings.** Settings › Agents › MCP server gains a row after the agents: **Teach connected agents**, "Give connected agents the SkillBinder skill, a short guide to its tools.", with a switch. Off removes every managed copy of it; on writes it for the connected agents. This is the only place to remove it. Turning it on with a conflicting copy asks as in step 6.
+5. **Updates.** At launch after an app update, managed copies whose content differs from the app's are rewritten; one edited in place waits in the review list, named "SkillBinder skill".
+6. **Library already holds `skillbinder`.** The library skill keeps working, the switch and the checkbox are hidden on that device, and the onboarding step connects agents only.
 
 ## Design
 
-- `proto::OnboardingStep` gains `CommandLine` and `ConnectAgents`; `ORDER` places them after `Agents`. `Facts` gains the command line status, whether a connectable agent's program is found, and the `command_line_asked` and `mcp_asked` device settings booleans; the engine's `applies` and `done` matches gain their arms.
-- `skip_command_line` and `finish_connect_agents` settle the facts and are idempotent; `finish_onboarding` refuses while either applies and is not done, as for the other steps.
-- The views are `native_view/onboarding/command_line.rs` and `onboarding/connect.rs`, calling the same client operations as the Settings rows, so install and connect have one implementation.
+- `proto::OnboardingStep` gains `CommandLine` and `ConnectAgents`, after `Agents` in `ORDER`. `Facts` gains the command line status, the MCP clients found with their chosen agents, and the `command_line_asked` and `mcp_asked` booleans; `applies` and `done` gain their arms. `skip_command_line` and `finish_connect_agents` settle the facts idempotently; `finish_onboarding` refuses while either applies and is not done.
+- **App skill** (`crates/engine::app_skill`): the payload through `include_dir`, its tree id from `payload::tree`, the `app_skill` device setting, and `places()` from the connected MCP clients (`mcp_clients`) and `agents::chosen_agents`. Copy records gain `origin: Library | App`; activation passes write and remove the app skill's copies beside the library's, under the same journal, adoption, and conflict rules, and every listing, count, and scan filters `origin = App` and the reserved slug. `Engine::set_app_skill(on)` runs as an organization change under the gate when it writes copies.
+- The views are `native_view/onboarding/command_line.rs` and `onboarding/connect.rs`, calling the same client operations as Settings, so installing, connecting, and teaching have one implementation.
 - `tests/support/imports.rs::onboard`, the client `ready()` helper, `native_test::prepare`, and `xtask/src/mcp_smoke.rs` skip both steps; the onboarding baselines are recaptured.
 
 ## Assumptions
 
-- **A14** The connect step lists only agents whose program is found, chosen or not: connecting is about the agent's program, not its skill directory.
-- **A15** The command step's example command is fixed copy, not the user's own preset.
-- **A16** On Linux with `~/.local/bin` off the PATH, the step waits for Continue so the export line can be read.
+- **A14** The agents step lists only MCP clients whose agent is chosen, since the skill can only go to chosen agents (ADR 0012).
+- **A15** The command step's example command is fixed copy.
+- **A16** On Linux with `~/.local/bin` off the PATH, the command step waits for Continue.
+- **A17** The skill follows the MCP connection with one switch, not a per-agent choice: it only helps an agent that has the tools.
+- **A18** Agents sharing `~/.agents/skills` all see the skill once Codex is connected.
 
 ## Acceptance
 
 Evidence labels as in [acceptance.md](acceptance.md).
 
-- CO.1 **unit:** `applies` and `done` for both steps across the command statuses and found programs; with Homebrew's link the command step drops out and "Step N of M" counts one fewer.
+- CO.1 **unit:** `applies` and `done` for both steps across the command statuses, found clients, and chosen agents; Homebrew's link drops the command step and "Step N of M" counts one fewer.
 - CO.2 **unit:** Skip on each step saves its fact; relaunching resumes at Import; repeating either action is harmless.
 - CO.3 **unit:** a finished onboarding stays finished when both facts are unset (existing users).
 - CO.4 **native macOS:** Install asks for the password, reads "skillbinder is ready", and moves on; a new terminal runs `skillbinder status`.
-- CO.5 **native:** after Skip on the command step, Connect for Claude Code installs the command, then connects, and `claude mcp list` shows `skillbinder`.
-- CO.6 **native:** with none of the four programs found, the connect step does not show; nor does it on macOS outside Applications, where the command cannot be installed.
-- CO.7 **native Linux:** off the PATH, the step shows the export line and waits for Continue.
+- CO.5 **native:** after Skip on the command step, Set up with Claude Code ticked asks for the password once, connects it (`claude mcp list` shows `skillbinder`), and writes `~/.claude/skills/skillbinder`.
+- CO.6 **native:** with no client found, or on macOS outside Applications, the agents step does not show.
+- CO.7 **native Linux:** off the PATH, the command step shows the export line and waits for Continue.
+- CO.8 **unit:** switching presets, deleting the active one, and adding a workspace leave the app skill's copies untouched; disconnecting Claude Code or turning the switch off removes its copy.
+- CO.9 **unit:** a scan of a directory holding `skillbinder` finds nothing; importing or installing the slug is refused; Library, `skills`, and `list_skills` never include it, and counts exclude it.
+- CO.10 **unit:** after a simulated app update with new skill content, launch rewrites the managed copies; an edited copy waits as "SkillBinder skill".
 
-## Slice
+## Slices
 
-### SO · Onboarding offers the command and connecting agents
+### SK · The SkillBinder skill
 
-Both steps, their facts, and Connect installing the command in Settings too (D12). Checks CO.1–CO.7 and the onboarding acceptance's 10 and 12. Depends on S1 (#200) and M2 (#207). Issue #209.
+`app_skill`, copy record origins, the reserved slug, the Settings switch, and the skill's text. Checks CO.8–CO.10. Depends on M2 (#207).
+
+### SO · Onboarding offers the command and your agents
+
+Both steps and their facts. Checks CO.1–CO.7 and the onboarding acceptance's 10 and 12. Depends on S1 (#200), M2 (#207), and SK. Issue #209.

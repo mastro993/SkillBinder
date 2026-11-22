@@ -1,6 +1,6 @@
 # Command line tool
 
-ADRs: [0022](../adr/0022-command-line-tool-talks-to-the-running-app.md) (talks to the running app), [0023](../adr/0023-command-line-tool-covers-domain-actions.md) (what it covers, how it asks), [0024](../adr/0024-install-the-command-from-settings.md) (installing it from Settings). It builds on [0006](../adr/0006-activation-writes-managed-copies.md) (confirming replacements), [0007](../adr/0007-pages-list-active-skills.md) (blocking changes), [0008](../adr/0008-import-from-scan-dialog.md) (import), [0015](../adr/0015-install-into-library-only.md) (install), [0019](../adr/0019-classic-install-per-platform.md), [0020](../adr/0020-stay-running-in-the-menu-bar.md), and [0021](../adr/0021-tray-through-tray-icon-and-ksni.md) (the menu bar's dispatch). Glossary: [domain.md](../agents/domain.md) (command line tool, preset, workspace, managed copy, install, import).
+ADRs: [0022](../adr/0022-command-line-tool-talks-to-the-running-app.md) (talks to the running app), [0023](../adr/0023-command-line-tool-covers-domain-actions.md) (what it covers, how it asks), [0024](../adr/0024-install-the-command-from-settings.md) (installing it from Settings). It builds on [0006](../adr/0006-activation-writes-managed-copies.md) (confirming replacements), [0007](../adr/0007-pages-list-active-skills.md) (blocking changes), [0008](../adr/0008-import-from-scan-dialog.md) (import), [0015](../adr/0015-install-into-library-only.md) (install), [0019](../adr/0019-classic-install-per-platform.md), [0020](../adr/0020-stay-running-in-the-menu-bar.md), and [0021](../adr/0021-tray-through-tray-icon-and-ksni.md) (the menu bar's dispatch). Glossary: [domain-app.md](../agents/domain-app.md) (command line tool) and [domain.md](../agents/domain.md) (preset, workspace, managed copy, install, import).
 
 Agents get the same actions as MCP tools through `skillbinder mcp` ([MCP server](mcp-server.md)). Companion files: [Design](command-line/design.md) (architecture, protocol, risks), [Acceptance and slices](command-line/acceptance.md), and [Onboarding steps](command-line/onboarding.md) (ADR 0027).
 
@@ -25,7 +25,7 @@ Out:
 - onboarding, the app's own settings (menu bar switch, app update channel, automatic checks), app updates, Restart, and Move to Applications;
 - deleting a skill from the library (not in the app either, ADR 0007);
 - running without the app or without a desktop session (SSH into a machine with no display);
-- a skill that teaches agents the command (a later feature);
+- the SkillBinder skill, which teaches agents the tools ([onboarding.md](command-line/onboarding.md#the-skillbinder-skill), ADR 0028);
 - shell completions and man pages.
 
 ## Decisions
@@ -36,7 +36,7 @@ Out:
 4. **D4** Replacing a copy SkillBinder does not manage asks in a terminal; elsewhere only `--replace` confirms it, and without it the copies wait and the command exits 3 (ADR 0023).
 5. **D5** On macOS, Install links `/usr/local/bin/skillbinder`, through the administrator prompt when needed (ADR 0024).
 6. **D6** The Homebrew casks link the command themselves; Settings reads "Installed by Homebrew" (ADR 0024).
-7. **D7** A skill that teaches agents the command is a separate, later feature.
+7. **D7** ~~A skill that teaches agents the command is a separate, later feature.~~ Replaced by D16: the SkillBinder skill (ADR 0028).
 
 ## Behavior
 

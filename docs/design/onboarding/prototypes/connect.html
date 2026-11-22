@@ -27,6 +27,11 @@
 .cx-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-muted-fg); }
 .cx-sub.is-ok { color: var(--sb-success); }
 .cx-sub.is-bad { color: var(--sb-danger); }
+.cx-mark { width: 16px; height: 16px; display: grid; place-items: center; border: 1px solid var(--sb-input); border-radius: 50%; color: transparent; }
+.cx-mark.is-on { background: var(--sb-fg); border-color: var(--sb-fg); color: var(--sb-bg); }
+.cx-tile { cursor: default; }
+.cx-tile:focus-visible { outline: 2px solid var(--sb-ring); outline-offset: 2px; }
+.cx-check { display: flex; align-items: flex-start; gap: 10px; }
 .cx-other { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
 .cx-other .cx-text { flex: 1; }
 </style>
@@ -988,7 +993,7 @@ window.NEW_ICONS = {
   const page = document.getElementById('page');
   const { btn, cmdBox } = OB;
   const CMD_LEAD = 'Install the skillbinder command to manage your skills from a terminal, a script, or an agent. You can do this later in Settings.';
-  const MCP_LEAD = "Let your agents use SkillBinder's tools to find, install, and turn on skills. You can do this later in Settings.";
+  const MCP_LEAD = 'Your agents can find, install, and turn on skills for you. You can change this later in Settings.';
   const CLIENTS = [
     { id: 'claude', name: 'Claude Code', logo: 'claude-code' },
     { id: 'codex', name: 'Codex', logo: 'codex' },
@@ -997,7 +1002,7 @@ window.NEW_ICONS = {
   ];
   const WHERE = { mac: '/usr/local/bin', win: 'your PATH', linux: '~/.local/bin' };
   // step: command | connect.  cmd: ready | waiting | installed | failed.  homebrew: the cask already linked it (the step drops out).
-  const S = { step: 'command', os: 'mac', cmd: 'ready', homebrew: false, onPath: true, skipped: false, clients: {}, timers: [] };
+  const S = { step: 'command', os: 'mac', cmd: 'ready', homebrew: false, onPath: true, skipped: false, clients: {}, teach: true, failOne: false, timers: [] };
 
   const clearTimers = () => { S.timers.forEach((c) => c()); S.timers = []; };
   const installed = () => S.homebrew || S.cmd === 'installed';
@@ -1045,48 +1050,63 @@ window.NEW_ICONS = {
   }
   function next() { clearTimers(); S.step = 'connect'; markBar(); draw(true); }
 
-  // ---- Connect your agents (agents C tiles, a Connect per tile) ------------------
+  // ---- Use SkillBinder with your agents (agents C tiles, ticked; one Set up) ----
+  // client state: off (unticked) | on (ticked) | busy | done (connected) | failed
+  const stateOf = (c) => S.clients[c.id] || 'on';
   function tile(c) {
-    const state = S.clients[c.id] || 'off';
-    let sub;
-    let act;
-    if (state === 'on') { sub = h('div', { class: 'cx-sub is-ok' }, 'Connected'); act = h('span', { class: 'cx-ok' }, ic('check-circle', 18)); }
-    else if (state === 'busy') { sub = h('div', { class: 'cx-sub' }, spinner(12), c.link ? 'Finish in Cursor' : 'Connecting…'); act = null; }
-    else { sub = h('div', { class: 'cx-sub' }, 'Not connected'); act = btn('Connect', () => connect(c), 'outline'); act.classList.add('sb-btn-sm'); }
-    return h('div', { class: `cx-tile${state === 'on' ? ' is-on' : ''}` }, avatar(c, { size: 22, tip: false }),
-      h('div', { class: 'cx-text' }, h('span', { class: 'cx-name' }, c.name), sub), act && h('span', { class: 'cx-act' }, act));
+    const st = stateOf(c);
+    let sub = null;
+    let corner;
+    if (st === 'done') { sub = h('div', { class: 'cx-sub is-ok' }, 'Connected'); corner = h('span', { class: 'cx-ok' }, ic('check-circle', 18)); }
+    else if (st === 'busy') { sub = h('div', { class: 'cx-sub' }, spinner(12), c.link ? 'Finish in Cursor' : 'Connecting…'); corner = null; }
+    else if (st === 'failed') { sub = h('div', { class: 'cx-sub is-bad' }, "Couldn't connect: claude exited 1."); corner = h('span', { class: 'cx-mark is-on' }, ic('check', 11)); }
+    else corner = h('span', { class: `cx-mark${st === 'on' ? ' is-on' : ''}` }, ic('check', 11));
+    const ticked = st === 'on' || st === 'failed';
+    const el = h('div', { class: `cx-tile${ticked || st === 'done' ? ' is-on' : ''}`, role: 'checkbox', tabindex: '0', 'aria-checked': String(ticked),
+      onclick: () => { if (st === 'on' || st === 'off' || st === 'failed') { S.clients[c.id] = ticked ? 'off' : 'on'; draw(); } } },
+    avatar(c, { size: 22, tip: false }), h('div', { class: 'cx-text' }, h('span', { class: 'cx-name' }, c.name), sub), corner && h('span', { class: 'cx-act' }, corner));
+    return el;
   }
-  function connect(c) {
+  function setUp() {
     const first = !installed();
-    S.clients[c.id] = 'busy';
+    const go = CLIENTS.filter((c) => ['on', 'failed'].includes(stateOf(c)));
+    go.forEach((c) => { S.clients[c.id] = 'busy'; });
     draw();
-    const wait = (first ? 1500 : 0) + (c.link ? 1600 : 900);
-    S.timers.push(OB.waitFor(wait, () => {
+    if (first && S.os === 'mac') toast(win, 'macOS asks for your password once, to install the command');
+    S.timers.push(OB.waitFor(first ? 1500 : 300, () => {
       if (first) { S.cmd = 'installed'; markBar(); }
-      S.clients[c.id] = 'on';
-      draw();
-      toast(win, `${c.name} can use SkillBinder. Start a new ${c.name} session to load it.`);
+      go.forEach((c, i) => S.timers.push(OB.waitFor(700 + i * 500 + (c.link ? 900 : 0), () => {
+        S.clients[c.id] = S.failOne && c.id === 'claude' ? 'failed' : 'done';
+        draw();
+        if (go.every((g) => ['done', 'failed'].includes(stateOf(g)))) {
+          if (go.some((g) => stateOf(g) === 'failed')) return;
+          toast(win, S.teach ? 'Your agents can use SkillBinder, and know how. Start a new session to load it.' : 'Your agents can use SkillBinder. Start a new session to load it.');
+          S.timers.push(OB.waitFor(1200, done));
+        }
+      })));
     }));
-    if (first && S.os === 'mac') toast(win, 'macOS asks for your password to install the command first');
   }
   function drawConnect(anim) {
-    const any = Object.values(S.clients).includes('on');
+    const states = CLIENTS.map(stateOf);
+    const busy = states.includes('busy');
+    const failed = states.includes('failed');
+    const pending = states.some((x) => x === 'on' || x === 'failed');
+    const teach = h('label', { class: 'cx-check' }, checkbox({ checked: S.teach, onChange: (v) => { S.teach = v; } }),
+      h('span', { class: 'cx-text' }, h('span', { class: 'cx-name' }, 'Teach them with the SkillBinder skill'),
+        h('span', { class: 'cx-sub' }, 'A short guide to SkillBinder\'s tools, kept up to date with the app.')));
     const body = [h('div', { class: 'ob-lead' }, MCP_LEAD),
-      installed() ? null : line(null, 'Connecting also installs the skillbinder command.', 'sb-small'),
-      h('div', { class: 'cx-grid' }, CLIENTS.map(tile)),
-      h('div', { class: 'cx-other' }, h('div', { class: 'cx-text' }, h('span', { class: 'cx-name' }, 'Other agents'),
-        h('div', { class: 'cx-sub' }, "Add SkillBinder to any agent's MCP settings.")),
-      (() => { const b = btn('Copy configuration', () => toast(win, 'Configuration copied'), 'outline'); b.classList.add('sb-btn-sm'); return b; })())];
+      installed() ? null : line(null, 'This also installs the skillbinder command.', 'sb-small'),
+      h('div', { class: 'cx-grid' }, CLIENTS.map(tile)), teach];
     const prev = S.homebrew ? () => toast(win, 'Back to Choose your agents') : () => { S.step = 'command'; markBar(); draw(true); };
-    frame('Connect your agents', body,
-      [back(prev), any ? btn('Continue', done, 'primary') : btn('Skip', done, 'ghost')], anim);
+    const primary = !pending && !busy ? btn('Continue', done, 'primary') : btn(failed ? 'Try again' : 'Set up', setUp, 'primary', busy || !pending);
+    frame('Use SkillBinder with your agents', body, [back(prev), btn('Skip', done, 'ghost'), primary], anim);
   }
   const done = () => toast(win, 'Next: Import your skills (not in this prototype)');
 
   function draw(anim) { (S.step === 'command' ? drawCommand : drawConnect)(anim); }
 
   // ---- demo controls -----------------------------------------------------------
-  const stepSeg = seg([{ id: 'command', label: 'Install the command' }, { id: 'connect', label: 'Connect your agents' }], S.step,
+  const stepSeg = seg([{ id: 'command', label: 'Install the command' }, { id: 'connect', label: 'Use SkillBinder with your agents' }], S.step,
     (id) => { clearTimers(); S.step = S.homebrew ? 'connect' : id; markBar(); draw(true); });
   const cmdSeg = seg([{ id: 'ready', label: 'Ready' }, { id: 'waiting', label: 'Waiting' }, { id: 'installed', label: 'Installed' }, { id: 'failed', label: 'Failed' }],
     S.cmd, (id) => { clearTimers(); S.step = 'command'; S.homebrew = false; S.cmd = id; markBar(); draw(); });
@@ -1105,9 +1125,10 @@ window.NEW_ICONS = {
   function markBar() { mark(stepSeg, S.step); mark(cmdSeg, S.cmd); }
 
   const bar = variantBar(document.getElementById('proto'), [
-    { id: 'a', label: 'Approved patterns', desc: 'Frame A; the command step as Git A (Skip, primary Install, one status line); Connect your agents as agents C tiles with a Connect each, then Other agents with Copy configuration.' },
+    { id: 'a', label: 'Approved patterns', desc: 'Frame A; the command step as Git A (Skip, primary Install, one status line); the agents step as agents C tiles, all ticked, the SkillBinder skill checkbox, and one Set up (ADR 0027, 0028).' },
   ], () => draw());
-  bar.extra.append(stepSeg, cmdSeg);
+  const failSeg = seg([{ id: 'ok', label: 'Set up succeeds' }, { id: 'fail', label: 'Claude Code fails' }], 'ok', (id) => { S.failOne = id === 'fail'; });
+  bar.extra.append(stepSeg, cmdSeg, failSeg);
   bar.el.firstChild.after(h('div', { class: 'sb-vbar-top' }, h('span', { class: 'sb-muted sb-small' }, 'Computer'), osSeg));
   bar.set('a');
   draw();

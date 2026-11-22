@@ -1,6 +1,6 @@
 # App updates
 
-ADRs: [0017](../adr/0017-app-updates-download-first-apply-at-restart.md) (behavior), [0018](../adr/0018-signed-update-manifests-on-pages.md) (manifests, verification, install), [0019](../adr/0019-classic-install-per-platform.md) (installers per platform); partly supersedes [0014](../adr/0014-explore-catalog-over-https.md) (the HTTP client's destinations and the Pages site). Glossary: [domain.md](../agents/domain.md) (app update, channel). Releases: [docs/release.md](../release.md).
+ADRs: [0017](../adr/0017-app-updates-download-first-apply-at-restart.md) (behavior), [0018](../adr/0018-signed-update-manifests-on-pages.md) (manifests, verification, install), [0019](../adr/0019-classic-install-per-platform.md) (installers per platform); partly supersedes [0014](../adr/0014-explore-catalog-over-https.md) (the HTTP client's destinations and the Pages site). Glossary: [domain-app.md](../agents/domain-app.md) (app update, channel). Releases: [docs/release.md](../release.md).
 
 This spec has two companion files: [Design](app-updates/design.md) (architecture, data, interfaces, risks) and [Acceptance and slices](app-updates/acceptance.md).
 

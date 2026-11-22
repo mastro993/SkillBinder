@@ -1,6 +1,6 @@
 # MCP server
 
-ADRs: [0025](../adr/0025-mcp-server-is-a-mode-of-the-command.md) (a mode of the command, workflow tools), [0026](../adr/0026-connect-agents-through-their-own-installers.md) (connecting agents). It extends the [command line tool](command-line.md) and its ADRs [0022](../adr/0022-command-line-tool-talks-to-the-running-app.md), [0023](../adr/0023-command-line-tool-covers-domain-actions.md), and [0024](../adr/0024-install-the-command-from-settings.md), and keeps [0006](../adr/0006-activation-writes-managed-copies.md)'s consent. Glossary: [domain.md](../agents/domain.md) (command line tool, MCP server).
+ADRs: [0025](../adr/0025-mcp-server-is-a-mode-of-the-command.md) (a mode of the command, workflow tools), [0026](../adr/0026-connect-agents-through-their-own-installers.md) (connecting agents). It extends the [command line tool](command-line.md) and its ADRs [0022](../adr/0022-command-line-tool-talks-to-the-running-app.md), [0023](../adr/0023-command-line-tool-covers-domain-actions.md), and [0024](../adr/0024-install-the-command-from-settings.md), and keeps [0006](../adr/0006-activation-writes-managed-copies.md)'s consent. Glossary: [domain-app.md](../agents/domain-app.md) (command line tool, MCP server, SkillBinder skill).
 
 ## Problem
 
@@ -57,7 +57,8 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 4. **Results.** Structured content with an output schema per tool, and a short text rendering for clients that read only text. `concise` returns names, slugs, and states; `detailed` adds descriptions, sources, and paths. Lists cap at 200 entries and say how many more there are.
 5. **Errors** are tool results with `isError` and the command's `CommandError` (code, message, hint), so the agent can act on them.
 6. **Progress and cancellation.** Calls that wait (switch, update, sync, install, import) send progress notifications when the client gave a progress token. Cancelling stops waiting; the app finishes the work (command rule 3).
-7. The server's instructions tell agents to read before they change, to pass `replace` or `confirm` only after the user said so, and that `install_skills` leaves skills inactive until `set_skills_active`.
+7. The SkillBinder skill (ADR 0028) is never listed by `list_skills`, `find_skills`, or any count; `status` reports it as `app_skill`.
+8. The server's instructions tell agents to read before they change, to pass `replace` or `confirm` only after the user said so, and that `install_skills` leaves skills inactive until `set_skills_active`.
 
 ### Settings › Agents › MCP server
 
@@ -66,6 +67,7 @@ A group after the agent switches, titled **MCP server**, described "Let your age
 - While the command is not installed but can be, the description adds "Connecting also installs the skillbinder command." (ADR 0027).
 - Where it cannot be installed (the command line tool row's Can't install here or Something else in the way), the group shows only that reason, "Move SkillBinder to Applications to connect agents.", "Install SkillBinder with its setup program to connect agents.", or "Another skillbinder is in /usr/local/bin.", with no Connect and no Copy configuration, since no stable command path exists to point agents at.
 - A row per supported agent found (Claude Code, Codex, VS Code, Cursor), with its logo, its name, and a line: "Connected", "Not connected", or "<tool> not found" when its command line cannot be found. The control is Connect, Disconnect (Claude Code and Codex), or for VS Code and Cursor when connected, muted "Remove it in <agent>".
+- After the agents, **Teach connected agents**, "Give connected agents the SkillBinder skill, a short guide to its tools.", with a switch: the only place to remove the SkillBinder skill ([onboarding.md](command-line/onboarding.md#the-skillbinder-skill), ADR 0028).
 - A last row, **Other agents**, "Add SkillBinder to any agent's MCP settings.", with Copy configuration, which copies `{"mcpServers": {"skillbinder": {"command": "<command>", "args": ["mcp"]}}}` and toasts "Configuration copied".
 - Connect runs the agent's installer (ADR 0026) and toasts "<Agent> can use SkillBinder. Start a new <agent> session to load it."; Cursor's opens its install link, and the row re-reads when the window regains focus. A failing installer toasts its error output's last line.
 - Search finds the group under "MCP", "tools", and each agent's name.
