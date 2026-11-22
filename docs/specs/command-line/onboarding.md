@@ -62,4 +62,4 @@ Evidence labels as in [acceptance.md](acceptance.md).
 
 ### SO · Onboarding offers the command and connecting agents
 
-Both steps, their facts, and Connect installing the command in Settings too (D12). Checks CO.1–CO.7 and the onboarding acceptance's 10 and 12. Depends on S1 (#200) and M2.
+Both steps, their facts, and Connect installing the command in Settings too (D12). Checks CO.1–CO.7 and the onboarding acceptance's 10 and 12. Depends on S1 (#200) and M2 (#207). Issue #209.
