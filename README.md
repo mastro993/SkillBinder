@@ -112,24 +112,12 @@ Close the window and SkillBinder keeps running behind its icon: switch presets, 
 
 ## How it works
 
-```mermaid
-flowchart LR
-    subgraph Sources
-        A["Your agents' folders<br/>(Scan for skills)"]
-        B["Explore catalog<br/>and Git repositories"]
-    end
-    L[("📚 Library<br/>a Git repository")]
-    R[("☁️ Your Git remote")]
-    subgraph Targets["Where your agents look"]
-        G["Each agent's folder<br/>.claude/skills, .cursor/skills,<br/>.agents/skills …"]
-        W["Each workspace's folders<br/>my-app/.claude/skills …"]
-    end
-    A -- import --> L
-    B -- install --> L
-    L <-- Sync --> R
-    L -- "active preset" --> G
-    L -- "workspace skills" --> W
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/how-it-works-dark.svg">
+    <img src="docs/readme/how-it-works-light.svg" alt="Skills come from your agents' folders (import) and from Explore (install) into your library, a Git repository that syncs with your Git remote. The active preset writes skills into your agents' folders, and each workspace's skills into its own folders." width="100%">
+  </picture>
+</p>
 
 - **The library is the source of truth.** Agents get *managed copies*: SkillBinder writes a copy when you turn a skill on and removes it when you turn it off.
 - **It never touches files it does not manage.** A same-name skill you put there yourself is replaced only after you confirm, and nothing else in those folders is ever changed.
