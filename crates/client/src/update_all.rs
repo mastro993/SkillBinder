@@ -143,8 +143,17 @@ impl Client {
     pub(crate) async fn check_sources(&self, max_age: std::time::Duration) -> AppResult<bool> {
         let checked = self.run_check(max_age).await;
         if matches!(checked, Ok(true)) {
-            let updating = self.snapshot().updating;
-            self.publish_update_all(updating, None);
+            // One step, so a run that finishes meanwhile keeps its `updating` cleared.
+            self.shared.snapshots.send_if_modified(|current| {
+                if current.update_all_outcome.is_none() {
+                    return false;
+                }
+                let mut next = (**current).clone();
+                next.update_all_outcome = None;
+                next.generation = current.generation + 1;
+                *current = Arc::new(next);
+                true
+            });
         }
         checked
     }
