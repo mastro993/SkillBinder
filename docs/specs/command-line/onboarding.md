@@ -49,9 +49,9 @@ Data location → Git → Your agents → **Use SkillBinder from your terminal**
 1. **Content.** `skills/skillbinder/SKILL.md` in SkillBinder's repository, compiled into the app: when to use SkillBinder's tools, read before change, that `install_skills` leaves a skill inactive until `set_skills_active`, never to pass `replace` or `confirm` without the user's word, what `needs_answer` and `busy` mean, and a short section on the `skillbinder` command for agents with a shell and no MCP. It changes in the same release as the tools.
 2. **Where.** The global skill directory of each chosen agent connected to the MCP server while **Teach connected agents** is on (ADR 0028). Never in a workspace, never through a preset. Connecting or disconnecting an agent, choosing or unchoosing it, or turning the switch adds or removes the managed copy; nothing else does.
 3. **Hidden.** Scans skip `skillbinder` folders; import and install refuse the slug ("skillbinder is reserved for SkillBinder's own skill."); Library, Agents, workspace pages, Explore, `skills`, and `list_skills` never list it; no count includes it. `status` and `skillbinder status --json` report it as `app_skill: { on, agents }`.
-4. **Settings.** Settings › Agents › MCP server gains a row after the agents: **Teach connected agents**, "Give connected agents the SkillBinder skill, a short guide to its tools.", with a switch. Off removes every managed copy of it; on writes it for the connected agents. This is the only place to remove it. Turning it on with a conflicting copy asks as in step 6.
+4. **Settings.** Settings › Agents › MCP server gains a row after the agents: **Teach connected agents**, "Give connected agents the SkillBinder skill, a short guide to its tools.", with a switch. Off removes every managed copy of it; on writes it for the connected agents. This is the only place to remove it. The `app_skill` setting defaults to on when it has never been saved, so a user who skipped the agents step, or finished onboarding before this change, gets the skill when they later Connect an agent in Settings, with the switch on that row to say so. Only two things change it: onboarding's checkbox, saved by Set up (unticked saves off), and this switch. Skip saves nothing. Turning it on with a conflicting copy asks as in step 6.
 5. **Updates.** At launch after an app update, managed copies whose content differs from the app's are rewritten; one edited in place waits in the review list, named "SkillBinder skill".
-6. **Library already holds `skillbinder`.** The library skill keeps working, the switch and the checkbox are hidden on that device, and the onboarding step connects agents only.
+6. **Library holds `skillbinder`.** The library skill wins on this device, whenever it arrives. If the library already holds it, the switch and the checkbox are hidden and the onboarding step connects agents only. If it arrives later, through Pull or Sync from a library made before the slug was reserved, the reconcile after that Pull removes every `origin = App` copy record and its copy in the same activation pass, as turning the switch off would. A copy edited in place waits in the review list instead. The library skill's copies are then written only where presets or workspaces hold it, as for any library skill, so one path never has two records. The switch hides while the library holds the slug, and shows again with its saved value if the slug leaves.
 
 ## Design
 
@@ -82,12 +82,14 @@ Evidence labels as in [acceptance.md](acceptance.md).
 - CO.8 **unit:** switching presets, deleting the active one, and adding a workspace leave the app skill's copies untouched; disconnecting Claude Code or turning the switch off removes its copy.
 - CO.9 **unit:** a scan of a directory holding `skillbinder` finds nothing; importing or installing the slug is refused; Library, `skills`, and `list_skills` never include it, and counts exclude it.
 - CO.10 **unit:** after a simulated app update with new skill content, launch rewrites the managed copies; an edited copy waits as "SkillBinder skill".
+- CO.11 **unit:** with `app_skill` never saved, connecting Claude Code in Settings writes the skill; unticking the checkbox in Set up saves off and writes nothing; Skip saves nothing.
+- CO.12 **unit:** a Pull that brings a library skill `skillbinder` while app copies exist removes the app's copy records and copies in the reconcile pass, leaves an edited one in the review list, and hides the switch.
 
 ## Slices
 
 ### SK · The SkillBinder skill
 
-`app_skill`, copy record origins, the reserved slug, the Settings switch, and the skill's text. Checks CO.8–CO.10. Depends on M2 (#207). Issue #210.
+`app_skill`, copy record origins, the reserved slug, the Settings switch, and the skill's text. Checks CO.8–CO.12. Depends on M2 (#207). Issue #210.
 
 ### SO · Onboarding offers the command and your agents
 
