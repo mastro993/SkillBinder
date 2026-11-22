@@ -94,7 +94,7 @@ impl Notice {
 
 /// What keeps Restart unavailable until it finishes (rule 10).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum RestartBlocker {
+pub(crate) enum RestartBlocker {
     Sync,
     Push,
     UpdateAll,
@@ -105,7 +105,7 @@ pub(super) enum RestartBlocker {
 impl RestartBlocker {
     /// What keeps Restart unavailable in `snapshot`, where `blocked` says whether the app takes
     /// a new change. Sync and Update all come from the snapshot, wherever they started.
-    pub(super) fn of(snapshot: &AppSnapshot, blocked: bool) -> Option<Self> {
+    pub(crate) fn of(snapshot: &AppSnapshot, blocked: bool) -> Option<Self> {
         let explore = &snapshot.explore;
         let installing = !explore.install_all.is_empty()
             || explore
@@ -205,7 +205,9 @@ impl NativeView {
             .into_any_element()
     }
 
-    fn restart(&mut self, cx: &mut Context<Self>) {
+    /// Quits so the ready app update installs and the app opens again, unless a blocker runs;
+    /// an engine refusal shows in the error box instead.
+    pub(crate) fn restart(&mut self, cx: &mut Context<Self>) {
         if self.restart_blocker().is_some() {
             return;
         }

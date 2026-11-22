@@ -28,6 +28,7 @@ Switching to Stable discards a staged beta, removing its bundle, so the app neve
 "SkillBinder 0.2.0 is ready" in medium weight, "Restart now, or it installs when you quit." muted, then Dismiss and the primary Restart, at the window's bottom-right like the download-only notice, with no auto-hide. It never shows during onboarding and is taken down while the progress strip is up.
 
 - **Restart** quits through the normal quit path, which installs the update and opens the app again. While Sync, Push, Update all, an install from Explore, or a blocking change runs, Restart is disabled, here and in Settings, with the tooltip "Available when Sync finishes", "Available when Push finishes", "Available when Update all finishes", "Available when installing finishes", or "Available when the change finishes".
+- **Menu:** the menu bar or system tray menu shows the same state: `Restart to install SkillBinder 0.2.0`, disabled under the same blockers, `Download SkillBinder 0.2.0…` for a copy that can't install it, and `Check for app updates`, which is Check now ([Menu bar menu](menu-bar.md#app-updates)). Restart from the menu works with no window open.
 - **Dismiss** hides the notice until the next launch. Settings still shows the ready update with its own Restart.
 
 ## Install at quit

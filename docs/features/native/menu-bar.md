@@ -1,6 +1,6 @@
 # Menu bar menu
 
-SkillBinder keeps running behind an icon in the macOS menu bar, the Windows notification area, or a Linux StatusNotifier tray once its window closes ([spec](../../specs/menu-bar.md) rules 1–5, 8, 14; ADR 0020, ADR 0021; prototype `docs/design/menu-bar/prototype.html`, layout A). The architecture is in [Native menu bar](../../architecture/native-menu-bar.md). Slice S0 (#183) ships the resident app with a menu that holds Open SkillBinder and Quit SkillBinder, S1 (#184) adds the presets and the attention item (rules 7.1, 7.3, 12), and S2 (#185) the skill updates, Update all, and the dot (rules 7.2, 9–11, D6); app updates (S3) come later.
+SkillBinder keeps running behind an icon in the macOS menu bar, the Windows notification area, or a Linux StatusNotifier tray once its window closes ([spec](../../specs/menu-bar.md) rules 1–5, 8, 14; ADR 0020, ADR 0021; prototype `docs/design/menu-bar/prototype.html`, layout A). The architecture is in [Native menu bar](../../architecture/native-menu-bar.md). Slice S0 (#183) ships the resident app with a menu that holds Open SkillBinder and Quit SkillBinder, S1 (#184) adds the presets and the attention item (rules 7.1, 7.3, 12), and S2 (#185) the skill updates, Update all, and the dot (rules 7.2, 9–11, D6), and S3 (#186) the app update group (rules 7.4, 13).
 
 ## The switch
 
@@ -24,6 +24,7 @@ Items, top to bottom, each group shown only when it applies:
 | The skill update status, then `Update all` while skills have an update, then a separator ([Skill updates](#skill-updates)) | Update all runs Library's Update all |
 | `Presets`, disabled, or while a blocking change runs, the strip's title and percentage, such as `Switching to Review… 40%` | — |
 | Every preset by name, in sidebar order, the active one checked, then a separator | Switches to it |
+| The app update group ([App updates](#app-updates)) | Checks for an app update, restarts into a ready one, or opens a download-only one's release page |
 | Open SkillBinder | Opens the window, or brings it forward |
 | — | |
 | Quit SkillBinder, with ⌘Q on macOS or Ctrl+Q elsewhere shown beside it | Quits |
@@ -48,6 +49,23 @@ The status line is disabled text, the first of these that applies:
 | `Skills are up to date` | Otherwise |
 
 Update all is Library's Update all ([Library and organization](library-and-organization.md)): it updates each skill with an update, one at a time, then scans once. It runs in the client, not the window, so it runs the same with no window open, an open window shows it in Library's header ring and reports its outcome on the page, and closing the window midway does not stop it. It is disabled while a blocking change, the window's short work, or a Git operation (Sync, Push, Pull, Refresh, Disconnect started in the window) runs. While the app runs, it checks every source not checked within the hour, every hour, from an hour after launch, whose scan already checks.
+
+## App updates
+
+The group follows the app update state ([App updates in place](app-updates.md)), and its labels always say "app update" or name SkillBinder, since "update" alone means a skill update:
+
+| State | Item |
+|---|---|
+| Off, a build without the release stamp | `App updates are off in this build`, disabled |
+| Up to date, after a check that found nothing | `SkillBinder <version> is up to date`, disabled, then `Check for app updates` |
+| Never checked | `Check for app updates` |
+| The last Check now failed | `Couldn't check for app updates · Try again` |
+| Checking | `Checking for app updates…`, disabled |
+| Downloading | `Downloading SkillBinder <version>… <percent>%`, disabled; the percentage is left out until it is known |
+| Ready | `Restart to install SkillBinder <version>` |
+| Download-only | `Download SkillBinder <version>…` |
+
+Check for app updates, and Try again, is Settings' Check now, so a failure shows in the menu and in Settings alike. Restart is the window's Restart: it quits through the normal quit path, which installs the update and opens the app again. It is disabled while Sync, Push, Update all, an install from Explore, or anything that blocks a change runs, as in Settings and the notice. With no window open it restarts without opening one. Download opens the release page, as the notice's Download does. The labels follow the state as it changes, so an open menu counts the download's percentage up.
 
 ## Presets
 
@@ -75,10 +93,13 @@ The icon shows a dot at its top right while something waits for the user (D6): s
 
 ## Evidence
 
+- **Unit, S3:** `tray::menu::tests::app_update` tests each app update state's label and whether it acts, Off included, and that Restart is disabled during Update all, Push, an install, the window's short work, and a running switch (C3.1); the action ids test covers the group's three actions.
 - **Unit, S2:** the client's `update_all` tests that the run counts each skill as it finishes, refuses a second run while one runs, scans once, keeps its outcome on the snapshot, and does nothing with no update, with each skill's update stubbed (the client crate cannot write a Git fixture), that a full read keeps `updating`, `update_all_outcome`, and `syncing` while a completed source check drops the outcome, that Sync shows as `syncing` until it returns, and that the hourly check first runs an hour after launch (paused clock) (C2.2, C2.5); `tray::menu` tests for the status line in rule 9's order, plural and singular (C2.1), Update all disabled during a change, short work, or Sync or Push, presets disabled during Update all (C1.8), and the dot's three causes (C2.6); `gate` tests that Update all blocks a change and a Git operation refuses Update all; `RestartBlocker::of` reads Sync, Push, and Update all from the snapshot, and the view shows a finished Update all's outcome once, wherever it started (C2.8); `tray::icon` tests that the dot variant decodes like the plain one and differs only in the top half.
 - **Unit:** `preferences_saved_before_the_tray_show_it` (C0.8); the client's preference round-trip saves `show_in_tray: false`; `tray::menu` tests for the items, labels, shortcut, and action ids, presets in sidebar order with only the active one checked and only Open and Quit before onboarding finishes (C1.1), the running switch's header and disabled presets (C1.2), the attention item's count and wording (C1.3), and presets disabled while the strip is up or the view is busy (C1.8, model side); `gate` tests that short work or any change blocks, that a change with no window unblocks as it returns, and that closing the window keeps only a running change (C1.8, C1.9); `tray::icon` tests that every artwork file decodes to its size and the glyph contrasts with the appearance.
 - **Native, macOS, 2026-11-21** (native-test build, synthetic world, driven through the MCP bridge, System Events, and real clicks on the status item): closing the window kept the process and the status item, and turned the app from `Foreground` to `UIElement` (no Dock icon, no ⌘-Tab); Open SkillBinder opened a frontmost window on Library, back to `Foreground`, with the dismissed app update notice still hidden (C0.1, C0.2); the menu read Open SkillBinder, a separator, and Quit SkillBinder ⌘Q; Quit SkillBinder with no window open exited and installed the staged 0.2.0 fixture bundle (C0.3); the switch turned off removed the status item, closing the window then quit, a relaunch kept it off with no icon, and turning it on added the icon back, after which closing kept the app running (C0.4); a second launch with no window open opened the window (C0.5).
 - **Native, macOS, 2026-11-21, S2** (native-test build, synthetic world, MCP bridge, window open): after the onboarding import, Library's header Update all, now run by the client, showed the progress ring, then "Updated 2 · 0 failed" on the page, copied from the snapshot's outcome, and the Updates count fell from 2 to 0.
 - **Native, macOS, 2026-11-21, S2, menu** (native-test build, synthetic world, real clicks on the status item on a display whose menu bar had room for it): with two skills to update, the icon showed the dot and the menu read `2 skills have updates` and `Update all`. With the window closed, Update all from the menu updated both; the menu then read `Skills are up to date`, the icon lost its dot, and Open SkillBinder showed Library with no update left (C2.3, C2.7). In a second world, with the source held by a socket that never answered until it closed, Update all from the menu with the window open showed Library's header ring and the menu `Updating 0 of 2 skills…` with every preset disabled; closing the window midway did not stop it, and it ended as `Updated 1 · 1 failed`, which opened the window on Library with the Updates filter and that outcome; going to Settings and back cleared it (C2.4, C2.8).
+- **Native, macOS, 2026-11-22, S3** (native-test build, synthetic world, a fixture app bundle, real clicks on the status item): with automatic checks off, the menu read `Check for app updates`; choosing it, with the manifest held by a FIFO, showed `Checking for app updates…`, disabled; with the archive held after 20 of its 45 bytes, `Downloading SkillBinder 0.2.0… 44%`, disabled; once it was released, `Restart to install SkillBinder 0.2.0`. An Update all from the menu, held by a source that never answered, showed `Updating 0 of 2 skills…` with Restart disabled, and Restart was enabled again once it ended as `Updated 1 · 1 failed` (C3.3). With the window closed, Restart quit the app and installed the fixture: `SkillBinder.app` became the staged 0.2.0 bundle beside `.skillbinder-old-0.1.0.app`, and the relaunch's `open -n` failed, as it does for a fixture bundle that is not an app (C3.2). Run with no app bundle, the copy is download-only, and the menu read `Download SkillBinder 0.2.0…`, which handed `https://example.invalid/releases/tag/v0.2.0` to the default browser (C3.4).
+- **Not yet run, S3:** Windows and Linux, and a relaunch into a real packaged bundle.
 - **Not yet run, S2:** Windows and Linux. On a display whose menu bar is full, macOS hides the status item behind the notch, as it does any app's.
 - **Not yet run:** Windows (C0.1, C0.7), Linux with and without a StatusNotifier host (C0.1, C0.6), and the packaged bundle, installer, and AppImage (C0.9). For S1, the native checks C1.4–C1.7 and C1.9 on every platform: the status item's menu is reached only through real pointer events. C1.10 likewise needs the status item's menu.

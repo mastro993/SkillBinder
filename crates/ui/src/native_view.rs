@@ -65,6 +65,7 @@ mod workspace_icons;
 mod workspace_page;
 mod workspace_targets;
 
+pub(crate) use app_update_notice::RestartBlocker;
 pub(crate) use library_updates::{available, summary};
 #[cfg(feature = "native-test")]
 pub use native_test::StripHold;

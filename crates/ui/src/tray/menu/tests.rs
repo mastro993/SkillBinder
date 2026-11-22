@@ -7,6 +7,8 @@ use skillbinder_proto::{
     ManagedCopy, SyncAction, UpdateCheck, UpdateOutcome,
 };
 
+mod app_update;
+
 /// Default, Review, and Writing, in sidebar order, with Review active, and Git found.
 fn snapshot() -> AppSnapshot {
     let mut snapshot = Fixture::new()
@@ -114,6 +116,7 @@ fn presets_show_in_sidebar_order_with_only_the_active_one_checked() {
             "[x] Review",
             "[ ] Writing",
             "---",
+            "# App updates are off in this build",
             "Open SkillBinder",
             "---",
             "Quit SkillBinder",
@@ -225,6 +228,9 @@ fn every_action_is_found_by_its_id() {
         TrayAction::UpdateAll,
         TrayAction::LibraryUpdates,
         TrayAction::ActivatePreset(preset_id("review")),
+        TrayAction::CheckAppUpdate,
+        TrayAction::Restart,
+        TrayAction::DownloadAppUpdate,
         TrayAction::OpenWindow,
         TrayAction::Quit,
     ] {
