@@ -1,6 +1,8 @@
 //! The menu the icon opens: a typed model the backends only draw (ADR 0021), derived from the
 //! snapshot and the [`Gate`] alone.
 
+mod app_update;
+
 use crate::gate::Gate;
 use crate::native_view::{available, resolved_active, summary, waiting_copies};
 use skillbinder_proto::{AppSnapshot, AppUpdateState, PresetId};
@@ -16,6 +18,12 @@ pub(crate) enum TrayAction {
     LibraryUpdates,
     /// Switches to this preset.
     ActivatePreset(PresetId),
+    /// Checks for an app update, as Settings' Check now does.
+    CheckAppUpdate,
+    /// Quits so the ready app update installs, then opens the app again.
+    Restart,
+    /// Opens the release page of the app update this copy can't install.
+    DownloadAppUpdate,
     /// Opens the window, or brings the open one forward.
     OpenWindow,
     /// Quits as ⌘Q or Ctrl+Q does.
@@ -33,6 +41,9 @@ impl TrayAction {
             Self::UpdateAll => "update-all".into(),
             Self::LibraryUpdates => "library-updates".into(),
             Self::ActivatePreset(PresetId(id)) => format!("{PRESET}{id}"),
+            Self::CheckAppUpdate => "check-app-update".into(),
+            Self::Restart => "restart".into(),
+            Self::DownloadAppUpdate => "download-app-update".into(),
             Self::OpenWindow => "open-window".into(),
             Self::Quit => "quit".into(),
         }
@@ -45,6 +56,9 @@ impl TrayAction {
             "review-copies" => Some(Self::ReviewCopies),
             "update-all" => Some(Self::UpdateAll),
             "library-updates" => Some(Self::LibraryUpdates),
+            "check-app-update" => Some(Self::CheckAppUpdate),
+            "restart" => Some(Self::Restart),
+            "download-app-update" => Some(Self::DownloadAppUpdate),
             "open-window" => Some(Self::OpenWindow),
             "quit" => Some(Self::Quit),
             id => id
@@ -104,9 +118,9 @@ pub(crate) struct TrayMenu {
 }
 
 impl TrayMenu {
-    /// The menu for `snapshot` while `gate` holds (spec rules 7–10 and 12): the attention item,
-    /// the skill updates, the presets, then Open and Quit. Before onboarding finishes, only Open
-    /// and Quit.
+    /// The menu for `snapshot` while `gate` holds (spec rules 7–10, 12, and 13): the attention
+    /// item, the skill updates, the presets, the app update group, then Open and Quit. Before
+    /// onboarding finishes, only Open and Quit.
     pub(crate) fn new(snapshot: &AppSnapshot, gate: &Gate) -> Self {
         let mut items = Vec::new();
         if snapshot.bootstrap.onboarding.finished {
@@ -136,6 +150,7 @@ impl TrayMenu {
                 }));
                 items.push(TrayItem::Separator);
             }
+            items.extend(app_update::app_update(snapshot, gate));
         }
         items.extend([
             TrayItem::action(TrayAction::OpenWindow, "Open SkillBinder"),
