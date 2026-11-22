@@ -19,6 +19,7 @@ It is invisible elsewhere. Scans skip every `skillbinder` folder, so it is never
 ## Consequences
 
 - ADR 0006's managed copies now include the SkillBinder skill beside library skills. Its copy records carry an origin, library or app, so activation passes, the review list, and Retry handle both.
-- The slug `skillbinder` is reserved. A library that already holds a skill with that slug keeps it, and on that device the SkillBinder skill is not offered.
+- The slug `skillbinder` is reserved, but the library wins it whenever a library skill holds it. A library that already holds it keeps it, and on that device the SkillBinder skill is not offered. One that gains it later, through Pull or Sync from a library made before the reservation, removes the app's copies and their records in the reconcile pass that follows, an edited one waiting in the review list, so one path never has two records; this is the one removal besides the user's switch.
+- **Teach connected agents** defaults to on until saved, so connecting an agent in Settings gives it the skill for users who skipped the onboarding step or finished onboarding before it existed. Only onboarding's checkbox and the switch change it.
 - Agents whose global skill directory is shared, such as `~/.agents/skills`, all see the skill once any agent reading it is connected.
 - The skill's text is part of the MCP contract: a change to the tools changes it in the same release.
