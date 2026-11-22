@@ -2,7 +2,7 @@
 
 ADRs: [0022](../adr/0022-command-line-tool-talks-to-the-running-app.md) (talks to the running app), [0023](../adr/0023-command-line-tool-covers-domain-actions.md) (what it covers, how it asks), [0024](../adr/0024-install-the-command-from-settings.md) (installing it from Settings). It builds on [0006](../adr/0006-activation-writes-managed-copies.md) (confirming replacements), [0007](../adr/0007-pages-list-active-skills.md) (blocking changes), [0008](../adr/0008-import-from-scan-dialog.md) (import), [0015](../adr/0015-install-into-library-only.md) (install), [0019](../adr/0019-classic-install-per-platform.md), [0020](../adr/0020-stay-running-in-the-menu-bar.md), and [0021](../adr/0021-tray-through-tray-icon-and-ksni.md) (the menu bar's dispatch). Glossary: [domain.md](../agents/domain.md) (command line tool, preset, workspace, managed copy, install, import).
 
-Two companion files go with this spec: [Design](command-line/design.md) (architecture, protocol, risks) and [Acceptance and slices](command-line/acceptance.md).
+Agents get the same actions as MCP tools through `skillbinder mcp` ([MCP server](mcp-server.md)). Two companion files go with this spec: [Design](command-line/design.md) (architecture, protocol, risks) and [Acceptance and slices](command-line/acceptance.md).
 
 ## Problem
 

@@ -1,5 +1,7 @@
 # The command line tool talks to the running app over a local socket
 
+Extended by ADR 0025: `skillbinder mcp` serves the same requests to agents over MCP.
+
 Everything SkillBinder does needs its window or its menu bar menu, so a coding agent, a script, or a user in a terminal cannot reach it. The app now ships a command line tool, the `skillbinder` command ([spec](../specs/command-line.md)). Only one process may hold the library: the app takes `application.lock` and the engine `library.lock`, both exclusive, and since ADR 0020 the app keeps running behind its icon most of the day. A command that opened the library itself would fail whenever the app runs.
 
 So the command never holds the library. It is a separate, small console program, `skillbinder-cli` in the app's package and `skillbinder` on the user's PATH, which depends on `crates/proto` and nothing that reaches storage. It connects to the running app over a local socket, a Unix domain socket in application data on macOS and Linux and a named pipe on Windows, both reachable only by the user who runs the app. It sends one typed request and reads typed progress and one typed result back, as JSON lines, after a handshake that names the protocol version. The app runs each request the way the menu bar runs its actions (ADR 0021): through the open window's view, or through the client and the `Gate` when no window is open, under the same rules, so the window and the menu show the change as it lands and refuse what they refuse while it runs.
