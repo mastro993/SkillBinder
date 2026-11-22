@@ -13,7 +13,7 @@ SkillBinder is one bounded context with one product vocabulary. Keep domain term
 - `README.md` identifies what this checkout can run.
 - `docs/features/native.md` describes the implemented features. Add behavior documentation with new features rather than documenting an aspirational implementation as complete.
 
-The shipped scope contained four onboarding steps, the Import skills dialog, Library, presets, Sync, and Settings. The Import skills dialog replaced Discovery and its separate import review (ADR 0008). Workspaces, Agents, skill updates, and onboarding's review of the library's first import extend that scope. Onboarding's steps are derived from saved facts and show only when needed (ADR 0010); Git is optional (ADR 0011), and your agents become a step of their own (ADR 0012), changed later in Settings. Explore, for installing skills from the catalog and from the user's repositories, extends it (ADR 0014, ADR 0015). Screens for entering or editing a library skill's source, nested presets, and tag-management UI are outside it; adding a repository to browse it in Explore is not editing a source.
+The shipped scope contained four onboarding steps, the Import skills dialog, Library, presets, Sync, and Settings. The Import skills dialog replaced Discovery and its separate import review (ADR 0008). Workspaces, Agents, skill updates, and onboarding's review of the library's first import extend that scope. Explore, for installing skills from the catalog and from the user's repositories, extends it (ADR 0014, ADR 0015). Screens for entering or editing a library skill's source, nested presets, and tag-management UI are outside it; adding a repository to browse it in Explore is not editing a source.
 
 ## Update documentation with behavior
 
@@ -53,6 +53,7 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - An app update is a newer SkillBinder release on the user's channel (ADR 0017). It is downloaded, verified, and staged in the background, and is then ready: Restart installs it now, and otherwise it installs at the next quit. Where the app cannot replace itself, the update is download-only and opens its release page. The installed version never goes down. Always say "app update" or name SkillBinder; a bare "update" means a skill update from its source. Code says `AppUpdate`.
 - A channel is Stable or Beta, chosen in Settings. Stable follows releases (`X.Y.Z`). Beta follows the newer of the latest release and the newest beta (`X.Y.Z-beta.N`), which the Nightly workflow publishes. Avoid "nightly" for the channel; Nightly is the workflow.
 - The menu bar menu is SkillBinder's icon and menu in the menu bar or system tray (ADR 0020); while it shows, closing the window keeps the app running. Copy says "menu bar" on macOS, "system tray" elsewhere; code says `Tray`.
+- The command line tool is the `skillbinder` command, which asks the running app to run domain actions from a terminal or agent (ADR 0022). Installing the command (ADR 0024) is not installing a skill. Code says `CommandLine`.
 - Sync and Push are explicit actions that may commit library changes. Imports and installs remain uncommitted until those actions. Organization changes are never committed.
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.
