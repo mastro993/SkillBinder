@@ -1,6 +1,6 @@
 # Menu bar menu
 
-ADRs: [0020](../adr/0020-stay-running-in-the-menu-bar.md) (behavior: staying resident), [0021](../adr/0021-tray-through-tray-icon-and-ksni.md) (model, backends, running work). It builds on [0007](../adr/0007-pages-list-active-skills.md) (blocking changes), [0011](../adr/0011-git-is-optional.md) (Git), and [0017](../adr/0017-app-updates-download-first-apply-at-restart.md) (app updates). Glossary: [domain.md](../agents/domain.md) (menu bar menu, preset, update, app update).
+ADRs: [0020](../adr/0020-stay-running-in-the-menu-bar.md) (behavior: staying resident), [0021](../adr/0021-tray-through-tray-icon-and-ksni.md) (model, backends, running work). It builds on [0007](../adr/0007-pages-list-active-skills.md) (blocking changes), [0011](../adr/0011-git-is-optional.md) (Git), and [0017](../adr/0017-app-updates-download-first-apply-at-restart.md) (app updates). Glossary: [domain.md](../agents/domain.md) (preset, update) and [domain-app.md](../agents/domain-app.md) (menu bar menu, app update).
 
 Two companion files go with this spec: [Design](menu-bar/design.md) (architecture, interfaces, risks) and [Acceptance and slices](menu-bar/acceptance.md). The approved prototype is [docs/design/menu-bar](../design/menu-bar/prototype.html), layout A.
 

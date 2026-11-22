@@ -1,6 +1,6 @@
 # Activation writes managed copies; presets are for your agents only
 
-Partly superseded by ADR 0012: your agents are the agents the user chose, and SkillBinder writes only into their skill directories.
+Partly superseded by ADR 0012: your agents are the agents the user chose, and SkillBinder writes only into their skill directories. Extended by ADR 0028: managed copies also include SkillBinder's own skill, placed outside presets.
 
 Activating a skill now copies it into the skill directories that read it, and deactivating removes the copy, so what the user chooses is what agents load. This reverses the rule that SkillBinder never writes into the agents' global skill directories or workspaces. It writes only managed copies: copies it wrote, or adopted because their content matched the library. It rewrites them when the library content changes. A copy of the slug with other content is a conflict: SkillBinder replaces it only after the user confirms, in the conflict prompt or in import review, and the replacement becomes managed. It never touches any other file, and a managed copy edited in place is never overwritten or removed without asking. Copies are full copies, not links, and are machine-local; only the library and records sync.
 

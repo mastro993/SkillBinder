@@ -20,7 +20,7 @@ Out: connecting a Sync remote during onboarding; adding workspaces during onboar
 
 Decisions:
 
-1. Onboarding has three steps: Git (only when missing), Your agents, Import your skills. Keep sources separate, Sync is optional, and Create your library are removed; the library is created without asking on the way into Import (ADR 0010).
+1. Onboarding has three steps: Git (only when missing), Your agents, Import your skills. Two skippable steps, installing the command and setting up your agents (MCP and the SkillBinder skill), later joined between Your agents and Import ([command-line/onboarding.md](command-line/onboarding.md), ADR 0027). Keep sources separate, Sync is optional, and Create your library are removed; the library is created without asking on the way into Import (ADR 0010).
 2. Git is optional. Skipped, the library is a plain directory and the app works except Sync, Push, update checks, Update, and Reinstall, which say they need Git. When Git is found later, the library becomes a repository by itself (ADR 0011).
 3. The Git step installs with one click where the system installer does the work: macOS Command Line Tools, Windows winget. Linux shows the command to copy. Every platform links to the download page, and the step rechecks by itself (ADR 0011).
 4. Review list opens the Import skills dialog over onboarding (design O7).

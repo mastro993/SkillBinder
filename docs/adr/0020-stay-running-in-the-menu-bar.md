@@ -1,5 +1,7 @@
 # SkillBinder stays running in the menu bar when its window closes
 
+Extended by ADR 0022: the command line tool can start the app in the background, with no window; with no icon showing it quits once no command needs it.
+
 Today the app quits when its last window closes, and finding skill updates, switching the active preset, or checking for an app update all mean opening the window and going to Library, the sidebar, or Settings. Users who switch presets several times a day pay that cost every time. So SkillBinder gets a menu bar menu: an icon in the macOS menu bar, the Windows notification area, or a Linux StatusNotifier tray, whose menu shows skill updates with Update all, lists the presets to switch between, checks for an app update, opens the window, and quits ([spec](../specs/menu-bar.md)).
 
 A menu is only useful while the app runs, so closing the window no longer quits. SkillBinder keeps running behind the icon. Quit lives in the menu and in the usual shortcut. On macOS the Dock icon goes away while no window is open, and opening the window brings it back. A Settings switch, **Show in menu bar** (**Show in system tray** on Windows and Linux), is on by default. Turned off, there is no icon, closing the window quits, and the Dock icon stays, as before this change. Where Linux has no tray to show the icon in, such as stock GNOME without the AppIndicator extension, the app behaves as if the switch were off, so it never runs where the user cannot see it.
