@@ -87,7 +87,7 @@ Evidence labels as in [acceptance.md](acceptance.md).
 
 ### SK · The SkillBinder skill
 
-`app_skill`, copy record origins, the reserved slug, the Settings switch, and the skill's text. Checks CO.8–CO.10. Depends on M2 (#207).
+`app_skill`, copy record origins, the reserved slug, the Settings switch, and the skill's text. Checks CO.8–CO.10. Depends on M2 (#207). Issue #210.
 
 ### SO · Onboarding offers the command and your agents
 
