@@ -78,6 +78,7 @@ impl NativeView {
         if self.route != shown {
             self.leave_page();
         }
+        self.follow_update_all(&latest, cx);
         if self
             .workspace_edit
             .as_ref()
@@ -130,7 +131,6 @@ impl NativeView {
     /// Applies what an operation, or the blocking change the strip shows, left to do.
     pub(super) fn settle(&mut self, result: AppResult<Effect>, cx: &mut Context<Self>) {
         self.set_busy(false, cx);
-        self.syncing = None;
         // The engine has answered, so its active preset is the one shown.
         self.active_preset = None;
         self.preset_reorder.settle();

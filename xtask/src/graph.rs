@@ -34,7 +34,8 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
     (
         "skillbinder-client",
         &["skillbinder-engine", "skillbinder-proto", "tokio"],
-        &["tempfile"],
+        // tokio again for `test-util`: the hourly source check's test pauses the clock.
+        &["tempfile", "tokio"],
     ),
     (
         "skillbinder-engine",

@@ -34,7 +34,13 @@ impl NativeView {
     /// is open this is the [`Gate`]'s `blocked`, since the view writes both: `busy` beside the
     /// gate's, and the strip from the start of the gate's change until it clears it.
     pub(in crate::native_view) fn blocked(&self) -> bool {
-        self.busy || self.strip.is_some()
+        self.working() || self.strip.is_some()
+    }
+
+    /// Whether the view's short work or an Update all runs; the controls that would race with
+    /// either are inactive meanwhile.
+    pub(in crate::native_view) fn working(&self) -> bool {
+        self.busy || self.snapshot.updating.is_some()
     }
 
     /// Runs `operation`, a change that can write many copies, blocking the app until it lands and

@@ -65,6 +65,7 @@ mod workspace_icons;
 mod workspace_page;
 mod workspace_targets;
 
+pub(crate) use library_updates::{available, summary};
 #[cfg(feature = "native-test")]
 pub use native_test::StripHold;
 pub(crate) use place_popover::bind_keys;
@@ -138,9 +139,9 @@ pub struct NativeView {
     focus: FocusHandle,
     route: Route,
     history: History,
+    /// The view's short work: a single Update or an optimistic save. Controls read
+    /// [`Self::working`], which adds Update all.
     busy: bool,
-    /// The Git synchronization in flight; implies `busy`.
-    syncing: Option<SyncAction>,
     error: Option<AppError>,
     dialog: DialogState,
     /// Counts dialogs opened; a closing one's layer builds nothing once another opens.
@@ -213,8 +214,6 @@ pub struct NativeView {
     optimistic_preset_name: Option<(PresetId, String)>,
     /// Created or cloned presets shown before the engine's snapshot arrives.
     optimistic_presets: Vec<sidebar_presets::OptimisticPreset>,
-    /// How many skills an update run has finished of its total, while it runs.
-    updating: Option<(usize, usize)>,
     /// The progress strip of a blocking change, from the click until it ends.
     strip: Option<progress_strip::Strip>,
     /// When the wash of a strip that ended began fading out, while it fades.

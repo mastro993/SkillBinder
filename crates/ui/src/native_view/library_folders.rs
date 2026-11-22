@@ -99,7 +99,7 @@ impl NativeView {
         } else {
             strip = strip.child(
                 Button::new("folder-create")
-                    .inactive(self.busy)
+                    .inactive(self.working())
                     .ghost()
                     .small()
                     .flex_shrink_0()
@@ -241,7 +241,7 @@ impl NativeView {
             items.push(
                 MenuItem::new("toggle-active", format!("Active in {name}"))
                     .checked(active)
-                    .disabled(self.busy || self.active_preset_id().is_none())
+                    .disabled(self.working() || self.active_preset_id().is_none())
                     .on_select(menu_action(
                         view.clone(),
                         skill.clone(),
@@ -255,7 +255,7 @@ impl NativeView {
             items.push(
                 MenuItem::new("update-skill", "Update")
                     .icon("refresh")
-                    .disabled(self.busy || self.git_missing())
+                    .disabled(self.working() || self.git_missing())
                     .on_select(menu_action(
                         view.clone(),
                         skill.clone(),
@@ -270,7 +270,7 @@ impl NativeView {
             MenuItem::new("move-to-folder", "Move to folder")
                 .icon("folder")
                 // Another operation would refuse the move, so it is unavailable meanwhile.
-                .disabled(folders.is_empty() || self.busy)
+                .disabled(folders.is_empty() || self.working())
                 .submenu(choices),
         );
         items
@@ -385,7 +385,7 @@ impl NativeView {
         let delete = Button::new("folder-delete-confirm")
             .label("Delete folder")
             .danger()
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(move |view, _, _, cx| {
                 let (client, change) = (view.client.clone(), change.clone());
                 view.run(

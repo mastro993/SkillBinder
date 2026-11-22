@@ -25,12 +25,12 @@ impl NativeView {
     ) -> Dialog {
         let not_now = Button::new("applications-menu-not-now")
             .label("Not now")
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)));
         let add = Button::new("applications-menu-add")
             .label("Add")
             .primary()
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(|view, _, _, cx| view.answer_applications_menu(true, cx)));
         let footer = DialogFooter::new().secondary(not_now).primary(add);
         self.dialog_frame(DialogSize::Compact, DialogHeader::new(TITLE), cx)

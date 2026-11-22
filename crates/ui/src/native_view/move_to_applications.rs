@@ -39,12 +39,12 @@ impl NativeView {
     ) -> Dialog {
         let not_now = Button::new("move-to-applications-not-now")
             .label("Not now")
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)));
         let move_app = Button::new("move-to-applications-move")
             .label("Move")
             .primary()
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(|view, _, _, cx| {
                 let client = view.client.clone();
                 view.run(

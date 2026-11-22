@@ -74,7 +74,7 @@ impl NativeView {
     pub(super) fn activation_toggle(&self, skill: &SkillId, cx: &mut Context<Self>) -> AnyElement {
         let checked = self.skill_active(skill);
         let scope = self.active_preset_name();
-        let busy = self.busy;
+        let busy = self.working();
         let weak = cx.entity().downgrade();
         let id = skill.clone();
         let tooltip = format!("Active in {scope}");

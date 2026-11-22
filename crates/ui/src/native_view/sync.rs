@@ -6,12 +6,11 @@ use skillbinder_design::{Button, KeyValueList};
 use skillbinder_proto::*;
 
 impl NativeView {
-    /// Runs one Git operation, marking the view as syncing until it settles.
+    /// Runs one Git operation; the client shows it as syncing until it returns.
     pub(super) fn synchronize(&mut self, action: SyncAction, cx: &mut Context<Self>) {
         if self.blocked() {
             return;
         }
-        self.syncing = Some(action);
         let client = self.client.clone();
         self.run(
             async move { client.synchronize(action).await.map(|_| Effect::None) },
@@ -77,7 +76,7 @@ impl NativeView {
                 page = page.child(
                     Button::new(id)
                         .label(label)
-                        .inactive(self.busy || !enabled)
+                        .inactive(self.working() || !enabled)
                         .on_click(cx.listener(move |view, _, _, cx| view.synchronize(action, cx))),
                 );
             }
@@ -90,7 +89,7 @@ impl NativeView {
                     Button::new("sync-connect")
                         .label("Connect remote")
                         .primary()
-                        .inactive(self.busy)
+                        .inactive(self.working())
                         .on_click(cx.listener(|view, _, _, cx| {
                             let url = Self::input_text(&view.remote_url, cx);
                             let branch = Self::input_text(&view.remote_branch, cx);

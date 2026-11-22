@@ -6,14 +6,14 @@ use super::{Effect, NativeView, Route, snapshot_query};
 use gpui_kit::component::{ActiveTheme, Sizable, Size, progress::ProgressCircle, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, px,
+    StatefulInteractiveElement, Styled, Window, div, px,
 };
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{Button, IconSize, Notice, NoticeSize, Spinner, icon, tooltip};
 use skillbinder_proto::{AppSnapshot, SkillId, UpdateCheck, UpdateOutcome};
 
 /// The library skills with an update, in slug order.
-pub(super) fn available(snapshot: &AppSnapshot) -> Vec<SkillId> {
+pub(crate) fn available(snapshot: &AppSnapshot) -> Vec<SkillId> {
     snapshot
         .updates
         .iter()
@@ -22,8 +22,19 @@ pub(super) fn available(snapshot: &AppSnapshot) -> Vec<SkillId> {
         .collect()
 }
 
+/// The outcome of an Update all that finished between `shown` and `latest`: a new outcome, or
+/// the same as the last one once a run ends.
+fn finished_update_all<'a>(
+    shown: &AppSnapshot,
+    latest: &'a AppSnapshot,
+) -> Option<&'a UpdateOutcome> {
+    latest.update_all_outcome.as_ref().filter(|outcome| {
+        shown.updating.is_some() || shown.update_all_outcome.as_ref() != Some(*outcome)
+    })
+}
+
 /// "Updated 2 · 1 failed".
-fn summary(outcome: &UpdateOutcome) -> String {
+pub(crate) fn summary(outcome: &UpdateOutcome) -> String {
     format!(
         "Updated {} · {} failed",
         outcome.updated.len(),
@@ -65,7 +76,7 @@ impl NativeView {
             );
         }
         update
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(move |view, _, _, cx| {
                 // The row or card under the button would open the skill's page.
                 cx.stop_propagation();
@@ -82,7 +93,7 @@ impl NativeView {
     /// The header's update control. It checks when nothing is known, updates when a skill has an
     /// update, and shows the run's progress while either is in flight.
     fn library_update_button(&self, cx: &mut Context<Self>) -> AnyElement {
-        if let Some((done, total)) = self.updating {
+        if let Some((done, total)) = self.snapshot.updating {
             return div()
                 .id("library-update-progress")
                 .flex()
@@ -120,7 +131,7 @@ impl NativeView {
                 .small()
                 .ghost()
                 .icon(icon("refresh-04"))
-                .inactive(self.busy)
+                .inactive(self.working())
                 .tooltip("Check for skill updates")
                 .on_click(cx.listener(|view, _, _, cx| view.check_for_updates(cx)))
                 .into_any_element()
@@ -129,9 +140,9 @@ impl NativeView {
                 .small()
                 .ghost()
                 .icon(icon("upload-circle"))
-                .inactive(self.busy)
+                .inactive(self.working())
                 .tooltip("Update skills")
-                .on_click(cx.listener(|view, _, _, cx| view.update_available(cx)))
+                .on_click(cx.listener(|view, _, _, cx| view.update_all(cx)))
                 .into_any_element()
         }
     }
@@ -157,52 +168,48 @@ impl NativeView {
         cx.notify();
     }
 
-    /// Updates every skill with an update, one at a time, so the header can count them.
-    fn update_available(&mut self, cx: &mut Context<Self>) {
-        let ids = available(&self.snapshot);
-        if ids.is_empty() || self.blocked() || self.updating.is_some() {
+    /// Starts Update all in the client, which counts it on the snapshot whatever window or menu
+    /// is open meanwhile; its outcome reaches the page from there too, as one the menu started
+    /// does. Refused while a change, short work, or a Git operation runs.
+    pub(crate) fn update_all(&mut self, cx: &mut Context<Self>) {
+        if self.blocked() || self.snapshot.syncing.is_some() {
             return;
         }
-        let total = ids.len();
-        self.set_busy(true, cx);
         self.error = None;
-        self.updating = Some((0, total));
-        let client = self.client.clone();
+        let run = self.client.update_all();
+        // The run has claimed the snapshot already, so the header counts it from this frame.
+        self.receive(self.client.snapshot(), cx);
         cx.spawn(async move |this, cx| {
-            let mut outcome = UpdateOutcome::default();
-            for (index, id) in ids.into_iter().enumerate() {
-                match client.update_skill(id).await {
-                    Ok(one) => {
-                        outcome.updated.extend(one.updated);
-                        outcome.failed.extend(one.failed);
-                    }
-                    Err(error) => {
-                        let _ = this.update(cx, |view, _| view.error = Some(error));
-                        break;
-                    }
-                }
+            if let Err(error) = run.await {
                 let _ = this.update(cx, |view, cx| {
-                    view.updating = Some((index + 1, total));
-                    view.receive(view.client.snapshot(), cx);
+                    view.error = Some(error);
                     cx.notify();
                 });
             }
-            // The agents' copies no longer match what was updated, so scan once at the end.
-            client.spawn_scan();
-            let _ = this.update(cx, |view, cx| {
-                view.set_busy(false, cx);
-                view.updating = None;
-                if let Route::Skill(id) = &view.route
-                    && outcome.updated.contains(id)
-                {
-                    view.load_skill(id.clone(), cx);
-                }
-                view.update_outcome = Some(outcome);
-                cx.notify();
-            });
         })
         .detach();
-        cx.notify();
+    }
+
+    /// Library with the Updates filter on and the last Update all's outcome, where the menu's
+    /// `Updated n · m failed` leads.
+    pub(crate) fn show_library_updates(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.library_filter.updates = true;
+        self.navigate(Route::Library, window, cx);
+        self.update_outcome = self.snapshot.update_all_outcome.clone();
+    }
+
+    /// Shows a finished Update all's outcome, from the window or the menu, as the page's last
+    /// update result; an updated skill's page shows its new content.
+    pub(super) fn follow_update_all(&mut self, latest: &AppSnapshot, cx: &mut Context<Self>) {
+        let Some(outcome) = finished_update_all(&self.snapshot, latest) else {
+            return;
+        };
+        if let Route::Skill(id) = &self.route
+            && outcome.updated.contains(id)
+        {
+            self.load_skill(id.clone(), cx);
+        }
+        self.update_outcome = Some(outcome.clone());
     }
 
     /// `done` of `total` as a percentage.
@@ -286,5 +293,39 @@ mod tests {
             failed: vec![id("c")],
         };
         assert_eq!(summary(&outcome), "Updated 2 · 1 failed");
+    }
+
+    #[test]
+    fn a_finished_update_all_shows_its_outcome_once() {
+        let id = |slug: &str| SkillId(slug.to_owned());
+        let snapshot = |updating, outcome: Option<&UpdateOutcome>| {
+            let mut snapshot = crate::native_view::fixture::Fixture::new().build();
+            snapshot.updating = updating;
+            snapshot.update_all_outcome = outcome.cloned();
+            snapshot
+        };
+        let updated = UpdateOutcome {
+            updated: vec![id("a")],
+            failed: Vec::new(),
+        };
+        let done = snapshot(None, Some(&updated));
+        assert_eq!(
+            finished_update_all(&snapshot(Some((1, 2)), None), &done),
+            Some(&updated)
+        );
+        // A run whose start the window missed ends with the outcome it showed last.
+        assert_eq!(
+            finished_update_all(&snapshot(Some((1, 2)), Some(&updated)), &done),
+            Some(&updated)
+        );
+        assert_eq!(finished_update_all(&done, &done), None);
+        let failed = UpdateOutcome {
+            updated: Vec::new(),
+            failed: vec![id("b")],
+        };
+        let later = snapshot(None, Some(&failed));
+        assert_eq!(finished_update_all(&done, &later), Some(&failed));
+        // A source check that drops the outcome leaves the page's as it is.
+        assert_eq!(finished_update_all(&done, &snapshot(None, None)), None);
     }
 }

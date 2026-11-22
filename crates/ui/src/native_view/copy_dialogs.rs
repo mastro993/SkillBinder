@@ -133,7 +133,7 @@ impl NativeView {
             .collect();
         let close = Button::new("copies-close")
             .label("Close")
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(|view, _, window, cx| view.dismiss_dialog(window, cx)));
         self.dialog_frame(DialogSize::Standard, DialogHeader::new("Skill copies"), cx)
             .footer(DialogFooter::new().secondary(close))
@@ -154,7 +154,7 @@ impl NativeView {
                 .label(label)
                 .small()
                 .when(key == "replace", |button| button.primary())
-                .inactive(self.busy)
+                .inactive(self.working())
                 .on_click(cx.listener(move |view, _, _, cx| {
                     let client = view.client.clone();
                     let copy = copy.clone();

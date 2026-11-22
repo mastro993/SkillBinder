@@ -97,7 +97,7 @@ impl NativeView {
         let focus_lost_subscription =
             cx.on_focus_lost(window, |view, window, cx| window.focus(&view.focus, cx));
         let gate_subscription = cx.observe_global::<Gate>(|view, cx| view.follow_gate(cx));
-        gate::opened(cx.entity().downgrade(), cx);
+        gate::opened(cx.entity().downgrade(), window.window_handle(), cx);
         let mut view = Self {
             client,
             snapshot,
@@ -105,7 +105,6 @@ impl NativeView {
             route: Route::default(),
             history: History::default(),
             busy: false,
-            syncing: None,
             error: None,
             dialog,
             dialogs_opened: 0,
@@ -147,7 +146,6 @@ impl NativeView {
             asked_copies: Vec::new(),
             optimistic_preset_name: None,
             optimistic_presets: Vec::new(),
-            updating: None,
             strip: None,
             wash_fade: None,
             overlay_focus: cx.focus_handle().tab_stop(true),

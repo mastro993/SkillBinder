@@ -116,7 +116,7 @@ impl NativeView {
         let remove = Button::new("remove-confirm")
             .label("Remove workspace")
             .danger()
-            .inactive(self.busy)
+            .inactive(self.working())
             .on_click(cx.listener(move |view, _, _, cx| {
                 let client = view.client.clone();
                 let id = id.clone();

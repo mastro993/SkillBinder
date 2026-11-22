@@ -16,7 +16,7 @@ impl NativeView {
         preview: &DeletePreview,
         cx: &mut Context<Self>,
     ) -> Dialog {
-        let busy = self.busy;
+        let busy = self.working();
         let id = preview.preset.id.clone();
         let revision = preview.revision.clone();
         // Deleting the active preset activates Default, which the strip blocks the app for.

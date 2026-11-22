@@ -16,7 +16,9 @@ use gpui_kit::{
 };
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{Button, Text, tooltip as tip};
-use skillbinder_proto::{AppUpdateState, AppVersion, CannotInstall, InstallState, SyncAction};
+use skillbinder_proto::{
+    AppSnapshot, AppUpdateState, AppVersion, CannotInstall, InstallState, SyncAction,
+};
 
 /// The notice's id, so a newer version replaces the shown one.
 struct AppUpdateNotice;
@@ -101,6 +103,25 @@ pub(super) enum RestartBlocker {
 }
 
 impl RestartBlocker {
+    /// What keeps Restart unavailable in `snapshot`, where `blocked` says whether the app takes
+    /// a new change. Sync and Update all come from the snapshot, wherever they started.
+    pub(super) fn of(snapshot: &AppSnapshot, blocked: bool) -> Option<Self> {
+        let explore = &snapshot.explore;
+        let installing = !explore.install_all.is_empty()
+            || explore
+                .installs
+                .values()
+                .any(|install| *install == InstallState::Installing);
+        match snapshot.syncing {
+            Some(SyncAction::Push) => Some(Self::Push),
+            Some(_) => Some(Self::Sync),
+            None if snapshot.updating.is_some() => Some(Self::UpdateAll),
+            None if installing => Some(Self::Install),
+            None if blocked || snapshot.activation.is_some() => Some(Self::Change),
+            None => None,
+        }
+    }
+
     pub(super) fn tooltip(self) -> &'static str {
         match self {
             Self::Sync => "Available when Sync finishes",
@@ -162,22 +183,7 @@ impl NativeView {
 
     /// What keeps Restart unavailable: Sync, Push, Update all, an install, or a blocking change.
     pub(super) fn restart_blocker(&self) -> Option<RestartBlocker> {
-        let explore = &self.snapshot.explore;
-        let installing = !explore.install_all.is_empty()
-            || explore
-                .installs
-                .values()
-                .any(|install| *install == InstallState::Installing);
-        match self.syncing {
-            Some(SyncAction::Push) => Some(RestartBlocker::Push),
-            Some(_) => Some(RestartBlocker::Sync),
-            None if self.updating.is_some() => Some(RestartBlocker::UpdateAll),
-            None if installing => Some(RestartBlocker::Install),
-            None if self.blocked() || self.snapshot.activation.is_some() => {
-                Some(RestartBlocker::Change)
-            }
-            None => None,
-        }
+        RestartBlocker::of(&self.snapshot, self.blocked())
     }
 
     /// Restart, `id`, primary and small, for `view`, this view: it quits, the update installs,
@@ -303,5 +309,36 @@ impl NativeView {
     fn dismiss_notice(&mut self, cx: &mut Context<Self>) {
         self.app_update_notice.dismissed = true;
         cx.set_global(self.app_update_notice.launch());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RestartBlocker;
+    use crate::native_view::fixture::Fixture;
+    use skillbinder_proto::SyncAction;
+
+    #[test]
+    fn sync_and_update_all_block_restart_from_the_snapshot() {
+        let blocker = |syncing, updating, blocked| {
+            let mut snapshot = Fixture::new().build();
+            snapshot.syncing = syncing;
+            snapshot.updating = updating;
+            RestartBlocker::of(&snapshot, blocked)
+        };
+        assert_eq!(blocker(None, None, false), None);
+        assert_eq!(
+            blocker(Some(SyncAction::Push), Some((1, 2)), true),
+            Some(RestartBlocker::Push)
+        );
+        assert_eq!(
+            blocker(Some(SyncAction::Pull), None, false),
+            Some(RestartBlocker::Sync)
+        );
+        assert_eq!(
+            blocker(None, Some((1, 2)), true),
+            Some(RestartBlocker::UpdateAll)
+        );
+        assert_eq!(blocker(None, None, true), Some(RestartBlocker::Change));
     }
 }
