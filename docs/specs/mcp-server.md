@@ -63,8 +63,8 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 
 A group after the agent switches, titled **MCP server**, described "Let your agents use SkillBinder's tools."
 
-- While the command is not installed, one row reads "Install the command line tool first." with a button that scrolls to it.
-- Then a row per supported agent found (Claude Code, Codex, VS Code, Cursor), with its logo, its name, and a line: "Connected", "Not connected", or "<tool> not found" when its command line cannot be found. The control is Connect, Disconnect (Claude Code and Codex), or for VS Code and Cursor when connected, muted "Remove it in <agent>".
+- While the command is not installed, the description adds "Connecting also installs the skillbinder command." (ADR 0027).
+- A row per supported agent found (Claude Code, Codex, VS Code, Cursor), with its logo, its name, and a line: "Connected", "Not connected", or "<tool> not found" when its command line cannot be found. The control is Connect, Disconnect (Claude Code and Codex), or for VS Code and Cursor when connected, muted "Remove it in <agent>".
 - A last row, **Other agents**, "Add SkillBinder to any agent's MCP settings.", with Copy configuration, which copies `{"mcpServers": {"skillbinder": {"command": "<command>", "args": ["mcp"]}}}` and toasts "Configuration copied".
 - Connect runs the agent's installer (ADR 0026) and toasts "<Agent> can use SkillBinder. Start a new <agent> session to load it."; Cursor's opens its install link, and the row re-reads when the window regains focus. A failing installer toasts its error output's last line.
 - Search finds the group under "MCP", "tools", and each agent's name.
@@ -80,7 +80,7 @@ A group after the agent switches, titled **MCP server**, described "Let your age
 ## Assumptions
 
 - **A8** The server starts the app only at the first tool call (rule 2).
-- **A9** Connect needs the command installed, and every agent's settings point at its path (ADR 0026).
+- **A9** Every agent's settings point at the installed command's path; Connect installs the command first when it is missing (ADR 0026, amended by ADR 0027).
 - **A10** Connections are for the user, never per project (ADR 0026).
 - **A11** Claude Code, Codex, VS Code, and Cursor get Connect; Claude Desktop and the rest get Copy configuration until an `.mcpb` bundle exists.
 - **A12** The tool names and grouping above. If wrong: rename before M0 ships; after it, they are a contract.
@@ -116,6 +116,6 @@ The MCP server group and `crates/engine::mcp_clients`. Depends on M0 and S1.
 - CM2.1 **unit:** each agent's install, remove, and status invocation is built with the command's path quoted, from the one table.
 - CM2.2 **native macOS:** with the command installed, Connect for Claude Code makes `claude mcp list` show `skillbinder` and the row read Connected; Disconnect removes it.
 - CM2.3 **native:** Codex and VS Code connect the same way; Cursor opens its install dialog and the row reads Connected after accepting.
-- CM2.4 **native:** with the command not installed, the group shows only the install row.
+- CM2.4 **native:** with the command not installed, Connect for Claude Code installs it first (password prompt on macOS), then connects.
 - CM2.5 **unit:** no code path writes to an agent's settings file; SkillBinder only reads them.
 - CM2.6 **native:** Copy configuration puts the JSON with the command's absolute path on the clipboard.

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command and MCP steps</title>
+<!-- Onboarding: "Install the command" and "Connect your agents" (command-line/onboarding.md, ADR 0027).
+     Reuses frame A, the Git step's A "Primary action", and the agents step's logo tiles.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py connect.html ../prototypes/connect.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="ob.css">
+<style>
+.cx-sample { padding: 10px 12px; border: 1px solid var(--sb-border); border-radius: 8px; background: var(--sb-muted); font-family: var(--sb-mono); font-size: 12.5px; color: var(--sb-muted-fg); }
+.cx-sample b { color: var(--sb-fg); font-weight: 500; }
+.cx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cx-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; min-width: 0;
+  border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); --sb-ring-bg: var(--sb-card); }
+.cx-tile.is-on { border-color: var(--sb-fg); box-shadow: 0 0 0 1px var(--sb-fg); }
+.cx-act { position: absolute; top: 10px; right: 10px; }
+.cx-ok { color: var(--sb-success); }
+.cx-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-self: stretch; }
+.cx-name { font-weight: 500; }
+.cx-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-muted-fg); }
+.cx-sub.is-ok { color: var(--sb-success); }
+.cx-sub.is-bad { color: var(--sb-danger); }
+.cx-other { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
+.cx-other .cx-text { flex: 1; }
+</style>
+</head>
+<body data-first-variant="a">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <div class="sb-lights ob-lights"><i></i><i></i><i></i></div>
+    <main class="ob-main" id="page"></main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="ob.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const { btn, cmdBox } = OB;
+  const CMD_LEAD = 'Install the skillbinder command to manage your skills from a terminal, a script, or an agent. You can do this later in Settings.';
+  const MCP_LEAD = "Let your agents use SkillBinder's tools to find, install, and turn on skills. You can do this later in Settings.";
+  const CLIENTS = [
+    { id: 'claude', name: 'Claude Code', logo: 'claude-code' },
+    { id: 'codex', name: 'Codex', logo: 'codex' },
+    { id: 'cursor', name: 'Cursor', logo: 'cursor', link: true },
+    { id: 'vscode', name: 'VS Code', logo: 'github-copilot' },
+  ];
+  const WHERE = { mac: '/usr/local/bin', win: 'your PATH', linux: '~/.local/bin' };
+  // step: command | connect.  cmd: ready | waiting | installed | failed.  homebrew: the cask already linked it (the step drops out).
+  const S = { step: 'command', os: 'mac', cmd: 'ready', homebrew: false, onPath: true, skipped: false, clients: {}, timers: [] };
+
+  const clearTimers = () => { S.timers.forEach((c) => c()); S.timers = []; };
+  const installed = () => S.homebrew || S.cmd === 'installed';
+  // ADR 0010: M counts only steps that apply. Git found: Agents, [Command], Connect, Import.
+  const total = () => (S.homebrew ? 3 : 4);
+  const index = () => (S.step === 'command' ? 2 : S.homebrew ? 2 : 3);
+
+  function frame(title, body, btns, anim) {
+    page.replaceChildren(h('div', { class: `ob-col${anim ? ' ob-anim' : ''}` },
+      h('div', { class: 'ob-head' }, h('div', { class: 'ob-eyebrow' }, `SkillBinder · Step ${index()} of ${total()}`),
+        h('div', { class: 'ob-title', role: 'heading', 'aria-level': '1' }, title)),
+      body, h('div', { class: 'ob-btns' }, btns)));
+  }
+  const back = (to) => h('button', { class: 'sb-btn ob-left', onclick: to }, ic('arrow-left', 15), 'Back');
+  const line = (icon, text, cls = '') => h('div', { class: `ob-line ${cls}` }, icon, h('span', {}, text));
+
+  // ---- Install the command (Git A: primary action, one status line) -------------
+  function drawCommand(anim) {
+    const st = {
+      waiting: () => line(spinner(15), S.os === 'mac' ? 'Enter your password in the macOS prompt.' : 'Installing…'),
+      installed: () => line(ic('check-circle', 15), S.os === 'win' ? 'skillbinder is ready. Open a new terminal to use it.' : 'skillbinder is ready', 'is-ok'),
+      failed: () => line(ic('alert-circle', 15), "Couldn't install: Permission denied.", 'is-bad'),
+    }[S.cmd];
+    const path = S.os === 'linux' && S.cmd === 'installed' && !S.onPath
+      ? [line(null, 'Add ~/.local/bin to your PATH:'), cmdBox('export PATH="$HOME/.local/bin:$PATH"', win)] : [];
+    const body = [h('div', { class: 'ob-lead' }, CMD_LEAD),
+      h('div', { class: 'cx-sample' }, '$ ', h('b', {}, 'skillbinder preset activate Work')),
+      S.cmd === 'ready' ? line(null, `Installs to ${WHERE[S.os]}.`, 'sb-small') : st(), ...path];
+    const skip = btn('Skip', () => { S.skipped = true; next(); }, 'ghost');
+    frame('Use SkillBinder from your terminal', body,
+      [back(() => toast(win, 'Back to Choose your agents')), skip,
+        btn(S.cmd === 'failed' ? 'Try again' : 'Install', install, 'primary', S.cmd === 'waiting' || S.cmd === 'installed')], anim);
+  }
+  function install() {
+    clearTimers();
+    setCmd('waiting');
+    S.timers.push(OB.waitFor(1800, () => setCmd('installed')));
+  }
+  function setCmd(state) {
+    S.cmd = state;
+    markBar();
+    draw();
+    // Like Git's Found: once installed, the step moves on by itself (unless Linux needs the PATH line read).
+    if (state === 'installed' && (S.os !== 'linux' || S.onPath)) S.timers.push(OB.waitFor(1200, next));
+  }
+  function next() { clearTimers(); S.step = 'connect'; markBar(); draw(true); }
+
+  // ---- Connect your agents (agents C tiles, a Connect per tile) ------------------
+  function tile(c) {
+    const state = S.clients[c.id] || 'off';
+    let sub;
+    let act;
+    if (state === 'on') { sub = h('div', { class: 'cx-sub is-ok' }, 'Connected'); act = h('span', { class: 'cx-ok' }, ic('check-circle', 18)); }
+    else if (state === 'busy') { sub = h('div', { class: 'cx-sub' }, spinner(12), c.link ? 'Finish in Cursor' : 'Connecting…'); act = null; }
+    else { sub = h('div', { class: 'cx-sub' }, 'Not connected'); act = btn('Connect', () => connect(c), 'outline'); act.classList.add('sb-btn-sm'); }
+    return h('div', { class: `cx-tile${state === 'on' ? ' is-on' : ''}` }, avatar(c, { size: 22, tip: false }),
+      h('div', { class: 'cx-text' }, h('span', { class: 'cx-name' }, c.name), sub), act && h('span', { class: 'cx-act' }, act));
+  }
+  function connect(c) {
+    const first = !installed();
+    S.clients[c.id] = 'busy';
+    draw();
+    const wait = (first ? 1500 : 0) + (c.link ? 1600 : 900);
+    S.timers.push(OB.waitFor(wait, () => {
+      if (first) { S.cmd = 'installed'; markBar(); }
+      S.clients[c.id] = 'on';
+      draw();
+      toast(win, `${c.name} can use SkillBinder. Start a new ${c.name} session to load it.`);
+    }));
+    if (first && S.os === 'mac') toast(win, 'macOS asks for your password to install the command first');
+  }
+  function drawConnect(anim) {
+    const any = Object.values(S.clients).includes('on');
+    const body = [h('div', { class: 'ob-lead' }, MCP_LEAD),
+      installed() ? null : line(null, 'Connecting also installs the skillbinder command.', 'sb-small'),
+      h('div', { class: 'cx-grid' }, CLIENTS.map(tile)),
+      h('div', { class: 'cx-other' }, h('div', { class: 'cx-text' }, h('span', { class: 'cx-name' }, 'Other agents'),
+        h('div', { class: 'cx-sub' }, "Add SkillBinder to any agent's MCP settings.")),
+      (() => { const b = btn('Copy configuration', () => toast(win, 'Configuration copied'), 'outline'); b.classList.add('sb-btn-sm'); return b; })())];
+    const prev = S.homebrew ? () => toast(win, 'Back to Choose your agents') : () => { S.step = 'command'; markBar(); draw(true); };
+    frame('Connect your agents', body,
+      [back(prev), any ? btn('Continue', done, 'primary') : btn('Skip', done, 'ghost')], anim);
+  }
+  const done = () => toast(win, 'Next: Import your skills (not in this prototype)');
+
+  function draw(anim) { (S.step === 'command' ? drawCommand : drawConnect)(anim); }
+
+  // ---- demo controls -----------------------------------------------------------
+  const stepSeg = seg([{ id: 'command', label: 'Install the command' }, { id: 'connect', label: 'Connect your agents' }], S.step,
+    (id) => { clearTimers(); S.step = S.homebrew ? 'connect' : id; markBar(); draw(true); });
+  const cmdSeg = seg([{ id: 'ready', label: 'Ready' }, { id: 'waiting', label: 'Waiting' }, { id: 'installed', label: 'Installed' }, { id: 'failed', label: 'Failed' }],
+    S.cmd, (id) => { clearTimers(); S.step = 'command'; S.homebrew = false; S.cmd = id; markBar(); draw(); });
+  const osSeg = seg([{ id: 'mac', label: 'macOS' }, { id: 'win', label: 'Windows' }, { id: 'linux', label: 'Linux' }, { id: 'linux-nopath', label: 'Linux, not on PATH' }, { id: 'brew', label: 'Homebrew linked it' }],
+    'mac', (id) => {
+      clearTimers();
+      S.homebrew = id === 'brew';
+      S.os = id === 'brew' ? 'mac' : id.startsWith('linux') ? 'linux' : id;
+      S.onPath = id !== 'linux-nopath';
+      S.clients = {};
+      if (S.homebrew) S.step = 'connect';
+      markBar();
+      draw(true);
+    });
+  const mark = (el, id) => el.querySelectorAll('button').forEach((b) => b.classList.toggle('is-active', b.dataset.id === id));
+  function markBar() { mark(stepSeg, S.step); mark(cmdSeg, S.cmd); }
+
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Approved patterns', desc: 'Frame A; the command step as Git A (Skip, primary Install, one status line); Connect your agents as agents C tiles with a Connect each, then Other agents with Copy configuration.' },
+  ], () => draw());
+  bar.extra.append(stepSeg, cmdSeg);
+  bar.el.firstChild.after(h('div', { class: 'sb-vbar-top' }, h('span', { class: 'sb-muted sb-small' }, 'Computer'), osSeg));
+  bar.set('a');
+  draw();
+})();
+</script>
+</body>
+</html>
