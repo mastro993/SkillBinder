@@ -213,7 +213,7 @@ fn a_slug_with_two_versions_needs_one_named() {
         Some(Picked {
             keys: named(&["pdf"]),
             versions: vec![CandidateId(PDF_B.into())],
-            named: vec![CandidateId(PDF_B.into())],
+            named: vec![("pdf".to_owned(), CandidateId(PDF_B.into()))],
         }),
         "the version the plan doesn't take is prepared again"
     );
@@ -223,7 +223,7 @@ fn a_slug_with_two_versions_needs_one_named() {
         Some(Picked {
             keys: named(&["pdf"]),
             versions: Vec::new(),
-            named: vec![CandidateId(PDF_A.into())],
+            named: vec![("pdf".to_owned(), CandidateId(PDF_A.into()))],
         }),
         "four characters of the digest name it"
     );
@@ -344,6 +344,14 @@ fn a_named_version_is_imported_or_nothing_is() {
         changed.message,
         "The version of pdf you named changed since it was scanned."
     );
+
+    // Changed since: a re-scan finds it under another id, and the plan takes the other version.
+    let mut rescanned = found.clone();
+    rescanned.scan.candidates[1].id = CandidateId("bbbb9999bbbb9999".into());
+    let Err(gone) = chosen(&rescanned, &snapshot, &picked) else {
+        panic!("the named version is gone");
+    };
+    assert_eq!(gone.message, changed.message);
 
     found.scan.candidates[1].validation = ValidationStatus::Blocked;
     let Err(blocked) = pick(

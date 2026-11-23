@@ -102,8 +102,8 @@ fn place(directory: &str, snapshot: &AppSnapshot) -> String {
 pub(super) struct Picked {
     keys: Vec<String>,
     versions: Vec<CandidateId>,
-    /// Every version named, which the import must take and no other.
-    named: Vec<CandidateId>,
+    /// Every version named, by its skill's key, which the import must take and no other.
+    named: Vec<(String, CandidateId)>,
 }
 
 /// What `named` names among `found`, each `<slug>` or `<slug>@<version>`, or with `all` what the
@@ -172,7 +172,7 @@ pub(super) fn pick(
                 if row.item.is_none_or(|item| item.candidate_id != chosen.id) {
                     picked.versions.push(chosen.id.clone());
                 }
-                picked.named.push(chosen.id.clone());
+                picked.named.push((row.key().to_owned(), chosen.id.clone()));
             }
         }
         if !picked.keys.iter().any(|key| key == row.key()) {
@@ -265,13 +265,14 @@ pub(super) fn chosen(
             format!("{} can't be imported: {why}.", slug_of(row)),
         ));
     }
-    // The plan takes another version when the named one changed since it was scanned.
+    // The plan takes another version when the named one changed since it was scanned, which
+    // gives it another id, or became one the engine can't import.
     if let Some(row) = taken.iter().find(|row| {
         let planned = row.item.map(|item| &item.candidate_id);
-        row.skill
-            .versions
+        picked
+            .named
             .iter()
-            .any(|version| picked.named.contains(&version.id) && planned != Some(&version.id))
+            .any(|(key, id)| key == row.key() && planned != Some(id))
     }) {
         return Err(CommandError::new(
             ErrorCode::Failed,
