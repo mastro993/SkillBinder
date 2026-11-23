@@ -155,3 +155,19 @@ async fn the_last_query_wins_and_a_short_one_searches_nothing() {
     searches.search("pdf").unwrap().unwrap().await.unwrap();
     assert_eq!(results(searches.current().state).len(), 20);
 }
+
+#[tokio::test]
+async fn asking_alone_answers_without_changing_the_shown_search() {
+    let temp = tempfile::tempdir().unwrap();
+    directory(temp.path(), "pdf", LIVE.as_bytes());
+    let source = directory(temp.path(), "docx", br#"{"skills": []}"#);
+    let searches = Searches::new(source);
+    searches.search("docx").unwrap().unwrap().await.unwrap();
+
+    let answered = searches.ask(" PDF ").unwrap().unwrap().await.unwrap();
+    assert_eq!(results(answered).len(), 20);
+    assert!(searches.ask("p").unwrap().is_none());
+    let shown = searches.current();
+    assert_eq!(shown.query, "docx");
+    assert_eq!(results(shown.state), []);
+}

@@ -19,7 +19,7 @@ use skillbinder_proto::{AppSnapshot, Candidate, CandidateLocation, ValidationSta
 use std::{collections::BTreeMap, path::Path};
 
 /// One found skill and its versions, in the order the scan lists them.
-pub(in crate::native_view) struct FoundSkill<'a> {
+pub(crate) struct FoundSkill<'a> {
     pub key: &'a str,
     pub versions: Vec<&'a Candidate>,
 }
@@ -30,7 +30,7 @@ fn importable(version: &Candidate) -> bool {
 }
 
 /// Groups `listed` by key, keeping the order of each key's first version.
-pub(in crate::native_view) fn found_skills<'a>(listed: &[&'a Candidate]) -> Vec<FoundSkill<'a>> {
+pub(crate) fn found_skills<'a>(listed: &[&'a Candidate]) -> Vec<FoundSkill<'a>> {
     let mut skills: Vec<FoundSkill<'a>> = Vec::new();
     let mut index: BTreeMap<&str, usize> = BTreeMap::new();
     for &candidate in listed {
@@ -98,7 +98,7 @@ fn version_details(version: &Candidate, snapshot: &AppSnapshot, cx: &App) -> Any
 
 /// Where a version was found: its skill directory with home as `~`, then the Agents rows or the
 /// workspace that read it, as the app names places.
-fn location_label(location: &CandidateLocation, snapshot: &AppSnapshot) -> String {
+pub(crate) fn location_label(location: &CandidateLocation, snapshot: &AppSnapshot) -> String {
     let directory = Path::new(&location.display_path)
         .parent()
         .map_or_else(String::new, |parent| parent.display().to_string());

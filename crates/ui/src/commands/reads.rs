@@ -1,7 +1,7 @@
 //! The reading commands, answered from the snapshot as Library, the sidebar, and the review list
 //! show it. They never wait on the gate, so they answer while a change runs (spec rule 2).
 
-use super::resolve;
+use super::{repositories, resolve};
 use crate::gate::Gate;
 use crate::native_view::{
     ActiveFilter, LibraryFilter, Places, Query as LibraryQuery, found_rows, has_update,
@@ -76,6 +76,7 @@ pub(super) fn answer(query: &Query, snapshot: &AppSnapshot) -> Result<Output, Co
                 })
                 .collect(),
         ),
+        Query::Repositories => Output::Repositories(repositories::repositories(snapshot)),
     })
 }
 

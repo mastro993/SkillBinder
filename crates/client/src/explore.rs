@@ -24,6 +24,17 @@ impl Client {
             }
         });
     }
+    /// Fetches the catalog again if it is older than an hour or the last refresh failed, as
+    /// opening Explore does, and waits for it; a failed refresh keeps the cached catalog.
+    pub async fn fresh_catalog(&self) -> AppResult<()> {
+        let refreshed = self.shared.engine.refresh_catalog(MAX_AGE).await;
+        self.shared.publish_explore();
+        refreshed
+    }
+    /// Asks skills.sh for `query` without changing the search Explore shows.
+    pub async fn ask_skills_sh(&self, query: &str) -> AppResult<SkillsShState> {
+        self.shared.engine.ask_skills_sh(query).await
+    }
     /// Fetches the catalog now, as Retry does.
     pub fn refresh_catalog(&self) {
         self.spawn_catalog(Duration::ZERO);

@@ -17,6 +17,10 @@ mod skills_sh;
 
 pub(super) use add_repository::AddRepository;
 pub(super) use detail::Detail;
+pub(crate) use query::{
+    Local, all_time_label, collides, creator_of, failures, in_library, install_error, installable,
+    installs_label, result_collides, result_in_library, toast,
+};
 
 use super::NativeView;
 use gpui_kit::component::input::{InputEvent, InputState};

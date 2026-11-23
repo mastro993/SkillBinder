@@ -98,14 +98,11 @@ impl NativeView {
         ticked: &BTreeSet<String>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let (icon, name) = match &group.place {
-            Place::Agents => ("robot", "Your agents".to_owned()),
-            Place::Workspace(id) => (
-                "code-folder",
-                self.workspace(id)
-                    .map_or_else(|| "Workspace".to_owned(), |w| w.name.clone()),
-            ),
+        let icon = match &group.place {
+            Place::Agents => "robot",
+            Place::Workspace(_) => "code-folder",
         };
+        let name = group.place.name(&self.snapshot.workspaces);
         let count = Count::of(ticked, &group.rows);
         let keys = tickable(&group.rows);
         let theme = cx.theme();

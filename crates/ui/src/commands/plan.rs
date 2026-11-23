@@ -4,11 +4,13 @@
 mod places;
 
 use super::resolve::{self, Agents};
+use super::{explore, repositories};
 use crate::native_view::{Activity, Places, held, shown_dir};
 use skillbinder_proto::command_line::{Change, CommandError, ErrorCode};
 use skillbinder_proto::{
     AddSkills, AppSnapshot, CopyChoice, CopyState, LibrarySnapshot, ManagedCopy,
-    OrganizationChange, Preset, PresetId, PresetSwitch, Skill, SkillId, Targets, WorkspaceId,
+    OrganizationChange, Preset, PresetId, PresetSwitch, Repository, Skill, SkillId, Targets,
+    WorkspaceId,
 };
 use std::collections::BTreeSet;
 
@@ -47,6 +49,16 @@ pub(super) enum Plan {
     },
     /// Trying every unapplied copy again.
     RetryCopies,
+    /// Importing the found skills named `<slug>[@<version>]`, or every one the dialog ticks.
+    Import { skills: Vec<String>, all: bool },
+    /// Installing skills by reference, resolved once the catalog is fresh.
+    Install(Vec<String>),
+    /// Adding the repository at `url`.
+    AddRepository { url: String },
+    /// Forgetting a repository; its installed skills stay.
+    RemoveRepository(Repository),
+    /// Installing each skill of a repository the library lacks.
+    InstallAll(Repository),
 }
 
 /// A change the window saves at once.
@@ -240,6 +252,16 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
         }
         Change::TurnOnAgent { agent } => places::turn_on(snapshot, agent)?,
         Change::TurnOffAgent { agent } => places::turn_off(snapshot, agent)?,
+        Change::Import { skills, all } => Plan::Import {
+            skills: skills.clone(),
+            all: *all,
+        },
+        Change::Install { skills } => explore::plan_install(snapshot, skills)?,
+        Change::AddRepository { url } => repositories::plan_add(snapshot, url)?,
+        Change::RemoveRepository { repository } => {
+            Plan::RemoveRepository(repositories::repository(snapshot, repository)?.clone())
+        }
+        Change::InstallAll { repository } => repositories::plan_install_all(snapshot, repository)?,
     })
 }
 

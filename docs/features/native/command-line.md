@@ -1,6 +1,6 @@
 # Command line
 
-The `skillbinder` command runs from a terminal and talks to the running app; it never opens the library itself ([spec](../../specs/command-line.md); ADR 0022, 0023). The architecture is in [Native command line](../../architecture/native-command-line.md). Slice S0 (#199) ships the path every later command uses: `skillbinder status`, `--version`, `--help`, background start, and the second launch over the same socket. Slice S1 (#200) puts the command on the PATH from Settings › General. Slice S2 (#201) adds the library, presets, library folders, and copies, and slice S3 (#202) workspaces and your agents. What each slice was checked with is in [Command line evidence](command-line-evidence.md).
+The `skillbinder` command runs from a terminal and talks to the running app; it never opens the library itself ([spec](../../specs/command-line.md); ADR 0022, 0023). The architecture is in [Native command line](../../architecture/native-command-line.md). Slice S0 (#199) ships the path every later command uses: `skillbinder status`, `--version`, `--help`, background start, and the second launch over the same socket. Slice S1 (#200) puts the command on the PATH from Settings › General. Slice S2 (#201) adds the library, presets, library folders, and copies, slice S3 (#202) workspaces and your agents, and slice S4 (#203) scan and import, Explore's search and install, and your repositories. What each slice was checked with is in [Command line evidence](command-line-evidence.md).
 
 ## Where it is
 
@@ -71,7 +71,7 @@ A skill is named by its slug, a preset or folder by its name, a workspace as bel
 
 **Ctrl-C (rule 3).** During a change it prints "Still running in SkillBinder." and exits 130; the app finishes the change as if its window had closed, leaves the copies it would have asked about waiting (with `--replace` it still replaces them), and stays running until the change ends even with no icon.
 
-**Exit codes.** 0 done; 1 failed (`failed`, `conflict` for a stale confirmation, `offline`); 2 usage, unknown or ambiguous name (`usage` for a name the engine refuses, such as a duplicate); 3 waiting for your answer (`needs_answer`); 4 busy; 5 unavailable or not set up; 130 interrupted. `--json` prints `{"ok": true, "result": …}`, `{"ok": false, "error": {"code", "message", "hint"}}`, or for a change that partly landed `{"ok": false, "error": …, "result": {"message", "activated", "added", "removed", "waiting": [{"skill", "directory", "state", "reason"}]}}`, `state` being one of `applied`, `kept`, `conflict`, `edited`, `edited_inactive`, `not_applied`, and `not_removed`.
+**Exit codes.** 0 done; 1 failed (`failed`, `conflict` for a stale confirmation, `offline`); 2 usage, unknown or ambiguous name (`usage` for a name the engine refuses, such as a duplicate); 3 waiting for your answer (`needs_answer`); 4 busy; 5 unavailable or not set up; 130 interrupted. `--json` prints `{"ok": true, "result": …}`, `{"ok": false, "error": {"code", "message", "hint"}}`, or for a change that partly landed `{"ok": false, "error": …, "result": {"message", "activated", "added", "removed", "waiting": [{"skill", "directory", "state", "reason"}], "installed"}}`, `state` being one of `applied`, `kept`, `conflict`, `edited`, `edited_inactive`, `not_applied`, and `not_removed`.
 
 ## Workspaces and your agents
 
@@ -88,6 +88,10 @@ A skill is named by its slug, a preset or folder by its name, a workspace as bel
 | `agent off <agent>` | Its switch off, saved at once: "Cursor is off. Its skills stay in place." Its copies stay, unmanaged |
 
 A workspace is named by its name or by a folder inside it: `.` is the workspace holding the current folder. The command resolves a name that is an existing folder, links resolved, and the app takes the innermost workspace holding it; when none does, it takes the workspace by that name, and when none has it either exits 2 with "No workspace holds ~/code/notes." and "Add it with `skillbinder workspace add .`." A folder held by one workspace that is also another workspace's name, such as `web` typed in `~/code/platform`, which holds a `web` folder, names both and exits 2; `./web` names the folder. In `workspace enable`, an agent is named by its registry identity or name, which picks the agent's own workspace skill directory, or by the directory itself (`.claude/skills`, or the path in the workspace), among those the Add skill picker offers there: the workspace's own and your agents'. `agent on` and `agent off` name any agent found, yours or not, as Settings › Agents does; turning on an agent that is on, or off one that is off, changes nothing.
+
+## Scan, import, Explore, and your repositories
+
+`scan`, `import`, `search`, `install`, `repos`, and `repo add|remove|install-all` are in [Command line: scan, import, and Explore](command-line-explore.md).
 
 ## Starting the app
 

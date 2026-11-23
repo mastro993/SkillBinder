@@ -16,6 +16,11 @@ pub enum Request {
         /// What it reads.
         query: Query,
     },
+    /// A command that only reads, but asks the engine first: a fresh scan, or a search.
+    Find {
+        /// What it finds.
+        find: Find,
+    },
     /// A command that changes the library, refused while a change runs.
     Change {
         /// What it changes.
@@ -51,6 +56,22 @@ pub enum Query {
     Workspaces,
     /// `agents`: every agent found, yours or not.
     Agents,
+    /// `repos`: your repositories.
+    Repositories,
+}
+
+/// A reading command that asks the engine before it answers.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "find", rename_all = "snake_case")]
+pub enum Find {
+    /// `scan`: scans afresh and lists the found skills not in library, as the Import skills
+    /// dialog does.
+    Scan,
+    /// `search`: Explore's search over the catalog, your repositories, and skills.sh.
+    Search {
+        /// What to search for.
+        query: String,
+    },
 }
 
 /// Library's filters, one at a time.
@@ -212,6 +233,34 @@ pub enum Change {
     TurnOffAgent {
         /// The agent.
         agent: String,
+    },
+    /// `import`: imports found skills, as the Import skills dialog does.
+    Import {
+        /// The skills, as `<slug>` or `<slug>@<version>`, the version a short digest `scan`
+        /// prints.
+        skills: Vec<String>,
+        /// Every skill the dialog ticks, instead of `skills`.
+        all: bool,
+    },
+    /// `install`: installs skills into the library, inactive, as Explore's Install does.
+    Install {
+        /// Each as a slug, `<owner>/<repo>/<slug>`, or skills.sh's `<owner>/<repo>@<skill>`.
+        skills: Vec<String>,
+    },
+    /// `repo add`.
+    AddRepository {
+        /// The repository's Git URL.
+        url: String,
+    },
+    /// `repo remove`: its installed skills stay in the library.
+    RemoveRepository {
+        /// The repository, by URL or `<owner>/<repo>`.
+        repository: String,
+    },
+    /// `repo install-all`: installs each of its skills the library lacks.
+    InstallAll {
+        /// The repository, by URL or `<owner>/<repo>`.
+        repository: String,
     },
 }
 

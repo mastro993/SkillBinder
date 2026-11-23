@@ -6,11 +6,12 @@ mod repositories;
 mod search;
 mod skills_sh;
 
-pub(in crate::native_view) use repositories::{
-    failures, installable, repository_glyph, summary, toast,
-};
-pub(in crate::native_view) use search::{Chip, Local, Source};
-pub(super) use skills_sh::{Found, Remote, remote, result_collides, result_in_library};
+pub(crate) use repositories::{failures, installable, toast};
+pub(in crate::native_view) use repositories::{repository_glyph, summary};
+pub(crate) use search::Local;
+pub(in crate::native_view) use search::{Chip, Source};
+pub(super) use skills_sh::{Found, Remote, remote};
+pub(crate) use skills_sh::{result_collides, result_in_library};
 
 use std::cmp::Reverse;
 
@@ -35,7 +36,7 @@ pub(super) struct Ranked<'a> {
 
 /// The creator who publishes `skill`; `None` for one of your repositories' skills or a skills.sh
 /// result.
-pub(super) fn creator_of<'a>(catalog: &'a Catalog, skill: &CatalogSkill) -> Option<&'a Creator> {
+pub(crate) fn creator_of<'a>(catalog: &'a Catalog, skill: &CatalogSkill) -> Option<&'a Creator> {
     let CatalogOrigin::Curated { creator } = &skill.origin else {
         return None;
     };
@@ -79,7 +80,7 @@ pub(super) fn element_key(skill: &CatalogSkill) -> String {
 }
 
 /// Whether the library holds `skill`'s slug from the same source.
-pub(super) fn in_library(snapshot: &AppSnapshot, skill: &CatalogSkill) -> bool {
+pub(crate) fn in_library(snapshot: &AppSnapshot, skill: &CatalogSkill) -> bool {
     held(snapshot, skill).is_some()
 }
 
@@ -116,7 +117,7 @@ fn held_from<'a>(
 
 /// Whether the library holds `skill`'s slug from another source or from none, so installing it
 /// is refused.
-pub(super) fn collides(snapshot: &AppSnapshot, skill: &CatalogSkill) -> bool {
+pub(crate) fn collides(snapshot: &AppSnapshot, skill: &CatalogSkill) -> bool {
     snapshot
         .library
         .as_ref()
@@ -199,7 +200,7 @@ pub(super) fn without_front_matter(skill_md: &str) -> &str {
 }
 
 /// The error line of an install of `slug` from the repository `url` that failed with `failure`.
-pub(super) fn install_error(slug: &str, url: &str, failure: &InstallFailure) -> String {
+pub(crate) fn install_error(slug: &str, url: &str, failure: &InstallFailure) -> String {
     let repository = owner_repo(url);
     match failure {
         InstallFailure::Access => format!("Couldn't install. Check your access to {repository}."),
@@ -217,7 +218,7 @@ pub(super) fn install_error(slug: &str, url: &str, failure: &InstallFailure) -> 
 /// `skill`'s installs as a card shows them: this week's gain as `+900 this week`,
 /// `+12.4k this week`, or `+1.2M this week`; a skills.sh result's all-time installs as
 /// `233.1k installs`; none for one of your repositories' skills.
-pub(super) fn installs_label(skill: &CatalogSkill) -> Option<String> {
+pub(crate) fn installs_label(skill: &CatalogSkill) -> Option<String> {
     match skill.origin {
         CatalogOrigin::Curated { .. } => Some(format!("+{} this week", count(skill.installs_week))),
         CatalogOrigin::SkillsSh { installs } => Some(all_time_label(installs)),
@@ -227,7 +228,7 @@ pub(super) fn installs_label(skill: &CatalogSkill) -> Option<String> {
 }
 
 /// skills.sh's all-time installs, as `233.1k installs`.
-pub(super) fn all_time_label(installs: u64) -> String {
+pub(crate) fn all_time_label(installs: u64) -> String {
     format!("{} installs", count(installs))
 }
 

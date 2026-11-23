@@ -3,7 +3,7 @@
 
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
 use skillbinder_proto::command_line::{
-    Change, CommandError, Consent, ErrorCode, Permission, Query, Request, SkillFilter,
+    Change, CommandError, Consent, ErrorCode, Find, Permission, Query, Request, SkillFilter,
 };
 use std::path::PathBuf;
 
@@ -77,6 +77,12 @@ pub(crate) fn grammar() -> Command {
                 .about("List the agents found on this computer, marking yours"),
         )
         .subcommand(places::agent())
+        .subcommand(explore::scan())
+        .subcommand(explore::import())
+        .subcommand(explore::search())
+        .subcommand(explore::install())
+        .subcommand(Command::new("repos").about("List your repositories and how many of their skills aren't in the library"))
+        .subcommand(explore::repo())
 }
 
 fn preset() -> Command {
@@ -269,6 +275,14 @@ pub(crate) fn request(matches: &ArgMatches, interactive: bool) -> Result<Request
         "folders" => read(Query::Folders),
         "workspaces" => read(Query::Workspaces),
         "agents" => read(Query::Agents),
+        "repos" => read(Query::Repositories),
+        "scan" => Ok(Request::Find { find: Find::Scan }),
+        "search" => Ok(Request::Find {
+            find: explore::search_find(args),
+        }),
+        "import" => change(explore::import_change(args)),
+        "install" => change(explore::install_change(args)),
+        "repo" => explore::repo_change(args).and_then(change),
         "workspace" => places::workspace_change(args).and_then(change),
         "agent" => places::agent_change(args).and_then(change),
         "enable" => change(Change::Enable {
@@ -382,6 +396,7 @@ fn unknown(command: &str) -> CommandError {
     CommandError::new(ErrorCode::Usage, format!("Unknown command {command}"))
 }
 
+mod explore;
 mod places;
 #[cfg(test)]
 mod tests;

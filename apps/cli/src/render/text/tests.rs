@@ -1,9 +1,10 @@
 use super::{failure, output};
-use skillbinder_proto::SyncState;
 use skillbinder_proto::command_line::{
-    AgentRow, Changed, CommandError, CopyRow, CopyStatus, ErrorCode, Failure, Output, PresetRow,
-    SkillRow, StatusOutput, WorkspaceRow,
+    AgentRow, Changed, CommandError, CopyRow, CopyStatus, ErrorCode, Failure, FoundRow,
+    FoundVersion, Output, PresetRow, RepositoryRow, SearchOutput, SearchRow, SkillRow,
+    SkillsShAnswer, StatusOutput, WorkspaceRow,
 };
+use skillbinder_proto::{SyncState, ValidationStatus};
 
 fn status() -> StatusOutput {
     StatusOutput {
@@ -134,5 +135,110 @@ fn workspaces_and_agents_print_one_block_or_line_each() {
             agent("Cursor", &["cursor"], "~/.cursor/skills", false),
         ])),
         "* Universal (amp, codex): ~/.agents/skills\n  Cursor (cursor): ~/.cursor/skills\n"
+    );
+}
+
+#[test]
+fn found_skills_print_under_their_group_with_each_version() {
+    let version = |version: &str, planned, locations: &[&str], replaces: &[&str]| FoundVersion {
+        version: version.into(),
+        planned,
+        modified: None,
+        validation: ValidationStatus::Valid,
+        locations: locations.iter().map(|l| (*l).to_owned()).collect(),
+        replaces: replaces.iter().map(|r| (*r).to_owned()).collect(),
+    };
+    let rows = vec![
+        FoundRow {
+            slug: "pdf".into(),
+            description: "Fill PDFs.".into(),
+            place: "Your agents".into(),
+            ticked: true,
+            versions: vec![
+                version(
+                    "aaaa111",
+                    true,
+                    &["~/.claude/skills · Claude Code"],
+                    &["Cursor"],
+                ),
+                version("bbbb222", false, &["~/.cursor/skills · Cursor"], &[]),
+            ],
+        },
+        FoundRow {
+            slug: "sql".into(),
+            description: String::new(),
+            place: "invoices-app".into(),
+            ticked: false,
+            versions: vec![FoundVersion {
+                validation: ValidationStatus::Invalid,
+                ..version(
+                    "cccc333",
+                    true,
+                    &["~/code/invoices-app/.claude/skills"],
+                    &[],
+                )
+            }],
+        },
+    ];
+    assert_eq!(
+        output(&Output::Found(rows)),
+        "Your agents:\n  pdf: Fill PDFs.\n    aaaa111* ~/.claude/skills · Claude Code\n      Replaces the copy in Cursor.\n    bbbb222  ~/.cursor/skills · Cursor\ninvoices-app:\n  sql\n    cccc333  ~/code/invoices-app/.claude/skills [invalid]\n* is the version an import takes; name another as <slug>@<version>.\nImport with `skillbinder import <slug>`, or `skillbinder import --all` for 1 of them.\n"
+    );
+    assert_eq!(
+        output(&Output::Found(Vec::new())),
+        "Found no skills that aren't in your library.\n"
+    );
+}
+
+#[test]
+fn search_results_print_what_install_takes() {
+    let search = SearchOutput {
+        results: vec![
+            SearchRow {
+                reference: "anthropics/skills/pdf".into(),
+                name: "pdf".into(),
+                description: "Fill PDFs.".into(),
+                source: "Anthropic".into(),
+                installs: Some("+900 this week".into()),
+                in_library: true,
+                collides: false,
+            },
+            SearchRow {
+                reference: "someone/skills@pdf-ocr".into(),
+                name: "PDF OCR".into(),
+                description: String::new(),
+                source: "skills.sh".into(),
+                installs: Some("1.2k installs".into()),
+                in_library: false,
+                collides: false,
+            },
+        ],
+        skills_sh: SkillsShAnswer::Answered,
+    };
+    assert_eq!(
+        output(&Output::Search(search)),
+        "anthropics/skills/pdf (Anthropic, +900 this week) [in library]\n  Fill PDFs.\nsomeone/skills@pdf-ocr (skills.sh, 1.2k installs)\n"
+    );
+    let offline = SearchOutput {
+        results: Vec::new(),
+        skills_sh: SkillsShAnswer::Offline,
+    };
+    assert_eq!(
+        output(&Output::Search(offline)),
+        "No skills found.\nskills.sh couldn't be reached.\n"
+    );
+}
+
+#[test]
+fn repositories_print_how_many_skills_install_all_installs() {
+    let rows = vec![RepositoryRow {
+        name: "acme/tools".into(),
+        url: "https://github.com/acme/tools".into(),
+        skills: 3,
+        installable: 2,
+    }];
+    assert_eq!(
+        output(&Output::Repositories(rows)),
+        "acme/tools (3 skills, 2 not in library): https://github.com/acme/tools\n"
     );
 }

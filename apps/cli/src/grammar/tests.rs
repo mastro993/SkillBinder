@@ -1,6 +1,6 @@
 use super::{grammar, request};
 use skillbinder_proto::command_line::{
-    Change, Consent, Permission, Query, Request, SkillFilter, WorkspaceName,
+    Change, Consent, Find, Permission, Query, Request, SkillFilter, WorkspaceName,
 };
 
 fn parse(line: &[&str], interactive: bool) -> Request {
@@ -173,4 +173,77 @@ fn a_workspace_is_named_with_the_folder_it_names() -> anyhow::Result<()> {
         }
     );
     Ok(())
+}
+
+#[test]
+fn scan_import_explore_and_repositories_carry_their_arguments() {
+    let change = |line: &[&str], interactive| match parse(line, interactive) {
+        Request::Change { change, consent } => (change, consent),
+        other => panic!("{other:?} changes"),
+    };
+    assert_eq!(parse(&["scan"], false), Request::Find { find: Find::Scan });
+    assert_eq!(
+        parse(&["search", "pdf", "forms"], false),
+        Request::Find {
+            find: Find::Search {
+                query: "pdf forms".into()
+            }
+        }
+    );
+    assert_eq!(
+        parse(&["repos"], false),
+        Request::Read {
+            query: Query::Repositories
+        }
+    );
+    assert_eq!(
+        change(&["import", "pdf", "sql@3f9a2c1", "--replace"], true),
+        (
+            Change::Import {
+                skills: vec!["pdf".into(), "sql@3f9a2c1".into()],
+                all: false,
+            },
+            consent(Permission::Yes, Permission::Ask)
+        )
+    );
+    assert_eq!(
+        change(&["import", "--all"], false).0,
+        Change::Import {
+            skills: Vec::new(),
+            all: true,
+        }
+    );
+    assert!(
+        grammar()
+            .try_get_matches_from(["skillbinder", "import"])
+            .is_err(),
+        "import names skills or --all"
+    );
+    assert_eq!(
+        change(
+            &["install", "anthropics/skills/pdf", "acme/tools@lint"],
+            false
+        )
+        .0,
+        Change::Install {
+            skills: vec!["anthropics/skills/pdf".into(), "acme/tools@lint".into()],
+        }
+    );
+    let url = "https://github.com/acme/tools";
+    assert_eq!(
+        change(&["repo", "add", url], false).0,
+        Change::AddRepository { url: url.into() }
+    );
+    assert_eq!(
+        change(&["repo", "install-all", "acme/tools"], false).0,
+        Change::InstallAll {
+            repository: "acme/tools".into()
+        }
+    );
+    assert_eq!(
+        change(&["repo", "remove", url], false).0,
+        Change::RemoveRepository {
+            repository: url.into()
+        }
+    );
 }

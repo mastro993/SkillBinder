@@ -1,5 +1,7 @@
 //! Each result as readable text, one fact per line.
 
+mod explore;
+
 use skillbinder_proto::SyncState;
 use skillbinder_proto::command_line::{
     AgentRow, Changed, CopyRow, CopyStatus, Failure, FolderRow, Output, PresetRow, SkillOutput,
@@ -26,6 +28,9 @@ pub(super) fn output(output: &Output) -> String {
             "No agents found on this computer.\n".to_owned()
         }
         Output::Agents(agents) => agents.iter().map(agent_line).collect(),
+        Output::Found(rows) => explore::found(rows),
+        Output::Search(search) => explore::search(search),
+        Output::Repositories(rows) => explore::repositories(rows),
         Output::Changed(Changed { message, .. }) => format!("{message}\n"),
     }
 }
