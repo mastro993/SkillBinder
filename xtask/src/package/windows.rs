@@ -1,7 +1,8 @@
 //! The per-user Windows setup program (ADR 0019), which Inno Setup 6 compiles from
 //! `packaging/windows/skillbinder.iss` into `<name>-setup.exe`. Nothing is signed, so SmartScreen
-//! warns once at install.
-use super::{licenses, run};
+//! warns once at install. The command installs as `{app}\bin\skillbinder.exe`, a console
+//! program beside the app's folder.
+use super::{Binaries, licenses, run};
 use crate::version::Version;
 use anyhow::bail;
 use std::{
@@ -14,7 +15,7 @@ const COMPILER: &str = "ISCC.exe";
 
 pub(super) fn package(
     root: &Path,
-    binary: &Path,
+    binaries: Binaries<'_>,
     output: &Path,
     name: &str,
     version: &Version,
@@ -24,8 +25,9 @@ pub(super) fn package(
     if program.exists() {
         fs::remove_dir_all(&program)?;
     }
-    fs::create_dir_all(&program)?;
-    fs::copy(binary, program.join("skillbinder.exe"))?;
+    fs::create_dir_all(program.join("bin"))?;
+    fs::copy(binaries.app, program.join("skillbinder.exe"))?;
+    fs::copy(binaries.cli, program.join("bin/skillbinder.exe"))?;
     // The executable carries no icon resource, so setup and its shortcuts use this file.
     fs::copy(
         root.join("assets/icon.ico"),

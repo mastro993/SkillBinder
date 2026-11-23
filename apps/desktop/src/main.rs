@@ -1,12 +1,13 @@
 //! Native desktop lifecycle with one embedded engine and an executable-owned runtime.
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
+mod command_server;
 mod instance;
 #[cfg(feature = "native-test")]
 mod native_test;
 mod window;
 
-use gpui_kit::{App, KeyBinding, Menu, MenuItem, QuitMode, actions};
+use gpui_kit::{ActivationPolicy, App, KeyBinding, Menu, MenuItem, QuitMode, actions};
 use skillbinder_client::Client;
 #[cfg(not(feature = "native-test"))]
 use skillbinder_engine::EngineConfig;
@@ -22,6 +23,9 @@ actions!(
     ]
 );
 
+/// How long an app started in the background waits for its first command.
+const BACKGROUND_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+
 fn main() -> std::process::ExitCode {
     if let Err(error) = run() {
         eprintln!("Could not start SkillBinder: {error}");
@@ -30,17 +34,29 @@ fn main() -> std::process::ExitCode {
     std::process::ExitCode::SUCCESS
 }
 fn run() -> anyhow::Result<()> {
-    if std::env::args_os().skip(1).collect::<Vec<_>>() == ["--version"] {
+    let mut arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    if arguments == ["--version"] {
         println!("SkillBinder {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
+    // The `skillbinder` command starts the app this way: no window and, on macOS, no Dock icon.
+    let background = match arguments
+        .iter()
+        .position(|argument| argument == "--background")
+    {
+        Some(index) => {
+            arguments.remove(index);
+            true
+        }
+        None => false,
+    };
     #[cfg(target_os = "linux")]
     anyhow::ensure!(
         gpui_kit::guess_compositor() != "Headless",
         "SkillBinder requires a Wayland or X11 desktop session."
     );
     #[cfg(feature = "native-test")]
-    let (config, mode) = native_test::parse_launch(std::env::args_os().skip(1))?;
+    let (config, mode) = native_test::parse_launch(arguments)?;
     #[cfg(feature = "native-test")]
     let smoke = (mode == native_test::NativeMode::Smoke).then(native_test::Smoke::default);
     #[cfg(feature = "native-test")]
@@ -49,10 +65,17 @@ fn run() -> anyhow::Result<()> {
         eprintln!("Native smoke: opening isolated engine");
     }
     #[cfg(not(feature = "native-test"))]
-    let config = configuration()?;
-    let Some((instance, mut activation)) = instance::Instance::acquire(&config.data_dir)? else {
+    let config = configuration(&arguments)?;
+    let data_dir = config.data_dir.clone();
+    let Some(instance) = instance::Instance::acquire(&data_dir)? else {
+        // Another SkillBinder runs; a command waits for it, and a person wants its window.
+        if !background {
+            command_server::open_running(&data_dir);
+        }
         return Ok(());
     };
+    #[cfg(target_os = "linux")]
+    command_server::record_app_path(&data_dir);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_name("skillbinder-runtime")
@@ -71,10 +94,11 @@ fn run() -> anyhow::Result<()> {
     let smoke_result = smoke.clone();
     // An agent driving the bridge launches with GPUI_MCP_BACKGROUND so the window leaves the user's focus alone.
     #[cfg(feature = "native-test")]
-    let background = mode == native_test::NativeMode::Mcp && gpui_mcp::launched_in_background();
+    let focus = !(mode == native_test::NativeMode::Mcp && gpui_mcp::launched_in_background());
     #[cfg(not(feature = "native-test"))]
-    let background = false;
+    let focus = true;
     let shutdown_runtime = runtime.handle().clone();
+    let command_runtime = runtime.handle().clone();
     // Closing the window leaves the app running behind its icon; `window_closed` quits otherwise.
     let application = gpui_kit::application()
         .with_assets(skillbinder_ui::Assets)
@@ -99,6 +123,16 @@ fn run() -> anyhow::Result<()> {
             },
             cx,
         );
+        let commands = skillbinder_ui::start_commands(
+            &client,
+            |cx| {
+                open_main_window(true, cx);
+            },
+            cx,
+        );
+        if let Err(error) = command_server::serve(&data_dir, commands, &command_runtime) {
+            eprintln!("The skillbinder command can't reach this app: {error:#}");
+        }
         let mut instance = Some(instance);
         cx.on_app_quit(move |cx| {
             // AppKit terminates the process during quit; code after run may never execute.
@@ -108,7 +142,9 @@ fn run() -> anyhow::Result<()> {
                 eprintln!("Could not finish shutdown: {error}");
                 std::process::exit(1);
             }
-            if !cx.global::<MainWindow>().opened {
+            // A launch whose window failed to open quits as failed; one started for a command
+            // quits as any quit does.
+            if !cx.global::<MainWindow>().opened && !background {
                 std::process::exit(1);
             }
             // A ready app update installs now. After Move to Applications or Restart, the
@@ -173,18 +209,19 @@ fn run() -> anyhow::Result<()> {
             },
         ]);
         cx.on_window_closed(window_closed).detach();
-        // Launching SkillBinder again opens the window, or brings the open one forward.
-        cx.spawn(async move |cx| {
-            while activation.changed().await.is_ok() {
-                cx.update(|cx| open_main_window(true, cx));
-            }
-        })
-        .detach();
         #[cfg(feature = "native-test")]
         if smoke.is_some() {
             eprintln!("Native smoke: opening window");
         }
-        if !open_main_window(!background, cx) {
+        if background {
+            cx.set_activation_policy(ActivationPolicy::Accessory);
+            // Should the command that started the app never connect, nothing would need it.
+            cx.spawn(async move |cx| {
+                cx.background_executor().timer(BACKGROUND_GRACE).await;
+                cx.update(skillbinder_ui::quit_if_unseen);
+            })
+            .detach();
+        } else if !open_main_window(focus, cx) {
             cx.quit();
         }
         #[cfg(feature = "native-test")]
@@ -209,9 +246,9 @@ fn quit_cause() -> QuitCause {
 }
 
 #[cfg(not(feature = "native-test"))]
-fn configuration() -> anyhow::Result<EngineConfig> {
+fn configuration(arguments: &[std::ffi::OsString]) -> anyhow::Result<EngineConfig> {
     anyhow::ensure!(
-        std::env::args_os().nth(1).is_none(),
+        arguments.is_empty(),
         "Native test arguments require a native-test build"
     );
     Ok(EngineConfig::platform()?)

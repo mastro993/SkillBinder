@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/desktop", "crates/proto", "crates/engine", "crates/client", "crates/ui", "crates/design", "xtask"]
+members = ["apps/desktop", "apps/cli", "crates/proto", "crates/engine", "crates/client", "crates/ui", "crates/design", "xtask"]
 default-members = ["apps/desktop"]
 resolver = "3"
 
@@ -50,6 +50,9 @@ tray-icon = { version = "0.26", default-features = false }
 # Decodes the tray artwork and carries its clicks to the app.
 png = "0.18"
 async-channel = "2.5"
+# The command line tool and the app talk over a local socket or named pipe (ADR 0022).
+interprocess = "2.4"
+clap = "4.6"
 ksni = { version = "0.3", default-features = false, features = ["blocking", "async-io"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }

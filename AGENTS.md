@@ -7,6 +7,7 @@ SkillBinder is a native Rust desktop application using GPUI.
 Crate ownership is recorded in `docs/architecture/native.md`. The dependency graph is enforced by `cargo run -p xtask -- verify` and I/O ownership by Clippy:
 
 - `apps/desktop` — executable configuration and native lifecycle
+- `apps/cli` — the `skillbinder` command, which talks to the running app over its local socket
 - `crates/ui` — rendering, interactions, dialogs, and native integration
 - `crates/design` — the design system: tokens and generic components
 - `crates/proto` — shared typed contracts (no I/O, SQLite, Git, or GPUI)
@@ -20,7 +21,7 @@ Do not add workspace members or new crate dependencies without updating the grap
 
 Use small, specialized modules. A module with submodules is `foo.rs` plus a `foo/` folder, never `foo/mod.rs`; clippy's `mod_module_files` rejects `mod.rs`. Model state with typed data and enums. Use `Result`, `Option`, and `?`. Encode invariants in constructors and destructuring matches so new fields fail to compile until handled.
 
-Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The workspace `clippy.toml` denies filesystem, process, network, environment, and terminal APIs; only `crates/engine`, `apps/desktop`, and `xtask` replace it with their own. It is generated from `xtask/src/clippy_policy.rs` (`cargo run -p xtask -- clippy-policy`). Workspace lints forbid allowing those APIs back, and xtask verify rejects any other `clippy.toml`; move the work into the engine instead.
+Keep blocking filesystem, SQLite, hashing, and Git work in `crates/engine`. The workspace `clippy.toml` denies filesystem, process, network, environment, and terminal APIs; only `crates/engine`, `apps/desktop`, `apps/cli`, and `xtask` replace it with their own. It is generated from `xtask/src/clippy_policy.rs` (`cargo run -p xtask -- clippy-policy`). Workspace lints forbid allowing those APIs back, and xtask verify rejects any other `clippy.toml`; move the work into the engine instead.
 
 Use GPUI Kit public editing, focus, and overlay APIs. Do not patch or fork dependency sources; the one fork is the project's `gpui-mcp`, which supplies the patched GPUI backend and the MCP bridge (`docs/architecture/native.md`). Visible icons must use the retained Hugeicons artwork, except agent logos under `assets/agent-logos/` recorded in its `inventory.json` and the menu bar or tray icon under `assets/tray/`, drawn from the app's rune; agents without a logo use the Hugeicons square terminal glyph. Unknown component icon paths must fail explicitly rather than silently displaying different artwork.
 

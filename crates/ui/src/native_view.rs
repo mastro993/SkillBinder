@@ -75,6 +75,7 @@ pub(crate) use progress_strip::{Activity, Landing, waiting_copies};
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 #[cfg(test)]
 pub(crate) use snapshot_query::fixture;
+pub(crate) use snapshot_query::library_counts;
 
 use std::{
     collections::{BTreeMap, BTreeSet},

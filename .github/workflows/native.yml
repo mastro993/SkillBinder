@@ -80,7 +80,7 @@ jobs:
           chmod 700 "$XDG_RUNTIME_DIR"
           dbus-run-session -- xvfb-run -a bash .github/scripts/native-linux-sessions.sh
       - name: Build release application
-        run: cargo build -p skillbinder --release --locked ${{ matrix.cargo-target }}
+        run: cargo build -p skillbinder -p skillbinder-cli --release --locked ${{ matrix.cargo-target }}
       - name: Check macOS minimum system version
         if: runner.os == 'macOS'
         run: vtool -show-build target/${{ matrix.target-dir }}release/skillbinder | grep -q 'minos 26.0'

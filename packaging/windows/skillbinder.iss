@@ -37,6 +37,8 @@ SolidCompression=yes
 
 [Files]
 Source: "{#SourceDir}\skillbinder.exe"; DestDir: "{app}"; Flags: ignoreversion
+; The `skillbinder` command, a console program (ADR 0022).
+Source: "{#SourceDir}\bin\skillbinder.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "{#SourceDir}\skillbinder.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion

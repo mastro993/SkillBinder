@@ -1,0 +1,3 @@
+# apps/cli is the `skillbinder` console program: it prints, reads its arguments and environment,
+# talks to the app over the command socket, and starts the app, so it replaces the workspace
+# clippy.toml that forbids I/O in application crates.

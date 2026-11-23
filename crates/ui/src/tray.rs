@@ -17,6 +17,7 @@ use menu::{TrayAction, TrayItem, TrayMenu};
 #[cfg(not(target_os = "linux"))]
 use native as backend;
 
+use crate::commands::quit_if_unseen;
 use crate::gate::Gate;
 use gpui_kit::{App, Global, WindowAppearance};
 use skillbinder_client::Client;
@@ -85,10 +86,15 @@ pub fn start_tray(client: &Client, open_window: impl Fn(&mut App) + 'static, cx:
     .detach();
 }
 
-/// Whether the icon shows, so closing the window keeps the app running behind it (ADR 0020).
-pub fn tray_shown(cx: &App) -> bool {
+/// Whether the icon shows or may still show: it is registering, or the preference to show it
+/// has not been followed yet.
+pub(crate) fn tray_may_show(cx: &App) -> bool {
     cx.try_global::<Tray>()
-        .is_some_and(|tray| matches!(tray.state, State::Shown(..)))
+        .is_some_and(|tray| match tray.state {
+            State::Shown(..) | State::Starting => true,
+            State::Hidden => tray.client.snapshot().preferences.show_in_tray,
+            State::Unavailable => false,
+        })
 }
 
 /// Adds or removes the icon to match the preference, and redraws its glyph when the system
@@ -119,9 +125,7 @@ fn follow(wanted: bool, cx: &mut App) {
         // so it quits as closing the window would have (ADR 0020).
         (State::Shown(..), false) => {
             tray.state = State::Hidden;
-            if cx.windows().is_empty() {
-                cx.quit();
-            }
+            quit_if_unseen(cx);
         }
         (_, false) => tray.state = State::Hidden,
         _ => {}
@@ -129,7 +133,7 @@ fn follow(wanted: bool, cx: &mut App) {
 }
 
 /// Keeps the icon the backend registered with `menu`, unless the preference was turned off
-/// meanwhile.
+/// meanwhile. An app with no window that cannot show the icon quits once no command needs it.
 fn started(
     icon: Option<backend::Icon>,
     appearance: WindowAppearance,
@@ -142,6 +146,7 @@ fn started(
             Some(icon) => State::Shown(icon, appearance, menu),
             None => State::Unavailable,
         };
+        quit_if_unseen(cx);
     }
 }
 

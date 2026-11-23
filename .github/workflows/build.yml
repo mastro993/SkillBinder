@@ -161,18 +161,20 @@ jobs:
           echo "SKILLBINDER_TEAM_ID=$team" >> "$GITHUB_ENV"
       - name: Build release application
         if: runner.os != 'macOS'
-        run: cargo build -p skillbinder --release --locked --target ${{ matrix.target }}
+        run: cargo build -p skillbinder -p skillbinder-cli --release --locked --target ${{ matrix.target }}
       - name: Build universal macOS application
         if: runner.os == 'macOS'
         run: |
           for target in aarch64-apple-darwin x86_64-apple-darwin; do
-            cargo build -p skillbinder --release --locked --target "$target"
+            cargo build -p skillbinder -p skillbinder-cli --release --locked --target "$target"
           done
           mkdir -p target/universal-apple-darwin/release
-          lipo -create -output target/universal-apple-darwin/release/skillbinder \
-            target/aarch64-apple-darwin/release/skillbinder \
-            target/x86_64-apple-darwin/release/skillbinder
-          vtool -show-build target/universal-apple-darwin/release/skillbinder | grep -q 'minos 26.0'
+          for binary in skillbinder skillbinder-cli; do
+            lipo -create -output "target/universal-apple-darwin/release/$binary" \
+              "target/aarch64-apple-darwin/release/$binary" \
+              "target/x86_64-apple-darwin/release/$binary"
+            vtool -show-build "target/universal-apple-darwin/release/$binary" | grep -q 'minos 26.0'
+          done
       - name: Package
         run: cargo run -p xtask --locked -- package ${{ matrix.target }}
       - name: Notarize the disk image

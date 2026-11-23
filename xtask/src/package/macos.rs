@@ -1,8 +1,9 @@
 //! The macOS app bundle and its DMG, which `dmgbuild` lays out as SkillBinder, an arrow, and an
 //! Applications shortcut over the brand's background, with the app icon on the volume (ADR 0019).
-//! With `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID Application certificate in the
-//! keychain, both are signed for notarization; otherwise neither is.
-use super::{licenses, run};
+//! The bundle holds the `skillbinder` command at `Contents/MacOS/skillbinder-cli`. With
+//! `SKILLBINDER_SIGNING_IDENTITY` naming a Developer ID Application certificate in the keychain,
+//! the command, the bundle, and the image are signed for notarization; otherwise none is.
+use super::{Binaries, licenses, run};
 use crate::version::Version;
 use anyhow::Context as _;
 use std::{fs, path::Path, process::Command};
@@ -11,7 +12,7 @@ const SIGNING_IDENTITY: &str = "SKILLBINDER_SIGNING_IDENTITY";
 
 pub(super) fn package(
     root: &Path,
-    binary: &Path,
+    binaries: Binaries<'_>,
     output: &Path,
     name: &str,
     version: &Version,
@@ -24,7 +25,9 @@ pub(super) fn package(
     let contents = app.join("Contents");
     fs::create_dir_all(contents.join("MacOS"))?;
     fs::create_dir_all(contents.join("Resources"))?;
-    fs::copy(binary, contents.join("MacOS/skillbinder"))?;
+    fs::copy(binaries.app, contents.join("MacOS/skillbinder"))?;
+    let cli = contents.join("MacOS/skillbinder-cli");
+    fs::copy(binaries.cli, &cli)?;
     fs::copy(
         root.join("assets/icon.icns"),
         contents.join("Resources/icon.icns"),
@@ -35,14 +38,19 @@ pub(super) fn package(
         .ok()
         .filter(|identity| !identity.is_empty());
     if let Some(identity) = &identity {
-        // Notarization requires the hardened runtime and a secure timestamp.
-        run(Command::new("codesign")
-            .args(["--force", "--options", "runtime", "--timestamp", "--sign"])
-            .arg(identity)
-            .arg(&app))?;
-        run(Command::new("codesign")
-            .args(["--verify", "--strict", "--verbose=2"])
-            .arg(&app))?;
+        // Notarization requires the hardened runtime and a secure timestamp. The command is
+        // signed first, since the bundle's signature seals it.
+        for code in [&cli, &app] {
+            run(Command::new("codesign")
+                .args(["--force", "--options", "runtime", "--timestamp", "--sign"])
+                .arg(identity)
+                .arg(code))?;
+        }
+        for code in [&cli, &app] {
+            run(Command::new("codesign")
+                .args(["--verify", "--strict", "--verbose=2"])
+                .arg(code))?;
+        }
     }
     let image = output.join(format!("{name}.dmg"));
     // An estimate from the bundle alone can leave too little room for the universal binary ("No

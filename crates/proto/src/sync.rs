@@ -10,6 +10,7 @@ pub struct RemoteConfig {
 }
 /// Direction of explicit Git synchronization.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SyncState {
     /// No remote selected.
     #[default]
