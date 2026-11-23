@@ -38,6 +38,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
         "skillbinder-cli",
         &[
             "clap",
+            "ctrlc",
             "directories",
             "interprocess",
             "serde",

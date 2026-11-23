@@ -12,7 +12,7 @@ use skillbinder_proto::{
 };
 
 /// Whether skill `id`'s source has a newer version. Drift and a failed check are not updates.
-pub(super) fn has_update(snapshot: &AppSnapshot, id: &SkillId) -> bool {
+pub(crate) fn has_update(snapshot: &AppSnapshot, id: &SkillId) -> bool {
     snapshot
         .updates
         .get(id)
@@ -22,7 +22,7 @@ pub(super) fn has_update(snapshot: &AppSnapshot, id: &SkillId) -> bool {
 /// One toggle: a skill directory and every agent that reads it. Agents that read the same
 /// directory are one toggle, since the directory is what holds the copy.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct Entry {
+pub(crate) struct Entry {
     /// The first row reading the directory, whose reader, name, and logo the toggle shows.
     pub row: AgentRow,
     /// What the toggle changes: agent ids for your agents, directories for a workspace.
@@ -64,14 +64,14 @@ impl Entry {
 }
 
 /// A workspace and the directories its line offers.
-pub(super) struct WorkspaceEntries<'a> {
+pub(crate) struct WorkspaceEntries<'a> {
     pub workspace: &'a Workspace,
     pub entries: Vec<Entry>,
 }
 
 /// Every place a skill can be on: your agents' directories, then each workspace's, in sidebar
 /// order. Built once per render.
-pub(super) struct Places<'a> {
+pub(crate) struct Places<'a> {
     pub agents: Vec<Entry>,
     pub workspaces: Vec<WorkspaceEntries<'a>>,
     /// Every listed agent's id: the agents a fixed list keeps when All agents is switched off.
@@ -79,7 +79,7 @@ pub(super) struct Places<'a> {
 }
 
 impl<'a> Places<'a> {
-    pub(super) fn new(snapshot: &'a AppSnapshot) -> Self {
+    pub(crate) fn new(snapshot: &'a AppSnapshot) -> Self {
         let agents = Entry::grouped(
             agent_rows(&snapshot.agents, &snapshot.home)
                 .into_iter()
@@ -118,7 +118,7 @@ impl<'a> Places<'a> {
 
     /// Where `skill` is on: each entry held or not, through the `active` preset and each
     /// workspace.
-    pub(super) fn of(&self, skill: &'a Skill, active: &PresetId) -> SkillPlaces<'_> {
+    pub(crate) fn of(&self, skill: &'a Skill, active: &PresetId) -> SkillPlaces<'_> {
         let targets = skill.presets.get(active);
         let agents = self
             .agents
@@ -162,13 +162,13 @@ impl<'a> Places<'a> {
 }
 
 /// An entry and whether the skill is held there.
-pub(super) struct Held<'a> {
+pub(crate) struct Held<'a> {
     pub entry: &'a Entry,
     pub held: bool,
 }
 
 /// One workspace's line for a skill.
-pub(super) struct WorkspacePlace<'a> {
+pub(crate) struct WorkspacePlace<'a> {
     pub workspace: &'a Workspace,
     pub entries: Vec<Held<'a>>,
     /// What the workspace holds the skill for, while it holds it.
@@ -208,7 +208,7 @@ impl WorkspacePlace<'_> {
 }
 
 /// Where one skill is on: your agents through the active preset, and each workspace.
-pub(super) struct SkillPlaces<'a> {
+pub(crate) struct SkillPlaces<'a> {
     pub skill: &'a SkillId,
     pub agents: Vec<Held<'a>>,
     /// What the active preset holds the skill for, while it holds it.
@@ -225,7 +225,7 @@ impl<'a> SkillPlaces<'a> {
     }
 
     /// Your agents' entries that hold the skill, in Agents section order.
-    pub(super) fn held_agents(&self) -> impl Iterator<Item = &'a Entry> + '_ {
+    pub(crate) fn held_agents(&self) -> impl Iterator<Item = &'a Entry> + '_ {
         self.agents
             .iter()
             .filter(|held| held.held)
@@ -233,12 +233,12 @@ impl<'a> SkillPlaces<'a> {
     }
 
     /// The workspaces that hold the skill, in sidebar order.
-    pub(super) fn holding_workspaces(&self) -> impl Iterator<Item = &WorkspacePlace<'a>> {
+    pub(crate) fn holding_workspaces(&self) -> impl Iterator<Item = &WorkspacePlace<'a>> {
         self.workspaces.iter().filter(|place| place.holds())
     }
 
     /// On right now: held for one of your agents, or by a workspace.
-    pub(super) fn is_active(&self) -> bool {
+    pub(crate) fn is_active(&self) -> bool {
         self.agents.iter().any(|held| held.held) || self.workspaces.iter().any(|w| w.holds())
     }
 
@@ -276,7 +276,7 @@ fn is_active(places: &Places<'_>, skill: &Skill, active: &PresetId) -> bool {
 
 /// Which skills the Active segment keeps.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(super) enum ActiveFilter {
+pub(crate) enum ActiveFilter {
     #[default]
     All,
     Active,
@@ -285,7 +285,7 @@ pub(super) enum ActiveFilter {
 
 /// Library's filters, which last the session: All with Updates off at launch.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(super) struct LibraryFilter {
+pub(crate) struct LibraryFilter {
     pub active: ActiveFilter,
     /// Only skills whose source has a newer version.
     pub updates: bool,
@@ -300,7 +300,7 @@ impl LibraryFilter {
 
 /// What Library lists: the folder tab, the search, and the filters.
 #[derive(Clone, Copy)]
-pub(super) struct Query<'a> {
+pub(crate) struct Query<'a> {
     pub folder: Option<&'a FolderId>,
     /// The search, lowercase and trimmed.
     pub search: &'a str,
@@ -310,7 +310,7 @@ pub(super) struct Query<'a> {
 }
 
 /// The skills Library shows, by name.
-pub(super) fn library_skills<'a>(
+pub(crate) fn library_skills<'a>(
     snapshot: &'a AppSnapshot,
     places: &Places<'_>,
     active: &PresetId,

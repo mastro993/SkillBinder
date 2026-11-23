@@ -54,6 +54,8 @@ async-channel = "2.5"
 # The command line tool and the app talk over a local socket or named pipe (ADR 0022).
 interprocess = "2.4"
 clap = "4.6"
+# Ctrl-C stops the command waiting, not the work it asked for (spec rule 3).
+ctrlc = "3.5"
 ksni = { version = "0.3", default-features = false, features = ["blocking", "async-io"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }

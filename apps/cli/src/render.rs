@@ -1,124 +1,79 @@
 //! How a result prints (spec rule 9): text on stdout and errors on stderr, or with `--json`
-//! exactly one document on stdout, `{"ok": true, "result": …}` or `{"ok": false, "error": …}`.
+//! exactly one document on stdout, `{"ok": true, "result": …}`, `{"ok": false, "error": …}`, or,
+//! when a change partly landed, `{"ok": false, "error": …, "result": …}`.
 
-use serde_json::json;
-use skillbinder_proto::SyncState;
-use skillbinder_proto::command_line::{CommandError, Output, StatusOutput};
+mod text;
+
+use serde_json::{Value, json};
+use skillbinder_proto::command_line::{Failure, Output};
 use std::process::ExitCode;
 
 /// Prints `outcome` and returns its exit code (spec rule 10).
-pub(crate) fn outcome(outcome: Result<Output, CommandError>, json: bool) -> ExitCode {
+pub(crate) fn outcome(outcome: Result<Output, Failure>, json: bool) -> ExitCode {
     let output = match outcome {
         Ok(output) => output,
-        Err(error) => return failure(&error, json),
+        Err(failure) => return self::failure(&failure, json),
     };
     if json {
-        let result = match &output {
-            Output::Status(status) => json!(status),
-        };
-        println!("{}", json!({ "ok": true, "result": result }));
+        println!("{}", json!({ "ok": true, "result": result(&output) }));
     } else {
-        match &output {
-            Output::Status(status) => print!("{}", status_text(status)),
-        }
+        print!("{}", text::output(&output));
     }
     ExitCode::SUCCESS
 }
 
-/// Prints `error` and returns its exit code.
-pub(crate) fn failure(error: &CommandError, json: bool) -> ExitCode {
+/// Prints `failure`, with what it changed, and returns its exit code.
+pub(crate) fn failure(failure: &Failure, json: bool) -> ExitCode {
+    let Failure { error, result } = failure;
     if json {
-        println!("{}", json!({ "ok": false, "error": error }));
-    } else {
-        eprintln!("{}", error.message);
-        if let Some(hint) = &error.hint {
-            eprintln!("{hint}");
+        let mut document = json!({ "ok": false, "error": error });
+        if let Some(output) = result {
+            document["result"] = self::result(output);
         }
+        println!("{document}");
+    } else {
+        if let Some(output) = result {
+            print!("{}", text::output(output));
+        }
+        eprint!("{}", text::failure(failure));
     }
     ExitCode::from(error.code.exit_code())
 }
 
-fn status_text(status: &StatusOutput) -> String {
-    let StatusOutput {
-        version,
-        onboarding_finished,
-        active_preset,
-        skills,
-        active,
-        updates,
-        attention,
-        sync,
-        running,
-    } = status;
-    let mut text = format!("SkillBinder {version}\n");
-    if !onboarding_finished {
-        text.push_str("Setup isn't finished. Open SkillBinder to finish setting up.\n");
-        return text;
+/// The document's `result`: the output itself, without the name of its kind.
+fn result(output: &Output) -> Value {
+    match output {
+        Output::Status(status) => json!(status),
+        Output::Skills(skills) => json!(skills),
+        Output::Skill(skill) => json!(skill),
+        Output::Presets(presets) => json!(presets),
+        Output::Folders(folders) => json!(folders),
+        Output::Copies(copies) => json!(copies),
+        Output::Changed(changed) => json!(changed),
     }
-    if let Some(preset) = active_preset {
-        text.push_str(&format!("Active preset: {preset}\n"));
-    }
-    let skills = match skills {
-        1 => "1 skill".to_owned(),
-        count => format!("{count} skills"),
-    };
-    text.push_str(&format!(
-        "Library: {skills}, {active} active, {updates} with updates\n"
-    ));
-    if *attention > 0 {
-        text.push_str(&format!("Copies needing your answer: {attention}\n"));
-    }
-    let sync = match sync {
-        SyncState::NotConfigured => "not set up",
-        SyncState::Synced => "up to date",
-        SyncState::NeedsPull => "needs pull",
-        SyncState::NeedsPush => "needs push",
-        SyncState::NeedsSync => "needs sync",
-    };
-    text.push_str(&format!("Sync: {sync}\n"));
-    if let Some(running) = running {
-        text.push_str(&format!("Running: {running}…\n"));
-    }
-    text
 }
 
 #[cfg(test)]
 mod tests {
-    use super::status_text;
-    use skillbinder_proto::SyncState;
-    use skillbinder_proto::command_line::StatusOutput;
-
-    fn status() -> StatusOutput {
-        StatusOutput {
-            version: "0.1.0".into(),
-            onboarding_finished: true,
-            active_preset: Some("Work".into()),
-            skills: 42,
-            active: 12,
-            updates: 3,
-            attention: 1,
-            sync: SyncState::NeedsPush,
-            running: Some("Switching to Work".into()),
-        }
-    }
+    use super::result;
+    use skillbinder_proto::command_line::{Changed, CopyRow, CopyStatus, Output};
 
     #[test]
-    fn status_prints_one_fact_per_line() {
-        assert_eq!(
-            status_text(&status()),
-            "SkillBinder 0.1.0\nActive preset: Work\nLibrary: 42 skills, 12 active, 3 with updates\nCopies needing your answer: 1\nSync: needs push\nRunning: Switching to Work…\n"
-        );
-    }
-
-    #[test]
-    fn before_setup_status_says_to_finish_it() {
-        let status = StatusOutput {
-            onboarding_finished: false,
-            ..status()
+    fn a_partial_result_keeps_its_fields_as_the_design_shows() {
+        let changed = Changed {
+            message: "Work is active: 0 added, 0 removed.".into(),
+            activated: Some("Work".into()),
+            waiting: vec![CopyRow {
+                skill: "pdf".into(),
+                directory: "~/.claude/skills".into(),
+                state: CopyStatus::Conflict,
+                reason: None,
+            }],
+            ..Changed::default()
         };
-        assert_eq!(
-            status_text(&status),
-            "SkillBinder 0.1.0\nSetup isn't finished. Open SkillBinder to finish setting up.\n"
-        );
+        let value = result(&Output::Changed(changed));
+        assert_eq!(value["activated"], "Work");
+        assert_eq!(value["waiting"][0]["state"], "conflict");
+        assert_eq!(value["waiting"][0]["directory"], "~/.claude/skills");
     }
 }

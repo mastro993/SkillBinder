@@ -1,14 +1,23 @@
 //! What the `skillbinder` command and the running app say to each other over the local command
 //! socket (ADR 0022): one JSON object per line. The command sends a [`Hello`] and the app answers
 //! with a [`Greeting`]; then the command sends one [`Request`] and reads [`Reply`] lines until
-//! its outcome.
+//! its outcome, answering each question the app asks meanwhile.
 
-use crate::SyncState;
+mod reply;
+mod request;
+
+pub use reply::{
+    Changed, CopyRow, CopyStatus, Failure, FolderRow, Output, PresetRow, Progress, Question, Reply,
+    SkillOutput, SkillRow, StatusOutput,
+};
+pub use request::{Answer, Change, Consent, Permission, Query, Request, SkillFilter};
+
+use crate::{AppError, ErrorCategory};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The protocol both sides speak; a command and an app with different numbers refuse each other.
-pub const PROTOCOL: u32 = 1;
+pub const PROTOCOL: u32 = 2;
 
 /// A Unix socket's path must fit `sun_path`, 104 bytes with its terminating NUL on macOS.
 const SOCKET_PATH_LIMIT: usize = 103;
@@ -90,55 +99,6 @@ impl Greeting {
     }
 }
 
-/// What the command asks of the app.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "request", rename_all = "snake_case")]
-pub enum Request {
-    /// `skillbinder status`.
-    Status,
-    /// A second launch of the app asks the running one to open its window; it gets no reply.
-    Open,
-}
-
-/// A line the app sends back for a request.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Reply {
-    /// The request ended; it is the last line.
-    Outcome(Result<Output, CommandError>),
-}
-
-/// A command's result.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Output {
-    /// `status`.
-    Status(StatusOutput),
-}
-
-/// What `status` reports: the same counts Library and the menu show.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct StatusOutput {
-    /// The app's version.
-    pub version: String,
-    /// Whether onboarding finished; every other command waits for it.
-    pub onboarding_finished: bool,
-    /// The active preset's name.
-    pub active_preset: Option<String>,
-    /// Library skills.
-    pub skills: usize,
-    /// Library skills that are Active.
-    pub active: usize,
-    /// Library skills whose source has a newer version.
-    pub updates: usize,
-    /// Copies waiting for the user's answer.
-    pub attention: usize,
-    /// Where the library stands with its sync remote.
-    pub sync: SyncState,
-    /// The work that refuses changes while it runs, such as `Switching to Work`.
-    pub running: Option<String>,
-}
-
 /// Why a command failed, which fixes its exit code.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CommandError {
@@ -163,6 +123,33 @@ impl CommandError {
     /// Before onboarding finishes, every command but `status` (spec rule 4).
     pub fn setup() -> Self {
         Self::new(ErrorCode::Setup, "Open SkillBinder to finish setting up.")
+    }
+
+    /// The same failure with `hint`.
+    pub fn hint(self, hint: impl Into<String>) -> Self {
+        Self {
+            hint: Some(hint.into()),
+            ..self
+        }
+    }
+}
+
+impl From<AppError> for CommandError {
+    /// The app's error as the command reports it: its message, its recovery as the hint, and a
+    /// code by category, matched exhaustively so a new category must choose one.
+    fn from(error: AppError) -> Self {
+        let code = match error.category {
+            ErrorCategory::Validation => ErrorCode::Usage,
+            ErrorCategory::NotFound => ErrorCode::NotFound,
+            ErrorCategory::Busy => ErrorCode::Busy,
+            ErrorCategory::Stale => ErrorCode::Conflict,
+            ErrorCategory::Offline => ErrorCode::Offline,
+            ErrorCategory::Git
+            | ErrorCategory::Storage
+            | ErrorCategory::Recovery
+            | ErrorCategory::Cancelled => ErrorCode::Failed,
+        };
+        Self::new(code, error.message).hint(error.recovery)
     }
 }
 
@@ -210,8 +197,10 @@ impl ErrorCode {
 #[cfg(test)]
 mod tests {
     use super::{
-        CommandError, Endpoint, ErrorCode, Greeting, Hello, Output, PROTOCOL, Reply, Request,
+        CommandError, Endpoint, ErrorCode, Failure, Greeting, Hello, Output, PROTOCOL, Reply,
+        Request,
     };
+    use crate::{AppError, ErrorCategory};
     use std::path::Path;
 
     #[test]
@@ -283,12 +272,37 @@ mod tests {
             serde_json::to_string(&Request::Status)?,
             r#"{"request":"status"}"#
         );
-        let reply = Reply::Outcome(Err::<Output, _>(CommandError::setup()));
+        let reply = Reply::Outcome(Err::<Output, _>(Failure::from(CommandError::setup())));
         let line = serde_json::to_string(&reply)?;
-        let Reply::Outcome(Err(error)) = serde_json::from_str(&line)? else {
+        let Reply::Outcome(Err(failure)) = serde_json::from_str(&line)? else {
             panic!("an error comes back as one: {line}");
         };
-        assert_eq!(error.code, ErrorCode::Setup);
+        assert_eq!(failure.error.code, ErrorCode::Setup);
         Ok(())
+    }
+
+    #[test]
+    fn every_app_error_maps_to_one_code_and_exit() {
+        let categories = [
+            (ErrorCategory::Validation, ErrorCode::Usage, 2),
+            (ErrorCategory::NotFound, ErrorCode::NotFound, 2),
+            (ErrorCategory::Busy, ErrorCode::Busy, 4),
+            (ErrorCategory::Stale, ErrorCode::Conflict, 1),
+            (ErrorCategory::Offline, ErrorCode::Offline, 1),
+            (ErrorCategory::Git, ErrorCode::Failed, 1),
+            (ErrorCategory::Storage, ErrorCode::Failed, 1),
+            (ErrorCategory::Recovery, ErrorCode::Failed, 1),
+            (ErrorCategory::Cancelled, ErrorCode::Failed, 1),
+        ];
+        for (category, code, exit) in categories {
+            let error = CommandError::from(AppError::new(category, "It failed.", "Try again."));
+            assert_eq!(
+                (error.code, error.code.exit_code()),
+                (code, exit),
+                "{category:?}"
+            );
+            assert_eq!(error.message, "It failed.");
+            assert_eq!(error.hint.as_deref(), Some("Try again."));
+        }
     }
 }

@@ -161,7 +161,7 @@ pub(super) fn sharing(row: &AgentRow, rows: &[AgentRow]) -> Vec<String> {
 }
 
 /// Whether `targets` hold the skill for any of `ids`.
-pub(super) fn held(targets: Option<&Targets>, ids: &[String]) -> bool {
+pub(crate) fn held(targets: Option<&Targets>, ids: &[String]) -> bool {
     targets.is_some_and(|targets| ids.iter().any(|id| targets.includes(id)))
 }
 

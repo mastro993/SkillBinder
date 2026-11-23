@@ -77,7 +77,7 @@ Names follow the glossary. A skill is named by its slug, a preset or library fol
 6. **Copies.** A change that meets same-slug copies SkillBinder does not manage writes everything else, then:
    - in a terminal, asks once per copy, "Replace your copy of pdf in ~/.claude/skills? [y/N]", and replaces or keeps it as answered (no answer keeps it waiting);
    - with `--replace`, replaces them all, without asking;
-   - otherwise leaves them waiting under "need attention", prints them with "Run again with --replace, or review them in SkillBinder.", and exits 3.
+   - otherwise leaves them waiting under "need attention", prints them with the command that replaces each, "Run `skillbinder copies replace pdf --in ~/.claude/skills`, or review it in SkillBinder." (running the change again would find it already done), and exits 3.
    An edited managed copy is handled the same way. `copies` lists everything waiting, from any surface.
 7. **Import** states its replacements before it runs, as the dialog does: in a terminal it lists them and asks "Import 3 skills and replace 2 copies? [y/N]"; with `--replace` it proceeds; otherwise it changes nothing and exits 3 listing them. A slug with several versions needs `@<version>` (the short digest `status` and `scan` print) unless `--all`, which picks what the dialog ticks.
 8. **Deleting** a preset or library folder and removing a workspace ask in a terminal, with the app's confirmation text (a deleted active preset names the skills the switch to Default adds and removes), and need `--yes` otherwise; without it they exit 3.

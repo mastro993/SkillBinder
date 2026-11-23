@@ -27,7 +27,7 @@ The menu bar or system tray icon and its menu are drawn by `tray-icon` 0.26.1 an
 
 ## Command line
 
-The `skillbinder` command and the app talk over a local socket or named pipe through `interprocess` 2.4.4 (0BSD OR Apache-2.0), with `recvmsg` and `doctest-file` (0BSD) and, on Windows, `widestring` (MIT OR Apache-2.0) (ADR 0022). The command reads its arguments with `clap` 4.6.7, `clap_builder`, and `clap_lex` (MIT OR Apache-2.0).
+The `skillbinder` command and the app talk over a local socket or named pipe through `interprocess` 2.4.4 (0BSD OR Apache-2.0), with `recvmsg` and `doctest-file` (0BSD) and, on Windows, `widestring` (MIT OR Apache-2.0) (ADR 0022). The command reads its arguments with `clap` 4.6.7, `clap_builder`, and `clap_lex` (MIT OR Apache-2.0), and catches Ctrl-C with `ctrlc` 3.5.3 (MIT OR Apache-2.0), which uses `nix` 0.32.0 (MIT) on Unix, `dispatch2` (Zlib OR Apache-2.0 OR MIT) on macOS, and `windows-sys` (MIT OR Apache-2.0) on Windows.
 
 - `anstream`, `anstyle`, `anstyle-parse`, `anstyle-query`, `anstyle-wincon`, `colorchoice`, `is_terminal_polyfill`, `once_cell_polyfill`, and `utf8parse`: MIT OR Apache-2.0; `strsim`: MIT.
 

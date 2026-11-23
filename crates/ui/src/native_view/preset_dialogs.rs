@@ -76,7 +76,7 @@ impl NativeView {
 }
 
 /// What activating the Default preset in the deleted one's place does for your agents.
-fn switch_note(switch: &PresetSwitch) -> String {
+pub(crate) fn switch_note(switch: &PresetSwitch) -> String {
     let list = |skills: &[SkillId]| {
         skills
             .iter()

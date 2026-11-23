@@ -1,27 +1,33 @@
 //! Requests from the `skillbinder` command (ADR 0022). The app's command server hands each one to
-//! a foreground task through a channel, as the tray's backends hand it clicks, and gets its
-//! reply back the same way. A command keeps the app running while it is connected, so an app
-//! started for it with no icon quits once the last one ends.
+//! a foreground task through a channel, as the tray's backends hand it clicks, and relays its
+//! replies and the user's answers. A command keeps the app running while it is connected or its
+//! change runs, so an app started for it with no icon quits once the last one ends.
+
+mod consent;
+mod plan;
+mod reads;
+mod resolve;
+mod run;
 
 use crate::gate::Gate;
-use crate::native_view::{library_counts, resolved_active, waiting_copies};
 use crate::tray::tray_may_show;
 use gpui_kit::{App, Global};
 use skillbinder_client::Client;
-use skillbinder_proto::AppSnapshot;
-use skillbinder_proto::command_line::{CommandError, Output, Reply, Request, StatusOutput};
+use skillbinder_proto::command_line::{
+    CommandError, Failure, Output, Progress, Question, Reply, Request,
+};
 use std::rc::Rc;
 
 enum Event {
     Connected,
-    Request(Request, async_channel::Sender<Reply>),
+    Request(Request, Peer, Connection),
     Closed,
 }
 
 struct CommandState {
     client: Client,
     open_window: Rc<dyn Fn(&mut App)>,
-    /// Commands connected now.
+    /// Commands connected now, and requests still running.
     connected: usize,
 }
 
@@ -34,8 +40,7 @@ pub struct Commands(async_channel::Sender<Event>);
 impl Commands {
     /// Counts a command as connected until the connection drops.
     pub fn connect(&self) -> Connection {
-        let _ = self.0.try_send(Event::Connected);
-        Connection(self.0.clone())
+        Connection::new(self.0.clone())
     }
 }
 
@@ -43,18 +48,67 @@ impl Commands {
 pub struct Connection(async_channel::Sender<Event>);
 
 impl Connection {
-    /// Runs `request` as the window or the menu would, and returns its reply, or `None` for a
-    /// request that gets none, such as `Open`.
-    pub async fn run(&self, request: Request) -> Option<Reply> {
-        let (reply, replied) = async_channel::bounded(1);
-        self.0.send(Event::Request(request, reply)).await.ok()?;
-        replied.recv().await.ok()
+    fn new(events: async_channel::Sender<Event>) -> Self {
+        let _ = events.try_send(Event::Connected);
+        Self(events)
+    }
+
+    /// Runs `request` as the window or the menu would. The request counts as connected until it
+    /// ends, even should the command stop waiting for it.
+    pub fn run(&self, request: Request) -> Session {
+        let (replies, replied) = async_channel::unbounded();
+        let (answer, answers) = async_channel::unbounded();
+        let peer = Peer { replies, answers };
+        let running = Connection::new(self.0.clone());
+        let _ = self.0.try_send(Event::Request(request, peer, running));
+        Session { replied, answer }
     }
 }
 
 impl Drop for Connection {
     fn drop(&mut self) {
         let _ = self.0.try_send(Event::Closed);
+    }
+}
+
+/// A running request, as the command server relays it.
+pub struct Session {
+    replied: async_channel::Receiver<Reply>,
+    answer: async_channel::Sender<bool>,
+}
+
+impl Session {
+    /// The next reply, or `None` once the request ended; a request such as `Open` ends with none.
+    pub async fn reply(&self) -> Option<Reply> {
+        self.replied.recv().await.ok()
+    }
+
+    /// The user's answer to the last [`Reply::Ask`]; no answer counts as no.
+    pub fn answer(&self, yes: bool) {
+        let _ = self.answer.try_send(yes);
+    }
+}
+
+/// The command's end of a running request, as the dispatch sees it.
+#[derive(Clone)]
+struct Peer {
+    replies: async_channel::Sender<Reply>,
+    answers: async_channel::Receiver<bool>,
+}
+
+impl Peer {
+    fn progress(&self, progress: Progress) {
+        let _ = self.replies.try_send(Reply::Progress(progress));
+    }
+
+    /// Asks the user `prompt`; a command gone counts as no.
+    async fn ask(&self, prompt: String) -> bool {
+        let question = Reply::Ask(Question { prompt });
+        self.replies.try_send(question).is_ok() && self.answers.recv().await.unwrap_or(false)
+    }
+
+    fn finish(&self, outcome: Result<Output, Failure>) {
+        let _ = self.replies.try_send(Reply::Outcome(outcome));
     }
 }
 
@@ -82,11 +136,7 @@ pub fn start_commands(
 fn receive(event: Event, cx: &mut App) {
     match event {
         Event::Connected => cx.global_mut::<CommandState>().connected += 1,
-        Event::Request(request, reply) => {
-            if let Some(answer) = dispatch(request, cx) {
-                let _ = reply.try_send(answer);
-            }
-        }
+        Event::Request(request, peer, running) => dispatch(request, peer, running, cx),
         Event::Closed => {
             let state = cx.global_mut::<CommandState>();
             state.connected = state.connected.saturating_sub(1);
@@ -96,7 +146,7 @@ fn receive(event: Event, cx: &mut App) {
 }
 
 /// Quits when nothing shows the app and nothing needs it: no window, no icon showing or about
-/// to, and no command connected (ADR 0020, 0022).
+/// to, and no command connected or running (ADR 0020, 0022).
 pub fn quit_if_unseen(cx: &mut App) {
     let connected = cx
         .try_global::<CommandState>()
@@ -106,20 +156,37 @@ pub fn quit_if_unseen(cx: &mut App) {
     }
 }
 
-fn dispatch(request: Request, cx: &mut App) -> Option<Reply> {
-    let snapshot = cx.global::<CommandState>().client.snapshot();
+/// Answers `request` to `peer`; `running` keeps the app up until it ends.
+fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
+    let client = cx.global::<CommandState>().client.clone();
+    let snapshot = client.snapshot();
     if needs_setup(&request) && !snapshot.bootstrap.onboarding.finished {
-        return Some(Reply::Outcome(Err(CommandError::setup())));
+        return peer.finish(Err(CommandError::setup().into()));
     }
     match request {
-        Request::Status => Some(Reply::Outcome(Ok(Output::Status(status(
-            &snapshot,
-            &Gate::of(cx),
-        ))))),
+        Request::Status => peer.finish(Ok(Output::Status(reads::status(&snapshot, &Gate::of(cx))))),
         Request::Open => {
             let open = cx.global::<CommandState>().open_window.clone();
             open(cx);
-            None
+        }
+        Request::Read { query } => {
+            peer.finish(reads::answer(&query, &snapshot).map_err(Failure::from));
+        }
+        Request::Change { change, consent } => {
+            let planned = match run::refusal(&Gate::of(cx), &snapshot) {
+                Some(refusal) => Err(refusal),
+                None => plan::plan(&change, &snapshot),
+            };
+            let plan = match planned {
+                Ok(plan) => plan,
+                Err(error) => return peer.finish(Err(error.into())),
+            };
+            cx.spawn(async move |cx| {
+                let outcome = run::run(plan, consent, &peer, &client, cx).await;
+                peer.finish(outcome);
+                drop(running);
+            })
+            .detach();
         }
     }
 }
@@ -128,81 +195,9 @@ fn dispatch(request: Request, cx: &mut App) -> Option<Reply> {
 fn needs_setup(request: &Request) -> bool {
     match request {
         Request::Status | Request::Open => false,
-    }
-}
-
-fn status(snapshot: &AppSnapshot, gate: &Gate) -> StatusOutput {
-    let active = snapshot.library.as_ref().and_then(|library| {
-        resolved_active(&library.library.presets, &library.library.active_preset)
-    });
-    let counts = active
-        .map(|preset| library_counts(snapshot, &preset.id))
-        .unwrap_or_default();
-    let running = gate.running().map(|activity| activity.title()).or_else(|| {
-        snapshot
-            .updating
-            .map(|(done, total)| format!("Updating {done} of {total} skills"))
-    });
-    StatusOutput {
-        version: snapshot.app_update.current.to_string(),
-        onboarding_finished: snapshot.bootstrap.onboarding.finished,
-        active_preset: active.map(|preset| preset.name.clone()),
-        skills: counts.all,
-        active: counts.active,
-        updates: counts.updates,
-        attention: waiting_copies(snapshot),
-        sync: snapshot.sync.state,
-        running,
+        Request::Read { .. } | Request::Change { .. } => true,
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{needs_setup, status};
-    use crate::gate::{Change, ChangeState, Gate};
-    use crate::native_view::Activity;
-    use crate::native_view::fixture::Fixture;
-    use skillbinder_proto::UpdateCheck;
-    use skillbinder_proto::command_line::Request;
-
-    #[test]
-    fn status_answers_before_onboarding_finishes() {
-        let mut snapshot = Fixture::new().build();
-        snapshot.bootstrap.onboarding.finished = false;
-        assert!(!needs_setup(&Request::Status));
-        assert!(!status(&snapshot, &Gate::default()).onboarding_finished);
-    }
-
-    #[test]
-    fn status_counts_the_library_under_the_active_preset() {
-        let snapshot = Fixture::new()
-            .preset("work", "Work")
-            .active("work")
-            .skill("pdf", "Read PDFs.", None)
-            .skill("sql", "Write SQL.", None)
-            .update("sql", UpdateCheck::Available)
-            .build();
-        let status = status(&snapshot, &Gate::default());
-        assert_eq!(status.active_preset.as_deref(), Some("Work"));
-        assert_eq!((status.skills, status.updates), (2, 1));
-    }
-
-    #[test]
-    fn status_names_the_running_change() {
-        let snapshot = Fixture::new().build();
-        let gate = Gate {
-            change: Some(Change {
-                activity: Activity::Switching {
-                    preset: "Work".into(),
-                },
-                state: ChangeState::Running,
-            }),
-            busy: false,
-        };
-        assert_eq!(
-            status(&snapshot, &gate).running.as_deref(),
-            Some("Switching to Work")
-        );
-        assert_eq!(status(&snapshot, &Gate::default()).running, None);
-    }
-}
+mod tests;

@@ -29,6 +29,7 @@ fn switching(state: ChangeState) -> Gate {
             state,
         }),
         busy: false,
+        ..Gate::default()
     }
 }
 
@@ -181,6 +182,7 @@ fn presets_stay_disabled_until_the_strip_ends_and_while_the_view_or_update_all_i
         &Gate {
             change: None,
             busy: true,
+            ..Gate::default()
         }
     ));
     assert!(!disabled(&snapshot, &Gate::default()));
@@ -320,6 +322,7 @@ fn update_all_is_disabled_while_a_change_short_work_or_git_runs() {
         &Gate {
             change: None,
             busy: true,
+            ..Gate::default()
         }
     ));
     for action in [SyncAction::Sync, SyncAction::Push] {

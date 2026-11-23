@@ -66,16 +66,22 @@ mod workspace_page;
 mod workspace_targets;
 
 pub(crate) use app_update_notice::RestartBlocker;
+pub(crate) use library_copies::shown_dir;
+pub(crate) use library_targets::held;
 pub(crate) use library_updates::{available, summary};
 #[cfg(feature = "native-test")]
 pub use native_test::StripHold;
 pub(crate) use place_popover::bind_keys;
 pub(crate) use preset_activation::{activate, resolved_active, switching};
+pub(crate) use preset_dialogs::switch_note;
 pub(crate) use progress_strip::{Activity, Landing, waiting_copies};
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 #[cfg(test)]
 pub(crate) use snapshot_query::fixture;
-pub(crate) use snapshot_query::library_counts;
+pub(crate) use snapshot_query::{
+    ActiveFilter, Entry as AgentEntry, LibraryFilter, Places, Query, has_update, library_counts,
+    library_skills,
+};
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -144,6 +150,8 @@ pub struct NativeView {
     /// The view's short work: a single Update or an optimistic save. Controls read
     /// [`Self::working`], which adds Update all.
     busy: bool,
+    /// A command's short change runs, which the window waits for as for its own saves.
+    commanded: bool,
     error: Option<AppError>,
     dialog: DialogState,
     /// Counts dialogs opened; a closing one's layer builds nothing once another opens.
