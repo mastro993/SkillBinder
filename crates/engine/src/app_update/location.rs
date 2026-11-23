@@ -55,10 +55,30 @@ impl AppPlacement {
             data_home: absolute("XDG_DATA_HOME").unwrap_or_else(|| home.join(".local/share")),
         }
     }
+
+    /// The running bundle, while it is anywhere in either Applications folder, a subfolder such
+    /// as Utilities included.
+    pub(crate) fn bundle_in_applications(&self) -> Option<&Path> {
+        self.bundle
+            .as_deref()
+            .filter(|bundle| in_applications(bundle, self))
+    }
+
+    /// On Windows, the running executable, while the setup program installed it: its uninstaller
+    /// sits beside it.
+    pub(crate) fn set_up_executable(&self) -> Option<&Path> {
+        self.executable
+            .as_deref()
+            .filter(|executable| executable.with_file_name(UNINSTALLER).is_file())
+    }
+}
+
+fn in_applications(bundle: &Path, placement: &AppPlacement) -> bool {
+    bundle.starts_with(&placement.applications) || bundle.starts_with(&placement.user_applications)
 }
 
 /// The bundle of an executable at `<name>.app/Contents/MacOS/<executable>`.
-fn bundle_of(executable: &Path) -> Option<PathBuf> {
+pub(crate) fn bundle_of(executable: &Path) -> Option<PathBuf> {
     let macos = executable.parent()?;
     let contents = macos.parent()?;
     let bundle = contents.parent()?;
@@ -157,17 +177,15 @@ pub(crate) fn locate(placement: &AppPlacement, downloads: &Path) -> Location {
     match (
         &placement.bundle,
         &placement.appimage,
-        &placement.executable,
+        placement.set_up_executable(),
     ) {
         (Some(bundle), _, _) => classify(bundle, placement, Mounts::read),
         (None, Some(appimage), _) => installed(appimage),
-        (None, None, Some(executable)) if executable.with_file_name(UNINSTALLER).is_file() => {
-            Location::SetUp {
-                executable: executable.clone(),
-                staging: downloads.to_path_buf(),
-            }
-        }
-        (None, None, _) => Location::NotInstalled,
+        (None, None, Some(executable)) => Location::SetUp {
+            executable: executable.to_path_buf(),
+            staging: downloads.to_path_buf(),
+        },
+        (None, None, None) => Location::NotInstalled,
     }
 }
 
@@ -184,9 +202,7 @@ fn installed(unit: &Path) -> Location {
 /// Where `bundle` sits. A bundle anywhere in either Applications folder, a subfolder such as
 /// Utilities included, is [`installed`] there.
 fn classify(bundle: &Path, placement: &AppPlacement, mounts: impl FnOnce() -> Mounts) -> Location {
-    if bundle.starts_with(&placement.applications)
-        || bundle.starts_with(&placement.user_applications)
-    {
+    if in_applications(bundle, placement) {
         return installed(bundle);
     }
     let mounts = mounts();

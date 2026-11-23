@@ -2,6 +2,7 @@ use crate::{
     activation::Progress,
     app_update::AppUpdates,
     catalog::{Catalogs, Previews, Repositories, Resolutions, Searches},
+    command_line::CommandLine,
     database,
     git::{Git, Installer},
     git_pool::GitPool,
@@ -30,6 +31,7 @@ use tokio::sync::oneshot;
 mod activation;
 mod app_update;
 mod catalog;
+mod command_line;
 mod install;
 mod onboarding;
 mod preview;
@@ -62,6 +64,8 @@ struct Owner {
     progress: Progress,
     /// App update checks, on a thread of their own.
     app_updates: AppUpdates,
+    /// The `skillbinder` command on the PATH, read and changed on threads of their own.
+    command_line: CommandLine,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
 }
@@ -149,6 +153,8 @@ impl Engine {
             config.data_dir.join("updates"),
             log.clone(),
         );
+        let command_line = CommandLine::platform(&config, log.clone());
+        command_line.refresh_in_background();
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
             config,
@@ -233,6 +239,7 @@ impl Engine {
                 pool,
                 progress,
                 app_updates,
+                command_line,
                 shutdown,
             }),
         })

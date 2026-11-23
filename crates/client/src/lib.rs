@@ -14,6 +14,7 @@ use tokio::{runtime::Handle, sync::watch};
 
 mod activation;
 mod app_update;
+mod command_line;
 mod explore;
 mod onboarding;
 mod progress;

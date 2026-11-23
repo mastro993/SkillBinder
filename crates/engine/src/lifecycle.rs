@@ -71,6 +71,9 @@ pub struct EngineConfig {
     pub app_update: Option<UpdateSource>,
     /// Where the running app is, and where Move to Applications puts it.
     pub placement: AppPlacement,
+    /// The folder the macOS command line tool's `usr/local/bin` and Homebrew prefixes are under:
+    /// `/`, or a fixture's own, so a native check never links the user's real command.
+    pub system_root: PathBuf,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
@@ -80,6 +83,7 @@ impl EngineConfig {
         let environment: BTreeMap<_, _> = std::env::vars().collect();
         Ok(Self {
             placement: AppPlacement::platform(dirs.home_dir(), &environment),
+            system_root: PathBuf::from("/"),
             data_dir: dirs.data_local_dir().join("SkillBinder"),
             home: dirs.home_dir().to_path_buf(),
             environment,
@@ -110,7 +114,8 @@ impl EngineConfig {
     /// fixture writes it. Repositories may be local `file://` ones. App updates are off until a
     /// fixture names a source. No bundle, setup-installed executable, or AppImage runs, Move to
     /// Applications would use the fixture's `<data_dir>/fixture-applications` and
-    /// `<home>/Applications`, and the applications menu is under `<home>/.local/share`.
+    /// `<home>/Applications`, and the applications menu is under `<home>/.local/share`. The
+    /// command line tool's macOS link goes under `<data_dir>/fixture-root`.
     pub fn isolated(data_dir: PathBuf, home: PathBuf) -> Self {
         Self {
             placement: AppPlacement {
@@ -122,6 +127,7 @@ impl EngineConfig {
                 data_home: home.join(".local/share"),
             },
             catalog: CatalogSource::Directory(data_dir.join("catalog-source")),
+            system_root: data_dir.join("fixture-root"),
             data_dir,
             home,
             environment: BTreeMap::new(),

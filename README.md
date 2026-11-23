@@ -175,11 +175,10 @@ The app checks for updates on its own and installs them when it quits.
 
 ## From a terminal
 
-SkillBinder ships a `skillbinder` command that talks to the running app, and starts it in the background when it isn't running. It runs the same actions as the window, under the same rules: list your skills (`skills`, `skill pdf`), turn them on or off (`enable pdf`, `disable pdf --agent cursor`), switch and edit presets (`preset activate Work`), file skills in library folders, and answer for copies waiting on you (`copies`). It never replaces your own copy of a skill without asking, or without `--replace`. Add `--json` for scripts and agents. More commands, and a Settings button that puts `skillbinder` on your PATH, are on the way. Until then, run it from the app itself:
+SkillBinder ships a `skillbinder` command that talks to the running app, and starts it in the background when it isn't running. Put it on your PATH with **Install** in Settings › General › Command line tool; the Homebrew cask installs it for you. It runs the same actions as the window, under the same rules: list your skills (`skills`, `skill pdf`), turn them on or off (`enable pdf`, `disable pdf --agent cursor`), switch and edit presets (`preset activate Work`), file skills in library folders, and answer for copies waiting on you (`copies`). It never replaces your own copy of a skill without asking, or without `--replace`. Add `--json` for scripts and agents. More commands are on the way.
 
 ```sh
-/Applications/SkillBinder.app/Contents/MacOS/skillbinder-cli status       # macOS
-%LOCALAPPDATA%\Programs\SkillBinder\bin\skillbinder.exe status           # Windows
+skillbinder status
 ```
 
 ## Your data stays yours

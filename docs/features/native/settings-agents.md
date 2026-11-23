@@ -24,6 +24,8 @@ Typing in the search keeps the rows whose title, line, or keywords hold the text
 
 **Show in menu bar** (macOS), or **Show in system tray** (Windows and Linux), is a switch, on by default: closing the window keeps SkillBinder running behind its icon ([Menu bar menu](menu-bar.md)).
 
+**Command line tool** shows whether `skillbinder` works in a new terminal, with Install, Repair, Uninstall, or the fact that Homebrew installed it at its end ([Command line](command-line.md#installing-it)).
+
 ## Settings › Agents
 
 The Agents section lists one row per Agents row of every detected agent, chosen or not: Universal first, then each other agent alphabetically. An agent whose global skill directory does not exist is not listed. Each row has the agent's Kit avatar (Universal's layers glyph), its name, its global skill directory in muted monospace or, for Universal, its agents' names with a tooltip, and a trailing Kit switch, on while the row's directory is chosen. With no agent found the section reads "No agents found on this computer." Click, Enter, or Space toggles a switch.

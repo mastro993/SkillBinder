@@ -1,5 +1,5 @@
-//! Settings › General, the Theme select and the menu bar or system tray switch, and Settings ›
-//! Troubleshooting, Reveal logs.
+//! Settings › General, the Theme select, the menu bar or system tray switch, and the command line
+//! tool's row, and Settings › Troubleshooting, Reveal logs.
 
 use super::super::NativeView;
 use super::super::sidebar::apply_appearance;
@@ -61,7 +61,7 @@ impl NativeView {
                         cx.notify();
                     })),
             );
-        vec![Group::new(vec![theme, tray])]
+        vec![Group::new(vec![theme, tray, self.command_line_setting(cx)])]
     }
 
     pub(super) fn troubleshooting_groups(&self, cx: &mut Context<Self>) -> Vec<Group> {

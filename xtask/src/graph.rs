@@ -79,6 +79,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "ureq",
             "url",
             "uuid",
+            "winsafe",
             "yaml-rust2",
         ],
         &["minisign"],

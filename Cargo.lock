@@ -7095,6 +7095,7 @@ dependencies = [
  "ureq",
  "url",
  "uuid",
+ "winsafe",
  "yaml-rust2",
 ]
 

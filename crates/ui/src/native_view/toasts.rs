@@ -1,8 +1,9 @@
 //! The toast that confirms a change: Kit's notification at the bottom center of the window, with
 //! the check-circle glyph, or, after a removal, with its Undo button; an install offers Show in
-//! Library beside its glyph, and an app update Release notes. A newer one replaces the shown one, and Kit closes it after its
-//! time, which the pointer pauses while it rests on it. A change ends from a timer that has no
-//! window at hand, so the toast waits for the next frame, which pushes it.
+//! Library beside its glyph, and an app update Release notes. One saying what failed has no
+//! glyph. A newer one replaces the shown one, and Kit closes it after its time, which the pointer
+//! pauses while it rests on it. A change ends from a timer that has no window at hand, so the
+//! toast waits for the next frame, which pushes it.
 
 use super::NativeView;
 use super::undo::Undo;
@@ -31,9 +32,9 @@ pub(super) enum ToastAction {
 }
 
 /// A change's toast waiting for the next frame, where the window it shows in is at hand, with the
-/// action it offers, if any.
+/// action it offers, if any, and whether it reports a failure.
 #[derive(Default)]
-pub(super) struct PendingToast(Option<(SharedString, Option<ToastAction>)>);
+pub(super) struct PendingToast(Option<(SharedString, Option<ToastAction>, bool)>);
 
 impl PendingToast {
     /// Shows `message` from the next frame of the view `cx` draws on, in place of any shown toast.
@@ -48,19 +49,26 @@ impl PendingToast {
         action: Option<ToastAction>,
         cx: &mut Context<V>,
     ) {
-        self.0 = Some((message, action));
+        self.0 = Some((message, action, false));
+        cx.notify();
+    }
+
+    /// Shows `message`, saying what failed, as [`Self::show`] does but with no glyph.
+    pub(super) fn fail<V: 'static>(&mut self, message: SharedString, cx: &mut Context<V>) {
+        self.0 = Some((message, None, true));
         cx.notify();
     }
 
     /// The waiting toast as Kit's notification, with its message and action, once. A toast
-    /// offering Undo has no glyph.
+    /// offering Undo, or reporting a failure, has no glyph.
     pub(super) fn take(&mut self) -> Option<(Notification, SharedString, Option<ToastAction>)> {
-        let (message, action) = self.0.take()?;
+        let (message, action, failed) = self.0.take()?;
         let text = message.clone();
-        let glyph = !matches!(
-            action,
-            Some(ToastAction::Undo(_) | ToastAction::RestoreRepository(_))
-        );
+        let glyph = !failed
+            && !matches!(
+                action,
+                Some(ToastAction::Undo(_) | ToastAction::RestoreRepository(_))
+            );
         // Kit's message is plain text; content keeps the message a label holding its text.
         let toast = Notification::new()
             .id::<ChangeToast>()
