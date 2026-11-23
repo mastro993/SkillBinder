@@ -1,4 +1,4 @@
-//! The app the server talks to, and its hold on it: from the first request that reaches the app
+//! The app the server talks to, and its hold on it: from the first request the app welcomes
 //! until the agent's session ends, one idle connection counts as a connected command, so an app
 //! started in the background stays up for the session instead of starting again for each call,
 //! and quits once the session ends (spec Design).
@@ -34,8 +34,9 @@ impl App {
         self.isolated
     }
 
-    /// Holds the app once a request reached it, and again after an app that quit came back. A
-    /// hold that can't open leaves the app to quit as it would for a command.
+    /// Holds the app once it welcomed a request, before the request goes, and again after an
+    /// app that quit came back. A hold that can't open leaves the app to quit as it would for a
+    /// command.
     pub(crate) fn hold(&self) {
         if self.held.swap(true, Ordering::SeqCst) {
             return;

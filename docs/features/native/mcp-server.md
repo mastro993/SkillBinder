@@ -43,7 +43,7 @@ A failure is a tool error whose structured content is the command's `--json` fai
 
 ## The app's lifetime
 
-From the first request that reaches the app, the server holds one idle connection (`Request::Hold`), which the app counts as a connected command, so an app it started in the background stays up for the agent's session rather than starting for every call, and quits when the session ends and nothing else shows it. A hold that closes because the app quit opens again with the next call.
+From the first request the app welcomes, the server holds one idle connection (`Request::Hold`), opened before that request is sent and counted by the app from its greeting, so the request's own connection can't close first; the app counts it as a connected command so an app it started in the background stays up for the agent's session rather than starting for every call, and quits when the session ends and nothing else shows it. A hold that closes because the app quit opens again with the next call.
 
 ## Evidence
 

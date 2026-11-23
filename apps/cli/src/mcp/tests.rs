@@ -171,6 +171,14 @@ async fn list_skills_returns_the_commands_rows_and_holds_the_app() -> anyhow::Re
         })
     );
     assert_eq!(Heard::count(&heard.holds), 1, "one hold for the session");
+    let connected = heard.connected.lock().map(|connected| connected.clone());
+    assert_eq!(
+        connected
+            .ok()
+            .and_then(|connected| connected.first().copied()),
+        Some(2),
+        "the hold connects before the first request arrives"
+    );
     Ok(())
 }
 

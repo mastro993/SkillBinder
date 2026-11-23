@@ -312,9 +312,13 @@ struct Talk {
 }
 
 impl Conversation for Talk {
-    fn sent(&mut self, _: &Request) {
+    /// Holds the app before the request goes, so its connection can't close, and an app with
+    /// no icon quit, before the app counts the hold.
+    fn welcomed(&mut self) {
         self.app.hold();
     }
+
+    fn sent(&mut self, _: &Request) {}
 
     fn progress(&mut self, progress: &Progress) {
         let Some(token) = self.context.meta.get_progress_token() else {

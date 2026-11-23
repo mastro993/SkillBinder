@@ -6,7 +6,8 @@ mod call;
 mod inputs;
 mod results;
 mod session;
-#[cfg(test)]
+// The tests' app listens on a Unix socket, as `connect`'s do.
+#[cfg(all(test, unix))]
 mod tests;
 
 use call::Turn;
@@ -221,12 +222,13 @@ impl ServerHandler for Server {
         let mut tools = Self::tool_router().list_all();
         tools.sort_by_key(|tool| ORDER.iter().position(|name| *name == tool.name));
         let mut listed = ListToolsResult::with_all_items(tools);
-        // Protocol 2026-07-28 asks for cache hints; the list never changes while the server runs.
+        // Protocol 2026-07-28 asks for cache hints; the list never changes while the server runs,
+        // so it stays fresh for a day.
         if context
             .protocol_version()
             .is_some_and(|version| version >= ProtocolVersion::V_2026_07_28)
         {
-            listed.ttl_ms = Some(0);
+            listed.ttl_ms = Some(86_400_000);
             listed.cache_scope = Some(CacheScope::Public);
         }
         Ok(listed)

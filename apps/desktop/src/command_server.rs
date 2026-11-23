@@ -77,13 +77,15 @@ fn name(endpoint: &Endpoint) -> std::io::Result<Name<'_>> {
 }
 
 /// One connection: the greeting, then one request and its replies. The command counts as
-/// connected until its outcome is written or it goes; its request runs on either way. An MCP
-/// server's hold counts as connected until it goes.
+/// connected from its greeting until its outcome is written or it goes; its request runs on
+/// either way. An MCP server's hold counts as connected until it goes, from before it reads its
+/// greeting, so it counts ahead of the request it opened beside.
 async fn answer(stream: Stream, commands: Commands) {
     let mut lines = tokio::io::BufReader::new(&stream).lines();
     let Some(hello) = read::<Hello>(&mut lines).await else {
         return;
     };
+    let connection = commands.connect();
     let greeting = Greeting::answer(&hello, VERSION);
     if !write(&stream, &greeting).await || matches!(greeting, Greeting::Mismatch { .. }) {
         return;
@@ -91,7 +93,6 @@ async fn answer(stream: Stream, commands: Commands) {
     let Some(request) = read::<Request>(&mut lines).await else {
         return;
     };
-    let connection = commands.connect();
     if request == Request::Hold {
         while let Ok(Some(_)) = lines.next_line().await {}
         return;

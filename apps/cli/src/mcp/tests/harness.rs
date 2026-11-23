@@ -39,6 +39,8 @@ pub(super) struct Heard {
     pub(super) requests: Arc<Mutex<Vec<Request>>>,
     pub(super) answers: Arc<Mutex<Vec<bool>>>,
     pub(super) holds: Arc<AtomicUsize>,
+    /// The connections already accepted when each request arrived.
+    pub(super) connected: Arc<Mutex<Vec<usize>>>,
     /// Requests whose every step played, outcome included.
     pub(super) finished: Arc<AtomicUsize>,
 }
@@ -105,6 +107,9 @@ fn answer(
     }
     if let Ok(mut requests) = heard.requests.lock() {
         requests.push(request.clone());
+    }
+    if let Ok(mut connected) = heard.connected.lock() {
+        connected.push(Heard::count(&heard.connections));
     }
     for step in script(&request) {
         match step {

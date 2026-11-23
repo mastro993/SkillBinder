@@ -25,6 +25,8 @@ pub(crate) struct NotRunning;
 
 /// What the command does with the app's replies before its outcome.
 pub(crate) trait Conversation {
+    /// The app welcomed the command; the request goes next.
+    fn welcomed(&mut self) {}
     /// The request reached the app, which runs it from here whatever the command does.
     fn sent(&mut self, request: &Request);
     /// How far the change has got.
@@ -133,6 +135,7 @@ fn talk(
         );
         return Err(error.hint("Repair it in Settings › General.").into());
     }
+    conversation.welcomed();
     send_line(stream, request).map_err(lost)?;
     conversation.sent(request);
     loop {
