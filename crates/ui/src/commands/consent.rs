@@ -5,8 +5,7 @@
 use super::Peer;
 use crate::native_view::shown_dir;
 use skillbinder_proto::command_line::{CommandError, ErrorCode, Permission};
-use skillbinder_proto::{AppResult, CopyState, ManagedCopy};
-use std::future::Future;
+use skillbinder_proto::{CopyState, ManagedCopy};
 
 /// The copies a change left asking the user that did not ask before it.
 pub(super) fn left_waiting(before: &[ManagedCopy], after: &[ManagedCopy]) -> Vec<ManagedCopy> {
@@ -17,21 +16,16 @@ pub(super) fn left_waiting(before: &[ManagedCopy], after: &[ManagedCopy]) -> Vec
         .collect()
 }
 
-/// Answers for each `waiting` copy as `replace` allows, running `resolve` for each yes. The copies
-/// still waiting come back: in a terminal those answered no, which the review list keeps asking
-/// about (C2.4), and without a terminal or a flag, all of them.
-pub(super) async fn settle<F, Fut>(
+/// The copies to replace among `waiting`, and those left waiting, as `replace` allows: in a
+/// terminal those answered no stay, which the review list keeps asking about (C2.4), and without a
+/// terminal or a flag, all of them. Asking holds nothing, so the user can take their time.
+pub(super) async fn decide(
     waiting: Vec<ManagedCopy>,
     replace: Permission,
     peer: &Peer,
     home: &str,
-    mut resolve: F,
-) -> AppResult<Vec<ManagedCopy>>
-where
-    F: FnMut(ManagedCopy) -> Fut,
-    Fut: Future<Output = AppResult<()>>,
-{
-    let mut left = Vec::new();
+) -> (Vec<ManagedCopy>, Vec<ManagedCopy>) {
+    let mut chosen = (Vec::new(), Vec::new());
     for copy in waiting {
         let yes = match replace {
             Permission::Yes => true,
@@ -39,12 +33,12 @@ where
             Permission::Ask => peer.ask(replace_prompt(&copy, home)).await,
         };
         if yes {
-            resolve(copy).await?;
+            chosen.0.push(copy);
         } else {
-            left.push(copy);
+            chosen.1.push(copy);
         }
     }
-    Ok(left)
+    chosen
 }
 
 /// Asks to go ahead with `prompt`, the window's confirmation text, as `confirm` allows.

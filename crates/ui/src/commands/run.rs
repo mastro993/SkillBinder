@@ -4,7 +4,7 @@
 //! waiting are settled once it lands. The work never depends on the connection, so a command
 //! that stops waiting leaves it running (rule 3).
 
-use super::consent::{confirm, copies_wait, left_waiting, settle};
+use super::consent::{confirm, copies_wait, decide, left_waiting};
 use super::plan::Plan;
 use super::reads::{copy_row, running};
 use super::{Peer, resolve};
@@ -36,14 +36,21 @@ pub(super) async fn run(
     let after = client.snapshot();
     let home = after.home.clone();
     let waiting = left_waiting(&before, copies(&after));
-    let settled = settle(waiting, consent.replace, peer, &home, |copy| {
-        on_runtime(client, move |client| async move {
-            client
-                .resolve_copy(&copy, skillbinder_proto::CopyChoice::Replace)
-                .await
-        })
-    });
-    let left = held(cx, settled).await.map_err(CommandError::from)?;
+    let (replace, left) = decide(waiting, consent.replace, peer, &home).await;
+    if !replace.is_empty() {
+        let replaced = async {
+            for copy in replace {
+                on_runtime(client, move |client| async move {
+                    client
+                        .resolve_copy(&copy, skillbinder_proto::CopyChoice::Replace)
+                        .await
+                })
+                .await?;
+            }
+            AppResult::Ok(())
+        };
+        held(cx, replaced).await.map_err(CommandError::from)?;
+    }
     changed.waiting = left.iter().map(|copy| copy_row(copy, &home)).collect();
     if left.is_empty() {
         return Ok(Output::Changed(changed));

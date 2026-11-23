@@ -1,9 +1,8 @@
-use super::{confirm, copies_wait, left_waiting, settle};
+use super::{confirm, copies_wait, decide, left_waiting};
 use crate::commands::Peer;
 use crate::native_view::fixture::id;
 use skillbinder_proto::command_line::{ErrorCode, Permission, Question, Reply};
-use skillbinder_proto::{AppResult, CopyState, ManagedCopy};
-use std::cell::RefCell;
+use skillbinder_proto::{CopyState, ManagedCopy};
 use std::future::Future;
 use std::task::{Context, Poll, Waker};
 
@@ -54,19 +53,16 @@ fn copy(slug: &str, state: CopyState) -> ManagedCopy {
     }
 }
 
-/// Settles `waiting` as `replace` allows, returning what still waits and what was replaced.
+/// Decides on `waiting` as `replace` allows, returning what still waits and what is replaced.
 fn settled(
     waiting: Vec<ManagedCopy>,
     replace: Permission,
     peer: &Peer,
 ) -> (Vec<String>, Vec<String>) {
-    let replaced = RefCell::new(Vec::new());
-    let left = now(settle(waiting, replace, peer, "/home", |copy| {
-        replaced.borrow_mut().push(copy.skill.to_string());
-        async { AppResult::Ok(()) }
-    }));
-    let left = left.map(|left| left.iter().map(|copy| copy.skill.to_string()).collect());
-    (left.unwrap_or_default(), replaced.into_inner())
+    let (replaced, left) = now(decide(waiting, replace, peer, "/home"));
+    let slugs =
+        |copies: Vec<ManagedCopy>| copies.iter().map(|copy| copy.skill.to_string()).collect();
+    (slugs(left), slugs(replaced))
 }
 
 #[test]
