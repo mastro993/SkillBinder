@@ -66,16 +66,22 @@ mod workspace_page;
 mod workspace_targets;
 
 pub(crate) use app_update_notice::RestartBlocker;
+pub(crate) use library_copies::shown_dir;
+pub(crate) use library_targets::held;
 pub(crate) use library_updates::{available, summary};
 #[cfg(feature = "native-test")]
 pub use native_test::StripHold;
 pub(crate) use place_popover::bind_keys;
 pub(crate) use preset_activation::{activate, resolved_active, switching};
+pub(crate) use preset_dialogs::switch_note;
 pub(crate) use progress_strip::{Activity, Landing, waiting_copies};
 pub use shell::{GoBack, GoForward, ToggleSidebar};
 #[cfg(test)]
 pub(crate) use snapshot_query::fixture;
-pub(crate) use snapshot_query::library_counts;
+pub(crate) use snapshot_query::{
+    ActiveFilter, Entry as AgentEntry, LibraryFilter, Places, Query, has_update, library_counts,
+    library_skills,
+};
 
 use std::{
     collections::{BTreeMap, BTreeSet},

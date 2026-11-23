@@ -7,7 +7,7 @@ mod native_view;
 mod tray;
 
 pub use assets::Assets;
-pub use commands::{Commands, Connection, quit_if_unseen, start_commands};
+pub use commands::{Commands, Connection, Session, quit_if_unseen, start_commands};
 pub use gate::main_window_closed;
 #[cfg(feature = "native-test")]
 pub use native_view::StripHold;

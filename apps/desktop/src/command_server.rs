@@ -1,13 +1,16 @@
 //! The local command socket (ADR 0022): the `skillbinder` command and a second launch of the app
 //! reach the running app through it. Whoever holds `application.lock` binds it, so a socket file
 //! left by a crash is stale and goes first. Each connection checks the protocol, then hands its
-//! one request to the app's foreground task and writes back the reply.
+//! one request to the app's foreground task, writes back each reply, and reads the user's answer
+//! to each question.
 
 use anyhow::Context as _;
 use interprocess::local_socket::tokio::{Stream, prelude::*};
 use interprocess::local_socket::traits::Stream as _;
 use interprocess::local_socket::{GenericFilePath, GenericNamespaced, ListenerOptions, Name};
-use skillbinder_proto::command_line::{Endpoint, Greeting, Hello, PROTOCOL, Request};
+use skillbinder_proto::command_line::{
+    Answer, Endpoint, Greeting, Hello, PROTOCOL, Reply, Request,
+};
 use skillbinder_ui::Commands;
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::path::Path;
@@ -73,8 +76,8 @@ fn name(endpoint: &Endpoint) -> std::io::Result<Name<'_>> {
     }
 }
 
-/// One connection: the greeting, then one request and its reply. The command counts as
-/// connected until its reply is written.
+/// One connection: the greeting, then one request and its replies. The command counts as
+/// connected until its outcome is written or it goes; its request runs on either way.
 async fn answer(stream: Stream, commands: Commands) {
     let mut lines = tokio::io::BufReader::new(&stream).lines();
     let Some(hello) = read::<Hello>(&mut lines).await else {
@@ -88,8 +91,16 @@ async fn answer(stream: Stream, commands: Commands) {
         return;
     };
     let connection = commands.connect();
-    if let Some(reply) = connection.run(request).await {
-        write(&stream, &reply).await;
+    let session = connection.run(request);
+    while let Some(reply) = session.reply().await {
+        let asks = matches!(reply, Reply::Ask(_));
+        if !write(&stream, &reply).await {
+            break;
+        }
+        if asks {
+            let answer = read::<Answer>(&mut lines).await;
+            session.answer(answer.is_some_and(|answer| answer.yes));
+        }
     }
     let _ = (&stream).shutdown().await;
 }

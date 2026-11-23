@@ -5,7 +5,7 @@
 use crate::native_view::{Activity, Landing, NativeView};
 use gpui_kit::{AnyWindowHandle, App, Context, Entity, Global, WeakEntity, Window};
 use skillbinder_client::Client;
-use skillbinder_proto::{AppError, AppResult, AppSnapshot};
+use skillbinder_proto::{AppError, AppResult, AppSnapshot, PresetId};
 use std::future::Future;
 
 /// The work that blocks a new change, in the window and in the menu.
@@ -105,6 +105,28 @@ pub fn main_window_closed(cx: &mut App) {
             gate.change = None;
         }
     });
+}
+
+/// Runs `operation`, a blocking change started outside the window, as the window would start it:
+/// with a window open through its strip, `preset` showing active at once when the change
+/// activates one, otherwise behind the gate alone. Refused, and `operation` dropped, while
+/// anything blocks a change.
+pub(crate) fn block<F>(
+    client: &Client,
+    activity: Activity,
+    preset: Option<PresetId>,
+    operation: F,
+    cx: &mut App,
+) where
+    F: Future<Output = AppResult<Landing>> + Send + 'static,
+{
+    if let Some(view) = main_view(cx) {
+        view.update(cx, |view, cx| {
+            view.block_change(activity, preset, operation, cx);
+        });
+    } else if !Gate::of(cx).blocked(&client.snapshot()) {
+        start_change(client, activity, operation, cx);
+    }
 }
 
 /// Runs `operation`, a blocking change, on the client's runtime, blocking new changes until it

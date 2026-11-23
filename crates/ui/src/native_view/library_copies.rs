@@ -10,7 +10,7 @@ use skillbinder_proto::{AgentOption, CopyState, ManagedCopy, SkillId};
 
 /// Which Agents row a directory belongs to.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum Reader {
+pub(crate) enum Reader {
     /// The universal agents together, by display name.
     Universal(Vec<String>),
     /// One other agent, by registry id.
@@ -20,7 +20,7 @@ pub(super) enum Reader {
 /// An Agents row and the global skill directory its agents read, or a workspace skill directory
 /// and the agents that read it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct AgentRow {
+pub(crate) struct AgentRow {
     pub reader: Reader,
     /// The name the Agents section shows.
     pub name: String,
@@ -114,7 +114,7 @@ pub(super) fn placements(
 }
 
 /// A directory as the user reads it, with the home folder shortened to `~`.
-pub(super) fn shown_dir(dir: &str, home: &str) -> String {
+pub(crate) fn shown_dir(dir: &str, home: &str) -> String {
     Path::new(dir)
         .strip_prefix(home)
         .map_or_else(|_| dir.to_owned(), |inner| format!("~/{}", inner.display()))

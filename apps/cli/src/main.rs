@@ -4,72 +4,40 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 mod connect;
+mod console;
+mod grammar;
 mod render;
 mod start;
 
 use clap::error::ErrorKind;
-use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
-use skillbinder_proto::command_line::{CommandError, ErrorCode, Request};
+use console::Console;
+use skillbinder_proto::command_line::{CommandError, ErrorCode};
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-/// The grammar. Built rather than derived: the derive allows Clippy's style lints, which the
-/// workspace forbids allowing.
-fn grammar() -> Command {
-    // The packaged file is `skillbinder-cli`, on the PATH as `skillbinder`.
-    Command::new("skillbinder")
-        .bin_name("skillbinder")
-        .version(env!("CARGO_PKG_VERSION"))
-        .about("Run SkillBinder from a terminal. It talks to the running app, and starts it when it isn't.")
-        .subcommand_required(true)
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .global(true)
-                .action(ArgAction::SetTrue)
-                .help("Print exactly one JSON document on stdout"),
-        )
-        // An isolated root's app, for tests against a native-test build.
-        .arg(
-            Arg::new("data-dir")
-                .long("data-dir")
-                .global(true)
-                .hide(true)
-                .value_parser(value_parser!(PathBuf)),
-        )
-        .subcommand(
-            Command::new("status")
-                .about("Show the version, the active preset, the library's counts, and what is running")
-                .after_help("Example: skillbinder status --json"),
-        )
-}
-
 fn main() -> ExitCode {
-    let matches = match grammar().try_get_matches() {
+    let matches = match grammar::grammar().try_get_matches() {
         Ok(matches) => matches,
         Err(error) => return usage(&error),
     };
     let json = matches.get_flag("json");
-    let request = match request(&matches) {
+    // Questions need someone to answer them: no prompts without a terminal (D3).
+    let interactive = std::io::stdin().is_terminal() && std::io::stderr().is_terminal();
+    let request = match grammar::request(&matches, interactive) {
         Ok(request) => request,
-        Err(error) => return render::failure(&error, json),
+        Err(error) => return render::failure(&error.into(), json),
     };
+    let mut console = Console::new(std::io::stderr().is_terminal());
     let outcome = match matches.get_one::<PathBuf>("data-dir") {
         // An isolated root's app is a native-test build that needs the same root to start.
-        Some(data) => connect::send(data, &request, true),
-        None => platform_data().and_then(|data| connect::send(&data, &request, false)),
+        Some(data) => connect::send(data, &request, true, &mut console),
+        None => platform_data()
+            .map_err(Into::into)
+            .and_then(|data| connect::send(&data, &request, false, &mut console)),
     };
+    console.end_progress();
     render::outcome(outcome, json)
-}
-
-fn request(matches: &ArgMatches) -> Result<Request, CommandError> {
-    match matches.subcommand_name() {
-        Some("status") => Ok(Request::Status),
-        name => Err(CommandError::new(
-            ErrorCode::Usage,
-            format!("Unknown command {}", name.unwrap_or_default()),
-        )),
-    }
 }
 
 /// The application data folder the app's engine uses.
@@ -98,7 +66,8 @@ fn usage(error: &clap::Error) -> ExitCode {
             .kind()
             .as_str()
             .unwrap_or("The command line is not valid");
-        return render::failure(&CommandError::new(ErrorCode::Usage, message), true);
+        let error = CommandError::new(ErrorCode::Usage, message);
+        return render::failure(&error.into(), true);
     }
     let _ = error.print();
     ExitCode::from(u8::try_from(error.exit_code()).unwrap_or(2))

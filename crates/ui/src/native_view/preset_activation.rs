@@ -13,6 +13,7 @@ use skillbinder_design::Checkbox;
 use skillbinder_proto::{
     AppResult, AppSnapshot, LibrarySnapshot, OrganizationChange, Preset, PresetId, SkillId,
 };
+use std::future::Future;
 
 impl NativeView {
     /// The preset whose configuration the app edits: one just clicked while its activation is
@@ -47,15 +48,35 @@ impl NativeView {
     /// Activates preset `id`, showing it active at once while the engine saves the choice and
     /// writes your agents' copies to match it; the progress strip blocks the app meanwhile.
     pub(crate) fn set_active_preset(&mut self, id: PresetId, cx: &mut Context<Self>) {
-        // Checked before the optimistic preset is set, which `block` could not undo.
-        if self.blocked() || self.active_preset_id().as_ref() == Some(&id) {
+        if self.active_preset_id().as_ref() == Some(&id) {
             return;
         }
         let Some(activity) = switching(&self.snapshot, &id) else {
             return;
         };
-        self.active_preset = Some(id.clone());
-        self.block(activity, activate(self.client.clone(), id), cx);
+        let operation = activate(self.client.clone(), id.clone());
+        self.block_change(activity, Some(id), operation, cx);
+    }
+
+    /// Runs `operation`, a blocking change, under the strip; `preset`, when it activates one,
+    /// shows active at once. Refused while the app is blocked.
+    pub(crate) fn block_change<F>(
+        &mut self,
+        activity: Activity,
+        preset: Option<PresetId>,
+        operation: F,
+        cx: &mut Context<Self>,
+    ) where
+        F: Future<Output = AppResult<Landing>> + Send + 'static,
+    {
+        // Checked before the optimistic preset is set, which `block` could not undo.
+        if self.blocked() {
+            return;
+        }
+        if preset.is_some() {
+            self.active_preset = preset;
+        }
+        self.block(activity, operation, cx);
     }
 
     /// Whether the active preset holds `skill`.
