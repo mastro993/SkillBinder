@@ -32,13 +32,22 @@ pub(crate) struct AgentRow {
     pub resolved: String,
 }
 
+impl AgentRow {
+    /// Whether the row's agents are yours: they share one global skill directory, so all or none.
+    pub(crate) fn chosen(&self, agents: &[AgentOption]) -> bool {
+        agents
+            .iter()
+            .any(|agent| agent.chosen && self.ids.contains(&agent.id))
+    }
+}
+
 /// The Agents rows in section order: Universal first, then your other agents alphabetically.
 pub(super) fn agent_rows(agents: &[AgentOption], home: &str) -> Vec<AgentRow> {
     rows_of(your_agents(agents), home)
 }
 
 /// The rows Choose your agents offers, in the same order, for every agent found, chosen or not.
-pub(super) fn found_rows(agents: &[AgentOption], home: &str) -> Vec<AgentRow> {
+pub(crate) fn found_rows(agents: &[AgentOption], home: &str) -> Vec<AgentRow> {
     rows_of(found_agents(agents), home)
 }
 

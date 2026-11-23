@@ -17,18 +17,10 @@ use gpui_kit::component::{Disableable, switch::Switch};
 use gpui_kit::{Context, IntoElement, Styled, px};
 use skillbinder_design::tokens::space;
 use skillbinder_design::{AvatarStack, Notice};
-use skillbinder_proto::AgentOption;
 use std::collections::BTreeSet;
 
 const TURNED_OFF: &str = "Its skills stay in place.";
 const NONE_FOUND: &str = "No agents found on this computer.";
-
-/// Whether the agents of `row` are yours: they share one global skill directory, so all or none.
-fn chosen(row: &AgentRow, agents: &[AgentOption]) -> bool {
-    agents
-        .iter()
-        .any(|agent| agent.chosen && row.ids.contains(&agent.id))
-}
 
 /// What a row reads under its name: its folder, or Universal's agents, unless its agents were
 /// turned off this session while managed.
@@ -71,7 +63,7 @@ impl NativeView {
 
     /// One row: logo, name, folder line, and the switch.
     fn agent_switch_row(&self, row: &AgentRow, cx: &mut Context<Self>) -> SettingRow {
-        let on = chosen(row, &self.snapshot.agents);
+        let on = row.chosen(&self.snapshot.agents);
         let detail = detail(row, on, &self.agents_turned_off, &self.snapshot.home);
         let mono = matches!(row.reader, Reader::Agent(_)) && detail != TURNED_OFF;
         let id = row_id(row);

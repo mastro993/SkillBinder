@@ -40,6 +40,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "clap",
             "ctrlc",
             "directories",
+            "dunce",
             "interprocess",
             "serde",
             "serde_json",

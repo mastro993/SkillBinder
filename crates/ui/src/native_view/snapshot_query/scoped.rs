@@ -6,7 +6,7 @@ use super::{matches, name_order};
 use skillbinder_proto::{AppSnapshot, FolderId, PresetId, Skill, Workspace};
 
 /// The library skills `workspace` holds, by name.
-pub(in crate::native_view) fn workspace_skills<'a>(
+pub(crate) fn workspace_skills<'a>(
     snapshot: &'a AppSnapshot,
     workspace: &Workspace,
 ) -> Vec<&'a Skill> {

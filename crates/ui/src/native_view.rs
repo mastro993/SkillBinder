@@ -66,7 +66,7 @@ mod workspace_page;
 mod workspace_targets;
 
 pub(crate) use app_update_notice::RestartBlocker;
-pub(crate) use library_copies::shown_dir;
+pub(crate) use library_copies::{AgentRow, found_rows, shown_dir};
 pub(crate) use library_targets::held;
 pub(crate) use library_updates::{available, summary};
 #[cfg(feature = "native-test")]
@@ -80,8 +80,9 @@ pub use shell::{GoBack, GoForward, ToggleSidebar};
 pub(crate) use snapshot_query::fixture;
 pub(crate) use snapshot_query::{
     ActiveFilter, Entry as AgentEntry, LibraryFilter, Places, Query, has_update, library_counts,
-    library_skills,
+    library_skills, workspace_skills,
 };
+pub(crate) use workspace_targets::offered_folders;
 
 use std::{
     collections::{BTreeMap, BTreeSet},

@@ -160,6 +160,20 @@ impl NativeView {
     }
 }
 
+/// The folders the Add skill picker offers a workspace: the directories it uses and your agents',
+/// those that resolve to one folder sharing an entry.
+pub(crate) fn offered_folders(
+    agents: &[AgentOption],
+    workspace: &Workspace,
+    home: &str,
+) -> Vec<Entry> {
+    Entry::grouped(
+        dir_rows(agents, workspace, home)
+            .into_iter()
+            .map(|row| (row.row, vec![row.dir])),
+    )
+}
+
 /// The folders a workspace's agents menu lists: the directories it uses, `.agents/skills` first,
 /// then by name, those that resolve to one folder sharing an entry, which keeps the first one's
 /// name and logo.

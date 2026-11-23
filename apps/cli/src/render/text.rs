@@ -2,8 +2,8 @@
 
 use skillbinder_proto::SyncState;
 use skillbinder_proto::command_line::{
-    Changed, CopyRow, CopyStatus, Failure, FolderRow, Output, PresetRow, SkillOutput, SkillRow,
-    StatusOutput,
+    AgentRow, Changed, CopyRow, CopyStatus, Failure, FolderRow, Output, PresetRow, SkillOutput,
+    SkillRow, StatusOutput, WorkspaceRow,
 };
 
 pub(super) fn output(output: &Output) -> String {
@@ -20,6 +20,12 @@ pub(super) fn output(output: &Output) -> String {
             .iter()
             .map(|copy| format!("{}\n", copy_line(copy)))
             .collect(),
+        Output::Workspaces(workspaces) if workspaces.is_empty() => "No workspaces.\n".to_owned(),
+        Output::Workspaces(workspaces) => workspaces.iter().map(workspace_block).collect(),
+        Output::Agents(agents) if agents.is_empty() => {
+            "No agents found on this computer.\n".to_owned()
+        }
+        Output::Agents(agents) => agents.iter().map(agent_line).collect(),
         Output::Changed(Changed { message, .. }) => format!("{message}\n"),
     }
 }
@@ -170,6 +176,39 @@ fn preset_line(preset: &PresetRow) -> String {
 
 fn folder_line(folder: &FolderRow) -> String {
     format!("{} ({})\n", folder.name, count(folder.skills, "skill"))
+}
+
+/// The workspace's name and folder, then its agents and the skills on there.
+fn workspace_block(workspace: &WorkspaceRow) -> String {
+    let WorkspaceRow {
+        name,
+        folder,
+        missing,
+        agents,
+        skills,
+    } = workspace;
+    let missing = if *missing { " (missing)" } else { "" };
+    let list = |items: &[String]| match items {
+        [] => "none".to_owned(),
+        items => items.join(", "),
+    };
+    format!(
+        "{name}: {folder}{missing}\n  Agents: {}\n  Skills on: {}\n",
+        list(agents),
+        list(skills)
+    )
+}
+
+/// `* Claude Code (claude-code): ~/.claude/skills` for one of your agents, the others indented to
+/// match.
+fn agent_line(agent: &AgentRow) -> String {
+    let mark = if agent.on { "*" } else { " " };
+    format!(
+        "{mark} {} ({}): {}\n",
+        agent.name,
+        agent.ids.join(", "),
+        agent.directory
+    )
 }
 
 /// `pdf in ~/.claude/skills differs from the library.`, and the like for each state.

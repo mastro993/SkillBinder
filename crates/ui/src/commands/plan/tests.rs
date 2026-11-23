@@ -1,4 +1,4 @@
-use super::{Plan, plan};
+use super::{Plan, Save, plan};
 use crate::native_view::fixture::{Fixture, agents, id, preset_id};
 use skillbinder_proto::command_line::{Change, ErrorCode};
 use skillbinder_proto::{
@@ -26,9 +26,13 @@ fn world() -> Fixture {
 
 fn changes(change: Change, snapshot: &AppSnapshot) -> Vec<String> {
     match plan(&change, snapshot) {
-        Ok(Plan::Organize { changes, .. }) => {
-            changes.iter().map(|change| format!("{change:?}")).collect()
-        }
+        Ok(Plan::Save { saves, .. }) => saves
+            .iter()
+            .map(|save| match save {
+                Save::Organize(change) => format!("{change:?}"),
+                other => panic!("{other:?} organizes"),
+            })
+            .collect(),
         other => panic!("{change:?} organizes, not {other:?}"),
     }
 }
@@ -134,10 +138,10 @@ fn activating_names_what_the_switch_adds_and_removes() {
             removes: vec![id("pdf")]
         }
     );
-    let Ok(Plan::Organize { changes, done }) = plan(&activate("default"), &snapshot) else {
+    let Ok(Plan::Save { saves, done }) = plan(&activate("default"), &snapshot) else {
         panic!("Default is active");
     };
-    assert!(changes.is_empty());
+    assert!(saves.is_empty());
     assert_eq!(done, "Default is already active.");
 }
 
@@ -172,7 +176,7 @@ fn an_unknown_name_changes_nothing() {
 #[test]
 fn deleting_a_folder_confirms_with_the_window_s_text() {
     let snapshot = world().skill("docx", "", Some("docs")).build();
-    let Ok(Plan::DeleteFolder { prompt, .. }) = plan(
+    let Ok(Plan::Confirm { prompt, .. }) = plan(
         &Change::DeleteFolder {
             folder: "documents".into(),
         },

@@ -47,6 +47,10 @@ pub enum Query {
     Folders,
     /// `copies`: every copy waiting for the user's answer.
     Copies,
+    /// `workspaces`.
+    Workspaces,
+    /// `agents`: every agent found, yours or not.
+    Agents,
 }
 
 /// Library's filters, one at a time.
@@ -166,6 +170,58 @@ pub enum Change {
     },
     /// `copies retry`.
     RetryCopies,
+    /// `workspace add`: adds a folder's projects as workspaces, as the sidebar's Add folder does.
+    AddWorkspace {
+        /// The folder, absolute.
+        folder: String,
+    },
+    /// `workspace rename`.
+    RenameWorkspace {
+        /// The workspace.
+        workspace: WorkspaceName,
+        /// Its new name.
+        name: String,
+    },
+    /// `workspace remove`, which confirms first.
+    RemoveWorkspace {
+        /// The workspace.
+        workspace: WorkspaceName,
+    },
+    /// `workspace enable`: turns skills on in a workspace, as its Add skill picker does.
+    EnableInWorkspace {
+        /// The workspace.
+        workspace: WorkspaceName,
+        /// The skills.
+        skills: Vec<String>,
+        /// Only these agents; none means all the agents the workspace uses.
+        agents: Vec<String>,
+    },
+    /// `workspace disable`: turns skills off in a workspace.
+    DisableInWorkspace {
+        /// The workspace.
+        workspace: WorkspaceName,
+        /// The skills.
+        skills: Vec<String>,
+    },
+    /// `agent on`: makes an agent one of yours, applying the active preset to it.
+    TurnOnAgent {
+        /// The agent.
+        agent: String,
+    },
+    /// `agent off`: leaves its copies in place, unmanaged.
+    TurnOffAgent {
+        /// The agent.
+        agent: String,
+    },
+}
+
+/// A workspace as the command names it: by its name, or by a folder inside it, such as `.`.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceName {
+    /// The name as typed.
+    pub name: String,
+    /// The folder it names, absolute with links resolved, when it names one.
+    pub folder: Option<String>,
 }
 
 /// What the command may answer for the user (spec rules 6 and 8, A5): replacing copies

@@ -70,6 +70,13 @@ pub(crate) fn grammar() -> Command {
         .subcommand(Command::new("folders").about("List the library folders"))
         .subcommand(folder())
         .subcommand(copies())
+        .subcommand(Command::new("workspaces").about("List the workspaces, their agents, and the skills on in each"))
+        .subcommand(places::workspace())
+        .subcommand(
+            Command::new("agents")
+                .about("List the agents found on this computer, marking yours"),
+        )
+        .subcommand(places::agent())
 }
 
 fn preset() -> Command {
@@ -260,6 +267,10 @@ pub(crate) fn request(matches: &ArgMatches, interactive: bool) -> Result<Request
         }),
         "presets" => read(Query::Presets),
         "folders" => read(Query::Folders),
+        "workspaces" => read(Query::Workspaces),
+        "agents" => read(Query::Agents),
+        "workspace" => places::workspace_change(args).and_then(change),
+        "agent" => places::agent_change(args).and_then(change),
         "enable" => change(Change::Enable {
             skills: values(args, "slugs"),
             agents: values(args, "agent"),
@@ -371,5 +382,6 @@ fn unknown(command: &str) -> CommandError {
     CommandError::new(ErrorCode::Usage, format!("Unknown command {command}"))
 }
 
+mod places;
 #[cfg(test)]
 mod tests;
