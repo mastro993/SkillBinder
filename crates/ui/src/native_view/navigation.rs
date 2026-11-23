@@ -55,6 +55,7 @@ impl NativeView {
             }
             if route == Route::Settings {
                 self.read_command_line(cx);
+                self.read_mcp_clients(cx);
             }
         }
         self.route = route;

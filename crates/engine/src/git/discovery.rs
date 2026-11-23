@@ -1,9 +1,8 @@
-//! Finding Git (ADR 0011): every absolute `PATH` entry, then the usual install locations, which an
-//! app opened from Finder or after a winget install does not see on its `PATH`. A binary that
-//! would open an installer is never run.
+//! Finding Git (ADR 0011) where other programs are found ([`programs::directories`]), and on
+//! Windows in Git's own install folders. A binary that would open an installer is never run.
 
 use super::{Git, failure, process, validation};
-use crate::{lifecycle::GitSearch, shutdown::Shutdown};
+use crate::{lifecycle::GitSearch, programs, shutdown::Shutdown};
 use skillbinder_proto::AppResult;
 use std::{
     collections::BTreeSet,
@@ -81,30 +80,24 @@ fn verify(program: &process::Program) -> AppResult<validation::Version> {
     validation::version(&raw)
 }
 
-/// Where Git may be installed, in search order: each absolute `PATH` entry, then the usual install
-/// locations, read from `environment` on Windows.
+/// Where Git may be installed, in search order: the shared program locations, then on Windows
+/// Git's own install folders, read from `environment`.
 fn directories(
     path: Option<&OsStr>,
     environment: impl Fn(&str) -> Option<OsString>,
 ) -> Vec<PathBuf> {
-    let mut directories: Vec<PathBuf> = path
-        .map(|path| {
-            std::env::split_paths(path)
-                .filter(|directory| directory.is_absolute())
-                .collect()
-        })
-        .unwrap_or_default();
-    if cfg!(windows) {
-        let under = |variable: &str, parts: &[&str]| {
-            environment(variable)
-                .map(|root| parts.iter().fold(PathBuf::from(root), |d, p| d.join(p)))
-        };
-        directories.extend(under("ProgramFiles", &["Git", "cmd"]));
-        directories.extend(under("LocalAppData", &["Programs", "Git", "cmd"]));
+    let under = |variable: &str, parts: &[&str]| {
+        environment(variable).map(|root| parts.iter().fold(PathBuf::from(root), |d, p| d.join(p)))
+    };
+    let extra = if cfg!(windows) {
+        [
+            under("ProgramFiles", &["Git", "cmd"]),
+            under("LocalAppData", &["Programs", "Git", "cmd"]),
+        ]
     } else {
-        directories.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
-    }
-    directories
+        [None, None]
+    };
+    programs::directories(path, extra.into_iter().flatten())
 }
 
 /// Whether running `executable` would open Apple's Command Line Tools installer.
@@ -166,16 +159,6 @@ mod tests {
                 "{executable:?} with {developer:?}"
             );
         }
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn every_absolute_path_entry_comes_before_the_usual_install_locations() {
-        let found = directories(Some(OsStr::new("/a:relative:/b")), |_| None);
-        assert_eq!(
-            found,
-            ["/a", "/b", "/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from)
-        );
     }
 
     #[cfg(windows)]

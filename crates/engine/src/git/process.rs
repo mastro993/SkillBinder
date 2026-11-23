@@ -1,15 +1,13 @@
 use super::{AppResult, failure};
+use crate::programs::{self, Stopped};
 use crate::shutdown::Shutdown;
 use std::{
-    io::{Read, Write},
+    io::Write,
     path::{Path, PathBuf},
-    process::{Child, Command, Output, Stdio},
-    sync::mpsc,
-    thread,
-    time::{Duration, Instant},
+    process::{Command, Output},
+    time::Duration,
 };
 
-const OUTPUT_LIMIT: usize = 4 * 1024 * 1024;
 /// What a command that ran past its timeout reports.
 pub(super) const TIMED_OUT: &str = "Git timed out. Check the remote and try again.";
 
@@ -74,86 +72,21 @@ pub(super) fn run(
             "credential.interactive=false",
             "-c",
             "commit.gpgsign=false",
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        ]);
     if let Some(repo) = repo {
         command.arg("-C").arg(repo);
     }
     command.args(args);
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
-    let mut child = command
-        .spawn()
-        .map_err(|_| failure("Git could not start."))?;
-    let stdout = reader(
-        child
-            .stdout
-            .take()
-            .ok_or_else(|| failure("Git output unavailable."))?,
-    );
-    let stderr = reader(
-        child
-            .stderr
-            .take()
-            .ok_or_else(|| failure("Git output unavailable."))?,
-    );
-    let started = Instant::now();
-    let status = loop {
-        // A command that already finished keeps its result: quitting must not report work that
-        // happened, such as a push, as cancelled.
-        if let Some(status) = child
-            .try_wait()
-            .map_err(|_| failure("Git process failed."))?
-        {
-            break status;
-        }
-        if shutdown.is_some_and(Shutdown::cancelled) {
-            stop_child(&mut child);
-            return Err(Shutdown::error());
-        }
-        if started.elapsed() >= timeout {
-            stop_child(&mut child);
-            return Err(failure(TIMED_OUT));
-        }
-        thread::sleep(Duration::from_millis(5));
-    };
-    let receive = |channel: mpsc::Receiver<std::io::Result<Vec<u8>>>| {
-        channel
-            .recv_timeout(timeout.saturating_sub(started.elapsed()))
-            .map_err(|_| {
-                kill_group(&child);
-                failure("Git output timed out.")
-            })?
-            .map_err(|_| failure("Git output could not be read."))
-    };
-    Ok(Output {
-        status,
-        stdout: receive(stdout)?,
-        stderr: receive(stderr)?,
+    programs::run(&mut command, timeout, shutdown).map_err(|stopped| match stopped {
+        Stopped::Start => failure("Git could not start."),
+        Stopped::Pipes => failure("Git output unavailable."),
+        Stopped::Wait => failure("Git process failed."),
+        Stopped::Cancelled => Shutdown::error(),
+        Stopped::TimedOut => failure(TIMED_OUT),
+        Stopped::OutputTimedOut => failure("Git output timed out."),
+        Stopped::Unreadable => failure("Git output could not be read."),
     })
 }
-
-/// Kills `child` and waits for it, so its output readers reach the end of their pipes.
-fn stop_child(child: &mut Child) {
-    kill_group(child);
-    let _ = child.kill();
-    let _ = child.wait();
-}
-
-/// Kills the process group `child` leads, so a command's own children stop too.
-#[cfg(unix)]
-fn kill_group(child: &Child) {
-    if let Some(pid) = rustix::process::Pid::from_raw(child.id() as i32) {
-        let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
-    }
-}
-#[cfg(not(unix))]
-fn kill_group(_: &Child) {}
 
 const RAW_ATTRIBUTES: &[u8] = b"* -filter -text -eol -ident -working-tree-encoding\n";
 
@@ -210,44 +143,9 @@ fn raw_attributes(git: &Path) -> AppResult<()> {
     Ok(())
 }
 
-fn reader(mut stream: impl Read + Send + 'static) -> mpsc::Receiver<std::io::Result<Vec<u8>>> {
-    let (send, receive) = mpsc::channel();
-    thread::spawn(move || {
-        let mut output = Vec::new();
-        let mut buffer = [0; 8192];
-        let mut truncated = false;
-        let result = loop {
-            match stream.read(&mut buffer) {
-                Ok(0) => {
-                    break if truncated {
-                        Err(std::io::Error::other("Git output exceeded limit"))
-                    } else {
-                        Ok(output)
-                    };
-                }
-                Ok(count) => {
-                    let keep = count.min(OUTPUT_LIMIT.saturating_sub(output.len()));
-                    output.extend_from_slice(&buffer[..keep]);
-                    truncated |= keep < count;
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(error) => break Err(error),
-            }
-        };
-        let _ = send.send(result);
-    });
-    receive
-}
-
 #[cfg(all(test, unix))]
 mod tests {
     #![allow(clippy::unwrap_used)]
-    #[test]
-    fn drains_and_refuses_oversized_output() {
-        let bytes = std::io::Cursor::new(vec![b'x'; super::OUTPUT_LIMIT + 1]);
-        assert!(super::reader(bytes).recv().unwrap().is_err());
-    }
-
     #[test]
     fn kills_a_timed_out_process_group() {
         use std::os::unix::fs::PermissionsExt;

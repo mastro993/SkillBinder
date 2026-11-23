@@ -35,6 +35,16 @@ The Agents section lists one row per Agents row of every detected agent, chosen 
 
 Either answer counts the directory as asked, so the notice never asks about it.
 
+### MCP server
+
+After the switches, the **MCP server** group connects agents to SkillBinder's [MCP server](mcp-server.md) through their own installers (ADR 0026), described "Let your agents use SkillBinder's tools.", which adds "Connecting also installs the skillbinder command." while the command is not installed (ADR 0027). It shows once the command line tool's state is read, as Settings opens.
+
+- Where the command can't be installed, the group shows only why, with no Connect and no Copy configuration: "Move SkillBinder to Applications to connect agents.", "Install SkillBinder with its setup program to connect agents.", "Run SkillBinder as its AppImage to connect agents.", or "Another skillbinder is in <folder>.".
+- Otherwise a row per agent on this computer, in this order: **Claude Code**, **Codex**, **VS Code**, and **Cursor**, each with its logo (VS Code's square terminal glyph), its name, and "Connected", "Not connected", or "<tool> not found" (`claude`, `codex`, or `code`). An agent is on this computer when its folder exists (`~/.claude`, `$CODEX_HOME` or `~/.codex`, VS Code's user settings folder, `~/.cursor`) or its program is found. The control is **Connect**, **Disconnect** for Claude Code and Codex, or for VS Code and Cursor when connected the muted "Remove it in VS Code" or "Remove it in Cursor".
+- Last, **Other agents**, "Add SkillBinder to any agent's MCP settings.", with **Copy configuration**, which copies `{"mcpServers": {"skillbinder": {"command": "<command>", "args": ["mcp"]}}}` with the command's absolute path and toasts "Configuration copied". While the command is not installed, it installs it first, as Connect does, so the copied path exists.
+
+Connect installs the command first when it is missing, with macOS's password prompt where needed; cancelling it changes nothing and shows no toast. Then it runs the agent's installer with the command's path and toasts "<Agent> can use SkillBinder. Start a new <Agent> session to load it.", or for Cursor opens its install link, where Cursor asks the user. Disconnect runs the agent's remover. A failing installer toasts the last line of its error output, or that it could not start or took too long. While one runs, every Connect, Disconnect, and Copy configuration is inactive. The rows are read when Settings opens, after each action, and when the window regains focus on Settings, so Cursor's row reads Connected once the user accepts. Searching "MCP", "tools", or an agent's name finds the rows.
+
 ## Settings › Library & sync
 
 The Library group lists **Library folder**, its path in monospace with Reveal, which shows it in the file manager, and **Storage**, "Writable" or "Read-only". The Sync group lists **Git**, its version, or "Sync and skill updates need Git 2.39 or newer." with the Git step's primary action, its status line (which names a too-old version), and on Linux the package manager's command under it, and **Remote**, its URL or "Local only", set up in Sync. The Sync page lists its own facts in the design system's `KeyValueList`: Status (the state, ahead, behind, and local changes), and with a remote its URL in monospace, Branch, and Last checked.

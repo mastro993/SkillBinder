@@ -23,11 +23,13 @@ use skillbinder_design::{
     Button, CardList, EmptyState, IconSize, ListRow, SearchField, SectionHeader, Text, icon,
 };
 
-/// What Settings keeps while it shows: its search, and the command line tool's row.
+/// What Settings keeps while it shows: its search, the command line tool's row, and the MCP
+/// server's agents.
 pub(super) struct Settings {
     search: Entity<InputState>,
     _search_subscription: Subscription,
     command_line: command_line::CommandLineRow,
+    mcp: agents::mcp::McpRows,
 }
 
 impl Settings {
@@ -42,6 +44,7 @@ impl Settings {
             search,
             _search_subscription: subscription,
             command_line: command_line::CommandLineRow::default(),
+            mcp: agents::mcp::McpRows::default(),
         }
     }
 
@@ -175,15 +178,30 @@ fn section_block(section: Section, groups: Vec<Group>) -> AnyElement {
 
 /// A group: its title as a section header, then its rows in a card, or what it shows with none.
 fn group_block(id: String, group: Group) -> AnyElement {
-    let Group { title, rows, empty } = group;
+    let Group {
+        title,
+        description,
+        rows,
+        empty,
+    } = group;
     let rows: Vec<ListRow> = rows.into_iter().map(list_row).collect();
     let mut card = CardList::new(id.clone()).rows(rows);
     if let Some(empty) = empty {
         card = card.empty(empty);
     }
+    let head = (title.is_some() || description.is_some()).then(|| {
+        v_flex()
+            .gap(px(space::XXS))
+            .children(title.map(|title| SectionHeader::new(format!("{id}-title"), title)))
+            .children(description.map(|description| {
+                Text::labeled(format!("{id}-description"), description)
+                    .level(text::CAPTION)
+                    .muted()
+            }))
+    });
     v_flex()
         .gap(px(space::SM))
-        .children(title.map(|title| SectionHeader::new(format!("{id}-title"), title)))
+        .children(head)
         .child(card)
         .into_any_element()
 }

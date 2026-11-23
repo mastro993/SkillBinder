@@ -29,6 +29,13 @@ pub(in crate::native_view) struct CommandLineRow {
     working: bool,
 }
 
+impl CommandLineRow {
+    /// The state read last, if any.
+    pub(in crate::native_view) fn status(&self) -> Option<&CommandLineStatus> {
+        self.status.as_ref()
+    }
+}
+
 /// The row's control.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Control {

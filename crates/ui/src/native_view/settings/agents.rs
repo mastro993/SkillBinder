@@ -5,6 +5,7 @@
 //! reads "Its skills stay in place." in place of its folder until the app quits. An agent never
 //! on keeps its folder line.
 
+pub(super) mod mcp;
 #[cfg(test)]
 mod tests;
 
@@ -44,21 +45,24 @@ fn row_id(row: &AgentRow) -> String {
 }
 
 impl NativeView {
-    /// One row per found agent, or the line saying no agent was found.
+    /// One row per found agent, or the line saying no agent was found, then the MCP server.
     pub(super) fn agents_groups(&self, cx: &mut Context<Self>) -> Vec<Group> {
         let rows = found_rows(&self.snapshot.agents, &self.snapshot.home);
         let rows = rows
             .iter()
             .map(|row| self.agent_switch_row(row, cx))
             .collect();
-        vec![Group {
+        let switches = Group {
             empty: Some(
                 Notice::new("settings-agents-none", NONE_FOUND)
                     .p(px(space::LG))
                     .into_any_element(),
             ),
             ..Group::new(rows)
-        }]
+        };
+        std::iter::once(switches)
+            .chain(self.mcp_group(cx))
+            .collect()
     }
 
     /// One row: logo, name, folder line, and the switch.
