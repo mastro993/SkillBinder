@@ -102,6 +102,8 @@ fn place(directory: &str, snapshot: &AppSnapshot) -> String {
 pub(super) struct Picked {
     keys: Vec<String>,
     versions: Vec<CandidateId>,
+    /// Every version named, which the import must take and no other.
+    named: Vec<CandidateId>,
 }
 
 /// What `named` names among `found`, each `<slug>` or `<slug>@<version>`, or with `all` what the
@@ -121,6 +123,7 @@ pub(super) fn pick(
                 .map(|row| row.key().to_owned())
                 .collect(),
             versions: Vec::new(),
+            named: Vec::new(),
         });
     }
     let listed: Vec<&Row<'_>> = rows(&groups).collect();
@@ -156,9 +159,20 @@ pub(super) fn pick(
                     hint: Some(format!("{} has {}.", slug_of(row), listed_versions(row))),
                     ..error
                 })?;
+                if let Some(why) = unimportable(chosen) {
+                    return Err(CommandError::new(
+                        ErrorCode::Failed,
+                        format!(
+                            "{}@{} can't be imported: {why}.",
+                            slug_of(row),
+                            short(&chosen.id)
+                        ),
+                    ));
+                }
                 if row.item.is_none_or(|item| item.candidate_id != chosen.id) {
                     picked.versions.push(chosen.id.clone());
                 }
+                picked.named.push(chosen.id.clone());
             }
         }
         if !picked.keys.iter().any(|key| key == row.key()) {
@@ -166,6 +180,17 @@ pub(super) fn pick(
         }
     }
     Ok(picked)
+}
+
+/// Why `version` can't be imported, as the engine refuses it: blocked, or with no files.
+fn unimportable(version: &Candidate) -> Option<&'static str> {
+    if version.validation == ValidationStatus::Blocked {
+        Some("it is blocked")
+    } else if version.file_count == 0 {
+        Some("its folder has no files")
+    } else {
+        None
+    }
 }
 
 fn slug_of(row: &Row<'_>) -> String {
@@ -231,14 +256,31 @@ pub(super) fn chosen(
         .filter(|row| keys.contains(row.key()))
         .collect();
     if let Some(row) = taken.iter().find(|row| !row.tickable()) {
-        let why = match row.shown().map(|version| version.validation) {
-            Some(ValidationStatus::Blocked) => "it is blocked",
-            _ => "its folder has no files",
-        };
+        let why = row
+            .shown()
+            .and_then(unimportable)
+            .unwrap_or("its folder has no files");
         return Err(CommandError::new(
             ErrorCode::Failed,
             format!("{} can't be imported: {why}.", slug_of(row)),
         ));
+    }
+    // The plan takes another version when the named one changed since it was scanned.
+    if let Some(row) = taken.iter().find(|row| {
+        let planned = row.item.map(|item| &item.candidate_id);
+        row.skill
+            .versions
+            .iter()
+            .any(|version| picked.named.contains(&version.id) && planned != Some(&version.id))
+    }) {
+        return Err(CommandError::new(
+            ErrorCode::Failed,
+            format!(
+                "The version of {} you named changed since it was scanned.",
+                slug_of(row)
+            ),
+        )
+        .hint("Run `skillbinder scan` to see its versions now."));
     }
     let selection = selection(&groups, &keys);
     if selection.over() {

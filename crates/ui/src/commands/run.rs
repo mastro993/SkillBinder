@@ -376,17 +376,19 @@ fn forward_progress(plan: &Plan, peer: &Peer, client: &Client, cx: &mut AsyncApp
     cx.spawn(async move |_| {
         let mut sent = None;
         while snapshots.changed().await.is_ok() {
-            let snapshot = snapshots.borrow_and_update().clone();
-            let progress = match &installing {
-                Some(id) => snapshot
-                    .explore
-                    .install_all
-                    .get(id)
-                    .map(|progress| (progress.done, progress.total)),
-                None => snapshot
-                    .activation
-                    .as_ref()
-                    .map(|progress| (progress.done, progress.total)),
+            let progress = {
+                let snapshot = snapshots.borrow_and_update();
+                match &installing {
+                    Some(id) => snapshot
+                        .explore
+                        .install_all
+                        .get(id)
+                        .map(|progress| (progress.done, progress.total)),
+                    None => snapshot
+                        .activation
+                        .as_ref()
+                        .map(|progress| (progress.done, progress.total)),
+                }
             };
             let Some((done, total)) = progress else {
                 continue;

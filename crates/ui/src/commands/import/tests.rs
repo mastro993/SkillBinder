@@ -213,6 +213,7 @@ fn a_slug_with_two_versions_needs_one_named() {
         Some(Picked {
             keys: named(&["pdf"]),
             versions: vec![CandidateId(PDF_B.into())],
+            named: vec![CandidateId(PDF_B.into())],
         }),
         "the version the plan doesn't take is prepared again"
     );
@@ -222,6 +223,7 @@ fn a_slug_with_two_versions_needs_one_named() {
         Some(Picked {
             keys: named(&["pdf"]),
             versions: Vec::new(),
+            named: vec![CandidateId(PDF_A.into())],
         }),
         "four characters of the digest name it"
     );
@@ -250,6 +252,7 @@ fn all_imports_what_the_dialog_ticks() {
         Picked {
             keys: named(&["pdf"]),
             versions: Vec::new(),
+            named: Vec::new(),
         }
     );
     let chosen = chosen(&found, &snapshot, &all).ok();
@@ -318,4 +321,45 @@ fn an_import_replacing_copies_goes_ahead_only_as_the_command_allows() {
     );
     let (peer, _replied) = command(&[true]);
     assert!(now(agree(&chosen, Permission::Ask, &peer)).is_ok());
+}
+
+#[test]
+fn a_named_version_is_imported_or_nothing_is() {
+    let (snapshot, mut found) = (world(), found());
+    let Ok(picked) = pick(
+        &found,
+        &snapshot.workspaces,
+        &named(&["pdf@bbbb222"]),
+        false,
+    ) else {
+        panic!("pdf's other version");
+    };
+    // The engine plans the preferred version when the one named can't be imported, as when it
+    // was blocked since the first scan.
+    let Err(changed) = chosen(&found, &snapshot, &picked) else {
+        panic!("the plan takes aaaa111, not the bbbb222 named");
+    };
+    assert_eq!(changed.code, ErrorCode::Failed);
+    assert_eq!(
+        changed.message,
+        "The version of pdf you named changed since it was scanned."
+    );
+
+    found.scan.candidates[1].validation = ValidationStatus::Blocked;
+    let Err(blocked) = pick(
+        &found,
+        &snapshot.workspaces,
+        &named(&["pdf@bbbb222"]),
+        false,
+    ) else {
+        panic!("a blocked version can't be named");
+    };
+    assert_eq!(
+        (blocked.code, blocked.code.exit_code()),
+        (ErrorCode::Failed, 1)
+    );
+    assert_eq!(
+        blocked.message,
+        "pdf@bbbb222 can't be imported: it is blocked."
+    );
 }
