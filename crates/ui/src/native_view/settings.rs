@@ -4,6 +4,7 @@
 
 mod agents;
 mod catalog;
+mod command_line;
 mod general;
 mod library;
 mod updates;
@@ -22,10 +23,11 @@ use skillbinder_design::{
     Button, CardList, EmptyState, IconSize, ListRow, SearchField, SectionHeader, Text, icon,
 };
 
-/// What Settings keeps while it shows: its search.
+/// What Settings keeps while it shows: its search, and the command line tool's row.
 pub(super) struct Settings {
     search: Entity<InputState>,
     _search_subscription: Subscription,
+    command_line: command_line::CommandLineRow,
 }
 
 impl Settings {
@@ -39,6 +41,7 @@ impl Settings {
         Self {
             search,
             _search_subscription: subscription,
+            command_line: command_line::CommandLineRow::default(),
         }
     }
 

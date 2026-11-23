@@ -19,6 +19,8 @@ cask "skillbinder" do
   depends_on macos: :tahoe
 
   app "SkillBinder.app"
+  # The `skillbinder` command (ADR 0024); Settings reads it as installed by Homebrew.
+  binary "#{appdir}/SkillBinder.app/Contents/MacOS/skillbinder-cli", target: "skillbinder"
 
   uninstall quit: "com.skillbinder.desktop"
 

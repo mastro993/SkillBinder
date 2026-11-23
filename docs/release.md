@@ -83,6 +83,8 @@ brew install --cask mastro993/tap/skillbinder        # stable releases
 brew install --cask mastro993/tap/skillbinder@beta   # nightly betas
 ```
 
+Each cask also links the `skillbinder` command into Homebrew's `bin` with its `binary` stanza, which Settings › General then reads as installed by Homebrew (ADR 0024).
+
 Each cask is a template in [`packaging/homebrew/`](../packaging/homebrew/), `skillbinder.rb` and `skillbinder@beta.rb`, with `@VERSION@` and `@SHA256@` standing for the release and its disk image's checksum. [`homebrew.yml`](../.github/workflows/homebrew.yml), called by Release with `skillbinder` and by Nightly with `skillbinder@beta` once the release is published, fills them in from the release's `SHA256SUMS`, writes the result to the tap's `Casks/<cask>.rb`, and pushes it to the tap's `main` as `<cask> X.Y.Z`. Both install the universal disk image's `SkillBinder.app` into `/Applications`, so each conflicts with the other: switching means uninstalling one first. They need macOS 26 (`depends_on macos: :tahoe`) and declare `auto_updates true`, since the app updates itself in place (ADR 0017), so `brew upgrade` leaves them alone unless run with `--greedy`. A beta starts on the Beta update channel, so the beta cask's app keeps updating to betas, and a release's on Stable. Each livecheck reads the version from its channel's update manifest on Pages. `brew uninstall` quits a running SkillBinder first, and `brew uninstall --zap` also deletes its data directory and preferences.
 
 Nightly prunes old betas, so the beta cask's URL breaks only if its tap push fails five nights in a row while betas keep publishing; installed apps are unaffected.

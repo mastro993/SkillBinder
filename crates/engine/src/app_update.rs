@@ -26,6 +26,7 @@ pub(crate) use check::Ended;
 use check::Known;
 pub use location::AppPlacement;
 use location::Location;
+pub(crate) use location::bundle_of;
 use manifest::Offer;
 pub use relocate::Relaunch;
 use skillbinder_proto::{

@@ -53,6 +53,9 @@ impl NativeView {
             if route == Route::Explore {
                 self.client.explore_opened();
             }
+            if route == Route::Settings {
+                self.read_command_line(cx);
+            }
         }
         self.route = route;
         self.error = None;
