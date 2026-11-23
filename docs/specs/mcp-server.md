@@ -68,7 +68,7 @@ A group after the agent switches, titled **MCP server**, described "Let your age
 - Where it cannot be installed (the command line tool row's Can't install here or Something else in the way), the group shows only that reason, "Move SkillBinder to Applications to connect agents.", "Install SkillBinder with its setup program to connect agents.", or "Another skillbinder is in /usr/local/bin.", with no Connect and no Copy configuration, since no stable command path exists to point agents at.
 - A row per supported agent found (Claude Code, Codex, VS Code, Cursor), with its logo, its name, and a line: "Connected", "Not connected", or "<tool> not found" when its command line cannot be found. The control is Connect, Disconnect (Claude Code and Codex), or for VS Code and Cursor when connected, muted "Remove it in <agent>".
 - After the agents, **Teach connected agents**, "Give connected agents the SkillBinder skill, a short guide to its tools.", with a switch: the user's only control to remove the SkillBinder skill, which otherwise leaves only when a library skill `skillbinder` arrives ([onboarding.md](command-line/onboarding.md#the-skillbinder-skill), ADR 0028).
-- A last row, **Other agents**, "Add SkillBinder to any agent's MCP settings.", with Copy configuration, which copies `{"mcpServers": {"skillbinder": {"command": "<command>", "args": ["mcp"]}}}` and toasts "Configuration copied".
+- A last row, **Other agents**, "Add SkillBinder to any agent's MCP settings.", with Copy configuration, which copies `{"mcpServers": {"skillbinder": {"command": "<command>", "args": ["mcp"]}}}` and toasts "Configuration copied"; while the command is not installed it installs it first, as Connect does, so the copied path exists.
 - Connect runs the agent's installer (ADR 0026) and toasts "<Agent> can use SkillBinder. Start a new <agent> session to load it."; Cursor's opens its install link, and the row re-reads when the window regains focus. A failing installer toasts its error output's last line.
 - Search finds the group under "MCP", "tools", and each agent's name.
 
@@ -88,7 +88,7 @@ A group after the agent switches, titled **MCP server**, described "Let your age
 - **A10** Connections are for the user, never per project (ADR 0026).
 - **A11** Claude Code, Codex, VS Code, and Cursor get Connect; Claude Desktop and the rest get Copy configuration until an `.mcpb` bundle exists.
 - **A12** The tool names and grouping above. If wrong: rename before M0 ships; after it, they are a contract.
-- **A13** `codex mcp get` and the VS Code and Cursor settings paths are verified against their current releases in M2; a missing `get` falls back to reading `~/.codex/config.toml`.
+- **A13** `codex mcp get` and the VS Code and Cursor settings paths are verified against their current releases in M2; a missing `get` falls back to reading `~/.codex/config.toml`. Verified 2026-11-23: codex-cli 0.170.0 has `mcp get`, which fails for an unknown name, so no fallback is needed; VS Code's user `mcp.json` keeps servers under `servers` and allows comments and trailing commas; `~/.cursor/mcp.json` keeps them under `mcpServers`; Cursor's install link is `cursor://anysphere.cursor-deeplink/mcp/install?name=…&config=<base64 JSON>`.
 
 ## Acceptance and slices
 

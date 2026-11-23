@@ -37,11 +37,15 @@ impl NativeView {
         cx.set_global(notice.launch());
         sidebar::apply_appearance(appearance, window, cx);
         // Launch refreshes through the client; afterwards only regaining focus refreshes.
-        let activation_subscription = cx.observe_window_activation(window, |view, window, _| {
+        let activation_subscription = cx.observe_window_activation(window, |view, window, cx| {
             if !window.is_window_active() {
                 view.left_focus = true;
             } else if std::mem::take(&mut view.left_focus) {
                 view.client.refresh_app();
+                // An agent such as Cursor may have been connected outside SkillBinder.
+                if view.route == Route::Settings {
+                    view.read_mcp_clients(cx);
+                }
                 // Before the library exists the app refresh does not look for Git.
                 if view.checks_git() {
                     view.client.check_git();

@@ -158,11 +158,13 @@ impl SettingRow {
     }
 }
 
-/// Rows under an optional title, in one card. `empty` shows in place of the card while the group
-/// has no row and nothing is searched.
+/// Rows under an optional title and description, in one card. `empty` shows in place of the card
+/// while the group has no row and nothing is searched.
 #[derive(Default)]
 pub(super) struct Group {
     pub title: Option<&'static str>,
+    /// A muted line under the title.
+    pub description: Option<String>,
     pub rows: Vec<SettingRow>,
     pub empty: Option<AnyElement>,
 }
@@ -195,17 +197,25 @@ pub(super) fn search(section: Section, groups: Vec<Group>, query: &str) -> Vec<G
     let whole_section = found(section.title());
     groups
         .into_iter()
-        .filter_map(|Group { title, rows, .. }| {
-            let whole = whole_section || title.is_some_and(found);
-            let rows: Vec<SettingRow> = rows
-                .into_iter()
-                .filter(|row| whole || row.texts().any(found))
-                .collect();
-            (!rows.is_empty()).then_some(Group {
-                title,
-                rows,
-                empty: None,
-            })
-        })
+        .filter_map(
+            |Group {
+                 title,
+                 description,
+                 rows,
+                 ..
+             }| {
+                let whole = whole_section || title.is_some_and(found);
+                let rows: Vec<SettingRow> = rows
+                    .into_iter()
+                    .filter(|row| whole || row.texts().any(found))
+                    .collect();
+                (!rows.is_empty()).then_some(Group {
+                    title,
+                    description,
+                    rows,
+                    empty: None,
+                })
+            },
+        )
         .collect()
 }

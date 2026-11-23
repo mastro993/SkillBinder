@@ -10,6 +10,7 @@ use crate::{
     install::Installs,
     lifecycle::EngineConfig,
     logging::Logger,
+    mcp_clients::{McpClients, Places},
     reconcile::RECONCILED_HEAD,
     scan::{LibraryIndex, Scans},
     shutdown::Shutdown,
@@ -33,6 +34,7 @@ mod app_update;
 mod catalog;
 mod command_line;
 mod install;
+mod mcp_clients;
 mod onboarding;
 mod preview;
 mod repositories;
@@ -66,6 +68,8 @@ struct Owner {
     app_updates: AppUpdates,
     /// The `skillbinder` command on the PATH, read and changed on threads of their own.
     command_line: CommandLine,
+    /// The agents Settings connects to the MCP server, checked on threads of their own.
+    mcp_clients: McpClients,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
 }
@@ -155,6 +159,14 @@ impl Engine {
         );
         let command_line = CommandLine::platform(&config, log.clone());
         command_line.refresh_in_background();
+        let mcp_clients = McpClients::new(
+            Places {
+                home: config.home.clone(),
+                environment: config.environment.clone(),
+            },
+            log.clone(),
+            shutdown.clone(),
+        );
         let (git, outdated_git) = config.find_git(shutdown.clone());
         let mut state = State {
             config,
@@ -240,6 +252,7 @@ impl Engine {
                 progress,
                 app_updates,
                 command_line,
+                mcp_clients,
                 shutdown,
             }),
         })

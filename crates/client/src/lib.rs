@@ -16,6 +16,7 @@ mod activation;
 mod app_update;
 mod command_line;
 mod explore;
+mod mcp_clients;
 mod onboarding;
 mod progress;
 mod update_all;
