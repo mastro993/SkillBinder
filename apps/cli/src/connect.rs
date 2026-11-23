@@ -11,7 +11,7 @@ use skillbinder_proto::command_line::{
 };
 use std::fmt::Display;
 use std::io::{self, BufRead as _, BufReader, Write as _};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -24,7 +24,7 @@ pub(crate) struct NotRunning;
 /// Sends `request` to the app whose application data is `data`, starting the app when none
 /// answers; `isolated` passes `data` on to the app it starts.
 pub(crate) fn send(data: &Path, request: &Request, isolated: bool) -> Result<Output, CommandError> {
-    let endpoint = Endpoint::of(data, &std::env::temp_dir());
+    let endpoint = Endpoint::of(data, &private_folder());
     if let Ok(outcome) = exchange(&endpoint, request) {
         return outcome;
     }
@@ -42,6 +42,17 @@ pub(crate) fn send(data: &Path, request: &Request, isolated: bool) -> Result<Out
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+/// The folder for a socket whose path in application data is too long: the per-user
+/// `$XDG_RUNTIME_DIR` where there is one, since Linux's shared `/tmp` would let another user bind
+/// the name first; otherwise the temporary folder, which is per user on macOS. The app picks the
+/// same.
+fn private_folder() -> PathBuf {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|folder| folder.is_absolute())
+        .unwrap_or_else(std::env::temp_dir)
 }
 
 /// The outcome of `request`, or [`NotRunning`] when nothing listens at `endpoint`.

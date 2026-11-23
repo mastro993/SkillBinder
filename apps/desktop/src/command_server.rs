@@ -22,7 +22,7 @@ pub(crate) fn serve(
     commands: Commands,
     runtime: &tokio::runtime::Handle,
 ) -> anyhow::Result<()> {
-    let endpoint = Endpoint::of(data, &std::env::temp_dir());
+    let endpoint = endpoint(data);
     let _context = runtime.enter();
     let listener = bind(&endpoint)?;
     runtime.spawn(async move {
@@ -36,6 +36,18 @@ pub(crate) fn serve(
         }
     });
     Ok(())
+}
+
+/// The endpoint for `data`. A socket path too long for application data goes in the per-user
+/// `$XDG_RUNTIME_DIR` where there is one, since Linux's shared `/tmp` would let another user bind
+/// the name first; otherwise in the temporary folder, which is per user on macOS. The command
+/// picks the same.
+fn endpoint(data: &Path) -> Endpoint {
+    let private = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .filter(|folder| folder.is_absolute())
+        .unwrap_or_else(std::env::temp_dir);
+    Endpoint::of(data, &private)
 }
 
 fn bind(endpoint: &Endpoint) -> anyhow::Result<LocalSocketListener> {
@@ -100,7 +112,7 @@ async fn write(mut stream: &Stream, message: &impl serde::Serialize) -> bool {
 /// A second launch asks the running app to open its window. An app still starting gets a few
 /// seconds to bind its socket; one that never answers is left alone, as before.
 pub(crate) fn open_running(data: &Path) {
-    let endpoint = Endpoint::of(data, &std::env::temp_dir());
+    let endpoint = endpoint(data);
     let deadline = Instant::now() + Duration::from_secs(12);
     while open(&endpoint).is_err() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(200));

@@ -24,10 +24,10 @@ pub enum Endpoint {
 
 impl Endpoint {
     /// The endpoint of the app whose application data is `data`: `<data>/command.sock`, or in
-    /// the user's temporary folder `temp` when that path is too long for a socket, or on Windows
-    /// a named pipe. The names beside `data` derive from its path, so each user, and each isolated
+    /// `private`, a folder only the user can write to, when that path is too long for a socket, or
+    /// on Windows a named pipe. The names beside `data` derive from its path, so each user, and each isolated
     /// test root, gets its own.
-    pub fn of(data: &Path, temp: &Path) -> Self {
+    pub fn of(data: &Path, private: &Path) -> Self {
         let name = format!("skillbinder-{:016x}", digest(data));
         if cfg!(windows) {
             return Self::Pipe(name);
@@ -36,7 +36,7 @@ impl Endpoint {
         if socket.as_os_str().len() <= SOCKET_PATH_LIMIT {
             Self::Socket(socket)
         } else {
-            Self::Socket(temp.join(format!("{name}.sock")))
+            Self::Socket(private.join(format!("{name}.sock")))
         }
     }
 }
@@ -236,7 +236,7 @@ mod tests {
 
     #[cfg(not(windows))]
     #[test]
-    fn a_data_path_too_long_for_a_socket_falls_back_to_the_temporary_folder() {
+    fn a_data_path_too_long_for_a_socket_falls_back_to_the_private_folder() {
         let temp = Path::new("/tmp");
         let short = Path::new("/Users/someone/Library/Application Support/SkillBinder");
         assert_eq!(
