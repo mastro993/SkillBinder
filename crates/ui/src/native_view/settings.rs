@@ -4,7 +4,7 @@
 
 mod agents;
 mod catalog;
-mod command_line;
+pub(super) mod command_line;
 mod general;
 mod library;
 mod updates;

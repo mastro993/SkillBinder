@@ -6,7 +6,7 @@ use super::route::{History, Route};
 use super::sidebar_reorder::RowReorder;
 use super::{
     DialogState, NativeView, app_update_notice, explore, folder_reorder, git_setup, hover_scroll,
-    new_agent_notice, settings, shell, sidebar, snapshot_query, toasts,
+    new_agent_notice, onboarding, settings, shell, sidebar, snapshot_query, toasts,
 };
 use crate::gate::{self, Gate};
 use gpui_kit::component::input::{InputEvent, InputState};
@@ -127,7 +127,8 @@ impl NativeView {
             agents_turned_off: BTreeSet::new(),
             agent_notice: new_agent_notice::Notice::default(),
             app_update_notice: notice,
-            git_ready: None,
+            held_step: None,
+            offers: onboarding::Offers::default(),
             git_setup: git_setup::GitSetup::default(),
             git_checking: false,
             menu: None,

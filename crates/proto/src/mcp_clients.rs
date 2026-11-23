@@ -40,6 +40,15 @@ impl McpClient {
         }
     }
 
+    /// The registry id of the agent whose global skill directory it serves, which onboarding
+    /// checks is chosen and whose logo it draws: VS Code runs GitHub Copilot.
+    pub fn agent(self) -> &'static str {
+        match self {
+            Self::VsCode => "github-copilot",
+            Self::ClaudeCode | Self::Codex | Self::Cursor => self.id(),
+        }
+    }
+
     /// Whether SkillBinder can remove the connection, or only the agent itself can.
     pub fn disconnects(self) -> bool {
         matches!(self, Self::ClaudeCode | Self::Codex)

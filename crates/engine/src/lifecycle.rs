@@ -4,7 +4,7 @@ use crate::{
     },
     catalog::{BASE_URL, CatalogSource},
     git::Git,
-    onboarding::{self, Facts},
+    onboarding::{self, Facts, Offers},
     persistence,
     shutdown::Shutdown,
     worker::State,
@@ -18,6 +18,10 @@ use std::{collections::BTreeMap, path::PathBuf};
 const FINISHED: &str = "onboarding_finished";
 /// Device setting saved once the Git step is skipped.
 const GIT_SKIPPED: &str = "git_skipped";
+/// Device setting saved once the command step is skipped or its Install succeeds.
+const COMMAND_LINE_ASKED: &str = "command_line_asked";
+/// Device setting saved once the agents step is skipped, continued, or set up.
+const MCP_ASKED: &str = "mcp_asked";
 /// Device setting that stored the onboarding position before steps were derived from facts.
 const LEGACY_POSITION: &str = "onboarding";
 
@@ -154,13 +158,15 @@ impl EngineConfig {
 impl State {
     pub(crate) fn bootstrap(&self) -> AppResult<Bootstrap> {
         let storage_writable = persistence::writable(&self.config.data_dir);
+        let finished = self.onboarding_finished()?;
         Ok(Bootstrap {
             onboarding: onboarding::derive(Facts {
                 storage_writable,
                 git_found: self.git.is_some(),
                 git_skipped: self.setting(GIT_SKIPPED)?.unwrap_or(false),
                 agents_chosen: self.agent_choices()?.is_some(),
-                finished: self.onboarding_finished()?,
+                offers: (!finished).then(|| self.offers()).transpose()?,
+                finished,
             }),
             git_version: self.git.as_ref().map(|git| git.version().to_owned()),
             outdated_git: self.outdated_git.clone(),
@@ -170,6 +176,23 @@ impl State {
             data_path: self.config.data_dir.display().to_string(),
             library_path: self.library_dir().display().to_string(),
             logs_path: self.config.data_dir.join("logs").display().to_string(),
+        })
+    }
+    /// What the command and agents steps read. An agent counts once chosen, or while the choice
+    /// is not saved, once found, since Choose your agents starts with every agent ticked.
+    fn offers(&self) -> AppResult<Offers> {
+        let saved = self.agent_choices()?.is_some();
+        let agents = self.agents()?;
+        let connectable = self.mcp_clients.connectable().into_iter().any(|client| {
+            agents.iter().any(|agent| {
+                agent.id == client.agent() && (agent.chosen || (!saved && agent.detected))
+            })
+        });
+        Ok(Offers {
+            command_line: self.command_line.status().state,
+            connectable,
+            command_line_asked: self.setting(COMMAND_LINE_ASKED)?.unwrap_or(false),
+            mcp_asked: self.setting(MCP_ASKED)?.unwrap_or(false),
         })
     }
     /// Whether onboarding finished: its import was applied or skipped.
@@ -192,6 +215,22 @@ impl State {
     pub(crate) fn skip_git(&self) -> AppResult<Bootstrap> {
         self.set_setting(GIT_SKIPPED, &true)?;
         self.ensure_library()?;
+        self.bootstrap()
+    }
+    /// Settles the command step, skipped or installed (ADR 0027). Repeating it is harmless.
+    pub(crate) fn settle_command_line(&self) -> AppResult<Bootstrap> {
+        self.settle_step(COMMAND_LINE_ASKED)
+    }
+    /// Settles the agents step, skipped, continued, or set up (ADR 0027). Repeating it is
+    /// harmless.
+    pub(crate) fn settle_connect_agents(&self) -> AppResult<Bootstrap> {
+        self.settle_step(MCP_ASKED)
+    }
+    /// Saves the step's fact, then creates the library when the import comes next.
+    fn settle_step(&self, fact: &str) -> AppResult<Bootstrap> {
+        self.set_setting(fact, &true)?;
+        self.ensure_library()?;
+        self.ensure_repository()?;
         self.bootstrap()
     }
     /// Looks for Git again while none was found, noting how the Git installer started last

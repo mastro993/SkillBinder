@@ -11,6 +11,10 @@ pub enum OnboardingStep {
     Git,
     /// Choose the agents SkillBinder manages.
     Agents,
+    /// Install the `skillbinder` command, or skip it (ADR 0027).
+    CommandLine,
+    /// Connect the chosen agents to the MCP server, or skip it (ADR 0027).
+    ConnectAgents,
     /// Import the skills found in your agents' global skill directories, or skip it.
     Import,
 }

@@ -105,6 +105,10 @@ pub(crate) struct State {
     pub progress: Progress,
     /// App updates, which snapshots read.
     pub app_updates: AppUpdates,
+    /// The `skillbinder` command, which onboarding's command step offers.
+    pub command_line: CommandLine,
+    /// The agents' MCP settings, which onboarding's agents step offers to connect.
+    pub mcp_clients: McpClients,
     pub grants: BTreeMap<GrantId, GrantedDirectory>,
     pub recovery_required: bool,
     /// Stops the work a quit would otherwise wait for.
@@ -185,6 +189,8 @@ impl Engine {
             resolutions: resolutions.clone(),
             progress: progress.clone(),
             app_updates: app_updates.clone(),
+            command_line: command_line.clone(),
+            mcp_clients: mcp_clients.clone(),
             grants: BTreeMap::new(),
             recovery_required: true,
             shutdown: shutdown.clone(),

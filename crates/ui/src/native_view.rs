@@ -178,8 +178,11 @@ pub struct NativeView {
     agents_turned_off: BTreeSet<String>,
     agent_notice: new_agent_notice::Notice,
     app_update_notice: app_update_notice::Notice,
-    /// Where the Git step showed when Git was found, kept while "Git <version> is ready" shows.
-    git_ready: Option<onboarding::Place>,
+    /// Where onboarding's frame stays while a step's outcome shows, though the step no longer
+    /// applies: "Git <version> is ready" (T6), or the command step's "skillbinder is ready".
+    held_step: Option<onboarding::Place>,
+    /// What the command and agents steps of onboarding know.
+    offers: onboarding::Offers,
     /// What installing Git waits on, in the Git step or Settings.
     git_setup: git_setup::GitSetup,
     /// The app checks for Git every 3 seconds.

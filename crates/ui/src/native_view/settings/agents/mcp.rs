@@ -14,10 +14,9 @@ use gpui_kit::{ClipboardItem, Context, IntoElement, Styled, px};
 use skillbinder_design::tokens::space;
 use skillbinder_design::{AvatarStack, Button, Notice};
 use skillbinder_proto::{
-    AppError, AppResult, CannotInstallCommand, CommandLineState, CommandLineStatus, McpClient,
-    McpClientState, McpClientStatus, McpConnect, mcp_configuration,
+    CannotInstallCommand, CommandLineState, CommandLineStatus, McpClient, McpClientState,
+    McpClientStatus, McpConnect, mcp_configuration,
 };
-use std::future::Future;
 use std::path::Path;
 
 const TITLE: &str = "MCP server";
@@ -179,7 +178,7 @@ impl NativeView {
     /// an action runs is dropped: the action reads them once it ends.
     pub(in crate::native_view) fn read_mcp_clients(&mut self, cx: &mut Context<Self>) {
         let client = self.client.clone();
-        self.ask_mcp(
+        self.ask(
             async move { client.mcp_clients().await },
             |view, clients, cx| {
                 if let (false, Ok(clients)) = (view.settings.mcp.working, clients) {
@@ -200,7 +199,7 @@ impl NativeView {
         }
         self.settings.mcp.working = true;
         let client = self.client.clone();
-        self.ask_mcp(
+        self.ask(
             async move { client.connect_mcp(mcp_client).await },
             move |view, connected, cx| {
                 match connected {
@@ -226,7 +225,7 @@ impl NativeView {
         }
         self.settings.mcp.working = true;
         let client = self.client.clone();
-        self.ask_mcp(
+        self.ask(
             async move { client.disconnect_mcp(mcp_client).await },
             |view, disconnected, cx| {
                 if let Err(error) = disconnected {
@@ -253,7 +252,7 @@ impl NativeView {
         }
         self.settings.mcp.working = true;
         let client = self.client.clone();
-        self.ask_mcp(
+        self.ask(
             async move { client.install_command_line().await },
             |view, installed, cx| {
                 match installed {
@@ -284,21 +283,5 @@ impl NativeView {
     fn mcp_action_ended(&mut self, cx: &mut Context<Self>) {
         self.settings.mcp.working = false;
         self.read_mcp_clients(cx);
-    }
-
-    /// Asks the engine off the window, then hands the answer to `answered`.
-    fn ask_mcp<T: Send + 'static>(
-        &mut self,
-        asked: impl Future<Output = AppResult<T>> + Send + 'static,
-        answered: impl FnOnce(&mut Self, AppResult<T>, &mut Context<Self>) + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        let handle = self.client.runtime().spawn(asked);
-        cx.spawn(async move |this, cx| {
-            let result = handle.await.unwrap_or_else(|_| Err(AppError::storage()));
-            let _ = this.update(cx, |view, cx| answered(view, result, cx));
-        })
-        .detach();
-        cx.notify();
     }
 }
