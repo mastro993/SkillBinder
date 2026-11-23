@@ -39,7 +39,7 @@ If step 6 fails, the release is out but Homebrew still installs the previous one
 
 ## What a release contains
 
-Every archive holds the locked release build without native test controls (`cargo build -p skillbinder --release --locked`), `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the app icon: `icon.icns` in the macOS bundle, `skillbinder.ico` beside the Windows executable for setup and its shortcuts, and a 256-pixel PNG in the AppImage. The icon files in `assets/` and the disk image background are rendered by `docs/design/brand/source/export-brand.sh`. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
+Every archive holds the locked release build without native test controls (`cargo build -p skillbinder -p skillbinder-cli --release --locked`): the app and the `skillbinder` command, at `SkillBinder.app/Contents/MacOS/skillbinder-cli` (signed and notarized with the bundle), `{app}\bin\skillbinder.exe` (a console program), and `usr/bin/skillbinder-cli` in the AppImage ([Native command line](architecture/native-command-line.md)); `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the app icon: `icon.icns` in the macOS bundle, `skillbinder.ico` beside the Windows executable for setup and its shortcuts, and a 256-pixel PNG in the AppImage. The icon files in `assets/` and the disk image background are rendered by `docs/design/brand/source/export-brand.sh`. `cargo run -p xtask -- package <target>` assembles them under `dist/<target>/`.
 
 | Platform | Archive | Built on |
 |---|---|---|

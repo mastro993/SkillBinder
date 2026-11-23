@@ -1,5 +1,6 @@
 //! Packages a release build into `dist/<target>/`: a macOS app and DMG, a Windows setup program,
-//! or a Linux AppImage, named after the workspace version (docs/release.md).
+//! or a Linux AppImage, named after the workspace version (docs/release.md). Each holds the app
+//! and the `skillbinder` command beside it (ADR 0022).
 mod linux;
 mod macos;
 mod windows;
@@ -9,34 +10,41 @@ use std::{fs, path::Path, process::Command};
 
 pub(crate) fn package(root: &Path, target: Option<&str>) -> anyhow::Result<()> {
     let triple = target.map(str::to_owned).unwrap_or_else(host_triple);
-    let executable = if cfg!(windows) {
-        "skillbinder.exe"
-    } else {
-        "skillbinder"
-    };
-    let binary = target.map_or_else(
-        || root.join("target/release").join(executable),
-        |target| {
-            root.join("target")
-                .join(target)
-                .join("release")
-                .join(executable)
-        },
+    let release = target.map_or_else(
+        || root.join("target/release"),
+        |target| root.join("target").join(target).join("release"),
     );
-    if !binary.is_file() {
-        bail!("Build the locked release application for {triple} before packaging.");
+    let suffix = std::env::consts::EXE_SUFFIX;
+    let binary = release.join(format!("skillbinder{suffix}"));
+    let cli = release.join(format!("skillbinder-cli{suffix}"));
+    if !binary.is_file() || !cli.is_file() {
+        bail!(
+            "Build the locked release application and command (-p skillbinder -p skillbinder-cli) for {triple} before packaging."
+        );
     }
+    let binaries = Binaries {
+        app: &binary,
+        cli: &cli,
+    };
     let output = root.join("dist").join(&triple);
     fs::create_dir_all(&output)?;
     let version = crate::version::read(root)?;
     let name = format!("skillbinder-{version}-{triple}");
     if cfg!(target_os = "macos") {
-        return macos::package(root, &binary, &output, &name, &version);
+        return macos::package(root, binaries, &output, &name, &version);
     }
     if cfg!(windows) {
-        return windows::package(root, &binary, &output, &name, &version);
+        return windows::package(root, binaries, &output, &name, &version);
     }
-    linux::package(root, &binary, &output, &triple, &version)
+    linux::package(root, binaries, &output, &triple, &version)
+}
+/// The release executables a package holds.
+#[derive(Clone, Copy)]
+struct Binaries<'a> {
+    /// The app.
+    app: &'a Path,
+    /// The `skillbinder` command.
+    cli: &'a Path,
 }
 fn licenses(root: &Path, destination: &Path) -> anyhow::Result<()> {
     for name in ["LICENSE", "THIRD_PARTY_NOTICES.md"] {

@@ -3,6 +3,7 @@
 mod activation;
 mod app_update;
 mod catalog;
+pub mod command_line;
 mod error;
 mod install;
 mod library;

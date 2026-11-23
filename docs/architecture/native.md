@@ -1,12 +1,13 @@
 # Native architecture
 
-The executable embeds one engine in its process. There is no daemon or network command transport. The native workspace implements every audited shipped journey: onboarding, scanning and imports through the Import skills dialog, Library and presets, Sync, and Settings. It also implements workspaces and your agents' global skill directories, which every scan reads, the Agents view of the active library skills by chosen agent, and activation, which writes the active preset's skills into your agents' global skill directories, and each workspace's skills into its workspace skill directories, as managed copies.
+The executable embeds one engine in its process. There is no daemon or network transport; the `skillbinder` command reaches the app over a local socket ([Native command line](native-command-line.md)). The native workspace implements every audited shipped journey: onboarding, scanning and imports through the Import skills dialog, Library and presets, Sync, and Settings. It also implements workspaces and your agents' global skill directories, which every scan reads, the Agents view of the active library skills by chosen agent, and activation, which writes the active preset's skills into your agents' global skill directories, and each workspace's skills into its workspace skill directories, as managed copies.
 
 ## Ownership
 
 | Package | Responsibility |
 | --- | --- |
-| `apps/desktop` | Native lifecycle, configuration, Tokio runtime, engine lifetime, process lock, and orderly shutdown |
+| `apps/desktop` | Native lifecycle, configuration, Tokio runtime, engine lifetime, process lock, command socket, and orderly shutdown |
+| `apps/cli` | The `skillbinder` command: talks to the running app, never the library |
 | `crates/proto` | Shared IDs, typed inputs and results, immutable snapshots, and safe structured errors |
 | `crates/engine` | Feature-oriented domain operations, jobs, persistence, filesystem operations, Git, and recovery |
 | `crates/client` | Typed operations, cached projections, coalesced subscriptions, request generations, and stale-read rejection |
@@ -36,7 +37,7 @@ The executable drains the engine in GPUI’s quit hook before native termination
 
 ## Explore
 
-Explore shows the catalog and your repositories, and searches skills.sh: the engine's HTTP client, its catalog thread and cache, the skills.sh search on a thread of its own, the `repositories` table, the `Catalog` source cache that listings, previews, and the resolution of a skills.sh result's folder share on the Git pool, and how the client and UI read them are described in [Native Explore](native-explore.md).
+Explore's HTTP client, catalog thread and cache, skills.sh search, `repositories` table, and `Catalog` source cache on the Git pool, and how the client and UI read them, are described in [Native Explore](native-explore.md).
 
 ## App updates
 
@@ -48,7 +49,7 @@ The resident lifecycle, the tray, and its target-gated crates are described in [
 
 ## Dependency boundary
 
-`xtask verify` records each crate's allowed dependencies, so a crate can reach SQLite, GPUI, or the engine only where this document assigns it. The standard library is always in reach, so the workspace `clippy.toml` denies its filesystem, process, network, environment, and terminal APIs (and tokio's) everywhere except `crates/engine`, `apps/desktop`, and `xtask`, which replace it with their own. Clippy resolves names after macro expansion, so aliases, glob imports, and included files cannot hide a call.
+`xtask verify` records each crate's allowed dependencies, so a crate can reach SQLite, GPUI, or the engine only where this document assigns it. The standard library is always in reach, so the workspace `clippy.toml` denies its filesystem, process, network, environment, and terminal APIs (and tokio's) everywhere except `crates/engine`, `apps/desktop`, `apps/cli`, and `xtask`, which replace it with their own. Clippy resolves names after macro expansion, so aliases, glob imports, and included files cannot hide a call.
 
 The application depends on GPUI Kit 0.10.0. Kit re-exports the matching GPUI Pre 0.3.12 types, platform bootstrap, Base infrastructure, and styled components. Application crates import these APIs through `gpui_kit`; there is no separate component or platform dependency.
 

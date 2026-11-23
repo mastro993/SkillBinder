@@ -92,7 +92,8 @@ pub(crate) fn open_main_window(focus: bool, cx: &mut App) -> bool {
 }
 
 /// Forgets the closed window, and the work it was blocking for. With none left, the app keeps
-/// running behind its icon, without a Dock icon on macOS, or quits when no icon shows.
+/// running behind its icon, or for a connected command, without a Dock icon on macOS, or quits
+/// when neither needs it.
 pub(crate) fn window_closed(cx: &mut App, id: WindowId) {
     let main = cx.global_mut::<MainWindow>();
     if main.handle.is_some_and(|handle| handle.window_id() == id) {
@@ -104,11 +105,8 @@ pub(crate) fn window_closed(cx: &mut App, id: WindowId) {
     if !cx.windows().is_empty() {
         return;
     }
-    if skillbinder_ui::tray_shown(cx) {
-        cx.set_activation_policy(ActivationPolicy::Accessory);
-    } else {
-        cx.quit();
-    }
+    cx.set_activation_policy(ActivationPolicy::Accessory);
+    skillbinder_ui::quit_if_unseen(cx);
 }
 
 /// macOS draws the app under a transparent titlebar; other platforms keep native decorations.

@@ -336,7 +336,7 @@ pub(super) fn library_skills<'a>(
 /// How many skills each filter would show, with the folder tab, the search, and the other
 /// filters applied: a segment's count applies Updates, and Updates' count applies the segment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(super) struct FilterCounts {
+pub(crate) struct FilterCounts {
     pub all: usize,
     pub active: usize,
     pub inactive: usize,
@@ -373,6 +373,17 @@ pub(super) fn filter_counts(
             ..query.filter
         }),
     }
+}
+
+/// Library's counts with no folder tab, search, or filter, which `skillbinder status` reports.
+pub(crate) fn library_counts(snapshot: &AppSnapshot, active: &PresetId) -> FilterCounts {
+    let query = Query {
+        folder: None,
+        search: "",
+        filter: LibraryFilter::default(),
+        keep: None,
+    };
+    filter_counts(snapshot, &Places::new(snapshot), active, query)
 }
 
 /// The folder tab and the search keep `skill`.

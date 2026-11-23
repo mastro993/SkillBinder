@@ -20,7 +20,10 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "fs2",
             "gpui-kit",
             "gpui-mcp",
+            "interprocess",
             "log",
+            "serde",
+            "serde_json",
             "skillbinder-client",
             "skillbinder-engine",
             "skillbinder-proto",
@@ -30,6 +33,18 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "winsafe",
         ],
         &[],
+    ),
+    (
+        "skillbinder-cli",
+        &[
+            "clap",
+            "directories",
+            "interprocess",
+            "serde",
+            "serde_json",
+            "skillbinder-proto",
+        ],
+        &["anyhow", "tempfile"],
     ),
     (
         "skillbinder-client",
@@ -113,7 +128,12 @@ const NATIVE_TEST: &[(&str, &[&str])] = &[
 ];
 
 /// Members that own I/O and may replace the workspace `clippy.toml` with their own.
-const OWNS_IO: &[&str] = &["skillbinder", "skillbinder-engine", "xtask"];
+const OWNS_IO: &[&str] = &[
+    "skillbinder",
+    "skillbinder-cli",
+    "skillbinder-engine",
+    "xtask",
+];
 
 const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
 
@@ -360,6 +380,18 @@ mod tests {
         // The design system builds on GPUI Kit alone, so a component cannot import the app.
         assert_eq!(normal("skillbinder-design"), ["gpui-kit"]);
         assert!(!OWNS_IO.contains(&"skillbinder-ui"));
+    }
+
+    #[test]
+    fn the_command_reaches_the_app_only_through_its_socket() {
+        // It never holds the library, so it stays off storage and GPUI (ADR 0022).
+        for dep in normal("skillbinder-cli") {
+            assert!(
+                *dep == "skillbinder-proto"
+                    || !(dep.starts_with("skillbinder") || dep.starts_with("gpui")),
+                "{dep}"
+            );
+        }
     }
 
     #[test]

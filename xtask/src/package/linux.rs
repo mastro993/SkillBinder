@@ -1,8 +1,8 @@
 //! The Linux AppImage (ADR 0019), `skillbinder-<version>-<arch>.AppImage`, which `appimagetool`
 //! builds from an AppDir with the static type 2 runtime named in `SKILLBINDER_APPIMAGE_RUNTIME`,
 //! so it needs no `libfuse2`. The app offers to add itself to the applications menu at its first
-//! launch.
-use super::licenses;
+//! launch. The `skillbinder` command is `usr/bin/skillbinder-cli` in the AppDir.
+use super::{Binaries, licenses};
 use crate::version::Version;
 use anyhow::{Context as _, ensure};
 use std::{env, fs, path::Path, process::Command};
@@ -14,7 +14,7 @@ const DESKTOP_ENTRY: &str = "[Desktop Entry]\nType=Application\nName=SkillBinder
 
 pub(super) fn package(
     root: &Path,
-    binary: &Path,
+    binaries: Binaries<'_>,
     output: &Path,
     triple: &str,
     version: &Version,
@@ -31,7 +31,9 @@ pub(super) fn package(
     fs::create_dir_all(&docs)?;
     licenses(root, &docs)?;
     // The runtime starts `AppRun`, the binary itself; the window names its own app id.
-    fs::copy(binary, app_dir.join("AppRun"))?;
+    fs::copy(binaries.app, app_dir.join("AppRun"))?;
+    fs::create_dir_all(app_dir.join("usr/bin"))?;
+    fs::copy(binaries.cli, app_dir.join("usr/bin/skillbinder-cli"))?;
     for icon in ["skillbinder.png", ".DirIcon"] {
         fs::copy(root.join("assets/icon.png"), app_dir.join(icon))?;
     }

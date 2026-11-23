@@ -36,6 +36,7 @@ and puts the right ones in front of the right agents, on every computer you own.
 - [Supported agents](#supported-agents)
 - [Install](#install)
 - [Your first five minutes](#your-first-five-minutes)
+- [From a terminal](#from-a-terminal)
 - [Your data stays yours](#your-data-stays-yours)
 - [Build from source](#build-from-source)
 - [Contributing](#contributing)
@@ -171,6 +172,15 @@ The app checks for updates on its own and installs them when it quits.
 4. **Add your projects.** Under **Workspaces**, pick a project, or a folder of projects.
 5. **Make a preset.** Turn skills on for every agent or a few, then switch presets from the sidebar or the menu bar.
 6. **Sync, if you like.** Connect a Git remote on the **Sync** page, then run the same steps on your other computer and Pull.
+
+## From a terminal
+
+SkillBinder ships a `skillbinder` command that talks to the running app, and starts it in the background when it isn't running. Today it answers `skillbinder status`: the version, the active preset, and your library's counts. Add `--json` for scripts and agents. More commands, and a Settings button that puts `skillbinder` on your PATH, are on the way. Until then, run it from the app itself:
+
+```sh
+/Applications/SkillBinder.app/Contents/MacOS/skillbinder-cli status       # macOS
+%LOCALAPPDATA%\Programs\SkillBinder\bin\skillbinder.exe status           # Windows
+```
 
 ## Your data stays yours
 
