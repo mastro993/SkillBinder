@@ -1,5 +1,5 @@
 use super::{answer, running, status};
-use crate::commands::run::refusal;
+use crate::commands::run::{interrupted, refusal};
 use crate::gate::{Change, ChangeState, Gate};
 use crate::native_view::Activity;
 use crate::native_view::fixture::{Fixture, agents, id};
@@ -157,4 +157,27 @@ fn a_command_s_own_change_refuses_another() {
     assert!(gate.blocked(&snapshot), "the window refuses too");
     let refused = refusal(&gate, &snapshot).map(|error| error.message);
     assert_eq!(refused.as_deref(), Some("SkillBinder is busy."));
+}
+
+#[test]
+fn replacing_after_a_question_is_refused_only_once_something_else_started() {
+    let snapshot = world().build();
+    let landed = Gate {
+        change: Some(Change {
+            activity: Activity::Switching {
+                preset: "Work".into(),
+            },
+            state: ChangeState::Landed(crate::native_view::Landing::default()),
+        }),
+        ..Gate::default()
+    };
+    assert!(
+        interrupted(&landed, &snapshot).is_none(),
+        "the command's own switch, whose Done pill still shows"
+    );
+    let refused = interrupted(&switching(), &snapshot).map(|error| error.message);
+    assert_eq!(
+        refused.as_deref(),
+        Some("SkillBinder is busy: Switching to Work…")
+    );
 }

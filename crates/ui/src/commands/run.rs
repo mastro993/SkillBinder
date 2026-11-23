@@ -36,29 +36,51 @@ pub(super) async fn run(
     let after = client.snapshot();
     let home = after.home.clone();
     let waiting = left_waiting(&before, copies(&after));
-    let (replace, left) = decide(waiting, consent.replace, peer, &home).await;
-    if !replace.is_empty() {
-        let replaced = async {
-            for copy in replace {
-                on_runtime(client, move |client| async move {
-                    client
-                        .resolve_copy(&copy, skillbinder_proto::CopyChoice::Replace)
-                        .await
-                })
-                .await?;
-            }
-            AppResult::Ok(())
-        };
-        held(cx, replaced).await.map_err(CommandError::from)?;
-    }
-    changed.waiting = left.iter().map(|copy| copy_row(copy, &home)).collect();
-    if left.is_empty() {
-        return Ok(Output::Changed(changed));
-    }
+    let (mut pending, mut left) = decide(waiting, consent.replace, peer, &home).await;
+    let replaced = replace_copies(&mut pending, client, cx).await;
+    // A copy not replaced, refused or failed, still waits beside those answered no.
+    pending.append(&mut left);
+    changed.waiting = pending.iter().map(|copy| copy_row(copy, &home)).collect();
+    let error = match replaced {
+        Err(error) => error,
+        Ok(()) if pending.is_empty() => return Ok(Output::Changed(changed)),
+        Ok(()) => copies_wait(&pending, &home),
+    };
+    // The change landed, so what it did comes back beside why it stopped.
     Err(Failure {
-        error: copies_wait(&left, &home),
+        error,
         result: Some(Box::new(Output::Changed(changed))),
     })
+}
+
+/// Replaces each of `pending`, removing it once replaced. A question may have waited on the user
+/// meanwhile, so it is refused when something else started since, as the window would refuse it.
+/// The command's own change landing behind a strip that still shows does not count.
+async fn replace_copies(
+    pending: &mut Vec<ManagedCopy>,
+    client: &Client,
+    cx: &mut AsyncApp,
+) -> Result<(), CommandError> {
+    if pending.is_empty() {
+        return Ok(());
+    }
+    let snapshot = client.snapshot();
+    if let Some(refused) = cx.update(|cx| interrupted(&Gate::of(cx), &snapshot)) {
+        return Err(refused);
+    }
+    let replaced = async {
+        while let Some(copy) = pending.first().cloned() {
+            on_runtime(client, move |client| async move {
+                client
+                    .resolve_copy(&copy, skillbinder_proto::CopyChoice::Replace)
+                    .await
+            })
+            .await?;
+            pending.remove(0);
+        }
+        AppResult::Ok(())
+    };
+    held(cx, replaced).await.map_err(CommandError::from)
 }
 
 async fn apply(
@@ -172,16 +194,26 @@ fn switched(message: String, activated: String, switch: PresetSwitch) -> Changed
 
 /// Refuses at once while something the window would refuse runs (spec rule 2).
 pub(super) fn refusal(gate: &Gate, snapshot: &AppSnapshot) -> Option<CommandError> {
-    if !gate.blocked(snapshot) {
-        return None;
-    }
+    gate.blocked(snapshot).then(|| busy(gate, snapshot))
+}
+
+/// Refuses once something started after the command's change landed: another change, the
+/// window's save, another command's, or an Update all.
+pub(super) fn interrupted(gate: &Gate, snapshot: &AppSnapshot) -> Option<CommandError> {
+    let started =
+        gate.running().is_some() || gate.busy || gate.commands > 0 || snapshot.updating.is_some();
+    started.then(|| busy(gate, snapshot))
+}
+
+/// "SkillBinder is busy", naming what blocks.
+fn busy(gate: &Gate, snapshot: &AppSnapshot) -> CommandError {
     // A change whose strip still shows refuses as it does while it runs.
     let blocking = gate.change.as_ref().map(|change| change.activity.title());
     let message = match blocking.or_else(|| running(gate, snapshot)) {
         Some(what) => format!("SkillBinder is busy: {what}…"),
         None => "SkillBinder is busy.".to_owned(),
     };
-    Some(CommandError::new(ErrorCode::Busy, message).hint("Try again when it finishes."))
+    CommandError::new(ErrorCode::Busy, message).hint("Try again when it finishes.")
 }
 
 /// Checks again right before changing anything, since a question may have waited on the user.
