@@ -88,6 +88,11 @@ pub(crate) fn grammar() -> Command {
         .subcommand(updates::reinstall())
         .subcommands(updates::sync())
         .subcommand(updates::remote())
+        .subcommand(
+            Command::new("mcp")
+                .about("Serve SkillBinder's tools to an agent over MCP, on stdin and stdout")
+                .after_help("Example: claude mcp add --scope user skillbinder -- skillbinder mcp"),
+        )
 }
 
 fn preset() -> Command {

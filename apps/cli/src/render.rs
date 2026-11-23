@@ -2,7 +2,7 @@
 //! exactly one document on stdout, `{"ok": true, "result": …}`, `{"ok": false, "error": …}`, or,
 //! when a change partly landed, `{"ok": false, "error": …, "result": …}`.
 
-mod text;
+pub(crate) mod text;
 
 use serde_json::{Value, json};
 use skillbinder_proto::command_line::{Failure, Output};
@@ -41,7 +41,7 @@ pub(crate) fn failure(failure: &Failure, json: bool) -> ExitCode {
 }
 
 /// The document's `result`: the output itself, without the name of its kind.
-fn result(output: &Output) -> Value {
+pub(crate) fn result(output: &Output) -> Value {
     match output {
         Output::Status(status) => json!(status),
         Output::Skills(skills) => json!(skills),

@@ -31,6 +31,8 @@ The `skillbinder` command and the app talk over a local socket or named pipe thr
 
 - `anstream`, `anstyle`, `anstyle-parse`, `anstyle-query`, `anstyle-wincon`, `colorchoice`, `is_terminal_polyfill`, `once_cell_polyfill`, and `utf8parse`: MIT OR Apache-2.0; `strsim`: MIT.
 
+`skillbinder mcp` serves the command's actions over the Model Context Protocol with `rmcp` 3.11.0 and `rmcp-macros` (Apache-2.0), the official Rust SDK, whose source is available at `https://github.com/modelcontextprotocol/rust-sdk` (ADR 0025), and describes its tools with `schemars` 1.2.2 and `schemars_derive` (MIT), which the shared contracts also derive. Their other new dependencies, at the versions `Cargo.lock` pins: `darling`, `darling_core`, and `darling_macro`: MIT; `unicode-general-category`: Apache-2.0. The rest, such as `tokio`, `tokio-util`, `futures`, and `pastey`, the app already uses.
+
 ## HTTP client
 
 The engine fetches Explore's catalog with `ureq` 3.5.2 (MIT OR Apache-2.0) over `rustls` 0.23.46 (Apache-2.0 OR ISC OR MIT), without OpenSSL (ADR 0014); `xtask`'s catalog job, which is never shipped, uses the same crate. Its source is available at `https://github.com/algesten/ureq`. Its other dependencies, at the versions `Cargo.lock` pins:

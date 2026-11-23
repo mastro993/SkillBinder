@@ -61,6 +61,24 @@ pub(crate) fn send(
     }
 }
 
+/// Opens the MCP server's hold on the running app whose application data is `data`: an idle
+/// connection that keeps it running until the stream closes. It starts no app.
+pub(crate) fn hold(data: &Path) -> io::Result<Stream> {
+    let endpoint = Endpoint::of(data, &private_folder());
+    let stream = Stream::connect(name(&endpoint)?)?;
+    let hello = Hello {
+        protocol: PROTOCOL,
+        version: VERSION.into(),
+    };
+    send_line(&stream, &hello)?;
+    let greeting = receive(&mut BufReader::new(&stream))?;
+    if let Greeting::Mismatch { .. } = greeting {
+        return Err(io::ErrorKind::Unsupported.into());
+    }
+    send_line(&stream, &Request::Hold)?;
+    Ok(stream)
+}
+
 /// The folder for a socket whose path in application data is too long: the per-user
 /// `$XDG_RUNTIME_DIR` where there is one, since Linux's shared `/tmp` would let another user bind
 /// the name first; otherwise the temporary folder, which is per user on macOS. The app picks the
@@ -136,13 +154,13 @@ fn name(endpoint: &Endpoint) -> io::Result<Name<'_>> {
     }
 }
 
-fn send_line(mut stream: &Stream, message: &impl Serialize) -> io::Result<()> {
+pub(crate) fn send_line(mut stream: &Stream, message: &impl Serialize) -> io::Result<()> {
     let mut line = serde_json::to_vec(message)?;
     line.push(b'\n');
     stream.write_all(&line)
 }
 
-fn receive<T: DeserializeOwned>(reader: &mut BufReader<&Stream>) -> io::Result<T> {
+pub(crate) fn receive<T: DeserializeOwned>(reader: &mut BufReader<&Stream>) -> io::Result<T> {
     let mut line = String::new();
     if reader.read_line(&mut line)? == 0 {
         return Err(io::ErrorKind::UnexpectedEof.into());

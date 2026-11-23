@@ -181,6 +181,8 @@ SkillBinder ships a `skillbinder` command that talks to the running app, and sta
 skillbinder status
 ```
 
+Agents can use the same actions as typed tools: `skillbinder mcp` is an MCP server over stdio. Connect Claude Code with `claude mcp add --scope user skillbinder -- skillbinder mcp`, or add `{"mcpServers": {"skillbinder": {"command": "skillbinder", "args": ["mcp"]}}}` to any agent's MCP settings. Its tools read your library and switch and edit presets; replacing your own copy of a skill asks you first.
+
 ## Your data stays yours
 
 - **Local first.** Your library, presets, and settings live in a `SkillBinder` folder in your system's application data directory. There is no account and nothing to sign in to.

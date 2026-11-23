@@ -7,7 +7,7 @@ The executable embeds one engine in its process. There is no daemon or network t
 | Package | Responsibility |
 | --- | --- |
 | `apps/desktop` | Native lifecycle, configuration, Tokio runtime, engine lifetime, process lock, command socket, and orderly shutdown |
-| `apps/cli` | The `skillbinder` command: talks to the running app, never the library |
+| `apps/cli` | The `skillbinder` command and its MCP server (`skillbinder mcp`): talk to the running app, never the library |
 | `crates/proto` | Shared IDs, typed inputs and results, immutable snapshots, and safe structured errors |
 | `crates/engine` | Feature-oriented domain operations, jobs, persistence, filesystem operations, Git, and recovery |
 | `crates/client` | Typed operations, cached projections, coalesced subscriptions, request generations, and stale-read rejection |

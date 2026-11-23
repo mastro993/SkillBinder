@@ -176,6 +176,8 @@ fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
             let open = cx.global::<CommandState>().open_window.clone();
             open(cx);
         }
+        // The command server holds the connection itself; there is nothing to run.
+        Request::Hold => {}
         Request::Read { query } => {
             peer.finish(reads::answer(&query, &snapshot).map_err(Failure::from));
         }
@@ -213,7 +215,7 @@ fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
 /// Every command but `status` waits for onboarding to finish (spec rule 4).
 fn needs_setup(request: &Request) -> bool {
     match request {
-        Request::Status | Request::Open => false,
+        Request::Status | Request::Open | Request::Hold => false,
         Request::Read { .. } | Request::Find { .. } | Request::Change { .. } => true,
     }
 }

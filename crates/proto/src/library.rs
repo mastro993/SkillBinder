@@ -1,4 +1,5 @@
 use crate::{FolderId, ManagedCopy, PresetId, PresetSwitch, SkillId, Targets};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -271,7 +272,7 @@ pub enum Drift {
 }
 /// A library skill's source: the Git repository it was published from, an optional pinned ref,
 /// and the skill's folder in that repository. It syncs with the library.
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct SkillSource {
     /// HTTPS, SSH, SCP-style SSH, or file repository URL without credentials.
     pub url: String,
