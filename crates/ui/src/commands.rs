@@ -4,17 +4,22 @@
 //! change runs, so an app started for it with no icon quits once the last one ends.
 
 mod consent;
+mod explore;
+mod import;
 mod plan;
 mod reads;
+mod repositories;
 mod resolve;
 mod run;
+#[cfg(test)]
+mod testing;
 
 use crate::gate::Gate;
 use crate::tray::tray_may_show;
 use gpui_kit::{App, Global};
 use skillbinder_client::Client;
 use skillbinder_proto::command_line::{
-    CommandError, Failure, Output, Progress, Question, Reply, Request,
+    CommandError, Failure, Find, Output, Progress, Question, Reply, Request,
 };
 use std::rc::Rc;
 
@@ -172,6 +177,17 @@ fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
         Request::Read { query } => {
             peer.finish(reads::answer(&query, &snapshot).map_err(Failure::from));
         }
+        Request::Find { find } => {
+            cx.spawn(async move |_| {
+                let found = match find {
+                    Find::Scan => import::scan(&client).await,
+                    Find::Search { query } => explore::search(&client, &query).await,
+                };
+                peer.finish(found.map_err(Failure::from));
+                drop(running);
+            })
+            .detach();
+        }
         Request::Change { change, consent } => {
             let planned = match run::refusal(&Gate::of(cx), &snapshot) {
                 Some(refusal) => Err(refusal),
@@ -195,7 +211,7 @@ fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
 fn needs_setup(request: &Request) -> bool {
     match request {
         Request::Status | Request::Open => false,
-        Request::Read { .. } | Request::Change { .. } => true,
+        Request::Read { .. } | Request::Find { .. } | Request::Change { .. } => true,
     }
 }
 

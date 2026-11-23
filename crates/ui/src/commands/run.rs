@@ -7,7 +7,7 @@
 use super::consent::{confirm, copies_wait, decide, left_waiting};
 use super::plan::{Plan, Save, Work};
 use super::reads::{copy_row, running};
-use super::{Peer, resolve};
+use super::{Peer, explore, import, repositories, resolve};
 use crate::gate::{self, Gate};
 use crate::native_view::{Activity, Landing, switch_note};
 use gpui_kit::{AsyncApp, Task};
@@ -17,7 +17,7 @@ use skillbinder_proto::command_line::{
 };
 use skillbinder_proto::{
     AppError, AppResult, AppSnapshot, ManagedCopy, OrganizationChange, PresetId, PresetSwitch,
-    Workspace,
+    Workspace, owner_repo,
 };
 use std::future::Future;
 use std::path::PathBuf;
@@ -31,7 +31,7 @@ pub(super) async fn run(
     cx: &mut AsyncApp,
 ) -> Result<Output, Failure> {
     let before = copies(&client.snapshot()).to_vec();
-    let progress = forward_progress(title(&plan), peer, client, cx);
+    let progress = forward_progress(&plan, peer, client, cx);
     let changed = apply(plan, consent, peer, client, cx).await;
     drop(progress);
     let mut changed = changed?;
@@ -95,7 +95,7 @@ async fn apply(
     peer: &Peer,
     client: &Client,
     cx: &mut AsyncApp,
-) -> Result<Changed, CommandError> {
+) -> Result<Changed, Failure> {
     match plan {
         Plan::Save { saves, done } => {
             if !saves.is_empty() {
@@ -122,6 +122,7 @@ async fn apply(
                     Work::Add(change) => worker.add_skills(change).await,
                     Work::TurnOn(dirs) => worker.set_agents_chosen(dirs, true).await,
                 }
+                .map(|()| Landing::default())
             };
             blocking(client, activity, None, work, cx).await?;
             Ok(Changed::said(done))
@@ -197,6 +198,15 @@ async fn apply(
             held(cx, retried).await?;
             Ok(Changed::said("Tried every unwritten copy again."))
         }
+        Plan::Import { skills, all } => {
+            Ok(import::import(skills, all, consent.replace, peer, client, cx).await?)
+        }
+        Plan::Install(skills) => explore::install(skills, client).await,
+        Plan::AddRepository { url } => Ok(repositories::add_repository(url, client).await?),
+        Plan::RemoveRepository(repository) => {
+            Ok(repositories::remove_repository(repository, client).await?)
+        }
+        Plan::InstallAll(repository) => repositories::install_all(repository, client).await,
     }
 }
 
@@ -215,7 +225,7 @@ fn switched(message: String, activated: String, switch: PresetSwitch) -> Changed
         activated: Some(activated),
         added,
         removed,
-        waiting: Vec::new(),
+        ..Changed::default()
     }
 }
 
@@ -244,7 +254,7 @@ fn busy(gate: &Gate, snapshot: &AppSnapshot) -> CommandError {
 }
 
 /// Checks again right before changing anything, since a question may have waited on the user.
-fn free(client: &Client, cx: &mut AsyncApp) -> Result<(), CommandError> {
+pub(super) fn free(client: &Client, cx: &mut AsyncApp) -> Result<(), CommandError> {
     let snapshot = client.snapshot();
     match cx.update(|cx| refusal(&Gate::of(cx), &snapshot)) {
         Some(refusal) => Err(refusal),
@@ -262,16 +272,16 @@ async fn held<T>(cx: &mut AsyncApp, work: impl Future<Output = T>) -> T {
 }
 
 /// Runs `work`, a blocking change, as the window or the menu does, until it returns.
-async fn blocking(
+pub(super) async fn blocking(
     client: &Client,
     activity: Activity,
     preset: Option<PresetId>,
-    work: impl Future<Output = AppResult<()>> + Send + 'static,
+    work: impl Future<Output = AppResult<Landing>> + Send + 'static,
     cx: &mut AsyncApp,
 ) -> Result<(), CommandError> {
     let (report, reported) = async_channel::bounded(1);
     let operation = async move {
-        let result = work.await.map(|()| Landing::default());
+        let result = work.await;
         let _ = report.try_send(result.clone());
         result
     };
@@ -289,9 +299,14 @@ async fn blocking(
 fn organizing(
     client: &Client,
     change: OrganizationChange,
-) -> impl Future<Output = AppResult<()>> + Send + 'static {
+) -> impl Future<Output = AppResult<Landing>> + Send + 'static {
     let client = client.clone();
-    async move { client.change_organization(change).await.map(|_| ()) }
+    async move {
+        client
+            .change_organization(change)
+            .await
+            .map(|_| Landing::default())
+    }
 }
 
 async fn save(client: &Client, save: Save) -> AppResult<()> {
@@ -333,7 +348,10 @@ fn added_message(added: &[Workspace]) -> String {
 }
 
 /// Runs a client operation on its runtime, as the window does.
-async fn on_runtime<T, F>(client: &Client, operation: impl FnOnce(Client) -> F) -> AppResult<T>
+pub(super) async fn on_runtime<T, F>(
+    client: &Client,
+    operation: impl FnOnce(Client) -> F,
+) -> AppResult<T>
 where
     T: Send + 'static,
     F: Future<Output = AppResult<T>> + Send + 'static,
@@ -345,19 +363,32 @@ where
         .unwrap_or_else(|_| Err(AppError::storage()))
 }
 
-/// Sends how far the change has got whenever it moves, until the returned task drops.
-fn forward_progress(activity: String, peer: &Peer, client: &Client, cx: &mut AsyncApp) -> Task<()> {
+/// Sends how far `plan` has got whenever it moves, until the returned task drops: the copies a
+/// change writes, or the skills an Install all installs.
+fn forward_progress(plan: &Plan, peer: &Peer, client: &Client, cx: &mut AsyncApp) -> Task<()> {
+    let activity = title(plan);
+    let installing = match plan {
+        Plan::InstallAll(repository) => Some(repository.id.clone()),
+        _ => None,
+    };
     let mut snapshots = client.subscribe();
     let peer = peer.clone();
     cx.spawn(async move |_| {
         let mut sent = None;
         while snapshots.changed().await.is_ok() {
-            let Some((done, total)) = snapshots
-                .borrow_and_update()
-                .activation
-                .as_ref()
-                .map(|progress| (progress.done, progress.total))
-            else {
+            let snapshot = snapshots.borrow_and_update().clone();
+            let progress = match &installing {
+                Some(id) => snapshot
+                    .explore
+                    .install_all
+                    .get(id)
+                    .map(|progress| (progress.done, progress.total)),
+                None => snapshot
+                    .activation
+                    .as_ref()
+                    .map(|progress| (progress.done, progress.total)),
+            };
+            let Some((done, total)) = progress else {
                 continue;
             };
             // Nothing planned yet is no progress to show.
@@ -382,6 +413,8 @@ fn title(plan: &Plan) -> String {
         .title(),
         Plan::DeletePreset { .. } => "Switching to Default".to_owned(),
         Plan::Block { activity, .. } => activity.title(),
+        Plan::Import { .. } => "Importing skills".to_owned(),
+        Plan::InstallAll(repository) => format!("Installing {}", owner_repo(&repository.url)),
         _ => "Writing copies".to_owned(),
     }
 }

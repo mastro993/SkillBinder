@@ -11,7 +11,7 @@ use std::cmp::Reverse;
 
 /// A source Explore can be narrowed to.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::native_view) enum Source {
+pub(crate) enum Source {
     /// A creator, by id, picked on a chip, a creator chip, a result's source tag, or a detail
     /// dialog.
     Creator(String),
@@ -40,7 +40,7 @@ impl Chip<'_> {
 
 /// Where search looks: the catalog and your repositories.
 #[derive(Clone, Copy)]
-pub(in crate::native_view) struct Local<'a> {
+pub(crate) struct Local<'a> {
     pub catalog: &'a Catalog,
     pub repositories: &'a [Repository],
 }
@@ -101,11 +101,7 @@ impl<'a> Local<'a> {
 
     /// The results for `search`, already lowercased, narrowed to `picked` when a source is
     /// picked: the catalog's, then your repositories' that the catalog does not list, by name.
-    pub(in crate::native_view) fn results(
-        self,
-        search: &'a str,
-        picked: Option<&Source>,
-    ) -> Vec<&'a CatalogSkill> {
+    pub(crate) fn results(self, search: &'a str, picked: Option<&Source>) -> Vec<&'a CatalogSkill> {
         match picked {
             Some(Source::Creator(id)) => self.curated(search).filter(|s| by(s, id)).collect(),
             Some(Source::Repository(id)) => self

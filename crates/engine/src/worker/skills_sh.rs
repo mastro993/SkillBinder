@@ -27,6 +27,21 @@ impl Engine {
         }
     }
 
+    /// Asks skills.sh for `query` without changing the search Explore shows. A query under two
+    /// characters asks nothing and answers [`SkillsShState::Idle`].
+    pub fn ask_skills_sh(
+        &self,
+        query: &str,
+    ) -> impl Future<Output = AppResult<SkillsShState>> + Send + 'static {
+        let asked = self.owner.searches.ask(query);
+        async move {
+            match asked? {
+                Some(answered) => answered.await.map_err(|_| AppError::storage()),
+                None => Ok(SkillsShState::Idle),
+            }
+        }
+    }
+
     /// Finds `result`'s folder in its repository, once per session. It shows as resolving in
     /// [`Self::current_explore`] from this call on; the future answers with the skill found,
     /// `None` when no folder matches, or why the repository could not be read.

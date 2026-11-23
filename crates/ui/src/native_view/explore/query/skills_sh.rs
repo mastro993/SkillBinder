@@ -101,7 +101,7 @@ fn resolved<'a>(snapshot: &'a AppSnapshot, result: &'a SkillsShResult) -> Found<
 
 /// Whether the library holds `result`'s `skillId` from its repository, before its folder is
 /// known.
-pub(in super::super) fn result_in_library(snapshot: &AppSnapshot, result: &SkillsShResult) -> bool {
+pub(crate) fn result_in_library(snapshot: &AppSnapshot, result: &SkillsShResult) -> bool {
     let url = normalized_url(&result.url);
     held_from(snapshot, &result.key, |source| {
         normalized_url(&source.url) == url
@@ -110,7 +110,7 @@ pub(in super::super) fn result_in_library(snapshot: &AppSnapshot, result: &Skill
 }
 
 /// Whether the library holds `result`'s `skillId` from another repository or from none.
-pub(in super::super) fn result_collides(snapshot: &AppSnapshot, result: &SkillsShResult) -> bool {
+pub(crate) fn result_collides(snapshot: &AppSnapshot, result: &SkillsShResult) -> bool {
     snapshot
         .library
         .as_ref()

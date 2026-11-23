@@ -8,7 +8,7 @@ use skillbinder_proto::{AgentOption, Workspace};
 /// How the review names skill directory `directory`, whose copy an import replaces: the Agents
 /// rows whose agents read it, or a workspace's name with the agents that read that workspace
 /// directory, or else the directory with home shortened to `~`.
-pub(super) fn replaced_in(
+pub(crate) fn replaced_in(
     directory: &str,
     agents: &[AgentOption],
     workspaces: &[Workspace],

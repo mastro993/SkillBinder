@@ -114,8 +114,28 @@ impl Searches {
         Ok(Some(settled))
     }
 
+    /// Asks skills.sh for `query`, trimmed and lowercased, on a thread of its own, leaving the
+    /// search Explore shows as it is, as the `skillbinder` command's search does. The receiver
+    /// answers with what skills.sh answered; `None` for a query under two characters, which asks
+    /// nothing.
+    pub(crate) fn ask(&self, query: &str) -> AppResult<Option<oneshot::Receiver<SkillsShState>>> {
+        let query = query.trim().to_lowercase();
+        if query.chars().count() < MIN_QUERY {
+            return Ok(None);
+        }
+        let source = self.source.clone();
+        let (done, answered) = oneshot::channel();
+        std::thread::Builder::new()
+            .name("skillbinder-search".into())
+            .spawn(move || {
+                let _ = done.send(answer(&source, &query));
+            })
+            .map_err(|_| AppError::storage())?;
+        Ok(Some(answered))
+    }
+
     /// Asks for the last query until no newer one arrived while its request ran.
-    fn ask(&self) {
+    fn ask_latest(&self) {
         loop {
             let (asked, query) = {
                 let mut shared = self.lock();
@@ -143,7 +163,7 @@ struct Running(Option<Searches>);
 impl Running {
     fn run(mut self) {
         if let Some(searches) = self.0.take() {
-            searches.ask();
+            searches.ask_latest();
         }
     }
 }

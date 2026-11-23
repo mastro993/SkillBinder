@@ -16,10 +16,7 @@ pub(in crate::native_view) fn repository_glyph(url: &str) -> &'static str {
 
 /// How many of `repository`'s skills Install all installs: those whose slug the library does
 /// not hold.
-pub(in crate::native_view) fn installable(
-    snapshot: &AppSnapshot,
-    repository: &Repository,
-) -> usize {
+pub(crate) fn installable(snapshot: &AppSnapshot, repository: &Repository) -> usize {
     let held = |key: &str| {
         snapshot
             .library
@@ -42,7 +39,7 @@ pub(in crate::native_view) fn summary(outcome: &InstallAllOutcome) -> String {
 }
 
 /// The toast of an ended Install all: "Installed 14 skills", or "Installed 13 · 1 failed".
-pub(in crate::native_view) fn toast(outcome: &InstallAllOutcome) -> String {
+pub(crate) fn toast(outcome: &InstallAllOutcome) -> String {
     match (outcome.installed.len(), outcome.failed.len()) {
         (1, 0) => "Installed 1 skill".to_owned(),
         (installed, 0) => format!("Installed {installed} skills"),
@@ -51,10 +48,7 @@ pub(in crate::native_view) fn toast(outcome: &InstallAllOutcome) -> String {
 }
 
 /// The summary's tooltip: each failed skill's error line, one per line.
-pub(in crate::native_view) fn failures(
-    repository: &Repository,
-    outcome: &InstallAllOutcome,
-) -> String {
+pub(crate) fn failures(repository: &Repository, outcome: &InstallAllOutcome) -> String {
     outcome
         .failed
         .iter()

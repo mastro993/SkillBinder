@@ -11,26 +11,42 @@ use std::collections::BTreeSet;
 
 /// Where a group's skills were found.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum Place {
+pub(crate) enum Place {
     /// Your agents' global skill directories, and anywhere no workspace reads.
     Agents,
     Workspace(WorkspaceId),
 }
 
+impl Place {
+    /// The group's name: `Your agents`, or the workspace's.
+    pub(crate) fn name(&self, workspaces: &[Workspace]) -> String {
+        match self {
+            Self::Agents => "Your agents".to_owned(),
+            Self::Workspace(id) => workspaces
+                .iter()
+                .find(|workspace| &workspace.id == id)
+                .map_or_else(
+                    || "Workspace".to_owned(),
+                    |workspace| workspace.name.clone(),
+                ),
+        }
+    }
+}
+
 /// One found skill and the plan's item for it.
-pub(super) struct Row<'a> {
+pub(crate) struct Row<'a> {
     pub skill: FoundSkill<'a>,
     /// The item that imports it; none when no version can be imported, such as a blocked one.
     pub item: Option<&'a ImportItem>,
 }
 
 impl<'a> Row<'a> {
-    pub(super) fn key(&self) -> &'a str {
+    pub(crate) fn key(&self) -> &'a str {
         self.skill.key
     }
 
     /// The version the row shows: the planned one, else the first.
-    pub(super) fn shown(&self) -> Option<&'a Candidate> {
+    pub(crate) fn shown(&self) -> Option<&'a Candidate> {
         let planned = self.item.map(|item| &item.candidate_id);
         let versions = &self.skill.versions;
         versions
@@ -40,11 +56,11 @@ impl<'a> Row<'a> {
             .or_else(|| versions.first().copied())
     }
 
-    pub(super) fn tickable(&self) -> bool {
+    pub(crate) fn tickable(&self) -> bool {
         self.item.is_some()
     }
 
-    pub(super) fn invalid(&self) -> bool {
+    pub(crate) fn invalid(&self) -> bool {
         self.item
             .is_some_and(|item| item.validation == ValidationStatus::Invalid)
     }
@@ -59,14 +75,14 @@ impl<'a> Row<'a> {
     }
 }
 
-pub(super) struct Group<'a> {
+pub(crate) struct Group<'a> {
     pub place: Place,
     pub rows: Vec<Row<'a>>,
 }
 
 /// The rows of `found`, grouped by the place of each skill's first location: Your agents first,
 /// then each workspace in sidebar order, each in scan order.
-pub(super) fn groups<'a>(found: &'a FoundImport, workspaces: &[Workspace]) -> Vec<Group<'a>> {
+pub(crate) fn groups<'a>(found: &'a FoundImport, workspaces: &[Workspace]) -> Vec<Group<'a>> {
     let listed: Vec<&Candidate> = found
         .scan
         .candidates
@@ -118,12 +134,12 @@ fn place(skill: &FoundSkill<'_>) -> Place {
 }
 
 /// Every row of `groups`, in display order.
-pub(super) fn rows<'g, 'a>(groups: &'g [Group<'a>]) -> impl Iterator<Item = &'g Row<'a>> {
+pub(crate) fn rows<'g, 'a>(groups: &'g [Group<'a>]) -> impl Iterator<Item = &'g Row<'a>> {
     groups.iter().flat_map(|group| &group.rows)
 }
 
 /// The ticks a fresh list starts with: every importable valid skill, up to 500, in display order.
-pub(super) fn default_ticks(groups: &[Group<'_>]) -> BTreeSet<String> {
+pub(crate) fn default_ticks(groups: &[Group<'_>]) -> BTreeSet<String> {
     rows(groups)
         .filter(|row| row.tickable() && !row.invalid())
         .take(MAX_IMPORT)
@@ -182,7 +198,7 @@ impl Count {
 }
 
 /// What Import takes: the ticked importable skills' planned versions, and whether one is invalid.
-pub(super) fn selection(groups: &[Group<'_>], ticked: &BTreeSet<String>) -> Selection {
+pub(crate) fn selection(groups: &[Group<'_>], ticked: &BTreeSet<String>) -> Selection {
     let chosen: Vec<&Row<'_>> = rows(groups)
         .filter(|row| ticked.contains(row.key()))
         .collect();
@@ -195,18 +211,18 @@ pub(super) fn selection(groups: &[Group<'_>], ticked: &BTreeSet<String>) -> Sele
     }
 }
 
-pub(in crate::native_view) struct Selection {
+pub(crate) struct Selection {
     pub ids: Vec<CandidateId>,
     pub invalid: bool,
 }
 
 impl Selection {
-    pub(in crate::native_view) fn over(&self) -> bool {
+    pub(crate) fn over(&self) -> bool {
         self.ids.len() > MAX_IMPORT
     }
 
     /// Whether Import can run, with the invalid metadata acknowledged or not.
-    pub(in crate::native_view) fn ready(&self, acknowledged: bool) -> bool {
+    pub(crate) fn ready(&self, acknowledged: bool) -> bool {
         !self.ids.is_empty() && !self.over() && (acknowledged || !self.invalid)
     }
 }

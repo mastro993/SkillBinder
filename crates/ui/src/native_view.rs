@@ -66,6 +66,12 @@ mod workspace_page;
 mod workspace_targets;
 
 pub(crate) use app_update_notice::RestartBlocker;
+pub(crate) use explore::{
+    Local, all_time_label, collides, creator_of, failures, in_library, install_error, installable,
+    installs_label, result_collides, result_in_library, toast as install_all_message,
+};
+pub(crate) use import_dialog::{Row, default_ticks, groups, location_label, rows, selection};
+pub(crate) use import_review::replaced_in;
 pub(crate) use library_copies::{AgentRow, found_rows, shown_dir};
 pub(crate) use library_targets::held;
 pub(crate) use library_updates::{available, summary};

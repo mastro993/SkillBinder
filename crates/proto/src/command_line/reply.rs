@@ -1,8 +1,8 @@
 //! What the app sends back for a request: progress and questions while it runs, then one outcome
 //! holding the command's typed output.
 
-use super::CommandError;
-use crate::{SkillSource, SyncState};
+use super::{CommandError, FoundRow, RepositoryRow, SearchOutput};
+use crate::{AppError, SkillSource, SyncState};
 use serde::{Deserialize, Serialize};
 
 /// A line the app sends back for a request.
@@ -53,6 +53,12 @@ impl From<CommandError> for Failure {
     }
 }
 
+impl From<AppError> for Failure {
+    fn from(error: AppError) -> Self {
+        CommandError::from(error).into()
+    }
+}
+
 /// A command's result.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -73,6 +79,12 @@ pub enum Output {
     Workspaces(Vec<WorkspaceRow>),
     /// `agents`.
     Agents(Vec<AgentRow>),
+    /// `scan`.
+    Found(Vec<FoundRow>),
+    /// `search`.
+    Search(SearchOutput),
+    /// `repos`.
+    Repositories(Vec<RepositoryRow>),
     /// Every changing command.
     Changed(Changed),
 }
@@ -235,6 +247,8 @@ pub struct Changed {
     pub removed: Vec<String>,
     /// Copies left waiting for the user's answer.
     pub waiting: Vec<CopyRow>,
+    /// Skills an import or install put in the library, by slug.
+    pub installed: Vec<String>,
 }
 
 impl Changed {
