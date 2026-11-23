@@ -4,6 +4,7 @@ mod activation;
 mod agents;
 mod app_update;
 mod catalog;
+mod command_line;
 mod database;
 mod folders;
 mod git;

@@ -31,6 +31,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 ; The silent update opens the app itself, and only after Restart.
 RestartApplications=no
+; Uninstalling removes the `bin` folder Settings' Install added to the user's PATH (ADR 0024), and
+; this tells running programs the environment changed.
+ChangesEnvironment=yes
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
@@ -89,4 +92,48 @@ end;
 function ShouldRelaunch(): Boolean;
 begin
   Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
+
+{ The `bin` folder without a trailing backslash, in lower case, as PATH entries compare. }
+function PathEntryKey(Entry: String): String;
+begin
+  Result := Lowercase(RemoveBackslashUnlessRoot(Trim(Entry)));
+end;
+
+{ Uninstalling removes the app's bin folder from the user's PATH, where Settings' Install added
+  it, and keeps every other entry as it was. }
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Paths, Bin, Kept, Entry: String;
+  Split: Integer;
+  First, Found: Boolean;
+begin
+  if CurUninstallStep <> usUninstall then
+    Exit;
+  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', Paths) then
+    Exit;
+  Bin := PathEntryKey(ExpandConstant('{app}\bin'));
+  Kept := '';
+  First := True;
+  Found := False;
+  repeat
+    Split := Pos(';', Paths);
+    if Split = 0 then begin
+      Entry := Paths;
+      Paths := '';
+    end else begin
+      Entry := Copy(Paths, 1, Split - 1);
+      Delete(Paths, 1, Split);
+    end;
+    if PathEntryKey(Entry) = Bin then
+      Found := True
+    else begin
+      if not First then
+        Kept := Kept + ';';
+      Kept := Kept + Entry;
+      First := False;
+    end;
+  until Split = 0;
+  if Found then
+    RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', Kept);
 end;
