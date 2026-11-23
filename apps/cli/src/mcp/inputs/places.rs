@@ -8,9 +8,9 @@ use serde::Deserialize;
 use skillbinder_proto::command_line::{Change, CommandError, WorkspaceName};
 use std::path::Path;
 
-/// A workspace as the agent named it: an absolute path names the workspace holding it, and
-/// anything else that reads as a path is refused, since it would resolve against the server's
-/// folder.
+/// A workspace as the agent named it: an absolute path names the workspace holding it, and a
+/// value that can only be a relative path is refused, since it would resolve against the
+/// server's folder. Anything else is a name, which may hold `/` or start with `~`.
 pub(super) fn workspace(given: &str) -> Result<WorkspaceName, CommandError> {
     if Path::new(given).is_absolute() {
         return Ok(WorkspaceName {
@@ -18,8 +18,10 @@ pub(super) fn workspace(given: &str) -> Result<WorkspaceName, CommandError> {
             folder: grammar::workspace_folder(given),
         });
     }
-    let relative =
-        matches!(given, "." | "..") || given.starts_with('~') || given.contains(['/', '\\']);
+    let relative = matches!(given, "." | "..")
+        || ["./", "../", "~/", ".\\", "..\\", "~\\"]
+            .iter()
+            .any(|prefix| given.starts_with(prefix));
     if relative {
         return Err(usage(
             "Name the workspace by its name or by an absolute path inside it.",

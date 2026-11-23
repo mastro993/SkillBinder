@@ -8,9 +8,9 @@ use crate::{grammar, render};
 use serde_json::{Value, json};
 use skillbinder_proto::ValidationStatus;
 use skillbinder_proto::command_line::{
-    AgentRow, Changed, Find, FoundRow, FoundVersion, Output, Progress, Query, Question,
-    RepositoryRow, Request, SearchOutput, SearchRow, SkillsShAnswer, Unchecked, UpdatesOutput,
-    WorkspaceRow,
+    AgentRow, Change, Changed, Consent, Find, FoundRow, FoundVersion, Output, Progress, Query,
+    Question, RepositoryRow, Request, SearchOutput, SearchRow, SkillsShAnswer, Unchecked,
+    UpdatesOutput, WorkspaceName, WorkspaceRow,
 };
 
 /// The command's side, without a terminal: no progress, and no question answered.
@@ -304,12 +304,13 @@ async fn each_tool_sends_its_commands_request_and_returns_its_json_result() -> a
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_relative_workspace_path_is_refused_before_the_app_hears_it() -> anyhow::Result<()> {
+async fn a_relative_workspace_path_is_refused_and_any_other_value_is_a_name() -> anyhow::Result<()>
+{
     let root = tempfile::tempdir()?;
     let heard = app(root.path(), |request| vec![outcome(Ok(fixture(request)))])?;
     let mut client = Client::start(root.path());
     client.initialize(json!({})).await?;
-    for (id, workspace) in (1..).zip([".", "./web", "~/code/web", "code/web"]) {
+    for (id, workspace) in (1..).zip([".", "..", "./web", "../web", "~/code/web"]) {
         let arguments = json!({ "skill_slugs": ["pdf"], "active": true, "workspace": workspace });
         let refused = client.call(id, "set_skills_active", arguments).await?;
         assert_eq!(
@@ -321,5 +322,22 @@ async fn a_relative_workspace_path_is_refused_before_the_app_hears_it() -> anyho
     let refused = client.call(9, "manage_workspace", arguments).await?;
     assert_eq!(refused["structuredContent"]["error"]["code"], "usage");
     assert!(heard.requests().is_empty(), "nothing reached the app");
+    // A workspace's name may hold a slash or start with a tilde, as the engine allows.
+    for (id, name) in (10..).zip(["client/web", "~scratch"]) {
+        let arguments = json!({ "skill_slugs": ["pdf"], "active": false, "workspace": name });
+        let sent = client.call(id, "set_skills_active", arguments).await?;
+        assert_eq!(sent["isError"], false, "{name}: {sent}");
+        let disable = Request::Change {
+            change: Change::DisableInWorkspace {
+                workspace: WorkspaceName {
+                    name: name.into(),
+                    folder: None,
+                },
+                skills: vec!["pdf".into()],
+            },
+            consent: Consent::default(),
+        };
+        assert_eq!(heard.requests().last(), Some(&disable));
+    }
     Ok(())
 }

@@ -10,7 +10,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use skillbinder_proto::command_line::{
     AgentRow, Changed, CopyRow, Failure, FolderRow, FoundRow, Output, PresetRow, RepositoryRow,
-    SearchOutput, SearchRow, SkillRow, SkillsShAnswer, UpdatesOutput, WorkspaceRow,
+    SearchOutput, SearchRow, SkillRow, SkillsShAnswer, Unchecked, UpdatesOutput, WorkspaceRow,
 };
 use std::sync::Arc;
 
@@ -70,15 +70,23 @@ pub(crate) struct Finds {
     more: usize,
 }
 
+/// update_skills' check: the command's `updates` beside `more`.
+#[derive(Serialize, JsonSchema)]
+pub(crate) struct Checked {
+    /// The skills whose source has a newer version, at most 200.
+    skills: Vec<SkillRow>,
+    /// The skills whose source the check couldn't read.
+    unchecked: Vec<Unchecked>,
+    /// How many more skills have an update than listed.
+    more: usize,
+}
+
 /// update_skills' result: check's list, or what an update or reinstall did.
 #[derive(JsonSchema)]
 #[serde(untagged)]
-#[expect(
-    dead_code,
-    reason = "only its schema is used; results are the command's own"
-)]
+#[expect(dead_code, reason = "only its schema is used")]
 pub(crate) enum Updates {
-    Checked(UpdatesOutput),
+    Checked(Checked),
     Changed(Changed),
 }
 
@@ -207,6 +215,10 @@ fn capped(output: Output) -> (Output, usize) {
             let (results, more) = cut(results);
             (Output::Search(SearchOutput { results, skills_sh }), more)
         }
+        Output::Updates(UpdatesOutput { skills, unchecked }) => {
+            let (skills, more) = cut(skills);
+            (Output::Updates(UpdatesOutput { skills, unchecked }), more)
+        }
         output => (output, 0),
     }
 }
@@ -254,9 +266,12 @@ fn structured(output: Output, more: usize) -> Value {
             more,
             ..Finds::default()
         }),
-        Output::Status(_) | Output::Skill(_) | Output::Updates(_) | Output::Changed(_) => {
-            render::result(&output)
-        }
+        Output::Updates(UpdatesOutput { skills, unchecked }) => json!(Checked {
+            skills,
+            unchecked,
+            more,
+        }),
+        Output::Status(_) | Output::Skill(_) | Output::Changed(_) => render::result(&output),
     }
 }
 

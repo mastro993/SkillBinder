@@ -19,13 +19,12 @@ async fn update_all_sends_progress_and_another_is_refused_as_busy() -> anyhow::R
     let updates = AtomicUsize::new(0);
     let heard = app(root.path(), move |_| {
         if updates.fetch_add(1, Ordering::SeqCst) > 0 {
-            let busy =
-                CommandError::new(ErrorCode::Busy, "SkillBinder is busy: Updating 3 skills…")
-                    .hint("Try again when it finishes.");
+            let busy = CommandError::new(ErrorCode::Busy, "SkillBinder is busy: Updating skills…")
+                .hint("Try again when it finishes.");
             return vec![outcome(Err(busy.into()))];
         }
         let progress = Progress {
-            activity: "Updating 3 skills".into(),
+            activity: "Updating skills".into(),
             done: 1,
             total: 3,
         };
@@ -60,7 +59,7 @@ async fn update_all_sends_progress_and_another_is_refused_as_busy() -> anyhow::R
             &progress["params"]["total"],
             &progress["params"]["message"]
         ),
-        (&json!(1.0), &json!(3.0), &json!("Updating 3 skills…"))
+        (&json!(1.0), &json!(3.0), &json!("Updating skills…"))
     );
     let arguments = json!({ "action": "update", "all": true });
     let refused = client.call(2, "update_skills", arguments).await?;
@@ -70,7 +69,7 @@ async fn update_all_sends_progress_and_another_is_refused_as_busy() -> anyhow::R
         (&error["code"], &error["message"]),
         (
             &json!("busy"),
-            &json!("SkillBinder is busy: Updating 3 skills…")
+            &json!("SkillBinder is busy: Updating skills…")
         )
     );
     go.send(())?;
