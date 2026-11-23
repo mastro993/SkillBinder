@@ -1,5 +1,7 @@
 mod harness;
 mod results;
+mod tools;
+mod waits;
 
 use crate::render;
 use harness::{Client, Heard, Step, app};
@@ -90,33 +92,42 @@ async fn tools_list_in_order_with_their_hints_and_schemas_without_the_app() -> a
         .as_array()
         .cloned()
         .unwrap_or_default();
-    let names: Vec<&str> = tools
-        .iter()
-        .filter_map(|tool| tool["name"].as_str())
-        .collect();
-    assert_eq!(
-        names,
-        [
-            "status",
-            "list_skills",
-            "get_skill",
-            "list_places",
-            "set_skills_active",
-            "switch_preset",
-            "organize_library",
-            "resolve_copies",
-        ]
-    );
-    for tool in &tools {
+    // The spec's tools table: read-only, destructive, idempotent, open-world.
+    let table = [
+        ("status", true, false, true, false),
+        ("list_skills", true, false, true, false),
+        ("get_skill", true, false, true, false),
+        ("list_places", true, false, true, false),
+        ("find_skills", true, false, true, true),
+        ("set_skills_active", false, true, true, false),
+        ("switch_preset", false, true, true, false),
+        ("organize_library", false, true, false, false),
+        ("manage_workspace", false, true, false, false),
+        ("choose_agent", false, true, true, false),
+        ("install_skills", false, false, false, true),
+        ("import_skills", false, true, false, false),
+        ("update_skills", false, true, false, true),
+        ("sync_library", false, true, false, true),
+        ("manage_repositories", false, true, false, true),
+        ("resolve_copies", false, true, false, false),
+    ];
+    assert_eq!(tools.len(), table.len());
+    for (tool, (name, read_only, destructive, idempotent, open_world)) in tools.iter().zip(table) {
+        assert_eq!(tool["name"], name);
         let hints = &tool["annotations"];
-        let reads = tool["name"] == "status"
-            || tool["name"]
-                .as_str()
-                .is_some_and(|name| name.starts_with("list_") || name.starts_with("get_"));
-        assert_eq!(hints["readOnlyHint"], reads, "{}", tool["name"]);
-        assert_eq!(hints["destructiveHint"], !reads, "{}", tool["name"]);
-        assert_eq!(hints["openWorldHint"], false, "{}", tool["name"]);
-        assert!(tool["outputSchema"].is_object(), "{}", tool["name"]);
+        assert_eq!(
+            [
+                &hints["readOnlyHint"],
+                &hints["destructiveHint"],
+                &hints["idempotentHint"],
+                &hints["openWorldHint"]
+            ],
+            [read_only, destructive, idempotent, open_world]
+                .map(serde_json::Value::from)
+                .each_ref(),
+            "{name}"
+        );
+        assert_eq!(tool["outputSchema"]["type"], "object", "{name}");
     }
     let skills = &tools[1]["outputSchema"]["$defs"]["SkillRow"]["required"];
     assert!(
@@ -323,7 +334,21 @@ async fn a_2026_client_answers_by_calling_again_and_the_copy_is_replaced() -> an
         },
         consent: Consent::default(),
     };
-    assert_eq!(heard.requests(), [switch_request(Permission::No), replace]);
+    let asked = Request::Change {
+        change: Change::ActivatePreset {
+            preset: "Work".into(),
+        },
+        consent: Consent {
+            replace: Permission::Ask,
+            confirm: Permission::Ask,
+        },
+    };
+    assert_eq!(heard.requests(), [asked, replace]);
+    assert_eq!(
+        heard.answers(),
+        [false],
+        "the server declined, for the form"
+    );
     Ok(())
 }
 
@@ -497,8 +522,8 @@ async fn a_2026_confirmation_deletes_only_what_the_user_was_asked_about() -> any
     );
     assert_eq!(
         heard.answers(),
-        [true, false],
-        "the app's question is answered for the user"
+        [false, true, false],
+        "declined for the form, then answered for the user"
     );
     assert_eq!(
         heard.requests().len(),

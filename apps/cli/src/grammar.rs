@@ -416,6 +416,7 @@ fn unknown(command: &str) -> CommandError {
 
 mod explore;
 mod places;
+pub(crate) use places::folder as workspace_folder;
 #[cfg(test)]
 mod tests;
 mod updates;

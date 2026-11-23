@@ -1,6 +1,14 @@
 //! Each tool's arguments, whose doc comments are the schema agents read, and the request they
 //! make: the one the matching command makes (spec rule 1).
 
+mod explore;
+mod places;
+mod updates;
+
+pub(crate) use explore::{FindSkills, ImportSkills, InstallSkills, ManageRepositories};
+pub(crate) use places::{ChooseAgent, ManageWorkspace};
+pub(crate) use updates::{SyncLibrary, UpdateSkills, Updating};
+
 use schemars::JsonSchema;
 use serde::Deserialize;
 use skillbinder_proto::command_line::{
@@ -80,6 +88,12 @@ pub(crate) enum PlaceKind {
     Folders,
     /// The copies waiting for the user's answer.
     Copies,
+    /// The workspaces, with the agents each uses and the skills on there.
+    Workspaces,
+    /// The agents found on this computer, marking the user's.
+    Agents,
+    /// The user's repositories, with how many of their skills install_all installs.
+    Repositories,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -96,6 +110,9 @@ impl ListPlaces {
             PlaceKind::Presets => Query::Presets,
             PlaceKind::Folders => Query::Folders,
             PlaceKind::Copies => Query::Copies,
+            PlaceKind::Workspaces => Query::Workspaces,
+            PlaceKind::Agents => Query::Agents,
+            PlaceKind::Repositories => Query::Repositories,
         })
     }
 }
@@ -107,10 +124,14 @@ pub(crate) struct SetSkillsActive {
     /// True turns them on, false turns them off.
     active: bool,
     /// A preset other than the active one to add them to or remove them from, by name. Leave it
-    /// out to change the active preset, which writes or removes the skills' copies now.
+    /// and workspace out to change the active preset, which writes or removes the skills' copies
+    /// now.
     preset: Option<String>,
-    /// Only these agents, by id, name, or global skill directory; all the user's agents when
-    /// left out. Not used when removing skills from a preset.
+    /// A workspace to turn them on or off in instead, by name or by an absolute path inside it.
+    workspace: Option<String>,
+    /// Only these agents, by id, name, or skill directory (in a workspace, such as
+    /// .claude/skills); all the user's agents, or all the workspace uses, when left out. Not used
+    /// when removing skills from a preset or turning them off in a workspace.
     #[serde(default)]
     agents: Vec<String>,
     /// Replace the user's own copies of these skills. Only after the user agreed.
@@ -121,6 +142,24 @@ pub(crate) struct SetSkillsActive {
 impl SetSkillsActive {
     pub(crate) fn change(&self) -> Result<Change, CommandError> {
         let (skills, agents) = (self.skill_slugs.clone(), self.agents.clone());
+        if let Some(workspace) = &self.workspace {
+            if self.preset.is_some() {
+                return Err(usage("Name a preset or a workspace, not both."));
+            }
+            let workspace = places::workspace(workspace)?;
+            return match self.active {
+                true => Ok(Change::EnableInWorkspace {
+                    workspace,
+                    skills,
+                    agents,
+                }),
+                false if !agents.is_empty() => Err(usage(
+                    "Turning skills off in a workspace turns them off for every agent; leave out \
+                     agents.",
+                )),
+                false => Ok(Change::DisableInWorkspace { workspace, skills }),
+            };
+        }
         Ok(match (&self.preset, self.active) {
             (None, true) => Change::Enable { skills, agents },
             (None, false) => Change::Disable { skills, agents },

@@ -8,7 +8,10 @@ use rmcp::model::{CallToolResult, ContentBlock, JsonObject};
 use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::{Value, json};
-use skillbinder_proto::command_line::{CopyRow, Failure, FolderRow, Output, PresetRow, SkillRow};
+use skillbinder_proto::command_line::{
+    AgentRow, Changed, CopyRow, Failure, FolderRow, FoundRow, Output, PresetRow, RepositoryRow,
+    SearchOutput, SearchRow, SkillRow, SkillsShAnswer, Unchecked, UpdatesOutput, WorkspaceRow,
+};
 use std::sync::Arc;
 
 /// The most entries a list returns.
@@ -38,8 +41,53 @@ pub(crate) struct Places {
     /// The copies waiting for the user's answer, at most 200.
     #[serde(skip_serializing_if = "Option::is_none")]
     copies: Option<Vec<CopyRow>>,
+    /// The workspaces, at most 200.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workspaces: Option<Vec<WorkspaceRow>>,
+    /// The agents found on this computer, at most 200.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    agents: Option<Vec<AgentRow>>,
+    /// The user's repositories, at most 200.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    repositories: Option<Vec<RepositoryRow>>,
     /// How many more there are than listed.
     more: usize,
+}
+
+/// find_skills' result: what the scan found, or what the search found.
+#[derive(Default, Serialize, JsonSchema)]
+pub(crate) struct Finds {
+    /// The found skills not in library, at most 200, for where found.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    found: Option<Vec<FoundRow>>,
+    /// The search's results, at most 200, for where explore.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    results: Option<Vec<SearchRow>>,
+    /// How skills.sh answered the search.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    skills_sh: Option<SkillsShAnswer>,
+    /// How many more there are than listed.
+    more: usize,
+}
+
+/// update_skills' check: the command's `updates` beside `more`.
+#[derive(Serialize, JsonSchema)]
+pub(crate) struct Checked {
+    /// The skills whose source has a newer version, at most 200.
+    skills: Vec<SkillRow>,
+    /// The skills whose source the check couldn't read.
+    unchecked: Vec<Unchecked>,
+    /// How many more skills have an update than listed.
+    more: usize,
+}
+
+/// update_skills' result: check's list, or what an update or reinstall did.
+#[derive(JsonSchema)]
+#[serde(untagged)]
+#[expect(dead_code, reason = "only its schema is used")]
+pub(crate) enum Updates {
+    Checked(Checked),
+    Changed(Changed),
 }
 
 /// The output schema of a tool returning `T`, with the detail fields optional and without
@@ -53,7 +101,13 @@ pub(crate) fn schema<T: JsonSchema + 'static>() -> Arc<JsonObject> {
     );
     tidy(&mut schema);
     match schema {
-        Value::Object(object) => Arc::new(object),
+        // A result is always an object, which some clients require the schema to say.
+        Value::Object(mut object) => {
+            object
+                .entry("type")
+                .or_insert_with(|| Value::from("object"));
+            Arc::new(object)
+        }
         _ => unreachable!("a schema stays an object"),
     }
 }
@@ -141,6 +195,30 @@ fn capped(output: Output) -> (Output, usize) {
             let (rows, more) = cut(rows);
             (Output::Copies(rows), more)
         }
+        Output::Workspaces(rows) => {
+            let (rows, more) = cut(rows);
+            (Output::Workspaces(rows), more)
+        }
+        Output::Agents(rows) => {
+            let (rows, more) = cut(rows);
+            (Output::Agents(rows), more)
+        }
+        Output::Repositories(rows) => {
+            let (rows, more) = cut(rows);
+            (Output::Repositories(rows), more)
+        }
+        Output::Found(rows) => {
+            let (rows, more) = cut(rows);
+            (Output::Found(rows), more)
+        }
+        Output::Search(SearchOutput { results, skills_sh }) => {
+            let (results, more) = cut(results);
+            (Output::Search(SearchOutput { results, skills_sh }), more)
+        }
+        Output::Updates(UpdatesOutput { skills, unchecked }) => {
+            let (skills, more) = cut(skills);
+            (Output::Updates(UpdatesOutput { skills, unchecked }), more)
+        }
         output => (output, 0),
     }
 }
@@ -165,14 +243,35 @@ fn structured(output: Output, more: usize) -> Value {
             copies: Some(copies),
             ..places
         }),
+        Output::Workspaces(workspaces) => json!(Places {
+            workspaces: Some(workspaces),
+            ..places
+        }),
+        Output::Agents(agents) => json!(Places {
+            agents: Some(agents),
+            ..places
+        }),
+        Output::Repositories(repositories) => json!(Places {
+            repositories: Some(repositories),
+            ..places
+        }),
+        Output::Found(found) => json!(Finds {
+            found: Some(found),
+            more,
+            ..Finds::default()
+        }),
+        Output::Search(SearchOutput { results, skills_sh }) => json!(Finds {
+            results: Some(results),
+            skills_sh: Some(skills_sh),
+            more,
+            ..Finds::default()
+        }),
+        Output::Updates(UpdatesOutput { skills, unchecked }) => json!(Checked {
+            skills,
+            unchecked,
+            more,
+        }),
         Output::Status(_) | Output::Skill(_) | Output::Changed(_) => render::result(&output),
-        // No tool returns these yet; their tools list them under their own names.
-        Output::Workspaces(_)
-        | Output::Agents(_)
-        | Output::Found(_)
-        | Output::Search(_)
-        | Output::Repositories(_)
-        | Output::Updates(_) => render::result(&output),
     }
 }
 

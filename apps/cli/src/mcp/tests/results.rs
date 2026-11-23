@@ -1,7 +1,7 @@
 use crate::mcp::inputs::ResponseFormat;
 use crate::mcp::results::{Skills, result, schema};
 use serde_json::json;
-use skillbinder_proto::command_line::{Output, PresetRow, SkillOutput};
+use skillbinder_proto::command_line::{Output, PresetRow, SkillOutput, UpdatesOutput};
 
 #[test]
 fn a_list_stops_at_200_and_says_how_many_more() {
@@ -70,4 +70,18 @@ fn schemas_leave_the_detail_fields_optional_and_drop_integer_formats() {
                 .is_some_and(|required| required.contains(&json!(detail)))
         );
     }
+}
+
+#[test]
+fn a_checks_updates_stop_at_200_too() {
+    let skills = (0..201).map(|index| super::skill(&format!("skill-{index}")));
+    let updates = UpdatesOutput {
+        skills: skills.collect(),
+        unchecked: Vec::new(),
+    };
+    let listed = result(Ok(Output::Updates(updates)), ResponseFormat::Concise);
+    let structured = listed.structured_content.unwrap_or_default();
+    assert_eq!(structured["skills"].as_array().map(Vec::len), Some(200));
+    assert_eq!(structured["more"], 1);
+    assert_eq!(structured["unchecked"], json!([]));
 }

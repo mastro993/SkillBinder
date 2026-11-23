@@ -181,7 +181,7 @@ SkillBinder ships a `skillbinder` command that talks to the running app, and sta
 skillbinder status
 ```
 
-Agents can use the same actions as typed tools: `skillbinder mcp` is an MCP server over stdio. Connect Claude Code with `claude mcp add --scope user skillbinder -- skillbinder mcp`, or add `{"mcpServers": {"skillbinder": {"command": "skillbinder", "args": ["mcp"]}}}` to any agent's MCP settings. Its tools read your library and switch and edit presets; replacing your own copy of a skill asks you first.
+Agents can use the same actions as typed tools: `skillbinder mcp` is an MCP server over stdio. Connect Claude Code with `claude mcp add --scope user skillbinder -- skillbinder mcp`, or add `{"mcpServers": {"skillbinder": {"command": "skillbinder", "args": ["mcp"]}}}` to any agent's MCP settings. Its tools read your library, switch and edit presets, manage workspaces and your agents, find, install, and import skills, update them, and sync the library; replacing your own copy of a skill, deleting, and removing a workspace ask you first.
 
 ## Your data stays yours
 
