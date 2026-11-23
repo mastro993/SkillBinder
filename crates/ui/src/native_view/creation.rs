@@ -96,7 +96,14 @@ impl NativeView {
         window.focus(&focus, cx);
         let focus_lost_subscription =
             cx.on_focus_lost(window, |view, window, cx| window.focus(&view.focus, cx));
-        let gate_subscription = cx.observe_global::<Gate>(|view, cx| view.follow_gate(cx));
+        let gate_subscription = cx.observe_global::<Gate>(|view, cx| {
+            let commanded = Gate::of(cx).commands > 0;
+            if view.commanded != commanded {
+                view.commanded = commanded;
+                cx.notify();
+            }
+            view.follow_gate(cx);
+        });
         gate::opened(cx.entity().downgrade(), window.window_handle(), cx);
         let mut view = Self {
             client,
@@ -105,6 +112,7 @@ impl NativeView {
             route: Route::default(),
             history: History::default(),
             busy: false,
+            commanded: Gate::of(cx).commands > 0,
             error: None,
             dialog,
             dialogs_opened: 0,

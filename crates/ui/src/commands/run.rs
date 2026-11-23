@@ -36,21 +36,20 @@ pub(super) async fn run(
     let after = client.snapshot();
     let home = after.home.clone();
     let waiting = left_waiting(&before, copies(&after));
-    let left = settle(waiting, consent.replace, peer, &home, |copy| {
+    let settled = settle(waiting, consent.replace, peer, &home, |copy| {
         on_runtime(client, move |client| async move {
             client
                 .resolve_copy(&copy, skillbinder_proto::CopyChoice::Replace)
                 .await
         })
-    })
-    .await
-    .map_err(CommandError::from)?;
+    });
+    let left = held(cx, settled).await.map_err(CommandError::from)?;
     changed.waiting = left.iter().map(|copy| copy_row(copy, &home)).collect();
-    if changed.waiting.is_empty() {
+    if left.is_empty() {
         return Ok(Output::Changed(changed));
     }
     Err(Failure {
-        error: copies_wait(changed.waiting.len()),
+        error: copies_wait(&left, &home),
         result: Some(Box::new(Output::Changed(changed))),
     })
 }
@@ -66,9 +65,13 @@ async fn apply(
         Plan::Organize { changes, done } => {
             if !changes.is_empty() {
                 free(client, cx)?;
-            }
-            for change in changes {
-                organize(client, change).await?;
+                let saved = async {
+                    for change in changes {
+                        organize(client, change).await?;
+                    }
+                    AppResult::Ok(())
+                };
+                held(cx, saved).await?;
             }
             Ok(Changed::said(done))
         }
@@ -101,7 +104,7 @@ async fn apply(
                 revision: preview.revision.clone(),
             };
             let Some(switch) = preview.switch else {
-                organize(client, change).await?;
+                held(cx, organize(client, change)).await?;
                 return Ok(Changed::said(format!("Deleted {name}.")));
             };
             let activity = Activity::DeletingActive {
@@ -121,20 +124,21 @@ async fn apply(
         } => {
             confirm(prompt, consent.confirm, peer).await?;
             free(client, cx)?;
-            organize(client, change).await?;
+            held(cx, organize(client, change)).await?;
             Ok(Changed::said(format!("Deleted folder {name}.")))
         }
         Plan::Copy { copy, choice, done } => {
             free(client, cx)?;
-            on_runtime(client, move |client| async move {
+            let resolved = on_runtime(client, move |client| async move {
                 client.resolve_copy(&copy, choice).await
-            })
-            .await?;
+            });
+            held(cx, resolved).await?;
             Ok(Changed::said(done))
         }
         Plan::RetryCopies => {
             free(client, cx)?;
-            on_runtime(client, |client| async move { client.retry_copies().await }).await?;
+            let retried = on_runtime(client, |client| async move { client.retry_copies().await });
+            held(cx, retried).await?;
             Ok(Changed::said("Tried every unwritten copy again."))
         }
     }
@@ -180,6 +184,15 @@ fn free(client: &Client, cx: &mut AsyncApp) -> Result<(), CommandError> {
         Some(refusal) => Err(refusal),
         None => Ok(()),
     }
+}
+
+/// Runs `work`, a short change of the command's own, refusing other changes meanwhile as the
+/// window does during its saves.
+async fn held<T>(cx: &mut AsyncApp, work: impl Future<Output = T>) -> T {
+    cx.update(|cx| gate::command_change(true, cx));
+    let result = work.await;
+    cx.update(|cx| gate::command_change(false, cx));
+    result
 }
 
 /// Runs `change`, a blocking one, as the window or the menu does, until it returns.

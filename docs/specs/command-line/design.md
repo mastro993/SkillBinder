@@ -52,7 +52,7 @@ Switching to Work… 14/14
 Work is active: 3 added, 5 removed.
 1 copy needs your answer:
   pdf in ~/.claude/skills differs from the library.
-Run again with --replace, or review it in SkillBinder.        (exit 3)
+Run `skillbinder copies replace pdf --in ~/.claude/skills`, or review it in SkillBinder.   (exit 3)
 ```
 
 `--json` for the last one: `{"ok": false, "error": {"code": "needs_answer", "message": "1 copy needs your answer", "hint": "…"}, "result": {"activated": "Work", "added": [...], "removed": [...], "waiting": [{"slug": "pdf", "directory": "~/.claude/skills", "state": "conflict"}]}}`. A result that partly landed keeps its `result` beside the error.

@@ -37,10 +37,10 @@ impl NativeView {
         self.working() || self.strip.is_some()
     }
 
-    /// Whether the view's short work or an Update all runs; the controls that would race with
-    /// either are inactive meanwhile.
+    /// Whether the view's short work, a command's, or an Update all runs; the controls that would
+    /// race with them are inactive meanwhile.
     pub(in crate::native_view) fn working(&self) -> bool {
-        self.busy || self.snapshot.updating.is_some()
+        self.busy || self.commanded || self.snapshot.updating.is_some()
     }
 
     /// Runs `operation`, a change that can write many copies, blocking the app until it lands and

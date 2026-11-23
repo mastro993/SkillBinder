@@ -66,15 +66,27 @@ pub(super) async fn confirm(
     }
 }
 
-/// The failure of a change that left `count` copies waiting (spec rule 6).
-pub(super) fn copies_wait(count: usize) -> CommandError {
-    let (message, them) = match count {
-        1 => ("1 copy needs your answer".to_owned(), "it"),
-        count => (format!("{count} copies need your answer"), "them"),
+/// The failure of a change that left the `left` copies waiting (spec rule 6). Its hint names the
+/// command that replaces a copy, which works after any change, where running the change again
+/// would find nothing left to do.
+pub(super) fn copies_wait(left: &[ManagedCopy], home: &str) -> CommandError {
+    let (message, hint) = match left {
+        [copy] => (
+            "1 copy needs your answer".to_owned(),
+            format!(
+                "Run `skillbinder copies replace {} --in {}`, or review it in SkillBinder.",
+                copy.skill,
+                shown_dir(&copy.directory, home)
+            ),
+        ),
+        left => (
+            format!("{} copies need your answer", left.len()),
+            "Run `skillbinder copies replace <slug> --in <directory>` for each, or review them \
+             in SkillBinder."
+                .to_owned(),
+        ),
     };
-    CommandError::new(ErrorCode::NeedsAnswer, message).hint(format!(
-        "Run again with --replace, or review {them} in SkillBinder."
-    ))
+    CommandError::new(ErrorCode::NeedsAnswer, message).hint(hint)
 }
 
 /// What a yes does to `copy`: an edited copy of a skill no longer active there goes, any other is

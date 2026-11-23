@@ -16,6 +16,9 @@ pub(crate) struct Gate {
     pub(crate) change: Option<Change>,
     /// The window's short work: a single Update or an optimistic save.
     pub(crate) busy: bool,
+    /// The `skillbinder` command's own short changes that run now, which the window refuses
+    /// others during as it does during its saves.
+    pub(crate) commands: usize,
 }
 
 impl Global for Gate {}
@@ -45,7 +48,7 @@ impl Gate {
     /// Whether a new change is refused, which an Update all in `snapshot` also does, however
     /// it started.
     pub(crate) fn blocked(&self, snapshot: &AppSnapshot) -> bool {
-        self.busy || self.change.is_some() || snapshot.updating.is_some()
+        self.busy || self.commands > 0 || self.change.is_some() || snapshot.updating.is_some()
     }
 
     /// Whether Update all is refused: as a change is, and while a Git operation runs.
@@ -64,6 +67,17 @@ impl Gate {
     pub(crate) fn update(cx: &mut App, update: impl FnOnce(&mut Self)) {
         update(cx.default_global::<Self>());
     }
+}
+
+/// Counts a command's short change as running, or as done.
+pub(crate) fn command_change(running: bool, cx: &mut App) {
+    Gate::update(cx, |gate| {
+        gate.commands = if running {
+            gate.commands + 1
+        } else {
+            gate.commands.saturating_sub(1)
+        };
+    });
 }
 
 /// The window's view, and the window, while a window is open.
@@ -180,6 +194,7 @@ mod tests {
                 state,
             }),
             busy,
+            ..Gate::default()
         }
     }
 

@@ -88,7 +88,7 @@ fn a_switch_that_left_a_copy_waiting_prints_as_the_design_shows() {
     };
     let failed = Failure {
         error: CommandError::new(ErrorCode::NeedsAnswer, "1 copy needs your answer")
-            .hint("Run again with --replace, or review it in SkillBinder."),
+            .hint("Run `skillbinder copies replace pdf --in ~/.claude/skills`, or review it in SkillBinder."),
         result: Some(Box::new(Output::Changed(changed.clone()))),
     };
     assert_eq!(
@@ -97,6 +97,6 @@ fn a_switch_that_left_a_copy_waiting_prints_as_the_design_shows() {
     );
     assert_eq!(
         failure(&failed),
-        "1 copy needs your answer:\n  pdf in ~/.claude/skills differs from the library.\nRun again with --replace, or review it in SkillBinder.\n"
+        "1 copy needs your answer:\n  pdf in ~/.claude/skills differs from the library.\nRun `skillbinder copies replace pdf --in ~/.claude/skills`, or review it in SkillBinder.\n"
     );
 }

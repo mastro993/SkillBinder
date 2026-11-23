@@ -17,6 +17,7 @@ fn switching() -> Gate {
             state: ChangeState::Running,
         }),
         busy: false,
+        ..Gate::default()
     }
 }
 
@@ -144,4 +145,16 @@ fn presets_mark_the_active_one() {
         .map(|preset| (preset.name.as_str(), preset.active, preset.skills))
         .collect();
     assert_eq!(rows, [("Default", false, 1), ("Work", true, 1)]);
+}
+
+#[test]
+fn a_command_s_own_change_refuses_another() {
+    let snapshot = world().build();
+    let gate = Gate {
+        commands: 1,
+        ..Gate::default()
+    };
+    assert!(gate.blocked(&snapshot), "the window refuses too");
+    let refused = refusal(&gate, &snapshot).map(|error| error.message);
+    assert_eq!(refused.as_deref(), Some("SkillBinder is busy."));
 }

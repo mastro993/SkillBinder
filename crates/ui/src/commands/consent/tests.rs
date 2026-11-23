@@ -95,7 +95,7 @@ fn without_a_terminal_or_flag_copies_wait_and_exit_3() {
     );
     assert_eq!((left, replaced), (vec!["pdf".to_owned()], Vec::new()));
     assert!(asked(&replied).is_empty(), "no prompt without a terminal");
-    let error = copies_wait(1);
+    let error = copies_wait(&[copy("pdf", CopyState::Conflict)], "/home");
     assert_eq!(
         (error.code, error.code.exit_code()),
         (ErrorCode::NeedsAnswer, 3)
@@ -103,7 +103,11 @@ fn without_a_terminal_or_flag_copies_wait_and_exit_3() {
     assert_eq!(error.message, "1 copy needs your answer");
     assert_eq!(
         error.hint.as_deref(),
-        Some("Run again with --replace, or review it in SkillBinder.")
+        Some(
+            "Run `skillbinder copies replace pdf --in ~/.claude/skills`, or review it in \
+             SkillBinder."
+        ),
+        "a command any change can name, where running it again finds nothing to do"
     );
 }
 

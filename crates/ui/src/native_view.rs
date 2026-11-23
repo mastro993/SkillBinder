@@ -150,6 +150,8 @@ pub struct NativeView {
     /// The view's short work: a single Update or an optimistic save. Controls read
     /// [`Self::working`], which adds Update all.
     busy: bool,
+    /// A command's short change runs, which the window waits for as for its own saves.
+    commanded: bool,
     error: Option<AppError>,
     dialog: DialogState,
     /// Counts dialogs opened; a closing one's layer builds nothing once another opens.
