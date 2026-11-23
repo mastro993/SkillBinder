@@ -83,6 +83,11 @@ pub(crate) fn grammar() -> Command {
         .subcommand(explore::install())
         .subcommand(Command::new("repos").about("List your repositories and how many of their skills aren't in the library"))
         .subcommand(explore::repo())
+        .subcommand(updates::updates())
+        .subcommand(updates::update())
+        .subcommand(updates::reinstall())
+        .subcommands(updates::sync())
+        .subcommand(updates::remote())
 }
 
 fn preset() -> Command {
@@ -283,6 +288,14 @@ pub(crate) fn request(matches: &ArgMatches, interactive: bool) -> Result<Request
         "import" => change(explore::import_change(args)),
         "install" => change(explore::install_change(args)),
         "repo" => explore::repo_change(args).and_then(change),
+        "updates" if has(args, "check") => Ok(Request::Find { find: Find::Check }),
+        "updates" => read(Query::Updates),
+        "update" => change(updates::update_change(args)),
+        "reinstall" => change(Change::Reinstall {
+            skill: value(args, "slug"),
+        }),
+        "sync" | "push" | "pull" => change(updates::sync_change(command)),
+        "remote" => updates::remote_change(args).and_then(change),
         "workspace" => places::workspace_change(args).and_then(change),
         "agent" => places::agent_change(args).and_then(change),
         "enable" => change(Change::Enable {
@@ -400,3 +413,4 @@ mod explore;
 mod places;
 #[cfg(test)]
 mod tests;
+mod updates;

@@ -2,7 +2,7 @@ use super::{failure, output};
 use skillbinder_proto::command_line::{
     AgentRow, Changed, CommandError, CopyRow, CopyStatus, ErrorCode, Failure, FoundRow,
     FoundVersion, Output, PresetRow, RepositoryRow, SearchOutput, SearchRow, SkillRow,
-    SkillsShAnswer, StatusOutput, WorkspaceRow,
+    SkillsShAnswer, StatusOutput, Unchecked, UpdatesOutput, WorkspaceRow,
 };
 use skillbinder_proto::{SyncState, ValidationStatus};
 
@@ -240,5 +240,38 @@ fn repositories_print_how_many_skills_install_all_installs() {
     assert_eq!(
         output(&Output::Repositories(rows)),
         "acme/tools (3 skills, 2 not in library): https://github.com/acme/tools\n"
+    );
+}
+
+#[test]
+fn updates_print_the_skills_with_one_then_those_unchecked() {
+    let pdf = SkillRow {
+        slug: "pdf".into(),
+        description: String::new(),
+        active: true,
+        agents: vec!["Claude Code".into()],
+        workspaces: Vec::new(),
+        folder: None,
+        update: true,
+        drifted: false,
+        new: false,
+    };
+    let unchecked = vec![Unchecked {
+        slug: "docx".into(),
+        reason: "The source is unreachable.".into(),
+    }];
+    assert_eq!(
+        output(&Output::Updates(UpdatesOutput {
+            skills: vec![pdf],
+            unchecked: unchecked.clone(),
+        })),
+        "pdf [update]: on for Claude Code\nCouldn't check 1 skill:\n  docx: The source is unreachable.\nUpdate with `skillbinder update <slug>`, or `skillbinder update --all`.\n"
+    );
+    assert_eq!(
+        output(&Output::Updates(UpdatesOutput {
+            skills: Vec::new(),
+            unchecked: Vec::new(),
+        })),
+        "No skill has an update.\n"
     );
 }

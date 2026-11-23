@@ -12,6 +12,9 @@ use skillbinder_design::{Button, tooltip as tip};
 pub(super) const CHECK_NEEDS_GIT: &str = "Install Git to check for updates";
 /// Why Reinstall is unavailable.
 pub(super) const REINSTALL_NEEDS_GIT: &str = "Install Git to reinstall";
+/// What Settings' Git row says while Git is missing or too old, and what the command says
+/// when a command needs it.
+pub(crate) const GIT_NEEDED: &str = "Sync and skill updates need Git 2.39 or newer.";
 
 impl NativeView {
     /// No usable Git was found.

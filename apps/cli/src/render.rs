@@ -54,6 +54,7 @@ fn result(output: &Output) -> Value {
         Output::Found(rows) => json!(rows),
         Output::Search(search) => json!(search),
         Output::Repositories(rows) => json!(rows),
+        Output::Updates(updates) => json!(updates),
         Output::Changed(changed) => json!(changed),
     }
 }

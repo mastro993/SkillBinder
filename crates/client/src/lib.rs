@@ -297,8 +297,8 @@ impl Client {
         checked
     }
     /// Checks every source now, whatever the interval since its last check, and publishes the
-    /// results. A check already running keeps the header showing it, and this one then finds
-    /// nothing left to start.
+    /// results. A check already running, which checks only the sources due, keeps the header
+    /// showing it; this one waits for it to end, then checks every source.
     pub async fn check_now(&self) -> AppResult<()> {
         // The caller runs on the UI's executor, so the check and its publishing loop move to the
         // runtime that owns the engine.
@@ -306,7 +306,8 @@ impl Client {
         self.shared
             .runtime
             .spawn(async move {
-                let checked = client.check_sources(std::time::Duration::ZERO).await;
+                let checked =
+                    update_all::once_free(|| client.check_sources(std::time::Duration::ZERO)).await;
                 client.refresh_preserving_outcome(checked).await.map(|_| ())
             })
             .await

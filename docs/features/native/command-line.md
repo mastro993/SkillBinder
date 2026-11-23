@@ -1,6 +1,6 @@
 # Command line
 
-The `skillbinder` command runs from a terminal and talks to the running app; it never opens the library itself ([spec](../../specs/command-line.md); ADR 0022, 0023). The architecture is in [Native command line](../../architecture/native-command-line.md). Slice S0 (#199) ships the path every later command uses: `skillbinder status`, `--version`, `--help`, background start, and the second launch over the same socket. Slice S1 (#200) puts the command on the PATH from Settings › General. Slice S2 (#201) adds the library, presets, library folders, and copies, slice S3 (#202) workspaces and your agents, and slice S4 (#203) scan and import, Explore's search and install, and your repositories. What each slice was checked with is in [Command line evidence](command-line-evidence.md).
+The `skillbinder` command runs from a terminal and talks to the running app; it never opens the library itself ([spec](../../specs/command-line.md); ADR 0022, 0023). The architecture is in [Native command line](../../architecture/native-command-line.md). Slice S0 (#199) ships the path every later command uses: `skillbinder status`, `--version`, `--help`, background start, and the second launch over the same socket. Slice S1 (#200) puts the command on the PATH from Settings › General. Slice S2 (#201) adds the library, presets, library folders, and copies, slice S3 (#202) workspaces and your agents, slice S4 (#203) scan and import, Explore's search and install, and your repositories, and slice S5 (#204) skill updates, Reinstall, and Sync. What each slice was checked with is in [Command line evidence](command-line-evidence.md).
 
 ## Where it is
 
@@ -61,7 +61,7 @@ With `--json` it prints exactly one document on stdout: `{"ok": true, "result": 
 
 A skill is named by its slug, a preset or folder by its name, a workspace as below, and an agent by its registry identity (`claude-code`), its Agents row's name, or its global skill directory (`~/.claude/skills`), which names every agent reading it. Names compare ignoring case. An unknown name exits 2, "No skill is named "pd"." with the close names as its hint ("Did you mean pdf, pdf-forms?"); a name several things answer to exits 2 listing them, unless one matches its case too. Every name resolves before anything runs, so a wrong one changes nothing.
 
-**Busy.** While a blocking change (a switch, deleting the active preset, an import, adding skills, turning an agent on, from the window or a command), an Update all, the window's own short save, or another command's short change runs, every changing command exits 4 at once: "SkillBinder is busy: Switching to Work…" and "Try again when it finishes." Reading commands always answer. A Git operation does not refuse these commands, as it does not refuse the window's.
+**Busy.** While a blocking change (a switch, deleting the active preset, an import, adding skills, turning an agent on, from the window or a command), an Update all, the window's own short work (a save, an Update, a Git operation), or another command's short change runs, every changing command exits 4 at once: "SkillBinder is busy: Switching to Work…" and "Try again when it finishes." A Git operation is named as it runs ("SkillBinder is busy: Pushing…"), here and in `status`. Reading commands always answer.
 
 **Progress.** A change that writes copies prints `Switching to Work… 3/14` on one stderr line in a terminal, from the same progress the window's strip shows. With a window open, `preset activate` and deleting the active preset run through the window's strip; without one, behind the menu's gate.
 
@@ -71,7 +71,7 @@ A skill is named by its slug, a preset or folder by its name, a workspace as bel
 
 **Ctrl-C (rule 3).** During a change it prints "Still running in SkillBinder." and exits 130; the app finishes the change as if its window had closed, leaves the copies it would have asked about waiting (with `--replace` it still replaces them), and stays running until the change ends even with no icon.
 
-**Exit codes.** 0 done; 1 failed (`failed`, `conflict` for a stale confirmation, `offline`); 2 usage, unknown or ambiguous name (`usage` for a name the engine refuses, such as a duplicate); 3 waiting for your answer (`needs_answer`); 4 busy; 5 unavailable or not set up; 130 interrupted. `--json` prints `{"ok": true, "result": …}`, `{"ok": false, "error": {"code", "message", "hint"}}`, or for a change that partly landed `{"ok": false, "error": …, "result": {"message", "activated", "added", "removed", "waiting": [{"skill", "directory", "state", "reason"}], "installed"}}`, `state` being one of `applied`, `kept`, `conflict`, `edited`, `edited_inactive`, `not_applied`, and `not_removed`.
+**Exit codes.** 0 done; 1 failed (`failed`, `conflict` for a stale confirmation, `offline`); 2 usage, unknown or ambiguous name (`usage` for a name the engine refuses, such as a duplicate); 3 waiting for your answer (`needs_answer`); 4 busy; 5 unavailable or not set up; 130 interrupted. `--json` prints `{"ok": true, "result": …}`, `{"ok": false, "error": {"code", "message", "hint"}}`, or for a change that partly landed `{"ok": false, "error": …, "result": {"message", "activated", "added", "removed", "waiting": [{"skill", "directory", "state", "reason"}], "installed", "updated"}}`, `state` being one of `applied`, `kept`, `conflict`, `edited`, `edited_inactive`, `not_applied`, and `not_removed`.
 
 ## Workspaces and your agents
 
@@ -92,6 +92,10 @@ A workspace is named by its name or by a folder inside it: `.` is the workspace 
 ## Scan, import, Explore, and your repositories
 
 `scan`, `import`, `search`, `install`, `repos`, and `repo add|remove|install-all` are in [Command line: scan, import, and Explore](command-line-explore.md).
+
+## Updates and Sync
+
+`updates [--check]`, `update (<slug>… | --all)`, `reinstall`, `sync`, `push`, `pull`, and `remote set|remove` are in [Command line: updates and Sync](command-line-updates.md).
 
 ## Starting the app
 
