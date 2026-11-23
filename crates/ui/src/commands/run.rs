@@ -42,9 +42,13 @@ pub(super) async fn run(
     pending.append(&mut left);
     changed.waiting = pending.iter().map(|copy| copy_row(copy, &home)).collect();
     let error = match replaced {
-        Err(error) => error,
         Ok(()) if pending.is_empty() => return Ok(Output::Changed(changed)),
         Ok(()) => copies_wait(&pending, &home),
+        // Running the change again finds it done, so the hint names what still answers them.
+        Err(error) => CommandError {
+            hint: copies_wait(&pending, &home).hint,
+            ..error
+        },
     };
     // The change landed, so what it did comes back beside why it stopped.
     Err(Failure {
