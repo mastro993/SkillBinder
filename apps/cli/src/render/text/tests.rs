@@ -1,8 +1,8 @@
 use super::{failure, output};
 use skillbinder_proto::SyncState;
 use skillbinder_proto::command_line::{
-    Changed, CommandError, CopyRow, CopyStatus, ErrorCode, Failure, Output, PresetRow, SkillRow,
-    StatusOutput,
+    AgentRow, Changed, CommandError, CopyRow, CopyStatus, ErrorCode, Failure, Output, PresetRow,
+    SkillRow, StatusOutput, WorkspaceRow,
 };
 
 fn status() -> StatusOutput {
@@ -98,5 +98,41 @@ fn a_switch_that_left_a_copy_waiting_prints_as_the_design_shows() {
     assert_eq!(
         failure(&failed),
         "1 copy needs your answer:\n  pdf in ~/.claude/skills differs from the library.\nRun `skillbinder copies replace pdf --in ~/.claude/skills`, or review it in SkillBinder.\n"
+    );
+}
+
+#[test]
+fn workspaces_and_agents_print_one_block_or_line_each() {
+    let workspace = WorkspaceRow {
+        name: "invoices-app".into(),
+        folder: "~/code/invoices-app".into(),
+        missing: false,
+        agents: vec![".agents/skills".into(), ".claude/skills".into()],
+        skills: vec!["pdf".into()],
+    };
+    let gone = WorkspaceRow {
+        name: "old".into(),
+        folder: "~/code/old".into(),
+        missing: true,
+        agents: Vec::new(),
+        skills: Vec::new(),
+    };
+    assert_eq!(
+        output(&Output::Workspaces(vec![workspace, gone])),
+        "invoices-app: ~/code/invoices-app\n  Agents: .agents/skills, .claude/skills\n  Skills on: pdf\nold: ~/code/old (missing)\n  Agents: none\n  Skills on: none\n"
+    );
+    assert_eq!(output(&Output::Workspaces(Vec::new())), "No workspaces.\n");
+    let agent = |name: &str, ids: &[&str], directory: &str, on| AgentRow {
+        name: name.into(),
+        ids: ids.iter().map(|id| (*id).to_owned()).collect(),
+        directory: directory.into(),
+        on,
+    };
+    assert_eq!(
+        output(&Output::Agents(vec![
+            agent("Universal", &["amp", "codex"], "~/.agents/skills", true),
+            agent("Cursor", &["cursor"], "~/.cursor/skills", false),
+        ])),
+        "* Universal (amp, codex): ~/.agents/skills\n  Cursor (cursor): ~/.cursor/skills\n"
     );
 }

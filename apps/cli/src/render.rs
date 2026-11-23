@@ -49,6 +49,8 @@ fn result(output: &Output) -> Value {
         Output::Presets(presets) => json!(presets),
         Output::Folders(folders) => json!(folders),
         Output::Copies(copies) => json!(copies),
+        Output::Workspaces(workspaces) => json!(workspaces),
+        Output::Agents(agents) => json!(agents),
         Output::Changed(changed) => json!(changed),
     }
 }

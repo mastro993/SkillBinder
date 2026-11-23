@@ -7043,6 +7043,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "directories",
+ "dunce",
  "interprocess",
  "serde",
  "serde_json",

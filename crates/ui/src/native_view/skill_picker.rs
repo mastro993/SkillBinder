@@ -13,7 +13,7 @@ use super::library_copies::{AgentRow, Reader, agent_rows};
 use super::library_targets::sharing;
 use super::progress_strip::{Activity, Landing};
 use super::snapshot_query::{Entry, agent_skills, workspace_skills};
-use super::workspace_targets::dir_rows;
+use super::workspace_targets::offered_folders;
 use super::{DialogState, NativeView};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::{
@@ -241,8 +241,7 @@ impl<'a> Resolved<'a> {
     pub(super) fn of(snapshot: &'a AppSnapshot, place: &Place) -> Option<Self> {
         if let Place::Workspace(id) = place {
             let workspace = snapshot.workspaces.iter().find(|w| &w.id == id)?;
-            let rows = dir_rows(&snapshot.agents, workspace, &snapshot.home);
-            let entries = Entry::grouped(rows.into_iter().map(|row| (row.row, vec![row.dir])));
+            let entries = offered_folders(&snapshot.agents, workspace, &snapshot.home);
             return Some(Self::Workspace { workspace, entries });
         }
         let rows = agent_rows(&snapshot.agents, &snapshot.home);

@@ -1,21 +1,26 @@
 //! A changing command resolved against the snapshot into the operations the window runs for it,
 //! before anything runs, so an unknown or ambiguous name changes nothing.
 
+mod places;
+
 use super::resolve::{self, Agents};
-use crate::native_view::{Places, held, shown_dir};
+use crate::native_view::{Activity, Places, held, shown_dir};
 use skillbinder_proto::command_line::{Change, CommandError, ErrorCode};
 use skillbinder_proto::{
-    AppSnapshot, CopyChoice, CopyState, LibrarySnapshot, ManagedCopy, OrganizationChange, Preset,
-    PresetId, PresetSwitch, Skill, Targets,
+    AddSkills, AppSnapshot, CopyChoice, CopyState, LibrarySnapshot, ManagedCopy,
+    OrganizationChange, Preset, PresetId, PresetSwitch, Skill, SkillId, Targets, WorkspaceId,
 };
 use std::collections::BTreeSet;
 
 /// What a changing command runs.
 #[derive(Debug)]
 pub(super) enum Plan {
-    /// Organization changes run one after another, as the window saves them, then `done`.
-    Organize {
-        changes: Vec<OrganizationChange>,
+    /// Saves run one after another, as the window makes them, then `done`.
+    Save { saves: Vec<Save>, done: String },
+    /// A change that blocks the app, run as the window runs it under its strip, then `done`.
+    Block {
+        activity: Activity,
+        work: Work,
         done: String,
     },
     /// Activating preset `id`, which blocks the app as clicking it does.
@@ -26,12 +31,14 @@ pub(super) enum Plan {
     },
     /// Deleting preset `id` once confirmed; its preview says whether it switches to Default.
     DeletePreset { id: PresetId, name: String },
-    /// Deleting a library folder once `prompt` is confirmed.
-    DeleteFolder {
-        change: OrganizationChange,
-        name: String,
+    /// `save` once `prompt`, the window's confirmation, is confirmed, then `done`.
+    Confirm {
         prompt: String,
+        save: Save,
+        done: String,
     },
+    /// Adding the projects of `folder` as workspaces, as the sidebar's Add folder does.
+    AddWorkspace { folder: String },
     /// Answering for a copy that waits.
     Copy {
         copy: ManagedCopy,
@@ -42,11 +49,40 @@ pub(super) enum Plan {
     RetryCopies,
 }
 
+/// A change the window saves at once.
+#[derive(Debug)]
+pub(super) enum Save {
+    Organize(OrganizationChange),
+    RenameWorkspace {
+        id: WorkspaceId,
+        name: String,
+    },
+    /// Forgetting a workspace; its copies stay, unmanaged.
+    RemoveWorkspace(WorkspaceId),
+    /// Turning a skill off in a workspace, which removes its managed copies there.
+    Deactivate {
+        workspace: WorkspaceId,
+        skill: SkillId,
+    },
+    /// Turning off the agents reading these global skill directories; their copies stay.
+    TurnOff(BTreeSet<String>),
+}
+
+/// What a blocking change does.
+#[derive(Debug)]
+pub(super) enum Work {
+    /// The Add skill picker's Add.
+    Add(AddSkills),
+    /// Turning on the agents reading these global skill directories, which applies the active
+    /// preset to them.
+    TurnOn(BTreeSet<String>),
+}
+
 /// The plan for `change` in `snapshot`.
 pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, CommandError> {
     let library = resolve::library(snapshot)?;
-    let organize = |change: OrganizationChange, done: String| Plan::Organize {
-        changes: vec![change],
+    let organize = |change: OrganizationChange, done: String| Plan::Save {
+        saves: vec![Save::Organize(change)],
         done,
     };
     Ok(match change {
@@ -136,17 +172,17 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
                 .iter()
                 .filter(|skill| skill.folder_id.as_ref() == Some(&folder.id))
                 .count();
-            Plan::DeleteFolder {
-                change: OrganizationChange::DeleteFolder {
-                    id: folder.id.clone(),
-                    revision: library.revision.clone(),
-                },
-                name: folder.name.clone(),
+            Plan::Confirm {
                 // The window's confirmation.
                 prompt: format!(
                     "Delete {}? Its {filed} skills stay in the library.",
                     folder.name
                 ),
+                save: Save::Organize(OrganizationChange::DeleteFolder {
+                    id: folder.id.clone(),
+                    revision: library.revision.clone(),
+                }),
+                done: format!("Deleted folder {}.", folder.name),
             }
         }
         Change::MoveToFolder { skills, folder } => {
@@ -159,12 +195,14 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
                 Some(folder) => format!("Moved {} to {}.", slugs(&skills), folder.name),
                 None => format!("Moved {} out of its folder.", slugs(&skills)),
             };
-            Plan::Organize {
-                changes: skills
+            Plan::Save {
+                saves: skills
                     .iter()
-                    .map(|skill| OrganizationChange::MoveToFolder {
-                        skill: skill.id.clone(),
-                        folder: folder.map(|folder| folder.id.clone()),
+                    .map(|skill| {
+                        Save::Organize(OrganizationChange::MoveToFolder {
+                            skill: skill.id.clone(),
+                            folder: folder.map(|folder| folder.id.clone()),
+                        })
                     })
                     .collect(),
                 done,
@@ -185,6 +223,23 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
             CopyChoice::Keep,
         )?,
         Change::RetryCopies => Plan::RetryCopies,
+        Change::AddWorkspace { folder } => Plan::AddWorkspace {
+            folder: folder.clone(),
+        },
+        Change::RenameWorkspace { workspace, name } => {
+            places::rename_workspace(snapshot, workspace, name)?
+        }
+        Change::RemoveWorkspace { workspace } => places::remove_workspace(snapshot, workspace)?,
+        Change::EnableInWorkspace {
+            workspace,
+            skills,
+            agents,
+        } => places::enable(snapshot, library, workspace, skills, agents)?,
+        Change::DisableInWorkspace { workspace, skills } => {
+            places::disable(snapshot, library, workspace, skills)?
+        }
+        Change::TurnOnAgent { agent } => places::turn_on(snapshot, agent)?,
+        Change::TurnOffAgent { agent } => places::turn_off(snapshot, agent)?,
     })
 }
 
@@ -226,7 +281,7 @@ fn add(preset: &Preset, skills: &[&Skill], agents: &Agents, done: String) -> Pla
             })
             .collect()
     };
-    Plan::Organize { changes, done }
+    organized(changes, done)
 }
 
 /// Takes `skills` out of `preset`: entirely with no agents named, otherwise only for the named
@@ -261,7 +316,14 @@ fn remove(preset: &Preset, skills: &[&Skill], agents: &Agents, done: String) -> 
             })
             .collect()
     };
-    Plan::Organize { changes, done }
+    organized(changes, done)
+}
+
+fn organized(changes: Vec<OrganizationChange>, done: String) -> Plan {
+    Plan::Save {
+        saves: changes.into_iter().map(Save::Organize).collect(),
+        done,
+    }
 }
 
 fn set(id: &PresetId, skill: &Skill, targets: Targets) -> OrganizationChange {
@@ -282,8 +344,8 @@ fn activate(
 ) -> Result<Plan, CommandError> {
     let active = resolve::active(library)?;
     if active.id == preset.id {
-        return Ok(Plan::Organize {
-            changes: Vec::new(),
+        return Ok(Plan::Save {
+            saves: Vec::new(),
             done: format!("{} is already active.", preset.name),
         });
     }

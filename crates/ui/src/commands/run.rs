@@ -5,7 +5,7 @@
 //! that stops waiting leaves it running (rule 3).
 
 use super::consent::{confirm, copies_wait, decide, left_waiting};
-use super::plan::Plan;
+use super::plan::{Plan, Save, Work};
 use super::reads::{copy_row, running};
 use super::{Peer, resolve};
 use crate::gate::{self, Gate};
@@ -17,8 +17,10 @@ use skillbinder_proto::command_line::{
 };
 use skillbinder_proto::{
     AppError, AppResult, AppSnapshot, ManagedCopy, OrganizationChange, PresetId, PresetSwitch,
+    Workspace,
 };
 use std::future::Future;
+use std::path::PathBuf;
 
 /// Runs `plan` with `consent`, telling `peer` how it goes.
 pub(super) async fn run(
@@ -95,17 +97,33 @@ async fn apply(
     cx: &mut AsyncApp,
 ) -> Result<Changed, CommandError> {
     match plan {
-        Plan::Organize { changes, done } => {
-            if !changes.is_empty() {
+        Plan::Save { saves, done } => {
+            if !saves.is_empty() {
                 free(client, cx)?;
                 let saved = async {
-                    for change in changes {
-                        organize(client, change).await?;
+                    for change in saves {
+                        save(client, change).await?;
                     }
                     AppResult::Ok(())
                 };
                 held(cx, saved).await?;
             }
+            Ok(Changed::said(done))
+        }
+        Plan::Block {
+            activity,
+            work,
+            done,
+        } => {
+            free(client, cx)?;
+            let worker = client.clone();
+            let work = async move {
+                match work {
+                    Work::Add(change) => worker.add_skills(change).await,
+                    Work::TurnOn(dirs) => worker.set_agents_chosen(dirs, true).await,
+                }
+            };
+            blocking(client, activity, None, work, cx).await?;
             Ok(Changed::said(done))
         }
         Plan::Switch { id, name, switch } => {
@@ -114,7 +132,7 @@ async fn apply(
                 preset: name.clone(),
             };
             let change = OrganizationChange::ActivatePreset { id: id.clone() };
-            blocking(client, activity, Some(id), change, cx).await?;
+            blocking(client, activity, Some(id), organizing(client, change), cx).await?;
             Ok(switched(format!("{name} is active"), name, switch))
         }
         Plan::DeletePreset { id, name } => {
@@ -137,28 +155,33 @@ async fn apply(
                 revision: preview.revision.clone(),
             };
             let Some(switch) = preview.switch else {
-                held(cx, organize(client, change)).await?;
+                held(cx, save(client, Save::Organize(change))).await?;
                 return Ok(Changed::said(format!("Deleted {name}.")));
             };
             let activity = Activity::DeletingActive {
                 preset: name.clone(),
             };
-            blocking(client, activity, None, change, cx).await?;
+            blocking(client, activity, None, organizing(client, change), cx).await?;
             let default = resolve::library(&client.snapshot())
                 .and_then(resolve::active)
                 .map_or_else(|_| "Default".to_owned(), |preset| preset.name.clone());
             let message = format!("Deleted {name}. {default} is active");
             Ok(switched(message, default, switch))
         }
-        Plan::DeleteFolder {
-            change,
-            name,
-            prompt,
-        } => {
+        Plan::Confirm { prompt, save, done } => {
             confirm(prompt, consent.confirm, peer).await?;
             free(client, cx)?;
-            held(cx, organize(client, change)).await?;
-            Ok(Changed::said(format!("Deleted folder {name}.")))
+            held(cx, self::save(client, save)).await?;
+            Ok(Changed::said(done))
+        }
+        Plan::AddWorkspace { folder } => {
+            free(client, cx)?;
+            let added = on_runtime(client, move |client| async move {
+                let grant = client.grant_directory(PathBuf::from(folder)).await?;
+                client.add_workspaces(grant.id).await
+            });
+            let added = held(cx, added).await?;
+            Ok(Changed::said(added_message(&added)))
         }
         Plan::Copy { copy, choice, done } => {
             free(client, cx)?;
@@ -238,25 +261,19 @@ async fn held<T>(cx: &mut AsyncApp, work: impl Future<Output = T>) -> T {
     result
 }
 
-/// Runs `change`, a blocking one, as the window or the menu does, until it returns.
+/// Runs `work`, a blocking change, as the window or the menu does, until it returns.
 async fn blocking(
     client: &Client,
     activity: Activity,
     preset: Option<PresetId>,
-    change: OrganizationChange,
+    work: impl Future<Output = AppResult<()>> + Send + 'static,
     cx: &mut AsyncApp,
 ) -> Result<(), CommandError> {
     let (report, reported) = async_channel::bounded(1);
-    let operation = {
-        let client = client.clone();
-        async move {
-            let result = client
-                .change_organization(change)
-                .await
-                .map(|_| Landing::default());
-            let _ = report.try_send(result.clone());
-            result
-        }
+    let operation = async move {
+        let result = work.await.map(|()| Landing::default());
+        let _ = report.try_send(result.clone());
+        result
     };
     let started = client.clone();
     cx.update(|cx| gate::block(&started, activity, preset, operation, cx));
@@ -268,11 +285,51 @@ async fn blocking(
     }
 }
 
-async fn organize(client: &Client, change: OrganizationChange) -> AppResult<()> {
+/// `change` as a blocking change's work.
+fn organizing(
+    client: &Client,
+    change: OrganizationChange,
+) -> impl Future<Output = AppResult<()>> + Send + 'static {
+    let client = client.clone();
+    async move { client.change_organization(change).await.map(|_| ()) }
+}
+
+async fn save(client: &Client, save: Save) -> AppResult<()> {
     on_runtime(client, move |client| async move {
-        client.change_organization(change).await.map(|_| ())
+        match save {
+            Save::Organize(change) => client.change_organization(change).await.map(|_| ()),
+            Save::RenameWorkspace { id, name } => client.rename_workspace(id, name).await,
+            Save::RemoveWorkspace(id) => client.remove_workspace(id).await,
+            Save::Deactivate { workspace, skill } => {
+                client.set_workspace_skill(workspace, skill, None).await
+            }
+            Save::TurnOff(dirs) => client.set_agents_chosen(dirs, false).await,
+        }
     })
     .await
+}
+
+/// `Added workspace "invoices-app" (.agents/skills, .claude/skills).`, or the added workspaces'
+/// names.
+fn added_message(added: &[Workspace]) -> String {
+    let quoted = |workspace: &Workspace| format!("\"{}\"", workspace.name);
+    match added {
+        [workspace] if workspace.dirs.is_empty() => {
+            format!("Added workspace {}.", quoted(workspace))
+        }
+        [workspace] => {
+            let agents: Vec<&str> = workspace.dirs.iter().map(String::as_str).collect();
+            format!(
+                "Added workspace {} ({}).",
+                quoted(workspace),
+                agents.join(", ")
+            )
+        }
+        added => {
+            let names: Vec<String> = added.iter().map(quoted).collect();
+            format!("Added {} workspaces: {}.", added.len(), names.join(", "))
+        }
+    }
 }
 
 /// Runs a client operation on its runtime, as the window does.
@@ -324,6 +381,7 @@ fn title(plan: &Plan) -> String {
         }
         .title(),
         Plan::DeletePreset { .. } => "Switching to Default".to_owned(),
+        Plan::Block { activity, .. } => activity.title(),
         _ => "Writing copies".to_owned(),
     }
 }

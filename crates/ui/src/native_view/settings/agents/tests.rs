@@ -1,5 +1,5 @@
 use super::super::super::library_copies::found_rows;
-use super::{TURNED_OFF, chosen, detail};
+use super::{TURNED_OFF, detail};
 use skillbinder_proto::{AgentOption, SameSlug};
 use std::collections::BTreeSet;
 
@@ -39,7 +39,7 @@ fn rows_list_every_found_agent_and_a_turned_off_one_says_its_skills_stay() {
         ["Universal", "Cursor", "Gemini CLI"],
         "only found agents"
     );
-    let on: Vec<bool> = rows.iter().map(|row| chosen(row, &agents)).collect();
+    let on: Vec<bool> = rows.iter().map(|row| row.chosen(&agents)).collect();
     assert_eq!(on, [true, false, false]);
 
     let turned_off: BTreeSet<String> = ["/home/.cursor/skills".to_owned()].into();

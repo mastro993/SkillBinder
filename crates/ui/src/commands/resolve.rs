@@ -1,11 +1,16 @@
 //! Names a command gives, resolved against the snapshot (spec › Commands): a skill by slug, a
-//! preset or library folder by name, and an agent by registry identity, name, or global skill
-//! directory. Names compare ignoring case; an unknown name lists the close ones, and a name
-//! several things answer to lists them.
+//! preset or library folder by name, a workspace by name or by a folder inside it, and an agent by
+//! registry identity, name, or skill directory. Names compare ignoring case; an unknown name lists
+//! the close ones, and a name several things answer to lists them.
 
-use crate::native_view::{AgentEntry, Places, resolved_active, shown_dir};
-use skillbinder_proto::command_line::{CommandError, ErrorCode};
-use skillbinder_proto::{AppSnapshot, Folder, LibrarySnapshot, Preset, Skill};
+use crate::native_view::{
+    AgentEntry, AgentRow, Places, found_rows, offered_folders, resolved_active, shown_dir,
+};
+use skillbinder_proto::command_line::{CommandError, ErrorCode, WorkspaceName};
+use skillbinder_proto::{
+    AgentOption, AppSnapshot, Folder, LibrarySnapshot, Preset, Skill, Workspace,
+};
+use std::path::Path;
 
 /// The one candidate answering to `name`, of a `kind` such as `preset`, each candidate shown as
 /// `label` and answering to its `keys`. An exact match ignoring case wins; among several, one
@@ -188,6 +193,138 @@ fn agent_keys(entry: &AgentEntry, home: &str) -> Vec<String> {
     keys.push(entry.row.resolved.clone());
     keys.push(shown_dir(&entry.row.dir, home));
     keys
+}
+
+/// The workspace `name` names: the innermost one holding its folder, else the one by that name. A
+/// folder held by one workspace whose name is another's names both, so it is ambiguous.
+pub(super) fn workspace<'a>(
+    snapshot: &'a AppSnapshot,
+    name: &WorkspaceName,
+) -> Result<&'a Workspace, CommandError> {
+    let home = &snapshot.home;
+    let label = |workspace: &Workspace| {
+        format!("{} ({})", workspace.name, shown_dir(&workspace.path, home))
+    };
+    let holding = name.folder.as_deref().and_then(|folder| {
+        snapshot
+            .workspaces
+            .iter()
+            .filter(|workspace| Path::new(folder).starts_with(&workspace.path))
+            .max_by_key(|workspace| workspace.path.len())
+    });
+    if let Some(held) = holding {
+        let typed = normalized(&name.name).to_lowercase();
+        let named: Vec<String> = snapshot
+            .workspaces
+            .iter()
+            .filter(|workspace| workspace.id != held.id && workspace.name.to_lowercase() == typed)
+            .map(label)
+            .collect();
+        if named.is_empty() {
+            return Ok(held);
+        }
+        return Err(CommandError::new(
+            ErrorCode::Ambiguous,
+            format!(
+                "\"{}\" names more than one workspace: {}, which holds that folder, and {}.",
+                name.name,
+                label(held),
+                named.join(", ")
+            ),
+        )
+        .hint(format!(
+            "Write ./{} for the folder, or name the workspace from another folder.",
+            normalized(&name.name)
+        )));
+    }
+    one(
+        "workspace",
+        &name.name,
+        &snapshot.workspaces,
+        label,
+        |workspace| vec![workspace.name.clone()],
+    )
+    .map_err(|error| match (&name.folder, error.code) {
+        (Some(folder), ErrorCode::NotFound) => CommandError::new(
+            ErrorCode::NotFound,
+            format!("No workspace holds {}.", shown_dir(folder, home)),
+        )
+        .hint(format!(
+            "Add it with `skillbinder workspace add {}`.",
+            name.name
+        )),
+        _ => error,
+    })
+}
+
+/// The folders of `workspace` that `names` name, as the Add skill picker offers them: the
+/// directories it uses and your agents'. A folder answers to its directories, its name, and the
+/// agents whose own workspace skill directory it is.
+pub(super) fn workspace_agents(
+    snapshot: &AppSnapshot,
+    workspace: &Workspace,
+    names: &[String],
+) -> Result<Vec<AgentEntry>, CommandError> {
+    let folders = offered_folders(&snapshot.agents, workspace, &snapshot.home);
+    let mut named: Vec<AgentEntry> = Vec::new();
+    for name in names {
+        let folder = one(
+            "agent",
+            name,
+            &folders,
+            |folder| folder.row.name.clone(),
+            |folder| folder_keys(folder, &snapshot.agents),
+        )?;
+        if !named.contains(folder) {
+            named.push(folder.clone());
+        }
+    }
+    Ok(named)
+}
+
+fn folder_keys(folder: &AgentEntry, agents: &[AgentOption]) -> Vec<String> {
+    let mut keys = folder.keys.clone();
+    keys.extend([
+        folder.row.name.clone(),
+        folder.row.dir.clone(),
+        folder.row.resolved.clone(),
+    ]);
+    for agent in agents
+        .iter()
+        .filter(|agent| folder.keys.contains(&agent.workspace_skills_dir))
+    {
+        keys.extend([agent.id.clone(), agent.display_name.clone()]);
+    }
+    keys
+}
+
+/// The Settings › Agents row of the agent `name` names, among every agent found, yours or not.
+pub(super) fn found_agent(snapshot: &AppSnapshot, name: &str) -> Result<AgentRow, CommandError> {
+    let rows = found_rows(&snapshot.agents, &snapshot.home);
+    one(
+        "agent",
+        name,
+        &rows,
+        |row| row.name.clone(),
+        |row| {
+            let mut keys = row.ids.clone();
+            keys.extend(
+                snapshot
+                    .agents
+                    .iter()
+                    .filter(|agent| row.ids.contains(&agent.id))
+                    .map(|agent| agent.display_name.clone()),
+            );
+            keys.extend([
+                row.name.clone(),
+                row.dir.clone(),
+                row.resolved.clone(),
+                shown_dir(&row.dir, &snapshot.home),
+            ]);
+            keys
+        },
+    )
+    .cloned()
 }
 
 #[cfg(test)]

@@ -4,9 +4,9 @@ use crate::gate::{Change, ChangeState, Gate};
 use crate::native_view::Activity;
 use crate::native_view::fixture::{Fixture, agents, id};
 use skillbinder_proto::command_line::{
-    CopyStatus, ErrorCode, Output, Query, SkillFilter, SkillOutput,
+    AgentRow, CopyStatus, ErrorCode, Output, Query, SkillFilter, SkillOutput, WorkspaceRow,
 };
-use skillbinder_proto::{CopyState, ManagedCopy, Targets, UpdateCheck};
+use skillbinder_proto::{CopyState, ManagedCopy, Targets, UpdateCheck, WorkspaceTargets};
 
 fn switching() -> Gate {
     Gate {
@@ -179,5 +179,63 @@ fn replacing_after_a_question_is_refused_only_once_something_else_started() {
     assert_eq!(
         refused.as_deref(),
         Some("SkillBinder is busy: Switching to Work…")
+    );
+}
+
+#[test]
+fn workspaces_list_their_agents_and_skills() {
+    let snapshot = world()
+        .workspace("invoices-app", &[".claude/skills", ".agents/skills"])
+        .ws_hold("invoices-app", "sql", WorkspaceTargets::AllAgents)
+        .workspace("old", &[])
+        .missing()
+        .build();
+    let Ok(Output::Workspaces(rows)) = answer(&Query::Workspaces, &snapshot) else {
+        panic!("workspaces lists them");
+    };
+    let row = |name: &str, missing, agents: &[&str], skills: &[&str]| WorkspaceRow {
+        name: name.into(),
+        folder: format!("~/code/{name}"),
+        missing,
+        agents: agents.iter().map(|agent| (*agent).to_owned()).collect(),
+        skills: skills.iter().map(|skill| (*skill).to_owned()).collect(),
+    };
+    assert_eq!(
+        rows,
+        [
+            row(
+                "invoices-app",
+                false,
+                &[".agents/skills", ".claude/skills"],
+                &["sql"]
+            ),
+            row("old", true, &[], &[]),
+        ]
+    );
+}
+
+#[test]
+fn agents_list_every_agent_found_marking_yours() {
+    let mut snapshot = world()
+        .agent("cursor", "Cursor", ".cursor/skills", ".cursor/skills", true)
+        .build();
+    if let Some(cursor) = snapshot.agents.last_mut() {
+        cursor.chosen = false;
+    }
+    let Ok(Output::Agents(rows)) = answer(&Query::Agents, &snapshot) else {
+        panic!("agents lists them");
+    };
+    let row = |name: &str, id: &str, directory: &str, on| AgentRow {
+        name: name.into(),
+        ids: vec![id.into()],
+        directory: directory.into(),
+        on,
+    };
+    assert_eq!(
+        rows,
+        [
+            row("Claude Code", "claude-code", "~/.claude/skills", true),
+            row("Cursor", "cursor", "~/.cursor/skills", false)
+        ]
     );
 }

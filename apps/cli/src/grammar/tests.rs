@@ -1,5 +1,7 @@
 use super::{grammar, request};
-use skillbinder_proto::command_line::{Change, Consent, Permission, Query, Request, SkillFilter};
+use skillbinder_proto::command_line::{
+    Change, Consent, Permission, Query, Request, SkillFilter, WorkspaceName,
+};
 
 fn parse(line: &[&str], interactive: bool) -> Request {
     let matches = grammar()
@@ -118,4 +120,57 @@ fn changes_carry_their_names() {
             .is_err(),
         "move needs --to or --none"
     );
+}
+
+#[test]
+fn a_workspace_is_named_with_the_folder_it_names() -> anyhow::Result<()> {
+    let change = |line: &[&str]| match parse(line, false) {
+        Request::Change { change, .. } => change,
+        other => panic!("{other:?} changes"),
+    };
+    let project = tempfile::tempdir()?;
+    let inside = project.path().join("src");
+    std::fs::create_dir(&inside)?;
+    let typed = inside.display().to_string();
+    // Links resolved, as the app stores workspace folders (macOS's /var is /private/var).
+    let folder = dunce::canonicalize(&inside)?.display().to_string();
+    assert_eq!(
+        change(&[
+            "workspace",
+            "enable",
+            &typed,
+            "pdf",
+            "--agent",
+            "claude-code"
+        ]),
+        Change::EnableInWorkspace {
+            workspace: WorkspaceName {
+                name: typed.clone(),
+                folder: Some(folder.clone()),
+            },
+            skills: vec!["pdf".into()],
+            agents: vec!["claude-code".into()],
+        }
+    );
+    assert_eq!(
+        change(&["workspace", "add", &typed]),
+        Change::AddWorkspace { folder }
+    );
+    assert_eq!(
+        change(&["workspace", "remove", "no-such-folder-here", "--yes"]),
+        Change::RemoveWorkspace {
+            workspace: WorkspaceName {
+                name: "no-such-folder-here".into(),
+                folder: None,
+            }
+        },
+        "a name that is no folder stays a name"
+    );
+    assert_eq!(
+        change(&["agent", "on", "cursor", "--replace"]),
+        Change::TurnOnAgent {
+            agent: "cursor".into()
+        }
+    );
+    Ok(())
 }

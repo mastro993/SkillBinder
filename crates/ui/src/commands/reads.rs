@@ -4,12 +4,12 @@
 use super::resolve;
 use crate::gate::Gate;
 use crate::native_view::{
-    ActiveFilter, LibraryFilter, Places, Query as LibraryQuery, has_update, library_counts,
-    library_skills, shown_dir, waiting_copies,
+    ActiveFilter, LibraryFilter, Places, Query as LibraryQuery, found_rows, has_update,
+    library_counts, library_skills, shown_dir, waiting_copies, workspace_skills,
 };
 use skillbinder_proto::command_line::{
-    CommandError, CopyRow, CopyStatus, FolderRow, Output, PresetRow, Query, SkillFilter,
-    SkillOutput, SkillRow, StatusOutput,
+    AgentRow, CommandError, CopyRow, CopyStatus, FolderRow, Output, PresetRow, Query, SkillFilter,
+    SkillOutput, SkillRow, StatusOutput, WorkspaceRow,
 };
 use skillbinder_proto::{AppSnapshot, CopyState, LibrarySnapshot, ManagedCopy, PresetId, Skill};
 
@@ -47,6 +47,33 @@ pub(super) fn answer(query: &Query, snapshot: &AppSnapshot) -> Result<Output, Co
                 .iter()
                 .filter(|copy| copy.state.needs_attention())
                 .map(|copy| copy_row(copy, &snapshot.home))
+                .collect(),
+        ),
+        Query::Workspaces => Output::Workspaces(
+            snapshot
+                .workspaces
+                .iter()
+                .map(|workspace| WorkspaceRow {
+                    name: workspace.name.clone(),
+                    folder: shown_dir(&workspace.path, &snapshot.home),
+                    missing: workspace.missing,
+                    agents: workspace.dirs.iter().cloned().collect(),
+                    skills: workspace_skills(snapshot, workspace)
+                        .iter()
+                        .map(|skill| skill.id.to_string())
+                        .collect(),
+                })
+                .collect(),
+        ),
+        Query::Agents => Output::Agents(
+            found_rows(&snapshot.agents, &snapshot.home)
+                .into_iter()
+                .map(|row| AgentRow {
+                    on: row.chosen(&snapshot.agents),
+                    directory: shown_dir(&row.dir, &snapshot.home),
+                    name: row.name,
+                    ids: row.ids,
+                })
                 .collect(),
         ),
     })

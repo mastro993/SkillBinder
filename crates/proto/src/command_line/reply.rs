@@ -69,6 +69,10 @@ pub enum Output {
     Folders(Vec<FolderRow>),
     /// `copies`.
     Copies(Vec<CopyRow>),
+    /// `workspaces`.
+    Workspaces(Vec<WorkspaceRow>),
+    /// `agents`.
+    Agents(Vec<AgentRow>),
     /// Every changing command.
     Changed(Changed),
 }
@@ -153,6 +157,35 @@ pub struct FolderRow {
     pub name: String,
     /// The skills filed in it.
     pub skills: usize,
+}
+
+/// A workspace as the sidebar lists it.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceRow {
+    /// Its name.
+    pub name: String,
+    /// Its folder, with the home folder shortened to `~`.
+    pub folder: String,
+    /// Its folder was missing at the last scan.
+    pub missing: bool,
+    /// Its agents: the workspace skill directories it uses, such as `.claude/skills`.
+    pub agents: Vec<String>,
+    /// The library skills on there, by slug.
+    pub skills: Vec<String>,
+}
+
+/// An agent found on this computer as Settings › Agents lists it. Agents sharing one global skill
+/// directory, such as the universal agents, are one row.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AgentRow {
+    /// The row's name.
+    pub name: String,
+    /// Its agents' registry identities.
+    pub ids: Vec<String>,
+    /// Their global skill directory, with the home folder shortened to `~`.
+    pub directory: String,
+    /// They are yours: SkillBinder applies the active preset to them.
+    pub on: bool,
 }
 
 /// A skill's copy in a skill directory.
