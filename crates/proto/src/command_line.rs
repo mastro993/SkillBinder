@@ -19,11 +19,12 @@ pub use request::{
 pub use updates::{Unchecked, UpdatesOutput};
 
 use crate::{AppError, ErrorCategory};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The protocol both sides speak; a command and an app with different numbers refuse each other.
-pub const PROTOCOL: u32 = 5;
+pub const PROTOCOL: u32 = 6;
 
 /// A Unix socket's path must fit `sun_path`, 104 bytes with its terminating NUL on macOS.
 const SOCKET_PATH_LIMIT: usize = 103;
@@ -106,7 +107,7 @@ impl Greeting {
 }
 
 /// Why a command failed, which fixes its exit code.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct CommandError {
     /// The kind of failure.
     pub code: ErrorCode,
@@ -160,7 +161,7 @@ impl From<AppError> for CommandError {
 }
 
 /// A [`CommandError`]'s kind.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     /// The command line was wrong.

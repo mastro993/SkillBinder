@@ -6,6 +6,7 @@
 mod connect;
 mod console;
 mod grammar;
+mod mcp;
 mod render;
 mod start;
 
@@ -21,6 +22,17 @@ fn main() -> ExitCode {
         Ok(matches) => matches,
         Err(error) => return usage(&error),
     };
+    let data = match matches.get_one::<PathBuf>("data-dir") {
+        // An isolated root's app is a native-test build that needs the same root to start.
+        Some(data) => Ok((data.clone(), true)),
+        None => platform_data().map(|data| (data, false)),
+    };
+    if matches.subcommand_name() == Some("mcp") {
+        return match data {
+            Ok((data, isolated)) => mcp::serve(data, isolated),
+            Err(error) => render::failure(&error.into(), false),
+        };
+    }
     let json = matches.get_flag("json");
     // Questions need someone to answer them: no prompts without a terminal (D3).
     let interactive = std::io::stdin().is_terminal() && std::io::stderr().is_terminal();
@@ -29,13 +41,9 @@ fn main() -> ExitCode {
         Err(error) => return render::failure(&error.into(), json),
     };
     let mut console = Console::new(std::io::stderr().is_terminal());
-    let outcome = match matches.get_one::<PathBuf>("data-dir") {
-        // An isolated root's app is a native-test build that needs the same root to start.
-        Some(data) => connect::send(data, &request, true, &mut console),
-        None => platform_data()
-            .map_err(Into::into)
-            .and_then(|data| connect::send(&data, &request, false, &mut console)),
-    };
+    let outcome = data
+        .map_err(Into::into)
+        .and_then(|(data, isolated)| connect::send(&data, &request, isolated, &mut console));
     console.end_progress();
     render::outcome(outcome, json)
 }

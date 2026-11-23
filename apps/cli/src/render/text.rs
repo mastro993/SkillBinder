@@ -8,7 +8,7 @@ use skillbinder_proto::command_line::{
     SkillRow, StatusOutput, UpdatesOutput, WorkspaceRow,
 };
 
-pub(super) fn output(output: &Output) -> String {
+pub(crate) fn output(output: &Output) -> String {
     match output {
         Output::Status(status) => status_text(status),
         Output::Skills(skills) if skills.is_empty() => "No skills.\n".to_owned(),
@@ -37,7 +37,7 @@ pub(super) fn output(output: &Output) -> String {
 }
 
 /// The error's message and hint, with the copies a partial change left waiting between them.
-pub(super) fn failure(failure: &Failure) -> String {
+pub(crate) fn failure(failure: &Failure) -> String {
     let Failure { error, result } = failure;
     let waiting = match result.as_deref() {
         Some(Output::Changed(changed)) => changed.waiting.as_slice(),

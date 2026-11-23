@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A validated remote and branch selected by the user.
@@ -9,7 +10,7 @@ pub struct RemoteConfig {
     pub branch: String,
 }
 /// Direction of explicit Git synchronization.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncState {
     /// No remote selected.

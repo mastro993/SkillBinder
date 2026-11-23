@@ -12,12 +12,17 @@ ctrlc.workspace = true
 directories.workspace = true
 dunce.workspace = true
 interprocess.workspace = true
+rmcp.workspace = true
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 skillbinder-proto.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+# The MCP tests play a client over an in-memory pipe.
+tokio = { workspace = true, features = ["io-util"] }
 tempfile.workspace = true
 
 [lints]

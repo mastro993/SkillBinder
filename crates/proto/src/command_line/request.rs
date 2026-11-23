@@ -1,6 +1,7 @@
 //! What the command asks: one [`Request`] per connection, and an [`Answer`] for each question the
 //! app asks back. Names stay strings; the app resolves them against its own library.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// What the command asks of the app.
@@ -11,6 +12,9 @@ pub enum Request {
     Status,
     /// A second launch of the app asks the running one to open its window; it gets no reply.
     Open,
+    /// The MCP server's idle connection for its agent's session: it keeps an app with no icon
+    /// running until the connection closes, and gets no reply.
+    Hold,
     /// A command that only reads, which answers even while a change runs.
     Read {
         /// What it reads.
@@ -81,7 +85,7 @@ pub enum Find {
 }
 
 /// Library's filters, one at a time.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SkillFilter {
     /// Every skill.

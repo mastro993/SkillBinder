@@ -56,6 +56,9 @@ interprocess = "2.4"
 clap = "4.6"
 # Ctrl-C stops the command waiting, not the work it asked for (spec rule 3).
 ctrlc = "3.5"
+# `skillbinder mcp` serves the command's actions as MCP tools over stdio (ADR 0025).
+rmcp = { version = "~3.11", default-features = false, features = ["server", "macros", "transport-io", "elicitation"] }
+schemars = "1"
 ksni = { version = "0.3", default-features = false, features = ["blocking", "async-io"] }
 skillbinder-proto = { path = "crates/proto" }
 skillbinder-engine = { path = "crates/engine" }

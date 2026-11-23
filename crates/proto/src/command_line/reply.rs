@@ -3,6 +3,7 @@
 
 use super::{CommandError, FoundRow, RepositoryRow, SearchOutput, UpdatesOutput};
 use crate::{AppError, SkillSource, SyncState};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A line the app sends back for a request.
@@ -92,7 +93,7 @@ pub enum Output {
 }
 
 /// What `status` reports: the same counts Library and the menu show.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct StatusOutput {
     /// The app's version.
     pub version: String,
@@ -115,7 +116,7 @@ pub struct StatusOutput {
 }
 
 /// A library skill as Library lists it.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SkillRow {
     /// The skill's slug.
     pub slug: String,
@@ -138,7 +139,7 @@ pub struct SkillRow {
 }
 
 /// A skill's page.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SkillOutput {
     /// What Library lists for it.
     #[serde(flatten)]
@@ -154,7 +155,7 @@ pub struct SkillOutput {
 }
 
 /// A preset as the sidebar lists it.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PresetRow {
     /// Its name.
     pub name: String,
@@ -165,7 +166,7 @@ pub struct PresetRow {
 }
 
 /// A library folder as Library's tabs list it.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct FolderRow {
     /// Its name.
     pub name: String,
@@ -203,7 +204,7 @@ pub struct AgentRow {
 }
 
 /// A skill's copy in a skill directory.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct CopyRow {
     /// The skill's slug.
     pub skill: String,
@@ -216,7 +217,7 @@ pub struct CopyRow {
 }
 
 /// How a copy stands.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CopyStatus {
     /// The managed copy is in place.
@@ -237,7 +238,7 @@ pub enum CopyStatus {
 }
 
 /// What a changing command did.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Changed {
     /// What changed, as one sentence.
     pub message: String,

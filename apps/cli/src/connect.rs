@@ -25,6 +25,8 @@ pub(crate) struct NotRunning;
 
 /// What the command does with the app's replies before its outcome.
 pub(crate) trait Conversation {
+    /// The app welcomed the command; the request goes next.
+    fn welcomed(&mut self) {}
     /// The request reached the app, which runs it from here whatever the command does.
     fn sent(&mut self, request: &Request);
     /// How far the change has got.
@@ -59,6 +61,24 @@ pub(crate) fn send(
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+/// Opens the MCP server's hold on the running app whose application data is `data`: an idle
+/// connection that keeps it running until the stream closes. It starts no app.
+pub(crate) fn hold(data: &Path) -> io::Result<Stream> {
+    let endpoint = Endpoint::of(data, &private_folder());
+    let stream = Stream::connect(name(&endpoint)?)?;
+    let hello = Hello {
+        protocol: PROTOCOL,
+        version: VERSION.into(),
+    };
+    send_line(&stream, &hello)?;
+    let greeting = receive(&mut BufReader::new(&stream))?;
+    if let Greeting::Mismatch { .. } = greeting {
+        return Err(io::ErrorKind::Unsupported.into());
+    }
+    send_line(&stream, &Request::Hold)?;
+    Ok(stream)
 }
 
 /// The folder for a socket whose path in application data is too long: the per-user
@@ -115,6 +135,7 @@ fn talk(
         );
         return Err(error.hint("Repair it in Settings › General.").into());
     }
+    conversation.welcomed();
     send_line(stream, request).map_err(lost)?;
     conversation.sent(request);
     loop {
@@ -136,13 +157,13 @@ fn name(endpoint: &Endpoint) -> io::Result<Name<'_>> {
     }
 }
 
-fn send_line(mut stream: &Stream, message: &impl Serialize) -> io::Result<()> {
+pub(crate) fn send_line(mut stream: &Stream, message: &impl Serialize) -> io::Result<()> {
     let mut line = serde_json::to_vec(message)?;
     line.push(b'\n');
     stream.write_all(&line)
 }
 
-fn receive<T: DeserializeOwned>(reader: &mut BufReader<&Stream>) -> io::Result<T> {
+pub(crate) fn receive<T: DeserializeOwned>(reader: &mut BufReader<&Stream>) -> io::Result<T> {
     let mut line = String::new();
     if reader.read_line(&mut line)? == 0 {
         return Err(io::ErrorKind::UnexpectedEof.into());

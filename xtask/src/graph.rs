@@ -42,11 +42,14 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "directories",
             "dunce",
             "interprocess",
+            "rmcp",
+            "schemars",
             "serde",
             "serde_json",
             "skillbinder-proto",
+            "tokio",
         ],
-        &["anyhow", "tempfile"],
+        &["anyhow", "tempfile", "tokio"],
     ),
     (
         "skillbinder-client",
@@ -85,7 +88,11 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
         ],
         &["minisign"],
     ),
-    ("skillbinder-proto", &["serde", "serde_json", "uuid"], &[]),
+    (
+        "skillbinder-proto",
+        &["schemars", "serde", "serde_json", "uuid"],
+        &[],
+    ),
     ("skillbinder-design", &["gpui-kit"], &["gpui-kit"]),
     (
         "skillbinder-ui",
