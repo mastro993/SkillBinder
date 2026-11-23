@@ -76,6 +76,9 @@ impl Link {
             .as_deref()
             .ok_or_else(|| io::Error::other("SkillBinder isn't in Applications"))?;
         let folder = self.folder()?;
+        // A folder the user can create, as under a fixture's root, needs no prompt; on a stock
+        // Mac `/usr/local` belongs to root, so this fails and the prompt creates it.
+        let _ = fs::create_dir_all(folder);
         if !persistence::writable(folder) {
             return as_administrator(
                 r#""/bin/mkdir -p -m 755 " & quoted form of item 1 of argv & " && /bin/ln -sfn " & quoted form of item 2 of argv & " " & quoted form of item 3 of argv"#,

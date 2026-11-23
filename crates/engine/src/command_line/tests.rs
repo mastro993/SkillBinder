@@ -129,6 +129,20 @@ mod link {
     }
 
     #[test]
+    fn install_creates_a_missing_folder_it_can_write_without_asking() {
+        let root = TempDir::new().unwrap_or_else(|_| panic!("temporary folder"));
+        let link = Link {
+            link: root.path().join("fixture-root/usr/local/bin/skillbinder"),
+            ..link(root.path())
+        };
+        let command_line = command_line(root.path(), Place::Link(link));
+        let installed = command_line
+            .install()
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(installed.state, CommandLineState::Installed);
+    }
+
+    #[test]
     fn a_skillbinder_it_didnt_write_is_never_replaced() {
         let root = TempDir::new().unwrap_or_else(|_| panic!("temporary folder"));
         let link = link(root.path());
