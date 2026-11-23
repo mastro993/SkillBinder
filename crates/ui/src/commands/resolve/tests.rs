@@ -164,3 +164,34 @@ fn a_folder_names_the_innermost_workspace_holding_it_else_a_name_does() {
         Some("Add it with `skillbinder workspace add .`.")
     );
 }
+
+#[test]
+fn a_folder_held_by_one_workspace_and_named_like_another_is_ambiguous() {
+    let mut snapshot = Fixture::new()
+        .workspace("platform", &[])
+        .workspace("web", &[])
+        .build();
+    if let Some(platform) = snapshot.workspaces.first_mut() {
+        platform.path = "/home/code/platform".into();
+    }
+    let named = |name: &str| {
+        let name = WorkspaceName {
+            name: name.into(),
+            folder: Some("/home/code/platform/web".into()),
+        };
+        workspace(&snapshot, &name).map(|workspace| workspace.name.clone())
+    };
+    let Err(error) = named("web") else {
+        panic!("web names both the folder in platform and the workspace web");
+    };
+    assert_eq!(error.code, ErrorCode::Ambiguous);
+    assert!(
+        error.message.contains("platform (~/code/platform)"),
+        "{error:?}"
+    );
+    assert_eq!(
+        error.hint.as_deref(),
+        Some("Write ./web for the folder, or name the workspace from another folder.")
+    );
+    assert_eq!(named("./web").ok().as_deref(), Some("platform"));
+}

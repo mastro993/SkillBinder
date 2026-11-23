@@ -195,11 +195,16 @@ fn agent_keys(entry: &AgentEntry, home: &str) -> Vec<String> {
     keys
 }
 
-/// The workspace `name` names: the innermost one holding its folder, else the one by that name.
+/// The workspace `name` names: the innermost one holding its folder, else the one by that name. A
+/// folder held by one workspace whose name is another's names both, so it is ambiguous.
 pub(super) fn workspace<'a>(
     snapshot: &'a AppSnapshot,
     name: &WorkspaceName,
 ) -> Result<&'a Workspace, CommandError> {
+    let home = &snapshot.home;
+    let label = |workspace: &Workspace| {
+        format!("{} ({})", workspace.name, shown_dir(&workspace.path, home))
+    };
     let holding = name.folder.as_deref().and_then(|folder| {
         snapshot
             .workspaces
@@ -207,15 +212,36 @@ pub(super) fn workspace<'a>(
             .filter(|workspace| Path::new(folder).starts_with(&workspace.path))
             .max_by_key(|workspace| workspace.path.len())
     });
-    if let Some(workspace) = holding {
-        return Ok(workspace);
+    if let Some(held) = holding {
+        let typed = normalized(&name.name).to_lowercase();
+        let named: Vec<String> = snapshot
+            .workspaces
+            .iter()
+            .filter(|workspace| workspace.id != held.id && workspace.name.to_lowercase() == typed)
+            .map(label)
+            .collect();
+        if named.is_empty() {
+            return Ok(held);
+        }
+        return Err(CommandError::new(
+            ErrorCode::Ambiguous,
+            format!(
+                "\"{}\" names more than one workspace: {}, which holds that folder, and {}.",
+                name.name,
+                label(held),
+                named.join(", ")
+            ),
+        )
+        .hint(format!(
+            "Write ./{} for the folder, or name the workspace from another folder.",
+            normalized(&name.name)
+        )));
     }
-    let home = &snapshot.home;
     one(
         "workspace",
         &name.name,
         &snapshot.workspaces,
-        |workspace| format!("{} ({})", workspace.name, shown_dir(&workspace.path, home)),
+        label,
         |workspace| vec![workspace.name.clone()],
     )
     .map_err(|error| match (&name.folder, error.code) {
