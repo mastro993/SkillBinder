@@ -2,10 +2,11 @@
 //! and your repositories.
 
 use crate::ValidationStatus;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A found skill not in library, as the Import skills dialog lists it.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct FoundRow {
     /// The skill's slug.
     pub slug: String,
@@ -20,7 +21,7 @@ pub struct FoundRow {
 }
 
 /// One version of a found skill.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct FoundVersion {
     /// Its short digest, which `import <slug>@<version>` names.
     pub version: String,
@@ -37,7 +38,7 @@ pub struct FoundVersion {
 }
 
 /// What `search` found.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SearchOutput {
     /// The catalog's and your repositories' matches, then skills.sh's not already listed.
     pub results: Vec<SearchRow>,
@@ -46,7 +47,7 @@ pub struct SearchOutput {
 }
 
 /// A skill `search` found.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SearchRow {
     /// What `install` takes for it: `<owner>/<repo>/<slug>`, or skills.sh's
     /// `<owner>/<repo>@<skill>`.
@@ -67,7 +68,7 @@ pub struct SearchRow {
 }
 
 /// How skills.sh answered a search.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SkillsShAnswer {
     /// Its results are listed.
@@ -81,7 +82,7 @@ pub enum SkillsShAnswer {
 }
 
 /// One of your repositories, as Explore lists it.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct RepositoryRow {
     /// Its `<owner>/<repo>`.
     pub name: String,

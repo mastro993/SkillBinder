@@ -2,7 +2,8 @@
 //! progress goes to the client as notifications, and a cancelled call stops waiting while the app
 //! finishes (spec rule 6). Questions go to the user through the client (rule 3): during the call
 //! before protocol 2026-07-28, and from 2026-07-28 as an input-required result the client answers
-//! by calling again. A client that can't ask gets `needs_answer`, for the agent to ask.
+//! by calling again, holding the very questions the app asked and the server declined. A client
+//! that can't ask gets `needs_answer`, for the agent to ask.
 
 mod asking;
 
@@ -75,10 +76,11 @@ impl Server {
             Err(error) => return Ok(results::error(&error.into()).into()),
         };
         let asking = Asking::of(&turn.context);
+        let argument = answered_by(&change);
         let permission = |agreed: bool| match (agreed, asking) {
             (true, _) => Permission::Yes,
-            (false, Asking::During) => Permission::Ask,
-            (false, Asking::Retry | Asking::Never) => Permission::No,
+            (false, Asking::During | Asking::Retry) => Permission::Ask,
+            (false, Asking::Never) => Permission::No,
         };
         let consent = Consent {
             replace: permission(agreed.replace),
@@ -111,7 +113,7 @@ impl Server {
             {
                 return Ok(input_required(failure).into());
             }
-            (outcome, asking) => outcome.map_err(|failure| needs_answer(failure, asking)),
+            (outcome, asking) => outcome.map_err(|failure| needs_answer(failure, asking, argument)),
         };
         Ok(results::result(outcome, ResponseFormat::Concise).into())
     }
@@ -196,10 +198,6 @@ impl Server {
                 CommandError::new(ErrorCode::NeedsAnswer, "Nothing changed.").into(),
             )),
             Asked::Confirm { prompt } => {
-                let consent = Consent {
-                    confirm: Permission::Ask,
-                    ..consent
-                };
                 let request = Request::Change { change, consent };
                 let answered = Some(prompt.clone());
                 let sent = self
@@ -242,11 +240,13 @@ impl Server {
             context: context.clone(),
             elicits: asking == Asking::During,
             answered,
+            declined: None,
             app: self.app.clone(),
         };
         let app = self.app.clone();
         let sent = tokio::task::spawn_blocking(move || {
-            connect::send(app.data(), &request, app.isolated(), &mut talk)
+            let outcome = connect::send(app.data(), &request, app.isolated(), &mut talk);
+            declined(outcome, talk.declined)
         });
         tokio::select! {
             joined = sent => Some(joined.unwrap_or_else(|error| {
@@ -263,17 +263,41 @@ fn stopped() -> CallToolResponse {
     CallToolResult::error(vec![ContentBlock::text(text)]).into()
 }
 
+/// The argument that answers what `change` asks before it runs: the copies an import replaces,
+/// or a deletion.
+fn answered_by(change: &Change) -> &'static str {
+    match change {
+        Change::Import { .. } => "replace",
+        _ => "confirm",
+    }
+}
+
+/// A change refused before it ran because the server declined the app's question carries that
+/// question, so the form the client shows asks the user exactly what the app asked.
+fn declined(outcome: Result<Output, Failure>, question: Option<String>) -> Result<Output, Failure> {
+    match (outcome, question) {
+        (Err(failure), Some(prompt))
+            if failure.error.code == ErrorCode::NeedsAnswer && waiting(&failure) == 0 =>
+        {
+            let error = CommandError::new(ErrorCode::NeedsAnswer, prompt);
+            Err(Failure { error, ..failure })
+        }
+        (outcome, _) => outcome,
+    }
+}
+
 /// The command's `needs_answer` in words for the agent: copies a change left waiting are
-/// answered with resolve_copies, since calling the change again finds it done, and a deletion
-/// the client couldn't ask about is called again with `confirm` once the user agreed.
-fn needs_answer(failure: Failure, asking: Asking) -> Failure {
+/// answered with resolve_copies, since calling the change again finds it done, and a change the
+/// client couldn't ask about first is called again with `argument` once the user agreed.
+fn needs_answer(failure: Failure, asking: Asking, argument: &str) -> Failure {
     if failure.error.code != ErrorCode::NeedsAnswer {
         return failure;
     }
     let error = match waiting(&failure) {
         0 if asking == Asking::Never => {
-            CommandError::new(ErrorCode::NeedsAnswer, failure.error.message)
-                .hint("Ask the user, then call again with confirm: true.")
+            CommandError::new(ErrorCode::NeedsAnswer, failure.error.message).hint(format!(
+                "Ask the user, then call again with {argument}: true."
+            ))
         }
         0 => failure.error,
         1 => CommandError::new(ErrorCode::NeedsAnswer, "1 copy needs the user's answer.").hint(
@@ -308,6 +332,8 @@ struct Talk {
     elicits: bool,
     /// The question the user already said yes to, on a retry; any other is a change made since.
     answered: Option<String>,
+    /// The first question declined for the user to answer by calling again.
+    declined: Option<String>,
     app: Arc<App>,
 }
 
@@ -338,6 +364,7 @@ impl Conversation for Talk {
             return *answered == question.prompt;
         }
         if !self.elicits {
+            self.declined.get_or_insert_with(|| question.prompt.clone());
             return false;
         }
         let asked = self

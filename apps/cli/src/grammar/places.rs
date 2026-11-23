@@ -129,7 +129,7 @@ fn workspace_name(name: String) -> WorkspaceName {
 
 /// The folder `path` names, absolute with links resolved as the app stores workspace folders, or
 /// `None` when it names none.
-fn folder(path: &str) -> Option<String> {
+pub(crate) fn folder(path: &str) -> Option<String> {
     let folder = dunce::canonicalize(Path::new(path)).ok()?;
     folder.is_dir().then(|| folder.display().to_string())
 }

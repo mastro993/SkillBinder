@@ -3,12 +3,15 @@
 //! server touches the app only once a tool is called (spec rule 2).
 
 mod call;
+mod explore;
 mod inputs;
+mod places;
 mod results;
 mod session;
 // The tests' app listens on a Unix socket, as `connect`'s do.
 #[cfg(all(test, unix))]
 mod tests;
+mod updates;
 
 use call::Turn;
 use inputs::{
@@ -16,6 +19,7 @@ use inputs::{
     SwitchPreset,
 };
 use results::schema;
+use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CacheScope, CallToolResponse, Implementation, ListToolsResult, PaginatedRequestParams,
@@ -35,8 +39,8 @@ use std::sync::Arc;
 const INSTRUCTIONS: &str = "SkillBinder keeps the user's library of agent skills and writes \
 copies of the active ones into their agents' skill directories. Read before you change: call \
 status, list_skills, or list_places first. Pass replace or confirm only after the user said \
-so; when a result says needs_answer, ask the user. Changes show in SkillBinder's window as they \
-run.";
+so; when a result says needs_answer, ask the user. install_skills leaves skills inactive until \
+set_skills_active turns them on. Changes show in SkillBinder's window as they run.";
 
 /// Serves MCP on stdin and stdout until the client goes; `data` is the app's application data,
 /// passed on to an app it starts when `isolated`.
@@ -82,6 +86,14 @@ pub(crate) struct Server {
 impl Server {
     fn new(app: App) -> Self {
         Self { app: Arc::new(app) }
+    }
+
+    /// Every tool, from the routers of each area.
+    fn router() -> ToolRouter<Self> {
+        Self::tool_router()
+            + Self::places_router()
+            + Self::explore_router()
+            + Self::updates_router()
     }
 }
 
@@ -130,7 +142,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Lists one kind of place: presets (marking the active one), library folders, or copies waiting for the user's answer.",
+        description = "Lists one kind of place: presets (marking the active one), library folders, copies waiting for the user's answer, workspaces (with their agents and skills), agents found on this computer (marking the user's), or the user's repositories.",
         output_schema = schema::<results::Places>(),
         annotations(read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
@@ -144,7 +156,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Turns skills on or off for the user's agents in the active preset, or adds them to or removes them from another preset. Writing copies can meet the user's own copy of a skill; pass replace only after the user agreed to replace it.",
+        description = "Turns skills on or off for the user's agents in the active preset, adds them to or removes them from another preset, or turns them on or off in a workspace. Writing copies can meet the user's own copy of a skill; pass replace only after the user agreed to replace it.",
         output_schema = schema::<Changed>(),
         annotations(read_only_hint = false, destructive_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
@@ -201,25 +213,33 @@ impl Server {
 }
 
 /// The tools in the order they list (spec Tools), rather than the router's by name.
-const ORDER: [&str; 8] = [
+const ORDER: [&str; 16] = [
     "status",
     "list_skills",
     "get_skill",
     "list_places",
+    "find_skills",
     "set_skills_active",
     "switch_preset",
     "organize_library",
+    "manage_workspace",
+    "choose_agent",
+    "install_skills",
+    "import_skills",
+    "update_skills",
+    "sync_library",
+    "manage_repositories",
     "resolve_copies",
 ];
 
-#[tool_handler]
+#[tool_handler(router = Self::router())]
 impl ServerHandler for Server {
     async fn list_tools(
         &self,
         _: Option<PaginatedRequestParams>,
         context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        let mut tools = Self::tool_router().list_all();
+        let mut tools = Self::router().list_all();
         tools.sort_by_key(|tool| ORDER.iter().position(|name| *name == tool.name));
         let mut listed = ListToolsResult::with_all_items(tools);
         // Protocol 2026-07-28 asks for cache hints; the list never changes while the server runs,

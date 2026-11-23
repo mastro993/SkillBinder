@@ -175,7 +175,7 @@ pub struct FolderRow {
 }
 
 /// A workspace as the sidebar lists it.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceRow {
     /// Its name.
     pub name: String,
@@ -191,7 +191,7 @@ pub struct WorkspaceRow {
 
 /// An agent found on this computer as Settings › Agents lists it. Agents sharing one global skill
 /// directory, such as the universal agents, are one row.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AgentRow {
     /// The row's name.
     pub name: String,

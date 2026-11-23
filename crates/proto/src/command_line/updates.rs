@@ -2,10 +2,11 @@
 //! reach.
 
 use super::SkillRow;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// The skills with an update, as of the last check.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct UpdatesOutput {
     /// The skills whose source has a newer version, as Library lists them.
     pub skills: Vec<SkillRow>,
@@ -14,7 +15,7 @@ pub struct UpdatesOutput {
 }
 
 /// A skill whose source couldn't be checked.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Unchecked {
     /// The skill's slug.
     pub slug: String,
