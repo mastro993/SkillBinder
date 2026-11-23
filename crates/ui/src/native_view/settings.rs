@@ -48,6 +48,13 @@ impl Settings {
         }
     }
 
+    /// Whether an action that may install or remove the command runs, the command line tool
+    /// row's or the MCP server group's: each keeps the other's controls inactive, so two never
+    /// overlap.
+    fn changing_command(&self) -> bool {
+        self.command_line.working() || self.mcp.working()
+    }
+
     /// Clears the search, as leaving the page does.
     pub(super) fn leave(&mut self, window: &mut Window, cx: &mut Context<NativeView>) {
         self.search

@@ -34,6 +34,11 @@ impl CommandLineRow {
     pub(in crate::native_view) fn status(&self) -> Option<&CommandLineStatus> {
         self.status.as_ref()
     }
+
+    /// Whether Install, Repair, or Uninstall runs.
+    pub(in crate::native_view) fn working(&self) -> bool {
+        self.working
+    }
 }
 
 /// The row's control.
@@ -132,7 +137,7 @@ impl NativeView {
             Button::new(id)
                 .small()
                 .label(label)
-                .inactive(self.settings.command_line.working)
+                .inactive(self.settings.changing_command())
                 .on_click(cx.listener(move |view, _, _, cx| view.change_command_line(request, cx))),
         )
     }
@@ -148,7 +153,7 @@ impl NativeView {
     }
 
     fn change_command_line(&mut self, request: Request, cx: &mut Context<Self>) {
-        if self.settings.command_line.working {
+        if self.settings.changing_command() {
             return;
         }
         self.settings.command_line.working = true;

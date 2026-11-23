@@ -33,6 +33,13 @@ pub(in crate::native_view) struct McpRows {
     working: bool,
 }
 
+impl McpRows {
+    /// Whether Connect, Disconnect, or Copy configuration's install runs.
+    pub(in crate::native_view) fn working(&self) -> bool {
+        self.working
+    }
+}
+
 /// An agent row's control.
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum Control {
@@ -127,7 +134,7 @@ impl NativeView {
                     Button::new("settings-mcp-copy")
                         .small()
                         .label("Copy configuration")
-                        .inactive(mcp.working)
+                        .inactive(self.settings.changing_command())
                         .on_click(cx.listener(|view, _, _, cx| view.copy_mcp_configuration(cx))),
                 ),
         );
@@ -145,7 +152,7 @@ impl NativeView {
             .leading(AvatarStack::new([agent_logo(client.id())]))
             .detail(line)
             .keywords(KEYWORDS);
-        let working = self.settings.mcp.working;
+        let working = self.settings.changing_command();
         match control {
             Control::Connect => setting.control(
                 Button::new(format!("{id}-connect"))
@@ -188,7 +195,7 @@ impl NativeView {
     /// link opens Cursor, which asks the user; its row reads Connected once the window regains
     /// focus after they accept.
     fn connect_mcp(&mut self, mcp_client: McpClient, cx: &mut Context<Self>) {
-        if self.settings.mcp.working {
+        if self.settings.changing_command() {
             return;
         }
         self.settings.mcp.working = true;
@@ -214,7 +221,7 @@ impl NativeView {
     }
 
     fn disconnect_mcp(&mut self, mcp_client: McpClient, cx: &mut Context<Self>) {
-        if self.settings.mcp.working {
+        if self.settings.changing_command() {
             return;
         }
         self.settings.mcp.working = true;
@@ -237,11 +244,11 @@ impl NativeView {
         let Some(command) = self.settings.command_line.status().cloned() else {
             return;
         };
-        if command.state != CommandLineState::NotInstalled {
-            self.copied(&command.path, cx);
+        if self.settings.changing_command() {
             return;
         }
-        if self.settings.mcp.working {
+        if command.state != CommandLineState::NotInstalled {
+            self.copied(&command.path, cx);
             return;
         }
         self.settings.mcp.working = true;
