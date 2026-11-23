@@ -5,7 +5,7 @@ Slice S5 (#204) of the [command line](command-line.md): Library's skill updates 
 | Command | Does |
 | --- | --- |
 | `updates` | Library's Updates filter as of the last check: each skill whose source has a newer version, as `skills` prints it, then "Couldn't check 1 skill:" and each skill whose source the last check couldn't read, with why. It needs no Git, and answers while a change runs |
-| `updates --check` | Check now first: checks every source whatever its last check, as Library's header does, then lists the same. A check already running is waited for, not started again |
+| `updates --check` | Check now first: checks every source whatever its last check, as Library's header does, then lists the same. A check already running, such as the one after the launch scan, is waited for, then every source is checked |
 | `update <slug>…` | Each skill's Update: updates the named skills that have an update, one after another, then scans again. Prints `Updated pdf.`, adding "sql has no update." for a named skill without one; when none has one it says so and changes nothing |
 | `update --all` | Update all, as Library's header and the menu run it: `Updating skills… 2/5` on stderr, the window's header and the menu showing the same count, then `Updated pdf, sql.` With no update it says "No skill has an update." |
 | `reinstall <slug>` | A drifted skill's Reinstall: restores the content its record holds, `Reinstalled pdf.` A skill that matches its record changes nothing; one whose recorded content is lost exits 1 |

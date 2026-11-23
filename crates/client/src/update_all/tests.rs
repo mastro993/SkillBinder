@@ -1,3 +1,4 @@
+use super::once_free;
 use crate::{Client, Shared, UPDATE_CHECK_INTERVAL};
 use skillbinder_engine::{Engine, EngineConfig};
 use skillbinder_proto::*;
@@ -207,5 +208,22 @@ async fn sources_are_checked_every_hour_from_an_hour_after_launch() -> TestResul
         snapshots.changed().await?;
     }
     client.shared.engine.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_check_another_check_refuses_tries_again_once_it_ends() -> TestResult {
+    // Another caller's check refuses two tries, then this one runs.
+    let mut answers = vec![Ok(true), Ok(false), Ok(false)];
+    let mut tries = 0;
+    let checked = once_free(|| {
+        tries += 1;
+        std::future::ready(answers.pop().unwrap_or(Ok(true)))
+    })
+    .await?;
+    assert!(checked);
+    assert_eq!(tries, 3);
+    let failed = once_free(|| std::future::ready(Err::<bool, _>(AppError::storage()))).await;
+    assert!(failed.is_err(), "an error ends it at once");
     Ok(())
 }

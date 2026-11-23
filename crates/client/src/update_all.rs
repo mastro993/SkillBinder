@@ -180,3 +180,18 @@ impl Client {
         });
     }
 }
+
+/// Runs `check` until it runs: `Ok(false)` says another caller's check was running, so it tries
+/// again once that one has had time to end.
+pub(crate) async fn once_free<F, C>(mut check: F) -> AppResult<bool>
+where
+    F: FnMut() -> C,
+    C: Future<Output = AppResult<bool>>,
+{
+    loop {
+        match check().await {
+            Ok(false) => tokio::time::sleep(std::time::Duration::from_millis(150)).await,
+            checked => return checked,
+        }
+    }
+}
