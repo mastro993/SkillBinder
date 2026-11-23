@@ -1,7 +1,7 @@
 //! What the app sends back for a request: progress and questions while it runs, then one outcome
 //! holding the command's typed output.
 
-use super::{CommandError, FoundRow, RepositoryRow, SearchOutput};
+use super::{CommandError, FoundRow, RepositoryRow, SearchOutput, UpdatesOutput};
 use crate::{AppError, SkillSource, SyncState};
 use serde::{Deserialize, Serialize};
 
@@ -85,6 +85,8 @@ pub enum Output {
     Search(SearchOutput),
     /// `repos`.
     Repositories(Vec<RepositoryRow>),
+    /// `updates`.
+    Updates(UpdatesOutput),
     /// Every changing command.
     Changed(Changed),
 }
@@ -249,6 +251,8 @@ pub struct Changed {
     pub waiting: Vec<CopyRow>,
     /// Skills an import or install put in the library, by slug.
     pub installed: Vec<String>,
+    /// Skills an update brought to their source's version, by slug.
+    pub updated: Vec<String>,
 }
 
 impl Changed {

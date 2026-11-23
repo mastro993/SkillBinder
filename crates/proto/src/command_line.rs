@@ -6,6 +6,7 @@
 mod explore;
 mod reply;
 mod request;
+mod updates;
 
 pub use explore::{FoundRow, FoundVersion, RepositoryRow, SearchOutput, SearchRow, SkillsShAnswer};
 pub use reply::{
@@ -13,15 +14,16 @@ pub use reply::{
     Question, Reply, SkillOutput, SkillRow, StatusOutput, WorkspaceRow,
 };
 pub use request::{
-    Answer, Change, Consent, Find, Permission, Query, Request, SkillFilter, WorkspaceName,
+    Answer, Change, Consent, Find, Permission, Query, Request, SkillFilter, SyncKind, WorkspaceName,
 };
+pub use updates::{Unchecked, UpdatesOutput};
 
 use crate::{AppError, ErrorCategory};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The protocol both sides speak; a command and an app with different numbers refuse each other.
-pub const PROTOCOL: u32 = 4;
+pub const PROTOCOL: u32 = 5;
 
 /// A Unix socket's path must fit `sun_path`, 104 bytes with its terminating NUL on macOS.
 const SOCKET_PATH_LIMIT: usize = 103;

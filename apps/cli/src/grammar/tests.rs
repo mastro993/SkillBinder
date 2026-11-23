@@ -1,6 +1,6 @@
 use super::{grammar, request};
 use skillbinder_proto::command_line::{
-    Change, Consent, Find, Permission, Query, Request, SkillFilter, WorkspaceName,
+    Change, Consent, Find, Permission, Query, Request, SkillFilter, SyncKind, WorkspaceName,
 };
 
 fn parse(line: &[&str], interactive: bool) -> Request {
@@ -246,4 +246,65 @@ fn scan_import_explore_and_repositories_carry_their_arguments() {
             repository: url.into()
         }
     );
+}
+
+#[test]
+fn updates_and_sync_read_into_their_requests() {
+    let change = |line: &[&str]| match parse(line, false) {
+        Request::Change { change, .. } => change,
+        other => panic!("{other:?} changes"),
+    };
+    assert_eq!(
+        parse(&["updates"], false),
+        Request::Read {
+            query: Query::Updates
+        }
+    );
+    assert_eq!(
+        parse(&["updates", "--check"], false),
+        Request::Find { find: Find::Check }
+    );
+    assert_eq!(
+        change(&["update", "pdf", "sql"]),
+        Change::Update {
+            skills: vec!["pdf".into(), "sql".into()]
+        }
+    );
+    assert_eq!(change(&["update", "--all"]), Change::UpdateAll);
+    assert!(
+        grammar()
+            .try_get_matches_from(["skillbinder", "update", "pdf", "--all"])
+            .is_err(),
+        "update names skills or --all, not both"
+    );
+    assert_eq!(
+        change(&["reinstall", "pdf"]),
+        Change::Reinstall {
+            skill: "pdf".into()
+        }
+    );
+    for (line, action) in [
+        ("sync", SyncKind::Sync),
+        ("push", SyncKind::Push),
+        ("pull", SyncKind::Pull),
+    ] {
+        assert_eq!(change(&[line]), Change::Synchronize { action });
+    }
+    let url = "git@github.com:me/skills.git";
+    assert_eq!(
+        change(&["remote", "set", url]),
+        Change::SetRemote {
+            url: url.into(),
+            branch: "main".into()
+        },
+        "the branch defaults to main, as the Sync page's does"
+    );
+    assert_eq!(
+        change(&["remote", "set", url, "--branch", "library"]),
+        Change::SetRemote {
+            url: url.into(),
+            branch: "library".into()
+        }
+    );
+    assert_eq!(change(&["remote", "remove"]), Change::RemoveRemote);
 }

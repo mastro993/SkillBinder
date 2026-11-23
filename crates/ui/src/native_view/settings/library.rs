@@ -4,6 +4,7 @@
 use super::super::NativeView;
 use super::super::controls::agent_detail;
 use super::super::git_setup::GitButton;
+use super::super::without_git::GIT_NEEDED;
 use super::catalog::{Group, SettingRow};
 use gpui_kit::{AnyElement, Context};
 use skillbinder_design::Button;
@@ -11,8 +12,6 @@ use std::path::PathBuf;
 
 /// The Git row's line while Git is found.
 const GIT_FOUND: &str = "Syncs your library and updates skills from their sources.";
-/// Its line while Git is missing or too old; an old version's status line names it.
-const GIT_NEEDED: &str = "Sync and skill updates need Git 2.39 or newer.";
 
 impl NativeView {
     pub(super) fn library_groups(&self, cx: &mut Context<Self>) -> Vec<Group> {

@@ -4,13 +4,13 @@
 mod places;
 
 use super::resolve::{self, Agents};
-use super::{explore, repositories};
+use super::{explore, repositories, sync, updates};
 use crate::native_view::{Activity, Places, held, shown_dir};
 use skillbinder_proto::command_line::{Change, CommandError, ErrorCode};
 use skillbinder_proto::{
     AddSkills, AppSnapshot, CopyChoice, CopyState, LibrarySnapshot, ManagedCopy,
-    OrganizationChange, Preset, PresetId, PresetSwitch, Repository, Skill, SkillId, Targets,
-    WorkspaceId,
+    OrganizationChange, Preset, PresetId, PresetSwitch, RemoteConfig, Repository, Skill, SkillId,
+    SyncAction, Targets, WorkspaceId,
 };
 use std::collections::BTreeSet;
 
@@ -59,6 +59,19 @@ pub(super) enum Plan {
     RemoveRepository(Repository),
     /// Installing each skill of a repository the library lacks.
     InstallAll(Repository),
+    /// Updating `skills` from their sources; `current` have no update.
+    Update {
+        skills: Vec<SkillId>,
+        current: Vec<SkillId>,
+    },
+    /// Update all.
+    UpdateAll,
+    /// Restoring a drifted skill's recorded content.
+    Reinstall(SkillId),
+    /// One of Sync's Git operations, or removing the remote.
+    Sync(SyncAction),
+    /// Setting the sync remote.
+    Connect(RemoteConfig),
 }
 
 /// A change the window saves at once.
@@ -262,6 +275,12 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
             Plan::RemoveRepository(repositories::repository(snapshot, repository)?.clone())
         }
         Change::InstallAll { repository } => repositories::plan_install_all(snapshot, repository)?,
+        Change::Update { skills } => updates::plan_update(snapshot, library, skills)?,
+        Change::UpdateAll => updates::plan_update_all(snapshot)?,
+        Change::Reinstall { skill } => updates::plan_reinstall(snapshot, library, skill)?,
+        Change::Synchronize { action } => sync::plan(snapshot, *action)?,
+        Change::SetRemote { url, branch } => sync::plan_set(snapshot, url, branch)?,
+        Change::RemoveRemote => sync::plan_remove(snapshot)?,
     })
 }
 

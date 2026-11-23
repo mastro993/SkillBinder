@@ -7,7 +7,7 @@
 use super::consent::{confirm, copies_wait, decide, left_waiting};
 use super::plan::{Plan, Save, Work};
 use super::reads::{copy_row, running};
-use super::{Peer, explore, import, repositories, resolve};
+use super::{Peer, explore, import, repositories, resolve, sync, updates};
 use crate::gate::{self, Gate};
 use crate::native_view::{Activity, Landing, switch_note};
 use gpui_kit::{AsyncApp, Task};
@@ -17,7 +17,7 @@ use skillbinder_proto::command_line::{
 };
 use skillbinder_proto::{
     AppError, AppResult, AppSnapshot, ManagedCopy, OrganizationChange, PresetId, PresetSwitch,
-    Workspace, owner_repo,
+    RepositoryId, Workspace, owner_repo,
 };
 use std::future::Future;
 use std::path::PathBuf;
@@ -207,6 +207,11 @@ async fn apply(
             Ok(repositories::remove_repository(repository, client).await?)
         }
         Plan::InstallAll(repository) => repositories::install_all(repository, client).await,
+        Plan::Update { skills, current } => updates::update(skills, current, client, cx).await,
+        Plan::UpdateAll => updates::update_all(client, cx).await,
+        Plan::Reinstall(skill) => Ok(updates::reinstall(skill, client, cx).await?),
+        Plan::Sync(action) => Ok(sync::synchronize(action, client, cx).await?),
+        Plan::Connect(remote) => Ok(sync::connect(remote, client, cx).await?),
     }
 }
 
@@ -243,7 +248,7 @@ pub(super) fn interrupted(gate: &Gate, snapshot: &AppSnapshot) -> Option<Command
 }
 
 /// "SkillBinder is busy", naming what blocks.
-fn busy(gate: &Gate, snapshot: &AppSnapshot) -> CommandError {
+pub(super) fn busy(gate: &Gate, snapshot: &AppSnapshot) -> CommandError {
     // A change whose strip still shows refuses as it does while it runs.
     let blocking = gate.change.as_ref().map(|change| change.activity.title());
     let message = match blocking.or_else(|| running(gate, snapshot)) {
@@ -264,7 +269,7 @@ pub(super) fn free(client: &Client, cx: &mut AsyncApp) -> Result<(), CommandErro
 
 /// Runs `work`, a short change of the command's own, refusing other changes meanwhile as the
 /// window does during its saves.
-async fn held<T>(cx: &mut AsyncApp, work: impl Future<Output = T>) -> T {
+pub(super) async fn held<T>(cx: &mut AsyncApp, work: impl Future<Output = T>) -> T {
     cx.update(|cx| gate::command_change(true, cx));
     let result = work.await;
     cx.update(|cx| gate::command_change(false, cx));
@@ -364,33 +369,20 @@ where
 }
 
 /// Sends how far `plan` has got whenever it moves, until the returned task drops: the copies a
-/// change writes, or the skills an Install all installs.
+/// change writes, the skills an Install all installs, or those an Update all updates.
 fn forward_progress(plan: &Plan, peer: &Peer, client: &Client, cx: &mut AsyncApp) -> Task<()> {
     let activity = title(plan);
-    let installing = match plan {
-        Plan::InstallAll(repository) => Some(repository.id.clone()),
-        _ => None,
+    let counted = match plan {
+        Plan::InstallAll(repository) => Counted::Installing(repository.id.clone()),
+        Plan::UpdateAll => Counted::Updating,
+        _ => Counted::Copies,
     };
     let mut snapshots = client.subscribe();
     let peer = peer.clone();
     cx.spawn(async move |_| {
         let mut sent = None;
         while snapshots.changed().await.is_ok() {
-            let progress = {
-                let snapshot = snapshots.borrow_and_update();
-                match &installing {
-                    Some(id) => snapshot
-                        .explore
-                        .install_all
-                        .get(id)
-                        .map(|progress| (progress.done, progress.total)),
-                    None => snapshot
-                        .activation
-                        .as_ref()
-                        .map(|progress| (progress.done, progress.total)),
-                }
-            };
-            let Some((done, total)) = progress else {
+            let Some((done, total)) = counted.of(&snapshots.borrow_and_update()) else {
                 continue;
             };
             // Nothing planned yet is no progress to show.
@@ -406,6 +398,33 @@ fn forward_progress(plan: &Plan, peer: &Peer, client: &Client, cx: &mut AsyncApp
     })
 }
 
+/// What a change's progress counts.
+enum Counted {
+    /// The copies it writes or removes.
+    Copies,
+    /// The skills an Install all of this repository installs.
+    Installing(RepositoryId),
+    /// The skills an Update all updates.
+    Updating,
+}
+
+impl Counted {
+    /// How far it has got in `snapshot`, while it runs.
+    fn of(&self, snapshot: &AppSnapshot) -> Option<(usize, usize)> {
+        match self {
+            Self::Copies => {
+                let progress = snapshot.activation.as_ref()?;
+                Some((progress.done, progress.total))
+            }
+            Self::Installing(id) => {
+                let progress = snapshot.explore.install_all.get(id)?;
+                Some((progress.done, progress.total))
+            }
+            Self::Updating => snapshot.updating,
+        }
+    }
+}
+
 /// What the command's progress line names.
 fn title(plan: &Plan) -> String {
     match plan {
@@ -417,6 +436,8 @@ fn title(plan: &Plan) -> String {
         Plan::Block { activity, .. } => activity.title(),
         Plan::Import { .. } => "Importing skills".to_owned(),
         Plan::InstallAll(repository) => format!("Installing {}", owner_repo(&repository.url)),
+        Plan::Update { .. } | Plan::UpdateAll => "Updating skills".to_owned(),
+        Plan::Sync(action) => sync::title(*action).to_owned(),
         _ => "Writing copies".to_owned(),
     }
 }

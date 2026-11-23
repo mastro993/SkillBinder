@@ -58,6 +58,9 @@ pub enum Query {
     Agents,
     /// `repos`: your repositories.
     Repositories,
+    /// `updates`: the skills with an update, as Library's Updates filter lists them, as of the
+    /// last check.
+    Updates,
 }
 
 /// A reading command that asks the engine before it answers.
@@ -72,6 +75,9 @@ pub enum Find {
         /// What to search for.
         query: String,
     },
+    /// `updates --check`: checks every source now, as Check now does, then lists the skills
+    /// with an update.
+    Check,
 }
 
 /// Library's filters, one at a time.
@@ -262,6 +268,44 @@ pub enum Change {
         /// The repository, by URL or `<owner>/<repo>`.
         repository: String,
     },
+    /// `update <slug>…`: updates skills from their sources, as their Update buttons do.
+    Update {
+        /// The skills.
+        skills: Vec<String>,
+    },
+    /// `update --all`: Update all.
+    UpdateAll,
+    /// `reinstall`: restores a drifted skill's recorded content.
+    Reinstall {
+        /// The skill.
+        skill: String,
+    },
+    /// `sync`, `push`, or `pull`.
+    Synchronize {
+        /// Which of Sync's Git operations.
+        action: SyncKind,
+    },
+    /// `remote set`: connects the library to a Git remote, replacing the one set.
+    SetRemote {
+        /// The remote's Git URL.
+        url: String,
+        /// Its branch.
+        branch: String,
+    },
+    /// `remote remove`: disconnects the remote; the library stays as it is.
+    RemoveRemote,
+}
+
+/// One of Sync's Git operations on the library.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncKind {
+    /// Pulls what can fast-forward, then pushes the library's changes.
+    Sync,
+    /// Commits the library's changes and pushes them.
+    Push,
+    /// Fast-forwards to the remote's changes.
+    Pull,
 }
 
 /// A workspace as the command names it: by its name, or by a folder inside it, such as `.`.

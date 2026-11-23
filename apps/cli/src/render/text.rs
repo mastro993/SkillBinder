@@ -5,7 +5,7 @@ mod explore;
 use skillbinder_proto::SyncState;
 use skillbinder_proto::command_line::{
     AgentRow, Changed, CopyRow, CopyStatus, Failure, FolderRow, Output, PresetRow, SkillOutput,
-    SkillRow, StatusOutput, WorkspaceRow,
+    SkillRow, StatusOutput, UpdatesOutput, WorkspaceRow,
 };
 
 pub(super) fn output(output: &Output) -> String {
@@ -31,6 +31,7 @@ pub(super) fn output(output: &Output) -> String {
         Output::Found(rows) => explore::found(rows),
         Output::Search(search) => explore::search(search),
         Output::Repositories(rows) => explore::repositories(rows),
+        Output::Updates(updates) => updates_text(updates),
         Output::Changed(Changed { message, .. }) => format!("{message}\n"),
     }
 }
@@ -130,6 +131,28 @@ fn places(skill: &SkillRow) -> String {
         [] => "off".to_owned(),
         places => places.join("; "),
     }
+}
+
+/// The skills with an update, those whose source couldn't be checked, then how to update.
+fn updates_text(updates: &UpdatesOutput) -> String {
+    let UpdatesOutput { skills, unchecked } = updates;
+    let mut text: String = skills.iter().map(skill_line).collect();
+    if skills.is_empty() {
+        text.push_str("No skill has an update.\n");
+    }
+    if !unchecked.is_empty() {
+        text.push_str(&format!(
+            "Couldn't check {}:\n",
+            count(unchecked.len(), "skill")
+        ));
+        for skill in unchecked {
+            text.push_str(&format!("  {}: {}\n", skill.slug, skill.reason));
+        }
+    }
+    if !skills.is_empty() {
+        text.push_str("Update with `skillbinder update <slug>`, or `skillbinder update --all`.\n");
+    }
+    text
 }
 
 fn skill_page(page: &SkillOutput) -> String {

@@ -11,8 +11,10 @@ mod reads;
 mod repositories;
 mod resolve;
 mod run;
+mod sync;
 #[cfg(test)]
 mod testing;
+mod updates;
 
 use crate::gate::Gate;
 use crate::tray::tray_may_show;
@@ -182,6 +184,7 @@ fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
                 let found = match find {
                     Find::Scan => import::scan(&client).await,
                     Find::Search { query } => explore::search(&client, &query).await,
+                    Find::Check => updates::check(&client).await,
                 };
                 peer.finish(found.map_err(Failure::from));
                 drop(running);

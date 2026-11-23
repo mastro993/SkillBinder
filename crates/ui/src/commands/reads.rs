@@ -1,7 +1,7 @@
 //! The reading commands, answered from the snapshot as Library, the sidebar, and the review list
 //! show it. They never wait on the gate, so they answer while a change runs (spec rule 2).
 
-use super::{repositories, resolve};
+use super::{repositories, resolve, sync, updates};
 use crate::gate::Gate;
 use crate::native_view::{
     ActiveFilter, LibraryFilter, Places, Query as LibraryQuery, found_rows, has_update,
@@ -77,6 +77,7 @@ pub(super) fn answer(query: &Query, snapshot: &AppSnapshot) -> Result<Output, Co
                 .collect(),
         ),
         Query::Repositories => Output::Repositories(repositories::repositories(snapshot)),
+        Query::Updates => Output::Updates(updates::updates(snapshot, library)?),
     })
 }
 
@@ -99,17 +100,25 @@ pub(super) fn status(snapshot: &AppSnapshot, gate: &Gate) -> StatusOutput {
     }
 }
 
-/// The work that refuses a change while it runs: the blocking change, or an Update all.
+/// The work that refuses a change while it runs: the blocking change, an Update all, or a Git
+/// operation.
 pub(super) fn running(gate: &Gate, snapshot: &AppSnapshot) -> Option<String> {
-    gate.running().map(|activity| activity.title()).or_else(|| {
-        snapshot
-            .updating
-            .map(|(done, total)| format!("Updating {done} of {total} skills"))
-    })
+    gate.running()
+        .map(|activity| activity.title())
+        .or_else(|| {
+            snapshot
+                .updating
+                .map(|(done, total)| format!("Updating {done} of {total} skills"))
+        })
+        .or_else(|| {
+            snapshot
+                .syncing
+                .map(|action| sync::title(action).to_owned())
+        })
 }
 
 /// Library's list in `folder` under `filter`, by name.
-fn skills(
+pub(super) fn skills(
     snapshot: &AppSnapshot,
     library: &LibrarySnapshot,
     filter: SkillFilter,
