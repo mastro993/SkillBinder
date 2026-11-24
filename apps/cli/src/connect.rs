@@ -150,7 +150,7 @@ fn talk(
     }
 }
 
-fn name(endpoint: &Endpoint) -> io::Result<Name<'_>> {
+pub(crate) fn name(endpoint: &Endpoint) -> io::Result<Name<'_>> {
     match endpoint {
         Endpoint::Socket(path) => path.as_path().to_fs_name::<GenericFilePath>(),
         Endpoint::Pipe(pipe) => pipe.as_str().to_ns_name::<GenericNamespaced>(),
