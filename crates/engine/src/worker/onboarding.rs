@@ -1,5 +1,5 @@
-//! The engine's onboarding operations: rechecking its facts, choosing agents, and finishing it
-//! with its first import.
+//! The engine's onboarding operations: rechecking its facts, choosing agents, settling the
+//! command and agents steps, and finishing it with its first import.
 
 use super::Engine;
 use skillbinder_proto::*;
@@ -31,6 +31,16 @@ impl Engine {
     ) -> AppResult<Bootstrap> {
         self.call(move |state| state.choose_agents(shown, chosen))
             .await
+    }
+    /// Settles the command step once it is skipped or its Install succeeded, creating the
+    /// library when the import comes next.
+    pub async fn settle_command_line(&self) -> AppResult<Bootstrap> {
+        self.call(|state| state.settle_command_line()).await
+    }
+    /// Settles the agents step once it is skipped, continued, or set up, creating the library
+    /// when the import comes next.
+    pub async fn settle_connect_agents(&self) -> AppResult<Bootstrap> {
+        self.call(|state| state.settle_connect_agents()).await
     }
     /// Starts the system's Git installer detached (ADR 0011), again once the one started last
     /// has exited, so a cancelled installer can be started again; while it still runs, it is

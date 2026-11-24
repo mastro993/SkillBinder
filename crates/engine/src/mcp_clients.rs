@@ -233,6 +233,19 @@ impl McpClients {
             .collect()
     }
 
+    /// The agents on this computer Connect can connect: their program is found, or Cursor's
+    /// folder is there. It never runs their programs, so onboarding can check it each time.
+    pub(crate) fn connectable(&self) -> Vec<McpClient> {
+        TABLE
+            .iter()
+            .filter(|entry| match entry.tool {
+                Some(tool) => self.find(tool).is_some(),
+                None => (entry.folder)(&self.places).is_dir(),
+            })
+            .map(|entry| entry.client)
+            .collect()
+    }
+
     /// `entry`'s state, or `None` when the agent is not on this computer.
     fn state(&self, entry: &Entry) -> Option<McpClientState> {
         let program = entry.tool.and_then(|tool| self.find(tool));

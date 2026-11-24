@@ -94,11 +94,11 @@ impl NativeView {
             self.onboarding_back_to,
         );
         if let Some(place) = shown {
-            self.git_ready = Some(place);
+            self.held_step = Some(place);
             cx.spawn(async move |this, cx| {
                 cx.background_executor().timer(READY_FOR).await;
                 let _ = this.update(cx, |view, cx| {
-                    view.git_ready = None;
+                    view.held_step = None;
                     cx.notify();
                 });
             })

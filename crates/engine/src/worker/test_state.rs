@@ -5,10 +5,12 @@ use crate::{
     activation::Progress,
     app_update::{AppUpdates, running_version},
     catalog::Catalogs,
+    command_line::CommandLine,
     database,
     git::Installer,
     lifecycle::EngineConfig,
     logging::Logger,
+    mcp_clients::{McpClients, Places},
     scan::Scans,
     shutdown::Shutdown,
     sources::Updates,
@@ -32,6 +34,12 @@ impl State {
         }
         let log = Logger::start(data_dir.join("logs"), &home).unwrap();
         let config = EngineConfig::isolated(data_dir.clone(), home.clone());
+        let command_line = CommandLine::platform(&config, log.clone());
+        let places = Places {
+            home: home.clone(),
+            environment: BTreeMap::new(),
+        };
+        let mcp_clients = McpClients::new(places, log.clone(), Shutdown::default());
         Self {
             app_updates: AppUpdates::new(
                 None,
@@ -61,6 +69,8 @@ impl State {
             )),
             resolutions: Default::default(),
             progress: Progress::default(),
+            command_line,
+            mcp_clients,
             grants: BTreeMap::new(),
             recovery_required: false,
             shutdown: Shutdown::default(),

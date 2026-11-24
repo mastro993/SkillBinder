@@ -25,6 +25,16 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.choose_agents(shown, chosen).await)
             .await
     }
+    /// Settles the command step, skipped or installed.
+    pub async fn settle_command_line(&self) -> AppResult<Bootstrap> {
+        self.refresh_preserving_outcome(self.shared.engine.settle_command_line().await)
+            .await
+    }
+    /// Settles the agents step, skipped, continued, or set up.
+    pub async fn settle_connect_agents(&self) -> AppResult<Bootstrap> {
+        self.refresh_preserving_outcome(self.shared.engine.settle_connect_agents().await)
+            .await
+    }
     /// Starts the system's Git installer; the app then checks for Git until it is found.
     pub async fn install_git(&self) -> AppResult<Bootstrap> {
         self.refresh_preserving_outcome(self.shared.engine.install_git().await)

@@ -3,11 +3,17 @@
 //! button row and the step's actions at its right. Each step's view lives in its own module.
 
 mod agents;
+mod command_line;
+mod connect;
 mod data_location;
 mod git;
 pub(super) mod import;
+mod offers;
 #[cfg(test)]
 mod tests;
+mod tile;
+
+pub(super) use offers::Offers;
 
 use super::{Effect, NativeView};
 use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
@@ -106,7 +112,7 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let shown = self
-            .git_ready
+            .held_step
             .clone()
             .or_else(|| place(&self.snapshot.bootstrap.onboarding, self.onboarding_back_to));
         let Some(place) = shown else {
@@ -116,13 +122,18 @@ impl NativeView {
             OnboardingStep::DataLocation => self.data_location_step(cx),
             OnboardingStep::Git => self.git_step(place.forward.is_some(), cx),
             OnboardingStep::Agents => self.agents_step(place.forward.is_some(), cx),
+            OnboardingStep::CommandLine => self.command_line_step(&place, cx),
+            OnboardingStep::ConnectAgents => self.connect_step(place.forward.is_some(), cx),
             OnboardingStep::Import => self.import_step(window, cx),
         };
+        // A held step keeps the frame until it moves on by itself or by its own Continue, so going
+        // elsewhere would only redirect that move.
+        let still = self.blocked() || self.held_step.is_some();
         let back = place.back.map(|step| {
             Button::new("onboarding-back")
                 .label("Back")
                 .icon(icon("chevron-left"))
-                .inactive(self.blocked())
+                .inactive(still)
                 .on_click(cx.listener(move |view, _, _, cx| {
                     view.onboarding_back_to = Some(step);
                     cx.notify();
@@ -137,7 +148,7 @@ impl NativeView {
             Button::new("onboarding-continue")
                 .label("Continue")
                 .primary()
-                .inactive(self.blocked())
+                .inactive(still)
                 .on_click(cx.listener(move |view, _, _, cx| {
                     view.onboarding_back_to = Some(step);
                     cx.notify();

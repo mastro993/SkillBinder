@@ -10,15 +10,13 @@ use super::super::NativeView;
 use super::catalog::SettingRow;
 use gpui_kit::{Context, IntoElement};
 use skillbinder_design::{Button, CodeBlock};
-use skillbinder_proto::{
-    AppError, AppResult, CannotInstallCommand, CommandLineState, CommandLineStatus,
-};
+use skillbinder_proto::{AppResult, CannotInstallCommand, CommandLineState, CommandLineStatus};
 use std::future::Future;
 
 /// The line while nothing has been read, and while nothing is installed.
 const INVITE: &str = "Run SkillBinder from a terminal as skillbinder.";
 /// The line to add to a shell profile while `~/.local/bin` is off the PATH.
-const EXPORT: &str = r#"export PATH="$HOME/.local/bin:$PATH""#;
+pub(in crate::native_view) const EXPORT: &str = r#"export PATH="$HOME/.local/bin:$PATH""#;
 /// What else a search finds the row by, besides its title and line.
 const KEYWORDS: &[&str] = &["terminal", "cli", "path", "shell", "skillbinder"];
 
@@ -176,15 +174,11 @@ impl NativeView {
         asked: impl Future<Output = AppResult<CommandLineStatus>> + Send + 'static,
         cx: &mut Context<Self>,
     ) {
-        let handle = self.client.runtime().spawn(asked);
-        cx.spawn(async move |this, cx| {
-            let result = handle.await.unwrap_or_else(|_| Err(AppError::storage()));
-            let _ = this.update(cx, |view, cx| {
-                view.command_line_answered(request, result, cx)
-            });
-        })
-        .detach();
-        cx.notify();
+        self.ask(
+            asked,
+            move |view, result, cx| view.command_line_answered(request, result, cx),
+            cx,
+        );
     }
 
     /// Shows the state an answer brought. A read while an action runs is older than the action's

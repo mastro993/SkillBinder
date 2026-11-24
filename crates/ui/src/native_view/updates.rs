@@ -122,6 +122,24 @@ impl NativeView {
         cx.notify();
     }
 
+    /// Asks the engine off the window, then hands the answer to `answered`, leaving the view's
+    /// busy state to the caller: for work that waits on the user or another program, such as the
+    /// administrator prompt.
+    pub(super) fn ask<T: Send + 'static>(
+        &mut self,
+        asked: impl Future<Output = AppResult<T>> + Send + 'static,
+        answered: impl FnOnce(&mut Self, AppResult<T>, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        let handle = self.client.runtime().spawn(asked);
+        cx.spawn(async move |this, cx| {
+            let result = handle.await.unwrap_or_else(|_| Err(AppError::storage()));
+            let _ = this.update(cx, |view, cx| answered(view, result, cx));
+        })
+        .detach();
+        cx.notify();
+    }
+
     /// Marks the view's short work running or done, in the view and in the [`Gate`] the menu reads.
     pub(super) fn set_busy(&mut self, busy: bool, cx: &mut Context<Self>) {
         self.busy = busy;
