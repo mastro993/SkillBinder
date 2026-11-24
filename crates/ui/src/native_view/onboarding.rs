@@ -126,11 +126,14 @@ impl NativeView {
             OnboardingStep::ConnectAgents => self.connect_step(place.forward.is_some(), cx),
             OnboardingStep::Import => self.import_step(window, cx),
         };
+        // A held step keeps the frame until it moves on by itself or by its own Continue, so going
+        // elsewhere would only redirect that move.
+        let still = self.blocked() || self.held_step.is_some();
         let back = place.back.map(|step| {
             Button::new("onboarding-back")
                 .label("Back")
                 .icon(icon("chevron-left"))
-                .inactive(self.blocked())
+                .inactive(still)
                 .on_click(cx.listener(move |view, _, _, cx| {
                     view.onboarding_back_to = Some(step);
                     cx.notify();
@@ -145,7 +148,7 @@ impl NativeView {
             Button::new("onboarding-continue")
                 .label("Continue")
                 .primary()
-                .inactive(self.blocked())
+                .inactive(still)
                 .on_click(cx.listener(move |view, _, _, cx| {
                     view.onboarding_back_to = Some(step);
                     cx.notify();
