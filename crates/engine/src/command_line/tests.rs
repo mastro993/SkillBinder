@@ -1,5 +1,4 @@
 use super::copy::Copy;
-use super::link::Link;
 use super::user_path::{contains, with, without};
 use super::{CommandLine, Place};
 use crate::logging::Logger;
@@ -23,6 +22,7 @@ fn write(path: &Path, contents: &str) {
 #[cfg(unix)]
 mod link {
     use super::*;
+    use crate::command_line::link::Link;
     use std::os::unix::fs::symlink;
 
     /// This app's bundle in a temporary Applications, `/usr/local/bin` and the Homebrew prefixes

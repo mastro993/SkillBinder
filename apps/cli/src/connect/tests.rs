@@ -1,6 +1,6 @@
-use super::{Conversation, exchange, receive, send_line};
+use super::{Conversation, exchange, name, receive, send_line};
+use interprocess::local_socket::ListenerOptions;
 use interprocess::local_socket::prelude::*;
-use interprocess::local_socket::{GenericFilePath, ListenerOptions};
 use skillbinder_proto::command_line::{
     Answer, Change, Changed, CommandError, Consent, Endpoint, ErrorCode, Failure, Greeting, Hello,
     Output, PROTOCOL, Progress, Question, Reply, Request,
@@ -27,12 +27,7 @@ fn serve_once(
     greeting: Greeting,
     steps: Vec<Step>,
 ) -> std::io::Result<std::thread::JoinHandle<std::io::Result<Heard>>> {
-    let Endpoint::Socket(path) = endpoint else {
-        unreachable!("Unix gets a socket");
-    };
-    let listener = ListenerOptions::new()
-        .name(path.as_path().to_fs_name::<GenericFilePath>()?)
-        .create_sync()?;
+    let listener = ListenerOptions::new().name(name(endpoint)?).create_sync()?;
     Ok(std::thread::spawn(move || {
         let stream = listener.accept()?;
         let mut reader = BufReader::new(&stream);
@@ -87,7 +82,6 @@ fn joined(app: std::thread::JoinHandle<std::io::Result<Heard>>) -> anyhow::Resul
         .map_err(|_| anyhow::anyhow!("the test app panicked"))??)
 }
 
-#[cfg(unix)]
 #[test]
 fn another_protocol_exits_5_naming_repair() -> anyhow::Result<()> {
     let root = tempfile::tempdir()?;
@@ -117,7 +111,6 @@ fn another_protocol_exits_5_naming_repair() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(unix)]
 #[test]
 fn a_switch_shows_progress_asks_and_exits_3_with_what_landed() -> anyhow::Result<()> {
     let root = tempfile::tempdir()?;

@@ -1,11 +1,11 @@
 //! A test app answering on a socket as the real one does, and a test client speaking raw
 //! JSON-RPC to the server over an in-memory pipe, as an agent does over stdio.
 
-use crate::connect::{receive, send_line};
+use crate::connect::{name, receive, send_line};
 use crate::mcp::Server;
 use crate::mcp::session::App;
+use interprocess::local_socket::ListenerOptions;
 use interprocess::local_socket::prelude::*;
-use interprocess::local_socket::{GenericFilePath, ListenerOptions};
 use rmcp::ServiceExt as _;
 use serde_json::{Value, json};
 use skillbinder_proto::command_line::{
@@ -70,11 +70,9 @@ pub(super) fn app(
     root: &Path,
     script: impl Fn(&Request) -> Vec<Step> + Send + Sync + 'static,
 ) -> std::io::Result<Heard> {
-    let Endpoint::Socket(path) = Endpoint::of(root, root) else {
-        unreachable!("Unix gets a socket");
-    };
+    let endpoint = Endpoint::of(root, root);
     let listener = ListenerOptions::new()
-        .name(path.as_path().to_fs_name::<GenericFilePath>()?)
+        .name(name(&endpoint)?)
         .create_sync()?;
     let heard = Heard::default();
     let (seen, script) = (heard.clone(), Arc::new(script));

@@ -204,11 +204,9 @@ impl ErrorCode {
 #[cfg(test)]
 mod tests {
     use super::{
-        CommandError, Endpoint, ErrorCode, Failure, Greeting, Hello, Output, PROTOCOL, Reply,
-        Request,
+        CommandError, ErrorCode, Failure, Greeting, Hello, Output, PROTOCOL, Reply, Request,
     };
     use crate::{AppError, ErrorCategory};
-    use std::path::Path;
 
     #[test]
     fn another_protocol_gets_a_mismatch() {
@@ -233,6 +231,8 @@ mod tests {
     #[cfg(not(windows))]
     #[test]
     fn a_data_path_too_long_for_a_socket_falls_back_to_the_private_folder() {
+        use super::Endpoint;
+        use std::path::Path;
         let temp = Path::new("/tmp");
         let short = Path::new("/Users/someone/Library/Application Support/SkillBinder");
         assert_eq!(

@@ -225,7 +225,13 @@ fn an_appimage_in_a_read_only_folder_is_not_writable() {
 
 #[test]
 fn the_appimage_and_data_home_come_from_the_environment() {
-    let home = Path::new("/home/me");
+    // Only an absolute path counts, and on Windows that needs a drive.
+    let home = Path::new(if cfg!(windows) {
+        r"C:\home\me"
+    } else {
+        "/home/me"
+    });
+    let appimage = home.join("Applications/skillbinder.AppImage");
     let environment = |pairs: &[(&str, &str)]| {
         pairs
             .iter()
@@ -238,12 +244,10 @@ fn the_appimage_and_data_home_come_from_the_environment() {
     let set = AppPlacement::platform(
         home,
         &environment(&[
-            ("APPIMAGE", "/home/me/Applications/skillbinder.AppImage"),
-            ("XDG_DATA_HOME", "/home/me/data"),
+            ("APPIMAGE", &appimage.to_string_lossy()),
+            ("XDG_DATA_HOME", &home.join("data").to_string_lossy()),
         ]),
     );
-    let appimage = cfg!(target_os = "linux")
-        .then(|| PathBuf::from("/home/me/Applications/skillbinder.AppImage"));
-    assert_eq!(set.appimage, appimage);
-    assert_eq!(set.data_home, PathBuf::from("/home/me/data"));
+    assert_eq!(set.appimage, cfg!(target_os = "linux").then_some(appimage));
+    assert_eq!(set.data_home, home.join("data"));
 }
