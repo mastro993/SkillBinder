@@ -132,8 +132,10 @@ fn enable_with_no_agent_holds_for_every_agent_the_workspace_uses() {
         (ErrorCode::Usage, "empty uses no agent yet.")
     );
     assert_eq!(error.hint.as_deref(), Some("Name one with --agent."));
+    // The folder as the agents menu shows it, joined with the platform's separator.
+    let shown = format!("~/code/empty{0}.claude{0}skills", std::path::MAIN_SEPARATOR);
     let (change, _) = added(
-        &enable(named("empty"), &["pdf"], &["~/code/empty/.claude/skills"]),
+        &enable(named("empty"), &["pdf"], &[shown.as_str()]),
         &snapshot,
     );
     assert_eq!(

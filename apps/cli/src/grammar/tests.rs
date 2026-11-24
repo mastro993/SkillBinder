@@ -107,11 +107,17 @@ fn changes_carry_their_names() {
             folder: None
         }
     );
+    // An absolute directory is kept as given; on Windows that needs a drive.
+    let directory = if cfg!(windows) {
+        r"C:\home\.claude\skills"
+    } else {
+        "/home/.claude/skills"
+    };
     assert_eq!(
-        change(&["copies", "keep", "pdf", "--in", "/home/.claude/skills"]),
+        change(&["copies", "keep", "pdf", "--in", directory]),
         Change::KeepCopy {
             skill: "pdf".into(),
-            directory: Some("/home/.claude/skills".into())
+            directory: Some(directory.into())
         }
     );
     assert!(
