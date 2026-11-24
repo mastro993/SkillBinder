@@ -128,7 +128,7 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         match state {
-            Some(CommandLineState::NotOnPath) if self.held_step.is_some() && !settled => {
+            Some(CommandLineState::NotOnPath) if self.held_step.is_some() => {
                 return vec![
                     Button::new("onboarding-command-continue")
                         .label("Continue")
@@ -176,15 +176,16 @@ impl NativeView {
         );
     }
 
-    /// Installs the command, holding the frame on the step shown at `place`: once installed the
-    /// step no longer applies until it is settled.
+    /// Installs the command, holding the frame on the step shown at `place` unless it is settled:
+    /// once installed an unsettled step no longer applies until it is settled, while a settled one
+    /// keeps applying and is left by the frame's Continue.
     fn install_command(&mut self, place: Place, cx: &mut Context<Self>) {
         if self.blocked() {
             return;
         }
         self.set_busy(true, cx);
         self.offers.install = Install::Running;
-        self.held_step = Some(place);
+        self.held_step = place.forward.is_none().then_some(place);
         let client = self.client.clone();
         self.ask(
             async move {
