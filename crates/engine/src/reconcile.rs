@@ -10,9 +10,10 @@ use crate::{
     payload,
     records::Record,
     shutdown::Shutdown,
+    storage,
     worker::State,
 };
-use skillbinder_proto::{AppError, AppResult, Drift};
+use skillbinder_proto::{AppResult, Drift};
 use std::{collections::BTreeSet, fs};
 
 /// The device setting holding the last commit whose skills the database reflects.
@@ -61,12 +62,15 @@ impl State {
     /// would otherwise also match under other spellings.
     pub(crate) fn skill_dirs(&self) -> AppResult<BTreeSet<String>> {
         let root = self.library_dir().join("skills");
-        fs::create_dir_all(&root).map_err(|_| AppError::storage())?;
+        fs::create_dir_all(&root).map_err(storage::error_at("creating", &root))?;
         let mut listed = BTreeSet::new();
-        for entry in fs::read_dir(&root).map_err(|_| AppError::storage())? {
-            let entry = entry.map_err(|_| AppError::storage())?;
+        for entry in fs::read_dir(&root).map_err(storage::error_at("listing", &root))? {
+            let entry = entry.map_err(storage::error_at("listing", &root))?;
             // An unknown entry fails the reconcile rather than reading as a removed skill.
-            let directory = entry.file_type().map_err(|_| AppError::storage())?.is_dir();
+            let directory = entry
+                .file_type()
+                .map_err(storage::error_at("reading the type of", &entry.path()))?
+                .is_dir();
             if let (true, Some(slug)) = (directory, entry.file_name().to_str()) {
                 listed.insert(slug.to_owned());
             }

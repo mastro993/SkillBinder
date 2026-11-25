@@ -4,7 +4,7 @@ use crate::{
         create_folder, delete_folder, move_to_folder, order_folders, rename_folder,
         validate_folders,
     },
-    library_store,
+    library_store, storage,
     worker::State,
 };
 use sha2::{Digest, Sha256};
@@ -36,7 +36,7 @@ fn revision(library: &Library) -> AppResult<String> {
     for skill in &mut library.skills {
         skill.new = false;
     }
-    let bytes = serde_json::to_vec(&library).map_err(|_| AppError::storage())?;
+    let bytes = serde_json::to_vec(&library).map_err(storage::error("serializing the library"))?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 /// Refuses duplicate preset or folder names after normalization.
@@ -375,9 +375,9 @@ impl State {
         self.library_snapshot()
     }
     pub(crate) fn contained_skill_path(&self, path: &Path) -> AppResult<PathBuf> {
-        let canonical = dunce::canonicalize(path).map_err(|_| AppError::storage())?;
-        let root = dunce::canonicalize(self.library_dir().join("skills"))
-            .map_err(|_| AppError::storage())?;
+        let canonical = dunce::canonicalize(path).map_err(storage::error_at("resolving", path))?;
+        let skills = self.library_dir().join("skills");
+        let root = dunce::canonicalize(&skills).map_err(storage::error_at("resolving", &skills))?;
         if !canonical.starts_with(&root) || canonical == root {
             return Err(AppError::validation(
                 "Skill payload leaves the managed library.",
@@ -406,14 +406,16 @@ impl State {
                     "Preview exceeds the directory-depth limit.",
                 ));
             }
-            for entry in fs::read_dir(&directory).map_err(|_| AppError::storage())? {
-                let entry = entry.map_err(|_| AppError::storage())?;
-                let metadata =
-                    fs::symlink_metadata(entry.path()).map_err(|_| AppError::storage())?;
-                let path = entry
-                    .path()
+            for entry in
+                fs::read_dir(&directory).map_err(storage::error_at("listing", &directory))?
+            {
+                let entry = entry.map_err(storage::error_at("listing", &directory))?;
+                let entry_path = entry.path();
+                let metadata = fs::symlink_metadata(&entry_path)
+                    .map_err(storage::error_at("reading the metadata of", &entry_path))?;
+                let path = entry_path
                     .strip_prefix(&root)
-                    .map_err(|_| AppError::storage())?
+                    .map_err(storage::error_at("relating to the skill", &entry_path))?
                     .to_string_lossy()
                     .replace('\\', "/");
                 entries.push(PreviewEntry {
@@ -425,7 +427,7 @@ impl State {
                     return Err(AppError::validation("Preview exceeds the entry limit."));
                 }
                 if metadata.is_dir() {
-                    queue.push((entry.path(), depth + 1));
+                    queue.push((entry_path, depth + 1));
                 }
             }
         }
@@ -442,14 +444,20 @@ impl State {
                 "Choose a relative file inside the skill.",
             ));
         }
-        let selected = dunce::canonicalize(root.join(&requested))
-            .map_err(|_| AppError::not_found("Preview file no longer exists."))?;
+        let requested_path = root.join(&requested);
+        let selected = dunce::canonicalize(&requested_path).map_err(|error| {
+            AppError::not_found("Preview file no longer exists.").because(format_args!(
+                "resolving {}: {error}",
+                requested_path.display()
+            ))
+        })?;
         if !selected.starts_with(&root) {
             return Err(AppError::validation(
                 "Preview path leaves the skill directory.",
             ));
         }
-        let metadata = fs::metadata(&selected).map_err(|_| AppError::storage())?;
+        let metadata = fs::metadata(&selected)
+            .map_err(storage::error_at("reading the metadata of", &selected))?;
         let (text, unavailable) = if !metadata.is_file() {
             (None, Some("This entry is not a regular file.".into()))
         } else if metadata.len() > 128 * 1024 {
@@ -460,11 +468,11 @@ impl State {
         } else {
             use std::io::Read;
             let mut bytes = Vec::new();
-            fs::File::open(selected)
-                .map_err(|_| AppError::storage())?
+            fs::File::open(&selected)
+                .map_err(storage::error_at("opening", &selected))?
                 .take(128 * 1024 + 1)
                 .read_to_end(&mut bytes)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error_at("reading", &selected))?;
             if bytes.len() > 128 * 1024 {
                 (
                     None,

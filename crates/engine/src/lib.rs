@@ -27,6 +27,7 @@ mod scan;
 mod schema;
 mod shutdown;
 mod sources;
+mod storage;
 mod worker;
 mod workspaces;
 

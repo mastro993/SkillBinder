@@ -114,11 +114,11 @@ impl AppUpdates {
                 let outcome = updates.fetch(&source, channel, etag.as_deref());
                 let _ = done.send(running.finish(outcome));
             })
-            .map_err(|_| {
+            .map_err(|error| {
                 if let Ok(mut shared) = self.shared.lock() {
                     shared.running = false;
                 }
-                AppError::storage()
+                AppError::storage().because(format_args!("starting the app update thread: {error}"))
             })?;
         Ok(Some(finished))
     }

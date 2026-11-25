@@ -1,6 +1,7 @@
 use super::{
     Inspection, Manifest, ManifestEntry, ManifestKind, SourceIdentity, finding, frontmatter,
 };
+use crate::storage;
 use sha2::{Digest, Sha256};
 use skillbinder_proto::{AppError, AppResult, ValidationMessage, ValidationStatus};
 use std::{
@@ -34,7 +35,7 @@ struct Walk {
 }
 
 pub(super) fn snapshot(path: &Path) -> AppResult<Snapshot> {
-    let root = dunce::canonicalize(path).map_err(|_| AppError::storage())?;
+    let root = dunce::canonicalize(path).map_err(storage::error_at("resolving", path))?;
     let identity = SourceIdentity::read(&root)?;
     let slug = root
         .file_name()
@@ -117,7 +118,7 @@ impl Walk {
                 self.block("The payload exceeds 5,000 entries.");
                 return Ok(());
             }
-            children.push(item.map_err(|_| AppError::storage())?);
+            children.push(item.map_err(storage::error_at("listing", physical))?);
         }
         children.sort_by_key(|item| item.file_name());
         for item in children {
@@ -165,7 +166,8 @@ impl Walk {
                 self.block("Links to excluded metadata are unsupported.");
                 continue;
             }
-            let metadata = fs::symlink_metadata(&physical).map_err(|_| AppError::storage())?;
+            let metadata = fs::symlink_metadata(&physical)
+                .map_err(storage::error_at("reading the metadata of", &physical))?;
             if metadata.is_dir() {
                 if ancestors.contains(&physical) {
                     self.block("A directory link forms a cycle.");
@@ -206,9 +208,13 @@ impl Walk {
             self.block("The payload exceeds its file or total byte limit.");
             return Ok(());
         }
-        let mut file =
-            open_regular(&self.root, physical).map_err(|_| AppError::stale("SourceChanged"))?;
-        let before = file.metadata().map_err(|_| AppError::storage())?;
+        let mut file = open_regular(&self.root, physical).map_err(|error| {
+            AppError::stale("SourceChanged")
+                .because(format_args!("opening {}: {error}", physical.display()))
+        })?;
+        let before = file
+            .metadata()
+            .map_err(storage::error_at("reading the metadata of", physical))?;
         if !before.is_file() || !same_file(metadata, &before) {
             return Err(AppError::stale("SourceChanged"));
         }
@@ -216,12 +222,14 @@ impl Walk {
         (&mut file)
             .take(limit + 1)
             .read_to_end(&mut bytes)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error_at("reading", physical))?;
         if bytes.len() as u64 > limit || self.total + bytes.len() as u64 > MAX_TOTAL {
             self.block("The payload exceeds its file or total byte limit.");
             return Ok(());
         }
-        let after = file.metadata().map_err(|_| AppError::storage())?;
+        let after = file
+            .metadata()
+            .map_err(storage::error_at("reading the metadata of", physical))?;
         if before.len() != after.len()
             || before.modified().ok() != after.modified().ok()
             || resolve_within_source(&self.root, item).ok().as_deref() != Some(physical)

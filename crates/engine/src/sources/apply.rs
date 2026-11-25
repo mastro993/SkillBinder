@@ -10,6 +10,7 @@ use crate::{
     payload::{self, Inspection},
     persistence::{Journal, Move, RecordChange},
     records::Record,
+    storage,
     worker::State,
 };
 use skillbinder_proto::*;
@@ -138,7 +139,7 @@ impl State {
         let into = staging.join("restored");
         let restored = if repo.join(".git").exists() && git.has_tree(&repo, &skill.recorded)? {
             let directory = into.join(slug);
-            fs::create_dir_all(&directory).map_err(|_| AppError::storage())?;
+            fs::create_dir_all(&directory).map_err(storage::error_at("creating", &directory))?;
             git.restore_tree(&repo, &skill.recorded, &staging.join("scratch"), &directory)?;
             payload::inspect(&directory)?
         } else {
@@ -175,8 +176,9 @@ impl State {
         let mut moves = Vec::new();
         let mut saved = content.clone();
         if content.manifest.digest != skill.digest {
-            let replacement = staging.join("new").join(slug);
-            fs::create_dir_all(staging.join("new")).map_err(|_| AppError::storage())?;
+            let new = staging.join("new");
+            let replacement = new.join(slug);
+            fs::create_dir_all(&new).map_err(storage::error_at("creating", &new))?;
             payload::materialize(content, &replacement)?;
             saved = payload::inspect(&replacement)?;
             moves = vec![

@@ -10,6 +10,7 @@ use crate::{
     scan::registry::workspace_skill_dirs,
     schema::repositories,
     sources::{CacheUser, cache_dir},
+    storage,
     worker::State,
 };
 use diesel::prelude::*;
@@ -40,7 +41,7 @@ impl State {
             ))
             .order((repositories::added_at, repositories::id))
             .load::<(String, String, i64, String, i64)>(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("loading repositories"))?;
         Ok(rows
             .into_iter()
             .map(|(id, url, added_at, listing, listed_at)| {
@@ -99,7 +100,7 @@ impl State {
             .filter(repositories::normalized.eq(normalized_url(url)))
             .count()
             .get_result::<i64>(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("counting repositories with a URL"))?;
         if added > 0 {
             Err(RepositoryProblem::AlreadyAdded)
         } else {
@@ -139,7 +140,8 @@ impl State {
         listed: &[Listed],
         listed_at: u64,
     ) -> AppResult<()> {
-        let listing = serde_json::to_string(listed).map_err(|_| AppError::storage())?;
+        let listing = serde_json::to_string(listed)
+            .map_err(storage::error("serializing a repository listing"))?;
         diesel::insert_into(repositories::table)
             .values((
                 repositories::id.eq(id.as_str()),
@@ -151,7 +153,7 @@ impl State {
             ))
             .execute(&mut *self.database.borrow_mut())
             .map(drop)
-            .map_err(|_| AppError::storage())
+            .map_err(storage::error("saving a repository"))
     }
 
     /// Forgets repository `id`. Skills installed from it stay in the library with their records
@@ -159,7 +161,7 @@ impl State {
     pub(crate) fn remove_repository(&self, id: &RepositoryId) -> AppResult<()> {
         diesel::delete(repositories::table.filter(repositories::id.eq(id.as_str())))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("removing a repository"))?;
         self.publish_repositories()
     }
 
@@ -204,14 +206,15 @@ impl State {
 
     /// Saves what listing repository `id` again found, if it is still saved.
     pub(crate) fn relisted(&self, id: &RepositoryId, listed: &[Listed]) -> AppResult<()> {
-        let listing = serde_json::to_string(listed).map_err(|_| AppError::storage())?;
+        let listing = serde_json::to_string(listed)
+            .map_err(storage::error("serializing a repository listing"))?;
         diesel::update(repositories::table.filter(repositories::id.eq(id.as_str())))
             .set((
                 repositories::listing.eq(listing),
                 repositories::listed_at.eq(stored(now())),
             ))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("saving a repository listing"))?;
         self.publish_repositories()
     }
 

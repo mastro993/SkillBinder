@@ -3,7 +3,7 @@
 
 use crate::{
     logging::{Area, Level},
-    payload, persistence,
+    payload, persistence, storage,
     worker::State,
 };
 use serde::{Deserialize, Serialize};
@@ -91,7 +91,8 @@ impl State {
     /// The record stored for `slug`: `None` when there is none or it is invalid, which is logged,
     /// and an error when the file cannot be read now, so a caller can retry.
     pub(crate) fn stored_record(&self, slug: &str) -> AppResult<Option<Record>> {
-        let text = match read_bounded(&self.record_file(slug)?) {
+        let path = self.record_file(slug)?;
+        let text = match read_bounded(&path) {
             Ok(Some(text)) => text,
             Ok(None) => {
                 self.log
@@ -100,7 +101,7 @@ impl State {
                 return Ok(None);
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(_) => return Err(AppError::storage()),
+            Err(error) => return Err(storage::error_at("reading", &path)(error)),
         };
         match toml::from_str::<Record>(&text)
             .map_err(|error| error.to_string())
@@ -121,23 +122,28 @@ impl State {
     pub(crate) fn write_record(&self, slug: &str, record: &Record) -> AppResult<()> {
         let path = self.record_file(slug)?;
         let directory = self.records_dir();
-        fs::create_dir_all(&directory).map_err(|_| AppError::storage())?;
-        let text = toml::to_string(record).map_err(|_| AppError::storage())?;
+        fs::create_dir_all(&directory).map_err(storage::error_at("creating", &directory))?;
+        let text = toml::to_string(record).map_err(storage::error("serializing a record"))?;
         // Staged outside the synced folder, so an interrupted write never leaves a file there.
-        let mut file = tempfile::NamedTempFile::new_in(self.config.data_dir.join("staging"))
-            .map_err(|_| AppError::storage())?;
+        let staging = self.config.data_dir.join("staging");
+        let mut file = tempfile::NamedTempFile::new_in(&staging).map_err(storage::error_at(
+            "creating a temporary record in",
+            &staging,
+        ))?;
         file.write_all(text.as_bytes())
             .and_then(|()| file.as_file().sync_all())
-            .map_err(|_| AppError::storage())?;
-        file.persist(&path).map_err(|_| AppError::storage())?;
+            .map_err(storage::error_at("writing", file.path()))?;
+        file.persist(&path)
+            .map_err(storage::error_at("persisting a record to", &path))?;
         persistence::sync_directory(&directory)
     }
 
     /// Removes `slug`'s record, if any.
     pub(crate) fn remove_record(&self, slug: &str) -> AppResult<()> {
-        match fs::remove_file(self.record_file(slug)?) {
+        let path = self.record_file(slug)?;
+        match fs::remove_file(&path) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(_) => Err(AppError::storage()),
+            Err(error) => Err(storage::error_at("removing", &path)(error)),
             // Durable before a journal that removed it is deleted.
             Ok(()) => persistence::sync_directory(&self.records_dir()),
         }
@@ -173,13 +179,14 @@ impl State {
     /// Removes the records whose skill directory is not among `listed`, such as one an import
     /// interrupted before its skill arrived left behind.
     pub(crate) fn remove_orphan_records(&self, listed: &BTreeSet<String>) -> AppResult<()> {
-        let entries = match fs::read_dir(self.records_dir()) {
+        let directory = self.records_dir();
+        let entries = match fs::read_dir(&directory) {
             Ok(entries) => entries,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(_) => return Err(AppError::storage()),
+            Err(error) => return Err(storage::error_at("listing", &directory)(error)),
         };
         for entry in entries {
-            let entry = entry.map_err(|_| AppError::storage())?;
+            let entry = entry.map_err(storage::error_at("listing", &directory))?;
             let name = entry.file_name();
             let Some(slug) = name.to_str().and_then(|name| name.strip_suffix(".toml")) else {
                 continue;

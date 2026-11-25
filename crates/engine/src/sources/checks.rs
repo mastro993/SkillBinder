@@ -5,7 +5,7 @@ use super::{CacheUser, GONE, cache_dir, checkout, refusal};
 use crate::{
     git::Git,
     logging::{Area, Level, Logger},
-    persistence,
+    persistence, storage,
 };
 use skillbinder_proto::*;
 use std::{
@@ -69,7 +69,9 @@ impl Drop for Running {
 
 impl Updates {
     fn lock(&self) -> AppResult<MutexGuard<'_, State>> {
-        self.state.lock().map_err(|_| AppError::storage())
+        self.state
+            .lock()
+            .map_err(storage::error("locking the update check state"))
     }
 
     /// The update state of each of `skills` whose last check still describes its source and

@@ -6,6 +6,7 @@ use super::Engine;
 use crate::{
     install::{Begun, Failed, Fetch},
     logging::{Area, Level},
+    storage,
 };
 use skillbinder_proto::*;
 use std::future::Future;
@@ -109,7 +110,7 @@ impl Engine {
             .pool
             .run(move || fetch.run())?
             .await
-            .map_err(|_| Failed::from(AppError::storage()))??;
+            .map_err(|error| Failed::from(storage::error("waiting for the fetch")(error)))??;
         let committed = self
             .call({
                 let staging = staging.clone();

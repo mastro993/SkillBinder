@@ -5,6 +5,7 @@
 use crate::{
     persistence,
     scan::registry::{self, Reach},
+    storage,
     worker::State,
 };
 use serde::{Deserialize, Serialize};
@@ -122,7 +123,8 @@ impl State {
         }
         choices.chosen.retain(|dir| !dirs.contains(dir));
         let after = registry::agent_options(&self.config, &choices)?;
-        let value = serde_json::to_string(&choices).map_err(|_| AppError::storage())?;
+        let value =
+            serde_json::to_string(&choices).map_err(storage::error("serializing agent choices"))?;
         self.release_places(&after, |connection| {
             persistence::put_setting(connection, AGENTS, &value)
         })

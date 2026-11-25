@@ -3,7 +3,7 @@
 //! quit.
 
 use super::Engine;
-use crate::{QuitCause, Relaunch, app_update::Ended, logging::Area};
+use crate::{QuitCause, Relaunch, app_update::Ended, logging::Area, storage};
 use skillbinder_proto::*;
 
 impl Engine {
@@ -16,7 +16,10 @@ impl Engine {
             let Some(finished) = self.owner.app_updates.check(manual)? else {
                 return Ok(());
             };
-            match finished.await.map_err(|_| AppError::storage())? {
+            match finished
+                .await
+                .map_err(storage::error("waiting for the app update check"))?
+            {
                 Ended::Checked { check, ready } => {
                     return self
                         .call(move |state| state.save_update_check(&check, ready.as_ref()))

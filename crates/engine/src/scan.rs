@@ -144,7 +144,9 @@ pub(crate) struct Scans(Arc<Mutex<ScanState>>);
 
 impl Scans {
     fn lock(&self) -> AppResult<MutexGuard<'_, ScanState>> {
-        self.0.lock().map_err(|_| AppError::storage())
+        self.0.lock().map_err(|error| {
+            AppError::storage().because(format_args!("locking the scans: {error}"))
+        })
     }
 
     /// The last completed scan, and whether another one is running.

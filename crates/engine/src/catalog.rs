@@ -19,9 +19,9 @@ pub(crate) use repositories::{Listed, Listing, Repositories};
 pub(crate) use resolve::{Begin, Resolutions, Resolve, Resolved, not_found};
 pub(crate) use search::Searches;
 
-use crate::{persistence, shutdown::Shutdown};
+use crate::{persistence, shutdown::Shutdown, storage};
 use cache::{Cache, Meta};
-use skillbinder_proto::{AppError, AppResult, Catalog, CatalogState, ExploreSnapshot};
+use skillbinder_proto::{AppResult, Catalog, CatalogState, ExploreSnapshot};
 use snapshot::{Refusal, Translated, translate};
 use std::{
     path::{Path, PathBuf},
@@ -75,7 +75,9 @@ impl Catalogs {
     }
 
     fn lock(&self) -> AppResult<MutexGuard<'_, Shared>> {
-        self.shared.lock().map_err(|_| AppError::storage())
+        self.shared
+            .lock()
+            .map_err(storage::error("locking the catalog state"))
     }
 
     /// The catalog state and the cached catalog, with no installs or preview.
@@ -112,7 +114,7 @@ impl Catalogs {
                 running.finish(catalogs.fetch());
                 let _ = done.send(());
             })
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("starting the catalog thread"))?;
         Ok(Some(finished))
     }
 

@@ -71,12 +71,14 @@ fn first_usable(
 }
 
 fn verify(program: &process::Program) -> AppResult<validation::Version> {
-    let output = process::run(program, None, &["--version"], Duration::from_secs(30), None)?;
+    let args = ["--version"];
+    let output = process::run(program, None, &args, Duration::from_secs(30), None)?;
     if !output.status.success() {
-        return Err(failure("Git verification failed."));
+        return Err(failure("Git verification failed.").because(process::exited(&args, &output)));
     }
-    let raw =
-        String::from_utf8(output.stdout).map_err(|_| failure("Git version is unreadable."))?;
+    let raw = String::from_utf8(output.stdout).map_err(|error| {
+        failure("Git version is unreadable.").because(process::unreadable(&args, error))
+    })?;
     validation::version(&raw)
 }
 

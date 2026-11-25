@@ -9,6 +9,7 @@ use crate::{
     library_store,
     scan::{self, Selected},
     schema::{presets, workspaces},
+    storage,
     workspaces::activation as workspace_skills,
 };
 use diesel::{dsl::exists, prelude::*};
@@ -175,7 +176,6 @@ pub(super) fn held(preset: &PresetId, slug: &str, placement: Placement) -> Vec<H
 /// meanwhile is skipped with the replacements held for it, so recovering an interrupted import
 /// never fails on it and never manages a copy nothing holds.
 pub(crate) fn save(connection: &mut SqliteConnection, held: &[Held]) -> AppResult<()> {
-    let storage = |_| AppError::storage();
     // Who holds each imported slug: `None` for your agents, else a workspace.
     let mut holding = BTreeSet::<(Option<&WorkspaceId>, &str)>::new();
     let mut replaced = Vec::new();
@@ -189,7 +189,7 @@ pub(crate) fn save(connection: &mut SqliteConnection, held: &[Held]) -> AppResul
                 let found = presets::table.find(preset.as_str());
                 if diesel::select(exists(found))
                     .get_result(connection)
-                    .map_err(storage)?
+                    .map_err(storage::error("checking that a preset exists"))?
                 {
                     let targets = Targets::Agents(agents.clone());
                     library_store::hold_in_preset(connection, preset, slug, &targets)?;
@@ -204,7 +204,7 @@ pub(crate) fn save(connection: &mut SqliteConnection, held: &[Held]) -> AppResul
                 let found = workspaces::table.find(workspace.as_str());
                 if diesel::select(exists(found))
                     .get_result(connection)
-                    .map_err(storage)?
+                    .map_err(storage::error("checking that a workspace exists"))?
                 {
                     let skill = SkillId(slug.clone());
                     let targets = WorkspaceTargets::Dirs(dirs.clone());

@@ -7,6 +7,7 @@ use crate::catalog::{Begin, Resolve, Resolved, not_found};
 use crate::install::Failed;
 use crate::scan::registry::workspace_skill_dirs;
 use crate::sources::{CacheUser, cache_dir};
+use crate::storage;
 use skillbinder_proto::*;
 use std::future::Future;
 
@@ -21,7 +22,9 @@ impl Engine {
         let asked = self.owner.searches.search(query);
         async move {
             if let Some(settled) = asked? {
-                settled.await.map_err(|_| AppError::storage())?;
+                settled
+                    .await
+                    .map_err(storage::error("waiting for the skills.sh search"))?;
             }
             Ok(())
         }
@@ -36,7 +39,9 @@ impl Engine {
         let asked = self.owner.searches.ask(query);
         async move {
             match asked? {
-                Some(answered) => answered.await.map_err(|_| AppError::storage()),
+                Some(answered) => answered
+                    .await
+                    .map_err(storage::error("waiting for the skills.sh answer")),
                 None => Ok(SkillsShState::Idle),
             }
         }
@@ -132,6 +137,6 @@ impl Engine {
             .pool
             .run(move || resolve.run(&result))?
             .await
-            .map_err(|_| AppError::storage())?
+            .map_err(storage::error("waiting for the folder resolution"))?
     }
 }

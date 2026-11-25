@@ -16,8 +16,10 @@ impl State {
     pub(crate) fn grant_directory(&mut self, path: PathBuf) -> AppResult<DirectoryGrant> {
         self.grants
             .retain(|_, grant| grant.created.elapsed() < GRANT_LIFETIME);
-        let canonical = dunce::canonicalize(&path)
-            .map_err(|_| AppError::validation("Choose an accessible directory."))?;
+        let canonical = dunce::canonicalize(&path).map_err(|error| {
+            AppError::validation("Choose an accessible directory.")
+                .because(format_args!("resolving {}: {error}", path.display()))
+        })?;
         if !canonical.is_dir() {
             return Err(AppError::validation("Choose a directory."));
         }
@@ -42,8 +44,10 @@ impl State {
         if grant.created.elapsed() >= GRANT_LIFETIME {
             return Err(AppError::stale("Directory selection expired."));
         }
-        let canonical = dunce::canonicalize(&grant.path)
-            .map_err(|_| AppError::stale("Selected directory no longer exists."))?;
+        let canonical = dunce::canonicalize(&grant.path).map_err(|error| {
+            AppError::stale("Selected directory no longer exists.")
+                .because(format_args!("resolving {}: {error}", grant.path.display()))
+        })?;
         if canonical != grant.path {
             return Err(AppError::stale("Selected directory changed."));
         }
@@ -57,7 +61,8 @@ mod tests {
 
     #[test]
     fn expired_grant_is_refused_and_consumed() -> AppResult<()> {
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root =
+            tempfile::tempdir().map_err(crate::storage::error("creating a temporary directory"))?;
         let mut state = State::isolated_test_state(root.path().join("data"));
         let grant = state.grant_directory(root.path().to_owned())?;
         state
