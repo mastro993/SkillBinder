@@ -51,9 +51,25 @@ fn main() -> ExitCode {
 /// An isolated root resolved as the native-test app resolves it, since the endpoint derives from
 /// the path: `.skillbinder-dev/default/data` reaches the app launched on its absolute path.
 fn isolated_data(data: &Path) -> PathBuf {
-    std::fs::canonicalize(data)
-        .or_else(|_| std::path::absolute(data))
-        .unwrap_or_else(|_| data.to_owned())
+    resolved(data).unwrap_or_else(|_| data.to_owned())
+}
+
+/// `path` made absolute with its deepest existing folder's links resolved and the missing names
+/// after it kept, as the native-test app's `resolved_path` does.
+fn resolved(path: &Path) -> std::io::Result<PathBuf> {
+    let absolute = std::path::absolute(path)?;
+    let mut existing = absolute.as_path();
+    let mut missing = Vec::new();
+    while !existing.exists() {
+        let (Some(name), Some(parent)) = (existing.file_name(), existing.parent()) else {
+            return Err(std::io::ErrorKind::NotFound.into());
+        };
+        missing.push(name);
+        existing = parent;
+    }
+    let mut resolved = std::fs::canonicalize(existing)?;
+    resolved.extend(missing.into_iter().rev());
+    Ok(resolved)
 }
 
 /// The application data folder the app's engine uses.
@@ -102,6 +118,15 @@ mod tests {
             Endpoint::of(&isolated_data(Path::new(".")), private),
             Endpoint::of(&resolved, private)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_missing_isolated_root_resolves_its_existing_folder() -> std::io::Result<()> {
+        // A temporary folder may sit behind a link, as macOS' /var does.
+        let scratch = tempfile::tempdir()?;
+        let resolved = std::fs::canonicalize(scratch.path())?.join("world/data");
+        assert_eq!(isolated_data(&scratch.path().join("world/data")), resolved);
         Ok(())
     }
 }
