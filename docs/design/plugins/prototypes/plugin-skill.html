@@ -1278,11 +1278,14 @@ Talk like caveman. Keep every fact, drop every filler word.
 
   // ---- agents (P2, P5-P8, A1-A3) ------------------------------------------------------------
   const OPS = { install: 'Installing', update: 'Updating', uninstall: 'Uninstalling' };
+  // P11: every Install confirms, naming the source, what the plugin adds, any marketplace step, and the commands.
   function install(p, a, win) {
-    if (p.known.includes(a.id)) { P.run(p.id, a.id, 'install'); return; }
     const cmds = P.commands(p, a);
-    confirmDialog(win, { title: `Add marketplace ${p.mkt} (${p.repo}) to ${a.name} and install ${p.name}?`,
-      body: h('div', { class: 'pl-cmds' }, cmds.map((c) => h('span', c))), confirm: 'Install', danger: false })
+    const n = p.skills.length;
+    const lines = [h('div', `From ${p.mkt} · ${n} skill${n === 1 ? '' : 's'}`)];
+    if (!p.known.includes(a.id)) lines.push(h('div', `Adds marketplace ${p.mkt} (${P.mktRepo(p)})`));
+    confirmDialog(win, { title: `Install ${p.name} in ${a.name}?`,
+      body: h('div', null, lines, h('div', { class: 'pl-cmds' }, cmds.map((c) => h('span', c)))), confirm: 'Install', danger: false })
       .then((ok) => ok && P.run(p.id, a.id, 'install'));
   }
   function uninstall(p, a, win) {
@@ -1303,7 +1306,7 @@ Talk like caveman. Keep every fact, drop every filler word.
       if (op) end = [h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', disabled: true }, spinner(13), OPS[op])];
       else if (!a.cmd) end = i ? [] : [h('span', { class: 'pl-hint' }, a.hint)];
       else if (i) end = [P.behind(p, a.id) ? btn('Update', () => P.run(p.id, a.id, 'update')) : null, btn('Uninstall', () => uninstall(p, a, win))];
-      else if (!p.mkt) end = [h('span', { 'data-tip': 'No marketplace to install from', 'data-tip-pos': 'end', tabindex: '0' }, h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', disabled: true }, 'Install'))];
+      else if (!p.mkt) end = [h('span', { 'data-tip': 'No source to install from', 'data-tip-pos': 'end', tabindex: '0' }, h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', disabled: true }, 'Install'))];
       else end = [btn('Install', () => install(p, a, win))];
       el.replaceChildren(...[
         h('span', { class: 'pl-agent-logo' }, avatar({ name: a.name, logo: a.logo }, { size: 20, tip: false })),

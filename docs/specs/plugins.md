@@ -84,8 +84,8 @@ Decisions, from [decisions.md](../design/plugins/decisions.md), the owner's from
 ### Command line and MCP server
 
 1. `skillbinder plugins` lists plugins with their agents and versions; `skillbinder plugins <plugin>` shows one, with its skills. `<plugin>` is `name`, or `name@marketplace` when the name is ambiguous.
-2. `skillbinder plugin install|update|uninstall <plugin> --agent <agent>` runs the change. Install into an agent lacking the marketplace refuses with the marketplace and repository unless `--add-marketplace` is given, the command's form of P6's confirmation.
-3. The MCP server gains `list_plugins`, `get_plugin`, `install_plugin` (with `add_marketplace`), `update_plugin`, and `uninstall_plugin`, with the same rules.
+2. `skillbinder plugin install|update|uninstall <plugin> --agent <agent>` runs the change. Install and Uninstall keep their confirmations the way ADR 0023 keeps the app's: in a terminal the command asks P11's question (source, what the plugin adds, any marketplace step, the commands) or A1's; without a terminal it refuses with that text and exits 3 unless `--yes` is passed, which is the user's consent, marketplace step included. Update needs none.
+3. The MCP server gains `list_plugins`, `get_plugin`, `install_plugin`, `update_plugin`, and `uninstall_plugin`. As ADR 0025 does for deletions, `install_plugin` and `uninstall_plugin` ask through elicitation when the client supports it; otherwise they refuse with the question's text and tell the agent to ask the user and call again with `confirm: true`.
 
 ### Lifecycle
 
@@ -111,7 +111,7 @@ Prototypes in [docs/design/plugins](../design/plugins/README.md), picked 2026-11
 - **A9 (U2):** a plugin uninstalled from its last agent stays until the page is left.
 - **A10 (P8):** behind compares installed versions only, as numbers (semver); versions that aren't numbers, such as Git commit ids, never show Update, and SkillBinder never asks a marketplace for its newest version. *If wrong:* reading the agent's marketplace clone would add a source of truth per agent.
 - **A11 (U1):** the sidebar row uses Hugeicons' puzzle glyph, which presets can also pick. *If wrong:* choose another retained glyph.
-- **A12 (ADR 0023):** the command line tool and MCP server cover plugins, with `--add-marketplace` as the confirmation.
+- **A12 (ADR 0023, 0025):** the command line tool and MCP server cover plugins; Install and Uninstall confirm at a terminal or through elicitation, and otherwise need `--yes` or `confirm: true`, one consent that includes any marketplace step, as P11 absorbs P6. *If wrong:* a separate `--add-marketplace` would make an agent ask the user twice.
 - **A13 (P1):** no plugin command runs without the user's click, the command, or an MCP call: SkillBinder never installs, updates, or uninstalls on its own, not even to resolve an overlap.
 
 ## Acceptance
