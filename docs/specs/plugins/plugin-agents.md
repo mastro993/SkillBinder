@@ -4,13 +4,13 @@ Companion to [the Plugins spec](../plugins.md). The plugin systems of all 79 reg
 
 ## First version: agents with an installer SkillBinder can run (P2)
 
-`<p>@<m>` is plugin at marketplace. "Claude" in Takes means the agent installs Claude Code plugins (`.claude-plugin/plugin.json` and `marketplace.json`).
+`<p>@<m>` is plugin at marketplace. "Claude" in Takes means the agent installs Claude Code plugins (`.claude-plugin/plugin.json` and `marketplace.json`). Flags such as Grok's `--trust` and Reasonix's `--yes` skip the agent's own trust prompt; SkillBinder's install dialog asks instead (P11).
 
 | Agent (registry id) | Agent's word | Takes | Reads (user scope) | Install · Update · Uninstall | Slice |
 | --- | --- | --- | --- | --- | --- |
 | Claude Code (`claude-code`) | plugin | Claude | `~/.claude/plugins/installed_plugins.json`, `known_marketplaces.json`, `enabledPlugins` in `~/.claude/settings.json` | `claude plugin install\|update\|uninstall <p>@<m> --scope user`; `claude plugin marketplace add <src>` | S1, S3 |
 | GitHub Copilot (`github-copilot`) | plugin | Claude, Agent Plugins | `~/.copilot/installed-plugins/<m>/<p>/`, `installedPlugins` in `~/.copilot/config.json`, `enabledPlugins` in `~/.copilot/settings.json` | `copilot plugin install\|update\|uninstall`; `copilot plugin marketplace add` | S4 |
-| Codex (`codex`) | plugin | Claude marketplaces, Agent Plugins | `~/.codex/plugins/cache/<m>/<p>/<v>/`, `[plugins."<p>@<m>"]` in `~/.codex/config.toml` | `codex plugin add\|remove <p>@<m>`; update by `codex plugin marketplace upgrade <m>`; `codex plugin marketplace add` | S4 |
+| Codex (`codex`) | plugin | Claude marketplaces, Agent Plugins | `~/.codex/plugins/cache/<m>/<p>/<v>/`, `[plugins."<p>@<m>"]` in `~/.codex/config.toml` | `codex plugin add\|remove <p>@<m>`; no per-plugin update known (`codex plugin marketplace upgrade <m>` acts on the marketplace; S4 confirms); `codex plugin marketplace add` | S4 |
 | Droid (`droid`) | plugin | Claude (translated) | cache under `~/.factory` (path to confirm), `enabledPlugins` in settings | `droid plugin install\|update\|uninstall <p>@<m> --scope user`; `droid plugin marketplace add` | S5 |
 | Grok Build (`grok`) | plugin | Claude | `~/.grok/plugins/`, `known_marketplaces.json`, `[plugins]` in `~/.grok/config.toml` | `grok plugin install <src> --trust`, `update`, `uninstall`; `grok plugin marketplace add` | S5 |
 | CodeBuddy (`codebuddy`) | plugin | Claude | `~/.codebuddy/plugins/cache/<m>/<p>/<v>`, `~/.codebuddy/settings.json` | `codebuddy plugin install\|update\|uninstall <p>@<m> --scope user`; `marketplace add` | S5 |
@@ -20,8 +20,8 @@ Companion to [the Plugins spec](../plugins.md). The plugin systems of all 79 reg
 | Qoder (`qoder`) | plugin | Qoder (Claude to confirm) | `enabledPlugins` in settings (path to confirm) | `qodercli plugins install\|update\|uninstall -s user`; `marketplace add` | S6 |
 | Kode (`kode`) | plugin | Claude marketplaces | under `~/.kode` (to confirm) | `kode plugin install <p>@<m> --scope user`; update and uninstall to confirm; `marketplace add` | S6 |
 | Augment (`augment`) | plugin | Claude | to confirm | `auggie plugin install <p>@<m>` (to confirm); `auggie plugin marketplace add` | S6 |
-| Pi (`pi`) | package | npm or Git package whose root has `skills/` or a `package.json` `pi` key | `packages` in `~/.pi/agent/settings.json`; caches `~/.pi/agent/npm`, `~/.pi/agent/git` | `pi install git:<host>/<path>[@ref]\|npm:<pkg>`, `pi update <src>`, `pi remove <src>` | S7 |
-| Gemini CLI (`gemini-cli`) | extension | Git repository with `gemini-extension.json` | `~/.gemini/extensions/<n>/`, `.gemini-extension-install.json` | `gemini extensions install <git-url>`, `update <n>`, `uninstall <n>` | S7 |
+| Pi (`pi`) | package | npm package, or a Git repository whose root has `skills/` or a `package.json` `pi` key (not a folder of a repository) | `packages` in `~/.pi/agent/settings.json`; caches `~/.pi/agent/npm`, `~/.pi/agent/git` | `pi install git:<host>/<path>[@ref]\|npm:<pkg>`, `pi update <src>`, `pi remove <src>` | S7 |
+| Gemini CLI (`gemini-cli`) | extension | Git repository with `gemini-extension.json` at its root | `~/.gemini/extensions/<n>/`, `.gemini-extension-install.json` | `gemini extensions install <git-url>`, `update <n>`, `uninstall <n>` | S7 |
 | Antigravity CLI (`antigravity-cli`) | plugin | Agent Plugins, its own; Claude only by import | `~/.gemini/config/plugins/<p>/` (sources disagree; confirm) | `agy plugin install <p>@<m>\|<url>\|<path>`, `uninstall`; no update | S7 |
 | Cortex Code (`cortex`) | plugin | Claude manifest from Git | `~/.snowflake/cortex/plugins/`, `registry.json` | `cortex plugin install <owner/repo\|url>`, `update`, `uninstall` | S8 |
 | Devin for Terminal (`devin`), also Windsurf (`windsurf`) | plugin | Claude manifest from Git | personal manifest in Devin Cloud (needs `devin auth login`) | `devin plugins install <owner/repo>`, `update`, `remove` | S8 |

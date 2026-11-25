@@ -14,6 +14,7 @@ Agreed with the owner on 2026-11-25 (feature-design rounds 1–2, and round 4 af
 - P8. Each agent shows its installed version. When an agent's version is behind the newest version another agent has, that agent gets **Update** (runs `<agent> plugin update`).
 - P9. An agent that can't use a plugin's format (Gemini CLI needs `gemini-extension.json`; fstack is a Claude Code plugin) shows "Not installed · <agent> can't use this plugin" with no Install button.
 - P10. Plugins that are code registering skills at run time (Amp, AiderDesk) are left out, as are plugin systems that can't hold skills (OpenCode, Kilo, Cline, Zed).
+- P11. Every Install confirms (owner, after review of PR #249): "Install <plugin> in <agent>?" naming the source, what the plugin adds (skills, hooks, MCP servers), and the commands; it absorbs P6's marketplace step and stands in for the agent's own trust prompt (`--trust`, `--yes`), which SkillBinder skips. Update and Uninstall don't use it.
 - A1. Uninstall asks for confirmation naming the agent ("Uninstall fstack from Claude Code?"). No Undo.
 - A2. A plugin with no source (synced from claude.ai, loaded from a local folder) can't be installed elsewhere: Install disabled with tooltip "No source to install from".
 - A3. While a command runs, that agent's button shows a spinner; failure shows the agent's error output in an error toast/inline message; success refreshes the row.

@@ -2,11 +2,11 @@
 
 ADRs: [0034](../adr/0034-plugins-are-installed-through-the-agents-own-installers.md), [0035](../adr/0035-plugin-skills-stay-outside-the-library.md); builds on [0006](../adr/0006-activation-writes-managed-copies.md) (managed copies), [0012](../adr/0012-chosen-agents.md) (chosen agents), [0023](../adr/0023-command-line-tool-covers-domain-actions.md) (the command covers domain actions), and [0026](../adr/0026-connect-agents-through-their-own-installers.md) (agents' own installers). Design: [docs/design/plugins](../design/plugins/README.md), rules in [decisions.md](../design/plugins/decisions.md). Glossary: [domain-plugins.md](../agents/domain-plugins.md) (plugin, source, marketplace, plugin agent, installed, can't use, Off, behind, plugin skill).
 
-This spec has three companion files: [Agents](plugins/agents.md) (the plugin systems of all 79 agents and which slice adds each), [Design](plugins/design.md) (technical decisions, architecture, risks), and [Acceptance and slices](plugins/acceptance.md).
+This spec has three companion files: [Agents](plugins/plugin-agents.md) (the plugin systems of all 79 agents and which slice adds each), [Design](plugins/design.md) (technical decisions, architecture, risks), and [Acceptance and slices](plugins/acceptance.md).
 
 ## Problem
 
-The owner's Claude Code has 13 plugins (`fstack`, `mattpocock-skills`, `caveman`, `beautiful-rust`, …) and Cursor has more; together they ship dozens of skills. SkillBinder reads no plugin folder (`crates/engine/src/scan/registry.rs:245-295`), so none of this shows: not which plugins each agent has, not the skills they load, not that the library's `caveman` and `rust-best-practices` duplicate skills a plugin also ships, which makes Claude Code load both and leaves the plugin's copy loading after the library skill is turned off. Putting a plugin into another agent means finding its source and running that agent's own commands by hand. 41 of the 79 agents SkillBinder supports now have plugins that can ship skills (Pi calls them packages, Gemini CLI extensions, Kiro powers), and about a dozen read Claude Code's plugin format directly ([Agents](plugins/agents.md)), so the plugin would often work there; only the steps are missing.
+The owner's Claude Code has 13 plugins (`fstack`, `mattpocock-skills`, `caveman`, `beautiful-rust`, …) and Cursor has more; together they ship dozens of skills. SkillBinder reads no plugin folder (`crates/engine/src/scan/registry.rs:245-295`), so none of this shows: not which plugins each agent has, not the skills they load, not that the library's `caveman` and `rust-best-practices` duplicate skills a plugin also ships, which makes Claude Code load both and leaves the plugin's copy loading after the library skill is turned off. Putting a plugin into another agent means finding its source and running that agent's own commands by hand. 41 of the 79 agents SkillBinder supports now have plugins that can ship skills (Pi calls them packages, Gemini CLI extensions, Kiro powers), and about a dozen read Claude Code's plugin format directly ([Agents](plugins/plugin-agents.md)), so the plugin would often work there; only the steps are missing.
 
 ## Outcome
 
@@ -17,7 +17,7 @@ From one sidebar page the user sees every plugin their agents have installed, wh
 In:
 
 - A Plugins page (sidebar row under Library), a plugin page, and a read-only plugin skill page.
-- Reading user-scope plugins, and installing, updating, and uninstalling them through the agent's own installer, for the 24 agents with an installer SkillBinder can run ([Agents](plugins/agents.md#first-version-agents-with-an-installer-skillbinder-can-run-p2)), added a few per slice; adding a plugin's marketplace first after a confirmation.
+- Reading user-scope plugins, and installing, updating, and uninstalling them through the agent's own installer, for the 24 agents with an installer SkillBinder can run ([Agents](plugins/plugin-agents.md#first-version-agents-with-an-installer-skillbinder-can-run-p2)), added a few per slice; adding a plugin's marketplace first after a confirmation.
 - The "Also in plugin" mark in Library.
 - The command line tool and MCP server's plugin commands.
 
@@ -35,7 +35,7 @@ Out:
 Decisions, from [decisions.md](../design/plugins/decisions.md), the owner's from 2026-11-25:
 
 1. **P1:** installing a plugin for another agent runs that agent's own plugin installer; SkillBinder writes no plugin file or agent setting.
-2. **P2:** plugins are read for every chosen agent with an installer SkillBinder can run, added a few per slice ([Agents](plugins/agents.md)); Install, Update, and Uninstall show where that installer offers them. App-only agents come later.
+2. **P2:** plugins are read for every chosen agent with an installer SkillBinder can run, added a few per slice ([Agents](plugins/plugin-agents.md)); Install, Update, and Uninstall show where that installer offers them. App-only agents come later.
 3. **P3:** Library lists library skills only. A library skill whose slug a plugin skill shares shows "Also in plugin <name>", which opens the plugin.
 4. **P4:** user scope only; project-scoped installs are never listed.
 5. **P5:** always "plugin", with the agent's own word (package, extension, power) in a tooltip; installed, Install, Uninstall, Update; where a plugin comes from is its source: a marketplace, a Git repository, or an npm package.
@@ -44,9 +44,10 @@ Decisions, from [decisions.md](../design/plugins/decisions.md), the owner's from
 8. **P8:** each agent row shows its version; a behind agent gets Update, which runs its own update.
 9. **P9:** an agent that can't use the plugin's format shows "Not installed · <agent> can't use this plugin", with no Install.
 10. **P10:** plugins that are code registering skills when they run (Amp, AiderDesk), and plugin systems that can't hold skills, are left out.
-11. **U1:** a fixed Plugins row under Library, counting plugins, opens the Plugins list (variant A).
-12. **U2:** the plugin page is one scroll: header, Agents card, Skills, README (variant C).
-13. **U3:** a plugin skill opens its own page (variant A).
+11. **P11:** every Install confirms first: "Install fstack in Grok?", naming the source and what the plugin adds (10 skills, 2 hooks, 1 MCP server), with the commands it runs; when the agent lacks the plugin's marketplace, the same dialog adds that step (P6). It stands in for the agent's own trust prompt, which SkillBinder skips. Update and Uninstall don't use it.
+12. **U1:** a fixed Plugins row under Library, counting plugins, opens the Plugins list (variant A).
+13. **U2:** the plugin page is one scroll: header, Agents card, Skills, README (variant C).
+14. **U3:** a plugin skill opens its own page (variant A).
 
 ### Plugins list
 
@@ -61,10 +62,10 @@ Decisions, from [decisions.md](../design/plugins/decisions.md), the owner's from
 2. **Agents** lists each chosen plugin agent, alphabetically, with its logo and status:
    - **Installed · 0.9.0**, with Uninstall; plus Update when behind (P8); plus "· Off" when turned off (P7).
    - **Not installed**, with Install; disabled with the tooltip "No source to install from" when the plugin is local (A2).
-   - **Not installed · Gemini CLI can't use this plugin**, with no button, when the agent's installer doesn't take the plugin's format (P9). Which formats each agent takes is in [Agents](plugins/agents.md).
+   - **Not installed · Gemini CLI can't use this plugin**, with no button, when the agent's installer doesn't take the plugin's format (P9). Which formats each agent takes is in [Agents](plugins/plugin-agents.md).
    - An agent whose installer lacks update or uninstall shows only the buttons it has (A8).
-3. Install: when the plugin comes from a marketplace the agent lacks, P6's dialog shows first; otherwise it runs at once, from the marketplace or straight from the plugin's repository or npm package, whichever that agent takes (`pi install git:github.com/mastro993/fstack`). While a command runs, that row's button shows a spinner and the row's other buttons are disabled; other agents' rows stay usable. Success re-reads the plugins and the row shows its new state; failure shows the agent's last error line under the row in danger text, with the full output in the log (A3). A row's error clears on its next command or when the page is left.
-4. Uninstall confirms "Uninstall fstack from Claude Code?" with Uninstall as a danger button (A1). Update runs without confirmation.
+3. Install opens P11's dialog; its Install runs, from the marketplace or straight from the plugin's own repository or npm package, whichever that agent takes (`pi install git:github.com/mastro993/fstack`), adding the marketplace first when the agent lacks it (P6). While a command runs, that row's button shows a spinner and the row's other buttons are disabled; other agents' rows stay usable. Success re-reads the plugins and the row shows its new state; failure shows the agent's last error line under the row in danger text, with the full output in the log (A3). A row's error clears on its next command or when the page is left.
+4. Uninstall confirms "Uninstall fstack from Claude Code?" with Uninstall as a danger button (A1). Update runs without confirmation; a row whose agent can update only a whole marketplace has no Update (A8).
 5. **Skills** lists the plugin's skills by name with their one-line description; a row opens the plugin skill page. A plugin with no skills shows "No skills" (its README says what else it holds).
 6. **README** renders the plugin's `README.md` like a skill's SKILL.md: local links and remote images are not followed. With none, the section is left out.
 7. A plugin uninstalled from its last agent stays on screen until the user leaves the page, then drops out of the list (A9).
@@ -102,7 +103,7 @@ Prototypes in [docs/design/plugins](../design/plugins/README.md), picked 2026-11
 - **A2 (P2):** a plugin with no source (local) can't be installed elsewhere. *If wrong:* installing from a folder needs each agent's local-install form, which not all have.
 - **A3 (P1):** progress is a spinner on the row; errors show the agent's last error line inline. *If wrong:* a toast instead, which loses the error when it times out.
 - **A4 (P3):** a plugin skill page has no Import or "Add to library". *If wrong:* that needs a source for the skill, which plugins don't record per skill.
-- **A5 (P2):** the same plugin in several agents is one plugin when name and source repository match, or, where an agent records no repository, name and marketplace name. *If wrong:* two marketplaces sharing a name would merge.
+- **A5 (P2):** the same plugin in several agents is one plugin when its name and its own location (repository and folder, not its marketplace's repository) match, or, where an agent records no location, name and marketplace name. *If wrong:* two marketplaces sharing a name would merge.
 - **A6 (P2):** only chosen agents' plugins are read; detected, unchosen agents never show. *If wrong:* the page would need an "other agents" group.
 - **A7 (U2):** the plugin page shows name, description, marketplace and repository, version, Agents, Skills, README.
 - **A8 (P2):** an agent whose installer lacks update or uninstall (Antigravity CLI and Reasonix have no update) shows only the buttons it has. *If wrong:* add a hint naming the agent's own way.
@@ -123,4 +124,4 @@ See [Acceptance and slices](plugins/acceptance.md#slices). In order: S0 docs, S1
 
 ## Open questions
 
-None blocking. Paths and commands marked "to confirm" in [Agents](plugins/agents.md) are confirmed at the start of the slice that adds that agent (A14).
+None blocking. Paths and commands marked "to confirm" in [Agents](plugins/plugin-agents.md) are confirmed at the start of the slice that adds that agent (A14).

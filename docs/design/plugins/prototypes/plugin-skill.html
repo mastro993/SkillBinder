@@ -1151,10 +1151,12 @@ Talk like caveman. Keep every fact, drop every filler word.
     error: (pid, aid) => errors[key(pid, aid)] || null,
     setError(pid, aid, text) { errors[key(pid, aid)] = text; emit(); },
     commands(p, a) {
-      const add = p.known.includes(a.id) ? [] : [`${a.cmd} plugin marketplace add ${p.repo}`];
+      const add = p.known.includes(a.id) ? [] : [`${a.cmd} plugin marketplace add ${P.mktRepo(p)}`];
       return add.concat(`${a.cmd} plugin install ${p.name}@${p.mkt}${a.scope || ''}`);
     },
-    failText: (p, a) => `${a.cmd}: failed to add marketplace ${p.mkt}: git clone https://github.com/${p.repo} exited with 128: Could not resolve host: github.com`,
+    // The marketplace's own repository, which `marketplace add` takes; a plugin's `repo` can differ.
+    mktRepo: (p) => (p.mkt === OFFICIAL ? 'anthropics/claude-plugins-official' : p.repo),
+    failText: (p, a) => `${a.cmd}: failed to add marketplace ${p.mkt}: git clone https://github.com/${P.mktRepo(p)} exited with 128: Could not resolve host: github.com`,
     run(pid, aid, op) {
       const p = P.plugin(pid);
       const a = agent(aid);
