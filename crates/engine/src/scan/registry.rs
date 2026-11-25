@@ -1,5 +1,9 @@
 use super::paths;
-use crate::{agents::AgentChoices, lifecycle::EngineConfig, logging::Logger};
+use crate::{
+    agents::AgentChoices,
+    lifecycle::EngineConfig,
+    logging::{Area, Level, Logger},
+};
 use serde::Deserialize;
 use skillbinder_proto::{AgentDir, AgentOption, AppError, AppResult, SameSlug, WorkspaceId};
 use std::{
@@ -397,7 +401,19 @@ fn add(
 ) {
     let place = match bounded(&path, boundary) {
         Ok(place) => place,
-        Err(message) => return log.record(message),
+        Err(Unbounded::Outside) => {
+            log.event(Level::Warn, Area::Scan, "location outside its boundary")
+                .path(&path)
+                .once();
+            return;
+        }
+        Err(Unbounded::Unreadable(error)) => {
+            log.event(Level::Warn, Area::Scan, "location unreadable")
+                .path(&path)
+                .field("cause", error)
+                .once();
+            return;
+        }
     };
     let location = locations
         .entry(place.canonical)
@@ -434,24 +450,19 @@ struct Place {
 }
 /// Where `path` lies inside `boundary`, or the log line explaining why it is skipped: outside
 /// the boundary, through a link leaving it, or unreadable.
-fn bounded(path: &Path, boundary: &Path) -> Result<Place, String> {
+/// Why a location is not scanned.
+enum Unbounded {
+    /// It is outside its boundary.
+    Outside,
+    /// Its path could not be resolved.
+    Unreadable(std::io::Error),
+}
+fn bounded(path: &Path, boundary: &Path) -> Result<Place, Unbounded> {
     let canonical_boundary = dunce::canonicalize(boundary).unwrap_or_else(|_| boundary.to_owned());
-    let Some(relative) = paths::inside(&canonical_boundary, path) else {
-        return Err(format!(
-            "Scan location outside its boundary: {}",
-            path.display()
-        ));
-    };
+    let relative = paths::inside(&canonical_boundary, path).ok_or(Unbounded::Outside)?;
     let path = canonical_boundary.join(relative);
-    let canonical = match paths::resolve_absent(&canonical_boundary, &path) {
-        Ok(canonical) => canonical,
-        Err(error) => {
-            return Err(format!(
-                "Unreadable scan location {}: {error}",
-                path.display()
-            ));
-        }
-    };
+    let canonical =
+        paths::resolve_absent(&canonical_boundary, &path).map_err(Unbounded::Unreadable)?;
     Ok(Place {
         boundary: canonical_boundary,
         path,

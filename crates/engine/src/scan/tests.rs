@@ -11,7 +11,12 @@ fn fixture() -> (tempfile::TempDir, EngineConfig, Logger) {
     let config =
         EngineConfig::isolated(directory.path().join("data"), directory.path().join("home"));
     std::fs::create_dir_all(&config.home).unwrap();
-    let log = Logger::start(config.data_dir.join("logs"), &config.home).unwrap();
+    let log = Logger::start(
+        config.data_dir.join("logs"),
+        &config.home,
+        crate::logging::LogFilter::default(),
+    )
+    .unwrap();
     (directory, config, log)
 }
 

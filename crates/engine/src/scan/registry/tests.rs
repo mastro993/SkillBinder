@@ -25,7 +25,11 @@ fn registry_has_79_agents_and_shared_reader_locations() -> Result<(), Box<dyn st
         &config,
         vec![(WorkspaceId::new(), temp.path().join("workspace"))],
     )?;
-    let log = Logger::start(temp.path().join("logs"), &config.home)?;
+    let log = Logger::start(
+        temp.path().join("logs"),
+        &config.home,
+        crate::logging::LogFilter::default(),
+    )?;
     let locations = locations(&config, &reach, &log)?;
     assert_eq!(
         locations
@@ -53,7 +57,11 @@ fn the_overlay_adds_directories_without_changing_detection()
         &config,
         vec![(WorkspaceId::new(), temp.path().join("workspace"))],
     )?;
-    let log = Logger::start(temp.path().join("logs"), &config.home)?;
+    let log = Logger::start(
+        temp.path().join("logs"),
+        &config.home,
+        crate::logging::LogFilter::default(),
+    )?;
     let locations = locations(&config, &reach, &log)?;
     let readers = |path: PathBuf| {
         locations
@@ -128,7 +136,11 @@ fn only_your_agents_global_directories_are_scanned_and_every_workspace_directory
         agents: ["claude-code".to_owned(), "warp".to_owned()].into(),
         workspaces: vec![(WorkspaceId::new(), workspace.clone())],
     };
-    let log = Logger::start(temp.path().join("logs"), &config.home)?;
+    let log = Logger::start(
+        temp.path().join("logs"),
+        &config.home,
+        crate::logging::LogFilter::default(),
+    )?;
     let paths: Vec<PathBuf> = locations(&config, &reach, &log)?
         .into_iter()
         .map(|location| location.path)

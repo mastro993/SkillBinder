@@ -2,13 +2,18 @@
 //! after launch replaces them.
 
 use super::{CacheUser, GONE, cache_dir, checkout, refusal};
-use crate::{git::Git, logging::Logger, persistence};
+use crate::{
+    git::Git,
+    logging::{Area, Level, Logger},
+    persistence,
+};
 use skillbinder_proto::*;
 use std::{
     collections::BTreeMap,
     fs,
     path::Path,
     sync::{Arc, Mutex, MutexGuard},
+    time::Instant,
 };
 
 /// A library skill whose source is due for a check, with the recorded tree it is compared
@@ -204,6 +209,7 @@ pub(crate) fn check(
     due: Vec<Due>,
     log: &Logger,
 ) -> Vec<(Due, UpdateCheck)> {
+    let started = Instant::now();
     let mut groups: BTreeMap<(String, Option<String>), Vec<Due>> = BTreeMap::new();
     for skill in due {
         let key = (skill.source.url.clone(), skill.source.reference.clone());
@@ -214,21 +220,46 @@ pub(crate) fn check(
         let checks = check_group(git, data_dir, &skills, log);
         results.extend(skills.into_iter().zip(checks));
     }
+    let count = |wanted: fn(&UpdateCheck) -> bool| {
+        results.iter().filter(|(_, check)| wanted(check)).count()
+    };
+    log.event(Level::Info, Area::Update, "check finished")
+        .field("checked", results.len())
+        .field("updates", count(|check| *check == UpdateCheck::Available))
+        .field(
+            "failed",
+            count(|check| matches!(check, UpdateCheck::Failed(_))),
+        )
+        .took(started);
     results
 }
 
 /// Checks skills that share a source repository and ref.
 fn check_group(git: &Git, data_dir: &Path, skills: &[Due], log: &Logger) -> Vec<UpdateCheck> {
-    let failed = |error: AppError| {
-        log.record(format!("Source check failed: {error}"));
-        UpdateCheck::Failed(format!("Couldn't check for updates: {}", error.message))
-    };
     let Some(first) = skills.first() else {
         return Vec::new();
     };
+    // One line per repository and ref, naming the skills whose check failed.
+    let failed = |error: AppError, slugs: String| {
+        let mut event = log
+            .failure(
+                Level::Warn,
+                Area::Update,
+                ("source check failed", "source check stopped at quit"),
+                &error,
+            )
+            .field("url", &first.source.url);
+        if let Some(reference) = &first.source.reference {
+            event = event.field("ref", reference);
+        }
+        drop(event.field("slugs", slugs));
+        UpdateCheck::Failed(format!("Couldn't check for updates: {}", error.message))
+    };
     let cache = cache_dir(data_dir, CacheUser::Check, &first.source);
     if let Err(error) = git.fetch_source(&cache, &first.source) {
-        return skills.iter().map(|_| failed(error.clone())).collect();
+        let slugs: Vec<_> = skills.iter().map(|skill| skill.id.as_str()).collect();
+        let check = failed(error, slugs.join(","));
+        return skills.iter().map(|_| check.clone()).collect();
     }
     skills
         .iter()
@@ -240,7 +271,7 @@ fn check_group(git: &Git, data_dir: &Path, skills: &[Due], log: &Logger) -> Vec<
                 Ok(Some(tree)) if tree == skill.recorded => return UpdateCheck::UpToDate,
                 Ok(None) => return UpdateCheck::Failed(GONE.to_owned()),
                 Ok(Some(_)) => {}
-                Err(error) => return failed(error),
+                Err(error) => return failed(error, skill.id.0.clone()),
             }
             let staging = data_dir
                 .join("staging")
@@ -255,7 +286,7 @@ fn check_group(git: &Git, data_dir: &Path, skills: &[Due], log: &Logger) -> Vec<
                     .map_or(UpdateCheck::Available, |why| {
                         UpdateCheck::Failed(why.update_text().to_owned())
                     }),
-                Err(error) => failed(error),
+                Err(error) => failed(error, skill.id.0.clone()),
             }
         })
         .collect()

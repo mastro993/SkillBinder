@@ -3,13 +3,19 @@ use super::{
     registry::Location,
     walk::{Visit, Walk},
 };
-use crate::{library::normalized, logging::Logger, payload, sources::lock};
+use crate::{
+    library::normalized,
+    logging::{Area, Level, Logger},
+    payload,
+    sources::lock,
+};
 use sha2::{Digest, Sha256};
 use skillbinder_proto::*;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
+    time::Instant,
 };
 
 struct Traversal<'a> {
@@ -44,14 +50,19 @@ pub(super) fn scan(
         listed: BTreeMap::new(),
         locks: BTreeMap::new(),
     };
+    let started = Instant::now();
+    let total = locations.len();
+    let mut present = 0;
     for location in locations {
         if cancel.load(Ordering::Acquire) {
             break;
         }
         if !location.path.is_dir() {
-            log.record(format!("Missing scan location {}", location.path.display()));
+            log.event(Level::Debug, Area::Scan, "location absent")
+                .path(&location.path);
             continue;
         }
+        present += 1;
         let walk = Walk {
             boundary: &location.boundary,
             workspace: location.in_workspace(),
@@ -66,6 +77,13 @@ pub(super) fn scan(
         })?;
     }
     let mut found = traversal.found;
+    if !cancel.load(Ordering::Acquire) {
+        log.event(Level::Info, Area::Scan, "finished")
+            .field("locations", total)
+            .field("present", present)
+            .field("found", found.snapshot.candidates.len())
+            .took(started);
+    }
     for candidate in &mut found.snapshot.candidates {
         candidate.locations.sort();
     }
@@ -135,7 +153,9 @@ impl Traversal<'_> {
             Ok(inspection) => inspection,
             Err(error) => {
                 self.log
-                    .record(format!("Scan inspection {}: {error}", canonical.display()));
+                    .event(Level::Warn, Area::Scan, "inspection failed")
+                    .path(&canonical)
+                    .error(&error);
                 return;
             }
         };

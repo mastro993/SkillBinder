@@ -41,6 +41,10 @@ impl Git {
     pub fn version(&self) -> &str {
         &self.version
     }
+    /// The executable's path.
+    pub(crate) fn path(&self) -> &Path {
+        &self.program.executable
+    }
     /// Initializes an empty local library repository without committing files.
     pub fn initialize(&self, repo: &Path) -> AppResult<()> {
         if repo.join(".git").exists() {

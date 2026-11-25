@@ -2,6 +2,7 @@
 //! what a listing needs before it leaves for the Git pool, and saving what it found.
 
 use super::{Listed, Listing, accepts};
+use crate::logging::{Area, Level};
 use crate::{
     git::Git,
     library::normalized,
@@ -117,7 +118,9 @@ impl State {
         let id = RepositoryId::new();
         let at = now();
         self.insert_repository(&id, url, at, listed, at)?;
-        self.log.record("Added a repository");
+        self.log
+            .event(Level::Info, Area::Explore, "repository added")
+            .field("url", url);
         self.publish_repositories()?;
         Ok(Repository {
             skills: listed.iter().map(|skill| skill.skill(&id, url)).collect(),

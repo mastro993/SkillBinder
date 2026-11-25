@@ -17,6 +17,7 @@ pub(crate) use copies::STAGING_PREFIX;
 pub(crate) use progress::Progress;
 pub(crate) use store::{Holder, Pair, claim, forget};
 
+use crate::logging::{Area, Level};
 use crate::{agents::chosen_agents, database, payload, worker::State};
 use pass::{Scope, managed};
 use plan::{Disk, Issue, Row};
@@ -105,9 +106,11 @@ impl State {
                     .collect();
                 self.quietly(Scope::Slugs(changed));
             }
-            Err(error) => self
-                .log
-                .record(format!("Copies will be applied at the next scan: {error}")),
+            Err(error) => {
+                self.log
+                    .event(Level::Warn, Area::Copies, "copies deferred to next scan")
+                    .error(&error);
+            }
         }
         Ok(())
     }
@@ -175,7 +178,12 @@ impl State {
     pub(crate) fn apply_change(&self, before: &Library, after: &Library) {
         let agents = match self.agents() {
             Ok(agents) => agents,
-            Err(error) => return self.log.record(format!("Copies not applied: {error}")),
+            Err(error) => {
+                self.log
+                    .event(Level::Warn, Area::Copies, "copies not applied")
+                    .error(&error);
+                return;
+            }
         };
         let changed = targets::desired(before, &agents)
             .symmetric_difference(&targets::desired(after, &agents))
@@ -197,7 +205,11 @@ impl State {
         });
         match stale {
             Ok(slugs) => self.quietly(Scope::Slugs(slugs)),
-            Err(error) => self.log.record(format!("Copies not rewritten: {error}")),
+            Err(error) => {
+                self.log
+                    .event(Level::Warn, Area::Copies, "copies not rewritten")
+                    .error(&error);
+            }
         }
     }
 
@@ -287,8 +299,12 @@ impl State {
     /// Runs a pass whose failure leaves the choice saved, so the next scan retries it.
     fn quietly(&self, scope: Scope) {
         if let Err(error) = self.pass(scope) {
-            self.log
-                .record(format!("Copies will be applied at the next scan: {error}"));
+            self.log.failure(
+                Level::Warn,
+                Area::Copies,
+                ("copies deferred to next scan", "copies stopped at quit"),
+                &error,
+            );
         }
     }
 

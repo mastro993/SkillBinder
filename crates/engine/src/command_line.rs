@@ -9,7 +9,10 @@ mod link;
 mod tests;
 mod user_path;
 
-use crate::{lifecycle::EngineConfig, logging::Logger};
+use crate::{
+    lifecycle::EngineConfig,
+    logging::{Area, Level, Logger},
+};
 use copy::Copy;
 use link::Link;
 use skillbinder_proto::{AppError, AppResult, CommandLineState, CommandLineStatus, ErrorCategory};
@@ -137,14 +140,16 @@ impl CommandLine {
             && let Err(error) = self.install()
         {
             self.log
-                .record(format!("Couldn't update the skillbinder command: {error}"));
+                .event(Level::Warn, Area::CommandLine, "command refresh failed")
+                .error(&error);
         }
     }
 
-    fn failed(&self, action: &str, error: &io::Error) -> AppError {
-        self.log.record(format!(
-            "Couldn't {action} the skillbinder command: {error}"
-        ));
+    fn failed(&self, action: &'static str, error: &io::Error) -> AppError {
+        self.log
+            .event(Level::Error, Area::CommandLine, "command change failed")
+            .field("change", action)
+            .field("cause", error);
         AppError::new(
             ErrorCategory::Storage,
             format!("Couldn't {action} `skillbinder`: {error}"),

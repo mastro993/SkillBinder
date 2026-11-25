@@ -77,7 +77,7 @@ async fn a_download_with_the_wrong_sha256_is_discarded() {
     engine.check_app_update(false).await.unwrap();
     assert_eq!(state(&engine), ready("0.2.0"));
     engine.shutdown().await.unwrap();
-    assert!(fixture.log().contains("App update 0.2.0 was discarded"));
+    assert!(fixture.log().contains("update discarded version=0.2.0"));
 }
 
 #[tokio::test]

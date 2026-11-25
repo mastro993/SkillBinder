@@ -3,6 +3,7 @@
 //! appear, disappear, or Git reports as changed are inspected; every other skill keeps its cached
 //! facts. An inspected skill whose content differs from its record has drifted.
 
+use crate::logging::{Area, Level};
 use crate::{
     database,
     library_store::{self, SavedSkill},
@@ -11,7 +12,7 @@ use crate::{
     shutdown::Shutdown,
     worker::State,
 };
-use skillbinder_proto::{AppError, AppResult, Drift, ErrorCategory};
+use skillbinder_proto::{AppError, AppResult, Drift};
 use std::{collections::BTreeSet, fs};
 
 /// The device setting holding the last commit whose skills the database reflects.
@@ -106,9 +107,10 @@ impl State {
                     }
                 },
                 Err(error) => {
-                    self.log.record(format!(
-                        "Library skill {slug} could not be inspected: {error}"
-                    ));
+                    self.log
+                        .event(Level::Warn, Area::Library, "skill inspection failed")
+                        .field("slug", &slug)
+                        .error(&error);
                     failure.get_or_insert(error);
                 }
             }
@@ -148,7 +150,8 @@ impl State {
             return Ok((record, None));
         }
         self.log
-            .record(format!("Library skill {slug} differs from its record"));
+            .event(Level::Info, Area::Library, "skill differs from its record")
+            .field("slug", slug);
         let repo = self.library_dir();
         let in_history = match &self.git {
             Some(git) if repo.join(".git").exists() => git.has_tree(&repo, &record.tree)?,
@@ -167,19 +170,24 @@ impl State {
     /// stops the pass without reporting it as a failure.
     pub(crate) fn catch_up(&self) {
         for result in [self.reconcile_head(), self.reconcile_library()] {
-            if let Err(error) = result
-                && error.category != ErrorCategory::Cancelled
-            {
-                self.log
-                    .record(format!("Library reconciliation will retry: {error}"));
+            if let Err(error) = result {
+                self.log.failure(
+                    Level::Warn,
+                    Area::Library,
+                    (
+                        "reconciliation will retry",
+                        "reconciliation stopped at quit",
+                    ),
+                    &error,
+                );
             }
         }
         self.apply_library();
         self.adopt_agent_copies();
         if let Err(error) = self.prune_source_caches() {
-            self.log.record(format!(
-                "Unused source caches will be removed later: {error}"
-            ));
+            self.log
+                .event(Level::Warn, Area::Update, "source cache removal deferred")
+                .error(&error);
         }
     }
 }

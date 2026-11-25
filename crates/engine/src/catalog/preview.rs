@@ -2,7 +2,11 @@
 //! into `<data>/source-cache/catalog/<sha>` on the Git pool, never the worker, its folder listed
 //! from Git's trees alone, and only its SKILL.md blob read. One dialog is open at a time.
 
-use crate::{git::Git, logging::Logger, payload};
+use crate::{
+    git::Git,
+    logging::{Area, Level, Logger},
+    payload,
+};
 use skillbinder_proto::{
     AppError, AppResult, CatalogPreview, CatalogSkill, Preview, PreviewState, SkillSource,
 };
@@ -160,10 +164,15 @@ impl Read {
             Ok(Some(preview)) => PreviewState::Loaded(Arc::new(preview)),
             Ok(None) => PreviewState::NotFound,
             Err(error) => {
-                self.log.record(format!(
-                    "Previewing {} failed: {error}",
-                    request.source.path
-                ));
+                self.log
+                    .failure(
+                        Level::Warn,
+                        Area::Explore,
+                        ("preview failed", "preview stopped at quit"),
+                        &error,
+                    )
+                    .field("url", &request.source.url)
+                    .field("path", &request.source.path);
                 PreviewState::Failed
             }
         }

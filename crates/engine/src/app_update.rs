@@ -21,7 +21,10 @@ mod stage;
 #[cfg(test)]
 mod tests;
 
-use crate::{catalog::CatalogSource, logging::Logger};
+use crate::{
+    catalog::CatalogSource,
+    logging::{Area, Level, Logger},
+};
 pub(crate) use check::Ended;
 use check::Known;
 pub use location::AppPlacement;
@@ -200,9 +203,13 @@ impl AppUpdates {
             ));
         };
         desktop_entry::write(appimage, &self.placement.data_home).map_err(|error| {
-            self.log.record(format!(
-                "Couldn't add SkillBinder to the applications menu: {error}"
-            ));
+            self.log
+                .event(
+                    Level::Error,
+                    Area::AppUpdate,
+                    "applications menu entry failed",
+                )
+                .field("cause", &error);
             AppError::storage()
         })
     }
@@ -217,14 +224,14 @@ impl AppUpdates {
                 "Keep using it from there.",
             ));
         };
-        let log = |line| self.log.record(line);
-        let relaunch = relocate::move_to_applications(original, &self.placement, self.current, log)
-            .map_err(|error| {
-                self.log.record(format!(
-                    "Couldn't move SkillBinder to Applications: {error}"
-                ));
-                AppError::storage()
-            })?;
+        let relaunch =
+            relocate::move_to_applications(original, &self.placement, self.current, &self.log)
+                .map_err(|error| {
+                    self.log
+                        .event(Level::Error, Area::AppUpdate, "move to applications failed")
+                        .field("cause", &error);
+                    AppError::storage()
+                })?;
         self.lock()?.relaunch = Some(relaunch);
         Ok(())
     }

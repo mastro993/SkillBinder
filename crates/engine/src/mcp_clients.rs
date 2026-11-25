@@ -9,7 +9,7 @@ mod settings;
 mod tests;
 
 use crate::{
-    logging::Logger,
+    logging::{Area, Level, Logger},
     programs::{self, Stopped},
     shutdown::Shutdown,
 };
@@ -298,7 +298,10 @@ impl McpClients {
             .find(tool)
             .ok_or_else(|| AppError::not_found(format!("{tool} not found.")))?;
         self.run(&program, args, INSTALL).map_err(|failure| {
-            self.log.record(format!("{tool} failed: {failure}"));
+            self.log
+                .event(Level::Error, Area::Mcp, "agent tool failed")
+                .field("program", tool)
+                .field("cause", &failure);
             let line = failure.lines().last().unwrap_or_default().trim().to_owned();
             AppError::new(
                 ErrorCategory::Storage,

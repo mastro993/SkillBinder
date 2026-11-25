@@ -2,7 +2,7 @@
 //! their memberships, and library folders.
 
 use crate::{
-    logging::Logger,
+    logging::{Area, Level, Logger},
     payload::Inspection,
     records::Record,
     schema::{device_settings, library_folders, preset_skills, presets, skills},
@@ -415,9 +415,9 @@ pub(crate) fn from_text<T: DeserializeOwned>(text: &str) -> AppResult<T> {
 /// another version wrote never makes the library unreadable.
 fn stored_icon(text: &str, preset: &str, log: &Logger) -> PresetIcon {
     from_text(text).unwrap_or_else(|_| {
-        log.record(format!(
-            "Preset {preset} has an icon this version does not know; showing the default."
-        ));
+        log.event(Level::Warn, Area::Presets, "preset icon unknown")
+            .field("preset", preset)
+            .once();
         PresetIcon::default()
     })
 }
@@ -427,9 +427,9 @@ fn stored_color(text: Option<&str>, preset: &str, log: &Logger) -> Option<Preset
     match from_text(text) {
         Ok(color) => Some(color),
         Err(_) => {
-            log.record(format!(
-                "Preset {preset} has a color this version does not know; showing none."
-            ));
+            log.event(Level::Warn, Area::Presets, "preset color unknown")
+                .field("preset", preset)
+                .once();
             None
         }
     }

@@ -9,7 +9,7 @@ use crate::{
     grants::GrantedDirectory,
     install::Installs,
     lifecycle::EngineConfig,
-    logging::Logger,
+    logging::{Area, Level, Logger},
     mcp_clients::{McpClients, Places},
     reconcile::RECONCILED_HEAD,
     scan::{LibraryIndex, Scans},
@@ -140,8 +140,7 @@ impl Engine {
                 "Activate the running window.",
             )
         })?;
-        let log = Logger::start(config.data_dir.join("logs"), &config.home)
-            .map_err(|_| AppError::storage())?;
+        let log = Logger::open_session(&config).map_err(|_| AppError::storage())?;
         let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
         let updates = Updates::default();
@@ -172,6 +171,7 @@ impl Engine {
             shutdown.clone(),
         );
         let (git, outdated_git) = config.find_git(shutdown.clone());
+        log.git(git.as_ref(), outdated_git.as_deref());
         let mut state = State {
             config,
             database,
@@ -216,7 +216,8 @@ impl Engine {
                 {
                     state
                         .log
-                        .record(format!("Library creation will retry: {error}"));
+                        .event(Level::Warn, Area::Library, "library creation will retry")
+                        .error(&error);
                 }
                 if state.library_dir().exists() {
                     state.catch_up();
@@ -228,6 +229,7 @@ impl Engine {
                             state.scans.wait_for_shutdown();
                             state.updates.wait_for_shutdown();
                             workers.wait_for_shutdown();
+                            state.log.stopped();
                             state.log.flush();
                             let _ = done.send(());
                             break;
@@ -272,10 +274,13 @@ impl Engine {
             .sender
             .send(Message::Execute(Box::new(move |state| {
                 let result = operation(state);
-                if let Err(error) = &result
-                    && error.category != ErrorCategory::Cancelled
-                {
-                    state.log.record(error.to_string());
+                if let Err(error) = &result {
+                    state.log.failure(
+                        Level::Error,
+                        Area::App,
+                        ("request failed", "request stopped at quit"),
+                        error,
+                    );
                 }
                 let _ = sender.send(result);
             })))
@@ -470,8 +475,15 @@ impl State {
         // The recorded commit stays behind on failure, so the next launch retries; the Git
         // result, success or failure, is what the user sees.
         if let Err(error) = caught_up {
-            self.log
-                .record(format!("Library reconciliation will retry: {error}"));
+            self.log.failure(
+                Level::Warn,
+                Area::Library,
+                (
+                    "reconciliation will retry",
+                    "reconciliation stopped at quit",
+                ),
+                &error,
+            );
         }
         let snapshot = result?;
         if matches!(action, SyncAction::Disconnect) {

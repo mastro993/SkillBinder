@@ -2,6 +2,7 @@
 //! Reinstall.
 
 use super::Engine;
+use crate::logging::{Area, Level};
 use skillbinder_proto::*;
 use tokio::sync::oneshot;
 
@@ -31,7 +32,8 @@ impl Engine {
                 {
                     state
                         .log
-                        .record(format!("Learning sources failed: {error}"));
+                        .event(Level::Warn, Area::Library, "source learning failed")
+                        .error(&error);
                 }
                 let skills = state.read_library()?.skills;
                 let Some((due, running)) = state.updates.begin(&skills, max_age.as_secs())? else {

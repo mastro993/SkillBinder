@@ -8,6 +8,7 @@
 
 use super::pass::Scope;
 use super::{held_copy, store};
+use crate::logging::{Area, Level};
 use crate::{agents::chosen_agents, database, library_store, persistence, worker::State};
 use skillbinder_proto::{AppResult, Targets};
 use std::{
@@ -23,9 +24,12 @@ impl State {
     /// the library holds skills. A failure leaves it to the next launch, import, Pull, or Sync.
     pub(crate) fn adopt_agent_copies(&self) {
         if let Err(error) = self.try_adopt_agent_copies() {
-            self.log.record(format!(
-                "Your agents' skills will be adopted later: {error}"
-            ));
+            self.log.failure(
+                Level::Warn,
+                Area::Copies,
+                ("adoption deferred", "adoption stopped at quit"),
+                &error,
+            );
         }
     }
 

@@ -7,7 +7,12 @@ use std::{fs, path::Path, sync::Arc};
 use tempfile::TempDir;
 
 fn command_line(root: &Path, place: Place) -> CommandLine {
-    let log = Logger::start(root.join("logs"), root).unwrap_or_else(|_| panic!("logs start"));
+    let log = Logger::start(
+        root.join("logs"),
+        root,
+        crate::logging::LogFilter::default(),
+    )
+    .unwrap_or_else(|_| panic!("logs start"));
     CommandLine {
         place: Arc::new(place),
         log,
