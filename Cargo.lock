@@ -7092,7 +7092,7 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 
 [[package]]
 name = "skillbinder"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "fs2",
@@ -7113,7 +7113,7 @@ dependencies = [
 
 [[package]]
 name = "skillbinder-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -7132,7 +7132,7 @@ dependencies = [
 
 [[package]]
 name = "skillbinder-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "skillbinder-engine",
  "skillbinder-proto",
@@ -7142,14 +7142,14 @@ dependencies = [
 
 [[package]]
 name = "skillbinder-design"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "gpui-kit",
 ]
 
 [[package]]
 name = "skillbinder-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "diesel",
@@ -7183,7 +7183,7 @@ dependencies = [
 
 [[package]]
 name = "skillbinder-proto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "schemars",
  "serde",
@@ -7193,7 +7193,7 @@ dependencies = [
 
 [[package]]
 name = "skillbinder-ui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -9577,7 +9577,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "minisign",
