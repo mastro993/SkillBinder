@@ -14,7 +14,7 @@ use gpui_kit::{
 };
 use skillbinder_design::page::GUTTER;
 use skillbinder_design::tokens::space;
-use skillbinder_design::{Button, HEADER_HEIGHT, IconSize};
+use skillbinder_design::{Button, HEADER_HEIGHT, IconSize, ScrollFades};
 use skillbinder_proto::{AppError, Preferences};
 
 gpui_kit::actions!(
@@ -232,6 +232,7 @@ impl NativeView {
                 .when(!self.route.is_scoped(), |page| page.p(px(GUTTER)))
                 .child(page)
                 .into_any_element(),
+            ScrollFades::new(&self.content_scroll.handle, cx.theme().background).into_any_element(),
             self.content_scroll
                 .scrollbar("content-scrollbar", px(0.), cx),
         ]

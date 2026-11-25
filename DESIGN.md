@@ -12,6 +12,8 @@ colors:
   muted-foreground: "#5F646B"
   border: "#E2E7EC"
   hairline: "#EBEFF4"
+  scrollbar-thumb: "#9CA2AA"
+  scrollbar-thumb-hover: "#7D838B"
   popover: "#FFFFFF"
   ring: "#0077B6"
   primary: "#0077B6"
@@ -37,6 +39,8 @@ colors:
   muted-foreground-dark: "#A0A5AB"
   border-dark: "#2A2D31"
   hairline-dark: "#212427"
+  scrollbar-thumb-dark: "#55595F"
+  scrollbar-thumb-hover-dark: "#6E7379"
   popover-dark: "#1D1F23"
   ring-dark: "#1E84C4"
   primary-dark: "#0077B6"
@@ -285,6 +289,8 @@ components:
     backgroundColor: "{colors.hairline}"
   border:
     backgroundColor: "{colors.border}"
+  scrollbar-thumb:
+    backgroundColor: "{colors.scrollbar-thumb}"
   code-block:
     backgroundColor: "{colors.muted}"
     textColor: "{colors.foreground}"
@@ -378,6 +384,7 @@ Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls 
 - **Inputs and search**: Kit `Input` on a `muted` fill with a 14 px search glyph.
 - **Chips and tags**: Kit `Tag`, or Kit's base toggle for a chip a press turns on and off, fully rounded; neutral by default, `accent-soft` when it marks a highlighted state, and outlined on the page fill for a place something is saved to. An off toggle chip is outlined, or dashed while its choice is not applied yet.
 - **Lists**: a card holding rows separated by inset `hairline` dividers; a row has an optional leading icon or logo, a title, a one-line description, and trailing marks. Hover fills `muted`; an inactive row is drawn at 50% opacity.
+- **Scroll views**: padding inside, so the `scrollbar-thumb` sits at the edge, never over content; content past an edge fades over `xl` into the fill behind it.
 - **Sidebar**: rows on the canvas; the selected row is a flat `sidebar-accent` fill, with no shadow. Section headers in `caption-sm`.
 - **Menus and popovers**: `popover` surface at overlay elevation, 8 px padding, rows 32 high with `sm` radius.
 - **Dialogs**: Kit `Dialog` with a `title-md` title, `body-sm` body, and a right-aligned footer: secondary then primary, gap 8.
@@ -401,7 +408,7 @@ Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls 
 
 This file is the source of truth for every token. `cargo run -p xtask -- design-tokens` generates their code form in the design-system crate, and every color lands in exactly one of two places:
 
-- **The GPUI Kit theme file** (light and dark, loaded at startup) takes the colors Kit has a key for: `background`, `foreground`, `sidebar`, `sidebar-foreground`, `sidebar-accent`, `muted`, `muted-foreground`, `border`, `popover`, `ring`, `primary` with its hover, active, and foreground, and the `success`, `warning`, `danger`, and `info` fills. It also takes `radius` (`rounded.sm`) and `radius.lg` (`rounded.lg`). Kit's `success.foreground`, `warning.foreground`, `danger.foreground`, and `info.foreground` keep Kit's meaning, the text on the filled status color: the generator sets each, in both modes, to whichever of `primary-foreground` and the light `foreground` (`#1C1C21`) contrasts more with that fill; the fills keep one value in both modes, so the choice does too. A `-text` tone never goes there.
+- **The GPUI Kit theme file** (light and dark, loaded at startup) takes the colors Kit has a key for: `background`, `foreground`, `sidebar`, `sidebar-foreground`, `sidebar-accent`, `muted`, `muted-foreground`, `border`, `popover`, `ring`, `primary` with its hover, active, and foreground, `scrollbar-thumb` with its hover, and the `success`, `warning`, `danger`, and `info` fills. It also takes `radius` (`rounded.sm`) and `radius.lg` (`rounded.lg`). Kit's status `*.foreground` keys (text on a status fill) take whichever of `primary-foreground` and the light `foreground` contrasts more, in both modes; never a `-text` tone.
 - **Generated Rust constants** take everything Kit has no key for, as light and dark pairs: `hairline`, `accent-soft`, `accent-soft-foreground`, the `-text` tones, and `preset-*`. The same file holds spacing, type levels, radii, icon sizes, opacity, and the `elevation` shadow layers; a layer's color token must be one Kit has a key for.
 
 The generator fails on a color with no destination rather than skipping it. `cargo run -p xtask -- verify` fails while the generated files disagree with this file, so a token change is an edit here followed by the generator, in one commit. Lint this file with `npx -y @google/design.md@0.4.0 lint DESIGN.md`; the only expected warnings are orphaned `-dark` and `preset-*` colors. The build plan is in [docs/design-system/plan.md](docs/design-system/plan.md).

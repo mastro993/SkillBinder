@@ -27,11 +27,11 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::{
     AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Subscription, Window, div, px,
+    Styled, Subscription, Window, px,
 };
 use query::Source;
 use skillbinder_design::library::TOOLBAR_HEIGHT;
-use skillbinder_design::page::{GAP, GUTTER};
+use skillbinder_design::page::GAP;
 use skillbinder_design::{Notice, SearchField};
 use skillbinder_proto::{CatalogState, ExploreSnapshot, InstallAllOutcome, RepositoryId};
 use std::collections::{BTreeMap, BTreeSet};
@@ -105,35 +105,18 @@ impl NativeView {
         } else {
             self.explore_results(explore, &search, &typed, cx)
         };
-        v_flex()
-            .size_full()
-            .px(px(GUTTER))
-            .pt(px(GUTTER))
+        let content = v_flex()
+            .id("explore-scroll")
             .gap(px(GAP))
-            .child(toolbar)
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .child(
-                        v_flex()
-                            .id("explore-scroll")
-                            .size_full()
-                            .overflow_y_scroll()
-                            .track_scroll(&self.content_scroll.handle)
-                            .gap(px(GAP))
-                            .pb(px(GUTTER))
-                            .children(catalog_line(explore))
-                            .children(self.install_git_line(cx))
-                            .child(body),
-                    )
-                    .child(
-                        self.content_scroll
-                            .scrollbar("explore-scrollbar", px(0.), cx),
-                    ),
-            )
-            .into_any_element()
+            .children(catalog_line(explore))
+            .children(self.install_git_line(cx))
+            .child(body);
+        self.toolbar_page(
+            [toolbar.into_any_element()],
+            content,
+            "explore-scrollbar",
+            cx,
+        )
     }
 
     /// Narrows Explore to `source`, or back to every source with `None`.

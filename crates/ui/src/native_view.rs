@@ -57,6 +57,7 @@ mod skill_picker;
 mod snapshot_query;
 mod sync;
 mod toasts;
+mod toolbar_page;
 mod undo;
 mod updates;
 mod without_git;
