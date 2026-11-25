@@ -12,6 +12,7 @@ mod support;
 use publisher::{Publisher, catalog_skill};
 use regex::Regex;
 use skillbinder_engine::{Console, Engine, EngineConfig, LogConfig, Logger};
+use skillbinder_proto::SkillId;
 use std::{fs, net::TcpListener, process::Command, sync::mpsc, time::Duration};
 use support::{Fixture, add_workspace, choose_every_agent, scan};
 
@@ -131,6 +132,9 @@ async fn a_failed_source_check_says_which_repository_and_why_once() {
     assert!(engine.check_updates(Duration::ZERO).await.unwrap());
     fs::remove_dir_all(&publisher.dir).unwrap();
     assert!(engine.check_updates(Duration::ZERO).await.unwrap());
+    let review = SkillId("review".into());
+    let outcome = engine.update_skills(vec![review.clone()]).await.unwrap();
+    assert_eq!(outcome.failed, vec![review]);
     engine.shutdown().await.unwrap();
     let lines = logged(&fixture);
     let failed: Vec<_> = lines
@@ -148,6 +152,18 @@ async fn a_failed_source_check_says_which_repository_and_why_once() {
     );
     assert!(line.contains(r#" cause="git fetch exited 128: "#), "{line}");
     assert!(Regex::new(LINE).unwrap().is_match(line), "{line}");
+    // A skill whose Update fails shows only a message, so its cause is logged.
+    let updated: Vec<_> = lines
+        .iter()
+        .filter(|line| line.contains(" skill update failed "))
+        .collect();
+    assert_eq!(updated.len(), 1, "{lines:#?}");
+    assert!(
+        updated[0].contains(" ERROR update ") && updated[0].contains(" cause="),
+        "{}",
+        updated[0]
+    );
+    assert!(updated[0].ends_with(" slug=review"), "{}", updated[0]);
 }
 
 #[tokio::test]
