@@ -2,6 +2,8 @@
 
 ADRs: [0008](../adr/0008-import-from-scan-dialog.md), [0009](../adr/0009-prepare-once-apply-selection.md); partly supersedes [0007](../adr/0007-pages-list-active-skills.md). Glossary: [domain.md](../agents/domain.md) (Import skills dialog, scan).
 
+Partly superseded by [ignore-found-skills](ignore-found-skills.md) (ADR 0033): ignored skills are not offered, ticked, or counted. Decisions 2 and 3 and the assumption that there is no ignore list hold only for skills that are skipped, not ignored.
+
 ## Problem
 
 Importing found skills lives in two places that work differently. Onboarding's last step offers an all-or-nothing import of your agents' skills (`OnboardingStep::Import`, `crates/engine/src/imports/first.rs`). Everything else goes through Discovery, a sidebar page with its own selection, a separate Review import dialog, and a persistent result banner (`crates/ui/src/native_view/discovery.rs`, `dialogs.rs:113`). Library's header already has an Import button, but it only navigates to Discovery (`library_updates.rs:70`). Library has no empty state: with no skills it renders nothing (`library_filters.rs:203`), so a user who skipped onboarding's import has no visible way back to it.

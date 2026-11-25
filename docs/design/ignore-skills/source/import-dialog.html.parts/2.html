@@ -1,0 +1,213 @@
+  // ---- dialog -----------------------------------------------------------------------------------
+  function openImport(animate) {
+    if (dlg) dlg.close();
+    dlg = openDialog(win, { title: 'Import skills', onClose: () => { clearTimeout(scanTimer); dlg = null; els = {}; } });
+    const d = dlg;
+    d.scrim.classList.add('im-scrim');
+    d.el.classList.add('im-dialog');
+    if (!animate) [d.scrim, d.el].forEach((el) => { el.style.animation = 'none'; });
+    d.el.querySelector('.sb-dialog-header > .sb-btn').setAttribute('data-tip', 'Close');
+    d.scrim.addEventListener('mousedown', (e) => { if (e.target === d.scrim) e.stopImmediatePropagation(); }, true);
+  }
+  function redraw() { if (dlg && els.list) update(); }
+  function scan() {
+    showScanning();
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => { if (dlg) showList(); }, 900);
+  }
+  const cancelBtn = (label = 'Cancel', cls = 'sb-btn-outline') =>
+    h('button', { class: `sb-btn ${cls}`, onclick: () => dlg.close() }, label);
+  function showScanning() {
+    els = {};
+    dlg.setBody(h('div', { class: 'im-center' }, spinner(16), 'Scanning…'));
+    dlg.setFooter(cancelBtn(), h('button', { class: 'sb-btn sb-btn-primary', disabled: true }, 'Import skills'));
+  }
+  // Every found skill, ignored ones included; ticks cover only the offered ones.
+  function showList() {
+    if (S.state === 'scanning') { S.state = 'list'; drawStates(); }
+    S.skills = found().map((k) => ({ ...k }));
+    S.choice = {};
+    S.skills.forEach((k) => { S.choice[k.slug] = FOUND.preferred(k); });
+    Object.assign(S, { ticks: FOUND.initialTicks(offered(), S.choice), expanded: new Set(), query: '',
+      ignoredOpen: false, showIgnored: false, changed: null });
+    if (!S.skills.length) {
+      els = {};
+      dlg.setBody(h('div', { class: 'im-center' }, 'No new skills found.'));
+      dlg.setFooter(cancelBtn('Close', 'sb-btn-primary'));
+      return;
+    }
+    const search = searchInput({ placeholder: 'Search found skills', value: '', onInput: (q) => { S.query = q; update(); } });
+    els = { status: h('span', { class: 'im-status' }), toggle: h('span'), list: h('div', { class: 'sb-card im-list' }) };
+    dlg.setBody([h('div', { class: 'im-tools' }, search, els.toggle, els.status), els.list]);
+    update();
+  }
+
+  // ---- ignoring --------------------------------------------------------------------------------
+  // Ignoring is saved at once, Cancel or not, and takes the skill out of the ticks and the count.
+  function ignore(list) {
+    list.forEach((k) => { S.ignored.add(k.slug); S.ticks.delete(k.slug); });
+    S.changed = 'ignored';
+    drawHeader();
+    update();
+    setTimeout(() => { S.changed = null; }, 1800);
+  }
+  // Stop ignoring brings the skill back to its place, ticked by the usual rules.
+  function unignore(k) {
+    S.ignored.delete(k.slug);
+    if (S.ticks.size < FOUND.MAX && FOUND.initialTicks([k], S.choice).size) S.ticks.add(k.slug);
+    S.changed = k.slug;
+    if (!ignoredList().length) S.showIgnored = false;
+    drawHeader();
+    update();
+    setTimeout(() => { S.changed = null; }, 1800);
+  }
+  const ignoreBtn = (k) => h('div', { class: `im-end${S.variant === 'b' ? '' : ' sb-row-hover'}` },
+    h('button', { class: 'sb-btn sb-btn-ghost sb-btn-xs', 'data-tip': "Don't offer this skill again",
+      'aria-label': `Ignore ${k.slug}`, onclick: () => ignore([k]) }, 'Ignore'));
+  const unignoreBtn = (k) => h('div', { class: 'im-end' },
+    h('button', { class: 'sb-btn sb-btn-outline sb-btn-xs', 'aria-label': `Stop ignoring ${k.slug}`, onclick: () => unignore(k) }, 'Stop ignoring'));
+
+  // ---- list ---------------------------------------------------------------------------------------
+  function update() {
+    if (!dlg || !els.list) return;
+    const ign = ignoredList();
+    els.status.textContent = [`${offered().length} found`, `${FOUND.inLibrary + S.imported.size} already in library`,
+      ign.length ? `${ign.length} ignored` : null].filter(Boolean).join(' · ');
+    els.toggle.replaceChildren(S.mode === 'toggle' && ign.length ? h('button', {
+      class: `sb-btn sb-btn-ghost sb-btn-sm im-toggle${S.showIgnored ? ' is-on' : ''}`, 'aria-pressed': String(S.showIgnored),
+      onclick: () => { S.showIgnored = !S.showIgnored; update(); } }, `Ignored (${ign.length})`) : '');
+    const top = els.list.scrollTop;
+    const off = offered().filter(matches);
+    const ignShown = ign.filter(matches);
+    let rows;
+    if (S.mode === 'toggle' && S.showIgnored) {
+      rows = [h('div', { class: 'im-banner' }, "Ignored skills aren't offered or counted. Stop ignoring brings one back to the list."),
+        ...ignShown.map(ignoredRow)];
+    } else {
+      rows = [offered().length ? head(off) : h('div', { class: 'im-nothing' }, 'No new skills found.'), ...grouped(off)];
+      if (S.mode === 'group' && ign.length) rows.push(...ignoredGroup(ign, ignShown));
+      if (S.query.trim() && !off.length && !(S.mode === 'group' && ignShown.length)) {
+        rows.push(emptyState({ icon: 'search', title: `No skills match '${S.query.trim()}'` }));
+      }
+    }
+    els.list.replaceChildren(...rows);
+    els.list.scrollTop = top;
+    renderFoot();
+  }
+  function head() {
+    const n = S.ticks.size;
+    const full = n > 0 && n >= cap();
+    return h('div', { class: 'im-head' },
+      checkbox({ checked: full, indeterminate: n > 0 && !full, label: 'Select all', onChange: (on) => tickAll(offered(), on) }));
+  }
+  function tickAll(list, on) {
+    if (on) list.filter(canTick).forEach((k) => { if (S.ticks.size < FOUND.MAX) S.ticks.add(k.slug); });
+    else list.forEach((k) => S.ticks.delete(k.slug));
+    update();
+  }
+  const warn = (text) => h('div', { class: 'im-warn' }, ic('alert-circle', 12), text);
+  function details(v) {
+    return h('div', { class: 'im-lines' },
+      h('div', { class: 'im-line' }, v.locations.map((l) => h('span', `${l.path} · ${l.readers}`)), h('span', FOUND.size(v))),
+      v.messages.map(warn), v.replaces.map((p) => warn(`Replaces the copy in ${p}.`)));
+  }
+  function tag(v) {
+    if (v.validation === 'invalid') return h('span', { class: 'sb-tag sb-tag-warning' }, 'Invalid');
+    if (v.validation === 'blocked') return h('span', { class: 'sb-tag' }, 'Blocked');
+    return null;
+  }
+  function row(k) {
+    const v = chosen(k);
+    const ok = canTick(k);
+    const cb = checkbox({ checked: S.ticks.has(k.slug), disabled: !ok, onChange: (on) => {
+      if (on) S.ticks.add(k.slug); else S.ticks.delete(k.slug);
+      update();
+    } });
+    cb.setAttribute('aria-label', k.slug);
+    return h('div', {
+      class: `sb-row${ok ? '' : ' is-dim'}${S.changed === k.slug ? ' is-changed' : ''}`, 'data-slug': k.slug,
+      onclick: (e) => {
+        if (ok && !e.target.closest('input, button, label')) { if (!S.ticks.delete(k.slug)) S.ticks.add(k.slug); update(); }
+      },
+    }, cb,
+    h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, k.slug), tag(v)),
+      k.desc ? h('div', { class: 'sb-desc' }, k.desc) : null,
+      details(v)),
+    ignoreBtn(k));
+  }
+  // An ignored row: no checkbox, where it was found, and Stop ignoring.
+  function ignoredRow(k) {
+    const places = [...new Set(k.versions.flatMap((v) => v.locations.map((l) => l.readers)))].join(', ');
+    return h('div', { class: 'sb-row is-ignored', 'data-slug': k.slug }, h('span', { class: 'im-gap' }),
+      h('div', { class: 'sb-row-main' }, h('span', { class: 'sb-slug' }, k.slug),
+        k.desc ? h('div', { class: 'sb-desc' }, k.desc) : null,
+        h('div', { class: 'im-lines' }, `Found in ${places}`)),
+      unignoreBtn(k));
+  }
+  function ignoredGroup(all, shown) {
+    const open = S.ignoredOpen || (S.query.trim() && shown.length > 0);
+    const headEl = h('div', {
+      class: `im-ghead im-ignored-head${S.changed === 'ignored' ? ' is-changed' : ''}`, role: 'button', tabindex: '0',
+      'aria-expanded': String(!!open), onclick: () => { S.ignoredOpen = !S.ignoredOpen; update(); },
+      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); S.ignoredOpen = !S.ignoredOpen; update(); } },
+    }, ic('chevron-right', 13, 'im-chev'), 'Ignored', h('span', { class: 'sb-chip-count' }, all.length),
+    h('span', { class: 'im-hint' }, 'Not offered or counted'));
+    return open ? [headEl, ...shown.map(ignoredRow)] : [headEl];
+  }
+  // Groups by the skill's first location: Your agents first, then each workspace by name.
+  function placeOf(k) {
+    const loc = k.versions.find((v) => v.id === FOUND.preferred(k)).locations[0];
+    return loc.path.startsWith('~/.') ? '' : loc.readers.replace(/ \(.*\)$/, '');
+  }
+  function grouped(shown) {
+    const groups = new Map();
+    offered().forEach((k) => { const p = placeOf(k); groups.set(p, [...(groups.get(p) || []), k]); });
+    return [...groups.keys()].sort().flatMap((p) => {
+      const all = groups.get(p);
+      const rows = all.filter((k) => shown.includes(k));
+      if (!rows.length) return [];
+      const able = all.filter(canTick);
+      const n = able.filter((k) => S.ticks.has(k.slug)).length;
+      return [h('div', { class: 'im-ghead' }, checkbox({
+        checked: n > 0 && n === able.length, indeterminate: n > 0 && n < able.length, disabled: !able.length,
+        label: [ic(p ? 'code-folder' : 'robot', 14), p || 'Your agents', h('span', { class: 'sb-chip-count' }, all.length)],
+        onChange: (on) => tickAll(all, on),
+      }), S.variant === 'c' ? h('span', { class: 'im-ghead-end' }, h('button', {
+        class: 'sb-btn sb-btn-ghost sb-btn-xs', 'data-tip': `Don't offer these ${all.length} skills again`,
+        onclick: () => ignore(all) }, 'Ignore all')) : null), ...rows.map(row)];
+    });
+  }
+
+  // ---- footer and import ----------------------------------------------------------------------
+  function renderFoot() {
+    const n = S.ticks.size;
+    dlg.setFooter(cancelBtn(), h('button', { class: 'sb-btn sb-btn-primary', disabled: !n || n > FOUND.MAX, onclick: doImport },
+      n ? `Import ${skillsN(n)}` : 'Import skills'));
+  }
+  function doImport() {
+    const picked = S.skills.filter((k) => S.ticks.has(k.slug));
+    const n = picked.length;
+    dlg.close();
+    progressDialog(win, { title: `Importing ${skillsN(n)}`,
+      plan: { pairs: picked.map((k) => ({ slug: k.slug, op: 'add', target: 'claude' })), toast: `Imported ${skillsN(n)}` } })
+      .then(() => { picked.forEach((k) => S.imported.add(k.slug)); drawHeader(); drawLibrary(); });
+  }
+
+  ready = true;
+  bar.set(document.body.dataset.firstVariant || 'a');
+  // First view: the dialog open with a few skills already ignored.
+  S.state = 'some';
+  seedIgnored('some');
+  drawStates();
+  drawHeader();
+  openImport(false);
+  showList();
+  // Opens on the Ignored group, so the first view shows both halves of the decision.
+  S.ignoredOpen = true;
+  update();
+  els.list.scrollTop = els.list.scrollHeight;
+})();
+</script>
+</body>
+</html>

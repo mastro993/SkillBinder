@@ -2,6 +2,8 @@
 
 The user settled these on 2026-11-16. Behavior comes from [the spec](../../specs/scan-and-import.md), [ADR 0008](../../adr/0008-import-from-scan-dialog.md), and [ADR 0009](../../adr/0009-prepare-once-apply-selection.md). Where this file and the spec disagree, this file holds. Ids are stable; cite them from issues and pull requests.
 
+Ignoring found skills adds I1–I12 in [ignore-skills](../ignore-skills/decisions.md) (ADR 0033). The count in L2 and L3, the ticks in D5 and D6, and the status line in D2 cover only skills that are not ignored. "Skipped skills keep counting" (L2) still holds for skills left unticked.
+
 ## General
 
 - **G1** Import happens only on onboarding's last step and from Scan for skills in Library. No Discovery page or sidebar row.
