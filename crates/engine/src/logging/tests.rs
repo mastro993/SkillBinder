@@ -46,6 +46,30 @@ fn lines_have_a_time_level_area_message_and_fields() {
 }
 
 #[test]
+fn a_cut_line_keeps_its_shape() {
+    let (root, log) = logger(LogFilter::default());
+    log.event(Level::Error, Area::Mcp, "agent tool failed")
+        .field("cause", "npm \"ERR\"\n".repeat(3000))
+        .field("program", "claude");
+    log.event(Level::Warn, Area::Scan, "path unreadable")
+        .field("path", "a".repeat(20_000));
+    let lines = lines(&root, &log);
+    let shape = Regex::new(LINE).unwrap();
+    for line in &lines {
+        assert!(line.chars().count() <= 16_384, "{}", line.len());
+        assert!(shape.is_match(line), "{line}");
+    }
+    assert!(
+        lines[0].ends_with('"'),
+        "the cut value keeps its closing quote"
+    );
+    assert!(
+        !lines[0].contains("program="),
+        "a field past the limit is left out"
+    );
+}
+
+#[test]
 fn the_filter_decides_before_anything_is_written() {
     let (root, log) = logger(LogFilter::default());
     log.event(Level::Debug, Area::Scan, "location absent");

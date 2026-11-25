@@ -324,7 +324,8 @@ impl State {
         for workspace in refused {
             self.log
                 .event(Level::Info, Area::Workspaces, "agent folder forgotten")
-                .field("workspace", &workspace.path);
+                .field("workspace", &workspace.name)
+                .path(Path::new(&workspace.path));
             self.remove_workspace(&workspace.id)?;
         }
         Ok(())

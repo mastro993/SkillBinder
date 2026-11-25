@@ -32,13 +32,21 @@ impl Record {
             self.message,
             width = Area::WIDTH
         );
+        // Each value is cut to what is left of the limit before it is quoted, so a cut value
+        // keeps its closing quote; fields that no longer fit are left out.
+        let mut length = line.chars().count();
         for (name, value) in &self.fields {
-            let _ = write!(line, " {name}={}", Quoted(&redactor.redact(value)));
+            let Some(budget) = LINE_LIMIT
+                .checked_sub(length + name.len() + 2)
+                .filter(|budget| *budget >= 2)
+            else {
+                break;
+            };
+            let value = quote(&redactor.redact(value), budget);
+            length += name.len() + 2 + value.chars().count();
+            let _ = write!(line, " {name}={value}");
         }
-        match line.char_indices().nth(LINE_LIMIT) {
-            Some((end, _)) => line[..end].to_owned(),
-            None => line,
-        }
+        line
     }
 
     /// Whether this line repeats an earlier one: the same level, area, message, and fields.
@@ -50,30 +58,39 @@ impl Record {
     }
 }
 
-/// A value, bare when it holds only safe characters and double-quoted with escapes otherwise, so
-/// every line stays one line.
-struct Quoted<'a>(&'a str);
-
-impl fmt::Display for Quoted<'_> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bare =
-            |character: char| character.is_ascii_alphanumeric() || "._/:~@+-,".contains(character);
-        if !self.0.is_empty() && self.0.chars().all(bare) {
-            return formatter.write_str(self.0);
-        }
-        formatter.write_char('"')?;
-        for character in self.0.chars() {
-            match character {
-                '"' => formatter.write_str("\\\"")?,
-                '\\' => formatter.write_str("\\\\")?,
-                '\n' => formatter.write_str("\\n")?,
-                '\r' => formatter.write_str("\\r")?,
-                '\t' => formatter.write_str("\\t")?,
-                other => formatter.write_char(other)?,
-            }
-        }
-        formatter.write_char('"')
+/// `value`, bare when it holds only safe characters and double-quoted with escapes otherwise, so
+/// every line stays one line, cut to at most `budget` characters, quotes included.
+fn quote(value: &str, budget: usize) -> String {
+    let bare =
+        |character: char| character.is_ascii_alphanumeric() || "._/:~@+-,".contains(character);
+    if !value.is_empty() && value.chars().all(bare) {
+        return value.chars().take(budget).collect();
     }
+    let mut quoted = String::from('"');
+    let mut used = 2;
+    for character in value.chars() {
+        let escape = match character {
+            '"' => Some('"'),
+            '\\' => Some('\\'),
+            '\n' => Some('n'),
+            '\r' => Some('r'),
+            '\t' => Some('t'),
+            _ => None,
+        };
+        used += if escape.is_some() { 2 } else { 1 };
+        if used > budget {
+            break;
+        }
+        match escape {
+            Some(escape) => {
+                quoted.push('\\');
+                quoted.push(escape);
+            }
+            None => quoted.push(character),
+        }
+    }
+    quoted.push('"');
+    quoted
 }
 
 /// A duration as `840ms`, `2.9s`, `3m12s`, or `3h37m`.
