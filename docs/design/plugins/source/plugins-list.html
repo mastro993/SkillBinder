@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugins list</title>
+<!-- Plugins: where plugins live in the sidebar and how the list reads (U1; P2, P5, P7, P8, A5, A6).
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py plugins-list.html ../prototypes/plugins-list.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="plugins.css">
+<style>
+.pl-fill { flex: 1; display: grid; place-items: center; }
+.pl-region { display: contents; }
+.sb-toolbar > .sb-search { flex: 1; width: auto; }
+.pl-crumb { border: 0; padding: 2px 4px; margin: 0 -4px; border-radius: 5px; background: none; color: var(--sb-muted-fg); font: inherit; cursor: pointer; }
+.pl-crumb:hover { background: var(--sb-muted); color: var(--sb-fg); }
+/* A: rows */
+.pl-list > .sb-row { cursor: pointer; }
+.pl-list .sb-row-title > .sb-slug { flex: 0 1 auto; min-width: 0; }
+.pl-mkt { flex: 0 1 auto; min-width: 24px; font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-count { font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pl-list .sb-row-end { gap: 10px; color: var(--sb-muted-fg); }
+/* B: table */
+.pl-tablebox { overflow: hidden; }
+.pl-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12.5px; }
+.pl-table th { height: 34px; padding: 0 8px; font-size: 11.5px; font-weight: 500; color: var(--sb-muted-fg); text-align: left; border-bottom: 1px solid var(--sb-border); }
+.pl-table td { height: 46px; padding: 5px 8px; vertical-align: middle; }
+.pl-table tbody tr + tr td { border-top: 1px solid var(--sb-border); }
+.pl-table tbody tr { cursor: pointer; }
+.pl-table tbody tr:hover td { background: var(--sb-hover); }
+.pl-table .c { width: 56px; text-align: center; padding: 0 2px; }
+.pl-table .n { width: 46px; text-align: right; font-variant-numeric: tabular-nums; color: var(--sb-muted-fg); }
+.pl-table th.c .sb-avatar { display: inline-grid; vertical-align: middle; }
+.pl-nm { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-mk { font-size: 11.5px; color: var(--sb-muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-cell { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; font-size: 12px; }
+.pl-dash { color: var(--sb-muted-fg); }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="normal">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="plugins-text.js"></script>
+<script src="plugins-data.js"></script>
+<script src="plugins-kit.js"></script>
+<script>
+(function () {
+  'use strict';
+  const P = window.PLUGINS;
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  // route: 'list' | 'library' | 'plugin:<id>'. The query carries across variants.
+  const S = { variant: 'a', state: 'normal', route: 'list', q: '' };
+
+  const STATES = [{ id: 'normal', label: 'Normal' }, { id: 'empty', label: 'Empty' },
+    { id: 'many', label: 'Many', tip: '17 plugins, one with a long name' }, { id: 'loading', label: 'Loading' }];
+  const home = () => (S.variant !== 'c' ? 'list' : P.list().length ? 'plugin:fstack' : 'library');
+  function setState(id) {
+    Object.assign(S, { state: id, q: '' });
+    P.setMode(id);
+    S.route = home();
+    draw();
+  }
+  function nav(k) {
+    if (k === 'plugins') S.route = 'list';
+    else if (k === 'library' || k.startsWith('plugin:')) S.route = k;
+    else { soon(); return; }
+    draw();
+  }
+
+  function draw() {
+    const plugin = S.route.startsWith('plugin:');
+    plSidebar(side, { mode: S.variant === 'c' ? 'section' : 'row', onNav: nav,
+      active: S.route === 'library' ? 'library' : plugin && S.variant === 'c' ? S.route : 'plugins' });
+    page.className = 'sb-page';
+    if (S.route === 'library') drawLibrary();
+    else if (plugin) drawPlugin(P.plugin(S.route.slice(7)));
+    else drawList();
+  }
+
+  // ---- the list page (A rows, B table) ------------------------------------------------------
+  function drawList() {
+    hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Plugins'));
+    if (P.mode === 'loading') { page.replaceChildren(skeleton(5)); return; }
+    if (!P.list().length) { page.replaceChildren(h('div', { class: 'pl-fill' }, emptyState({ icon: 'puzzle', title: 'No plugins' }))); return; }
+    const region = h('div', { class: 'pl-region' });
+    const fill = () => {
+      const q = S.q.trim().toLowerCase();
+      const items = P.list().filter((p) => p.name.toLowerCase().includes(q));
+      region.replaceChildren(items.length ? (S.variant === 'b' ? table(items) : rows(items))
+        : emptyState({ icon: 'search', title: `No plugins match "${S.q.trim()}"`,
+          action: h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => { S.q = ''; draw(); } }, 'Clear search') }));
+    };
+    page.replaceChildren(h('div', { class: 'sb-toolbar' }, searchInput({ placeholder: 'Search plugins', value: S.q, onInput: (q) => { S.q = q; fill(); } })), region);
+    live(region, fill);
+  }
+  const open = (p) => { S.route = `plugin:${p.id}`; draw(); };
+  const keys = (p) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(p); } };
+  const skills = (n) => `${n} skill${n === 1 ? '' : 's'}`;
+  const longTip = (name, max) => (name.length > max ? name : null);
+
+  // A: Cursor Plugins rows.
+  const rows = (items) => h('div', { class: 'sb-card pl-list' }, items.map((p) => h('div', {
+    class: 'sb-row', role: 'button', tabindex: '0', onclick: () => open(p), onkeydown: keys(p),
+  }, tile(28),
+  h('div', { class: 'sb-row-main' },
+    h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug', 'data-tip': longTip(p.name, 26) }, p.name),
+      h('span', { class: 'pl-mkt', 'data-tip': p.mkt ? 'Marketplace' : 'Not from a marketplace' }, p.mkt || 'Local')),
+    h('div', { class: 'sb-desc' }, p.desc)),
+  h('div', { class: 'sb-row-end' }, h('span', { class: 'pl-count' }, skills(p.skills.length)), agentStack(p), ic('chevron-right', 14)))));
+
+  // B: Supabase Extensions / Stripe Apps table, one column per chosen plugin-capable agent.
+  function cell(p, a) {
+    const i = P.inst(p, a.id);
+    if (!i) return h('span', { class: 'pl-dash', 'aria-label': 'Not installed' }, '—');
+    if (i.off) return h('span', { class: 'pl-cell pl-off', 'data-tip': `${i.v} · Turned off in ${a.name}` }, 'Off');
+    if (!i.v) return h('span', { class: 'pl-cell', 'data-tip': 'Installed' }, ic('check', 14));
+    return h('span', { class: 'pl-cell' }, i.v,
+      P.behind(p, a.id) ? h('span', { class: 'pl-upd', 'data-tip': `${p.latest} available`, html: window.icon('upload-circle', 12) }) : null);
+  }
+  const table = (items) => h('div', { class: 'sb-card pl-tablebox' }, h('table', { class: 'pl-table' },
+    h('thead', h('tr', h('th', 'Plugin'), h('th', { class: 'n' }, 'Skills'),
+      P.AGENTS.map((a, i) => h('th', { class: 'c', 'data-tip': a.name, 'data-tip-pos': i === P.AGENTS.length - 1 ? 'end' : null },
+        avatar({ name: a.name, logo: a.logo }, { size: 18, tip: false }))))),
+    h('tbody', items.map((p) => h('tr', { tabindex: '0', onclick: () => open(p), onkeydown: keys(p) },
+      h('td', h('div', { class: 'pl-nm', 'data-tip': longTip(p.name, 22) }, p.name), h('div', { class: 'pl-mk' }, p.mkt || 'Local')),
+      h('td', { class: 'n' }, p.skills.length),
+      P.AGENTS.map((a) => h('td', { class: 'c' }, cell(p, a))))))));
+
+  // ---- a plugin's page (the simple stacked layout; plugin-page.html explores it) ------------------
+  function drawPlugin(p) {
+    hdr.replaceChildren(S.variant === 'c' ? h('div', { class: 'sb-title' }, p.name)
+      : h('div', { class: 'sb-crumbs' }, h('button', { class: 'pl-crumb', onclick: () => nav('plugins') }, 'Plugins'), ic('chevron-right', 13), h('span', { class: 'sb-ellipsis' }, p.name)));
+    page.replaceChildren(...stackedPage(p, { win, onSkill: (slug) => toast(win, `Opens ${slug} · see plugin-skill.html`) }));
+    page.scrollTop = 0;
+  }
+  function drawLibrary() {
+    hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Library'));
+    page.replaceChildren(libraryList({ onPlugin: (id) => nav(`plugin:${id}`), onSkill: soon }));
+  }
+
+  const first = STATES.some((x) => x.id === document.body.dataset.firstState) ? document.body.dataset.firstState : 'normal';
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Nav row → list', desc: 'A Plugins row under Library opens a list: name, marketplace, description, skill count, and the agents that have it; a row opens the plugin · like Cursor Plugins' },
+    { id: 'b', label: 'Nav row → table', desc: 'Same Plugins row; the page is a dense table with one column per agent showing its version, Off, or — · like Supabase Database Extensions, Stripe Apps' },
+    { id: 'c', label: 'Sidebar section', desc: "A Plugins section after Agents lists each plugin with its skill count; a row opens that plugin's page, with no list page · like the sidebar's Workspaces and Agents" },
+  ], (id) => { S.variant = id; S.route = home(); draw(); });
+  bar.extra.append(seg(STATES, first, setState));
+  P.setMode(first);
+  S.state = first;
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>

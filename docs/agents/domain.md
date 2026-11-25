@@ -13,7 +13,7 @@ SkillBinder is one bounded context with one product vocabulary. Keep domain term
 - `README.md` identifies what this checkout can run.
 - `docs/features/native.md` describes the implemented features; document behavior as it ships, never ahead of it.
 
-The shipped scope contained four onboarding steps, the Import skills dialog, Library, presets, Sync, and Settings. The Import skills dialog replaced Discovery and its separate import review (ADR 0008). Workspaces, Agents, skill updates, and onboarding's review of the library's first import extend that scope. Explore, for installing skills from the catalog and from the user's repositories, extends it (ADR 0014, ADR 0015). Screens for entering or editing a library skill's source, nested presets, and tag-management UI are outside it; adding a repository to browse it in Explore is not editing a source.
+The shipped scope contained four onboarding steps, the Import skills dialog, Library, presets, Sync, and Settings. The Import skills dialog replaced Discovery and its separate import review (ADR 0008). Workspaces, Agents, skill updates, and onboarding's review of the library's first import extend that scope. Explore, for installing skills from the catalog and from the user's repositories, extends it (ADR 0014, ADR 0015). Plugins, for listing your agents' plugins and installing them through the agents' own installers, extends it (ADR 0034). Screens for entering or editing a library skill's source, nested presets, and tag-management UI are outside it; adding a repository to browse it in Explore is not editing a source.
 
 ## Update documentation with behavior
 
@@ -53,6 +53,6 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - A library skill installed on this device is New until it is first activated anywhere or its page is opened. New is machine-local; imported skills and skills that arrive through Pull are never New.
 - Sync and Push are explicit actions that may commit library changes. Imports and installs remain uncommitted until those actions. Organization changes are never committed.
 
-The app's own terms, such as app updates, the menu bar menu, the command line tool, and the SkillBinder skill, are in [domain-app.md](domain-app.md).
+The app's own terms, such as app updates, the menu bar menu, the command line tool, and the SkillBinder skill, are in [domain-app.md](domain-app.md). Plugins' terms are in [domain-plugins.md](domain-plugins.md).
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.
