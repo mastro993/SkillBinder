@@ -4,7 +4,7 @@ use super::{section, wrap};
 use crate::tokens::space;
 use crate::{
     Button, CodeBlock, EmptyState, InlineNameField, KeyValueList, NameFieldSize, Notice,
-    NoticeSize, SearchField, SectionHeader, SegmentedFilter, Status,
+    NoticeSize, ScrollArea, SearchField, SectionHeader, SegmentedFilter, Status, Text,
 };
 use gpui_kit::component::input::InputState;
 use gpui_kit::{AnyElement, App, Div, Entity, IntoElement, ParentElement, Styled, Window, div, px};
@@ -22,6 +22,7 @@ pub(super) fn molecules(window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
         section("Notice", notices()).into_any_element(),
         section("EmptyState", empties()).into_any_element(),
         section("KeyValueList and CodeBlock", facts()).into_any_element(),
+        section("ScrollArea and ScrollFades", scrolls()).into_any_element(),
     ]
 }
 
@@ -119,4 +120,15 @@ fn facts() -> Div {
                 .row("Remote", "Local only"),
         )
         .child(CodeBlock::new("gallery-code", "sudo apt install git"))
+}
+
+/// More lines than the view shows, so it fades at its bottom edge until scrolled.
+fn scrolls() -> Div {
+    column().child(
+        ScrollArea::new("gallery-scroll")
+            .h(px(space::XXXL * 3.))
+            .children((1..=12).map(|line| {
+                Text::labeled(format!("gallery-scroll-{line}"), format!("Line {line}"))
+            })),
+    )
 }

@@ -111,7 +111,7 @@ impl NativeView {
             .map(|library| library.library.skills.len());
         let hairline = hairline(window);
         let (above, below) = match snapshot.library {
-            Some(_) => super::sidebar_scroll::scrolled_edges(&self.sidebar_scroll.handle),
+            Some(_) => skillbinder_design::scroll_edges(&self.sidebar_scroll.handle),
             None => (false, false),
         };
         let divider = |shown: bool| {

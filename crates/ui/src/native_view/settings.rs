@@ -15,9 +15,8 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::{Sizable, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Subscription, Window, div, px,
+    Styled, Subscription, Window, px,
 };
-use skillbinder_design::page::{GAP, GUTTER};
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{
     Button, CardList, EmptyState, IconSize, ListRow, SearchField, SectionHeader, Text, icon,
@@ -87,37 +86,17 @@ impl NativeView {
             );
         }
         // The search and the section buttons stay put while the sections scroll under them.
-        v_flex()
-            .size_full()
-            .px(px(GUTTER))
-            .pt(px(GUTTER))
-            .gap(px(GAP))
-            .child(
-                SearchField::new("settings-search", &self.settings.search)
-                    .accessibility_label("Search settings"),
-            )
-            .child(self.jump_buttons(&found, cx))
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .child(
-                        v_flex()
-                            .id("settings-scroll")
-                            .size_full()
-                            .overflow_y_scroll()
-                            .track_scroll(&self.content_scroll.handle)
-                            .gap(px(space::XXXL))
-                            .pb(px(GUTTER))
-                            .children(body),
-                    )
-                    .child(
-                        self.content_scroll
-                            .scrollbar("settings-scrollbar", px(0.), cx),
-                    ),
-            )
-            .into_any_element()
+        let toolbar = [
+            SearchField::new("settings-search", &self.settings.search)
+                .accessibility_label("Search settings")
+                .into_any_element(),
+            self.jump_buttons(&found, cx),
+        ];
+        let content = v_flex()
+            .id("settings-scroll")
+            .gap(px(space::XXXL))
+            .children(body);
+        self.toolbar_page(toolbar, content, "settings-scrollbar", cx)
     }
 
     /// The groups of `section`, every row in place, before a search narrows them.

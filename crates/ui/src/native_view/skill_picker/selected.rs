@@ -7,14 +7,15 @@ use super::super::controls::reader_logo;
 use super::super::library_places::place_pill;
 use super::super::snapshot_query::Entry;
 use super::{Pills, Resolved, Selection, SkillPicker};
-use gpui_kit::component::{ActiveTheme, h_flex, scroll::ScrollableElement, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px, relative,
 };
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{
-    Button, DialogFooter, Level, Notice, SectionHeader, Status, Surface, Text, ToggleChip, tooltip,
+    Button, DialogFooter, Level, Notice, ScrollArea, SectionHeader, Status, Surface, Text,
+    ToggleChip, tooltip,
 };
 use skillbinder_proto::{SkillId, Workspace};
 use std::collections::BTreeSet;
@@ -70,12 +71,11 @@ impl NativeView {
                 .child("Nothing selected")
                 .into_any_element()
         } else {
-            div()
-                .id("picker-cards")
+            ScrollArea::new("picker-cards")
                 .flex_1()
                 .min_h_0()
+                .fill(Level::Flat.fill(theme))
                 .child(v_flex().gap(px(space::MD)).p(px(space::LG)).children(cards))
-                .overflow_y_scrollbar()
                 .into_any_element()
         };
         Surface::new(Level::Flat)

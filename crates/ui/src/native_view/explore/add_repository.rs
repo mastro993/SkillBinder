@@ -15,8 +15,8 @@ use gpui_kit::{
 use skillbinder_design::explore::FOUND_ROW;
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{
-    Button, DialogFooter, DialogHeader, DialogSize, IconSize, Level, Notice, NoticeSize, Spinner,
-    Status, Surface, Text, icon,
+    Button, DialogFooter, DialogHeader, DialogSize, IconSize, Level, Notice, NoticeSize,
+    ScrollArea, Spinner, Status, Surface, Text, icon,
 };
 use skillbinder_proto::{RepositoryProblem, owner_repo};
 use std::time::Duration;
@@ -296,12 +296,13 @@ impl NativeView {
 fn found_list(slugs: &[String], cx: &mut Context<NativeView>) -> AnyElement {
     #[expect(clippy::cast_precision_loss, reason = "A handful of rows.")]
     let height = FOUND_ROW * FOUND_SHOWN as f32;
-    Surface::new(Level::Flat)
-        .apply(v_flex(), cx.theme())
-        .id("add-repository-found")
+    let surface = Surface::new(Level::Flat);
+    surface
+        .apply(ScrollArea::new("add-repository-found"), cx.theme())
+        .fill(Level::Flat.fill(cx.theme()))
+        .radius(surface.inner_radius())
         .aria_label("Skills found")
         .max_h(px(height))
-        .overflow_y_scroll()
         .children(slugs.iter().map(|slug| {
             h_flex()
                 .flex_none()
