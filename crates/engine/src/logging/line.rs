@@ -1,6 +1,9 @@
 //! A line's text: `<time> <LEVEL> <area> <message>[ <key>=<value>]…` (spec rules 1–5).
 
-use super::filter::{Area, Level};
+use super::{
+    config::Sinks,
+    filter::{Area, Level},
+};
 use regex::Regex;
 use std::{
     fmt::{self, Write},
@@ -10,6 +13,17 @@ use std::{
 
 /// The longest line written, in characters.
 const LINE_LIMIT: usize = 16_384;
+/// A file line's time, such as `2026-11-25T14:02:15.911+01:00`, in characters.
+const TIME_WIDTH: usize = 29;
+
+/// How much of the time a line starts with.
+#[derive(Clone, Copy)]
+pub(super) enum Clock {
+    /// Date, time, and offset: the file's lines.
+    Date,
+    /// The time alone: the console's lines (spec rule 23).
+    Time,
+}
 
 /// One line, captured where it is logged and formatted on the writer thread.
 pub(super) struct Record {
@@ -18,15 +32,24 @@ pub(super) struct Record {
     pub area: Area,
     pub message: &'static str,
     pub fields: Vec<(&'static str, String)>,
+    pub sinks: Sinks,
 }
 
 impl Record {
-    /// The line, its fields redacted and quoted where needed, without a line break.
-    pub(super) fn line(&self, redactor: &Redactor) -> String {
-        let time =
-            chrono::DateTime::<chrono::Local>::from(self.at).format("%Y-%m-%dT%H:%M:%S%.3f%:z");
+    /// The time the line starts with.
+    pub(super) fn time(&self, clock: Clock) -> impl fmt::Display {
+        let time = chrono::DateTime::<chrono::Local>::from(self.at);
+        time.format(match clock {
+            Clock::Date => "%Y-%m-%dT%H:%M:%S%.3f%:z",
+            Clock::Time => "%H:%M:%S%.3f",
+        })
+    }
+
+    /// The line after its time, its fields redacted and quoted where needed, without a line
+    /// break. With the file's time it is at most the line limit.
+    pub(super) fn body(&self, redactor: &Redactor) -> String {
         let mut line = format!(
-            "{time} {:<5} {:<width$} {}",
+            "{:<5} {:<width$} {}",
             self.level,
             self.area.name(),
             self.message,
@@ -34,7 +57,7 @@ impl Record {
         );
         // Each value is cut to what is left of the limit before it is quoted, so a cut value
         // keeps its closing quote; fields that no longer fit are left out.
-        let mut length = line.chars().count();
+        let mut length = TIME_WIDTH + 1 + line.chars().count();
         for (name, value) in &self.fields {
             let Some(budget) = LINE_LIMIT
                 .checked_sub(length + name.len() + 2)
@@ -108,11 +131,12 @@ impl fmt::Display for Took {
     }
 }
 
-/// Keeps the home folder and credentials out of the log: the home folder becomes `~`, and URL
-/// credentials, token-like query values, `Authorization` values, and bearer tokens become
-/// `[redacted]`.
+/// Keeps the home folder and credentials out of the log: the home folder, as given or resolved,
+/// becomes `~`, and URL credentials, token-like query values, `Authorization` values, and bearer
+/// tokens become `[redacted]`.
 pub(super) struct Redactor {
-    home: String,
+    /// The home folder's spellings, the longest first, so one never cuts into another.
+    homes: Vec<String>,
     patterns: Vec<(Regex, &'static str)>,
 }
 
@@ -124,18 +148,24 @@ impl Redactor {
             (r"(?i)(authorization\s*[:=]\s*)[^\r\n]+", "$1[redacted]"),
             (r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]"),
         ].into_iter().filter_map(|(pattern, replacement)| Regex::new(pattern).ok().map(|regex| (regex, replacement))).collect();
-        Self {
-            home: home.to_string_lossy().into_owned(),
-            patterns,
-        }
+        // The engine writes paths under the resolved home; the desktop, GPUI, and Kit may write
+        // them as given, such as through a symlinked `/home`.
+        let mut homes: Vec<String> = [Some(home.to_path_buf()), dunce::canonicalize(home).ok()]
+            .into_iter()
+            .flatten()
+            .map(|home| home.to_string_lossy().into_owned())
+            .filter(|home| !home.is_empty())
+            .collect();
+        homes.sort_by_key(|home| std::cmp::Reverse(home.len()));
+        homes.dedup();
+        Self { homes, patterns }
     }
 
     pub(super) fn redact(&self, text: &str) -> String {
-        let mut result = if self.home.is_empty() {
-            text.to_owned()
-        } else {
-            text.replace(&self.home, "~")
-        };
+        let mut result = text.to_owned();
+        for home in &self.homes {
+            result = result.replace(home.as_str(), "~");
+        }
         for (pattern, replacement) in &self.patterns {
             result = pattern.replace_all(&result, *replacement).into_owned();
         }

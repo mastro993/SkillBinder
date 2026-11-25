@@ -46,7 +46,7 @@ Rules every prototype in this folder obeys. Behavior comes from [the onboarding 
 - **N2** With one agent: Manage and Not now. With several: Manage all, and Review…, which opens Settings › Agents with them off. Closing counts as Not now.
 - **N3** It stays until answered. Any answer marks every listed agent as asked, so it never returns for them. Manage turns them on as S2 does.
 - **N4** It never shows during onboarding or while the progress strip blocks the app; it waits until either ends.
-- **N5** It is a Kit notification at the bottom-right corner, without auto-hide; change toasts keep the bottom center.
+- **N5** It is a Kit notification at the bottom-right corner, without auto-hide, stacked with the change toasts (revised 2026-11-25: every toast and notice shares that one stack).
 
 ## Picks (2026-11-17)
 

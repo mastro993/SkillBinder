@@ -5,10 +5,9 @@ use super::super::preset_colors::preset_tint;
 use super::super::preset_icons::icon_glyph;
 use super::super::sidebar_row::{RowIcon, count, row};
 use super::{NativeView, OptimisticPreset};
-use gpui_kit::component::{ActiveTheme, WindowExt, notification::Notification};
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window};
+use gpui_kit::component::ActiveTheme;
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Window};
 use skillbinder_design::icon;
-use skillbinder_design::tokens::color;
 use skillbinder_proto::{AppError, OrganizationChange, Preset, PresetIcon, PresetId};
 use std::collections::BTreeSet;
 
@@ -134,14 +133,21 @@ impl NativeView {
             .spawn(async move { client.change_organization(change).await });
         cx.spawn_in(window, async move |this, cx| {
             let result = handle.await;
-            let _ = this.update_in(cx, |view, window, cx| {
+            let _ = this.update_in(cx, |view, _, cx| {
                 view.set_busy(false, cx);
                 view.optimistic_preset_name = None;
                 view.optimistic_presets.clear();
-                match result {
-                    Ok(Ok(_)) => view.receive(view.client.snapshot(), cx),
-                    Ok(Err(error)) => error_toast(window, failure_title, &error, cx),
-                    Err(_) => error_toast(window, failure_title, &AppError::storage(), cx),
+                let error = match result {
+                    Ok(Ok(_)) => None,
+                    Ok(Err(error)) => Some(error),
+                    Err(_) => Some(AppError::storage()),
+                };
+                match error {
+                    None => view.receive(view.client.snapshot(), cx),
+                    Some(error) => {
+                        let message = error.message.into();
+                        view.toast.fail_titled(failure_title.into(), message, cx);
+                    }
                 }
                 cx.notify();
             });
@@ -193,24 +199,6 @@ fn optimistic_copy_name<'a>(source: &str, existing: impl Iterator<Item = &'a str
         }
         suffix = suffix.saturating_add(1);
     }
-}
-
-/// An error-style toast for a refused preset creation, clone, or rename. Its glyph is a retained
-/// one: a notification type would ask for an unmapped icon.
-pub(super) fn error_toast(
-    window: &mut Window,
-    title: &'static str,
-    error: &AppError,
-    cx: &mut Context<NativeView>,
-) {
-    let glyph = icon("alert-circle").text_color(color::DANGER_TEXT.of(cx.theme()));
-    window.push_notification(
-        Notification::new()
-            .icon(glyph)
-            .title(title)
-            .message(error.message.clone()),
-        cx,
-    );
 }
 
 #[cfg(test)]

@@ -13,7 +13,7 @@
 mod support;
 
 use diesel::connection::SimpleConnection;
-use skillbinder_engine::{Engine, EngineConfig};
+use skillbinder_engine::{Engine, EngineConfig, Logger};
 use skillbinder_proto::{
     Bootstrap,
     OnboardingStep::{self, Agents, CommandLine, ConnectAgents, Import},
@@ -37,7 +37,8 @@ fn open(fixture: &Fixture) -> Engine {
     let applications = config.placement.applications.clone();
     config.placement.bundle = Some(applications.join("SkillBinder.app"));
     config.placement.appimage = Some(fixture.workspace.join("SkillBinder.AppImage"));
-    Engine::open(config).unwrap()
+    let log = Logger::open_session(&config).unwrap();
+    Engine::open(config, log).unwrap()
 }
 
 /// Cursor's global skill directory as Choose your agents shows it.

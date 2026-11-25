@@ -34,7 +34,7 @@ pub(crate) fn serve(
                 Ok(stream) => {
                     tokio::spawn(answer(stream, commands.clone()));
                 }
-                Err(error) => eprintln!("Could not accept a command: {error}"),
+                Err(error) => log::warn!("Could not accept a command: {error}"),
             }
         }
     });
@@ -171,6 +171,6 @@ pub(crate) fn record_app_path(data: &Path) {
         && let Err(error) =
             std::fs::write(data.join("app-path"), app.as_os_str().as_encoded_bytes())
     {
-        eprintln!("The skillbinder command can't find this app: {error}");
+        log::error!("The skillbinder command can't find this app: {error}");
     }
 }

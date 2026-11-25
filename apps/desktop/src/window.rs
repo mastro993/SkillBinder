@@ -81,7 +81,7 @@ pub(crate) fn open_main_window(focus: bool, cx: &mut App) -> bool {
         }
         Ok(_) => return false,
         Err(error) => {
-            eprintln!("Could not open SkillBinder: {error}");
+            log::error!("Could not open SkillBinder: {error}");
             return false;
         }
     }

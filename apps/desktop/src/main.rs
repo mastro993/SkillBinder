@@ -11,8 +11,9 @@ use gpui_kit::{ActivationPolicy, App, KeyBinding, Menu, MenuItem, QuitMode, acti
 use skillbinder_client::Client;
 #[cfg(not(feature = "native-test"))]
 use skillbinder_engine::EngineConfig;
-use skillbinder_engine::{Engine, LogFilter, QuitCause};
+use skillbinder_engine::{Bridge, Console, Engine, LogConfig, Logger, QuitCause};
 use skillbinder_ui::{GoBack, GoForward, ToggleSidebar};
+use std::io::IsTerminal;
 use window::{MainWindow, open_main_window, window_closed};
 
 actions!(
@@ -28,10 +29,49 @@ const BACKGROUND_GRACE: std::time::Duration = std::time::Duration::from_secs(30)
 
 fn main() -> std::process::ExitCode {
     if let Err(error) = run() {
-        eprintln!("Could not start SkillBinder: {error}");
+        report(format_args!("Could not start SkillBinder: {error}"));
+        log::logger().flush();
         return std::process::ExitCode::FAILURE;
     }
     std::process::ExitCode::SUCCESS
+}
+
+/// A failure goes to the log once it is open, and to stderr before (diagnostic logs spec rule 21).
+fn report(message: std::fmt::Arguments<'_>) {
+    if log::log_enabled!(log::Level::Error) {
+        log::error!("{message}");
+    } else {
+        eprintln!("{message}");
+    }
+}
+
+/// Which lines the log writes and the console shows: `SKILLBINDER_LOG` filters both, and
+/// without it a debug build echoes `DEBUG` while a release build echoes only to a terminal
+/// (diagnostic logs spec rule 22).
+fn log_config() -> LogConfig {
+    let setting = std::env::var_os("SKILLBINDER_LOG");
+    let console = if cfg!(debug_assertions) {
+        Console::Development
+    } else if std::io::stderr().is_terminal() {
+        Console::Terminal
+    } else {
+        Console::Hidden
+    };
+    LogConfig::new(
+        setting
+            .as_ref()
+            .map(|setting| setting.to_string_lossy())
+            .as_deref(),
+        console,
+    )
+}
+
+/// Sends GPUI's, Kit's, and this app's `log` records to the log.
+fn install_logging(bridge: Bridge) -> anyhow::Result<()> {
+    let level = bridge.max_level();
+    log::set_boxed_logger(Box::new(bridge))?;
+    log::set_max_level(level);
+    Ok(())
 }
 fn run() -> anyhow::Result<()> {
     let mut arguments: Vec<_> = std::env::args_os().skip(1).collect();
@@ -61,15 +101,11 @@ fn run() -> anyhow::Result<()> {
     let smoke = (mode == native_test::NativeMode::Smoke).then(native_test::Smoke::default);
     #[cfg(feature = "native-test")]
     if smoke.is_some() {
-        native_test::initialize_logging()?;
         eprintln!("Native smoke: opening isolated engine");
     }
     #[cfg(not(feature = "native-test"))]
     let mut config = configuration(&arguments)?;
-    // Which log lines are written (diagnostic logs spec rule 8).
-    if let Some(setting) = std::env::var_os("SKILLBINDER_LOG") {
-        config.log = LogFilter::parse(&setting.to_string_lossy());
-    }
+    config.log = log_config();
     let data_dir = config.data_dir.clone();
     let Some(instance) = instance::Instance::acquire(&data_dir)? else {
         // Another SkillBinder runs; a command waits for it, and a person wants its window.
@@ -83,13 +119,19 @@ fn run() -> anyhow::Result<()> {
         }
         return Ok(());
     };
+    // The log opens before the engine, so the engine's opening and this app's records reach it.
+    let log = Logger::open_session(&config)?;
+    #[cfg(feature = "native-test")]
+    native_test::initialize_logging(Bridge::new(log.clone()), smoke.is_some())?;
+    #[cfg(not(feature = "native-test"))]
+    install_logging(Bridge::new(log.clone()))?;
     #[cfg(target_os = "linux")]
     command_server::record_app_path(&data_dir);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_name("skillbinder-runtime")
         .build()?;
-    let engine = Engine::open(config)?;
+    let engine = Engine::open(config, log)?;
     #[cfg(feature = "native-test")]
     if smoke.is_some() {
         runtime.block_on(native_test::prepare(&engine))?;
@@ -140,7 +182,7 @@ fn run() -> anyhow::Result<()> {
             cx,
         );
         if let Err(error) = command_server::serve(&data_dir, commands, &command_runtime) {
-            eprintln!("The skillbinder command can't reach this app: {error:#}");
+            log::error!("The skillbinder command can't reach this app: {error:#}");
         }
         let mut instance = Some(instance);
         cx.on_app_quit(move |cx| {
@@ -148,12 +190,14 @@ fn run() -> anyhow::Result<()> {
             #[cfg(feature = "native-test")]
             cx.global::<MainWindow>().hooks.shutdown();
             if let Err(error) = shutdown_runtime.block_on(engine.shutdown()) {
-                eprintln!("Could not finish shutdown: {error}");
+                log::error!("Could not finish shutdown: {error}");
+                log::logger().flush();
                 std::process::exit(1);
             }
             // A launch whose window failed to open quits as failed; one started for a command
             // quits as any quit does.
             if !cx.global::<MainWindow>().opened && !background {
+                log::logger().flush();
                 std::process::exit(1);
             }
             // A ready app update installs now. After Move to Applications or Restart, the
@@ -162,9 +206,10 @@ fn run() -> anyhow::Result<()> {
             if let Some(relaunch) = engine.finish_app_update(quit_cause()) {
                 drop(instance.take());
                 if let Err(error) = relaunch.start() {
-                    eprintln!("Could not open SkillBinder again: {error}");
+                    log::error!("Could not open SkillBinder again: {error}");
                 }
             }
+            log::logger().flush();
             #[cfg(feature = "native-test")]
             if let Some(smoke) = smoke_result.clone()
                 && let Err(error) = smoke.verify()

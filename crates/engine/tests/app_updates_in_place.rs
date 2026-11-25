@@ -8,7 +8,7 @@
 #[path = "support/update_site.rs"]
 mod update_site;
 
-use skillbinder_engine::QuitCause;
+use skillbinder_engine::{Engine, Logger, QuitCause};
 use skillbinder_proto::{AppUpdateState, CannotInstall, Channel, CheckFailure};
 use std::fs;
 use update_site::{Fixture, TARGET, UP_TO_DATE, ready, state};
@@ -102,7 +102,8 @@ async fn quit_installs_the_update_and_the_next_launch_cleans_up() {
 
     let mut updated = fixture.config();
     updated.app_version = "0.2.0".parse().unwrap();
-    let engine = skillbinder_engine::Engine::open(updated.clone()).unwrap();
+    let log = Logger::open_session(&updated).unwrap();
+    let engine = Engine::open(updated.clone(), log).unwrap();
     assert_eq!(fixture.applications_names(), [APP]);
     let update = engine.current_app_update().unwrap();
     assert_eq!(update.state, UP_TO_DATE);
@@ -117,7 +118,8 @@ async fn quit_installs_the_update_and_the_next_launch_cleans_up() {
     );
     drop(engine);
 
-    let engine = skillbinder_engine::Engine::open(updated).unwrap();
+    let log = Logger::open_session(&updated).unwrap();
+    let engine = Engine::open(updated, log).unwrap();
     assert_eq!(engine.current_app_update().unwrap().updated, None, "once");
 }
 

@@ -4,7 +4,7 @@
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
-use skillbinder_engine::{CatalogSource, Engine, EngineConfig};
+use skillbinder_engine::{CatalogSource, Engine, EngineConfig, Logger};
 use skillbinder_proto::{CatalogState, ExploreSnapshot};
 use std::{
     fs,
@@ -37,7 +37,9 @@ impl Fixture {
     }
 
     fn open(&self) -> Engine {
-        Engine::open(EngineConfig::isolated(self.data.clone(), self.home.clone())).unwrap()
+        let config = EngineConfig::isolated(self.data.clone(), self.home.clone());
+        let log = Logger::open_session(&config).unwrap();
+        Engine::open(config, log).unwrap()
     }
 }
 
@@ -321,7 +323,8 @@ async fn an_unchanged_catalog_costs_one_conditional_request_once_an_hour_old() {
     let (base, requests) = serve_http(sample());
     let mut config = EngineConfig::isolated(fixture.data.clone(), fixture.home.clone());
     config.catalog = CatalogSource::Http(base);
-    let engine = Engine::open(config).unwrap();
+    let log = Logger::open_session(&config).unwrap();
+    let engine = Engine::open(config, log).unwrap();
     let catalog_requests = || {
         requests
             .lock()

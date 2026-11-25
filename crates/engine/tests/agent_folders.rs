@@ -11,7 +11,7 @@ mod support;
 
 use diesel::{connection::SimpleConnection, prelude::*, sql_types::Text};
 use folders::add_folder;
-use skillbinder_engine::Engine;
+use skillbinder_engine::{Engine, Logger};
 use skillbinder_proto::ErrorCategory;
 use std::fs;
 use support::{Fixture, write_skill};
@@ -105,7 +105,8 @@ async fn ready_with(
             .environment
             .insert((*key).to_owned(), value.display().to_string());
     }
-    let engine = Engine::open(config).unwrap();
+    let log = Logger::open_session(&config).unwrap();
+    let engine = Engine::open(config, log).unwrap();
     support::choose_every_agent(&engine).await;
     engine.finish_onboarding(None).await.unwrap();
     engine

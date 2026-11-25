@@ -67,7 +67,7 @@ These are the owner's decisions from the 2026-11-20 design session. Ids are stab
 
 ### Ready notice
 
-9. When an update becomes ready, and at every launch while one is ready, a persistent notice appears at the window's bottom-right, like the new agent notice: "SkillBinder 0.2.0 is ready" in medium weight, "Restart now, or it installs when you quit." muted, then Dismiss and the primary Restart. It has no auto-hide, takes no focus, and stacks with the new agent notice. Like that notice, it hides while the blocking progress strip is up and returns when the strip ends.
+9. When an update becomes ready, and at every launch while one is ready, a persistent notice appears at the window's bottom-right, like the new agent notice: "SkillBinder 0.2.0 is ready" in medium weight, "Restart now, or it installs when you quit." muted, then Dismiss and the primary Restart. It has no auto-hide, takes no focus, and stacks with the new agent notice and the change toasts. Like that notice, it hides while the blocking progress strip is up and returns when the strip ends.
 10. **Restart** quits through the normal quit path, installs the update, and launches the new version. It is disabled while Sync, Push, Update all, an install, or a blocking change runs, with the tooltip "Available when <Sync> finishes".
 11. **Dismiss** hides the notice until the next launch (D3). Settings still shows the ready update with its own Restart.
 12. **Quit**, by any route, installs a ready update first (D3). On Windows, a quit caused by logging off or shutting down skips the installer, which Windows could kill halfway; the next quit installs it. If installing fails, the old version stays, the failure is logged, and the next launch shows the notice again.

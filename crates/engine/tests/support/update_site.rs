@@ -6,7 +6,9 @@
 
 use minisign::KeyPair;
 use sha2::{Digest, Sha256};
-use skillbinder_engine::{CatalogSource, Engine, EngineConfig, UpdatePayload, UpdateSource};
+use skillbinder_engine::{
+    CatalogSource, Engine, EngineConfig, Logger, UpdatePayload, UpdateSource,
+};
 use skillbinder_proto::{AppUpdateState, AppVersion};
 use std::{fs, io::Cursor, path::PathBuf};
 use tempfile::TempDir;
@@ -121,7 +123,9 @@ impl Fixture {
     }
 
     pub fn open(&self) -> Engine {
-        Engine::open(self.config()).unwrap()
+        let config = self.config();
+        let log = Logger::open_session(&config).unwrap();
+        Engine::open(config, log).unwrap()
     }
 
     /// Publishes `version` on `channel`, with an archive for `target` whose manifest says it has

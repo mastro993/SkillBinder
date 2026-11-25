@@ -10,7 +10,7 @@ fn command_line(root: &Path, place: Place) -> CommandLine {
     let log = Logger::start(
         root.join("logs"),
         root,
-        crate::logging::LogFilter::default(),
+        crate::logging::LogConfig::default(),
     )
     .unwrap_or_else(|_| panic!("logs start"));
     CommandLine {

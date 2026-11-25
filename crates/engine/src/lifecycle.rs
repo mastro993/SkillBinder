@@ -4,7 +4,7 @@ use crate::{
     },
     catalog::{BASE_URL, CatalogSource},
     git::Git,
-    logging::LogFilter,
+    logging::LogConfig,
     onboarding::{self, Facts, Offers},
     persistence,
     shutdown::Shutdown,
@@ -79,8 +79,9 @@ pub struct EngineConfig {
     /// The folder the macOS command line tool's `usr/local/bin` and Homebrew prefixes are under:
     /// `/`, or a fixture's own, so a native check never links the user's real command.
     pub system_root: PathBuf,
-    /// Which lines the log writes, from `SKILLBINDER_LOG`, which the desktop reads.
-    pub log: LogFilter,
+    /// Which lines the log writes and echoes to the console, from `SKILLBINDER_LOG` and the
+    /// build, which the desktop reads.
+    pub log: LogConfig,
 }
 impl EngineConfig {
     /// Resolves the operating system's local application-data location.
@@ -91,7 +92,7 @@ impl EngineConfig {
         Ok(Self {
             placement: AppPlacement::platform(dirs.home_dir(), &environment),
             system_root: PathBuf::from("/"),
-            log: LogFilter::default(),
+            log: LogConfig::default(),
             data_dir: dirs.data_local_dir().join("SkillBinder"),
             home: dirs.home_dir().to_path_buf(),
             environment,
@@ -144,7 +145,7 @@ impl EngineConfig {
             repository_urls: RepositoryUrls::Local,
             app_version: running_version(),
             app_update: None,
-            log: LogFilter::default(),
+            log: LogConfig::default(),
         }
     }
     /// The usable Git where [`Self::git_search`] says to look, or else the version of an older
