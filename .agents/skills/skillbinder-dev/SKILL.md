@@ -13,11 +13,11 @@ A development world is a copy of the synthetic world at `.skillbinder-dev/<name>
 GPUI_MCP_BACKGROUND=1 cargo run -p xtask --locked -- dev [<name>] [--fresh] -- --mcp
 ```
 
-Run it in the background: it stays attached until the app quits. Its first lines print the world's path, its projects folder, its Sync remote's `file://` URL, and the command line for it.
+Run it in the background: it stays attached until the app quits. Its first lines print the world's absolute path (`<world>` below), its projects folder, its Sync remote's `file://` URL, and the command line for it.
 
 - Launch every run this way. A plain `cargo run -p skillbinder` opens the user's real library and agents; use it only when the user asks for real data.
 - Give each parallel task its own `<name>`; `default` is shared by every session in the checkout. Running a world that is already up only brings its window forward.
-- `--fresh` rebuilds the world and starts at onboarding. It refuses while that world runs: quit the app first (`keyboard` `cmd-q` through the bridge).
+- `--fresh` rebuilds the world and starts at onboarding. It refuses while that world runs: quit the app first (`keyboard` `secondary-q` through the bridge: Command-Q on macOS, Ctrl-Q elsewhere).
 - A world launched before onboarding finished opens at onboarding; a later launch opens where it was left.
 
 ## Drive
@@ -51,7 +51,7 @@ The world's paths contain the user's name, and a workspace's header, Settings, S
 On macOS, when MCP screenshots time out while the window renders, capture the window by its ID:
 
 ```sh
-pgrep -f 'debug/skillbinder --data-dir .*/.skillbinder-dev/<name>/data'  # the app's <pid>
-swift .agents/skills/skillbinder-dev/window-id.swift <pid>               # its <window id>
+pgrep -f 'debug/skillbinder --data-dir <world>/data'  # the app's <pid>
+swift .agents/skills/skillbinder-dev/window-id.swift <pid>  # its <window id>
 screencapture -x -o -l<window id> shot.png
 ```
