@@ -204,3 +204,20 @@ fn lines_only_the_console_shows_stay_out_of_the_file() {
     assert_eq!(lines.len(), 1, "{lines:?}");
     assert!(lines[0].contains(" INFO  scan "), "{}", lines[0]);
 }
+
+#[cfg(unix)]
+#[test]
+fn a_home_reached_through_a_link_is_redacted_both_ways() {
+    let root = tempfile::tempdir().unwrap();
+    let real = root.path().join("real-home");
+    std::fs::create_dir_all(&real).unwrap();
+    let linked = root.path().join("linked-home");
+    std::os::unix::fs::symlink(&real, &linked).unwrap();
+    let real = dunce::canonicalize(&real).unwrap();
+    let log = Logger::start(root.path().join("logs"), &linked, LogConfig::default()).unwrap();
+    log.event(Level::Warn, Area::App, "record")
+        .path(&linked.join("a"))
+        .field("text", real.join("b").display());
+    let lines = lines(&root, &log);
+    assert!(lines[0].ends_with(r#" path=~/a text=~/b"#), "{}", lines[0]);
+}

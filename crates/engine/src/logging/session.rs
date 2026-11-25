@@ -10,10 +10,12 @@ impl Logger {
     /// before it opens the engine, so the engine's opening and the desktop's own records are
     /// logged too.
     pub fn open_session(config: &EngineConfig) -> AppResult<Self> {
-        // The engine writes paths under the resolved home, which redaction must recognize.
-        let home = dunce::canonicalize(&config.home).unwrap_or_else(|_| config.home.clone());
-        let log = Self::start(config.data_dir.join("logs"), &home, config.log.clone())
-            .map_err(|_| AppError::storage())?;
+        let log = Self::start(
+            config.data_dir.join("logs"),
+            &config.home,
+            config.log.clone(),
+        )
+        .map_err(|_| AppError::storage())?;
         let channel = match Channel::of(&config.app_version) {
             Channel::Stable => "stable",
             Channel::Beta => "beta",

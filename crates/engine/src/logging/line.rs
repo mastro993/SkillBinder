@@ -131,11 +131,12 @@ impl fmt::Display for Took {
     }
 }
 
-/// Keeps the home folder and credentials out of the log: the home folder becomes `~`, and URL
-/// credentials, token-like query values, `Authorization` values, and bearer tokens become
-/// `[redacted]`.
+/// Keeps the home folder and credentials out of the log: the home folder, as given or resolved,
+/// becomes `~`, and URL credentials, token-like query values, `Authorization` values, and bearer
+/// tokens become `[redacted]`.
 pub(super) struct Redactor {
-    home: String,
+    /// The home folder's spellings, the longest first, so one never cuts into another.
+    homes: Vec<String>,
     patterns: Vec<(Regex, &'static str)>,
 }
 
@@ -147,18 +148,24 @@ impl Redactor {
             (r"(?i)(authorization\s*[:=]\s*)[^\r\n]+", "$1[redacted]"),
             (r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]"),
         ].into_iter().filter_map(|(pattern, replacement)| Regex::new(pattern).ok().map(|regex| (regex, replacement))).collect();
-        Self {
-            home: home.to_string_lossy().into_owned(),
-            patterns,
-        }
+        // The engine writes paths under the resolved home; the desktop, GPUI, and Kit may write
+        // them as given, such as through a symlinked `/home`.
+        let mut homes: Vec<String> = [Some(home.to_path_buf()), dunce::canonicalize(home).ok()]
+            .into_iter()
+            .flatten()
+            .map(|home| home.to_string_lossy().into_owned())
+            .filter(|home| !home.is_empty())
+            .collect();
+        homes.sort_by_key(|home| std::cmp::Reverse(home.len()));
+        homes.dedup();
+        Self { homes, patterns }
     }
 
     pub(super) fn redact(&self, text: &str) -> String {
-        let mut result = if self.home.is_empty() {
-            text.to_owned()
-        } else {
-            text.replace(&self.home, "~")
-        };
+        let mut result = text.to_owned();
+        for home in &self.homes {
+            result = result.replace(home.as_str(), "~");
+        }
         for (pattern, replacement) in &self.patterns {
             result = pattern.replace_all(&result, *replacement).into_owned();
         }
