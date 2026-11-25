@@ -1,9 +1,9 @@
 //! The managed copies and unapplied directories SkillBinder records, in machine-local SQLite.
 
 use super::plan::{Issue, Row};
-use crate::schema::managed_copies;
+use crate::{schema::managed_copies, storage};
 use diesel::{prelude::*, upsert::excluded};
-use skillbinder_proto::{AppError, AppResult, WorkspaceId};
+use skillbinder_proto::{AppResult, WorkspaceId};
 use std::collections::BTreeMap;
 
 /// A global or workspace skill directory, as its resolved path, and a slug.
@@ -19,14 +19,14 @@ pub(super) fn load(connection: &mut SqliteConnection) -> AppResult<BTreeMap<Pair
             managed_copies::issue,
         ))
         .load::<(String, String, Option<String>, Option<String>)>(connection)
-        .map_err(|_| AppError::storage())?
+        .map_err(storage::error("loading managed copy records"))?
         .into_iter()
         .map(|(directory, slug, digest, issue)| {
             let issue = issue
                 .as_deref()
                 .map(serde_json::from_str::<Issue>)
                 .transpose()
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("parsing a managed copy issue"))?;
             Ok(((directory, slug), Row { digest, issue }))
         })
         .collect()
@@ -37,11 +37,12 @@ pub(super) fn save(
     connection: &mut SqliteConnection,
     changes: &[(Pair, Option<Row>)],
 ) -> AppResult<()> {
-    let storage = |_| AppError::storage();
     for ((directory, slug), row) in changes {
         let key = managed_copies::table.find((directory, slug));
         let Some(row) = row else {
-            diesel::delete(key).execute(connection).map_err(storage)?;
+            diesel::delete(key)
+                .execute(connection)
+                .map_err(storage::error("removing a managed copy record"))?;
             continue;
         };
         let issue = row
@@ -49,7 +50,7 @@ pub(super) fn save(
             .as_ref()
             .map(serde_json::to_string)
             .transpose()
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("serializing a managed copy issue"))?;
         diesel::insert_into(managed_copies::table)
             .values((
                 managed_copies::directory.eq(directory),
@@ -64,7 +65,7 @@ pub(super) fn save(
                 managed_copies::issue.eq(excluded(managed_copies::issue)),
             ))
             .execute(connection)
-            .map_err(storage)?;
+            .map_err(storage::error("saving a managed copy record"))?;
     }
     Ok(())
 }
@@ -95,7 +96,7 @@ pub(super) fn owners(
             managed_copies::workspace_dir,
         ))
         .load::<(String, String, Option<String>, Option<String>)>(connection)
-        .map_err(|_| AppError::storage())?
+        .map_err(storage::error("loading managed copy holders"))?
         .into_iter()
         .map(|(directory, slug, workspace, dir)| {
             let holder = workspace.map(|workspace| Holder {
@@ -120,7 +121,7 @@ pub(crate) fn claim(
                 managed_copies::workspace_dir.eq(holder.as_ref().map(|holder| &holder.dir)),
             ))
             .execute(connection)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("saving a managed copy holder"))?;
     }
     Ok(())
 }

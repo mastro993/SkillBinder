@@ -5,6 +5,7 @@
 use super::Engine;
 use crate::catalog::{Catalogs, Previews, Repositories, Resolutions, Searches};
 use crate::install::Installs;
+use crate::storage;
 use skillbinder_proto::*;
 
 impl Engine {
@@ -12,7 +13,9 @@ impl Engine {
     /// running or the catalog is current and was fetched within `max_age`.
     pub async fn refresh_catalog(&self, max_age: std::time::Duration) -> AppResult<()> {
         if let Some(finished) = self.owner.catalog.refresh(max_age.as_secs())? {
-            finished.await.map_err(|_| AppError::storage())?;
+            finished
+                .await
+                .map_err(storage::error("waiting for the catalog refresh"))?;
         }
         Ok(())
     }

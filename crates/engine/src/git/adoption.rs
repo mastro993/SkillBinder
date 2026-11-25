@@ -1,4 +1,5 @@
-use super::{AppError, AppResult, Git, REMOTE_REF, failure};
+use super::{AppResult, Git, REMOTE_REF, failure};
+use crate::storage;
 use std::{fs, path::Path};
 
 impl Git {
@@ -27,10 +28,10 @@ fn empty_payload(path: &Path) -> AppResult<bool> {
     match fs::symlink_metadata(path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
         Ok(metadata) if metadata.file_type().is_dir() => Ok(fs::read_dir(path)
-            .map_err(|_| AppError::storage())?
+            .map_err(storage::error_at("listing", path))?
             .next()
             .is_none()),
         Ok(_) => Ok(false),
-        Err(_) => Err(AppError::storage()),
+        Err(error) => Err(storage::error_at("reading", path)(error)),
     }
 }

@@ -2,6 +2,7 @@
 //! and each creator's avatar with its own ETag. Every file is replaced atomically.
 
 use super::snapshot::{Translated, translate};
+use crate::storage;
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{AppError, AppResult};
 use std::{
@@ -58,7 +59,8 @@ impl Cache {
     }
 
     pub(super) fn save_meta(&self, meta: &Meta) -> AppResult<()> {
-        let bytes = serde_json::to_vec(meta).map_err(|_| AppError::storage())?;
+        let bytes = serde_json::to_vec(meta)
+            .map_err(storage::error("serializing the catalog cache meta"))?;
         self.write(&self.dir.join(META), &bytes)
     }
 
@@ -87,14 +89,16 @@ impl Cache {
 
     fn write(&self, path: &Path, bytes: &[u8]) -> AppResult<()> {
         let directory = path.parent().ok_or_else(AppError::storage)?;
-        fs::create_dir_all(directory).map_err(|_| AppError::storage())?;
-        fs::create_dir_all(&self.staging).map_err(|_| AppError::storage())?;
-        let mut file =
-            tempfile::NamedTempFile::new_in(&self.staging).map_err(|_| AppError::storage())?;
+        fs::create_dir_all(directory).map_err(storage::error_at("creating", directory))?;
+        fs::create_dir_all(&self.staging).map_err(storage::error_at("creating", &self.staging))?;
+        let mut file = tempfile::NamedTempFile::new_in(&self.staging).map_err(
+            storage::error_at("creating a temporary file in", &self.staging),
+        )?;
         file.write_all(bytes)
             .and_then(|()| file.as_file().sync_all())
-            .map_err(|_| AppError::storage())?;
-        file.persist(path).map_err(|_| AppError::storage())?;
+            .map_err(storage::error_at("writing", file.path()))?;
+        file.persist(path)
+            .map_err(storage::error_at("saving", path))?;
         Ok(())
     }
 }

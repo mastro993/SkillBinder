@@ -7,6 +7,7 @@ use crate::{
     database, library_store,
     scan::paths::resolve_absent,
     schema::{workspace_dirs, workspace_skills},
+    storage,
     worker::State,
 };
 use diesel::prelude::*;
@@ -26,22 +27,22 @@ pub(super) struct Held {
 
 /// Every workspace's agents and skills, by workspace identity.
 pub(super) fn load(connection: &mut SqliteConnection) -> AppResult<BTreeMap<String, Held>> {
-    let storage = |_| AppError::storage();
     let mut held = BTreeMap::<String, Held>::new();
     for (workspace, dir) in workspace_dirs::table
         .load::<(String, String)>(connection)
-        .map_err(storage)?
+        .map_err(storage::error("loading workspace agents"))?
     {
         held.entry(workspace).or_default().dirs.insert(dir);
     }
     for (workspace, slug, dirs) in workspace_skills::table
         .load::<(String, String, Option<String>)>(connection)
-        .map_err(storage)?
+        .map_err(storage::error("loading workspace skills"))?
     {
         let targets = match dirs {
             None => WorkspaceTargets::AllAgents,
             Some(dirs) => WorkspaceTargets::Dirs(
-                serde_json::from_str(&dirs).map_err(|_| AppError::storage())?,
+                serde_json::from_str(&dirs)
+                    .map_err(storage::error("parsing a workspace skill's agents"))?,
             ),
         };
         held.entry(workspace)
@@ -60,7 +61,6 @@ pub(crate) fn save(
     dirs: &BTreeSet<String>,
     skills: &[(&SkillId, Option<&WorkspaceTargets>)],
 ) -> AppResult<()> {
-    let storage = |_| AppError::storage();
     for dir in dirs {
         diesel::insert_or_ignore_into(workspace_dirs::table)
             .values((
@@ -68,19 +68,22 @@ pub(crate) fn save(
                 workspace_dirs::dir.eq(dir),
             ))
             .execute(connection)
-            .map_err(storage)?;
+            .map_err(storage::error("saving a workspace agent"))?;
     }
     for (skill, targets) in skills {
         let key = workspace_skills::table.find((id.as_str(), skill.as_str()));
-        diesel::delete(key).execute(connection).map_err(storage)?;
+        diesel::delete(key)
+            .execute(connection)
+            .map_err(storage::error("removing a workspace skill"))?;
         let Some(targets) = targets else {
             continue;
         };
         let dirs = match targets {
             WorkspaceTargets::AllAgents => None,
-            WorkspaceTargets::Dirs(dirs) => {
-                Some(serde_json::to_string(dirs).map_err(|_| AppError::storage())?)
-            }
+            WorkspaceTargets::Dirs(dirs) => Some(
+                serde_json::to_string(dirs)
+                    .map_err(storage::error("serializing a workspace skill's agents"))?,
+            ),
         };
         diesel::insert_into(workspace_skills::table)
             .values((
@@ -89,7 +92,7 @@ pub(crate) fn save(
                 workspace_skills::dirs.eq(dirs),
             ))
             .execute(connection)
-            .map_err(storage)?;
+            .map_err(storage::error("saving a workspace skill"))?;
         library_store::mark_seen(connection, skill.as_str())?;
     }
     Ok(())

@@ -112,9 +112,10 @@ impl Installer {
         if self.running.is_some() {
             return Ok(());
         }
-        let child = command(launch)
-            .spawn()
-            .map_err(|_| failure("The Git installer could not start."))?;
+        let child = command(launch).spawn().map_err(|error| {
+            failure("The Git installer could not start.")
+                .because(format_args!("starting the Git installer: {error}"))
+        })?;
         self.running = Some(child);
         self.failed = false;
         Ok(())

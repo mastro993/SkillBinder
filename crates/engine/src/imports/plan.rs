@@ -9,6 +9,7 @@ use crate::{
     persistence,
     scan::{Found, ImportSource, Selected},
     schema::operation_plans,
+    storage,
     worker::State,
 };
 use diesel::prelude::*;
@@ -168,20 +169,20 @@ impl State {
     /// completed import reads its idempotency record, not its plan.
     fn store(&self, prepared: &Prepared) -> AppResult<()> {
         let review = &prepared.review;
-        let now = i64::try_from(persistence::now()).map_err(|_| AppError::storage())?;
+        let now = i64::try_from(persistence::now()).map_err(storage::error("reading the clock"))?;
         diesel::delete(operation_plans::table.filter(operation_plans::expires_at.lt(now)))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("removing expired import plans"))?;
         diesel::insert_into(operation_plans::table)
             .values((
                 operation_plans::id.eq(review.id.as_str()),
-                operation_plans::payload
-                    .eq(serde_json::to_string(prepared).map_err(|_| AppError::storage())?),
+                operation_plans::payload.eq(serde_json::to_string(prepared)
+                    .map_err(storage::error("serializing an import plan"))?),
                 operation_plans::expires_at.eq(review.expires_at as i64),
                 operation_plans::consumed.eq(0),
             ))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("saving an import plan"))?;
         Ok(())
     }
 }

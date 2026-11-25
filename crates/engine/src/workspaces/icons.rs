@@ -11,22 +11,28 @@ const MAX_BYTES: u64 = 8 * 1024 * 1024;
 /// SVG is refused because it can reference resources outside the stored copy; only raster
 /// formats are copied into application storage.
 pub(super) fn read(path: &Path) -> AppResult<(Vec<u8>, &'static str)> {
-    let metadata =
-        fs::metadata(path).map_err(|_| AppError::validation("Choose an accessible image file."))?;
+    let metadata = fs::metadata(path).map_err(inaccessible(path))?;
     if !metadata.is_file() {
         return Err(AppError::validation("Choose an image file."));
     }
     if metadata.len() > MAX_BYTES {
         return Err(AppError::validation("The image must be 8 MB or smaller."));
     }
-    let bytes =
-        fs::read(path).map_err(|_| AppError::validation("Choose an accessible image file."))?;
+    let bytes = fs::read(path).map_err(inaccessible(path))?;
     if bytes.len() as u64 > MAX_BYTES {
         return Err(AppError::validation("The image must be 8 MB or smaller."));
     }
     let extension = extension(&bytes)
         .ok_or_else(|| AppError::validation("Choose a PNG, JPEG, GIF, WebP, BMP, or ICO image."))?;
     Ok((bytes, extension))
+}
+
+/// The picked image could not be read; the cause names it and the io error.
+fn inaccessible(path: &Path) -> impl FnOnce(std::io::Error) -> AppError {
+    move |error| {
+        AppError::validation("Choose an accessible image file.")
+            .because(format_args!("reading {}: {error}", path.display()))
+    }
 }
 
 /// The canonical extension of a recognized raster image, or `None` for anything else.

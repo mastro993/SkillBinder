@@ -4,6 +4,7 @@ use crate::{
     library_store::{SavedSkill, save_skill},
     records::Record,
     schema::{device_settings, idempotency_records, journals, operation_plans},
+    storage,
     worker::State,
 };
 use diesel::{prelude::*, upsert::excluded};
@@ -38,7 +39,7 @@ pub(crate) fn sync_directory(path: &Path) -> AppResult<()> {
     #[cfg(unix)]
     File::open(path)
         .and_then(|file| file.sync_all())
-        .map_err(|_| AppError::storage())?;
+        .map_err(storage::error_at("syncing", path))?;
     #[cfg(not(unix))]
     let _ = path;
     Ok(())
@@ -50,19 +51,22 @@ impl State {
             .select(device_settings::value)
             .first::<String>(&mut *self.database.borrow_mut())
             .optional()
-            .map_err(|_| AppError::storage())?
-            .map(|json| serde_json::from_str(&json).map_err(|_| AppError::storage()))
+            .map_err(storage::error("reading a device setting"))?
+            .map(|json| {
+                serde_json::from_str(&json).map_err(storage::error("parsing a device setting"))
+            })
             .transpose()
     }
     pub(crate) fn set_setting(&self, key: &str, value: &impl Serialize) -> AppResult<()> {
-        let value = serde_json::to_string(value).map_err(|_| AppError::storage())?;
+        let value =
+            serde_json::to_string(value).map_err(storage::error("serializing a device setting"))?;
         put_setting(&mut self.database.borrow_mut(), key, &value)
     }
     pub(crate) fn remove_setting(&self, key: &str) -> AppResult<()> {
         diesel::delete(device_settings::table.find(key))
             .execute(&mut *self.database.borrow_mut())
             .map(drop)
-            .map_err(|_| AppError::storage())
+            .map_err(storage::error("removing a device setting"))
     }
     pub(crate) fn library_dir(&self) -> PathBuf {
         self.config.data_dir.join("library")
@@ -160,7 +164,8 @@ fn uncertain_payload() -> AppError {
 }
 impl State {
     fn save_journal(&self, journal: &Journal) -> AppResult<()> {
-        let body = serde_json::to_string(journal).map_err(|_| AppError::storage())?;
+        let body =
+            serde_json::to_string(journal).map_err(storage::error("serializing a journal"))?;
         diesel::insert_into(journals::table)
             .values((journals::id.eq(&journal.id), journals::body.eq(&body)))
             .on_conflict(journals::id)
@@ -168,13 +173,13 @@ impl State {
             .set(journals::body.eq(excluded(journals::body)))
             .execute(&mut *self.database.borrow_mut())
             .map(drop)
-            .map_err(|_| AppError::storage())
+            .map_err(storage::error("saving a journal"))
     }
     fn remove_journal(&self, journal: &Journal) -> AppResult<()> {
         diesel::delete(journals::table.find(&journal.id))
             .execute(&mut *self.database.borrow_mut())
             .map(drop)
-            .map_err(|_| AppError::storage())
+            .map_err(storage::error("removing a journal"))
     }
     /// Whether the journal's database change has committed, which removed its row.
     fn journal_committed(&self, journal: &Journal) -> AppResult<bool> {
@@ -183,7 +188,7 @@ impl State {
             .count()
             .get_result::<i64>(&mut *self.database.borrow_mut())
             .map(|rows| rows == 0)
-            .map_err(|_| AppError::storage())
+            .map_err(storage::error("checking whether a journal committed"))
     }
     pub(crate) fn recover(&mut self) -> AppResult<()> {
         self.recovery_required = true;
@@ -191,10 +196,10 @@ impl State {
             .order(journals::id)
             .select(journals::body)
             .load::<String>(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("loading the journals"))?;
         for body in bodies {
             let mut journal: Journal =
-                serde_json::from_str(&body).map_err(|_| AppError::storage())?;
+                serde_json::from_str(&body).map_err(storage::error("parsing a journal"))?;
             self.validate_progress(&journal)?;
             if journal.progress.phase == Phase::RollingBack {
                 self.rollback_journal(&mut journal)?;
@@ -286,14 +291,14 @@ impl State {
             match fs::symlink_metadata(path) {
                 Ok(_) => Ok(true),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-                Err(_) => Err(AppError::storage()),
+                Err(error) => Err(storage::error_at("inspecting", path)(error)),
             }
         };
         let expected = &journal.progress.expected[index];
         match (exists(from)?, exists(to)?) {
             (true, false) if expected.matches(from)? => {
                 let parent = to.parent().ok_or_else(AppError::storage)?;
-                fs::create_dir_all(parent).map_err(|_| AppError::storage())?;
+                fs::create_dir_all(parent).map_err(storage::error_at("creating", parent))?;
                 let mut ancestor = Some(parent);
                 while let Some(directory) =
                     ancestor.filter(|directory| directory.starts_with(&self.config.data_dir))
@@ -302,7 +307,13 @@ impl State {
                     ancestor = directory.parent();
                 }
                 checkpoint("before_rename")?;
-                fs::rename(from, to).map_err(|_| AppError::storage())?;
+                fs::rename(from, to).map_err(|error| {
+                    AppError::storage().because(format_args!(
+                        "renaming {} to {}: {error}",
+                        from.display(),
+                        to.display()
+                    ))
+                })?;
                 checkpoint("after_rename")?;
             }
             (false, true) if expected.matches(to)? => {}
@@ -344,7 +355,7 @@ impl State {
             }
             diesel::delete(journals::table.find(&journal.id))
                 .execute(connection)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("removing a committed journal"))?;
             checkpoint("before_database")
         })?;
         checkpoint("after_database")
@@ -400,7 +411,8 @@ impl State {
             while !parent.exists() {
                 parent = parent.parent().ok_or_else(AppError::storage)?;
             }
-            let canonical = dunce::canonicalize(parent).map_err(|_| AppError::storage())?;
+            let canonical =
+                dunce::canonicalize(parent).map_err(storage::error_at("resolving", parent))?;
             if !canonical.starts_with(&self.config.data_dir) || canonical != parent {
                 return Err(AppError::validation(
                     "Journal path crosses a symbolic link outside application storage.",
@@ -427,12 +439,13 @@ pub(crate) fn put_setting(
         .set(device_settings::value.eq(excluded(device_settings::value)))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("saving a device setting"))
 }
 
 /// Stores a completed import's outcome for replay and consumes its plan.
 fn record_outcome(connection: &mut SqliteConnection, outcome: &ImportOutcome) -> AppResult<()> {
-    let serialized = serde_json::to_string(outcome).map_err(|_| AppError::storage())?;
+    let serialized =
+        serde_json::to_string(outcome).map_err(storage::error("serializing an import outcome"))?;
     let plan = outcome.plan_id.as_str();
     diesel::insert_or_ignore_into(idempotency_records::table)
         .values((
@@ -441,12 +454,12 @@ fn record_outcome(connection: &mut SqliteConnection, outcome: &ImportOutcome) ->
             idempotency_records::result.eq(&serialized),
         ))
         .execute(connection)
-        .map_err(|_| AppError::storage())?;
+        .map_err(storage::error("recording an import outcome"))?;
     diesel::update(operation_plans::table.find(plan))
         .set(operation_plans::consumed.eq(1))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("consuming an import plan"))
 }
 
 #[cfg(not(test))]

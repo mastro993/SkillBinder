@@ -16,6 +16,7 @@ use crate::{
     records::Record,
     shutdown::Shutdown,
     sources::{self, Refusal},
+    storage,
     worker::State,
 };
 use skillbinder_proto::{
@@ -120,8 +121,9 @@ impl Fetch {
             return Err(InstallFailure::from(refusal).into());
         }
         // Only the inspected files reach the library, as with an update.
-        let directory = self.staging.join("new").join(&self.slug);
-        fs::create_dir_all(self.staging.join("new")).map_err(|_| AppError::storage())?;
+        let new = self.staging.join("new");
+        let directory = new.join(&self.slug);
+        fs::create_dir_all(&new).map_err(storage::error_at("creating", &new))?;
         payload::materialize(&fetched, &directory)?;
         let staged = payload::inspect(&directory)?;
         if self.shutdown.cancelled() {

@@ -6,6 +6,7 @@ use crate::{
     payload::Inspection,
     records::Record,
     schema::{device_settings, library_folders, preset_skills, presets, skills},
+    storage,
 };
 use diesel::{prelude::*, upsert::excluded};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -90,7 +91,7 @@ pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SavedSkill)
         ))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("saving a library skill"))
 }
 
 /// Clears the New mark of skill `slug`; a slug the library does not hold is left alone.
@@ -99,7 +100,7 @@ pub(crate) fn mark_seen(connection: &mut SqliteConnection, slug: &str) -> AppRes
         .set(skills::new.eq(false))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("clearing a skill's New mark"))
 }
 
 /// Records the source of skill `slug`.
@@ -112,7 +113,7 @@ pub(crate) fn set_source(
         .set(skills::source.eq(to_json(source)?))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("saving a skill's source"))
 }
 
 /// The source the database caches for skill `slug`, if any.
@@ -125,7 +126,7 @@ pub(crate) fn cached_source(
         .select(skills::source)
         .first::<Option<String>>(connection)
         .optional()
-        .map_err(|_| AppError::storage())?
+        .map_err(storage::error("reading a skill's cached source"))?
         .flatten()
         .as_deref()
         .map(from_json)
@@ -142,7 +143,7 @@ pub(crate) fn set_drift(
         .set(skills::drift.eq(drift.as_ref().map(to_text).transpose()?))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("saving a skill's drift"))
 }
 
 /// Removes a skill; its preset memberships cascade away with it, while its managed copies stay
@@ -151,7 +152,7 @@ pub(crate) fn delete_skill(connection: &mut SqliteConnection, slug: &str) -> App
     diesel::delete(skills::table.find(slug))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("deleting a library skill"))
 }
 
 /// Whether the library holds `slug`.
@@ -161,7 +162,7 @@ pub(crate) fn holds(connection: &mut SqliteConnection, slug: &str) -> AppResult<
         .count()
         .get_result::<i64>(connection)
         .map(|rows| rows > 0)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("checking whether the library holds a skill"))
 }
 
 /// The slugs of the library skills whose record is not cached yet, such as skills imported
@@ -172,7 +173,7 @@ pub(crate) fn unrecorded(connection: &mut SqliteConnection) -> AppResult<BTreeSe
         .select(skills::slug)
         .load::<String>(connection)
         .map(BTreeSet::from_iter)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("loading the unrecorded skills"))
 }
 
 /// The slugs of every library skill.
@@ -181,7 +182,7 @@ pub(crate) fn slugs(connection: &mut SqliteConnection) -> AppResult<BTreeSet<Str
         .select(skills::slug)
         .load::<String>(connection)
         .map(BTreeSet::from_iter)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("loading the library's slugs"))
 }
 
 type SkillRow = (
@@ -205,11 +206,10 @@ pub(crate) fn load(
     connection: &mut SqliteConnection,
     log: &Logger,
 ) -> AppResult<(Library, BTreeMap<SkillId, SkillDetails>)> {
-    let storage = |_| AppError::storage();
     let mut memberships = BTreeMap::<String, BTreeMap<PresetId, Targets>>::new();
     for (preset, slug, agents) in preset_skills::table
         .load::<(String, String, Option<String>)>(connection)
-        .map_err(storage)?
+        .map_err(storage::error("loading preset memberships"))?
     {
         let targets = match agents {
             None => Targets::AllAgents,
@@ -237,7 +237,7 @@ pub(crate) fn load(
     ) in skills::table
         .order(skills::slug)
         .load::<SkillRow>(connection)
-        .map_err(storage)?
+        .map_err(storage::error("loading library skills"))?
     {
         let id = SkillId(slug);
         details.insert(id.clone(), from_json(&detail)?);
@@ -258,7 +258,7 @@ pub(crate) fn load(
     let mut presets = presets::table
         .order(presets::position)
         .load::<(String, String, i64, Option<String>, String)>(connection)
-        .map_err(storage)?
+        .map_err(storage::error("loading presets"))?
         .into_iter()
         .map(|(id, name, position, color, icon)| {
             let color = stored_color(color.as_deref(), &name, log);
@@ -277,7 +277,7 @@ pub(crate) fn load(
     let folders = library_folders::table
         .order(library_folders::position)
         .load::<(String, String, i64)>(connection)
-        .map_err(storage)?
+        .map_err(storage::error("loading library folders"))?
         .into_iter()
         .map(|(id, name, position)| Folder {
             id: FolderId(id),
@@ -304,7 +304,7 @@ fn active_preset(connection: &mut SqliteConnection, presets: &[Preset]) -> AppRe
         .select(device_settings::value)
         .first::<String>(connection)
         .optional()
-        .map_err(|_| AppError::storage())?
+        .map_err(storage::error("reading the active preset"))?
         .map(|json| from_json::<PresetId>(&json))
         .transpose()?;
     Ok(chosen
@@ -319,17 +319,16 @@ pub(crate) fn save_organization(
     connection: &mut SqliteConnection,
     library: &Library,
 ) -> AppResult<()> {
-    let storage = |_| AppError::storage();
     diesel::delete(presets::table)
         .execute(connection)
-        .map_err(storage)?;
+        .map_err(storage::error("clearing presets"))?;
     diesel::update(skills::table)
         .set(skills::folder_id.eq(None::<String>))
         .execute(connection)
-        .map_err(storage)?;
+        .map_err(storage::error("unfiling skills"))?;
     diesel::delete(library_folders::table)
         .execute(connection)
-        .map_err(storage)?;
+        .map_err(storage::error("clearing library folders"))?;
     for preset in &library.presets {
         diesel::insert_into(presets::table)
             .values((
@@ -340,7 +339,7 @@ pub(crate) fn save_organization(
                 presets::icon.eq(to_text(&preset.icon)?),
             ))
             .execute(connection)
-            .map_err(storage)?;
+            .map_err(storage::error("saving a preset"))?;
     }
     for folder in &library.folders {
         diesel::insert_into(library_folders::table)
@@ -350,7 +349,7 @@ pub(crate) fn save_organization(
                 library_folders::position.eq(i64::from(folder.position)),
             ))
             .execute(connection)
-            .map_err(storage)?;
+            .map_err(storage::error("saving a library folder"))?;
     }
     for skill in &library.skills {
         for (preset, targets) in &skill.presets {
@@ -360,7 +359,7 @@ pub(crate) fn save_organization(
             diesel::update(skills::table.find(skill.id.as_str()))
                 .set(skills::folder_id.eq(folder.as_str()))
                 .execute(connection)
-                .map_err(storage)?;
+                .map_err(storage::error("filing a skill"))?;
         }
     }
     let active = to_json(&library.active_preset)?;
@@ -375,14 +374,13 @@ pub(crate) fn hold_in_preset(
     slug: &str,
     targets: &Targets,
 ) -> AppResult<()> {
-    let storage = |_| AppError::storage();
     let agents = match targets {
         Targets::AllAgents => None,
         Targets::Agents(agents) => Some(to_json(agents)?),
     };
     diesel::delete(preset_skills::table.find((preset.as_str(), slug)))
         .execute(connection)
-        .map_err(storage)?;
+        .map_err(storage::error("removing a preset membership"))?;
     diesel::insert_into(preset_skills::table)
         .values((
             preset_skills::preset_id.eq(preset.as_str()),
@@ -390,26 +388,29 @@ pub(crate) fn hold_in_preset(
             preset_skills::agents.eq(agents),
         ))
         .execute(connection)
-        .map_err(storage)?;
+        .map_err(storage::error("saving a preset membership"))?;
     mark_seen(connection, slug)
 }
 
 fn to_json(value: &impl Serialize) -> AppResult<String> {
-    serde_json::to_string(value).map_err(|_| AppError::storage())
+    serde_json::to_string(value).map_err(storage::error("serializing library data"))
 }
 fn from_json<T: DeserializeOwned>(json: &str) -> AppResult<T> {
-    serde_json::from_str(json).map_err(|_| AppError::storage())
+    serde_json::from_str(json).map_err(storage::error("parsing library data"))
 }
 /// A unit-variant or string-valued enum, such as a preset color or icon, as its bare name.
 pub(crate) fn to_text(value: &impl Serialize) -> AppResult<String> {
     match serde_json::to_value(value) {
         Ok(serde_json::Value::String(text)) => Ok(text),
-        _ => Err(AppError::storage()),
+        Ok(other) => Err(AppError::storage().because(format_args!(
+            "serializing a stored name: {other} is not a string"
+        ))),
+        Err(error) => Err(storage::error("serializing a stored name")(error)),
     }
 }
 pub(crate) fn from_text<T: DeserializeOwned>(text: &str) -> AppResult<T> {
     serde_json::from_value(serde_json::Value::String(text.to_owned()))
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("parsing a stored name"))
 }
 /// A preset's stored icon, or the default glyph when this version does not know it, so an icon
 /// another version wrote never makes the library unreadable.

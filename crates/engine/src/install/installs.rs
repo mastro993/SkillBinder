@@ -2,7 +2,8 @@
 //! their states reach every snapshot.
 
 use super::Failed;
-use skillbinder_proto::{AppError, AppResult, InstallFailure, InstallState};
+use crate::storage;
+use skillbinder_proto::{AppResult, InstallFailure, InstallState};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, Mutex, MutexGuard},
@@ -27,7 +28,9 @@ pub(crate) struct Installs {
 
 impl Installs {
     fn lock(&self) -> AppResult<MutexGuard<'_, Shared>> {
-        self.shared.lock().map_err(|_| AppError::storage())
+        self.shared
+            .lock()
+            .map_err(storage::error("locking the install state"))
     }
 
     /// Each install that is not idle.

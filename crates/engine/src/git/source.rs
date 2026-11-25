@@ -2,6 +2,7 @@
 //! one of its folders. The cache is application data, never the library.
 
 use super::{Git, failure, process, validation};
+use crate::storage;
 use skillbinder_proto::{AppError, AppResult, ErrorCategory, SkillSource};
 use std::{fs, path::Path, time::Duration};
 
@@ -31,7 +32,7 @@ impl Git {
         if !cache.join("HEAD").is_file() {
             let _ = fs::remove_dir_all(cache);
             let parent = cache.parent().ok_or_else(AppError::storage)?;
-            fs::create_dir_all(parent).map_err(|_| AppError::storage())?;
+            fs::create_dir_all(parent).map_err(storage::error_at("creating", parent))?;
             let path = cache.to_str().ok_or_else(AppError::storage)?;
             self.network(
                 None,
@@ -118,8 +119,10 @@ impl Git {
 
     /// The text of the blob `object`, fetched from the source when the cache lacks it.
     pub fn read_blob(&self, cache: &Path, object: &str) -> AppResult<String> {
-        String::from_utf8(self.read_blob_bytes(cache, object)?)
-            .map_err(|_| failure("Git output is unreadable."))
+        String::from_utf8(self.read_blob_bytes(cache, object)?).map_err(|error| {
+            failure("Git output is unreadable.")
+                .because(format_args!("reading blob {object} as text: {error}"))
+        })
     }
 
     /// The bytes of the blob `object`, fetched from the source when the cache lacks it; an error
@@ -151,9 +154,10 @@ impl Git {
     /// Writes the files of `tree` into the empty directory `into`, fetching missing blobs.
     pub fn checkout_tree(&self, cache: &Path, tree: &str, into: &Path) -> AppResult<()> {
         // The cache's index only ever describes the last checkout; start from an empty one.
-        match fs::remove_file(cache.join("index")) {
+        let index = cache.join("index");
+        match fs::remove_file(&index) {
             Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-                return Err(AppError::storage());
+                return Err(storage::error_at("removing", &index)(error));
             }
             _ => {}
         }
@@ -177,8 +181,9 @@ impl Git {
     /// Runs a command that reads the source over the network, as [`Self::network_bytes`] does,
     /// and reads its output as text.
     fn network(&self, repo: Option<&Path>, args: &[&str]) -> AppResult<String> {
-        String::from_utf8(self.network_bytes(repo, args)?)
-            .map_err(|_| failure("Git output is unreadable."))
+        String::from_utf8(self.network_bytes(repo, args)?).map_err(|error| {
+            failure("Git output is unreadable.").because(process::unreadable(args, error))
+        })
     }
 
     /// Runs a command that reads the source over the network. A host Git could not reach

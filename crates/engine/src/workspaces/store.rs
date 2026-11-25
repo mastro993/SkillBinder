@@ -13,6 +13,7 @@ use crate::{
     persistence::{now, sync_directory},
     scan::registry::{global_skill_dirs, workspace_skill_dirs},
     schema::workspaces,
+    storage,
     worker::State,
 };
 use diesel::prelude::*;
@@ -115,7 +116,7 @@ impl State {
                             workspaces::created_at.eq(now() as i64),
                         ))
                         .execute(connection)
-                        .map_err(|_| AppError::storage())?;
+                        .map_err(storage::error("saving a workspace"))?;
                     let skills: Vec<_> = held
                         .skills
                         .iter()
@@ -167,7 +168,7 @@ impl State {
                 String,
                 Option<String>,
             )>(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("loading workspaces"))?;
         let mut workspaces = rows
             .into_iter()
             .map(|(id, path, name, position, color, icon, image)| {
@@ -181,7 +182,8 @@ impl State {
                     id: WorkspaceId(id),
                     name,
                     path,
-                    position: u32::try_from(position).map_err(|_| AppError::storage())?,
+                    position: u32::try_from(position)
+                        .map_err(storage::error("reading a workspace position"))?,
                     color,
                     icon,
                     image,
@@ -207,7 +209,7 @@ impl State {
         let changed = diesel::update(workspaces::table.find(id.as_str()))
             .set(workspaces::color.eq(color))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("saving a workspace color"))?;
         if changed == 0 {
             return Err(AppError::not_found("Workspace no longer exists."));
         }
@@ -228,7 +230,7 @@ impl State {
                 workspaces::icon_image.eq(None::<String>),
             ))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("saving a workspace icon"))?;
         if changed == 0 {
             return Err(AppError::not_found("Workspace no longer exists."));
         }
@@ -242,18 +244,19 @@ impl State {
         let previous = self.workspace_icon_file(id)?;
         let (bytes, extension) = icons::read(source)?;
         let icons = self.icons_dir();
-        fs::create_dir_all(&icons).map_err(|_| AppError::storage())?;
+        fs::create_dir_all(&icons).map_err(storage::error_at("creating", &icons))?;
         let name = format!("workspace-{}.{}", uuid::Uuid::new_v4(), extension);
         let target = icons.join(&name);
-        let mut temporary = tempfile::NamedTempFile::new_in(self.config.data_dir.join("staging"))
-            .map_err(|_| AppError::storage())?;
+        let staging = self.config.data_dir.join("staging");
+        let mut temporary = tempfile::NamedTempFile::new_in(&staging)
+            .map_err(storage::error_at("creating a temporary file in", &staging))?;
         temporary
             .write_all(&bytes)
             .and_then(|()| temporary.as_file().sync_all())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error_at("writing", temporary.path()))?;
         temporary
             .persist(&target)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error_at("saving", &target))?;
         if let Err(error) = sync_directory(&icons) {
             let _ = fs::remove_file(&target);
             return Err(error);
@@ -261,7 +264,7 @@ impl State {
         let changed = diesel::update(workspaces::table.find(id.as_str()))
             .set(workspaces::icon_image.eq(Some(name.clone())))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage());
+            .map_err(storage::error("saving a workspace image"));
         match changed {
             Ok(0) => {
                 let _ = fs::remove_file(&target);
@@ -283,7 +286,7 @@ impl State {
         let changed = diesel::update(workspaces::table.find(id.as_str()))
             .set(workspaces::name.eq(name))
             .execute(&mut *self.database.borrow_mut())
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("renaming a workspace"))?;
         if changed == 0 {
             return Err(AppError::not_found("Workspace no longer exists."));
         }
@@ -342,7 +345,7 @@ impl State {
             crate::activation::forget(connection, &handover.forgotten)?;
             diesel::delete(workspaces::table.find(id.as_str()))
                 .execute(connection)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("removing a workspace"))?;
             workspaces
                 .iter()
                 .filter(|p| &p.id != id)
@@ -362,7 +365,7 @@ impl State {
             .select(workspaces::icon_image)
             .first::<Option<String>>(&mut *self.database.borrow_mut())
             .optional()
-            .map_err(|_| AppError::storage())?
+            .map_err(storage::error("loading a workspace icon"))?
             .ok_or_else(|| AppError::not_found("Workspace no longer exists."))
     }
 
@@ -417,7 +420,7 @@ fn set_position(
         .set(workspaces::position.eq(position as i64))
         .execute(connection)
         .map(drop)
-        .map_err(|_| AppError::storage())
+        .map_err(storage::error("saving a workspace position"))
 }
 
 /// A stored glyph, `"folder"` for the default, or `None` when this version does not know it.

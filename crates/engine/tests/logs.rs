@@ -244,3 +244,39 @@ async fn quitting_during_a_source_check_is_not_a_failure() {
         "{lines:#?}"
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_failed_write_leads_from_its_diagnostic_id_to_the_path_and_io_error() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let publisher = Publisher::new(fixture.workspace.with_file_name("publisher"));
+    publisher.publish("review", "review", "first");
+    let skills = fixture.data.join("library/skills");
+    fs::create_dir_all(&skills).unwrap();
+    fs::set_permissions(&skills, fs::Permissions::from_mode(0o555)).unwrap();
+    let error = engine
+        .install_skill(publisher.skill("review", "review"))
+        .await
+        .unwrap_err();
+    fs::set_permissions(&skills, fs::Permissions::from_mode(0o755)).unwrap();
+    engine.shutdown().await.unwrap();
+    let lines = logged(&fixture);
+    let found: Vec<_> = lines
+        .iter()
+        .filter(|line| line.contains(&error.diagnostic_id))
+        .collect();
+    assert_eq!(found.len(), 1, "{lines:#?}");
+    let line = found[0];
+    assert!(line.contains(" ERROR install "), "{line}");
+    assert!(line.contains(" cause=\""), "{line}");
+    let cause = &line[line.find(" cause=").unwrap()..];
+    assert!(cause.contains("library/skills"), "{line}");
+    assert!(cause.contains("(os error 13)"), "{line}");
+    let sent = serde_json::to_string(&error).unwrap();
+    assert!(
+        !sent.contains("cause") && !sent.contains("os error"),
+        "{sent}"
+    );
+}

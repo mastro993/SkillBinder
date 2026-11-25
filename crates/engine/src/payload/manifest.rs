@@ -58,7 +58,9 @@ impl Manifest {
                 }
                 for (index, byte) in content_hash.iter_mut().enumerate() {
                     *byte = u8::from_str_radix(&entry.sha256[index * 2..index * 2 + 2], 16)
-                        .map_err(|_| AppError::validation("Invalid payload content digest."))?;
+                        .map_err(|error| {
+                            AppError::validation("Invalid payload content digest.").because(error)
+                        })?;
                 }
             }
             hash.update(content_hash);

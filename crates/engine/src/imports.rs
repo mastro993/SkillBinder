@@ -9,6 +9,7 @@ use crate::{
     records::Record,
     scan::ImportSource,
     schema::{idempotency_records, operation_plans},
+    storage,
     worker::State,
 };
 use diesel::prelude::*;
@@ -97,9 +98,9 @@ impl State {
             .select(operation_plans::payload)
             .first::<String>(&mut *self.database.borrow_mut())
             .optional()
-            .map_err(|_| AppError::storage())?
+            .map_err(storage::error("reading an import plan"))?
             .ok_or_else(|| AppError::stale("Import plan is unavailable. Prepare it again."))?;
-        serde_json::from_str(&serialized).map_err(|_| AppError::storage())
+        serde_json::from_str(&serialized).map_err(storage::error("parsing an import plan"))
     }
     /// Applies plan `id` to the ticked skills `selection`, re-inspecting only those, so a change
     /// to a skill left out never refuses it. A plan already applied returns its stored result.
@@ -115,9 +116,10 @@ impl State {
             .select(idempotency_records::result)
             .first::<String>(&mut *self.database.borrow_mut())
             .optional()
-            .map_err(|_| AppError::storage())?
+            .map_err(storage::error("reading an import result"))?
         {
-            return serde_json::from_str(&result).map_err(|_| AppError::storage());
+            return serde_json::from_str(&result)
+                .map_err(storage::error("parsing an import result"));
         }
         let prepared = self
             .prepared(&id)?
@@ -131,8 +133,10 @@ impl State {
             return Err(AppError::stale("The library changed after import review."));
         }
         for (item, inspection) in prepared.review.items.iter().zip(&prepared.sources) {
-            if dunce::canonicalize(&item.source).map_err(|_| AppError::stale("SourceChanged"))?
-                != inspection.canonical_source
+            if dunce::canonicalize(&item.source).map_err(|error| {
+                AppError::stale("SourceChanged")
+                    .because(format_args!("resolving {}: {error}", item.source))
+            })? != inspection.canonical_source
                 || payload::inspect(&inspection.canonical_source)? != *inspection
             {
                 return Err(AppError::stale("SourceChanged"));
@@ -152,7 +156,7 @@ impl State {
             .data_dir
             .join("staging")
             .join(format!("import-{id}-{}", uuid::Uuid::new_v4()));
-        fs::create_dir(&staging).map_err(|_| AppError::storage())?;
+        fs::create_dir(&staging).map_err(storage::error_at("creating", &staging))?;
         let staged = (|| {
             for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
                 if item.decision == ImportDecision::NewSkill {
@@ -236,8 +240,10 @@ impl State {
 /// Re-inspects a reviewed source, refusing one whose path or directory changed since the scan.
 pub(super) fn reinspect(source: &ImportSource) -> AppResult<Inspection> {
     let previous = &source.inspection;
-    let resolved = dunce::canonicalize(&source.display_path)
-        .map_err(|_| AppError::stale("Selected source path no longer exists."))?;
+    let resolved = dunce::canonicalize(&source.display_path).map_err(|error| {
+        AppError::stale("Selected source path no longer exists.")
+            .because(format_args!("resolving {}: {error}", source.display_path))
+    })?;
     if resolved != previous.canonical_source {
         return Err(AppError::stale("Selected source path changed."));
     }

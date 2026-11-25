@@ -14,6 +14,7 @@ use crate::{
     scan::{LibraryIndex, Scans},
     shutdown::Shutdown,
     sources::Updates,
+    storage,
 };
 use diesel::SqliteConnection;
 use fs2::FileExt;
@@ -122,26 +123,32 @@ impl Engine {
     /// logging to `log`, which [`Logger::open_session`] started for `config`. Call before
     /// creating native windows or from a blocking task.
     pub fn open(mut config: EngineConfig, log: Logger) -> AppResult<Self> {
-        fs::create_dir_all(&config.data_dir).map_err(|_| AppError::storage())?;
-        config.data_dir = dunce::canonicalize(&config.data_dir).map_err(|_| AppError::storage())?;
-        fs::create_dir_all(&config.home).map_err(|_| AppError::storage())?;
-        config.home = dunce::canonicalize(&config.home).map_err(|_| AppError::storage())?;
+        fs::create_dir_all(&config.data_dir)
+            .map_err(storage::error_at("creating", &config.data_dir))?;
+        config.data_dir = dunce::canonicalize(&config.data_dir)
+            .map_err(storage::error_at("resolving", &config.data_dir))?;
+        fs::create_dir_all(&config.home).map_err(storage::error_at("creating", &config.home))?;
+        config.home = dunce::canonicalize(&config.home)
+            .map_err(storage::error_at("resolving", &config.home))?;
         for name in ["staging", "icons"] {
-            fs::create_dir_all(config.data_dir.join(name)).map_err(|_| AppError::storage())?;
+            let directory = config.data_dir.join(name);
+            fs::create_dir_all(&directory).map_err(storage::error_at("creating", &directory))?;
         }
+        let lock_path = config.data_dir.join("library.lock");
         let lock = OpenOptions::new()
             .create(true)
             .truncate(false)
             .read(true)
             .write(true)
-            .open(config.data_dir.join("library.lock"))
-            .map_err(|_| AppError::storage())?;
-        FileExt::try_lock_exclusive(&lock).map_err(|_| {
+            .open(&lock_path)
+            .map_err(storage::error_at("opening", &lock_path))?;
+        FileExt::try_lock_exclusive(&lock).map_err(|error| {
             AppError::new(
                 ErrorCategory::Busy,
                 "Another SkillBinder process owns this library.",
                 "Activate the running window.",
             )
+            .because(format_args!("locking {}: {error}", lock_path.display()))
         })?;
         let database = RefCell::new(database::open(&config.data_dir.join(DATABASE))?);
         let scans = Scans::default();
@@ -242,9 +249,9 @@ impl Engine {
                 workers.wait_for_shutdown();
                 state.log.flush();
                 drop(state.database);
-                FileExt::unlock(&state.lock).map_err(|_| AppError::storage())
+                FileExt::unlock(&state.lock).map_err(storage::error("unlocking the library"))
             })
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("starting the worker thread"))?;
         Ok(Self {
             owner: Arc::new(Owner {
                 sender,
@@ -286,14 +293,17 @@ impl Engine {
                 }
                 let _ = sender.send(result);
             })))
-            .map_err(|_| {
+            .map_err(|error| {
                 AppError::new(
                     ErrorCategory::Cancelled,
                     "SkillBinder is shutting down.",
                     "Restart the application.",
                 )
+                .because(format_args!("sending to the worker: {error}"))
             })?;
-        receiver.await.map_err(|_| AppError::storage())?
+        receiver
+            .await
+            .map_err(storage::error("waiting for the worker"))?
     }
     /// Logs `result`'s error once, where a public method whose work runs off the worker hands it
     /// to the user (ADR 0032), as `call` does for work on the worker: under `failed`, or as
@@ -319,16 +329,20 @@ impl Engine {
         self.owner
             .sender
             .send(Message::Shutdown(sender))
-            .map_err(|_| AppError::storage())?;
-        receiver.await.map_err(|_| AppError::storage())?;
+            .map_err(storage::error("asking the worker to shut down"))?;
+        receiver
+            .await
+            .map_err(storage::error("waiting for the worker to shut down"))?;
         if let Some(thread) = self
             .owner
             .thread
             .lock()
-            .map_err(|_| AppError::storage())?
+            .map_err(storage::error("taking the worker thread"))?
             .take()
         {
-            thread.join().map_err(|_| AppError::storage())??;
+            thread.join().map_err(|_| {
+                AppError::storage().because("joining the worker thread: it panicked")
+            })??;
         }
         Ok(())
     }
@@ -383,7 +397,7 @@ impl Engine {
             .scans
             .settled()?
             .await
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("waiting for the scan"))?;
         self.call(move |state| state.prepare_found(&versions)).await
     }
     /// Plans `version` in place of the version plan `plan` holds of that skill, under a new plan

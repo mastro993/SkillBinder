@@ -7,6 +7,7 @@ pub(crate) use frontmatter::{fields as front_matter_fields, name_and_description
 pub use manifest::{Manifest, ManifestEntry, ManifestKind};
 pub(crate) use traversal::{GIT_EXCLUDED, MAX_ENTRIES, portable};
 
+use crate::storage;
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{AppError, AppResult, ValidationMessage, ValidationStatus};
 use std::{
@@ -31,7 +32,8 @@ pub struct SourceIdentity {
 }
 impl SourceIdentity {
     fn read(canonical_path: &Path) -> AppResult<Self> {
-        let metadata = fs::metadata(canonical_path).map_err(|_| AppError::storage())?;
+        let metadata = fs::metadata(canonical_path)
+            .map_err(storage::error_at("reading the metadata of", canonical_path))?;
         if !metadata.is_dir() {
             return Err(AppError::validation("A skill source must be a directory."));
         }
@@ -94,10 +96,16 @@ pub fn materialize(expected: &Inspection, destination: &Path) -> AppResult<()> {
     let staged = tempfile::Builder::new()
         .prefix(".payload-")
         .tempdir_in(parent)
-        .map_err(|_| AppError::storage())?;
+        .map_err(storage::error_at("staging a payload in", parent))?;
     write(&snapshot, staged.path())?;
     confirm(expected, staged.path())?;
-    fs::rename(staged.path(), destination).map_err(|_| AppError::storage())?;
+    fs::rename(staged.path(), destination).map_err(|error| {
+        AppError::storage().because(format_args!(
+            "renaming {} to {}: {error}",
+            staged.path().display(),
+            destination.display()
+        ))
+    })?;
     sync(parent)
 }
 
@@ -113,7 +121,7 @@ fn verified(expected: &Inspection, destination: &Path) -> AppResult<traversal::S
     let parent = destination
         .parent()
         .ok_or_else(|| AppError::validation("A staging parent is required."))?;
-    let parent = dunce::canonicalize(parent).map_err(|_| AppError::storage())?;
+    let parent = dunce::canonicalize(parent).map_err(storage::error_at("resolving", parent))?;
     if parent.starts_with(&expected.canonical_source) || fs::symlink_metadata(destination).is_ok() {
         return Err(AppError::validation(
             "The staging destination must be absent and outside the source.",
@@ -127,17 +135,20 @@ fn write(snapshot: &traversal::Snapshot, root: &Path) -> AppResult<()> {
     for entry in &snapshot.inspection.manifest.entries {
         let target = root.join(&entry.path);
         match entry.kind {
-            ManifestKind::Directory => fs::create_dir(&target).map_err(|_| AppError::storage())?,
+            ManifestKind::Directory => {
+                fs::create_dir(&target).map_err(storage::error_at("creating", &target))?;
+            }
             ManifestKind::File => {
                 let bytes = snapshot
                     .files
                     .get(&entry.path)
                     .ok_or_else(AppError::storage)?;
                 use std::io::Write;
-                let mut file = fs::File::create(&target).map_err(|_| AppError::storage())?;
+                let mut file =
+                    fs::File::create(&target).map_err(storage::error_at("creating", &target))?;
                 file.write_all(bytes)
                     .and_then(|()| file.sync_all())
-                    .map_err(|_| AppError::storage())?;
+                    .map_err(storage::error_at("writing", &target))?;
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
@@ -145,7 +156,7 @@ fn write(snapshot: &traversal::Snapshot, root: &Path) -> AppResult<()> {
                         &target,
                         fs::Permissions::from_mode(if entry.executable { 0o755 } else { 0o644 }),
                     )
-                    .map_err(|_| AppError::storage())?;
+                    .map_err(storage::error_at("setting the permissions of", &target))?;
                 }
             }
         }
@@ -177,7 +188,7 @@ fn sync(directory: &Path) -> AppResult<()> {
     #[cfg(unix)]
     fs::File::open(directory)
         .and_then(|file| file.sync_all())
-        .map_err(|_| AppError::storage())?;
+        .map_err(storage::error_at("syncing", directory))?;
     #[cfg(not(unix))]
     let _ = directory;
     Ok(())

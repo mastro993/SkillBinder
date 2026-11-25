@@ -8,6 +8,7 @@ use crate::{
     onboarding::{self, Facts, Offers},
     persistence,
     shutdown::Shutdown,
+    storage,
     worker::State,
 };
 use skillbinder_proto::{
@@ -87,7 +88,8 @@ impl EngineConfig {
     /// Resolves the operating system's local application-data location.
     pub fn platform() -> AppResult<Self> {
         let dirs = directories::BaseDirs::new().ok_or_else(AppError::storage)?;
-        let base = url::Url::parse(BASE_URL).map_err(|_| AppError::storage())?;
+        let base =
+            url::Url::parse(BASE_URL).map_err(storage::error("parsing the catalog address"))?;
         let environment: BTreeMap<_, _> = std::env::vars().collect();
         Ok(Self {
             placement: AppPlacement::platform(dirs.home_dir(), &environment),
@@ -260,8 +262,15 @@ impl State {
             .data_dir
             .join("staging")
             .join(format!("initialize-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(staged.join("skills")).map_err(|_| AppError::storage())?;
-        std::fs::rename(&staged, &target).map_err(|_| AppError::storage())?;
+        let skills = staged.join("skills");
+        std::fs::create_dir_all(&skills).map_err(storage::error_at("creating", &skills))?;
+        std::fs::rename(&staged, &target).map_err(|error| {
+            AppError::storage().because(format_args!(
+                "renaming {} to {}: {error}",
+                staged.display(),
+                target.display()
+            ))
+        })?;
         persistence::sync_directory(&self.config.data_dir)
     }
     /// Makes an existing library a repository whenever Git is found and it is not one yet

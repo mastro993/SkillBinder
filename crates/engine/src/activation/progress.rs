@@ -2,7 +2,8 @@
 //! while a tracked job runs; the client reads the counts without queueing behind the worker, as it
 //! reads a running scan.
 
-use skillbinder_proto::{ActivationProgress, ActivationStep, AppError, AppResult, SkillId};
+use crate::storage;
+use skillbinder_proto::{ActivationProgress, ActivationStep, AppResult, SkillId};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 #[derive(Default)]
@@ -34,7 +35,9 @@ impl Drop for Tracking {
 
 impl Progress {
     fn lock(&self) -> AppResult<MutexGuard<'_, Record>> {
-        self.0.lock().map_err(|_| AppError::storage())
+        self.0
+            .lock()
+            .map_err(storage::error("locking the activation progress"))
     }
 
     /// Empties the record, so a change queued next reads nothing until it begins.

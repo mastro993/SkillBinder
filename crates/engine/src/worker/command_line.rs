@@ -55,6 +55,10 @@ pub(super) async fn on_own_thread<T: Send + 'static>(
         .spawn(move || {
             let _ = done.send(operation());
         })
-        .map_err(|_| AppError::storage())?;
-    finished.await.map_err(|_| AppError::storage())?
+        .map_err(|error| {
+            AppError::storage().because(format_args!("starting the {name} thread: {error}"))
+        })?;
+    finished
+        .await
+        .map_err(|error| AppError::storage().because(format_args!("waiting for {name}: {error}")))?
 }

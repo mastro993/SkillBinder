@@ -13,7 +13,7 @@ pub(crate) use install::Installer;
 pub(crate) use source::validate as validate_source;
 pub(crate) use validation::url as validate_url;
 
-use crate::shutdown::Shutdown;
+use crate::{shutdown::Shutdown, storage};
 use skillbinder_proto::{
     AppError, AppResult, ErrorCategory, RemoteConfig, SyncAction, SyncSnapshot, SyncState,
 };
@@ -50,7 +50,7 @@ impl Git {
         if repo.join(".git").exists() {
             return Ok(());
         }
-        std::fs::create_dir_all(repo).map_err(|_| AppError::storage())?;
+        std::fs::create_dir_all(repo).map_err(storage::error_at("creating", repo))?;
         // Records hold SHA-1 tree ids, whatever the user's default object format.
         self.output(
             repo,
@@ -370,7 +370,10 @@ impl Git {
         if out.status.success() {
             return String::from_utf8(out.stdout)
                 .map(|s| Some(s.trim().to_owned()))
-                .map_err(|_| failure("Git revision is unreadable."));
+                .map_err(|error| {
+                    failure("Git revision is unreadable.")
+                        .because(process::unreadable(&args, error))
+                });
         }
         if out.status.code() == Some(1) {
             Ok(None)
@@ -474,7 +477,9 @@ impl Git {
                     .because(process::exited(args, &output)),
             );
         }
-        String::from_utf8(output.stdout).map_err(|_| failure("Git output is unreadable."))
+        String::from_utf8(output.stdout).map_err(|error| {
+            failure("Git output is unreadable.").because(process::unreadable(args, error))
+        })
     }
 }
 /// The slug of the skill directory holding a managed path, `skills/<slug>/...`.

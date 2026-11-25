@@ -6,6 +6,7 @@ use crate::{
     catalog::{Listed, Listing},
     install::Failed,
     shutdown::Shutdown,
+    storage,
 };
 use skillbinder_proto::*;
 use std::time::Duration;
@@ -136,7 +137,7 @@ impl Engine {
             .pool
             .run(move || listing.run())?
             .await
-            .map_err(|_| AppError::storage())??;
+            .map_err(storage::error("waiting for the repository listing"))??;
         if listed.is_empty() {
             return Err(RepositoryProblem::NoSkills);
         }

@@ -21,7 +21,7 @@ mod stage;
 #[cfg(test)]
 mod tests;
 
-use crate::{catalog::CatalogSource, logging::Logger};
+use crate::{catalog::CatalogSource, logging::Logger, storage};
 pub(crate) use check::Ended;
 use check::Known;
 pub use location::AppPlacement;
@@ -174,7 +174,9 @@ impl AppUpdates {
     }
 
     fn lock(&self) -> AppResult<MutexGuard<'_, Shared>> {
-        self.shared.lock().map_err(|_| AppError::storage())
+        self.shared
+            .lock()
+            .map_err(storage::error("locking the app update state"))
     }
 
     pub(crate) fn current(&self) -> AppResult<AppUpdateSnapshot> {

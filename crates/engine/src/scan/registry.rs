@@ -3,9 +3,10 @@ use crate::{
     agents::AgentChoices,
     lifecycle::EngineConfig,
     logging::{Area, Level, Logger},
+    storage,
 };
 use serde::Deserialize;
-use skillbinder_proto::{AgentDir, AgentOption, AppError, AppResult, SameSlug, WorkspaceId};
+use skillbinder_proto::{AgentDir, AgentOption, AppResult, SameSlug, WorkspaceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
@@ -126,11 +127,12 @@ fn registry() -> AppResult<Registry> {
     serde_json::from_str(include_str!(
         "../../../../fixtures/contracts/registry-79.json"
     ))
-    .map_err(|_| AppError::storage())
+    .map_err(storage::error("parsing the agent registry"))
 }
 /// Every registry agent with the directories the reviewed overlay adds to it.
 fn agents(config: &EngineConfig) -> AppResult<Vec<Agent>> {
-    let entries = directories::entries().map_err(|_| AppError::storage())?;
+    let entries =
+        directories::entries().map_err(storage::error("parsing the agent directory overlay"))?;
     Ok(registry()?
         .agents
         .into_iter()

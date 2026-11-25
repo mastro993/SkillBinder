@@ -3,11 +3,9 @@
 //! this module. An answer to an older query is dropped.
 
 use super::fetch::{Answer, CatalogSource, Fetcher};
-use crate::{git::validate_url, library::normalized};
+use crate::{git::validate_url, library::normalized, storage};
 use serde::Deserialize;
-use skillbinder_proto::{
-    AppError, AppResult, SkillsShResult, SkillsShSearch, SkillsShState, result_key,
-};
+use skillbinder_proto::{AppResult, SkillsShResult, SkillsShSearch, SkillsShState, result_key};
 use std::{
     collections::BTreeSet,
     sync::{Arc, Mutex, MutexGuard},
@@ -109,7 +107,7 @@ impl Searches {
             std::thread::Builder::new()
                 .name("skillbinder-search".into())
                 .spawn(move || running.run())
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("starting the search thread"))?;
         }
         Ok(Some(settled))
     }
@@ -130,7 +128,7 @@ impl Searches {
             .spawn(move || {
                 let _ = done.send(answer(&source, &query));
             })
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("starting the search thread"))?;
         Ok(Some(answered))
     }
 

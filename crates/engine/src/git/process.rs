@@ -107,6 +107,11 @@ pub(super) fn exited(args: &[&str], output: &Output) -> String {
     }
 }
 
+/// Why a command's output could not be read as text, for the log.
+pub(super) fn unreadable(args: &[&str], error: impl std::fmt::Display) -> String {
+    format!("reading the output of git {}: {error}", subcommand(args))
+}
+
 /// The subcommand `args` run, after Git's own options such as `-c name=value`.
 fn subcommand<'a>(args: &[&'a str]) -> &'a str {
     let mut rest = args.iter();
@@ -145,8 +150,10 @@ fn raw_attributes(git: &Path) -> AppResult<()> {
     let directory = git.join("info");
     match std::fs::symlink_metadata(&directory) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            std::fs::create_dir(&directory)
-                .map_err(|_| failure("Git attributes are unavailable."))?;
+            std::fs::create_dir(&directory).map_err(|error| {
+                failure("Git attributes are unavailable.")
+                    .because(format_args!("creating {}: {error}", directory.display()))
+            })?;
         }
         Ok(metadata) if metadata.file_type().is_dir() => {}
         _ => return Err(failure("Git attributes directory is not safe.")),
@@ -156,20 +163,26 @@ fn raw_attributes(git: &Path) -> AppResult<()> {
         Ok(metadata)
             if metadata.file_type().is_file() && metadata.len() == RAW_ATTRIBUTES.len() as u64 =>
         {
-            if std::fs::read(&path).map_err(|_| failure("Git attributes are unavailable."))?
-                != RAW_ATTRIBUTES
+            if std::fs::read(&path).map_err(|error| {
+                failure("Git attributes are unavailable.")
+                    .because(format_args!("reading {}: {error}", path.display()))
+            })? != RAW_ATTRIBUTES
             {
                 return Err(failure("Git attributes were changed outside SkillBinder."));
             }
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let uninitialized = |doing: &str, error: &dyn std::fmt::Display| {
+                failure("Git attributes could not be initialized.")
+                    .because(format_args!("{doing} {}: {error}", path.display()))
+            };
             let mut file = tempfile::NamedTempFile::new_in(&directory)
-                .map_err(|_| failure("Git attributes could not be initialized."))?;
+                .map_err(|error| uninitialized("staging", &error))?;
             file.write_all(RAW_ATTRIBUTES)
                 .and_then(|()| file.as_file().sync_all())
-                .map_err(|_| failure("Git attributes could not be initialized."))?;
+                .map_err(|error| uninitialized("writing", &error))?;
             file.persist_noclobber(&path)
-                .map_err(|_| failure("Git attributes could not be initialized."))?;
+                .map_err(|error| uninitialized("persisting", &error))?;
             crate::persistence::sync_directory(&directory)?;
         }
         _ => return Err(failure("Git attributes were changed outside SkillBinder.")),

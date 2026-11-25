@@ -1,5 +1,6 @@
 //! Machine-local SQLite through Diesel. The engine worker owns the only connection.
 
+use crate::storage;
 use diesel::{connection::SimpleConnection, prelude::*};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use skillbinder_proto::{AppError, AppResult};
@@ -11,18 +12,20 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 /// migrations. The path reaches SQLite as a percent-encoded `file:` URI, so its bytes arrive
 /// unchanged even when they are not UTF-8.
 pub(crate) fn open(path: &Path) -> AppResult<SqliteConnection> {
-    let uri = url::Url::from_file_path(path).map_err(|()| AppError::storage())?;
-    let mut connection =
-        SqliteConnection::establish(uri.as_str()).map_err(|_| AppError::storage())?;
+    let uri = url::Url::from_file_path(path).map_err(|()| {
+        AppError::storage().because(format_args!("making a file URL of {}", path.display()))
+    })?;
+    let mut connection = SqliteConnection::establish(uri.as_str())
+        .map_err(storage::error_at("opening the database", path))?;
     connection
         .batch_execute(
             "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; \
              PRAGMA foreign_keys=ON;",
         )
-        .map_err(|_| AppError::storage())?;
+        .map_err(storage::error_at("configuring the database", path))?;
     connection
         .run_pending_migrations(MIGRATIONS)
-        .map_err(|_| AppError::storage())?;
+        .map_err(storage::error_at("migrating the database", path))?;
     Ok(connection)
 }
 
@@ -33,8 +36,8 @@ pub(crate) fn transaction<T>(
 ) -> AppResult<T> {
     struct Failure(AppError);
     impl From<diesel::result::Error> for Failure {
-        fn from(_: diesel::result::Error) -> Self {
-            Self(AppError::storage())
+        fn from(error: diesel::result::Error) -> Self {
+            Self(AppError::storage().because(format_args!("running a transaction: {error}")))
         }
     }
     connection
@@ -50,7 +53,7 @@ mod tests {
         let mut connection = open(path)?;
         connection
             .batch_execute("INSERT INTO device_settings(key, value) VALUES('probe', '1');")
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("seeding the database"))?;
         if path.is_file() {
             Ok(())
         } else {
@@ -60,7 +63,7 @@ mod tests {
 
     #[test]
     fn opens_paths_with_uri_delimiters() -> AppResult<()> {
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root = tempfile::tempdir().map_err(storage::error("creating a temporary directory"))?;
         // Windows forbids `?` in file names.
         let name = if cfg!(windows) {
             "a %20#c.db"
@@ -74,29 +77,29 @@ mod tests {
     /// must upgrade in place, so applied migrations are never edited.
     #[test]
     fn upgrades_a_database_from_the_initial_schema() -> AppResult<()> {
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root = tempfile::tempdir().map_err(storage::error("creating a temporary directory"))?;
         let path = root.path().join("state.db");
         let mut initial = SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error_at("opening the database", &path))?;
         initial
             .run_next_migration(MIGRATIONS)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("migrating the database one step"))?;
         initial
             .batch_execute(
                 "INSERT INTO device_settings(key, value) VALUES('kept', '1'); \
                  INSERT INTO skill_metadata VALUES('old', '', 'Valid', 0);",
             )
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("seeding the database"))?;
         drop(initial);
         let mut upgraded = open(&path)?;
         let kept = crate::schema::device_settings::table
             .count()
             .get_result::<i64>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         let skills = crate::schema::skills::table
             .count()
             .get_result::<i64>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         if (kept, skills) == (1, 0) {
             Ok(())
         } else {
@@ -108,15 +111,15 @@ mod tests {
     /// rather than gaining a second preset with that name.
     #[test]
     fn an_existing_default_preset_becomes_the_built_in_one() -> AppResult<()> {
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root = tempfile::tempdir().map_err(storage::error("creating a temporary directory"))?;
         let path = root.path().join("state.db");
         let mut connection =
             SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error_at("opening the database", &path))?;
         for _ in 0..4 {
             connection
                 .run_next_migration(MIGRATIONS)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("migrating the database one step"))?;
         }
         connection
             .batch_execute(
@@ -126,19 +129,19 @@ mod tests {
                      VALUES('old', ' Default ', 0, 'blue', 'folder'); \
                  INSERT INTO preset_skills(preset_id, slug) VALUES('old', 'review');",
             )
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("seeding the database"))?;
         drop(connection);
         let mut upgraded = open(&path)?;
         let stored = crate::schema::presets::table
             .load::<(String, String, i64, Option<String>, String)>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         let members = crate::schema::preset_skills::table
             .select((
                 crate::schema::preset_skills::preset_id,
                 crate::schema::preset_skills::slug,
             ))
             .load::<(String, String)>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         let expected = [(
             "default".to_owned(),
             "Default".to_owned(),
@@ -157,15 +160,15 @@ mod tests {
     /// preset memberships hold their skills for all your agents.
     #[test]
     fn the_active_preset_moves_into_the_engine() -> AppResult<()> {
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root = tempfile::tempdir().map_err(storage::error("creating a temporary directory"))?;
         let path = root.path().join("state.db");
         let mut connection =
             SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error_at("opening the database", &path))?;
         for _ in 0..6 {
             connection
                 .run_next_migration(MIGRATIONS)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("migrating the database one step"))?;
         }
         connection
             .batch_execute(
@@ -177,7 +180,7 @@ mod tests {
                  INSERT INTO device_settings(key, value) \
                      VALUES('preferences', '{\"sidebar_width\":232.0,\"active_preset\":\"work\"}');",
             )
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("seeding the database"))?;
         drop(connection);
         let mut upgraded = open(&path)?;
         use crate::schema::{device_settings, preset_skills};
@@ -185,11 +188,11 @@ mod tests {
             .find("active_preset")
             .select(device_settings::value)
             .first::<String>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         let agents = preset_skills::table
             .select(preset_skills::agents)
             .load::<Option<String>>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         if active == "\"work\"" && agents == [None] {
             Ok(())
         } else {
@@ -200,28 +203,28 @@ mod tests {
     /// The last import's result, which a retired banner showed until dismissed, is forgotten.
     #[test]
     fn a_stored_import_result_is_forgotten() -> AppResult<()> {
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root = tempfile::tempdir().map_err(storage::error("creating a temporary directory"))?;
         let path = root.path().join("state.db");
         let mut connection =
             SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error_at("opening the database", &path))?;
         for _ in 0..9 {
             connection
                 .run_next_migration(MIGRATIONS)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("migrating the database one step"))?;
         }
         connection
             .batch_execute(
                 "INSERT INTO device_settings(key, value) VALUES('kept', '1'); \
                  INSERT INTO device_settings(key, value) VALUES('import_outcome', '{}');",
             )
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("seeding the database"))?;
         drop(connection);
         let mut upgraded = open(&path)?;
         let keys = crate::schema::device_settings::table
             .select(crate::schema::device_settings::key)
             .load::<String>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         if keys == ["kept"] {
             Ok(())
         } else {
@@ -232,28 +235,28 @@ mod tests {
     /// Skills already in the library when the New mark arrives are not New.
     #[test]
     fn existing_skills_are_not_new() -> AppResult<()> {
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root = tempfile::tempdir().map_err(storage::error("creating a temporary directory"))?;
         let path = root.path().join("state.db");
         let mut connection =
             SqliteConnection::establish(path.to_str().ok_or_else(AppError::storage)?)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error_at("opening the database", &path))?;
         for _ in 0..10 {
             connection
                 .run_next_migration(MIGRATIONS)
-                .map_err(|_| AppError::storage())?;
+                .map_err(storage::error("migrating the database one step"))?;
         }
         connection
             .batch_execute(
                 "INSERT INTO skills(slug, digest, file_count, total_bytes, details) \
                      VALUES('review', '', 0, 0, '{}');",
             )
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("seeding the database"))?;
         drop(connection);
         let mut upgraded = open(&path)?;
         let new = crate::schema::skills::table
             .select(crate::schema::skills::new)
             .load::<bool>(&mut upgraded)
-            .map_err(|_| AppError::storage())?;
+            .map_err(storage::error("reading the upgraded database"))?;
         if new == [false] {
             Ok(())
         } else {
@@ -265,7 +268,7 @@ mod tests {
     #[test]
     fn opens_paths_that_are_not_utf8() -> AppResult<()> {
         use std::os::unix::ffi::OsStrExt;
-        let root = tempfile::tempdir().map_err(|_| AppError::storage())?;
+        let root = tempfile::tempdir().map_err(storage::error("creating a temporary directory"))?;
         opens_at(
             &root
                 .path()

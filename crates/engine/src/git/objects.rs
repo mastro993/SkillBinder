@@ -2,6 +2,7 @@
 //! one out for Reinstall without touching the library's index or working tree.
 
 use super::{Git, failure, process};
+use crate::storage;
 use skillbinder_proto::{AppError, AppResult};
 use std::{path::Path, time::Duration};
 
@@ -47,14 +48,13 @@ impl Git {
                 });
             }
         }
+        let objects = repo.join(".git/objects");
         let objects =
-            dunce::canonicalize(repo.join(".git/objects")).map_err(|_| AppError::storage())?;
+            dunce::canonicalize(&objects).map_err(storage::error_at("resolving", &objects))?;
         let objects = objects.to_str().ok_or_else(AppError::storage)?;
-        std::fs::write(
-            scratch.join("objects/info/alternates"),
-            format!("{objects}\n"),
-        )
-        .map_err(|_| AppError::storage())?;
+        let alternates = scratch.join("objects/info/alternates");
+        std::fs::write(&alternates, format!("{objects}\n"))
+            .map_err(storage::error_at("writing", &alternates))?;
         self.checkout_tree(scratch, tree, into)
     }
 }

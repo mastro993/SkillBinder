@@ -1,8 +1,8 @@
 //! The lines that open and close a session (spec rules 10 and 11).
 
 use super::{Area, Level, Logger, Took};
-use crate::{git::Git, lifecycle::EngineConfig};
-use skillbinder_proto::{AppError, AppResult, Channel};
+use crate::{git::Git, lifecycle::EngineConfig, storage};
+use skillbinder_proto::{AppResult, Channel};
 
 impl Logger {
     /// Starts the log in `<data>/logs` and writes the session's first lines: what runs where,
@@ -10,12 +10,9 @@ impl Logger {
     /// before it opens the engine, so the engine's opening and the desktop's own records are
     /// logged too.
     pub fn open_session(config: &EngineConfig) -> AppResult<Self> {
-        let log = Self::start(
-            config.data_dir.join("logs"),
-            &config.home,
-            config.log.clone(),
-        )
-        .map_err(|_| AppError::storage())?;
+        let directory = config.data_dir.join("logs");
+        let log = Self::start(directory.clone(), &config.home, config.log.clone())
+            .map_err(storage::error_at("starting the log in", &directory))?;
         let channel = match Channel::of(&config.app_version) {
             Channel::Stable => "stable",
             Channel::Beta => "beta",

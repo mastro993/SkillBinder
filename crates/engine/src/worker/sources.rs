@@ -2,7 +2,10 @@
 //! Reinstall.
 
 use super::Engine;
-use crate::logging::{Area, Level};
+use crate::{
+    logging::{Area, Level},
+    storage,
+};
 use skillbinder_proto::*;
 use tokio::sync::oneshot;
 
@@ -50,7 +53,7 @@ impl Engine {
                         running.finish(crate::sources::check(&git, &data_dir, due, &log));
                         let _ = done.send(());
                     })
-                    .map_err(|_| AppError::storage())?;
+                    .map_err(storage::error("starting the update check thread"))?;
                 Ok(Ok(Some(finished)))
             })
             .await?;
@@ -60,7 +63,7 @@ impl Engine {
             Ok(Some(finished)) => finished
                 .await
                 .map(|()| true)
-                .map_err(|_| AppError::storage()),
+                .map_err(storage::error("waiting for the update check")),
         }
     }
     /// Replaces each selected library skill's content with its source's current content.

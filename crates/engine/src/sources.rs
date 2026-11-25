@@ -8,7 +8,7 @@ pub(crate) mod lock;
 pub(crate) use checks::{Updates, check};
 
 use crate::logging::{Area, Level};
-use crate::{git::Git, payload, payload::Inspection, worker::State};
+use crate::{git::Git, payload, payload::Inspection, storage, worker::State};
 use sha2::{Digest, Sha256};
 use skillbinder_proto::{
     AppError, AppResult, Drift, SkillSource, ValidationStatus, normalized_url,
@@ -133,7 +133,8 @@ impl State {
                 self.log
                     .event(Level::Debug, Area::Update, "source cache removed")
                     .path(&path);
-                fs::remove_dir_all(&path).map_err(|_| AppError::storage())?;
+                fs::remove_dir_all(&path)
+                    .map_err(storage::error_at("removing the source cache", &path))?;
             }
         }
         Ok(())
@@ -222,7 +223,7 @@ pub(crate) fn checkout(
         ));
     }
     let directory = into.join(slug);
-    fs::create_dir_all(&directory).map_err(|_| AppError::storage())?;
+    fs::create_dir_all(&directory).map_err(storage::error_at("creating", &directory))?;
     git.checkout_tree(cache, &tree, &directory)?;
     payload::inspect(&directory).map(Some)
 }
