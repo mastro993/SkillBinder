@@ -14,7 +14,7 @@ The engine keeps owning the file, its bounded queue, rotation, retention, and re
 
 ## Considered Options
 
-- `tracing` with `tracing-subscriber` and `tracing-appender` was rejected. Its spans and filters fit, but a subscriber is process-global or thread-local. The engine's 15 thread spawn sites would each need the engine's dispatcher set by hand, and tests that run several engines in one process would share one log. `tracing-appender` rotates by time, not size, and has no retention, so the engine's own rotation and redaction would stay anyway. The `Logger` handle the engine already threads through 34 places gives per-engine isolation at no cost.
+- `tracing` with `tracing-subscriber` and `tracing-appender` was rejected. Its spans and filters fit, but a subscriber is process-global or thread-local. The engine's 15 thread spawn sites would each need the engine's dispatcher set by hand, and tests that run several engines in one process would share one log. `tracing-appender` rotates by time, not size, and has no retention, so the engine's own rotation and redaction would stay anyway. The `Logger` handle the engine already threads through 34 places gives per-engine isolation at no cost, and an action's `op` rides on it: the action hands its work a clone that stamps `op`, which the structs queued to other threads already carry.
 - JSON lines were rejected by the owner. They are easy for tools and hard to read in a text editor, and `key=value` lines serve both readers.
 - A Settings switch for detailed logs was rejected by the owner. It would change the approved Settings page for a need that only debugging has. The environment variable serves it.
 - Keeping free-text lines and only cutting the noise was rejected by the owner. Without levels, areas, and fixed messages, the next noisy line or missing cause has nothing to stop it.
@@ -25,4 +25,6 @@ The engine keeps owning the file, its bounded queue, rotation, retention, and re
 - Expected absences, such as a registry directory a workspace does not have, are `DEBUG`. A scan writes one `INFO` summary that counts them. A `WARN` that would repeat unchanged on every scan, such as a scan location outside its boundary or a preset icon this version does not know, is written once per session.
 - Work stopped because the app is quitting is not an error. It is one `DEBUG` line per job.
 - The engine gains `chrono` for the local time zone and `log` for the bridge type, and `xtask/src/graph.rs` allows both.
+- The writer's queue never drops `INFO` and above; it sheds `DEBUG` first and says how many it dropped.
+- A bridged record from GPUI or Kit keeps its free text in a `text` field under the fixed message `record`.
 - Lines written before this change keep the old format until rotation removes them.
