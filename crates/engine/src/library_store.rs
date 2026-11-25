@@ -402,7 +402,10 @@ fn from_json<T: DeserializeOwned>(json: &str) -> AppResult<T> {
 pub(crate) fn to_text(value: &impl Serialize) -> AppResult<String> {
     match serde_json::to_value(value) {
         Ok(serde_json::Value::String(text)) => Ok(text),
-        _ => Err(AppError::storage()),
+        Ok(other) => Err(AppError::storage().because(format_args!(
+            "serializing a stored name: {other} is not a string"
+        ))),
+        Err(error) => Err(storage::error("serializing a stored name")(error)),
     }
 }
 pub(crate) fn from_text<T: DeserializeOwned>(text: &str) -> AppResult<T> {

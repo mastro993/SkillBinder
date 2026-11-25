@@ -37,7 +37,7 @@ pub(crate) fn transaction<T>(
     struct Failure(AppError);
     impl From<diesel::result::Error> for Failure {
         fn from(error: diesel::result::Error) -> Self {
-            Self(AppError::storage().because(format_args!("committing a transaction: {error}")))
+            Self(AppError::storage().because(format_args!("running a transaction: {error}")))
         }
     }
     connection

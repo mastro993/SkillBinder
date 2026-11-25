@@ -59,7 +59,11 @@ impl Engine {
         async move {
             match begun {
                 Begin::Known(resolved) => resolved,
-                Begin::Wait(found) => found.await.unwrap_or_else(|_| Err(AppError::storage())),
+                Begin::Wait(found) => found.await.unwrap_or_else(|error| {
+                    Err(storage::error(
+                        "waiting for another resolution of the folder",
+                    )(error))
+                }),
                 Begin::Start => {
                     let resolved = engine.find_folder(&result).await;
                     engine.owner.resolutions.finish(&result, &resolved);
