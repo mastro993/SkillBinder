@@ -35,7 +35,7 @@ Out: running Release and Beta at once; a live catalog or the user's Git credenti
 5. The first launch opens at onboarding on the synthetic agents. Later launches open where the world was left.
 6. Launching a world that is already running brings its window forward, and the new process exits. Other worlds, other checkouts, and the installed app are unaffected.
 7. Any number of worlds run at once: one per name in each checkout.
-8. A second launch of any build that finds the instance lock held, without `--background`, opens the running app's window as today, and prints `SkillBinder is already running; opened its window.` to stderr, so a contributor whose `cargo run` lands on the installed app sees why.
+8. A second launch of any build that finds the instance lock held, without `--background`, opens the running app's window as today, and prints `SkillBinder is already running; opened its window.` to stderr, so a contributor whose `cargo run` lands on the installed app sees why. When the running app never answers, or speaks another protocol, it prints `SkillBinder is already running.` instead.
 9. The packaged macOS app's `CFBundleIdentifier` is `dev.fedemas.skillbinder`. An installed beta with the old identifier updates to it in place and keeps its library and settings. macOS may ask once more for folder access it had granted to the old identifier.
 10. The `skillbinder-dev` skill is offered to agents working in the repository when they need to run, launch, screenshot, or drive SkillBinder, or to check a change in the real app. It tells them to:
     - launch with `cargo run -p xtask -- dev [<name>]`, never a plain `cargo run -p skillbinder`, which opens the user's real library, unless the user asks for real data;

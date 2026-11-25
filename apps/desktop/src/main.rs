@@ -69,8 +69,13 @@ fn run() -> anyhow::Result<()> {
     let data_dir = config.data_dir.clone();
     let Some(instance) = instance::Instance::acquire(&data_dir)? else {
         // Another SkillBinder runs; a command waits for it, and a person wants its window.
+        // A contributor whose `cargo run` lands on the installed app learns why no new one opened.
         if !background {
-            command_server::open_running(&data_dir);
+            if command_server::open_running(&data_dir) {
+                eprintln!("SkillBinder is already running; opened its window.");
+            } else {
+                eprintln!("SkillBinder is already running.");
+            }
         }
         return Ok(());
     };

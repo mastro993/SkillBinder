@@ -105,5 +105,5 @@ It exits 5 naming why when the app cannot start: on Linux with no Wayland or X11
 
 ## A second launch
 
-Launching the app while it runs opens its window, or brings it forward, over the same socket; no `activate` file is written. A second launch made while the first is still starting retries for up to 12 seconds, then gives up silently.
+Launching the app while it runs opens its window, or brings it forward, over the same socket; no `activate` file is written. It prints `SkillBinder is already running; opened its window.` to stderr. A second launch made while the first is still starting retries for up to 12 seconds; when the running app never answers, or speaks another protocol, it prints `SkillBinder is already running.` instead and leaves the app alone.
 
