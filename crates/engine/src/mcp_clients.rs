@@ -9,7 +9,6 @@ mod settings;
 mod tests;
 
 use crate::{
-    logging::{Area, Level, Logger},
     programs::{self, Stopped},
     shutdown::Shutdown,
 };
@@ -201,20 +200,18 @@ pub(crate) struct McpClients {
     /// Where their programs are looked for, in order; also the `PATH` they run with, before the
     /// system's folders, so a script such as an npm install finds `node`.
     directories: Vec<PathBuf>,
-    log: Logger,
     shutdown: Shutdown,
 }
 
 impl McpClients {
     /// Looks for the agents' programs on the environment's `PATH` and in their usual install
     /// locations.
-    pub(crate) fn new(places: Places, log: Logger, shutdown: Shutdown) -> Self {
+    pub(crate) fn new(places: Places, shutdown: Shutdown) -> Self {
         let path = places.get("PATH").map(OsStr::new);
         let directories = programs::directories(path, settings::install_folders(&places));
         Self {
             places,
             directories,
-            log,
             shutdown,
         }
     }
@@ -298,10 +295,6 @@ impl McpClients {
             .find(tool)
             .ok_or_else(|| AppError::not_found(format!("{tool} not found.")))?;
         self.run(&program, args, INSTALL).map_err(|failure| {
-            self.log
-                .event(Level::Error, Area::Mcp, "agent tool failed")
-                .field("program", tool)
-                .field("cause", &failure);
             let line = failure.lines().last().unwrap_or_default().trim().to_owned();
             AppError::new(
                 ErrorCategory::Storage,
@@ -312,6 +305,7 @@ impl McpClients {
                 },
                 "Try again. See logs for details.",
             )
+            .because(format_args!("{tool} failed: {failure}"))
         })
     }
 

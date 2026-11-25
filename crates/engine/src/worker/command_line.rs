@@ -2,6 +2,7 @@
 //! Uninstall, each on a thread of its own, since the macOS administrator prompt waits on the user.
 
 use super::Engine;
+use crate::logging::Area;
 use skillbinder_proto::*;
 
 impl Engine {
@@ -18,12 +19,27 @@ impl Engine {
     /// the administrator prompt.
     pub async fn install_command_line(&self) -> AppResult<CommandLineStatus> {
         let command_line = self.owner.command_line.clone();
-        on_own_thread("skillbinder-command-line", move || command_line.install()).await
+        let installed =
+            on_own_thread("skillbinder-command-line", move || command_line.install()).await;
+        self.reported(
+            Area::CommandLine,
+            ("command install failed", "command install stopped at quit"),
+            installed,
+        )
     }
     /// Removes what Install wrote.
     pub async fn uninstall_command_line(&self) -> AppResult<CommandLineStatus> {
         let command_line = self.owner.command_line.clone();
-        on_own_thread("skillbinder-command-line", move || command_line.uninstall()).await
+        let uninstalled =
+            on_own_thread("skillbinder-command-line", move || command_line.uninstall()).await;
+        self.reported(
+            Area::CommandLine,
+            (
+                "command uninstall failed",
+                "command uninstall stopped at quit",
+            ),
+            uninstalled,
+        )
     }
 }
 

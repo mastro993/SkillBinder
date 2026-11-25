@@ -260,19 +260,15 @@ impl Scans {
             scans.finish(generation, result, &log);
         }));
         if let Err(error) = launched {
-            failure_log
-                .event(Level::Error, Area::Scan, "scan start failed")
-                .field("cause", error);
-            self.finish(
-                generation,
-                Err(AppError::new(
-                    ErrorCategory::Storage,
-                    "Scanning could not start. Try scanning again.",
-                    "Try scanning again.",
-                )),
-                &failure_log,
-            );
-            return Err(AppError::storage());
+            // The scan's failure, which `finish` logs, is also what the caller sees.
+            let failed = AppError::new(
+                ErrorCategory::Storage,
+                "Scanning could not start. Try scanning again.",
+                "Try scanning again.",
+            )
+            .because(format_args!("starting the scan thread: {error}"));
+            self.finish(generation, Err(failed.clone()), &failure_log);
+            return Err(failed);
         }
         Ok(())
     }

@@ -4,12 +4,15 @@
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
+#[path = "support/publisher.rs"]
+mod publisher;
 #[path = "support/fixture.rs"]
 mod support;
 
+use publisher::{Publisher, catalog_skill};
 use regex::Regex;
 use skillbinder_engine::{Console, Engine, EngineConfig, LogConfig, Logger};
-use std::{fs, time::Duration};
+use std::{fs, net::TcpListener, process::Command, sync::mpsc, time::Duration};
 use support::{Fixture, add_workspace, choose_every_agent, scan};
 
 /// Spec AC1: every line has this shape.
@@ -31,6 +34,11 @@ async fn launch(fixture: &Fixture, setting: Option<&str>) -> Vec<String> {
     scan(&engine).await;
     assert!(engine.check_updates(Duration::ZERO).await.unwrap());
     engine.shutdown().await.unwrap();
+    logged(fixture)
+}
+
+/// The lines in the fixture's log.
+fn logged(fixture: &Fixture) -> Vec<String> {
     fs::read_to_string(fixture.data.join("logs/skillbinder.log"))
         .unwrap()
         .lines()
@@ -103,6 +111,120 @@ async fn an_unknown_directive_is_named() {
         lines
             .iter()
             .any(|line| line.contains(" WARN  session ") && line.ends_with(" directive=bogus")),
+        "{lines:#?}"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_source_check_says_which_repository_and_why_once() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let publisher = Publisher::new(fixture.workspace.with_file_name("publisher"));
+    for slug in ["review", "tidy"] {
+        publisher.publish(slug, slug, "first");
+        engine
+            .install_skill(publisher.skill(slug, slug))
+            .await
+            .unwrap();
+    }
+    // The first check fills the source's cache, so the next one fetches into it.
+    assert!(engine.check_updates(Duration::ZERO).await.unwrap());
+    fs::remove_dir_all(&publisher.dir).unwrap();
+    assert!(engine.check_updates(Duration::ZERO).await.unwrap());
+    engine.shutdown().await.unwrap();
+    let lines = logged(&fixture);
+    let failed: Vec<_> = lines
+        .iter()
+        .filter(|line| line.contains(" source check failed "))
+        .collect();
+    assert_eq!(failed.len(), 1, "{lines:#?}");
+    let line = failed[0];
+    assert!(line.contains(" WARN  update "), "{line}");
+    assert!(line.ends_with(" slugs=review,tidy"), "{line}");
+    assert!(line.contains(" url="), "{line}");
+    assert!(
+        Regex::new(r" diag=[0-9a-f-]{36} ").unwrap().is_match(line),
+        "{line}"
+    );
+    assert!(line.contains(r#" cause="git fetch exited 128: "#), "{line}");
+    assert!(Regex::new(LINE).unwrap().is_match(line), "{line}");
+}
+
+#[tokio::test]
+async fn a_failed_install_leads_from_its_diagnostic_id_to_gits_cause() {
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    let missing: String = url::Url::from_file_path(fixture.workspace.with_file_name("missing"))
+        .unwrap()
+        .into();
+    let error = engine
+        .install_skill(catalog_skill(&missing, "skills/review", "review"))
+        .await
+        .unwrap_err();
+    engine.shutdown().await.unwrap();
+    let lines = logged(&fixture);
+    let found: Vec<_> = lines
+        .iter()
+        .filter(|line| line.contains(&error.diagnostic_id))
+        .collect();
+    assert_eq!(found.len(), 1, "{lines:#?}");
+    let line = found[0];
+    assert!(
+        line.contains(" ERROR install ") && line.contains(" install failed "),
+        "{line}"
+    );
+    assert!(line.contains(" slug=review"), "{line}");
+    assert!(line.contains(r#" cause="git clone exited 128: "#), "{line}");
+    let sent = serde_json::to_string(&error).unwrap();
+    assert!(
+        !sent.contains("cause") && !sent.contains("exited"),
+        "{sent}"
+    );
+}
+
+#[tokio::test]
+async fn quitting_during_a_source_check_is_not_a_failure() {
+    // An ssh source holds a connection without a helper server; hosts without an ssh client
+    // cannot run this check.
+    if Command::new("ssh").arg("-V").output().is_err() {
+        return;
+    }
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (accepted, connected) = mpsc::channel();
+    std::thread::spawn(move || {
+        if let Ok((connection, _)) = listener.accept() {
+            let _ = accepted.send(());
+            std::thread::sleep(Duration::from_secs(30));
+            drop(connection);
+        }
+    });
+    let fixture = Fixture::new();
+    let engine = fixture.ready().await;
+    fixture.skill("review", "first");
+    let url = format!("ssh://127.0.0.1:{port}/skills.git");
+    let lock = serde_json::json!({"version": 1, "skills": {"review": {
+        "source": url, "sourceType": "git", "sourceUrl": url,
+        "skillPath": "skills/review/SKILL.md", "computedHash": ""}}});
+    fs::write(fixture.workspace.join("skills-lock.json"), lock.to_string()).unwrap();
+    fixture.register(&engine).await;
+    let scanned = fixture.scan(&engine).await;
+    fixture.import_one(&engine, &scanned.candidates[0]).await;
+    let checking = tokio::spawn({
+        let engine = engine.clone();
+        async move { engine.check_updates(Duration::ZERO).await }
+    });
+    tokio::task::spawn_blocking(move || connected.recv_timeout(Duration::from_secs(10)))
+        .await
+        .unwrap()
+        .unwrap();
+    engine.shutdown().await.unwrap();
+    let _ = checking.await.unwrap();
+    let lines = logged(&fixture);
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains(" WARN ") || line.contains(" ERROR ")),
         "{lines:#?}"
     );
 }

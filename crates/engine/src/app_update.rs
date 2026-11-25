@@ -21,10 +21,7 @@ mod stage;
 #[cfg(test)]
 mod tests;
 
-use crate::{
-    catalog::CatalogSource,
-    logging::{Area, Level, Logger},
-};
+use crate::{catalog::CatalogSource, logging::Logger};
 pub(crate) use check::Ended;
 use check::Known;
 pub use location::AppPlacement;
@@ -203,14 +200,8 @@ impl AppUpdates {
             ));
         };
         desktop_entry::write(appimage, &self.placement.data_home).map_err(|error| {
-            self.log
-                .event(
-                    Level::Error,
-                    Area::AppUpdate,
-                    "applications menu entry failed",
-                )
-                .field("cause", &error);
             AppError::storage()
+                .because(format_args!("writing the applications menu entry: {error}"))
         })
     }
 
@@ -226,12 +217,7 @@ impl AppUpdates {
         };
         let relaunch =
             relocate::move_to_applications(original, &self.placement, self.current, &self.log)
-                .map_err(|error| {
-                    self.log
-                        .event(Level::Error, Area::AppUpdate, "move to applications failed")
-                        .field("cause", &error);
-                    AppError::storage()
-                })?;
+                .map_err(|error| AppError::storage().because(error))?;
         self.lock()?.relaunch = Some(relaunch);
         Ok(())
     }

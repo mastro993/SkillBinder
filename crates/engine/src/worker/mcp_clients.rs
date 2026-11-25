@@ -3,6 +3,7 @@
 //! moment and installing the command first may wait on the administrator prompt (ADR 0027).
 
 use super::{Engine, command_line::on_own_thread};
+use crate::logging::Area;
 use skillbinder_proto::*;
 
 impl Engine {
@@ -18,7 +19,7 @@ impl Engine {
             self.owner.command_line.clone(),
             self.owner.mcp_clients.clone(),
         );
-        on_own_thread("skillbinder-mcp-clients", move || {
+        let connected = on_own_thread("skillbinder-mcp-clients", move || {
             let mut command = command_line.status();
             if command.state == CommandLineState::NotInstalled {
                 command = command_line.install()?;
@@ -40,14 +41,27 @@ impl Engine {
                 None => McpConnect::Connected,
             })
         })
-        .await
+        .await;
+        self.reported(
+            Area::Mcp,
+            ("agent connect failed", "agent connect stopped at quit"),
+            connected,
+        )
     }
     /// Removes `client`'s connection, for the agents whose program can.
     pub async fn disconnect_mcp(&self, client: McpClient) -> AppResult<()> {
         let clients = self.owner.mcp_clients.clone();
-        on_own_thread("skillbinder-mcp-clients", move || {
+        let disconnected = on_own_thread("skillbinder-mcp-clients", move || {
             clients.disconnect(client)
         })
-        .await
+        .await;
+        self.reported(
+            Area::Mcp,
+            (
+                "agent disconnect failed",
+                "agent disconnect stopped at quit",
+            ),
+            disconnected,
+        )
     }
 }
