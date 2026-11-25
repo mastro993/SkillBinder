@@ -39,14 +39,14 @@ cargo run -p skillbinder-cli -- --data-dir .skillbinder-dev/<name>/data <command
 - **App updates:** `--app-bundle .skillbinder-dev/<name>/data/fixture-applications/SkillBinder.app` (create the folder); the world's `app-updates/` offers the update.
 - **Offline:** rename the world's `catalog/` or `app-updates/` folder.
 - **Installs and Sync on local repositories:** the app's Git reads only `<world>/home/.gitconfig`, so add `[url "file://<repo>.git"] insteadOf = <URL the app uses>` there. A rewrite to a local port that never answers holds an install or Sync in progress.
-- **Workspaces:** `execute_app_command add_workspace {"path": "<world>/projects"}`, since the bridge can't drive the folder panel.
+- **Workspaces:** once onboarding is done, `execute_app_command add_workspace {"path": "<world>/projects"}`, since the bridge can't drive the folder panel. During onboarding it answers `started` but the window shows "Finish setup before adding workspaces."
 - **Activation progress:** `execute_app_command hold_activation` holds the progress strip, `{"toast": true}` its end toast.
 
 `docs/native-gate/checks.md` covers the isolation rules, the bridge, and `mcp-smoke`.
 
 ## Screenshots
 
-Paths under the checkout contain the user's name, and Settings, Sync, and error messages show them. Crop them out, or show a remote through an `insteadOf` URL, before sharing a screenshot.
+The world's paths contain the user's name, and a workspace's header, Settings, Sync, and error messages show them. Crop them out, or show a remote through an `insteadOf` URL, before sharing a screenshot, and say what you cropped.
 
 On macOS, when MCP screenshots time out while the window renders, capture the window by its ID:
 
