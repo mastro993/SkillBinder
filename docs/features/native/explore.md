@@ -8,7 +8,7 @@ Like Library, Explore lays out its own column: a fixed toolbar holding the searc
 
 - **Trending** (the fire glyph): the six skills with the most installs over the last 7 days, as grid tiles on Library's grid metrics. A tile shows the skill's name, its description in at most two lines, and its footer: the fire glyph and "+12.4k this week", whose tooltip reads "Installs over the last 7 days", then its Install action (see [Installing](#installing)). Installs read `+900`, `+12.4k`, or `+1.2M`.
 - **Popular creators** (the people glyph): one horizontal row of creator chips, ranked by the sum of their skills' installs this week. A chip holds the creator's avatar, their name, and "N skills"; a click, Enter, or Space narrows the page to the creator.
-- **Your repositories** (the git-branch glyph), its header ending with a ghost Add repository: see [Your repositories](#your-repositories). Without a catalog to show, offline on first use or with none fetched, the section still shows under "Couldn't load the catalog", with each repository's last listing (C4).
+- **Your repositories** (the git-branch glyph), its header ending with a ghost Add repository once there is one: see [Your repositories](#your-repositories). Without a catalog to show, offline on first use or with none fetched, the section still shows under "Couldn't load the catalog", with each repository's last listing (C4).
 
 A creator's avatar is the image the catalog publishes for them, cached on this device; without one, Kit's avatar shows their initials. Tiles use the design system's `SkillCard`, which Library's grid tiles share.
 

@@ -1,8 +1,9 @@
 //! Your repositories on Explore (R1–R5): a section whose header ends with Add repository, and a
 //! card with a row per repository, its glyph, `owner/repo`, its skill count and URL, Install all,
-//! and Remove. A row expands in place to its skills, each with its own Install, opening its
-//! detail dialog. Install all installs one skill after another, shows "Installing 3 of 14", and
-//! ends with one summary line and one toast.
+//! and Remove. With none, the card holds an empty state whose Add repository is the only one. A
+//! row expands in place to its skills, each with its own Install, opening its detail dialog.
+//! Install all installs one skill after another, shows "Installing 3 of 14", and ends with one
+//! summary line and one toast.
 
 use super::super::library_items::new_chip;
 use super::super::sidebar_row::activate;
@@ -23,7 +24,8 @@ use gpui_kit::{
 use skillbinder_design::explore::{REPOSITORY_INDENT, REPOSITORY_TILE};
 use skillbinder_design::tokens::{radius, space, text};
 use skillbinder_design::{
-    Button, CardList, IconSize, ListRow, Notice, Spinner, Status, Text, icon, row_end, tooltip,
+    Button, CardList, EmptyState, IconSize, ListRow, Notice, Spinner, Status, Text, icon, row_end,
+    tooltip,
 };
 use skillbinder_proto::{CatalogSkill, ExploreSnapshot, Repository, owner_repo};
 
@@ -69,32 +71,39 @@ pub(super) fn repository_tag(
 }
 
 impl NativeView {
-    /// Your repositories: the header with Add repository, then a row per repository, or "No
-    /// repositories yet" with Add repository.
+    /// Your repositories: the header with Add repository, then a row per repository; or, with
+    /// none, the bare header over "No repositories yet" with Add repository.
     pub(super) fn repositories_section(
         &self,
         explore: &ExploreSnapshot,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let add = Button::new("explore-add-repository")
-            .ghost()
-            .small()
-            .icon(icon("plus"))
-            .label("Add repository")
-            .on_click(cx.listener(|view, _, window, cx| view.open_add_repository(window, cx)));
-        let empty = h_flex()
-            .w_full()
-            .gap(px(space::MD))
-            .px(px(space::LG))
-            .py(px(space::MD))
-            .justify_between()
-            .child(
-                Text::new("No repositories yet")
-                    .level(text::BODY_SM)
-                    .muted(),
+        let header = section_header("git-branch", "Your repositories");
+        let rows: Vec<ListRow> = explore
+            .repositories
+            .iter()
+            .flat_map(|repository| self.repository_rows(repository, cx))
+            .collect();
+        let header = if rows.is_empty() {
+            header
+        } else {
+            header.action(
+                Button::new("explore-add-repository")
+                    .ghost()
+                    .small()
+                    .icon(icon("plus"))
+                    .label("Add repository")
+                    .on_click(cx.listener(|view, _, window, cx| {
+                        view.open_add_repository(window, cx);
+                    })),
             )
-            .child(
+        };
+        let empty = EmptyState::new("explore-repositories-empty", "No repositories yet")
+            .icon("git-branch")
+            .description("Add a Git repository to browse and install its skills.")
+            .action(
                 Button::new("explore-add-first-repository")
+                    .primary()
                     .small()
                     .icon(icon("plus"))
                     .label("Add repository")
@@ -102,14 +111,9 @@ impl NativeView {
                         view.open_add_repository(window, cx);
                     })),
             );
-        let rows: Vec<ListRow> = explore
-            .repositories
-            .iter()
-            .flat_map(|repository| self.repository_rows(repository, cx))
-            .collect();
         gpui_kit::component::v_flex()
             .gap(px(skillbinder_design::explore::SECTION_GAP))
-            .child(section_header("git-branch", "Your repositories").action(add))
+            .child(header)
             .child(
                 CardList::new("explore-repositories")
                     .rows(rows)
