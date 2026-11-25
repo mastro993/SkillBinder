@@ -38,6 +38,7 @@ impl Fixture {
         }
     }
 
+    #[allow(dead_code, reason = "Not every test crate opens the default engine.")]
     pub fn open(&self) -> Engine {
         Engine::open(EngineConfig::isolated(self.data.clone(), self.home.clone())).unwrap()
     }
@@ -78,6 +79,7 @@ impl Fixture {
 
     /// An engine past onboarding with an empty library, every registry agent's directory chosen
     /// so agents a test creates later are yours.
+    #[allow(dead_code, reason = "Not every test crate opens the default engine.")]
     pub async fn ready(&self) -> Engine {
         let engine = self.open();
         choose_every_agent(&engine).await;

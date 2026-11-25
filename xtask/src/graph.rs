@@ -60,6 +60,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
     (
         "skillbinder-engine",
         &[
+            "chrono",
             "diesel",
             "diesel_migrations",
             "directories",

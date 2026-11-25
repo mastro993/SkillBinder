@@ -11,7 +11,7 @@ use gpui_kit::{ActivationPolicy, App, KeyBinding, Menu, MenuItem, QuitMode, acti
 use skillbinder_client::Client;
 #[cfg(not(feature = "native-test"))]
 use skillbinder_engine::EngineConfig;
-use skillbinder_engine::{Engine, QuitCause};
+use skillbinder_engine::{Engine, LogFilter, QuitCause};
 use skillbinder_ui::{GoBack, GoForward, ToggleSidebar};
 use window::{MainWindow, open_main_window, window_closed};
 
@@ -56,7 +56,7 @@ fn run() -> anyhow::Result<()> {
         "SkillBinder requires a Wayland or X11 desktop session."
     );
     #[cfg(feature = "native-test")]
-    let (config, mode) = native_test::parse_launch(arguments)?;
+    let (mut config, mode) = native_test::parse_launch(arguments)?;
     #[cfg(feature = "native-test")]
     let smoke = (mode == native_test::NativeMode::Smoke).then(native_test::Smoke::default);
     #[cfg(feature = "native-test")]
@@ -65,7 +65,11 @@ fn run() -> anyhow::Result<()> {
         eprintln!("Native smoke: opening isolated engine");
     }
     #[cfg(not(feature = "native-test"))]
-    let config = configuration(&arguments)?;
+    let mut config = configuration(&arguments)?;
+    // Which log lines are written (diagnostic logs spec rule 8).
+    if let Some(setting) = std::env::var_os("SKILLBINDER_LOG") {
+        config.log = LogFilter::parse(&setting.to_string_lossy());
+    }
     let data_dir = config.data_dir.clone();
     let Some(instance) = instance::Instance::acquire(&data_dir)? else {
         // Another SkillBinder runs; a command waits for it, and a person wants its window.

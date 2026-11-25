@@ -1,7 +1,7 @@
 //! Bounded depth-first directory walk of one scan location.
 
 use super::paths;
-use crate::logging::Logger;
+use crate::logging::{Area, Level, Logger};
 use skillbinder_proto::AppResult;
 use std::{
     collections::BTreeSet,
@@ -89,14 +89,19 @@ impl Walk<'_> {
             }
             if depth > budget.max_depth || budget.entries >= budget.max_entries {
                 self.log
-                    .record(format!("Scan traversal limit at {}", path.display()));
+                    .event(Level::Warn, Area::Scan, "traversal limit reached")
+                    .path(&path)
+                    .once();
                 continue;
             }
             let canonical = match paths::resolve(self.boundary, &path) {
                 Ok(path) => path,
                 Err(error) => {
                     self.log
-                        .record(format!("Unreadable scan path {}: {error}", path.display()));
+                        .event(Level::Warn, Area::Scan, "path unreadable")
+                        .path(&path)
+                        .field("cause", error)
+                        .once();
                     continue;
                 }
             };
@@ -133,10 +138,11 @@ impl Walk<'_> {
         let children = match fs::read_dir(path) {
             Ok(children) => children,
             Err(error) => {
-                self.log.record(format!(
-                    "Unreadable scan directory {}: {error}",
-                    canonical.display()
-                ));
+                self.log
+                    .event(Level::Warn, Area::Scan, "directory unreadable")
+                    .path(canonical)
+                    .field("cause", error)
+                    .once();
                 return None;
             }
         };
@@ -152,7 +158,11 @@ impl Walk<'_> {
             let child = match child {
                 Ok(child) => child,
                 Err(error) => {
-                    self.log.record(format!("Unreadable scan entry: {error}"));
+                    self.log
+                        .event(Level::Warn, Area::Scan, "entry unreadable")
+                        .path(path)
+                        .field("cause", error)
+                        .once();
                     continue;
                 }
             };
@@ -160,10 +170,9 @@ impl Walk<'_> {
             let name = name.to_string_lossy();
             skill |= name == "SKILL.md";
             if excluded(&name, self.workspace) {
-                self.log.record(format!(
-                    "Excluded scan directory {}",
-                    child.path().display()
-                ));
+                self.log
+                    .event(Level::Debug, Area::Scan, "directory excluded")
+                    .path(&child.path());
                 continue;
             }
             if child.path().is_dir() {

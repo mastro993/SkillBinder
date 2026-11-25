@@ -32,7 +32,12 @@ impl State {
         ] {
             fs::create_dir_all(path).unwrap();
         }
-        let log = Logger::start(data_dir.join("logs"), &home).unwrap();
+        let log = Logger::start(
+            data_dir.join("logs"),
+            &home,
+            crate::logging::LogFilter::default(),
+        )
+        .unwrap();
         let config = EngineConfig::isolated(data_dir.clone(), home.clone());
         let command_line = CommandLine::platform(&config, log.clone());
         let places = Places {

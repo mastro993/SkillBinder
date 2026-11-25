@@ -68,7 +68,11 @@ async fn a_quit_as_the_session_ends_starts_nothing() {
         fixture.data.join(STAGED).exists(),
         "the next quit installs it"
     );
-    assert!(fixture.log().contains("installs at the next quit"));
+    assert!(
+        fixture
+            .log()
+            .contains("update deferred to next quit version=0.2.0")
+    );
     drop(engine);
 
     let engine = fixture.open();
@@ -85,9 +89,5 @@ async fn a_setup_program_that_does_not_start_reopens_the_app_after_restart() {
     engine.request_restart().unwrap();
     engine.shutdown().await.unwrap();
     assert!(engine.finish_app_update(QuitCause::User).is_some());
-    assert!(
-        fixture
-            .log()
-            .contains("Couldn't start the setup program of SkillBinder 0.2.0")
-    );
+    assert!(fixture.log().contains("setup start failed version=0.2.0"));
 }

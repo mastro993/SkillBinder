@@ -1,7 +1,11 @@
 //! Library skills' records, `records/<slug>.toml` beside the skill directories so they sync with
 //! them: the Git tree id of the content each skill should have, and its source when known.
 
-use crate::{payload, persistence, worker::State};
+use crate::{
+    logging::{Area, Level},
+    payload, persistence,
+    worker::State,
+};
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{AppError, AppResult, SkillSource};
 use std::{collections::BTreeSet, fs, io::Write, path::PathBuf};
@@ -76,7 +80,9 @@ impl State {
             Ok(record) => record,
             Err(error) => {
                 self.log
-                    .record(format!("Record of {slug} is unreadable: {error}"));
+                    .event(Level::Warn, Area::Library, "record unreadable")
+                    .field("slug", slug)
+                    .error(&error);
                 None
             }
         }
@@ -88,7 +94,9 @@ impl State {
         let text = match read_bounded(&self.record_file(slug)?) {
             Ok(Some(text)) => text,
             Ok(None) => {
-                self.log.record(format!("Record of {slug} is too large"));
+                self.log
+                    .event(Level::Warn, Area::Library, "record too large")
+                    .field("slug", slug);
                 return Ok(None);
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -101,7 +109,9 @@ impl State {
             Ok(record) => Ok(Some(record)),
             Err(error) => {
                 self.log
-                    .record(format!("Record of {slug} is invalid: {error}"));
+                    .event(Level::Warn, Area::Library, "record invalid")
+                    .field("slug", slug)
+                    .field("cause", error);
                 Ok(None)
             }
         }
@@ -180,13 +190,14 @@ impl State {
             // Something no import wrote, such as a folder or a name no skill can have, is left
             // for the user rather than failing every reconcile.
             if !payload::portable(slug) || !entry.file_type().is_ok_and(|kind| kind.is_file()) {
-                self.log.record(format!(
-                    "Leaving an unexpected entry in records: {slug}.toml"
-                ));
+                self.log
+                    .event(Level::Warn, Area::Library, "unexpected record entry left")
+                    .path(&entry.path());
                 continue;
             }
             self.log
-                .record(format!("Removing the orphan record of {slug}"));
+                .event(Level::Info, Area::Library, "orphan record removed")
+                .field("slug", slug);
             self.remove_record(slug)?;
         }
         Ok(())

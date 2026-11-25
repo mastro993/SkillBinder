@@ -9,7 +9,7 @@ use crate::{
     database,
     library::validate_name,
     library_store::{self, from_text, to_text},
-    logging::Logger,
+    logging::{Area, Level, Logger},
     persistence::{now, sync_directory},
     scan::registry::{global_skill_dirs, workspace_skill_dirs},
     schema::workspaces,
@@ -323,7 +323,8 @@ impl State {
             .collect();
         for workspace in refused {
             self.log
-                .record(format!("Forgot agent folder workspace {}", workspace.path));
+                .event(Level::Info, Area::Workspaces, "agent folder forgotten")
+                .field("workspace", &workspace.path);
             self.remove_workspace(&workspace.id)?;
         }
         Ok(())
@@ -398,10 +399,10 @@ impl State {
         if let Err(error) = fs::remove_file(&path)
             && error.kind() != std::io::ErrorKind::NotFound
         {
-            self.log.record(format!(
-                "Could not remove workspace icon {}: {error}",
-                path.display()
-            ));
+            self.log
+                .event(Level::Warn, Area::Workspaces, "icon not removed")
+                .path(&path)
+                .field("cause", error);
         }
     }
 }
@@ -426,9 +427,9 @@ fn stored_icon(text: &str, workspace: &str, log: &Logger) -> Option<PresetIcon> 
     match from_text(text) {
         Ok(icon) => Some(icon),
         Err(_) => {
-            log.record(format!(
-                "Workspace {workspace} has an icon this version does not know; showing the folder."
-            ));
+            log.event(Level::Warn, Area::Workspaces, "workspace icon unknown")
+                .field("workspace", workspace)
+                .once();
             None
         }
     }
@@ -440,9 +441,9 @@ fn stored_color(text: Option<&str>, workspace: &str, log: &Logger) -> Option<Pre
     match from_text(text) {
         Ok(color) => Some(color),
         Err(_) => {
-            log.record(format!(
-                "Workspace {workspace} has a color this version does not know; showing none."
-            ));
+            log.event(Level::Warn, Area::Workspaces, "workspace color unknown")
+                .field("workspace", workspace)
+                .once();
             None
         }
     }

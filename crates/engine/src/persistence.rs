@@ -1,3 +1,4 @@
+use crate::logging::{Area, Level};
 use crate::{
     database,
     library_store::{SavedSkill, save_skill},
@@ -224,10 +225,13 @@ impl State {
         self.recovery_required = true;
         self.save_journal(&journal)?;
         if let Err(error) = self.finish_journal(&mut journal) {
-            self.log.record(format!(
-                "{}: mutation failed; recovery required",
-                error.diagnostic_id
-            ));
+            self.log
+                .event(
+                    Level::Error,
+                    Area::Storage,
+                    "change failed and needs recovery",
+                )
+                .error(&error);
             if !self.journal_committed(&journal)? {
                 journal.progress.phase = Phase::RollingBack;
                 if self.save_journal(&journal).is_ok()

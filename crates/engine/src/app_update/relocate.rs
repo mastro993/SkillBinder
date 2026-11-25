@@ -4,6 +4,7 @@
 
 use super::install::swap;
 use super::location::{AppPlacement, Origin, Original};
+use crate::logging::{Area, Level, Logger};
 use skillbinder_proto::AppVersion;
 use std::{
     fs, io,
@@ -79,7 +80,7 @@ pub(crate) fn move_to_applications(
     original: Original,
     placement: &AppPlacement,
     running: AppVersion,
-    log: impl Fn(String),
+    log: &Logger,
 ) -> io::Result<Relaunch> {
     let app = relocate(&original.bundle, placement, running, ditto)?;
     let trash = match original.origin {
@@ -95,7 +96,9 @@ pub(crate) fn move_to_applications(
     if let Some(trash) = trash
         && let Err(error) = run(Command::new("/usr/bin/trash").arg(&trash))
     {
-        log(format!("Move to Applications kept the original: {error}"));
+        log.event(Level::Warn, Area::AppUpdate, "original kept after move")
+            .path(&trash)
+            .field("cause", &error);
     }
     Ok(Relaunch { app, eject: None })
 }

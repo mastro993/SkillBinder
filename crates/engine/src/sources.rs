@@ -7,6 +7,7 @@ pub(crate) mod lock;
 
 pub(crate) use checks::{Updates, check};
 
+use crate::logging::{Area, Level};
 use crate::{git::Git, payload, payload::Inspection, worker::State};
 use sha2::{Digest, Sha256};
 use skillbinder_proto::{
@@ -60,7 +61,9 @@ impl State {
                     Some(Drift::Restorable),
                 )?;
             }
-            self.log.record(format!("Learned the source of {slug}"));
+            self.log
+                .event(Level::Info, Area::Library, "source learned")
+                .field("slug", slug);
         }
         Ok(())
     }
@@ -127,10 +130,9 @@ impl State {
                 if matches!(reading, Some(Err(_))) {
                     continue;
                 }
-                self.log.record(format!(
-                    "Removing an unused source cache {}",
-                    path.display()
-                ));
+                self.log
+                    .event(Level::Debug, Area::Update, "source cache removed")
+                    .path(&path);
                 fs::remove_dir_all(&path).map_err(|_| AppError::storage())?;
             }
         }

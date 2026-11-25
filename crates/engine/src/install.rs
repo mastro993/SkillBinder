@@ -11,7 +11,7 @@ use crate::{
     git::Git,
     library::normalized,
     library_store::SavedSkill,
-    logging::Logger,
+    logging::{Area, Level, Logger},
     payload::{self, Inspection},
     persistence::{Journal, Move, RecordChange},
     records::Record,
@@ -94,7 +94,9 @@ impl Fetch {
             let _ = fs::remove_dir_all(&self.staging);
             if !matches!(failed, Failed::Cancelled) {
                 self.log
-                    .record(format!("Installing {} failed: {failed:?}", self.slug));
+                    .event(Level::Error, Area::Install, "fetch failed")
+                    .field("slug", &self.slug)
+                    .field("cause", format_args!("{failed:?}"));
             }
         }
         fetched
@@ -160,7 +162,9 @@ impl State {
             && !matches!(failed, Failed::Cancelled)
         {
             self.log
-                .record(format!("Installing {slug} failed: {failed:?}"));
+                .event(Level::Error, Area::Install, "install failed")
+                .field("slug", &slug)
+                .field("cause", format_args!("{failed:?}"));
         }
         committed
     }

@@ -5,7 +5,11 @@ mod tests;
 mod traversal;
 pub(crate) mod walk;
 
-use crate::{lifecycle::EngineConfig, logging::Logger, payload::Inspection};
+use crate::{
+    lifecycle::EngineConfig,
+    logging::{Area, Level, Logger},
+    payload::Inspection,
+};
 use skillbinder_proto::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -256,7 +260,9 @@ impl Scans {
             scans.finish(generation, result, &log);
         }));
         if let Err(error) = launched {
-            failure_log.record(format!("Scan worker could not start: {error}"));
+            failure_log
+                .event(Level::Error, Area::Scan, "scan start failed")
+                .field("cause", error);
             self.finish(
                 generation,
                 Err(AppError::new(
@@ -291,7 +297,12 @@ impl Scans {
         }
         state.completed += 1;
         state.last = Some(result.unwrap_or_else(|error| {
-            log.record(error.to_string());
+            log.failure(
+                Level::Warn,
+                Area::Scan,
+                ("scan failed", "scan stopped at quit"),
+                &error,
+            );
             Found::failed(error.message)
         }));
     }

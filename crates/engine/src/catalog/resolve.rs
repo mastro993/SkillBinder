@@ -4,7 +4,12 @@
 //! `skillId`, reading only the SKILL.md blobs it needs. A result resolves once per session.
 
 use super::{Previews, folders::skill_folders};
-use crate::{git::Git, library::normalized, logging::Logger, payload};
+use crate::{
+    git::Git,
+    library::normalized,
+    logging::{Area, Level, Logger},
+    payload,
+};
 use skillbinder_proto::{
     AppError, AppResult, CatalogOrigin, CatalogSkill, Resolution, SkillSource, SkillsShResult,
     owner_repo, result_key,
@@ -116,12 +121,15 @@ impl Resolve {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let found = self.find(result);
         if let Err(error) = &found {
-            self.log.record(format!(
-                "Resolving {} in {} failed: {}",
-                result.skill_id,
-                owner_repo(&result.url),
-                error.message
-            ));
+            self.log
+                .failure(
+                    Level::Warn,
+                    Area::Explore,
+                    ("resolve failed", "resolve stopped at quit"),
+                    error,
+                )
+                .field("slug", &result.skill_id)
+                .field("url", owner_repo(&result.url));
         }
         found
     }

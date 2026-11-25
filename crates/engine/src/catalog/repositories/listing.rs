@@ -7,7 +7,7 @@ use crate::{
     catalog::Previews,
     git::Git,
     library::normalized,
-    logging::Logger,
+    logging::{Area, Level, Logger},
     payload::{self, portable},
 };
 use serde::{Deserialize, Serialize};
@@ -82,7 +82,16 @@ impl Listing {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         self.list().map_err(|error| {
             self.log
-                .record(format!("Listing a repository failed: {error}"));
+                .failure(
+                    Level::Warn,
+                    Area::Explore,
+                    (
+                        "repository listing failed",
+                        "repository listing stopped at quit",
+                    ),
+                    &error,
+                )
+                .field("url", &self.url);
             match error.category {
                 ErrorCategory::Offline | ErrorCategory::Git => RepositoryProblem::Unreachable,
                 _ => RepositoryProblem::Failed(error),

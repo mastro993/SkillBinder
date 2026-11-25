@@ -5,6 +5,7 @@ use super::copies::{self, Moved};
 use super::plan::{self, Issue, Row, Step};
 use super::store::{self, Holder, Pair};
 use super::targets::Places;
+use crate::logging::{Area, Level};
 use crate::{database, payload, worker::State};
 use skillbinder_proto::{AppError, AppResult};
 use std::{
@@ -181,10 +182,11 @@ impl State {
         let managed_digest = row.and_then(|row| row.digest.clone());
         let edited = || failed(Issue::Edited, managed_digest.clone());
         let report = |error: AppError, removing: bool| {
-            self.log.record(format!(
-                "Copy of {slug} in {} not changed: {error}",
-                directory.display()
-            ));
+            self.log
+                .event(Level::Warn, Area::Copies, "copy not changed")
+                .field("slug", slug)
+                .path(directory)
+                .error(&error);
             let reason = error.message;
             let issue = if removing {
                 Issue::NotRemoved(reason)

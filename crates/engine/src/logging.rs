@@ -1,32 +1,87 @@
-use regex::Regex;
+//! The log (ADR 0031): levelled, structured lines written by one thread per engine.
+
+mod file;
+mod filter;
+mod line;
+mod session;
+#[cfg(test)]
+mod tests;
+
+pub use filter::LogFilter;
+pub(crate) use filter::{Area, Level};
+pub(crate) use line::Took;
+
+use line::{Record, Redactor};
+use skillbinder_proto::{AppError, ErrorCategory};
 use std::{
-    fs::{self, OpenOptions},
-    io::Write,
+    collections::HashSet,
+    fmt::Display,
     path::{Path, PathBuf},
-    sync::mpsc::{self, SyncSender},
-    time::{Duration, SystemTime},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+        mpsc::{self, SyncSender, TrySendError},
+    },
+    time::{Instant, SystemTime},
 };
 
+/// How many lines wait for the writer before `DEBUG` lines are dropped.
+const QUEUE: usize = 1024;
+
+/// A handle to the engine's log. Clones write to the same file.
 #[derive(Clone)]
 pub(crate) struct Logger {
-    sender: SyncSender<Message>,
+    shared: Arc<Shared>,
 }
+
+struct Shared {
+    sender: SyncSender<Message>,
+    filter: LogFilter,
+    /// The `DEBUG` lines dropped since the writer last said so.
+    dropped: Arc<AtomicU64>,
+    started: Instant,
+}
+
 enum Message {
-    Line(String),
+    Line { record: Record, once: bool },
     Flush(mpsc::Sender<()>),
 }
+
 impl Logger {
-    pub(crate) fn start(directory: PathBuf, home: &Path) -> std::io::Result<Self> {
-        fs::create_dir_all(&directory)?;
+    /// Starts the writer thread, which appends to `skillbinder.log` in `directory` the lines
+    /// `filter` passes.
+    pub(crate) fn start(
+        directory: PathBuf,
+        home: &Path,
+        filter: LogFilter,
+    ) -> std::io::Result<Self> {
+        std::fs::create_dir_all(&directory)?;
         let redactor = Redactor::new(home);
-        let (sender, receiver) = mpsc::sync_channel(256);
+        let (sender, receiver) = mpsc::sync_channel(QUEUE);
+        let dropped = Arc::new(AtomicU64::new(0));
+        let shed = dropped.clone();
         std::thread::Builder::new()
             .name("skillbinder-logs".into())
             .spawn(move || {
+                let mut written = HashSet::new();
                 for message in receiver {
+                    let count = shed.swap(0, Ordering::AcqRel);
+                    if count > 0 {
+                        let record = Record {
+                            at: SystemTime::now(),
+                            level: Level::Warn,
+                            area: Area::Session,
+                            message: "debug lines dropped",
+                            fields: vec![("count", count.to_string())],
+                        };
+                        let _ = file::append(&directory, &record.line(&redactor));
+                    }
                     match message {
-                        Message::Line(line) => {
-                            let _ = append(&directory, &redactor.redact(&line));
+                        Message::Line { record, once } => {
+                            if once && !written.insert(record.key()) {
+                                continue;
+                            }
+                            let _ = file::append(&directory, &record.line(&redactor));
                         }
                         Message::Flush(done) => {
                             let _ = done.send(());
@@ -34,98 +89,114 @@ impl Logger {
                     }
                 }
             })?;
-        Ok(Self { sender })
+        Ok(Self {
+            shared: Arc::new(Shared {
+                sender,
+                filter,
+                dropped,
+                started: Instant::now(),
+            }),
+        })
     }
-    pub(crate) fn record(&self, line: impl Into<String>) {
-        let _ = self.sender.try_send(Message::Line(line.into()));
+
+    /// A line with a fixed lowercase `message`, written when the returned event is dropped. A
+    /// line the filter does not pass costs this comparison and nothing else.
+    pub(crate) fn event(&self, level: Level, area: Area, message: &'static str) -> Event<'_> {
+        let record = self.shared.filter.passes(level, area).then(|| Record {
+            at: SystemTime::now(),
+            level,
+            area,
+            message,
+            fields: Vec::new(),
+        });
+        Event {
+            logger: self,
+            record,
+            once: false,
+        }
     }
+
+    /// `error` under `failed` at `level`, or, when the app is quitting, as `DEBUG` under
+    /// `stopped`, since work a quit stops has not failed (spec rule 15).
+    pub(crate) fn failure(
+        &self,
+        level: Level,
+        area: Area,
+        (failed, stopped): (&'static str, &'static str),
+        error: &AppError,
+    ) -> Event<'_> {
+        if error.category == ErrorCategory::Cancelled {
+            self.event(Level::Debug, area, stopped)
+        } else {
+            self.event(level, area, failed).error(error)
+        }
+    }
+
+    /// Waits until every line logged so far is written.
     pub(crate) fn flush(&self) {
         let (sender, receiver) = mpsc::channel();
-        if self.sender.send(Message::Flush(sender)).is_ok() {
+        if self.shared.sender.send(Message::Flush(sender)).is_ok() {
             let _ = receiver.recv();
         }
     }
-}
-struct Redactor {
-    home: String,
-    patterns: Vec<(Regex, &'static str)>,
-}
-impl Redactor {
-    fn new(home: &Path) -> Self {
-        let patterns = [
-            (r"(?i)(https?://)[^\s/@]+(?::[^\s/@]*)?@", "$1[redacted]@"),
-            (r"(?i)([?&](?:token|key|api_key|apikey|password|secret|access_token|auth|credential)=)[^&\s]+", "$1[redacted]"),
-            (r"(?i)(authorization\s*[:=]\s*)[^\r\n]+", "$1[redacted]"),
-            (r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]"),
-        ].into_iter().filter_map(|(pattern, replacement)| Regex::new(pattern).ok().map(|regex| (regex, replacement))).collect();
-        Self {
-            home: home.to_string_lossy().into_owned(),
-            patterns,
+
+    /// Queues a line. `INFO` and above wait for room, so they are never lost; `DEBUG` lines are
+    /// dropped and counted while the queue is full.
+    fn send(&self, record: Record, once: bool) {
+        let debug = record.level == Level::Debug;
+        let message = Message::Line { record, once };
+        if !debug {
+            let _ = self.shared.sender.send(message);
+        } else if let Err(TrySendError::Full(_)) = self.shared.sender.try_send(message) {
+            self.shared.dropped.fetch_add(1, Ordering::AcqRel);
         }
     }
-    fn redact(&self, line: &str) -> String {
-        let bounded: String = line.chars().take(16_384).collect();
-        let mut result = if self.home.is_empty() {
-            bounded
-        } else {
-            bounded.replace(&self.home, "~")
-        };
-        for (pattern, replacement) in &self.patterns {
-            result = pattern.replace_all(&result, *replacement).into_owned();
+}
+
+/// A line being built. It is written when dropped.
+pub(crate) struct Event<'a> {
+    logger: &'a Logger,
+    /// `None` when the filter does not pass the line.
+    record: Option<Record>,
+    once: bool,
+}
+
+impl Event<'_> {
+    /// Adds the field `name`, one of the shared names such as `slug` or `path`.
+    pub(crate) fn field(mut self, name: &'static str, value: impl Display) -> Self {
+        if let Some(record) = &mut self.record {
+            record.fields.push((name, value.to_string()));
         }
-        result
+        self
+    }
+
+    /// Adds `path`.
+    pub(crate) fn path(self, path: &Path) -> Self {
+        self.field("path", path.display())
+    }
+
+    /// Adds `took`, the time since `started`.
+    pub(crate) fn took(self, started: Instant) -> Self {
+        self.field("took", Took(started.elapsed()))
+    }
+
+    /// Adds `diag`, the error's diagnostic id, and `error`, its message.
+    pub(crate) fn error(self, error: &AppError) -> Self {
+        self.field("diag", &error.diagnostic_id)
+            .field("error", &error.message)
+    }
+
+    /// Writes the line only the first time in this session (spec rule 20).
+    pub(crate) fn once(mut self) -> Self {
+        self.once = true;
+        self
     }
 }
-fn append(directory: &Path, line: &str) -> std::io::Result<()> {
-    let path = directory.join("skillbinder.log");
-    for index in 1..5 {
-        let old = directory.join(format!("skillbinder.{index}.log"));
-        if fs::metadata(&old)
-            .and_then(|metadata| metadata.modified())
-            .ok()
-            .and_then(|time| time.elapsed().ok())
-            .is_some_and(|age| age > Duration::from_secs(14 * 86400))
-        {
-            let _ = fs::remove_file(old);
+
+impl Drop for Event<'_> {
+    fn drop(&mut self) {
+        if let Some(record) = self.record.take() {
+            self.logger.send(record, self.once);
         }
-    }
-    if fs::metadata(&path)
-        .is_ok_and(|metadata| metadata.len() + line.len() as u64 > 5 * 1024 * 1024)
-    {
-        let _ = fs::remove_file(directory.join("skillbinder.4.log"));
-        for index in (1..4).rev() {
-            let _ = fs::rename(
-                directory.join(format!("skillbinder.{index}.log")),
-                directory.join(format!("skillbinder.{}.log", index + 1)),
-            );
-        }
-        fs::rename(&path, directory.join("skillbinder.1.log"))?;
-    }
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    let timestamp = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_secs());
-    writeln!(file, "{timestamp} {}", line.replace(['\n', '\r'], " "))?;
-    file.flush()
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn credentials_and_home_never_reach_logs() {
-        let output = Redactor::new(Path::new("/private/home")).redact("/private/home/a https://user:secret@example.test/a?token=hidden&x=ok Bearer abc123\nAuthorization: Basic secret");
-        assert!(
-            ![
-                "/private/home",
-                "user:secret",
-                "hidden",
-                "abc123",
-                "Basic secret"
-            ]
-            .iter()
-            .any(|secret| output.contains(secret)),
-            "{output}"
-        );
-        assert!(output.contains("~/a"));
     }
 }

@@ -6,6 +6,7 @@ use super::{
     AppUpdates, Shared, UpdateSource,
     manifest::{self, Found, Offer, Refusal, TARGET},
 };
+use crate::logging::{Area, Level};
 use crate::{
     catalog::{Answer, Fetcher},
     persistence,
@@ -153,7 +154,9 @@ impl AppUpdates {
                     Refusal::Unreadable => "it does not read as an update manifest",
                 };
                 self.log
-                    .record(format!("App update check refused {path}: {why}."));
+                    .event(Level::Warn, Area::AppUpdate, "update manifest refused")
+                    .field("path", path)
+                    .field("cause", why);
                 Outcome::Failed(CheckFailure::Failed)
             }
         }

@@ -13,6 +13,7 @@ use super::{
     manifest::{Found, Offer},
     stage::{self, OLD},
 };
+use crate::logging::{Area, Level};
 use skillbinder_proto::{AppResult, AppUpdateState, AppVersion, CheckFailure};
 use std::{
     fs,
@@ -37,7 +38,9 @@ impl AppUpdates {
         };
         if let Err(why) = &staged {
             self.log
-                .record(format!("App update {version} was discarded: {why}."));
+                .event(Level::Info, Area::AppUpdate, "update discarded")
+                .field("version", version)
+                .field("cause", why);
         }
         // A channel switched during the download drops it, whatever came of it, and the new
         // channel is checked next.
@@ -180,10 +183,17 @@ impl AppUpdates {
         let old = bundle.with_file_name(format!("{OLD}{}{extension}", self.current));
         let version = staged.offer.version;
         match swap(&staged.bundle, bundle, &old) {
-            Ok(()) => self.log.record(format!("Installed SkillBinder {version}.")),
-            Err(error) => self
-                .log
-                .record(format!("Couldn't install SkillBinder {version}: {error}")),
+            Ok(()) => {
+                self.log
+                    .event(Level::Info, Area::AppUpdate, "update installed")
+                    .field("version", version);
+            }
+            Err(error) => {
+                self.log
+                    .event(Level::Error, Area::AppUpdate, "update install failed")
+                    .field("version", version)
+                    .field("cause", error);
+            }
         }
     }
 
@@ -192,22 +202,23 @@ impl AppUpdates {
     fn start_setup(&self, staged: &Staged, cause: QuitCause, restart: bool) -> bool {
         let version = staged.offer.version;
         if cause == QuitCause::SessionEnd {
-            self.log.record(format!(
-                "SkillBinder {version} installs at the next quit, as the session is ending."
-            ));
+            self.log
+                .event(Level::Info, Area::AppUpdate, "update deferred to next quit")
+                .field("version", version);
             return false;
         }
         match install::start_setup(&staged.bundle, std::process::id(), restart) {
             Ok(()) => {
-                self.log.record(format!(
-                    "Started the setup program of SkillBinder {version}."
-                ));
+                self.log
+                    .event(Level::Info, Area::AppUpdate, "setup started")
+                    .field("version", version);
                 false
             }
             Err(error) => {
-                self.log.record(format!(
-                    "Couldn't start the setup program of SkillBinder {version}: {error}"
-                ));
+                self.log
+                    .event(Level::Error, Area::AppUpdate, "setup start failed")
+                    .field("version", version)
+                    .field("cause", error);
                 restart
             }
         }
