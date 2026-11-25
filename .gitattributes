@@ -21,4 +21,6 @@ assets/** linguist-vendored
 # Agents update the asset inventories, so the size check covers them.
 assets/**/*.json -linguist-vendored
 .agents/skills/** linguist-vendored
+# The repository's own skill for running the app: agents write it, so the size check covers it.
+.agents/skills/skillbinder-dev/** -linguist-vendored
 LICENSE linguist-vendored
