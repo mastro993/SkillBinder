@@ -105,7 +105,7 @@ fn info_plist(version: &Version) -> String {
 <key>CFBundleName</key><string>SkillBinder</string>
 <key>CFBundleDisplayName</key><string>SkillBinder</string>
 <key>CFBundleExecutable</key><string>skillbinder</string>
-<key>CFBundleIdentifier</key><string>com.skillbinder.desktop</string>
+<key>CFBundleIdentifier</key><string>dev.fedemas.skillbinder</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>icon</string>
 <key>CFBundleShortVersionString</key><string>{major}.{minor}.{patch}</string>
