@@ -2,11 +2,11 @@
 
 use super::{DialogFrame, DialogSize};
 use crate::{DialogFooter, DialogHeader};
-use gpui_kit::component::{Root, WindowExt};
+use gpui_kit::component::{Root, WindowExt, dialog::Dialog, v_flex};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
-    AppContext, Context, IntoElement, ParentElement, Render, Styled, TestAppContext,
-    VisualTestContext, Window, div, px, size,
+    App, AppContext, Context, InteractiveElement, IntoElement, ParentElement, Render,
+    StatefulInteractiveElement, Styled, TestAppContext, VisualTestContext, Window, div, px, size,
 };
 
 struct Host;
@@ -19,6 +19,22 @@ impl Render for Host {
 
 /// A 1000 by 800 window with a dialog of `dialog_size` open, whose header has a close button.
 fn open(cx: &mut TestAppContext, dialog_size: DialogSize) -> &mut VisualTestContext {
+    open_framed(cx, move |dialog, cx| {
+        let header =
+            DialogHeader::new("Delete preset").close("dialog-close", "Close dialog", |_, _, _| {});
+        DialogFrame::new(dialog_size)
+            .header(header)
+            .footer(DialogFooter::new())
+            .apply(dialog, cx)
+            .child("Its skills stay in the library.")
+    })
+}
+
+/// A 1000 by 800 window with the dialog `build` frames open.
+fn open_framed(
+    cx: &mut TestAppContext,
+    build: impl Fn(Dialog, &mut App) -> Dialog + 'static,
+) -> &mut VisualTestContext {
     cx.update(|cx| {
         gpui_kit::init(cx);
         crate::init(cx);
@@ -29,20 +45,7 @@ fn open(cx: &mut TestAppContext, dialog_size: DialogSize) -> &mut VisualTestCont
         Root::new(host, window, cx)
     });
     cx.simulate_resize(size(px(1000.), px(800.)));
-    cx.update(|window, cx| {
-        window.open_dialog(cx, move |dialog, _, cx| {
-            let header = DialogHeader::new("Delete preset").close(
-                "dialog-close",
-                "Close dialog",
-                |_, _, _| {},
-            );
-            DialogFrame::new(dialog_size)
-                .header(header)
-                .footer(DialogFooter::new())
-                .apply(dialog, cx)
-                .child("Its skills stay in the library.")
-        })
-    });
+    cx.update(|window, cx| window.open_dialog(cx, move |dialog, _, cx| build(dialog, cx)));
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear(cx));
     cx.update(|window, cx| window.draw(cx).clear(cx));
@@ -82,4 +85,35 @@ fn a_standard_dialog_is_420_wide(cx: &mut TestAppContext) {
 fn a_window_dialog_takes_92_percent_of_the_window(cx: &mut TestAppContext) {
     let viewport = size(px(1000.), px(800.));
     assert_eq!(width(cx, DialogSize::Window(viewport)), 920.);
+}
+
+#[gpui_kit::test]
+fn a_body_fills_the_dialog_and_its_list_scrolls_inside_it(cx: &mut TestAppContext) {
+    let viewport = size(px(1000.), px(800.));
+    let cx = open_framed(cx, move |dialog, cx| {
+        let list = div()
+            .id("list")
+            .flex_1()
+            .min_h_0()
+            .overflow_y_scroll()
+            .child(div().h(px(2000.)));
+        let under = div().debug_selector(|| "under".to_owned()).h(px(20.));
+        let body = v_flex().flex_1().min_h_0().child(list).child(under);
+        DialogFrame::new(DialogSize::Window(viewport))
+            .header(DialogHeader::new("Add skill"))
+            .body(body)
+            .apply(dialog, cx)
+    });
+    let dialog = cx
+        .debug_bounds("dialog-0")
+        .unwrap_or_else(|| panic!("the dialog was not painted"));
+    let under = cx
+        .debug_bounds("under")
+        .unwrap_or_else(|| panic!("the line under the list was not painted"));
+    assert!(
+        under.bottom() <= dialog.bottom(),
+        "the line under the list ends at {:?}, below the dialog's {:?}",
+        under.bottom(),
+        dialog.bottom()
+    );
 }
