@@ -1,9 +1,9 @@
 //! The new agent notice (design N1 to N5, P5): after onboarding, the found agents none of which
-//! is yours or was asked about get one Kit notification at the window's bottom-right, with its
-//! own id and no auto-hide, that lists them all and stays until answered. One agent gets Manage
+//! is yours or was asked about get one notice from the toasts' seam, at the window's bottom-right
+//! with its own id and no auto-hide, that lists them all and stays until answered. One agent gets Manage
 //! and Not now; several get Manage all and Review…, which opens Settings with them off. Closing
 //! counts as Not now, and every answer counts as asked for every agent listed. It waits while the
-//! progress strip is up and comes back once it ends; change toasts keep the bottom center.
+//! progress strip is up and comes back once it ends; change toasts stack with it.
 
 #[cfg(test)]
 mod tests;
@@ -12,8 +12,9 @@ use super::NativeView;
 use super::controls::reader_logo;
 use super::library_copies::{AgentRow, found_rows};
 use super::route::Route;
+use super::toasts;
 use gpui_kit::component::{ActiveTheme, WindowExt, h_flex, notification::Notification, v_flex};
-use gpui_kit::{Anchor, Context, IntoElement, ParentElement, Styled, Window, div, px};
+use gpui_kit::{Context, IntoElement, ParentElement, Styled, Window, div, px};
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{AvatarStack, Button, Logo, Text};
 use skillbinder_proto::AgentOption;
@@ -98,7 +99,7 @@ impl NativeView {
         }
         self.agent_notice.shown = Some(dirs);
         let notice = self.agent_notice(rows, cx);
-        window.push_notification(notice, cx);
+        toasts::push_notice(window, notice, cx);
     }
 
     /// The notice for `rows`: their logos, the found line, the question, and the buttons.
@@ -106,10 +107,7 @@ impl NativeView {
         let view = cx.entity().downgrade();
         let closed = view.clone();
         let dirs: BTreeSet<String> = rows.iter().map(|row| row.dir.clone()).collect();
-        Notification::new()
-            .id::<NewAgentNotice>()
-            .autohide(false)
-            .placement(Anchor::BottomRight)
+        toasts::notice::<NewAgentNotice>()
             .content(move |_, _, cx| {
                 let theme = cx.theme();
                 let several = rows.len() > 1;

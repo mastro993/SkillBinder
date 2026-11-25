@@ -390,7 +390,7 @@ Radii scale with the object's size: `xs` 4 for image tiles, `sm` 6 for controls 
 - **Dialogs**: Kit `Dialog` with a `title-md` title, `body-sm` body, and a right-aligned footer: secondary then primary, gap 8.
 - **Notices**: an icon and caption text in the tone's `-text` color, on no fill; a blocking problem uses Kit `Alert`.
 - **Empty states**: Kit `Empty`: glyph, one line, optional action.
-- **Toasts**: Kit `Notification`, bottom center.
+- **Toasts**: Kit `Notification`, one bottom-right stack.
 - **Tooltips**: Kit `Tooltip`, wrapping past 240 px.
 - **Checkboxes, switches, avatars, spinners, progress**: Kit's own, themed through the tokens.
 
