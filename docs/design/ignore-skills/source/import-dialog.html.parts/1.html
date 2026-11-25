@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ignore found skills</title>
+<!-- Ignoring found skills in the Import skills dialog (approved variant C, docs/design/scan-import).
+     Variants: where the Ignore control sits. "Ignored as" switches how ignored skills are shown.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py import-dialog.html ../prototypes/import-dialog.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+.sb-nav-row[data-nav="discovery"] { display: none; }
+.im-ctx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 12.5px/1.4 var(--sb-font); color: var(--sb-muted-fg); }
+.im-busy > .sb-vbar { pointer-events: none; opacity: .5; }
+.im-scan .im-count { font-size: 12px; color: var(--sb-muted-fg); font-variant-numeric: tabular-nums; }
+.im-scan { width: auto; padding: 0 8px; gap: 5px; }
+
+.sb-scrim.im-scrim { align-items: center; padding: 10px; }
+.sb-dialog.im-dialog { width: 92%; height: 90%; max-width: none; max-height: none; }
+.im-dialog .sb-dialog-header { padding-bottom: 6px; }
+.im-dialog .sb-dialog-body { display: flex; flex-direction: column; gap: 8px; overflow: hidden; padding-bottom: 12px; }
+.im-dialog .sb-dialog-footer { justify-content: flex-end; padding-top: 10px; padding-bottom: 12px; border-top: 1px solid var(--sb-border); }
+.im-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; text-align: center; color: var(--sb-muted-fg); }
+
+.im-tools { display: flex; align-items: center; gap: 8px; }
+.im-tools .sb-search { flex: 1 1 auto; width: auto; max-width: 260px; }
+.im-status { margin-left: auto; font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; }
+
+.im-list { position: relative; flex: 1; min-height: 0; overflow: auto; }
+.im-head {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px;
+  border-bottom: 1px solid var(--sb-border); border-radius: 9px 9px 0 0; background: var(--sb-card);
+}
+.im-head .sb-check-label { font-size: 12.5px; font-weight: 500; }
+.im-list .sb-row { align-items: flex-start; min-height: 0; padding: 9px 12px; gap: 10px; }
+.im-list .sb-row > .sb-checkbox { margin-top: 2px; }
+.im-head + .sb-row::before, .im-ghead + .sb-row::before { display: none; }
+.im-list .sb-slug { font-size: 13.5px; }
+.im-list .sb-desc { font-size: 12px; }
+.im-list .sb-row.is-changed, .im-ghead.is-changed { animation: im-flash 1.8s ease-out; }
+@keyframes im-flash { from { background: color-mix(in srgb, var(--sb-info) 18%, var(--sb-card)); } }
+.im-list .sb-empty { padding: 28px 16px; }
+.im-lines { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; font-size: 11.5px; color: var(--sb-muted-fg); }
+.im-line { display: flex; align-items: center; flex-wrap: wrap; column-gap: 12px; min-width: 0; }
+.im-warn { display: flex; align-items: center; gap: 5px; color: color-mix(in srgb, var(--sb-warning) 60%, var(--sb-fg)); }
+.im-vtoggle { align-self: flex-start; margin: 3px 0 0 -6px; color: var(--sb-muted-fg); }
+.im-vtoggle > .sb-ic { transition: transform .12s; }
+.im-vtoggle[aria-expanded="true"] > .sb-ic { transform: rotate(90deg); }
+
+.im-ghead {
+  position: sticky; top: 34px; z-index: 1; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px;
+  border-bottom: 1px solid var(--sb-border); background: color-mix(in srgb, var(--sb-fg) 4%, var(--sb-card));
+}
+.im-ghead .sb-check-label { gap: 8px; font-size: 12px; font-weight: 600; }
+.im-ghead .sb-chip-count { font-size: 11.5px; }
+.sb-row + .im-ghead { border-top: 1px solid var(--sb-border); }
+.im-ghead-end { margin-left: auto; }
+
+/* The Ignore control at a row's trailing edge */
+.im-end { flex: none; align-self: center; display: flex; align-items: center; }
+.im-end .sb-btn { color: var(--sb-muted-fg); }
+.im-end .sb-btn:hover { color: var(--sb-fg); }
+
+/* Ignored: a collapsed group at the bottom, or a separate view behind a toolbar toggle */
+.im-ignored-head { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--sb-muted-fg); }
+.im-ignored-head .sb-ic { transition: transform .12s; }
+.im-ignored-head[aria-expanded="true"] .sb-ic.im-chev { transform: rotate(90deg); }
+.im-ignored-head .im-hint { font-weight: 400; margin-left: 6px; }
+.im-list .sb-row.is-ignored .sb-slug, .im-list .sb-row.is-ignored .sb-desc { opacity: .6; }
+.im-list .sb-row.is-ignored .im-end .sb-btn { color: var(--sb-fg); }
+.im-gap { flex: none; width: 16px; }
+.im-banner { padding: 8px 12px; font-size: 12px; color: var(--sb-muted-fg); border-bottom: 1px solid var(--sb-border); }
+.im-toggle.is-on { background: var(--sb-sel); }
+.im-nothing { padding: 22px 12px; text-align: center; color: var(--sb-muted-fg); font-size: 13px; }
+</style>
+</head>
+<body data-first-variant="c">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="../../scan-import/source/found.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const ACME = (k) => k.versions.every((v) => v.locations.every((l) => l.readers.startsWith('acme-web')));
+  const STATES = [
+    { id: 'list', label: 'Nothing ignored' }, { id: 'some', label: 'Some ignored' },
+    { id: 'all', label: 'All ignored', tip: 'Every found skill is ignored' }, { id: 'scanning', label: 'Scanning' },
+  ];
+  // ignored: slugs, kept across opens (machine-local, per slug). ticks: slugs to import.
+  const S = {
+    variant: 'a', mode: 'group', state: 'list', ignored: new Set(), imported: new Set(),
+    skills: [], ticks: new Set(), choice: {}, expanded: new Set(), query: '',
+    ignoredOpen: false, showIgnored: false, changed: null,
+  };
+  let dlg = null;
+  let els = {};
+  let scanTimer = 0;
+  let ready = false;
+  SB.settings.problems = 0;
+
+  const skillsN = (n) => `${n} skill${n === 1 ? '' : 's'}`;
+  const sourceOf = (state) => (state === 'all' ? FOUND.skills.filter(ACME) : FOUND.skills);
+  const found = () => sourceOf(S.state).filter((k) => !S.imported.has(k.slug));
+  const offered = () => S.skills.filter((k) => !S.ignored.has(k.slug));
+  const ignoredList = () => S.skills.filter((k) => S.ignored.has(k.slug));
+  const badgeCount = () => found().filter((k) => !S.ignored.has(k.slug)).length;
+  const chosen = (k) => k.versions.find((v) => v.id === S.choice[k.slug]);
+  const canTick = (k) => FOUND.importable(chosen(k));
+  const cap = () => Math.min(offered().filter(canTick).length, FOUND.MAX);
+  function matches(k) {
+    const q = S.query.trim().toLowerCase();
+    return !q || k.slug.includes(q) || k.desc.toLowerCase().includes(q);
+  }
+  function seedIgnored(state) {
+    if (state === 'list') S.ignored = new Set();
+    if (state === 'some') S.ignored = new Set(['storybook', 'tailwind-helper', 'e2e-playwright', 'legacy-deploy']);
+    if (state === 'all') S.ignored = new Set(FOUND.skills.filter(ACME).map((k) => k.slug));
+  }
+
+  // ---- Library behind the dialog: Scan for skills counts only skills not ignored --------------
+  renderSidebar(side, { active: 'library', onNav: () => toast(win, 'Not in this prototype') });
+  function drawHeader() {
+    const n = badgeCount();
+    hdr.replaceChildren(h('span', { class: 'sb-title' }, 'Library'), h('div', { class: 'sb-header-actions' },
+      h('button', { class: 'sb-btn sb-btn-icon', 'data-tip': 'Check for updates', 'aria-label': 'Check for updates',
+        onclick: () => toast(win, 'Not in this prototype') }, ic('refresh-04', 16)),
+      h('button', { class: 'sb-btn sb-btn-icon im-scan', 'data-tip': 'Scan for skills',
+        'aria-label': n ? `Scan for skills, ${n} not in library` : 'Scan for skills',
+        onclick: () => { openImport(true); scan(); } },
+      ic('folder-search', 16), n ? h('span', { class: 'im-count' }, n.toLocaleString()) : null)));
+  }
+  function drawLibrary() {
+    const rows = [...DATA.skills, ...[...S.imported].map((slug) => FOUND.skills.find((k) => k.slug === slug))]
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+    page.replaceChildren(h('div', { class: 'sb-card' }, rows.map((s) => h('div', { class: 'sb-row' },
+      h('div', { class: 'sb-row-main' }, h('span', { class: 'sb-slug' }, s.slug), h('div', { class: 'sb-desc' }, s.desc))))));
+  }
+  drawHeader();
+  drawLibrary();
+
+  // ---- variant bar, states ------------------------------------------------------------------
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Ignore on hover', desc: 'A quiet "Ignore" button appears at the row\'s trailing edge on hover or keyboard focus, like Remove on Library rows. One skill at a time.' },
+    { id: 'b', label: 'Ignore always shown', desc: 'Every row shows its "Ignore" button, muted until hovered. Easier to find, busier list.' },
+    { id: 'c', label: 'Plus Ignore all per place', desc: 'As A, and each place\'s header gets "Ignore all", for a workspace whose skills are all vendored. It ignores those slugs everywhere.' },
+  ], (id) => { S.variant = id; if (ready) redraw(); });
+  const stateRow = h('div', { class: 'im-ctx' });
+  bar.el.append(stateRow);
+  function drawStates() {
+    stateRow.replaceChildren(h('span', 'Start'), seg(STATES, S.state, (id) => {
+      S.state = id;
+      if (id !== 'scanning') seedIgnored(id);
+      drawHeader();
+      openImport(false);
+      if (id === 'scanning') showScanning(); else showList();
+    }), h('span', { style: 'margin-left:10px' }, 'Ignored as'), seg([
+      { id: 'group', label: 'Group at bottom', tip: 'A collapsed "Ignored" group closes the list' },
+      { id: 'toggle', label: 'Toolbar toggle', tip: 'An "Ignored (N)" toggle beside the search switches the list to ignored skills' },
+    ], S.mode, (id) => { S.mode = id; S.showIgnored = false; redraw(); }));
+  }
+  drawStates();
+
+  const proto = document.getElementById('proto');
+  const blocking = (el) => !el.matches('aside, main, .sb-toast, .sb-tooltip, .sb-menu') && !(dlg && el === dlg.scrim);
+  new MutationObserver(() => proto.classList.toggle('im-busy', [...win.children].some(blocking)))
+    .observe(win, { childList: true });
