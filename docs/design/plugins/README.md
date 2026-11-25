@@ -36,9 +36,9 @@ The page of one plugin, `fstack`: header (name, description, marketplace, reposi
 - **B "Body + side column"**: README then Skills in the main column; Agents (compact rows) and Details (marketplace, repository, version) in a 206-wide side column. Like VS Code's Installation column and Vercel's fact column.
 - **C "Agents first, stacked"**: one scroll with the Agents card, then Skills, then README. Like Linear's Slack Connections and Cursor plugin detail. plugins-list.html and plugin-skill.html also use this layout for any plugin page they open.
 
-Agent rows: Claude Code "Installed · 0.9.0" with Uninstall; GitHub Copilot "Installed · 0.8.0" with Update and Uninstall (P8); Droid "Not installed" with Install, which opens the P6 dialog showing `droid plugin marketplace add mastro993/fstack` and `droid plugin install fstack@fedemas --scope user`; Codex and Cursor show a hint, with no button (P2). Uninstall asks "Uninstall fstack from Claude Code?" (A1). While a command runs, the row's button shows a spinner (A3).
+Agent rows: Claude Code "Installed · 0.9.0" with Uninstall; GitHub Copilot "Installed · 0.8.0" with Update and Uninstall (P8); Droid "Not installed" with Install, which opens P11's "Install fstack in Droid?" naming its source, "10 skills", the marketplace step, and `droid plugin marketplace add mastro993/fstack` and `droid plugin install fstack@fedemas --scope user`; Codex and Cursor show a hint, with no button (P2). Uninstall asks "Uninstall fstack from Claude Code?" (A1). While a command runs, the row's button shows a spinner (A3).
 
-States: Normal, Off (Claude Code "Installed · 0.9.0 · Off", P7), Install fails (Droid's row shows the agent's error output, and Install fails again), and No marketplace (`motion`, loaded in Cursor from a folder: Install is disabled with "No marketplace to install from", A2).
+States: Normal, Off (Claude Code "Installed · 0.9.0 · Off", P7), Install fails (Droid's row shows the agent's error output, and Install fails again), and No marketplace (`motion`, loaded in Cursor from a folder: Install is disabled with "No source to install from", A2).
 
 ## plugin-skill.html
 
