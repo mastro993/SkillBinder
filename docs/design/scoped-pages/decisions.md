@@ -42,7 +42,7 @@ C8 (a 12 px tooltip as an app-owned control) and C13 (an app-owned segmented con
 | C1 | Wash | the page `background` at 70% over the whole window, sidebar included, no blur | "`background` at 55% opacity" |
 | C2 | Spinner glyph | `loading` (`Loading03Icon`) in the foreground color | `refresh-03`, muted, as `sidebar_row::spinner` builds it |
 | C3 | Progress line | a 2 px line in `primary` along the pill's bottom, with no track, kept inside the pill's rounded ends | Kit `Progress` xsmall, with a track |
-| C4 | End toast | a Kit Notification at the bottom center with the `check-circle` glyph (revised 2026-11-11; the prototype draws an inverted chip that stays 4 s) | a Kit Notification at the top right |
+| C4 | End toast | a Kit Notification at the bottom-right with the `check-circle` glyph (revised 2026-11-11, moved from the bottom center 2026-11-25; the prototype draws an inverted chip that stays 4 s) | a Kit Notification at the top right |
 | C5 | Review | the prototype's list in a Kit Dialog: title `2 need attention`, about 420 wide, rows in a card with Replace and Keep or Remove and Keep, footer Done | Review opens Skill copies, each copy keeping today's row |
 | C6 | Percentage | rounded to the nearest: `Math.round(done / total * 100)` | "rounded down" |
 | C7 | Running tooltip | the change on one line and the step on the next, for example "Switching to Frontend" / "Copying tailwind-helper → Cursor" | "No tooltip" |
@@ -69,7 +69,7 @@ C9 (the pill's button text at 12 px, as an app-owned button) was withdrawn on 20
 - **D1 Overlap mark.** The `robot` glyph in a small secondary square, with the tooltip "Also in your agents" and the names, replaces #101's yellow overlap tag.
 - **D2 Edited mark.** `pencil-edit` with the tooltip "Changed here" and the place.
 - **D3 Clear button.** None in the search field on these pages.
-- **D4 Toast.** A Kit Notification at the bottom center that closes after 5 s and pauses while hovered (revised 2026-11-11 under General 1; it was an app toast lasting 4 s).
+- **D4 Toast.** A Kit Notification at the bottom-right that closes after 5 s and pauses while hovered (revised 2026-11-11 under General 1; it was an app toast lasting 4 s; moved from the bottom center on 2026-11-25 so every toast and notice shares one stack).
 - **D5 Menu row order.** The app's: Universal first, then by name.
 - **D6 Preset tints.** The prototype's blue `#3b82f6` and amber `#f59e0b`, which the native fixture sets as custom colors. Default, neutral, is muted foreground.
 - **D7 Edited-copy prompt.** The prototype's narrow confirmation, about 320 wide: "You changed this skill here" with Keep and Remove.

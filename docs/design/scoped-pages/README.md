@@ -30,7 +30,7 @@ Open a bundle in a browser. Its variant bar switches variants, and its demo cont
 
 Each control comes from GPUI Kit, styled through its public API; the app keeps no look-alike of a Kit control. The user settled these on 2026-11-11:
 
-1. **The end-of-change toast is a Kit Notification** at the bottom center: a card in Kit's notification column, with a × on hover, sliding up, closing after 5 s and pausing while hovered. It replaces the prototype's inverted chip (Progress C4).
+1. **The end-of-change toast is a Kit Notification** at the bottom-right (bottom center until 2026-11-25, when every toast and notice joined one stack): a card in Kit's notification column, with a × on hover, sliding up, closing after 5 s and pausing while hovered. It replaces the prototype's inverted chip (Progress C4).
 2. **Tooltips are Kit's defaults** everywhere. On an element that is not a Kit control, GPUI's tooltip with a Kit `Tooltip` shows below and right of the pointer after 500 ms. There is no custom delay.
 3. **The Library toolbar is 32 px**, Kit's standard height: the search field, the Updates chip and both segmented switches.
 4. **Agent avatars are Kit Avatars.** A logo clipped to the circle is fine. The ring that separates overlapping avatars keeps the row's color while the pointer is on the placement button, and takes the open highlight while the popover is open.

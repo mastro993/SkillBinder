@@ -316,9 +316,10 @@ impl Render for NativeView {
         self.sync_detail(cx);
         self.sync_dialog(window, cx);
         self.sync_overlay_focus(window, cx);
-        self.push_toast(window, cx);
         self.sync_agent_notice(window, cx);
         self.sync_app_update_notice(window, cx);
+        // Last, so a toast shows in front of a notice that comes back in the same frame.
+        self.push_toast(window, cx);
         let colors = cx.theme().colors;
         let global_error = self
             .error

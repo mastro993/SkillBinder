@@ -1,6 +1,6 @@
 //! The app update notice (spec rules 9–11, 13, 14): after onboarding, a newer SkillBinder gets one
-//! Kit notification at the window's bottom-right, with its own id and no auto-hide, that stacks
-//! with the new agent notice. A ready update reads "SkillBinder <v> is ready" with Dismiss and the
+//! notice from the toasts' seam, at the window's bottom-right with its own id and no auto-hide,
+//! that stacks with the new agent notice and the toasts. A ready update reads "SkillBinder <v> is ready" with Dismiss and the
 //! primary Restart, which waits while long work runs; a download-only one reads "SkillBinder <v>
 //! is available" with the reason and the primary Download, which opens the release page. Dismiss,
 //! Download, or closing it hides it until the next launch. It waits while the progress strip is
@@ -8,10 +8,10 @@
 //! toast once. A window opened again in the same launch keeps both (ADR 0020).
 
 use super::NativeView;
-use super::toasts::ToastAction;
+use super::toasts::{self, ToastAction};
 use gpui_kit::component::{ActiveTheme, WindowExt, h_flex, notification::Notification, v_flex};
 use gpui_kit::{
-    Anchor, AnyElement, Context, Global, InteractiveElement, IntoElement, ParentElement,
+    AnyElement, Context, Global, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, WeakEntity, Window, div, px,
 };
 use skillbinder_design::tokens::{space, text};
@@ -160,7 +160,7 @@ impl NativeView {
         match offer {
             Some(offer) => {
                 let notice = self.app_update_notification(offer, cx);
-                window.push_notification(notice, cx);
+                toasts::push_notice(window, notice, cx);
             }
             None => window.remove_notification::<AppUpdateNotice>(cx),
         }
@@ -224,10 +224,7 @@ impl NativeView {
         let view = cx.entity().downgrade();
         let closed = view.clone();
         let shown = offer.clone();
-        Notification::new()
-            .id::<AppUpdateNotice>()
-            .autohide(false)
-            .placement(Anchor::BottomRight)
+        toasts::notice::<AppUpdateNotice>()
             .content(move |_, _, cx| {
                 let (title, line) = match &offer {
                     Offer::Ready(version) => {
