@@ -199,16 +199,13 @@ cd SkillBinder
 cargo run -p skillbinder --locked
 ```
 
-To try it without touching your own agents, build the [synthetic world](fixtures/synthetic/README.md), a small fictional machine, and launch on it:
+That opens your real library, so with SkillBinder installed it opens the installed app's window instead. To try a development build beside the installed app without touching your own agents, run it on a development world, a copy of the [synthetic world](fixtures/synthetic/README.md), a small fictional machine:
 
 ```sh
-cargo run -p xtask --locked -- fixture /tmp/skillbinder-world
-cargo run -p skillbinder --features native-test --locked -- \
-  --data-dir /tmp/skillbinder-world/data --home /tmp/skillbinder-world/home \
-  --catalog-dir /tmp/skillbinder-world/catalog
+cargo run -p xtask --locked -- dev
 ```
 
-A `native-test` build refuses to run on your real home or without an isolated `--data-dir`.
+The first run builds the world at `.skillbinder-dev/default/` in the checkout, and later runs reopen it where you left it. Name another world to run several at once (`dev second`), add `--fresh` to start over at onboarding, and pass app arguments after `--`, such as `-- --mcp`. A `native-test` build refuses to run on your real home or without an isolated `--data-dir`.
 
 ## Contributing
 

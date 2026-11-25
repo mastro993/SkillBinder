@@ -41,16 +41,15 @@ The smoke test initializes only the supplied test directory and renders all four
 
 ### Launch on the synthetic world
 
-`fixtures/synthetic/` holds a small fictional machine: agents' global skill directories, projects, a skill source with a newer version, and a Sync remote, all with made-up content. Build it at a new directory and launch on it:
+`fixtures/synthetic/` holds a small fictional machine: agents' global skill directories, projects, a skill source with a newer version, and a Sync remote, all with made-up content. Run a development build on a development world, a copy of it kept in the checkout:
 
 ```sh
-cargo run -p xtask --locked -- fixture /tmp/skillbinder-world
-cargo run -p skillbinder --features native-test --locked -- \
-  --data-dir /tmp/skillbinder-world/data --home /tmp/skillbinder-world/home \
-  --catalog-dir /tmp/skillbinder-world/catalog --update-dir /tmp/skillbinder-world/app-updates
+cargo run -p xtask --locked -- dev [<name>] [--fresh] [-- <app arguments>]
 ```
 
-The task refuses a directory that is not empty and prints the launch command, whose `--catalog-dir` serves Explore's catalog from the world's `catalog/` (rename it to go offline) and `--update-dir` the app update manifests from its `app-updates/` (add `--app-version 0.1.1-beta.12` to run as a beta), the projects folder to add as workspaces, and the Sync remote's `file://` URL. Its Git commits carry fixed dates and author, so every build gives the same commits. `fixtures/synthetic/README.md` lists what the world holds and which states each part exercises. Add `--mcp` to drive it through the bridge below. The prototype-parity fixture in `docs/design/scoped-pages/fixture/` is separate: it reproduces the prototypes' data for visual comparison.
+The world is `.skillbinder-dev/<name>/` (`default` when unnamed), which Git ignores. The task builds it when it is missing or lacks its `.complete` marker, as after an interrupted build, and rebuilds it with `--fresh`; it refuses to delete a world whose app holds `data/application.lock`, with `The <name> world is running; quit it first.` It prints the world's projects folder, its Sync remote's `file://` URL, and `cargo run -p skillbinder-cli -- --data-dir <world>/data <command>`, then runs `cargo run -p skillbinder --features native-test --locked -- --data-dir <world>/data --home <world>/home --catalog-dir <world>/catalog --update-dir <world>/app-updates <app arguments>` and exits with the app's status. Running a world that is already running brings its window forward. Worlds run beside the installed app, each other, and other checkouts' worlds. A world records absolute `file://` URLs, so after moving its checkout, rebuild it with `--fresh`. The checkout's path must have no spaces, `%`, `#`, or `?`, which SkillBinder refuses in a `file://` source.
+
+To build the world at a directory of your choice, run `cargo run -p xtask --locked -- fixture <new directory>`. That task refuses a directory that is not empty and prints the launch command, whose `--catalog-dir` serves Explore's catalog from the world's `catalog/` (rename it to go offline) and `--update-dir` the app update manifests from its `app-updates/` (add `--app-version 0.1.1-beta.12` to run as a beta), the projects folder to add as workspaces, and the Sync remote's `file://` URL. Its Git commits carry fixed dates and author, so every build gives the same commits. `fixtures/synthetic/README.md` lists what the world holds and which states each part exercises. Add `-- --mcp` to `xtask dev` (or `--mcp` to the printed launch command) to drive it through the bridge below. The prototype-parity fixture in `docs/design/scoped-pages/fixture/` is separate: it reproduces the prototypes' data for visual comparison.
 
 ### Run the opt-in MCP bridge
 

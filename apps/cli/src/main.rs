@@ -14,7 +14,7 @@ use clap::error::ErrorKind;
 use console::Console;
 use skillbinder_proto::command_line::{CommandError, ErrorCode};
 use std::io::IsTerminal as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -24,7 +24,7 @@ fn main() -> ExitCode {
     };
     let data = match matches.get_one::<PathBuf>("data-dir") {
         // An isolated root's app is a native-test build that needs the same root to start.
-        Some(data) => Ok((data.clone(), true)),
+        Some(data) => Ok((isolated_data(data), true)),
         None => platform_data().map(|data| (data, false)),
     };
     if matches.subcommand_name() == Some("mcp") {
@@ -46,6 +46,14 @@ fn main() -> ExitCode {
         .and_then(|(data, isolated)| connect::send(&data, &request, isolated, &mut console));
     console.end_progress();
     render::outcome(outcome, json)
+}
+
+/// An isolated root resolved as the native-test app resolves it, since the endpoint derives from
+/// the path: `.skillbinder-dev/default/data` reaches the app launched on its absolute path.
+fn isolated_data(data: &Path) -> PathBuf {
+    std::fs::canonicalize(data)
+        .or_else(|_| std::path::absolute(data))
+        .unwrap_or_else(|_| data.to_owned())
 }
 
 /// The application data folder the app's engine uses.
@@ -79,4 +87,21 @@ fn usage(error: &clap::Error) -> ExitCode {
     }
     let _ = error.print();
     ExitCode::from(u8::try_from(error.exit_code()).unwrap_or(2))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use skillbinder_proto::command_line::Endpoint;
+
+    #[test]
+    fn a_relative_isolated_root_reaches_the_app_on_its_resolved_path() -> std::io::Result<()> {
+        let resolved = std::fs::canonicalize(std::env::current_dir()?)?;
+        let private = Path::new("private");
+        assert_eq!(
+            Endpoint::of(&isolated_data(Path::new(".")), private),
+            Endpoint::of(&resolved, private)
+        );
+        Ok(())
+    }
 }

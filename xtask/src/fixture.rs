@@ -31,12 +31,19 @@ pub(crate) fn build(root: &Path, out: Option<&str>) -> anyhow::Result<()> {
     }
     fs::create_dir_all(&out)?;
     let out = fs::canonicalize(&out)?;
+    build_at(root, &out)?;
+    print_usage(&out);
+    Ok(())
+}
+
+/// Builds the synthetic world in `out`, an absolute directory that is empty or missing.
+pub(crate) fn build_at(root: &Path, out: &Path) -> anyhow::Result<()> {
     let world = root.join("fixtures/synthetic");
     copy_tree(&world.join("home"), &out.join("home"))?;
     copy_tree(&world.join("projects"), &out.join("projects"))?;
     let mut lock = Map::new();
     for source in children(&world.join("sources"))? {
-        install_source(&source, &out, &mut lock)?;
+        install_source(&source, out, &mut lock)?;
     }
     for remote in children(&world.join("remotes"))? {
         let bare = out.join("remotes").join(repo_name(&remote)?);
@@ -65,7 +72,6 @@ pub(crate) fn build(root: &Path, out: Option<&str>) -> anyhow::Result<()> {
         out.join("home/.agents/.skill-lock.json"),
         serde_json::to_string_pretty(&lock)? + "\n",
     )?;
-    print_usage(&out);
     Ok(())
 }
 
@@ -202,7 +208,7 @@ fn repo_name(path: &Path) -> anyhow::Result<String> {
 }
 
 /// A `file://` URL SkillBinder accepts as a source or remote; it refuses ones that need escaping.
-fn file_url(path: &Path) -> anyhow::Result<String> {
+pub(crate) fn file_url(path: &Path) -> anyhow::Result<String> {
     let path = path
         .to_str()
         .context("The fixture path must be valid UTF-8")?

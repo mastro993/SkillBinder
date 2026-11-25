@@ -2,7 +2,7 @@
 
 A small fictional machine for native-test runs, so testing never reads or writes your own agents, projects, or library. Every skill, project, and person here is made up.
 
-Build it with `cargo run -p xtask --locked -- fixture <new directory>`, then launch with the command it prints (see [native checks](../../docs/native-gate/checks.md#launch-on-the-synthetic-world)). The task writes:
+Run a development build on a copy of it with `cargo run -p xtask --locked -- dev [<name>]`, which builds the world at `.skillbinder-dev/<name>/` in the checkout on first use. To build it elsewhere, run `cargo run -p xtask --locked -- fixture <new directory>` and launch with the command it prints (see [native checks](../../docs/native-gate/checks.md#launch-on-the-synthetic-world)). The world holds:
 
 | Path | Built from | What it exercises |
 |---|---|---|
