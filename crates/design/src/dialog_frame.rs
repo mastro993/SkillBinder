@@ -3,12 +3,14 @@
 //! [`DialogFooter`]. Kit's own close control is off; the header draws the close button.
 //!
 //! Kit hands a dialog's builder the `Dialog` it opens, so the frame is applied to it rather than
-//! drawn on its own; the caller adds the body as the dialog's children.
+//! drawn on its own; the caller adds the body as the dialog's children, which scroll as one, or
+//! as a [`DialogFrame::body`] that fills the dialog and scrolls its own parts.
 
 use crate::tokens::{radius, text};
 use crate::{DialogFooter, DialogHeader, Level};
 use gpui_kit::component::{ActiveTheme, dialog::Dialog};
-use gpui_kit::{App, Pixels, Size, Styled, px};
+use gpui_kit::{AnyElement, App, IntoElement, ParentElement, Pixels, Size, Styled, px};
+use std::cell::Cell;
 
 /// How wide a dialog is (`DESIGN.md` § Layout).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -33,6 +35,7 @@ pub struct DialogFrame {
     size: DialogSize,
     header: Option<DialogHeader>,
     footer: Option<DialogFooter>,
+    body: Option<AnyElement>,
 }
 
 impl DialogFrame {
@@ -42,6 +45,7 @@ impl DialogFrame {
             size,
             header: None,
             footer: None,
+            body: None,
         }
     }
 
@@ -57,6 +61,17 @@ impl DialogFrame {
     pub fn footer(self, footer: DialogFooter) -> Self {
         Self {
             footer: Some(footer),
+            ..self
+        }
+    }
+
+    /// A body that fills the dialog between its header and footer and never scrolls as a whole,
+    /// so a list in it scrolls in its own area while what sits beside or below the list stays
+    /// in view. Kit's children grow to their content and scroll together instead, and their
+    /// scroll area clips the focus ring of a field at the top; this body keeps room for it.
+    pub fn body(self, body: impl IntoElement) -> Self {
+        Self {
+            body: Some(body.into_any_element()),
             ..self
         }
     }
@@ -80,8 +95,17 @@ impl DialogFrame {
             Some(header) => dialog.title(header),
             None => dialog,
         };
-        match self.footer {
+        let dialog = match self.footer {
             Some(footer) => dialog.footer(footer),
+            None => dialog,
+        };
+        match self.body {
+            // Kit runs the content builder once each time it draws the dialog, and a dialog's
+            // builder makes a new frame for every draw.
+            Some(body) => {
+                let body = Cell::new(Some(body));
+                dialog.content(move |content, _, _| content.min_h_0().children(body.take()))
+            }
             None => dialog,
         }
     }

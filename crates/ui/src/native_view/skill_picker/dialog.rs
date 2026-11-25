@@ -44,7 +44,7 @@ impl NativeView {
         }
         let body = h_flex()
             .id("picker-body")
-            .size_full()
+            .flex_1()
             .min_h_0()
             .items_stretch()
             .gap(px(space::XL))
@@ -55,8 +55,8 @@ impl NativeView {
             DialogHeader::custom(title),
             cx,
         )
+        .body(body)
         .apply(dialog, cx)
-        .child(body)
     }
 }
 
