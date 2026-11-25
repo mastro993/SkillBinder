@@ -29,7 +29,7 @@ Out: running Release and Beta at once; a live catalog or the user's Git credenti
 ## Behavior
 
 1. `cargo run -p xtask -- dev [<name>] [--fresh] [-- <app arguments>]` runs the world `<checkout>/.skillbinder-dev/<name>/`, where `<name>` defaults to `default`.
-2. When the world folder is missing, the task builds the synthetic world there (`xtask fixture`) first. With `--fresh`, it deletes the folder and builds it again.
+2. A world is complete once it holds `<world>/.complete`, which the task writes after `fixture::build` returns. When the world folder is missing, the task builds the synthetic world there first. When the folder exists without the marker, as after an interrupted build, the task deletes it and builds it again. With `--fresh`, it deletes a complete world and builds it again. Neither deletes a world whose app is running: when `<world>/data/application.lock` is held, the task stops with `The <name> world is running; quit it first.` and changes nothing.
 3. It then runs `cargo run -p skillbinder --features native-test --locked -- --data-dir <world>/data --home <world>/home --catalog-dir <world>/catalog --update-dir <world>/app-updates <app arguments>`, with the terminal attached, and exits with the app's status. `-- --mcp` drives it through the bridge, and `-- --app-version 0.1.1-beta.12` runs it as a beta.
 4. Before launching, it prints the world's path, its projects folder (to add as workspaces), its Sync remote's `file://` URL, and how to reach it from the command: `cargo run -p skillbinder-cli -- --data-dir <world>/data <command>`.
 5. The first launch opens at onboarding on the synthetic agents. Later launches open where the world was left.
@@ -50,8 +50,9 @@ Out: running Release and Beta at once; a live catalog or the user's Git credenti
 
 Edge cases:
 
-- A world folder that exists but is incomplete (an interrupted build) fails to launch with the app's own error. `--fresh` rebuilds it.
-- Two checkouts sharing one `CARGO_TARGET_DIR` still have separate worlds, since a world lives in its checkout. Rebuilding one checkout replaces the binary the other is running. macOS and Linux keep the running process; Windows refuses the build while it runs.
+- An interrupted build leaves a world without `.complete`, which the next run rebuilds (rule 2). The app itself would launch silently on a partial world, since a missing `catalog` or `app-updates` reads as offline.
+- Every world of a checkout runs the same `target/debug/skillbinder`, and so do the worlds of checkouts that share one `CARGO_TARGET_DIR`. After a code change, starting another world rebuilds the binary the running ones use. macOS and Linux keep the running processes. Windows refuses the build while any of them runs, so `xtask dev second` fails there until `default` quits.
+- A world can't move with its checkout. The synthetic world records absolute `file://` URLs for its own source and Sync remote (`home/.agents/.skill-lock.json`), and so does the library once onboarded. After `git worktree move` or renaming the folder, skill updates and Sync fail until `--fresh` rebuilds the world.
 - A world never reaches the network for the catalog or app updates. Renaming its `catalog` or `app-updates` folder takes it offline, as in the native checks.
 
 ## UX
@@ -95,12 +96,12 @@ flowchart LR
 3. `xtask dev second` in the same checkout runs a third, on `.skillbinder-dev/second/`.
 4. `xtask dev` again while `default` runs brings that window forward, and no extra process remains.
 5. After onboarding finishes, quitting and running `xtask dev` again opens Library, not onboarding.
-6. `xtask dev --fresh` opens onboarding again on a rebuilt world.
+6. `xtask dev --fresh` opens onboarding again on a rebuilt world. Run while that world's app is up, it stops with `The default world is running; quit it first.` and the running app keeps its data. A world whose `.complete` was deleted is rebuilt on the next `xtask dev`.
 7. `cargo run -p skillbinder-cli -- --data-dir .skillbinder-dev/default/data status` answers from the running world.
 8. `git status` stays clean after any of the above.
 9. With the installed app running, `cargo run -p skillbinder` opens the installed app's window, prints `SkillBinder is already running; opened its window.`, and exits successfully.
 10. Launching Release while Beta runs, or Beta while Release runs, still opens the running one (unchanged).
-11. `xtask` unit tests cover the world path, `--fresh`, the name default, and the assembled app arguments; `cargo run -p xtask -- verify` passes.
+11. `xtask` unit tests cover the world path, the name default, the `.complete` marker deciding whether to rebuild, `--fresh` and an incomplete world both refusing while `data/application.lock` is held, and the assembled app arguments; `cargo run -p xtask -- verify` passes.
 12. `xtask package universal-apple-darwin` writes `CFBundleIdentifier` `dev.fedemas.skillbinder`, and `osascript -e 'id of app "SkillBinder"'` on the packaged app returns it.
 13. A fixture update from a build with the old identifier to one with the new identifier (`--update-dir`, `--app-bundle`) installs through Restart, and the restarted app opens the same library.
 14. Both casks `brew audit` cleanly from a local tap, quit `dev.fedemas.skillbinder`, and zap both preference files.

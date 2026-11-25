@@ -18,6 +18,6 @@ A development build that runs beside the installed app runs in a **development w
 ## Consequences
 
 - No engine or app identity changes: the isolation `native-test` builds already have (`EngineConfig::isolated`, the `--data-dir` and `--home` refusals) is the whole boundary.
-- `.skillbinder-dev/` is ignored by Git, survives `cargo clean`, and goes away with its worktree.
+- `.skillbinder-dev/` is ignored by Git, survives `cargo clean`, and goes away with its worktree. A world records absolute `file://` paths, so it can't move with its checkout; `--fresh` rebuilds it.
 - A world shows the synthetic world's catalog and app updates, not the live ones, and its Git reads only the world's home, so it can't use the user's credentials.
 - Alternating `cargo run -p skillbinder` and `xtask dev` in one checkout rebuilds the app each time, because the `native-test` feature changes the same `target/debug/skillbinder`.
