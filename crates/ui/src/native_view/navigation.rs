@@ -63,7 +63,8 @@ impl NativeView {
         cx.notify();
     }
 
-    /// Drops the shown page's transient state and scrolls the next page to its top.
+    /// Drops the shown page's transient state, including a scrollbar drag, and scrolls the next
+    /// page to its top.
     pub(super) fn leave_page(&mut self) {
         self.preview = None;
         self.update_outcome = None;
@@ -71,5 +72,6 @@ impl NativeView {
         self.place_popover = None;
         self.library_reveal = None;
         self.content_scroll.handle.set_offset(Default::default());
+        self.content_scroll.forget_drag();
     }
 }

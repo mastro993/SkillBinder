@@ -34,6 +34,8 @@ pub const KIT_COLORS: &[(&str, &str)] = &[
     ("sidebar.foreground", "sidebar-foreground"),
     ("sidebar.accent.background", "sidebar-accent"),
     ("sidebar.accent.foreground", "foreground"),
+    ("scrollbar.thumb.background", "scrollbar-thumb"),
+    ("scrollbar.thumb.hover.background", "scrollbar-thumb-hover"),
     ("success.background", "success"),
     ("warning.background", "warning"),
     ("danger.background", "danger"),

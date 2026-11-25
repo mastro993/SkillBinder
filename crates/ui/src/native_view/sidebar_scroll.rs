@@ -2,10 +2,12 @@
 //! over the sidebar.
 
 use super::NativeView;
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, ScrollHandle,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
+use skillbinder_design::ScrollFades;
 use skillbinder_design::sidebar::{INSET, SECTION_GAP};
 use skillbinder_proto::LibrarySnapshot;
 
@@ -38,6 +40,10 @@ impl NativeView {
                     .child(self.render_workspaces(window, cx))
                     .children(self.render_agents(cx)),
             )
+            .child(ScrollFades::new(
+                &self.sidebar_scroll.handle,
+                cx.theme().sidebar,
+            ))
             // In the sidebar's trailing inset.
             .child(
                 self.sidebar_scroll
@@ -52,10 +58,4 @@ impl NativeView {
             cx.notify();
         }
     }
-}
-
-/// Whether sections are scrolled out of view above and below the sidebar's scroll area.
-pub(super) fn scrolled_edges(scroll: &ScrollHandle) -> (bool, bool) {
-    let (offset, max) = (-scroll.offset().y, scroll.max_offset().y);
-    (offset > px(0.0), offset < max)
 }

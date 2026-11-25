@@ -1,8 +1,8 @@
 //! Organism: a card of list rows, a flat [`crate::Surface`] holding [`ListRow`]s divided by
 //! inset `hairline` dividers, or what it shows while it has none.
 
-use crate::{Level, ListRow, Surface};
-use gpui_kit::component::{ActiveTheme, scroll::ScrollableElement};
+use crate::{Level, ListRow, ScrollArea, Surface};
+use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, App, Div, ElementId, InteractiveElement, IntoElement, ParentElement, RenderOnce,
     Stateful, StyleRefinement, Styled, Window, div,
@@ -18,6 +18,7 @@ enum Item {
 /// A card of rows.
 #[derive(IntoElement)]
 pub struct CardList {
+    id: ElementId,
     base: Stateful<Div>,
     items: Vec<Item>,
     empty: Option<AnyElement>,
@@ -27,8 +28,10 @@ pub struct CardList {
 impl CardList {
     /// An empty card, `id`.
     pub fn new(id: impl Into<ElementId>) -> Self {
+        let id = id.into();
         Self {
-            base: div().id(id),
+            base: div().id(id.clone()),
+            id,
             items: Vec::new(),
             empty: None,
             scrolls: false,
@@ -103,8 +106,17 @@ impl RenderOnce for CardList {
         let content = div().flex().flex_col().children(items);
         let card = surface.apply(self.base, cx.theme());
         if self.scrolls {
-            card.child(content)
-                .overflow_y_scrollbar()
+            // The rows scroll inside the card's outline, fading into its fill at its corners.
+            card.flex()
+                .flex_col()
+                .child(
+                    ScrollArea::new((self.id, "rows"))
+                        .flex_1()
+                        .min_h_0()
+                        .fill(Level::Flat.fill(cx.theme()))
+                        .radius(inner)
+                        .child(content),
+                )
                 .into_any_element()
         } else {
             card.child(content).into_any_element()

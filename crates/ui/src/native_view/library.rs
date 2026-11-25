@@ -7,8 +7,8 @@ use super::library_items::{RowEnd, SkillItem};
 use super::snapshot_query::{Places, Query, filter_counts, has_update, library_skills};
 use gpui_kit::component::v_flex;
 use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div,
+    prelude::FluentBuilder, px,
 };
 use skillbinder_design::library::{GRID_GAP, GRID_MIN, NARROW_LIST, NARROW_TILE};
 use skillbinder_design::page::{GAP, GUTTER};
@@ -42,38 +42,15 @@ impl NativeView {
             .into_iter()
             .chain(self.render_update_outcome(cx))
             .collect();
-        // The toolbar stays put while the list under it scrolls.
-        v_flex()
-            .size_full()
-            .px(px(GUTTER))
-            .pt(px(GUTTER))
+        let content = v_flex()
+            .id("library-scroll")
+            .on_scroll(cx.listener(|view, _, window, cx| {
+                view.close_place_popover(window, cx);
+            }))
             .gap(px(GAP))
-            .child(toolbar)
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .child(
-                        v_flex()
-                            .id("library-scroll")
-                            .size_full()
-                            .overflow_y_scroll()
-                            .track_scroll(&self.content_scroll.handle)
-                            .on_scroll(cx.listener(|view, _, window, cx| {
-                                view.close_place_popover(window, cx);
-                            }))
-                            .gap(px(GAP))
-                            .pb(px(GUTTER))
-                            .children(notes)
-                            .child(results),
-                    )
-                    .child(
-                        self.content_scroll
-                            .scrollbar("library-scrollbar", px(0.), cx),
-                    ),
-            )
-            .into_any_element()
+            .children(notes)
+            .child(results);
+        self.toolbar_page([toolbar], content, "library-scrollbar", cx)
     }
 
     /// A notice under the header while the active preset holds no skills.
