@@ -11,6 +11,7 @@ use crate::{
     git::Git,
     library::normalized,
     library_store::SavedSkill,
+    logging::{Area, Level, Logger},
     payload::{self, Inspection},
     persistence::{Journal, Move, RecordChange},
     records::Record,
@@ -95,13 +96,23 @@ pub(crate) struct Fetch {
     /// The install's own cache repository.
     pub cache: PathBuf,
     pub shutdown: Shutdown,
+    /// The install's log, whose lines carry its `op` on the pool thread too.
+    pub log: Logger,
 }
 
 impl Fetch {
     /// Fetches the skill's folder and stages it for the commit, as `<staging>/new/<slug>`. Its
     /// cache is removed either way, and on failure its staging directory too.
     pub(crate) fn run(self) -> Result<Inspection, Failed> {
+        let started = std::time::Instant::now();
         let fetched = self.stage();
+        if fetched.is_ok() {
+            self.log
+                .event(Level::Debug, Area::Install, "skill fetched")
+                .field("slug", &self.slug)
+                .field("url", &self.source.url)
+                .took(started);
+        }
         let _ = fs::remove_dir_all(&self.cache);
         if fetched.is_err() {
             let _ = fs::remove_dir_all(&self.staging);

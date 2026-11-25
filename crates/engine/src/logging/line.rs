@@ -31,6 +31,8 @@ pub(super) struct Record {
     pub level: Level,
     pub area: Area,
     pub message: &'static str,
+    /// The action the line belongs to, written before the other fields.
+    pub op: Option<u64>,
     pub fields: Vec<(&'static str, String)>,
     pub sinks: Sinks,
 }
@@ -57,6 +59,9 @@ impl Record {
         );
         // Each value is cut to what is left of the limit before it is quoted, so a cut value
         // keeps its closing quote; fields that no longer fit are left out.
+        if let Some(op) = self.op {
+            let _ = write!(line, " op={op}");
+        }
         let mut length = TIME_WIDTH + 1 + line.chars().count();
         for (name, value) in &self.fields {
             let Some(budget) = LINE_LIMIT
@@ -72,7 +77,8 @@ impl Record {
         line
     }
 
-    /// Whether this line repeats an earlier one: the same level, area, message, and fields.
+    /// Whether this line repeats an earlier one: the same level, area, message, and fields,
+    /// whichever action wrote it.
     pub(super) fn key(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();

@@ -1,7 +1,7 @@
 //! The engine's previews for Explore's detail dialog: Git is looked up on the worker, and the
 //! source is fetched and read on the Git pool, so a slow fetch never holds up other commands.
 
-use super::Engine;
+use super::{Engine, action::Action};
 use crate::catalog::{Read, Request};
 use crate::sources::{CacheUser, cache_dir};
 use skillbinder_proto::*;
@@ -26,12 +26,19 @@ impl Engine {
     }
 
     fn load_preview(&self, request: Option<Request>) -> impl Future<Output = ()> + Send + 'static {
-        let engine = self.clone();
-        async move {
+        let subject = request
+            .iter()
+            .map(|request| ("url", request.source.url.clone()))
+            .collect();
+        let loaded = self.action(Action::Preview, subject, |engine| async move {
             if let Some(request) = request {
                 let state = engine.read_preview(&request).await;
                 engine.owner.previews.finish(&request, state);
             }
+            Ok(())
+        });
+        async move {
+            let _ = loaded.await;
         }
     }
 

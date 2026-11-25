@@ -16,7 +16,10 @@ use skillbinder_engine::{Engine, EngineConfig, Logger, RepositoryUrls};
 use skillbinder_proto::{InstallFailure, Repository, RepositoryProblem, SkillId, SkillSource};
 use std::{
     fs,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 use support::{Fixture, write_skill};
@@ -251,10 +254,11 @@ async fn install_all_installs_what_the_library_lacks_and_reports_failures() {
     assert_eq!(slugs(&added), ["alpha", "beta", "blocked", "gamma"]);
     engine.install_skill(added.skills[0].clone()).await.unwrap();
 
-    let landed = AtomicUsize::new(0);
+    let landed = Arc::new(AtomicUsize::new(0));
+    let counted = landed.clone();
     let outcome = engine
-        .install_all(added.id.clone(), || {
-            landed.fetch_add(1, Ordering::SeqCst);
+        .install_all(added.id.clone(), move || {
+            counted.fetch_add(1, Ordering::SeqCst);
         })
         .await
         .unwrap();

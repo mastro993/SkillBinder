@@ -1,5 +1,5 @@
 //! The log of a launch says when, how bad, and where, without a line per absent location
-//! (diagnostic logs spec, slice 1).
+//! (diagnostic logs spec, slice 1), and each action's lines share its `op` (slice 5).
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
@@ -19,23 +19,55 @@ use support::{Fixture, add_workspace, choose_every_agent, scan};
 /// Spec AC1: every line has this shape.
 const LINE: &str = r#"^\S+ (ERROR|WARN |INFO |DEBUG) [a-z-]+ +[a-z][a-z ]*[a-z]( [a-z.]+=("([^"\\]|\\.)*"|\S+))*$"#;
 
-/// A launch with three workspaces, a scan, and an update check, then a quit; the lines it wrote.
-async fn launch(fixture: &Fixture, setting: Option<&str>) -> Vec<String> {
+/// Opens the engine on `fixture`'s data, its log filtered by `setting`.
+fn open(fixture: &Fixture, setting: Option<&str>) -> Engine {
     let mut config = EngineConfig::isolated(fixture.data.clone(), fixture.home.clone());
     config.log = LogConfig::new(setting, Console::Hidden);
     let log = Logger::open_session(&config).unwrap();
-    let engine = Engine::open(config, log).unwrap();
-    choose_every_agent(&engine).await;
-    engine.finish_onboarding(None).await.unwrap();
+    Engine::open(config, log).unwrap()
+}
+
+/// A launch with three workspaces and a skill from a source, which scans and checks for updates
+/// with no user action, then quits; the lines it wrote. The launch before it sets them up.
+async fn launch(fixture: &Fixture, setting: Option<&str>) -> Vec<String> {
+    let engine = fixture.ready().await;
     for name in ["one", "two", "three"] {
         let workspace = fixture.workspace.join(name);
         fs::create_dir_all(&workspace).unwrap();
         add_workspace(&engine, &workspace).await;
     }
+    let publisher = Publisher::new(fixture.workspace.with_file_name("publisher"));
+    publisher.publish("review", "review", "first");
+    engine
+        .install_skill(publisher.skill("review", "review"))
+        .await
+        .unwrap();
+    engine.shutdown().await.unwrap();
+    let engine = open(fixture, setting);
     scan(&engine).await;
     assert!(engine.check_updates(Duration::ZERO).await.unwrap());
     engine.shutdown().await.unwrap();
-    logged(fixture)
+    let lines = logged(fixture);
+    let session = lines
+        .iter()
+        .rposition(|line| line.contains(" session ") && line.contains(" started version="))
+        .unwrap();
+    lines[session..].to_vec()
+}
+
+/// The index of the one line holding `text`.
+fn only(lines: &[String], text: &str) -> usize {
+    let found: Vec<_> = (0..lines.len())
+        .filter(|index| lines[*index].contains(text))
+        .collect();
+    assert_eq!(found.len(), 1, "{text}: {lines:#?}");
+    found[0]
+}
+
+/// The `op` a line carries.
+fn op(line: &str) -> String {
+    let op = Regex::new(r" op=(\d+)( |$)").unwrap();
+    op.captures(line).unwrap()[1].to_owned()
 }
 
 /// The lines in the fixture's log.
@@ -68,7 +100,13 @@ async fn a_quiet_launch_writes_a_few_readable_lines() {
     assert!(
         lines
             .iter()
-            .any(|line| line.contains(" scan ") && line.contains(" finished locations=")),
+            .any(|line| line.contains(" scan ") && line.contains(" finished op=")),
+        "{lines:#?}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains(" update ") && line.contains(" check finished op=")),
         "{lines:#?}"
     );
     let last = lines.last().unwrap();
@@ -94,7 +132,7 @@ async fn scan_debug_adds_only_absent_locations() {
     assert!(
         debug
             .iter()
-            .any(|line| line.contains(" location absent path=")),
+            .any(|line| line.contains(" location absent op=")),
         "{debug:#?}"
     );
     assert!(
@@ -184,13 +222,20 @@ async fn a_failed_install_leads_from_its_diagnostic_id_to_gits_cause() {
         .filter(|line| line.contains(&error.diagnostic_id))
         .collect();
     assert_eq!(found.len(), 1, "{lines:#?}");
-    let line = found[0];
+    let line = &lines[only(&lines, " install failed ")];
+    assert_eq!(line, found[0]);
+    assert!(line.contains(" ERROR install "), "{line}");
     assert!(
-        line.contains(" ERROR install ") && line.contains(" install failed "),
+        Regex::new(r" install failed op=\d+ took=\S+ diag=")
+            .unwrap()
+            .is_match(line),
         "{line}"
     );
-    assert!(line.contains(" slug=review"), "{line}");
     assert!(line.contains(r#" cause="git clone exited 128: "#), "{line}");
+    // The started line with the same `op` names the skill.
+    let started = &lines[only(&lines, " install started ")];
+    assert_eq!(op(started), op(line));
+    assert!(started.ends_with(" slug=review"), "{started}");
     let sent = serde_json::to_string(&error).unwrap();
     assert!(
         !sent.contains("cause") && !sent.contains("exited"),
@@ -278,5 +323,51 @@ async fn a_failed_write_leads_from_its_diagnostic_id_to_the_path_and_io_error() 
     assert!(
         !sent.contains("cause") && !sent.contains("os error"),
         "{sent}"
+    );
+}
+
+#[tokio::test]
+async fn an_install_writes_every_line_under_its_op() {
+    let fixture = Fixture::new();
+    let engine = open(&fixture, Some("install=debug"));
+    choose_every_agent(&engine).await;
+    engine.finish_onboarding(None).await.unwrap();
+    let publisher = Publisher::new(fixture.workspace.with_file_name("publisher"));
+    publisher.publish("review", "review", "first");
+    engine
+        .install_skill(publisher.skill("review", "review"))
+        .await
+        .unwrap();
+    engine.shutdown().await.unwrap();
+    let lines = logged(&fixture);
+    let started = only(&lines, " install started ");
+    let finished = only(&lines, " install finished ");
+    let op = op(&lines[started]);
+    assert!(
+        lines[started].contains(" INFO  install "),
+        "{}",
+        lines[started]
+    );
+    assert!(
+        lines[started].ends_with(" slug=review"),
+        "{}",
+        lines[started]
+    );
+    assert!(
+        lines[finished].contains(&format!(" install finished op={op} took=")),
+        "{}",
+        lines[finished]
+    );
+    // Every line between them is the install's, including the fetch on the Git pool.
+    let during = &lines[started..=finished];
+    let carried = Regex::new(&format!(" op={op}( |$)")).unwrap();
+    for line in during {
+        assert!(carried.is_match(line), "{line}");
+    }
+    assert!(
+        during
+            .iter()
+            .any(|line| line.contains(" DEBUG install ") && line.contains(" skill fetched ")),
+        "{during:#?}"
     );
 }

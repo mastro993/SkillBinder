@@ -38,6 +38,8 @@ const QUEUE: usize = 1024;
 #[derive(Clone)]
 pub struct Logger {
     shared: Arc<Shared>,
+    /// The action every line of this handle belongs to (spec rule 16).
+    op: Option<u64>,
 }
 
 struct Shared {
@@ -86,6 +88,7 @@ impl Writer {
                 level,
                 area,
                 message: "debug lines dropped",
+                op: None,
                 fields: vec![("count", count.to_string())],
                 sinks: self.config.sinks(level, area),
             };
@@ -132,7 +135,17 @@ impl Logger {
                 dropped,
                 started: Instant::now(),
             }),
+            op: None,
         })
+    }
+
+    /// A handle to the same log whose every line carries `op`, the action it belongs to. Work
+    /// that carries it to another thread keeps the action's lines together.
+    pub(crate) fn for_op(&self, op: u64) -> Self {
+        Self {
+            shared: self.shared.clone(),
+            op: Some(op),
+        }
     }
 
     /// A line with a fixed lowercase `message`, written when the returned event is dropped. A
@@ -144,6 +157,7 @@ impl Logger {
             level,
             area,
             message,
+            op: self.op,
             fields: Vec::new(),
             sinks,
         });
