@@ -22,10 +22,11 @@ cask "skillbinder" do
   # The `skillbinder` command (ADR 0024); Settings reads it as installed by Homebrew.
   binary "#{appdir}/SkillBinder.app/Contents/MacOS/skillbinder-cli", target: "skillbinder"
 
-  uninstall quit: "com.skillbinder.desktop"
+  uninstall quit: "dev.fedemas.skillbinder"
 
   zap trash: [
     "~/Library/Application Support/SkillBinder",
     "~/Library/Preferences/com.skillbinder.desktop.plist",
+    "~/Library/Preferences/dev.fedemas.skillbinder.plist",
   ]
 end

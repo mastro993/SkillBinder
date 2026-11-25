@@ -55,7 +55,7 @@ python3 -m venv .venv-dmgbuild
 PATH="$PWD/.venv-dmgbuild/bin:$PATH" cargo run -p xtask -- package universal-apple-darwin
 ```
 
-The bundle's `Info.plist` records the full version, a beta's included, as `SkillBinderVersion`; Move to Applications reads it to tell whether a SkillBinder already there is newer.
+The bundle's `Info.plist` names the app `dev.fedemas.skillbinder` ([ADR 0030](adr/0030-bundle-identifier-dev-fedemas-skillbinder.md)); the Homebrew casks quit that identifier on uninstall and zap both its preference file and the one left by betas built as `com.skillbinder.desktop`. It also records the full version, a beta's included, as `SkillBinderVersion`; Move to Applications reads it to tell whether a SkillBinder already there is newer.
 
 The Windows setup program is compiled by [Inno Setup](https://jrsoftware.org/isinfo.php) 6 from `packaging/windows/skillbinder.iss`. `build.yml` downloads Inno Setup 6.7.4's installer from its GitHub release, checks its SHA-256, and installs it for the runner's user; a local `xtask package` finds `ISCC.exe` on `PATH` or in `%ProgramFiles(x86)%\Inno Setup 6`. Setup's version is the full one, a beta's included; its file version holds only `X.Y.Z.0`. The script's `AppId` must never change, since the uninstaller and every update find the installation by it. The same program is the Windows app update, which the app runs silently at quit ([app updates](features/native/app-updates.md#windows)).
 
