@@ -40,6 +40,12 @@ impl HoverScroll {
         true
     }
 
+    /// Forgets a thumb drag whose scrollbar can no longer end it: Kit ends a drag from the
+    /// scrollbar it started on, so a drag still held when the page changes would never end.
+    pub fn forget_drag(&self) {
+        self.dragging.set(false);
+    }
+
     /// Whether the scrollbar shows this frame, and the fade's key.
     fn visibility(&self) -> (bool, u64) {
         let shown = self.hovered || self.dragging.get();
@@ -156,6 +162,16 @@ mod tests {
         scroll.hover(false);
         assert_eq!(scroll.visibility(), (true, 1), "still dragging");
         handle.end_drag();
+        assert_eq!(scroll.visibility(), (false, 2));
+    }
+
+    /// A page change mid-drag leaves no scrollbar to end the drag, so it is forgotten.
+    #[test]
+    fn a_forgotten_drag_hides_the_scrollbar() {
+        let scroll = HoverScroll::default();
+        scroll.drag_handle().start_drag();
+        assert_eq!(scroll.visibility(), (true, 1));
+        scroll.forget_drag();
         assert_eq!(scroll.visibility(), (false, 2));
     }
 }
