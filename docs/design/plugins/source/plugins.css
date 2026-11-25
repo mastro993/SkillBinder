@@ -1,0 +1,126 @@
+/* Plugins prototypes: shared styles on the kit's tokens (kit.css first). Classes from plugins-kit.js:
+ *   .pl-sidebar (top rows, .pl-side-scroll sections, pinned foot)
+ *   .pl-tile (plugin glyph tile) .pl-head (plugin header) .pl-fact (meta fact) .pl-link
+ *   .pl-agents > .pl-agent(.is-compact) agent rows; .pl-err error line; .pl-hint
+ *   .pl-skills skill rows, .pl-md rendered markdown, .pl-fm front matter table
+ *   .pl-mark (Also in plugin chip), .pl-cmds (commands in the install dialog), .pl-skel
+ */
+#proto { max-width: 700px; }
+.sb-window { --sb-sidebar-w: 148px; }
+.sb-page > * { flex-shrink: 0; }
+
+/* ---- sidebar: top rows, scrolling sections, pinned foot ---- */
+.sb-sidebar.pl-sidebar { overflow: hidden; }
+.pl-side-scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 1px; margin: 4px -6px 0; padding: 0 6px; }
+.pl-side-foot { display: flex; flex-direction: column; gap: 1px; padding-top: 6px; border-top: 1px solid var(--sb-border); margin: 4px -6px 0; padding-left: 6px; padding-right: 6px; }
+.pl-sidebar .sb-nav-section { margin-top: 6px; }
+.pl-side-busy { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 8px; color: var(--sb-muted-fg); font-size: 12px; }
+
+/* ---- marks ---- */
+.pl-tile {
+  --sz: 28px; width: var(--sz); height: var(--sz); flex: none; display: grid; place-items: center;
+  border-radius: 7px; background: var(--sb-muted); color: var(--sb-muted-fg);
+}
+.pl-fact { display: inline-flex; align-items: center; gap: 4px; min-width: 0; font-size: 12px; color: var(--sb-muted-fg); white-space: nowrap; }
+.pl-link {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; height: 22px; padding: 0 4px; margin: 0 -4px;
+  border: 0; border-radius: 5px; background: transparent; color: var(--sb-fg); font-size: 12px; cursor: pointer;
+}
+.pl-link:hover { background: var(--sb-muted); }
+.pl-link > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-mark {
+  display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 6px; flex: none; cursor: pointer;
+  border: 1px solid var(--sb-border); border-radius: 999px; background: var(--sb-bg); color: var(--sb-muted-fg);
+  font-size: 11px; font-weight: 500; white-space: nowrap;
+}
+.pl-mark:hover { background: var(--sb-muted); color: var(--sb-fg); }
+.pl-chip-link { cursor: pointer; }
+.pl-off { color: var(--sb-warning); }
+.pl-upd { color: var(--sb-info); display: inline-grid; }
+
+/* ---- plugin header ---- */
+.pl-head { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.pl-head > .pl-tile { --sz: 40px; border-radius: 9px; }
+.pl-head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pl-head-title { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.pl-head-desc { font-size: 13px; color: var(--sb-muted-fg); }
+.pl-head-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 2px; }
+.pl-head-end { flex: none; display: flex; align-items: center; gap: 6px; }
+button.pl-stack { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px; border: 0; border-radius: 6px; background: transparent; color: var(--sb-muted-fg); font-size: 12px; cursor: pointer; }
+button.pl-stack:hover { background: var(--sb-muted); color: var(--sb-fg); }
+
+.pl-section { display: flex; align-items: center; gap: 6px; min-height: 22px; font-size: 13px; font-weight: 600; }
+.pl-section .sb-chip-count { font-size: 12px; }
+
+/* ---- labelled facts (fact(k, v)) ---- */
+.pl-facts { display: flex; flex-direction: column; padding: 2px 10px; }
+.pl-kv { display: grid; grid-template-columns: 78px minmax(0, 1fr); align-items: center; gap: 6px; min-height: 32px; font-size: 12px; }
+.pl-kv + .pl-kv { border-top: 1px solid var(--sb-border); }
+.pl-kv-k { color: var(--sb-muted-fg); }
+.pl-kv-v { display: flex; min-width: 0; overflow: hidden; }
+.pl-kv-v > .pl-link { margin: 0; padding: 0; }
+
+/* ---- agent rows ---- */
+.pl-agent { position: relative; display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 4px; min-height: 48px; padding: 8px 12px; }
+.pl-agent + .pl-agent::before { content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px; background: var(--sb-border); }
+.pl-agent-logo { flex: none; }
+.pl-agent-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pl-agent-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-agent-status { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--sb-muted-fg); }
+.pl-agent-end { flex: none; display: flex; align-items: center; gap: 6px; }
+.pl-hint { font-size: 12px; color: var(--sb-muted-fg); text-align: right; }
+.pl-err {
+  flex: 1 0 100%; display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; border-radius: 6px;
+  background: color-mix(in srgb, var(--sb-danger) 9%, transparent); color: var(--sb-danger); font: 11.5px/1.45 var(--sb-mono); overflow-wrap: anywhere;
+}
+.pl-err > .sb-ic { margin-top: 1px; }
+.pl-agent [data-tip] > button:disabled { pointer-events: none; }
+/* Compact (B's side column): logo + name, then status, then the buttons. */
+.pl-agent.is-compact { padding: 8px 10px; align-items: flex-start; }
+.pl-agent.is-compact + .pl-agent.is-compact::before { left: 10px; right: 10px; }
+.pl-agent.is-compact > .pl-agent-end { flex: 1 0 100%; padding-left: 28px; }
+.pl-agent.is-compact .pl-hint { text-align: left; }
+.pl-agent.is-compact .pl-err { margin-left: 28px; flex-basis: calc(100% - 28px); }
+
+/* ---- skill rows ---- */
+.pl-skills > .sb-row { min-height: 44px; padding: 7px 12px; cursor: pointer; }
+.pl-skills > .sb-row::before { left: 12px !important; right: 12px !important; }
+.pl-skills .sb-slug { font-size: 13px; }
+.pl-skills .sb-desc { font-size: 12px; }
+.pl-skills .sb-row-end { color: var(--sb-muted-fg); }
+.pl-none { padding: 12px; font-size: 12.5px; color: var(--sb-muted-fg); }
+
+/* ---- markdown and front matter ---- */
+.pl-mdbox { min-width: 0; padding: 12px 16px; border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
+.pl-md { font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; }
+.pl-md > :first-child { margin-top: 0; }
+.pl-md > :last-child { margin-bottom: 0; }
+.pl-md h1 { margin: 12px 0 6px; font-size: 16px; }
+.pl-md h2 { margin: 14px 0 4px; font-size: 13.5px; }
+.pl-md h3 { margin: 10px 0 4px; font-size: 12.5px; }
+.pl-md p, .pl-md ul, .pl-md ol { margin: 0 0 8px; }
+.pl-md ul, .pl-md ol { padding-left: 18px; }
+.pl-md code { padding: 1px 4px; border-radius: 4px; background: var(--sb-muted); font: 11.5px var(--sb-mono); }
+.pl-md pre { margin: 0 0 8px; padding: 8px 10px; overflow-x: auto; border-radius: 6px; background: var(--sb-muted); }
+.pl-md pre code { padding: 0; background: none; }
+.pl-md a { color: inherit; text-decoration: underline; text-decoration-color: var(--sb-input); text-underline-offset: 2px; }
+.pl-fm { display: grid; grid-template-columns: max-content 1fr; border: 1px solid var(--sb-border); border-radius: 8px; font-size: 12px; overflow: hidden; }
+.pl-fm > * { padding: 6px 10px; min-width: 0; overflow-wrap: anywhere; }
+.pl-fm > :nth-child(n + 3) { border-top: 1px solid var(--sb-border); }
+.pl-fm-k { white-space: nowrap; color: var(--sb-muted-fg); background: var(--sb-muted); font-family: var(--sb-mono); font-size: 11.5px; }
+
+/* ---- install dialog commands ---- */
+.pl-cmds { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding: 8px 10px; border-radius: 6px; background: var(--sb-muted); color: var(--sb-fg); font: 11.5px/1.5 var(--sb-mono); overflow-wrap: anywhere; }
+.pl-cmds > span::before { content: "$ "; color: var(--sb-muted-fg); }
+
+/* ---- loading skeleton ---- */
+.pl-skel { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 14px; }
+.pl-skel + .pl-skel { border-top: 1px solid var(--sb-border); }
+.pl-skel i { display: block; height: 9px; border-radius: 4px; background: var(--sb-muted); animation: pl-pulse 1.2s ease-in-out infinite; }
+.pl-skel .pl-tile { animation: pl-pulse 1.2s ease-in-out infinite; }
+.pl-skel-lines { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+@keyframes pl-pulse { 50% { opacity: .4; } }
+
+/* ---- library rows (the P3 mark) ---- */
+.pl-lib > .sb-row { cursor: pointer; }
+.pl-lib > .sb-row.is-selected { background: var(--sb-sel); }

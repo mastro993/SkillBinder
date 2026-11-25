@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugin page</title>
+<!-- Plugins: one plugin's page (U2; P1, P2, P5-P8, A1-A3, A7). Variants differ in where README, Skills, and Agents sit.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py plugin-page.html ../prototypes/plugin-page.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="plugins.css">
+<style>
+.pl-crumb { border: 0; padding: 2px 4px; margin: 0 -4px; border-radius: 5px; background: none; color: var(--sb-muted-fg); font: inherit; cursor: pointer; }
+.pl-crumb:hover { background: var(--sb-muted); color: var(--sb-fg); }
+/* A: tabs under the header */
+.pp-tabs { align-self: flex-start; }
+.pp-pane { display: flex; flex-direction: column; gap: 10px; }
+/* B: body + side column */
+.pp-cols { display: grid; grid-template-columns: minmax(0, 1fr) 206px; gap: 14px; align-items: start; }
+.pp-main, .pp-aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+</style>
+</head>
+<body data-first-variant="c" data-first-state="normal">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="plugins-text.js"></script>
+<script src="plugins-data.js"></script>
+<script src="plugins-kit.js"></script>
+<script>
+(function () {
+  'use strict';
+  const P = window.PLUGINS;
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  const S = { variant: 'a', state: 'normal', pid: 'fstack', tab: 'readme' };
+  const openSkill = (slug) => toast(win, `Opens ${slug}`);
+
+  const STATES = [
+    { id: 'normal', label: 'Normal' },
+    { id: 'off', label: 'Off', tip: 'Claude Code has fstack turned off' },
+    { id: 'fails', label: 'Install fails', tip: "Droid's install fails; Install again fails too" },
+    { id: 'nomkt', label: 'No marketplace', tip: 'motion, loaded in Cursor from a folder' },
+  ];
+  function setState(id) {
+    P.setMode('normal');
+    Object.assign(S, { state: id, pid: id === 'nomkt' ? 'motion' : 'fstack', tab: id === 'off' || id === 'fails' ? 'agents' : 'readme' });
+    const p = P.plugin(S.pid);
+    if (id === 'off') p.inst.claude.off = true;
+    if (id === 'fails') { P.settings.fail = true; P.setError(p.id, 'droid', P.failText(p, P.agent('droid'))); }
+    draw();
+  }
+
+  function draw() {
+    const p = P.plugin(S.pid);
+    plSidebar(side, { mode: 'row', active: 'plugins', onNav: soon });
+    hdr.replaceChildren(h('div', { class: 'sb-crumbs' }, h('button', { class: 'pl-crumb', onclick: soon }, 'Plugins'),
+      ic('chevron-right', 13), h('span', { class: 'sb-ellipsis' }, p.name)));
+    page.replaceChildren(...({ a: drawA, b: drawB, c: drawC })[S.variant](p));
+    page.scrollTop = 0;
+  }
+
+  // ---- A: tabs (Zoho CRM extension, VS Code extension detail) -------------------------------------
+  function drawA(p) {
+    const pane = h('div', { class: 'pp-pane' });
+    const show = (id) => {
+      S.tab = id;
+      pane.replaceChildren(id === 'skills' ? skillList(p, { onOpen: openSkill }) : id === 'agents' ? agentList(p, { win }) : readmeBox(p));
+    };
+    const tabs = seg([{ id: 'readme', label: 'README' }, { id: 'skills', label: 'Skills', count: p.skills.length }, { id: 'agents', label: 'Agents' }], S.tab, show);
+    tabs.classList.add('pp-tabs');
+    // The header's agent stack says where it is installed and jumps to the Agents tab.
+    const stack = live(h('span', { style: 'display:contents' }), (el) => el.replaceChildren(h('button', { class: 'pl-stack', 'data-tip': 'Agents', 'data-tip-pos': 'end',
+      'aria-label': 'Show agents', onclick: () => { tabs.querySelector('[data-id="agents"]').click(); } }, agentStack(p))));
+    show(S.tab);
+    return [pluginHead(p, { win, end: stack }), tabs, pane];
+  }
+
+  // ---- B: body + side column (VS Code's Installation column, Vercel's fact column) ----------------
+  function drawB(p) {
+    const [mkt, repo, version] = [p.mkt || 'Local',
+      p.repo ? repoLink(p, win) : '—',
+      p.latest || '—'];
+    return [pluginHead(p, { win, meta: false }),
+      h('div', { class: 'pp-cols' },
+        h('div', { class: 'pp-main' }, section('README'), readmeBox(p), section('Skills', p.skills.length), skillList(p, { onOpen: openSkill })),
+        h('aside', { class: 'pp-aside' }, section('Agents'), agentList(p, { win, compact: true }),
+          section('Details'), h('div', { class: 'sb-card pl-facts' }, fact('Marketplace', mkt), fact('Repository', repo), fact('Version', version))))];
+  }
+
+  // ---- C: agents first, stacked (Linear's Connections, Cursor plugin detail) ----------------------
+  const drawC = (p) => stackedPage(p, { win, onSkill: openSkill });
+
+  const first = STATES.some((x) => x.id === document.body.dataset.firstState) ? document.body.dataset.firstState : 'normal';
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Tabs', desc: 'Header with name, description, marketplace, repository, and the agents that have it; README | Skills | Agents as tabs under it · like Zoho CRM extension, VS Code extension detail' },
+    { id: 'b', label: 'Body + side column', desc: 'README then Skills in the main column; Agents and Details (marketplace, repository, version) in a side column · like VS Code\'s Installation column, Vercel integration facts' },
+    { id: 'c', label: 'Agents first, stacked', desc: 'One scroll: header, the Agents card, the Skills card, then README · like Linear\'s Slack Connections, Cursor plugin detail' },
+  ], (id) => { S.variant = id; draw(); });
+  bar.extra.append(seg(STATES, first, setState));
+  setState(first);
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>
