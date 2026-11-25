@@ -28,23 +28,25 @@ impl Git {
         into: &Path,
     ) -> AppResult<()> {
         let path = scratch.to_str().ok_or_else(AppError::storage)?;
-        process::run(
-            &self.program,
-            None,
-            &[
-                "init",
-                "--bare",
-                "--quiet",
-                "--object-format=sha1",
-                "--",
-                path,
-            ],
-            Duration::from_secs(30),
-            None,
-        )
-        .ok()
-        .filter(|out| out.status.success())
-        .ok_or_else(|| failure("Git could not prepare the restore."))?;
+        let args = [
+            "init",
+            "--bare",
+            "--quiet",
+            "--object-format=sha1",
+            "--",
+            path,
+        ];
+        let unprepared = || failure("Git could not prepare the restore.");
+        match process::run(&self.program, None, &args, Duration::from_secs(30), None) {
+            Ok(out) if out.status.success() => {}
+            Ok(out) => return Err(unprepared().because(process::exited(&args, &out))),
+            Err(error) => {
+                return Err(AppError {
+                    cause: error.cause,
+                    ..unprepared()
+                });
+            }
+        }
         let objects =
             dunce::canonicalize(repo.join(".git/objects")).map_err(|_| AppError::storage())?;
         let objects = objects.to_str().ok_or_else(AppError::storage)?;

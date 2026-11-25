@@ -6,6 +6,7 @@ use super::{CacheUser, GONE, cache_dir, checkout, refusal};
 use crate::{
     git::Git,
     library_store::SavedSkill,
+    logging::{Area, Level},
     payload::{self, Inspection},
     persistence::{Journal, Move, RecordChange},
     records::Record,
@@ -41,7 +42,16 @@ impl State {
                 Ok(()) => outcome.updated.push(skill.id.clone()),
                 // A failure the journal could not undo stops every later change.
                 Err(error) if self.recovery_required => return Err(error),
+                // Only the message reaches the user, so the error is logged here.
                 Err(error) => {
+                    self.log
+                        .failure(
+                            Level::Error,
+                            Area::Update,
+                            ("skill update failed", "skill update stopped at quit"),
+                            &error,
+                        )
+                        .field("slug", skill.id.as_str());
                     self.updates.failed(skill, error.message);
                     outcome.failed.push(skill.id.clone());
                 }

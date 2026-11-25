@@ -358,15 +358,12 @@ impl Git {
     }
     /// The commit `name` resolves to, if any.
     pub fn revision(&self, repo: &Path, name: &str) -> AppResult<Option<String>> {
+        let commit = format!("{name}^{{commit}}");
+        let args = ["rev-parse", "--verify", "--quiet", &commit];
         let out = process::run(
             &self.program,
             Some(repo),
-            &[
-                "rev-parse",
-                "--verify",
-                "--quiet",
-                &format!("{name}^{{commit}}"),
-            ],
+            &args,
             Duration::from_secs(30),
             None,
         )?;
@@ -378,7 +375,7 @@ impl Git {
         if out.status.code() == Some(1) {
             Ok(None)
         } else {
-            Err(failure("Git revision is unavailable."))
+            Err(failure("Git revision is unavailable.").because(process::exited(&args, &out)))
         }
     }
     fn preflight(&self, repo: &Path) -> AppResult<()> {
@@ -472,9 +469,10 @@ impl Git {
     ) -> AppResult<String> {
         let output = process::run(&self.program, Some(repo), args, timeout, stop)?;
         if !output.status.success() {
-            return Err(failure(
-                "Git operation failed. Check access and repository state.",
-            ));
+            return Err(
+                failure("Git operation failed. Check access and repository state.")
+                    .because(process::exited(args, &output)),
+            );
         }
         String::from_utf8(output.stdout).map_err(|_| failure("Git output is unreadable."))
     }

@@ -74,7 +74,7 @@ impl Begun {
     /// a slug the library came to hold, and a quit leave it idle.
     pub(crate) fn end(mut self, result: &Result<(), Failed>) {
         let failure = match result {
-            Err(Failed::Failure(failure)) => Some(failure.clone()),
+            Err(Failed::Failure(failure, _)) => Some(failure.clone()),
             Ok(()) | Err(Failed::Held | Failed::Cancelled) => None,
         };
         self.finish(failure);
@@ -127,7 +127,7 @@ mod tests {
         let begun = installs.begin(install_key(&source())).unwrap().unwrap();
         assert!(installs.begin(install_key(&source())).unwrap().is_none());
         assert_eq!(installs.running().unwrap(), [begun.id]);
-        begun.end(&Err(Failed::Failure(InstallFailure::Access)));
+        begun.end(&Err(InstallFailure::Access.into()));
         let key = install_key(&source());
         assert_eq!(
             installs.current()[&key],

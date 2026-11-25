@@ -193,18 +193,22 @@ impl Git {
         )
         .map_err(|error| {
             if error.message == process::TIMED_OUT {
-                offline(error.message)
+                AppError {
+                    cause: error.cause,
+                    ..offline(error.message)
+                }
             } else {
                 error
             }
         })?;
         if !output.status.success() {
             let message = "Git could not read the source. Check access and the repository.";
-            return Err(if unreachable(&output.stderr) {
+            let error = if unreachable(&output.stderr) {
                 offline(message)
             } else {
                 failure(message)
-            });
+            };
+            return Err(error.because(process::exited(args, &output)));
         }
         Ok(output.stdout)
     }

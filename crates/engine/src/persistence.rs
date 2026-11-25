@@ -225,20 +225,28 @@ impl State {
         self.recovery_required = true;
         self.save_journal(&journal)?;
         if let Err(error) = self.finish_journal(&mut journal) {
-            self.log
-                .event(
-                    Level::Error,
-                    Area::Storage,
-                    "change failed and needs recovery",
-                )
-                .error(&error);
-            if !self.journal_committed(&journal)? {
+            let committed = match self.journal_committed(&journal) {
+                Ok(committed) => committed,
+                Err(unknown) => {
+                    // The error returned instead is logged where it reaches the user.
+                    self.log
+                        .event(Level::Error, Area::Storage, "change failed")
+                        .error(&error);
+                    return Err(unknown);
+                }
+            };
+            if !committed {
                 journal.progress.phase = Phase::RollingBack;
                 if self.save_journal(&journal).is_ok()
                     && self.rollback_journal(&mut journal).is_ok()
                 {
                     self.recovery_required = false;
                 }
+            }
+            if self.recovery_required {
+                // `error`, which caused it, is logged where it reaches the user.
+                self.log
+                    .event(Level::Error, Area::Storage, "change needs recovery");
             }
             return Err(error);
         }

@@ -17,12 +17,6 @@ fn clients(home: &Path, directories: Vec<PathBuf>) -> McpClients {
             environment: BTreeMap::new(),
         },
         directories,
-        log: Logger::start(
-            home.join("logs"),
-            home,
-            crate::logging::LogConfig::default(),
-        )
-        .unwrap(),
         shutdown: Shutdown::default(),
     }
 }
@@ -283,16 +277,7 @@ fn programs_are_found_on_the_environments_path_whatever_its_case_on_windows() {
         home: root.path().join("home"),
         environment: BTreeMap::from([(key.to_owned(), root.path().display().to_string())]),
     };
-    let clients = McpClients::new(
-        places,
-        Logger::start(
-            root.path().join("logs"),
-            root.path(),
-            crate::logging::LogConfig::default(),
-        )
-        .unwrap(),
-        Shutdown::default(),
-    );
+    let clients = McpClients::new(places, Shutdown::default());
     assert_eq!(clients.find("codex"), Some(root.path().join(tool)));
 }
 
