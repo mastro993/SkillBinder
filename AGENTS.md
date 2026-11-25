@@ -54,6 +54,8 @@ The pre-commit hook in `.githooks/` rejects a staged file over 5,000 tokens (byt
 
 Verification must distinguish compilation, native interaction, visual parity, and packaged-app smoke tests.
 
+To run, screenshot, or drive the app, use the `skillbinder-dev` skill (`.agents/skills/skillbinder-dev/SKILL.md`): it launches on a development world, never the user's real data.
+
 Native test controls exist only behind `native-test`. Do not add a production debug server. Use isolated test roots and local bare remotes for domain tests.
 
 Preserve unrelated work. Rebase onto current `main` before a new implementation task. Do not merge or publish without explicit authorization. Follow the issue tracker guidance under `docs/agents/`.
