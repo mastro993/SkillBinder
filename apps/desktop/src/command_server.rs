@@ -126,17 +126,21 @@ async fn write(mut stream: &Stream, message: &impl serde::Serialize) -> bool {
     stream.write_all(&line).await.is_ok()
 }
 
-/// A second launch asks the running app to open its window. An app still starting gets a few
-/// seconds to bind its socket; one that never answers is left alone, as before.
-pub(crate) fn open_running(data: &Path) {
+/// A second launch asks the running app to open its window, and tells whether it asked. An app
+/// still starting gets a few seconds to bind its socket; one that never answers is left alone.
+pub(crate) fn open_running(data: &Path) -> bool {
     let endpoint = endpoint(data);
     let deadline = Instant::now() + Duration::from_secs(12);
-    while open(&endpoint).is_err() && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(200));
+    loop {
+        match open(&endpoint) {
+            Ok(opened) => return opened,
+            Err(_) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(200)),
+            Err(_) => return false,
+        }
     }
 }
 
-fn open(endpoint: &Endpoint) -> anyhow::Result<()> {
+fn open(endpoint: &Endpoint) -> anyhow::Result<bool> {
     let stream = interprocess::local_socket::Stream::connect(name(endpoint)?)?;
     let hello = Hello {
         protocol: PROTOCOL,
@@ -147,12 +151,13 @@ fn open(endpoint: &Endpoint) -> anyhow::Result<()> {
     let mut line = String::new();
     reader.read_line(&mut line)?;
     // An app of another protocol can't be asked; the second launch leaves it alone.
-    if let Greeting::Welcome { .. } = serde_json::from_str(&line)? {
-        writeln!(&stream, "{}", serde_json::to_string(&Request::Open)?)?;
-        // The app closes the connection once it has asked for the window.
-        reader.read_line(&mut line)?;
-    }
-    Ok(())
+    let Greeting::Welcome { .. } = serde_json::from_str(&line)? else {
+        return Ok(false);
+    };
+    writeln!(&stream, "{}", serde_json::to_string(&Request::Open)?)?;
+    // The app closes the connection once it has asked for the window.
+    reader.read_line(&mut line)?;
+    Ok(true)
 }
 
 /// Linux: where the command finds the app to start, since the command is a copy outside the

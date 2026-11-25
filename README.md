@@ -199,7 +199,7 @@ cd SkillBinder
 cargo run -p skillbinder --locked
 ```
 
-That opens your real library, so with SkillBinder installed it opens the installed app's window instead. To try a development build beside the installed app without touching your own agents, run it on a development world, a copy of the [synthetic world](fixtures/synthetic/README.md), a small fictional machine:
+That opens your real library, so with SkillBinder installed it opens the installed app's window instead and prints `SkillBinder is already running; opened its window.` To try a development build beside the installed app without touching your own agents, run it on a development world, a copy of the [synthetic world](fixtures/synthetic/README.md), a small fictional machine:
 
 ```sh
 cargo run -p xtask --locked -- dev
