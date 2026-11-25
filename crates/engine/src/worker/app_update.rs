@@ -39,8 +39,8 @@ impl Engine {
                         .map_or_else(|| "none".to_owned(), ToString::to_string);
                     self.log
                         .event(Level::Info, Area::AppUpdate, "check finished")
-                        .took(started)
-                        .field("offered", offered);
+                        .field("offered", offered)
+                        .took(started);
                     return self
                         .call(move |state| state.save_update_check(&check, ready.as_ref()))
                         .await;
@@ -49,8 +49,8 @@ impl Engine {
                 Ended::Failed => {
                     self.log
                         .event(Level::Info, Area::AppUpdate, "check finished")
-                        .took(started)
-                        .field("offered", "unknown");
+                        .field("offered", "unknown")
+                        .took(started);
                     return Ok(());
                 }
             }

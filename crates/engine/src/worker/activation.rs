@@ -61,7 +61,7 @@ impl Engine {
         dirs: std::collections::BTreeSet<String>,
         chosen: bool,
     ) -> impl Future<Output = AppResult<()>> + Send + 'static {
-        let subject = vec![("agent", list(&dirs)), ("chosen", chosen.to_string())];
+        let subject = vec![("dirs", list(&dirs)), ("chosen", chosen.to_string())];
         self.tracked(Action::SetAgentsChosen, subject, move |state| {
             state.set_agents_chosen(dirs, chosen)
         })
