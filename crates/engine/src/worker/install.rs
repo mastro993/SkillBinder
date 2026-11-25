@@ -2,7 +2,7 @@
 //! and committed on the worker again, so commits never interleave; and clearing the New mark it
 //! leaves.
 
-use super::Engine;
+use super::{Engine, action::Action};
 use crate::{
     install::{Begun, Failed, Fetch},
     logging::{Area, Level},
@@ -20,33 +20,39 @@ impl Engine {
         &self,
         skill: CatalogSkill,
     ) -> impl Future<Output = AppResult<()>> + Send + 'static {
+        let subject = vec![("slug", skill.slug.clone())];
+        self.action(Action::Install, subject, move |engine| {
+            engine.installing(skill)
+        })
+    }
+
+    /// Marks `skill` installing now, then installs it.
+    pub(super) fn installing(
+        &self,
+        skill: CatalogSkill,
+    ) -> impl Future<Output = AppResult<()>> + Send + use<> {
         let begun = self.owner.installs.begin(install_key(&skill.source));
         let engine = self.clone();
         async move {
             let slug = skill.slug.clone();
-            let installed = match begun {
-                Ok(Some(begun)) => engine
+            match begun? {
+                Some(begun) => engine
                     .install_begun(skill, begun)
                     .await
                     .map_err(|failed| failed.error(&slug)),
-                Ok(None) => Err(AppError::new(
+                None => Err(AppError::new(
                     ErrorCategory::Busy,
                     "This skill is installing.",
                     "Wait for its install to end.",
                 )),
-                Err(error) => Err(error),
-            };
-            if let Err(error) = &installed {
-                engine.log_install_failure(&slug, error);
             }
-            installed
         }
     }
 
-    /// Logs why installing `slug` failed, once, where the error reaches the user (ADR 0032).
+    /// Logs why installing `slug` failed, once, where Install all keeps going without it
+    /// (ADR 0032).
     pub(super) fn log_install_failure(&self, slug: &str, error: &AppError) {
-        self.owner
-            .log
+        self.log
             .failure(
                 Level::Error,
                 Area::Install,
@@ -71,14 +77,20 @@ impl Engine {
     /// committed, so Sync has no change to report. A slug the library does not hold, or one that
     /// is not New, is left as it is.
     pub async fn mark_seen(&self, slug: SkillId) -> AppResult<()> {
-        self.call(move |state| {
-            crate::library_store::mark_seen(&mut state.database.borrow_mut(), slug.as_str())
+        let subject = vec![("slug", slug.to_string())];
+        self.action(Action::MarkSeen, subject, |engine| async move {
+            engine
+                .call(move |state| {
+                    crate::library_store::mark_seen(&mut state.database.borrow_mut(), slug.as_str())
+                })
+                .await
         })
         .await
     }
 
     async fn install(&self, skill: CatalogSkill, begun: &Begun) -> Result<(), Failed> {
         let id = begun.id;
+        let log = self.log.clone();
         let prepared = self
             .call(move |state| {
                 Ok(state.prepare_install(&skill).map(|git| {
@@ -95,6 +107,7 @@ impl Engine {
                         },
                         slug: skill.slug,
                         shutdown: state.shutdown.clone(),
+                        log,
                     }
                 }))
             })

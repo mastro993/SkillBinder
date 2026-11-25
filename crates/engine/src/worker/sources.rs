@@ -1,7 +1,10 @@
 //! The engine's skill source operations: update checks on their own thread, Update, and
 //! Reinstall.
 
-use super::Engine;
+use super::{
+    Engine,
+    action::{Action, list},
+};
 use crate::{
     logging::{Area, Level},
     storage,
@@ -19,6 +22,13 @@ impl Engine {
     /// current record within `max_age`, on a thread of its own, and waits for the results.
     /// Returns `false`, doing nothing, while another check runs, so the caller can retry.
     pub async fn check_updates(&self, max_age: std::time::Duration) -> AppResult<bool> {
+        self.action(Action::CheckUpdates, Vec::new(), |engine| async move {
+            engine.check_sources(max_age).await
+        })
+        .await
+    }
+    /// Checks as [`Self::check_updates`] does, within its action.
+    async fn check_sources(&self, max_age: std::time::Duration) -> AppResult<bool> {
         let started = self
             .call(move |state| {
                 let Some(git) = state.git.clone() else {
@@ -68,10 +78,18 @@ impl Engine {
     }
     /// Replaces each selected library skill's content with its source's current content.
     pub async fn update_skills(&self, ids: Vec<SkillId>) -> AppResult<UpdateOutcome> {
-        self.call(move |state| state.update_skills(ids)).await
+        let subject = vec![("slugs", list(&ids))];
+        self.action(Action::UpdateSkills, subject, |engine| async move {
+            engine.call(move |state| state.update_skills(ids)).await
+        })
+        .await
     }
     /// Restores a drifted library skill's recorded content.
     pub async fn reinstall_skill(&self, id: SkillId) -> AppResult<()> {
-        self.call(move |state| state.reinstall_skill(id)).await
+        let subject = vec![("slug", id.to_string())];
+        self.action(Action::ReinstallSkill, subject, |engine| async move {
+            engine.call(move |state| state.reinstall_skill(id)).await
+        })
+        .await
     }
 }

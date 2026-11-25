@@ -2,7 +2,7 @@
 //! own, and a result's repository is fetched and searched on the Git pool. Installing a result
 //! resolves its folder first, then installs the skill found.
 
-use super::Engine;
+use super::{Engine, action::Action};
 use crate::catalog::{Begin, Resolve, Resolved, not_found};
 use crate::install::Failed;
 use crate::scan::registry::workspace_skill_dirs;
@@ -19,15 +19,18 @@ impl Engine {
         &self,
         query: &str,
     ) -> impl Future<Output = AppResult<()>> + Send + 'static {
-        let asked = self.owner.searches.search(query);
-        async move {
-            if let Some(settled) = asked? {
-                settled
-                    .await
-                    .map_err(storage::error("waiting for the skills.sh search"))?;
+        let subject = vec![("query", query.to_owned())];
+        self.action(Action::Search, subject, |engine| {
+            let asked = engine.owner.searches.search(query);
+            async move {
+                if let Some(settled) = asked? {
+                    settled
+                        .await
+                        .map_err(storage::error("waiting for the skills.sh search"))?;
+                }
+                Ok(())
             }
-            Ok(())
-        }
+        })
     }
 
     /// Asks skills.sh for `query` without changing the search Explore shows. A query under two
@@ -36,15 +39,18 @@ impl Engine {
         &self,
         query: &str,
     ) -> impl Future<Output = AppResult<SkillsShState>> + Send + 'static {
-        let asked = self.owner.searches.ask(query);
-        async move {
-            match asked? {
-                Some(answered) => answered
-                    .await
-                    .map_err(storage::error("waiting for the skills.sh answer")),
-                None => Ok(SkillsShState::Idle),
+        let subject = vec![("query", query.to_owned())];
+        self.action(Action::Search, subject, |engine| {
+            let asked = engine.owner.searches.ask(query);
+            async move {
+                match asked? {
+                    Some(answered) => answered
+                        .await
+                        .map_err(storage::error("waiting for the skills.sh answer")),
+                    None => Ok(SkillsShState::Idle),
+                }
             }
-        }
+        })
     }
 
     /// Finds `result`'s folder in its repository, once per session. It shows as resolving in
@@ -54,6 +60,15 @@ impl Engine {
         &self,
         result: SkillsShResult,
     ) -> impl Future<Output = AppResult<Option<CatalogSkill>>> + Send + 'static {
+        let subject = vec![("url", result.url.clone())];
+        self.action(Action::Resolve, subject, |engine| engine.resolving(result))
+    }
+
+    /// Finds `result`'s folder, as [`Self::resolve`] does, within the action that asked.
+    fn resolving(
+        &self,
+        result: SkillsShResult,
+    ) -> impl Future<Output = AppResult<Option<CatalogSkill>>> + Send + use<> {
         let begun = self.owner.resolutions.begin(&result);
         let engine = self.clone();
         async move {
@@ -80,8 +95,21 @@ impl Engine {
         &self,
         result: SkillsShResult,
     ) -> impl Future<Output = AppResult<()>> + Send + 'static {
+        let subject = vec![
+            ("slug", result.skill_id.clone()),
+            ("url", result.url.clone()),
+        ];
+        self.action(Action::Install, subject, |engine| {
+            engine.installing_result(result)
+        })
+    }
+
+    fn installing_result(
+        &self,
+        result: SkillsShResult,
+    ) -> impl Future<Output = AppResult<()>> + Send + use<> {
         let begun = self.owner.installs.begin(result_key(&result));
-        let resolve = self.resolve(result.clone());
+        let resolve = self.resolving(result.clone());
         let engine = self.clone();
         async move {
             let begun = begun?.ok_or_else(|| {
@@ -94,7 +122,7 @@ impl Engine {
             match resolve.await {
                 Ok(Some(skill)) => {
                     // The skill shows installing under its own source before the result stops.
-                    let install = engine.install_skill(skill);
+                    let install = engine.installing(skill);
                     drop(begun);
                     install.await
                 }

@@ -16,6 +16,7 @@ use crate::{
     sources::Updates,
     storage,
 };
+pub(crate) use action::{Action, Subject};
 use diesel::SqliteConnection;
 use fs2::FileExt;
 use skillbinder_proto::*;
@@ -24,11 +25,12 @@ use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     path::PathBuf,
-    sync::{Arc, Mutex, mpsc},
+    sync::{Arc, Mutex, atomic::AtomicU64, mpsc},
     thread::JoinHandle,
 };
 use tokio::sync::oneshot;
 
+mod action;
 mod activation;
 mod app_update;
 mod catalog;
@@ -73,13 +75,15 @@ struct Owner {
     mcp_clients: McpClients,
     /// Stops in-flight commands when the application quits.
     shutdown: Shutdown,
-    /// Where an action that spans more than one call logs its error, once.
-    log: Logger,
+    /// The last action's `op`, counting from 1 each session.
+    ops: AtomicU64,
 }
 /// Cloneable typed handle to the embedded engine worker.
 #[derive(Clone)]
 pub struct Engine {
     owner: Arc<Owner>,
+    /// The session's log, or, inside an action, a handle whose lines carry its `op`.
+    log: Logger,
 }
 pub(crate) struct State {
     pub config: EngineConfig,
@@ -270,27 +274,25 @@ impl Engine {
                 command_line,
                 mcp_clients,
                 shutdown,
-                log,
+                ops: AtomicU64::new(0),
             }),
+            log,
         })
     }
+    /// Runs `operation` on the worker with this engine's log, so its lines, and those of work it
+    /// hands to other threads, carry the action's `op`. Its error is the action's to log.
     pub(crate) async fn call<T: Send + 'static>(
         &self,
         operation: impl FnOnce(&mut State) -> AppResult<T> + Send + 'static,
     ) -> AppResult<T> {
         let (sender, receiver) = oneshot::channel();
+        let log = self.log.clone();
         self.owner
             .sender
             .send(Message::Execute(Box::new(move |state| {
+                let session = std::mem::replace(&mut state.log, log);
                 let result = operation(state);
-                if let Err(error) = &result {
-                    state.log.failure(
-                        Level::Error,
-                        Area::App,
-                        ("request failed", "request stopped at quit"),
-                        error,
-                    );
-                }
+                state.log = session;
                 let _ = sender.send(result);
             })))
             .map_err(|error| {
@@ -304,20 +306,6 @@ impl Engine {
         receiver
             .await
             .map_err(storage::error("waiting for the worker"))?
-    }
-    /// Logs `result`'s error once, where a public method whose work runs off the worker hands it
-    /// to the user (ADR 0032), as `call` does for work on the worker: under `failed`, or as
-    /// `DEBUG` under `stopped` when the app is quitting.
-    fn reported<T>(
-        &self,
-        area: Area,
-        messages: (&'static str, &'static str),
-        result: AppResult<T>,
-    ) -> AppResult<T> {
-        if let Err(error) = &result {
-            self.owner.log.failure(Level::Error, area, messages, error);
-        }
-        result
     }
     /// Cancels scanning and in-flight Git commands, drains committed mutations, flushes logs,
     /// and joins the worker.
@@ -348,21 +336,34 @@ impl Engine {
     }
     /// Captures state from the durable worker and the independent scan owner.
     pub async fn snapshot(&self) -> AppResult<AppSnapshot> {
-        self.call(State::snapshot).await
+        self.action(Action::Snapshot, Vec::new(), |engine| async move {
+            engine.call(State::snapshot).await
+        })
+        .await
     }
     /// Issues a short-lived capability for a native-picked directory.
     pub async fn grant_directory(&self, path: PathBuf) -> AppResult<DirectoryGrant> {
-        self.call(move |state| state.grant_directory(path)).await
+        let subject = vec![("path", path.display().to_string())];
+        self.action(Action::GrantDirectory, subject, |engine| async move {
+            engine.call(move |state| state.grant_directory(path)).await
+        })
+        .await
     }
     /// Scans the agents' global skill directories and every workspace in the background. A running scan is replaced, so the
     /// new one covers the current workspaces; the previous results stay until it completes.
     pub async fn start_scan(&self) -> AppResult<()> {
-        self.scan(true).await
+        self.action(Action::Scan, Vec::new(), |engine| async move {
+            engine.scan(true).await
+        })
+        .await
     }
     /// Like [`Self::start_scan`], but keeps a running scan instead of replacing it, so repeated
     /// refreshes cannot keep a slow scan from completing.
     pub async fn refresh_scan(&self) -> AppResult<()> {
-        self.scan(false).await
+        self.action(Action::Scan, Vec::new(), |engine| async move {
+            engine.scan(false).await
+        })
+        .await
     }
     async fn scan(&self, replace: bool) -> AppResult<()> {
         let (config, reach, index, log) = self
@@ -392,13 +393,23 @@ impl Engine {
     /// running scan, then plans every found skill not in library: the version `versions` chooses
     /// for it, else the preferred one (ADR 0009).
     pub async fn prepare_found_import(&self, versions: Vec<CandidateId>) -> AppResult<FoundImport> {
-        self.start_scan().await?;
-        self.owner
-            .scans
-            .settled()?
-            .await
-            .map_err(storage::error("waiting for the scan"))?;
-        self.call(move |state| state.prepare_found(&versions)).await
+        self.action(
+            Action::PrepareFoundImport,
+            Vec::new(),
+            |engine| async move {
+                engine.scan(true).await?;
+                engine
+                    .owner
+                    .scans
+                    .settled()?
+                    .await
+                    .map_err(storage::error("waiting for the scan"))?;
+                engine
+                    .call(move |state| state.prepare_found(&versions))
+                    .await
+            },
+        )
+        .await
     }
     /// Plans `version` in place of the version plan `plan` holds of that skill, under a new plan
     /// id that keeps the first plan's library revision and expiry.
@@ -407,8 +418,16 @@ impl Engine {
         plan: PlanId,
         version: CandidateId,
     ) -> AppResult<ImportPlan> {
-        self.call(move |state| state.prepare_version(&plan, version))
-            .await
+        self.action(
+            Action::PrepareImportVersion,
+            Vec::new(),
+            |engine| async move {
+                engine
+                    .call(move |state| state.prepare_version(&plan, version))
+                    .await
+            },
+        )
+        .await
     }
     /// Reads a bounded contained skill preview.
     pub async fn preview_skill(
@@ -416,20 +435,34 @@ impl Engine {
         id: SkillId,
         path: Option<String>,
     ) -> AppResult<SkillPreview> {
-        self.call(move |state| state.preview_skill(id, path)).await
+        let subject = vec![("slug", id.to_string())];
+        self.action(Action::PreviewSkill, subject, |engine| async move {
+            engine
+                .call(move |state| state.preview_skill(id, path))
+                .await
+        })
+        .await
     }
     /// Captures preset deletion consequences and the required revision.
     pub async fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
-        self.call(move |state| state.preview_delete(id)).await
+        let subject = vec![("preset", id.to_string())];
+        self.action(Action::PreviewDelete, subject, |engine| async move {
+            engine.call(move |state| state.preview_delete(id)).await
+        })
+        .await
     }
     /// Saves validated machine-local appearance preferences.
     pub async fn save_preferences(&self, mut preferences: Preferences) -> AppResult<()> {
-        if !preferences.sidebar_width.is_finite() {
-            return Err(AppError::validation("Sidebar width must be finite."));
-        }
-        preferences.sidebar_width = preferences.sidebar_width.clamp(192.0, 400.0);
-        self.call(move |state| state.set_setting("preferences", &preferences))
-            .await
+        self.action(Action::SavePreferences, Vec::new(), |engine| async move {
+            if !preferences.sidebar_width.is_finite() {
+                return Err(AppError::validation("Sidebar width must be finite."));
+            }
+            preferences.sidebar_width = preferences.sidebar_width.clamp(192.0, 400.0);
+            engine
+                .call(move |state| state.set_setting("preferences", &preferences))
+                .await
+        })
+        .await
     }
 }
 impl State {

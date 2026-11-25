@@ -12,7 +12,7 @@ use crate::{
     persistence,
 };
 use serde::{Deserialize, Serialize};
-use skillbinder_proto::{AppError, AppResult, AppUpdateState, Channel, CheckFailure};
+use skillbinder_proto::{AppError, AppResult, AppUpdateState, AppVersion, Channel, CheckFailure};
 use std::path::PathBuf;
 use tokio::sync::oneshot;
 
@@ -28,6 +28,13 @@ pub(crate) struct LastCheck {
     pub(super) channel: Channel,
     pub(super) checked: u64,
     pub(super) offer: Option<Offer>,
+}
+
+impl LastCheck {
+    /// The version the manifest offered, if any.
+    pub(crate) fn offered(&self) -> Option<&AppVersion> {
+        self.offer.as_ref().map(|offer| &offer.version)
+    }
 }
 
 /// How a check ended.

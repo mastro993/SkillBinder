@@ -103,6 +103,33 @@ fn a_line_marked_once_is_written_once_per_session() {
 }
 
 #[test]
+fn an_actions_lines_carry_its_op_first() {
+    let (root, log) = logger(LogFilter::default());
+    log.for_op(7)
+        .event(Level::Info, Area::Update, "update all started")
+        .field("slugs", "tdd");
+    // A line written once per session stays once whichever action writes it.
+    for op in [7, 8] {
+        log.for_op(op)
+            .event(Level::Warn, Area::Scan, "location outside its boundary")
+            .once();
+    }
+    let lines = lines(&root, &log);
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    assert!(
+        lines[0].ends_with(" update all started op=7 slugs=tdd"),
+        "{}",
+        lines[0]
+    );
+    assert!(lines[1].ends_with(" op=7"), "{}", lines[1]);
+    assert!(
+        Regex::new(LINE).unwrap().is_match(&lines[0]),
+        "{}",
+        lines[0]
+    );
+}
+
+#[test]
 fn a_quit_is_not_a_failure() {
     let (root, log) = logger(LogFilter::parse("debug"));
     let quit = crate::shutdown::Shutdown::error();

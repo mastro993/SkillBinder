@@ -26,6 +26,13 @@ pub(super) enum Scope {
     Pending,
 }
 
+/// The copies a pass wrote and removed, which its summary counts (spec rule 18).
+#[derive(Default)]
+struct Tally {
+    written: usize,
+    removed: usize,
+}
+
 /// What one pass reads before it changes anything.
 pub(super) struct Pass {
     pub places: Places,
@@ -74,6 +81,7 @@ impl State {
         if self.recovery_required {
             return Ok(());
         }
+        let started = std::time::Instant::now();
         let pass = self.read()?;
         let places = &pass.places;
         // A missing workspace's directories wait for its folder, so no copy recreates it.
@@ -114,6 +122,7 @@ impl State {
         self.progress.planned(pairs.len());
         let mut sources = BTreeMap::new();
         let mut changes = Vec::new();
+        let mut tally = Tally::default();
         for pair in pairs {
             if self.shutdown.cancelled() {
                 break;
@@ -128,7 +137,7 @@ impl State {
             let after = if pass.orphaned(pair) {
                 None
             } else {
-                self.settle(pair, (wanted, boundary), row, source.as_ref())
+                self.settle(pair, (wanted, boundary), row, source.as_ref(), &mut tally)
             };
             self.progress.advanced();
             if after.as_ref() != row {
@@ -139,7 +148,15 @@ impl State {
         database::transaction(&mut self.database.borrow_mut(), |connection| {
             store::save(connection, &changes)?;
             store::claim(connection, &claims)
-        })
+        })?;
+        if tally.written + tally.removed > 0 {
+            self.log
+                .event(Level::Info, Area::Copies, "pass finished")
+                .field("written", tally.written)
+                .field("removed", tally.removed)
+                .took(started);
+        }
+        Ok(())
     }
 
     /// Brings one directory in line and returns its new row. A directory inside SkillBinder's
@@ -151,6 +168,7 @@ impl State {
         (wanted, boundary): (bool, &Path),
         row: Option<&Row>,
         source: Option<&payload::Inspection>,
+        tally: &mut Tally,
     ) -> Option<Row> {
         let directory = Path::new(&pair.0);
         if self.protected(directory) {
@@ -167,7 +185,7 @@ impl State {
         let target = directory.join(&pair.1);
         let library = source.map(|source| source.manifest.digest.as_str());
         let step = plan::decide(wanted, row, &copies::probe(&target), library);
-        self.take(step, pair, row, source)
+        self.take(step, pair, (row, source), tally)
     }
 
     /// Takes one step and returns the directory's new row.
@@ -175,8 +193,8 @@ impl State {
         &self,
         step: Step,
         (directory, slug): &Pair,
-        row: Option<&Row>,
-        source: Option<&payload::Inspection>,
+        (row, source): (Option<&Row>, Option<&payload::Inspection>),
+        tally: &mut Tally,
     ) -> Option<Row> {
         let directory = Path::new(directory);
         let managed_digest = row.and_then(|row| row.digest.clone());
@@ -202,7 +220,10 @@ impl State {
             Step::Remove => {
                 let library = source.map(|source| source.manifest.digest.as_str());
                 match copies::remove(directory, slug, &plan::removable(row, library)) {
-                    Ok(Moved::Done) => None,
+                    Ok(Moved::Done) => {
+                        tally.removed += 1;
+                        None
+                    }
                     Ok(Moved::Edited) => edited(),
                     Err(error) => report(error, true),
                 }
@@ -219,7 +240,10 @@ impl State {
                     copies::replace(directory, slug, source, &expected)
                 };
                 match written {
-                    Ok(Moved::Done) => Some(managed(source)),
+                    Ok(Moved::Done) => {
+                        tally.written += 1;
+                        Some(managed(source))
+                    }
                     Ok(Moved::Edited) => edited(),
                     Err(error) => report(error, false),
                 }
