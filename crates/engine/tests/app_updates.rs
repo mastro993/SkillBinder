@@ -9,7 +9,7 @@
 mod update_site;
 
 use minisign::KeyPair;
-use skillbinder_engine::Engine;
+use skillbinder_engine::{Engine, Logger};
 use skillbinder_proto::{AppUpdateState, CannotInstall, Channel, CheckFailure};
 use std::fs;
 use update_site::{Fixture, TARGET, UP_TO_DATE, state};
@@ -110,7 +110,8 @@ async fn a_build_without_a_source_is_off() {
     fixture.publish("stable", "0.2.0");
     let mut config = fixture.config();
     config.app_update = None;
-    let engine = Engine::open(config).unwrap();
+    let log = Logger::open_session(&config).unwrap();
+    let engine = Engine::open(config, log).unwrap();
     engine.check_app_update(true).await.unwrap();
     let update = engine.current_app_update().unwrap();
     assert_eq!(update.state, AppUpdateState::Off);
@@ -174,7 +175,8 @@ async fn a_relaunch_shows_the_last_offer_until_the_next_check() {
     // A build that already passed the offer reads as up to date.
     let mut config = fixture.config();
     config.app_version = "0.2.0".parse().unwrap();
-    let engine = Engine::open(config).unwrap();
+    let log = Logger::open_session(&config).unwrap();
+    let engine = Engine::open(config, log).unwrap();
     assert_eq!(state(&engine), UP_TO_DATE);
 }
 

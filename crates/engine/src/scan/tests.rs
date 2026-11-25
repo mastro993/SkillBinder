@@ -14,7 +14,7 @@ fn fixture() -> (tempfile::TempDir, EngineConfig, Logger) {
     let log = Logger::start(
         config.data_dir.join("logs"),
         &config.home,
-        crate::logging::LogFilter::default(),
+        crate::logging::LogConfig::default(),
     )
     .unwrap();
     (directory, config, log)

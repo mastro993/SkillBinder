@@ -20,7 +20,7 @@ fn clients(home: &Path, directories: Vec<PathBuf>) -> McpClients {
         log: Logger::start(
             home.join("logs"),
             home,
-            crate::logging::LogFilter::default(),
+            crate::logging::LogConfig::default(),
         )
         .unwrap(),
         shutdown: Shutdown::default(),
@@ -288,7 +288,7 @@ fn programs_are_found_on_the_environments_path_whatever_its_case_on_windows() {
         Logger::start(
             root.path().join("logs"),
             root.path(),
-            crate::logging::LogFilter::default(),
+            crate::logging::LogConfig::default(),
         )
         .unwrap(),
         Shutdown::default(),

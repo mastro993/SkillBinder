@@ -35,7 +35,7 @@ impl State {
         let log = Logger::start(
             data_dir.join("logs"),
             &home,
-            crate::logging::LogFilter::default(),
+            crate::logging::LogConfig::default(),
         )
         .unwrap();
         let config = EngineConfig::isolated(data_dir.clone(), home.clone());

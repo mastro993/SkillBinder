@@ -12,7 +12,7 @@ mod publisher;
 mod support;
 
 use publisher::Publisher;
-use skillbinder_engine::{Engine, EngineConfig, RepositoryUrls};
+use skillbinder_engine::{Engine, EngineConfig, Logger, RepositoryUrls};
 use skillbinder_proto::{InstallFailure, Repository, RepositoryProblem, SkillId, SkillSource};
 use std::{
     fs,
@@ -130,7 +130,8 @@ async fn one_repository_is_added_once_per_normalized_url() {
     // Outside isolated configurations, a local repository is not a Git URL.
     let mut config = EngineConfig::isolated(fixture.data.clone(), fixture.home.clone());
     config.repository_urls = RepositoryUrls::Remote;
-    let engine = Engine::open(config).unwrap();
+    let log = Logger::open_session(&config).unwrap();
+    let engine = Engine::open(config, log).unwrap();
     let local = url::Url::from_file_path(&fixture.workspace).unwrap();
     assert_eq!(
         engine.list_repository(local.to_string()).await.unwrap_err(),

@@ -9,7 +9,7 @@
 #[path = "support/update_site.rs"]
 mod update_site;
 
-use skillbinder_engine::{Engine, QuitCause};
+use skillbinder_engine::{Engine, Logger, QuitCause};
 use skillbinder_proto::{AppUpdateState, CannotInstall};
 use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
 use update_site::{Fixture, ready, state};
@@ -48,7 +48,8 @@ async fn the_appimage_updates_in_place_at_restart() {
 
     let mut updated = fixture.config();
     updated.app_version = "0.2.0".parse().unwrap();
-    let engine = Engine::open(updated).unwrap();
+    let log = Logger::open_session(&updated).unwrap();
+    let engine = Engine::open(updated, log).unwrap();
     assert_eq!(state(&engine), AppUpdateState::Idle { last_failure: None });
     assert!(!old.exists(), "the next launch removes the old AppImage");
 }

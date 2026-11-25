@@ -33,5 +33,5 @@ mod workspaces;
 pub use app_update::{AppPlacement, QuitCause, Relaunch, UpdatePayload, UpdateSource};
 pub use catalog::CatalogSource;
 pub use lifecycle::{EngineConfig, GitProfile, GitSearch, RepositoryUrls};
-pub use logging::LogFilter;
+pub use logging::{Bridge, Console, LogConfig, Logger};
 pub use worker::Engine;

@@ -28,7 +28,7 @@ fn registry_has_79_agents_and_shared_reader_locations() -> Result<(), Box<dyn st
     let log = Logger::start(
         temp.path().join("logs"),
         &config.home,
-        crate::logging::LogFilter::default(),
+        crate::logging::LogConfig::default(),
     )?;
     let locations = locations(&config, &reach, &log)?;
     assert_eq!(
@@ -60,7 +60,7 @@ fn the_overlay_adds_directories_without_changing_detection()
     let log = Logger::start(
         temp.path().join("logs"),
         &config.home,
-        crate::logging::LogFilter::default(),
+        crate::logging::LogConfig::default(),
     )?;
     let locations = locations(&config, &reach, &log)?;
     let readers = |path: PathBuf| {
@@ -139,7 +139,7 @@ fn only_your_agents_global_directories_are_scanned_and_every_workspace_directory
     let log = Logger::start(
         temp.path().join("logs"),
         &config.home,
-        crate::logging::LogFilter::default(),
+        crate::logging::LogConfig::default(),
     )?;
     let paths: Vec<PathBuf> = locations(&config, &reach, &log)?
         .into_iter()

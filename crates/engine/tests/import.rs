@@ -9,7 +9,7 @@ mod expiry;
 #[path = "support/fixture.rs"]
 mod support;
 
-use skillbinder_engine::{Engine, EngineConfig};
+use skillbinder_engine::{Engine, EngineConfig, Logger};
 use skillbinder_proto::{ErrorCategory, ImportDecision, SkillId};
 use std::{fs, path::Path};
 use support::{Fixture, category};
@@ -157,13 +157,9 @@ async fn an_unreconciled_skill_directory_blocks_an_install_of_its_slug() {
 async fn two_engine_instances_cannot_own_one_library() {
     let fixture = Fixture::new();
     let engine = fixture.open();
-    assert_eq!(
-        category(Engine::open(EngineConfig::isolated(
-            fixture.data.clone(),
-            fixture.home.clone()
-        ))),
-        ErrorCategory::Busy
-    );
+    let config = EngineConfig::isolated(fixture.data.clone(), fixture.home.clone());
+    let log = Logger::open_session(&config).unwrap();
+    assert_eq!(category(Engine::open(config, log)), ErrorCategory::Busy);
     engine.shutdown().await.unwrap();
     let reopened = fixture.open();
     reopened.shutdown().await.unwrap();
