@@ -11,6 +11,8 @@ This folder holds the prototypes for listing and managing the coding agents' plu
 | Plugin skill view | U3 | `prototypes/plugin-skill.html` | A "Own page" | ![The feature-design plugin skill page with a From plugin fstack chip, front matter, and SKILL.md](screenshots/plugin-skill.png) |
 | Library mark | P3 | `prototypes/plugin-skill.html`, state Library mark | (one design) | ![Library rows caveman, caveman-commit, and rust-best-practices with an Also in plugin chip](screenshots/library-mark.png) |
 
+Round 4 (after researching all 79 agents) changed rules the prototypes predate, and decisions.md holds: Codex now has Install and Uninstall rather than a hint, app-only agents such as Cursor are not in the first version, the marketplace line reads as the plugin's source, and an agent that can't use a plugin's format shows "Not installed · <agent> can't use this plugin" (P9), a state the prototypes don't draw.
+
 Each bundle opens on the picked variant. The variant bar still switches to the rejected ones: list B "Nav row → table" and C "Sidebar section", page A "Tabs" and B "Body + side column", skill view B "Dialog".
 
 Open a bundle in a browser. Its variant bar switches variants in place, and the segmented control beside it switches states. Clicks work: Install, Update, and Uninstall run against an in-memory store, so a change made on one page shows on every other.
