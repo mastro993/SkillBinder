@@ -68,7 +68,7 @@ python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/onboarding/
 | Settings Agents rows | A bordered list in `settings.rs` with Kit `Avatar` and Kit `Switch` (`gpui_kit::component::switch`) |
 | Settings Git row | The Application section's row, with a Kit `Button` and the waiting line |
 | Turning an agent on | The existing progress strip (`progress_strip.rs`) |
-| New agent notice | Kit `Notification` anchored bottom-right with its own id, no auto-hide, and a custom body; change toasts keep the bottom center (`toasts.rs`) |
+| New agent notice | Kit `Notification` from the toasts' seam (`toasts.rs`): bottom-right with its own id, no auto-hide, and a custom body, stacked with the change toasts |
 
 No new artwork. Every glyph is retained in `assets/hugeicons/` (arrow-left, check, check-circle, alert-circle, loading, layers, square-terminal), and every logo is in `assets/agent-logos/`. Register any glyph missing from `crates/ui/src/assets.rs`, since an unregistered path fails explicitly.
 
