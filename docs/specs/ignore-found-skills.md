@@ -1,6 +1,6 @@
 # Ignore found skills
 
-ADR: [0033](../adr/0033-ignored-skills-are-remembered-per-slug.md), which partly supersedes [0008](../adr/0008-import-from-scan-dialog.md). Design: [docs/design/ignore-skills](../design/ignore-skills/README.md) (decisions I1–I11). Glossary: [domain.md](../agents/domain.md) (ignored skill, Import skills dialog). Builds on [scan-and-import](scan-and-import.md).
+ADR: [0033](../adr/0033-ignored-skills-are-remembered-per-slug.md), which partly supersedes [0008](../adr/0008-import-from-scan-dialog.md). Design: [docs/design/ignore-skills](../design/ignore-skills/README.md) (decisions I1–I12). Glossary: [domain.md](../agents/domain.md) (ignored skill, Import skills dialog). Builds on [scan-and-import](scan-and-import.md).
 
 ## Problem
 
@@ -56,7 +56,7 @@ The design rules are in [decisions.md](../design/ignore-skills/decisions.md): I2
 ### Onboarding
 
 8. Review list opens the same dialog over onboarding with the same rows (scan-import O7). Each row has Ignore, and the Ignored group closes the list. With no group headers, there is no Ignore all.
-9. The step's summary, "N skills found in <agents>", and its "Import N skills" count only skills that are not ignored. When every found skill is ignored, the step shows its nothing-found state, and Review list stays available so the user can stop ignoring.
+9. The step's summary, "N skills found in <agents>", and its "Import N skills" count only skills that are not ignored. When every found skill is ignored, the step follows I12: the summary card reads "No new skills found in <agents> · K ignored", Review list stays under it, and Continue finishes onboarding in place of Import. With nothing found at all, O5's nothing-found state is unchanged.
 
 ### Library
 
@@ -65,14 +65,12 @@ The design rules are in [decisions.md](../design/ignore-skills/decisions.md): I2
 ### Command line and MCP server
 
 11. `skillbinder ignore <slug>…` ignores found skills that are not in library, and `skillbinder unignore <slug>…` stops ignoring them. Both take several slugs and change nothing unless every slug is accepted.
-    - Ignoring an ignored slug, or unignoring a slug that is not ignored, is accepted and changes nothing.
-    - A slug no scan found exits `not_found` with "No found skill named <slug>.".
-    - A slug in library exits `usage` with "<slug> is in your library.".
-    - `ignore` reads the latest completed scan. It does not start one.
-12. `scan` prints the found skills that are not ignored as today, then "Ignored: <slug>, …" when any are ignored. With `--json`, a new field `ignored` holds the ignored slugs, sorted. The count line counts only skills that are not ignored.
+    - `ignore` accepts a slug that the latest completed scan found and that is not in library. It reads that scan and does not start one. A slug no scan found exits `not_found` with "No found skill named <slug>.". A slug in library exits `usage` with "<slug> is in your library.". Ignoring an ignored slug is accepted and changes nothing.
+    - `unignore` accepts any ignored slug, whether or not a scan still finds it, such as one whose workspace was removed (behavior 16). It also accepts a found slug that is not ignored, as a no-op. Any other slug exits `not_found` with "No ignored skill named <slug>.".
+12. `scan` prints the found skills that are not ignored as today, then "Ignored: <slug>, …" when any are ignored. With `--json`, a new field `ignored` holds every ignored slug on this device, sorted, including ones no scan finds now, so each one can be unignored. The count line counts only skills that are not ignored.
 13. `import --all` imports what the dialog would tick, so ignored skills are left out. `import <slug>` of an ignored slug imports it, which ends the ignore: naming it is the user's choice.
 14. The MCP server gains `ignore_skills`, which is idempotent and not destructive. Its input is `skills` (slugs) and optional `stop` (bool), and it follows the rules of `ignore` and `unignore`.
-    - `find_skills` with `where: found` leaves ignored skills out of its rows and adds `ignored` (slugs).
+    - `find_skills` with `where: found` leaves ignored skills out of its rows and adds `ignored`, every ignored slug as `scan` lists them.
     - `import_skills` with `all` leaves them out.
     - The SkillBinder skill's text names `ignore_skills` (ADR 0028), if that skill has shipped by then (#210).
 15. `ignore` and `unignore` are changes under the command's rule 2: while a blocking change, Update all, Sync, or an import runs, they refuse as busy, like any other change.
@@ -107,11 +105,11 @@ flowchart LR
 - **Storage** (decisions 3, 16; ADR 0033):
   - New Diesel migration `crates/engine/migrations/2026-11-25-000000_ignored_skills`, creating table `ignored_skills (key TEXT PRIMARY KEY NOT NULL, slug TEXT NOT NULL, ignored_at BIGINT NOT NULL)`.
   - `key` is `library::normalized(slug)`, the same NFKC and case-folded form that `Candidate.key` and the library use, so it matches any spelling the scan reports.
-  - `slug` keeps the spelling the user ignored, for `scan`'s "Ignored:" line.
+  - `slug` keeps the spelling the user ignored, for `scan`'s "Ignored:" line and `find_skills`' `ignored`, which list every row, including slugs no scan finds now.
   - It is a table rather than a device setting, so dropping one key can share a transaction with the skill insert (below).
 - **Engine** (decisions 2, 6; ADR 0033):
   - New module `crates/engine/src/imports/ignored.rs` holds `State::set_ignored(&[String], bool)` and `State::ignored_keys()`.
-  - `Engine::set_ignored(slugs, ignored)` is a plain worker call, like `mark_seen` (`worker/install.rs:51`). It is not an operation, so it gets no plan, no journal, no blocking, and no new scan. It validates every slug against the latest completed scan and the library before writing any row (decision 11), then publishes a new snapshot.
+  - `Engine::set_ignored(slugs, ignored)` is a plain worker call, like `mark_seen` (`worker/install.rs:51`). It is not an operation, so it gets no plan, no journal, no blocking, and no new scan. It validates every slug before writing any row (behavior 11): an ignore against the latest completed scan and the library, a stop against the table and the scan, then publishes a new snapshot.
 - **Ending an ignore** (decision 17): `library_store::save_skill` (`library_store.rs:66`) deletes the slug's key from `ignored_skills` on the connection it was given. Both paths into the library already call it: commits of imports and installs (`persistence.rs:327`) and reconciliation after Pull (`reconcile.rs:118`). So no other path can leave a stale ignore behind.
 - **Snapshot**: `proto::AppSnapshot` gains `ignored: BTreeSet<String>`, the ignored keys, filled where the engine assembles the snapshot. `ScanSnapshot`, `Candidate`, and `ImportPlan` stay as they are. A scan stays a pure observation, and ignoring needs no rescan or new preparation (behavior 1).
 - **One derivation** (decisions 4, 5, 7; behaviors 5, 10, 12, 13):
@@ -155,12 +153,13 @@ flowchart LR
 7. **Search.** Searching `play` shows `e2e-playwright` in an expanded Ignored group. Clearing the search collapses it again.
 8. **Content changes.** Editing an ignored skill's copy on disk and scanning keeps it ignored.
 9. **Entering the library.** Importing an ignored slug with `skillbinder import storybook` imports it and drops its ignore in the same transaction. Installing a slug from Explore, or Pulling one, drops its ignore too.
-10. **Onboarding.** The Review list shows Ignore on rows and an Ignored group, and no Ignore all. The summary and "Import N skills" exclude ignored skills.
+10. **Onboarding.** The Review list shows Ignore on rows and an Ignored group, and no Ignore all. The summary and "Import N skills" exclude ignored skills. When every found skill is ignored, the card reads "No new skills found in <agents> · K ignored", with Review list and Continue (I12).
 11. **Command line.**
     - `skillbinder ignore storybook tailwind-helper` ignores both.
     - `skillbinder ignore nope` exits `not_found` and ignores nothing.
     - `skillbinder ignore <library slug>` exits `usage`.
     - `skillbinder unignore storybook` restores it.
+    - After the workspace where an ignored skill was found is removed, `scan` still lists it under "Ignored:", and `unignore` of it succeeds. `unignore nope` exits `not_found`.
     - `scan --json` lists `ignored`.
     - `import --all` leaves ignored skills out.
 12. **MCP.** `ignore_skills` with `stop: true` mirrors `unignore`. `find_skills` with `where: found` excludes ignored rows and returns `ignored`. `import_skills` with `all` leaves them out.
