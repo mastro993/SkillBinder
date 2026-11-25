@@ -4,6 +4,7 @@
 mod catalog;
 mod clippy_policy;
 mod design_tokens;
+mod dev;
 mod evidence;
 mod fixture;
 mod graph;
@@ -22,6 +23,7 @@ fn main() -> anyhow::Result<()> {
         .parent()
         .ok_or_else(|| anyhow::anyhow!("Workspace directory is missing"))?;
     match std::env::args().nth(1).as_deref() {
+        Some("dev") => dev::run(root, std::env::args_os().skip(2)),
         Some("verify") => {
             registry::verify(root)?;
             evidence::verify(root)?;
@@ -65,7 +67,7 @@ fn main() -> anyhow::Result<()> {
             update_manifest::run(&args)
         }
         _ => anyhow::bail!(
-            "Usage: cargo run -p xtask -- <verify|registry|clippy-policy|design-tokens|off-token|package [target]|version [next <part>|set <version>]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>|catalog <--out <directory>|updates --out <directory>|check <directory>>|update-manifest --version <version> --dist <directory>>"
+            "Usage: cargo run -p xtask -- <dev [<name>] [--fresh] [-- <app arguments>]|verify|registry|clippy-policy|design-tokens|off-token|package [target]|version [next <part>|set <version>]|mcp-smoke <app-binary> <gpui-mcp-binary>|fixture <directory>|catalog <--out <directory>|updates --out <directory>|check <directory>>|update-manifest --version <version> --dist <directory>>"
         ),
     }
 }

@@ -14,7 +14,7 @@ use clap::error::ErrorKind;
 use console::Console;
 use skillbinder_proto::command_line::{CommandError, ErrorCode};
 use std::io::IsTerminal as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -24,7 +24,7 @@ fn main() -> ExitCode {
     };
     let data = match matches.get_one::<PathBuf>("data-dir") {
         // An isolated root's app is a native-test build that needs the same root to start.
-        Some(data) => Ok((data.clone(), true)),
+        Some(data) => Ok((isolated_data(data), true)),
         None => platform_data().map(|data| (data, false)),
     };
     if matches.subcommand_name() == Some("mcp") {
@@ -46,6 +46,30 @@ fn main() -> ExitCode {
         .and_then(|(data, isolated)| connect::send(&data, &request, isolated, &mut console));
     console.end_progress();
     render::outcome(outcome, json)
+}
+
+/// An isolated root resolved as the native-test app resolves it, since the endpoint derives from
+/// the path: `.skillbinder-dev/default/data` reaches the app launched on its absolute path.
+fn isolated_data(data: &Path) -> PathBuf {
+    resolved(data).unwrap_or_else(|_| data.to_owned())
+}
+
+/// `path` made absolute with its deepest existing folder's links resolved and the missing names
+/// after it kept, as the native-test app's `resolved_path` does.
+fn resolved(path: &Path) -> std::io::Result<PathBuf> {
+    let absolute = std::path::absolute(path)?;
+    let mut existing = absolute.as_path();
+    let mut missing = Vec::new();
+    while !existing.exists() {
+        let (Some(name), Some(parent)) = (existing.file_name(), existing.parent()) else {
+            return Err(std::io::ErrorKind::NotFound.into());
+        };
+        missing.push(name);
+        existing = parent;
+    }
+    let mut resolved = std::fs::canonicalize(existing)?;
+    resolved.extend(missing.into_iter().rev());
+    Ok(resolved)
 }
 
 /// The application data folder the app's engine uses.
@@ -79,4 +103,30 @@ fn usage(error: &clap::Error) -> ExitCode {
     }
     let _ = error.print();
     ExitCode::from(u8::try_from(error.exit_code()).unwrap_or(2))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use skillbinder_proto::command_line::Endpoint;
+
+    #[test]
+    fn a_relative_isolated_root_reaches_the_app_on_its_resolved_path() -> std::io::Result<()> {
+        let resolved = std::fs::canonicalize(std::env::current_dir()?)?;
+        let private = Path::new("private");
+        assert_eq!(
+            Endpoint::of(&isolated_data(Path::new(".")), private),
+            Endpoint::of(&resolved, private)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_missing_isolated_root_resolves_its_existing_folder() -> std::io::Result<()> {
+        // A temporary folder may sit behind a link, as macOS' /var does.
+        let scratch = tempfile::tempdir()?;
+        let resolved = std::fs::canonicalize(scratch.path())?.join("world/data");
+        assert_eq!(isolated_data(&scratch.path().join("world/data")), resolved);
+        Ok(())
+    }
 }

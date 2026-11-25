@@ -4,7 +4,7 @@
 
 1. Read [feature coverage](docs/features/native.md), [architecture](docs/architecture/native.md), and [verification status](docs/native-gate.md).
 2. Install the pinned Rust toolchain and platform prerequisites.
-3. Run the app on the [synthetic world](fixtures/synthetic/README.md) (`cargo run -p xtask -- fixture <dir>`) with an isolated `native-test` data directory for interaction checks.
+3. Run the app on a development world (`cargo run -p xtask -- dev`), a copy of the [synthetic world](fixtures/synthetic/README.md), for interaction checks.
 4. Run the [verification commands](#verification-commands), including the locked release build.
 5. Update affected behavior documentation in `docs/`.
 
@@ -27,11 +27,10 @@ Packaging writes a macOS app and DMG, a per-user Windows setup program (Inno Set
 ### Isolated native testing
 
 ```sh
-cargo run -p xtask --locked -- fixture /tmp/skillbinder-world
-cargo run -p skillbinder --features native-test --locked -- --data-dir /tmp/skillbinder-world/data --home /tmp/skillbinder-world/home
+cargo run -p xtask --locked -- dev [<name>] [--fresh] [-- <app arguments>]
 ```
 
-The first command builds a [synthetic world](fixtures/synthetic/README.md) of fictional agents, projects, a skill source, and a Sync remote. A `native-test` build refuses to run without an isolated `--data-dir` or on your real home.
+This runs a `native-test` build on the development world `.skillbinder-dev/<name>/` in the checkout (`default` when unnamed): a copy of the [synthetic world](fixtures/synthetic/README.md) of fictional agents, projects, a skill source, and a Sync remote. It builds the world on first use and keeps it between runs; `--fresh` rebuilds it, which the task refuses while that world runs. Worlds run beside the installed app, each other, and other checkouts' worlds, and Git ignores `.skillbinder-dev/`. Before launching, the task prints the projects folder to add as workspaces, the Sync remote's URL, and how to reach the world from `skillbinder-cli`. A plain `cargo run -p skillbinder` uses your real library. A `native-test` build refuses to run without an isolated `--data-dir` or on your real home; `cargo run -p xtask -- fixture <dir>` builds the synthetic world at a directory of your choice.
 
 Add `--smoke-test` to exercise native rendering, text, focus, overlays, and orderly exit automatically against the isolated data directory. The `native-test` build also accepts `--mcp --data-dir <isolated-path>` for opt-in UI automation through the [GPUI MCP bridge](docs/native-gate/checks.md#run-the-opt-in-mcp-bridge). Ordinary builds contain no bridge or test flags.
 

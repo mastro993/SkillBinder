@@ -8,3 +8,4 @@ target/
 
 .audit/
 .scratch/
+.skillbinder-dev/
