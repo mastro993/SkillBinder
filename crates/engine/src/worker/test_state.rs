@@ -44,7 +44,7 @@ impl State {
             home: home.clone(),
             environment: BTreeMap::new(),
         };
-        let mcp_clients = McpClients::new(places, log.clone(), Shutdown::default());
+        let mcp_clients = McpClients::new(places, Shutdown::default());
         Self {
             app_updates: AppUpdates::new(
                 None,

@@ -219,10 +219,16 @@ impl Event<'_> {
         self.field("took", Took(started.elapsed()))
     }
 
-    /// Adds `diag`, the error's diagnostic id, and `error`, its message.
+    /// Adds `diag`, the error's diagnostic id, `error`, its message, and `cause`, what went
+    /// wrong underneath, when it has one.
     pub(crate) fn error(self, error: &AppError) -> Self {
-        self.field("diag", &error.diagnostic_id)
-            .field("error", &error.message)
+        let event = self
+            .field("diag", &error.diagnostic_id)
+            .field("error", &error.message);
+        match &error.cause {
+            Some(cause) => event.field("cause", cause),
+            None => event,
+        }
     }
 
     /// Writes the line only the first time in this session (spec rule 20).

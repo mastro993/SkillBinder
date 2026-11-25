@@ -11,7 +11,6 @@ use crate::{
     git::Git,
     library::normalized,
     library_store::SavedSkill,
-    logging::{Area, Level, Logger},
     payload::{self, Inspection},
     persistence::{Journal, Move, RecordChange},
     records::Record,
@@ -32,19 +31,28 @@ pub(crate) enum Failed {
     Held,
     /// The application is quitting.
     Cancelled,
-    /// Explore shows why on the skill.
-    Failure(InstallFailure),
+    /// Explore shows why on the skill; the error, with its cause, is what the log keeps.
+    Failure(InstallFailure, Box<AppError>),
 }
 
 impl From<AppError> for Failed {
     fn from(error: AppError) -> Self {
-        Self::Failure(match error.category {
+        let failure = match error.category {
             ErrorCategory::Cancelled => return Self::Cancelled,
             ErrorCategory::Offline => InstallFailure::Offline,
             // Git could reach the host, which refused the repository or the folder's files.
             ErrorCategory::Git => InstallFailure::Access,
-            _ => InstallFailure::Other(error.message),
-        })
+            _ => InstallFailure::Other(error.message.clone()),
+        };
+        Self::Failure(failure, Box::new(error))
+    }
+}
+
+impl From<InstallFailure> for Failed {
+    fn from(failure: InstallFailure) -> Self {
+        let error =
+            AppError::validation("This skill can't be installed.").because(format!("{failure:?}"));
+        Self::Failure(failure, Box::new(error))
     }
 }
 
@@ -59,14 +67,19 @@ impl From<Refusal> for InstallFailure {
 }
 
 impl Failed {
-    /// The error the install's caller sees; Explore shows the install's state instead.
+    /// The error the install's caller sees, which keeps the failure's diagnostic id and cause;
+    /// Explore shows the install's state instead.
     pub(crate) fn error(self, slug: &str) -> AppError {
         match self {
             Self::Held => {
                 AppError::stale(format!("Your library already has a skill named {slug}."))
             }
             Self::Cancelled => Shutdown::error(),
-            Self::Failure(_) => AppError::validation(format!("Couldn't install {slug}.")),
+            Self::Failure(_, error) => AppError {
+                diagnostic_id: error.diagnostic_id,
+                cause: error.cause,
+                ..AppError::validation(format!("Couldn't install {slug}."))
+            },
         }
     }
 }
@@ -81,7 +94,6 @@ pub(crate) struct Fetch {
     /// The install's own cache repository.
     pub cache: PathBuf,
     pub shutdown: Shutdown,
-    pub log: Logger,
 }
 
 impl Fetch {
@@ -90,14 +102,8 @@ impl Fetch {
     pub(crate) fn run(self) -> Result<Inspection, Failed> {
         let fetched = self.stage();
         let _ = fs::remove_dir_all(&self.cache);
-        if let Err(failed) = &fetched {
+        if fetched.is_err() {
             let _ = fs::remove_dir_all(&self.staging);
-            if !matches!(failed, Failed::Cancelled) {
-                self.log
-                    .event(Level::Error, Area::Install, "fetch failed")
-                    .field("slug", &self.slug)
-                    .field("cause", format_args!("{failed:?}"));
-            }
         }
         fetched
     }
@@ -109,9 +115,9 @@ impl Fetch {
         self.git.fetch_source(&self.cache, &self.source)?;
         let into = self.staging.join("source");
         let fetched = sources::checkout(&self.git, &self.cache, &self.source, &into, &self.slug)?
-            .ok_or(Failed::Failure(InstallFailure::NotFound))?;
+            .ok_or(InstallFailure::NotFound)?;
         if let Some(refusal) = sources::refusal(&fetched) {
-            return Err(Failed::Failure(refusal.into()));
+            return Err(InstallFailure::from(refusal).into());
         }
         // Only the inspected files reach the library, as with an update.
         let directory = self.staging.join("new").join(&self.slug);
@@ -129,9 +135,10 @@ impl State {
     /// Refuses an install that cannot start, and otherwise hands over the Git it fetches with.
     pub(crate) fn prepare_install(&self, skill: &CatalogSkill) -> Result<Git, Failed> {
         self.require_recovered()?;
-        let git = self.git.clone().ok_or_else(|| {
-            Failed::Failure(InstallFailure::Other("Installing needs Git.".into()))
-        })?;
+        let git = self
+            .git
+            .clone()
+            .ok_or_else(|| InstallFailure::Other("Installing needs Git.".into()))?;
         if !self.onboarding_finished()? {
             return Err(AppError::validation("Finish onboarding before installing skills.").into());
         }
@@ -157,14 +164,6 @@ impl State {
         let committed = self.commit_staged(&slug, &source, &staging, staged);
         if !self.recovery_required {
             let _ = fs::remove_dir_all(&staging);
-        }
-        if let Err(failed) = &committed
-            && !matches!(failed, Failed::Cancelled)
-        {
-            self.log
-                .event(Level::Error, Area::Install, "install failed")
-                .field("slug", &slug)
-                .field("cause", format_args!("{failed:?}"));
         }
         committed
     }

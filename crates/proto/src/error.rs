@@ -36,6 +36,10 @@ pub struct AppError {
     pub recovery: String,
     /// Correlates the failure with local diagnostics.
     pub diagnostic_id: String,
+    /// What went wrong underneath, such as the path and the io error or Git's error output, for
+    /// the log alone: it never crosses the command socket or reaches the UI (ADR 0032).
+    #[serde(skip)]
+    pub cause: Option<String>,
 }
 impl AppError {
     /// Creates an error with a diagnostic identity.
@@ -56,7 +60,14 @@ impl AppError {
             ),
             recovery: recovery.into(),
             diagnostic_id: uuid::Uuid::new_v4().to_string(),
+            cause: None,
         }
+    }
+    /// Attaches what went wrong underneath, which the log writes beside the diagnostic id.
+    #[must_use]
+    pub fn because(mut self, cause: impl std::fmt::Display) -> Self {
+        self.cause = Some(cause.to_string());
+        self
     }
     /// Reports invalid input without exposing local paths.
     pub fn validation(message: impl Into<String>) -> Self {
@@ -95,3 +106,22 @@ impl std::fmt::Display for AppError {
 impl std::error::Error for AppError {}
 /// The result of a typed application operation.
 pub type AppResult<T> = Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn the_cause_never_leaves_the_app() {
+        let error = AppError::storage().because("renaming /x: Permission denied (os error 13)");
+        let sent = serde_json::to_string(&error).unwrap();
+        assert!(
+            !sent.contains("cause") && !sent.contains("Permission"),
+            "{sent}"
+        );
+        let received: AppError = serde_json::from_str(&sent).unwrap();
+        assert_eq!(received.cause, None);
+        assert_eq!(received.diagnostic_id, error.diagnostic_id);
+    }
+}

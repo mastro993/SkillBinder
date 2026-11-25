@@ -3,7 +3,7 @@
 //! quit.
 
 use super::Engine;
-use crate::{QuitCause, Relaunch, app_update::Ended};
+use crate::{QuitCause, Relaunch, app_update::Ended, logging::Area};
 use skillbinder_proto::*;
 
 impl Engine {
@@ -47,14 +47,18 @@ impl Engine {
     /// quits, and the desktop starts the moved copy through [`Self::finish_app_update`].
     pub async fn move_to_applications(&self) -> AppResult<()> {
         let updates = self.owner.app_updates.clone();
-        let (done, moved) = tokio::sync::oneshot::channel();
-        std::thread::Builder::new()
-            .name("skillbinder-move".into())
-            .spawn(move || {
-                let _ = done.send(updates.move_to_applications());
-            })
-            .map_err(|_| AppError::storage())?;
-        moved.await.map_err(|_| AppError::storage())?
+        let moved = super::command_line::on_own_thread("skillbinder-move", move || {
+            updates.move_to_applications()
+        })
+        .await;
+        self.reported(
+            Area::AppUpdate,
+            (
+                "move to applications failed",
+                "move to applications stopped at quit",
+            ),
+            moved,
+        )
     }
     /// Answers the offer to add SkillBinder to the applications menu (spec rule 23): `add` writes
     /// the menu entry. Either answer is remembered.

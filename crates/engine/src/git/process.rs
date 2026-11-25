@@ -10,6 +10,8 @@ use std::{
 
 /// What a command that ran past its timeout reports.
 pub(super) const TIMED_OUT: &str = "Git timed out. Check the remote and try again.";
+/// How much of Git's error output a cause keeps: its end, where Git says what failed.
+const STDERR_TAIL: usize = 2048;
 
 /// The Git executable, and the home whose configuration alone it reads, if not the user's.
 #[derive(Clone, Debug)]
@@ -77,15 +79,47 @@ pub(super) fn run(
         command.arg("-C").arg(repo);
     }
     command.args(args);
+    let failed =
+        |message, how| failure(message).because(format_args!("git {} {how}", subcommand(args)));
     programs::run(&mut command, timeout, shutdown).map_err(|stopped| match stopped {
-        Stopped::Start => failure("Git could not start."),
-        Stopped::Pipes => failure("Git output unavailable."),
-        Stopped::Wait => failure("Git process failed."),
+        Stopped::Start => failed("Git could not start.", "could not start"),
+        Stopped::Pipes => failed("Git output unavailable.", "had no output pipes"),
+        Stopped::Wait => failed("Git process failed.", "could not be waited on"),
         Stopped::Cancelled => Shutdown::error(),
-        Stopped::TimedOut => failure(TIMED_OUT),
-        Stopped::OutputTimedOut => failure("Git output timed out."),
-        Stopped::Unreadable => failure("Git output could not be read."),
+        Stopped::TimedOut => failed(TIMED_OUT, "timed out"),
+        Stopped::OutputTimedOut => failed("Git output timed out.", "output timed out"),
+        Stopped::Unreadable => failed("Git output could not be read.", "output was unreadable"),
     })
+}
+
+/// Why a command that ran failed, for the log: its subcommand, how it exited, and the end of
+/// its error output (ADR 0032).
+pub(super) fn exited(args: &[&str], output: &Output) -> String {
+    let status = output
+        .status
+        .code()
+        .map_or_else(|| "was stopped".to_owned(), |code| format!("exited {code}"));
+    let tail = &output.stderr[output.stderr.len().saturating_sub(STDERR_TAIL)..];
+    let stderr = String::from_utf8_lossy(tail);
+    match stderr.trim() {
+        "" => format!("git {} {status}", subcommand(args)),
+        stderr => format!("git {} {status}: {stderr}", subcommand(args)),
+    }
+}
+
+/// The subcommand `args` run, after Git's own options such as `-c name=value`.
+fn subcommand<'a>(args: &[&'a str]) -> &'a str {
+    let mut rest = args.iter();
+    while let Some(&arg) = rest.next() {
+        match arg {
+            "-c" | "-C" => {
+                rest.next();
+            }
+            option if option.starts_with('-') => {}
+            subcommand => return subcommand,
+        }
+    }
+    args.first().copied().unwrap_or_default()
 }
 
 const RAW_ATTRIBUTES: &[u8] = b"* -filter -text -eol -ident -working-tree-encoding\n";
@@ -293,4 +327,15 @@ fn reads_only_the_given_home_configuration() {
             );
         }
     }
+}
+
+#[cfg(test)]
+#[test]
+fn a_cause_names_the_subcommand_after_gits_own_options() {
+    assert_eq!(
+        subcommand(&["-c", "user.name=X", "commit", "-m", "x"]),
+        "commit"
+    );
+    assert_eq!(subcommand(&["fetch", "--no-tags", "--", "url"]), "fetch");
+    assert_eq!(subcommand(&["--version"]), "--version");
 }

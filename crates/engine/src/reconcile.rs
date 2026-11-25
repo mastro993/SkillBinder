@@ -94,24 +94,24 @@ impl State {
                 gone.push(slug);
                 continue;
             }
-            match self
+            let inspected = self
                 .contained_skill_path(&root.join(&slug))
                 .and_then(|path| payload::inspect(&path))
-            {
-                Ok(inspection) => match self.recorded(&slug, &inspection) {
-                    Ok((record, drift)) => {
-                        saved.push(SavedSkill::new(slug, &inspection, None, record, drift));
-                    }
-                    Err(error) => {
-                        failure.get_or_insert(error);
-                    }
-                },
+                .and_then(|inspection| {
+                    let (record, drift) = self.recorded(&slug, &inspection)?;
+                    Ok((inspection, record, drift))
+                });
+            match inspected {
+                Ok((inspection, record, drift)) => {
+                    saved.push(SavedSkill::new(slug, &inspection, None, record, drift));
+                }
+                Err(error) if failure.is_none() => failure = Some(error),
+                // Only the first failure is returned, so the rest are logged here.
                 Err(error) => {
                     self.log
                         .event(Level::Warn, Area::Library, "skill inspection failed")
                         .field("slug", &slug)
                         .error(&error);
-                    failure.get_or_insert(error);
                 }
             }
         }

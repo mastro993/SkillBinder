@@ -111,7 +111,10 @@ impl Engine {
                     // The library came to hold the slug meanwhile, as a Pull can.
                     Err(Failed::Held) => {}
                     Err(Failed::Cancelled) => return Err(Shutdown::error()),
-                    Err(Failed::Failure(failure)) => outcome.failed.push((slug, failure)),
+                    Err(Failed::Failure(failure, error)) => {
+                        self.log_install_failure(&slug, &error);
+                        outcome.failed.push((slug, failure));
+                    }
                 }
             }
             progress.advance();

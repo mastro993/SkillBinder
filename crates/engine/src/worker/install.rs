@@ -3,7 +3,10 @@
 //! leaves.
 
 use super::Engine;
-use crate::install::{Begun, Failed, Fetch};
+use crate::{
+    install::{Begun, Failed, Fetch},
+    logging::{Area, Level},
+};
 use skillbinder_proto::*;
 use std::future::Future;
 
@@ -19,19 +22,37 @@ impl Engine {
         let begun = self.owner.installs.begin(install_key(&skill.source));
         let engine = self.clone();
         async move {
-            let begun = begun?.ok_or_else(|| {
-                AppError::new(
+            let slug = skill.slug.clone();
+            let installed = match begun {
+                Ok(Some(begun)) => engine
+                    .install_begun(skill, begun)
+                    .await
+                    .map_err(|failed| failed.error(&slug)),
+                Ok(None) => Err(AppError::new(
                     ErrorCategory::Busy,
                     "This skill is installing.",
                     "Wait for its install to end.",
-                )
-            })?;
-            let slug = skill.slug.clone();
-            engine
-                .install_begun(skill, begun)
-                .await
-                .map_err(|failed| failed.error(&slug))
+                )),
+                Err(error) => Err(error),
+            };
+            if let Err(error) = &installed {
+                engine.log_install_failure(&slug, error);
+            }
+            installed
         }
+    }
+
+    /// Logs why installing `slug` failed, once, where the error reaches the user (ADR 0032).
+    pub(super) fn log_install_failure(&self, slug: &str, error: &AppError) {
+        self.owner
+            .log
+            .failure(
+                Level::Error,
+                Area::Install,
+                ("install failed", "install stopped at quit"),
+                error,
+            )
+            .field("slug", slug);
     }
 
     /// Runs the install `begun` of `skill` to its end, keeping a failure for Explore to show.
@@ -73,7 +94,6 @@ impl Engine {
                         },
                         slug: skill.slug,
                         shutdown: state.shutdown.clone(),
-                        log: state.log.clone(),
                     }
                 }))
             })

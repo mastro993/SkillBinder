@@ -234,62 +234,78 @@ pub(crate) fn check(
     results
 }
 
-/// Checks skills that share a source repository and ref.
+/// Checks skills that share a source repository and ref, logging one line for them when any
+/// check fails: the first failure's, naming every skill whose check failed.
 fn check_group(git: &Git, data_dir: &Path, skills: &[Due], log: &Logger) -> Vec<UpdateCheck> {
     let Some(first) = skills.first() else {
         return Vec::new();
     };
-    // One line per repository and ref, naming the skills whose check failed.
-    let failed = |error: AppError, slugs: String| {
+    let (mut slugs, mut first_error) = (Vec::new(), None);
+    let cache = cache_dir(data_dir, CacheUser::Check, &first.source);
+    let checks = match git.fetch_source(&cache, &first.source) {
+        Err(error) => {
+            slugs = skills.iter().map(|skill| skill.id.as_str()).collect();
+            let check = failed(&error);
+            first_error = Some(error);
+            vec![check; skills.len()]
+        }
+        Ok(()) => skills
+            .iter()
+            .map(|skill| {
+                check_skill(git, data_dir, &cache, skill).unwrap_or_else(|error| {
+                    slugs.push(skill.id.as_str());
+                    let check = failed(&error);
+                    first_error.get_or_insert(error);
+                    check
+                })
+            })
+            .collect(),
+    };
+    if let Some(error) = &first_error {
         let mut event = log
             .failure(
                 Level::Warn,
                 Area::Update,
                 ("source check failed", "source check stopped at quit"),
-                &error,
+                error,
             )
             .field("url", &first.source.url);
         if let Some(reference) = &first.source.reference {
             event = event.field("ref", reference);
         }
-        drop(event.field("slugs", slugs));
-        UpdateCheck::Failed(format!("Couldn't check for updates: {}", error.message))
-    };
-    let cache = cache_dir(data_dir, CacheUser::Check, &first.source);
-    if let Err(error) = git.fetch_source(&cache, &first.source) {
-        let slugs: Vec<_> = skills.iter().map(|skill| skill.id.as_str()).collect();
-        let check = failed(error, slugs.join(","));
-        return skills.iter().map(|_| check.clone()).collect();
+        drop(event.field("slugs", slugs.join(",")));
     }
-    skills
-        .iter()
-        .map(|skill| {
-            // Records hold the tree id Git stores, so an unchanged folder is known from its tree
-            // object alone, without fetching or writing its files. A folder whose files only
-            // materialize differently, such as one with links, falls through to the checkout.
-            match git.source_tree(&cache, &skill.source.path) {
-                Ok(Some(tree)) if tree == skill.recorded => return UpdateCheck::UpToDate,
-                Ok(None) => return UpdateCheck::Failed(GONE.to_owned()),
-                Ok(Some(_)) => {}
-                Err(error) => return failed(error, skill.id.0.clone()),
-            }
-            let staging = data_dir
-                .join("staging")
-                .join(format!("check-{}", uuid::Uuid::new_v4()));
-            let fetched = checkout(git, &cache, &skill.source, &staging, skill.id.as_str());
-            let _ = fs::remove_dir_all(&staging);
-            match fetched {
-                Ok(None) => UpdateCheck::Failed(GONE.to_owned()),
-                Ok(Some(inspection)) if inspection.tree == skill.recorded => UpdateCheck::UpToDate,
-                // An update would be refused, so the skill has none to offer.
-                Ok(Some(inspection)) => refusal(&inspection)
-                    .map_or(UpdateCheck::Available, |why| {
-                        UpdateCheck::Failed(why.update_text().to_owned())
-                    }),
-                Err(error) => failed(error, skill.id.0.clone()),
-            }
-        })
-        .collect()
+    checks
+}
+
+/// What a skill's check shows when it could not be made.
+fn failed(error: &AppError) -> UpdateCheck {
+    UpdateCheck::Failed(format!("Couldn't check for updates: {}", error.message))
+}
+
+/// Checks one skill against its source, already fetched into `cache`.
+fn check_skill(git: &Git, data_dir: &Path, cache: &Path, skill: &Due) -> AppResult<UpdateCheck> {
+    // Records hold the tree id Git stores, so an unchanged folder is known from its tree object
+    // alone, without fetching or writing its files. A folder whose files only materialize
+    // differently, such as one with links, falls through to the checkout.
+    match git.source_tree(cache, &skill.source.path)? {
+        Some(tree) if tree == skill.recorded => return Ok(UpdateCheck::UpToDate),
+        None => return Ok(UpdateCheck::Failed(GONE.to_owned())),
+        Some(_) => {}
+    }
+    let staging = data_dir
+        .join("staging")
+        .join(format!("check-{}", uuid::Uuid::new_v4()));
+    let fetched = checkout(git, cache, &skill.source, &staging, skill.id.as_str());
+    let _ = fs::remove_dir_all(&staging);
+    Ok(match fetched? {
+        None => UpdateCheck::Failed(GONE.to_owned()),
+        Some(inspection) if inspection.tree == skill.recorded => UpdateCheck::UpToDate,
+        // An update would be refused, so the skill has none to offer.
+        Some(inspection) => refusal(&inspection).map_or(UpdateCheck::Available, |why| {
+            UpdateCheck::Failed(why.update_text().to_owned())
+        }),
+    })
 }
 
 #[cfg(test)]

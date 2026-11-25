@@ -16,7 +16,7 @@ use crate::{
 use copy::Copy;
 use link::Link;
 use skillbinder_proto::{AppError, AppResult, CommandLineState, CommandLineStatus, ErrorCategory};
-use std::{io, sync::Arc};
+use std::{io, path::Path, sync::Arc};
 use user_path::UserPath;
 
 /// Where this platform puts the command.
@@ -87,7 +87,7 @@ impl CommandLine {
             CommandLineState::NotInstalled | CommandLineState::OtherApp => self
                 .place
                 .install()
-                .map_err(|error| self.failed("install", &error))?,
+                .map_err(|error| failed("install", &before.path, &error))?,
             CommandLineState::Installed
             | CommandLineState::NotOnPath
             | CommandLineState::Homebrew => return Ok(before),
@@ -107,7 +107,7 @@ impl CommandLine {
             CommandLineState::Installed | CommandLineState::NotOnPath => self
                 .place
                 .uninstall()
-                .map_err(|error| self.failed("uninstall", &error))?,
+                .map_err(|error| failed("uninstall", &before.path, &error))?,
             CommandLineState::NotInstalled | CommandLineState::CannotInstall(_) => {
                 return Ok(before);
             }
@@ -144,16 +144,13 @@ impl CommandLine {
                 .error(&error);
         }
     }
+}
 
-    fn failed(&self, action: &'static str, error: &io::Error) -> AppError {
-        self.log
-            .event(Level::Error, Area::CommandLine, "command change failed")
-            .field("change", action)
-            .field("cause", error);
-        AppError::new(
-            ErrorCategory::Storage,
-            format!("Couldn't {action} `skillbinder`: {error}"),
-            "Try again. See logs for details.",
-        )
-    }
+fn failed(action: &'static str, path: &Path, error: &io::Error) -> AppError {
+    AppError::new(
+        ErrorCategory::Storage,
+        format!("Couldn't {action} `skillbinder`: {error}"),
+        "Try again. See logs for details.",
+    )
+    .because(format_args!("{action} {}: {error}", path.display()))
 }
