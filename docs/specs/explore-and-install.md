@@ -95,7 +95,7 @@ These are the owner's decisions from the 2026-11-19 design session. Ids are stab
 
 ### Your repositories
 
-1. The Your repositories section lists the user's repositories, with Add repository in its header. With none, it reads "No repositories yet" with Add repository. Without Git, rows keep their last listing and still expand, Install all and Install are inactive with "Installing needs Git", and the dialog opens on "Adding a repository needs Git".
+1. The Your repositories section lists the user's repositories, with Add repository in its header; with none, only its empty state "No repositories yet" offers it. Without Git, rows keep their last listing and still expand, Install all and Install are inactive with "Installing needs Git", and the dialog opens on "Adding a repository needs Git".
 2. **Add repository** opens a dialog with one field, "Git URL (HTTPS or SSH)". On input the app lists the repository's skills first, showing "Listing…" with a spinner, then "<owner/repo> · N skills" and their slugs. Add, the primary button, is enabled only then. Adding closes the dialog and shows the toast "Added <owner/repo>" (D11, D13).
 3. The dialog's other states, each on one line, add nothing: "Not a Git URL"; "Couldn't reach this repository. Check the URL and your Git access."; "No skills found"; "<owner/repo> is already added"; and, without Git, "Adding a repository needs Git" with Install Git.
 4. A repository row shows its name, its skill count, "Install all (N)" for the N skills of it whose slug the library does not hold, and Remove; a colliding skill shows Install disabled (Installing rule 5). Expanding the row lists its skills, each with its own Install, opening the detail dialog on click.
