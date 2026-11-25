@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugin skill</title>
+<!-- Plugins: the read-only plugin skill view (U3; A4) and the Library's "Also in plugin" mark (P3).
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py plugin-skill.html ../prototypes/plugin-skill.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="plugins.css">
+<style>
+.pl-crumb { border: 0; padding: 2px 4px; margin: 0 -4px; border-radius: 5px; background: none; color: var(--sb-muted-fg); font: inherit; cursor: pointer; }
+.pl-crumb:hover { background: var(--sb-muted); color: var(--sb-fg); }
+.sb-crumbs > .sb-ic { color: var(--sb-muted-fg); }
+/* A: own page */
+.ps-head { display: flex; flex-direction: column; gap: 4px; }
+.ps-title { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.ps-desc { font-size: 13px; color: var(--sb-muted-fg); }
+.ps-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.ps-links .sb-chip .sb-ic { color: var(--sb-muted-fg); }
+/* B: the dialog, at the size of Explore's skill detail (two columns, one scroll) */
+.sb-dialog.ps-dialog { width: 92%; height: 100%; max-width: none; }
+.ps-dialog .sb-dialog-body { display: block; overflow: auto; padding: 0; }
+.ps-cols { display: flex; align-items: flex-start; }
+.ps-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 6px 16px 18px; }
+.ps-left > .pl-mdbox { border: 0; padding: 0; background: none; }
+.ps-right { flex: 0 0 236px; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 6px 16px 18px 4px; }
+.ps-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 8px; }
+.ps-card-label { font-size: 11.5px; font-weight: 600; color: var(--sb-muted-fg); }
+.ps-card .pl-facts { padding: 0; }
+.ps-card .pl-kv { grid-template-columns: 70px minmax(0, 1fr); }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="skill">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:560px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="plugins-text.js"></script>
+<script src="plugins-data.js"></script>
+<script src="plugins-kit.js"></script>
+<script>
+(function () {
+  'use strict';
+  const P = window.PLUGINS;
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  // route: 'skill' (A's page) | 'plugin' (B shows the dialog over it while S.open) | 'library'
+  const S = { variant: 'a', state: 'skill', route: 'skill', pid: 'fstack', slug: 'feature-design', open: false, sel: null };
+  let dlg = null;
+
+  const STATES = [
+    { id: 'skill', label: 'feature-design' },
+    { id: 'overlap', label: 'Also in Library', tip: 'caveman ships a skill the library also has' },
+    { id: 'mark', label: 'Library mark', tip: 'Library rows whose slug a plugin also ships' },
+  ];
+  function setState(id) {
+    P.setMode('normal');
+    S.state = id;
+    S.sel = null;
+    if (id === 'mark') S.route = 'library';
+    else showSkill(id === 'overlap' ? 'caveman' : 'fstack', id === 'overlap' ? 'caveman' : 'feature-design', false);
+    draw();
+  }
+  // A opens the skill's own page; B opens the dialog over its plugin's page.
+  function showSkill(pid, slug, redraw = true) {
+    Object.assign(S, { pid, slug, route: S.variant === 'a' ? 'skill' : 'plugin', open: S.variant === 'b' });
+    if (redraw) draw();
+  }
+  const showPlugin = (pid) => { Object.assign(S, { pid, route: 'plugin', open: false }); draw(); };
+  const showLibrary = (slug) => { Object.assign(S, { route: 'library', sel: slug, open: false }); draw(); };
+  const inLibrary = (slug) => P.library.some((s) => s.slug === slug);
+
+  function draw() {
+    if (dlg) { const d = dlg; dlg = null; d.close(); }
+    plSidebar(side, { mode: 'row', active: S.route === 'library' ? 'library' : 'plugins',
+      onNav: (k) => (k === 'library' ? showLibrary(null) : soon()) });
+    page.className = 'sb-page';
+    page.scrollTop = 0;
+    const p = P.plugin(S.pid);
+    if (S.route === 'library') {
+      hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Library'));
+      page.replaceChildren(libraryList({ onPlugin: showPlugin, onSkill: soon, selected: S.sel }));
+      return;
+    }
+    const crumbs = [h('button', { class: 'pl-crumb', onclick: soon }, 'Plugins'), ic('chevron-right', 13)];
+    if (S.route === 'plugin') {
+      hdr.replaceChildren(h('div', { class: 'sb-crumbs' }, crumbs, h('span', { class: 'sb-ellipsis' }, p.name)));
+      page.replaceChildren(...stackedPage(p, { win, onSkill: (slug) => showSkill(p.id, slug) }));
+      if (S.open) openSkillDialog(p, S.slug);
+      return;
+    }
+    hdr.replaceChildren(h('div', { class: 'sb-crumbs' }, crumbs, h('button', { class: 'pl-crumb', onclick: () => showPlugin(p.id) }, p.name),
+      ic('chevron-right', 13), h('span', { class: 'sb-ellipsis' }, S.slug)));
+    page.replaceChildren(...skillPage(p, S.slug));
+  }
+
+  const skillOf = (p, slug) => p.skills.find((s) => s.slug === slug);
+  const fromChip = (p, onClick) => h('button', { class: 'sb-chip', onclick: onClick }, ic('puzzle', 13), `From plugin ${p.name}`);
+  const alsoChip = (slug) => h('button', { class: 'sb-chip', onclick: () => showLibrary(slug) }, ic('libraries', 13), 'Also in Library');
+
+  // ---- A: own page, like a library skill's page with no activation controls ------------------------
+  function skillPage(p, slug) {
+    const md = P.skillMd(p, slug);
+    return [h('div', { class: 'ps-head' }, h('div', { class: 'ps-title' }, slug), h('div', { class: 'ps-desc' }, skillOf(p, slug).desc),
+      h('div', { class: 'ps-links' }, fromChip(p, () => showPlugin(p.id)), inLibrary(slug) ? alsoChip(slug) : null)),
+    frontMatter(md), h('div', { class: 'pl-mdbox' }, markdown(md))].filter(Boolean);
+  }
+
+  // ---- B: dialog over the plugin page, like Explore's skill detail ---------------------------------
+  function openSkillDialog(p, slug) {
+    const md = P.skillMd(p, slug);
+    const d = openDialog(win, { title: slug, size: 'lg', onClose: () => { if (dlg === d) { dlg = null; S.open = false; } } });
+    d.el.classList.add('ps-dialog');
+    d.el.querySelector('.sb-dialog-header > button').setAttribute('data-tip', 'Close');
+    const about = h('div', { class: 'sb-card ps-card' }, h('div', { class: 'ps-card-label' }, 'About'),
+      h('div', { class: 'pl-facts' },
+        fact('Plugin', h('button', { class: 'pl-link', onclick: () => d.close() }, ic('puzzle', 13), h('span', p.name))),
+        fact('Marketplace', p.mkt || 'Local'), p.repo ? fact('Repository', repoLink(p, win)) : null, fact('Version', p.latest || '—'),
+        inLibrary(slug) ? fact('Library', h('button', { class: 'pl-link', onclick: () => showLibrary(slug) }, ic('libraries', 13), h('span', 'Also in Library'))) : null));
+    const fm = frontMatter(md, { omit: ['name', 'description'] });
+    d.setBody(h('div', { class: 'ps-cols' },
+      h('div', { class: 'ps-left' }, h('div', { class: 'ps-desc' }, skillOf(p, slug).desc), h('div', { class: 'pl-mdbox' }, markdown(md))),
+      h('aside', { class: 'ps-right' }, about, fm ? h('div', { class: 'sb-card ps-card' }, h('div', { class: 'ps-card-label' }, 'Details'), fm) : null)));
+    dlg = d;
+  }
+
+  const first = STATES.some((x) => x.id === document.body.dataset.firstState) ? document.body.dataset.firstState : 'skill';
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Own page', desc: 'Opens as a page, like a library skill: name, description, a From plugin chip back to the plugin, Also in Library when the library has the slug, front matter, then SKILL.md; no activation controls · like the library skill page' },
+    { id: 'b', label: 'Dialog', desc: "Opens as a large dialog over the plugin page: description and SKILL.md on the left, About (plugin, marketplace, repository, version, Also in Library) and Details on the right · like Explore's skill detail dialog" },
+  ], (id) => {
+    S.variant = id;
+    if (S.route === 'skill' || S.open) showSkill(S.pid, S.slug, false);
+    draw();
+  });
+  bar.extra.append(seg(STATES, first, setState));
+  setState(first);
+  bar.set(document.body.dataset.firstVariant || 'a');
+})();
+</script>
+</body>
+</html>
