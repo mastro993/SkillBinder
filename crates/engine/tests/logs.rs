@@ -8,7 +8,7 @@
 mod support;
 
 use regex::Regex;
-use skillbinder_engine::{Engine, EngineConfig, LogFilter};
+use skillbinder_engine::{Console, Engine, EngineConfig, LogConfig, Logger};
 use std::{fs, time::Duration};
 use support::{Fixture, add_workspace, choose_every_agent, scan};
 
@@ -18,10 +18,9 @@ const LINE: &str = r#"^\S+ (ERROR|WARN |INFO |DEBUG) [a-z-]+ +[a-z][a-z ]*[a-z](
 /// A launch with three workspaces, a scan, and an update check, then a quit; the lines it wrote.
 async fn launch(fixture: &Fixture, setting: Option<&str>) -> Vec<String> {
     let mut config = EngineConfig::isolated(fixture.data.clone(), fixture.home.clone());
-    if let Some(setting) = setting {
-        config.log = LogFilter::parse(setting);
-    }
-    let engine = Engine::open(config).unwrap();
+    config.log = LogConfig::new(setting, Console::Hidden);
+    let log = Logger::open_session(&config).unwrap();
+    let engine = Engine::open(config, log).unwrap();
     choose_every_agent(&engine).await;
     engine.finish_onboarding(None).await.unwrap();
     for name in ["one", "two", "three"] {

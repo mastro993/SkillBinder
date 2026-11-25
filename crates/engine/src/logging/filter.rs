@@ -123,7 +123,7 @@ impl Area {
 /// Which lines are written: a level for every area, `None` writing none of its lines. Parsed from
 /// `SKILLBINDER_LOG` (spec rule 8), whose directives a launch's first lines repeat.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LogFilter {
+pub(crate) struct LogFilter {
     levels: [Option<Level>; Area::ALL.len()],
     /// `SKILLBINDER_LOG` as set, if it was.
     setting: Option<String>,
@@ -149,7 +149,7 @@ impl LogFilter {
     /// one of `ui`, and `area=level` sets one area's. Levels are `error`, `warn`, `info`,
     /// `debug`, and `off`. A directive naming an unknown area or level is ignored and kept, so
     /// the session can say so.
-    pub fn parse(setting: &str) -> Self {
+    pub(crate) fn parse(setting: &str) -> Self {
         let mut filter = Self {
             setting: Some(setting.to_owned()),
             ..Self::default()
@@ -176,9 +176,24 @@ impl LogFilter {
         filter
     }
 
+    /// `DEBUG` and above, and `WARN` and above for `ui`: a debug build's console (spec D5).
+    pub(super) fn development() -> Self {
+        let mut levels = [Some(Level::Debug); Area::ALL.len()];
+        levels[Area::Ui as usize] = Some(Level::Warn);
+        Self {
+            levels,
+            ..Self::default()
+        }
+    }
+
     /// Whether a line of `level` in `area` is written.
     pub(crate) fn passes(&self, level: Level, area: Area) -> bool {
-        self.levels[area as usize].is_some_and(|threshold| level <= threshold)
+        self.level(area).is_some_and(|threshold| level <= threshold)
+    }
+
+    /// The most detailed level written in `area`, if any.
+    pub(super) fn level(&self, area: Area) -> Option<Level> {
+        self.levels[area as usize]
     }
 
     /// `SKILLBINDER_LOG` as set, if it was.

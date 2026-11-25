@@ -73,7 +73,7 @@ Check now always checks. While Check automatically is on, the app also checks at
 
 ## Settings › Troubleshooting
 
-**Logs** has Reveal logs, which shows the logs folder in the file manager.
+**Logs** has Reveal logs, which shows the logs folder in the file manager. Its `skillbinder.log` holds the engine's, the app's, and GPUI's and Kit's lines ([Sync and durability](sync-and-durability.md)).
 
 ## The app update notice
 

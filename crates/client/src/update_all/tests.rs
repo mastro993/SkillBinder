@@ -1,6 +1,6 @@
 use super::once_free;
 use crate::{Client, Shared, UPDATE_CHECK_INTERVAL};
-use skillbinder_engine::{Engine, EngineConfig};
+use skillbinder_engine::{Engine, EngineConfig, Logger};
 use skillbinder_proto::*;
 use std::{
     collections::BTreeSet,
@@ -15,10 +15,9 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 /// A client of an engine in `directory`, onboarded with an empty library, without the
 /// background work `Client::new` starts.
 async fn client(directory: &Path) -> AppResult<Client> {
-    let engine = Engine::open(EngineConfig::isolated(
-        directory.join("data"),
-        directory.join("home"),
-    ))?;
+    let config = EngineConfig::isolated(directory.join("data"), directory.join("home"));
+    let log = Logger::open_session(&config)?;
+    let engine = Engine::open(config, log)?;
     engine
         .choose_agents(BTreeSet::new(), BTreeSet::new())
         .await?;

@@ -1,15 +1,14 @@
 use super::*;
-use skillbinder_engine::EngineConfig;
+use skillbinder_engine::{EngineConfig, Logger};
 use std::{collections::BTreeSet, path::Path};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 /// An engine in `directory`, onboarded with an empty library.
 async fn ready(directory: &Path) -> AppResult<Engine> {
-    let engine = Engine::open(EngineConfig::isolated(
-        directory.join("data"),
-        directory.join("home"),
-    ))?;
+    let config = EngineConfig::isolated(directory.join("data"), directory.join("home"));
+    let log = Logger::open_session(&config)?;
+    let engine = Engine::open(config, log)?;
     engine
         .choose_agents(BTreeSet::new(), BTreeSet::new())
         .await?;
@@ -74,10 +73,10 @@ async fn rejects_old_full_reads_without_losing_scan_or_mutation_results() -> Tes
 #[tokio::test]
 async fn committed_outcome_survives_projection_failure() -> TestResult {
     let directory = tempfile::tempdir()?;
-    let engine = Engine::open(EngineConfig::isolated(
-        directory.path().join("data"),
-        directory.path().join("home"),
-    ))?;
+    let config =
+        EngineConfig::isolated(directory.path().join("data"), directory.path().join("home"));
+    let log = Logger::open_session(&config)?;
+    let engine = Engine::open(config, log)?;
     let client = Client::new(engine.clone(), Handle::current()).await?;
     engine.shutdown().await?;
     assert_eq!(client.refresh_preserving_outcome(Ok(42)).await?, 42);

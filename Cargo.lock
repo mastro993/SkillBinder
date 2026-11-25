@@ -7158,6 +7158,7 @@ dependencies = [
  "dunce",
  "fs2",
  "libsqlite3-sys",
+ "log",
  "minisign",
  "minisign-verify",
  "regex",

@@ -6,7 +6,7 @@ mod holds;
 mod workspaces;
 pub(crate) use arguments::{NativeMode, parse_launch};
 pub(crate) use commands::register_commands;
-use skillbinder_engine::Engine;
+use skillbinder_engine::{Bridge, Engine};
 use skillbinder_ui::NativeView;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -18,20 +18,27 @@ use std::sync::{
 
 static RENDER_ERROR: AtomicBool = AtomicBool::new(false);
 
-struct SmokeLogger;
+/// The log's bridge, which in a smoke run also echoes `INFO` and above to stderr and fails the
+/// run on an error from anything but the host.
+struct SmokeLogger(Bridge);
 impl log::Log for SmokeLogger {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        metadata.level() <= log::Level::Info
+        metadata.level() <= log::Level::Info || self.0.enabled(metadata)
     }
     fn log(&self, record: &log::Record<'_>) {
-        if self.enabled(record.metadata()) {
+        if self.0.enabled(record.metadata()) {
+            self.0.log(record);
+        }
+        if record.level() <= log::Level::Info {
             if record.level() == log::Level::Error && !is_host_environment(record.target()) {
                 RENDER_ERROR.store(true, Ordering::Relaxed);
             }
             eprintln!("{} {}: {}", record.level(), record.target(), record.args());
         }
     }
-    fn flush(&self) {}
+    fn flush(&self) {
+        self.0.flush();
+    }
 }
 
 /// Platform backends and wgpu's EGL adapter probe report host display, input,
@@ -59,10 +66,14 @@ mod tests {
     }
 }
 
-pub(crate) fn initialize_logging() -> anyhow::Result<()> {
-    log::set_logger(&SmokeLogger)
-        .map_err(|_| anyhow::anyhow!("Could not initialize native smoke logging"))?;
-    log::set_max_level(log::LevelFilter::Info);
+/// Installs the log's bridge, wrapped in a smoke run so the run sees what it logs.
+pub(crate) fn initialize_logging(bridge: Bridge, smoke: bool) -> anyhow::Result<()> {
+    if !smoke {
+        return crate::install_logging(bridge);
+    }
+    let level = bridge.max_level().max(log::LevelFilter::Info);
+    log::set_boxed_logger(Box::new(SmokeLogger(bridge)))?;
+    log::set_max_level(level);
     Ok(())
 }
 

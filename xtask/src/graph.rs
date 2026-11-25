@@ -67,6 +67,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "dunce",
             "fs2",
             "libsqlite3-sys",
+            "log",
             "minisign-verify",
             "regex",
             "rustix",
@@ -132,7 +133,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
 const NATIVE_TEST: &[(&str, &[&str])] = &[
     (
         "skillbinder",
-        &["dep:gpui-mcp", "dep:log", "skillbinder-ui/native-test"],
+        &["dep:gpui-mcp", "skillbinder-ui/native-test"],
     ),
     ("skillbinder-design", &[]),
     ("skillbinder-ui", &["skillbinder-design/native-test"]),

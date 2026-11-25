@@ -13,7 +13,7 @@
 )]
 mod support;
 
-use skillbinder_engine::{Engine, EngineConfig};
+use skillbinder_engine::{Engine, EngineConfig, Logger};
 use skillbinder_proto::{
     CopyState, LibrarySnapshot, OrganizationChange, PresetId, SkillId, Targets,
 };
@@ -24,7 +24,9 @@ use support::{scan, write_skill};
 /// from the universal directory.
 async fn imported(home: &Path, data: &Path) -> Engine {
     write_skill(&home.join(".agents/skills"), "review", "Library version");
-    let engine = Engine::open(EngineConfig::isolated(data.to_owned(), home.to_owned())).unwrap();
+    let config = EngineConfig::isolated(data.to_owned(), home.to_owned());
+    let log = Logger::open_session(&config).unwrap();
+    let engine = Engine::open(config, log).unwrap();
     support::choose_every_agent(&engine).await;
     engine.finish_onboarding(None).await.unwrap();
     let ids = scan(&engine)

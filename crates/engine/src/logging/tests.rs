@@ -4,11 +4,15 @@ use regex::Regex;
 use std::time::Duration;
 
 /// Spec AC1: every line has this shape.
-const LINE: &str = r#"^\S+ (ERROR|WARN |INFO |DEBUG) [a-z-]+ +[a-z][a-z ]*[a-z]( [a-z.]+=("([^"\\]|\\.)*"|\S+))*$"#;
+pub(super) const LINE: &str = r#"^\S+ (ERROR|WARN |INFO |DEBUG) [a-z-]+ +[a-z][a-z ]*[a-z]( [a-z.]+=("([^"\\]|\\.)*"|\S+))*$"#;
 
 fn logger(filter: LogFilter) -> (tempfile::TempDir, Logger) {
     let root = tempfile::tempdir().unwrap();
-    let log = Logger::start(root.path().join("logs"), Path::new("/private/home"), filter).unwrap();
+    let config = LogConfig {
+        file: filter,
+        console: None,
+    };
+    let log = Logger::start(root.path().join("logs"), Path::new("/private/home"), config).unwrap();
     (root, log)
 }
 
@@ -187,4 +191,16 @@ fn durations_read_at_a_glance() {
     assert_eq!(took(Duration::from_millis(2_940)), "2.9s");
     assert_eq!(took(Duration::from_secs(192)), "3m12s");
     assert_eq!(took(Duration::from_secs(13_020)), "3h37m");
+}
+
+#[test]
+fn lines_only_the_console_shows_stay_out_of_the_file() {
+    let root = tempfile::tempdir().unwrap();
+    let config = LogConfig::new(None, Console::Development);
+    let log = Logger::start(root.path().join("logs"), root.path(), config).unwrap();
+    log.event(Level::Debug, Area::Scan, "location absent");
+    log.event(Level::Info, Area::Scan, "finished");
+    let lines = lines(&root, &log);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains(" INFO  scan "), "{}", lines[0]);
 }

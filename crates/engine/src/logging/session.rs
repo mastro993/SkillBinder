@@ -2,17 +2,18 @@
 
 use super::{Area, Level, Logger, Took};
 use crate::{git::Git, lifecycle::EngineConfig};
-use skillbinder_proto::Channel;
+use skillbinder_proto::{AppError, AppResult, Channel};
 
 impl Logger {
     /// Starts the log in `<data>/logs` and writes the session's first lines: what runs where,
-    /// and the `SKILLBINDER_LOG` filter with each directive it ignored.
-    pub(crate) fn open_session(config: &EngineConfig) -> std::io::Result<Self> {
-        let log = Self::start(
-            config.data_dir.join("logs"),
-            &config.home,
-            config.log.clone(),
-        )?;
+    /// and the `SKILLBINDER_LOG` filter with each directive it ignored. The desktop calls it
+    /// before it opens the engine, so the engine's opening and the desktop's own records are
+    /// logged too.
+    pub fn open_session(config: &EngineConfig) -> AppResult<Self> {
+        // The engine writes paths under the resolved home, which redaction must recognize.
+        let home = dunce::canonicalize(&config.home).unwrap_or_else(|_| config.home.clone());
+        let log = Self::start(config.data_dir.join("logs"), &home, config.log.clone())
+            .map_err(|_| AppError::storage())?;
         let channel = match Channel::of(&config.app_version) {
             Channel::Stable => "stable",
             Channel::Beta => "beta",
@@ -24,11 +25,12 @@ impl Logger {
             .field("arch", std::env::consts::ARCH)
             .field("pid", std::process::id())
             .field("data", config.data_dir.display());
-        if let Some(setting) = config.log.setting() {
+        let filter = &config.log.file;
+        if let Some(setting) = filter.setting() {
             log.event(Level::Info, Area::Session, "log")
                 .field("filter", setting);
         }
-        for directive in config.log.ignored() {
+        for directive in filter.ignored() {
             log.event(Level::Warn, Area::Session, "log directive ignored")
                 .field("directive", directive);
         }

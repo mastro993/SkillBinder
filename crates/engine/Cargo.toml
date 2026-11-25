@@ -11,6 +11,7 @@ skillbinder-proto.workspace = true
 tokio.workspace = true
 time.workspace = true
 chrono.workspace = true
+log.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
 libsqlite3-sys.workspace = true

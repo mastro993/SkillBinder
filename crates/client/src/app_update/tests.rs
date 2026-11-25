@@ -1,6 +1,8 @@
 use super::Trigger;
 use crate::Client;
-use skillbinder_engine::{CatalogSource, Engine, EngineConfig, UpdatePayload, UpdateSource};
+use skillbinder_engine::{
+    CatalogSource, Engine, EngineConfig, Logger, UpdatePayload, UpdateSource,
+};
 use skillbinder_proto::{AppUpdateState, Channel, CheckFailure};
 use std::time::Duration;
 use tokio::runtime::Handle;
@@ -29,7 +31,8 @@ async fn check_now_checks_with_automatic_checks_off_and_shows_its_failure() -> T
         public_key: String::new(),
         payload: UpdatePayload::Executable,
     });
-    let engine = Engine::open(config)?;
+    let log = Logger::open_session(&config)?;
+    let engine = Engine::open(config, log)?;
     engine.set_update_auto_check(false).await?;
     let client = Client::new(engine.clone(), Handle::current()).await?;
     client.set_update_channel(Channel::Beta).await?;
