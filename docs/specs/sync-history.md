@@ -67,7 +67,8 @@ The engine classifies the page into one of these states.
 | Conflict | At least one skill was changed on both sides with different trees. | Resolve…, then Sync. |
 | Unreachable | The last check failed. | Try again, which reruns the check. |
 
-- Pending changes on this device are the net difference, per slug, between the base and the working tree. The base is the merge base with the remote, or HEAD when there is none.
+- The **base** is the merge base of the local HEAD and the remote's commit. With no remote commit (an empty remote, or a remote branch that does not exist yet) or no local HEAD, it is the empty tree. Not synced yet, conflicts, and Discard all use this one base.
+- Pending changes on this device are the net difference, per slug, between the base and the working tree. This covers both uncommitted changes and unpushed commits, such as a Push whose commit succeeded and whose network push failed.
 - Pending changes on the remote are the net difference between the base and the incoming commit.
 
 ## UX
@@ -82,14 +83,16 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
    - It parses the trailers with `--format=%(trailers:key=…,valueonly)`.
    - It returns `SyncChange { commit, at, device: Option<String>, published: bool, skills: Vec<ChangedSkill { slug, kind, reason: Option<Reason> }> }`.
    - History is a request, not part of the snapshot: `Client::sync_history(before, limit)`. It is refetched when the snapshot's sync revision changes.
-   - A merge commit lists only the skills it took from this device's side, against its first parent, and the choices made, which it carries as trailers.
+   - A merge's first parent is the remote's commit (Design 5). So the first-parent chain is the published history on every device, and each device's published commits appear in it.
+   - A merge commit is credited to the device that made it. Its diff against its first parent is what that device contributed. It also lists each choice, which it carries as `SkillBinder-Choice: <slug> local|remote` trailers.
+   - For a conflict where the remote's version was picked, the merge row offers Restore of this device's version, read from the merge's second parent (`^2`). The version that was not picked can therefore always be restored, whichever side won.
 2. **Commit format (ADR 0037).**
    - `Git::commit` takes a `CommitNote { device, skills: Vec<(slug, kind, Reason)> }`.
    - It writes the subject `"<device>: add a, update b, remove c"`, cut at 72 characters with "and <n> more".
    - It writes one body line per skill, a `SkillBinder-Device` trailer, and `SkillBinder-Skill: <slug> <reason>[ <detail>]` trailers.
    - The author is the device name, with the email `local@skillbinder.invalid`.
 3. **Pending reasons.**
-   - A new Diesel table `pending_changes(slug TEXT PRIMARY KEY, reason TEXT NOT NULL, detail TEXT, at TEXT NOT NULL)` takes one upsert from each of these: import, install, update, reinstall, restore, discard, and `write_pending_records`.
+   - A new Diesel table `pending_changes(slug TEXT PRIMARY KEY, reason TEXT NOT NULL, detail TEXT, at TEXT NOT NULL)` takes one upsert from each of these: import, install, update, reinstall, restore, and `write_pending_records`. Discard deletes the slug's row.
    - The commit transaction clears the rows it committed.
    - `Reason` is a proto enum: `Imported { from }`, `Installed`, `Updated`, `Reinstalled`, `Restored { at }`, `Record`, and `Outside`, which is used when there is no row.
 4. **Pending lists in the snapshot.**
@@ -104,11 +107,20 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
 5. **Per-skill merge (ADR 0038).**
    - `SyncAction::Sync` is unchanged when there are no conflicts. A new `Engine::resolve(choices: BTreeMap<String, Side>)` handles a Sync that needs choices.
    - With divergence, the engine first refuses unless every conflict has a choice. It then:
-     1. commits the local changes;
+     1. commits the local changes as `<local>`, keeping the commit id it gets back (never a reflog entry such as `HEAD@{1}`, since the user's global `core.logAllRefUpdates=false` turns reflogs off);
      2. runs `read-tree <incoming>` into a temporary `GIT_INDEX_FILE`;
      3. for each local-only slug, and each conflict that chose local, takes this device's `skills/<slug>` and `records/<slug>.toml`, or removes them, with `update-index`;
-     4. runs `write-tree`, then `validate_tree`, then `commit-tree -p HEAD -p <incoming>`, then `update-ref`, then `read-tree -m -u HEAD@{1} HEAD`;
-     5. pushes.
+     4. runs `write-tree`, then `validate_tree`, then `commit-tree -p <incoming> -p <local>` as `<merged>`;
+     5. writes a `merge` row `{local, merged}` to the `journals` table;
+     6. updates the index and working tree with `read-tree -m -u <local> <merged>`, while HEAD is still `<local>`;
+     7. moves the ref with `update-ref HEAD <merged> <local>`, which checks the old value;
+     8. deletes the journal row;
+     9. pushes.
+   - The working tree moves before the ref, and the journal covers the gap. There is no point at which HEAD is the merge while the files are still this device's, which would make the next Push publish a revert of the remote's work.
+   - Recovery at open, with a `merge` row:
+     - HEAD is `<local>`: the engine resets the managed paths to `<merged>` with `read-tree --reset -u <merged>`, then runs steps 7 and 8. The app owns those paths, so a partly updated tree is simply overwritten.
+     - HEAD is `<merged>`: the tree was already updated, so it only deletes the row.
+     - Either way, it reconciles next, as after a Pull.
    - The engine then runs `reconcile_head`, `apply_library`, and `adopt_agent_copies`, as a Pull does.
    - Pull stays fast-forward only, and Push still refuses while behind.
 6. **Restore and Discard (ADR 0039).**
@@ -170,7 +182,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
 8. Restore writes the skill and its record from that version, rewrites its managed copies, lists it under Not synced yet as "Restored to the version of <day>", and Undo discards it.
 9. Discarding a changed, removed, or added skill returns the library to the base for that slug, and the row leaves the list. Discarding an added skill leaves its agents' copies in place.
 10. Two devices that changed different skills both Sync without an error. Each gets the other's skills, and History shows the merge as one change.
-11. Two devices that changed the same skill to different trees show Conflict. Sync refuses until every conflict has a choice. After it, the library holds the chosen version, and History still holds the other.
+11. Two devices that changed the same skill to different trees show Conflict. Sync refuses until every conflict has a choice. After it, the library holds the chosen version, and History can restore the other: from the remote device's commit when local won, or from the merge row's second parent when remote won. On both devices, History lists each device's published commits, and the merge credited to the device that made it.
 12. A merge never publishes a tree that a fetch would refuse.
 13. With the remote unreachable, the periodic check shows Unreachable without a toast, and Try again recovers.
 14. `skillbinder sync history`, `sync restore`, `sync discard`, `sync resolve`, and `device rename`, and the matching MCP actions, do what the page does. `skillbinder sync` during a conflict exits 2 with the message in Design 11.
@@ -220,7 +232,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
    - Delivers: Design 5, `conflicts`, `NeedsResolve`, the Resolve dialog (Y9), and the Both and Conflict states.
    - Checks: 10–12.
    - Tests:
-     - engine tests on two clones of one bare remote: disjoint changes, an identical change, a conflict for each side, a validation refusal, an interrupted merge recovered at launch, and adoption still taking precedence;
+     - engine tests on two clones of one bare remote: disjoint changes, an identical change, a conflict for each side, a validation refusal, an interrupted merge recovered at launch from each journal step, and adoption still taking precedence;
      - a native check.
    - Docs: sync-and-durability. Drop "Divergence … require manual reconciliation".
    - Depends on: 3.

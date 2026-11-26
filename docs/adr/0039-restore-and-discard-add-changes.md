@@ -4,7 +4,7 @@ From History, the user can put one skill back to a past version. From the list o
 
 **Restore** writes a skill's tree and its record from a commit, or from that commit's first parent when the commit removed the skill, into the library. It reuses Reinstall's restore from the library's own Git objects (ADR 0005) and its journal. The result is an ordinary local change, recorded with the reason `restored` and the date of the version, which the next Sync publishes. A skill brought back this way follows the rules for a skill that arrives through Pull: it is unfiled and in no preset.
 
-**Discard** puts a skill back to the base: the last commit both sides share, which is the remote's commit when this device is behind and the local HEAD otherwise.
+**Discard** puts a skill back to the base: the merge base of the local HEAD and the remote's commit, or the empty tree when there is no remote commit, as the spec's States define it.
 
 | The change | What Discard does |
 |---|---|

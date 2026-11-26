@@ -52,6 +52,7 @@ The user settled these on 2026-11-26. Behavior comes from [the spec](../../specs
     - under it, up to four skill chips (kind mark and slug), then "+<n> more";
     - at its end, the time and a chevron.
   - Clicking a row opens it in place, listing each skill as a Y5 row. A skill whose newest change is this one reads "Current version". Any other skill ends with a small outline "Restore this version", or "Bring back" for a removed one, shown on hover or focus. Its accessible name is "Restore <slug>".
+  - A merge row lists what the device that merged contributed, then each choice as "Kept <device>'s <slug>". Where the remote's version won, that skill ends with "Restore <device>'s version", which restores this device's unpicked version from the merge.
   - A change that the last action added flashes once.
   - History shows the newest 50 changes and ends with "Show more".
 - **Y7** Every action confirms in the kit's confirm dialog before it writes:
