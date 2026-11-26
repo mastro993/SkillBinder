@@ -87,7 +87,7 @@ flowchart LR
   - A row has no `Skill`, so it is its own row built from design-system components: ghost and outline xs Buttons, the validation glyph, and the disclosure chevron of the dialog's Ignored group.
   - No new tokens, artwork, or design-system component.
 - **Ignoring** (behaviors 4–5, 7):
-  - `ignore`, `ignore_all`, and `stop_ignoring` move out of `import_dialog/ignored.rs` into `native_view/ignore_actions.rs`, one seam around `Client::set_ignored` that the dialog and the pages share.
+  - `ignore_found` (which both Ignore and Ignore all call with a list of rows) and `stop_ignoring` move out of `import_dialog/ignored.rs` into `native_view/ignore_actions.rs`, one seam around `Client::set_ignored` that the dialog and the pages share.
   - Stop ignoring's re-tick stays a no-op when no dialog is open, which `edit_import` already ensures.
 - **Narrowed import** (behavior 6; decision 3):
   - `NativeView::open_import_dialog_for(keys)` creates the dialog with `only: Some(keys)`, and `open_import_dialog` passes `None`.
