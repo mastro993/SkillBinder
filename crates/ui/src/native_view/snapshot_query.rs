@@ -4,7 +4,7 @@
 //! clicked over the snapshot's.
 
 use super::library_copies::{AgentRow, Reader, agent_rows};
-use super::workspace_targets::dir_rows;
+use super::workspace_targets::{NAMES, dir_rows};
 use super::{library_targets, workspace_targets};
 use skillbinder_proto::{
     AppSnapshot, FolderId, LibrarySnapshot, PresetId, Skill, SkillId, Targets, Workspace,
@@ -37,10 +37,7 @@ impl Entry {
     pub(super) fn grouped(rows: impl IntoIterator<Item = (AgentRow, Vec<String>)>) -> Vec<Self> {
         let mut entries: Vec<Self> = Vec::new();
         for (row, keys) in rows {
-            let readers = match &row.reader {
-                Reader::Universal(names) => names.clone(),
-                Reader::Agent(_) => vec![row.name.clone()],
-            };
+            let readers = row.names.clone();
             match entries
                 .iter_mut()
                 .find(|entry| entry.row.resolved == row.resolved)
@@ -55,11 +52,28 @@ impl Entry {
         entries
     }
 
+    /// Every agent that reads the directory, by name, the one whose logo it shows first.
+    pub(super) fn names(&self) -> Vec<&str> {
+        self.readers.iter().map(String::as_str).collect()
+    }
+
+    /// What a pill reads: the name of the agent whose logo it shows, then `+<N>` for the other
+    /// agents that read the directory. Universal reads as itself.
+    pub(super) fn label(&self) -> String {
+        match (&self.row.reader, self.names().as_slice()) {
+            (Reader::Agent(_), [first, rest @ ..]) if !rest.is_empty() => {
+                format!("{first} +{}", rest.len())
+            }
+            _ => self.row.name.clone(),
+        }
+    }
+
     /// The tooltip's second line: the agents that read the directory, when the name does not
     /// already say it.
     pub(super) fn detail(&self) -> Option<String> {
         let universal = matches!(self.row.reader, Reader::Universal(_));
-        (universal || self.readers.len() > 1).then(|| self.readers.join(", "))
+        let listed = self.readers.join(NAMES);
+        ((universal || self.readers.len() > 1) && listed != self.row.name).then_some(listed)
     }
 }
 
@@ -74,7 +88,8 @@ pub(crate) struct WorkspaceEntries<'a> {
 pub(crate) struct Places<'a> {
     pub agents: Vec<Entry>,
     pub workspaces: Vec<WorkspaceEntries<'a>>,
-    /// Every listed agent's id: the agents a fixed list keeps when All agents is switched off.
+    /// Every listed agent's id: the agents a fixed list keeps when a pill turns off from All
+    /// agents.
     every: Vec<String>,
 }
 
@@ -240,16 +255,6 @@ impl<'a> SkillPlaces<'a> {
     /// On right now: held for one of your agents, or by a workspace.
     pub(crate) fn is_active(&self) -> bool {
         self.agents.iter().any(|held| held.held) || self.workspaces.iter().any(|w| w.holds())
-    }
-
-    /// The active preset's targets after the All agents switch: all agents, or exactly the
-    /// agents listed now.
-    pub(super) fn switched(&self, on: bool) -> Targets {
-        if on {
-            Targets::AllAgents
-        } else {
-            Targets::Agents(self.every.iter().cloned().collect())
-        }
     }
 
     /// The active preset's targets after toggling `entry`. An empty list removes the skill from

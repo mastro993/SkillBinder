@@ -434,6 +434,36 @@ fn a_workspace_without_agents_offers_your_agents_directories() {
 }
 
 #[test]
+fn a_pill_reads_the_agent_whose_logo_it_shows_and_counts_the_others() {
+    let snapshot = base()
+        .agent("cline", "Cline", ".claude/skills", ".cline/skills", true)
+        .linked(".claude/skills")
+        .build();
+    let places = Places::new(&snapshot);
+    let labels = |entries: &[Entry]| -> Vec<String> { entries.iter().map(Entry::label).collect() };
+    assert_eq!(
+        labels(&places.agents),
+        ["Universal", "Claude Code +1", "Cursor"]
+    );
+    let api = &places.workspaces[1].entries;
+    assert_eq!(labels(api), ["Claude Code +1"]);
+    assert_eq!(api[0].names(), ["Claude Code", "Cline"]);
+    assert_eq!(places.agents[0].names(), ["Amp", "Codex"]);
+}
+
+#[test]
+fn a_name_holding_a_comma_stays_one_agent() {
+    let snapshot = base()
+        .agent("acme", "Acme, Inc.", ".claude/skills", ".acme/skills", true)
+        .build();
+    let places = Places::new(&snapshot);
+    let api = &places.workspaces[1].entries[0];
+    assert_eq!(api.names(), ["Claude Code", "Acme, Inc."]);
+    assert_eq!(api.label(), "Claude Code +1");
+    assert_eq!(api.detail(), None, "the row's name already lists them");
+}
+
+#[test]
 fn directories_resolving_to_one_folder_share_a_pill() {
     let snapshot = base()
         .workspace("linked", &[".agents/skills", ".claude/skills"])
@@ -446,15 +476,10 @@ fn directories_resolving_to_one_folder_share_a_pill() {
 }
 
 #[test]
-fn the_switch_gives_all_agents_or_the_fixed_list_listed_now() {
+fn a_pill_off_from_all_agents_keeps_the_others_as_a_fixed_list() {
     let snapshot = library().build();
     let places = Places::new(&snapshot);
     let everywhere = places.of(skill(&snapshot, "e-all"), &preset_id("default"));
-    assert_eq!(
-        everywhere.switched(false),
-        Targets::Agents(set(&["amp", "claude-code", "codex", "cursor"]))
-    );
-    assert_eq!(everywhere.switched(true), Targets::AllAgents);
     let universal = everywhere.agents[0].entry;
     assert_eq!(
         everywhere.toggled(universal),

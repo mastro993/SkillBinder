@@ -1,0 +1,203 @@
+const FOLDER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" color="currentColor">
+  <path d="M9 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C22 9.08996 22 10.1433 22 12.25C22 15.7612 22 17.5167 21.1573 18.7779C20.7926 19.3238 20.3238 19.7926 19.7779 20.1573C18.5167 21 16.7612 21 13.25 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/>
+  <path d="M15.5 12L16.4199 12.7929C16.8066 13.1262 17 13.2929 17 13.5C17 13.7071 16.8066 13.8738 16.4199 14.2071L15.5 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+  <path d="M8.5 12L7.58009 12.7929C7.19337 13.1262 7 13.2929 7 13.5C7 13.7071 7.19336 13.8738 7.58009 14.2071L8.5 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+  <path d="M13 11L11 16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+</svg>`;
+const CHEV = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" color="currentColor">
+  <path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+</svg>`;
+const DIRS = {
+  universal: { name: "Universal", path: ".agents/skills", detail: "Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed" },
+  claude: { name: "Claude Code", path: ".claude/skills" },
+  cursor: { name: "Cursor", path: ".cursor/skills" },
+  gemini: { name: "Gemini CLI", path: ".gemini/skills" },
+  copilot: { name: "GitHub Copilot", path: ".github/skills" },
+  windsurf: { name: "Windsurf", path: ".windsurf/skills" },
+};
+const DATA = {
+  few: () => ({
+    yours: ["universal", "claude", "cursor", "gemini", "copilot"], on: new Set(["claude"]), all: false,
+    ws: [
+      { name: "atlas-web", dirs: ["claude"], on: ["claude"] },
+      { name: "orbit-api", dirs: ["universal"], on: [] },
+    ],
+  }),
+  crowded: () => ({
+    yours: ["universal", "claude", "cursor", "gemini", "copilot", "windsurf"], on: new Set(["claude", "cursor"]), all: false,
+    ws: [
+      { name: "atlas-web", dirs: ["claude"], on: ["claude"] },
+      { name: "orbit-api", dirs: ["universal"], on: [] },
+      { name: "helios", dirs: ["universal", "claude", "cursor", "gemini", "copilot"], on: ["universal", "claude"] },
+      { name: "nebula-dashboard-frontend", dirs: ["universal", "claude", "cursor", "gemini", "copilot"], on: ["cursor"] },
+      { name: "quasar-payments-service-monorepo", dirs: ["universal", "claude", "cursor", "gemini", "copilot", "windsurf"], on: [] },
+      { name: "design-tokens-playground", dirs: ["claude", "cursor"], on: ["claude", "cursor"] },
+      { name: "vega-ios", dirs: [], on: [] },
+      { name: "kestrel-legacy", dirs: ["claude", "copilot"], on: ["claude"], missing: true },
+    ],
+  }),
+};
+const VARIANTS = {
+  now: ["Now", "Today's popover, for comparison. Pills are icon-only and right-aligned per line, so the same agent sits at a different spot on every line, and a long name crushes the pills into a column."],
+  A: ["A · Grid", "One column per agent directory, its logo once in the header. Rows line up, so you read down a column (\"where is Claude Code on?\") or across a row. Hover a cell: its row and column light up and the footer names it. A dot means the workspace doesn't use that agent. Long names truncate; the list scrolls past ~8 workspaces with the header pinned."],
+  B: ["B · Labeled pills", "Each place gets its own block: name on top, then pills that carry the agent's name. On = filled accent with color logo; off = dashed and grey. Nothing to decode, but taller."],
+  C: ["C · Summary, expand one", "Each place is one line: name, then a summary (logo stack + \"2 of 5\", or Off). Click a line to open a checklist with names and folders. Your agents opens first; one place open at a time. Stays compact however many workspaces."],
+};
+let S = { v: "A", d: "crowded", theme: "dark", hot: null, open: "yours" };
+for (const [k, v] of new URLSearchParams(location.hash.slice(1))) S[k] = v;
+let M = DATA[S.d]();
+
+function seg(id, opts, key, after) {
+  const el = document.getElementById(id); el.innerHTML = "";
+  for (const [k, label] of opts) {
+    const b = document.createElement("button"); b.textContent = label; b.className = S[key] === k ? "on" : "";
+    b.onclick = () => { S[key] = k; after && after(); draw(); }; el.appendChild(b);
+  }
+}
+const logo = (k) => `<span class="logo" title="${DIRS[k].name}">${LOGO[k]}</span>`;
+const folder = `<span class="fold">${FOLDER}</span>`;
+const yoursDirs = () => M.yours;
+function wsDirs(w) { return w.dirs.length ? w.dirs : M.yours; }
+function wsOn(w, k) { return w.on.includes(k); }
+function toggleWs(i, k) { const w = M.ws[i]; if (w.missing) return;
+  w.on = wsOn(w, k) ? w.on.filter(x => x !== k) : [...w.on, k];
+  if (!w.dirs.length && w.on.length) w.dirs = [...w.on];
+  draw(); }
+function toggleYours(k) { M.on.has(k) ? M.on.delete(k) : M.on.add(k); draw(); }
+function allSwitch() {
+  return `<span style="display:flex;align-items:center;gap:8px" title="Includes agents added later">All agents
+    <button class="switch ${M.all ? "on" : ""}" onclick="M.all=!M.all;draw()"></button></span>`;
+}
+function header() {
+  return `<div class="sh">Your agents <span class="preset"><i></i>Default</span></div>`;
+}
+function trigger() {
+  const stack = [...M.on].map(k => `<span class="logo" style="width:18px;height:18px">${LOGO[k]}</span>`).join("");
+  const n = M.ws.filter(w => w.on.length).length;
+  return `<div class="row"><div class="t"><b>release-notes</b><span>Drafts user-facing release notes for the Lumen Notes app from merged pull requests.</span></div>
+    <div class="trigger">${stack}<span class="chip">${folder}${n === 1 ? M.ws.find(w => w.on.length).name : n + " workspaces"}</span>
+    <span class="chev">${CHEV}</span></div></div>`;
+}
+
+function now() {
+  const pill = (on, k, click) => `<button class="pill ${on ? "on" : ""}" title="${DIRS[k].name}" onclick="${click}">${logo(k)}</button>`;
+  let h = header();
+  h += `<div class="line"><span class="lead">${allSwitch()}</span><span class="pills">${
+    yoursDirs().map(k => pill(M.on.has(k), k, `toggleYours('${k}')`)).join("")}</span></div>`;
+  h += `<div class="hr"></div><div class="sh">Workspaces</div>`;
+  M.ws.forEach((w, i) => {
+    h += `<div class="line ${w.missing ? "missing" : ""}"><span class="lead">${folder}<span><div>${w.name}</div>${
+      w.dirs.length ? "" : `<div class="muted small">No agents yet</div>`}</span></span><span class="pills">${
+      wsDirs(w).map(k => pill(wsOn(w, k), k, `toggleWs(${i},'${k}')`)).join("")}</span></div>`;
+  });
+  return `<div class="pop" style="width:300px">${h}</div>`;
+}
+
+function gridA() {
+  const cols = [...new Set([...M.yours, ...M.ws.flatMap(w => w.dirs)])];
+  const tmpl = `minmax(0,1fr) repeat(${cols.length}, 30px)`;
+  const width = 190 + cols.length * 30 + 24;
+  const hot = S.hot;
+  const hd = cols.map(k => `<div class="hd ${hot && hot.k === k ? "hot" : ""}" title="${DIRS[k].name}">${logo(k)}</div>`).join("");
+  const cell = (r, k, state, click) => {
+    const isHot = hot && (hot.k === k || hot.r === r);
+    const enter = `onmouseenter="S.hot={r:'${r}',k:'${k}'};drawPop()"`;
+    if (state === null) return `<div class="cell ${isHot ? "hot" : ""}" ${enter}><span class="na"></span></div>`;
+    return `<div class="cell ${isHot ? "hot" : ""}" ${enter}><button class="box ${state ? "on" : ""}" onclick="${click}"></button></div>`;
+  };
+  const name = (r, inner) => `<div class="nm ${hot && hot.r === r ? "hot" : ""}" style="${hot && hot.r === r ? "background:var(--p-hl)" : ""}">${inner}</div>`;
+  let h = `<div class="sh" style="margin-bottom:6px">${allSwitch()}<span class="preset"><i></i>Default</span></div>`;
+  h += `<div class="scroll" onmouseleave="S.hot=null;drawPop()"><div class="grid" style="grid-template-columns:${tmpl}">`;
+  h += `<div class="hd" style="justify-content:flex-start"></div>${hd}`;
+  h += name("yours", `<span class="fold" style="color:var(--p-fg)">${LOGO.universal.replace("<svg", "<svg style='opacity:0'")}</span><b>Your agents</b>`);
+  h += cols.map(k => cell("yours", k, M.yours.includes(k) ? M.on.has(k) : null, `toggleYours('${k}')`)).join("");
+  h += `<div style="grid-column:1/-1;border-top:1px solid var(--p-hairline);margin:4px 0"></div>`;
+  h += `<div style="grid-column:1/-1" class="sh">Workspaces</div>`;
+  M.ws.forEach((w, i) => {
+    const r = "w" + i;
+    h += `<div class="nm ${w.missing ? "missing" : ""}" style="${hot && hot.r === r ? "background:var(--p-hl)" : ""}" title="${w.name}${w.missing ? " — folder missing" : ""}">${folder}<span class="trunc">${w.name}</span></div>`;
+    h += cols.map(k => {
+      const offered = wsDirs(w).includes(k);
+      const c = cell(r, k, offered ? wsOn(w, k) : null, `toggleWs(${i},'${k}')`);
+      return w.missing ? c.replace('class="cell', 'class="cell missing') : c;
+    }).join("");
+  });
+  h += `</div></div>`;
+  let status = "Point at a box to see the agent and the place";
+  if (hot) {
+    const place = hot.r === "yours" ? "your agents" : M.ws[+hot.r.slice(1)].name;
+    const w = hot.r === "yours" ? null : M.ws[+hot.r.slice(1)];
+    const offered = w ? wsDirs(w).includes(hot.k) : M.yours.includes(hot.k);
+    const on = w ? wsOn(w, hot.k) : M.on.has(hot.k);
+    status = !offered ? `${place} doesn't use ${DIRS[hot.k].name}`
+      : w && w.missing ? `${place}: folder missing`
+      : `<b style="color:var(--p-fg)">${DIRS[hot.k].name}</b> in <b style="color:var(--p-fg)">${place}</b> · ${on ? "on" : "off"}`;
+  }
+  h += `<div class="status">${status}</div>`;
+  return `<div class="pop" style="width:${width}px">${h}</div>`;
+}
+
+function labeledB() {
+  const tag = (on, k, click) => `<button class="tag ${on ? "on" : ""}" onclick="${click}">${logo(k)}${DIRS[k].name}</button>`;
+  let h = `<div class="blk"><div class="top"><b style="flex:1">Your agents</b><span class="preset"><i></i>Default</span></div>
+    <div class="tags">${yoursDirs().map(k => tag(M.on.has(k), k, `toggleYours('${k}')`)).join("")}</div>
+    </div>`;
+  h += `<div class="hr" style="margin-top:4px;margin-bottom:4px"></div><div class="sh">Workspaces</div><div class="scroll" style="max-height:360px">`;
+  M.ws.forEach((w, i) => {
+    h += `<div class="blk ${w.missing ? "missing" : ""}"><div class="top">${folder}<span class="trunc" style="flex:1">${w.name}</span>
+      <span class="muted small">${w.missing ? "Folder missing" : !w.dirs.length ? "No agents yet" : ""}</span></div>
+      <div class="tags">${wsDirs(w).map(k => tag(wsOn(w, k), k, `toggleWs(${i},'${k}')`)).join("")}</div></div>`;
+  });
+  h += `</div>`;
+  return `<div class="pop" style="width:360px">${h}</div>`;
+}
+
+function expandC() {
+  const box = (on, click) => `<button class="box ${on ? "on" : ""}" onclick="event.stopPropagation();${click}"></button>`;
+  const sum = (on, of, missing) => {
+    if (missing) return `<span class="sum">Folder missing</span>`;
+    if (!on.length) return `<span class="sum">Off</span>`;
+    return `<span class="sum"><span class="stack">${on.map(k => logo(k)).join("")}</span>${on.length} of ${of}</span>`;
+  };
+  const acc = (id, lead, summary, body, missing) => {
+    const open = S.open === id;
+    return `<div class="acc ${open ? "open" : ""} ${missing ? "missing" : ""}">
+      <div class="head" onclick="S.open=S.open==='${id}'?null:'${id}';drawPop()">${lead}${summary}<span class="chev">${CHEV}</span></div>
+      ${open ? `<div class="items">${body}</div>` : ""}</div>`;
+  };
+  const item = (k, on, click, missing) => `<div class="item" onclick="${missing ? "" : click}">${logo(k)}
+    <span class="nm"><span class="${on ? "" : "off"}">${DIRS[k].name}</span> <span class="path">${DIRS[k].path}</span></span>${box(on, missing ? "" : click)}</div>`;
+  const yOn = M.yours.filter(k => M.on.has(k));
+  let h = "";
+  h += acc("yours", `<b>Your agents</b><span class="preset"><i></i>Default</span><span style="flex:1"></span>`, sum(yOn, M.yours.length),
+    `<div class="item" style="justify-content:space-between" onclick="M.all=!M.all;draw()"><span>All agents <span class="muted small">· includes agents added later</span></span><button class="switch ${M.all ? "on" : ""}" onclick="event.stopPropagation();M.all=!M.all;draw()"></button></div>` +
+    M.yours.map(k => item(k, M.on.has(k), `toggleYours('${k}')`)).join(""));
+  h += `<div class="hr" style="margin:8px -12px"></div><div class="sh" style="padding:0 8px 4px">Workspaces</div><div class="scroll" style="max-height:340px;padding:0 4px;margin:0 -4px">`;
+  M.ws.forEach((w, i) => {
+    const on = wsDirs(w).filter(k => wsOn(w, k));
+    const lead = `${folder}<span class="trunc" style="flex:1">${w.name}</span>`;
+    const body = (!w.dirs.length ? `<div class="muted small" style="padding:4px 0">No agents yet · turning one on adds its folder</div>` : "") +
+      wsDirs(w).map(k => item(k, wsOn(w, k), `toggleWs(${i},'${k}')`, w.missing)).join("");
+    h += acc("w" + i, lead, sum(on, wsDirs(w).length, w.missing), body, w.missing);
+  });
+  h += `</div>`;
+  return `<div class="pop" style="width:340px">${h}</div>`;
+}
+
+const RENDER = { now, A: gridA, B: labeledB, C: expandC };
+function drawPop() {
+  const app = document.getElementById("app");
+  app.innerHTML = trigger() + RENDER[S.v]();
+}
+function draw() {
+  document.documentElement.dataset.theme = S.theme;
+  seg("v", Object.entries(VARIANTS).map(([k, [l]]) => [k, l]), "v");
+  seg("d", [["few", "Few"], ["crowded", "Crowded"]], "d", () => { M = DATA[S.d](); });
+  seg("th", [["dark", "Dark"], ["light", "Light"]], "theme");
+  document.getElementById("note").textContent = VARIANTS[S.v][1];
+  drawPop();
+}
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Placement popover</title>
+<!-- Prototype: the Library placement popover, crowded and not. Variants: Now (before), A grid, B labeled
+     pills (chosen 2026-11-26), C summary rows. Build: python3 -I ../../scoped-pages/source/kit/inline.py
+     popover.html ../prototypes/popover.html -->
+<style>
+:root {
+  --p-bg: #181A1D; --p-fg: #E9EBEE; --p-muted: #25282C; --p-muted-fg: #A0A5AB;
+  --p-border: #2A2D31; --p-hairline: #212427; --p-popover: #1D1F23; --p-primary: #0077B6;
+  --p-accent-soft: #133146; --p-accent-soft-fg: #8FCCFB; --p-hl: rgba(233,235,238,.08);
+  --p-switch: #3A3E44; --p-shadow: 0 12px 32px rgba(0,0,0,.45), 0 0 0 1px #2A2D31;
+}
+:root[data-theme="light"] {
+  --p-bg: #FFFFFF; --p-fg: #1B1E23; --p-muted: #EFF3F8; --p-muted-fg: #5F646B;
+  --p-border: #E2E7EC; --p-hairline: #EBEFF4; --p-popover: #FFFFFF; --p-primary: #0077B6;
+  --p-accent-soft: #E4F2FE; --p-accent-soft-fg: #046094; --p-hl: rgba(27,30,35,.06);
+  --p-switch: #D3D8DE; --p-shadow: 0 12px 32px rgba(15,20,30,.14), 0 0 0 1px #E2E7EC;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--p-fg);
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
+button { font: inherit; color: inherit; }
+.bar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 12px 16px;
+  border-bottom: 1px solid var(--p-border); position: sticky; top: 0; background: var(--p-bg); z-index: 9; }
+.seg { display: inline-flex; background: var(--p-muted); border-radius: 8px; padding: 2px; gap: 2px; }
+.seg button { border: 0; background: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; color: var(--p-muted-fg); }
+.seg button.on { background: var(--p-bg); color: var(--p-fg); box-shadow: 0 0 0 1px var(--p-border); }
+.bar label { color: var(--p-muted-fg); font-size: 12px; margin-right: 6px; }
+.note { color: var(--p-muted-fg); font-size: 12px; padding: 10px 16px 0; max-width: 820px; }
+.stage { background: var(--p-bg); border-radius: 10px; display: flex; justify-content: flex-end; padding: 16px 24px 48px; min-height: 760px; }
+.col { width: 100%; max-width: 820px; position: relative; }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--p-border);
+  border-radius: 10px; background: var(--p-hl); }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { display: block; font-size: 14px; }
+.row .t span { color: var(--p-muted-fg); }
+.trigger { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; background: var(--p-hl); }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--p-border);
+  border-radius: 999px; font-size: 12px; }
+.pop { position: absolute; right: 0; top: 64px; background: var(--p-popover); border-radius: 10px;
+  box-shadow: var(--p-shadow); padding: 12px; }
+.logo { width: 16px; height: 16px; display: inline-flex; flex: none; }
+.logo svg { width: 100%; height: 100%; }
+.fold { width: 16px; height: 16px; flex: none; color: var(--p-muted-fg); }
+.sh { display: flex; align-items: center; justify-content: space-between; min-height: 24px;
+  color: var(--p-muted-fg); font-size: 12px; font-weight: 500; }
+.preset { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px;
+  background: var(--p-muted); color: var(--p-fg); font-size: 12px; font-weight: 500; }
+.preset i { width: 7px; height: 7px; border-radius: 50%; background: #A3A3A3; }
+.hr { border-top: 1px solid var(--p-hairline); margin: 10px -12px; }
+.muted { color: var(--p-muted-fg); }
+.small { font-size: 11.5px; }
+.trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.switch { width: 30px; height: 18px; border-radius: 999px; background: var(--p-switch); position: relative;
+  border: 0; padding: 0; cursor: pointer; flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.switch.on { background: var(--p-primary); }
+.switch.on::after { left: 14px; }
+.missing { opacity: .45; }
+
+/* Now */
+.pill { width: 26px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center;
+  justify-content: center; border: 1px dashed var(--p-border); cursor: pointer; background: none; padding: 0; }
+.pill .logo { opacity: .45; filter: grayscale(1); }
+.pill.on { border: 1px solid var(--p-fg); }
+.pill.on .logo { opacity: 1; filter: none; }
+.line { display: flex; align-items: center; gap: 12px; min-height: 28px; margin: 6px 0; }
+.line .lead { flex: 1 0 auto; display: flex; align-items: center; gap: 8px; }
+.pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; min-width: 0; }
+
+/* A grid */
+.grid { display: grid; align-items: center; }
+.grid .hd { position: sticky; top: 0; background: var(--p-popover); z-index: 2; height: 30px;
+  display: flex; align-items: center; justify-content: center; }
+.grid .nm { display: flex; align-items: center; gap: 8px; min-width: 0; height: 32px; padding-right: 8px; }
+.cell { height: 32px; display: flex; align-items: center; justify-content: center; }
+.cell.hot, .hd.hot { background: var(--p-hl); }
+.gridrow:hover > * { background: var(--p-hl); }
+.box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--p-muted-fg); background: none;
+  padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.box.on { background: var(--p-primary); border-color: var(--p-primary); }
+.box.on::after { content: ""; width: 8px; height: 4px; border: 2px solid #fff; border-top: 0; border-right: 0;
+  transform: translateY(-1px) rotate(-45deg); }
+.na { width: 4px; height: 4px; border-radius: 50%; background: var(--p-border); }
+.scroll { overflow: auto; max-height: 352px; margin: 0 -12px; padding: 0 12px; }
+.status { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--p-hairline); color: var(--p-muted-fg);
+  font-size: 12px; min-height: 18px; }
+
+/* B labeled */
+.blk { padding: 8px 0; }
+.blk + .blk { border-top: 1px solid var(--p-hairline); }
+.blk .top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px 0 6px; border-radius: 999px;
+  border: 1px dashed var(--p-border); background: none; cursor: pointer; color: var(--p-muted-fg); font-size: 12px; }
+.tag .logo { width: 14px; height: 14px; opacity: .55; filter: grayscale(1); }
+.tag.on { border: 1px solid transparent; background: var(--p-accent-soft); color: var(--p-accent-soft-fg); }
+.tag.on .logo { opacity: 1; filter: none; }
+
+/* C expand */
+.acc { border-radius: 8px; }
+.acc + .acc { margin-top: 2px; }
+.acc.open { background: var(--p-hl); }
+.head { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; cursor: pointer; border-radius: 8px; }
+.head:hover { background: var(--p-hl); }
+.sum { display: flex; align-items: center; gap: 6px; flex: none; color: var(--p-muted-fg); font-size: 12px; }
+.stack { display: flex; }
+.stack .logo { width: 18px; height: 18px; border-radius: 50%; background: var(--p-popover); padding: 2px;
+  box-shadow: 0 0 0 1.5px var(--p-popover); }
+.stack .logo + .logo { margin-left: -5px; }
+.chev { width: 14px; height: 14px; color: var(--p-muted-fg); transition: transform .15s; flex: none; }
+.open .chev { transform: rotate(180deg); }
+.items { padding: 2px 8px 8px 32px; }
+.item { display: flex; align-items: center; gap: 8px; height: 30px; cursor: pointer; }
+.item .nm { flex: 1; min-width: 0; }
+.item .path { color: var(--p-muted-fg); font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.off { color: var(--p-muted-fg); }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div><label>Variant</label><span class="seg" id="v"></span></div>
+  <div><label>Data</label><span class="seg" id="d"></span></div>
+  <div><label>Theme</label><span class="seg" id="th"></span></div>
+</div>
+<div class="note" id="note"></div>
+<div class="stage"><div class="col" id="app"></div></div>
+
+<script>
+const LOGO = {
+  universal: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" color="currentColor">
+  <path d="M8.64298 3.14559L6.93816 3.93362C4.31272 5.14719 3 5.75397 3 6.75C3 7.74603 4.31272 8.35281 6.93817 9.56638L8.64298 10.3544C10.2952 11.1181 11.1214 11.5 12 11.5C12.8786 11.5 13.7048 11.1181 15.357 10.3544L17.0618 9.56638C19.6873 8.35281 21 7.74603 21 6.75C21 5.75397 19.6873 5.14719 17.0618 3.93362L15.357 3.14559C13.7048 2.38186 12.8786 2 12 2C11.1214 2 10.2952 2.38186 8.64298 3.14559Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+  <path d="M20.788 11.0972C20.9293 11.2959 21 11.5031 21 11.7309C21 12.7127 19.6873 13.3109 17.0618 14.5072L15.357 15.284C13.7048 16.0368 12.8786 16.4133 12 16.4133C11.1214 16.4133 10.2952 16.0368 8.64298 15.284L6.93817 14.5072C4.31272 13.3109 3 12.7127 3 11.7309C3 11.5031 3.07067 11.2959 3.212 11.0972" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+  <path d="M20.3767 16.2661C20.7922 16.5971 21 16.927 21 17.3176C21 18.2995 19.6873 18.8976 17.0618 20.0939L15.357 20.8707C13.7048 21.6236 12.8786 22 12 22C11.1214 22 10.2952 21.6236 8.64298 20.8707L6.93817 20.0939C4.31272 18.8976 3 18.2995 3 17.3176C3 16.927 3.20778 16.5971 3.62334 16.2661" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+</svg>`, claude: `<svg style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd"></path></svg>`, cursor: `<svg fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.106 5.68L12.5.135a.998.998 0 00-.998 0L1.893 5.68a.84.84 0 00-.419.726v11.186c0 .3.16.577.42.727l9.607 5.547a.999.999 0 00.998 0l9.608-5.547a.84.84 0 00.42-.727V6.407a.84.84 0 00-.42-.726zm-.603 1.176L12.228 22.92c-.063.108-.228.064-.228-.061V12.34a.59.59 0 00-.295-.51l-9.11-5.26c-.107-.062-.063-.228.062-.228h18.55c.264 0 .428.286.296.514z"></path></svg>`,
+  gemini: `<svg style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M0 4.391A4.391 4.391 0 014.391 0h15.217A4.391 4.391 0 0124 4.391v15.217A4.391 4.391 0 0119.608 24H4.391A4.391 4.391 0 010 19.608V4.391z" fill="url(#lobe-icons-gemini-cli-_R_0_)"></path><path clip-rule="evenodd" d="M19.74 1.444a2.816 2.816 0 012.816 2.816v15.48a2.816 2.816 0 01-2.816 2.816H4.26a2.816 2.816 0 01-2.816-2.816V4.26A2.816 2.816 0 014.26 1.444h15.48zM7.236 8.564l7.752 3.728-7.752 3.727v2.802l9.557-4.596v-3.866L7.236 5.763v2.801z" fill="#1E1E2E" fill-rule="evenodd"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-cli-_R_0_" x1="24" x2="0" y1="6.587" y2="16.494"><stop stop-color="#EE4D5D"></stop><stop offset=".328" stop-color="#B381DD"></stop><stop offset=".476" stop-color="#207CFE"></stop></linearGradient></defs></svg>`, copilot: `<svg fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.245 5.364c1.322 1.36 1.877 3.216 2.11 5.817.622 0 1.2.135 1.592.654l.73.964c.21.278.323.61.323.955v2.62c0 .339-.173.669-.453.868C20.239 19.602 16.157 21.5 12 21.5c-4.6 0-9.205-2.583-11.547-4.258-.28-.2-.452-.53-.453-.868v-2.62c0-.345.113-.679.321-.956l.73-.963c.392-.517.974-.654 1.593-.654l.029-.297c.25-2.446.81-4.213 2.082-5.52 2.461-2.54 5.71-2.851 7.146-2.864h.198c1.436.013 4.685.323 7.146 2.864zm-7.244 4.328c-.284 0-.613.016-.962.05-.123.447-.305.85-.57 1.108-1.05 1.023-2.316 1.18-2.994 1.18-.638 0-1.306-.13-1.851-.464-.516.165-1.012.403-1.044.996a65.882 65.882 0 00-.063 2.884l-.002.48c-.002.563-.005 1.126-.013 1.69.002.326.204.63.51.765 2.482 1.102 4.83 1.657 6.99 1.657 2.156 0 4.504-.555 6.985-1.657a.854.854 0 00.51-.766c.03-1.682.006-3.372-.076-5.053-.031-.596-.528-.83-1.046-.996-.546.333-1.212.464-1.85.464-.677 0-1.942-.157-2.993-1.18-.266-.258-.447-.661-.57-1.108-.32-.032-.64-.049-.96-.05zm-2.525 4.013c.539 0 .976.426.976.95v1.753c0 .525-.437.95-.976.95a.964.964 0 01-.976-.95v-1.752c0-.525.437-.951.976-.951zm5 0c.539 0 .976.426.976.95v1.753c0 .525-.437.95-.976.95a.964.964 0 01-.976-.95v-1.752c0-.525.437-.951.976-.951zM7.635 5.087c-1.05.102-1.935.438-2.385.906-.975 1.037-.765 3.668-.21 4.224.405.394 1.17.657 1.995.657h.09c.649-.013 1.785-.176 2.73-1.11.435-.41.705-1.433.675-2.47-.03-.834-.27-1.52-.63-1.813-.39-.336-1.275-.482-2.265-.394zm6.465.394c-.36.292-.6.98-.63 1.813-.03 1.037.24 2.06.675 2.47.968.957 2.136 1.104 2.776 1.11h.044c.825 0 1.59-.263 1.995-.657.555-.556.765-3.187-.21-4.224-.45-.468-1.335-.804-2.385-.906-.99-.088-1.875.058-2.265.394zM12 7.615c-.24 0-.525.015-.84.044.03.16.045.336.06.526l-.001.159a2.94 2.94 0 01-.014.25c.225-.022.425-.027.612-.028h.366c.187 0 .387.006.612.028-.015-.146-.015-.277-.015-.409.015-.19.03-.365.06-.526a9.29 9.29 0 00-.84-.044z"></path></svg>`, windsurf: `<svg fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M23.78 5.004h-.228a2.187 2.187 0 00-2.18 2.196v4.912c0 .98-.804 1.775-1.76 1.775a1.818 1.818 0 01-1.472-.773L13.168 5.95a2.197 2.197 0 00-1.81-.95c-1.134 0-2.154.972-2.154 2.173v4.94c0 .98-.797 1.775-1.76 1.775-.57 0-1.136-.289-1.472-.773L.408 5.098C.282 4.918 0 5.007 0 5.228v4.284c0 .216.066.426.188.604l5.475 7.889c.324.466.8.812 1.351.938 1.377.316 2.645-.754 2.645-2.117V11.89c0-.98.787-1.775 1.76-1.775h.002c.586 0 1.135.288 1.472.773l4.972 7.163a2.15 2.15 0 001.81.95c1.158 0 2.151-.973 2.151-2.173v-4.939c0-.98.787-1.775 1.76-1.775h.194c.122 0 .22-.1.22-.222V5.225a.221.221 0 00-.22-.222z"></path></svg>`,
+};
+const FOLDER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" color="currentColor">
+  <path d="M9 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C22 9.08996 22 10.1433 22 12.25C22 15.7612 22 17.5167 21.1573 18.7779C20.7926 19.3238 20.3238 19.7926 19.7779 20.1573C18.5167 21 16.7612 21 13.25 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/>
+  <path d="M15.5 12L16.4199 12.7929C16.8066 13.1262 17 13.2929 17 13.5C17 13.7071 16.8066 13.8738 16.4199 14.2071L15.5 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+  <path d="M8.5 12L7.58009 12.7929C7.19337 13.1262 7 13.2929 7 13.5C7 13.7071 7.19336 13.8738 7.58009 14.2071L8.5 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+  <path d="M13 11L11 16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+</svg>`;
+const CHEV = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" color="currentColor">
+  <path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+</svg>`;
+const DIRS = {
+  universal: { name: "Universal", path: ".agents/skills", detail: "Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed" },
+  claude: { name: "Claude Code", path: ".claude/skills" },
+  cursor: { name: "Cursor", path: ".cursor/skills" },
+  gemini: { name: "Gemini CLI", path: ".gemini/skills" },
+  copilot: { name: "GitHub Copilot", path: ".github/skills" },
+  windsurf: { name: "Windsurf", path: ".windsurf/skills" },
+};
+const DATA = {
+  few: () => ({
+    yours: ["universal", "claude", "cursor", "gemini", "copilot"], on: new Set(["claude"]), all: false,
+    ws: [
+      { name: "atlas-web", dirs: ["claude"], on: ["claude"] },
+      { name: "orbit-api", dirs: ["universal"], on: [] },
+    ],
+  }),
+  crowded: () => ({
+    yours: ["universal", "claude", "cursor", "gemini", "copilot", "windsurf"], on: new Set(["claude", "cursor"]), all: false,
+    ws: [
+      { name: "atlas-web", dirs: ["claude"], on: ["claude"] },
+      { name: "orbit-api", dirs: ["universal"], on: [] },
+      { name: "helios", dirs: ["universal", "claude", "cursor", "gemini", "copilot"], on: ["universal", "claude"] },
+      { name: "nebula-dashboard-frontend", dirs: ["universal", "claude", "cursor", "gemini", "copilot"], on: ["cursor"] },
+      { name: "quasar-payments-service-monorepo", dirs: ["universal", "claude", "cursor", "gemini", "copilot", "windsurf"], on: [] },
+      { name: "design-tokens-playground", dirs: ["claude", "cursor"], on: ["claude", "cursor"] },
+      { name: "vega-ios", dirs: [], on: [] },
+      { name: "kestrel-legacy", dirs: ["claude", "copilot"], on: ["claude"], missing: true },
+    ],
+  }),
+};
+const VARIANTS = {
+  now: ["Now", "Today's popover, for comparison. Pills are icon-only and right-aligned per line, so the same agent sits at a different spot on every line, and a long name crushes the pills into a column."],
+  A: ["A · Grid", "One column per agent directory, its logo once in the header. Rows line up, so you read down a column (\"where is Claude Code on?\") or across a row. Hover a cell: its row and column light up and the footer names it. A dot means the workspace doesn't use that agent. Long names truncate; the list scrolls past ~8 workspaces with the header pinned."],
+  B: ["B · Labeled pills", "Each place gets its own block: name on top, then pills that carry the agent's name. On = filled accent with color logo; off = dashed and grey. Nothing to decode, but taller."],
+  C: ["C · Summary, expand one", "Each place is one line: name, then a summary (logo stack + \"2 of 5\", or Off). Click a line to open a checklist with names and folders. Your agents opens first; one place open at a time. Stays compact however many workspaces."],
+};
+let S = { v: "A", d: "crowded", theme: "dark", hot: null, open: "yours" };
+for (const [k, v] of new URLSearchParams(location.hash.slice(1))) S[k] = v;
+let M = DATA[S.d]();
+
+function seg(id, opts, key, after) {
+  const el = document.getElementById(id); el.innerHTML = "";
+  for (const [k, label] of opts) {
+    const b = document.createElement("button"); b.textContent = label; b.className = S[key] === k ? "on" : "";
+    b.onclick = () => { S[key] = k; after && after(); draw(); }; el.appendChild(b);
+  }
+}
+const logo = (k) => `<span class="logo" title="${DIRS[k].name}">${LOGO[k]}</span>`;
+const folder = `<span class="fold">${FOLDER}</span>`;
+const yoursDirs = () => M.yours;
+function wsDirs(w) { return w.dirs.length ? w.dirs : M.yours; }
+function wsOn(w, k) { return w.on.includes(k); }
+function toggleWs(i, k) { const w = M.ws[i]; if (w.missing) return;
+  w.on = wsOn(w, k) ? w.on.filter(x => x !== k) : [...w.on, k];
+  if (!w.dirs.length && w.on.length) w.dirs = [...w.on];
+  draw(); }
+function toggleYours(k) { M.on.has(k) ? M.on.delete(k) : M.on.add(k); draw(); }
+function allSwitch() {
+  return `<span style="display:flex;align-items:center;gap:8px" title="Includes agents added later">All agents
+    <button class="switch ${M.all ? "on" : ""}" onclick="M.all=!M.all;draw()"></button></span>`;
+}
+function header() {
+  return `<div class="sh">Your agents <span class="preset"><i></i>Default</span></div>`;
+}
+function trigger() {
+  const stack = [...M.on].map(k => `<span class="logo" style="width:18px;height:18px">${LOGO[k]}</span>`).join("");
+  const n = M.ws.filter(w => w.on.length).length;
+  return `<div class="row"><div class="t"><b>release-notes</b><span>Drafts user-facing release notes for the Lumen Notes app from merged pull requests.</span></div>
+    <div class="trigger">${stack}<span class="chip">${folder}${n === 1 ? M.ws.find(w => w.on.length).name : n + " workspaces"}</span>
+    <span class="chev">${CHEV}</span></div></div>`;
+}
+
+function now() {
+  const pill = (on, k, click) => `<button class="pill ${on ? "on" : ""}" title="${DIRS[k].name}" onclick="${click}">${logo(k)}</button>`;
+  let h = header();
+  h += `<div class="line"><span class="lead">${allSwitch()}</span><span class="pills">${
+    yoursDirs().map(k => pill(M.on.has(k), k, `toggleYours('${k}')`)).join("")}</span></div>`;
+  h += `<div class="hr"></div><div class="sh">Workspaces</div>`;
+  M.ws.forEach((w, i) => {
+    h += `<div class="line ${w.missing ? "missing" : ""}"><span class="lead">${folder}<span><div>${w.name}</div>${
+      w.dirs.length ? "" : `<div class="muted small">No agents yet</div>`}</span></span><span class="pills">${
+      wsDirs(w).map(k => pill(wsOn(w, k), k, `toggleWs(${i},'${k}')`)).join("")}</span></div>`;
+  });
+  return `<div class="pop" style="width:300px">${h}</div>`;
+}
+
+function gridA() {
+  const cols = [...new Set([...M.yours, ...M.ws.flatMap(w => w.dirs)])];
+  const tmpl = `minmax(0,1fr) repeat(${cols.length}, 30px)`;
+  const width = 190 + cols.length * 30 + 24;
+  const hot = S.hot;
+  const hd = cols.map(k => `<div class="hd ${hot && hot.k === k ? "hot" : ""}" title="${DIRS[k].name}">${logo(k)}</div>`).join("");
+  const cell = (r, k, state, click) => {
+    const isHot = hot && (hot.k === k || hot.r === r);
+    const enter = `onmouseenter="S.hot={r:'${r}',k:'${k}'};drawPop()"`;
+    if (state === null) return `<div class="cell ${isHot ? "hot" : ""}" ${enter}><span class="na"></span></div>`;
+    return `<div class="cell ${isHot ? "hot" : ""}" ${enter}><button class="box ${state ? "on" : ""}" onclick="${click}"></button></div>`;
+  };
+  const name = (r, inner) => `<div class="nm ${hot && hot.r === r ? "hot" : ""}" style="${hot && hot.r === r ? "background:var(--p-hl)" : ""}">${inner}</div>`;
+  let h = `<div class="sh" style="margin-bottom:6px">${allSwitch()}<span class="preset"><i></i>Default</span></div>`;
+  h += `<div class="scroll" onmouseleave="S.hot=null;drawPop()"><div class="grid" style="grid-template-columns:${tmpl}">`;
+  h += `<div class="hd" style="justify-content:flex-start"></div>${hd}`;
+  h += name("yours", `<span class="fold" style="color:var(--p-fg)">${LOGO.universal.replace("<svg", "<svg style='opacity:0'")}</span><b>Your agents</b>`);
+  h += cols.map(k => cell("yours", k, M.yours.includes(k) ? M.on.has(k) : null, `toggleYours('${k}')`)).join("");
+  h += `<div style="grid-column:1/-1;border-top:1px solid var(--p-hairline);margin:4px 0"></div>`;
+  h += `<div style="grid-column:1/-1" class="sh">Workspaces</div>`;
+  M.ws.forEach((w, i) => {
+    const r = "w" + i;
+    h += `<div class="nm ${w.missing ? "missing" : ""}" style="${hot && hot.r === r ? "background:var(--p-hl)" : ""}" title="${w.name}${w.missing ? " — folder missing" : ""}">${folder}<span class="trunc">${w.name}</span></div>`;
+    h += cols.map(k => {
+      const offered = wsDirs(w).includes(k);
+      const c = cell(r, k, offered ? wsOn(w, k) : null, `toggleWs(${i},'${k}')`);
+      return w.missing ? c.replace('class="cell', 'class="cell missing') : c;
+    }).join("");
+  });
+  h += `</div></div>`;
+  let status = "Point at a box to see the agent and the place";
+  if (hot) {
+    const place = hot.r === "yours" ? "your agents" : M.ws[+hot.r.slice(1)].name;
+    const w = hot.r === "yours" ? null : M.ws[+hot.r.slice(1)];
+    const offered = w ? wsDirs(w).includes(hot.k) : M.yours.includes(hot.k);
+    const on = w ? wsOn(w, hot.k) : M.on.has(hot.k);
+    status = !offered ? `${place} doesn't use ${DIRS[hot.k].name}`
+      : w && w.missing ? `${place}: folder missing`
+      : `<b style="color:var(--p-fg)">${DIRS[hot.k].name}</b> in <b style="color:var(--p-fg)">${place}</b> · ${on ? "on" : "off"}`;
+  }
+  h += `<div class="status">${status}</div>`;
+  return `<div class="pop" style="width:${width}px">${h}</div>`;
+}
+
+function labeledB() {
+  const tag = (on, k, click) => `<button class="tag ${on ? "on" : ""}" onclick="${click}">${logo(k)}${DIRS[k].name}</button>`;
+  let h = `<div class="blk"><div class="top"><b style="flex:1">Your agents</b><span class="preset"><i></i>Default</span></div>
+    <div class="tags">${yoursDirs().map(k => tag(M.on.has(k), k, `toggleYours('${k}')`)).join("")}</div>
+    </div>`;
+  h += `<div class="hr" style="margin-top:4px;margin-bottom:4px"></div><div class="sh">Workspaces</div><div class="scroll" style="max-height:360px">`;
+  M.ws.forEach((w, i) => {
+    h += `<div class="blk ${w.missing ? "missing" : ""}"><div class="top">${folder}<span class="trunc" style="flex:1">${w.name}</span>
+      <span class="muted small">${w.missing ? "Folder missing" : !w.dirs.length ? "No agents yet" : ""}</span></div>
+      <div class="tags">${wsDirs(w).map(k => tag(wsOn(w, k), k, `toggleWs(${i},'${k}')`)).join("")}</div></div>`;
+  });
+  h += `</div>`;
+  return `<div class="pop" style="width:360px">${h}</div>`;
+}
+
+function expandC() {
+  const box = (on, click) => `<button class="box ${on ? "on" : ""}" onclick="event.stopPropagation();${click}"></button>`;
+  const sum = (on, of, missing) => {
+    if (missing) return `<span class="sum">Folder missing</span>`;
+    if (!on.length) return `<span class="sum">Off</span>`;
+    return `<span class="sum"><span class="stack">${on.map(k => logo(k)).join("")}</span>${on.length} of ${of}</span>`;
+  };
+  const acc = (id, lead, summary, body, missing) => {
+    const open = S.open === id;
+    return `<div class="acc ${open ? "open" : ""} ${missing ? "missing" : ""}">
+      <div class="head" onclick="S.open=S.open==='${id}'?null:'${id}';drawPop()">${lead}${summary}<span class="chev">${CHEV}</span></div>
+      ${open ? `<div class="items">${body}</div>` : ""}</div>`;
+  };
+  const item = (k, on, click, missing) => `<div class="item" onclick="${missing ? "" : click}">${logo(k)}
+    <span class="nm"><span class="${on ? "" : "off"}">${DIRS[k].name}</span> <span class="path">${DIRS[k].path}</span></span>${box(on, missing ? "" : click)}</div>`;
+  const yOn = M.yours.filter(k => M.on.has(k));
+  let h = "";
+  h += acc("yours", `<b>Your agents</b><span class="preset"><i></i>Default</span><span style="flex:1"></span>`, sum(yOn, M.yours.length),
+    `<div class="item" style="justify-content:space-between" onclick="M.all=!M.all;draw()"><span>All agents <span class="muted small">· includes agents added later</span></span><button class="switch ${M.all ? "on" : ""}" onclick="event.stopPropagation();M.all=!M.all;draw()"></button></div>` +
+    M.yours.map(k => item(k, M.on.has(k), `toggleYours('${k}')`)).join(""));
+  h += `<div class="hr" style="margin:8px -12px"></div><div class="sh" style="padding:0 8px 4px">Workspaces</div><div class="scroll" style="max-height:340px;padding:0 4px;margin:0 -4px">`;
+  M.ws.forEach((w, i) => {
+    const on = wsDirs(w).filter(k => wsOn(w, k));
+    const lead = `${folder}<span class="trunc" style="flex:1">${w.name}</span>`;
+    const body = (!w.dirs.length ? `<div class="muted small" style="padding:4px 0">No agents yet · turning one on adds its folder</div>` : "") +
+      wsDirs(w).map(k => item(k, wsOn(w, k), `toggleWs(${i},'${k}')`, w.missing)).join("");
+    h += acc("w" + i, lead, sum(on, wsDirs(w).length, w.missing), body, w.missing);
+  });
+  h += `</div>`;
+  return `<div class="pop" style="width:340px">${h}</div>`;
+}
+
+const RENDER = { now, A: gridA, B: labeledB, C: expandC };
+function drawPop() {
+  const app = document.getElementById("app");
+  app.innerHTML = trigger() + RENDER[S.v]();
+}
+function draw() {
+  document.documentElement.dataset.theme = S.theme;
+  seg("v", Object.entries(VARIANTS).map(([k, [l]]) => [k, l]), "v");
+  seg("d", [["few", "Few"], ["crowded", "Crowded"]], "d", () => { M = DATA[S.d](); });
+  seg("th", [["dark", "Dark"], ["light", "Light"]], "theme");
+  document.getElementById("note").textContent = VARIANTS[S.v][1];
+  drawPop();
+}
+draw();
+</script>
+</body>
+</html>

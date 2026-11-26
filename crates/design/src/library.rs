@@ -29,3 +29,8 @@ pub const GRID_GAP: f32 = space::LG;
 pub const NARROW_LIST: f32 = 440.0;
 /// Below this width a grid tile counts a skill's workspaces in one chip.
 pub const NARROW_TILE: f32 = 200.0;
+/// Width of a skill's placement popover: layout measured from the approved labeled-pills
+/// prototype (`docs/design/place-popover`).
+pub const POPOVER_WIDTH: f32 = 360.0;
+/// Tallest the placement popover's workspaces list grows before it scrolls.
+pub const POPOVER_LIST_MAX_HEIGHT: f32 = 320.0;

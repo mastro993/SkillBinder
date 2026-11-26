@@ -41,6 +41,7 @@ fn row(name: &str, ids: &[&str]) -> AgentRow {
     AgentRow {
         reader: Reader::Agent(ids[0].to_owned()),
         name: name.to_owned(),
+        names: vec![name.to_owned()],
         ids: ids.iter().map(|id| (*id).to_owned()).collect(),
         dir: format!("~/{name}"),
         resolved: format!("/h/{name}"),

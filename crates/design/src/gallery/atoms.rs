@@ -123,6 +123,17 @@ fn chips() -> Div {
                 .dashed()
                 .child("Dashed"),
         )
+        .child(
+            ToggleChip::new("gallery-toggle-inert", false)
+                .dashed()
+                .inert(true)
+                .child("Inert"),
+        )
+        .child(
+            ToggleChip::new("gallery-toggle-disabled", true)
+                .disabled(true)
+                .child("Disabled"),
+        )
 }
 
 fn marks() -> Div {

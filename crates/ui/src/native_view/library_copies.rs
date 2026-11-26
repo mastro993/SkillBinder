@@ -24,6 +24,8 @@ pub(crate) struct AgentRow {
     pub reader: Reader,
     /// The name the Agents section shows.
     pub name: String,
+    /// Every agent that reads the directory, by name, the one whose logo the row shows first.
+    pub names: Vec<String>,
     /// The registry identities of the row's agents.
     pub ids: Vec<String>,
     /// The skill directory as the app shows it.
@@ -66,6 +68,7 @@ fn rows_of(agents: Vec<&AgentOption>, home: &str) -> Vec<AgentRow> {
         rows.push(AgentRow {
             reader: Reader::Universal(universal.iter().map(|a| a.display_name.clone()).collect()),
             name: UNIVERSAL.to_owned(),
+            names: universal.iter().map(|a| a.display_name.clone()).collect(),
             ids: universal.iter().map(|agent| agent.id.clone()).collect(),
             dir,
             resolved,
@@ -76,6 +79,7 @@ fn rows_of(agents: Vec<&AgentOption>, home: &str) -> Vec<AgentRow> {
         Some(AgentRow {
             reader: Reader::Agent(agent.id.clone()),
             name: agent_name(agent, home),
+            names: vec![agent_name(agent, home)],
             ids: vec![agent.id.clone()],
             dir,
             resolved,
