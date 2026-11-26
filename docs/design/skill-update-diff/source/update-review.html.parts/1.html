@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review an update</title>
+<!-- Skill updates: Update on one skill opens a review of its changes before anything is written.
+     Variants: how the dialog lays out the changes (GPUI Kit's Diff draws the patch in every one).
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py update-review.html ../prototypes/update-review.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+.sb-nav-row[data-nav="discovery"] { display: none; }
+.ud-ctx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 12.5px/1.4 var(--sb-font); color: var(--sb-muted-fg); }
+
+/* ---- the skill page behind the dialog ---- */
+.ud-upd { color: var(--sb-warning); display: inline-flex; }
+.ud-outcome { font-size: 12.5px; color: var(--sb-muted-fg); }
+.ud-md { max-width: 640px; font-size: 13px; line-height: 1.55; }
+.ud-md h1 { margin: 0 0 8px; font-size: 18px; }
+.ud-md h2 { margin: 14px 0 4px; font-size: 14px; }
+.ud-md p { margin: 0 0 8px; }
+.ud-md code { padding: 1px 4px; border-radius: 4px; background: var(--sb-muted); font: 12px var(--sb-mono); }
+
+/* ---- the dialog ---- */
+.sb-scrim.ud-scrim { align-items: center; padding: 10px; }
+.sb-dialog.ud-dialog { width: 92%; height: 92%; max-width: none; max-height: none; }
+.ud-dialog .sb-dialog-header { flex-wrap: wrap; row-gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--sb-border); }
+.ud-dialog .sb-dialog-body { display: flex; flex-direction: column; gap: 8px; overflow: hidden; padding: 10px 16px 12px; }
+.ud-dialog .sb-dialog-footer { justify-content: flex-end; padding-top: 10px; padding-bottom: 12px; border-top: 1px solid var(--sb-border); }
+.ud-sub { flex-basis: 100%; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--sb-muted-fg); }
+.ud-sub .sb-ic { flex: none; }
+.ud-src { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--sb-mono); font-size: 11.5px; }
+.ud-stat { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ud-add { color: var(--sb-success); }
+.ud-del { color: var(--sb-danger); }
+.ud-foot-note { margin-right: auto; font-size: 12px; color: var(--sb-muted-fg); }
+.ud-notice { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; }
+.ud-notice .sb-ic { flex: none; margin-top: 1px; }
+.ud-notice.is-warning { background: color-mix(in srgb, var(--sb-warning) 12%, var(--sb-bg)); }
+.ud-notice.is-warning .sb-ic { color: var(--sb-warning); }
+.ud-notice.is-info { background: color-mix(in srgb, var(--sb-info) 12%, var(--sb-bg)); }
+.ud-notice.is-info .sb-ic { color: var(--sb-info); }
+.ud-notice.is-danger { background: color-mix(in srgb, var(--sb-danger) 10%, var(--sb-bg)); }
+.ud-notice.is-danger .sb-ic { color: var(--sb-danger); }
+.ud-notice > .sb-btn { margin-left: auto; }
+.ud-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--sb-muted-fg); font-size: 12.5px; }
+
+/* ---- Kit Diff look: file headers, gutters, change backgrounds ---- */
+.ud-diff { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--sb-border); border-radius: 8px; font: 11.5px/1.6 var(--sb-mono); }
+.ud-file + .ud-file { border-top: 1px solid var(--sb-border); }
+.ud-fhead {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px;
+  border-bottom: 1px solid var(--sb-border); background: var(--sb-card); font: 500 12px var(--sb-font); cursor: pointer;
+}
+.ud-file.is-collapsed .ud-fhead { border-bottom: 0; }
+.ud-chev { flex: none; color: var(--sb-muted-fg); transition: transform .12s; transform: rotate(90deg); }
+.ud-file.is-collapsed .ud-chev { transform: none; }
+.ud-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--sb-mono); font-size: 11.5px; }
+.ud-fhead .ud-stat { margin-left: auto; font-size: 11.5px; }
+.ud-badge { flex: none; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; font: 600 10px var(--sb-font); }
+.ud-badge.is-a { background: color-mix(in srgb, var(--sb-success) 18%, transparent); color: var(--sb-success); }
+.ud-badge.is-m { background: color-mix(in srgb, var(--sb-warning) 22%, transparent); color: color-mix(in srgb, var(--sb-warning) 70%, var(--sb-fg)); }
+.ud-badge.is-d { background: color-mix(in srgb, var(--sb-danger) 16%, transparent); color: var(--sb-danger); }
+.ud-file.is-collapsed .ud-rows { display: none; }
+.ud-rows { display: grid; grid-template-columns: max-content max-content 1fr; min-width: max-content; }
+.ud-rows.is-split { grid-template-columns: max-content 1fr max-content 1fr; min-width: 0; }
+.ud-ln { padding: 0 8px; text-align: right; color: var(--sb-muted-fg); user-select: none; font-variant-numeric: tabular-nums; }
+.ud-code { padding: 0 12px 0 4px; white-space: pre; }
+.ud-rows.is-split .ud-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ud-code::before { content: attr(data-mark); display: inline-block; width: 14px; color: var(--sb-muted-fg); }
+.is-plus { background: color-mix(in srgb, var(--sb-success) 13%, var(--sb-bg)); }
+.is-plus.ud-ln { background: color-mix(in srgb, var(--sb-success) 22%, var(--sb-bg)); }
+.is-minus { background: color-mix(in srgb, var(--sb-danger) 11%, var(--sb-bg)); }
+.is-minus.ud-ln { background: color-mix(in srgb, var(--sb-danger) 19%, var(--sb-bg)); }
+.is-empty { background: var(--sb-muted); }
+.ud-fold {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 0;
+  background: var(--sb-muted); color: var(--sb-muted-fg); font: 11.5px var(--sb-font); text-align: left; cursor: pointer;
+}
+.ud-fold:hover { color: var(--sb-fg); }
+.ud-binary { padding: 10px 12px; font: 12px var(--sb-font); color: var(--sb-muted-fg); }
+
+/* ---- B: file list beside the diff ---- */
+.ud-split { flex: 1; min-height: 0; display: flex; gap: 10px; }
+.ud-files { flex: 0 0 220px; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; padding: 4px; border: 1px solid var(--sb-border); border-radius: 8px; }
+.ud-frow { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; color: var(--sb-fg); text-align: left; cursor: pointer; }
+.ud-frow:hover { background: var(--sb-hover); }
+.ud-frow.is-selected { background: var(--sb-sel); }
+.ud-frow .ud-path { flex: 1; }
+.ud-frow .ud-stat { font: 11px var(--sb-font); }
+.ud-files-head { padding: 6px 8px 4px; font-size: 11.5px; color: var(--sb-muted-fg); }
+.ud-split .ud-diff { flex: 1; }
+</style>
+</head>
+<body data-first-variant="a">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:620px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
