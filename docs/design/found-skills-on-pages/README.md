@@ -18,3 +18,7 @@ This folder holds the prototype the user approved on 2026-11-26 for [the found-s
 python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/found-skills-on-pages/source/one-list.html docs/design/found-skills-on-pages/prototypes/one-list.html
 python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/found-skills-on-pages/source/place-pages.html docs/design/found-skills-on-pages/prototypes/place-pages.html
 ```
+
+## Known differences
+
+- **U4 keyboard focus:** Ignore and Import… each show while the row is hovered or while that button holds keyboard focus, so tabbing from Ignore to Import… hides Ignore. Showing both while either holds focus would need GPUI's `in_focus` on their wrapper, which takes a focus handle per row kept on the view. Every focused button is visible, so the per-button reveal stays, as on Library rows.

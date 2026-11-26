@@ -80,6 +80,18 @@ pub(crate) struct Group<'a> {
     pub rows: Vec<Row<'a>>,
 }
 
+/// `found` holding only the found skills whose keys `only` names, when it names some, so every
+/// list, tick, and count of the dialog sees just those (U6). The plan keeps its items.
+pub(crate) fn narrowed(mut found: FoundImport, only: Option<&BTreeSet<String>>) -> FoundImport {
+    if let Some(only) = only {
+        found
+            .scan
+            .candidates
+            .retain(|candidate| only.contains(&candidate.key));
+    }
+    found
+}
+
 /// Each found skill of `found` not in library with the plan's item for it, in scan order.
 fn found_rows(found: &FoundImport) -> impl Iterator<Item = Row<'_>> {
     let listed: Vec<&Candidate> = found

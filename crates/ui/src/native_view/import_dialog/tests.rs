@@ -1,8 +1,8 @@
 use super::super::snapshot_query::fixture::Fixture;
 use super::End;
 use super::list::{
-    Count, Place, default_ticks, found_count, groups, ignored_rows, import_label, rows, selection,
-    status, tick_all, tickable,
+    Count, Place, default_ticks, found_count, groups, ignored_rows, import_label, narrowed, rows,
+    selection, status, tick_all, tickable,
 };
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -178,6 +178,96 @@ fn ignored_skills_are_listed_apart_and_never_grouped_ticked_counted_or_imported(
     snapshot.ignored = ignoring(&["review", "storybook", "tdd", "gone"]);
     assert_eq!(found_count(&snapshot), 0, "every found skill ignored");
     assert!(groups(&found, &workspaces, &snapshot.ignored).is_empty());
+}
+
+#[test]
+fn a_dialog_a_page_opened_lists_ticks_and_imports_only_its_skills() {
+    let deploy = version(
+        "acme-deploy",
+        "/w/acme/.agents/skills/acme-deploy",
+        false,
+        "acme",
+    );
+    let figma = version(
+        "figma-sync",
+        "/w/acme/.claude/skills/figma-sync",
+        false,
+        "acme",
+    );
+    let vendor = version(
+        "vendor-lint",
+        "/w/acme/.agents/skills/vendor-lint",
+        false,
+        "acme",
+    );
+    // Also found in your agents: still listed with every location it was found in (U6).
+    let mut global = version("vendor-lint", "/h/.agents/skills/vendor-lint", true, "");
+    global.id = CandidateId("vendor-lint-global".to_owned());
+    global.preferred = false;
+    let other = version(
+        "docs-lint",
+        "/w/docs/.agents/skills/docs-lint",
+        false,
+        "docs",
+    );
+    let items = vec![
+        item(&deploy, ValidationStatus::Valid),
+        item(&figma, ValidationStatus::Invalid),
+        item(&vendor, ValidationStatus::Valid),
+        item(&other, ValidationStatus::Valid),
+    ];
+    let all = found(vec![deploy, figma, vendor, global, other], items);
+    let workspaces = [workspace("acme", 0), workspace("docs", 1)];
+    let none = BTreeMap::new();
+    let page: BTreeSet<String> = ["acme-deploy", "figma-sync", "vendor-lint"]
+        .map(str::to_owned)
+        .into();
+
+    let found = narrowed(all.clone(), Some(&page));
+    let groups = groups(&found, &workspaces, &none);
+    let listed: Vec<&str> = rows(&groups).map(|row| row.key()).collect();
+    assert_eq!(listed, ["acme-deploy", "figma-sync", "vendor-lint"]);
+    let versions = rows(&groups)
+        .find(|row| row.key() == "vendor-lint")
+        .map(|row| row.skill.versions.len());
+    assert_eq!(versions, Some(2));
+    let ticked = default_ticks(&groups);
+    assert_eq!(
+        keys(&ticked),
+        ["acme-deploy", "vendor-lint"],
+        "invalid unticked"
+    );
+    let ids: Vec<String> = selection(&groups, &ticked)
+        .ids
+        .into_iter()
+        .map(|id| id.0)
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "acme-deploy@/w/acme/.agents/skills/acme-deploy",
+            "vendor-lint@/w/acme/.agents/skills/vendor-lint"
+        ]
+    );
+    assert_eq!(status(&found, &none), "3 found · 0 already in library");
+
+    let row: BTreeSet<String> = ["acme-deploy".to_owned()].into();
+    let one = narrowed(all.clone(), Some(&row));
+    let listed: Vec<&str> = rows(&groups_of(&one)).map(|row| row.key()).collect();
+    assert_eq!(listed, ["acme-deploy"]);
+    assert_eq!(keys(&default_ticks(&groups_of(&one))), ["acme-deploy"]);
+
+    let every = narrowed(all, None);
+    assert_eq!(
+        rows(&groups_of(&every)).count(),
+        4,
+        "Scan for skills lists all"
+    );
+}
+
+/// The groups of `found` with no workspace and nothing ignored.
+fn groups_of(found: &FoundImport) -> Vec<super::list::Group<'_>> {
+    groups(found, &[], &BTreeMap::new())
 }
 
 #[test]
