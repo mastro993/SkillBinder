@@ -1,0 +1,174 @@
+<script>
+/* The pdf skill's library content and its source's current content, and a line diff of them.
+ * UD.files(state) -> [{path, status:'A'|'M'|'D'|'B', rows, add, del}]: rows are
+ * {t:' '|'+'|'-', o, n, text} with old/new line numbers, as Kit's DiffFile holds a parsed patch. */
+(function () {
+  'use strict';
+  const SKILL_OLD = `---
+name: pdf
+description: Extract text and tables from PDF files.
+---
+
+# PDF
+
+Use this skill when the user asks to read a PDF.
+
+## Extract text
+
+Run \`python scripts/extract.py <file>\` and read its output.
+Pages come out in order, separated by a form feed.
+
+## Tables
+
+Tables come out as TSV, one file per table.
+Name each file after its page: \`page-3-table-1.tsv\`.
+
+## Limits
+
+Scanned PDFs have no text layer. Say so instead of guessing.`;
+  const SKILL_NEW = `---
+name: pdf
+description: Extract text and tables from PDF files, and fill PDF forms.
+license: MIT
+---
+
+# PDF
+
+Use this skill when the user asks to read, fill, or check a PDF.
+
+## Extract text
+
+Run \`python scripts/extract.py <file>\` and read its output.
+Pages come out in order, separated by a form feed.
+
+## Tables
+
+Tables come out as TSV, one file per table.
+Name each file after its page: \`page-3-table-1.tsv\`.
+
+## Fill forms
+
+Run \`python scripts/fill_form.py <file> <fields.json>\`.
+Ask before overwriting the original; write \`<file>-filled.pdf\` otherwise.
+
+## Limits
+
+Scanned PDFs have no text layer. Run \`scripts/ocr.sh\` first.`;
+  // A line the user added in the library folder, outside SkillBinder (the skill has drifted).
+  const LOCAL_EDIT = 'Always answer in Italian.';
+  const EXTRACT_OLD = `import sys
+from pypdf import PdfReader
+
+
+def main(path):
+    reader = PdfReader(path)
+    for page in reader.pages:
+        print(page.extract_text())
+        print("\\f")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])`;
+  const EXTRACT_NEW = `import sys
+from pypdf import PdfReader
+
+
+def main(path):
+    reader = PdfReader(path)
+    if reader.is_encrypted:
+        sys.exit("The PDF is encrypted; ask the user for its password.")
+    for page in reader.pages:
+        print(page.extract_text())
+        print("\\f")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])`;
+  const FILL_NEW = `import json
+import sys
+from pypdf import PdfReader, PdfWriter
+
+
+def main(path, fields_path):
+    reader = PdfReader(path)
+    writer = PdfWriter(clone_from=reader)
+    fields = json.load(open(fields_path))
+    for page in writer.pages:
+        writer.update_page_form_field_values(page, fields)
+    out = path.removesuffix(".pdf") + "-filled.pdf"
+    writer.write(out)
+    print(out)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1], sys.argv[2])`;
+  const REFERENCE_OLD = `# pypdf notes
+
+- \`PdfReader(path).pages\` lists pages.
+- \`page.extract_text()\` returns the text layer.
+- Tables need pdfplumber.`;
+  // What a second fetch finds when the source moved after the dialog opened.
+  const MOVED_LINE = 'Run `python scripts/fill_form.py <file> <fields.json> --flatten`.';
+
+  /** Line diff by longest common subsequence: fine for a skill's small files. */
+  function diffLines(a, b) {
+    const A = a ? a.split('\n') : [];
+    const B = b ? b.split('\n') : [];
+    const L = Array.from({ length: A.length + 1 }, () => new Int32Array(B.length + 1));
+    for (let i = A.length - 1; i >= 0; i--)
+      for (let j = B.length - 1; j >= 0; j--)
+        L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    const rows = [];
+    let i = 0, j = 0;
+    while (i < A.length || j < B.length) {
+      if (i < A.length && j < B.length && A[i] === B[j]) { rows.push({ t: ' ', o: i + 1, n: j + 1, text: A[i] }); i++; j++; }
+      else if (j < B.length && (i >= A.length || L[i][j + 1] >= L[i + 1][j])) { rows.push({ t: '+', o: null, n: j + 1, text: B[j] }); j++; }
+      else { rows.push({ t: '-', o: i + 1, n: null, text: A[i] }); i++; }
+    }
+    // Deleted lines before added ones within each change, as Kit's unified mode shows them.
+    for (let k = 0; k < rows.length;) {
+      if (rows[k].t === ' ') { k++; continue; }
+      let end = k;
+      while (end < rows.length && rows[end].t !== ' ') end++;
+      const run = rows.slice(k, end);
+      rows.splice(k, run.length, ...run.filter((r) => r.t === '-'), ...run.filter((r) => r.t === '+'));
+      k = end;
+    }
+    return rows;
+  }
+
+  function file(path, before, after) {
+    const status = before == null ? 'A' : after == null ? 'D' : 'M';
+    const rows = diffLines(before, after);
+    return {
+      path, status, rows,
+      add: rows.filter((r) => r.t === '+').length,
+      del: rows.filter((r) => r.t === '-').length,
+    };
+  }
+
+  /** The changes for a dialog state: 'ready', 'drifted' (local edit shows as removed), 'moved'. */
+  function files(state) {
+    let oldSkill = SKILL_OLD;
+    let newSkill = SKILL_NEW;
+    if (state === 'drifted') oldSkill = SKILL_OLD.replace('read a PDF.\n', `read a PDF.\n${LOCAL_EDIT}\n`);
+    if (state === 'moved') newSkill = SKILL_NEW.replace(/^Run `python scripts\/fill_form.*$/m, MOVED_LINE);
+    return [
+      file('SKILL.md', oldSkill, newSkill),
+      file('scripts/extract.py', EXTRACT_OLD, EXTRACT_NEW),
+      file('scripts/fill_form.py', null, FILL_NEW),
+      { path: 'assets/form-sample.pdf', status: 'B', rows: [], add: 0, del: 0, binary: 'Binary file changed · 18 KB → 21 KB' },
+      file('reference.md', REFERENCE_OLD, null),
+    ];
+  }
+
+  window.UD = {
+    files,
+    slug: 'pdf',
+    source: 'github.com/anthropics/skills · skills/pdf',
+    skillHtml: '<h1>PDF</h1><p>Use this skill when the user asks to read a PDF.</p><h2>Extract text</h2>'
+      + '<p>Run <code>python scripts/extract.py &lt;file&gt;</code> and read its output.</p>'
+      + '<h2>Tables</h2><p>Tables come out as TSV, one file per table.</p>',
+  };
+})();
+</script>
