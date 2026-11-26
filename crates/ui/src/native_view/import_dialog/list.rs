@@ -1,10 +1,10 @@
-//! The Import skills dialog's list (design D3 to D8): each found skill not in library once,
-//! grouped under Your agents and each workspace, with the plan item that imports it, and the
-//! ticks over them by key.
+//! The Import skills dialog's list (design D3 to D8, I5 to I8): each found skill not in library
+//! once, the offered ones grouped under Your agents and each workspace and the ignored ones apart,
+//! with the plan item that imports it, and the ticks over the offered ones by key.
 
 use super::versions::{FoundSkill, found_skills};
 use skillbinder_proto::{
-    Candidate, CandidateId, FoundImport, ImportItem, MAX_IMPORT, ScanSnapshot, ValidationStatus,
+    AppSnapshot, Candidate, CandidateId, FoundImport, ImportItem, MAX_IMPORT, ValidationStatus,
     Workspace, WorkspaceId,
 };
 use std::collections::BTreeSet;
@@ -80,23 +80,34 @@ pub(crate) struct Group<'a> {
     pub rows: Vec<Row<'a>>,
 }
 
-/// The rows of `found`, grouped by the place of each skill's first location: Your agents first,
-/// then each workspace in sidebar order, each in scan order.
-pub(crate) fn groups<'a>(found: &'a FoundImport, workspaces: &[Workspace]) -> Vec<Group<'a>> {
+/// Each found skill of `found` not in library with the plan's item for it, in scan order.
+fn found_rows(found: &FoundImport) -> impl Iterator<Item = Row<'_>> {
     let listed: Vec<&Candidate> = found
         .scan
         .candidates
         .iter()
         .filter(|candidate| candidate.in_library().is_none())
         .collect();
-    let mut groups: Vec<Group<'a>> = Vec::new();
-    for skill in found_skills(&listed) {
+    found_skills(&listed).into_iter().map(|skill| {
         let item = found.plan.items.iter().find(|item| {
             let planned = &item.candidate_id;
             skill.versions.iter().any(|version| &version.id == planned)
         });
-        let place = place(&skill);
-        let row = Row { skill, item };
+        Row { skill, item }
+    })
+}
+
+/// The rows of `found` offered for import, every one but the `ignored` keys, grouped by the place
+/// of each skill's first location: Your agents first, then each workspace in sidebar order, each
+/// in scan order.
+pub(crate) fn groups<'a>(
+    found: &'a FoundImport,
+    workspaces: &[Workspace],
+    ignored: &BTreeSet<String>,
+) -> Vec<Group<'a>> {
+    let mut groups: Vec<Group<'a>> = Vec::new();
+    for row in found_rows(found).filter(|row| !ignored.contains(row.key())) {
+        let place = place(&row.skill);
         match groups.iter_mut().find(|group| group.place == place) {
             Some(group) => group.rows.push(row),
             None => groups.push(Group {
@@ -117,6 +128,13 @@ pub(crate) fn groups<'a>(found: &'a FoundImport, workspaces: &[Workspace]) -> Ve
     };
     groups.sort_by_key(|group| position(&group.place));
     groups
+}
+
+/// The rows of `found` whose keys are `ignored`, in scan order (I5).
+pub(crate) fn ignored_rows<'a>(found: &'a FoundImport, ignored: &BTreeSet<String>) -> Vec<Row<'a>> {
+    found_rows(found)
+        .filter(|row| ignored.contains(row.key()))
+        .collect()
 }
 
 fn place(skill: &FoundSkill<'_>) -> Place {
@@ -236,15 +254,36 @@ pub(in crate::native_view) fn import_label(count: usize) -> String {
     }
 }
 
-/// The status line: how many found skills are not in library, and how many are (D2).
-pub(super) fn status(scan: &ScanSnapshot) -> String {
-    let (held, listed): (Vec<&Candidate>, Vec<&Candidate>) = scan
+/// How many found skills the latest completed scan offers: not in library and not ignored,
+/// counting a skill with several versions once (L2, I8).
+pub(crate) fn found_count(snapshot: &AppSnapshot) -> usize {
+    let offered: Vec<&Candidate> = snapshot.scan.as_ref().map_or_else(Vec::new, |scan| {
+        scan.candidates
+            .iter()
+            .filter(|candidate| candidate.in_library().is_none())
+            .filter(|candidate| !snapshot.ignored.contains(&candidate.key))
+            .collect()
+    });
+    found_skills(&offered).len()
+}
+
+/// The status line: how many found skills are offered, how many are in library, and how many
+/// are ignored when any are (D2, I8).
+pub(super) fn status(found: &FoundImport, ignored: &BTreeSet<String>) -> String {
+    let held: Vec<&Candidate> = found
+        .scan
         .candidates
         .iter()
-        .partition(|candidate| candidate.in_library().is_some());
-    format!(
-        "{} found · {} already in library",
-        found_skills(&listed).len(),
+        .filter(|candidate| candidate.in_library().is_some())
+        .collect();
+    let ignoring = ignored_rows(found, ignored).len();
+    let offered = found_rows(found).count() - ignoring;
+    let line = format!(
+        "{offered} found · {} already in library",
         found_skills(&held).len()
-    )
+    );
+    match ignoring {
+        0 => line,
+        ignoring => format!("{line} · {ignoring} ignored"),
+    }
 }

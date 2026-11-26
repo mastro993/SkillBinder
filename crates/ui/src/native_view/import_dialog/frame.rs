@@ -68,7 +68,7 @@ impl NativeView {
                 let status_line = state
                     .end
                     .names_places()
-                    .then(|| Notice::new("import-status", status(&found.scan)));
+                    .then(|| Notice::new("import-status", status(found, &self.snapshot.ignored)));
                 let body = v_flex()
                     .size_full()
                     .min_h_0()
@@ -114,7 +114,7 @@ impl NativeView {
             Phase::Scanning => None,
             Phase::Ready(found) => Some(found),
         };
-        let chosen = found.map(|found| state.chosen(found, &self.snapshot.workspaces));
+        let chosen = found.map(|found| state.chosen(found, &self.snapshot));
         let footer = match chosen
             .as_ref()
             .and_then(|chosen| self.import_notice(state, chosen, cx))

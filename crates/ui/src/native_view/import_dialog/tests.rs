@@ -1,6 +1,8 @@
+use super::super::snapshot_query::fixture::Fixture;
 use super::End;
 use super::list::{
-    Count, Place, default_ticks, groups, import_label, rows, selection, tick_all, tickable,
+    Count, Place, default_ticks, found_count, groups, ignored_rows, import_label, rows, selection,
+    status, tick_all, tickable,
 };
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -103,7 +105,7 @@ fn rows_group_under_your_agents_then_each_workspace_in_sidebar_order() {
     let found = found(candidates, Vec::new());
     let workspaces = [workspace("api", 1), workspace("web", 0)];
 
-    let groups = groups(&found, &workspaces);
+    let groups = groups(&found, &workspaces, &BTreeSet::new());
 
     let listed: Vec<(Place, Vec<&str>)> = groups
         .iter()
@@ -124,6 +126,55 @@ fn rows_group_under_your_agents_then_each_workspace_in_sidebar_order() {
 }
 
 #[test]
+fn ignored_skills_are_listed_apart_and_never_grouped_ticked_counted_or_imported() {
+    let review = version("review", "/h/.agents/skills/review", true, "");
+    let storybook = version("storybook", "/w/web/.agents/skills/storybook", false, "web");
+    let tdd = version("tdd", "/w/web/.agents/skills/tdd", false, "web");
+    let mut held = version("held", "/h/.agents/skills/held", true, "");
+    held.held = Some(SkillId("held".to_owned()));
+    let items = [&review, &storybook, &tdd]
+        .map(|candidate| item(candidate, ValidationStatus::Valid))
+        .to_vec();
+    let found = found(vec![review, storybook, tdd, held], items);
+    let workspaces = [workspace("web", 0)];
+    let none = BTreeSet::new();
+    let ignored: BTreeSet<String> = ["storybook".to_owned()].into();
+
+    let offered = groups(&found, &workspaces, &ignored);
+    let listed: Vec<&str> = rows(&offered).map(|row| row.key()).collect();
+    assert_eq!(listed, ["review", "tdd"]);
+    assert_eq!(keys(&default_ticks(&offered)), ["review", "tdd"]);
+    let apart: Vec<&str> = ignored_rows(&found, &ignored)
+        .iter()
+        .map(|row| row.key())
+        .collect();
+    assert_eq!(apart, ["storybook"]);
+    assert!(ignored_rows(&found, &none).is_empty());
+    let stale = ["storybook".to_owned()].into();
+    assert!(
+        selection(&offered, &stale).ids.is_empty(),
+        "a tick never imports it"
+    );
+
+    assert_eq!(status(&found, &none), "3 found · 1 already in library");
+    assert_eq!(
+        status(&found, &ignored),
+        "2 found · 1 already in library · 1 ignored"
+    );
+
+    let mut snapshot = Fixture::new().build();
+    snapshot.scan = Some(found.scan.clone());
+    assert_eq!(found_count(&snapshot), 3);
+    snapshot.ignored = ignored;
+    assert_eq!(found_count(&snapshot), 2);
+    snapshot.ignored = ["review", "storybook", "tdd", "gone"]
+        .map(str::to_owned)
+        .into();
+    assert_eq!(found_count(&snapshot), 0, "every found skill ignored");
+    assert!(groups(&found, &workspaces, &snapshot.ignored).is_empty());
+}
+
+#[test]
 fn every_importable_valid_skill_starts_ticked_and_others_start_unticked() {
     let valid = version("valid", "/h/.agents/skills/valid", true, "");
     let invalid = version("invalid", "/h/.agents/skills/invalid", true, "");
@@ -133,7 +184,7 @@ fn every_importable_valid_skill_starts_ticked_and_others_start_unticked() {
         item(&invalid, ValidationStatus::Invalid),
     ];
     let found = found(vec![valid, invalid, blocked], items);
-    let groups = groups(&found, &[]);
+    let groups = groups(&found, &[], &BTreeSet::new());
 
     assert_eq!(keys(&default_ticks(&groups)), ["valid"]);
 }
@@ -149,7 +200,7 @@ fn ticks_stop_at_one_import_and_import_needs_one_to_500_with_invalid_acknowledge
         .collect();
     items[0].validation = ValidationStatus::Invalid;
     let found = found(candidates, items);
-    let groups = groups(&found, &[]);
+    let groups = groups(&found, &[], &BTreeSet::new());
 
     let mut ticked = default_ticks(&groups);
     assert_eq!(ticked.len(), 500, "the first 500 valid ones");
@@ -183,7 +234,7 @@ fn a_checkbox_over_rows_reads_partly_ticked_until_one_import_is_ticked() {
         .map(|candidate| item(candidate, ValidationStatus::Valid))
         .collect();
     let found = found(candidates, items);
-    let groups = groups(&found, &[]);
+    let groups = groups(&found, &[], &BTreeSet::new());
     let count = |ticked: &[&str]| {
         let ticked = ticked.iter().map(|key| (*key).to_owned()).collect();
         Count::of(&ticked, rows(&groups))
@@ -198,7 +249,7 @@ fn a_checkbox_over_rows_reads_partly_ticked_until_one_import_is_ticked() {
 fn search_matches_the_slug_or_the_description() {
     let review = version("code-review", "/h/.agents/skills/code-review", true, "");
     let found = found(vec![review], Vec::new());
-    let groups = groups(&found, &[]);
+    let groups = groups(&found, &[], &BTreeSet::new());
     let row = &groups[0].rows[0];
 
     assert!(row.matches("review") && row.matches("about") && row.matches(""));

@@ -21,6 +21,12 @@ use std::collections::BTreeSet;
 /// How many characters of a version's digest the command shows and takes.
 const SHORT: usize = 7;
 
+/// The ignored skills the command leaves out: none, since it offers them until it gains
+/// `ignore` and `unignore` (spec ignore-found-skills, slice 3).
+fn offered_all() -> BTreeSet<String> {
+    BTreeSet::new()
+}
+
 /// `scan`: the found skills not in library, grouped as the dialog groups them.
 pub(super) async fn scan(client: &Client) -> Result<Output, CommandError> {
     let found = prepare(client, Vec::new()).await?;
@@ -37,7 +43,7 @@ async fn prepare(client: &Client, versions: Vec<CandidateId>) -> Result<FoundImp
 
 /// The dialog's rows of `found`, each with its versions and where they were found.
 pub(super) fn found_rows(found: &FoundImport, snapshot: &AppSnapshot) -> Vec<FoundRow> {
-    let groups = groups(found, &snapshot.workspaces);
+    let groups = groups(found, &snapshot.workspaces, &offered_all());
     let ticked = &default_ticks(&groups);
     groups
         .iter()
@@ -114,7 +120,7 @@ pub(super) fn pick(
     named: &[String],
     all: bool,
 ) -> Result<Picked, CommandError> {
-    let groups = groups(found, workspaces);
+    let groups = groups(found, workspaces, &offered_all());
     if all {
         let ticked = default_ticks(&groups);
         return Ok(Picked {
@@ -250,7 +256,7 @@ pub(super) fn chosen(
     snapshot: &AppSnapshot,
     picked: &Picked,
 ) -> Result<Chosen, CommandError> {
-    let groups = groups(found, &snapshot.workspaces);
+    let groups = groups(found, &snapshot.workspaces, &offered_all());
     let keys: BTreeSet<String> = picked.keys.iter().cloned().collect();
     let taken: Vec<&Row<'_>> = rows(&groups)
         .filter(|row| keys.contains(row.key()))

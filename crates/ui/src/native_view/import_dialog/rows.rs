@@ -1,18 +1,21 @@
-//! The dialog's list (D3 to D7): Select all, then each place's group header with its tri-state
-//! checkbox, glyph, name, and count, which onboarding's list leaves out (O7), then its rows. A
-//! row is ticked with its checkbox or a click anywhere on it outside its versions.
+//! The dialog's list (D3 to D7, I10): Select all, or "No new skills found." when every found
+//! skill is ignored, then each place's group header with its tri-state checkbox, glyph, name,
+//! count, and Ignore all, which onboarding's list leaves out (O7), then its rows, then the Ignored
+//! group. A row is ticked with its checkbox or a click anywhere on it outside its versions.
 
 use super::super::NativeView;
 use super::super::library_updates::spinner;
 use super::ImportDialog;
-use super::list::{Count, Group, Place, Row, groups, rows, tick_all, tickable};
+use super::list::{Count, Group, Place, Row, groups, ignored_rows, rows, tick_all, tickable};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::tokens::{opacity, space, text};
-use skillbinder_design::{CardList, Checkbox, EmptyState, IconSize, ListRow, SectionHeader, Text};
+use skillbinder_design::{
+    CardList, Checkbox, EmptyState, IconSize, ListRow, Notice, SectionHeader, Text,
+};
 use skillbinder_proto::{FoundImport, ValidationStatus};
 use std::collections::BTreeSet;
 
@@ -25,14 +28,25 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let search = state.search.read(cx).value().trim().to_lowercase();
-        let groups = groups(found, &self.snapshot.workspaces);
+        let snapshot = self.snapshot.clone();
+        let groups = groups(found, &snapshot.workspaces, &snapshot.ignored);
+        let ignored = ignored_rows(found, &snapshot.ignored);
         let ticked = state.ticked.clone().unwrap_or_default();
+        let head = if groups.is_empty() {
+            h_flex()
+                .px(px(space::LG))
+                .py(px(space::MD))
+                .child(Notice::new("import-nothing", "No new skills found."))
+                .into_any_element()
+        } else {
+            self.select_all(&groups, &ticked, &search, cx)
+        };
         let mut list = CardList::new("import-list")
             .flex_1()
             .min_h_0()
             .scrolls()
             .when(state.refreshing(), |list| list.opacity(opacity::INACTIVE))
-            .child(self.select_all(&groups, &ticked, &search, cx));
+            .child(head);
         let mut matched = false;
         for (index, group) in groups.iter().enumerate() {
             let shown: Vec<&Row<'_>> = group
@@ -51,7 +65,9 @@ impl NativeView {
                 list = list.row(self.import_row(state, row, &ticked, cx));
             }
         }
-        if !matched {
+        let ignored_matched = ignored.iter().any(|row| row.matches(&search));
+        list = self.ignored_group(list, state, &ignored, &search, cx);
+        if !search.is_empty() && !matched && !ignored_matched {
             let title = format!("No skills match '{search}'");
             list = list.child(EmptyState::new("import-empty", title).icon("search"));
         }
@@ -115,13 +131,16 @@ impl NativeView {
         .count(group.rows.len());
         h_flex()
             .id(format!("import-group-{index}"))
+            .justify_between()
+            .gap(px(space::LG))
             .px(px(space::LG))
-            .py(px(space::MD))
+            .py(px(space::XS))
             .bg(theme.muted)
             .child(
                 self.ticking(format!("import-check-group-{index}"), count, &keys, cx)
                     .child(label),
             )
+            .child(self.ignore_all_button(index, group, cx))
             .into_any_element()
     }
 
@@ -189,7 +208,7 @@ impl NativeView {
             .map(|version| version.description.clone())
             .unwrap_or_default();
         let clicked = key.clone();
-        ListRow::new(format!("import-row-{key}"))
+        let row_element = ListRow::new(format!("import-row-{key}"))
             .items_start()
             .leading(
                 div()
@@ -201,13 +220,15 @@ impl NativeView {
             .title(title)
             .when(!description.is_empty(), |row| row.subtitle(description))
             .child(versions)
+            .trailing(self.ignore_button(row, cx))
             .dimmed(!able)
             .when(able, |row| {
                 row.cursor_pointer()
                     .on_click(cx.listener(move |view, _, _, cx| {
                         view.toggle_import(clicked.clone(), cx);
                     }))
-            })
+            });
+        self.offered_row(row_element, &key, state, cx)
     }
 
     fn toggle_import(&mut self, key: String, cx: &mut Context<Self>) {
