@@ -77,7 +77,7 @@ impl NativeView {
             Ok(()) => {
                 self.receive(self.client.snapshot(), cx);
                 let flash = Flash::new(key);
-                self.found_section.flash = Some(flash.clone());
+                self.found_flash = Some(flash.clone());
                 self.edit_import(|dialog| dialog.flash = Some(flash), cx);
             }
             Err(error) => self.error = Some(error),

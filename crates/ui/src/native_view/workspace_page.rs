@@ -10,7 +10,7 @@ mod removal;
 pub(super) use removal::remove_button;
 
 use super::NativeView;
-use super::found_section::FoundPage;
+use super::found_rows::FoundPage;
 use super::library_copies::{agent_rows, placements};
 use super::library_items::{RowEnd, SkillItem};
 use super::library_targets::{held, sharing};
@@ -63,7 +63,7 @@ impl NativeView {
             page,
             held,
             &found,
-            |view, shown, cx| view.workspace_list(workspace, shown, cx),
+            |view, shown, search, cx| view.workspace_list(workspace, shown, &found, search, cx),
             cx,
         )
     }
@@ -73,6 +73,8 @@ impl NativeView {
         &self,
         workspace: &Workspace,
         skills: &[&skillbinder_proto::Skill],
+        page: &FoundPage<'_>,
+        search: &str,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Some(library) = &self.snapshot.library else {
@@ -101,7 +103,7 @@ impl NativeView {
                 }),
             })
             .collect();
-        self.skill_list(&items, false, None, cx)
+        self.page_list(&items, page, search, cx)
     }
 
     /// "All agents", or the names of your agents the active preset holds `skill` for.

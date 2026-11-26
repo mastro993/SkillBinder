@@ -2,13 +2,13 @@
 
 A workspace's page and an agent's page list only the library skills that are on there (ADR 0007). A project often holds a skill made for it alone, which makes no sense in the library, and the agent loads it all the same. To deal with it, the user had to open Scan for skills, whose dialog mixes every place (ADR 0008), and find it there; to undo an ignore, they had to find the dialog's Ignored group (ADR 0033). The user wants to open the workspace, see the skill, and ignore it there. This partly supersedes ADR 0007, ADR 0008, and ADR 0033 ([spec](../specs/found-skills-on-pages.md)).
 
-A workspace's page, an agent's page, and Universal's page now list, under the skills that are on there, the found skills the latest completed scan found in that place that are not in library, in one **Not in library** section. Each can be ignored, and imported through the Import skills dialog narrowed to this place's skills. An import still turns a skill on wherever it was found (ADR 0008), and the rows say where else it was found. An ignored skill stays in the section, marked Ignored, with Stop ignoring in place of Ignore.
+A workspace's page, an agent's page, and Universal's page now list, under the skills that are on there, the found skills the latest completed scan found in that place that are not in library, in the same list as the skills on there, sorted by name and each marked Not in library. Each can be ignored, and imported through the Import skills dialog narrowed to this place's skills. An import still turns a skill on wherever it was found (ADR 0008), and the rows say where else it was found. An ignored skill stays in the list, marked Ignored, with Stop ignoring in place of Ignore.
 
 What counts as "there" follows the page's existing rule. An agent's page covers its own global skill directory, and Universal's covers `~/.agents/skills`; neither covers the other directories an agent reads. A workspace's page covers every agent workspace skill directory the scan walks in its folder, as the Import skills dialog groups them under that workspace, including those of agents the user did not choose. An ignore still names a slug everywhere: ignoring on one page ignores the skill on every page and in the dialog. Sidebar counts still count only the skills that are on.
 
 ## Considered Options
 
-- A separate, collapsed Ignored section was built first and rejected by the user once seen: ignored skills stay among the others, marked Ignored.
+- Separate Not in library and Ignored sections under the card was built first and rejected by the user once seen, as was one Not in library section; the user picked one list for everything from the one-list prototype.
 
 - Read-only lists, with importing and ignoring left to Scan for skills, were rejected by the user. The point is to ignore a project's own skill where it is seen.
 - Also listing copies of library skills that sit in a place where the skill is off was rejected by the user. A page should show what may need a decision about the library, not mirror the library's state, and such copies can be many.

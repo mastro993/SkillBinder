@@ -12,7 +12,7 @@ pub(super) use rows::AgentPageRow;
 
 use super::agent_skills::{agent_name, split_universal, your_agents};
 use super::controls::reader_logo;
-use super::found_section::FoundPage;
+use super::found_rows::FoundPage;
 use super::library_copies::{AgentRow, placements};
 use super::library_items::{RowEnd, SkillItem};
 use super::skill_picker::{Place, Resolved};
@@ -54,7 +54,7 @@ impl NativeView {
             page,
             held,
             &found,
-            |view, shown, cx| view.agent_list(&place, &row, shown, cx),
+            |view, shown, search, cx| view.agent_list(&place, &row, shown, &found, search, cx),
             cx,
         )
     }
@@ -65,6 +65,8 @@ impl NativeView {
         place: &Place,
         row: &AgentRow,
         skills: &[&Skill],
+        page: &FoundPage<'_>,
+        search: &str,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Some(library) = &self.snapshot.library else {
@@ -92,7 +94,7 @@ impl NativeView {
                 }),
             })
             .collect();
-        self.skill_list(&items, false, None, cx)
+        self.page_list(&items, page, search, cx)
     }
 
     /// The page's logo, "No skills on for <name>", and Add skill.

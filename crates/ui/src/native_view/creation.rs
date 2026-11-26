@@ -5,8 +5,8 @@ use super::native_test;
 use super::route::{History, Route};
 use super::sidebar_reorder::RowReorder;
 use super::{
-    DialogState, NativeView, app_update_notice, explore, folder_reorder, found_section, git_setup,
-    hover_scroll, new_agent_notice, onboarding, settings, shell, sidebar, snapshot_query, toasts,
+    DialogState, NativeView, app_update_notice, explore, folder_reorder, git_setup, hover_scroll,
+    new_agent_notice, onboarding, settings, shell, sidebar, snapshot_query, toasts,
 };
 use crate::gate::{self, Gate};
 use gpui_kit::component::input::{InputEvent, InputState};
@@ -171,7 +171,7 @@ impl NativeView {
             preference_writes: shell::PreferenceWrites::default(),
             preview: None,
             update_outcome: None,
-            found_section: found_section::FoundSection::default(),
+            found_flash: None,
             skill_load: None,
             search,
             preset_name,
