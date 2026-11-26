@@ -28,7 +28,7 @@ pub(crate) fn output(output: &Output) -> String {
             "No agents found on this computer.\n".to_owned()
         }
         Output::Agents(agents) => agents.iter().map(agent_line).collect(),
-        Output::Found(rows) => explore::found(rows),
+        Output::Found(found) => explore::found(found),
         Output::Search(search) => explore::search(search),
         Output::Repositories(rows) => explore::repositories(rows),
         Output::Updates(updates) => updates_text(updates),

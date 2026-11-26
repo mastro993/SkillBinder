@@ -231,3 +231,28 @@ fn a_copy_waiting_in_two_directories_needs_one_named() {
     assert_eq!(error.code, ErrorCode::NotFound);
     assert_eq!(error.message, "No copy of pdf waits in ~/.gemini/skills.");
 }
+
+#[test]
+fn ignoring_saves_every_slug_at_once_and_unignoring_stops() {
+    let snapshot = world().build();
+    for (stop, done) in [
+        (false, "Ignored storybook, tdd."),
+        (true, "Stopped ignoring storybook, tdd."),
+    ] {
+        let change = Change::Ignore {
+            skills: names(&["storybook", "tdd"]),
+            stop,
+        };
+        let Ok(Plan::Save { saves, done: said }) = plan(&change, &snapshot) else {
+            panic!("{change:?} saves");
+        };
+        let [Save::Ignore { skills, ignored }] = saves.as_slice() else {
+            panic!("one save ignores them all: {saves:?}");
+        };
+        assert_eq!(
+            (skills.as_slice(), *ignored),
+            (&names(&["storybook", "tdd"])[..], !stop)
+        );
+        assert_eq!(said, done);
+    }
+}

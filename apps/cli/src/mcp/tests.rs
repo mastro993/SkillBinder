@@ -106,6 +106,7 @@ async fn tools_list_in_order_with_their_hints_and_schemas_without_the_app() -> a
         ("choose_agent", false, true, true, false),
         ("install_skills", false, false, false, true),
         ("import_skills", false, true, false, false),
+        ("ignore_skills", false, false, true, false),
         ("update_skills", false, true, false, true),
         ("sync_library", false, true, false, true),
         ("manage_repositories", false, true, false, true),

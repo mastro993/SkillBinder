@@ -7,7 +7,7 @@ use skillbinder_proto::{
     AppSnapshot, Candidate, CandidateId, FoundImport, ImportItem, MAX_IMPORT, ValidationStatus,
     Workspace, WorkspaceId,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Where a group's skills were found.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -103,10 +103,10 @@ fn found_rows(found: &FoundImport) -> impl Iterator<Item = Row<'_>> {
 pub(crate) fn groups<'a>(
     found: &'a FoundImport,
     workspaces: &[Workspace],
-    ignored: &BTreeSet<String>,
+    ignored: &BTreeMap<String, String>,
 ) -> Vec<Group<'a>> {
     let mut groups: Vec<Group<'a>> = Vec::new();
-    for row in found_rows(found).filter(|row| !ignored.contains(row.key())) {
+    for row in found_rows(found).filter(|row| !ignored.contains_key(row.key())) {
         let place = place(&row.skill);
         match groups.iter_mut().find(|group| group.place == place) {
             Some(group) => group.rows.push(row),
@@ -131,9 +131,12 @@ pub(crate) fn groups<'a>(
 }
 
 /// The rows of `found` whose keys are `ignored`, in scan order (I5).
-pub(crate) fn ignored_rows<'a>(found: &'a FoundImport, ignored: &BTreeSet<String>) -> Vec<Row<'a>> {
+pub(crate) fn ignored_rows<'a>(
+    found: &'a FoundImport,
+    ignored: &BTreeMap<String, String>,
+) -> Vec<Row<'a>> {
     found_rows(found)
-        .filter(|row| ignored.contains(row.key()))
+        .filter(|row| ignored.contains_key(row.key()))
         .collect()
 }
 
@@ -261,7 +264,7 @@ pub(crate) fn found_count(snapshot: &AppSnapshot) -> usize {
         scan.candidates
             .iter()
             .filter(|candidate| candidate.in_library().is_none())
-            .filter(|candidate| !snapshot.ignored.contains(&candidate.key))
+            .filter(|candidate| !snapshot.ignored.contains_key(&candidate.key))
             .collect()
     });
     found_skills(&offered).len()
@@ -269,7 +272,7 @@ pub(crate) fn found_count(snapshot: &AppSnapshot) -> usize {
 
 /// The status line: how many found skills are offered, how many are in library, and how many
 /// are ignored when any are (D2, I8).
-pub(super) fn status(found: &FoundImport, ignored: &BTreeSet<String>) -> String {
+pub(super) fn status(found: &FoundImport, ignored: &BTreeMap<String, String>) -> String {
     let held: Vec<&Candidate> = found
         .scan
         .candidates

@@ -1,4 +1,4 @@
-use super::{Picked, agree, chosen, found_rows, pick};
+use super::{Picked, agree, chosen, found_rows, ignored_slugs, pick};
 use crate::commands::testing::{asked, command, now};
 use crate::native_view::fixture::{Fixture, id};
 use skillbinder_proto::command_line::{ErrorCode, Permission};
@@ -195,8 +195,8 @@ fn scan_lists_each_version_s_short_digest_and_locations_as_the_dialog_groups_the
 
 #[test]
 fn a_slug_with_two_versions_needs_one_named() {
-    let (found, workspaces) = (found(), world().workspaces);
-    let Err(error) = pick(&found, &workspaces, &named(&["pdf"]), false) else {
+    let (found, snapshot) = (found(), world());
+    let Err(error) = pick(&found, &snapshot, &named(&["pdf"]), false) else {
         panic!("pdf has two versions");
     };
     assert_eq!((error.code, error.code.exit_code()), (ErrorCode::Usage, 2));
@@ -207,7 +207,7 @@ fn a_slug_with_two_versions_needs_one_named() {
             .is_some_and(|hint| hint.contains("pdf@<version>"))
     );
 
-    let other = pick(&found, &workspaces, &named(&["PDF@bbbb222"]), false);
+    let other = pick(&found, &snapshot, &named(&["PDF@bbbb222"]), false);
     assert_eq!(
         other.ok(),
         Some(Picked {
@@ -217,7 +217,7 @@ fn a_slug_with_two_versions_needs_one_named() {
         }),
         "the version the plan doesn't take is prepared again"
     );
-    let planned = pick(&found, &workspaces, &named(&["pdf@aaaa"]), false);
+    let planned = pick(&found, &snapshot, &named(&["pdf@aaaa"]), false);
     assert_eq!(
         planned.ok(),
         Some(Picked {
@@ -227,7 +227,7 @@ fn a_slug_with_two_versions_needs_one_named() {
         }),
         "four characters of the digest name it"
     );
-    let Err(unknown) = pick(&found, &workspaces, &named(&["pdf@ffff"]), false) else {
+    let Err(unknown) = pick(&found, &snapshot, &named(&["pdf@ffff"]), false) else {
         panic!("no such version");
     };
     assert_eq!(unknown.code, ErrorCode::NotFound);
@@ -235,7 +235,7 @@ fn a_slug_with_two_versions_needs_one_named() {
         unknown.hint.as_deref(),
         Some("pdf has versions aaaa111, bbbb222.")
     );
-    let Err(missing) = pick(&found, &workspaces, &named(&["docx"]), false) else {
+    let Err(missing) = pick(&found, &snapshot, &named(&["docx"]), false) else {
         panic!("docx is in library, so not found");
     };
     assert_eq!(missing.code, ErrorCode::NotFound);
@@ -245,8 +245,7 @@ fn a_slug_with_two_versions_needs_one_named() {
 fn all_imports_what_the_dialog_ticks() {
     let snapshot = world();
     let found = found();
-    let all =
-        pick(&found, &snapshot.workspaces, &[], true).unwrap_or_else(|error| panic!("{error:?}"));
+    let all = pick(&found, &snapshot, &[], true).unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         all,
         Picked {
@@ -266,8 +265,7 @@ fn all_imports_what_the_dialog_ticks() {
 fn a_named_invalid_skill_is_acknowledged_and_a_blocked_one_refused() {
     let (snapshot, found) = (world(), found());
     let pick = |names: &[&str]| {
-        pick(&found, &snapshot.workspaces, &named(names), false)
-            .unwrap_or_else(|error| panic!("{error:?}"))
+        pick(&found, &snapshot, &named(names), false).unwrap_or_else(|error| panic!("{error:?}"))
     };
     let sql = chosen(&found, &snapshot, &pick(&["sql"]));
     assert_eq!(sql.map(|chosen| chosen.invalid).ok(), Some(true));
@@ -281,12 +279,7 @@ fn a_named_invalid_skill_is_acknowledged_and_a_blocked_one_refused() {
 #[test]
 fn an_import_replacing_copies_goes_ahead_only_as_the_command_allows() {
     let (snapshot, found) = (world(), found());
-    let Ok(picked) = pick(
-        &found,
-        &snapshot.workspaces,
-        &named(&["pdf@aaaa111"]),
-        false,
-    ) else {
+    let Ok(picked) = pick(&found, &snapshot, &named(&["pdf@aaaa111"]), false) else {
         panic!("pdf's planned version");
     };
     let Ok(chosen) = chosen(&found, &snapshot, &picked) else {
@@ -326,12 +319,7 @@ fn an_import_replacing_copies_goes_ahead_only_as_the_command_allows() {
 #[test]
 fn a_named_version_is_imported_or_nothing_is() {
     let (snapshot, mut found) = (world(), found());
-    let Ok(picked) = pick(
-        &found,
-        &snapshot.workspaces,
-        &named(&["pdf@bbbb222"]),
-        false,
-    ) else {
+    let Ok(picked) = pick(&found, &snapshot, &named(&["pdf@bbbb222"]), false) else {
         panic!("pdf's other version");
     };
     // The engine plans the preferred version when the one named can't be imported, as when it
@@ -354,12 +342,7 @@ fn a_named_version_is_imported_or_nothing_is() {
     assert_eq!(gone.message, changed.message);
 
     found.scan.candidates[1].validation = ValidationStatus::Blocked;
-    let Err(blocked) = pick(
-        &found,
-        &snapshot.workspaces,
-        &named(&["pdf@bbbb222"]),
-        false,
-    ) else {
+    let Err(blocked) = pick(&found, &snapshot, &named(&["pdf@bbbb222"]), false) else {
         panic!("a blocked version can't be named");
     };
     assert_eq!(
@@ -369,5 +352,37 @@ fn a_named_version_is_imported_or_nothing_is() {
     assert_eq!(
         blocked.message,
         "pdf@bbbb222 can't be imported: it is blocked."
+    );
+}
+
+#[test]
+fn ignored_skills_leave_scan_and_all_but_a_named_one_is_imported() {
+    let found = found();
+    let mut snapshot = world();
+    snapshot.ignored = [("pdf", "pdf"), ("gone", "Gone")]
+        .map(|(key, slug)| (key.to_owned(), slug.to_owned()))
+        .into();
+
+    let listed: Vec<String> = found_rows(&found, &snapshot)
+        .into_iter()
+        .map(|row| row.slug)
+        .collect();
+    assert_eq!(listed, ["zip", "sql"], "pdf is ignored");
+    assert_eq!(
+        ignored_slugs(&snapshot),
+        ["Gone", "pdf"],
+        "as ignored, even when no scan finds it"
+    );
+
+    let all = pick(&found, &snapshot, &[], true).unwrap_or_else(|error| panic!("{error:?}"));
+    assert!(all.keys.is_empty(), "--all leaves ignored skills out");
+
+    let named = pick(&found, &snapshot, &named(&["pdf@aaaa"]), false)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let chosen = chosen(&found, &snapshot, &named).map(|chosen| chosen.ids);
+    assert_eq!(
+        chosen.ok(),
+        Some(vec![CandidateId(PDF_A.into())]),
+        "naming an ignored skill imports it"
     );
 }

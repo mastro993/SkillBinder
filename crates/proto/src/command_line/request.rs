@@ -252,6 +252,14 @@ pub enum Change {
         /// Every skill the dialog ticks, instead of `skills`.
         all: bool,
     },
+    /// `ignore` or `unignore`: ignores found skills not in library, or stops ignoring them, as
+    /// the Import skills dialog's Ignore and Stop ignoring do (ADR 0033).
+    Ignore {
+        /// The skills, by slug.
+        skills: Vec<String>,
+        /// Stop ignoring them instead.
+        stop: bool,
+    },
     /// `install`: installs skills into the library, inactive, as Explore's Install does.
     Install {
         /// Each as a slug, `<owner>/<repo>/<slug>`, or skills.sh's `<owner>/<repo>@<skill>`.

@@ -43,7 +43,7 @@ impl State {
             workspaces: self.workspaces()?,
             scan,
             scanning,
-            ignored: self.ignored_keys()?,
+            ignored: self.ignored()?,
             updates,
             explore: catalog::explore(
                 &self.catalog,

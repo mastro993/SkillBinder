@@ -1,7 +1,7 @@
 //! What the app sends back for a request: progress and questions while it runs, then one outcome
 //! holding the command's typed output.
 
-use super::{CommandError, FoundRow, RepositoryRow, SearchOutput, UpdatesOutput};
+use super::{CommandError, FoundOutput, RepositoryRow, SearchOutput, UpdatesOutput};
 use crate::{AppError, SkillSource, SyncState};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -81,7 +81,7 @@ pub enum Output {
     /// `agents`.
     Agents(Vec<AgentRow>),
     /// `scan`.
-    Found(Vec<FoundRow>),
+    Found(FoundOutput),
     /// `search`.
     Search(SearchOutput),
     /// `repos`.

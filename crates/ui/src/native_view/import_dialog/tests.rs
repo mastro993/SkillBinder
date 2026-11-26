@@ -88,6 +88,14 @@ fn workspace(id: &str, position: u32) -> Workspace {
     }
 }
 
+/// The ignored skills `slugs`, each its own key.
+fn ignoring(slugs: &[&str]) -> BTreeMap<String, String> {
+    slugs
+        .iter()
+        .map(|slug| ((*slug).to_owned(), (*slug).to_owned()))
+        .collect()
+}
+
 fn keys(ticked: &BTreeSet<String>) -> Vec<&str> {
     ticked.iter().map(String::as_str).collect()
 }
@@ -105,7 +113,7 @@ fn rows_group_under_your_agents_then_each_workspace_in_sidebar_order() {
     let found = found(candidates, Vec::new());
     let workspaces = [workspace("api", 1), workspace("web", 0)];
 
-    let groups = groups(&found, &workspaces, &BTreeSet::new());
+    let groups = groups(&found, &workspaces, &BTreeMap::new());
 
     let listed: Vec<(Place, Vec<&str>)> = groups
         .iter()
@@ -137,8 +145,8 @@ fn ignored_skills_are_listed_apart_and_never_grouped_ticked_counted_or_imported(
         .to_vec();
     let found = found(vec![review, storybook, tdd, held], items);
     let workspaces = [workspace("web", 0)];
-    let none = BTreeSet::new();
-    let ignored: BTreeSet<String> = ["storybook".to_owned()].into();
+    let none = BTreeMap::new();
+    let ignored = ignoring(&["storybook"]);
 
     let offered = groups(&found, &workspaces, &ignored);
     let listed: Vec<&str> = rows(&offered).map(|row| row.key()).collect();
@@ -167,9 +175,7 @@ fn ignored_skills_are_listed_apart_and_never_grouped_ticked_counted_or_imported(
     assert_eq!(found_count(&snapshot), 3);
     snapshot.ignored = ignored;
     assert_eq!(found_count(&snapshot), 2);
-    snapshot.ignored = ["review", "storybook", "tdd", "gone"]
-        .map(str::to_owned)
-        .into();
+    snapshot.ignored = ignoring(&["review", "storybook", "tdd", "gone"]);
     assert_eq!(found_count(&snapshot), 0, "every found skill ignored");
     assert!(groups(&found, &workspaces, &snapshot.ignored).is_empty());
 }
@@ -184,7 +190,7 @@ fn every_importable_valid_skill_starts_ticked_and_others_start_unticked() {
         item(&invalid, ValidationStatus::Invalid),
     ];
     let found = found(vec![valid, invalid, blocked], items);
-    let groups = groups(&found, &[], &BTreeSet::new());
+    let groups = groups(&found, &[], &BTreeMap::new());
 
     assert_eq!(keys(&default_ticks(&groups)), ["valid"]);
 }
@@ -200,7 +206,7 @@ fn ticks_stop_at_one_import_and_import_needs_one_to_500_with_invalid_acknowledge
         .collect();
     items[0].validation = ValidationStatus::Invalid;
     let found = found(candidates, items);
-    let groups = groups(&found, &[], &BTreeSet::new());
+    let groups = groups(&found, &[], &BTreeMap::new());
 
     let mut ticked = default_ticks(&groups);
     assert_eq!(ticked.len(), 500, "the first 500 valid ones");
@@ -234,7 +240,7 @@ fn a_checkbox_over_rows_reads_partly_ticked_until_one_import_is_ticked() {
         .map(|candidate| item(candidate, ValidationStatus::Valid))
         .collect();
     let found = found(candidates, items);
-    let groups = groups(&found, &[], &BTreeSet::new());
+    let groups = groups(&found, &[], &BTreeMap::new());
     let count = |ticked: &[&str]| {
         let ticked = ticked.iter().map(|key| (*key).to_owned()).collect();
         Count::of(&ticked, rows(&groups))
@@ -249,7 +255,7 @@ fn a_checkbox_over_rows_reads_partly_ticked_until_one_import_is_ticked() {
 fn search_matches_the_slug_or_the_description() {
     let review = version("code-review", "/h/.agents/skills/code-review", true, "");
     let found = found(vec![review], Vec::new());
-    let groups = groups(&found, &[], &BTreeSet::new());
+    let groups = groups(&found, &[], &BTreeMap::new());
     let row = &groups[0].rows[0];
 
     assert!(row.matches("review") && row.matches("about") && row.matches(""));

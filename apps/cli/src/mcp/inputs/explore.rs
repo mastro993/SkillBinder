@@ -1,5 +1,5 @@
 //! Finding skills and bringing them into the library: Explore's search and Install, Scan for
-//! skills and its import, and your repositories.
+//! skills with its import and ignored skills, and your repositories.
 
 use super::{Agreed, ResponseFormat, required, usage};
 use schemars::JsonSchema;
@@ -103,6 +103,27 @@ impl ImportSkills {
             replace: self.replace,
             confirm: false,
         }
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub(crate) struct IgnoreSkills {
+    /// The found skills to ignore, by slug, or with stop the ignored ones to offer again.
+    skills: Vec<String>,
+    /// Stop ignoring them instead.
+    #[serde(default)]
+    stop: bool,
+}
+
+impl IgnoreSkills {
+    pub(crate) fn change(&self) -> Result<Change, CommandError> {
+        if self.skills.is_empty() {
+            return Err(usage("ignore_skills needs skills."));
+        }
+        Ok(Change::Ignore {
+            skills: self.skills.clone(),
+            stop: self.stop,
+        })
     }
 }
 

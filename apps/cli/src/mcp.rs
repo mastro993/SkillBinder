@@ -213,7 +213,7 @@ impl Server {
 }
 
 /// The tools in the order they list (spec Tools), rather than the router's by name.
-const ORDER: [&str; 16] = [
+const ORDER: [&str; 17] = [
     "status",
     "list_skills",
     "get_skill",
@@ -226,6 +226,7 @@ const ORDER: [&str; 16] = [
     "choose_agent",
     "install_skills",
     "import_skills",
+    "ignore_skills",
     "update_skills",
     "sync_library",
     "manage_repositories",

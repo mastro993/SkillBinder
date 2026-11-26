@@ -9,8 +9,9 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::{Value, json};
 use skillbinder_proto::command_line::{
-    AgentRow, Changed, CopyRow, Failure, FolderRow, FoundRow, Output, PresetRow, RepositoryRow,
-    SearchOutput, SearchRow, SkillRow, SkillsShAnswer, Unchecked, UpdatesOutput, WorkspaceRow,
+    AgentRow, Changed, CopyRow, Failure, FolderRow, FoundOutput, FoundRow, Output, PresetRow,
+    RepositoryRow, SearchOutput, SearchRow, SkillRow, SkillsShAnswer, Unchecked, UpdatesOutput,
+    WorkspaceRow,
 };
 use std::sync::Arc;
 
@@ -57,9 +58,13 @@ pub(crate) struct Places {
 /// find_skills' result: what the scan found, or what the search found.
 #[derive(Default, Serialize, JsonSchema)]
 pub(crate) struct Finds {
-    /// The found skills not in library, at most 200, for where found.
+    /// The found skills not in library and not ignored, at most 200, for where found.
     #[serde(skip_serializing_if = "Option::is_none")]
     found: Option<Vec<FoundRow>>,
+    /// Every slug ignored on this device, sorted, for where found; ignore_skills with stop
+    /// takes them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ignored: Option<Vec<String>>,
     /// The search's results, at most 200, for where explore.
     #[serde(skip_serializing_if = "Option::is_none")]
     results: Option<Vec<SearchRow>>,
@@ -207,9 +212,9 @@ fn capped(output: Output) -> (Output, usize) {
             let (rows, more) = cut(rows);
             (Output::Repositories(rows), more)
         }
-        Output::Found(rows) => {
-            let (rows, more) = cut(rows);
-            (Output::Found(rows), more)
+        Output::Found(FoundOutput { found, ignored }) => {
+            let (found, more) = cut(found);
+            (Output::Found(FoundOutput { found, ignored }), more)
         }
         Output::Search(SearchOutput { results, skills_sh }) => {
             let (results, more) = cut(results);
@@ -255,8 +260,9 @@ fn structured(output: Output, more: usize) -> Value {
             repositories: Some(repositories),
             ..places
         }),
-        Output::Found(found) => json!(Finds {
+        Output::Found(FoundOutput { found, ignored }) => json!(Finds {
             found: Some(found),
+            ignored: Some(ignored),
             more,
             ..Finds::default()
         }),

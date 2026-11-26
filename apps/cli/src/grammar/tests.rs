@@ -226,6 +226,28 @@ fn scan_import_explore_and_repositories_carry_their_arguments() {
         "import names skills or --all"
     );
     assert_eq!(
+        change(&["ignore", "storybook", "tailwind-helper"], false).0,
+        Change::Ignore {
+            skills: vec!["storybook".into(), "tailwind-helper".into()],
+            stop: false,
+        }
+    );
+    assert_eq!(
+        change(&["unignore", "storybook"], false).0,
+        Change::Ignore {
+            skills: vec!["storybook".into()],
+            stop: true,
+        }
+    );
+    for command in ["ignore", "unignore"] {
+        assert!(
+            grammar()
+                .try_get_matches_from(["skillbinder", command])
+                .is_err(),
+            "{command} names skills"
+        );
+    }
+    assert_eq!(
         change(
             &["install", "anthropics/skills/pdf", "acme/tools@lint"],
             false

@@ -91,7 +91,7 @@ A workspace is named by its name or by a folder inside it: `.` is the workspace 
 
 ## Scan, import, Explore, and your repositories
 
-`scan`, `import`, `search`, `install`, `repos`, and `repo add|remove|install-all` are in [Command line: scan, import, and Explore](command-line-explore.md).
+`scan`, `import`, `ignore`, `unignore`, `search`, `install`, `repos`, and `repo add|remove|install-all` are in [Command line: scan, import, and Explore](command-line-explore.md).
 
 ## Updates and Sync
 
