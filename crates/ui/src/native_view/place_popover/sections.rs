@@ -1,27 +1,32 @@
-//! The popover's content: "Your agents", with the preset chip, the All agents switch, and a pill
-//! per skill directory of your agents, then a line per workspace with its pills. The switch and
-//! the pills are Kit's base switch and toggle on the popover's own focus handles. A control saves
-//! through the view showing the popover on a click, or on Enter or Space while it has focus, and
-//! does nothing, with no hover or hand cursor, while that view is blocked: a change runs or the
-//! progress strip is up. A missing workspace's pills are disabled: they never do anything and
-//! take no focus.
+//! The popover's content: "Your agents", with the preset chip, a labeled pill per skill
+//! directory of your agents, and the All agents switch, then a block per workspace: its name, how
+//! many of its pills are on, and its pills, in a list that scrolls once it is tall. The switch is
+//! Kit's base switch and the pills the design system's toggle chips, on the popover's own focus
+//! handles. A control saves through the view showing the popover on a click, or on Enter or Space
+//! while it has focus, and does nothing, with no hover or hand cursor, while that view is
+//! blocked: a change runs or the progress strip is up. A missing workspace's pills are disabled:
+//! they never do anything and take no focus.
 
 use super::super::controls::reader_logo;
 use super::super::library_copies::Reader;
-use super::super::library_places::{place_pill, preset_chip};
-use super::super::snapshot_query::{SkillPlaces, WorkspacePlace};
+use super::super::library_places::preset_chip;
+use super::super::snapshot_query::{Entry, Held, SkillPlaces, WorkspacePlace};
 use super::super::workspace_icons::sized_icon;
-use super::{PlacePopover, place_line};
-use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, Toggle, spring};
+use super::{PlacePopover, place_block, place_head};
+use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, spring};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, FocusHandle, InteractiveElement, IntoElement,
     ParentElement, Pixels, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder,
     px, transparent_black,
 };
+use skillbinder_design::library::POPOVER_LIST_MAX_HEIGHT;
 use skillbinder_design::tokens::color::HAIRLINE;
 use skillbinder_design::tokens::{opacity, radius, space, text};
-use skillbinder_design::{IconSize, Level, SectionHeader, Surface, Text, focus_ring, tooltip};
+use skillbinder_design::{
+    IconSize, Level, ScrollArea, SectionHeader, Surface, Text, TextTone, ToggleChip, focus_ring,
+    tooltip,
+};
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
 /// The view showing the popover, which saves what its controls change.
@@ -79,10 +84,25 @@ impl Sections<'_> {
             .into_any_element()
     }
 
-    /// The preset chip, the All agents switch with its thumb at `thumb`, and a pill per skill
-    /// directory of your agents.
+    /// The preset chip, a pill per skill directory of your agents, and the All agents switch
+    /// with its thumb at `thumb`.
     fn agents<V: Placer>(&self, thumb: Pixels, window: &Window, cx: &Context<V>) -> AnyElement {
         let places = self.places;
+        // Tab reaches the controls in the order their focus is asked for: the pills first.
+        let pills: Vec<AnyElement> = places
+            .agents
+            .iter()
+            .map(|held| {
+                let id = match &held.entry.row.reader {
+                    Reader::Universal(_) => "place-agents-universal".to_owned(),
+                    Reader::Agent(id) => format!("place-agent-{id}"),
+                };
+                let focus = self.popover.key(&id, cx);
+                let pill = place_pill(id, held, self.blocked, cx);
+                let save = self.save_agents(places.toggled(held.entry));
+                pressable(pill, &focus, save, window, cx)
+            })
+            .collect();
         let all = places.all_agents();
         let focus = self.popover.key("place-all-agents", cx);
         let save = self.save_agents(places.switched(!all));
@@ -90,34 +110,15 @@ impl Sections<'_> {
             .when_some(save, |toggle, save| {
                 toggle.cursor_pointer().on_change(on_change(save, cx))
             });
-        let group = div()
+        let switch = div()
             .id("place-all-row")
             .flex()
             .items_center()
             .gap(px(space::MD))
             // The switch's accessible name reads the label.
             .child("All agents")
-            .child(toggle);
-        let pills: Vec<AnyElement> = places
-            .agents
-            .iter()
-            .map(|held| {
-                let entry = held.entry;
-                let id = match &entry.row.reader {
-                    Reader::Universal(_) => "place-agents-universal".to_owned(),
-                    Reader::Agent(id) => format!("place-agent-{id}"),
-                };
-                let tooltip = match entry.detail() {
-                    Some(detail) => format!("{}\n{detail}", entry.row.name),
-                    None => entry.row.name.clone(),
-                };
-                let focus = self.popover.key(&id, cx);
-                let logo = reader_logo(&entry.row.reader);
-                let pill = place_pill(id, logo, held.held, self.blocked, tooltip, cx);
-                let save = self.save_agents(places.toggled(entry));
-                pressable(pill, &focus, save, window, cx)
-            })
-            .collect();
+            .child(toggle)
+            .tooltip(tooltip("Includes agents added later"));
         let pills = if pills.is_empty() {
             vec![
                 Text::labeled("no-agents", "You have no agents")
@@ -128,17 +129,13 @@ impl Sections<'_> {
         } else {
             pills
         };
+        let head = SectionHeader::new("agents-label", "Your agents")
+            .min_h(px(space::CONTROL_SM))
+            .action(preset_chip("place-preset", self.preset, cx));
         v_flex()
-            .gap(px(space::MD))
-            .child(
-                SectionHeader::new("agents-label", "Your agents")
-                    .min_h(px(space::CONTROL_SM))
-                    .action(preset_chip("place-preset", self.preset, cx)),
-            )
-            .child(place_line(
-                group.tooltip(tooltip("Includes agents added later")),
-                pills,
-            ))
+            .gap(px(space::SM))
+            .child(place_block(head, pills))
+            .child(switch)
             .into_any_element()
     }
 
@@ -153,51 +150,65 @@ impl Sections<'_> {
         })
     }
 
-    /// One line per workspace, in sidebar order, under a hairline.
+    /// One block per workspace, in sidebar order, under a hairline, scrolling once they are
+    /// taller than the popover keeps them.
     fn workspaces<V: Placer>(&self, window: &Window, cx: &Context<V>) -> AnyElement {
+        let theme = cx.theme();
+        let hairline = HAIRLINE.of(theme);
+        let blocks = self
+            .places
+            .workspaces
+            .iter()
+            .enumerate()
+            .map(|(index, place)| {
+                self.workspace_block(place, window, cx)
+                    .when(index > 0, |block| {
+                        block.pt(px(space::MD)).border_t_1().border_color(hairline)
+                    })
+            });
         v_flex()
-            .gap(px(space::MD))
+            .gap(px(space::SM))
             .pt(px(space::MD))
             .border_t_1()
-            .border_color(HAIRLINE.of(cx.theme()))
+            .border_color(hairline)
             .child(
                 SectionHeader::new("workspaces-label", "Workspaces").min_h(px(space::CONTROL_SM)),
             )
-            .children(
-                self.places
-                    .workspaces
-                    .iter()
-                    .map(|place| self.workspace_line(place, window, cx)),
+            .child(
+                ScrollArea::new("place-workspaces")
+                    .fill(theme.popover)
+                    .max_h(px(POPOVER_LIST_MAX_HEIGHT))
+                    // Room at the trailing edge for Kit's scrollbar, clear of the statuses.
+                    .child(
+                        v_flex()
+                            .gap(px(space::MD))
+                            .pr(px(space::LG))
+                            .children(blocks),
+                    ),
             )
             .into_any_element()
     }
 
-    /// A workspace's glyph and name, "No agents yet" while it uses none, then its pills. A
-    /// workspace whose folder is missing is faded and does nothing.
-    fn workspace_line<V: Placer>(
+    /// A workspace's glyph and name, how many of its pills are on, then its pills. A workspace
+    /// whose folder is missing is faded and does nothing.
+    fn workspace_block<V: Placer>(
         &self,
         place: &WorkspacePlace<'_>,
         window: &Window,
         cx: &Context<V>,
-    ) -> AnyElement {
+    ) -> gpui_kit::Stateful<gpui_kit::Div> {
         let workspace = place.workspace;
         let pills = place.entries.iter().map(|held| {
-            let entry = held.entry;
-            let tooltip = match entry.detail() {
-                Some(detail) => format!("{}\n{detail}", entry.row.name),
-                None => entry.row.name.clone(),
-            };
-            let id = format!("place-ws-{}-{}", workspace.id, entry.keys.join("+"));
+            let id = format!("place-ws-{}-{}", workspace.id, held.entry.keys.join("+"));
             let focus = (!place.missing()).then(|| self.popover.key(&id, cx));
-            let logo = reader_logo(&entry.row.reader);
             let inert = self.blocked || focus.is_none();
-            let pill = place_pill(id, logo, held.held, inert, tooltip, cx);
+            let pill = place_pill(id, held, inert, cx);
             // A missing workspace's pill takes no focus and no press.
             let Some(focus) = focus else {
                 return pill.disabled(true).into_any_element();
             };
             let (skill, target) = (self.places.skill.clone(), workspace.id.clone());
-            let next = place.toggled(entry);
+            let next = place.toggled(held.entry);
             let save = (!self.blocked).then_some(
                 move |view: &mut V, _: &mut Window, cx: &mut Context<V>| {
                     view.place_workspace(target.clone(), skill.clone(), next.clone(), cx);
@@ -205,44 +216,100 @@ impl Sections<'_> {
             );
             pressable(pill, &focus, save, window, cx)
         });
-        let name = v_flex()
+        let name = h_flex()
+            .gap(px(space::SM))
+            .child(sized_icon(workspace, IconSize::Sm.points(), cx))
             .child(
-                h_flex()
+                div()
                     .min_w_0()
-                    .gap(px(space::SM))
-                    .child(sized_icon(workspace, IconSize::Sm.points(), cx))
-                    .child(
-                        div()
-                            .min_w_0()
-                            .truncate()
-                            .child(Text::labeled("name", workspace.name.clone())),
-                    ),
-            )
-            .when(place.uses_none(), |name| {
-                name.child(
-                    Text::labeled(format!("none-{}", workspace.id), "No agents yet")
-                        .level(text::CAPTION_SM)
-                        .muted()
-                        // Under the name, past its glyph.
-                        .pl(px(IconSize::Sm.points() + space::SM)),
-                )
-            });
-        let line = place_line(name, pills).id(format!("place-ws-{}", workspace.id));
+                    .truncate()
+                    .child(Text::labeled("name", workspace.name.clone())),
+            );
+        let status = Text::labeled(format!("status-{}", workspace.id), status(place))
+            .level(text::CAPTION_SM)
+            .muted()
+            .tabular();
+        let block =
+            place_block(place_head(name, status), pills).id(format!("place-ws-{}", workspace.id));
         if place.missing() {
-            line.opacity(opacity::DISABLED)
+            block
+                .opacity(opacity::DISABLED)
                 .tooltip(tooltip("The workspace folder is missing."))
-                .into_any_element()
         } else {
-            line.into_any_element()
+            block
         }
     }
+}
+
+/// What a workspace's head says after its name: "Folder missing", "No agents yet" while it uses
+/// none, "<N> of <M> on" while any of its pills is on, otherwise "Off".
+fn status(place: &WorkspacePlace<'_>) -> String {
+    let on = place.entries.iter().filter(|held| held.held).count();
+    if place.missing() {
+        "Folder missing".to_owned()
+    } else if place.uses_none() {
+        "No agents yet".to_owned()
+    } else if on == 0 {
+        "Off".to_owned()
+    } else {
+        format!("{on} of {} on", place.entries.len())
+    }
+}
+
+/// A pill toggling one directory: the design system's dashed toggle chip holding the
+/// directory's logo and label, accent while on. Off, the logo is grayscale at half opacity and the
+/// label muted. Its accessible name names Universal or every agent that reads the directory, and
+/// its tooltip lists those agents when the label does not. It is `inert` while a press would do
+/// nothing.
+fn place_pill(id: String, held: &Held<'_>, inert: bool, cx: &App) -> ToggleChip {
+    let Held { entry, held: on } = *held;
+    let muted = cx.theme().muted_foreground;
+    let logo = reader_logo(&entry.row.reader);
+    let mark = div()
+        .flex()
+        .flex_none()
+        .when(!on, |mark| {
+            mark.text_color(muted).opacity(opacity::INACTIVE)
+        })
+        .child(logo.element(IconSize::Sm, !on));
+    let tone = if on {
+        TextTone::Default
+    } else {
+        TextTone::Muted
+    };
+    ToggleChip::new(id, on)
+        .dashed()
+        .inert(inert)
+        .accessibility_label(name(entry))
+        .h(px(space::CONTROL_SM))
+        .child(mark)
+        .child(Text::new(entry.label()).tone(tone))
+        .when_some(readers(entry), |pill, readers| {
+            pill.tooltip(tooltip(readers))
+        })
+}
+
+/// A directory's pill's accessible name: Universal, or every agent that reads the directory.
+fn name(entry: &Entry) -> String {
+    match entry.row.reader {
+        Reader::Universal(_) => entry.row.name.clone(),
+        Reader::Agent(_) => entry.names().join(", "),
+    }
+}
+
+/// The tooltip of a directory's pill: every agent that reads it, when its label does not name
+/// them all, as Universal's and a shortened one's do not.
+fn readers(entry: &Entry) -> Option<String> {
+    let names = entry.names();
+    let universal = matches!(entry.row.reader, Reader::Universal(_));
+    (universal || names.len() > 1).then(|| names.join(", "))
 }
 
 /// `pill` on the popover's `focus` for it, with Kit's focus ring while a key gave it that focus;
 /// `press` runs on a click, or Enter or Space while it has focus. Without `press` it keeps its
 /// focus and does nothing.
 fn pressable<V: Placer>(
-    pill: Toggle,
+    pill: ToggleChip,
     focus: &FocusHandle,
     press: Option<impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static>,
     window: &Window,

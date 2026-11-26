@@ -13,7 +13,7 @@ The user settled each point below on 2026-11-09, where a prototype disagreed wit
    - your agents are listed Universal first, then by name: Universal, Claude Code, Cursor, Windsurf, in the sidebar, menus and stacks;
    - Universal's members are the registry's `~/.agents/skills` agents: Cline, Codex, Dexto, fx, Kimi Code CLI, Loaf, Pi, Sarvam Code, Warp, Zed;
    - a project's `.claude/skills` is named "Claude Code, Cline, Cursor, fx, Warp", and a workspace with no agents offers the same 12 directories as the native app;
-   - rows of many logo pills wrap onto further lines, aligned to the trailing edge, wherever pills appear.
+   - rows of many logo pills wrap onto further lines, aligned to the trailing edge, wherever pills appear. The Library popover's labeled pills wrap from the leading edge under each place's name instead (2026-11-26, [place-popover](../place-popover/README.md)).
 5. **Earlier conflicts follow the prototype:** the 70% wash, the `loading` spinner glyph, the 2 px progress line, small agent avatars overlapping in a stack, the outlined Updates chip, one "No skills match" empty state with Clear filters, the prototype's spacing and gutters, the `robot` overlap glyph, the "Changed here" mark, no clear button in the search field, the picker at 92% × 90% of the window, and the prototype's review list and edited-copy prompt. The picker's scrim click does not close it, as #100 says. The toast became a Kit Notification on 2026-11-11.
 6. **The checkbox tick** is the retained Hugeicons `check` that Kit's checkbox draws (AGENTS.md icon rule), not the prototype's CSS check.
 

@@ -434,6 +434,24 @@ fn a_workspace_without_agents_offers_your_agents_directories() {
 }
 
 #[test]
+fn a_pill_reads_the_agent_whose_logo_it_shows_and_counts_the_others() {
+    let snapshot = base()
+        .agent("cline", "Cline", ".claude/skills", ".cline/skills", true)
+        .linked(".claude/skills")
+        .build();
+    let places = Places::new(&snapshot);
+    let labels = |entries: &[Entry]| -> Vec<String> { entries.iter().map(Entry::label).collect() };
+    assert_eq!(
+        labels(&places.agents),
+        ["Universal", "Claude Code +1", "Cursor"]
+    );
+    let api = &places.workspaces[1].entries;
+    assert_eq!(labels(api), ["Claude Code +1"]);
+    assert_eq!(api[0].names(), ["Claude Code", "Cline"]);
+    assert_eq!(places.agents[0].names(), ["Amp", "Codex"]);
+}
+
+#[test]
 fn directories_resolving_to_one_folder_share_a_pill() {
     let snapshot = base()
         .workspace("linked", &[".agents/skills", ".claude/skills"])

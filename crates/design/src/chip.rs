@@ -128,12 +128,14 @@ impl RenderOnce for Chip {
 }
 
 /// A chip a press turns on and off: `off` while off, or a dashed outline when `dashed`, and
-/// `accent` while on. Hover adds the `muted` fill to an off chip.
+/// `accent` while on. Hover adds the `muted` fill to an off chip, and the hand cursor shows,
+/// unless the chip is inert.
 #[derive(IntoElement)]
 pub struct ToggleChip {
     base: Toggle,
     on: bool,
     dashed: bool,
+    inert: bool,
 }
 
 impl ToggleChip {
@@ -143,6 +145,7 @@ impl ToggleChip {
             base: Toggle::new(id).pressed(on),
             on,
             dashed: false,
+            inert: false,
         }
     }
 
@@ -151,6 +154,21 @@ impl ToggleChip {
         Self {
             dashed: true,
             ..self
+        }
+    }
+
+    /// Draws the chip with no hover or hand cursor when `inert`, for one a press would do nothing
+    /// to, such as while the app is busy. It keeps its focus.
+    pub fn inert(self, inert: bool) -> Self {
+        Self { inert, ..self }
+    }
+
+    /// Disables the chip when `disabled`: it takes no press and draws as inert.
+    pub fn disabled(self, disabled: bool) -> Self {
+        let inert = self.inert || disabled;
+        Self {
+            inert,
+            ..self.map_base(|base| base.disabled(disabled))
         }
     }
 
@@ -209,13 +227,16 @@ impl RenderOnce for ToggleChip {
         } else {
             ChipVariant::Outline
         };
-        let chip = shape(variant.apply(self.base, theme)).cursor_pointer();
+        let chip =
+            shape(variant.apply(self.base, theme)).when(!self.inert, |chip| chip.cursor_pointer());
         let chip = if self.dashed && !self.on {
             dashed(chip, theme)
         } else {
             chip
         };
-        chip.when(!self.on, |chip| chip.hover(move |style| style.bg(hover)))
+        chip.when(!self.on && !self.inert, |chip| {
+            chip.hover(move |style| style.bg(hover))
+        })
     }
 }
 

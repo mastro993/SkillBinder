@@ -19,6 +19,9 @@ use skillbinder_proto::{AgentOption, DirRole, SkillId, Workspace, WorkspaceId, W
 /// The workspace skill directory the universal agents, and many others, read.
 const UNIVERSAL_DIR: &str = ".agents/skills";
 
+/// What joins the names of a workspace directory's agents into its row's name.
+pub(super) const NAMES: &str = ", ";
+
 /// One workspace skill directory as the agents menu, Library's popover, and the picker show it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct DirRow {
@@ -67,7 +70,7 @@ pub(super) fn dir_rows<'a>(
             let (reader, name) = if dir == UNIVERSAL_DIR && universal {
                 (Reader::Universal(names), UNIVERSAL.to_owned())
             } else {
-                (Reader::Agent(shown.first()?.id.clone()), names.join(", "))
+                (Reader::Agent(shown.first()?.id.clone()), names.join(NAMES))
             };
             // Copies name a directory the workspace uses by its resolved path.
             let path = workspace

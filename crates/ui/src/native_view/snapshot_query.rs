@@ -4,7 +4,7 @@
 //! clicked over the snapshot's.
 
 use super::library_copies::{AgentRow, Reader, agent_rows};
-use super::workspace_targets::dir_rows;
+use super::workspace_targets::{NAMES, dir_rows};
 use super::{library_targets, workspace_targets};
 use skillbinder_proto::{
     AppSnapshot, FolderId, LibrarySnapshot, PresetId, Skill, SkillId, Targets, Workspace,
@@ -53,6 +53,25 @@ impl Entry {
             }
         }
         entries
+    }
+
+    /// Every agent that reads the directory, by name, the one whose logo it shows first.
+    pub(super) fn names(&self) -> Vec<&str> {
+        self.readers
+            .iter()
+            .flat_map(|names| names.split(NAMES))
+            .collect()
+    }
+
+    /// What a pill reads: the name of the agent whose logo it shows, then `+<N>` for the other
+    /// agents that read the directory. Universal reads as itself.
+    pub(super) fn label(&self) -> String {
+        match (&self.row.reader, self.names().as_slice()) {
+            (Reader::Agent(_), [first, rest @ ..]) if !rest.is_empty() => {
+                format!("{first} +{}", rest.len())
+            }
+            _ => self.row.name.clone(),
+        }
     }
 
     /// The tooltip's second line: the agents that read the directory, when the name does not

@@ -1,11 +1,12 @@
 //! The popover that changes where a library skill is on, from its Library row or tile or its
 //! page's header, whose surface a workspace page's agents menu shares. "Your agents" edits the
-//! active preset: an All agents switch and one pill per skill directory of your agents. Each
-//! workspace's line edits that workspace, one pill per directory it uses, or, while it uses none,
-//! per directory your agents offer. Each change saves at once; the last pill off removes the
-//! skill from that place without asking. It stays open across changes and closes on a press
-//! outside, Escape, a scroll of the list, or leaving the page. The keyboard reaches every control,
-//! as [`focus`] describes. It is Kit's popover surface, placed by Kit's positioner from where its
+//! active preset: a labeled pill per skill directory of your agents and an All agents switch.
+//! Each workspace's block edits that workspace, one pill per directory it uses, or, while it uses
+//! none, per directory your agents offer, under its name and how many of them hold the skill.
+//! Each change saves at once; the last pill off removes the skill from that place without asking.
+//! It stays open across changes and closes on a press outside, Escape, a scroll of the list, or
+//! leaving the page. The keyboard reaches every control, as [`focus`] describes. It is Kit's
+//! popover surface, placed by Kit's positioner from where its
 //! trigger was last painted.
 
 mod focus;
@@ -29,6 +30,7 @@ use gpui_kit::{
 };
 use sections::{Placer, Sections};
 use skillbinder_design::PopoverPanel;
+use skillbinder_design::library::POPOVER_WIDTH;
 use skillbinder_design::tokens::space;
 use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
@@ -37,9 +39,6 @@ use skillbinder_proto::{SkillId, Targets, WorkspaceId, WorkspaceTargets};
 pub(crate) fn bind_keys(cx: &mut gpui_kit::App) {
     cx.bind_keys(focus::key_bindings());
 }
-
-/// The popover's width: layout measured from the approved Library prototype.
-const WIDTH: f32 = 300.;
 
 /// Where the open popover's trigger and its row or tile were last painted, in window
 /// coordinates, and the trigger's bounds the popover was last placed by.
@@ -251,7 +250,7 @@ impl PlacePopover {
     ) -> PopoverPanel {
         let outside = self.cells.trigger.clone();
         let surface = PopoverPanel::new("place-popover")
-            .w(px(WIDTH))
+            .w(px(POPOVER_WIDTH))
             .child(content)
             .track_focus(&self.focus)
             .role(Role::Dialog)
@@ -295,27 +294,34 @@ fn placed(anchor: Bounds<Pixels>, grid: bool, surface: PopoverPanel) -> PopoverP
     surface.anchor(anchor, Placement::Bottom, align)
 }
 
-/// A line of the popover: `lead`, never narrower than its content and taking the free width,
-/// then `pills` at the trailing edge, wrapping onto further lines beside it rather than crushing
-/// it however many there are.
-pub(super) fn place_line<E: Styled + IntoElement>(
-    lead: E,
+/// A place's block: `head` above its `pills`, which wrap across the block's full width.
+pub(super) fn place_block(
+    head: impl IntoElement,
     pills: impl IntoIterator<Item = impl IntoElement>,
 ) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(space::SM))
+        .child(head)
+        .child(
+            div()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap(px(space::XS))
+                .children(pills),
+        )
+}
+
+/// A block's head: `lead`, cut short when it does not fit, then `status` at the trailing edge,
+/// which always shows whole.
+pub(super) fn place_head(lead: impl IntoElement, status: impl IntoElement) -> Div {
     div()
         .flex()
         .items_center()
         .gap(px(space::MD))
         .min_h(px(space::CONTROL_SM))
-        .child(lead.flex_grow(1.).flex_shrink_0())
-        .child(
-            div()
-                .flex()
-                .flex_wrap()
-                .justify_end()
-                .items_center()
-                .gap(px(space::XS))
-                .min_w_0()
-                .children(pills),
-        )
+        .child(div().flex_1().min_w_0().child(lead))
+        .child(div().flex_none().child(status))
 }

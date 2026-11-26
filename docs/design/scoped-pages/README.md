@@ -46,7 +46,7 @@ The Undo toasts on the workspace and agent pages follow from Kit first ([decisio
 | Updates chip | `Toggle`, styled as the prototype's outlined chip, with a focus ring for keyboard focus only |
 | Folder tag, workspace chip, preset chip | `Tag` |
 | All agents switch | `Switch` |
-| Skill-directory pills | `Toggle`, with GPUI's dashed border while off |
+| Skill-directory pills | `Toggle`, with GPUI's dashed border while off; the Library popover's are labeled `ToggleChip`s since 2026-11-26 ([place-popover](../place-popover/README.md)) |
 | Agent avatars and stacks | `Avatar`, plus a `+N` circle |
 | Placement popover | Kit's popover surface, placed with `gpui_kit::base::Positioner` so it opens above its trigger near the window's bottom |
 | Copies review, confirmations, picker | `Dialog` |

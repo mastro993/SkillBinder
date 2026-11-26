@@ -56,9 +56,12 @@ fn a_static_chip_holds_its_label(cx: &mut TestAppContext) {
     assert_eq!(labels(&frame, "frontend"), ChipVariant::ALL.len());
 }
 
-/// A toggle chip that turns on and off.
+/// A toggle chip that turns on and off, unless it is disabled.
 #[derive(Default)]
-struct Updates(bool);
+struct Updates {
+    on: bool,
+    disabled: bool,
+}
 
 impl Render for Updates {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -67,11 +70,12 @@ impl Render for Updates {
         div()
             .id("host")
             .child(
-                ToggleChip::new("updates", self.0)
+                ToggleChip::new("updates", self.on)
                     .accessibility_label("Updates")
+                    .disabled(self.disabled)
                     .on_change(move |on, _, _, cx| {
                         view.update(cx, |view, cx| {
-                            view.0 = on;
+                            view.on = on;
                             cx.notify();
                         })
                     })
@@ -81,14 +85,20 @@ impl Render for Updates {
     }
 }
 
+/// The chip's accessible name and toggled state.
+fn state(
+    drawn: &Drawn<Updates>,
+    cx: &mut TestAppContext,
+) -> Option<(Option<String>, Option<Toggled>)> {
+    let frame = drawn.frame(cx);
+    let node = node(&frame, "updates").and_then(|node| frame.accessibility_node(node));
+    node.map(|node| (node.label().map(str::to_owned), node.toggled()))
+}
+
 #[gpui_kit::test]
 fn a_toggle_chip_is_a_named_toggle_a_press_turns_on(cx: &mut TestAppContext) {
     let drawn = Drawn::open(cx, |_, _| Updates::default());
-    let state = |cx: &mut TestAppContext| {
-        let frame = drawn.frame(cx);
-        let node = node(&frame, "updates").and_then(|node| frame.accessibility_node(node));
-        node.map(|node| (node.label().map(str::to_owned), node.toggled()))
-    };
+    let state = |cx: &mut TestAppContext| state(&drawn, cx);
     assert_eq!(
         state(cx),
         Some((Some("Updates".into()), Some(Toggled::False)))
@@ -97,5 +107,18 @@ fn a_toggle_chip_is_a_named_toggle_a_press_turns_on(cx: &mut TestAppContext) {
     assert_eq!(
         state(cx),
         Some((Some("Updates".into()), Some(Toggled::True)))
+    );
+}
+
+#[gpui_kit::test]
+fn a_disabled_toggle_chip_ignores_a_press(cx: &mut TestAppContext) {
+    let drawn = Drawn::open(cx, |_, _| Updates {
+        on: false,
+        disabled: true,
+    });
+    drawn.step(cx, |window, cx| window.click("host", cx));
+    assert_eq!(
+        state(&drawn, cx),
+        Some((Some("Updates".into()), Some(Toggled::False)))
     );
 }

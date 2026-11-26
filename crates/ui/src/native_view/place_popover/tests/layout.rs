@@ -1,62 +1,49 @@
-//! The popover's layout in a GPUI test window at the app's 1180 by 728 points: pills wrapping at a
-//! line's trailing edge, and Kit's positioner opening the popover below its trigger, or above it
+//! The popover's layout in a GPUI test window at the app's 1180 by 728 points: pills wrapping
+//! across a place's block under its head, and Kit's positioner opening the popover below its trigger, or above it
 //! or its whole tile, from where the trigger was last painted.
 
-use super::super::super::library_places::place_pill;
 use super::super::super::snapshot_query::fixture::id;
-use super::super::{PlacePopover, WIDTH, anchor, place_line, placed};
+use super::super::{PlacePopover, anchor, place_block, place_head, placed};
 use gpui_kit::test::{TestSupportExt, TestWindowExt};
 use gpui_kit::{
     AnyWindowHandle, App, AppContext, Bounds, Context, Entity, FocusHandle, InteractiveElement,
     IntoElement, ParentElement, Pixels, Render, Styled, Subscription, TestAppContext, Window,
     WindowBounds, WindowOptions, canvas, deferred, div, point, prelude::FluentBuilder, px, size,
 };
-use skillbinder_design::Logo;
 use skillbinder_design::PopoverPanel;
+use skillbinder_design::library::POPOVER_WIDTH;
 use skillbinder_design::menu::WINDOW_MARGIN;
 
 const WINDOW: (f32, f32) = (1180., 728.);
 
-/// The popover's lines, 276 points wide: All agents, 97.74 points of label and switch, with four
-/// pills and with eight, and docs-site's, whose 12 pills wrap beside its 95.73-point name.
-fn popover_lines(cx: &App) -> impl IntoElement {
-    let logo = Logo::Glyph("icons/layers.svg");
-    let pills = |prefix: &'static str, count: usize| {
-        (0..count)
-            .map(move |index| place_pill(format!("{prefix}{index}"), logo, false, false, "", cx))
-    };
-    let lead = |id: &'static str, width: f32| {
+/// A place's block, 336 points wide as in the popover: a 400-point name beside a 60-point
+/// status, over six 100-point pills.
+fn place(_: &App) -> impl IntoElement {
+    let sized = |id: String, width: f32| {
         div()
             .id(id)
-            .child(div().w(px(width)).h(px(18.2)))
+            .flex_none()
+            .w(px(width))
+            .h(px(24.))
             .test_support()
     };
+    let head = place_head(sized("name".into(), 400.), sized("status".into(), 60.));
     div()
         .absolute()
         .top(px(100.))
         .left(px(100.))
-        .w(px(276.))
-        .flex()
-        .flex_col()
-        .gap(px(8.))
+        .w(px(336.))
         .child(
-            place_line(lead("all-row", 97.74), pills("agent-", 4))
-                .id("agents-line")
-                .test_support(),
-        )
-        .child(
-            place_line(lead("all-row-many", 97.74), pills("many-", 8))
-                .id("many-line")
-                .test_support(),
-        )
-        .child(
-            place_line(lead("docs-name", 95.73), pills("dir-", 12))
-                .id("docs-line")
-                .test_support(),
+            place_block(
+                head,
+                (0..6).map(move |index| sized(format!("pill-{index}"), 100.)),
+            )
+            .id("block")
+            .test_support(),
         )
 }
 
-/// A 300-point popover `height` high, placed from a trigger at `trigger`, inside a tile from
+/// A popover `height` high, placed from a trigger at `trigger`, inside a tile from
 /// `tile_top` in a grid.
 fn popover(
     name: &'static str,
@@ -71,7 +58,7 @@ fn popover(
     deferred(placed(
         anchor(trigger, tile, tile_top.is_some()),
         tile_top.is_some(),
-        PopoverPanel::new(name).w(px(WIDTH)).h(px(height)),
+        PopoverPanel::new(name).w(px(POPOVER_WIDTH)).h(px(height)),
     ))
 }
 
@@ -82,7 +69,7 @@ impl Render for Gallery {
         div()
             .size_full()
             .relative()
-            .child(popover_lines(cx))
+            .child(place(cx))
             .child(popover("row", (1013., 293., 136.), 285., None))
             .child(popover("low", (1090., 647., 59.), 285., None))
             .child(popover("tile", (955.5, 600., 189.66), 233., Some(470.)))
@@ -126,36 +113,27 @@ fn rows(cx: &mut TestAppContext, window: AnyWindowHandle, ids: &[&'static str]) 
 }
 
 #[gpui_kit::test]
-fn popover_pills_sit_at_the_trailing_edge_and_wrap_beside_the_name(cx: &mut TestAppContext) {
+fn pills_wrap_under_the_head_whose_status_shows_whole(cx: &mut TestAppContext) {
     let window = gallery(cx);
     // Layout snaps to device pixels, half a point apart at 2x.
     let near = |a: Pixels, b: Pixels| (f32::from(a) - f32::from(b)).abs() <= 0.5;
-    // Four pills fit on one line, ending at its trailing edge; All agents takes the free width.
-    let line = bounds(cx, window, "agents-line");
-    let (lead, first) = (bounds(cx, window, "all-row"), bounds(cx, window, "agent-0"));
+    let block = bounds(cx, window, "block");
+    // The status keeps its width at the trailing edge however long the name is.
+    let status = bounds(cx, window, "status");
+    assert!(near(status.right(), block.right()), "{status:?} {block:?}");
+    assert!(near(status.size.width, px(60.)), "{status:?}");
+    // The pills start at the block's leading edge, under the head, and wrap three to a line.
+    let first = bounds(cx, window, "pill-0");
+    assert!(near(first.left(), block.left()), "{first:?}");
+    assert!(first.top() > status.bottom(), "{first:?} {status:?}");
     assert_eq!(
-        rows(cx, window, &["agent-0", "agent-1", "agent-2", "agent-3"]),
-        1
-    );
-    assert!(near(bounds(cx, window, "agent-3").right(), line.right()));
-    assert!(
-        near(lead.right() + px(8.), first.left()),
-        "{lead:?} {first:?}"
-    );
-    // Eight wrap onto two lines beside All agents, which keeps its width.
-    assert_eq!(
-        rows(cx, window, &["many-0", "many-4", "many-5", "many-7"]),
+        rows(cx, window, &["pill-0", "pill-2", "pill-3", "pill-5"]),
         2
     );
-    let lead = bounds(cx, window, "all-row-many");
-    assert!(f32::from(lead.size.width) >= 97.74 - 0.5, "{lead:?}");
-    // docs-site's twelve wrap onto three lines beside its name, the last line at the trailing
-    // edge too.
-    let line = bounds(cx, window, "docs-line");
-    assert_eq!(rows(cx, window, &["dir-0", "dir-5", "dir-10", "dir-11"]), 3);
-    assert!(near(bounds(cx, window, "dir-11").right(), line.right()));
-    let name = bounds(cx, window, "docs-name");
-    assert!(f32::from(name.size.width) >= 95.73 - 0.5, "{name:?}");
+    for id in ["pill-0", "pill-1", "pill-2", "pill-3", "pill-4", "pill-5"] {
+        let pill = bounds(cx, window, id);
+        assert!(pill.right() <= block.right(), "{id} {pill:?}");
+    }
 }
 
 #[gpui_kit::test]
