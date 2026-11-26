@@ -1,7 +1,7 @@
 //! M1's calls that wait: Update all's progress and the busy refusal beside it (CM1.3), and an
 //! import that replaces copies, which asks before anything changes.
 
-use super::harness::{Client, Heard, Step, app};
+use super::harness::{Client, Step, app};
 use super::{answered, outcome, stateless_call};
 use serde_json::json;
 use skillbinder_proto::command_line::{
@@ -137,7 +137,7 @@ async fn an_import_replacing_copies_asks_for_replace_without_forms() -> anyhow::
     let arguments = json!({ "skills": [{ "slug": "pdf" }], "replace": true });
     let imported = client.call(2, "import_skills", arguments).await?;
     assert_eq!(imported["structuredContent"]["installed"], json!(["pdf"]));
-    assert_eq!(Heard::count(&heard.finished), 2);
+    assert_eq!(heard.wait_finished(2).await, 2);
     Ok(())
 }
 
