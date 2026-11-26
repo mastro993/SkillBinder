@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everything in a place</title>
+<!-- Prototype: workspace and agent pages also list the skills in their folders that SkillBinder
+     does not manage: found skills not in library, copies of library skills that are off there,
+     and ignored skills. Variants differ in layout only (A sections, B filter, C one list).
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py place-pages.html ../prototypes/place-pages.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+.sb-nav-row[data-nav="discovery"] { display: none; }
+.sp-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.sp-head-ic { width: 18px; height: 18px; flex: none; display: grid; place-items: center; }
+.sp-path { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--sb-muted-fg); }
+.sp-mark { width: 18px; height: 18px; flex: none; display: inline-grid; place-items: center; border-radius: 5px; color: var(--sb-muted-fg); }
+.sp-mark-warn { color: var(--sb-warning); }
+@keyframes sp-flash { from { background: color-mix(in srgb, var(--sb-info) 16%, transparent); } }
+.sb-row.is-new { animation: sp-flash 1.8s ease-out; }
+.sb-window .sb-dialog:focus-visible { outline: none; }
+
+/* where a found copy sits, under the description */
+.ps-where { margin-top: 2px; font: 11.5px/1.4 var(--sb-mono, ui-monospace, monospace); color: var(--sb-muted-fg); }
+.ps-tag { flex: none; font-size: 11px; padding: 0 6px; height: 18px; display: inline-flex; align-items: center; border-radius: 5px;
+  border: 1px solid var(--sb-border); color: var(--sb-muted-fg); }
+.sb-row.is-off .sb-slug, .sb-row.is-off .sb-desc { opacity: .72; }
+.sb-row.is-ignored .sb-slug, .sb-row.is-ignored .sb-desc { opacity: .55; }
+
+/* row actions shown on hover or focus, like Library's Delete */
+.ps-hover { opacity: 0; transition: opacity .1s; }
+.sb-row:hover .ps-hover, .sb-row:focus-within .ps-hover { opacity: 1; }
+.ps-ghost { color: var(--sb-muted-fg); }
+.ps-ghost:hover { color: var(--sb-fg); }
+
+/* A: sections */
+.ps-sec { margin-top: 18px; }
+.ps-sec-head { display: flex; align-items: center; gap: 8px; height: 30px; margin-bottom: 6px; }
+.ps-sec-title { font-size: 12.5px; font-weight: 600; }
+.ps-sec-hint { font-size: 12px; color: var(--sb-muted-fg); }
+.ps-sec-end { margin-left: auto; display: flex; gap: 6px; }
+.ps-count { font-size: 12px; color: var(--sb-muted-fg); font-variant-numeric: tabular-nums; }
+.ps-disc { cursor: pointer; border: 0; background: none; padding: 0; display: flex; align-items: center; gap: 6px; color: var(--sb-muted-fg); font: inherit; }
+.ps-disc .sb-ic { transition: transform .12s; }
+.ps-disc[aria-expanded="true"] .sb-ic { transform: rotate(90deg); }
+
+/* C: group headers inside one card */
+.ps-ghead { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-top: 1px solid var(--sb-border);
+  background: color-mix(in srgb, var(--sb-fg) 3.5%, var(--sb-card)); }
+.sb-card > .ps-ghead:first-child { border-top: 0; border-radius: 9px 9px 0 0; }
+.ps-ghead + .sb-row::before { display: none; }
+
+/* B: filter beside the search */
+.ps-tools { display: flex; align-items: center; gap: 10px; }
+.ps-none { padding: 18px 12px; font-size: 12.5px; color: var(--sb-muted-fg); text-align: center; }
+.ps-empty-line { display: flex; align-items: center; gap: 10px; padding: 14px 12px; font-size: 13px; color: var(--sb-muted-fg); }
+
+/* placeholder import dialog */
+.ps-imp-row { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 12px; }
+.ps-imp-row + .ps-imp-row { border-top: 1px solid var(--sb-border); }
+.ps-imp-row b { font-size: 13px; }
+.ps-imp-row span { font-size: 12px; color: var(--sb-muted-fg); }
+.ps-note { margin: 0 0 10px; font-size: 12px; color: var(--sb-muted-fg); }
+.sp-hint { margin-top: 8px; font: 12px/1.4 var(--sb-font); color: var(--sb-muted-fg); }
+.sp-hint b { font-weight: 600; color: var(--sb-fg); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:760px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+  <div class="sp-hint">Try: <b>acme-web</b>, <b>Claude Code</b>, <b>Universal</b>, <b>docs-site</b> (no agents) · Ignore <b>vendor-lint</b> on one page and see it ignored on the other · Turn on <b>data-viz</b> (a different copy, asks first) · Import… · search</div>
+</div>

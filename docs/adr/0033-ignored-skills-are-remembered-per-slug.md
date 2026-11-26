@@ -1,5 +1,7 @@
 # Ignored skills are remembered per slug, on this device
 
+Partly superseded by ADR 0036: workspace and agent pages also list the ignored skills found in their directories, each with Stop ignoring, and their found skills can be ignored there.
+
 ADR 0008 rejected a remembered skip list as machinery nobody asked for, so every found skill the user leaves out of an import comes back ticked on the next Scan for skills, and Scan for skills keeps counting it. Users with skills they never want in the library, such as a project's vendored skills or an agent's own, now ask for it: the count never reaches zero, and each import starts by unticking the same rows. This partly supersedes ADR 0008 ([spec](../specs/ignore-found-skills.md)).
 
 The user can now **ignore** a found skill that is not in library. An ignored skill is not offered for import, not ticked, and not counted, by the Import skills dialog, Scan for skills, onboarding's import, the command's `scan` and `import --all`, or the MCP server, until the user stops ignoring it. Ignoring is an explicit act, separate from leaving a skill unticked: an unticked skill is only skipped and comes back ticked, as ADR 0008 says. Ignoring is saved at once, whether or not the import that follows runs.
