@@ -102,7 +102,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
      - `incoming: Option<Incoming { devices: Vec<String>, at, skills }>`;
      - `conflicts: Vec<Conflict { slug, local, remote }>`;
      - `last_error: Option<AppError>`.
-   - The engine computes them in `Git::status`. Local entries come from the porcelain status plus `diff base..HEAD`. Incoming entries come from `diff base..incoming`, with devices from the incoming commits' trailers. Conflicts are the slugs both lists hold whose `ls-tree` ids differ.
+   - The engine computes them in `Git::status`. Local entries come from the porcelain status plus `diff base..HEAD`. Each entry's why comes from its slug's `pending_changes` row when there is one. Otherwise it comes from the latest `SkillBinder-Skill` trailer for that slug in `base..HEAD`, which covers unpushed commits, such as after a push that failed. Only with neither is it `outside`. Incoming entries come from `diff base..incoming`, with devices from the incoming commits' trailers. Conflicts are the slugs both lists hold whose `ls-tree` ids differ.
    - `SyncState` gains `NeedsResolve` and `Unreachable`. Existing values keep their wire names for the command's `status`.
 5. **Per-skill merge (ADR 0039).**
    - `SyncAction::Sync` is unchanged when there are no conflicts. A new `Engine::resolve(choices: BTreeMap<String, Side>)` handles a Sync that needs choices.
@@ -110,7 +110,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
      1. commits the local changes as `<local>`, keeping the commit id it gets back (never a reflog entry such as `HEAD@{1}`, since the user's global `core.logAllRefUpdates=false` turns reflogs off);
      2. runs `read-tree <incoming>` into a temporary `GIT_INDEX_FILE`;
      3. for each local-only slug, and each conflict that chose local, takes this device's `skills/<slug>` and `records/<slug>.toml`, or removes them, with `update-index`;
-     4. runs `write-tree`, then `validate_tree`, then `commit-tree -p <incoming> -p <local>` as `<merged>`;
+     4. runs `write-tree`, then `validate_tree`, then `commit-tree -p <incoming> -p <local>` as `<merged>`. Its message carries the `SkillBinder-Device` trailer and the `SkillBinder-Choice` trailers. It also carries a `SkillBinder-Skill` trailer for each contributed slug, copied from the latest one in `base..<local>`, so the merge row shows the recorded why on every device;
      5. writes a `merge` row `{local, merged}` to the `journals` table;
      6. updates the index and working tree with `read-tree -m -u <local> <merged>`, while HEAD is still `<local>`;
      7. moves the ref with `update-ref HEAD <merged> <local>`, which checks the old value;

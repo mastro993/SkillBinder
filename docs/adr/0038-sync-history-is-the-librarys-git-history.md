@@ -12,7 +12,7 @@ A commit that Push or Sync makes now carries:
 
 Its author name is the device name. The reasons are a fixed set of codes: imported, installed, updated, reinstalled, restored, record, outside. The UI owns their wording.
 
-The engine records a reason when it changes a skill: import, install, update, reinstall, Restore, and writing a missing record. Discard deletes the slug's reason. It keeps them in a machine-local `pending_changes` table keyed by slug, where the latest one wins. The commit reads them, and the table is cleared once that commit exists. A skill that changed with no recorded reason, such as a hand edit or a directory removed outside SkillBinder, gets `outside`.
+The engine records a reason when it changes a skill: import, install, update, reinstall, Restore, and writing a missing record. Discard deletes the slug's reason. It keeps them in a machine-local `pending_changes` table keyed by slug, where the latest one wins. The commit reads them, and the table is cleared once that commit exists. From then on, the commit's trailers carry the why: for an unpushed commit, and for a merge, which copies the trailers of the skills this device contributed. A skill that changed with no recorded reason, such as a hand edit or a directory removed outside SkillBinder, gets `outside`.
 
 The device name is a machine-local device setting. It defaults to the computer's name: macOS's ComputerName, Windows' `COMPUTERNAME`, or the Linux hostname. It can be renamed from the Sync page. A rename applies to later commits only.
 
