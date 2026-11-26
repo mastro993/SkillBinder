@@ -5,7 +5,7 @@ use super::native_test;
 use super::route::{History, Route};
 use super::sidebar_reorder::RowReorder;
 use super::{
-    DialogState, NativeView, app_update_notice, explore, folder_reorder, found_sections, git_setup,
+    DialogState, NativeView, app_update_notice, explore, folder_reorder, found_section, git_setup,
     hover_scroll, new_agent_notice, onboarding, settings, shell, sidebar, snapshot_query, toasts,
 };
 use crate::gate::{self, Gate};
@@ -171,7 +171,7 @@ impl NativeView {
             preference_writes: shell::PreferenceWrites::default(),
             preview: None,
             update_outcome: None,
-            found_sections: found_sections::FoundSections::default(),
+            found_section: found_section::FoundSection::default(),
             skill_load: None,
             search,
             preset_name,

@@ -1,8 +1,8 @@
 //! Ignoring found skills, the one seam around [`skillbinder_client::Client::set_ignored`] that
 //! the Import skills dialog and the workspace, agent, and Universal pages share (ADR 0033, ADR
-//! 0036). An ignore names a slug everywhere and is saved at once, with no toast: the Ignored group
-//! or section is its undo. Once saved, the Ignored header, or a skill brought back, flashes once
-//! in the dialog and on the page (I4, I7, U5, U7).
+//! 0036). An ignore names a slug everywhere and is saved at once, with no toast: the dialog's
+//! Ignored group, or the page's Stop ignoring, is its undo. Once saved, the dialog's Ignored
+//! header, or a skill brought back, flashes once in the dialog and on the page (I4, I7, U5, U7).
 
 use super::NativeView;
 use gpui_kit::component::ActiveTheme;
@@ -77,7 +77,7 @@ impl NativeView {
             Ok(()) => {
                 self.receive(self.client.snapshot(), cx);
                 let flash = Flash::new(key);
-                self.found_sections.flash = Some(flash.clone());
+                self.found_section.flash = Some(flash.clone());
                 self.edit_import(|dialog| dialog.flash = Some(flash), cx);
             }
             Err(error) => self.error = Some(error),

@@ -59,6 +59,14 @@ fn keys(rows: &[FoundRow<'_>]) -> Vec<String> {
     rows.iter().map(|row| row.key.to_owned()).collect()
 }
 
+/// The keys of `rows` that are ignored.
+fn ignored(rows: &[FoundRow<'_>]) -> Vec<String> {
+    rows.iter()
+        .filter(|row| row.ignored)
+        .map(|row| row.key.to_owned())
+        .collect()
+}
+
 /// The ids of the agents reading the directory of the Agents row named `name`.
 fn reading(snapshot: &AppSnapshot, name: &str) -> Vec<String> {
     let rows = agent_rows(&snapshot.agents, &snapshot.home);
@@ -81,7 +89,7 @@ fn a_workspace_lists_every_skill_found_in_its_folder_that_is_not_in_library_by_k
     let workspace = &snapshot.workspaces[0];
     let found = found_here(&snapshot, Here::Workspace(&workspace.id));
     assert_eq!(
-        keys(&found.not_in_library),
+        keys(&found),
         [
             "acme-deploy",
             "figma-sync",
@@ -91,26 +99,26 @@ fn a_workspace_lists_every_skill_found_in_its_folder_that_is_not_in_library_by_k
         ],
         "an unchosen agent's directory counts, and `tdd` is in library"
     );
-    assert!(found.ignored.is_empty());
-    let windsurf = row(&found.not_in_library, "windsurf-only");
+    assert!(ignored(&found).is_empty());
+    let windsurf = row(&found, "windsurf-only");
     assert_eq!(windsurf.dirs_in(workspace), [".windsurf/skills"]);
     assert!(windsurf.also_in(&snapshot).is_empty());
-    let vendor = row(&found.not_in_library, "vendor-lint");
+    let vendor = row(&found, "vendor-lint");
     assert_eq!(vendor.dirs_in(workspace), [".agents/skills"]);
     assert_eq!(vendor.also_in(&snapshot), ["Universal"]);
 }
 
 #[test]
-fn an_agent_lists_only_its_own_global_directory_with_its_ignored_skills_apart() {
+fn an_agent_lists_only_its_own_global_directory_marking_its_ignored_skills() {
     let snapshot = acme().build();
     let claude = reading(&snapshot, "Claude Code");
     let found = found_here(&snapshot, Here::Agents(&claude));
-    assert_eq!(keys(&found.not_in_library), ["skill-creator"]);
-    assert_eq!(keys(&found.ignored), ["anthropic-docs"]);
+    assert_eq!(keys(&found), ["anthropic-docs", "skill-creator"]);
+    assert_eq!(ignored(&found), ["anthropic-docs"]);
     let universal = reading(&snapshot, "Universal");
     let found = found_here(&snapshot, Here::Agents(&universal));
-    assert_eq!(keys(&found.not_in_library), ["vendor-lint"]);
-    let vendor = row(&found.not_in_library, "vendor-lint");
+    assert_eq!(keys(&found), ["vendor-lint"]);
+    let vendor = row(&found, "vendor-lint");
     assert_eq!(vendor.also_in(&snapshot), ["acme-web · Universal"]);
 }
 
@@ -121,8 +129,7 @@ fn an_ignore_names_a_slug_on_every_page() {
     let universal = reading(&snapshot, "Universal");
     for here in [Here::Workspace(&workspace.id), Here::Agents(&universal)] {
         let found = found_here(&snapshot, here);
-        assert!(!keys(&found.not_in_library).contains(&"vendor-lint".to_owned()));
-        assert!(keys(&found.ignored).contains(&"vendor-lint".to_owned()));
+        assert!(ignored(&found).contains(&"vendor-lint".to_owned()));
     }
 }
 
@@ -137,7 +144,7 @@ fn a_skill_shows_once_reading_its_preferred_version_with_every_versions_location
         .build();
     let workspace = &snapshot.workspaces[0];
     let found = found_here(&snapshot, Here::Workspace(&workspace.id));
-    let vitest = row(&found.not_in_library, "vitest-runner");
+    let vitest = row(&found, "vitest-runner");
     assert_eq!(
         vitest.shown.description, "Run Vitest",
         "the first is preferred"
@@ -147,8 +154,8 @@ fn a_skill_shows_once_reading_its_preferred_version_with_every_versions_location
     let claude = reading(&snapshot, "Claude Code");
     let found = found_here(&snapshot, Here::Agents(&claude));
     assert_eq!(
-        keys(&found.not_in_library),
-        ["skill-creator", "vitest-runner"]
+        keys(&found),
+        ["anthropic-docs", "skill-creator", "vitest-runner"]
     );
 }
 
@@ -166,7 +173,6 @@ fn search_matches_the_slug_or_the_description_ignoring_case() {
     let found = found_here(&snapshot, Here::Workspace(&workspace.id));
     let kept = |search: &str| -> Vec<&str> {
         found
-            .not_in_library
             .iter()
             .filter(|row| row.matches(search))
             .map(|row| row.key)

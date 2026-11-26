@@ -1,6 +1,6 @@
 //! The found skills a workspace's, an agent's, or Universal's page lists (ADR 0036): those the
 //! latest completed scan found in that place that are not in library, each once by key, the
-//! ignored ones apart. A workspace's place is every skill directory the scan walks in its folder;
+//! ignored ones marked. A workspace's place is every skill directory the scan walks in its folder;
 //! an agent's or Universal's is its own global skill directory.
 
 use super::super::import_dialog::versions::{found_skills, skill_directory};
@@ -40,6 +40,8 @@ pub(crate) struct FoundRow<'a> {
     pub here: Vec<&'a CandidateLocation>,
     /// Where any version was found anywhere else, in scan order.
     pub elsewhere: Vec<&'a CandidateLocation>,
+    /// Its key is ignored.
+    pub ignored: bool,
 }
 
 impl FoundRow<'_> {
@@ -84,22 +86,9 @@ impl FoundRow<'_> {
     }
 }
 
-/// A page's found skills that are not in library, by key.
-#[derive(Debug, Default)]
-pub(crate) struct FoundHere<'a> {
-    pub not_in_library: Vec<FoundRow<'a>>,
-    pub ignored: Vec<FoundRow<'a>>,
-}
-
-impl FoundHere<'_> {
-    pub(crate) fn is_empty(&self) -> bool {
-        self.not_in_library.is_empty() && self.ignored.is_empty()
-    }
-}
-
-/// The found skills of `here`'s page: each skill the latest completed scan found there that is
-/// not in library, under Ignored when its key is ignored. None before a scan completes.
-pub(crate) fn found_here<'a>(snapshot: &'a AppSnapshot, here: Here<'_>) -> FoundHere<'a> {
+/// The found skills of `here`'s page, by key: each skill the latest completed scan found there
+/// that is not in library, marked when its key is ignored. None before a scan completes.
+pub(crate) fn found_here<'a>(snapshot: &'a AppSnapshot, here: Here<'_>) -> Vec<FoundRow<'a>> {
     let listed: Vec<&Candidate> = snapshot
         .scan
         .iter()
@@ -125,17 +114,12 @@ pub(crate) fn found_here<'a>(snapshot: &'a AppSnapshot, here: Here<'_>) -> Found
                 shown,
                 here,
                 elsewhere,
+                ignored: snapshot.ignored.contains_key(skill.key),
             })
         })
         .collect();
     rows.sort_by_key(|row| row.key);
-    let (ignored, not_in_library) = rows
-        .into_iter()
-        .partition(|row| snapshot.ignored.contains_key(row.key));
-    FoundHere {
-        not_in_library,
-        ignored,
-    }
+    rows
 }
 
 #[cfg(test)]

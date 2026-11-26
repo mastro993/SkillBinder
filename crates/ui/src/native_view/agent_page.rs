@@ -12,7 +12,7 @@ pub(super) use rows::AgentPageRow;
 
 use super::agent_skills::{agent_name, split_universal, your_agents};
 use super::controls::reader_logo;
-use super::found_sections::FoundPage;
+use super::found_section::FoundPage;
 use super::library_copies::{AgentRow, placements};
 use super::library_items::{RowEnd, SkillItem};
 use super::skill_picker::{Place, Resolved};

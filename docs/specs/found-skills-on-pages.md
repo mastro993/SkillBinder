@@ -13,7 +13,7 @@ The user opens the workspace, sees the project's own skill under Not in library,
 ## Scope
 
 In:
-- The Not in library and Ignored sections on workspace, agent, and Universal pages, with search.
+- The Not in library section on workspace, agent, and Universal pages, ignored skills marked in it, with search.
 - Ignore, Ignore all, and Stop ignoring there.
 - Import…, which opens the Import skills dialog narrowed to the place.
 
@@ -43,14 +43,14 @@ Decisions:
 1. The latest completed scan decides which found skills belong to a page.
    - A found skill belongs to a workspace's page when one of its locations lists that workspace.
    - It belongs to an agent's or Universal's page when one of its locations is that page's global skill directory, which is one whose `global_agents` include the page's agents.
-2. Each found skill that belongs to the page and is not in library shows once, keyed by its normalized slug. It goes under **Ignored** if its slug is ignored, and under **Not in library** if not. Found skills that are in library are not listed again.
-3. With no completed scan yet, the sections are absent. The pages refresh whenever a scan completes, which happens on focus and after every change that writes copies.
+2. Each found skill that belongs to the page and is not in library shows once, keyed by its normalized slug. It shows under **Not in library**, marked **Ignored** if its slug is ignored. Found skills that are in library are not listed again.
+3. With no completed scan yet, the section is absent. The pages refresh whenever a scan completes, which happens on focus and after every change that writes copies.
 
 ### Actions
 
-4. **Ignore** and **Ignore all** call the same engine change as the Import skills dialog (ignore-found-skills behaviors 2–3). They are saved at once and need no new scan, and the rows move to Ignored on every page.
-5. **Stop ignoring** removes the ignore. The row returns to Not in library and flashes (U7).
-6. **Import…** opens the Import skills dialog with only the page's not-in-library skills, or from a row only that skill (U6).
+4. **Ignore** and **Ignore all** call the same engine change as the Import skills dialog (ignore-found-skills behaviors 2–3). They are saved at once and need no new scan, and the rows are marked Ignored on every page.
+5. **Stop ignoring** removes the ignore. The row loses its Ignored mark and flashes (U7).
+6. **Import…** opens the Import skills dialog with only the page's not-in-library skills that are not ignored, or from a row only that skill (U6).
    - The dialog prepares a plan for just those slugs, with every version and location of each (ADR 0009).
    - Applying it is an ordinary import: each skill turns on wherever it was found.
 7. While a blocking change, an import, Update all, or Sync runs, Ignore and Stop ignoring are refused like any other change (ignore-found-skills behavior 15).
@@ -79,12 +79,12 @@ flowchart LR
   - Onboarding's summary already filters on `global_agents` (`onboarding/import/summary.rs`).
   - The directory each row names comes from the same label the Import skills dialog shows (`import_dialog/versions.rs` `location_label`), so the page and the dialog name it the same way.
 - **One derivation** (behaviors 1–3; decision 8):
-  - `crates/ui/src/native_view/snapshot_query/found_here.rs` derives `FoundHere { not_in_library, ignored }` for a page from `AppSnapshot.scan` and `AppSnapshot.ignored`.
+  - `crates/ui/src/native_view/snapshot_query/found_here.rs` derives the page's rows, each marked `ignored` or not, from `AppSnapshot.scan` and `AppSnapshot.ignored`.
   - It groups versions per normalized slug, as `import_dialog::versions::found_skills` does, and reuses `Candidate::in_library` and `matching` for search.
   - `snapshot_query` is where page derivations already live.
-- **Sections UI** (decisions 1, 4; U1–U9):
-  - A new `crates/ui/src/native_view/found_sections.rs`, with its rows in `found_sections/rows.rs`, renders the two sections under `scoped_list`. Both `agent_page.rs` and `workspace_page.rs` call it.
-  - A row has no `Skill`, so it is its own row built from design-system components: ghost and outline xs Buttons, the validation glyph, and the disclosure chevron of the dialog's Ignored group.
+- **Section UI** (decisions 1, 4; U1–U9):
+  - A new `crates/ui/src/native_view/found_section.rs`, with its rows in `found_section/rows.rs`, renders the section under `scoped_list`. Both `agent_page.rs` and `workspace_page.rs` call it.
+  - A row has no `Skill`, so it is its own row built from design-system components: ghost and outline xs Buttons, the validation glyph, Kit's Tag for Ignored, and the disclosure chevron of the dialog's Ignored group.
   - No new tokens, artwork, or design-system component.
 - **Ignoring** (behaviors 4–5, 7):
   - `ignore_found` (which both Ignore and Ignore all call with a list of rows) and `stop_ignoring` move out of `import_dialog/ignored.rs` into `native_view/ignore_actions.rs`, one seam around `Client::set_ignored` that the dialog and the pages share.
@@ -99,7 +99,7 @@ flowchart LR
 
 - **A1:** found and ignored rows are not links, since a found skill has no page. *If wrong:* a read-only preview like a plugin skill's page (ADR 0035).
 - **A2:** Import… sits on each row and on the section head. *If wrong:* only on the head.
-- **A3:** the Ignored section starts collapsed on every visit. *If wrong:* it would remember being open per page.
+- **A3:** the section starts open on every visit. *If wrong:* it would remember being folded per page.
 - **A4:** no new command or MCP server output. *If wrong:* `scan --workspace <ws>` and `--agent <a>` filters, and the same for `find_skills`.
 - **A5:** Ignore all also covers rows the search hides, as I3 does. *If wrong:* only the visible rows.
 - **A6:** a row's directory label shares the dialog's known limit: a skill nested deeper inside a skill directory names its parent folder. *If wrong:* the scan would record each location's skill directory (a proto field).
@@ -117,16 +117,16 @@ Fixture:
 
 1. **Groups.**
    - acme-web's page lists its skills on there, then Not in library: `acme-deploy`, `figma-sync`, `vendor-lint` ("Also found in Universal"), `vitest-runner`, and `windsurf-only` with `.windsurf/skills`.
-   - Claude Code's page lists `skill-creator` under Not in library, and a collapsed Ignored section with `anthropic-docs`.
+   - Claude Code's page lists `anthropic-docs`, marked Ignored, and `skill-creator` under Not in library.
    - No library skill appears in either section.
-2. **Ignore.** Ignore on `vitest-runner` in acme-web moves it to Ignored. Scan for skills' count drops by one, and the Import skills dialog lists it under Ignored. Nothing changes on disk, and the state survives a relaunch.
-3. **Per slug.** Ignore on `vendor-lint` in acme-web shows it under Ignored on Universal's page too. Stop ignoring there restores it on both pages.
+2. **Ignore.** Ignore on `vitest-runner` in acme-web marks it Ignored. Scan for skills' count drops by one, and the Import skills dialog lists it under Ignored. Nothing changes on disk, and the state survives a relaunch.
+3. **Per slug.** Ignore on `vendor-lint` in acme-web shows it marked Ignored on Universal's page too. Stop ignoring there restores it on both pages.
 4. **Ignore all.** Ignore all on acme-web's Not in library, with the search set to `vit`, ignores all five skills.
 5. **Import.**
    - Import… on acme-web opens the Import skills dialog with only acme-web's not-in-library skills, `figma-sync` unticked.
    - Importing `vendor-lint` turns it on in acme-web's `.agents/skills` and in `~/.agents/skills`.
    - Row Import… on `acme-deploy` opens the dialog with only `acme-deploy`.
-6. **Search.** Searching `anthropic` on Claude Code's page shows only the Ignored section, expanded, with `anthropic-docs`.
+6. **Search.** Searching `anthropic` on Claude Code's page shows only the Not in library section, open, with `anthropic-docs` marked Ignored.
 7. **Empty.** A workspace with no directories and one found skill shows "No skills on in docs-site · No agents here yet", then the Not in library section.
 8. **Unchanged.** Sidebar counts and Library are unchanged. Plugin skills never appear.
 9. **Checks pass:** `cargo fmt --all --check`, workspace Clippy, `cccc .`, workspace tests, `cargo run -p xtask -- verify`, and a locked release build.
@@ -134,7 +134,7 @@ Fixture:
 ## Slices
 
 1. **Pages list found and ignored skills, and ignore them.**
-   - Delivers: `snapshot_query::found_here`, the Not in library and Ignored sections with search, and Ignore, Ignore all, and Stop ignoring through `ignore_actions.rs`.
+   - Delivers: `snapshot_query::found_here`, the Not in library section with search and ignored skills marked, and Ignore, Ignore all, and Stop ignoring through `ignore_actions.rs`.
    - Checks: 1–4, 6–9.
    - Tests:
      - derivation unit tests with a candidate builder in `snapshot_query/fixture.rs`;

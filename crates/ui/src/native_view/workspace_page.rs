@@ -10,7 +10,7 @@ mod removal;
 pub(super) use removal::remove_button;
 
 use super::NativeView;
-use super::found_sections::FoundPage;
+use super::found_section::FoundPage;
 use super::library_copies::{agent_rows, placements};
 use super::library_items::{RowEnd, SkillItem};
 use super::library_targets::{held, sharing};

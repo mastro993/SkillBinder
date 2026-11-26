@@ -428,7 +428,7 @@ fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
 
 mod found_here;
 mod scoped;
-pub(crate) use found_here::{FoundHere, FoundRow, Here, found_here};
+pub(crate) use found_here::{FoundRow, Here, found_here};
 pub(crate) use scoped::workspace_skills;
 pub(super) use scoped::{agent_skills, matching, searched};
 

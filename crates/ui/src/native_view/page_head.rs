@@ -1,9 +1,9 @@
 //! A scoped page's header in place of the breadcrumb: the place's glyph, its name in semibold, an
 //! optional extra such as an avatar stack, a dot, then its folder in mono, muted, with home
 //! shortened to `~`, truncating with an ellipsis. Below it, the page's skills in one card under
-//! the search shared with Library, then its found skills' sections.
+//! the search shared with Library, then its found skills' section.
 
-use super::found_sections::FoundPage;
+use super::found_section::FoundPage;
 use super::library_copies::shown_dir;
 use super::skill_picker::Place;
 use super::snapshot_query::matching;
@@ -87,7 +87,7 @@ impl NativeView {
     }
 
     /// `page` with the search, then the `held` skills it keeps in the card `list` draws, or
-    /// while nothing is on there, the card's one line; then the `found` sections it keeps. "No
+    /// while nothing is on there, the card's one line; then the `found` section with the rows it keeps. "No
     /// skills match" replaces them while it keeps nothing (U8, U9).
     pub(super) fn scoped_list(
         &self,
@@ -108,9 +108,9 @@ impl NativeView {
         } else {
             None
         };
-        let sections = self.found_sections(found, &search, cx);
+        let section = self.render_found_section(found, &search, cx);
         let page = page.child(SearchField::new("page-search", &self.search).width(SEARCH_WIDTH));
-        if card.is_none() && sections.is_empty() {
+        if card.is_none() && section.is_none() {
             return page
                 .child(
                     EmptyState::new("page-empty", format!("No skills match '{typed}'"))
@@ -118,7 +118,7 @@ impl NativeView {
                 )
                 .into_any_element();
         }
-        page.children(card).children(sections).into_any_element()
+        page.children(card).children(section).into_any_element()
     }
 }
 
