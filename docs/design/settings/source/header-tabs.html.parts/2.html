@@ -1,0 +1,111 @@
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const hdr = document.getElementById('hdr');
+  // tab: the one the user chose ('all' or a section id). The search never changes it; a tab
+  // with no match shows All's results until the search changes (decision 3).
+  const S = { variant: 'e', tab: 'all', query: '', theme: 'System', tray: true, agents: { universal: true, claude: true, cursor: true, windsurf: false },
+    blocked: false, git: 'found', channel: 'stable', auto: true, update: 'idle', longPath: false };
+  const THEMES = ['System', 'Light', 'Dark'];
+
+  // ---- controls: one per kind of setting -------------------------------------------
+  const sw = (on, label, onChange) => h('button', { class: `st-switch${on ? ' on' : ''}`, role: 'switch', 'aria-checked': String(on),
+    'aria-label': label, disabled: S.blocked, onclick: () => onChange(!on) });
+  function select(value, options, label, onChange) {
+    const btn = h('button', { class: 'st-select', 'aria-label': `${label}: ${value}` }, value, ic('chevron-right', 13));
+    btn.onclick = () => menu(win, btn, options.map((o) => ({ label: o, checked: o === value, onSelect: () => onChange(o) })), { align: 'end' });
+    return btn;
+  }
+  const button = (label, onclick, { disabled = false, primary = false } = {}) =>
+    h('button', { class: `sb-btn sb-btn-sm ${primary ? 'sb-btn-primary' : 'sb-btn-outline'}`, disabled, onclick }, label);
+  const value = (text) => h('span', { class: 'st-value' }, text);
+
+  function checkUpdates() {
+    S.update = 'checking'; draw();
+    setTimeout(() => { S.update = 'idle'; draw(); }, 1400);
+  }
+  function updateStatus() {
+    switch (S.update) {
+      case 'checking': return { desc: 'Checking…', end: button('Check now', null, { disabled: true }) };
+      case 'ready': return { desc: 'SkillBinder 0.3.0 is ready.', end: button('Restart', () => toast(win, 'Restarts into 0.3.0'), { primary: true }) };
+      case 'offline': return { desc: "Couldn't check. Check your connection.", end: button('Check now', checkUpdates) };
+      default: return { desc: 'Up to date · checked 5 minutes ago', end: button('Check now', checkUpdates) };
+    }
+  }
+  function gitRow() {
+    if (S.git === 'found') return { desc: 'Syncs your library and updates skills from their sources.', end: value('2.54.0') };
+    return { desc: 'Sync and skill updates need Git 2.39 or newer.', end: button('Install Git', () => { S.git = 'found'; draw(); }, { primary: true }) };
+  }
+
+  // ---- the model: sections › groups › items, as the app's catalog has them ----------
+  const LIB = '~/Library/Application Support/SkillBinder/library';
+  const LONG = '/Volumes/Shared Projects/Engineering/Platform Team/agent-tooling/skillbinder/library';
+  function sections() {
+    const st = updateStatus();
+    const git = gitRow();
+    const agent = (t) => ({ title: t.name, desc: t.members ? t.members.join(', ') : t.path, mono: !t.members, lead: avatar(t, { size: 20 }),
+      kw: ['agent', 'skill folder'], end: sw(S.agents[t.id], t.name, (on) => {
+        S.agents[t.id] = on;
+        if (on) { S.blocked = true; toast(win, `Turning on ${t.name}…`); setTimeout(() => { S.blocked = false; draw(); }, 1200); }
+        draw();
+      }) });
+    const mcp = (name, state) => ({ title: name, desc: state, kw: ['mcp', 'connect'],
+      end: state === 'Connected' ? button('Disconnect', () => toast(win, `Disconnects ${name}`)) : button('Connect', () => toast(win, `Connects ${name}`)) });
+    return [
+      { id: 'general', icon: 'settings', title: 'General', desc: 'How SkillBinder looks and keeps running.', groups: [
+        { items: [
+          { title: 'Theme', desc: 'Follow the system, or always use light or dark.', kw: ['appearance', 'dark mode', 'light mode'],
+            end: select(S.theme, THEMES, 'Theme', (v) => { S.theme = v; draw(); }) },
+          { title: 'Show in menu bar', desc: 'Closing the window keeps SkillBinder running behind its icon.', kw: ['tray', 'background', 'quit'],
+            end: sw(S.tray, 'Show in menu bar', (on) => { S.tray = on; draw(); }) },
+          { title: 'Command line tool', desc: 'skillbinder in /usr/local/bin', mono: true, kw: ['cli', 'terminal', 'install'],
+            end: button('Uninstall', () => toast(win, 'Removes the command')) },
+        ] },
+      ] },
+      { id: 'agents', icon: 'robot', title: 'Agents', desc: 'SkillBinder adds and removes skills only in the agents turned on.', groups: [
+        { items: DATA.targets.map(agent) },
+        { title: 'MCP server', items: [mcp('Claude Code', 'Connected'), mcp('Codex', 'Not connected'), mcp('Cursor', 'Not connected'),
+          { title: 'Other agents', desc: "Add SkillBinder to any agent's MCP settings.", kw: ['mcp', 'json'], end: button('Copy configuration', () => toast(win, 'Configuration copied')) }] },
+      ] },
+      { id: 'library', icon: 'libraries', title: 'Library & sync', desc: 'Where your skills live and how they sync.', groups: [
+        { title: 'Library', items: [
+          { title: 'Library folder', desc: S.longPath ? LONG : LIB, mono: true, kw: ['path', 'location', 'storage'],
+            end: button('Reveal', () => toast(win, 'Opens the folder in Finder')) },
+          { title: 'Storage', desc: 'SkillBinder can save changes to the library folder.', kw: ['writable', 'permissions', 'disk'], end: value('Writable') },
+        ] },
+        { title: 'Sync', items: [
+          { title: 'Git', desc: git.desc, kw: ['install', 'version'], end: git.end },
+          { title: 'Remote', desc: 'Set it up in Sync.', kw: ['repository', 'github', 'url', 'push', 'pull'], end: value('Local only') },
+        ] },
+      ] },
+      { id: 'updates', icon: 'refresh-03', title: 'Updates', desc: 'New versions of SkillBinder. Skill updates are in Library.', groups: [
+        { items: [
+          { title: 'Version', kw: ['about', 'release', 'build'], end: value('0.2.0') },
+          { title: 'Channel', desc: 'Beta gets new versions first.', kw: ['stable', 'beta'],
+            end: seg([{ id: 'stable', label: 'Stable' }, { id: 'beta', label: 'Beta' }], S.channel, (v) => { S.channel = v; draw(); }) },
+          { title: 'Check automatically', desc: 'At launch and every hour.', kw: ['auto update', 'background'], end: sw(S.auto, 'Check automatically', (on) => { S.auto = on; draw(); }) },
+          { title: 'Status', desc: st.desc, kw: ['check now', 'restart', 'download'], end: st.end },
+        ] },
+      ] },
+      { id: 'troubleshooting', icon: 'alert-circle', title: 'Troubleshooting', desc: 'Help for when something goes wrong.', groups: [
+        { items: [{ title: 'Logs', desc: 'What SkillBinder recorded. Attach them to a bug report.', kw: ['debug', 'diagnostics', 'bug', 'report'],
+          end: button('Reveal logs', () => toast(win, 'Opens the logs folder in Finder')) }] },
+      ] },
+    ];
+  }
+
+  // A row matches when its title, line, or keywords hold the text; a group or section whose
+  // title holds it keeps every row (the app's search).
+  const has = (s, q) => (s || '').toLowerCase().includes(q);
+  const matches = (it, q) => !q || [it.title, it.desc, ...(it.kw || [])].some((s) => has(s, q));
+  function filtered() {
+    const q = S.query.trim().toLowerCase();
+    return sections().map((s) => (has(s.title, q) ? s : { ...s, groups: s.groups
+      .map((g) => (g.title && has(g.title, q) ? g : { ...g, items: g.items.filter((it) => matches(it, q)) }))
+      .filter((g) => g.items.length) }));
+  }
+  const hits = (s) => s.groups.reduce((n, g) => n + g.items.length, 0);
+  // The tab the page shows: the chosen one, or All while the search finds nothing in it.
+  const shownTab = (all) => (S.tab === 'all' || hits(all.find((s) => s.id === S.tab)) ? S.tab : 'all');

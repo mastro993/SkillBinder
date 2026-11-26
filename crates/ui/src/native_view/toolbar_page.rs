@@ -1,4 +1,4 @@
-//! The frame of Library, Explore, and Settings: a fixed toolbar over the page's scrolling content.
+//! The frame of Library and Explore: a fixed toolbar over the page's scrolling content.
 
 use super::NativeView;
 use gpui_kit::component::{ActiveTheme, v_flex};
