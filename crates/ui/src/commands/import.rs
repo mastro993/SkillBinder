@@ -39,11 +39,9 @@ pub(super) async fn scan(client: &Client) -> Result<Output, CommandError> {
     }))
 }
 
-/// Every slug ignored on this device, as it was ignored, sorted.
+/// Every slug ignored on this device, as it was ignored, sorted by key, whatever its case.
 fn ignored_slugs(snapshot: &AppSnapshot) -> Vec<String> {
-    let mut slugs: Vec<String> = snapshot.ignored.values().cloned().collect();
-    slugs.sort();
-    slugs
+    snapshot.ignored.values().cloned().collect()
 }
 
 /// Scans and prepares the plan, taking the `versions` chosen, as the dialog does.
