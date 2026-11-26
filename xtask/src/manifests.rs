@@ -4,7 +4,7 @@ use std::{fs, path::Path};
 use toml::{Table, Value};
 
 pub const GPUI_MCP_GIT: &str = "https://github.com/mastro993/gpui-mcp";
-pub const GPUI_MCP_REV: &str = "d162da702699d4298498438a3864face3569aea7";
+pub const GPUI_MCP_REV: &str = "5a7cc6e33969a29cee2e4c2e08addd8952de17bc";
 
 fn read_table(path: &Path) -> anyhow::Result<Table> {
     let text =
