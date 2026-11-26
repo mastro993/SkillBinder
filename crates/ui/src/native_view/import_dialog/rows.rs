@@ -14,13 +14,15 @@ use gpui_kit::{
 };
 use skillbinder_design::tokens::{opacity, space, text};
 use skillbinder_design::{
-    CardList, Checkbox, EmptyState, IconSize, ListRow, Notice, SectionHeader, Text,
+    CardList, Checkbox, DIALOG_INSET, EmptyState, IconSize, Level, ListRow, Notice, ScrollArea,
+    SectionHeader, Text,
 };
 use skillbinder_proto::{FoundImport, ValidationStatus};
 use std::collections::BTreeSet;
 
 impl NativeView {
-    /// The bordered, scrolling list of the rows the search matches.
+    /// The bordered list of the rows the search matches, inset from the dialog's sides and
+    /// scrolling whole under fades into the dialog's fill, its scrollbar at the dialog's edge.
     pub(super) fn import_list(
         &self,
         state: &ImportDialog,
@@ -42,9 +44,6 @@ impl NativeView {
             self.select_all(&groups, &ticked, &search, cx)
         };
         let mut list = CardList::new("import-list")
-            .flex_1()
-            .min_h_0()
-            .scrolls()
             .when(state.refreshing(), |list| list.opacity(opacity::INACTIVE))
             .child(head);
         let mut matched = false;
@@ -71,7 +70,12 @@ impl NativeView {
             let title = format!("No skills match '{search}'");
             list = list.child(EmptyState::new("import-empty", title).icon("search"));
         }
-        list.into_any_element()
+        ScrollArea::new("import-scroll")
+            .flex_1()
+            .min_h_0()
+            .fill(Level::Modal.fill(cx.theme()))
+            .child(div().px(px(DIALOG_INSET)).child(list))
+            .into_any_element()
     }
 
     /// Select all, with how many ticked skills the search hides.

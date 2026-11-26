@@ -2,7 +2,7 @@
 
 The user settled these on 2026-11-16. Behavior comes from [the spec](../../specs/scan-and-import.md), [ADR 0008](../../adr/0008-import-from-scan-dialog.md), and [ADR 0009](../../adr/0009-prepare-once-apply-selection.md). Where this file and the spec disagree, this file holds. Ids are stable; cite them from issues and pull requests.
 
-Ignoring found skills adds I1–I12 in [ignore-skills](../ignore-skills/decisions.md) (ADR 0033). The count in L2 and L3, the ticks in D5 and D6, and the status line in D2 cover only skills that are not ignored. "Skipped skills keep counting" (L2) still holds for skills left unticked.
+Ignoring found skills adds I1–I12 in [ignore-skills](../ignore-skills/decisions.md) (ADR 0033). The count in L2 and L3 and the ticks in D5 and D6 cover only skills that are not ignored. "Skipped skills keep counting" (L2) still holds for skills left unticked.
 
 ## General
 
@@ -20,7 +20,7 @@ Ignoring found skills adds I1–I12 in [ignore-skills](../ignore-skills/decision
 ## Import skills dialog (variant C, "Grouped by place")
 
 - **D1** Clicking Scan for skills opens the dialog at once, titled "Import skills", in its Scanning state ("Scanning…" with a spinner, in the same frame) while a fresh scan runs and the plan is prepared.
-- **D2** The top row holds the search field ("Search found skills") on the left and the status line "N found · M already in library" on the right. The search filters rows by slug and description.
+- **D2** The top row holds the search field ("Search found skills"). The search filters rows by slug and description. The search stays in view while the list scrolls in its own area, which fades at an edge content continues past. *Amended 2026-11-26:* the status line "N found · M already in library" on the right is removed.
 - **D3** Below it are a Select all row, then the groups. "Your agents" comes first, followed by each workspace in sidebar order. Each group header has a tri-state checkbox, the group's glyph (robot for your agents, code-folder for a workspace), its name, and its count. A skill found in several places is listed once, under the place of its first location. A group's checkbox ticks or unticks that group's importable skills.
 - **D4** Each row has a checkbox, the slug, and the chosen version's description. A skill with one version shows its locations as "path · readers" and "N files · B bytes". A skill with several versions shows an "N versions" disclosure with a chevron, which opens one Kit Radio per version, labelled "Modified <relative time>". Invalid or Blocked follows the label, joined by " · ", and the version the lock recorded carries a "Matches source" tag. Validation messages follow. Each replacement reads "Replaces the copy in <place>." with a warning-colored alert glyph.
 - **D5** Every importable skill whose chosen version is valid starts ticked, up to 500. Invalid skills start unticked. Blocked skills and skills with no files show a disabled checkbox.
