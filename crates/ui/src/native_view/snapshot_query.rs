@@ -93,7 +93,8 @@ pub(crate) struct WorkspaceEntries<'a> {
 pub(crate) struct Places<'a> {
     pub agents: Vec<Entry>,
     pub workspaces: Vec<WorkspaceEntries<'a>>,
-    /// Every listed agent's id: the agents a fixed list keeps when All agents is switched off.
+    /// Every listed agent's id: the agents a fixed list keeps when a pill turns off from All
+    /// agents.
     every: Vec<String>,
 }
 
@@ -259,16 +260,6 @@ impl<'a> SkillPlaces<'a> {
     /// On right now: held for one of your agents, or by a workspace.
     pub(crate) fn is_active(&self) -> bool {
         self.agents.iter().any(|held| held.held) || self.workspaces.iter().any(|w| w.holds())
-    }
-
-    /// The active preset's targets after the All agents switch: all agents, or exactly the
-    /// agents listed now.
-    pub(super) fn switched(&self, on: bool) -> Targets {
-        if on {
-            Targets::AllAgents
-        } else {
-            Targets::Agents(self.every.iter().cloned().collect())
-        }
     }
 
     /// The active preset's targets after toggling `entry`. An empty list removes the skill from

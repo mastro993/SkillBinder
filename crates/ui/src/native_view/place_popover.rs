@@ -1,12 +1,11 @@
 //! The popover that changes where a library skill is on, from its Library row or tile or its
 //! page's header, whose surface a workspace page's agents menu shares. "Your agents" edits the
-//! active preset: a labeled pill per skill directory of your agents and an All agents switch.
-//! Each workspace's block edits that workspace, one pill per directory it uses, or, while it uses
-//! none, per directory your agents offer, under its name. Each change saves at once; the last
-//! pill off removes the skill from that place without asking. It stays open across changes and
-//! closes on a press outside, Escape, a scroll of the list, or leaving the page. The keyboard
-//! reaches every control, as [`focus`] describes. It is Kit's popover surface, placed by Kit's
-//! positioner from where its
+//! active preset: a labeled pill per skill directory of your agents. Each workspace's block edits
+//! that workspace, one pill per directory it uses, or, while it uses none, per directory your
+//! agents offer, under its name. Each change saves at once; the last pill off removes the skill
+//! from that place without asking. It stays open across changes and closes on a press outside,
+//! Escape, a scroll of the list, or leaving the page. The keyboard reaches every pill, as
+//! [`focus`] describes. It is Kit's popover surface, placed by Kit's positioner from where its
 //! trigger was last painted.
 
 mod focus;

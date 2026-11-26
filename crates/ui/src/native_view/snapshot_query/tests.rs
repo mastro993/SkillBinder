@@ -464,15 +464,10 @@ fn directories_resolving_to_one_folder_share_a_pill() {
 }
 
 #[test]
-fn the_switch_gives_all_agents_or_the_fixed_list_listed_now() {
+fn a_pill_off_from_all_agents_keeps_the_others_as_a_fixed_list() {
     let snapshot = library().build();
     let places = Places::new(&snapshot);
     let everywhere = places.of(skill(&snapshot, "e-all"), &preset_id("default"));
-    assert_eq!(
-        everywhere.switched(false),
-        Targets::Agents(set(&["amp", "claude-code", "codex", "cursor"]))
-    );
-    assert_eq!(everywhere.switched(true), Targets::AllAgents);
     let universal = everywhere.agents[0].entry;
     assert_eq!(
         everywhere.toggled(universal),

@@ -47,7 +47,7 @@ With `--json` it prints exactly one document on stdout: `{"ok": true, "result": 
 | --- | --- |
 | `skills [--active \| --inactive \| --updates] [--folder F]` | Library's list under one filter and folder tab, by name: each skill, its marks (`update`, `drifted`, `new`), the agents the active preset holds it for, and the workspaces holding it, or `off` |
 | `skill <slug>` | The skill's page: description, source, folder, presets, where it is on, and its copies |
-| `enable <slug>… [--agent A]… [--replace]` | With no agent, holds the skills in the active preset for all your agents, as the placement popover's All agents switch does; with agents, adds them to what the preset holds |
+| `enable <slug>… [--agent A]… [--replace]` | With no agent, holds the skills in the active preset for all your agents, as a Library row's "Active in <preset>" menu item does; with agents, adds them to what the preset holds |
 | `disable <slug>… [--agent A]…` | With no agent, takes the skills out of the active preset; with agents, only for them, so a skill held for all agents stays held for your other ones |
 | `presets` | The presets, `*` marking the active one, with their skill counts |
 | `preset create <name>`, `rename <name> <new>`, `clone <name>` | The sidebar's presets |

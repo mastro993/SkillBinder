@@ -16,12 +16,11 @@ use skillbinder_design::FOCUS_RING;
 use skillbinder_proto::{AppSnapshot, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 use std::sync::Arc;
 
-/// The controls Tab reaches, in the order they are drawn: your agents' pills, the switch, then
-/// the pill of the workspace whose folder is there. The missing workspace's pill is not one.
-const CONTROLS: [&str; 4] = [
+/// The controls Tab reaches, in the order they are drawn: your agents' pills, then the pill of
+/// the workspace whose folder is there. The missing workspace's pill is not one.
+const CONTROLS: [&str; 3] = [
     "place-agent-claude",
     "place-agent-cursor",
-    "place-all-agents",
     "place-ws-web-.claude/skills",
 ];
 
@@ -281,7 +280,7 @@ impl Harness {
 }
 
 #[gpui_kit::test]
-fn tab_and_shift_tab_cycle_every_enabled_pill_and_the_switch(cx: &mut TestAppContext) {
+fn tab_and_shift_tab_cycle_every_enabled_pill(cx: &mut TestAppContext) {
     let harness = Harness::new(cx, false);
     harness.click(cx, "trigger");
     assert_eq!(harness.focused(cx), None, "the popover itself has focus");
@@ -292,9 +291,9 @@ fn tab_and_shift_tab_cycle_every_enabled_pill_and_the_switch(cx: &mut TestAppCon
         assert_eq!(harness.ringed(cx), Some(control));
     }
     harness.press(cx, &["shift-tab"]);
-    assert_eq!(harness.focused(cx), Some(CONTROLS[3]));
-    harness.press(cx, &["shift-tab"]);
     assert_eq!(harness.focused(cx), Some(CONTROLS[2]));
+    harness.press(cx, &["shift-tab"]);
+    assert_eq!(harness.focused(cx), Some(CONTROLS[1]));
 }
 
 #[gpui_kit::test]
@@ -324,7 +323,6 @@ fn enter_and_space_save_what_a_click_saves(cx: &mut TestAppContext) {
         [
             "agents Agents({})",
             r#"agents Agents({"claude", "cursor"})"#,
-            "agents AllAgents",
             r#"web Some(Dirs({".claude/skills"}))"#,
         ]
     );

@@ -1,11 +1,11 @@
-//! The popover's content: "Your agents", with the preset chip, a labeled pill per skill
-//! directory of your agents, and the All agents switch, then a block per workspace: its name, a
-//! note while its folder is missing or it uses no agent, and its pills, in a list that scrolls once it is tall. The switch is
-//! Kit's base switch and the pills the design system's toggle chips, on the popover's own focus
-//! handles. A control saves through the view showing the popover on a click, or on Enter or Space
-//! while it has focus, and does nothing, with no hover or hand cursor, while that view is
-//! blocked: a change runs or the progress strip is up. A missing workspace's pills are disabled:
-//! they never do anything and take no focus.
+//! The popover's content: "Your agents", with the preset chip and a labeled pill per skill
+//! directory of your agents, then a block per workspace: its name, a note while its folder is
+//! missing or it uses no agent, and its pills, in a list that scrolls once it is tall. The pills
+//! are the design system's toggle chips on the popover's own focus handles. A pill saves through
+//! the view showing the popover on a click, or on Enter or Space while it has focus, and does
+//! nothing, with no hover or hand cursor, while that view is blocked: a change runs or the
+//! progress strip is up. A missing workspace's pills are disabled: they never do anything and
+//! take no focus.
 
 use super::super::controls::reader_logo;
 use super::super::library_copies::Reader;
@@ -13,19 +13,16 @@ use super::super::library_places::preset_chip;
 use super::super::snapshot_query::{Entry, Held, SkillPlaces, WorkspacePlace};
 use super::super::workspace_icons::sized_icon;
 use super::{PlacePopover, place_block, place_head};
-use gpui_kit::base::{Switch, SwitchThumb, SwitchTrack, spring};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, FocusHandle, InteractiveElement, IntoElement,
-    ParentElement, Pixels, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder,
-    px, transparent_black,
+    ParentElement, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use skillbinder_design::library::POPOVER_LIST_MAX_HEIGHT;
 use skillbinder_design::tokens::color::HAIRLINE;
-use skillbinder_design::tokens::{opacity, radius, space, text};
+use skillbinder_design::tokens::{opacity, space, text};
 use skillbinder_design::{
-    IconSize, Level, ScrollArea, SectionHeader, Surface, Text, TextTone, ToggleChip, focus_ring,
-    tooltip,
+    IconSize, ScrollArea, SectionHeader, Text, TextTone, ToggleChip, focus_ring, tooltip,
 };
 use skillbinder_proto::{Preset, SkillId, Targets, WorkspaceId, WorkspaceTargets};
 
@@ -43,13 +40,6 @@ pub(super) trait Placer: Sized + 'static {
     );
 }
 
-/// The All agents switch's track and thumb, and how far the thumb travels between off and on:
-/// GPUI Kit's own small switch, which this one draws with a raised thumb. The thumb travels the
-/// track less its 1 px border and 1 px padding on each side.
-const TRACK: (f32, f32) = (30., 18.);
-const THUMB: f32 = 14.;
-const TRAVEL: f32 = TRACK.0 - THUMB - 4.;
-
 /// What the popover's content shows.
 pub(super) struct Sections<'a> {
     pub popover: &'a PlacePopover,
@@ -63,32 +53,19 @@ pub(super) struct Sections<'a> {
 impl Sections<'_> {
     /// Your agents, then the workspaces under a hairline while any exists.
     pub(super) fn render<V: Placer>(&self, window: &mut Window, cx: &mut Context<V>) -> AnyElement {
-        // The All agents switch's thumb slides on Kit's spring, as Kit's own switch does. Each
-        // skill's thumb keeps its own, so a popover opened straight from another one's does not
-        // slide from where that one's thumb was.
-        let travel = if self.places.all_agents() {
-            px(TRAVEL)
-        } else {
-            px(0.)
-        };
-        let spring_move = cx.theme().motion_tokens().spring_move;
-        let key = ("place-all-agents-thumb", self.places.skill.0.clone());
-        let thumb = spring(key, travel, spring_move, window, cx);
         text::BODY_SM
             .apply(v_flex())
             .gap(px(space::MD))
-            .child(self.agents(thumb, window, cx))
+            .child(self.agents(window, cx))
             .when(!self.places.workspaces.is_empty(), |content| {
                 content.child(self.workspaces(window, cx))
             })
             .into_any_element()
     }
 
-    /// The preset chip, a pill per skill directory of your agents, and the All agents switch
-    /// with its thumb at `thumb`.
-    fn agents<V: Placer>(&self, thumb: Pixels, window: &Window, cx: &Context<V>) -> AnyElement {
+    /// The preset chip and a pill per skill directory of your agents.
+    fn agents<V: Placer>(&self, window: &Window, cx: &Context<V>) -> AnyElement {
         let places = self.places;
-        // Tab reaches the controls in the order their focus is asked for: the pills first.
         let pills: Vec<AnyElement> = places
             .agents
             .iter()
@@ -103,22 +80,6 @@ impl Sections<'_> {
                 pressable(pill, &focus, save, window, cx)
             })
             .collect();
-        let all = places.all_agents();
-        let focus = self.popover.key("place-all-agents", cx);
-        let save = self.save_agents(places.switched(!all));
-        let toggle = all_agents_switch(all, thumb, &focus, window, cx)
-            .when_some(save, |toggle, save| {
-                toggle.cursor_pointer().on_change(on_change(save, cx))
-            });
-        let switch = div()
-            .id("place-all-row")
-            .flex()
-            .items_center()
-            .gap(px(space::MD))
-            // The switch's accessible name reads the label.
-            .child("All agents")
-            .child(toggle)
-            .tooltip(tooltip("Includes agents added later"));
         let pills = if pills.is_empty() {
             vec![
                 Text::labeled("no-agents", "You have no agents")
@@ -132,11 +93,7 @@ impl Sections<'_> {
         let head = SectionHeader::new("agents-label", "Your agents")
             .min_h(px(space::CONTROL_SM))
             .action(preset_chip("place-preset", self.preset, cx));
-        v_flex()
-            .gap(px(space::SM))
-            .child(place_block(head, pills))
-            .child(switch)
-            .into_any_element()
+        place_block(head, pills).into_any_element()
     }
 
     /// Saving `targets` for your agents, unless the view is blocked.
@@ -325,47 +282,4 @@ fn on_change<V: Placer>(
 ) -> impl Fn(bool, &ClickEvent, &mut Window, &mut App) + 'static {
     let press = cx.listener(move |view, _: &ClickEvent, window, cx| press(view, window, cx));
     move |_, event, window, cx| press(event, window, cx)
-}
-
-/// The All agents switch: Kit's base switch on the popover's `focus` for it, which keeps that focus
-/// while it does nothing. Its 30 by 18 track takes the switch color, primary while `on`, and Kit's
-/// focus ring while a key gave it focus; its raised 14 px thumb sits `thumb` from the start.
-fn all_agents_switch(
-    on: bool,
-    thumb: Pixels,
-    focus: &FocusHandle,
-    window: &Window,
-    cx: &App,
-) -> Switch {
-    let theme = cx.theme();
-    let primary = theme.primary;
-    let track = SwitchTrack::new("place-all-agents-track")
-        .checked(on)
-        .flex()
-        .flex_none()
-        .items_center()
-        .w(px(TRACK.0))
-        .h(px(TRACK.1))
-        .rounded_full()
-        // A transparent 1 px border and 1 px of padding inset the thumb, so the ring's tint of the
-        // border shows on the off track too, as on Kit's own switch.
-        .border_1()
-        .border_color(transparent_black())
-        .p_px()
-        .bg(theme.switch)
-        .styles(|styles| styles.checked(|style| style.bg(primary)))
-        .child(
-            Surface::new(Level::Raised)
-                .radius(radius::FULL)
-                .fill(theme.switch_thumb)
-                .apply(SwitchThumb::new(on), theme)
-                .size(px(THUMB))
-                .left(thumb),
-        );
-    Switch::new("place-all-agents")
-        .checked(on)
-        .accessibility_label("All agents")
-        .track_focus(focus)
-        .flex_none()
-        .child(focus_ring(track, focus, window, cx))
 }
