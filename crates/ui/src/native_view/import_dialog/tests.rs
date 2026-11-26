@@ -2,7 +2,7 @@ use super::super::snapshot_query::fixture::Fixture;
 use super::End;
 use super::list::{
     Count, Place, default_ticks, found_count, groups, ignored_rows, import_label, narrowed, rows,
-    selection, status, tick_all, tickable,
+    selection, tick_all, tickable,
 };
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -164,12 +164,6 @@ fn ignored_skills_are_listed_apart_and_never_grouped_ticked_counted_or_imported(
         "a tick never imports it"
     );
 
-    assert_eq!(status(&found, &none), "3 found · 1 already in library");
-    assert_eq!(
-        status(&found, &ignored),
-        "2 found · 1 already in library · 1 ignored"
-    );
-
     let mut snapshot = Fixture::new().build();
     snapshot.scan = Some(found.scan.clone());
     assert_eq!(found_count(&snapshot), 3);
@@ -249,7 +243,6 @@ fn a_dialog_a_page_opened_lists_ticks_and_imports_only_its_skills() {
             "vendor-lint@/w/acme/.agents/skills/vendor-lint"
         ]
     );
-    assert_eq!(status(&found, &none), "3 found · 0 already in library");
 
     let row: BTreeSet<String> = ["acme-deploy".to_owned()].into();
     let one = narrowed(all.clone(), Some(&row));

@@ -14,7 +14,7 @@ The user ignores a found skill once. From then on SkillBinder treats it as if it
 
 In:
 - Ignore, Ignore all, the Ignored group, and Stop ignoring in the Import skills dialog, from Scan for skills and from onboarding's Review list.
-- Scan for skills' count and status line without ignored skills.
+- Scan for skills' count without ignored skills.
 - The command's `ignore`, `unignore`, `scan`, and `import --all`.
 - The MCP server's `ignore_skills`, `find_skills`, and `import_skills`.
 
@@ -40,12 +40,12 @@ Decisions:
 
 ### Import skills dialog
 
-The design rules are in [decisions.md](../design/ignore-skills/decisions.md): I2 for Ignore, I3 for Ignore all, I4 for saving at once, I5–I6 for the group and its rows, I7 for Stop ignoring, I8 for the status line and count, I9 for search, I10 for when everything is ignored, and I11 for copy.
+The design rules are in [decisions.md](../design/ignore-skills/decisions.md): I2 for Ignore, I3 for Ignore all, I4 for saving at once, I5–I6 for the group and its rows, I7 for Stop ignoring, I8 for the count, I9 for search, I10 for when everything is ignored, and I11 for copy.
 
 1. Opening the dialog prepares its plan for every found skill that is not in library, the ignored ones included (ADR 0009). Stop ignoring therefore needs no new preparation, and ignoring never refuses or refreshes the plan.
 2. **Ignore** on a row ignores that skill's slug.
    - The row moves to the Ignored group, and its tick is dropped.
-   - The Import count, Select all, its group's checkbox and count, the status line, and Library's Scan for skills count update together.
+   - The Import count, Select all, its group's checkbox and count, and Library's Scan for skills count update together.
    - If the group is left empty, its header goes too.
 3. **Ignore all** on a place's header ignores every skill that group lists. That includes skills that cannot be ticked, such as blocked ones, and skills the search hides.
 4. **Stop ignoring** removes the ignore. The skill returns to the group of its first location, ticked if its chosen version is valid and fewer than 500 skills are ticked.
@@ -144,7 +144,7 @@ flowchart LR
 
 ## Acceptance
 
-1. **Ignore on a row.** With 18 offered and 0 ignored, pressing Ignore on `storybook` drops the Import count by one and Scan for skills' count by one. The status line reads "17 found · 3 already in library · 1 ignored", and `storybook` is in the collapsed Ignored group.
+1. **Ignore on a row.** With 18 offered and 0 ignored, pressing Ignore on `storybook` drops the Import count by one and Scan for skills' count by one. `storybook` is in the collapsed Ignored group.
 2. **Survives Cancel and relaunch.** After 1, Cancel, then a relaunch, then Scan for skills: the count excludes `storybook`, which is in the Ignored group and not ticked.
 3. **Skipping is not ignoring.** Unticking `tdd` and importing the rest leaves `tdd` offered and ticked on the next Scan for skills.
 4. **Ignore all.** Ignore all on workspace `acme-web` moves every skill that group lists into Ignored. A slug from that group also found in Your agents is no longer offered there either.

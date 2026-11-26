@@ -39,7 +39,7 @@ pub(super) enum End {
 }
 
 impl End {
-    /// Whether the list names its places, with the status line and each place's header.
+    /// Whether the list names its places, with each place's header.
     pub(super) fn names_places(self) -> bool {
         self == Self::Import
     }
