@@ -79,6 +79,7 @@ pub(crate) fn grammar() -> Command {
         .subcommand(places::agent())
         .subcommand(explore::scan())
         .subcommand(explore::import())
+        .subcommands(explore::ignore())
         .subcommand(explore::search())
         .subcommand(explore::install())
         .subcommand(Command::new("repos").about("List your repositories and how many of their skills aren't in the library"))
@@ -291,6 +292,7 @@ pub(crate) fn request(matches: &ArgMatches, interactive: bool) -> Result<Request
             find: explore::search_find(args),
         }),
         "import" => change(explore::import_change(args)),
+        "ignore" | "unignore" => change(explore::ignore_change(command, args)),
         "install" => change(explore::install_change(args)),
         "repo" => explore::repo_change(args).and_then(change),
         "updates" if has(args, "check") => Ok(Request::Find { find: Find::Check }),

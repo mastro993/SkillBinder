@@ -127,7 +127,7 @@ flowchart LR
 - **MCP** (decision 14; ADR 0025):
   - `ignore_skills` goes in `apps/cli/src/mcp/explore.rs`, with its input in `mcp/inputs/explore.rs`, annotated idempotent and not destructive.
   - `find_skills` results gain `ignored`.
-  - `docs/specs/mcp-server.md`'s tool table gains the row, and `xtask/src/mcp_smoke.rs` covers the new tool.
+  - `docs/specs/mcp-server.md`'s tool table gains the row, and the server's tool tests (`apps/cli/src/mcp/tests`) cover the new tool. `xtask mcp-smoke` drives the window through the GPUI MCP bridge, not this server.
 - **Rollout**: one additive migration, with no data to carry over. Older builds never read the table. No feature flag.
 
 ## Assumptions
@@ -186,7 +186,7 @@ flowchart LR
 3. **Ignore from the command line and the MCP server.**
    - Delivers: `ignore`/`unignore`, the `scan` `ignored` field, `import --all` without ignored skills, explicit import of an ignored slug, `ignore_skills`, the `ignored` field in `find_skills`, and the SkillBinder skill text if #210 has shipped.
    - Checks: 9 (`import <slug>`), 11, 12, 14.
-   - Tests: CLI grammar and command unit tests, and `xtask mcp-smoke`.
+   - Tests: CLI grammar and command unit tests, and the MCP server's tool tests.
    - Docs: `docs/specs/command-line.md`, `docs/specs/mcp-server.md`, `docs/features/native/command-line.md`, and `docs/features/native/mcp-server.md`.
    - Depends on: 1.
 

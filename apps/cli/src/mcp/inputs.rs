@@ -5,7 +5,9 @@ mod explore;
 mod places;
 mod updates;
 
-pub(crate) use explore::{FindSkills, ImportSkills, InstallSkills, ManageRepositories};
+pub(crate) use explore::{
+    FindSkills, IgnoreSkills, ImportSkills, InstallSkills, ManageRepositories,
+};
 pub(crate) use places::{ChooseAgent, ManageWorkspace};
 pub(crate) use updates::{SyncLibrary, UpdateSkills, Updating};
 

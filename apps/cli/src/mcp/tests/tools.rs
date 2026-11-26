@@ -8,9 +8,9 @@ use crate::{grammar, render};
 use serde_json::{Value, json};
 use skillbinder_proto::ValidationStatus;
 use skillbinder_proto::command_line::{
-    AgentRow, Change, Changed, Consent, Find, FoundRow, FoundVersion, Output, Progress, Query,
-    Question, RepositoryRow, Request, SearchOutput, SearchRow, SkillsShAnswer, Unchecked,
-    UpdatesOutput, WorkspaceName, WorkspaceRow,
+    AgentRow, Change, Changed, Consent, Find, FoundOutput, FoundRow, FoundVersion, Output,
+    Progress, Query, Question, RepositoryRow, Request, SearchOutput, SearchRow, SkillsShAnswer,
+    Unchecked, UpdatesOutput, WorkspaceName, WorkspaceRow,
 };
 
 /// The command's side, without a terminal: no progress, and no question answered.
@@ -50,20 +50,23 @@ fn fixture(request: &Request) -> Output {
             skills: 4,
             installable: 2,
         }]),
-        Request::Find { find: Find::Scan } => Output::Found(vec![FoundRow {
-            slug: "sql".into(),
-            description: "Writes SQL.".into(),
-            place: "Your agents".into(),
-            ticked: true,
-            versions: vec![FoundVersion {
-                version: "3f9a2c1".into(),
-                planned: true,
-                modified: Some(1_700_000_000),
-                validation: ValidationStatus::Valid,
-                locations: vec!["~/.claude/skills · Claude Code".into()],
-                replaces: Vec::new(),
+        Request::Find { find: Find::Scan } => Output::Found(FoundOutput {
+            found: vec![FoundRow {
+                slug: "sql".into(),
+                description: "Writes SQL.".into(),
+                place: "Your agents".into(),
+                ticked: true,
+                versions: vec![FoundVersion {
+                    version: "3f9a2c1".into(),
+                    planned: true,
+                    modified: Some(1_700_000_000),
+                    validation: ValidationStatus::Valid,
+                    locations: vec!["~/.claude/skills · Claude Code".into()],
+                    replaces: Vec::new(),
+                }],
             }],
-        }]),
+            ignored: vec!["storybook".into()],
+        }),
         Request::Find {
             find: Find::Search { .. },
         } => Output::Search(SearchOutput {
@@ -128,7 +131,7 @@ fn cases(root: &str) -> Vec<Case> {
             "find_skills",
             json!({ "where": "found", "response_format": "detailed" }),
             "scan",
-            Some("found"),
+            None,
         ),
         case(
             "find_skills",
@@ -196,6 +199,18 @@ fn cases(root: &str) -> Vec<Case> {
             "import_skills",
             json!({ "all": true }),
             "import --all",
+            None,
+        ),
+        case(
+            "ignore_skills",
+            json!({ "skills": ["storybook", "tailwind-helper"] }),
+            "ignore storybook tailwind-helper",
+            None,
+        ),
+        case(
+            "ignore_skills",
+            json!({ "skills": ["storybook"], "stop": true }),
+            "unignore storybook",
             None,
         ),
         case(

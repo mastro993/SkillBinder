@@ -2,11 +2,20 @@
 
 use skillbinder_proto::ValidationStatus;
 use skillbinder_proto::command_line::{
-    FoundRow, FoundVersion, RepositoryRow, SearchOutput, SearchRow, SkillsShAnswer,
+    FoundOutput, FoundRow, FoundVersion, RepositoryRow, SearchOutput, SearchRow, SkillsShAnswer,
 };
 
+/// The found skills, then every ignored slug when any is.
+pub(super) fn found(output: &FoundOutput) -> String {
+    let mut text = offered(&output.found);
+    if !output.ignored.is_empty() {
+        text.push_str(&format!("Ignored: {}\n", output.ignored.join(", ")));
+    }
+    text
+}
+
 /// Each found skill under its group, with its versions, then how to import them.
-pub(super) fn found(rows: &[FoundRow]) -> String {
+fn offered(rows: &[FoundRow]) -> String {
     if rows.is_empty() {
         return "Found no skills that aren't in your library.\n".to_owned();
     }

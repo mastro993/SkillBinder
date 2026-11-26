@@ -1,7 +1,7 @@
 use super::{failure, output};
 use skillbinder_proto::command_line::{
-    AgentRow, Changed, CommandError, CopyRow, CopyStatus, ErrorCode, Failure, FoundRow,
-    FoundVersion, Output, PresetRow, RepositoryRow, SearchOutput, SearchRow, SkillRow,
+    AgentRow, Changed, CommandError, CopyRow, CopyStatus, ErrorCode, Failure, FoundOutput,
+    FoundRow, FoundVersion, Output, PresetRow, RepositoryRow, SearchOutput, SearchRow, SkillRow,
     SkillsShAnswer, StatusOutput, Unchecked, UpdatesOutput, WorkspaceRow,
 };
 use skillbinder_proto::{SyncState, ValidationStatus};
@@ -180,13 +180,27 @@ fn found_skills_print_under_their_group_with_each_version() {
             }],
         },
     ];
+    let found = |found: Vec<FoundRow>, ignored: &[&str]| {
+        output(&Output::Found(FoundOutput {
+            found,
+            ignored: ignored.iter().map(|slug| (*slug).to_owned()).collect(),
+        }))
+    };
     assert_eq!(
-        output(&Output::Found(rows)),
+        found(rows.clone(), &[]),
         "Your agents:\n  pdf: Fill PDFs.\n    aaaa111* ~/.claude/skills · Claude Code\n      Replaces the copy in Cursor.\n    bbbb222  ~/.cursor/skills · Cursor\ninvoices-app:\n  sql\n    cccc333  ~/code/invoices-app/.claude/skills [invalid]\n* is the version an import takes; name another as <slug>@<version>.\nImport with `skillbinder import <slug>`, or `skillbinder import --all` for 1 of them.\n"
     );
     assert_eq!(
-        output(&Output::Found(Vec::new())),
+        found(Vec::new(), &[]),
         "Found no skills that aren't in your library.\n"
+    );
+    assert!(
+        found(rows, &["storybook", "tdd"]).ends_with("for 1 of them.\nIgnored: storybook, tdd\n"),
+        "the ignored slugs close the list"
+    );
+    assert_eq!(
+        found(Vec::new(), &["storybook"]),
+        "Found no skills that aren't in your library.\nIgnored: storybook\n"
     );
 }
 

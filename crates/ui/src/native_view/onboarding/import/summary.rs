@@ -10,7 +10,7 @@ use super::super::super::library_copies::{AgentRow, agent_rows};
 use gpui_kit::{AnyElement, IntoElement};
 use skillbinder_design::{AvatarStack, CardList, ListRow, Logo, Text, format_count};
 use skillbinder_proto::{Candidate, ScanSnapshot};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// How many found skills not in library are offered and ignored, and the Agents rows that hold
 /// the offered ones, or the ignored ones when none is offered.
@@ -25,13 +25,13 @@ pub(super) struct Summary<'r> {
 pub(super) fn summary<'r>(
     scan: &ScanSnapshot,
     rows: &'r [AgentRow],
-    ignored: &BTreeSet<String>,
+    ignored: &BTreeMap<String, String>,
 ) -> Summary<'r> {
     let (skipped, offered): (Vec<&Candidate>, Vec<&Candidate>) = scan
         .candidates
         .iter()
         .filter(|candidate| candidate.in_library().is_none())
-        .partition(|candidate| ignored.contains(&candidate.key));
+        .partition(|candidate| ignored.contains_key(&candidate.key));
     let named = if offered.is_empty() {
         &skipped
     } else {

@@ -9,7 +9,7 @@ use gpui_kit::{
     WindowOptions, div, px, size,
 };
 use skillbinder_proto::*;
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 /// A found version of `slug` in the global skill directory the agents `agents` read.
 fn found_in(slug: &str, agents: &[&str]) -> Candidate {
@@ -61,7 +61,7 @@ fn the_summary_counts_each_found_skill_once_and_names_its_agents_in_section_orde
         row("Claude Code", &["claude-code"]),
         row("Cursor", &["cursor"]),
     ];
-    let none = BTreeSet::new();
+    let none = BTreeMap::new();
     let mut held = found_in("held", &["cursor"]);
     held.held = Some(SkillId("held".to_owned()));
     let found = scan(vec![
@@ -101,12 +101,18 @@ fn the_summary_leaves_ignored_skills_out_and_names_their_agents_once_every_one_i
         found_in("pdf", &["cursor"]),
         found_in("pdf", &["claude-code"]),
     ]);
-    let pdf = BTreeSet::from(["pdf".to_owned()]);
+    let ignored = |slugs: &[&str]| -> BTreeMap<String, String> {
+        slugs
+            .iter()
+            .map(|slug| ((*slug).to_owned(), (*slug).to_owned()))
+            .collect()
+    };
+    let pdf = ignored(&["pdf"]);
 
     let some = summary(&found, &rows, &pdf);
     assert!(some.offers());
     assert_eq!(some.text(), "1 skill found in Claude Code");
-    let every = BTreeSet::from(["pdf".to_owned(), "review".to_owned()]);
+    let every = ignored(&["pdf", "review"]);
     let none = summary(&found, &rows, &every);
     assert!(!none.offers());
     assert_eq!(

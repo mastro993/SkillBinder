@@ -59,6 +59,7 @@ Names follow the glossary. A skill is named by its slug, a preset or library fol
 | `agents`, `agent on <agent> [--replace]`, `agent off <agent>` | Settings › Agents |
 | `copies`, `copies replace \| keep <slug> [--in DIR]`, `copies retry` | The review list and Retry |
 | `scan`, `import (<slug>[@<version>]… \| --all) [--replace]` | Scan for skills and the Import skills dialog |
+| `ignore <slug>…`, `unignore <slug>…` | The dialog's Ignore and Stop ignoring ([ignore-found-skills](ignore-found-skills.md) behaviors 11–13) |
 | `search <query>` | Explore's search over the catalog, your repositories, and skills.sh |
 | `install <ref>…` | Explore's Install. `<ref>` is a slug found once in the catalog or your repositories, `<owner>/<repo>/<slug>`, or a skills.sh `<owner>/<repo>@<skill>` |
 | `repos`, `repo add <url>`, `repo remove <url>`, `repo install-all <url>` | Your repositories and Install all |

@@ -21,7 +21,13 @@ use std::{collections::BTreeSet, fs};
 use support::{Fixture, write_skill};
 
 async fn ignored(engine: &Engine) -> BTreeSet<String> {
-    engine.snapshot().await.unwrap().ignored
+    engine
+        .snapshot()
+        .await
+        .unwrap()
+        .ignored
+        .into_keys()
+        .collect()
 }
 
 fn keys(keys: &[&str]) -> BTreeSet<String> {
@@ -80,6 +86,8 @@ async fn an_ignore_persists_whatever_the_content_and_refuses_unknown_and_library
         .await
         .unwrap();
     assert_eq!(ignored(&engine).await, keys(&["storybook"]));
+    let spelled = engine.snapshot().await.unwrap().ignored;
+    assert_eq!(spelled["storybook"], "Storybook", "kept as first ignored");
     let manifest = storybook.join("SKILL.md");
     let before = fs::read_to_string(&manifest).unwrap();
     engine.shutdown().await.unwrap();

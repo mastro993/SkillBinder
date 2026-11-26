@@ -16,8 +16,8 @@ use skillbinder_proto::command_line::{
     Changed, CommandError, Consent, ErrorCode, Failure, Output, Progress,
 };
 use skillbinder_proto::{
-    AppError, AppResult, AppSnapshot, ManagedCopy, OrganizationChange, PresetId, PresetSwitch,
-    RepositoryId, Workspace, owner_repo,
+    AppError, AppResult, AppSnapshot, ErrorCategory, ManagedCopy, OrganizationChange, PresetId,
+    PresetSwitch, RepositoryId, Workspace, owner_repo,
 };
 use std::future::Future;
 use std::path::PathBuf;
@@ -324,9 +324,23 @@ async fn save(client: &Client, save: Save) -> AppResult<()> {
                 client.set_workspace_skill(workspace, skill, None).await
             }
             Save::TurnOff(dirs) => client.set_agents_chosen(dirs, false).await,
+            Save::Ignore { skills, ignored } => {
+                client.set_ignored(skills, ignored).await.map_err(scan_hint)
+            }
         }
     })
     .await
+}
+
+/// An unknown slug's error, pointing at `scan`, which lists the found and ignored skills.
+fn scan_hint(error: AppError) -> AppError {
+    match error.category {
+        ErrorCategory::NotFound => AppError {
+            recovery: "Run `skillbinder scan` to list the found and ignored skills.".to_owned(),
+            ..error
+        },
+        _ => error,
+    }
 }
 
 /// `Added workspace "invoices-app" (.agents/skills, .claude/skills).`, or the added workspaces'

@@ -1,7 +1,7 @@
-//! Scan and import, Explore, and your repositories: Library's Import skills dialog, Explore's
-//! search and Install, and Your repositories with Install all.
+//! Scan and import, Explore, and your repositories: Library's Import skills dialog with its
+//! Ignore and Stop ignoring, Explore's search and Install, and Your repositories with Install all.
 
-use super::{flag, has, name, replace, unknown, value, values};
+use super::{flag, has, name, replace, slugs, unknown, value, values};
 use clap::{Arg, ArgGroup, ArgMatches, Command};
 use skillbinder_proto::command_line::{Change, CommandError, Find};
 
@@ -24,6 +24,19 @@ pub(super) fn import() -> Command {
         .group(ArgGroup::new("skills").args(["slugs", "all"]).required(true))
         .arg(replace().help("Replace your copies the import replaces without asking"))
         .after_help("Example: skillbinder import pdf sql@3f9a2c1")
+}
+
+pub(super) fn ignore() -> [Command; 2] {
+    [
+        Command::new("ignore")
+            .about("Ignore found skills, so scan, the Import skills dialog, and import --all leave them out")
+            .arg(slugs())
+            .after_help("Example: skillbinder ignore storybook tailwind-helper"),
+        Command::new("unignore")
+            .about("Stop ignoring skills, so they are offered for import again")
+            .arg(slugs())
+            .after_help("Example: skillbinder unignore storybook"),
+    ]
 }
 
 pub(super) fn search() -> Command {
@@ -101,6 +114,14 @@ pub(super) fn repo_change(matches: &ArgMatches) -> Result<Change, CommandError> 
         "install-all" => Change::InstallAll { repository },
         other => return Err(unknown(other)),
     })
+}
+
+/// `ignore` or `unignore`.
+pub(super) fn ignore_change(command: &str, args: &ArgMatches) -> Change {
+    Change::Ignore {
+        skills: values(args, "slugs"),
+        stop: command == "unignore",
+    }
 }
 
 /// `install`'s references, unchanged: the app resolves them against Explore.

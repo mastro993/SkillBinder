@@ -11,7 +11,7 @@ use crate::{
 };
 use diesel::prelude::*;
 use skillbinder_proto::*;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 impl Engine {
     /// Ignores the found skills `slugs`, or stops ignoring them when `ignored` is false; the next
@@ -34,7 +34,7 @@ impl State {
     pub(crate) fn set_ignored(&mut self, slugs: &[String], ignored: bool) -> AppResult<()> {
         let found = self.found_keys()?;
         let held = self.held_keys()?;
-        let kept = self.ignored_keys()?;
+        let kept = self.ignored()?;
         for slug in slugs {
             let key = normalized(slug);
             if ignored && held.contains(&key) {
@@ -43,7 +43,7 @@ impl State {
             if ignored && !found.contains(&key) {
                 return Err(AppError::not_found(format!("No found skill named {slug}.")));
             }
-            if !ignored && !kept.contains(&key) && !found.contains(&key) {
+            if !ignored && !kept.contains_key(&key) && !found.contains(&key) {
                 return Err(AppError::not_found(format!(
                     "No ignored skill named {slug}."
                 )));
@@ -71,12 +71,12 @@ impl State {
         })
     }
 
-    /// Every ignored key, including ones no scan finds now.
-    pub(crate) fn ignored_keys(&self) -> AppResult<BTreeSet<String>> {
+    /// Every ignored key with the slug as it was ignored, including ones no scan finds now.
+    pub(crate) fn ignored(&self) -> AppResult<BTreeMap<String, String>> {
         ignored_skills::table
-            .select(ignored_skills::key)
-            .load::<String>(&mut *self.database.borrow_mut())
-            .map(BTreeSet::from_iter)
+            .select((ignored_skills::key, ignored_skills::slug))
+            .load::<(String, String)>(&mut *self.database.borrow_mut())
+            .map(BTreeMap::from_iter)
             .map_err(storage::error("reading the ignored skills"))
     }
 

@@ -1,7 +1,8 @@
 //! `scan` and `import`: Library's Scan for skills and its Import skills dialog (ADR 0008). Both
 //! scan afresh and prepare one plan for every found skill not in library, as the dialog does.
-//! `import` takes the skills the command names, or with `--all` the ones the dialog ticks, and
-//! states the copies it replaces before anything changes (spec rule 7).
+//! `scan` lists the ignored skills apart (ADR 0033). `import` takes the skills the command names,
+//! ignored or not, or with `--all` the ones the dialog ticks, and states the copies it replaces
+//! before anything changes (spec rule 7).
 
 use super::run::{blocking, free, on_runtime};
 use super::{Peer, resolve};
@@ -11,26 +12,36 @@ use crate::native_view::{
 use gpui_kit::AsyncApp;
 use skillbinder_client::Client;
 use skillbinder_proto::command_line::{
-    Changed, CommandError, ErrorCode, FoundRow, FoundVersion, Output, Permission,
+    Changed, CommandError, ErrorCode, FoundOutput, FoundRow, FoundVersion, Output, Permission,
 };
 use skillbinder_proto::{
-    AppSnapshot, Candidate, CandidateId, FoundImport, MAX_IMPORT, ValidationStatus, Workspace,
+    AppSnapshot, Candidate, CandidateId, FoundImport, MAX_IMPORT, ValidationStatus,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// How many characters of a version's digest the command shows and takes.
 const SHORT: usize = 7;
 
-/// The ignored skills the command leaves out: none, since it offers them until it gains
-/// `ignore` and `unignore` (spec ignore-found-skills, slice 3).
-fn offered_all() -> BTreeSet<String> {
-    BTreeSet::new()
+/// No ignored skill: naming one imports it, which ends its ignore (ignore-found-skills
+/// decision 17), so names resolve among every found skill.
+fn none_ignored() -> BTreeMap<String, String> {
+    BTreeMap::new()
 }
 
-/// `scan`: the found skills not in library, grouped as the dialog groups them.
+/// `scan`: the found skills not in library and not ignored, grouped as the dialog groups them,
+/// then every ignored slug.
 pub(super) async fn scan(client: &Client) -> Result<Output, CommandError> {
     let found = prepare(client, Vec::new()).await?;
-    Ok(Output::Found(found_rows(&found, &client.snapshot())))
+    let snapshot = client.snapshot();
+    Ok(Output::Found(FoundOutput {
+        found: found_rows(&found, &snapshot),
+        ignored: ignored_slugs(&snapshot),
+    }))
+}
+
+/// Every slug ignored on this device, as it was ignored, sorted by key, whatever its case.
+fn ignored_slugs(snapshot: &AppSnapshot) -> Vec<String> {
+    snapshot.ignored.values().cloned().collect()
 }
 
 /// Scans and prepares the plan, taking the `versions` chosen, as the dialog does.
@@ -41,9 +52,10 @@ async fn prepare(client: &Client, versions: Vec<CandidateId>) -> Result<FoundImp
     Ok(prepared.await?)
 }
 
-/// The dialog's rows of `found`, each with its versions and where they were found.
+/// The dialog's rows of `found`, ignored ones left out, each with its versions and where they
+/// were found.
 pub(super) fn found_rows(found: &FoundImport, snapshot: &AppSnapshot) -> Vec<FoundRow> {
-    let groups = groups(found, &snapshot.workspaces, &offered_all());
+    let groups = groups(found, &snapshot.workspaces, &snapshot.ignored);
     let ticked = &default_ticks(&groups);
     groups
         .iter()
@@ -113,15 +125,16 @@ pub(super) struct Picked {
 }
 
 /// What `named` names among `found`, each `<slug>` or `<slug>@<version>`, or with `all` what the
-/// dialog ticks. A skill with several versions needs one named.
+/// dialog ticks, never an ignored skill. A skill with several versions needs one named.
 pub(super) fn pick(
     found: &FoundImport,
-    workspaces: &[Workspace],
+    snapshot: &AppSnapshot,
     named: &[String],
     all: bool,
 ) -> Result<Picked, CommandError> {
-    let groups = groups(found, workspaces, &offered_all());
+    let workspaces = &snapshot.workspaces;
     if all {
+        let groups = groups(found, workspaces, &snapshot.ignored);
         let ticked = default_ticks(&groups);
         return Ok(Picked {
             keys: rows(&groups)
@@ -132,6 +145,7 @@ pub(super) fn pick(
             named: Vec::new(),
         });
     }
+    let groups = groups(found, workspaces, &none_ignored());
     let listed: Vec<&Row<'_>> = rows(&groups).collect();
     let mut picked = Picked::default();
     for name in named {
@@ -256,7 +270,7 @@ pub(super) fn chosen(
     snapshot: &AppSnapshot,
     picked: &Picked,
 ) -> Result<Chosen, CommandError> {
-    let groups = groups(found, &snapshot.workspaces, &offered_all());
+    let groups = groups(found, &snapshot.workspaces, &none_ignored());
     let keys: BTreeSet<String> = picked.keys.iter().cloned().collect();
     let taken: Vec<&Row<'_>> = rows(&groups)
         .filter(|row| keys.contains(row.key()))
@@ -372,7 +386,7 @@ pub(super) async fn import(
     cx: &mut AsyncApp,
 ) -> Result<Changed, CommandError> {
     let mut found = prepare(client, Vec::new()).await?;
-    let picked = pick(&found, &client.snapshot().workspaces, &named, all)?;
+    let picked = pick(&found, &client.snapshot(), &named, all)?;
     if !picked.versions.is_empty() {
         found = prepare(client, picked.versions.clone()).await?;
     }

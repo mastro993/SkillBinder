@@ -51,7 +51,7 @@ pub(crate) fn result(output: &Output) -> Value {
         Output::Copies(copies) => json!(copies),
         Output::Workspaces(workspaces) => json!(workspaces),
         Output::Agents(agents) => json!(agents),
-        Output::Found(rows) => json!(rows),
+        Output::Found(found) => json!(found),
         Output::Search(search) => json!(search),
         Output::Repositories(rows) => json!(rows),
         Output::Updates(updates) => json!(updates),

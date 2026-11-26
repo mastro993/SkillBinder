@@ -91,6 +91,12 @@ pub(super) enum Save {
     },
     /// Turning off the agents reading these global skill directories; their copies stay.
     TurnOff(BTreeSet<String>),
+    /// Ignoring found skills by slug, or stopping ignoring them; the engine refuses them all
+    /// unless it accepts every one.
+    Ignore {
+        skills: Vec<String>,
+        ignored: bool,
+    },
 }
 
 /// What a blocking change does.
@@ -269,6 +275,16 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
             skills: skills.clone(),
             all: *all,
         },
+        Change::Ignore { skills, stop } => {
+            let verb = if *stop { "Stopped ignoring" } else { "Ignored" };
+            Plan::Save {
+                saves: vec![Save::Ignore {
+                    skills: skills.clone(),
+                    ignored: !stop,
+                }],
+                done: format!("{verb} {}.", skills.join(", ")),
+            }
+        }
         Change::Install { skills } => explore::plan_install(snapshot, skills)?,
         Change::AddRepository { url } => repositories::plan_add(snapshot, url)?,
         Change::RemoveRepository { repository } => {

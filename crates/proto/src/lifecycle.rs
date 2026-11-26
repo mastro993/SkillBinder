@@ -191,9 +191,9 @@ pub struct AppSnapshot {
     pub scan: Option<ScanSnapshot>,
     /// A scan is running; `scan` keeps the previous results until it completes.
     pub scanning: bool,
-    /// The keys of the found skills the user ignored on this device, including ones no scan
-    /// finds now (ADR 0033).
-    pub ignored: BTreeSet<String>,
+    /// The found skills the user ignored on this device, including ones no scan finds now
+    /// (ADR 0033): each one's key, the normalized slug, with the slug as it was ignored.
+    pub ignored: BTreeMap<String, String>,
     /// Update state of the library skills whose source was checked for their current content.
     pub updates: BTreeMap<SkillId, SkillUpdate>,
     /// An update check is running; `updates` keeps the previous results until it completes.

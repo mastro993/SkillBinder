@@ -1,9 +1,18 @@
-//! What `scan`, `search`, and `repos` answer: the Import skills dialog's list, Explore's results,
-//! and your repositories.
+//! What `scan`, `search`, and `repos` answer: the Import skills dialog's list and its ignored
+//! skills, Explore's results, and your repositories.
 
 use crate::ValidationStatus;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+/// What `scan` found.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct FoundOutput {
+    /// The found skills not in library and not ignored, as the Import skills dialog lists them.
+    pub found: Vec<FoundRow>,
+    /// Every slug ignored on this device, sorted, including ones no scan finds now.
+    pub ignored: Vec<String>,
+}
 
 /// A found skill not in library, as the Import skills dialog lists it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -1,9 +1,11 @@
 //! The tools that bring skills into the library: Explore's search and Install, Scan for skills
-//! and its import, and the user's repositories.
+//! with its import and ignored skills, and the user's repositories.
 
 use super::Server;
 use super::call::Turn;
-use super::inputs::{Agreed, FindSkills, ImportSkills, InstallSkills, ManageRepositories};
+use super::inputs::{
+    Agreed, FindSkills, IgnoreSkills, ImportSkills, InstallSkills, ManageRepositories,
+};
 use super::results;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResponse;
@@ -13,7 +15,7 @@ use skillbinder_proto::command_line::Changed;
 #[tool_router(router = explore_router, vis = "pub(super)")]
 impl Server {
     #[tool(
-        description = "Finds skills to bring into the library. where explore searches the catalog, the user's repositories, and skills.sh for query, each result with the reference install_skills takes; where found scans the user's agents and workspaces now and lists skills found there that are not in the library, with their versions, for import_skills.",
+        description = "Finds skills to bring into the library. where explore searches the catalog, the user's repositories, and skills.sh for query, each result with the reference install_skills takes; where found scans the user's agents and workspaces now and lists skills found there that are not in the library and not ignored, with their versions, for import_skills, then every ignored slug.",
         output_schema = results::schema::<results::Finds>(),
         annotations(read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = true)
     )]
@@ -54,6 +56,20 @@ impl Server {
     ) -> Result<CallToolResponse, ErrorData> {
         let change = input.change();
         self.change(change, input.agreed(), turn).await
+    }
+
+    #[tool(
+        description = "Ignores found skills (find_skills where found) by slug, so they are no longer offered for import, nor imported by import_skills all; with stop, offers ignored ones again. Changes no file. Importing a skill by slug ends its ignore.",
+        output_schema = results::schema::<Changed>(),
+        annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn ignore_skills(
+        &self,
+        Parameters(input): Parameters<IgnoreSkills>,
+        turn: Turn,
+    ) -> Result<CallToolResponse, ErrorData> {
+        let change = input.change();
+        self.change(change, Agreed::default(), turn).await
     }
 
     #[tool(

@@ -36,7 +36,7 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 | `list_skills` | read-only | Library skills, filter `all`, `active`, `inactive`, or `updates`, optional `folder`; each with where it is active and its marks | `skills` |
 | `get_skill` | read-only | One skill: description, source, presets, where active, its copies | `skill` |
 | `list_places` | read-only | `kind`: `presets`, `folders`, `workspaces`, `agents`, `repositories`, or `copies` (those waiting for an answer) | `presets`, `folders`, `workspaces`, `agents`, `repos`, `copies` |
-| `find_skills` | read-only, open-world | `where`: `explore` searches the catalog, your repositories, and skills.sh; `found` runs a scan and lists found skills not in library with their versions | `search`, `scan` |
+| `find_skills` | read-only, open-world | `where`: `explore` searches the catalog, your repositories, and skills.sh; `found` runs a scan and lists found skills not in library and not ignored with their versions, and `ignored` | `search`, `scan` |
 | `set_skills_active` | destructive, idempotent | Turn `skill_slugs` on or off (`active`) in the active preset (default), another `preset`, or (M1) a `workspace`; optional `agents`; `replace` | `enable`, `disable`, `preset add/remove`, `workspace enable/disable` |
 | `switch_preset` | destructive, idempotent | Activate a preset; `replace` | `preset activate` |
 | `organize_library` | destructive | `action`: `create_preset`, `rename_preset`, `clone_preset`, `delete_preset`, `create_folder`, `rename_folder`, `delete_folder`, `file_skills`; `confirm` for deletions | `preset …`, `folder …` |
@@ -44,6 +44,7 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 | `choose_agent` | destructive, idempotent | Turn one of the agents on or off for SkillBinder; `replace` | `agent on/off` |
 | `install_skills` | open-world | Install `refs` from Explore into the library, inactive | `install` |
 | `import_skills` | destructive | Import found `skills` (`slug` with optional `version`) or `all`; `replace` | `import` |
+| `ignore_skills` | idempotent | Ignore found `skills` (slugs), or with `stop` stop ignoring them ([ignore-found-skills](ignore-found-skills.md) behavior 14) | `ignore`, `unignore` |
 | `update_skills` | destructive, open-world | `action`: `check`, `update` (`skill_slugs` or `all`), `reinstall` | `updates`, `update`, `reinstall` |
 | `sync_library` | destructive, open-world | `action`: `sync`, `push`, `pull`, `set_remote`, `remove_remote` | `sync`, `push`, `pull`, `remote` |
 | `manage_repositories` | destructive, open-world | `action`: `add`, `remove`, `install_all` | `repo …` |
