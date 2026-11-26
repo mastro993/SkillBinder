@@ -1,0 +1,117 @@
+
+  // ---- pieces shared by the variants -----------------------------------------------
+  function row(it) {
+    return h('div', { class: 'st-row' },
+      it.lead ? h('div', { class: 'st-row-lead' }, it.lead) : null,
+      h('div', { class: 'st-row-main' }, h('div', { class: 'st-row-title' }, it.title),
+        it.desc ? h('div', { class: `st-row-desc${it.mono ? ' is-mono' : ''}`, title: it.desc }, it.desc) : null),
+      h('div', { class: 'st-row-end' }, it.end));
+  }
+  const groupCard = (g) => h('div', { class: 'st-group' }, g.title ? h('div', { class: 'st-group-title' }, g.title) : null, h('div', { class: 'st-card' }, g.items.map(row)));
+  // G: a section's groups in one card, a group's title as a line inside it.
+  const sectionCard = (s) => h('div', { class: 'st-card' }, s.groups.flatMap((g) => [g.title ? h('div', { class: 'st-sub' }, g.title) : null, ...g.items.map(row)]));
+  const bigHead = (s) => h('div', null, h('h2', { class: 'st-h2' }, s.title), h('div', { class: 'st-h2-desc' }, s.desc));
+  const label = (s) => h('div', { class: 'st-label' }, ic(s.icon, 13), s.title);
+  const noResults = () => emptyState({ icon: 'search', title: 'No settings found', sub: `Nothing matches “${S.query.trim()}”.` });
+
+  let focusSearch = false;
+  function search() {
+    const el = searchInput({ placeholder: 'Search settings', value: S.query, onInput: (v) => { S.query = v; focusSearch = true; draw(); } });
+    el.querySelector('input').addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.query) { e.stopPropagation(); S.query = ''; focusSearch = true; draw(); } });
+    return el;
+  }
+  // All, a separator, then a tab per section; while searching, a section without a match is
+  // disabled, and the shown tab is highlighted.
+  function headerTabs(all, shown) {
+    const q = S.query.trim();
+    const tab = (id, text, n) => h('button', { class: `sb-tab${id === shown ? ' is-active' : ''}`, disabled: q && id !== 'all' && !n,
+      'aria-pressed': String(id === shown), onclick: () => { S.tab = id; draw(); } }, text);
+    return h('div', { class: 'ht-tabs' }, h('div', { class: 'sb-tabs' },
+      tab('all', 'All'), h('span', { class: 'sb-tabs-sep' }), all.map((s) => tab(s.id, s.title, hits(s)))));
+  }
+  // While the chosen tab has no match, a line says the page shows every section's instead.
+  function fallbackHint(all, shown) {
+    if (shown === S.tab || !all.some(hits)) return null;
+    return h('div', { class: 'st-hint' }, `No match in ${all.find((s) => s.id === S.tab).title} · showing all`);
+  }
+
+  // ---- E: Library's toolbar; sections keep their title and line under All -------------
+  function drawE(all, shown) {
+    const list = all.filter(hits);
+    const one = shown !== 'all';
+    const body = !list.length ? noResults() : one
+      ? h('div', { class: 'st-col' }, list.find((s) => s.id === shown).groups.map(groupCard))
+      : h('div', { class: 'st-col' }, list.map((s) => h('section', { class: 'st-section' }, bigHead(s), s.groups.map(groupCard))));
+    return { head: [headerTabs(all, shown)], page: [h('div', { class: 'st-toolbar' }, search(), fallbackHint(all, shown)), body] };
+  }
+
+  // ---- F: the search at the header's end; no toolbar, small section labels ------------
+  function drawF(all, shown) {
+    const list = all.filter(hits);
+    const one = shown !== 'all';
+    const body = !list.length ? noResults() : one
+      ? h('div', { class: 'st-col is-tight' }, list.find((s) => s.id === shown).groups.map(groupCard))
+      : h('div', { class: 'st-col' }, list.map((s) => h('section', { class: 'st-section is-tight' }, label(s), s.groups.map(groupCard))));
+    return { head: [headerTabs(all, shown), h('div', { class: 'ht-head-search' }, search())], page: [fallbackHint(all, shown), body] };
+  }
+
+  // ---- G: one card per section, like Library's one list; group titles inside it ------
+  function drawG(all, shown) {
+    const list = all.filter(hits);
+    const one = shown !== 'all';
+    const body = !list.length ? noResults() : one
+      ? sectionCard(list.find((s) => s.id === shown))
+      : h('div', { class: 'st-col is-tight' }, list.map((s) => h('section', { class: 'st-section is-tight' }, label(s), sectionCard(s))));
+    return { head: [headerTabs(all, shown)], page: [h('div', { class: 'st-toolbar' }, search(), fallbackHint(all, shown)), body] };
+  }
+
+  const VARIANTS = { e: drawE, f: drawF, g: drawG };
+  function draw() {
+    const all = filtered();
+    const shown = shownTab(all);
+    const old = page.querySelector('.st-scroll');
+    const keep = old ? old.scrollTop : 0;
+    const { head, page: kids } = VARIANTS[S.variant](all, shown);
+    hdr.replaceChildren(...head);
+    page.replaceChildren(h('div', { class: 'st-scroll' }, kids));
+    page.querySelector('.st-scroll').scrollTop = keep;
+    const tabEl = hdr.querySelector('.sb-tab.is-active');
+    if (tabEl) tabEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (focusSearch) {
+      const input = win.querySelector('.sb-search input');
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      focusSearch = false;
+    }
+  }
+  // Opening Settings starts on All with no search (decision 4); a link in opens its tab (5).
+  function open(tab = 'all') { S.tab = tab; S.query = ''; const s = page.querySelector('.st-scroll'); if (s) s.scrollTop = 0; draw(); }
+
+  renderSidebar(document.getElementById('side'), { active: 'settings', onNav: (key) => {
+    if (key === 'settings') open();
+    else toast(win, 'Not in this prototype');
+  } });
+  const bar = variantBar(win, [
+    { id: 'e', label: 'Library toolbar', desc: 'Tabs in the header like Library’s folders. The search sits in the page toolbar at Library’s width. All keeps each section’s title and line; a tab shows just its groups.' },
+    { id: 'f', label: 'Search in header', desc: 'Tabs on the left of the header, a compact search at its right end; no page toolbar. All labels each section with its glyph and name, small and muted.' },
+    { id: 'g', label: 'Card per section', desc: 'Tabs in the header, search in the toolbar. Each section is one card, like Library’s one list, with its groups as subheads inside. All labels each card.' },
+  ], (v) => { S.variant = v; draw(); });
+  const demo = (options, onChange) => h('select', { class: 'sb-input', style: 'height:26px;font-size:12px', onchange: (e) => onChange(e.target.value) },
+    options.map(([v, t]) => h('option', { value: v }, t)));
+  bar.extra.append(
+    demo([['found', 'Git found'], ['missing', 'Git not installed']], (v) => { S.git = v; draw(); }),
+    demo([['idle', 'Up to date'], ['ready', 'Update ready'], ['offline', 'Check failed']], (v) => { S.update = v; draw(); }),
+    checkbox({ label: 'Long path', onChange: (on) => { S.longPath = on; draw(); } }),
+    h('button', { class: 'sb-btn sb-btn-sm sb-btn-outline', onclick: () => { open('agents'); toast(win, 'Opened from the new-agent notice'); } }, 'Open from notice'),
+  );
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); win.querySelector('.sb-search input').focus(); }
+  });
+  const q = new URLSearchParams(location.search);
+  if (q.get('q')) S.query = q.get('q');
+  if (q.get('tab')) S.tab = q.get('tab');
+  bar.set(q.get('variant') || 'f');
+})();
+</script>
+</body>
+</html>

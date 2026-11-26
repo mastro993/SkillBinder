@@ -1,5 +1,5 @@
 //! What Settings lists: its sections, each a few groups of rows, and the search that narrows them
-//! (design `docs/design/settings`, variant B "One page"). A row is a setting's title, a muted line
+//! (design `docs/design/settings`). A row is a setting's title, a muted line
 //! under it, and one control at its end: a switch turns something on or off, a segmented control
 //! picks one of two, a select one of three or more, a button runs an action, and muted text is a
 //! fact the user cannot change.
@@ -40,16 +40,6 @@ impl Section {
         }
     }
 
-    pub fn description(self) -> &'static str {
-        match self {
-            Self::General => "How SkillBinder looks and keeps running.",
-            Self::Agents => "SkillBinder adds and removes skills only in the agents turned on.",
-            Self::Library => "Where your skills live and how they sync.",
-            Self::Updates => "New versions of SkillBinder. Skill updates are in Library.",
-            Self::Troubleshooting => "Help for when something goes wrong.",
-        }
-    }
-
     pub fn icon(self) -> &'static str {
         match self {
             Self::General => "settings",
@@ -60,7 +50,7 @@ impl Section {
         }
     }
 
-    /// The element id stem of the section, its heading, and its jump button.
+    /// The element id stem of the section, its label, and its tab.
     pub fn id(self) -> &'static str {
         match self {
             Self::General => "settings-general",

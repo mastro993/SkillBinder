@@ -53,6 +53,9 @@ impl NativeView {
             .map(|row| self.agent_switch_row(row, cx))
             .collect();
         let switches = Group {
+            description: Some(
+                "SkillBinder adds and removes skills only in the agents turned on.".to_owned(),
+            ),
             empty: Some(
                 Notice::new("settings-agents-none", NONE_FOUND)
                     .p(px(space::LG))

@@ -1,0 +1,176 @@
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const STATES = [
+    { id: 'ready', label: 'Changes' },
+    { id: 'loading', label: 'Fetching' },
+    { id: 'drifted', label: 'Local edits', tip: 'The skill was changed outside SkillBinder' },
+    { id: 'moved', label: 'Source moved', tip: 'The source changes again before you click Update' },
+    { id: 'failed', label: "Couldn't fetch" },
+  ];
+  const S = { variant: 'a', state: 'ready', mode: 'unified', updated: false, collapsed: new Set(), open: new Set(), selected: 'SKILL.md' };
+  let dlg = null;
+  let timer = 0;
+  let ready = false;
+  Element.prototype.replaceKids = function (...kids) { this.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false)); };
+
+  // ---- the skill page behind the dialog ---------------------------------------------------
+  renderSidebar(side, { active: 'library', onNav: () => toast(win, 'Not in this prototype') });
+  function drawPage() {
+    hdr.replaceKids(
+      h('div', { class: 'sb-crumbs' }, h('span', 'Library'), ic('chevron-right', 12), h('span', UD.slug),
+        S.updated ? null : h('span', { class: 'ud-upd', 'data-tip': 'Update available' }, ic('upload-circle', 14))),
+      h('div', { class: 'sb-header-actions' }, S.updated ? null
+        : h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: openReview }, 'Update')));
+    page.replaceKids(
+      S.updated ? h('div', { class: 'ud-outcome' }, 'Updated 1 · 0 failed') : null,
+      h('div', { class: 'ud-md', html: UD.skillHtml }));
+  }
+
+  // ---- Kit Diff look ------------------------------------------------------------------------
+  const CONTEXT = 3;
+  const stat = (f) => h('span', { class: 'ud-stat' }, f.add ? h('span', { class: 'ud-add' }, `+${f.add}`) : null,
+    f.add && f.del ? ' ' : null, f.del ? h('span', { class: 'ud-del' }, `−${f.del}`) : null);
+  const badge = (f) => h('span', { class: `ud-badge is-${f.status === 'B' ? 'm' : f.status.toLowerCase()}`,
+    'data-tip': { A: 'Added', D: 'Removed', M: 'Changed', B: 'Changed' }[f.status] }, f.status === 'B' ? 'M' : f.status);
+
+  /** Visible pieces of a file: change runs with CONTEXT lines around them, folds between. */
+  function pieces(f) {
+    const keep = f.rows.map(() => false);
+    f.rows.forEach((r, i) => {
+      if (r.t === ' ') return;
+      for (let k = Math.max(0, i - CONTEXT); k <= Math.min(f.rows.length - 1, i + CONTEXT); k++) keep[k] = true;
+    });
+    const out = [];
+    for (let i = 0; i < f.rows.length;) {
+      if (keep[i] || S.open.has(`${f.path}:${i}`)) { out.push(f.rows[i]); i++; continue; }
+      let end = i;
+      while (end < f.rows.length && !keep[end]) end++;
+      out.push({ fold: end - i, key: `${f.path}:${i}`, from: i, to: end });
+      i = end;
+    }
+    return out;
+  }
+  function foldRow(p) {
+    return h('button', { class: 'ud-fold', onclick: () => { for (let k = p.from; k < p.to; k++) S.open.add(`${p.key.split(':')[0]}:${k}`); redraw(); } },
+      ic('arrow-down', 12), `${p.fold} unchanged line${p.fold === 1 ? '' : 's'}`);
+  }
+  const ln = (n, cls) => h('span', { class: `ud-ln ${cls}` }, n == null ? '' : String(n));
+  const code = (r, cls) => h('span', { class: `ud-code ${cls}`, 'data-mark': r ? (r.t === ' ' ? ' ' : r.t === '-' ? '−' : '+') : '' }, r ? r.text : '');
+  const cls = (r) => (!r ? 'is-empty' : r.t === '+' ? 'is-plus' : r.t === '-' ? 'is-minus' : '');
+
+  function unifiedRows(f) {
+    return h('div', { class: 'ud-rows' }, pieces(f).map((p) => (p.fold ? foldRow(p)
+      : [ln(p.o, cls(p)), ln(p.n, cls(p)), code(p, cls(p))])));
+  }
+  function splitRows(f) {
+    const out = [];
+    const ps = pieces(f);
+    for (let i = 0; i < ps.length;) {
+      const p = ps[i];
+      if (p.fold) { out.push(foldRow(p)); i++; continue; }
+      if (p.t === ' ') { out.push(ln(p.o, ''), code(p, ''), ln(p.n, ''), code(p, '')); i++; continue; }
+      const dels = [], adds = [];
+      while (i < ps.length && !ps[i].fold && ps[i].t === '-') dels.push(ps[i++]);
+      while (i < ps.length && !ps[i].fold && ps[i].t === '+') adds.push(ps[i++]);
+      for (let k = 0; k < Math.max(dels.length, adds.length); k++) {
+        const l = dels[k], r = adds[k];
+        out.push(ln(l && l.o, cls(l)), code(l, cls(l)), ln(r && r.n, cls(r)), code(r, cls(r)));
+      }
+    }
+    return h('div', { class: 'ud-rows is-split' }, out);
+  }
+  function fileBlock(f, collapsible) {
+    const collapsed = collapsible && S.collapsed.has(f.path);
+    return h('div', { class: `ud-file${collapsed ? ' is-collapsed' : ''}` },
+      h('div', { class: 'ud-fhead', onclick: collapsible ? () => { S.collapsed.has(f.path) ? S.collapsed.delete(f.path) : S.collapsed.add(f.path); redraw(); } : null },
+        collapsible ? ic('chevron-right', 12, 'ud-chev') : null, badge(f), h('span', { class: 'ud-path' }, f.path), stat(f)),
+      f.binary ? h('div', { class: 'ud-binary' }, f.binary) : (S.mode === 'split' ? splitRows(f) : unifiedRows(f)));
+  }
+
+  // ---- the review dialog ----------------------------------------------------------------------
+  const files = () => UD.files(S.state === 'moved' && S.movedSeen ? 'moved' : S.state === 'drifted' ? 'drifted' : 'ready');
+  function summary(fs) {
+    const add = fs.reduce((n, f) => n + f.add, 0), del = fs.reduce((n, f) => n + f.del, 0);
+    return h('span', { class: 'ud-stat' }, `${fs.length} files changed · `, h('span', { class: 'ud-add' }, `+${add}`), ' ', h('span', { class: 'ud-del' }, `−${del}`));
+  }
+  function notice(kind, icon, text, action) {
+    return h('div', { class: `ud-notice is-${kind}` }, ic(icon, 14), h('div', text), action || null);
+  }
+  function openReview() {
+    S.movedSeen = false; S.collapsed = new Set(); S.open = new Set(); S.selected = 'SKILL.md';
+    dlg = openDialog(win, { title: `Update ${UD.slug}`, onClose: () => { clearTimeout(timer); dlg = null; } });
+    dlg.scrim.classList.add('ud-scrim');
+    dlg.el.classList.add('ud-dialog');
+    dlg.sub = h('div', { class: 'ud-sub' });
+    dlg.el.querySelector('.sb-dialog-header').append(dlg.sub);
+    if (S.state === 'loading') {
+      redraw(true);
+      timer = setTimeout(() => { S.state = 'ready'; drawStates(); redraw(); }, 1600);
+    } else redraw();
+  }
+  function redraw(loading) {
+    if (!dlg) return;
+    const fs = files();
+    const headTools = S.variant === 'c' ? seg([{ id: 'unified', label: 'Unified' }, { id: 'split', label: 'Split' }], S.mode, (m) => { S.mode = m; redraw(); }) : null;
+    dlg.sub.replaceKids(ic('github', 13), h('span', { class: 'ud-src' }, UD.source),
+      loading || S.state === 'failed' ? null : [h('span', '·'), summary(fs)], h('span', { class: 'sb-spacer' }), headTools);
+    const cancel = h('button', { class: 'sb-btn sb-btn-outline', onclick: () => dlg.close() }, 'Cancel');
+    const update = h('button', { class: 'sb-btn sb-btn-primary', disabled: loading || S.state === 'failed', onclick: doUpdate }, 'Update');
+    const note = h('span', { class: 'ud-foot-note' }, 'Nothing changes until you update.');
+    dlg.setFooter(note, cancel, update);
+    if (loading) return dlg.setBody(h('div', { class: 'ud-center' }, spinner(18), `Fetching ${UD.slug} from its source…`));
+    if (S.state === 'failed') {
+      return dlg.setBody(notice('danger', 'alert-circle', `Couldn't fetch ${UD.slug}'s source: Could not resolve host github.com.`,
+        h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => { S.state = 'ready'; drawStates(); redraw(); } }, 'Retry')));
+    }
+    const notes = [];
+    if (S.state === 'drifted') notes.push(notice('warning', 'alert-circle', `${UD.slug} was changed outside SkillBinder. Updating replaces those changes too; they show as removed lines.`));
+    if (S.movedSeen) notes.push(notice('info', 'refresh-04', `${UD.slug}'s source changed while you were reviewing. These are its newest changes; review them, then update.`));
+    if (S.variant === 'b') {
+      const sel = fs.find((f) => f.path === S.selected) || fs[0];
+      const list = h('div', { class: 'ud-files' }, h('div', { class: 'ud-files-head' }, `${fs.length} files`),
+        fs.map((f) => h('button', { class: `ud-frow${f === sel ? ' is-selected' : ''}`, onclick: () => { S.selected = f.path; redraw(); } },
+          badge(f), h('span', { class: 'ud-path' }, f.path), stat(f))));
+      return dlg.setBody(notes, h('div', { class: 'ud-split' }, list, h('div', { class: 'ud-diff' }, fileBlock(sel, false))));
+    }
+    dlg.setBody(notes, h('div', { class: 'ud-diff' }, fs.map((f) => fileBlock(f, true))));
+  }
+  function doUpdate(e) {
+    if (S.state === 'moved' && !S.movedSeen) { S.movedSeen = true; S.open = new Set(); return redraw(); }
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.replaceKids(spinner(14), ' Updating…');
+    dlg.setDismissible(false);
+    dlg.footer.querySelector('.sb-btn-outline').disabled = true;
+    timer = setTimeout(() => { dlg.close(); S.updated = true; drawPage(); toast(win, `Updated ${UD.slug}`, { action: 'Reset', onAction: reset }); }, 900);
+  }
+  function reset() { S.updated = false; drawPage(); }
+
+  // ---- variant bar, states ------------------------------------------------------------------
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Stacked files', desc: 'Every changed file in one scrolling list, as GPUI Kit\'s Diff draws them: a sticky header per file (status, path, +/−) that folds it, unified lines, unchanged stretches folded.' },
+    { id: 'b', label: 'File list + diff', desc: 'Changed files listed on the left with their status and +/−; the right shows the one you pick. Like the Explore detail dialog\'s sidebar.' },
+    { id: 'c', label: 'Stacked + Split toggle', desc: 'As A, with a Unified / Split switch in the dialog header for side-by-side lines (Kit\'s DiffMode).' },
+  ], (id) => { S.variant = id; if (id !== 'c') S.mode = 'unified'; if (ready) redraw(); });
+  const stateRow = h('div', { class: 'ud-ctx' });
+  bar.el.append(stateRow);
+  function drawStates() {
+    stateRow.replaceKids(h('span', 'Dialog shows'), seg(STATES, S.state, (id) => {
+      S.state = id; S.movedSeen = false;
+      if (dlg) dlg.close();
+      openReview();
+    }), h('button', { class: 'sb-btn sb-btn-ghost sb-btn-sm', onclick: reset }, 'Reset page'));
+  }
+  drawStates();
+  drawPage();
+  ready = true;
+  openReview();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings header tabs</title>
+<!-- Settings with Library's header tabs: "All", a separator, then a tab per section in the header's
+     title slot, in place of the "Settings" title and the row of jump buttons. A tab shows only its
+     section; the search covers every section and dims the tabs without a match. The variant bar
+     picks where the search sits and how sections and groups are drawn. Build:
+     python3 -I ../../scoped-pages/source/kit/inline.py header-tabs.html ../prototypes/header-tabs.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<style>
+#proto { --sb-primary: #0077B6; --sb-primary-fg: #fff; }
+.sb-vbar-extra { flex-wrap: wrap; }
+/* The app's header: 52px, the title slot scrolling sideways when its tabs overflow. */
+.sb-header { height: 52px; }
+.ht-tabs { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.ht-tabs::-webkit-scrollbar { display: none; }
+.ht-tabs .sb-tabs { overflow: visible; }
+.sb-tab:disabled { opacity: .4; cursor: default; }
+.sb-tab:disabled:hover { color: var(--sb-muted-fg); }
+.ht-head-search { flex: none; width: 168px; }
+.ht-head-search .sb-search { width: 100%; height: 28px; }
+.st-page { padding: 0; gap: 0; overflow: hidden; }
+.st-scroll { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.st-toolbar { display: flex; align-items: center; gap: 8px; }
+.st-toolbar .sb-search { width: 260px; }
+.st-col { display: flex; flex-direction: column; gap: 24px; }
+.st-col.is-tight { gap: 18px; }
+.st-h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.st-h2-desc { color: var(--sb-muted-fg); font-size: 12.5px; margin-top: 3px; }
+.st-label { font-size: 11.5px; color: var(--sb-muted-fg); padding-left: 2px; display: flex; align-items: center; gap: 6px; }
+.st-section { display: flex; flex-direction: column; gap: 12px; }
+.st-section.is-tight { gap: 6px; }
+.st-group { display: flex; flex-direction: column; gap: 6px; }
+.st-group-title { font-size: 12px; font-weight: 600; color: var(--sb-muted-fg); padding-left: 2px; }
+.st-card { border: 1px solid var(--sb-border); border-radius: 10px; background: var(--sb-card); }
+.st-row { display: flex; align-items: center; gap: 16px; padding: 10px 14px; min-height: 52px; box-sizing: border-box; }
+.st-row + .st-row { border-top: 1px solid var(--sb-line); }
+.st-sub { padding: 10px 14px 4px; font-size: 11.5px; font-weight: 600; color: var(--sb-muted-fg); border-top: 1px solid var(--sb-line); }
+.st-sub:first-child { border-top: 0; }
+.st-sub + .st-row { border-top: 0; }
+.st-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-row-lead { flex: none; display: grid; place-items: center; }
+.st-row-title { font-size: 13px; font-weight: 600; }
+.st-row-desc { color: var(--sb-muted-fg); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-row-desc.is-mono { font-family: var(--sb-mono); font-size: 11.5px; }
+.st-row-end { flex: none; display: flex; align-items: center; gap: 8px; }
+.st-value { color: var(--sb-muted-fg); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.st-switch { position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--sb-input); border: 0; cursor: pointer; padding: 0; flex: none; }
+.st-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .12s; }
+.st-switch.on { background: var(--sb-primary); }
+.st-switch.on::after { left: 14px; }
+.st-switch:disabled { opacity: .5; cursor: default; }
+.st-select { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 96px; height: 28px; padding: 0 8px 0 10px; border: 1px solid var(--sb-border); border-radius: 6px; background: var(--sb-bg); color: var(--sb-fg); font: inherit; font-size: 13px; cursor: pointer; }
+.st-select:hover { background: var(--sb-muted); }
+.st-select .sb-ic { color: var(--sb-muted-fg); transform: rotate(90deg); }
+.st-hint { font-size: 12px; color: var(--sb-muted-fg); }
+.st-note { position: absolute; left: 12px; bottom: 12px; z-index: 5; background: var(--sb-popover); border: 1px solid var(--sb-border); border-radius: 8px; box-shadow: var(--sb-shadow-lg); padding: 6px 10px; font-size: 11.5px; color: var(--sb-muted-fg); }
+</style>
+</head>
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <aside id="side"></aside>
+    <main class="sb-main" style="position:relative">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page st-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>

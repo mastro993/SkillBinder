@@ -14,6 +14,7 @@ mod explore;
 mod folder_reorder;
 mod found_rows;
 mod git_setup;
+mod header_tabs;
 mod hover_scroll;
 mod ignore_actions;
 mod import_dialog;

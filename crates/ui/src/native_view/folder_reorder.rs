@@ -4,7 +4,8 @@
 use std::{cell::Cell, time::Instant};
 
 use super::NativeView;
-use super::library_folders::{FolderEdit, tab_label};
+use super::header_tabs::tab_label;
+use super::library_folders::FolderEdit;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
     AnyElement, AppContext, Bounds, Context, CursorStyle, Div, DragMoveEvent, InteractiveElement,
