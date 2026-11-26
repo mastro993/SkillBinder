@@ -12,7 +12,7 @@ What counts as "there" follows the page's existing rule. An agent's page covers 
 
 - Read-only lists, with importing and ignoring left to Scan for skills, were rejected by the user. The point is to ignore a project's own skill where it is seen.
 - Also listing copies of library skills that sit in a place where the skill is off was rejected by the user. A page should show what may need a decision about the library, not mirror the library's state, and such copies can be many.
-- A filter beside the search (On here · Not in library · Ignored), and one card with group headers, were rejected by the user in favor of separate sections (`docs/design/found-skills-on-pages`).
+- A filter beside the search (On here · Not in library · Ignored), and one card with group headers, were rejected by the user, first in favor of separate sections and then of one list (`docs/design/found-skills-on-pages`).
 - Importing only into the page's place was rejected by the user. It would add a second import rule beside ADR 0008's.
 - Listing every directory an agent loads on its page, such as Universal's `~/.agents/skills` on Cursor's, was rejected. Universal's skills would repeat on many pages.
 - Counting not-in-library skills in the sidebar was rejected. Library's Scan for skills count is the one prompt to import.

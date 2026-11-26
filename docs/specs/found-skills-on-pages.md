@@ -84,7 +84,7 @@ flowchart LR
   - `snapshot_query` is where page derivations already live.
 - **List UI** (decisions 1, 4; U1–U9):
   - A new `crates/ui/src/native_view/found_rows.rs`, with its row in `found_rows/row.rs`, merges the found rows into the page's card (`page_list`) and adds the search row's tools (`found_tools`). Both `agent_page.rs` and `workspace_page.rs` call it. Found rows reuse the Library row's frame (`library_items::row_frame`).
-  - A row has no `Skill`, so it is its own row built from design-system components: ghost and outline xs Buttons, the validation glyph, Kit's Tag for Ignored, and the disclosure chevron of the dialog's Ignored group.
+  - A found row has no `Skill`, so it is its own row in the Library row's frame, built from design-system components: small ghost and outline Buttons, the validation glyph, and a `Chip` (`Outline` for Not in library, `Neutral` for Ignored).
   - No new tokens, artwork, or design-system component.
 - **Ignoring** (behaviors 4–5, 7):
   - `ignore_found` (which both Ignore and Ignore all call with a list of rows) and `stop_ignoring` move out of `import_dialog/ignored.rs` into `native_view/ignore_actions.rs`, one seam around `Client::set_ignored` that the dialog and the pages share.
