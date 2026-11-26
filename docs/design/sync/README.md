@@ -1,6 +1,6 @@
 # Sync: design reference
 
-This folder holds the prototype the user approved on 2026-11-26 for [the sync-history spec](../../specs/sync-history.md) (ADRs [0037](../../adr/0037-sync-history-is-the-librarys-git-history.md), [0038](../../adr/0038-sync-merges-per-skill.md), [0039](../../adr/0039-restore-and-discard-add-changes.md)). Build the same layout, copy, states, and behavior with GPUI Kit and the design system's components first. Small visual differences from Kit are fine. The rules are in [decisions.md](decisions.md), and where the prototype and decisions.md disagree, decisions.md holds.
+This folder holds the prototype the user approved on 2026-11-26 for [the sync-history spec](../../specs/sync-history.md) (ADRs [0038](../../adr/0038-sync-history-is-the-librarys-git-history.md), [0039](../../adr/0039-sync-merges-per-skill.md), [0040](../../adr/0040-restore-and-discard-add-changes.md)). Build the same layout, copy, states, and behavior with GPUI Kit and the design system's components first. Small visual differences from Kit are fine. The rules are in [decisions.md](decisions.md), and where the prototype and decisions.md disagree, decisions.md holds.
 
 ## Chosen variant
 

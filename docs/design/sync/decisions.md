@@ -1,6 +1,6 @@
 # Sync: design decisions
 
-The user settled these on 2026-11-26. Behavior comes from [the spec](../../specs/sync-history.md) and ADRs [0037](../../adr/0037-sync-history-is-the-librarys-git-history.md), [0038](../../adr/0038-sync-merges-per-skill.md), and [0039](../../adr/0039-restore-and-discard-add-changes.md). Ids are stable; cite them from issues.
+The user settled these on 2026-11-26. Behavior comes from [the spec](../../specs/sync-history.md) and ADRs [0038](../../adr/0038-sync-history-is-the-librarys-git-history.md), [0039](../../adr/0039-sync-merges-per-skill.md), and [0040](../../adr/0040-restore-and-discard-add-changes.md). Ids are stable; cite them from issues.
 
 - **Y1** Layout is variant A "Stacked" of `prototypes/sync.html` (user's pick). One column, at most 720 points wide, holds four things in this order:
   1. the status;

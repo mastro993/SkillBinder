@@ -1,6 +1,6 @@
 # Sync page: status, changes not synced yet, History, and per-skill resolution
 
-ADRs: [0037](../adr/0037-sync-history-is-the-librarys-git-history.md), [0038](../adr/0038-sync-merges-per-skill.md), [0039](../adr/0039-restore-and-discard-add-changes.md). Design: [docs/design/sync](../design/sync/README.md) (decisions Y1–Y13). Glossary: [domain.md](../agents/domain.md). Its Sync entry, and the new entries below, change in the slices that ship them, since the glossary documents shipped behavior. Builds on [Synchronization](../features/native/sync-and-durability.md) and the [command line](command-line.md).
+ADRs: [0038](../adr/0038-sync-history-is-the-librarys-git-history.md), [0039](../adr/0039-sync-merges-per-skill.md), [0040](../adr/0040-restore-and-discard-add-changes.md). Design: [docs/design/sync](../design/sync/README.md) (decisions Y1–Y13). Glossary: [domain.md](../agents/domain.md). Its Sync entry, and the new entries below, change in the slices that ship them, since the glossary documents shipped behavior. Builds on [Synchronization](../features/native/sync-and-durability.md) and the [command line](command-line.md).
 
 ## Problem
 
@@ -45,9 +45,9 @@ Out:
 
 Decisions:
 
-1. History shows library changes: each published commit, with its device, time, and skills (ADR 0037). It is not a log of sync runs.
-2. When both sides changed, Sync merges per skill. A skill changed on both sides waits for the user to choose this device's version or the remote's (ADR 0038).
-3. History offers Restore for a skill's past version. Not synced yet offers Discard for a local change. Both add a change, and neither rewrites history (ADR 0039).
+1. History shows library changes: each published commit, with its device, time, and skills (ADR 0038). It is not a log of sync runs.
+2. When both sides changed, Sync merges per skill. A skill changed on both sides waits for the user to choose this device's version or the remote's (ADR 0039).
+3. History offers Restore for a skill's past version. Not synced yet offers Discard for a local change. Both add a change, and neither rewrites history (ADR 0040).
 4. Each commit names its device. The name defaults to the computer's name and can be renamed on the Sync page. A rename applies to later commits.
 5. The layout is variant A "Stacked" (Y1).
 6. Each skill shows why it changed (Y8). The reason travels in the commit, so other devices see it.
@@ -77,7 +77,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
 
 ## Design
 
-1. **History from Git (ADR 0037).**
+1. **History from Git (ADR 0038).**
    - The engine's `Git::history(repo, before: Option<commit>, limit)` walks `git log --first-parent` on the branch.
    - For each commit, it runs `diff-tree` against the first parent. It maps paths to slugs through the existing `skill_of` and `record_of`. It classifies each slug as added, changed, or removed by whether `skills/<slug>` exists in the parent and in the commit.
    - It parses the trailers with `--format=%(trailers:key=…,valueonly)`.
@@ -86,7 +86,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
    - A merge's first parent is the remote's commit (Design 5). So the first-parent chain is the published history on every device, and each device's published commits appear in it.
    - A merge commit is credited to the device that made it. Its diff against its first parent is what that device contributed. It also lists each choice, which it carries as `SkillBinder-Choice: <slug> local|remote` trailers.
    - For a conflict where the remote's version was picked, the merge row offers Restore of this device's version, read from the merge's second parent (`^2`). The version that was not picked can therefore always be restored, whichever side won.
-2. **Commit format (ADR 0037).**
+2. **Commit format (ADR 0038).**
    - `Git::commit` takes a `CommitNote { device, skills: Vec<(slug, kind, Reason)> }`.
    - It writes the subject `"<device>: add a, update b, remove c"`, cut at 72 characters with "and <n> more".
    - It writes one body line per skill, a `SkillBinder-Device` trailer, and `SkillBinder-Skill: <slug> <reason>[ <detail>]` trailers.
@@ -104,7 +104,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
      - `last_error: Option<AppError>`.
    - The engine computes them in `Git::status`. Local entries come from the porcelain status plus `diff base..HEAD`. Incoming entries come from `diff base..incoming`, with devices from the incoming commits' trailers. Conflicts are the slugs both lists hold whose `ls-tree` ids differ.
    - `SyncState` gains `NeedsResolve` and `Unreachable`. Existing values keep their wire names for the command's `status`.
-5. **Per-skill merge (ADR 0038).**
+5. **Per-skill merge (ADR 0039).**
    - `SyncAction::Sync` is unchanged when there are no conflicts. A new `Engine::resolve(choices: BTreeMap<String, Side>)` handles a Sync that needs choices.
    - With divergence, the engine first refuses unless every conflict has a choice. It then:
      1. commits the local changes as `<local>`, keeping the commit id it gets back (never a reflog entry such as `HEAD@{1}`, since the user's global `core.logAllRefUpdates=false` turns reflogs off);
@@ -123,7 +123,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
      - Either way, it reconciles next, as after a Pull.
    - The engine then runs `reconcile_head`, `apply_library`, and `adopt_agent_copies`, as a Pull does.
    - Pull stays fast-forward only, and Push still refuses while behind.
-6. **Restore and Discard (ADR 0039).**
+6. **Restore and Discard (ADR 0040).**
    - `Engine::restore_skill(slug, commit)` reads the tree and the record at `commit`, or at `commit^` for a removed skill. It writes them through Reinstall's Git-objects path and journal, upserts the reason `Restored`, and applies the library.
    - `Engine::discard_change(slug)` restores from the base. For a skill added on this device and never pushed, it drops the skill from the library and leaves its managed copies unmanaged, the way removing a workspace does. In every case it deletes the slug's pending row.
 7. **Device name.**
@@ -168,7 +168,7 @@ Follow [docs/design/sync/decisions.md](../design/sync/decisions.md).
 - **A4** Changes from before this feature show "Before device names" and no why.
 - **A5** A device name that collides with another device's is allowed. Names are labels, not identities.
 - **A6** The command and MCP server gain the same actions, in the last slice (ADR 0023).
-- **A7** Discarding an added skill keeps the agents' copies, unmanaged (ADR 0039).
+- **A7** Discarding an added skill keeps the agents' copies, unmanaged (ADR 0040).
 
 ## Acceptance
 
