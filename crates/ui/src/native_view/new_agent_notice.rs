@@ -11,7 +11,6 @@ mod tests;
 use super::NativeView;
 use super::controls::reader_logo;
 use super::library_copies::{AgentRow, found_rows};
-use super::route::Route;
 use super::toasts;
 use gpui_kit::component::{ActiveTheme, WindowExt, h_flex, notification::Notification, v_flex};
 use gpui_kit::{Context, IntoElement, ParentElement, Styled, Window, div, px};
@@ -203,8 +202,7 @@ impl NativeView {
             Answer::NotNow => self.leave_agents_off(dirs, cx),
             Answer::Review => {
                 self.leave_agents_off(dirs, cx);
-                self.navigate(Route::Settings, window, cx);
-                self.settings.show_agents();
+                self.show_settings_agents(window, cx);
             }
         }
         true

@@ -13,9 +13,9 @@ mod library;
 mod tests;
 mod updates;
 
-use super::NativeView;
 use super::header_tabs::{header_tab, tab_separator};
 use super::page_head::SEARCH_WIDTH;
+use super::{NativeView, Route};
 use catalog::{Group, Section, SettingRow, search};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
@@ -68,11 +68,6 @@ impl Settings {
         self.tab = None;
         self.search
             .update(cx, |input, cx| input.set_value("", window, cx));
-    }
-
-    /// Chooses the Agents tab, for a link into Settings about agents.
-    pub(super) fn show_agents(&mut self) {
-        self.tab = Some(Section::Agents);
     }
 }
 
@@ -141,9 +136,7 @@ impl NativeView {
                 .on_click(cx.listener(move |view, _, _, cx| {
                     // The header is the window's title bar, whose double click zooms the window.
                     cx.stop_propagation();
-                    view.settings.tab = section;
-                    // A newly chosen tab opens at its top.
-                    view.content_scroll.handle.set_offset(Default::default());
+                    view.choose_settings_tab(section);
                     cx.notify();
                 }))
         };
@@ -160,6 +153,18 @@ impl NativeView {
             .child(tab_separator())
             .children(sections)
             .into_any_element()
+    }
+
+    /// Opens Settings on its Agents tab, for a link into Settings about agents.
+    pub(super) fn show_settings_agents(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.navigate(Route::Settings, window, cx);
+        self.choose_settings_tab(Some(Section::Agents));
+    }
+
+    /// Chooses `tab`, All for none, which opens at its top.
+    fn choose_settings_tab(&mut self, tab: Option<Section>) {
+        self.settings.tab = tab;
+        self.content_scroll.handle.set_offset(Default::default());
     }
 
     /// The search at the header's end.
