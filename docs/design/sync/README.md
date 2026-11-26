@@ -4,9 +4,9 @@ This folder holds the prototype the user approved on 2026-11-26 for [the sync-hi
 
 ## Chosen variant
 
-| Area | Prototype | Variant the user picked |
-|---|---|---|
-| Sync page | `prototypes/sync.html` | A "Stacked" (2026-11-26) |
+| Area | Prototype | Variant the user picked | Screenshot |
+|---|---|---|---|
+| Sync page | `prototypes/sync.html` | A "Stacked" (2026-11-26) | ![The Sync page with changes on both sides, Not synced yet, and an opened History change](screenshots/stacked.png) |
 
 The variant bar still switches to the rejected B "Tabs" (Not synced yet · History · Remote as tabs) and C "Two columns" (History in a right column, a Remote facts card on the left). Its state control walks Up to date, To push, To pull, Both changed, Same skill, Offline, Not connected, and No Git. Copy, Open in browser, and Install Git show placeholder toasts.
 
