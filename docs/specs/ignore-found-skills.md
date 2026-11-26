@@ -1,6 +1,6 @@
 # Ignore found skills
 
-ADR: [0033](../adr/0033-ignored-skills-are-remembered-per-slug.md), which partly supersedes [0008](../adr/0008-import-from-scan-dialog.md). Design: [docs/design/ignore-skills](../design/ignore-skills/README.md) (decisions I1–I12). Glossary: [domain.md](../agents/domain.md) (ignored skill, Import skills dialog). Builds on [scan-and-import](scan-and-import.md).
+ADR: [0033](../adr/0033-ignored-skills-are-remembered-per-slug.md), which partly supersedes [0008](../adr/0008-import-from-scan-dialog.md). Partly superseded by [found-skills-on-pages](found-skills-on-pages.md) (ADR 0036): decision 1 and the Out item on workspace and agent pages no longer hold, since those pages now list and un-ignore ignored skills. Design: [docs/design/ignore-skills](../design/ignore-skills/README.md) (decisions I1–I12). Glossary: [domain.md](../agents/domain.md) (ignored skill, Import skills dialog). Builds on [scan-and-import](scan-and-import.md).
 
 ## Problem
 

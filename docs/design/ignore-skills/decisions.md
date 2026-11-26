@@ -2,7 +2,7 @@
 
 The user settled these on 2026-11-25. Behavior comes from [the spec](../../specs/ignore-found-skills.md) and [ADR 0033](../../adr/0033-ignored-skills-are-remembered-per-slug.md). They add to [scan-import's decisions](../scan-import/decisions.md), whose ids stay valid. Ids are stable; cite them from issues and pull requests.
 
-- **I1** Ignoring happens only in the Import skills dialog, from Scan for skills and from onboarding's Review list. Workspace and agent pages are unchanged.
+- **I1** Ignoring happens only in the Import skills dialog, from Scan for skills and from onboarding's Review list. Workspace and agent pages are unchanged. Superseded by [found-skills-on-pages U4–U7](../found-skills-on-pages/decisions.md) (ADR 0036): workspace and agent pages can ignore too.
 - **I2** Each offered row ends with a small ghost "Ignore" button, shown while the row is hovered or holds keyboard focus, like Delete on Library rows. Tooltip "Don't offer this skill again"; accessible name "Ignore <slug>". Blocked, empty, and invalid rows have it too.
 - **I3** Each place's group header (scan-import D3) ends with a small ghost "Ignore all", tooltip "Don't offer these N skills again". It ignores every offered skill in that group, which the group lists by its first location, so their slugs are ignored everywhere. Onboarding's Review list has no group header, so it has no Ignore all.
 - **I4** Ignoring is saved at once: the row leaves its group, its tick, Select all, the Import count, and Scan for skills' count, and the Ignored group's header flashes once. Cancel, Escape, and closing keep it. No toast; the Ignored group is the undo.

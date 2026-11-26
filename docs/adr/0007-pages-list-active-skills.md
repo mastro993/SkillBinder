@@ -1,6 +1,6 @@
 # Pages list active skills, and changes that write many copies block the app
 
-Partly superseded by ADR 0008: Discovery is retired, and found skills that are not in library are listed only in the Import skills dialog. Partly superseded by ADR 0012: all your agents means every chosen agent, not every detected one.
+Partly superseded by ADR 0008: Discovery is retired, and found skills that are not in library are listed only in the Import skills dialog. Partly superseded by ADR 0012: all your agents means every chosen agent, not every detected one. Partly superseded by ADR 0036: a workspace's, an agent's, and Universal's pages also list, under their active skills, the found skills not in library and the ignored skills in their directories.
 
 A library skill is active when it is on right now: the active preset holds it for at least one of your agents, or at least one workspace holds it. A skill that only presets other than the active one hold is inactive, because no agent loads it. Library still lists every library skill, and each row shows where the skill is active: for which of your agents, through the active preset, and in which workspaces. Library filters by All, Active, or Inactive, and by Updates, which keeps the skills that have an update from their source; a drifted skill does not count as an update. These filters combine with the library folder tabs and search.
 

@@ -1,0 +1,231 @@
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const ui = { view: 'ws:acme-web', variant: 'sections', filter: 'on', open: false, query: '', flash: new Set() };
+
+  // Found skills not in library in each place, from the latest scan. `at` = [place, dir?]; dir only in a workspace.
+  const FOUND = [
+    { slug: 'vitest-runner', desc: 'Run and fix failing Vitest suites.', at: [['ws:acme-web', 'claude']] },
+    { slug: 'acme-deploy', desc: 'Deploy acme-web previews to Vercel.', at: [['ws:acme-web', 'agents']] },
+    { slug: 'figma-sync', desc: '', invalid: 'No description in SKILL.md', at: [['ws:acme-web', 'claude']] },
+    { slug: 'vendor-lint', desc: "The vendor SDK's lint rules, shipped with the SDK.", at: [['ws:acme-web', 'agents'], ['agent:universal']] },
+    { slug: 'pg-migrate', desc: 'Write reversible Postgres migrations.', at: [['ws:api-server', 'claude'], ['agent:claude']] },
+    { slug: 'mdx-helper', desc: 'Author MDX pages with components.', at: [['ws:docs-site', 'claude']] },
+    { slug: 'skill-creator', desc: 'Create and test new agent skills.', at: [['agent:claude']] },
+    { slug: 'anthropic-docs', desc: 'Look up the Claude API docs.', at: [['agent:claude']] },
+    { slug: 'find-skills', desc: 'Search skills.sh for a skill.', at: [['agent:universal']] },
+  ];
+  const S = { ignored: new Set(['anthropic-docs']), imported: new Set() };
+  const reset = () => { S.ignored = new Set(['anthropic-docs']); S.imported = new Set(); };
+
+  const found = (slug) => FOUND.find((f) => f.slug === slug);
+  const desc = (slug) => (DATA.skill(slug) || found(slug)).desc;
+  const here = (f, view) => f.at.filter(([p]) => p === view);
+  const placeLabel = ([p, dir]) => {
+    const [kind, id] = p.split(':');
+    const name = kind === 'ws' ? DATA.workspace(id).name : DATA.target(id).name;
+    return dir ? `${name} · ${DATA.wsDir(dir).path}` : name;
+  };
+  function groups(view) {
+    const [kind, id] = view.split(':');
+    const lib = kind === 'ws' ? DATA.workspaceSkills(id) : DATA.agentSkills(id);
+    const imported = FOUND.filter((f) => S.imported.has(f.slug) && here(f, view).length).map((f) => f.slug);
+    const q = ui.query.trim().toLowerCase();
+    const match = (slug) => !q || slug.includes(q) || desc(slug).toLowerCase().includes(q);
+    const mine = FOUND.filter((f) => here(f, view).length && match(f.slug));
+    return {
+      on: [...lib, ...imported].filter(match).sort(),
+      notIn: mine.filter((f) => !S.imported.has(f.slug) && !S.ignored.has(f.slug)),
+      ignored: mine.filter((f) => S.ignored.has(f.slug)),
+    };
+  }
+
+  // ---- rows ----------------------------------------------------------------------------
+  const rowClass = (slug, extra) => `sb-row${extra ? ` ${extra}` : ''}${ui.flash.has(slug) ? ' is-new' : ''}`;
+  const btn = (label, cls, onclick, tip) => h('button', { class: `sb-btn sb-btn-xs ${cls}`, 'data-tip': tip || null, onclick }, label);
+
+  function main(slug, { where, extra } = {}) {
+    const f = found(slug);
+    return h('div', { class: 'sb-row-main' },
+      h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, slug),
+        f && f.invalid ? h('span', { class: 'sp-mark sp-mark-warn', 'data-tip': f.invalid, html: icon('alert-circle', 14) }) : null, extra),
+      h('div', { class: 'sb-desc' }, desc(slug) || 'No description'),
+      where ? h('div', { class: 'ps-where' }, where) : null);
+  }
+
+  function onRow(view, slug) {
+    const [kind, id] = view.split(':');
+    const lib = !!DATA.skill(slug);
+    const tip = `Remove from ${kind === 'ws' ? DATA.workspace(id).name : DATA.target(id).name}`;
+    const remove = () => (kind === 'ws' ? DATA.setWorkspaceDirs(id, slug, null) : DATA.removeAgent(slug, id));
+    return h('div', { class: rowClass(slug) }, main(slug),
+      h('div', { class: 'sb-row-end' }, lib ? h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': tip, 'aria-label': tip, onclick: remove }, ic('delete', 15)) : null));
+  }
+
+  function alsoIn(f, view) {
+    const other = f.at.filter(([p]) => p !== view).map(placeLabel);
+    return other.length ? `Also found in ${other.join(', ')}` : null;
+  }
+  function wherePaths(view, at) { return view.startsWith('ws:') ? at.map(([, d]) => DATA.wsDir(d).path).join(', ') : null; }
+
+  function notInRow(view, f) {
+    const where = [wherePaths(view, here(f, view)), alsoIn(f, view)].filter(Boolean).join(' · ');
+    return h('div', { class: rowClass(f.slug) }, main(f.slug, { where }),
+      h('div', { class: 'sb-row-end ps-hover' },
+        btn('Ignore', 'ps-ghost', () => ignore([f.slug]), 'Ignore everywhere: never offered for import'),
+        btn('Import…', 'sb-btn-outline', () => openImport(view, [f]))));
+  }
+
+  function ignoredRow(view, f) {
+    return h('div', { class: rowClass(f.slug, 'is-ignored') }, main(f.slug, { where: wherePaths(view, here(f, view)) }),
+      h('div', { class: 'sb-row-end' }, btn('Stop ignoring', 'sb-btn-outline', () => { S.ignored.delete(f.slug); ui.flash.add(f.slug); draw(); })));
+  }
+
+  // ---- actions -------------------------------------------------------------------------------
+  function ignore(slugs) { slugs.forEach((s) => S.ignored.add(s)); draw(); }
+
+  // Placeholder for the Import skills dialog narrowed to this place (the real one is its own prototype).
+  function openImport(view, list) {
+    const ticked = new Set(list.filter((f) => !f.invalid).map((f) => f.slug));
+    const name = placeLabel([view]);
+    const slot = h('span');
+    const footer = () => slot.replaceChildren(h('button', { class: 'sb-btn sb-btn-primary', disabled: !ticked.size, onclick: run }, `Import ${ticked.size || ''}`.trim()));
+    const rows = list.map((f) => h('label', { class: 'ps-imp-row' },
+      checkbox({ checked: ticked.has(f.slug), onChange: (c) => { if (c) ticked.add(f.slug); else ticked.delete(f.slug); footer(); } }),
+      h('b', f.slug), h('span', alsoIn(f, view) || '')));
+    const d = openDialog(win, {
+      title: 'Import skills', size: 'md', top: true,
+      body: [h('p', { class: 'ps-note' }, `Showing ${name}'s skills. Each turns on wherever it was found.`), h('div', { class: 'sb-card' }, rows)],
+      footer: [h('span', { class: 'sb-tag sb-tag-outline', 'data-tip': 'The real dialog is docs/design/ignore-skills' }, 'Placeholder'),
+        h('span', { class: 'sb-spacer' }), h('button', { class: 'sb-btn sb-btn-outline', onclick: () => d.close() }, 'Cancel'), slot],
+    });
+    footer();
+    function run() {
+      ticked.forEach((s) => { S.imported.add(s); ui.flash.add(s); });
+      d.close();
+      toast(win, `Imported <b>${ticked.size}</b> skill${ticked.size === 1 ? '' : 's'}`, { icon: 'check-circle' });
+      draw();
+    }
+  }
+
+  // ---- layouts -----------------------------------------------------------------------------
+  const TITLES = {
+    notIn: ['Not in library', 'Agents load these; SkillBinder does not manage them'],
+  };
+  function groupEnd(view, key, list) {
+    if (key !== 'notIn' || !list.length) return null;
+    return [btn('Ignore all', 'ps-ghost', () => ignore(list.map((f) => f.slug))),
+      btn('Import…', 'sb-btn-outline', () => openImport(view, list))];
+  }
+  const ignoredOpen = (g) => ui.open || (ui.query.trim() && g.ignored.length);
+  const disc = (g) => h('button', { class: 'ps-disc', 'aria-expanded': String(!!ignoredOpen(g)), onclick: () => { ui.open = !ui.open; draw(); } },
+    ic('chevron-right', 14), h('span', { class: 'ps-sec-title' }, 'Ignored'), h('span', { class: 'ps-count' }, String(g.ignored.length)),
+    h('span', { class: 'ps-sec-hint' }, 'Not offered for import anywhere'));
+
+  function sections(view, g, onEmpty) {
+    const sec = (key, rows) => h('div', { class: 'ps-sec' },
+      h('div', { class: 'ps-sec-head' }, h('span', { class: 'ps-sec-title' }, TITLES[key][0]), h('span', { class: 'ps-count' }, String(g[key].length)),
+        h('span', { class: 'ps-sec-hint' }, TITLES[key][1]), h('div', { class: 'ps-sec-end' }, groupEnd(view, key, g[key]))),
+      h('div', { class: 'sb-card' }, rows));
+    return [
+      g.on.length ? h('div', { class: 'sb-card' }, g.on.map((s) => onRow(view, s))) : onEmpty,
+      g.notIn.length ? sec('notIn', g.notIn.map((f) => notInRow(view, f))) : null,
+      g.ignored.length ? h('div', { class: 'ps-sec' }, h('div', { class: 'ps-sec-head' }, disc(g)),
+        ignoredOpen(g) ? h('div', { class: 'sb-card' }, g.ignored.map((f) => ignoredRow(view, f))) : null) : null,
+    ];
+  }
+
+  function oneList(view, g, onEmpty) {
+    const head = (key) => h('div', { class: 'ps-ghead' }, h('span', { class: 'ps-sec-title' }, TITLES[key][0]),
+      h('span', { class: 'ps-count' }, String(g[key].length)), h('div', { class: 'ps-sec-end' }, groupEnd(view, key, g[key])));
+    return h('div', { class: 'sb-card' },
+      h('div', { class: 'ps-ghead' }, h('span', { class: 'ps-sec-title' }, 'On here'), h('span', { class: 'ps-count' }, String(g.on.length))),
+      g.on.length ? g.on.map((s) => onRow(view, s)) : onEmpty,
+      g.notIn.length ? [head('notIn'), g.notIn.map((f) => notInRow(view, f))] : null,
+      g.ignored.length ? [h('div', { class: 'ps-ghead' }, disc(g)), ignoredOpen(g) ? g.ignored.map((f) => ignoredRow(view, f)) : null] : null);
+  }
+
+  function filtered(view, g, onEmpty) {
+    const card = (kids) => h('div', { class: 'sb-card' }, kids);
+    if (ui.filter === 'on') return g.on.length ? card(g.on.map((s) => onRow(view, s))) : onEmpty;
+    if (ui.filter === 'ignored') return card(g.ignored.length ? g.ignored.map((f) => ignoredRow(view, f)) : h('div', { class: 'ps-none' }, 'Nothing ignored here'));
+    const head = (key) => h('div', { class: 'ps-ghead' }, h('span', { class: 'ps-sec-title' }, TITLES[key][0]),
+      h('span', { class: 'ps-count' }, String(g[key].length)), h('div', { class: 'ps-sec-end' }, groupEnd(view, key, g[key])));
+    return card(g.notIn.length ? [head('notIn'), g.notIn.map((f) => notInRow(view, f))]
+      : h('div', { class: 'ps-none' }, 'Every skill found here is in your library'));
+  }
+
+  // ---- pages -------------------------------------------------------------------------------
+  const search = searchInput({ onInput: (q) => { ui.query = q; drawBody(); } });
+  const tools = h('div', { class: 'ps-tools sb-toolbar' }, search);
+  const body = h('div');
+  const addBtn = () => h('button', { class: 'sb-btn sb-btn-primary sb-btn-sm', onclick: () => toast(win, 'Add skill opens the picker (unchanged)') }, ic('plus', 14), 'Add skill');
+
+  function drawHead(view) {
+    const [kind, id] = view.split(':');
+    if (kind === 'ws') {
+      const ws = DATA.workspace(id);
+      hdr.replaceChildren(h('div', { class: 'sp-head' }, h('span', { class: 'sp-head-ic', html: icon('code-folder', 16) }),
+        h('span', { class: 'sb-title' }, ws.name), h('span', { class: 'sp-path' }, ws.path)), h('div', { class: 'sb-header-actions' }, addBtn()));
+      return;
+    }
+    const t = DATA.target(id);
+    hdr.replaceChildren(h('div', { class: 'sp-head' }, h('span', { class: 'sp-head-ic', html: icon(t.logo, 16) }),
+      h('span', { class: 'sb-title' }, t.name), h('span', { class: 'sp-path' }, t.path)),
+      h('div', { class: 'sb-header-actions' }, presetChip(), addBtn()));
+  }
+
+  function drawBody() {
+    const view = ui.view;
+    const [kind, id] = view.split(':');
+    const g = groups(view);
+    const ws = kind === 'ws' && DATA.workspace(id);
+    const name = ws ? ws.name : DATA.target(id).name;
+    const onEmpty = h('div', { class: 'sb-card' }, h('div', { class: 'ps-empty-line' },
+      ui.query.trim() ? `No skills on here match '${ui.query.trim()}'` : `No skills on in ${name}${ws && !ws.dirs.length ? ' · No agents here yet' : ''}`));
+    if (ui.variant === 'filter') {
+      const counts = { on: g.on.length, notIn: g.notIn.length, ignored: g.ignored.length };
+      tools.replaceChildren(search, seg([{ id: 'on', label: 'On here', count: counts.on },
+        { id: 'notIn', label: 'Not in library', count: counts.notIn }, { id: 'ignored', label: 'Ignored', count: counts.ignored }],
+      ui.filter, (v) => { ui.filter = v; drawBody(); }));
+    } else tools.replaceChildren(search);
+    const out = ui.variant === 'sections' ? sections(view, g, onEmpty) : ui.variant === 'list' ? oneList(view, g, onEmpty) : filtered(view, g, onEmpty);
+    body.replaceChildren(...[out].flat(3).filter(Boolean));
+    ui.flash.clear();
+  }
+
+  function draw() {
+    const [kind] = ui.view.split(':');
+    if (kind !== 'ws' && kind !== 'agent') {
+      hdr.replaceChildren(h('span', { class: 'sb-title' }, 'Not in this prototype'));
+      page.replaceChildren(emptyState({ icon: 'libraries', title: 'Not in this prototype', sub: 'Open a workspace or an agent' }));
+      return;
+    }
+    drawHead(ui.view);
+    if (tools.parentNode !== page) page.replaceChildren(tools, body);
+    drawBody();
+  }
+
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'sections', label: 'Sections', desc: 'On-here list first, then a section for Not in library and a collapsed Ignored.' },
+    { id: 'filter', label: 'Filter', desc: 'One list at a time, switched beside the search: On here · Not in library · Ignored, with counts.' },
+    { id: 'list', label: 'One list', desc: 'A single card with group headers: On here, Not in library, Ignored (collapsed).' },
+  ], (id) => { ui.variant = id; draw(); });
+  bar.extra.append(h('button', {
+    class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Reset demo data', 'aria-label': 'Reset demo data',
+    onclick: () => { reset(); DATA.reset(); },
+  }, ic('refresh-03', 15)));
+
+  renderSidebar(side, { active: ui.view, onNav: (key) => { ui.view = key; ui.open = false; renderSidebar(side, { active: key }); draw(); } });
+  DATA.on(() => draw());
+})();
+</script>
+</body>
+</html>

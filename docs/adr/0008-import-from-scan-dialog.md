@@ -4,6 +4,8 @@ Partly superseded by ADR 0014: a new sidebar page, Explore, lists skills from th
 
 Partly superseded by ADR 0033: the user can ignore a found skill, which is then no longer offered, ticked, or counted until they stop ignoring it. A skill left unticked is still only skipped and comes back ticked.
 
+Partly superseded by ADR 0036: workspace and agent pages also list the found skills in their directories, and each can open this dialog with only that place's skills. Importing still happens only in this dialog.
+
 Importing found skills is something a user does when the library starts and, now and then, after new skills appear in their agents or workspaces. A whole page in the sidebar for it was more than it earns. Discovery, the view of every found skill that is not in library, is removed with its sidebar row. Import happens in exactly two places, which show the same Import skills dialog: onboarding's last step, over your agents' global skill directories, and Library's Scan for skills button, which runs a fresh scan of the global skill directories and every workspace and then opens it. Found skills that are not in library are listed only in that dialog. This partly supersedes ADR 0007, which listed them only in Discovery.
 
 The dialog joins Discovery's selection and the import review into one step. It lists each found skill not in library once, with its versions, validation, and the copies importing it replaces, and every importable skill whose chosen version is valid starts ticked, up to the 500 one import takes. Unticking a skill, choosing another version, or acknowledging invalid metadata happens in the same list, and Import applies what is ticked. Seeing the replacements before Import is still what confirms them (ADR 0006).
