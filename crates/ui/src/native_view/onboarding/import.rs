@@ -1,7 +1,8 @@
-//! Onboarding's last step (design O1, O2, O4, O5, O7): once the library exists, it scans your
-//! agents and sums up what it found; Review list opens the Import skills dialog over the step's
-//! own list, ending with Done. Import applies the ticked skills into the Default preset under
-//! the progress strip and finishes onboarding into Library; Skip finishes it importing nothing.
+//! Onboarding's last step (design O1, O2, O4, O5, O7, I12): once the library exists, it scans
+//! your agents and sums up what it found, leaving ignored skills out; Review list opens the Import
+//! skills dialog over the step's own list, ending with Done. Import applies the ticked skills into
+//! the Default preset under the progress strip and finishes onboarding into Library; Skip, or
+//! Continue when every found skill is ignored, finishes it importing nothing.
 
 mod summary;
 #[cfg(test)]
@@ -84,13 +85,21 @@ impl NativeView {
                 ],
                 vec![self.finish_button("onboarding-next", "Continue", true, cx)],
             ),
-            Phase::Ready(found) => (
-                self.first_import_summary(list, found, cx),
-                vec![
-                    self.finish_button("onboarding-skip", "Skip", false, cx),
-                    self.import_button(Some(found), cx),
-                ],
-            ),
+            Phase::Ready(found) => {
+                // With every found skill ignored, Continue finishes importing nothing (I12).
+                let next = if self.found_summary(&found.scan, |summary| summary.offers()) {
+                    self.import_button(Some(found), cx)
+                } else {
+                    self.finish_button("onboarding-next", "Continue", true, cx)
+                };
+                (
+                    self.first_import_summary(list, found, cx),
+                    vec![
+                        self.finish_button("onboarding-skip", "Skip", false, cx),
+                        next,
+                    ],
+                )
+            }
         };
         StepView {
             title: TITLE,
@@ -118,6 +127,10 @@ impl NativeView {
             .text_color(muted)
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {
+                // The step's list outlives the dialog, whose Ignored group opens collapsed (I5).
+                if let Some(list) = view.first_import.as_mut() {
+                    list.ignored_open = false;
+                }
                 view.show_dialog(DialogState::FirstImport);
                 cx.notify();
             }));

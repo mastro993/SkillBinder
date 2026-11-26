@@ -9,6 +9,7 @@ use gpui_kit::{
     WindowOptions, div, px, size,
 };
 use skillbinder_proto::*;
+use std::collections::BTreeSet;
 
 /// A found version of `slug` in the global skill directory the agents `agents` read.
 fn found_in(slug: &str, agents: &[&str]) -> Candidate {
@@ -60,6 +61,7 @@ fn the_summary_counts_each_found_skill_once_and_names_its_agents_in_section_orde
         row("Claude Code", &["claude-code"]),
         row("Cursor", &["cursor"]),
     ];
+    let none = BTreeSet::new();
     let mut held = found_in("held", &["cursor"]);
     held.held = Some(SkillId("held".to_owned()));
     let found = scan(vec![
@@ -72,16 +74,44 @@ fn the_summary_counts_each_found_skill_once_and_names_its_agents_in_section_orde
     ]);
 
     assert_eq!(
-        summary(&found, &rows).text(),
+        summary(&found, &rows, &none).text(),
         "2 skills found in Universal, Claude Code"
     );
     let cursor = scan(vec![found_in("pdf", &["cursor"])]);
-    assert_eq!(summary(&cursor, &rows).text(), "1 skill found in Cursor");
+    assert_eq!(
+        summary(&cursor, &rows, &none).text(),
+        "1 skill found in Cursor"
+    );
     // Found only where no Agents row reads, such as through a link.
     let elsewhere = scan(vec![found_in("linked", &[])]);
     assert_eq!(
-        summary(&elsewhere, &rows).text(),
+        summary(&elsewhere, &rows, &none).text(),
         "1 skill found in your agents"
+    );
+}
+
+#[test]
+fn the_summary_leaves_ignored_skills_out_and_names_their_agents_once_every_one_is_ignored() {
+    let rows = [
+        row("Claude Code", &["claude-code"]),
+        row("Cursor", &["cursor"]),
+    ];
+    let found = scan(vec![
+        found_in("review", &["claude-code"]),
+        found_in("pdf", &["cursor"]),
+        found_in("pdf", &["claude-code"]),
+    ]);
+    let pdf = BTreeSet::from(["pdf".to_owned()]);
+
+    let some = summary(&found, &rows, &pdf);
+    assert!(some.offers());
+    assert_eq!(some.text(), "1 skill found in Claude Code");
+    let every = BTreeSet::from(["pdf".to_owned(), "review".to_owned()]);
+    let none = summary(&found, &rows, &every);
+    assert!(!none.offers());
+    assert_eq!(
+        none.text(),
+        "No new skills found in Claude Code, Cursor · 2 ignored"
     );
 }
 

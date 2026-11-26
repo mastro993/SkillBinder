@@ -1,16 +1,20 @@
 //! Ignored skills (ADR 0033): an ignore names a found skill's slug on this device, survives a
 //! relaunch and changed content, changes no file, and ends when the slug enters the library by
-//! import or Pull. Every remote is a local repository.
+//! import or Pull, and onboarding's import leaves it out of the library and Default. Every remote
+//! is a local repository.
 #![expect(
     clippy::unwrap_used,
     reason = "Test assertions report fixture and operation failures."
 )]
 #[path = "support/device.rs"]
 mod device;
+#[path = "support/imports.rs"]
+mod imports;
 #[path = "support/fixture.rs"]
 mod support;
 
 use device::Device;
+use imports::{agents, applied, body, copies, created, found, held_in, onboard, skill};
 use skillbinder_engine::Engine;
 use skillbinder_proto::{AppResult, ErrorCategory, SyncAction};
 use std::{collections::BTreeSet, fs};
@@ -146,4 +150,44 @@ async fn pulling_an_ignored_slug_ends_its_ignore() {
     engine.synchronize(SyncAction::Pull).await.unwrap();
 
     assert!(ignored(engine).await.is_empty());
+}
+
+#[tokio::test]
+async fn an_ignored_skill_stays_out_of_onboardings_import_and_default() {
+    let fixture = Fixture::new();
+    let claude = fixture.home.join(".claude/skills");
+    write_skill(&claude, "pdf", "Pdf");
+    let review = write_skill(&claude, "review", "Review");
+    let before = body(&review);
+    let engine = created(&fixture).await;
+    let plan = found(&engine).await;
+    // Review list ignores `review`, which the plan still prepares (ADR 0009).
+    engine.set_ignored(slugs(&["review"]), true).await.unwrap();
+    let ignoring = ignored(&engine).await;
+    let offered: Vec<&str> = plan
+        .items
+        .iter()
+        .map(|item| item.slug.as_str())
+        .filter(|slug| !ignoring.contains(*slug))
+        .collect();
+    assert_eq!(offered, ["pdf"], "the step ticks only the offered skills");
+
+    assert!(onboard(&engine, &plan, &offered).await.onboarding.finished);
+
+    let library = engine.snapshot().await.unwrap().library.unwrap();
+    let held: Vec<_> = library
+        .library
+        .skills
+        .iter()
+        .map(|s| s.id.clone())
+        .collect();
+    assert_eq!(held, [skill("pdf")], "the ignored skill is not imported");
+    assert_eq!(
+        held_in(&library, "default"),
+        [(skill("pdf"), agents(&["claude-code".to_owned()]))]
+    );
+    assert_eq!(copies(&library), [applied(&claude, "pdf")]);
+    assert_eq!(ignored(&engine).await, keys(&["review"]), "still ignored");
+    assert_eq!(body(&review), before, "its copy is untouched");
+    engine.shutdown().await.unwrap();
 }
