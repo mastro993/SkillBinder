@@ -1,8 +1,8 @@
 //! A found skill's row in a page's list (U3, U4, U7): the Library row's frame, but not a link,
 //! since a found skill has no page. It reads the slug with its validation glyph and a Not in
 //! library chip, or for an ignored skill an Ignored chip with the slug and description dimmed;
-//! then the description and a muted mono line naming where it was found. It ends with Ignore, or
-//! Stop ignoring, shown while the row is hovered or the button holds focus.
+//! then the description and a muted mono line naming where it was found. It ends with Ignore and
+//! Import…, or Stop ignoring, shown while the row is hovered or a button holds focus.
 
 use super::super::NativeView;
 use super::super::ignore_actions::flash_overlay;
@@ -17,6 +17,7 @@ use gpui_kit::{
 };
 use skillbinder_design::tokens::{opacity, space, text};
 use skillbinder_design::{Button, Chip, ChipVariant, Text};
+use std::collections::BTreeSet;
 
 impl NativeView {
     /// `row` at `index` of the card: on a workspace's page its line names the directories holding
@@ -84,37 +85,61 @@ impl NativeView {
                         )
                     }),
             )
-            .child(div().flex_none().child(self.found_action(row, cx)))
+            .child(
+                h_flex()
+                    .flex_none()
+                    .gap(px(space::XS))
+                    .children(self.found_actions(row, cx)),
+            )
             .children(flashing.map(|flash| flash_overlay(flash, cx)))
             .into_any_element()
     }
 
-    /// Ignore (U4), or Stop ignoring for an ignored skill (U7), revealed while the row is
-    /// hovered or the button holds keyboard focus.
-    fn found_action(&self, row: &FoundRow<'_>, cx: &mut Context<Self>) -> Button {
+    /// Ignore and Import… (U4), or Stop ignoring for an ignored skill (U7), each revealed while
+    /// the row is hovered or it holds keyboard focus.
+    fn found_actions(&self, row: &FoundRow<'_>, cx: &mut Context<Self>) -> Vec<Button> {
         let (slug, key) = (row.shown.slug.clone(), row.key.to_owned());
-        let button = if row.ignored {
-            Button::new(format!("found-stop-ignoring-{key}"))
-                .label("Stop ignoring")
-                .accessibility_label(format!("Stop ignoring {slug}"))
-                .on_click(cx.listener(move |view, _, _, cx| {
-                    view.stop_ignoring(slug.clone(), key.clone(), false, cx);
-                }))
+        let buttons = if row.ignored {
+            vec![
+                Button::new(format!("found-stop-ignoring-{key}"))
+                    .label("Stop ignoring")
+                    .accessibility_label(format!("Stop ignoring {slug}"))
+                    .on_click(cx.listener(move |view, _, _, cx| {
+                        view.stop_ignoring(slug.clone(), key.clone(), false, cx);
+                    })),
+            ]
         } else {
-            Button::new(format!("found-ignore-{key}"))
-                .label("Ignore")
-                .ghost()
-                .accessibility_label(format!("Ignore {slug}"))
-                .tooltip("Ignore everywhere: never offered for import")
-                .on_click(cx.listener(move |view, _, _, cx| {
-                    view.ignore_found(vec![(slug.clone(), key.clone())], cx);
-                }))
+            let only = BTreeSet::from([key.clone()]);
+            vec![
+                Button::new(format!("found-ignore-{key}"))
+                    .label("Ignore")
+                    .ghost()
+                    .accessibility_label(format!("Ignore {slug}"))
+                    .tooltip("Ignore everywhere: never offered for import")
+                    .on_click(cx.listener({
+                        let (slug, key) = (slug.clone(), key.clone());
+                        move |view, _, _, cx| {
+                            view.ignore_found(vec![(slug.clone(), key.clone())], cx);
+                        }
+                    })),
+                Button::new(format!("found-import-{key}"))
+                    .label("Import…")
+                    .accessibility_label(format!("Import {slug}"))
+                    .on_click(cx.listener(move |view, _, window, cx| {
+                        view.open_import_dialog_for(only.clone(), window, cx);
+                    })),
+            ]
         };
-        button
-            .small()
-            .inactive(self.blocked())
-            .opacity(0.)
-            .group_hover(ROW_GROUP, |style| style.opacity(1.))
-            .focus_visible(|style| style.opacity(1.))
+        buttons
+            .into_iter()
+            .map(|button| {
+                button
+                    .small()
+                    .inactive(self.blocked())
+                    .opacity(0.)
+                    .group_hover(ROW_GROUP, |style| style.opacity(1.))
+                    .focus_visible(|style| style.opacity(1.))
+            })
+            .collect()
     }
 }

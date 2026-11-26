@@ -1,7 +1,8 @@
 //! The Import skills dialog (ADR 0008, design D1 to D13): it scans afresh, prepares one plan for
 //! every found skill not in library (ADR 0009), and imports the ticked ones. Ignored skills are
 //! listed apart and never offered (ADR 0033, I1 to I12). Library's Scan for skills and its empty
-//! state open it. Onboarding's import step holds the same state, which its
+//! state open it, and a workspace's, an agent's, or Universal's Import… opens it with only that
+//! page's found skills (ADR 0036, U6). Onboarding's import step holds the same state, which its
 //! Review list opens ending with Done (O7).
 
 mod entry;
@@ -89,6 +90,8 @@ pub(super) struct ImportDialog {
     pub ignored_open: bool,
     /// What flashes once: the Ignored group's header, or a row brought back (I4, I7).
     pub flash: Option<Flash>,
+    /// The keys of the only found skills it lists, when a page opened it (U6).
+    only: Option<BTreeSet<String>>,
 }
 
 impl ImportDialog {
@@ -114,6 +117,7 @@ impl ImportDialog {
             end,
             ignored_open: false,
             flash: None,
+            only: None,
         }
     }
 
@@ -156,10 +160,30 @@ impl NativeView {
 
     /// Opens the dialog in its Scanning state and starts the scan.
     pub(super) fn open_import_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_import(None, window, cx);
+    }
+
+    /// Opens the dialog listing only the found skills `keys`, as a page's Import… does (U6).
+    pub(super) fn open_import_dialog_for(
+        &mut self,
+        keys: BTreeSet<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_import(Some(keys), window, cx);
+    }
+
+    fn open_import(
+        &mut self,
+        only: Option<BTreeSet<String>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.blocked() {
             return;
         }
-        let dialog = ImportDialog::new(End::Import, window, cx);
+        let mut dialog = ImportDialog::new(End::Import, window, cx);
+        dialog.only = only;
         self.show_dialog(DialogState::ImportSkills(Box::new(dialog)));
         self.prepare_found(cx);
     }
@@ -206,6 +230,7 @@ impl NativeView {
         dialog.phase = match result {
             Err(error) => Phase::Failed(error.message),
             Ok(found) => {
+                let found = list::narrowed(found, dialog.only.as_ref());
                 let groups = groups(&found, &snapshot.workspaces, &snapshot.ignored);
                 let listed: BTreeSet<String> =
                     rows(&groups).map(|row| row.key().to_owned()).collect();
