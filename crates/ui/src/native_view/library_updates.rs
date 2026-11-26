@@ -228,7 +228,7 @@ impl NativeView {
         id: &SkillId,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
-        let mut actions: Vec<AnyElement> = vec![self.activation_controls(id, cx)];
+        let mut actions: Vec<AnyElement> = self.header_place_trigger(id, cx).into_iter().collect();
         actions.extend(self.reinstall_button(id, cx));
         if self.has_update(id) {
             actions.push(self.update_button("page", id, cx));

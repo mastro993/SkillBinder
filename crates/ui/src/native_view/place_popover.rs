@@ -1,11 +1,11 @@
-//! The popover that changes where a Library skill is on, whose surface a workspace page's agents
-//! menu shares. "Your agents" edits the active preset:
-//! an All agents switch and one pill per skill directory of your agents. Each workspace's line
-//! edits that workspace, one pill per directory it uses, or, while it uses none, per directory the
-//! your agents offer. Each change saves at once; the last pill off removes the skill from that
-//! place without asking. It stays open across changes and closes on a press outside, Escape, a
-//! scroll of the list, or leaving the page. The keyboard reaches every control, as
-//! [`focus`] describes. It is Kit's popover surface, placed by Kit's positioner from where its
+//! The popover that changes where a library skill is on, from its Library row or tile or its
+//! page's header, whose surface a workspace page's agents menu shares. "Your agents" edits the
+//! active preset: an All agents switch and one pill per skill directory of your agents. Each
+//! workspace's line edits that workspace, one pill per directory it uses, or, while it uses none,
+//! per directory your agents offer. Each change saves at once; the last pill off removes the
+//! skill from that place without asking. It stays open across changes and closes on a press
+//! outside, Escape, a scroll of the list, or leaving the page. The keyboard reaches every control,
+//! as [`focus`] describes. It is Kit's popover surface, placed by Kit's positioner from where its
 //! trigger was last painted.
 
 mod focus;
@@ -132,9 +132,9 @@ impl NativeView {
         }
     }
 
-    /// The open popover, drawn above the page beside its trigger, while Library or a workspace's
-    /// page shows it and no dialog covers it: on Library where the skill is on, on a workspace's
-    /// page its agents menu.
+    /// The open popover, drawn above the page beside its trigger, while Library, the skill's
+    /// page, or a workspace's page shows it and no dialog covers it: on Library and the skill's
+    /// page where the skill is on, on a workspace's page its agents menu.
     pub(super) fn render_place_popover(
         &self,
         window: &mut Window,
@@ -147,7 +147,7 @@ impl NativeView {
         }
         let anchor = anchor?;
         let surface = match &self.route {
-            Route::Library => self.place_surface(popover, window, cx)?,
+            Route::Library | Route::Skill(_) => self.place_surface(popover, window, cx)?,
             Route::Workspace(id) => {
                 let workspace = self.workspace(id)?;
                 let content =
@@ -166,7 +166,7 @@ impl NativeView {
         )
     }
 
-    /// Library's popover: where the skill is on.
+    /// Library's and the skill page's popover: where the skill is on.
     fn place_surface(
         &self,
         popover: &PlacePopover,
