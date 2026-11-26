@@ -442,14 +442,8 @@ async fn a_cancelled_switch_stops_waiting_while_the_app_finishes_it() -> anyhow:
         .await?;
     assert!(status.is_object());
     go.send(())?;
-    for _ in 0..100 {
-        if Heard::count(&heard.finished) == 2 {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-    }
     assert_eq!(
-        Heard::count(&heard.finished),
+        heard.wait_finished(2).await,
         2,
         "the app finished the switch"
     );

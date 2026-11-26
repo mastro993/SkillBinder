@@ -63,6 +63,18 @@ impl Heard {
     pub(super) fn count(counter: &AtomicUsize) -> usize {
         counter.load(Ordering::SeqCst)
     }
+
+    /// How many requests finished, once `expected` have or two seconds pass. The app counts a
+    /// request after sending its last reply, so a client that has that reply may look too soon.
+    pub(super) async fn wait_finished(&self, expected: usize) -> usize {
+        for _ in 0..100 {
+            if Self::count(&self.finished) >= expected {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        Self::count(&self.finished)
+    }
 }
 
 /// Serves the app whose application data is `root`, answering each request with `script`'s steps.
