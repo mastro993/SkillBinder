@@ -87,7 +87,7 @@ impl NativeView {
             "found-head",
             toggle,
             listed.len(),
-            "Agents load these; SkillBinder does not manage them",
+            Some("Agents load these; SkillBinder does not manage them"),
         )
         .child(ignore_all);
         if !open {
@@ -118,13 +118,8 @@ impl NativeView {
             .flash
             .as_ref()
             .filter(|flash| flash.flashes(None));
-        let head = section_head(
-            "found-ignored-head",
-            toggle,
-            listed.len(),
-            "Not offered for import anywhere",
-        )
-        .children(flashing.map(|flash| flash_overlay(flash, cx)));
+        let head = section_head("found-ignored-head", toggle, listed.len(), None)
+            .children(flashing.map(|flash| flash_overlay(flash, cx)));
         if !open {
             return head.into_any_element();
         }
@@ -156,13 +151,13 @@ fn disclosure(
         }))
 }
 
-/// A section's head, `id`: `title`, its `count` in muted figures, and the muted `hint`; the
-/// caller ends it with its actions.
+/// A section's head, `id`: `title`, its `count` in muted figures, and the muted `hint` if any;
+/// the caller ends it with its actions.
 fn section_head(
     id: &'static str,
     title: impl IntoElement,
     count: usize,
-    hint: &'static str,
+    hint: Option<&'static str>,
 ) -> gpui_kit::Stateful<Div> {
     h_flex().id(id).relative().gap(px(space::MD)).child(
         h_flex()
@@ -171,13 +166,13 @@ fn section_head(
             .gap(px(space::MD))
             .child(title)
             .child(Text::labeled_count("count", count).flex_none())
-            .child(
+            .children(hint.map(|hint| {
                 Text::labeled("hint", hint)
                     .level(text::CAPTION)
                     .muted()
                     .min_w_0()
-                    .truncate(),
-            ),
+                    .truncate()
+            })),
     )
 }
 

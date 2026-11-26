@@ -14,7 +14,7 @@ The user settled these on 2026-11-26. Behavior comes from [the spec](../../specs
 - **U6** Import… opens the Import skills dialog with only this place's not-in-library skills, or from a row, only that skill.
   - Every rule of the dialog holds inside it: versions, the 500 cap, and ticks.
   - Each listed skill still shows every location it was found in, and importing turns it on wherever it was found.
-- **U7** The Ignored section's head is a disclosure: a chevron, "Ignored", the count, and the muted hint "Not offered for import anywhere".
+- **U7** The Ignored section's head is a disclosure: a chevron, "Ignored", and the count, with no hint (the prototype's "Not offered for import anywhere" was dropped at the user's request, 2026-11-26).
   - It starts collapsed on every page visit.
   - Its rows follow I6: dimmed, with the page's directory line and a small outline "Stop ignoring".
   - Stop ignoring moves the row back to "Not in library" and flashes it.
