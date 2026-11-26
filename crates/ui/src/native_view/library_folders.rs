@@ -2,6 +2,7 @@
 //! skill menu that moves a skill between folders.
 
 use super::folder_reorder::{FolderDrag, draggable};
+use super::header_tabs::{header_tab, tab_label, tab_separator};
 use super::sidebar_presets::menu_action;
 use super::sidebar_row::with_menu;
 use super::{DialogState, Effect, NativeView, Route};
@@ -13,14 +14,11 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, Div, Entity, InteractiveElement, IntoElement, ParentElement,
-    Stateful, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
+    Stateful, StatefulInteractiveElement, Styled, Window, div, px,
 };
 use skillbinder_design::MenuItem;
 use skillbinder_design::tokens::space;
-use skillbinder_design::{
-    Button, DialogFooter, DialogHeader, DialogSize, FOLDER_TAB_SIZE, IconSize, InlineNameField,
-    Separator, icon,
-};
+use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize, InlineNameField, icon};
 use skillbinder_proto::{Folder, FolderId, OrganizationChange, Skill, SkillId};
 use std::cell::Cell;
 
@@ -73,12 +71,7 @@ impl NativeView {
             .overflow_x_scroll()
             .gap(px(space::XS))
             .child(self.tab_button(None, "All skills", cx))
-            .child(
-                Separator::vertical()
-                    .flex_shrink_0()
-                    .h(px(IconSize::Md.points()))
-                    .mx(px(space::XS)),
-            );
+            .child(tab_separator());
         if let Some(folders) = self.render_folder_run(window, cx) {
             strip = strip.child(folders);
         }
@@ -122,24 +115,8 @@ impl NativeView {
             .as_ref()
             .map_or_else(|| "folder-all".to_owned(), |id| format!("folder-{id}"));
         let chosen = id.clone();
-        let selected = self.library_folder == id;
-        Button::new(element)
-            .ghost()
-            .small()
-            .flex_shrink_0()
-            .accessibility_label(name.to_owned())
-            .child(tab_label(name))
-            .selected(selected)
-            // The chosen tab sits on a soft muted fill rather than the kit's darker selected
-            // fill. Unchosen tabs are muted; hovering brightens them to the ghost text color.
-            .map(|tab| {
-                if selected {
-                    tab.bg(cx.theme().muted).text_color(cx.theme().foreground)
-                } else {
-                    tab.text_color(cx.theme().muted_foreground)
-                }
-            })
-            .on_click(cx.listener(move |view, event: &ClickEvent, window, cx| {
+        header_tab(element, name, self.library_folder == id, cx).on_click(cx.listener(
+            move |view, event: &ClickEvent, window, cx| {
                 // The header is the window's title bar, whose double click zooms the window.
                 cx.stop_propagation();
                 // Releasing a dragged tab over itself is not a click.
@@ -154,7 +131,8 @@ impl NativeView {
                     view.begin_folder_edit(FolderEdit::Rename(id.clone()), window, cx);
                 }
                 cx.notify();
-            }))
+            },
+        ))
     }
 
     /// A folder's tab, which drags to reorder and opens the folder menu on right-click.
@@ -408,12 +386,4 @@ impl NativeView {
                 "Delete {name}? Its {skills} skills stay in the library."
             ))
     }
-}
-
-/// A tab's text; a button's own label keeps the kit's size for its button size.
-pub(super) fn tab_label(text: &str) -> impl IntoElement {
-    div()
-        .text_size(px(FOLDER_TAB_SIZE))
-        .whitespace_nowrap()
-        .child(text.to_owned())
 }

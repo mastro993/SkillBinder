@@ -1,10 +1,14 @@
 # Settings, the new agent notice, and the app update notice
 
-After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card"). Settings also shows the version and the app update channel, and a notice offers a newer SkillBinder ([app updates spec](../../specs/app-updates.md) rules 1–5, 9, 13, 15–19, 24; prototype `docs/design/app-updates/prototypes/settings-updates.html`, variant A "Inline"). The Settings page itself follows `docs/design/settings/prototypes/settings.html` (variant B "One page"); the older prototypes still guide their rows' copy and states.
+After onboarding, the user changes their agents in Settings, and is asked about agents found later (ADR 0012, design S1, S2, N1 to N5, P4, P5). The approved prototypes are `docs/design/onboarding/prototypes/settings.html` (variant A "Switch list") and `notice.html` (variant A "Corner card"). Settings also shows the version and the app update channel, and a notice offers a newer SkillBinder ([app updates spec](../../specs/app-updates.md) rules 1–5, 9, 13, 15–19, 24; prototype `docs/design/app-updates/prototypes/settings-updates.html`, variant A "Inline"). The Settings page itself follows `docs/design/settings/prototypes/header-tabs.html` (variant B "Search in header"); the older prototypes still guide their rows' copy and states.
 
 ## Settings page
 
-Settings is one scrolling page (design `docs/design/settings/prototypes/settings.html`, variant B "One page", chosen 2026-11-21). Above it, and staying put while it scrolls, sit the search field, "Search settings", and a ghost button per section: General, Agents, Library & sync, Updates, and Troubleshooting, each with its glyph. A button scrolls its section's top to the top of the page, or as far as the page scrolls. Each section opens with its title and a muted description, then its groups: a group's `SectionHeader` title, when it has one, over a card of rows.
+Settings uses the header the way Library does (design `docs/design/settings/prototypes/header-tabs.html`, variant B "Search in header", chosen 2026-11-26). The header's title slot holds tabs styled like Library's folder tabs: **All**, a separator, then General, Agents, Library & sync, Updates, and Troubleshooting, scrolling sideways when they overflow. The search field, "Search settings", sits at the header's end at the scoped pages' search width. There is no toolbar: the page scrolls whole under the header.
+
+A section's tab shows only that section's groups. All shows every section in order, each under a small muted label of its glyph and name. A group's `SectionHeader` title, when it has one, sits over its card of rows; the agents' switches carry the line "SkillBinder adds and removes skills only in the agents turned on.".
+
+Settings opens on All with an empty search every time, and choosing a tab is not added to Back/Forward history. Review… on the new agent notice opens it on the Agents tab.
 
 Every row reads the same way: an optional logo, the setting's title over a muted line, and one control at the row's end, chosen by what the setting is:
 
@@ -16,7 +20,7 @@ Every row reads the same way: an optional logo, the setting's title over a muted
 | An action | a small button |
 | A fact the user can't change | muted `body-sm` text in tabular figures |
 
-Typing in the search keeps the rows whose title, line, or keywords hold the text, ignoring case, or every row of a group or section whose title holds it, such as "Sync" or "Updates". Groups and sections left with no row hide, their buttons are disabled, and with nothing left the page shows "No settings found" and "Nothing matches “<text>”.". Leaving Settings clears the search.
+Typing in the search keeps the rows whose title, line, or keywords hold the text, ignoring case, or every row of a group or section whose title holds it, such as "Sync" or "Updates". The search covers every section whatever tab is chosen: groups and sections left with no row hide, and their tabs fade and are disabled. The chosen tab stays chosen while its section has a match; while it has none, All shows, under "No match in <section> · showing all", and clearing the search returns to the chosen tab. With nothing left the page shows "No settings found" and "Nothing matches “<text>”.". Leaving Settings clears the search and returns to All.
 
 ## Settings › General
 
@@ -86,7 +90,7 @@ A detected agent whose global skill directory is neither chosen nor asked about 
 It is a Kit notification at the window's bottom-right with its own id and no auto-hide, stacked with the change toasts. One notice lists every waiting Agents row: their avatars in a stack, then "Found <a>.", "Found <a> and <b>.", or "Found <a>, <b>, and <N> more." in medium weight, then "Let SkillBinder manage its skills?" (their skills for several) in muted text, and right-aligned buttons. One agent gets Not now and the primary Manage; several get Review… and the primary Manage all, with a close button at the end of the logo row. Kit's own close button also shows under the pointer. It takes no focus and does not close on Escape. A longer list replaces the shown notice.
 
 - **Manage** and **Manage all** turn the agents on as the Settings switch does, ending in "<Agent> is on", "<a> and <b> are on", or "<N> agents are on".
-- **Not now**, the close buttons, and **Review…** leave them off. Review… also opens Settings, where they show off.
+- **Not now**, the close buttons, and **Review…** leave them off. Review… also opens Settings on its Agents tab, where they show off.
 
 Every answer counts every listed directory as asked, saved at once, so the notice never returns for them, across restarts too. A button pressed while another change is in flight does nothing and the notice stays.
 

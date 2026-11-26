@@ -1,32 +1,40 @@
-//! Settings (design `docs/design/settings`, variant B "One page"): a search and a button per
-//! section stay above one scrolling page of every section. Searching hides the rows, groups, and
-//! sections it does not find, and disables the buttons of the hidden sections.
+//! Settings (design `docs/design/settings/prototypes/header-tabs.html`, variant B "Search in
+//! header"): the header holds a tab per section after All, and the search at its end. A section's
+//! tab shows only that section; All shows every section under a small label. The search covers
+//! every section: it disables the tabs of the sections it hides, and while the chosen tab has no
+//! match the page shows All's results.
 
 mod agents;
 mod catalog;
 pub(super) mod command_line;
 mod general;
 mod library;
+#[cfg(test)]
+mod tests;
 mod updates;
 
 use super::NativeView;
+use super::header_tabs::{header_tab, tab_separator};
+use super::page_head::SEARCH_WIDTH;
 use catalog::{Group, Section, SettingRow, search};
 use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::{Sizable, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
-    Styled, Subscription, Window, px,
+    StatefulInteractiveElement, Styled, Subscription, Window, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::{space, text};
+use skillbinder_design::tokens::{opacity, space, text};
 use skillbinder_design::{
-    Button, CardList, EmptyState, IconSize, ListRow, SearchField, SectionHeader, Text, icon,
+    CardList, EmptyState, IconSize, ListRow, SearchField, SectionHeader, Text, icon,
 };
 
-/// What Settings keeps while it shows: its search, the command line tool's row, and the MCP
-/// server's agents.
+/// What Settings keeps while it shows: its search, its chosen tab, the command line tool's row,
+/// and the MCP server's agents.
 pub(super) struct Settings {
     search: Entity<InputState>,
     _search_subscription: Subscription,
+    /// The chosen section, or All while none is.
+    tab: Option<Section>,
     command_line: command_line::CommandLineRow,
     mcp: agents::mcp::McpRows,
 }
@@ -42,6 +50,7 @@ impl Settings {
         Self {
             search,
             _search_subscription: subscription,
+            tab: None,
             command_line: command_line::CommandLineRow::default(),
             mcp: agents::mcp::McpRows::default(),
         }
@@ -54,10 +63,16 @@ impl Settings {
         self.command_line.working() || self.mcp.working()
     }
 
-    /// Clears the search, as leaving the page does.
+    /// Clears the search and returns to All, as leaving the page does.
     pub(super) fn leave(&mut self, window: &mut Window, cx: &mut Context<NativeView>) {
+        self.tab = None;
         self.search
             .update(cx, |input, cx| input.set_value("", window, cx));
+    }
+
+    /// Chooses the Agents tab, for a link into Settings about agents.
+    pub(super) fn show_agents(&mut self) {
+        self.tab = Some(Section::Agents);
     }
 }
 
@@ -65,18 +80,32 @@ impl NativeView {
     pub(super) fn render_settings(&mut self, cx: &mut Context<Self>) -> AnyElement {
         // A wait on Git resumes its check when Settings opens again.
         self.watch_git(cx);
-        let typed = self.settings.search.read(cx).value().trim().to_owned();
-        let shown: Vec<(Section, Vec<Group>)> = Section::ALL
-            .into_iter()
-            .map(|section| (section, search(section, self.groups(section, cx), &typed)))
-            .filter(|(_, groups)| !groups.is_empty())
-            .collect();
-        let found: Vec<Section> = shown.iter().map(|(section, _)| *section).collect();
-        // The sections are the scroll's own children, so a section button scrolls to its index.
-        let mut body: Vec<AnyElement> = shown
-            .into_iter()
-            .map(|(section, groups)| section_block(section, groups))
-            .collect();
+        let typed = self.settings_query(cx);
+        let mut found = self.found_settings(&typed, cx);
+        let sections: Vec<Section> = found.iter().map(|(section, _)| *section).collect();
+        let shown = shown_tab(self.settings.tab, &sections);
+        let mut body: Vec<AnyElement> = Vec::new();
+        if let (Some(chosen), None) = (self.settings.tab, shown)
+            && !found.is_empty()
+        {
+            body.push(
+                Text::labeled(
+                    "settings-elsewhere",
+                    format!("No match in {} · showing all", chosen.title()),
+                )
+                .level(text::CAPTION)
+                .muted()
+                .into_any_element(),
+            );
+        }
+        if let Some(section) = shown {
+            found.retain(|(found, _)| *found == section);
+        }
+        body.extend(
+            found
+                .into_iter()
+                .map(|(section, groups)| section_block(section, groups, shown.is_none())),
+        );
         if body.is_empty() {
             body.push(
                 EmptyState::new("settings-none", "No settings found")
@@ -85,18 +114,71 @@ impl NativeView {
                     .into_any_element(),
             );
         }
-        // The search and the section buttons stay put while the sections scroll under them.
-        let toolbar = [
-            SearchField::new("settings-search", &self.settings.search)
-                .accessibility_label("Search settings")
-                .into_any_element(),
-            self.jump_buttons(&found, cx),
-        ];
-        let content = v_flex()
-            .id("settings-scroll")
+        v_flex()
+            .id("settings-page")
             .gap(px(space::XXXL))
-            .children(body);
-        self.toolbar_page(toolbar, content, "settings-scrollbar", cx)
+            .children(body)
+            .into_any_element()
+    }
+
+    /// The header's tabs: All, a separator, then a tab per section, disabled while the search
+    /// finds nothing in it.
+    pub(super) fn render_settings_tabs(&self, cx: &mut Context<Self>) -> AnyElement {
+        let typed = self.settings_query(cx);
+        let found: Vec<Section> = self
+            .found_settings(&typed, cx)
+            .into_iter()
+            .map(|(section, _)| section)
+            .collect();
+        let shown = shown_tab(self.settings.tab, &found);
+        let tab = |id: &str, name: &str, section: Option<Section>, cx: &mut Context<Self>| {
+            let hidden = section.is_some_and(|section| !found.contains(&section));
+            let faded = cx.theme().muted_foreground.opacity(opacity::DISABLED);
+            header_tab(format!("{id}-tab"), name, shown == section, cx)
+                .inactive(hidden)
+                // A tab's text is already muted, so a hidden section's tab also fades.
+                .when(hidden, |tab| tab.text_color(faded))
+                .on_click(cx.listener(move |view, _, _, cx| {
+                    // The header is the window's title bar, whose double click zooms the window.
+                    cx.stop_propagation();
+                    view.settings.tab = section;
+                    cx.notify();
+                }))
+        };
+        let sections: Vec<_> = Section::ALL
+            .into_iter()
+            .map(|section| tab(section.id(), section.title(), Some(section), cx))
+            .collect();
+        h_flex()
+            .id("settings-tabs")
+            .min_w_0()
+            .overflow_x_scroll()
+            .gap(px(space::XS))
+            .child(tab("settings-all", "All", None, cx))
+            .child(tab_separator())
+            .children(sections)
+            .into_any_element()
+    }
+
+    /// The search at the header's end.
+    pub(super) fn settings_search(&self) -> AnyElement {
+        SearchField::new("settings-search", &self.settings.search)
+            .accessibility_label("Search settings")
+            .width(SEARCH_WIDTH)
+            .into_any_element()
+    }
+
+    fn settings_query(&self, cx: &Context<Self>) -> String {
+        self.settings.search.read(cx).value().trim().to_owned()
+    }
+
+    /// Each section the search `typed` finds something in, with the groups it keeps.
+    fn found_settings(&self, typed: &str, cx: &mut Context<Self>) -> Vec<(Section, Vec<Group>)> {
+        Section::ALL
+            .into_iter()
+            .map(|section| (section, search(section, self.groups(section, cx), typed)))
+            .filter(|(_, groups)| !groups.is_empty())
+            .collect()
     }
 
     /// The groups of `section`, every row in place, before a search narrows them.
@@ -109,56 +191,33 @@ impl NativeView {
             Section::Troubleshooting => self.troubleshooting_groups(cx),
         }
     }
-
-    /// A ghost button per section, which scrolls its section to the top; a section the search
-    /// hides has its button disabled.
-    fn jump_buttons(&self, found: &[Section], cx: &mut Context<Self>) -> AnyElement {
-        let buttons = Section::ALL.into_iter().map(|section| {
-            let index = found.iter().position(|shown| *shown == section);
-            Button::new(format!("{}-jump", section.id()))
-                .ghost()
-                .small()
-                .icon(icon(section.icon()).with_size(IconSize::Sm))
-                .label(section.title())
-                .inactive(index.is_none())
-                .on_click(cx.listener(move |view, _, _, cx| {
-                    if let Some(index) = index {
-                        view.content_scroll.handle.scroll_to_top_of_item(index);
-                        cx.notify();
-                    }
-                }))
-        });
-        h_flex()
-            .id("settings-sections")
-            .flex_wrap()
-            .gap(px(space::XS))
-            .children(buttons)
-            .into_any_element()
-    }
 }
 
-/// A section: its title and description, then its groups.
-fn section_block(section: Section, groups: Vec<Group>) -> AnyElement {
-    let head = v_flex()
-        .gap(px(space::XXS))
-        .child(
-            Text::labeled(format!("{}-title", section.id()), section.title()).level(text::TITLE_MD),
+/// The tab the page shows: the chosen section while the search finds something in it, else All.
+fn shown_tab(chosen: Option<Section>, found: &[Section]) -> Option<Section> {
+    chosen.filter(|chosen| found.contains(chosen))
+}
+
+/// A section's groups, under its glyph and title, small and muted, when `labeled`.
+fn section_block(section: Section, groups: Vec<Group>, labeled: bool) -> AnyElement {
+    let label = labeled.then(|| {
+        SectionHeader::custom(
+            h_flex()
+                .id(format!("{}-title", section.id()))
+                .gap(px(space::XS))
+                .child(icon(section.icon()).with_size(IconSize::Sm))
+                .child(section.title()),
         )
-        .child(
-            Text::new(section.description())
-                .level(text::CAPTION)
-                .muted(),
-        );
+    });
+    let groups = groups
+        .into_iter()
+        .enumerate()
+        .map(|(index, group)| group_block(format!("{}-{index}", section.id()), group));
     v_flex()
         .id(section.id())
-        .gap(px(space::LG))
-        .child(head)
-        .children(
-            groups
-                .into_iter()
-                .enumerate()
-                .map(|(index, group)| group_block(format!("{}-{index}", section.id()), group)),
-        )
+        .gap(px(space::SM))
+        .children(label)
+        .child(v_flex().gap(px(space::XL)).children(groups))
         .into_any_element()
 }
 

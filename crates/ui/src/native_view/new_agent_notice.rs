@@ -204,6 +204,7 @@ impl NativeView {
             Answer::Review => {
                 self.leave_agents_off(dirs, cx);
                 self.navigate(Route::Settings, window, cx);
+                self.settings.show_agents();
             }
         }
         true
