@@ -11,7 +11,7 @@ This folder holds the three prototypes the user approved on 2026-11-16 for [the 
 | Onboarding step | `prototypes/onboarding.html` | B "Summary first" | ![Import your skills, summary first](screenshots/onboarding.png) |
 
 - **Library entry B:** Library's header ends with the update control, then Scan for skills: a ghost button with the folder-search glyph and a quiet muted count of found skills not in library (Plane's muted count). An empty library shows a top-left empty state inside the list frame, with the glyph, one line, and a primary Scan for skills (Customer.io).
-- **Import dialog C:** a large Kit dialog. The top row holds the search and the status line, then comes Select all, then the rows grouped under "Your agents" and each workspace. Each group header has a tri-state checkbox and a count (StackAI's nested table, QuickBooks' flagged rows). Rows carry their versions disclosure and replacement lines inline. The footer holds the acknowledgement or the cap note on the left, and Cancel and "Import N skills" on the right.
+- **Import dialog C:** a large Kit dialog. The top row holds the search, then comes Select all, then the rows grouped under "Your agents" and each workspace. Each group header has a tri-state checkbox and a count (StackAI's nested table, QuickBooks' flagged rows). Rows carry their versions disclosure and replacement lines inline. The footer holds the acknowledgement or the cap note on the left, and Cancel and "Import N skills" on the right.
 - **Onboarding B:** the onboarding page with its lead, then a summary card with the agents' avatars and "N skills found in <agents>", then a collapsed "Review list" disclosure that expands the same list inline, then Skip and "Import N skills" (Cosmos, Literal). Review list now opens the Import skills dialog with a Done button instead of expanding inline (decision O7, [the onboarding spec](../../specs/onboarding.md)).
 
 Open a bundle in a browser. Its variant bar opens on the picked variant and still switches to the rejected ones. Its state bar and demo controls step through Scanning, the list, versions, invalid, many (500 cap), nothing new, error, and plan expired. The progress the prototypes show is the kit's modal stand-in. The app keeps its approved inline progress strip ([scoped-pages](../scoped-pages/README.md), #98).
@@ -47,7 +47,7 @@ No new artwork: folder-search, robot, code-folder, alert-circle, chevron-right, 
 
 ## Tokens
 
-Every color, size, radius, and spacing uses existing `skillbinder_design` and Kit tokens: muted foreground for the count, the status line, and locations; the warning color for replacement lines; the danger color for blocked messages; the theme's border and radius for the list frame and the onboarding card; and row height and padding from the Library rows. Nothing is new.
+Every color, size, radius, and spacing uses existing `skillbinder_design` and Kit tokens: muted foreground for the count and locations; the warning color for replacement lines; the danger color for blocked messages; the theme's border and radius for the list frame and the onboarding card; and row height and padding from the Library rows. Nothing is new.
 
 ## Copy
 
@@ -57,7 +57,6 @@ Every color, size, radius, and spacing uses existing `skillbinder_design` and Ki
 | Header button accessible label | Scan for skills, N not in library |
 | Library empty state | No skills in your library yet · Scan for skills |
 | Dialog title | Import skills |
-| Status line | N found · M already in library |
 | Search placeholder | Search found skills |
 | Select all | Select all · N selected not shown |
 | Group headers | Your agents · <workspace name> |

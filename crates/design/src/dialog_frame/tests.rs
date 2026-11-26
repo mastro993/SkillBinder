@@ -117,3 +117,28 @@ fn a_body_fills_the_dialog_and_its_list_scrolls_inside_it(cx: &mut TestAppContex
         dialog.bottom()
     );
 }
+
+#[gpui_kit::test]
+fn a_flush_body_reaches_the_dialogs_side_edges(cx: &mut TestAppContext) {
+    let viewport = size(px(1000.), px(800.));
+    let cx = open_framed(cx, move |dialog, cx| {
+        let body = div()
+            .debug_selector(|| "body".to_owned())
+            .flex_1()
+            .min_h_0();
+        DialogFrame::new(DialogSize::Window(viewport))
+            .header(DialogHeader::new("Import skills"))
+            .flush_body(body)
+            .apply(dialog, cx)
+    });
+    let dialog = cx
+        .debug_bounds("dialog-0")
+        .unwrap_or_else(|| panic!("the dialog was not painted"));
+    let body = cx
+        .debug_bounds("body")
+        .unwrap_or_else(|| panic!("the body was not painted"));
+    // Inside the dialog's 1px border.
+    let border = px(1.);
+    assert_eq!(body.left(), dialog.left() + border);
+    assert_eq!(body.right(), dialog.right() - border);
+}

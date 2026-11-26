@@ -300,8 +300,8 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
     })
 }
 
-/// Holds `skills` in `preset`: for all your agents with no agents named, as the Active checkbox
-/// does, otherwise also for the named ones, as choosing them in the agents menu does.
+/// Holds `skills` in `preset`: for all your agents with no agents named, as the placement
+/// popover's All agents switch does, otherwise also for the named ones, as their pills do.
 fn add(preset: &Preset, skills: &[&Skill], agents: &Agents, done: String) -> Plan {
     let id = &preset.id;
     let changes = if agents.ids.is_empty() {

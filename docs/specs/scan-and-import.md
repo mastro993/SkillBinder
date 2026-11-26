@@ -37,7 +37,7 @@ Decisions:
 
 ### Import skills dialog
 
-1. Title "Import skills". The status line reads "N found · M already in library", as Discovery's did. A search field sits above the list (decision 5).
+1. Title "Import skills". A search field sits above the list and stays in view while the list scrolls (decision 5).
 2. Rows are grouped by place: "Your agents" first, then each workspace in sidebar order, each group with a tri-state checkbox and a count; a skill found in several places is listed once, under its first location's place (design D3). Each row has a checkbox labelled with the slug and the chosen version's description, then, for one version, its locations as "path · readers", "N files · B bytes", and validation messages; for several versions, the "N versions" disclosure that opens one Kit Radio per version, as in Discovery today. Each row also lists "Replaces the copy in <place>." for each replacement its version makes.
 3. Blocked skills and skills whose versions all lack files are listed with a disabled checkbox. Invalid skills start unticked; ticking one shows the acknowledgement checkbox, and Import stays inactive until it is checked.
 4. Select all ticks every importable skill, up to 500. With more than 500 found, the rows after the first 500 importable ones start unticked, and ticking past 500 shows "Import at most 500 at a time." and disables Import.
