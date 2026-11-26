@@ -205,14 +205,11 @@ impl NativeView {
             .into_any_element()
     }
 
-    /// The page under the page header: Library, Explore, and Settings frame themselves, each
-    /// with a fixed toolbar over its own scrolling content; every other page scrolls whole, a
-    /// scoped page in its own column and the rest inside the page's gutter.
+    /// The page under the page header: Library and Explore frame themselves, each with a fixed
+    /// toolbar over its own scrolling content; every other page scrolls whole, a scoped page in
+    /// its own column and the rest inside the page's gutter.
     fn render_content(&self, page: AnyElement, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        if matches!(
-            self.route,
-            Route::Library | Route::Explore | Route::Settings
-        ) {
+        if matches!(self.route, Route::Library | Route::Explore) {
             return vec![
                 div()
                     .id("main-content")
@@ -359,7 +356,8 @@ impl NativeView {
             }
             Route::Agent(ref id) => self.agent_header_actions(Place::Agent(id.clone()), cx),
             Route::Universal => self.agent_header_actions(Place::Universal, cx),
-            Route::Explore | Route::Sync | Route::Settings => Vec::new(),
+            Route::Settings => vec![self.settings_search()],
+            Route::Explore | Route::Sync => Vec::new(),
         }
     }
 }

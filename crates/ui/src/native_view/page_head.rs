@@ -20,15 +20,17 @@ use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{EmptyState, IconSize, SearchField, Text};
 use skillbinder_proto::Skill;
 
-/// The search field's width on a scoped page: layout measured from the approved scoped-page
-/// prototype.
-const SEARCH_WIDTH: f32 = 220.;
+/// The search field's width on a scoped page and in Settings' header: layout measured from the
+/// approved scoped-page prototype.
+pub(super) const SEARCH_WIDTH: f32 = 220.;
 
 impl NativeView {
-    /// The header's title slot: Library's folder tabs, a scoped page's head, or the breadcrumb.
+    /// The header's title slot: Library's folder tabs, Settings' section tabs, a scoped page's
+    /// head, or the breadcrumb.
     pub(super) fn render_title(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         match &self.route {
             Route::Library => self.render_folder_tabs(window, cx),
+            Route::Settings => self.render_settings_tabs(cx),
             Route::Workspace(id) => match self.workspace(id) {
                 Some(workspace) => self.page_head(
                     menu_icon(workspace, cx),
