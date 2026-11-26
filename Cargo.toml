@@ -14,7 +14,7 @@ publish = false
 anyhow = "1.0"
 log = "0.4"
 gpui-kit = "=0.10.0"
-gpui-mcp = { git = "https://github.com/mastro993/gpui-mcp", rev = "d162da702699d4298498438a3864face3569aea7", default-features = false, features = ["gpui-pre"] }
+gpui-mcp = { git = "https://github.com/mastro993/gpui-mcp", rev = "5a7cc6e33969a29cee2e4c2e08addd8952de17bc", default-features = false, features = ["gpui-pre"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "1.1"
@@ -97,4 +97,4 @@ codegen-units = 1
 strip = "debuginfo"
 
 [patch.crates-io]
-gpui-pre = { git = "https://github.com/mastro993/gpui-mcp", rev = "d162da702699d4298498438a3864face3569aea7" }
+gpui-pre = { git = "https://github.com/mastro993/gpui-mcp", rev = "5a7cc6e33969a29cee2e4c2e08addd8952de17bc" }
