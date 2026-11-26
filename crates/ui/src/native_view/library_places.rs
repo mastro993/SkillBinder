@@ -1,15 +1,15 @@
-//! Where a library skill is on, at a Library row's trailing edge or in a grid tile's footer: one
-//! button holding your agents' logo stack, a hairline, the workspaces' chips, and a chevron, or a
-//! dashed `+` circle that shows while an inactive skill's row is hovered. Either opens the skill's
-//! popover, except while the app is blocked, when it is inert. The preset chip and the pill are
-//! shared with the popover.
+//! Where a library skill is on, at a Library row's trailing edge, in a grid tile's footer, or in
+//! the skill page's header: one button holding your agents' logo stack, a hairline, the
+//! workspaces' chips, and a chevron, or a dashed `+` circle that shows while an inactive skill's
+//! row is hovered, and always in the header. Either opens the skill's popover, except while the
+//! app is blocked, when it is inert. The preset chip and the pill are shared with the popover.
 
 use super::NativeView;
 use super::controls::reader_logo;
 use super::library_items::ITEM_GROUP;
 use super::preset_colors::preset_tint;
 use super::sidebar_row::dot;
-use super::snapshot_query::{SkillPlaces, WorkspacePlace};
+use super::snapshot_query::{Places, SkillPlaces, WorkspacePlace};
 use super::workspace_icons::sized_icon;
 use gpui_kit::base::Toggle;
 use gpui_kit::component::{ActiveTheme, Sizable};
@@ -23,7 +23,7 @@ use skillbinder_design::tokens::{opacity, radius, space};
 use skillbinder_design::{
     AvatarStack, Chip, ChipVariant, IconSize, Level, Logo, Separator, Text, dashed, icon, tooltip,
 };
-use skillbinder_proto::Preset;
+use skillbinder_proto::{Preset, SkillId};
 
 /// The hover groups of the placement button and of a pill.
 const PLACE_GROUP: &str = "place";
@@ -35,17 +35,50 @@ const CHIP_NAME_MAX: f32 = 140.;
 /// measured from the approved Library prototype.
 const PILL_WIDTH: f32 = 26.;
 
+/// Where a placement button is drawn.
+#[derive(Clone, Copy)]
+pub(super) enum Spot {
+    /// A Library list row; a `narrow` one counts the workspaces in one chip.
+    Row { narrow: bool },
+    /// A Library grid tile, whose popover lines up with the button's leading edge.
+    Tile { narrow: bool },
+    /// The skill page's header, which has no row to hover, so an inactive skill's `+` always shows.
+    Header,
+}
+
 impl NativeView {
+    /// The placement button of library skill `id` in the skill page's header, while the snapshot
+    /// holds the skill and an active preset.
+    pub(super) fn header_place_trigger(
+        &self,
+        id: &SkillId,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let library = self.snapshot.library.as_ref()?;
+        let skill = library
+            .library
+            .skills
+            .iter()
+            .find(|skill| &skill.id == id)?;
+        let active = self.active_preset_id()?;
+        let places = Places::new(&self.snapshot);
+        Some(self.place_trigger(&places.of(skill, &active), Spot::Header, cx))
+    }
+
     /// The skill's placement button; clicking it, or Enter or Space while it has focus, opens or
     /// closes the popover and never the skill's page. While a change runs or the progress strip
     /// is up it does nothing, and shows no hover or hand cursor.
     pub(super) fn place_trigger(
         &self,
         places: &SkillPlaces<'_>,
-        grid: bool,
-        narrow: bool,
+        spot: Spot,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let (grid, narrow) = match spot {
+            Spot::Row { narrow } => (false, narrow),
+            Spot::Tile { narrow } => (true, narrow),
+            Spot::Header => (false, false),
+        };
         let skill = places.skill.clone();
         let open = self.popover_open(&skill);
         let highlight = cx.theme().foreground.alpha(HIGHLIGHT_INK);
@@ -95,7 +128,8 @@ impl NativeView {
         if places.is_active() {
             active_button(button, places, open, narrow, cx)
         } else {
-            turn_on_button(button, &skill.to_string(), open, cx)
+            let shown = open || matches!(spot, Spot::Header);
+            turn_on_button(button, &skill.to_string(), open, shown, cx)
         }
     }
 }
@@ -205,15 +239,21 @@ fn workspace_chip(
     )
 }
 
-/// The dashed `+` circle of an inactive skill, shown while its row or tile is hovered, it
-/// has keyboard focus, or its popover is open.
-fn turn_on_button(button: Stateful<Div>, slug: &str, open: bool, cx: &App) -> AnyElement {
+/// The dashed `+` circle of an inactive skill, shown while it is `shown`, its row or tile is
+/// hovered, or it has keyboard focus. Its glyph takes the text color while its popover is `open`.
+fn turn_on_button(
+    button: Stateful<Div>,
+    slug: &str,
+    open: bool,
+    shown: bool,
+    cx: &App,
+) -> AnyElement {
     dashed(button, cx.theme())
         .justify_center()
         .size(px(space::CONTROL_SM))
         .rounded_full()
         .aria_label(format!("Turn on {slug}"))
-        .opacity(if open { 1. } else { 0. })
+        .opacity(if shown { 1. } else { 0. })
         .group_hover(ITEM_GROUP, |style| style.opacity(1.))
         .focus_visible(|style| style.opacity(1.))
         .child(inked("plus", open, cx).child(icon("plus").with_size(IconSize::Sm)))

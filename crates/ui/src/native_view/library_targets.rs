@@ -1,22 +1,11 @@
-//! Which agents the active preset holds a library skill for, on the skill page's header: the Active
-//! checkbox holds it for all your agents, and the trailing agents menu picks specific ones.
-//! Universal is one row, since its agents share one directory.
+//! Which agents the active preset holds a library skill for, and the targets after choosing an
+//! agent row. Universal is one row, since its agents share one directory.
 
-use super::controls::agent_icon;
-use skillbinder_design::tokens::space;
-use skillbinder_design::{Button, IconSize, icon};
 use std::collections::BTreeSet;
 
 use super::NativeView;
-use super::library_copies::{AgentRow, Reader, agent_rows};
-use super::sidebar_presets::menu_action;
-use gpui_kit::component::{Sizable, h_flex};
-use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, KeyDownEvent, MouseButton,
-    MouseDownEvent, ParentElement, Styled, prelude::FluentBuilder, px,
-};
-use skillbinder_design::sidebar::ICON_SIZE;
-use skillbinder_design::{MenuItem, OpenMenu};
+use super::library_copies::AgentRow;
+use gpui_kit::Context;
 use skillbinder_proto::{OrganizationChange, SkillId, Targets};
 
 impl NativeView {
@@ -31,114 +20,6 @@ impl NativeView {
             .find(|held| &held.id == skill)?
             .presets
             .get(&active.id)
-    }
-
-    /// The Active checkbox and the agents menu's button, at a row's or card's trailing edge.
-    pub(super) fn activation_controls(
-        &self,
-        skill: &SkillId,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        h_flex()
-            // Enter or Space on the focused checkbox toggles it rather than opening the skill.
-            .on_key_down(|event: &KeyDownEvent, _, cx| {
-                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                    cx.stop_propagation();
-                }
-            })
-            .flex_shrink_0()
-            .items_center()
-            .gap(px(space::MD))
-            .child(self.activation_toggle(skill, cx))
-            .child(self.targets_button(skill, cx))
-            .into_any_element()
-    }
-
-    /// "All agents", one row's name, or how many rows the skill is held for, with a chevron that
-    /// opens the agents menu.
-    pub(super) fn targets_button(&self, skill: &SkillId, cx: &mut Context<Self>) -> AnyElement {
-        let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
-        let label = targets_label(self.skill_targets(skill), &rows);
-        let owner = format!("targets-{skill}");
-        let open = self.menu.as_ref().is_some_and(|menu| menu.is_for(&owner));
-        let busy = self.working();
-        let skill = skill.clone();
-        Button::new(owner.clone())
-            .ghost()
-            .small()
-            .label(label.clone())
-            .accessibility_label(format!("Agents: {label}"))
-            .selected(open)
-            .inactive(busy)
-            .flex_shrink_0()
-            .child(icon("arrow-down").with_size(IconSize::Xs))
-            // The press opens the menu; the click must not open the skill's page.
-            .on_click(|_, _, cx| cx.stop_propagation())
-            .when(!busy, |button| {
-                button.on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |view, event: &MouseDownEvent, window, cx| {
-                        cx.stop_propagation();
-                        let items = view.targets_menu(&skill, cx);
-                        view.menu = Some(OpenMenu::new(
-                            owner.clone(),
-                            items,
-                            event.position,
-                            view.focus.clone(),
-                            window,
-                            cx,
-                            |view: &mut NativeView| &mut view.menu,
-                        ));
-                    }),
-                )
-            })
-            .into_any_element()
-    }
-
-    /// All agents, then a row for Universal and each other one of your agents, checked while the
-    /// active preset holds the skill for it. Choosing a row adds or removes its agents.
-    fn targets_menu(&self, skill: &SkillId, cx: &mut Context<Self>) -> Vec<MenuItem> {
-        let view = cx.entity().downgrade();
-        let rows = agent_rows(&self.snapshot.agents, &self.snapshot.home);
-        let targets = self.skill_targets(skill).cloned();
-        let every: Vec<String> = rows.iter().flat_map(|row| row.ids.clone()).collect();
-        let busy = self.working();
-        let choose = |key: String, label: String, next: Targets| {
-            MenuItem::new(key, label)
-                .disabled(busy)
-                .on_select(menu_action(
-                    view.clone(),
-                    skill.clone(),
-                    move |view, skill, _, cx| view.set_targets(skill.clone(), next.clone(), cx),
-                ))
-        };
-        let mut items = vec![
-            choose(
-                "targets-all".into(),
-                "All agents".into(),
-                Targets::AllAgents,
-            )
-            .checked(targets == Some(Targets::AllAgents)),
-        ];
-        if !rows.is_empty() {
-            items.push(MenuItem::separator());
-        }
-        for row in &rows {
-            let ids = sharing(row, &rows);
-            let next = toggled(targets.as_ref(), &ids, &every);
-            let item = match &row.reader {
-                Reader::Universal(_) => {
-                    choose("targets-universal".into(), row.name.clone(), next).icon("layers")
-                }
-                Reader::Agent(id) => {
-                    let logo = id.clone();
-                    choose(format!("targets-agent-{id}"), row.name.clone(), next)
-                        .leading(move |_| agent_icon(&logo).size(px(ICON_SIZE)).into_any_element())
-                }
-            };
-            items.push(item.checked(held(targets.as_ref(), &ids)));
-        }
-        items
     }
 
     /// Holds `skill` in the active preset for `targets`; no agents removes it from the preset.
@@ -184,19 +65,6 @@ pub(super) fn toggled(targets: Option<&Targets>, ids: &[String], every: &[String
     Targets::Agents(agents)
 }
 
-/// The agents button's label.
-fn targets_label(targets: Option<&Targets>, rows: &[AgentRow]) -> String {
-    let Some(Targets::Agents(_)) = targets else {
-        return "All agents".to_owned();
-    };
-    let named: Vec<_> = rows
-        .iter()
-        .filter(|row| held(targets, &sharing(row, rows)))
-        .map(|row| row.name.as_str())
-        .collect();
-    held_label(&named)
-}
-
 /// A specific list's label: the one row it holds, how many it holds, or "No agents".
 pub(super) fn held_label(named: &[&str]) -> String {
     match named {
@@ -209,6 +77,7 @@ pub(super) fn held_label(named: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::native_view::library_copies::Reader;
 
     fn row(name: &str, ids: &[&str]) -> AgentRow {
         located(name, ids, &format!("/home/{name}"))
@@ -277,22 +146,5 @@ mod tests {
             toggled(Some(&Targets::AllAgents), &linked, &every),
             agents(&["zed"])
         );
-    }
-
-    #[test]
-    fn the_label_names_all_agents_one_row_or_a_count() {
-        let rows = [
-            row("Universal", &["amp", "codex"]),
-            row("Claude Code", &["claude-code"]),
-        ];
-        assert_eq!(targets_label(None, &rows), "All agents");
-        assert_eq!(
-            targets_label(Some(&Targets::AllAgents), &rows),
-            "All agents"
-        );
-        assert_eq!(targets_label(Some(&agents(&["codex"])), &rows), "Universal");
-        let both = agents(&["amp", "claude-code"]);
-        assert_eq!(targets_label(Some(&both), &rows), "2 agents");
-        assert_eq!(targets_label(Some(&agents(&["gone"])), &rows), "No agents");
     }
 }

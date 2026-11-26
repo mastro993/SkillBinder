@@ -1,15 +1,11 @@
 //! The active preset and the skills it configures: selecting a preset activates it, which writes
-//! and removes your agents' copies, and each activation toggle changes the active preset's skills
-//! and saves at once.
+//! and removes your agents' copies, and turning a skill on or off changes the active preset's
+//! skills and saves at once.
 
 use super::NativeView;
 use super::progress_strip::{Activity, Landing};
-use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div,
-};
+use gpui_kit::Context;
 use skillbinder_client::Client;
-use skillbinder_design::Checkbox;
 use skillbinder_proto::{
     AppResult, AppSnapshot, LibrarySnapshot, OrganizationChange, Preset, PresetId, SkillId,
 };
@@ -89,35 +85,6 @@ impl NativeView {
             .as_ref()
             .and_then(|library| library.library.skills.iter().find(|held| &held.id == skill))
             .is_some_and(|held| held.presets.contains_key(&active))
-    }
-
-    /// A one-click switch for a library skill in the active preset. Its changes save at once.
-    pub(super) fn activation_toggle(&self, skill: &SkillId, cx: &mut Context<Self>) -> AnyElement {
-        let checked = self.skill_active(skill);
-        let scope = self.active_preset_name();
-        let busy = self.working();
-        let weak = cx.entity().downgrade();
-        let id = skill.clone();
-        let tooltip = format!("Active in {scope}");
-        div()
-            .id(format!("activation-{skill}"))
-            .flex_shrink_0()
-            .on_click(|_, _, cx| cx.stop_propagation())
-            .child(
-                Checkbox::new(format!("activation-checkbox-{skill}"))
-                    .checked(checked)
-                    .label("Active")
-                    .small()
-                    .inactive(busy)
-                    .tooltip(tooltip)
-                    .on_change(move |checked, _, cx| {
-                        let id = id.clone();
-                        let _ = weak.update(cx, |view, cx| {
-                            view.toggle_activation(id.clone(), *checked, cx);
-                        });
-                    }),
-            )
-            .into_any_element()
     }
 
     /// Adds `skill` to the active preset, or removes it, saving the change at once.
