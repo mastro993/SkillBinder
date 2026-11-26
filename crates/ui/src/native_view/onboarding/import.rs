@@ -127,9 +127,11 @@ impl NativeView {
             .text_color(muted)
             .inactive(self.blocked())
             .on_click(cx.listener(|view, _, _, cx| {
-                // The step's list outlives the dialog, whose Ignored group opens collapsed (I5).
+                // The step's list outlives the dialog, which opens with its Ignored group
+                // collapsed (I5) and nothing left to flash.
                 if let Some(list) = view.first_import.as_mut() {
                     list.ignored_open = false;
+                    list.flash = None;
                 }
                 view.show_dialog(DialogState::FirstImport);
                 cx.notify();
