@@ -7,6 +7,7 @@
 use super::agent_page::AgentPageRow;
 use super::library_copies::Placement;
 use super::library_drift::drift_glyph;
+use super::library_places::Spot;
 use super::library_reveal::Reveal;
 use super::library_validation::validation_glyph;
 use super::sidebar_row::{activate, with_menu};
@@ -130,7 +131,7 @@ impl NativeView {
                     .child(self.title_line(item, cx))
                     .child(description(item, cx)),
             )
-            .child(self.row_end(item, false, narrow, cx));
+            .child(self.row_end(item, Spot::Row { narrow }, cx));
         frame(self, row, item, owner, cx)
     }
 
@@ -152,7 +153,7 @@ impl NativeView {
                 item.description().to_owned(),
             )
             .faded(item.dimmed())
-            .footer(self.row_end(item, true, narrow, cx));
+            .footer(self.row_end(item, Spot::Tile { narrow }, cx));
         frame(self, card, item, owner, cx)
     }
 
@@ -178,13 +179,7 @@ impl NativeView {
     }
 
     /// The end of a row or tile: where the skill is on, or the workspace's agents and Delete.
-    fn row_end(
-        &self,
-        item: &SkillItem<'_>,
-        grid: bool,
-        narrow: bool,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    fn row_end(&self, item: &SkillItem<'_>, spot: Spot, cx: &mut Context<Self>) -> AnyElement {
         match &item.end {
             RowEnd::Places(places) => {
                 let unsettled = item.unsettled();
@@ -195,7 +190,7 @@ impl NativeView {
                     .when(unsettled > 0, |end| {
                         end.child(self.unsettled_glyph(&item.skill.id, unsettled, cx))
                     })
-                    .child(self.place_trigger(places, grid, narrow, cx))
+                    .child(self.place_trigger(places, spot, cx))
                     .into_any_element()
             }
             RowEnd::Workspace(row) => self.workspace_row_end(item, row, cx),

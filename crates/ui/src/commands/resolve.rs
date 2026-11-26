@@ -154,7 +154,7 @@ pub(super) struct Agents {
 }
 
 /// The agents `names` name, each by an identity, a name, or the global skill directory it reads,
-/// which names every agent reading it, as Library's agents menu chooses them together.
+/// which names every agent reading it, as one pill of Library's popover chooses them together.
 pub(super) fn agents(snapshot: &AppSnapshot, names: &[String]) -> Result<Agents, CommandError> {
     let places = Places::new(snapshot);
     let mut agents = Agents {
