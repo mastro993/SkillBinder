@@ -142,6 +142,8 @@ impl NativeView {
                     // The header is the window's title bar, whose double click zooms the window.
                     cx.stop_propagation();
                     view.settings.tab = section;
+                    // A newly chosen tab opens at its top.
+                    view.content_scroll.handle.set_offset(Default::default());
                     cx.notify();
                 }))
         };
