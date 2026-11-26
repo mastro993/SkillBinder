@@ -1,9 +1,10 @@
 //! The dialog's frame: a large Kit dialog titled Import skills, holding Scanning…, the reason a
-//! scan failed with Retry, No new skills found., or the list with its footer (D1, D10, D12).
+//! scan failed with Retry, No new skills found., or the search over the list, which scrolls in its
+//! own area, with its footer (D1, D10, D12).
 //! Onboarding's names no place and ends with Done (O7).
 
 use super::super::NativeView;
-use super::list::{Selection, status};
+use super::list::Selection;
 use super::{End, ImportDialog, Phase};
 use gpui_kit::component::{dialog::Dialog, h_flex, v_flex};
 use gpui_kit::{
@@ -12,8 +13,8 @@ use gpui_kit::{
 };
 use skillbinder_design::tokens::space;
 use skillbinder_design::{
-    Button, Checkbox, DialogFooter, DialogHeader, DialogSize, Notice, NoticeSize, SearchField,
-    Status,
+    Button, Checkbox, DIALOG_INSET, DialogFooter, DialogHeader, DialogSize, Notice, NoticeSize,
+    SearchField, Status,
 };
 use skillbinder_proto::MAX_IMPORT;
 
@@ -30,14 +31,13 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> Dialog {
         let footer = self.import_footer(state, cx);
-        let dialog = self
+        let frame = self
             .dialog_frame(
                 DialogSize::Window(viewport),
                 DialogHeader::new("Import skills"),
                 cx,
             )
-            .footer(footer)
-            .apply(dialog, cx);
+            .footer(footer);
         let centered = |content: AnyElement| {
             h_flex()
                 .id("import-message")
@@ -46,46 +46,38 @@ impl NativeView {
                 .items_center()
                 .child(content)
         };
-        match &state.phase {
-            Phase::Scanning => dialog.child(centered(
-                Notice::new("import-scanning", "Scanning…")
-                    .turning("refresh-04")
-                    .size(NoticeSize::Md)
-                    .into_any_element(),
-            )),
-            Phase::Failed(reason) => dialog.child(centered(
+        let message = match &state.phase {
+            Phase::Scanning => Notice::new("import-scanning", "Scanning…")
+                .turning("refresh-04")
+                .size(NoticeSize::Md),
+            Phase::Failed(reason) => {
                 Notice::new("import-failed", format!("Couldn't scan: {reason}"))
                     .status(Status::Danger)
                     .size(NoticeSize::Md)
-                    .into_any_element(),
-            )),
-            Phase::Empty => dialog.child(centered(
-                Notice::new("import-empty", "No new skills found.")
-                    .size(NoticeSize::Md)
-                    .into_any_element(),
-            )),
+            }
+            Phase::Empty => {
+                Notice::new("import-empty", "No new skills found.").size(NoticeSize::Md)
+            }
             Phase::Ready(found) => {
-                let status_line = state
-                    .end
-                    .names_places()
-                    .then(|| Notice::new("import-status", status(found, &self.snapshot.ignored)));
+                // The body stays put while the list scrolls under its fades, keeping the search
+                // in view; the list's scroll view spans the dialog, its scrollbar at the edge.
+                let top = v_flex()
+                    .px(px(DIALOG_INSET))
+                    .gap(px(space::LG))
+                    .child(self.import_search(state))
+                    .when(state.changed, |top| top.child(changed_line()));
                 let body = v_flex()
-                    .size_full()
+                    .flex_1()
                     .min_h_0()
                     .gap(px(space::LG))
-                    .child(
-                        h_flex()
-                            .justify_between()
-                            .items_center()
-                            .gap(px(space::LG))
-                            .child(self.import_search(state))
-                            .children(status_line),
-                    )
-                    .when(state.changed, |body| body.child(changed_line()))
+                    .child(top)
                     .child(self.import_list(state, found, cx));
-                dialog.child(body)
+                return frame.flush_body(body).apply(dialog, cx);
             }
-        }
+        };
+        frame
+            .apply(dialog, cx)
+            .child(centered(message.into_any_element()))
     }
 
     /// The search field (D2).

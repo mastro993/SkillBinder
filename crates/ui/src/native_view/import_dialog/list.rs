@@ -281,24 +281,3 @@ pub(crate) fn found_count(snapshot: &AppSnapshot) -> usize {
     });
     found_skills(&offered).len()
 }
-
-/// The status line: how many found skills are offered, how many are in library, and how many
-/// are ignored when any are (D2, I8).
-pub(super) fn status(found: &FoundImport, ignored: &BTreeMap<String, String>) -> String {
-    let held: Vec<&Candidate> = found
-        .scan
-        .candidates
-        .iter()
-        .filter(|candidate| candidate.in_library().is_some())
-        .collect();
-    let ignoring = ignored_rows(found, ignored).len();
-    let offered = found_rows(found).count() - ignoring;
-    let line = format!(
-        "{offered} found · {} already in library",
-        found_skills(&held).len()
-    );
-    match ignoring {
-        0 => line,
-        ignoring => format!("{line} · {ignoring} ignored"),
-    }
-}
