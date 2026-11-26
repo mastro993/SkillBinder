@@ -1,8 +1,9 @@
 //! A scoped page's header in place of the breadcrumb: the place's glyph, its name in semibold, an
 //! optional extra such as an avatar stack, a dot, then its folder in mono, muted, with home
 //! shortened to `~`, truncating with an ellipsis. Below it, the page's skills in one card under
-//! the search shared with Library.
+//! the search shared with Library, then its found skills' sections.
 
+use super::found_sections::FoundPage;
 use super::library_copies::shown_dir;
 use super::skill_picker::Place;
 use super::snapshot_query::matching;
@@ -15,7 +16,7 @@ use gpui_kit::{
 };
 use skillbinder_design::page::{GAP, GUTTER};
 use skillbinder_design::tokens::{space, text};
-use skillbinder_design::{EmptyState, IconSize, SearchField, Text};
+use skillbinder_design::{CardList, EmptyState, IconSize, ListRow, SearchField, Text};
 use skillbinder_proto::Skill;
 
 /// The search field's width on a scoped page: layout measured from the approved scoped-page
@@ -85,25 +86,51 @@ impl NativeView {
         v_flex().w_full().p(px(GUTTER)).gap(px(GAP))
     }
 
-    /// `page` with the search, then the `held` skills it keeps in the card `list` draws, or "No
-    /// skills match" when it keeps none.
+    /// `page` with the search, then the `held` skills it keeps in the card `list` draws, or
+    /// while nothing is on there, the card's one line; then the `found` sections it keeps. "No
+    /// skills match" replaces them while it keeps nothing (U8, U9).
     pub(super) fn scoped_list(
         &self,
         page: Div,
         held: Vec<&Skill>,
+        found: &FoundPage<'_>,
         list: impl FnOnce(&Self, &[&Skill], &mut Context<Self>) -> AnyElement,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let typed = self.search.read(cx).value().trim().to_owned();
-        let shown = matching(&self.snapshot, held, &typed.to_lowercase());
-        let search = SearchField::new("page-search", &self.search).width(SEARCH_WIDTH);
-        let results = if shown.is_empty() {
-            EmptyState::new("page-empty", format!("No skills match '{typed}'"))
-                .icon("search")
-                .into_any_element()
+        let search = typed.to_lowercase();
+        let nothing_on = held.is_empty();
+        let shown = matching(&self.snapshot, held, &search);
+        let card = if !shown.is_empty() {
+            Some(list(self, &shown, cx))
+        } else if nothing_on && search.is_empty() {
+            Some(nothing_on_card(&found.nothing_on))
         } else {
-            list(self, &shown, cx)
+            None
         };
-        page.child(search).child(results).into_any_element()
+        let sections = self.found_sections(found, &search, cx);
+        let page = page.child(SearchField::new("page-search", &self.search).width(SEARCH_WIDTH));
+        if card.is_none() && sections.is_empty() {
+            return page
+                .child(
+                    EmptyState::new("page-empty", format!("No skills match '{typed}'"))
+                        .icon("search"),
+                )
+                .into_any_element();
+        }
+        page.children(card).children(sections).into_any_element()
     }
+}
+
+/// A card of one muted line for a page with nothing on that lists found skills (U9).
+fn nothing_on_card(line: &str) -> AnyElement {
+    CardList::new("page-nothing-on")
+        .row(
+            ListRow::new("page-nothing-on-line").child(
+                Text::labeled("nothing-on", line.to_owned())
+                    .level(text::BODY_SM)
+                    .muted(),
+            ),
+        )
+        .into_any_element()
 }

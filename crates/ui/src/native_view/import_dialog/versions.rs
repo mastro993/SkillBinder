@@ -99,9 +99,7 @@ fn version_details(version: &Candidate, snapshot: &AppSnapshot, cx: &App) -> Any
 /// Where a version was found: its skill directory with home as `~`, then the Agents rows or the
 /// workspace that read it, as the app names places.
 pub(crate) fn location_label(location: &CandidateLocation, snapshot: &AppSnapshot) -> String {
-    let directory = Path::new(&location.display_path)
-        .parent()
-        .map_or_else(String::new, |parent| parent.display().to_string());
+    let directory = skill_directory(location);
     let shown = shown_dir(&directory, &snapshot.home);
     let place = place_name(
         &directory,
@@ -114,6 +112,14 @@ pub(crate) fn location_label(location: &CandidateLocation, snapshot: &AppSnapsho
     } else {
         format!("{shown} · {place}")
     }
+}
+
+/// The directory holding a found skill's folder at `location`: its skill directory, or for a
+/// skill nested deeper, the folder it sits in.
+pub(crate) fn skill_directory(location: &CandidateLocation) -> String {
+    Path::new(&location.display_path)
+        .parent()
+        .map_or_else(String::new, |parent| parent.display().to_string())
 }
 
 /// A version's validation messages, a blocking one in the danger tone.

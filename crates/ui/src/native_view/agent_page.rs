@@ -1,8 +1,9 @@
 //! One of your agents' page, or Universal's: only the library skills the active preset holds for
 //! the agents reading that global skill directory (ADR 0007), as Library rows in one card under the
-//! search shared with Library, each with Delete. The header draws the page's head, the active
-//! preset's chip, and Add skill; every change on the page edits that preset. With no skill it shows
-//! its empty state.
+//! search shared with Library, each with Delete, then the skills found in that directory that are
+//! not in library (ADR 0036). The header draws the page's head, the active preset's chip, and Add
+//! skill; every change on the page edits that preset. With no skill on or found it shows its empty
+//! state.
 
 mod head;
 mod rows;
@@ -11,10 +12,11 @@ pub(super) use rows::AgentPageRow;
 
 use super::agent_skills::{agent_name, split_universal, your_agents};
 use super::controls::reader_logo;
+use super::found_sections::FoundPage;
 use super::library_copies::{AgentRow, placements};
 use super::library_items::{RowEnd, SkillItem};
 use super::skill_picker::{Place, Resolved};
-use super::snapshot_query::{agent_skills, has_update};
+use super::snapshot_query::{Here, agent_skills, found_here, has_update};
 use super::{NativeView, Route};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{AnyElement, App, Context, IntoElement, ParentElement, Styled, div};
@@ -37,8 +39,13 @@ impl NativeView {
         };
         let preset = self.active_preset_id();
         let held = page_skills(&self.snapshot, preset.as_ref(), &ids);
+        let found = FoundPage {
+            found: found_here(&self.snapshot, Here::Agents(&ids)),
+            workspace: None,
+            nothing_on: format!("No skills on in {}", row.name),
+        };
         let page = self.scoped_page().children(self.render_update_outcome(cx));
-        if held.is_empty() {
+        if held.is_empty() && found.found.is_empty() {
             return page
                 .child(self.empty_agent(&place, &row, cx))
                 .into_any_element();
@@ -46,6 +53,7 @@ impl NativeView {
         self.scoped_list(
             page,
             held,
+            &found,
             |view, shown, cx| view.agent_list(&place, &row, shown, cx),
             cx,
         )

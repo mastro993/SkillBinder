@@ -12,8 +12,10 @@ mod custom_color;
 mod dialogs;
 mod explore;
 mod folder_reorder;
+mod found_sections;
 mod git_setup;
 mod hover_scroll;
+mod ignore_actions;
 mod import_dialog;
 mod import_review;
 mod library;
@@ -255,6 +257,8 @@ pub struct NativeView {
     preview: Option<SkillPreview>,
     /// The last Update or Update all result, shown until the page changes.
     update_outcome: Option<UpdateOutcome>,
+    /// A workspace's, an agent's, or Universal's Not in library and Ignored sections.
+    found_sections: found_sections::FoundSections,
     /// The skill page's file read in flight; dropping it discards the read's result.
     skill_load: Option<Task<()>>,
     search: Entity<InputState>,

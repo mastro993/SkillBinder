@@ -1,46 +1,23 @@
 //! Ignoring found skills (ADR 0033, design I2 to I11): Ignore on a row while it is hovered or
 //! focused, Ignore all on a place's header, and the Ignored group closing the list, collapsed,
-//! whose rows have Stop ignoring. Each is saved at once, and Cancel keeps it.
+//! whose rows have Stop ignoring. Each is saved at once through [`super::super::ignore_actions`],
+//! and Cancel keeps it.
 
 use super::super::NativeView;
+use super::super::ignore_actions::flash_overlay;
 use super::super::import_review::place_name;
 use super::ImportDialog;
 use super::list::{Group, Row};
+use super::versions::skill_directory;
 use gpui_kit::component::{ActiveTheme, h_flex};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, Context, InteractiveElement, IntoElement,
-    ParentElement, Styled, div, prelude::FluentBuilder, px,
+    App, Context, InteractiveElement, ParentElement, Styled, div, prelude::FluentBuilder, px,
 };
-use skillbinder_design::tokens::{color, opacity, space, text};
+use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{Button, CardList, ListRow, SectionHeader, Text, icon};
-use skillbinder_proto::MAX_IMPORT;
-use std::{
-    path::Path,
-    sync::atomic::{AtomicU64, Ordering},
-};
 
 /// The group a row's Ignore is revealed by.
 const ROW_GROUP: &str = "import-row";
-
-/// Numbers each flash, so every one plays its animation from the start.
-static FLASHES: AtomicU64 = AtomicU64::new(0);
-
-/// What flashes once, and which flash it is.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(in crate::native_view) struct Flash {
-    /// A row's key, or `None` for the Ignored group's header.
-    key: Option<String>,
-    id: u64,
-}
-
-impl Flash {
-    fn new(key: Option<String>) -> Self {
-        Self {
-            key,
-            id: FLASHES.fetch_add(1, Ordering::Relaxed),
-        }
-    }
-}
 
 /// A slug the engine knows a row by: its shown version's spelling, else its key.
 fn slug(row: &Row<'_>) -> String {
@@ -49,65 +26,6 @@ fn slug(row: &Row<'_>) -> String {
 }
 
 impl NativeView {
-    /// Ignores `rows`, dropping their ticks; the Ignored group's header flashes once it is saved.
-    fn ignore_found(&mut self, rows: Vec<(String, String)>, cx: &mut Context<Self>) {
-        let (slugs, keys): (Vec<String>, Vec<String>) = rows.into_iter().unzip();
-        self.edit_import(
-            |dialog| {
-                if let Some(ticked) = dialog.ticked.as_mut() {
-                    ticked.retain(|key| !keys.contains(key));
-                }
-            },
-            cx,
-        );
-        let client = self.client.clone();
-        let asked = async move { client.set_ignored(slugs, true).await };
-        self.ask(asked, |view, result, cx| view.ignored(result, None, cx), cx);
-    }
-
-    /// Stops ignoring the skill `slug`, `key`, which comes back ticked when `tick` and the cap
-    /// allows (I7), and flashes once it is saved.
-    fn stop_ignoring(&mut self, slug: String, key: String, tick: bool, cx: &mut Context<Self>) {
-        let client = self.client.clone();
-        let asked = async move { client.set_ignored(vec![slug], false).await };
-        self.ask(
-            asked,
-            move |view, result, cx| {
-                if result.is_ok() && tick {
-                    view.edit_import(
-                        |dialog| {
-                            let ticked = dialog.ticked.get_or_insert_default();
-                            if ticked.len() < MAX_IMPORT {
-                                ticked.insert(key.clone());
-                            }
-                        },
-                        cx,
-                    );
-                }
-                view.ignored(result, Some(key), cx);
-            },
-            cx,
-        );
-    }
-
-    /// Shows the snapshot an ignore or a stop saved, flashing the header or row `key`, or the
-    /// reason it failed.
-    fn ignored(
-        &mut self,
-        result: skillbinder_proto::AppResult<()>,
-        key: Option<String>,
-        cx: &mut Context<Self>,
-    ) {
-        match result {
-            Ok(()) => {
-                self.receive(self.client.snapshot(), cx);
-                self.edit_import(|dialog| dialog.flash = Some(Flash::new(key)), cx);
-            }
-            Err(error) => self.error = Some(error),
-        }
-        cx.notify();
-    }
-
     /// A row's Ignore, shown while the row is hovered or the button has keyboard focus (I2).
     pub(super) fn ignore_button(&self, row: &Row<'_>, cx: &mut Context<Self>) -> Button {
         let (slug, key) = (slug(row), row.key().to_owned());
@@ -174,7 +92,7 @@ impl NativeView {
             .on_click(cx.listener(|view, _, _, cx| {
                 view.edit_import(|dialog| dialog.ignored_open = !dialog.ignored_open, cx);
             }));
-        let flashing = state.flash.as_ref().filter(|flash| flash.key.is_none());
+        let flashing = state.flash.as_ref().filter(|flash| flash.flashes(None));
         let theme = cx.theme();
         let head = h_flex()
             .id("import-ignored")
@@ -241,11 +159,8 @@ impl NativeView {
             .iter()
             .flat_map(|version| &version.locations)
         {
-            let directory = Path::new(&location.display_path)
-                .parent()
-                .map_or_else(String::new, |parent| parent.display().to_string());
             let place = place_name(
-                &directory,
+                &skill_directory(location),
                 &snapshot.agents,
                 &snapshot.workspaces,
                 &snapshot.home,
@@ -269,24 +184,8 @@ impl NativeView {
         let flashing = state
             .flash
             .as_ref()
-            .filter(|flash| flash.key.as_deref() == Some(key));
+            .filter(|flash| flash.flashes(Some(key)));
         row.group(ROW_GROUP)
             .children(flashing.map(|flash| flash_overlay(flash, cx)))
     }
-}
-
-/// A see-through fill over its parent in the accent's soft tone that fades out once
-/// (scan-import D11's flash); the parent sets the position.
-fn flash_overlay(flash: &Flash, cx: &App) -> AnyElement {
-    let tone = color::ACCENT_SOFT.of(cx.theme());
-    div()
-        .absolute()
-        .inset_0()
-        .bg(tone)
-        .with_animation(
-            ("import-flash", flash.id),
-            Animation::new(cx.theme().motion.duration_slow),
-            |fill, delta| fill.opacity(opacity::INACTIVE * (1. - delta)),
-        )
-        .into_any_element()
 }

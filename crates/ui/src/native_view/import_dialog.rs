@@ -17,11 +17,11 @@ pub(super) use frame::changed_line;
 pub(crate) use list::{Row, default_ticks, groups, rows, selection};
 pub(crate) use versions::location_label;
 
+use super::ignore_actions::Flash;
 use super::progress_strip::{Activity, Landing};
 use super::{DialogState, NativeView};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::{AppContext, Context, Entity, Subscription, Window};
-use ignored::Flash;
 use list::Selection;
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};

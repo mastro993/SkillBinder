@@ -426,7 +426,9 @@ fn matches(skill: &Skill, library: &LibrarySnapshot, query: &str) -> bool {
             .is_some_and(|details| details.description.to_lowercase().contains(query))
 }
 
+mod found_here;
 mod scoped;
+pub(crate) use found_here::{FoundHere, FoundRow, Here, found_here};
 pub(crate) use scoped::workspace_skills;
 pub(super) use scoped::{agent_skills, matching, searched};
 
