@@ -134,7 +134,7 @@ flowchart LR
 
 - **A1 (decision 18):** an ignore lasts whatever the content. *If wrong:* the key would be the `CandidateId` (content), and an edited copy would be offered again.
 - **A2 (decision 16):** ignores are machine-local and never sync. *If wrong:* they would need a synced file beside `records/`, with merge rules on Pull.
-- **A3:** ignored skills leave the count, Select all, the group checkboxes, and `--all`, and the status line gains "· K ignored". *If wrong:* the count would show ignored skills separately.
+- **A3:** ignored skills leave the count, Select all, the group checkboxes, and `--all`. The dialog shows no status line (I8, amended 2026-11-26). *If wrong:* the count would show ignored skills separately.
 - **A4 (behaviors 8–9):** onboarding's Review list offers Ignore and the Ignored group, without Ignore all. *If wrong:* onboarding would offer skip only.
 - **A5 (decision 17):** a slug's ignore ends when it enters the library, and naming an ignored slug in `import` imports it. *If wrong:* `import <ignored>` would refuse until `unignore`.
 - **A6 (behaviors 11–14):** the command gains `ignore` and `unignore`, and the MCP server gains `ignore_skills`, so agents can ignore on the user's behalf. *If wrong:* ignoring would stay in the window only, which ADR 0023's parity argues against.
