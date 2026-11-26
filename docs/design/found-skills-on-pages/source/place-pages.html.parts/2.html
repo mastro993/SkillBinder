@@ -10,8 +10,7 @@
   const page = document.getElementById('page');
   const ui = { view: 'ws:acme-web', variant: 'sections', filter: 'on', open: false, query: '', flash: new Set() };
 
-  // Found skills in each place, from the latest scan. `at` = [place, dir?]; dir only in a workspace.
-  // copy: a library skill's copy where it is off ('same' content adopts, 'different' asks first).
+  // Found skills not in library in each place, from the latest scan. `at` = [place, dir?]; dir only in a workspace.
   const FOUND = [
     { slug: 'vitest-runner', desc: 'Run and fix failing Vitest suites.', at: [['ws:acme-web', 'claude']] },
     { slug: 'acme-deploy', desc: 'Deploy acme-web previews to Vercel.', at: [['ws:acme-web', 'agents']] },
@@ -22,11 +21,6 @@
     { slug: 'skill-creator', desc: 'Create and test new agent skills.', at: [['agent:claude']] },
     { slug: 'anthropic-docs', desc: 'Look up the Claude API docs.', at: [['agent:claude']] },
     { slug: 'find-skills', desc: 'Search skills.sh for a skill.', at: [['agent:universal']] },
-    { slug: 'a11y-audit', copy: 'same', at: [['ws:acme-web', 'claude']] },
-    { slug: 'data-viz', copy: 'different', at: [['ws:acme-web', 'agents']] },
-    { slug: 'sql-helper', copy: 'same', at: [['agent:claude']] },
-    { slug: 'copy-editor', copy: 'different', at: [['agent:claude']] },
-    { slug: 'tailwind-helper', copy: 'different', at: [['agent:cursor']] },
   ];
   const S = { ignored: new Set(['anthropic-docs']), imported: new Set() };
   const reset = () => { S.ignored = new Set(['anthropic-docs']); S.imported = new Set(); };
@@ -39,25 +33,17 @@
     const name = kind === 'ws' ? DATA.workspace(id).name : DATA.target(id).name;
     return dir ? `${name} · ${DATA.wsDir(dir).path}` : name;
   };
-  // A copy is off where the page's place does not hold the skill for that folder.
-  function offDirs(f, view) {
-    const [kind, id] = view.split(':');
-    return here(f, view).filter(([, dir]) => (kind === 'ws'
-      ? !DATA.workspaceHolds(id, f.slug).includes(dir) : !DATA.presetHolds(f.slug).includes(id)));
-  }
-
   function groups(view) {
     const [kind, id] = view.split(':');
     const lib = kind === 'ws' ? DATA.workspaceSkills(id) : DATA.agentSkills(id);
-    const imported = FOUND.filter((f) => !f.copy && S.imported.has(f.slug) && here(f, view).length).map((f) => f.slug);
+    const imported = FOUND.filter((f) => S.imported.has(f.slug) && here(f, view).length).map((f) => f.slug);
     const q = ui.query.trim().toLowerCase();
     const match = (slug) => !q || slug.includes(q) || desc(slug).toLowerCase().includes(q);
     const mine = FOUND.filter((f) => here(f, view).length && match(f.slug));
     return {
       on: [...lib, ...imported].filter(match).sort(),
-      notIn: mine.filter((f) => !f.copy && !S.imported.has(f.slug) && !S.ignored.has(f.slug)),
-      off: mine.filter((f) => f.copy && offDirs(f, view).length),
-      ignored: mine.filter((f) => !f.copy && S.ignored.has(f.slug)),
+      notIn: mine.filter((f) => !S.imported.has(f.slug) && !S.ignored.has(f.slug)),
+      ignored: mine.filter((f) => S.ignored.has(f.slug)),
     };
   }
 
@@ -97,12 +83,6 @@
         btn('Import…', 'sb-btn-outline', () => openImport(view, [f]))));
   }
 
-  function offRow(view, f) {
-    const tag = f.copy === 'different' ? h('span', { class: 'ps-tag', 'data-tip': 'This copy differs from your library' }, 'Different copy') : null;
-    return h('div', { class: rowClass(f.slug, 'is-off') }, main(f.slug, { where: wherePaths(view, offDirs(f, view)), extra: tag }),
-      h('div', { class: 'sb-row-end' }, turnOn(view, f)));
-  }
-
   function ignoredRow(view, f) {
     return h('div', { class: rowClass(f.slug, 'is-ignored') }, main(f.slug, { where: wherePaths(view, here(f, view)) }),
       h('div', { class: 'sb-row-end' }, btn('Stop ignoring', 'sb-btn-outline', () => { S.ignored.delete(f.slug); ui.flash.add(f.slug); draw(); })));
@@ -110,43 +90,6 @@
 
   // ---- actions -------------------------------------------------------------------------------
   function ignore(slugs) { slugs.forEach((s) => S.ignored.add(s)); draw(); }
-
-  const askReplace = (f, where) => confirmDialog(win, {
-    title: `Replace the copy of ${f.slug}?`, body: `The copy in ${where} differs from your library. Turning it on replaces it.`,
-    confirm: 'Replace', cancel: 'Keep', danger: false,
-  });
-
-  function turnOn(view, f) {
-    const [kind, id] = view.split(':');
-    if (kind !== 'ws') {
-      return btn('Turn on', 'sb-btn-outline', async () => {
-        if (f.copy === 'different' && !(await askReplace(f, DATA.target(id).path))) return;
-        ui.flash.add(f.slug);
-        DATA.setAgents(f.slug, [...DATA.presetHolds(f.slug), id]);
-      }, `Turn on for ${DATA.target(id).name} in ${DATA.activePreset().name}`);
-    }
-    const ws = DATA.workspace(id);
-    if (!ws.dirs.length) return h('span', { 'data-tip': 'No agents here yet' }, h('button', { class: 'sb-btn sb-btn-xs sb-btn-outline', disabled: true }, 'Turn on'));
-    const copyDirs = here(f, view).map(([, d]) => d);
-    const el = h('button', { class: 'sb-btn sb-btn-xs sb-btn-outline', 'aria-haspopup': 'menu' }, 'Turn on', ic('arrow-down', 12));
-    el.onclick = () => menu(win, el, () => [
-      { heading: 'Turn on for' },
-      { label: 'All agents', tip: 'Includes agents added later', onSelect: () => on('all') },
-      '-',
-      ...DATA.workspaceDirs(id).map((d) => ({
-        label: d.name, icon: icon(d.logo, 16), trail: copyDirs.includes(d.id) ? '<span class="ps-count">copy here</span>' : '',
-        tip: d.path, disabled: DATA.workspaceHolds(id, f.slug).includes(d.id), onSelect: () => on([d.id]),
-      })),
-    ], { align: 'end' });
-    async function on(dirs) {
-      const writes = dirs === 'all' ? ws.dirs : dirs;
-      const clash = f.copy === 'different' && writes.find((d) => copyDirs.includes(d));
-      if (clash && !(await askReplace(f, `${ws.name} · ${DATA.wsDir(clash).path}`))) return;
-      ui.flash.add(f.slug);
-      DATA.setWorkspaceDirs(id, f.slug, dirs === 'all' ? 'all' : [...DATA.workspaceHolds(id, f.slug), ...dirs]);
-    }
-    return el;
-  }
 
   // Placeholder for the Import skills dialog narrowed to this place (the real one is its own prototype).
   function openImport(view, list) {
@@ -175,7 +118,6 @@
   // ---- layouts -----------------------------------------------------------------------------
   const TITLES = {
     notIn: ['Not in library', 'Agents load these; SkillBinder does not manage them'],
-    off: ['In library, off here', 'Your library has them, but they are not on here'],
   };
   function groupEnd(view, key, list) {
     if (key !== 'notIn' || !list.length) return null;
@@ -195,7 +137,6 @@
     return [
       g.on.length ? h('div', { class: 'sb-card' }, g.on.map((s) => onRow(view, s))) : onEmpty,
       g.notIn.length ? sec('notIn', g.notIn.map((f) => notInRow(view, f))) : null,
-      g.off.length ? sec('off', g.off.map((f) => offRow(view, f))) : null,
       g.ignored.length ? h('div', { class: 'ps-sec' }, h('div', { class: 'ps-sec-head' }, disc(g)),
         ignoredOpen(g) ? h('div', { class: 'sb-card' }, g.ignored.map((f) => ignoredRow(view, f))) : null) : null,
     ];
@@ -208,20 +149,17 @@
       h('div', { class: 'ps-ghead' }, h('span', { class: 'ps-sec-title' }, 'On here'), h('span', { class: 'ps-count' }, String(g.on.length))),
       g.on.length ? g.on.map((s) => onRow(view, s)) : onEmpty,
       g.notIn.length ? [head('notIn'), g.notIn.map((f) => notInRow(view, f))] : null,
-      g.off.length ? [head('off'), g.off.map((f) => offRow(view, f))] : null,
       g.ignored.length ? [h('div', { class: 'ps-ghead' }, disc(g)), ignoredOpen(g) ? g.ignored.map((f) => ignoredRow(view, f)) : null] : null);
   }
 
   function filtered(view, g, onEmpty) {
-    const unmanaged = g.notIn.length + g.off.length;
     const card = (kids) => h('div', { class: 'sb-card' }, kids);
     if (ui.filter === 'on') return g.on.length ? card(g.on.map((s) => onRow(view, s))) : onEmpty;
     if (ui.filter === 'ignored') return card(g.ignored.length ? g.ignored.map((f) => ignoredRow(view, f)) : h('div', { class: 'ps-none' }, 'Nothing ignored here'));
     const head = (key) => h('div', { class: 'ps-ghead' }, h('span', { class: 'ps-sec-title' }, TITLES[key][0]),
       h('span', { class: 'ps-count' }, String(g[key].length)), h('div', { class: 'ps-sec-end' }, groupEnd(view, key, g[key])));
-    return card(unmanaged ? [g.notIn.length ? [head('notIn'), g.notIn.map((f) => notInRow(view, f))] : null,
-      g.off.length ? [head('off'), g.off.map((f) => offRow(view, f))] : null]
-      : h('div', { class: 'ps-none' }, 'SkillBinder manages every skill here'));
+    return card(g.notIn.length ? [head('notIn'), g.notIn.map((f) => notInRow(view, f))]
+      : h('div', { class: 'ps-none' }, 'Every skill found here is in your library'));
   }
 
   // ---- pages -------------------------------------------------------------------------------
@@ -253,9 +191,9 @@
     const onEmpty = h('div', { class: 'sb-card' }, h('div', { class: 'ps-empty-line' },
       ui.query.trim() ? `No skills on here match '${ui.query.trim()}'` : `No skills on in ${name}${ws && !ws.dirs.length ? ' · No agents here yet' : ''}`));
     if (ui.variant === 'filter') {
-      const counts = { on: g.on.length, unmanaged: g.notIn.length + g.off.length, ignored: g.ignored.length };
+      const counts = { on: g.on.length, notIn: g.notIn.length, ignored: g.ignored.length };
       tools.replaceChildren(search, seg([{ id: 'on', label: 'On here', count: counts.on },
-        { id: 'unmanaged', label: 'Not managed', count: counts.unmanaged }, { id: 'ignored', label: 'Ignored', count: counts.ignored }],
+        { id: 'notIn', label: 'Not in library', count: counts.notIn }, { id: 'ignored', label: 'Ignored', count: counts.ignored }],
       ui.filter, (v) => { ui.filter = v; drawBody(); }));
     } else tools.replaceChildren(search);
     const out = ui.variant === 'sections' ? sections(view, g, onEmpty) : ui.variant === 'list' ? oneList(view, g, onEmpty) : filtered(view, g, onEmpty);
@@ -276,9 +214,9 @@
   }
 
   const bar = variantBar(document.getElementById('proto'), [
-    { id: 'sections', label: 'Sections', desc: 'On-here list first, then a section each for Not in library, In library off here, and a collapsed Ignored.' },
-    { id: 'filter', label: 'Filter', desc: 'One list at a time, switched beside the search: On here · Not managed · Ignored, with counts.' },
-    { id: 'list', label: 'One list', desc: 'A single card with group headers: On here, Not in library, In library off here, Ignored (collapsed).' },
+    { id: 'sections', label: 'Sections', desc: 'On-here list first, then a section for Not in library and a collapsed Ignored.' },
+    { id: 'filter', label: 'Filter', desc: 'One list at a time, switched beside the search: On here · Not in library · Ignored, with counts.' },
+    { id: 'list', label: 'One list', desc: 'A single card with group headers: On here, Not in library, Ignored (collapsed).' },
   ], (id) => { ui.variant = id; draw(); });
   bar.extra.append(h('button', {
     class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Reset demo data', 'aria-label': 'Reset demo data',

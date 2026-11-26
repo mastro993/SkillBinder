@@ -3,10 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Everything in a place</title>
-<!-- Prototype: workspace and agent pages also list the skills in their folders that SkillBinder
-     does not manage: found skills not in library, copies of library skills that are off there,
-     and ignored skills. Variants differ in layout only (A sections, B filter, C one list).
+<title>Found skills on pages</title>
+<!-- Prototype: workspace and agent pages also list the found skills in their folders that are not
+     in library, and the ignored ones. Variants differ in layout only (A sections, B filter, C one list).
      Build: python3 -I ../../scoped-pages/source/kit/inline.py place-pages.html ../prototypes/place-pages.html -->
 <link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
 <style>
@@ -22,9 +21,6 @@
 
 /* where a found copy sits, under the description */
 .ps-where { margin-top: 2px; font: 11.5px/1.4 var(--sb-mono, ui-monospace, monospace); color: var(--sb-muted-fg); }
-.ps-tag { flex: none; font-size: 11px; padding: 0 6px; height: 18px; display: inline-flex; align-items: center; border-radius: 5px;
-  border: 1px solid var(--sb-border); color: var(--sb-muted-fg); }
-.sb-row.is-off .sb-slug, .sb-row.is-off .sb-desc { opacity: .72; }
 .sb-row.is-ignored .sb-slug, .sb-row.is-ignored .sb-desc { opacity: .55; }
 
 /* row actions shown on hover or focus, like Library's Delete */
@@ -74,5 +70,5 @@
       <div class="sb-page" id="page"></div>
     </main>
   </div>
-  <div class="sp-hint">Try: <b>acme-web</b>, <b>Claude Code</b>, <b>Universal</b>, <b>docs-site</b> (no agents) · Ignore <b>vendor-lint</b> on one page and see it ignored on the other · Turn on <b>data-viz</b> (a different copy, asks first) · Import… · search</div>
+  <div class="sp-hint">Try: <b>acme-web</b>, <b>Claude Code</b>, <b>Universal</b>, <b>docs-site</b> (no agents) · Ignore <b>vendor-lint</b> on one page and see it ignored on the other · Import… · search</div>
 </div>
