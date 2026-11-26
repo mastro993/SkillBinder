@@ -1,0 +1,75 @@
+<body>
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:780px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"><div class="sb-title">Sync</div></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+  <div class="sp-hint">Try: <b>Push</b> in “To push” · hover a skill for <b>Discard</b> · open a History change and <b>Restore this version</b> · <b>Resolve…</b> in “Both changed” · the <b>⋯</b> menu (rename this device, change branch, disconnect)</div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="sync-icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="sync-data.js"></script>
+<script src="sync-view.js"></script>
+<script>
+(function () {
+  'use strict';
+  const Y = window.SYNC;
+  const { h, seg } = window.SB;
+  const win = document.getElementById('win');
+  const page = document.getElementById('page');
+  const side = document.getElementById('side');
+  let variant = 'a';
+  let tab = null;
+
+  const STATES = [
+    { id: 'synced', label: 'Up to date' }, { id: 'push', label: 'To push' }, { id: 'pull', label: 'To pull' },
+    { id: 'both', label: 'Both changed' }, { id: 'conflict', label: 'Same skill' }, { id: 'offline', label: 'Offline' },
+    { id: 'none', label: 'Not connected' }, { id: 'nogit', label: 'No Git' },
+  ];
+  const vbar = window.SB.variantBar(win, [
+    { id: 'a', label: 'Stacked', desc: 'One column: status with remote facts under it, then Not synced yet, then History by day. Remote actions live in the ⋯ menu.' },
+    { id: 'b', label: 'Tabs', desc: 'Status on top, then a segmented control: Not synced yet · History · Remote. Opens on Not synced yet when something waits, else History.' },
+    { id: 'c', label: 'Two columns', desc: 'Left: status, Not synced yet, and the Remote card. Right: History, always in view.' },
+  ], (id) => { variant = id; tab = null; draw(); });
+  const states = seg(STATES, Y.s.state, (id) => { tab = null; Y.setState(id); });
+  vbar.extra.append(states);
+
+  const nothing = () => h('section', { class: 'sy-section' }, h('div', { class: 'sy-h2' }, 'Not synced yet'),
+    h('div', { class: 'sb-card sy-empty' }, 'Nothing waiting. Changes you make here, and changes from your other computers, show up here before they sync.'));
+
+  function draw() {
+    syncSidebar(side);
+    const s = Y.s;
+    if (s.state === 'none' || s.state === 'nogit') return page.replaceChildren(setup(win));
+    const waiting = !!(s.local.length || s.incoming);
+    if (variant === 'a') {
+      return page.replaceChildren(h('div', { class: 'sy-col' }, hero(win), remoteLine(), pending(win), historyList(win)));
+    }
+    if (variant === 'b') {
+      const current = tab || (waiting ? 'pending' : 'history');
+      const n = s.local.length + (s.incoming ? s.incoming.skills.length : 0);
+      const body = { pending: () => pending(win) || nothing(), history: () => historyList(win), remote: () => remoteCard(win) }[current]();
+      body.querySelector('.sy-h2') && body.querySelector('.sy-h2').remove();
+      return page.replaceChildren(h('div', { class: 'sy-col sy-tabs' }, hero(win),
+        seg([{ id: 'pending', label: n ? `Not synced yet · ${n}` : 'Not synced yet' }, { id: 'history', label: 'History' }, { id: 'remote', label: 'Remote' }], current, (id) => { tab = id; draw(); }),
+        body));
+    }
+    page.replaceChildren(h('div', { class: 'sy-two' },
+      h('div', hero(win), pending(win) || nothing(), remoteCard(win)),
+      h('div', historyList(win))));
+  }
+  Y.on(() => {
+    states.querySelectorAll('button').forEach((b) => b.classList.toggle('is-active', b.dataset.id === Y.s.state));
+    draw();
+  });
+  window.addEventListener('sy-draw', draw);
+  draw();
+})();
+</script>
+</body>
+</html>
