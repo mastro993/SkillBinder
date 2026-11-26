@@ -77,6 +77,7 @@ impl Fixture {
                 workspaces: Vec::new(),
                 scan: None,
                 scanning: false,
+                ignored: BTreeSet::new(),
                 updates: BTreeMap::new(),
                 checking: false,
                 updating: None,

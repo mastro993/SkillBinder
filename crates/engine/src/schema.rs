@@ -122,3 +122,11 @@ diesel::table! {
         listed_at -> BigInt,
     }
 }
+
+diesel::table! {
+    ignored_skills (key) {
+        key -> Text,
+        slug -> Text,
+        ignored_at -> BigInt,
+    }
+}

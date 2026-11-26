@@ -72,6 +72,7 @@ actions! {
     Scan => Scan, Job, "scan";
     PrepareFoundImport => Import, Detail, "found import prepare";
     PrepareImportVersion => Import, Detail, "import version prepare";
+    SetIgnored => Import, Change, "ignore set";
     PreviewSkill => Library, Detail, "skill preview";
     PreviewDelete => Presets, Detail, "preset delete preview";
     SavePreferences => App, Change, "preferences save";

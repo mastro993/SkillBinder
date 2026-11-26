@@ -63,8 +63,10 @@ impl SavedSkill {
 }
 
 /// Inserts a skill, or refreshes the payload facts and record of an existing one while keeping its
-/// import time, New mark, folder, and presets.
+/// import time, New mark, folder, and presets. A slug in the library is never ignored, so its
+/// ignore ends here, whichever import, install, or Pull brought it in (ADR 0033).
 pub(crate) fn save_skill(connection: &mut SqliteConnection, record: &SavedSkill) -> AppResult<()> {
+    crate::imports::ignored::forget(connection, &crate::library::normalized(&record.slug))?;
     diesel::insert_into(skills::table)
         .values((
             skills::slug.eq(&record.slug),

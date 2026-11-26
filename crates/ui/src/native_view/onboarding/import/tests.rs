@@ -2,6 +2,7 @@ use super::super::super::DialogState;
 use super::super::super::import_dialog::list::import_label;
 use super::super::super::import_dialog::{End, ImportDialog, Phase, edited};
 use super::super::super::library_copies::{AgentRow, Reader};
+use super::super::super::snapshot_query::fixture::Fixture;
 use super::summary::summary;
 use gpui_kit::{
     AppContext, Bounds, Context, IntoElement, Render, TestAppContext, Window, WindowBounds,
@@ -182,7 +183,8 @@ fn review_list_edits_the_steps_own_list_which_keeps_ticks_and_versions_after_don
         let Phase::Ready(found) = &first.phase else {
             panic!("the step lost its scan");
         };
-        let chosen = first.chosen(found, &[]);
+        let snapshot = Fixture::new().build();
+        let chosen = first.chosen(found, &snapshot);
         assert_eq!(import_label(chosen.ids.len()), "Import 1 skill");
         assert_eq!(chosen.ids, [CandidateId("b2".to_owned())]);
     });

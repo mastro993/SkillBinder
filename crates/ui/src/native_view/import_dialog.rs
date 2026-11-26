@@ -1,10 +1,12 @@
 //! The Import skills dialog (ADR 0008, design D1 to D13): it scans afresh, prepares one plan for
-//! every found skill not in library (ADR 0009), and imports the ticked ones. Library's Scan for
-//! skills and its empty state open it. Onboarding's import step holds the same state, which its
+//! every found skill not in library (ADR 0009), and imports the ticked ones. Ignored skills are
+//! listed apart and never offered (ADR 0033, I1 to I12). Library's Scan for skills and its empty
+//! state open it. Onboarding's import step holds the same state, which its
 //! Review list opens ending with Done (O7).
 
 mod entry;
 mod frame;
+mod ignored;
 pub(super) mod list;
 mod rows;
 #[cfg(test)]
@@ -19,11 +21,11 @@ use super::progress_strip::{Activity, Landing};
 use super::{DialogState, NativeView};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::{AppContext, Context, Entity, Subscription, Window};
+use ignored::Flash;
 use list::Selection;
 use skillbinder_proto::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU64, Ordering};
-use versions::found_skills;
 
 /// How the dialog ends (O7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,6 +85,10 @@ pub(super) struct ImportDialog {
     pending: Option<u64>,
     /// How it ends; onboarding's lists your agents alone, so it names no place.
     pub end: End,
+    /// Whether the Ignored group is open; it starts closed in every dialog (I5).
+    pub ignored_open: bool,
+    /// What flashes once: the Ignored group's header, or a row brought back (I4, I7).
+    pub flash: Option<Flash>,
 }
 
 impl ImportDialog {
@@ -106,13 +112,16 @@ impl ImportDialog {
             changed: false,
             pending: None,
             end,
+            ignored_open: false,
+            flash: None,
         }
     }
 
-    /// What Import takes from `found` with the dialog's ticks.
-    pub(super) fn chosen(&self, found: &FoundImport, workspaces: &[Workspace]) -> Selection {
+    /// What Import takes from `found` with the dialog's ticks, never an ignored skill.
+    pub(super) fn chosen(&self, found: &FoundImport, snapshot: &AppSnapshot) -> Selection {
         let ticked = self.ticked.clone().unwrap_or_default();
-        selection(&groups(found, workspaces), &ticked)
+        let groups = groups(found, &snapshot.workspaces, &snapshot.ignored);
+        selection(&groups, &ticked)
     }
 
     /// Whether a preparation or a version choice is in flight.
@@ -140,19 +149,9 @@ pub(super) fn edited<'a>(
 }
 
 impl NativeView {
-    /// Found skills that are not in library, from the latest completed scan.
-    pub(super) fn not_in_library(&self) -> Vec<&Candidate> {
-        self.snapshot.scan.as_ref().map_or_else(Vec::new, |scan| {
-            scan.candidates
-                .iter()
-                .filter(|candidate| candidate.in_library().is_none())
-                .collect()
-        })
-    }
-
-    /// How many found skills are not in library, counting a skill with several versions once.
+    /// How many found skills the latest completed scan offers, as [`list::found_count`] counts.
     pub(super) fn found_count(&self) -> usize {
-        found_skills(&self.not_in_library()).len()
+        list::found_count(&self.snapshot)
     }
 
     /// Opens the dialog in its Scanning state and starts the scan.
@@ -196,7 +195,7 @@ impl NativeView {
 
     /// Shows preparation `token`'s answer, if the dialog still waits for it.
     fn prepared(&mut self, token: u64, result: AppResult<FoundImport>, cx: &mut Context<Self>) {
-        let workspaces = self.snapshot.workspaces.clone();
+        let snapshot = self.snapshot.clone();
         let Some(dialog) = self.import_dialog_mut() else {
             return;
         };
@@ -207,7 +206,7 @@ impl NativeView {
         dialog.phase = match result {
             Err(error) => Phase::Failed(error.message),
             Ok(found) => {
-                let groups = groups(&found, &workspaces);
+                let groups = groups(&found, &snapshot.workspaces, &snapshot.ignored);
                 let listed: BTreeSet<String> =
                     rows(&groups).map(|row| row.key().to_owned()).collect();
                 match dialog.ticked.as_mut() {
@@ -221,7 +220,12 @@ impl NativeView {
                     .map(|item| &item.candidate_id)
                     .collect();
                 dialog.choices.retain(|_, id| planned.contains(&&*id));
-                if listed.is_empty() {
+                let nothing = found
+                    .scan
+                    .candidates
+                    .iter()
+                    .all(|c| c.in_library().is_some());
+                if nothing {
                     Phase::Empty
                 } else {
                     Phase::Ready(Box::new(found))
@@ -293,12 +297,12 @@ impl NativeView {
         if self.blocked() {
             return None;
         }
-        let workspaces = self.snapshot.workspaces.clone();
+        let snapshot = self.snapshot.clone();
         let dialog = self.import_dialog_mut()?;
         let Phase::Ready(found) = &dialog.phase else {
             return None;
         };
-        let chosen = dialog.chosen(found, &workspaces);
+        let chosen = dialog.chosen(found, &snapshot);
         if !chosen.ready(dialog.acknowledge_invalid) || dialog.busy() {
             return None;
         }

@@ -137,7 +137,7 @@ impl NativeView {
         let list = self.first_import.as_ref();
         let (label, ready) = match (found, list) {
             (Some(found), Some(list)) => {
-                let chosen = list.chosen(found, &self.snapshot.workspaces);
+                let chosen = list.chosen(found, &self.snapshot);
                 let ready = chosen.ready(list.acknowledge_invalid) && !list.busy();
                 (import_label(chosen.ids.len()), ready)
             }

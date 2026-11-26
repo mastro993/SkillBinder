@@ -1,3 +1,4 @@
+pub(crate) mod ignored;
 pub(crate) mod placement;
 mod plan;
 

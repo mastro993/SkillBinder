@@ -7,6 +7,7 @@ The audited shipped baseline is revision `83d55ef789a7cf256021f6620742e0e9021a83
 - [Application shell (continued)](native/application-shell-continued.md)
 - [Workspaces, scanning, and agent pages](native/workspaces-and-scanning.md)
 - [Scanning and imports](native/imports.md)
+- [Ignored skills](native/ignored-skills.md)
 - [Library and organization](native/library-and-organization.md)
 - [Library rows, filters, and where skills are on](native/library-rows.md)
 - [Explore](native/explore.md)
