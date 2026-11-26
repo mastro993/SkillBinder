@@ -91,6 +91,7 @@ mod tests {
                 Reader::Agent(ids[0].to_owned())
             },
             name: name.to_owned(),
+            names: vec![name.to_owned()],
             ids: ids.iter().map(|id| (*id).to_owned()).collect(),
             dir: String::new(),
             resolved: resolved.to_owned(),

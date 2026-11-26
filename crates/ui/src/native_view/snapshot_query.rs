@@ -37,10 +37,7 @@ impl Entry {
     pub(super) fn grouped(rows: impl IntoIterator<Item = (AgentRow, Vec<String>)>) -> Vec<Self> {
         let mut entries: Vec<Self> = Vec::new();
         for (row, keys) in rows {
-            let readers = match &row.reader {
-                Reader::Universal(names) => names.clone(),
-                Reader::Agent(_) => vec![row.name.clone()],
-            };
+            let readers = row.names.clone();
             match entries
                 .iter_mut()
                 .find(|entry| entry.row.resolved == row.resolved)
@@ -57,10 +54,7 @@ impl Entry {
 
     /// Every agent that reads the directory, by name, the one whose logo it shows first.
     pub(super) fn names(&self) -> Vec<&str> {
-        self.readers
-            .iter()
-            .flat_map(|names| names.split(NAMES))
-            .collect()
+        self.readers.iter().map(String::as_str).collect()
     }
 
     /// What a pill reads: the name of the agent whose logo it shows, then `+<N>` for the other
@@ -78,7 +72,8 @@ impl Entry {
     /// already say it.
     pub(super) fn detail(&self) -> Option<String> {
         let universal = matches!(self.row.reader, Reader::Universal(_));
-        (universal || self.readers.len() > 1).then(|| self.readers.join(", "))
+        let listed = self.readers.join(NAMES);
+        ((universal || self.readers.len() > 1) && listed != self.row.name).then_some(listed)
     }
 }
 

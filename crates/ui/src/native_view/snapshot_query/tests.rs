@@ -452,6 +452,18 @@ fn a_pill_reads_the_agent_whose_logo_it_shows_and_counts_the_others() {
 }
 
 #[test]
+fn a_name_holding_a_comma_stays_one_agent() {
+    let snapshot = base()
+        .agent("acme", "Acme, Inc.", ".claude/skills", ".acme/skills", true)
+        .build();
+    let places = Places::new(&snapshot);
+    let api = &places.workspaces[1].entries[0];
+    assert_eq!(api.names(), ["Claude Code", "Acme, Inc."]);
+    assert_eq!(api.label(), "Claude Code +1");
+    assert_eq!(api.detail(), None, "the row's name already lists them");
+}
+
+#[test]
 fn directories_resolving_to_one_folder_share_a_pill() {
     let snapshot = base()
         .workspace("linked", &[".agents/skills", ".claude/skills"])
