@@ -1,7 +1,8 @@
 //! A workspace's page: only the library skills it holds, as Library rows in one card under the
-//! search shared with Library, each with the agents it is held for there and Delete. The header
-//! draws the workspace's head and Add skill. With no skill it shows its empty state, and while its
-//! folder is missing a note, with every control inactive.
+//! search shared with Library, each with the agents it is held for there and Delete, then the
+//! skills found in its folder that are not in library (ADR 0036). The header draws the
+//! workspace's head and Add skill. With no skill on or found it shows its empty state, and while
+//! its folder is missing a note, with every control inactive.
 
 mod agents;
 mod removal;
@@ -9,11 +10,12 @@ mod removal;
 pub(super) use removal::remove_button;
 
 use super::NativeView;
+use super::found_rows::FoundPage;
 use super::library_copies::{agent_rows, placements};
 use super::library_items::{RowEnd, SkillItem};
 use super::library_targets::{held, sharing};
 use super::skill_picker::Place;
-use super::snapshot_query::{Entry, has_update, workspace_skills};
+use super::snapshot_query::{Entry, Here, found_here, has_update, workspace_skills};
 use super::workspace_icons::sized_icon;
 use super::workspace_targets::folders;
 use gpui_kit::component::{ActiveTheme, Sizable};
@@ -43,11 +45,16 @@ impl NativeView {
             return div().into_any_element();
         };
         let held = workspace_skills(&self.snapshot, workspace);
+        let found = FoundPage {
+            found: found_here(&self.snapshot, Here::Workspace(&workspace.id)),
+            workspace: Some(workspace),
+            nothing_on: nothing_on(workspace),
+        };
         let page = self
             .scoped_page()
             .when(workspace.missing, |page| page.child(missing_note()))
             .children(self.render_update_outcome(cx));
-        if held.is_empty() {
+        if held.is_empty() && found.found.is_empty() {
             return page
                 .child(self.empty_workspace(workspace, cx))
                 .into_any_element();
@@ -55,7 +62,8 @@ impl NativeView {
         self.scoped_list(
             page,
             held,
-            |view, shown, cx| view.workspace_list(workspace, shown, cx),
+            &found,
+            |view, shown, search, cx| view.workspace_list(workspace, shown, &found, search, cx),
             cx,
         )
     }
@@ -65,6 +73,8 @@ impl NativeView {
         &self,
         workspace: &Workspace,
         skills: &[&skillbinder_proto::Skill],
+        page: &FoundPage<'_>,
+        search: &str,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Some(library) = &self.snapshot.library else {
@@ -93,7 +103,7 @@ impl NativeView {
                 }),
             })
             .collect();
-        self.skill_list(&items, false, None, cx)
+        self.page_list(&items, page, search, cx)
     }
 
     /// "All agents", or the names of your agents the active preset holds `skill` for.
@@ -135,6 +145,17 @@ impl NativeView {
             .workspaces
             .iter()
             .find(|workspace| &workspace.id == id)
+    }
+}
+
+/// The card's line while nothing is on in `workspace`: "No skills on in <workspace>", and "No
+/// agents here yet" while it uses none (U9).
+fn nothing_on(workspace: &Workspace) -> String {
+    let line = format!("No skills on in {}", workspace.name);
+    if workspace.dirs.is_empty() {
+        format!("{line} · No agents here yet")
+    } else {
+        line
     }
 }
 

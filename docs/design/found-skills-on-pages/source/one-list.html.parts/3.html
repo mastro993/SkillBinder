@@ -1,0 +1,93 @@
+  // ---- one list ------------------------------------------------------------------------------
+  // Every row of the page, one per skill: on here (library), not in library, or ignored.
+  function rows(view, g) {
+    const on = g.on.map((slug) => ({ kind: 'on', slug }));
+    const notIn = g.notIn.map((f) => ({ kind: 'notIn', slug: f.slug, f }));
+    const ignored = g.ignored.map((f) => ({ kind: 'ignored', slug: f.slug, f }));
+    if (ui.variant === 'grouped') return [...on, ...notIn, ...ignored];
+    const all = [...on, ...notIn, ...ignored].sort((a, b) => a.slug.localeCompare(b.slug));
+    if (ui.variant !== 'filter' || ui.filter === 'all') return all;
+    return all.filter((r) => r.kind === ui.filter);
+  }
+  const row = (view, r) => (r.kind === 'on' ? onRow(view, r.slug) : r.kind === 'notIn' ? notInRow(view, r.f) : ignoredRow(view, r.f));
+
+  // Bulk actions for the found skills, at the end of the toolbar.
+  function bulk(view, g) {
+    if (!g.notIn.length) return null;
+    return h('div', { class: 'ps-tools-end' },
+      h('span', { class: 'ps-count' }, `${g.notIn.length} not in library`),
+      btn('Ignore all', 'ps-ghost', () => ignore(g.notIn.map((f) => f.slug)), 'Ignore every skill not in library here'),
+      btn('Import…', 'sb-btn-outline', () => openImport(view, g.notIn)));
+  }
+
+  // ---- pages -------------------------------------------------------------------------------
+  const search = searchInput({ onInput: (q) => { ui.query = q; drawBody(); } });
+  const tools = h('div', { class: 'ps-tools sb-toolbar' }, search);
+  const body = h('div');
+  const addBtn = () => h('button', { class: 'sb-btn sb-btn-primary sb-btn-sm', onclick: () => toast(win, 'Add skill opens the picker (unchanged)') }, ic('plus', 14), 'Add skill');
+
+  function drawHead(view) {
+    const [kind, id] = view.split(':');
+    if (kind === 'ws') {
+      const ws = DATA.workspace(id);
+      hdr.replaceChildren(h('div', { class: 'sp-head' }, h('span', { class: 'sp-head-ic', html: icon('code-folder', 16) }),
+        h('span', { class: 'sb-title' }, ws.name), h('span', { class: 'sp-path' }, ws.path)), h('div', { class: 'sb-header-actions' }, addBtn()));
+      return;
+    }
+    const t = DATA.target(id);
+    hdr.replaceChildren(h('div', { class: 'sp-head' }, h('span', { class: 'sp-head-ic', html: icon(t.logo, 16) }),
+      h('span', { class: 'sb-title' }, t.name), h('span', { class: 'sp-path' }, t.path)),
+      h('div', { class: 'sb-header-actions' }, presetChip(), addBtn()));
+  }
+
+  function drawBody() {
+    const view = ui.view;
+    const [kind, id] = view.split(':');
+    const g = groups(view);
+    const ws = kind === 'ws' && DATA.workspace(id);
+    const name = ws ? ws.name : DATA.target(id).name;
+    const filter = ui.variant === 'filter'
+      ? seg([{ id: 'all', label: 'All', count: g.on.length + g.notIn.length + g.ignored.length }, { id: 'on', label: 'On here', count: g.on.length },
+        { id: 'notIn', label: 'Not in library', count: g.notIn.length }, { id: 'ignored', label: 'Ignored', count: g.ignored.length }],
+      ui.filter, (v) => { ui.filter = v; drawBody(); })
+      : null;
+    tools.replaceChildren(...[search, filter, bulk(view, g)].filter(Boolean));
+    const list = rows(view, g);
+    const q = ui.query.trim();
+    const empty = q ? `No skills match '${q}'` : g.on.length || ui.variant === 'filter'
+      ? 'Nothing here' : `No skills on in ${name}${ws && !ws.dirs.length ? ' · No agents here yet' : ''}`;
+    const noneOn = !q && !g.on.length && list.length && ui.variant !== 'filter'
+      ? h('div', { class: 'ps-empty-line' }, `No skills on in ${name}${ws && !ws.dirs.length ? ' · No agents here yet' : ''}`) : null;
+    body.replaceChildren(list.length
+      ? h('div', { class: 'sb-card' }, noneOn, list.map((r) => row(view, r)))
+      : h('div', { class: 'sb-card' }, h('div', { class: 'ps-empty-line' }, empty)));
+    ui.flash.clear();
+  }
+
+  function draw() {
+    const [kind] = ui.view.split(':');
+    if (kind !== 'ws' && kind !== 'agent') {
+      hdr.replaceChildren(h('span', { class: 'sb-title' }, 'Not in this prototype'));
+      page.replaceChildren(emptyState({ icon: 'libraries', title: 'Not in this prototype', sub: 'Open a workspace or an agent' }));
+      return;
+    }
+    drawHead(ui.view);
+    if (tools.parentNode !== page) page.replaceChildren(tools, body);
+    drawBody();
+  }
+
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'flat', label: 'Flat', desc: 'One list sorted by name: skills on here, Not in library, and Ignored mixed, each found one tagged.' },
+    { id: 'grouped', label: 'On here first', desc: 'One list, no headers: skills on here first, then Not in library, then Ignored, each found one tagged.' },
+    { id: 'filter', label: 'Flat + filter', desc: 'The flat list with a filter beside the search: All · On here · Not in library · Ignored.' },
+  ], (id) => { ui.variant = id; ui.filter = 'all'; draw(); });
+  bar.extra.append(h('button', {
+    class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Reset demo data', 'aria-label': 'Reset demo data',
+    onclick: () => { reset(); DATA.reset(); },
+  }, ic('refresh-03', 15)));
+
+  renderSidebar(side, { active: ui.view, onNav: (key) => { ui.view = key; renderSidebar(side, { active: key }); draw(); } });
+  DATA.on(() => draw());
+})();
+</script>
+</body>

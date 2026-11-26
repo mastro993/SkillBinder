@@ -108,9 +108,8 @@ impl NativeView {
     }
 
     /// A row of the list card: name and one description line, with its end at the trailing
-    /// edge. The first and last rows round their outer corners so the hover fill follows the
-    /// card's.
-    fn skill_row(
+    /// edge.
+    pub(super) fn skill_row(
         &self,
         item: &SkillItem<'_>,
         index: usize,
@@ -120,23 +119,9 @@ impl NativeView {
     ) -> AnyElement {
         let owner = format!("skill-row-{}", item.skill.id);
         let hover = cx.theme().muted;
-        let inner = px(Surface::new(Level::Flat).inner_radius());
-        let row = div()
-            .id(owner.clone())
-            .group(ITEM_GROUP)
-            .relative()
-            .flex()
-            .items_center()
-            .gap(px(ROW_GAP))
-            .w_full()
-            .min_h(px(ROW_MIN_HEIGHT))
-            .px(px(ROW_PADDING_X))
-            .py(px(ROW_PADDING_Y))
+        let row = row_frame(owner.clone(), ITEM_GROUP, index, last)
             .cursor_pointer()
             .hover(move |row| row.bg(hover))
-            .when(index == 0, |row| row.rounded_t(inner))
-            .when(last, |row| row.rounded_b(inner))
-            .when(index > 0, |row| row.child(divider()))
             .child(
                 v_flex()
                     .flex_1()
@@ -261,6 +246,32 @@ where
     .w_full()
     .min_w_0()
     .into_any_element()
+}
+
+/// A row of the list card, `id`, in hover group `group`, at `index`: every row but the first
+/// draws a divider above it, and the first and last round their outer corners so a hover fill
+/// follows the card's.
+pub(super) fn row_frame(
+    id: String,
+    group: &'static str,
+    index: usize,
+    last: bool,
+) -> gpui_kit::Stateful<Div> {
+    let inner = px(Surface::new(Level::Flat).inner_radius());
+    div()
+        .id(id)
+        .group(group)
+        .relative()
+        .flex()
+        .items_center()
+        .gap(px(ROW_GAP))
+        .w_full()
+        .min_h(px(ROW_MIN_HEIGHT))
+        .px(px(ROW_PADDING_X))
+        .py(px(ROW_PADDING_Y))
+        .when(index == 0, |row| row.rounded_t(inner))
+        .when(last, |row| row.rounded_b(inner))
+        .when(index > 0, |row| row.child(divider()))
 }
 
 /// A hairline at the top of every row but the first, inset from both card edges so it starts

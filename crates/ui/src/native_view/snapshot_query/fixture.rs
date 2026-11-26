@@ -6,10 +6,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use skillbinder_proto::{
     AgentDir, AgentOption, AppSnapshot, AppUpdateSnapshot, AppUpdateState, AppVersion, Bootstrap,
-    Channel, DirRole, Drift, ExploreSnapshot, FolderId, GitInstall, Library, LibrarySnapshot,
-    Onboarding, OnboardingStep, Preferences, Preset, PresetIcon, PresetId, SameSlug, Skill,
-    SkillDetails, SkillId, SkillUpdate, StepStatus, SyncSnapshot, Targets, UpdateCheck, Workspace,
-    WorkspaceId, WorkspaceTargets,
+    Candidate, CandidateId, CandidateLocation, Channel, DirRole, Drift, ExploreSnapshot, FolderId,
+    GitInstall, Library, LibrarySnapshot, Onboarding, OnboardingStep, Preferences, Preset,
+    PresetIcon, PresetId, SameSlug, ScanSnapshot, Skill, SkillDetails, SkillId, SkillUpdate,
+    StepStatus, SyncSnapshot, Targets, UpdateCheck, ValidationStatus, Workspace, WorkspaceId,
+    WorkspaceTargets,
 };
 
 /// The fixture's home folder.
@@ -307,8 +308,89 @@ impl Fixture {
         self
     }
 
+    /// The last completed scan found a version of `slug`, with `description`, at each of `at`.
+    /// Each call adds a version, so calling it twice for one slug adds a second one.
+    pub(crate) fn found(mut self, slug: &str, description: &str, at: &[At<'_>]) -> Self {
+        let scan = self.snapshot.scan.get_or_insert_with(|| ScanSnapshot {
+            candidates: Vec::new(),
+            error: None,
+        });
+        let version = scan.candidates.len();
+        scan.candidates.push(Candidate {
+            id: CandidateId(format!("{slug}@{version}")),
+            key: slug.to_lowercase(),
+            preferred: !scan
+                .candidates
+                .iter()
+                .any(|found| found.key == slug.to_lowercase()),
+            matches_source: false,
+            modified: None,
+            skill_id: None,
+            held: None,
+            slug: slug.to_owned(),
+            description: description.to_owned(),
+            locations: at.iter().map(|at| at.location(slug)).collect(),
+            validation: ValidationStatus::Valid,
+            messages: Vec::new(),
+            total_bytes: 1,
+            file_count: 1,
+        });
+        self
+    }
+
+    /// The last found version's library skill holding its slug.
+    pub(crate) fn held(mut self) -> Self {
+        if let Some(found) = self
+            .snapshot
+            .scan
+            .as_mut()
+            .and_then(|scan| scan.candidates.last_mut())
+        {
+            found.held = Some(id(&found.slug));
+        }
+        self
+    }
+
+    /// The user ignored `slug`.
+    pub(crate) fn ignore(mut self, slug: &str) -> Self {
+        self.snapshot
+            .ignored
+            .insert(slug.to_lowercase(), slug.to_owned());
+        self
+    }
+
     pub(crate) fn build(self) -> AppSnapshot {
         self.snapshot
+    }
+}
+
+/// Where a fixture's found skill sits.
+#[derive(Clone, Copy)]
+pub(crate) enum At<'a> {
+    /// The global skill directory `dir` under home, the own one of the agents `agents`.
+    Global(&'a str, &'a [&'a str]),
+    /// The directory `dir` in the workspace named `name`.
+    Workspace(&'a str, &'a str),
+}
+
+impl At<'_> {
+    fn location(self, slug: &str) -> CandidateLocation {
+        let owned = |ids: &[&str]| ids.iter().map(|id| (*id).to_owned()).collect();
+        let (directory, global_agents, workspaces) = match self {
+            Self::Global(dir, agents) => (format!("{HOME}/{dir}"), owned(agents), Vec::new()),
+            Self::Workspace(name, dir) => (
+                format!("{HOME}/code/{name}/{dir}"),
+                Vec::new(),
+                vec![WorkspaceId(name.to_owned())],
+            ),
+        };
+        CandidateLocation {
+            display_path: format!("{directory}/{slug}"),
+            readers: Vec::new(),
+            agents: Vec::new(),
+            global_agents,
+            workspaces,
+        }
     }
 }
 

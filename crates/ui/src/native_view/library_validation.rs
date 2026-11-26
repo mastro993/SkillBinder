@@ -1,9 +1,10 @@
 //! Library skills whose validation reports warnings or fails, such as one pulled from another
-//! device with invalid `SKILL.md` frontmatter: the glyph on their row or card.
+//! device with invalid `SKILL.md` frontmatter: the glyph on their row or card. A found skill's
+//! row on a page marks its version the same way.
 
 use gpui_kit::{AnyElement, IntoElement};
 use skillbinder_design::{Status, StatusGlyph};
-use skillbinder_proto::{SkillDetails, SkillId, ValidationStatus};
+use skillbinder_proto::{Candidate, SkillDetails, SkillId, ValidationMessage, ValidationStatus};
 
 /// The color of a validation glyph.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -22,22 +23,16 @@ struct Mark {
     tooltip: String,
 }
 
-/// A skill's mark, or `None` while it is valid or has no details.
-fn mark(details: Option<&SkillDetails>) -> Option<Mark> {
-    let details = details?;
-    let (tone, heading) = match details.validation {
+/// The mark of a skill validated as `validation` with `messages`, or `None` while it is valid.
+fn mark(validation: ValidationStatus, messages: &[ValidationMessage]) -> Option<Mark> {
+    let (tone, heading) = match validation {
         ValidationStatus::Valid => return None,
         ValidationStatus::Warning => (Tone::Warning, "Passes validation with warnings"),
         ValidationStatus::Invalid => (Tone::Danger, "Fails validation"),
         ValidationStatus::Blocked => (Tone::Danger, "Blocked: this skill can't safely be copied"),
     };
     let tooltip = std::iter::once(heading)
-        .chain(
-            details
-                .messages
-                .iter()
-                .map(|message| message.message.as_str()),
-        )
+        .chain(messages.iter().map(|message| message.message.as_str()))
         .collect::<Vec<_>>()
         .join("\n");
     Some(Mark { tone, tooltip })
@@ -46,21 +41,28 @@ fn mark(details: Option<&SkillDetails>) -> Option<Mark> {
 /// The alert glyph of a skill whose validation reports warnings or fails: warning-colored for
 /// warnings, danger-colored while it is invalid or blocked.
 pub(super) fn validation_glyph(id: &SkillId, details: Option<&SkillDetails>) -> Option<AnyElement> {
-    let Mark { tone, tooltip } = mark(details)?;
+    let details = details?;
+    let mark = mark(details.validation, &details.messages)?;
+    Some(glyph(format!("validation-{id}"), mark))
+}
+
+/// The glyph of a found skill's `version`, as [`validation_glyph`] marks a library skill.
+pub(super) fn found_glyph(version: &Candidate) -> Option<AnyElement> {
+    let mark = mark(version.validation, &version.messages)?;
+    Some(glyph(format!("found-validation-{}", version.key), mark))
+}
+
+fn glyph(id: String, Mark { tone, tooltip }: Mark) -> AnyElement {
     let status = match tone {
         Tone::Warning => Status::Warning,
         Tone::Danger => Status::Danger,
     };
-    Some(
-        StatusGlyph::new(format!("validation-{id}"), status, "alert-circle", tooltip)
-            .into_any_element(),
-    )
+    StatusGlyph::new(id, status, "alert-circle", tooltip).into_any_element()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use skillbinder_proto::ValidationMessage;
 
     fn details(
         validation: ValidationStatus,
@@ -79,10 +81,14 @@ mod tests {
         }
     }
 
+    fn marked(details: &SkillDetails) -> Option<Mark> {
+        mark(details.validation, &details.messages)
+    }
+
     #[test]
     fn a_valid_skill_or_one_without_details_has_no_mark() {
-        assert_eq!(mark(None), None);
-        assert_eq!(mark(Some(&details(ValidationStatus::Valid, &[]))), None);
+        assert!(validation_glyph(&SkillId("a".to_owned()), None).is_none());
+        assert_eq!(marked(&details(ValidationStatus::Valid, &[])), None);
     }
 
     #[test]
@@ -92,7 +98,7 @@ mod tests {
             &[(ValidationStatus::Warning, ".git metadata is excluded.")],
         );
         assert_eq!(
-            mark(Some(&warned)),
+            marked(&warned),
             Some(Mark {
                 tone: Tone::Warning,
                 tooltip: "Passes validation with warnings\n.git metadata is excluded.".to_owned(),
@@ -113,7 +119,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            mark(Some(&invalid)),
+            marked(&invalid),
             Some(Mark {
                 tone: Tone::Danger,
                 tooltip: "Fails validation\nThe skill description is missing.\n\
@@ -129,7 +135,7 @@ mod tests {
             )],
         );
         assert_eq!(
-            mark(Some(&blocked)),
+            marked(&blocked),
             Some(Mark {
                 tone: Tone::Danger,
                 tooltip:

@@ -49,3 +49,19 @@ fn the_overlap_mark_keeps_the_four_labels() {
     assert_eq!(overlap_label(Overlap::Overrides), "Overrides your agents");
     assert_eq!(overlap_label(Overlap::OneCopy), "One copy is used");
 }
+
+#[test]
+fn the_nothing_on_line_says_when_the_workspace_uses_no_agents() {
+    let snapshot = Fixture::new()
+        .workspace("docs-site", &[])
+        .workspace("acme-web", &[".claude/skills"])
+        .build();
+    let lines: Vec<String> = snapshot.workspaces.iter().map(nothing_on).collect();
+    assert_eq!(
+        lines,
+        [
+            "No skills on in docs-site · No agents here yet",
+            "No skills on in acme-web"
+        ]
+    );
+}

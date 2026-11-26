@@ -68,6 +68,7 @@ impl NativeView {
     pub(super) fn leave_page(&mut self) {
         self.preview = None;
         self.update_outcome = None;
+        self.found_flash = None;
         self.skill_load = None;
         self.place_popover = None;
         self.library_reveal = None;

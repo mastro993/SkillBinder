@@ -6,14 +6,15 @@ This folder holds the prototype the user approved on 2026-11-26 for [the found-s
 
 | Area | Prototype | Variant the user picked | Screenshot |
 |---|---|---|---|
-| Workspace, agent, and Universal pages | `prototypes/place-pages.html` | A "Sections" | ![acme-web's page: skills on here, then Not in library and Ignored](screenshots/workspace-page.png) |
+| Workspace, agent, and Universal pages | `prototypes/one-list.html` | A "Flat" (2026-11-26, replaces `place-pages.html`'s A "Sections") | ![acme-web's page: one list mixing skills on here with found skills tagged Not in library](screenshots/one-list.png) |
 
-The variant bar still switches to the rejected B "Filter" (a segmented control beside the search) and C "One list" (one card with group headers). The prototype's Import… opens a placeholder. The real dialog is the Import skills dialog ([ignore-skills](../ignore-skills/README.md)), narrowed to the place.
+`one-list.html`'s variant bar still switches to the rejected B "On here first" (the same list with the skills on here first) and C "Flat + filter" (a segmented control beside the search). `place-pages.html`, with its rejected A "Sections", B "Filter", and C "One list" (group headers), and its screenshot `screenshots/workspace-page.png`, stay as the earlier round. The prototypes' Import… opens a placeholder. The real dialog is the Import skills dialog ([ignore-skills](../ignore-skills/README.md)), narrowed to the place.
 
 ## Sources
 
-`source/place-pages.html.parts/` is the editable page. It links the shared kit in `../scoped-pages/source/kit/` and keeps its found-skill fixture inline. Rebuild the bundle with:
+`source/one-list.html.parts/` is the editable chosen page, and `source/place-pages.html.parts/` the earlier one. Each links the shared kit in `../scoped-pages/source/kit/` and keeps its found-skill fixture inline. Rebuild the bundles with:
 
 ```sh
+python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/found-skills-on-pages/source/one-list.html docs/design/found-skills-on-pages/prototypes/one-list.html
 python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/found-skills-on-pages/source/place-pages.html docs/design/found-skills-on-pages/prototypes/place-pages.html
 ```

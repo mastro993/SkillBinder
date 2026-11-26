@@ -171,6 +171,7 @@ impl NativeView {
             preference_writes: shell::PreferenceWrites::default(),
             preview: None,
             update_outcome: None,
+            found_flash: None,
             skill_load: None,
             search,
             preset_name,

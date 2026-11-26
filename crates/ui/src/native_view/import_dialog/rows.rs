@@ -244,7 +244,7 @@ impl NativeView {
     }
 
     /// Runs `edit` on the open Import skills dialog.
-    pub(super) fn edit_import(
+    pub(in crate::native_view) fn edit_import(
         &mut self,
         edit: impl FnOnce(&mut ImportDialog),
         cx: &mut Context<Self>,

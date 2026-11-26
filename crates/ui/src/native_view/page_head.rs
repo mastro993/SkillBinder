@@ -1,8 +1,10 @@
 //! A scoped page's header in place of the breadcrumb: the place's glyph, its name in semibold, an
 //! optional extra such as an avatar stack, a dot, then its folder in mono, muted, with home
 //! shortened to `~`, truncating with an ellipsis. Below it, the page's skills in one card under
-//! the search shared with Library.
+//! the search shared with Library, beside the found skills' tools, with the found skills in the
+//! same card.
 
+use super::found_rows::FoundPage;
 use super::library_copies::shown_dir;
 use super::skill_picker::Place;
 use super::snapshot_query::matching;
@@ -85,25 +87,35 @@ impl NativeView {
         v_flex().w_full().p(px(GUTTER)).gap(px(GAP))
     }
 
-    /// `page` with the search, then the `held` skills it keeps in the card `list` draws, or "No
-    /// skills match" when it keeps none.
+    /// `page` with the search, ending with the `found` skills' tools, then the one card `list`
+    /// draws of the `held` skills and the found skills the search keeps, or "No skills match"
+    /// when it keeps none (U8).
     pub(super) fn scoped_list(
         &self,
         page: Div,
         held: Vec<&Skill>,
-        list: impl FnOnce(&Self, &[&Skill], &mut Context<Self>) -> AnyElement,
+        found: &FoundPage<'_>,
+        list: impl FnOnce(&Self, &[&Skill], &str, &mut Context<Self>) -> AnyElement,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let typed = self.search.read(cx).value().trim().to_owned();
-        let shown = matching(&self.snapshot, held, &typed.to_lowercase());
-        let search = SearchField::new("page-search", &self.search).width(SEARCH_WIDTH);
-        let results = if shown.is_empty() {
-            EmptyState::new("page-empty", format!("No skills match '{typed}'"))
-                .icon("search")
-                .into_any_element()
-        } else {
-            list(self, &shown, cx)
-        };
-        page.child(search).child(results).into_any_element()
+        let search = typed.to_lowercase();
+        let shown = matching(&self.snapshot, held, &search);
+        let tools = h_flex()
+            .w_full()
+            .gap(px(space::MD))
+            .child(SearchField::new("page-search", &self.search).width(SEARCH_WIDTH))
+            .children(self.found_tools(found, cx));
+        let page = page.child(tools);
+        if shown.is_empty() && !found.found.iter().any(|row| row.matches(&search)) {
+            return page
+                .child(
+                    EmptyState::new("page-empty", format!("No skills match '{typed}'"))
+                        .icon("search"),
+                )
+                .into_any_element();
+        }
+        page.child(list(self, &shown, &search, cx))
+            .into_any_element()
     }
 }
