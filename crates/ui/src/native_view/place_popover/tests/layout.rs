@@ -27,7 +27,10 @@ fn place(_: &App) -> impl IntoElement {
             .h(px(24.))
             .test_support()
     };
-    let head = place_head(sized("name".into(), 400.), sized("status".into(), 60.));
+    let head = place_head(
+        sized("name".into(), 400.),
+        Some(sized("status".into(), 60.)),
+    );
     div()
         .absolute()
         .top(px(100.))

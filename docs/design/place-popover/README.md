@@ -10,15 +10,15 @@ With many workspaces the old popover was hard to read: its pills showed only log
 
 | Area | Prototype | Variant the user picked | Screenshot |
 |---|---|---|---|
-| Placement popover | `prototypes/popover.html` | B "Labeled pills" (2026-11-26) | ![The popover with eight workspaces: each place's name and status over pills naming their agents](screenshots/labeled-pills.png) |
+| Placement popover | `prototypes/popover.html` | B "Labeled pills" (2026-11-26) | ![The popover with eight workspaces: each workspace's name over pills naming their agents](screenshots/labeled-pills.png) |
 
 The variant bar still switches to "Now" (the popover before), the rejected A "Grid" (one column per agent directory, checkboxes in rows), and the rejected C "Summary, expand one" (one line per place, a checklist when opened). "Data" switches between a few places and a crowded machine.
 
 ## Decisions
 
 1. **Labeled pills.** Each pill holds its directory's logo and label, as the design system's `ToggleChip`, dashed. The label is the name of the agent whose logo it shows, then `+<N>` for the other agents that read the directory: in a workspace, `.claude/skills` is read by several agents and reads "Claude Code +5" (found in the native check; the prototype shows one agent per pill). On: the `accent-soft` fill, the label in its foreground, and the logo in its own colors. Off: the dashed outline, the label muted, and the logo grayscale at half opacity. A pill's tooltip lists the agents that read its directory, when the label does not name them all.
-2. **One block per place.** "Your agents" with the preset chip, its pills, then the All agents switch under them. Each workspace: its glyph and name, cut short with `…`, and at the trailing edge its status, then its pills wrapping across the popover's full width from the leading edge. Hairlines divide the workspaces.
-3. **Status.** A workspace's status reads "<N> of <M> on", "Off", "No agents yet" while it uses no agent, or "Folder missing".
+2. **One block per place.** "Your agents" with the preset chip, its pills, then the All agents switch under them. Each workspace: its glyph and name, cut short with `…`, and at the trailing edge any status, then its pills wrapping across the popover's full width from the leading edge. Hairlines divide the workspaces.
+3. **Status.** A workspace's head adds only what its pills do not show: "No agents yet" while it uses no agent, or "Folder missing". A count ("2 of 5 on") and "Off" repeated the pills, so the user dropped them (2026-11-26).
 4. **Size.** The popover is 360 points wide. The workspaces list scrolls once it is 320 points tall, under the scroll fades, with the Your agents block above it always in view.
 5. **Tab order** follows the drawing order: your agents' pills, the switch, then each workspace's pills.
 

@@ -2,11 +2,11 @@
 //! page's header, whose surface a workspace page's agents menu shares. "Your agents" edits the
 //! active preset: a labeled pill per skill directory of your agents and an All agents switch.
 //! Each workspace's block edits that workspace, one pill per directory it uses, or, while it uses
-//! none, per directory your agents offer, under its name and how many of them hold the skill.
-//! Each change saves at once; the last pill off removes the skill from that place without asking.
-//! It stays open across changes and closes on a press outside, Escape, a scroll of the list, or
-//! leaving the page. The keyboard reaches every control, as [`focus`] describes. It is Kit's
-//! popover surface, placed by Kit's positioner from where its
+//! none, per directory your agents offer, under its name. Each change saves at once; the last
+//! pill off removes the skill from that place without asking. It stays open across changes and
+//! closes on a press outside, Escape, a scroll of the list, or leaving the page. The keyboard
+//! reaches every control, as [`focus`] describes. It is Kit's popover surface, placed by Kit's
+//! positioner from where its
 //! trigger was last painted.
 
 mod focus;
@@ -314,14 +314,14 @@ pub(super) fn place_block(
         )
 }
 
-/// A block's head: `lead`, cut short when it does not fit, then `status` at the trailing edge,
-/// which always shows whole.
-pub(super) fn place_head(lead: impl IntoElement, status: impl IntoElement) -> Div {
+/// A block's head: `lead`, cut short when it does not fit, then any `status` at the trailing
+/// edge, which always shows whole.
+pub(super) fn place_head(lead: impl IntoElement, status: Option<impl IntoElement>) -> Div {
     div()
         .flex()
         .items_center()
         .gap(px(space::MD))
         .min_h(px(space::CONTROL_SM))
         .child(div().flex_1().min_w_0().child(lead))
-        .child(div().flex_none().child(status))
+        .children(status.map(|status| div().flex_none().child(status)))
 }

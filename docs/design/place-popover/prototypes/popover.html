@@ -286,9 +286,8 @@ function labeledB() {
     <div style="margin-top:8px" class="muted">${allSwitch()}</div></div>`;
   h += `<div class="hr" style="margin-top:4px;margin-bottom:4px"></div><div class="sh">Workspaces</div><div class="scroll" style="max-height:360px">`;
   M.ws.forEach((w, i) => {
-    const n = w.on.length;
     h += `<div class="blk ${w.missing ? "missing" : ""}"><div class="top">${folder}<span class="trunc" style="flex:1">${w.name}</span>
-      <span class="muted small">${w.missing ? "Folder missing" : !w.dirs.length ? "No agents yet" : n ? `${n} of ${w.dirs.length} on` : "Off"}</span></div>
+      <span class="muted small">${w.missing ? "Folder missing" : !w.dirs.length ? "No agents yet" : ""}</span></div>
       <div class="tags">${wsDirs(w).map(k => tag(wsOn(w, k), k, `toggleWs(${i},'${k}')`)).join("")}</div></div>`;
   });
   h += `</div>`;

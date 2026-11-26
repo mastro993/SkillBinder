@@ -1,6 +1,6 @@
 //! The popover's content: "Your agents", with the preset chip, a labeled pill per skill
-//! directory of your agents, and the All agents switch, then a block per workspace: its name, how
-//! many of its pills are on, and its pills, in a list that scrolls once it is tall. The switch is
+//! directory of your agents, and the All agents switch, then a block per workspace: its name, a
+//! note while its folder is missing or it uses no agent, and its pills, in a list that scrolls once it is tall. The switch is
 //! Kit's base switch and the pills the design system's toggle chips, on the popover's own focus
 //! handles. A control saves through the view showing the popover on a click, or on Enter or Space
 //! while it has focus, and does nothing, with no hover or hand cursor, while that view is
@@ -178,7 +178,7 @@ impl Sections<'_> {
                 ScrollArea::new("place-workspaces")
                     .fill(theme.popover)
                     .max_h(px(POPOVER_LIST_MAX_HEIGHT))
-                    // Room at the trailing edge for Kit's scrollbar, clear of the statuses.
+                    // Room at the trailing edge for Kit's scrollbar, clear of the heads.
                     .child(
                         v_flex()
                             .gap(px(space::MD))
@@ -189,8 +189,8 @@ impl Sections<'_> {
             .into_any_element()
     }
 
-    /// A workspace's glyph and name, how many of its pills are on, then its pills. A workspace
-    /// whose folder is missing is faded and does nothing.
+    /// A workspace's glyph and name, any status, then its pills. A workspace whose folder is
+    /// missing is faded and does nothing.
     fn workspace_block<V: Placer>(
         &self,
         place: &WorkspacePlace<'_>,
@@ -225,10 +225,11 @@ impl Sections<'_> {
                     .truncate()
                     .child(Text::labeled("name", workspace.name.clone())),
             );
-        let status = Text::labeled(format!("status-{}", workspace.id), status(place))
-            .level(text::CAPTION_SM)
-            .muted()
-            .tabular();
+        let status = status(place).map(|status| {
+            Text::labeled(format!("status-{}", workspace.id), status)
+                .level(text::CAPTION_SM)
+                .muted()
+        });
         let block =
             place_block(place_head(name, status), pills).id(format!("place-ws-{}", workspace.id));
         if place.missing() {
@@ -241,18 +242,15 @@ impl Sections<'_> {
     }
 }
 
-/// What a workspace's head says after its name: "Folder missing", "No agents yet" while it uses
-/// none, "<N> of <M> on" while any of its pills is on, otherwise "Off".
-fn status(place: &WorkspacePlace<'_>) -> String {
-    let on = place.entries.iter().filter(|held| held.held).count();
+/// What a workspace's head says after its name, if anything its pills do not show: "Folder
+/// missing", or "No agents yet" while it uses none.
+fn status(place: &WorkspacePlace<'_>) -> Option<&'static str> {
     if place.missing() {
-        "Folder missing".to_owned()
+        Some("Folder missing")
     } else if place.uses_none() {
-        "No agents yet".to_owned()
-    } else if on == 0 {
-        "Off".to_owned()
+        Some("No agents yet")
     } else {
-        format!("{on} of {} on", place.entries.len())
+        None
     }
 }
 
