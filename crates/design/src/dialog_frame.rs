@@ -4,9 +4,10 @@
 //!
 //! Kit hands a dialog's builder the `Dialog` it opens, so the frame is applied to it rather than
 //! drawn on its own; the caller adds the body as the dialog's children, which scroll as one, or
-//! as a [`DialogFrame::body`] that fills the dialog and scrolls its own parts.
+//! as a [`DialogFrame::body`] that fills the dialog and scrolls its own parts, or a
+//! [`DialogFrame::flush_body`] that also reaches its side edges.
 
-use crate::tokens::{radius, text};
+use crate::tokens::{radius, space, text};
 use crate::{DialogFooter, DialogHeader, Level};
 use gpui_kit::component::{ActiveTheme, dialog::Dialog};
 use gpui_kit::{AnyElement, App, IntoElement, ParentElement, Pixels, Size, Styled, px};
@@ -26,6 +27,8 @@ pub enum DialogSize {
 /// The window's share a `Window` dialog takes, across and down.
 const WINDOW_WIDTH: f32 = 0.92;
 const WINDOW_HEIGHT: f32 = 0.9;
+/// The dialog's padding at its sides, around its header, body, and footer.
+pub const DIALOG_INSET: f32 = space::XL;
 /// A compact and a standard dialog's width.
 const COMPACT: f32 = 320.;
 const STANDARD: f32 = 420.;
@@ -36,6 +39,8 @@ pub struct DialogFrame {
     header: Option<DialogHeader>,
     footer: Option<DialogFooter>,
     body: Option<AnyElement>,
+    /// Whether the body reaches the dialog's side edges.
+    flush: bool,
 }
 
 impl DialogFrame {
@@ -46,6 +51,7 @@ impl DialogFrame {
             header: None,
             footer: None,
             body: None,
+            flush: false,
         }
     }
 
@@ -76,6 +82,15 @@ impl DialogFrame {
         }
     }
 
+    /// A [`body`](Self::body) that also reaches the dialog's side edges, so a scroll view in it
+    /// puts its scrollbar at the dialog's edge; the caller insets its parts by [`DIALOG_INSET`].
+    pub fn flush_body(self, body: impl IntoElement) -> Self {
+        Self {
+            flush: true,
+            ..self.body(body)
+        }
+    }
+
     /// Frames `dialog`.
     pub fn apply(self, dialog: Dialog, cx: &App) -> Dialog {
         let dialog = match self.size {
@@ -89,6 +104,7 @@ impl DialogFrame {
         // The header's own close button replaces Kit's, which keeps the arrow cursor.
         let dialog = text::BODY_SM
             .apply(dialog.close_button(false))
+            .px(px(DIALOG_INSET))
             .bg(Level::Modal.fill(cx.theme()))
             .rounded(px(radius::XL));
         let dialog = match self.header {
@@ -104,7 +120,11 @@ impl DialogFrame {
             // builder makes a new frame for every draw.
             Some(body) => {
                 let body = Cell::new(Some(body));
-                dialog.content(move |content, _, _| content.min_h_0().children(body.take()))
+                let flush = self.flush;
+                dialog.content(move |content, _, _| {
+                    let content = if flush { content.px_0() } else { content };
+                    content.min_h_0().children(body.take())
+                })
             }
             None => dialog,
         }

@@ -55,7 +55,7 @@ pub use chip::{Chip, ChipVariant, ToggleChip, dashed};
 pub use code_block::CodeBlock;
 pub use count::format_count;
 pub use dialog_footer::DialogFooter;
-pub use dialog_frame::{DialogFrame, DialogSize};
+pub use dialog_frame::{DIALOG_INSET, DialogFrame, DialogSize};
 pub use dialog_header::DialogHeader;
 pub use empty_state::EmptyState;
 pub use focus_ring::{FOCUS_RING, focus_ring};
