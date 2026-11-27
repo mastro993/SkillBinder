@@ -1,5 +1,7 @@
 # Workspace and agent pages also list their found skills that are not in library, and their ignored skills
 
+Partly superseded by ADR 0041: an agent's page also lists the plugin skills that agent loads.
+
 A workspace's page and an agent's page list only the library skills that are on there (ADR 0007). A project often holds a skill made for it alone, which makes no sense in the library, and the agent loads it all the same. To deal with it, the user had to open Scan for skills, whose dialog mixes every place (ADR 0008), and find it there; to undo an ignore, they had to find the dialog's Ignored group (ADR 0033). The user wants to open the workspace, see the skill, and ignore it there. This partly supersedes ADR 0007, ADR 0008, and ADR 0033 ([spec](../specs/found-skills-on-pages.md)).
 
 A workspace's page, an agent's page, and Universal's page now list, under the skills that are on there, the found skills the latest completed scan found in that place that are not in library, in the same list as the skills on there, sorted by name and each marked Not in library. Each can be ignored, and imported through the Import skills dialog narrowed to this place's skills. An import still turns a skill on wherever it was found (ADR 0008), and the rows say where else it was found. An ignored skill stays in the list, marked Ignored, with Stop ignoring in place of Ignore.

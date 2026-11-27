@@ -6,7 +6,7 @@ Agreed with the owner on 2026-11-25 (feature-design rounds 1–2, and round 4 af
 
 - P1. Installing a plugin for another agent runs that agent's own plugin installer (`<agent> plugin install name@marketplace`); SkillBinder never writes plugin files or agent settings itself (ADR 0006, 0026).
 - P2. Agents (revised in round 4): plugins are listed for every **chosen** agent that has an install command SkillBinder can run, added a few per slice, and only those agents' plugins are read. Agents whose plugins install only from their own app or a slash command (Cursor, Junie, Kimi Code, Neovate, …) come later. Install, Update, and Uninstall show only where that agent's installer offers them.
-- P3. Library lists library skills only (unchanged). A library skill whose slug a plugin also ships gets an "Also in plugin <name>" mark that opens the plugin.
+- P3. (Revised 2026-11-27, L1–L5 below.) Library lists library skills only (unchanged). A library skill whose slug a plugin also ships gets an "Also in plugin <name>" mark that opens the plugin.
 - P4. User scope only. Project-scoped plugins are not listed.
 - P5. Words (revised in round 4): always **plugin**, whatever the agent calls it (package, extension, power); the agent's own word shows in a tooltip. A plugin is **installed** for an agent; buttons **Install** / **Uninstall** / **Update**. Where a plugin comes from is its **source**: a marketplace (`fedemas`), a Git repository, or an npm package. (Library-skill "install" is unchanged; different context.)
 - P6. Install when the agent does not know the plugin's marketplace yet: a confirm dialog "Add marketplace <name> (<repo>) to <agent> and install <plugin>?" showing both commands; one button runs both.
@@ -39,8 +39,22 @@ Plugins (marketplace · versions · skills):
 
 ## Layout (owner's picks, 2026-11-25, round 3)
 
-- U1. Sidebar: a fixed **Plugins** row under Library, with a count, opens the Plugins list page: one row per plugin with name, marketplace, one-line description, skill count, the logos of the agents that have it, and a chevron (variant A).
+- U1. (Revised 2026-11-27: Library's Plugins tab, no sidebar row.) Sidebar: a fixed **Plugins** row under Library, with a count, opens the Plugins list page: one row per plugin with name, marketplace, one-line description, skill count, the logos of the agents that have it, and a chevron (variant A).
 - U2. Plugin page: one scroll with header (name, description, marketplace, repository, newest version), then the **Agents** card, then **Skills**, then README (variant C).
 - U3. A plugin skill opens its own page, like a library skill's, with the crumb Plugins › plugin › skill, a "From plugin <name>" chip, "Also in Library" when the slug overlaps, the front matter, and SKILL.md; no activation controls (variant A).
 - A8. An agent whose installer lacks uninstall or update (Antigravity CLI has no update, Deep Agents none) shows only the buttons it has.
 - A9. A plugin whose last agent uninstalled it stays on screen until the user leaves the page, then drops out of the list.
+
+## Plugins in Library (2026-11-27)
+
+Agreed with the owner on 2026-11-27 (feature-design rounds 1–2 and the Library prototype pick); ADR 0041 supersedes ADR 0035.
+
+- L0. A plugin skill is never a library skill: never imported, installed, synced, placed, filed, or put in presets or workspaces. Library lists it beside library skills, marked as its plugin's, so Library is the one place for every skill your agents load. Plugin management moves into Library; no Plugins sidebar row.
+- L1. A plugin skill row's trailing area shows the agents that have its plugin, read-only; it and the plugin chip open the plugin page (Install, Update, Uninstall there). No skill-level install toggle.
+- L2. A slug in the library and in a plugin shows as two rows, side by side. The library row keeps its controls and adds "Also in <plugin>"; the plugin row has no "Also in Library" mark (owner: redundant). The plugin skill page keeps its "Also in Library" chip (A15).
+- L3. All, Active, and Inactive count plugin skills: Active while the plugin is installed and on in at least one of your agents, Inactive when Off everywhere.
+- L4. An agent's page lists the plugin skills that agent loads, read-only, in its one list.
+- L5. Layout: Library variant A "Mixed + Plugins tab" (`prototypes/library.html`). Rejected: B "Grouped by plugin", C "Plugin tabs".
+- A15. The plugin skill page keeps "Also in Library".
+- A16. Plugin skills never show under a folder tab and never count as Updates.
+- A17. Library's sidebar count includes plugin skills.

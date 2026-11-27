@@ -19,7 +19,7 @@ In:
 
 Out:
 - Copies of library skills that sit where the skill is off (ADR 0036, rejected by the user).
-- Plugin skills (ADR 0035) and the SkillBinder skill (ADR 0028).
+- Plugin skills as found skills: an agent's page lists the plugin skills it loads as plugin rows ([Plugins](plugins.md#agent-pages), ADR 0041), never as Not in library or Ignored. The SkillBinder skill (ADR 0028).
 - Other directories an agent reads, such as Universal's on Cursor's page.
 - Sidebar counts, Scan for skills' count, the Add skill picker, Library.
 - New command or MCP server actions: `ignore`, `unignore`, and `import` already cover these (ADR 0023).
@@ -128,7 +128,7 @@ Fixture:
    - Row Import… on `acme-deploy` opens the dialog with only `acme-deploy`.
 6. **Search.** Searching `anthropic` on Claude Code's page lists only `anthropic-docs`, marked Ignored.
 7. **Empty.** A workspace with no directories and one found skill starts its card with "No skills on in docs-site · No agents here yet", then the found skill.
-8. **Unchanged.** Sidebar counts and Library are unchanged. Plugin skills never appear.
+8. **Unchanged.** Sidebar counts and Library are unchanged. Plugin skills are never found skills; their rows are [Plugins](plugins.md#agent-pages)'.
 9. **Checks pass:** `cargo fmt --all --check`, workspace Clippy, `cccc .`, workspace tests, `cargo run -p xtask -- verify`, and a locked release build.
 
 ## Slices

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugins in Library</title>
+<!-- Plugins in Library (2026-11-27, L1-L7): plugin skills listed in Library beside library skills, marked as their
+     plugin's; plugins managed from Library, with no Plugins sidebar row; agent pages list the plugin skills they load.
+     Build: python3 -I ../../scoped-pages/source/kit/inline.py library.html ../prototypes/library.html -->
+<link rel="stylesheet" href="../../scoped-pages/source/kit/kit.css">
+<link rel="stylesheet" href="plugins.css">
+<style>
+.pl-crumb { border: 0; padding: 2px 4px; margin: 0 -4px; border-radius: 5px; background: none; color: var(--sb-muted-fg); font: inherit; cursor: pointer; }
+.pl-crumb:hover { background: var(--sb-muted); color: var(--sb-fg); }
+.sb-crumbs > .sb-ic { color: var(--sb-muted-fg); }
+.lb-tabs { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.lb-tabs .sb-tab { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex: none; }
+.lb-tabs .sb-tab .sb-ic { color: var(--sb-muted-fg); }
+.lb-tabs .sb-tab .sb-chip-count { font-size: 11px; }
+.lb-owner { background: var(--sb-muted); border-color: transparent; color: var(--sb-fg); }
+.sb-toolbar { flex-wrap: nowrap; }
+.sb-toolbar > .sb-search { width: auto; flex: 1 1 120px; min-width: 100px; }
+.lb-end { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.lb-own { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 6px; border: 0; border-radius: 6px;
+  background: none; color: var(--sb-muted-fg); cursor: pointer; }
+.lb-own:hover { background: color-mix(in srgb, var(--sb-fg) 8%, transparent); color: var(--sb-fg); }
+.lb-plus { width: 24px; height: 24px; border-radius: 999px; display: inline-grid; place-items: center; color: var(--sb-muted-fg);
+  border: 1px dashed color-mix(in srgb, var(--sb-fg) 24%, transparent); }
+.lb-folder { font-size: 11px; color: var(--sb-muted-fg); display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.lb-group { display: flex; align-items: center; gap: 8px; padding: 2px 2px 0; min-width: 0; }
+.lb-group > .lb-fold { border: 0; background: none; padding: 2px; border-radius: 5px; color: var(--sb-muted-fg); cursor: pointer; display: inline-grid; }
+.lb-group > .lb-fold:hover { background: var(--sb-muted); }
+.lb-group > .lb-fold.is-closed .sb-ic { transform: rotate(-90deg); }
+.lb-group-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-group-src { font-size: 11.5px; color: var(--sb-muted-fg); white-space: nowrap; }
+.lb-group .sb-spacer { flex: 1; }
+.lb-warn { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-warning); }
+.lb-card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.lb-card .pl-agents { border: 0; box-shadow: none; background: none; }
+</style>
+</head>
+<body data-first-variant="a" data-first-state="library">
+<div id="proto">
+  <div class="sb-window" id="win" style="--sb-h:600px">
+    <aside id="side"></aside>
+    <main class="sb-main">
+      <header class="sb-header" id="hdr"></header>
+      <div class="sb-page" id="page"></div>
+    </main>
+  </div>
+</div>
+<script src="../../scoped-pages/source/kit/icons.js"></script>
+<script src="../../scoped-pages/source/kit/data.js"></script>
+<script src="../../scoped-pages/source/kit/shell.js"></script>
+<script src="plugins-text.js"></script>
+<script src="plugins-data.js"></script>
+<script src="plugins-kit.js"></script>
+<script>
+(function () {
+  'use strict';
+  const P = window.PLUGINS;
+  const win = document.getElementById('win');
+  const side = document.getElementById('side');
+  const hdr = document.getElementById('hdr');
+  const page = document.getElementById('page');
+  const soon = () => toast(win, 'Not in this prototype');
+  // route: 'library' | 'plugin' | 'skill' (a plugin skill) | 'agent' (Claude Code's page)
+  const S = { variant: 'a', state: 'library', route: 'library', tab: 'all', filter: 'all', q: '', pid: null, slug: null, closed: {} };
+
+  // ---- sample: library skills with folders; plugin skills from the plugins store ----------------------
+  const FOLDERS = [{ id: 'work', name: 'Work' }, { id: 'writing', name: 'Writing' }];
+  const FOLDER_OF = { changelog: 'writing', 'k8s-debug': 'work', 'pdf-tools': 'writing', storybook: 'work' };
+  P.library.find((s) => s.slug === 'storybook').agents = [];
+  const libItems = () => P.library.map((s) => ({ kind: 'lib', slug: s.slug, desc: s.desc, agents: s.agents,
+    folder: FOLDER_OF[s.slug] || null, active: s.agents.length > 0 }));
+  // L6: a plugin skill is Active when its plugin is installed and on in at least one of your agents.
+  const plugActive = (p) => P.holders(p).some((a) => !P.inst(p, a.id).off);
+  const plugItems = (p) => p.skills.map((s) => ({ kind: 'plugin', slug: s.slug, desc: s.desc, plugin: p, active: plugActive(p) }));
+  const inLibrary = (slug) => P.library.some((s) => s.slug === slug);
+  const byFilter = (it) => S.filter === 'all' || (S.filter === 'active') === it.active;
+  const byQuery = (it) => { const q = S.q.trim().toLowerCase(); return !q || it.slug.includes(q) || it.desc.toLowerCase().includes(q); };
+  const sorted = (xs) => xs.sort((a, b) => a.slug.localeCompare(b.slug) || (a.kind === 'lib' ? -1 : 1));
+  function scope() {
+    if (S.tab.startsWith('folder:')) return libItems().filter((s) => s.folder === S.tab.slice(7));
+    if (S.tab.startsWith('plugin:')) return plugItems(P.plugin(S.tab.slice(7)));
+    return libItems().concat(...P.list().map(plugItems));
+  }
+
+  const STATES = [{ id: 'library', label: 'Library' }, { id: 'agent', label: 'Agent page', tip: "Claude Code's page" },
+    { id: 'error', label: "Can't read", tip: "GitHub Copilot's plugin records can't be read" }];
+  function setState(id) {
+    P.setMode('normal');
+    Object.assign(S, { state: id, route: id === 'agent' ? 'agent' : 'library', tab: 'all', filter: 'all', q: '', closed: {} });
+    draw();
+  }
+  const go = (route, x = {}) => { Object.assign(S, { route }, x); draw(); };
+  const openPlugin = (p) => (S.variant === 'c' ? go('library', { tab: `plugin:${p.id}`, filter: 'all' }) : go('plugin', { pid: p.id }));
+  const openSkill = (p, slug) => go('skill', { pid: p.id, slug });
+
+  function draw() {
+    plSidebar(side, { mode: 'none', active: S.route === 'agent' ? 'agent:claude' : 'library',
+      onNav: (k) => (k === 'library' ? go('library', { tab: 'all' }) : k === 'agent:claude' ? go('agent') : soon()) });
+    page.className = 'sb-page';
+    page.scrollTop = 0;
+    ({ library: drawLibrary, plugin: drawPlugin, skill: drawSkill, agent: drawAgent })[S.route]();
+    // L6: Library's count includes plugin skills.
+    const n = side.querySelector('[data-nav="library"] .sb-nav-count');
+    if (n) n.textContent = libItems().length + P.list().reduce((t, p) => t + p.skills.length, 0);
+  }
+
+  // ---- rows ------------------------------------------------------------------------------------------
+  const keyOpen = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
+  const agentsOf = (ids) => ids.map((id) => ({ name: P.agent(id).name, logo: P.agent(id).logo }));
+  function libRow(s) {
+    const folder = S.tab === 'all' && s.folder ? FOLDERS.find((f) => f.id === s.folder) : null;
+    return h('div', { class: `sb-row${s.active ? '' : ' is-dim'}`, role: 'button', tabindex: '0', onclick: soon, onkeydown: keyOpen(soon) },
+      h('div', { class: 'sb-row-main' }, h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug),
+        P.alsoIn(s.slug).map((p) => h('button', { class: 'pl-mark', 'data-tip': `Also in plugin ${p.name}`, 'aria-label': `Also in plugin ${p.name}`,
+          onclick: (e) => { e.stopPropagation(); openPlugin(p); } }, `Also in ${p.name}`)),
+        folder ? h('span', { class: 'lb-folder' }, ic('folder', 11), folder.name) : null), h('div', { class: 'sb-desc' }, s.desc)),
+      h('div', { class: 'sb-row-end' }, s.active
+        ? h('button', { class: 'lb-own', 'aria-label': `Change where ${s.slug} is on`, onclick: (e) => { e.stopPropagation(); soon(); } },
+          avatarStack(agentsOf(s.agents), { size: 18 }), ic('arrow-down', 12))
+        : h('span', { class: 'sb-row-hover lb-plus', 'data-tip': 'Turn on', 'data-tip-pos': 'end' }, ic('plus', 13))));
+  }
+  // L4: read-only trailing area, the agents that have the plugin; it opens the plugin.
+  function plugRow(s, { mark = true } = {}) {
+    const p = s.plugin;
+    const open = () => openSkill(p, s.slug);
+    return h('div', { class: `sb-row${s.active ? '' : ' is-dim'}`, role: 'button', tabindex: '0', onclick: open, onkeydown: keyOpen(open) },
+      h('div', { class: 'sb-row-main' }, h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, s.slug),
+        mark ? h('button', { class: 'pl-mark lb-owner', 'data-tip': `Managed by plugin ${p.name}`, 'aria-label': `Plugin ${p.name}`,
+          onclick: (e) => { e.stopPropagation(); openPlugin(p); } }, ic('puzzle', 11), p.name) : null,
+        ), h('div', { class: 'sb-desc' }, s.desc)),
+      h('div', { class: 'sb-row-end' }, h('button', { class: 'lb-own', 'data-tip': `Installed by plugin ${p.name}${s.active ? '' : ' · Off'}`, 'data-tip-pos': 'end',
+        'aria-label': `Open plugin ${p.name}`, onclick: (e) => { e.stopPropagation(); openPlugin(p); } },
+      avatarStack(P.holders(p).map((a) => ({ name: a.name, logo: a.logo })), { size: 18 }), ic('chevron-right', 12))));
+  }
+  const rowOf = (s, o) => (s.kind === 'lib' ? libRow(s) : plugRow(s, o));
+  const card = (items, o) => h('div', { class: 'sb-card' }, items.map((s) => rowOf(s, o)));
+  const noMatch = () => emptyState({ icon: 'search', title: 'No skills match',
+    action: h('button', { class: 'sb-btn sb-btn-outline sb-btn-sm', onclick: () => { Object.assign(S, { q: '', filter: 'all' }); draw(); } }, 'Clear filters') });
+  const warn = () => (S.state === 'error' ? h('div', { class: 'lb-warn', 'data-tip': 'installed_plugins.json: unexpected format' },
+    ic('alert-circle', 14), "Couldn't read GitHub Copilot's plugins") : null);
+
+  // ---- Library -----------------------------------------------------------------------------------------
+  function tabsBar() {
+    const tab = (id, label, icon, count) => h('button', { class: `sb-tab${S.tab === id ? ' is-active' : ''}`, onclick: () => go('library', { tab: id }) },
+      icon ? ic(icon, 13) : null, label, count != null ? h('span', { class: 'sb-chip-count' }, count) : null);
+    const sep = () => h('span', { class: 'sb-tabs-sep' });
+    const folders = FOLDERS.map((f) => tab(`folder:${f.id}`, f.name));
+    const add = h('button', { class: 'sb-btn sb-btn-icon sb-btn-sm', 'data-tip': 'Add folder', 'aria-label': 'Add folder', onclick: soon }, ic('plus', 15));
+    if (S.variant === 'a') return [tab('all', 'All skills'), tab('plugins', 'Plugins', 'puzzle', P.list().length), sep(), folders, add];
+    if (S.variant === 'c') return [tab('all', 'All skills'), sep(), folders, add, sep(), P.list().map((p) => tab(`plugin:${p.id}`, p.name, 'puzzle'))];
+    return [tab('all', 'All skills'), sep(), folders, add];
+  }
+  function toolbar(items, onInput) {
+    const n = (f) => items.filter((s) => byQuery(s) && (f === 'all' || (f === 'active') === s.active)).length;
+    return h('div', { class: 'sb-toolbar' }, searchInput({ value: S.q, onInput }),
+      seg([{ id: 'all', label: 'All', count: n('all') }, { id: 'active', label: 'Active', count: n('active') },
+        { id: 'inactive', label: 'Inactive', count: n('inactive') }], S.filter, (f) => { S.filter = f; draw(); }),
+      h('span', { class: 'sb-spacer' }),
+      seg([{ id: 'list', icon: window.icon('list-view', 15), tip: 'List' }, { id: 'grid', icon: window.icon('grid-view', 15), tip: 'Grid' }], 'list', soon));
+  }
+  function drawLibrary() {
+    hdr.replaceChildren(h('div', { class: 'lb-tabs', role: 'tablist' }, tabsBar()));
+    const on = hdr.querySelector('.sb-tab.is-active');
+    if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (S.tab === 'plugins') return drawPluginList();
+    const region = h('div', { class: 'sb-vstack', style: 'gap:12px' });
+    const fill = () => {
+      const all = scope();
+      const items = sorted(all.filter((s) => byFilter(s) && byQuery(s)));
+      bar.replaceWith(bar = toolbar(all, onInput));
+      if (!items.length) return region.replaceChildren(noMatch());
+      if (S.tab.startsWith('plugin:')) return region.replaceChildren(pluginCard(P.plugin(S.tab.slice(7))), card(items, { mark: false }));
+      region.replaceChildren(...[warn(), ...(S.variant === 'b' && S.tab === 'all' ? grouped(items) : [card(items)])].filter(Boolean));
+    };
+    const onInput = (q) => { S.q = q; fill(); const i = bar.querySelector('input'); i.focus(); i.setSelectionRange(q.length, q.length); };
+    let bar = h('div');
+    page.replaceChildren(bar, region);
+    live(region, fill);
+  }
+  // B: library skills first, then one group per plugin with its source, agents, and Manage.
+  function grouped(items) {
+    const lib = items.filter((s) => s.kind === 'lib');
+    const out = lib.length ? [card(lib)] : [];
+    P.list().forEach((p) => {
+      const mine = items.filter((s) => s.kind === 'plugin' && s.plugin === p);
+      if (!mine.length) return;
+      const closed = !!S.closed[p.id];
+      out.push(h('div', { class: 'lb-group' },
+        h('button', { class: `lb-fold${closed ? ' is-closed' : ''}`, 'aria-label': closed ? 'Expand' : 'Collapse', onclick: () => { S.closed[p.id] = !closed; draw(); } }, ic('arrow-down', 13)),
+        tile(20), h('span', { class: 'lb-group-name' }, p.name), h('span', { class: 'lb-group-src', 'data-tip': 'Source' }, p.mkt || 'Local'),
+        h('span', { class: 'sb-chip-count' }, mine.length), h('span', { class: 'sb-spacer' }), agentStack(p),
+        h('button', { class: 'sb-btn sb-btn-outline sb-btn-xs', onclick: () => openPlugin(p) }, 'Manage')));
+      if (!closed) out.push(card(mine, { mark: false }));
+    });
+    return out;
+  }
+  // C: a plugin's tab opens with its card: header and agents with Install, Update, Uninstall.
+  const pluginCard = (p) => h('div', { class: 'sb-card lb-card' }, pluginHead(p, { win }), agentList(p, { win }));
+
+  // A: the Plugins tab lists plugins; a row opens the plugin page.
+  function drawPluginList() {
+    const items = P.list();
+    page.replaceChildren(...[h('div', { class: 'sb-toolbar' }, searchInput({ placeholder: 'Search plugins', onInput: soon })), warn(),
+      h('div', { class: 'sb-card pl-list' }, items.map((p) => h('div', { class: 'sb-row', role: 'button', tabindex: '0',
+        onclick: () => openPlugin(p), onkeydown: keyOpen(() => openPlugin(p)) }, tile(28),
+      h('div', { class: 'sb-row-main' }, h('div', { class: 'sb-row-title' }, h('span', { class: 'sb-slug' }, p.name),
+        h('span', { class: 'pl-mkt' }, p.mkt || 'Local')), h('div', { class: 'sb-desc' }, p.desc)),
+      h('div', { class: 'sb-row-end' }, h('span', { class: 'pl-count' }, `${p.skills.length} skill${p.skills.length === 1 ? '' : 's'}`),
+        agentStack(p), ic('chevron-right', 14)))))].filter(Boolean));
+  }
+
+  // ---- plugin page and plugin skill page, under Library --------------------------------------------------
+  const crumbs = (...parts) => h('div', { class: 'sb-crumbs' }, parts.flatMap((x, i) => (i ? [ic('chevron-right', 13), x] : [x])));
+  const crumb = (label, fn) => h('button', { class: 'pl-crumb', onclick: fn }, label);
+  const libCrumbs = () => [crumb('Library', () => go('library', { tab: 'all' })),
+    S.variant === 'a' ? crumb('Plugins', () => go('library', { tab: 'plugins' })) : null].filter(Boolean);
+  function drawPlugin() {
+    const p = P.plugin(S.pid);
+    hdr.replaceChildren(crumbs(...libCrumbs(), h('span', { class: 'sb-ellipsis' }, p.name)));
+    page.replaceChildren(...stackedPage(p, { win, onSkill: (slug) => openSkill(p, slug) }));
+  }
+  function drawSkill() {
+    const p = P.plugin(S.pid);
+    const md = P.skillMd(p, S.slug);
+    const back = S.variant === 'c' ? () => go('library', { tab: `plugin:${p.id}` }) : () => go('plugin');
+    hdr.replaceChildren(crumbs(...libCrumbs(), crumb(p.name, back), h('span', { class: 'sb-ellipsis' }, S.slug)));
+    page.replaceChildren(...[h('div', { class: 'sb-vstack', style: 'gap:4px' },
+      h('div', { style: 'font-size:17px;font-weight:600' }, S.slug), h('div', { class: 'sb-desc' }, p.skills.find((s) => s.slug === S.slug).desc),
+      h('div', { class: 'sb-hstack', style: 'gap:6px;margin-top:4px' }, h('button', { class: 'sb-chip', onclick: () => openPlugin(p) }, ic('puzzle', 13), `From plugin ${p.name}`),
+        inLibrary(S.slug) ? h('button', { class: 'sb-chip', onclick: () => go('library', { tab: 'all', q: S.slug }) }, ic('libraries', 13), 'Also in Library') : null)),
+    frontMatter(md), h('div', { class: 'pl-mdbox' }, markdown(md))].filter(Boolean));
+  }
+
+  // ---- L7: Claude Code's page lists the plugin skills it loads ----------------------------------------
+  function drawAgent() {
+    hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Claude Code'));
+    const lib = libItems().filter((s) => s.agents.includes('claude'));
+    const plug = [].concat(...P.list().filter((p) => P.inst(p, 'claude')).map(plugItems));
+    const body = S.variant === 'b' ? [card(sorted(lib)), ...grouped(plug)] : [card(sorted(lib.concat(plug)))];
+    page.replaceChildren(h('div', { class: 'sb-toolbar' }, searchInput({ onInput: soon })), ...body);
+  }
+
+  const first = STATES.some((x) => x.id === document.body.dataset.firstState) ? document.body.dataset.firstState : 'library';
+  const bar = variantBar(document.getElementById('proto'), [
+    { id: 'a', label: 'Mixed + Plugins tab', desc: 'Plugin skills sit among library skills, alphabetically, with a plugin chip and read-only agents; a Plugins tab beside All skills lists plugins · like the Installed for you tag in Wix Automations' },
+    { id: 'b', label: 'Grouped by plugin', desc: 'All skills shows library skills first, then one collapsible group per plugin with its source, agents, and Manage · like the tool groups of the Figma connector in Claude' },
+    { id: 'c', label: 'Plugin tabs', desc: "Plugin skills mixed in All skills; each plugin is a tab after the folders, opening with the plugin's agents (Install, Update, Uninstall) above its skills · like Wix's Created by you | Installed for you tabs" },
+  ], (id) => { S.variant = id; if (S.route !== 'agent') Object.assign(S, { route: 'library', tab: 'all' }); draw(); });
+  bar.extra.append(seg(STATES, first, setState));
+  setState(first);
+  bar.set(document.body.dataset.firstVariant || 'a');
+  // Screenshot aid: #tab=plugin:fstack or #route=plugin&pid=fstack opens that view.
+  const hash = new URLSearchParams(location.hash.slice(1));
+  if (hash.has('tab') || hash.has('route')) go(hash.get('route') || 'library', { tab: hash.get('tab') || 'all', pid: hash.get('pid') });
+})();
+</script>
+</body>
+</html>

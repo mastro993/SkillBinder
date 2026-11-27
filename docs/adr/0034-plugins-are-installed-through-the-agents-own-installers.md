@@ -1,5 +1,7 @@
 # Plugins are listed from the agents' own records and installed through their own installers
 
+Partly superseded by ADR 0041: plugins are listed and managed in Library's Plugins tab, not on a sidebar page.
+
 Many agents now install plugins: bundles that hold skills and often commands, subagents, hooks, MCP servers, and scripts. Pi calls them packages, Gemini CLI and Qwen Code extensions, Kiro powers; Claude Code keeps them under `~/.claude/plugins`, Pi lists them in `~/.pi/agent/settings.json`. Of the 79 agents SkillBinder supports, 41 have plugins that can ship skills, and about a dozen read Claude Code's plugin format and its `.claude-plugin/marketplace.json` directly ([agents](../specs/plugins/plugin-agents.md)). SkillBinder sees none of them, so the user can't tell what each agent loads beside its skills, and moving a plugin to another agent means running that agent's commands by hand ([spec](../specs/plugins.md)).
 
 Plugins becomes a sidebar page. It lists the plugins your agents have installed for the user, read from each agent's own records, and installs, updates, and uninstalls a plugin for another of your agents by running that agent's own installer, as Connect does for the MCP server (ADR 0026). SkillBinder never writes a plugin's files, an agent's plugin records, or its settings: outside application storage and the library it still writes only managed copies of library skills (ADR 0006). Installing a plugin is the agent's own act. It is not installing a skill (ADR 0015), and it never touches the library.
