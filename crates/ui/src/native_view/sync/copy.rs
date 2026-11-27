@@ -9,6 +9,7 @@ use skillbinder_proto::{
     ChangeKind, ChangedSkill, ConflictSide, Incoming, Reason, Side, SyncAction, SyncSnapshot,
     SyncState,
 };
+use std::collections::BTreeSet;
 
 /// The tint of the status card's glyph tile.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -324,6 +325,17 @@ pub(super) fn side_card(
         .collect::<Vec<_>>()
         .join(" · ");
     (name, detail)
+}
+
+/// How many skills changed on only one side, which merge without a choice: a skill both sides
+/// changed, to different versions or the same, is not one of them.
+pub(super) fn one_sided(sync: &SyncSnapshot) -> usize {
+    let here: BTreeSet<&str> = sync.local.iter().map(|skill| skill.slug.as_str()).collect();
+    let there: BTreeSet<&str> = (sync.incoming.iter())
+        .flat_map(|incoming| &incoming.skills)
+        .map(|skill| skill.slug.as_str())
+        .collect();
+    here.symmetric_difference(&there).count()
 }
 
 /// Under the Resolve dialog's choices (Y9): how many skills changed on one side only.

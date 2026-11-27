@@ -229,22 +229,19 @@ impl Git {
         from: Option<&str>,
         to: &str,
     ) -> AppResult<BTreeSet<String>> {
-        let range;
         let args: &[&str] = match from {
-            Some(from) => {
-                range = format!("{from}..{to}");
-                &[
-                    "diff",
-                    "--no-ext-diff",
-                    "--no-renames",
-                    "--name-only",
-                    "-z",
-                    &range,
-                    "--",
-                    MANAGED[0],
-                    MANAGED[1],
-                ]
-            }
+            Some(from) => &[
+                "diff",
+                "--no-ext-diff",
+                "--no-renames",
+                "--name-only",
+                "-z",
+                from,
+                to,
+                "--",
+                MANAGED[0],
+                MANAGED[1],
+            ],
             None => &[
                 "ls-tree",
                 "-r",

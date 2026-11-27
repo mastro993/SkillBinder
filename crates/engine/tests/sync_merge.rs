@@ -162,3 +162,35 @@ async fn a_merge_needs_no_reflog() {
     assert_eq!(pair.published(), pair.laptop.head());
     assert!(!library.join(".git/logs/HEAD").exists());
 }
+
+#[tokio::test]
+async fn a_slug_with_glob_characters_takes_only_its_own_skill() {
+    let pair = Pair::new().await;
+    pair.studio.edit("beta", "Studio's beta");
+    pair.studio
+        .engine
+        .synchronize(SyncAction::Push)
+        .await
+        .unwrap();
+    // As a pathspec, `alph[a]` would also match `alpha` and its record.
+    pair.laptop.edit("alph[a]", "Laptop's bracketed skill");
+
+    pair.laptop.refresh().await;
+    pair.laptop
+        .engine
+        .synchronize(SyncAction::Sync)
+        .await
+        .unwrap();
+    let published = git(&pair.remote, &["ls-tree", "-r", "--name-only", "main"]);
+    for path in [
+        "skills/alpha/SKILL.md",
+        "records/alpha.toml",
+        "skills/alph[a]/SKILL.md",
+    ] {
+        assert!(
+            published.lines().any(|line| line == path),
+            "{path}: {published}"
+        );
+    }
+    assert_eq!(pair.laptop.body("alpha").unwrap(), "First version");
+}

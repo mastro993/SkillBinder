@@ -216,6 +216,11 @@ fn resolve_names_each_side_with_why_and_when() {
         merge_on_their_own(3),
         "3 other skills changed on only one side and merge on their own."
     );
+    let mut both = sync(SyncState::NeedsResolve, 0);
+    both.local = changes(3);
+    both.incoming = incoming(&["MacBook Air"], 2);
+    // skill-0 and skill-1 changed on both sides; only skill-2 changed on one.
+    assert_eq!(one_sided(&both), 1);
     assert_eq!(chosen(Side::Local), "Keeping this device's");
     assert_eq!(chosen(Side::Remote), "Taking this one");
     assert_eq!(kept(Some("Laptop"), "review"), "Kept Laptop's review");

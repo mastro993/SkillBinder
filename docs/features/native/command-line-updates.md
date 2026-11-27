@@ -15,7 +15,7 @@ Slice S5 (#204) of the [command line](command-line.md): Library's skill updates 
 
 **Git (rule 5).** Every command here but `updates` needs Git. Without it, or with one older than 2.39, it exits 1 with `git_missing` and the app's own words, "Sync and skill updates need Git 2.39 or newer.", and "Install Git, then try again."
 
-**Failures.** An update that fails for some skills keeps the others: the command prints what it updated, then "1 skill couldn't be updated" and each failed skill's reason as the skill's page shows it (`sql: The source no longer has this skill.`), and exits 1; `--json` returns the updated slugs in `result.updated` beside the error. Git's own refusals keep its words, such as "Pull remote changes before pushing." or "Commit local managed changes before pulling." (exit 1).
+**Failures.** An update that fails for some skills keeps the others: the command prints what it updated, then "1 skill couldn't be updated" and each failed skill's reason as the skill's page shows it (`sql: The source no longer has this skill.`), and exits 1; `--json` returns the updated slugs in `result.updated` beside the error. Git's own refusals keep its words, such as "Pull or Sync first: the remote has changes." or "Push or Sync first: this device has changes." (exit 1).
 
 **Busy.** `update`, `reinstall`, `sync`, `push`, `pull`, and `remote` hold the app as the window's short work does, so other changes exit 4 meanwhile, naming a Git operation as `Pushing` or `Pulling`. `update --all` is refused, as the window and the menu refuse it, while a change or a Git operation runs, and a second `update --all` meanwhile exits 4 with "SkillBinder is busy: Updating 2 of 5 skills…".
 

@@ -91,7 +91,18 @@ impl Git {
     fn skill_version(&self, repo: &Path, tree: &str, slug: &str) -> AppResult<String> {
         let record = format!("records/{slug}.toml");
         let skill = format!("skills/{slug}");
-        self.output(repo, &["ls-tree", "-z", tree, "--", &skill, &record])
+        self.output(
+            repo,
+            &[
+                "--literal-pathspecs",
+                "ls-tree",
+                "-z",
+                tree,
+                "--",
+                &skill,
+                &record,
+            ],
+        )
     }
 
     /// The skills changed on both sides to different versions: this device's, on disk as `here`,
@@ -144,7 +155,17 @@ impl Git {
         let format = format!("--format=%ct%x1f%(trailers:key={DEVICE},valueonly)");
         let skill = format!("skills/{slug}");
         let record = format!("records/{slug}.toml");
-        let log = self.output(repo, &["log", "-1", &format, range, "--", &skill, &record])?;
+        let args = [
+            "--literal-pathspecs",
+            "log",
+            "-1",
+            &format,
+            range,
+            "--",
+            &skill,
+            &record,
+        ];
+        let log = self.output(repo, &args)?;
         let (at, device) = log.split_once('\x1f').unwrap_or((&log, ""));
         let device = device.lines().map(str::trim).find(|d| !d.is_empty());
         Ok((at.trim().parse().ok(), device.map(str::to_owned)))
@@ -152,8 +173,9 @@ impl Git {
 
     /// Commits this device's changes, then merges them with the remote's commit `incoming`,
     /// keeping the side `chosen` for each skill changed on both, and moves the library to the
-    /// merge. Refuses, before writing anything, unless `chosen` names exactly the skills
-    /// `conflicts` lists.
+    /// merge. Refuses, committing nothing, unless `chosen` names exactly the skills changed on
+    /// both sides, as `conflicts` lists them and as the files on disk show once pending records
+    /// are written.
     pub(super) fn merge(
         &self,
         repo: &Path,
@@ -163,27 +185,33 @@ impl Git {
     ) -> AppResult<()> {
         require_choices(conflicts.iter().map(|c| c.slug.as_str()), chosen)?;
         committer.prepare()?;
-        self.commit(repo, committer)?;
-        let local = self
-            .revision(repo, "HEAD")?
-            .ok_or_else(|| failure("This device's changes could not be saved."))?;
-        let base = self.merge_base(repo, &local, incoming)?;
-        if base.as_deref() == Some(local.as_str()) {
-            // Nothing was left to merge once committed, such as a change put back by hand.
-            self.output(repo, &["merge", "--ff-only", "--no-edit", incoming])?;
-            return Ok(());
-        }
+        // The records just written can make a skill changed on both sides, so the choices are
+        // checked again against the files on disk before anything is committed.
+        let here = self.disk_tree(repo)?;
+        let base = match self.revision(repo, "HEAD")? {
+            Some(head) => self.merge_base(repo, &head, incoming)?,
+            None => None,
+        };
         let base = base.as_deref();
-        let ours = self.changed_skills(repo, base, &local)?;
+        let ours = self.changed_skills(repo, base, &here)?;
         let theirs = self.changed_skills(repo, base, incoming)?;
         let theirs_slugs = theirs.iter().map(String::as_str).collect();
         let conflicting = self.conflicting(
             repo,
-            (&local, incoming),
+            (&here, incoming),
             ours.iter().map(String::as_str),
             &theirs_slugs,
         )?;
         require_choices(conflicting.iter().map(String::as_str), chosen)?;
+        self.commit(repo, committer)?;
+        let local = self
+            .revision(repo, "HEAD")?
+            .ok_or_else(|| failure("This device's changes could not be saved."))?;
+        if base == Some(local.as_str()) {
+            // Nothing was left to merge once committed, such as a change put back by hand.
+            self.output(repo, &["merge", "--ff-only", "--no-edit", incoming])?;
+            return Ok(());
+        }
         // A skill only this device changed, or changed on both and kept from this device; one
         // changed on both to the same version is the remote's already.
         let taken: Vec<&str> = (ours.iter())
@@ -226,6 +254,7 @@ impl Git {
             let skill = format!("skills/{slug}");
             let record = format!("records/{slug}.toml");
             run(&[
+                "--literal-pathspecs",
                 "rm",
                 "--cached",
                 "-f",

@@ -12,7 +12,7 @@ use gpui_kit::{
 };
 use skillbinder_design::tokens::{color, radius, space, text};
 use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize, Text};
-use skillbinder_proto::{Conflict, RemoteConfig, Side, SyncAction, SyncSnapshot};
+use skillbinder_proto::{Conflict, RemoteConfig, Side, SyncAction};
 use std::{collections::BTreeMap, rc::Rc};
 
 /// Chooses one side of a skill changed on both, from its card or its radio.
@@ -115,7 +115,7 @@ impl NativeView {
         for conflict in &sync.conflicts {
             body = body.child(self.conflict(conflict, cx));
         }
-        let others = others(sync);
+        let others = copy::one_sided(sync);
         if others > 0 {
             body = body.child(
                 Text::labeled("sync-resolve-others", copy::merge_on_their_own(others))
@@ -170,15 +170,6 @@ impl NativeView {
                     .child(remote),
             )
     }
-}
-
-/// How many skills changed on one side only, which merge without a choice.
-fn others(sync: &SyncSnapshot) -> usize {
-    let both = |slug: &str| sync.conflicts.iter().any(|c| c.slug == slug);
-    let incoming = sync.incoming.iter().flat_map(|incoming| &incoming.skills);
-    (sync.local.iter().chain(incoming))
-        .filter(|skill| !both(&skill.slug))
-        .count()
 }
 
 /// One side's radio card: whose version it is over its why and time, outlined in the accent
