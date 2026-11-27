@@ -171,6 +171,8 @@ impl NativeView {
             DialogState::ChangeBranch => self.change_branch_dialog(dialog, cx),
             DialogState::RenameDevice => self.rename_device_dialog(dialog, cx),
             DialogState::Disconnect => self.disconnect_dialog(dialog, cx),
+            DialogState::DiscardChange(skill) => self.discard_dialog(dialog, skill, cx),
+            DialogState::RestoreVersion(restoring) => self.restore_dialog(dialog, restoring, cx),
         }
     }
 }

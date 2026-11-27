@@ -15,7 +15,7 @@ mod targets;
 
 pub(crate) use copies::STAGING_PREFIX;
 pub(crate) use progress::Progress;
-pub(crate) use store::{Holder, Pair, claim, forget};
+pub(crate) use store::{Holder, Pair, claim, forget, forget_skill};
 
 use crate::logging::{Area, Level};
 use crate::{agents::chosen_agents, database, payload, worker::State};
@@ -218,6 +218,14 @@ impl State {
     /// wait for the next scan.
     pub(crate) fn apply_imported(&self, slugs: BTreeSet<String>) {
         self.quietly(Scope::Slugs(slugs));
+    }
+
+    /// Brings every copy of skill `slug` in line after Restore or Discard changed it: rewritten
+    /// for its new content, written or removed where it is now active or not, and, for a skill
+    /// that left the library, nothing, since its copies were forgotten. Failures wait for the
+    /// next scan.
+    pub(crate) fn apply_skill(&self, slug: &str) {
+        self.quietly(Scope::Slugs(BTreeSet::from([slug.to_owned()])));
     }
 
     /// Tries again every directory that may not hold what it should, as each scan does: it

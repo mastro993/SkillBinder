@@ -62,6 +62,8 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         records,
         held: held(),
         reasons: vec![("skill-0".into(), Reason::Imported { from: None })],
+        cleared: Vec::new(),
+        dropped: Vec::new(),
     };
     (directory, state, journal)
 }

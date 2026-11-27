@@ -20,6 +20,7 @@ mod imports;
 mod mcp_clients;
 mod onboarding;
 mod progress;
+mod sync;
 mod sync_checks;
 mod update_all;
 
@@ -370,43 +371,6 @@ impl Client {
     /// Reads revision-checked deletion consequences.
     pub async fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
         self.shared.engine.preview_delete(id).await
-    }
-    /// Reads a page of History: up to `limit` changes after the commit `before`, or the newest
-    /// ones. A request, not part of the snapshot: read it again when the sync snapshot's `head`
-    /// moves.
-    pub async fn sync_history(
-        &self,
-        before: Option<String>,
-        limit: usize,
-    ) -> AppResult<SyncHistory> {
-        self.shared.engine.sync_history(before, limit).await
-    }
-    /// Connects and fetches a remote without implicit commits.
-    pub async fn connect_remote(&self, remote: RemoteConfig) -> AppResult<SyncSnapshot> {
-        self.refresh_preserving_outcome(self.shared.engine.connect_remote(remote).await)
-            .await
-    }
-    /// Renames this device; commits Push or Sync makes from now on carry the new name.
-    pub async fn rename_device(&self, name: String) -> AppResult<()> {
-        self.refresh_preserving_outcome(self.shared.engine.rename_device(name).await)
-            .await
-    }
-    /// Performs the synchronization or remote refresh the user asked for, publishing it as
-    /// `syncing` while it runs.
-    pub async fn synchronize(&self, action: SyncAction) -> AppResult<SyncSnapshot> {
-        self.publish_syncing(Some(action));
-        let synchronized = self.synchronized(action).await;
-        self.publish_syncing(None);
-        synchronized
-    }
-    /// Synchronizes or refreshes the remote. A Pull or Sync may rewrite your agents' copies, so
-    /// it scans again.
-    async fn synchronized(&self, action: SyncAction) -> AppResult<SyncSnapshot> {
-        let synchronized = self.shared.engine.synchronize(action).await;
-        if matches!(action, SyncAction::Pull | SyncAction::Sync) {
-            self.spawn_scan();
-        }
-        self.refresh_preserving_outcome(synchronized).await
     }
     /// Stores bounded machine-local preferences.
     pub async fn save_preferences(&self, preferences: Preferences) -> AppResult<()> {

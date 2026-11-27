@@ -6,7 +6,7 @@ use skillbinder_proto::*;
 use super::library_folders::FolderEdit;
 use super::route::{self, Route};
 use super::sidebar_presets::PresetEdit;
-use super::{DialogState, NativeView, progress_strip, sidebar, undo};
+use super::{DialogState, NativeView, progress_strip, sidebar, toasts, undo};
 use crate::gate::Gate;
 
 /// What a finished operation leaves the view to do.
@@ -33,6 +33,10 @@ pub(super) enum Effect {
     ApplicationsMenuFailed,
     /// A Git operation finished, so a toast says where it went.
     Toast(String),
+    /// A skill was restored from History, so the dialog closes and the toast offers Undo.
+    Restored(SkillId),
+    /// A skill's change was discarded, so the dialog closes and a toast says so.
+    Discarded(SkillId),
 }
 
 impl NativeView {
@@ -199,6 +203,18 @@ impl NativeView {
                         self.dialog = DialogState::ApplicationsMenu { failed: true };
                     }
                     Effect::Toast(message) => self.show_toast(message, cx),
+                    Effect::Restored(id) => {
+                        self.dialog = DialogState::None;
+                        self.toast.offer(
+                            format!("Restored {id} · push to share it").into(),
+                            Some(toasts::ToastAction::Discard(id)),
+                            cx,
+                        );
+                    }
+                    Effect::Discarded(id) => {
+                        self.dialog = DialogState::None;
+                        self.show_toast(format!("Discarded the change to {id}"), cx);
+                    }
                 }
                 // A dialog the operation closed makes room for copies that now ask.
                 self.prompt_copies();

@@ -221,6 +221,8 @@ impl State {
             }],
             held: Vec::new(),
             reasons: vec![(slug.to_owned(), Reason::Installed)],
+            cleared: Vec::new(),
+            dropped: Vec::new(),
         })?;
         self.updates.current_with(
             SkillId(slug.to_owned()),

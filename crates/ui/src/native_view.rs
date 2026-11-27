@@ -155,6 +155,10 @@ enum DialogState {
     RenameDevice,
     /// The Sync page's Disconnect…, which asks before the device stops syncing.
     Disconnect,
+    /// Not synced yet's Discard, which asks before it undoes this device's change (Y7).
+    DiscardChange(ChangedSkill),
+    /// History's Restore this version or Bring back, which asks before it writes (Y7).
+    RestoreVersion(Box<sync::Restoring>),
     None,
 }
 

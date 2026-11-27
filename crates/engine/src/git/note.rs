@@ -114,7 +114,7 @@ impl Note {
             let slug = slug.replace('%', "%25").replace(' ', "%20");
             let mut line = format!("{SKILL}: {slug} {}", reason.word());
             if let Some(detail) = reason.detail() {
-                line = format!("{line} {}", one_line(detail));
+                line = format!("{line} {}", one_line(&detail));
             }
             lines.push(line);
         }
@@ -140,6 +140,13 @@ fn why(reason: &Reason, kind: Kind) -> String {
         Reason::Installed => "installed from Explore".to_owned(),
         Reason::Updated => "updated from its source".to_owned(),
         Reason::Reinstalled => "reinstalled".to_owned(),
+        Reason::Restored { at } => match i64::try_from(*at)
+            .ok()
+            .and_then(|at| chrono::DateTime::from_timestamp(at, 0))
+        {
+            Some(at) => format!("restored to the version of {}", at.format("%Y-%m-%d")),
+            None => "restored to an earlier version".to_owned(),
+        },
         Reason::Record => "record added".to_owned(),
         Reason::Outside if kind == Kind::Removed => "removed outside SkillBinder".to_owned(),
         Reason::Outside => "changed outside SkillBinder".to_owned(),

@@ -1,5 +1,6 @@
 //! History (Y6): the library's published changes by day, each with the device that made it, its
-//! skills as chips, and its time; a change opens in place to list its skills, each with why. The
+//! skills as chips, and its time; a change opens in place to list its skills, each with why and
+//! Restore this version, Bring back, or Current version. The
 //! engine reads it a page of 50 at a time (A3), again from the newest whenever the library's
 //! commit moves, and the changes that move added flash once.
 
@@ -270,31 +271,31 @@ impl NativeView {
             .as_ref()
             .filter(|(fresh, _)| fresh.contains(&change.commit))
             .map(|(_, flash)| flash_overlay(flash, cx));
+        let mut skills = Vec::new();
+        for skill in change.skills.iter().filter(|_| open) {
+            let current = newest.get(skill.slug.as_str()) == Some(&change.commit.as_str())
+                && skill.kind != ChangeKind::Removed;
+            let end = if current {
+                Text::labeled(
+                    SharedString::from(format!("{id}-current-{}", skill.slug)),
+                    "Current version",
+                )
+                .level(text::CAPTION)
+                .muted()
+                .into_any_element()
+            } else {
+                let when = (days::day(change, now), time.clone());
+                self.restore_button(change, skill, when, cx)
+            };
+            skills.push(pending::row(&id, skill, Some(end), cx).into_any_element());
+        }
         v_flex()
             .id(SharedString::from(id.clone()))
             .relative()
             .child(head)
             .when(open, |row| {
                 row.child(Separator::horizontal())
-                    .child(
-                        v_flex()
-                            .py(px(space::XS))
-                            .children(change.skills.iter().map(|skill| {
-                                let current = newest.get(skill.slug.as_str())
-                                    == Some(&change.commit.as_str())
-                                    && skill.kind != ChangeKind::Removed;
-                                let end = current.then(|| {
-                                    Text::labeled(
-                                        SharedString::from(format!("{id}-current-{}", skill.slug)),
-                                        "Current version",
-                                    )
-                                    .level(text::CAPTION)
-                                    .muted()
-                                    .into_any_element()
-                                });
-                                pending::row(&id, skill, end, cx)
-                            })),
-                    )
+                    .child(v_flex().py(px(space::XS)).children(skills))
             })
             .children(flash)
             .into_any_element()

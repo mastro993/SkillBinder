@@ -53,6 +53,14 @@ fn heading(date: chrono::NaiveDate, today: chrono::NaiveDate) -> String {
     }
 }
 
+/// The day `change` was made, as its heading reads it.
+pub(super) fn day<Tz: TimeZone>(change: &SyncChange, now: &DateTime<Tz>) -> String
+where
+    Tz::Offset: Display,
+{
+    heading(local(change, now).date_naive(), now.date_naive())
+}
+
 /// When `change` was made, as "09:15" in `now`'s time zone.
 pub(super) fn time<Tz: TimeZone>(change: &SyncChange, now: &DateTime<Tz>) -> String
 where

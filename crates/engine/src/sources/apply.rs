@@ -1,6 +1,7 @@
 //! Replacing a library skill's content: Update brings its source's current content, and Reinstall
 //! restores the content its record holds. Each skill's directory is replaced in its own journaled
-//! move, so one failure never holds back the others.
+//! move, so one failure never holds back the others. Restore and Discard replace through the same
+//! move.
 
 use super::{CacheUser, GONE, cache_dir, checkout, refusal};
 use crate::{
@@ -73,7 +74,7 @@ impl State {
             .iter()
             .find(|skill| skill.id == id)
             .ok_or_else(|| AppError::not_found("This skill is no longer in the library."))?;
-        let restored = self.staged(|state, staging| state.restore_skill(&git, skill, staging));
+        let restored = self.staged(|state, staging| state.reinstall_content(&git, skill, staging));
         if restored.as_ref().is_err_and(|error| error.message == LOST) {
             // The source moved past the recorded content, so Reinstall is no longer offered.
             crate::library_store::set_drift(
@@ -88,14 +89,17 @@ impl State {
         restored
     }
 
-    fn require_git(&self) -> AppResult<Git> {
+    pub(super) fn require_git(&self) -> AppResult<Git> {
         self.git
             .clone()
             .ok_or_else(|| AppError::validation("Git is unavailable."))
     }
 
     /// Runs `work` with a fresh staging directory, removed afterwards unless recovery needs it.
-    fn staged(&mut self, work: impl FnOnce(&mut Self, &Path) -> AppResult<()>) -> AppResult<()> {
+    pub(super) fn staged(
+        &mut self,
+        work: impl FnOnce(&mut Self, &Path) -> AppResult<()>,
+    ) -> AppResult<()> {
         let staging = self
             .config
             .data_dir
@@ -124,17 +128,18 @@ impl State {
         }
         let tree = fetched.tree.clone();
         self.replace(
-            skill,
+            slug,
+            Some(skill),
             &fetched,
-            Record::of(&fetched, Some(source.clone())),
-            Reason::Updated,
+            Some(Record::of(&fetched, Some(source.clone()))),
+            Some(Reason::Updated),
             staging,
         )?;
         self.updates.current_with(skill.id.clone(), source, tree);
         Ok(())
     }
 
-    fn restore_skill(&mut self, git: &Git, skill: &Skill, staging: &Path) -> AppResult<()> {
+    fn reinstall_content(&mut self, git: &Git, skill: &Skill, staging: &Path) -> AppResult<()> {
         let slug = skill.id.as_str();
         let repo = self.library_dir();
         let into = staging.join("restored");
@@ -161,54 +166,87 @@ impl State {
             tree: skill.recorded.clone(),
             source: skill.source.clone(),
         };
-        self.replace(skill, &restored, record, Reason::Reinstalled, staging)
+        self.replace(
+            slug,
+            Some(skill),
+            &restored,
+            Some(record),
+            Some(Reason::Reinstalled),
+            staging,
+        )
     }
 
-    /// Replaces `skill`'s content with `content` and its record with `record`, for `reason`, in
-    /// one journaled change; content already in place moves nothing.
-    fn replace(
+    /// Replaces `slug`'s content with `content` and its record with `record`, or no record, in
+    /// one journaled change; content already in place moves nothing. A slug the library lacks,
+    /// `current` being `None`, arrives unfiled and in no preset. The change records `reason` as
+    /// why the slug changed, or, with none, forgets why it did, as Discard does.
+    pub(super) fn replace(
         &mut self,
-        skill: &Skill,
+        slug: &str,
+        current: Option<&Skill>,
         content: &Inspection,
-        record: Record,
-        reason: Reason,
+        record: Option<Record>,
+        reason: Option<Reason>,
         staging: &Path,
     ) -> AppResult<()> {
-        let slug = skill.id.as_str();
+        let target = self.library_dir().join("skills").join(slug);
+        // The directory itself, not the database's facts, which an edit outside SkillBinder
+        // leaves behind until the next reconcile.
+        let present = if self.skill_dirs()?.contains(slug) {
+            Some(self.contained_skill_path(&target)?)
+        } else {
+            None
+        };
+        let unchanged = match &present {
+            Some(directory) => {
+                payload::inspect(directory)?.manifest.digest == content.manifest.digest
+            }
+            None => false,
+        };
         let mut moves = Vec::new();
         let mut saved = content.clone();
-        if content.manifest.digest != skill.digest {
+        if !unchanged {
             let new = staging.join("new");
             let replacement = new.join(slug);
             fs::create_dir_all(&new).map_err(storage::error_at("creating", &new))?;
             payload::materialize(content, &replacement)?;
             saved = payload::inspect(&replacement)?;
-            moves = vec![
-                Move {
-                    from: self.skill_dir(&skill.id)?,
+            if let Some(directory) = present {
+                moves.push(Move {
+                    from: directory,
                     to: staging.join("old").join(slug),
-                },
-                Move {
-                    from: replacement,
-                    to: self.library_dir().join("skills").join(slug),
-                },
-            ];
+                });
+            }
+            moves.push(Move {
+                from: replacement,
+                to: target,
+            });
         }
+        // A version from before records keeps the source this device learned for the skill.
+        let kept = record
+            .clone()
+            .unwrap_or_else(|| Record::of(content, current.and_then(|skill| skill.source.clone())));
         let records = vec![RecordChange {
             slug: slug.to_owned(),
-            record: Some(record.clone()),
+            record,
             previous: self.read_record(slug),
         }];
+        let (reasons, cleared) = match reason {
+            Some(reason) => (vec![(slug.to_owned(), reason)], Vec::new()),
+            None => (Vec::new(), vec![slug.to_owned()]),
+        };
         self.commit(Journal {
             id: format!("replace-{}", uuid::Uuid::new_v4()),
             moves,
             completed_moves: 0,
             progress: Default::default(),
-            skills: vec![SavedSkill::new(slug.to_owned(), &saved, None, record, None)],
+            skills: vec![SavedSkill::new(slug.to_owned(), &saved, None, kept, None)],
             outcome: None,
             records,
             held: Vec::new(),
-            reasons: vec![(slug.to_owned(), reason)],
+            reasons,
+            cleared,
+            dropped: Vec::new(),
         })
     }
 }

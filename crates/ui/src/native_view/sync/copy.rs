@@ -1,9 +1,9 @@
 //! The Sync page's words: each state's glyph, title, line, and main action (Y2), what a running
-//! action's button reads, the toast an action ends with (Y7), and each waiting skill's kind and
-//! why (Y5, Y8).
+//! action's button reads, the toast an action ends with (Y7), each waiting skill's kind and why
+//! (Y5, Y8), and what Discard and Restore ask before they write (Y7).
 
 use super::super::library_dates::{from_unix, relative};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use skillbinder_proto::{
     ChangeKind, ChangedSkill, Incoming, Reason, SyncAction, SyncSnapshot, SyncState,
 };
@@ -173,12 +173,85 @@ pub(super) fn why(skill: &ChangedSkill) -> Option<String> {
         Reason::Installed => "Installed from Explore".to_owned(),
         Reason::Updated => "Updated from its source".to_owned(),
         Reason::Reinstalled => "Reinstalled".to_owned(),
+        Reason::Restored { at } => format!(
+            "Restored to the version of {}",
+            version_day(*at, &chrono::Local::now())
+        ),
         Reason::Record => "Record added".to_owned(),
         Reason::Outside if skill.kind == ChangeKind::Removed => {
             "Removed outside SkillBinder".to_owned()
         }
         Reason::Outside => "Changed outside SkillBinder".to_owned(),
     })
+}
+
+/// What a row's Discard does to a change of `kind`, as its tooltip says.
+pub(super) fn discard_tip(kind: ChangeKind) -> &'static str {
+    match kind {
+        ChangeKind::Added => "Remove it from the library; your agents keep their copies",
+        ChangeKind::Changed => "Go back to the last synced version",
+        ChangeKind::Removed => "Bring it back",
+    }
+}
+
+/// What Discard asks before it writes (Y7): its title, and what discarding `skill`'s change does.
+pub(super) fn discard_question(skill: &ChangedSkill) -> (String, String) {
+    let slug = &skill.slug;
+    let body = match skill.kind {
+        ChangeKind::Added => format!(
+            "{slug} was added on this device and never pushed. Discarding removes it from the \
+             library. Copies your agents have stay where they are."
+        ),
+        ChangeKind::Changed => {
+            format!("{slug} goes back to its last synced version. Your agents' copies follow.")
+        }
+        ChangeKind::Removed => format!(
+            "{slug} comes back to the library as it was at the last sync. It is in no preset \
+             until you turn it on."
+        ),
+    };
+    (format!("Discard your change to {slug}?"), body)
+}
+
+/// What Restore asks before it writes (Y7): its title, its body, and its button, Bring back for a
+/// skill the change on `day` at `time` removed.
+pub(super) fn restore_question(
+    slug: &str,
+    removed: bool,
+    day: &str,
+    time: &str,
+) -> (String, String, &'static str) {
+    let after = "It becomes a change on this device, so your other computers get it at the next \
+                 Sync. Your agents' copies follow.";
+    if removed {
+        (
+            format!("Bring back {slug}?"),
+            format!("{slug} comes back as it was before it was removed. {after}"),
+            "Bring back",
+        )
+    } else {
+        (
+            format!("Restore {slug} to {day}, {time}?"),
+            format!("Its content and record go back to this version. {after}"),
+            "Restore",
+        )
+    }
+}
+
+/// The day a restored version was made, in `now`'s time zone: "Nov 18", or "Nov 18, 2024" in
+/// another year.
+pub(super) fn version_day<Tz: chrono::TimeZone>(at: u64, now: &DateTime<Tz>) -> String
+where
+    Tz::Offset: std::fmt::Display,
+{
+    let day = from_unix(at)
+        .unwrap_or_default()
+        .with_timezone(&now.timezone());
+    if day.year() == now.year() {
+        day.format("%b %-d").to_string()
+    } else {
+        day.format("%b %-d, %Y").to_string()
+    }
 }
 
 /// "1 skill" or "<n> skills".

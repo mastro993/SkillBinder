@@ -1,5 +1,6 @@
-//! Reading the library's own Git objects: whether a recorded tree is still there, and writing
-//! one out for Reinstall without touching the library's index or working tree.
+//! Reading the library's own Git objects: whether a recorded tree is still there, a skill's
+//! directory and record in a past commit, and writing a tree out for Reinstall or Restore without
+//! touching the library's index or working tree.
 
 use super::{Git, failure, process};
 use crate::storage;
@@ -56,5 +57,59 @@ impl Git {
         std::fs::write(&alternates, format!("{objects}\n"))
             .map_err(storage::error_at("writing", &alternates))?;
         self.checkout_tree(scratch, tree, into)
+    }
+
+    /// The tree id of `skills/<slug>` in the commit `commit`, if it holds that directory.
+    pub fn tree_at(&self, repo: &Path, commit: &str, slug: &str) -> AppResult<Option<String>> {
+        self.entry_at(repo, commit, &format!("skills/{slug}"), "tree")
+    }
+
+    /// The text of `records/<slug>.toml` in the commit `commit`; `None` when it holds no such
+    /// file, or one over `max` bytes, which is no record.
+    pub fn record_at(
+        &self,
+        repo: &Path,
+        commit: &str,
+        slug: &str,
+        max: u64,
+    ) -> AppResult<Option<String>> {
+        let Some(blob) = self.entry_at(repo, commit, &format!("records/{slug}.toml"), "blob")?
+        else {
+            return Ok(None);
+        };
+        let size: u64 = self
+            .output(repo, &["cat-file", "-s", &blob])?
+            .trim()
+            .parse()
+            .map_err(|_| failure("Git returned an invalid object size."))?;
+        if size > max {
+            return Ok(None);
+        }
+        self.output(repo, &["cat-file", "blob", &blob]).map(Some)
+    }
+
+    /// When the commit `commit` was made, in Unix seconds.
+    pub fn commit_time(&self, repo: &Path, commit: &str) -> AppResult<u64> {
+        self.output(repo, &["log", "-1", "--format=%ct", commit, "--"])?
+            .trim()
+            .parse()
+            .map_err(|_| failure("Git history is unreadable."))
+    }
+
+    /// The id of the `kind` entry at `path` in the commit `commit`, if it holds one.
+    fn entry_at(
+        &self,
+        repo: &Path,
+        commit: &str,
+        path: &str,
+        kind: &str,
+    ) -> AppResult<Option<String>> {
+        let listed = self.output(repo, &["ls-tree", "-z", commit, "--", path])?;
+        Ok(listed.split('\0').find_map(|entry| {
+            let (meta, listed) = entry.split_once('\t')?;
+            let mut fields = meta.split(' ');
+            let (_, found, id) = (fields.next()?, fields.next()?, fields.next()?);
+            (listed == path && found == kind).then(|| id.to_owned())
+        }))
     }
 }
