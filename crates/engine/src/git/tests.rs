@@ -1,7 +1,27 @@
 #![allow(clippy::unwrap_used)]
 use super::*;
+use skillbinder_proto::Reason;
 use std::{fs, path::PathBuf};
 use tempfile::TempDir;
+
+mod commit;
+
+/// A committer with no reasons, naming the device "Test".
+pub(super) struct Unnamed;
+impl Committer for Unnamed {
+    fn prepare(&self) -> AppResult<()> {
+        Ok(())
+    }
+    fn device(&self) -> AppResult<String> {
+        Ok("Test".into())
+    }
+    fn reasons(&self) -> AppResult<BTreeMap<String, Reason>> {
+        Ok(BTreeMap::new())
+    }
+    fn committed(&self) -> AppResult<()> {
+        Ok(())
+    }
+}
 
 struct Fixture {
     _root: TempDir,
@@ -204,7 +224,7 @@ fn dirty_behind_and_diverged_histories_are_refused() {
     for action in [SyncAction::Pull, SyncAction::Push, SyncAction::Sync] {
         assert!(f.git.perform(&f.repo, Some(&f.remote), action).is_err());
     }
-    f.git.commit(&f.repo).unwrap();
+    f.git.commit(&f.repo, &Unnamed).unwrap();
     assert!(
         f.git
             .perform(&f.repo, Some(&f.remote), SyncAction::Sync)

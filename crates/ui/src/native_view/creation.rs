@@ -86,6 +86,7 @@ impl NativeView {
                 .placeholder("Branch")
                 .default_value("main")
         });
+        let device_name = cx.new(|cx| InputState::new(window, cx).placeholder("Device name"));
         if let Some(remote) = &snapshot.sync.remote {
             remote_url.update(cx, |input, cx| {
                 input.set_value(remote.url.clone(), window, cx)
@@ -180,6 +181,7 @@ impl NativeView {
             workspace_name,
             remote_url,
             remote_branch,
+            device_name,
             _search_subscription: search_subscription,
             _preset_name_subscription: preset_name_subscription,
             _folder_name_subscription: folder_name_subscription,

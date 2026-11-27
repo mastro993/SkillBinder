@@ -28,6 +28,9 @@ pub(crate) struct Prepared {
     /// Where each row's skill becomes active; a plan stored before imports activated has none.
     #[serde(default)]
     placements: Vec<placement::Placement>,
+    /// The agent or workspace each row's skill was found in, which its commit names.
+    #[serde(default)]
+    found_in: Vec<Option<String>>,
 }
 impl Prepared {
     /// The plan narrowed to the ticked skills `selection`, in plan order: between 1 and
@@ -71,6 +74,7 @@ impl Prepared {
             sources,
             origins,
             placements,
+            found_in,
         } = self;
         let kept = |index: usize| keep.get(index).copied().unwrap_or(false);
         review.items = narrow(review.items, kept);
@@ -79,6 +83,7 @@ impl Prepared {
             sources: narrow(sources, kept),
             origins: narrow(origins, kept),
             placements: narrow(placements, kept),
+            found_in: narrow(found_in, kept),
         })
     }
 }
@@ -186,11 +191,14 @@ impl State {
         };
         let mut origins = prepared.origins.iter();
         let mut placements = prepared.placements.iter();
+        let mut found_in = prepared.found_in.iter();
         let mut records = Vec::new();
         let mut held = Vec::new();
+        let mut reasons = Vec::new();
         for (item, source) in prepared.review.items.iter().zip(&prepared.sources) {
             let origin = origins.next().cloned().flatten();
             let placement = placements.next().cloned().unwrap_or_default();
+            let from = found_in.next().cloned().flatten();
             if item.decision == ImportDecision::Existing {
                 outcome.existing.push(item.skill_id.clone());
                 continue;
@@ -214,6 +222,7 @@ impl State {
                 record,
                 None,
             ));
+            reasons.push((item.skill_id.to_string(), Reason::Imported { from }));
             outcome.imported.push(item.skill_id.clone());
         }
         let result = self.commit(Journal {
@@ -225,6 +234,7 @@ impl State {
             outcome: Some(outcome.clone()),
             records,
             held,
+            reasons,
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);

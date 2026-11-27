@@ -1,5 +1,5 @@
 //! The Sync page (Y1): while a remote is set, the status with one next action and the remote's
-//! facts under it; otherwise the setup column, or what to do without Git (Y10).
+//! facts, with this device's name, under it; otherwise the setup column, or what to do without Git (Y10).
 
 mod copy;
 mod dialogs;
@@ -62,7 +62,7 @@ impl NativeView {
             .max_w(px(COLUMN))
             .gap(px(space::MD))
             .children(self.sync_status(cx))
-            .child(status::facts(&remote, cx))
+            .child(status::facts(&remote, &self.snapshot.sync.device, cx))
             .into_any_element()
     }
 }

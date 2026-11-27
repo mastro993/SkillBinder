@@ -51,7 +51,7 @@ Onboarding's Use SkillBinder with your agents step runs the same Connect for the
 
 ## Settings › Library & sync
 
-The Library group lists **Library folder**, its path in monospace with Reveal, which shows it in the file manager, and **Storage**, "Writable" or "Read-only". The Sync group lists **Git**, its version, or "Sync and skill updates need Git 2.39 or newer." with the Git step's primary action, its status line (which names a too-old version), and on Linux the package manager's command under it, and **Remote**, its URL or "Local only", set up in Sync. The Sync page shows the state as a status card with one next action, the remote and its branch under it, and a ⋯ menu of the other remote actions ([Sync and durability](sync-and-durability.md)).
+The Library group lists **Library folder**, its path in monospace with Reveal, which shows it in the file manager, and **Storage**, "Writable" or "Read-only". The Sync group lists **Git**, its version, or "Sync and skill updates need Git 2.39 or newer." with the Git step's primary action, its status line (which names a too-old version), and on Linux the package manager's command under it, and **Remote**, its URL or "Local only", set up in Sync. The Sync page shows the state as a status card with one next action, the remote, its branch, and this device's name under it, and a ⋯ menu of the other remote actions ([Sync and durability](sync-and-durability.md)).
 
 ## Settings › Updates
 

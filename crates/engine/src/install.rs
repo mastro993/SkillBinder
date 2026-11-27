@@ -21,7 +21,7 @@ use crate::{
     worker::State,
 };
 use skillbinder_proto::{
-    AppError, CatalogSkill, ErrorCategory, InstallFailure, SkillId, SkillSource,
+    AppError, CatalogSkill, ErrorCategory, InstallFailure, Reason, SkillId, SkillSource,
 };
 use std::{fs, path::PathBuf};
 
@@ -220,6 +220,7 @@ impl State {
                 previous: None,
             }],
             held: Vec::new(),
+            reasons: vec![(slug.to_owned(), Reason::Installed)],
         })?;
         self.updates.current_with(
             SkillId(slug.to_owned()),

@@ -3,11 +3,11 @@
 
 use crate::{
     logging::{Area, Level},
-    payload, persistence, storage,
+    payload, pending_changes, persistence, storage,
     worker::State,
 };
 use serde::{Deserialize, Serialize};
-use skillbinder_proto::{AppError, AppResult, SkillSource};
+use skillbinder_proto::{AppError, AppResult, Reason, SkillSource};
 use std::{collections::BTreeSet, fs, io::Write, path::PathBuf};
 
 /// What a library skill should contain and where it was published.
@@ -171,6 +171,12 @@ impl State {
             };
             if self.read_record(slug).as_ref() != Some(&record) {
                 self.write_record(slug, &record)?;
+                // An import or install that wrote the record already says why.
+                pending_changes::record_unless_known(
+                    &mut self.database.borrow_mut(),
+                    slug,
+                    &Reason::Record,
+                )?;
             }
         }
         Ok(())

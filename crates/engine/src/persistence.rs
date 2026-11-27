@@ -9,7 +9,7 @@ use crate::{
 };
 use diesel::{prelude::*, upsert::excluded};
 use serde::{Serialize, de::DeserializeOwned};
-use skillbinder_proto::{AppError, AppResult, ErrorCategory, ImportOutcome};
+use skillbinder_proto::{AppError, AppResult, ErrorCategory, ImportOutcome, Reason};
 #[cfg(unix)]
 use std::fs::File;
 use std::{
@@ -109,6 +109,9 @@ pub(crate) struct Journal {
     /// Where an import makes its new skills active, saved with them.
     #[serde(default)]
     pub held: Vec<crate::imports::placement::Held>,
+    /// Why each skill changed, by slug, which the next commit Push or Sync makes says.
+    #[serde(default)]
+    pub reasons: Vec<(String, Reason)>,
 }
 /// One skill's record before and after a journaled change; `None` is no record.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -350,6 +353,9 @@ impl State {
                 save_skill(connection, record)?;
             }
             crate::imports::placement::save(connection, &journal.held)?;
+            for (slug, reason) in &journal.reasons {
+                crate::pending_changes::record(connection, slug, reason)?;
+            }
             if let Some(outcome) = &journal.outcome {
                 record_outcome(connection, outcome)?;
             }

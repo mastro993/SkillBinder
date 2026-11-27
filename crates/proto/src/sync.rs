@@ -3,6 +3,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 mod address;
+mod reason;
+
+pub use reason::Reason;
 
 /// A validated remote and branch selected by the user.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -57,6 +60,9 @@ pub struct SyncSnapshot {
     /// Why the last check of the remote failed, until a check or an operation reaches it.
     #[serde(default)]
     pub last_error: Option<AppError>,
+    /// This device's name, which each commit Push or Sync makes carries.
+    #[serde(default)]
+    pub device: String,
 }
 /// An explicitly requested synchronization operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

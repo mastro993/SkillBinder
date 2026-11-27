@@ -61,6 +61,7 @@ fn fixture() -> (tempfile::TempDir, State, Journal) {
         }),
         records,
         held: held(),
+        reasons: vec![("skill-0".into(), Reason::Imported { from: None })],
     };
     (directory, state, journal)
 }
@@ -170,6 +171,13 @@ fn assert_result(state: &State, applied: bool) {
     }
     assert_eq!(outcomes, i64::from(applied));
     assert_eq!(consumed, i64::from(applied));
+    // Why the skill changed commits with it, so an interrupted import still names it.
+    let reasons = crate::pending_changes::reasons(&mut state.database.borrow_mut()).unwrap();
+    let imported = [("skill-0".to_owned(), Reason::Imported { from: None })];
+    assert_eq!(
+        reasons.into_iter().collect::<Vec<_>>(),
+        &imported[..usize::from(applied)]
+    );
     if applied {
         let (plan, stored): (String, String) = idempotency_records::table
             .select((
